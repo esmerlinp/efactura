@@ -50,6 +50,40 @@
     <!-- Librería Chart.js ligera para Analíticas del Dashboard -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
+    <!-- Estilos de Secciones del Sidebar -->
+    <style>
+        .sidebar-section-header {
+            font-size: 0.65rem;
+            font-weight: 800;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin: 18px 14px 6px 14px;
+            opacity: 0.7;
+            transition: opacity 0.3s ease, margin 0.3s ease, height 0.3s ease;
+            user-select: none;
+        }
+        .sidebar-collapsed .sidebar-section-header {
+            opacity: 0;
+            margin: 0;
+            height: 0;
+            overflow: hidden;
+            padding: 0;
+        }
+        .nav-menu {
+            overflow-y: auto;
+            max-height: calc(100vh - 200px);
+            padding-right: 4px;
+        }
+        .nav-menu::-webkit-scrollbar {
+            width: 4px;
+        }
+        .nav-menu::-webkit-scrollbar-thumb {
+            background: rgba(0,0,0,0.1);
+            border-radius: 4px;
+        }
+    </style>
+
     {% block extra_head %}{% endblock %}
 </head>
 
@@ -89,14 +123,18 @@
             </div>
 
             <nav class="nav-menu">
+                <!-- SECCIÓN: GENERAL -->
+                <div class="sidebar-section-header">General</div>
                 <li class="nav-item {% if active_page == 'dashboard' %}active{% endif %}" data-tooltip="Dashboard">
                     <a href="{{ url_for('dashboard') }}">
                         <i class="fa-solid fa-chart-pie"></i>
                         <span>Dashboard</span>
                     </a>
                 </li>
-                {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions',
-                {}).get('canInvoice', True) %}
+
+                <!-- SECCIÓN: OPERACIONES & VENTAS -->
+                <div class="sidebar-section-header">Operaciones & Ventas</div>
+                {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canInvoice', True) %}
                 <li class="nav-item {% if active_page == 'invoices' %}active{% endif %}" data-tooltip="Documentos">
                     <a href="{{ url_for('list_invoices') }}">
                         <i class="fa-solid fa-file-invoice-dollar"></i>
@@ -110,24 +148,19 @@
                     </a>
                 </li>
                 {% endif %}
-                {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions',
-                {}).get('canExpenses', True) %}
-                <li class="nav-item {% if active_page == 'expenses' %}active{% endif %}"
-                    data-tooltip="Control de Gastos">
-                    <a href="{{ url_for('list_expenses') }}">
-                        <i class="fa-solid fa-wallet"></i>
-                        <span>Control de Gastos</span>
-                    </a>
-                </li>
-                {% endif %}
-                {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions',
-                {}).get('canClients', True) %}
+
+                {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canClients', True) %}
                 <li class="nav-item {% if active_page == 'clients' %}active{% endif %}" data-tooltip="CRM Clientes">
                     <a href="{{ url_for('list_clients') }}">
                         <i class="fa-solid fa-address-book"></i>
                         <span>CRM Clientes</span>
                     </a>
                 </li>
+                {% endif %}
+
+                <!-- SECCIÓN: LOGÍSTICA & INVENTARIO -->
+                <div class="sidebar-section-header">Logística & Inventario</div>
+                {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canClients', True) %}
                 <li class="nav-item {% if active_page == 'items' %}active{% endif %}" data-tooltip="Catálogo">
                     <a href="{{ url_for('list_items') }}">
                         <i class="fa-solid fa-boxes-stacked"></i>
@@ -136,8 +169,7 @@
                 </li>
                 {% endif %}
 
-                {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions',
-                {}).get('canManageInventory', True) %}
+                {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canManageInventory', True) %}
                 <li class="nav-item {% if active_page == 'inventory' %}active{% endif %}" data-tooltip="Inventario">
                     <a href="{{ url_for('inventory_dashboard') }}">
                         <i class="fa-solid fa-warehouse"></i>
@@ -145,18 +177,29 @@
                     </a>
                 </li>
                 {% endif %}
-                {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions',
-                {}).get('canModifySettings', True) %}
-                <li class="nav-item {% if active_page == 'sequences' %}active{% endif %}"
-                    data-tooltip="Secuencias Fiscales">
+
+                <!-- SECCIÓN: FINANZAS -->
+                {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canExpenses', True) %}
+                <div class="sidebar-section-header">Finanzas</div>
+                <li class="nav-item {% if active_page == 'expenses' %}active{% endif %}" data-tooltip="Control de Gastos">
+                    <a href="{{ url_for('list_expenses') }}">
+                        <i class="fa-solid fa-wallet"></i>
+                        <span>Control de Gastos</span>
+                    </a>
+                </li>
+                {% endif %}
+
+                <!-- SECCIÓN: CONFIGURACIÓN & DGII -->
+                <div class="sidebar-section-header">Configuración & DGII</div>
+                {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canModifySettings', True) %}
+                <li class="nav-item {% if active_page == 'sequences' %}active{% endif %}" data-tooltip="Secuencias Fiscales">
                     <a href="{{ url_for('list_sequences') }}">
                         <i class="fa-solid fa-barcode"></i>
                         <span>Secuencias Fiscales</span>
                     </a>
                 </li>
                 {% endif %}
-                {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions',
-                {}).get('canInvoice', True) %}
+                {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canInvoice', True) %}
                 <li class="nav-item {% if active_page == 'reports' %}active{% endif %}" data-tooltip="Reportes DGII">
                     <a href="{{ url_for('reports_dashboard') }}">
                         <i class="fa-solid fa-file-shield"></i>
@@ -164,12 +207,7 @@
                     </a>
                 </li>
                 {% endif %}
-                <li class="nav-item {% if active_page == 'help' %}active{% endif %}" data-tooltip="Centro de Ayuda">
-                    <a href="{{ url_for('help_center') }}">
-                        <i class="fa-solid fa-circle-question"></i>
-                        <span>Centro de Ayuda</span>
-                    </a>
-                </li>
+
             </nav>
 
             <div class="sidebar-footer">
@@ -187,13 +225,6 @@
                         <span class="user-role">{{ session.get('user', {}).get('role', 'Owner') }}</span>
                     </div>
                 </div>
-                <li class="nav-item" style="list-style: none;" data-tooltip="Cerrar Sesión">
-                    <a href="{{ url_for('logout') }}"
-                        style="color: var(--accent-red); padding: 10px 14px; border-radius: var(--radius-sm);">
-                        <i class="fa-solid fa-right-from-bracket"></i>
-                        <span>Cerrar Sesión</span>
-                    </a>
-                </li>
             </div>
         </aside>
 
@@ -205,29 +236,139 @@
                 </div>
 
                 <div class="header-actions">
-                    <!-- Alternador de Entorno Sandbox (Reactivo en UI) -->
-                    <div class="environment-toggle" id="sandbox-toggle"
-                        title="Haz clic para cambiar entre Sandbox y Producción">
-                        <span class="environment-indicator"></span>
-                        <span>ENTORNO: {% if session.get('is_sandbox_mode', True) %}SANDBOX (PRUEBAS){% else
-                            %}PRODUCCIÓN REAL{% endif %}</span>
-                    </div>
-
                     <!-- Botón de Alternancia de Tema (Claro / Oscuro) -->
                     <button class="theme-toggle" id="theme-toggle-btn" title="Alternar Modo Oscuro / Claro">
                         <i class="fa-solid fa-sun" id="theme-icon-light" style="display: none;"></i>
                         <i class="fa-solid fa-moon" id="theme-icon-dark"></i>
                     </button>
 
-                    {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions',
-                    {}).get('canModifySettings', True) %}
-                    <a href="{{ url_for('company_settings') }}" class="btn btn-secondary"
-                        style="padding: 8px 16px; font-size: 0.85rem;" title="Ajustes de Empresa">
-                        <i class="fa-solid fa-gears"></i>
-                        <span>Empresa</span>
-                    </a>
-                    {% endif %}
+                    <!-- Dropdown de Empresa -->
+                    <div class="company-dropdown" id="company-dropdown-trigger" style="position: relative; display: inline-block;">
+                        <button class="btn btn-secondary" style="padding: 8px 16px; font-size: 0.85rem; display: flex; align-items: center; gap: 8px; cursor: pointer;" title="Menú de Empresa y Cuenta">
+                            <i class="fa-solid fa-building"></i>
+                            <span>Empresa</span>
+                            <i class="fa-solid fa-chevron-down" style="font-size: 0.7rem; opacity: 0.7;"></i>
+                        </button>
+                        
+                        <!-- Menú Desplegable (Dropdown Menu) -->
+                        <div class="dropdown-menu" id="company-dropdown-menu" style="
+                            display: none;
+                            position: absolute;
+                            right: 0;
+                            top: calc(100% + 8px);
+                            background-color: var(--bg-sidebar);
+                            backdrop-filter: blur(20px);
+                            -webkit-backdrop-filter: blur(20px);
+                            border: 1px solid var(--border-color);
+                            border-radius: var(--radius-md);
+                            min-width: 240px;
+                            box-shadow: var(--shadow-lg);
+                            padding: 8px;
+                            z-index: 1000;
+                            flex-direction: column;
+                            gap: 4px;
+                            box-sizing: border-box;
+                        ">
+                            <!-- Opción 1: Administrar Empresa -->
+                            {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canModifySettings', True) %}
+                            <a href="{{ url_for('company_settings') }}" style="
+                                display: flex;
+                                align-items: center;
+                                gap: 12px;
+                                padding: 10px 14px;
+                                font-size: 0.85rem;
+                                font-weight: 500;
+                                color: var(--text-primary);
+                                border-radius: var(--radius-sm);
+                                transition: background-color var(--transition-fast);
+                            " onmouseover="this.style.backgroundColor='var(--bg-nav-hover)'" onmouseout="this.style.backgroundColor='transparent'">
+                                <i class="fa-solid fa-gears" style="color: var(--accent-emerald); width: 16px; font-size: 0.95rem;"></i>
+                                <span>Administrar Empresa</span>
+                            </a>
+                            {% endif %}
+                            
+                            <!-- Opción 2: Cambiar a modo pruebas (Sandbox Toggle) -->
+                            <div class="environment-toggle" id="sandbox-toggle" style="
+                                display: flex;
+                                align-items: center;
+                                gap: 12px;
+                                padding: 10px 14px;
+                                font-size: 0.85rem;
+                                font-weight: 500;
+                                color: var(--text-primary);
+                                border-radius: var(--radius-sm);
+                                cursor: pointer;
+                                transition: all var(--transition-fast);
+                                margin: 0;
+                                border: none;
+                                background-color: transparent;
+                                width: 100%;
+                                box-sizing: border-box;
+                            " onmouseover="this.style.backgroundColor='var(--bg-nav-hover)'" onmouseout="this.style.backgroundColor='transparent'">
+                                <span class="environment-indicator" style="width: 8px; height: 8px; border-radius: 50%;
+                                    background-color: {% if session.get('is_sandbox_mode', True) %}var(--accent-purple){% else %}var(--accent-emerald){% endif %};
+                                    box-shadow: 0 0 8px {% if session.get('is_sandbox_mode', True) %}var(--accent-purple){% else %}var(--accent-emerald){% endif %};"></span>
+                                <span>Modo Pruebas (Sandbox)</span>
+                            </div>
+                            <!-- Opción 3: Centro de Ayuda -->
+                            <a href="{{ url_for('help_center') }}" style="
+                                display: flex;
+                                align-items: center;
+                                gap: 12px;
+                                padding: 10px 14px;
+                                font-size: 0.85rem;
+                                font-weight: 500;
+                                color: var(--text-primary);
+                                border-radius: var(--radius-sm);
+                                transition: background-color var(--transition-fast);
+                            " onmouseover="this.style.backgroundColor='var(--bg-nav-hover)'" onmouseout="this.style.backgroundColor='transparent'">
+                                <i class="fa-solid fa-circle-question" style="color: var(--accent-emerald); width: 16px; font-size: 0.95rem;"></i>
+                                <span>Centro de Ayuda</span>
+                            </a>
+                            
+                            <div style="border-top: 1px solid var(--border-color); margin: 6px 0;"></div>
+                            
+                            <!-- Opción 3: Cerrar Sesión -->
+                            <a href="{{ url_for('logout') }}" style="
+                                display: flex;
+                                align-items: center;
+                                gap: 12px;
+                                padding: 10px 14px;
+                                font-size: 0.85rem;
+                                font-weight: 600;
+                                color: var(--accent-red);
+                                border-radius: var(--radius-sm);
+                                transition: background-color var(--transition-fast);
+                            " onmouseover="this.style.backgroundColor='rgba(220, 38, 38, 0.08)'" onmouseout="this.style.backgroundColor='transparent'">
+                                <i class="fa-solid fa-right-from-bracket" style="width: 16px; font-size: 0.95rem;"></i>
+                                <span>Cerrar Sesión</span>
+                            </a>
+                        </div>
+                    </div>
                 </div>
+
+                <!-- Script del Dropdown de Empresa -->
+                <script>
+                    document.addEventListener('DOMContentLoaded', function() {
+                        const trigger = document.getElementById('company-dropdown-trigger');
+                        const menu = document.getElementById('company-dropdown-menu');
+                        
+                        if (trigger && menu) {
+                            trigger.addEventListener('click', function(event) {
+                                event.stopPropagation();
+                                const isDisplayed = menu.style.display === 'flex';
+                                menu.style.display = isDisplayed ? 'none' : 'flex';
+                            });
+                            
+                            // Cerrar el dropdown al hacer clic fuera de él
+                            window.addEventListener('click', function(event) {
+                                if (!trigger.contains(event.target)) {
+                                    menu.style.display = 'none';
+                                }
+                            });
+                        }
+                    });
+                </script>
             </header>
 
             <!-- Mensajes flash flotantes de Jinja2 -->
