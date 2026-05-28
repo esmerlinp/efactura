@@ -429,6 +429,9 @@
         <button class="help-tab-btn" data-category="contingencia">
             <i class="fa-solid fa-triangle-exclamation"></i> Operación en Contingencia
         </button>
+        <button class="help-tab-btn" data-category="tutorial">
+            <i class="fa-solid fa-graduation-cap"></i> Flujo de Facturación
+        </button>
     </div>
 
     <!-- Preguntas Frecuentes / Acordeones -->
@@ -824,6 +827,240 @@
                         <li><strong>Almacenamiento Local:</strong> El emisor electrónico deberá generar y almacenar localmente todos los e-CF.</li>
                         <li><strong>Envío diferido:</strong> Deberá remitirlos en lote una vez restablecida la comunicación y disponibilidad por parte de la DGII.</li>
                         <li><strong>Caída prolongada (+15 días):</strong> En caso de que la caída de los servidores de la DGII se extienda por más de <strong>quince (15) días hábiles</strong>, se habilitará en la Oficina Virtual (OFV) del contribuyente la opción de envío de reportes (ventas, compras, costos, retenciones, etc.), y se permitirá operar temporalmente mediante comprobantes no electrónicos de contingencia.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- TUTORIAL DE FACTURACIÓN COMPLETO -->
+        <!-- Módulo 1 -->
+        <div class="faq-item" data-category="tutorial">
+            <div class="faq-header">
+                <div class="faq-title-wrapper">
+                    <div class="faq-icon-box" style="background-color: rgba(124, 58, 237, 0.08); color: var(--accent-purple);">
+                        <i class="fa-solid fa-1"></i>
+                    </div>
+                    <span class="faq-title">Guía Paso 1: Registro e Inicio de Empresa en la Plataforma</span>
+                </div>
+                <i class="fa-solid fa-chevron-down faq-chevron"></i>
+            </div>
+            <div class="faq-content">
+                <div class="faq-body">
+                    Para iniciar en <strong>e-Factura</strong>, debes configurar tu entorno de trabajo básico. Sigue estos pasos exactos:
+                    <br><br>
+                    <strong>1. Creación de Cuenta y Perfil de Usuario (`/register`):</strong>
+                    <ul>
+                        <li>Regístrate como <strong>Propietario (Owner)</strong> para crear tu organización, o como <strong>Colaborador (Employee)</strong> si tu administrador te ha provisto de su código UID único.</li>
+                        <li>Ingresa tu correo, nombre y una contraseña segura de al menos 6 caracteres.</li>
+                    </ul>
+                    <strong>2. Configuración del Perfil Comercial de la Empresa (`/settings/company`):</strong>
+                    <ul>
+                        <li>Navega a **Ajustes de Empresa** y rellena el perfil con los datos legales de tu negocio:
+                            <ul>
+                                <li><strong>Nombre / Razón Social:</strong> El nombre oficial registrado en ONAPI.</li>
+                                <li><strong>RNC de la Empresa:</strong> Tu Registro Nacional de Contribuyentes (9 u 11 dígitos, sin guiones).</li>
+                                <li><strong>Correo y Teléfono Comercial:</strong> Los datos de contacto para la facturación.</li>
+                                <li><strong>Dirección:</strong> La ubicación física del establecimiento.</li>
+                            </ul>
+                        </li>
+                    </ul>
+                    <strong>3. Régimen Fiscal y Configuración Estética (`/settings/company`):</strong>
+                    <ul>
+                        <li>Selecciona tu **Régimen Fiscal** en el formulario: **RST (Régimen Simplificado de Tributación)** o **General**. Esto adaptará automáticamente los reportes y barras de progreso del Dashboard de acuerdo al límite anual de ingresos de la DGII (RD$ 12.06M para RST).</li>
+                        <li>Configura tu identidad de marca cargando el **Logo de la Empresa** y seleccionando tu **Color de Marca** en la sección de estilo, habilitando o deshabilitando el degradado premium (gradient) en tus documentos e interfaz.</li>
+                    </ul>
+                    <strong>4. Sucursales y Gestión de Equipo (`/settings/company`):</strong>
+                    <ul>
+                        <li><strong>Sucursales:</strong> Registra tus puntos de venta estableciendo los nombres de sucursal y códigos de identificación física.</li>
+                        <li><strong>Equipo de Trabajo:</strong> Invita a colaboradores asignándoles permisos específicos de forma granular:
+                            <ul>
+                                <li><code>canInvoice</code> (Permiso para emitir y firmar facturas).</li>
+                                <li><code>canExpenses</code> (Permiso para registrar gastos).</li>
+                                <li><code>canClients</code> (Permiso para gestionar clientes).</li>
+                                <li><code>canModifySettings</code> (Permiso de administración general).</li>
+                                <li><code>canManageInventory</code> (Permiso de control de almacén).</li>
+                            </ul>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Módulo 2 -->
+        <div class="faq-item" data-category="tutorial">
+            <div class="faq-header">
+                <div class="faq-title-wrapper">
+                    <div class="faq-icon-box" style="background-color: rgba(16, 185, 129, 0.08); color: var(--accent-success);">
+                        <i class="fa-solid fa-2"></i>
+                    </div>
+                    <span class="faq-title">Guía Paso 2: Preparación del Catálogo (Clientes e Ítems)</span>
+                </div>
+                <i class="fa-solid fa-chevron-down faq-chevron"></i>
+            </div>
+            <div class="faq-content">
+                <div class="faq-body">
+                    Antes de emitir una factura, debes registrar a quién le vendes y qué estás vendiendo en tus bases de datos:
+                    <br><br>
+                    <strong>1. Registro de Clientes (`/clients`):</strong>
+                    <ul>
+                        <li>Accede al módulo de Clientes y haz clic en **Nuevo Cliente**.</li>
+                        <li>Introduce la **Razón Social** del cliente.</li>
+                        <li>Introduce su **RNC o Cédula** (indispensable para emitir facturas con valor de Crédito Fiscal E31. Debe tener exactamente 9 dígitos para RNC corporativos u 11 dígitos para personas físicas).</li>
+                        <li>Registra su **Correo Electrónico** para permitir el envío automático de los archivos XML firmados y las representaciones impresas.</li>
+                    </ul>
+                    <strong>2. Catálogo de Ítems / Productos (`/items`):</strong>
+                    <ul>
+                        <li>Ingresa a la sección de Ítems y selecciona **Nuevo Ítem**.</li>
+                        <li>Define el **Nombre del Producto o Servicio**, la descripción y el **Precio Unitario (Precio Base)**.</li>
+                        <li>Configura la **Tasa de ITBIS** aplicable para este ítem:
+                            <ul>
+                                <li><code>18% (ITBIS Estándar)</code> para la mayoría de servicios y productos gravados.</li>
+                                <li><code>Exento</code> para servicios profesionales exentos o productos de canasta básica exentos de ley.</li>
+                            </ul>
+                        </li>
+                        <li>Configura el inventario inicial asignándole un **Almacén (Warehouse)** y un **Stock Mínimo de Alerta** si deseas que la aplicación rastree existencias de manera automatizada.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Módulo 3 -->
+        <div class="faq-item" data-category="tutorial">
+            <div class="faq-header">
+                <div class="faq-title-wrapper">
+                    <div class="faq-icon-box" style="background-color: rgba(245, 158, 11, 0.08); color: var(--accent-yellow);">
+                        <i class="fa-solid fa-3"></i>
+                    </div>
+                    <span class="faq-title">Guía Paso 3: Configuración de Secuencias Fiscales de la DGII</span>
+                </div>
+                <i class="fa-solid fa-chevron-down faq-chevron"></i>
+            </div>
+            <div class="faq-content">
+                <div class="faq-body">
+                    Para que tus facturas tengan validez legal y fiscal ante la DGII en la República Dominicana, debes registrar las secuencias numéricas autorizadas:
+                    <br><br>
+                    <strong>1. ¿Qué es un Rango de Comprobante Electrónico (e-CF)?</strong>
+                    <ul>
+                        <li>Es la autorización digital que te otorga la DGII para emitir secuencias de facturas. A diferencia de las tradicionales que inician con **B**, las electrónicas inician con **E** y constan de 13 caracteres (ej. E310000000005).</li>
+                    </ul>
+                    <strong>2. Registro de una Secuencia Fiscal (`/sequences`):</strong>
+                    <ul>
+                        <li>Dirígete a la sección de **Secuencias** e ingresa el rango aprobado en tu Oficina Virtual de la DGII:
+                            <ul>
+                                <li><strong>Tipo de Comprobante:</strong> Selecciona si es `Factura de Crédito Fiscal Electrónica (E31)` o `Factura de Consumo Electrónica (E32)`.</li>
+                                <li><strong>Rango Inicial y Final:</strong> La numeración autorizada (ej. desde 1 hasta 100).</li>
+                                <li><strong>Último Consecutivo Usado:</strong> La numeración anterior si ya has facturado en otros sistemas (el sistema consumirá el valor siguiente al indicado de forma secuencial y automatizada).</li>
+                                <li><strong>Alerta de Mínimo:</strong> Recibe una alerta visual en el software cuando resten pocos comprobantes disponibles.</li>
+                                <li><strong>Fecha de Expiración y Número de Autorización:</strong> Datos obligatorios del oficio de aprobación de la DGII.</li>
+                            </ul>
+                        </li>
+                    </ul>
+                    <strong>3. Uso de Comprobantes según el Cliente:</strong>
+                    <ul>
+                        <li><strong>E31 (Crédito Fiscal Electrónico):</strong> Emítelo cuando le vendas a una **Empresa registrada** que necesita sustentar costos y deducciones del Impuesto sobre la Renta (ISR) y adelantos de ITBIS. Requiere obligatoriamente un RNC válido del cliente.</li>
+                        <li><strong>E32 (Consumo Electrónico):</strong> Emítelo para **Consumidores Finales** que no deducen impuestos. Si el monto total excede los **RD$ 250,000.00**, la DGII exige de manera obligatoria que asocies la Cédula o RNC del cliente en el formulario de la factura.</li>
+                        <li><strong>E43 (Compras Menores):</strong> Úsalo en el módulo de gastos para sustentar pagos realizados a proveedores informales no registrados.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Módulo 4 -->
+        <div class="faq-item" data-category="tutorial">
+            <div class="faq-header">
+                <div class="faq-title-wrapper">
+                    <div class="faq-icon-box" style="background-color: rgba(239, 68, 68, 0.08); color: var(--accent-red);">
+                        <i class="fa-solid fa-4"></i>
+                    </div>
+                    <span class="faq-title">Guía Paso 4: Creación, Firma y Emisión de e-CF y Contingencia</span>
+                </div>
+                <i class="fa-solid fa-chevron-down faq-chevron"></i>
+            </div>
+            <div class="faq-content">
+                <div class="faq-body">
+                    El proceso de facturar y transmitir la información a la DGII ocurre en tiempo real y con precisión matemática:
+                    <br><br>
+                    <strong>1. Creación del Borrador de Factura (`/invoices/new`):</strong>
+                    <ul>
+                        <li>Haz clic en **Nuevo Documento** en tu barra lateral o Dashboard.</li>
+                        <li><strong>Datos Básicos:</strong> Selecciona el cliente registrado (o escribe Consumidor Final) y define la fecha de vencimiento (`dueDate`). Si la fecha es superior al día de hoy, el sistema catalogará la factura automáticamente como venta a *Crédito*, de lo contrario será al *Contado*.</li>
+                        <li><strong>Agregar Partidas / Ítems:</strong> Selecciona los productos/servicios del buscador del catálogo. Ingresa la cantidad, precio y descuento aplicable.</li>
+                        <li><strong>Cálculo de Retenciones Fiscales de Ley:</strong> Si eres persona física y le facturas servicios profesionales a una persona jurídica (empresa), aplica en la sección de tasas:
+                            <ul>
+                                <li><code>10% de ISR:</code> El sistema descontará el 10% del subtotal en el Neto a Recibir.</li>
+                                <li><code>100% de ITBIS:</code> Retiene el 18% completo (o el 30% según aplique técnicamente).</li>
+                            </ul>
+                        </li>
+                        <li><strong>Neto a Recibir (`netPayable`):</strong> Observa el bloque **verde esmeralda** que calcula exactamente la cantidad de dinero que verás depositada en tu banco tras las deducciones de ley de la DGII.</li>
+                    </ul>
+                    <strong>2. Guardar Borrador vs Emitir y Cobrar:</strong>
+                    <ul>
+                        <li><strong>Guardar Borrador:</strong> Guarda la factura de manera local en estado `Borrador` sin consumir secuencias fiscales de la DGII y permitiéndote realizar modificaciones posteriores.</li>
+                        <li><strong>Emitir y Cobrar (Firma y Transmisión Asíncrona):</strong> Si seleccionas esta opción:
+                            <ul>
+                                <li>El sistema consumirá la secuencia correspondiente (`E31` o `E32`) del rango activo.</li>
+                                <li>Enviará la estructura de datos a la API homologada de **Alanube** para firmarla con tu certificado digital.</li>
+                                <li>Recibirá la validación y aprobación de la DGII en tiempo real.</li>
+                                <li>Generará y estampará en la factura un **Código QR obligatorio** de validación pública y un enlace al visor oficial del portal tributario de la DGII.</li>
+                                <li>Almacenará de forma segura el archivo oficial XML y te permitirá descargar la representación en PDF.</li>
+                            </ul>
+                        </li>
+                    </ul>
+                    <strong>3. Manejo de Fallas e Internet (Flujo de Contingencia / FALLBACK):</strong>
+                    <ul>
+                        <li>Si al emitir tu factura la plataforma detecta intermitencias en la conexión o servidores de Alanube/DGII, activará en milisegundos el **Modo Contingencia (FALLBACK)**.</li>
+                        <li>La factura se creará localmente bajo el estado **Emitida** y se estampará automáticamente en el PDF la leyenda obligatoria por ley: <code style="color: #b91c1c; font-weight: bold; background: rgba(239, 68, 68, 0.08);">“e-CF emitido en modalidad de contingencia”</code> junto a un QR de validación local provisional. El cliente podrá sustentar fiscalmente su compra de inmediato.</li>
+                        <li><strong>Regularización de Contingencia:</strong> Una vez restablecida la conexión, accede al Dashboard o utiliza el botón de sincronización de contingencias para llamar al endpoint `/api/invoices/sync-contingency`. La plataforma enviará y firmará automáticamente los comprobantes pendientes acumulados ante la DGII en el plazo legal establecido de 72 horas.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Módulo 5 -->
+        <div class="faq-item" data-category="tutorial">
+            <div class="faq-header">
+                <div class="faq-title-wrapper">
+                    <div class="faq-icon-box" style="background-color: rgba(124, 58, 237, 0.08); color: var(--accent-purple);">
+                        <i class="fa-solid fa-5"></i>
+                    </div>
+                    <span class="faq-title">Guía Paso 5: Registro de Cobros, Anulación de e-CF y Reportes de Impuestos</span>
+                </div>
+                <i class="fa-solid fa-chevron-down faq-chevron"></i>
+            </div>
+            <div class="faq-content">
+                <div class="faq-body">
+                    El ciclo de facturación se cierra cuando se recibe el pago y se concilian los impuestos del período fiscal:
+                    <br><br>
+                    <strong>1. Registrar el Pago / Cobro de una Factura (`/invoices/<id>/pay`):</strong>
+                    <ul>
+                        <li>Si facturaste a crédito o guardaste el documento en estado `Emitida`, al recibir la transferencia bancaria o efectivo de tu cliente:
+                            <ul>
+                                <li>Ingresa al **Detalle de la Factura** y haz clic en **Registrar Cobro**.</li>
+                                <li>Selecciona el **Destino / Banco** (ej. Cuenta de Banco o Caja de Efectivo) e introduce el número de referencia del depósito.</li>
+                                <li>El sistema marcará la factura automáticamente como `Cobrada` y registrará la fecha y hora exacta de conciliación.</li>
+                            </ul>
+                        </li>
+                    </ul>
+                    <strong>2. Correcciones y Anulaciones de Comprobantes (`/invoices/<id>/void`):</strong>
+                    <ul>
+                        <li>Si cometiste un error de digitación o el cliente rechaza comercialmente la factura:
+                            <ul>
+                                <li><strong>Factura en Borrador:</strong> Cancélala directamente en el sistema sin repercusiones legales.</li>
+                                <li><strong>e-CF Firmado y Enviado:</strong> Deberá ser anulado a través del sistema. Si el e-CF fue firmado pero no enviado, puedes iniciar una anulación directa de secuencia. Si ya fue transmitido formalmente, emite una **Nota de Crédito Electrónica (E35)** en nuestro módulo correspondiente para neutralizar el balance y reportarlo a Impuestos Internos.</li>
+                                <li><strong>⚠️ Advertencia de 30 días:</strong> Recuerda emitir tus notas de crédito por devoluciones dentro de los 30 días calendario del hecho fiscal. Superado este plazo, las devoluciones no restituirán el ITBIS retenido o facturado por ley, solo el valor base del precio.</li>
+                            </ul>
+                        </li>
+                    </ul>
+                    <strong>3. Diagnóstico Mensual y Envío de Formatos 606 y 607 (`/reports`):</strong>
+                    <ul>
+                        <li><strong>Diagnóstico de IT-1 (`/reports/it1`):</strong> Visualiza en tiempo real tu borrador y simulación del formulario de liquidación del ITBIS. El sistema sumará de forma automatizada tus subtotales de ventas de facturas emitidas autorizadas (ingresos gravados e ITBIS facturado) y restará tus gastos operativos deducibles aprobados (adelantos de ITBIS).</li>
+                        <li><strong>Simulador 606 y 607 (`/reports/simulators`):</strong>
+                            <ul>
+                                <li><strong>Formato 607 (Ventas):</strong> Muestra la tabla de comprobantes electrónicos emitidos en el mes, estructurando las columnas de montos gravados, ITBIS, retenciones sufridas y los medios de pago utilizados (efectivo, tarjeta, transferencias).</li>
+                                <li><strong>Formato 606 (Compras/Gastos):</strong> Alimenta la declaración con los gastos en los que hayas marcado `Deducible: Sí` en el módulo `/expenses`, filtrando y protegiendo tus datos al excluir las partidas personales no deducibles.</li>
+                            </ul>
+                        </li>
+                        <li><strong>Exportación Homologada (`/reports/export/<type>`):</strong> Haz clic en el botón de **Exportar CSV** para descargar de forma inmediata tus archivos de datos perfectamente formateados de acuerdo con la estructura oficial requerida por la Oficina Virtual de la DGII.</li>
                     </ul>
                 </div>
             </div>

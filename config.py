@@ -2,7 +2,7 @@ import os
 from dotenv import load_dotenv
 
 # Cargar variables de entorno del archivo .env
-load_dotenv()
+load_dotenv(override=True)
 
 class Config:
     SECRET_KEY = os.getenv('SECRET_KEY', 'efacturard_web_secret_session_key_2026')
@@ -29,3 +29,7 @@ class Config:
     SMTP_PORT = int(os.getenv('SMTP_PORT', 587))
     SMTP_USER = os.getenv('SMTP_USER', '')
     SMTP_PASSWORD = os.getenv('SMTP_PASSWORD', '')
+
+    # OpenAI API Key para el Chatbot
+    OPENAI_API_KEY = os.getenv('OPENAI_API_KEY', '')
+

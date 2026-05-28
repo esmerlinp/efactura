@@ -57,7 +57,15 @@
                             Simplificado (RST - Ingresos)</option>
                     </select>
                 </div>
+
+                <div class="form-group" style="grid-column: span 2;">
+                    <label for="openaiApiKey">Token de API OpenAI (Para Chatbot de IA)</label>
+                    <input type="password" id="openaiApiKey" name="openaiApiKey" class="form-input"
+                        placeholder="sk-proj-..." value="{{ profile.openaiApiKey or '' }}">
+                    <small style="color: var(--text-muted); font-size: 0.72rem; margin-top: 4px;">Opcional. Clave secreta personal. Si se deja vacía, se usará la clave global del servidor.</small>
+                </div>
             </div>
+
 
             <div
                 style="margin-top: 36px; display: flex; justify-content: flex-end; gap: 15px; border-top: 1px solid var(--border-color); padding-top: 24px;">
