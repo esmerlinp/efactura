@@ -1,0 +1,173 @@
+{% extends "layout.html" %}
+
+{% block title %}Kárdex de Movimientos{% endblock %}
+
+{% block page_header %}Historial de Movimientos de Inventario{% endblock %}
+
+{% block content %}
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
+    <div>
+        <h3 style="font-size: 1.25rem; font-family: var(--font-heading); margin-bottom: 4px;">Kárdex de Auditoría</h3>
+        <p style="color: var(--text-secondary); font-size: 0.88rem;">Registro inmutable de todas las entradas, salidas y transferencias de existencias.</p>
+    </div>
+    <div style="display: flex; gap: 12px;">
+        <a href="{{ url_for('inventory_dashboard') }}" class="btn btn-secondary">
+            <i class="fa-solid fa-arrow-left"></i>
+            <span>Volver a Inventario</span>
+        </a>
+        <a href="{{ url_for('new_inventory_transaction') }}" class="btn btn-primary">
+            <i class="fa-solid fa-shuffle"></i>
+            <span>Nuevo Ajuste Manual</span>
+        </a>
+    </div>
+</div>
+
+<!-- Filtros de Transacciones Reactivos -->
+<div class="card-table-wrapper" style="margin-bottom: 24px; padding: 20px;">
+    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;">
+        <div>
+            <label for="filter-type" style="display: block; font-size: 0.78rem; font-weight: 600; margin-bottom: 6px; color: var(--text-secondary);">Filtrar por Tipo</label>
+            <select id="filter-type" class="form-select" style="padding: 10px;">
+                <option value="ALL">Todos los tipos</option>
+                <option value="ENTRADA">ENTRADAS (+)</option>
+                <option value="SALIDA">SALIDAS (-)</option>
+                <option value="TRANSFERENCIA">TRANSFERENCIAS (⇄)</option>
+            </select>
+        </div>
+        
+        <div>
+            <label for="filter-reason" style="display: block; font-size: 0.78rem; font-weight: 600; margin-bottom: 6px; color: var(--text-secondary);">Filtrar por Motivo</label>
+            <select id="filter-reason" class="form-select" style="padding: 10px;">
+                <option value="ALL">Todos los motivos</option>
+                <option value="VENTA">VENTAS</option>
+                <option value="COMPRA">COMPRAS</option>
+                <option value="AJUSTE_MANUAL">AJUSTES MANUALES</option>
+                <option value="TRANSFERENCIA">TRANSFERENCIAS</option>
+                <option value="PERDIDA">PÉRDIDAS / DAÑOS</option>
+                <option value="DEVOLUCION">DEVOLUCIONES</option>
+            </select>
+        </div>
+        
+        <div style="grid-column: 3 / -1;">
+            <label for="filter-search" style="display: block; font-size: 0.78rem; font-weight: 600; margin-bottom: 6px; color: var(--text-secondary);">Búsqueda por Producto o Responsable</label>
+            <div style="position: relative;">
+                <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-secondary); font-size: 0.85rem;"></i>
+                <input type="text" id="filter-search" class="form-input" placeholder="Ej: Cemento Cibao, Vendedor..." style="padding-left: 38px;">
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Listado de Transacciones -->
+<div class="card-table-wrapper">
+    <div class="table-responsive">
+        <table class="table-premium" id="transactions-table">
+            <thead>
+                <tr>
+                    <th style="width: 14%;">Fecha / Hora</th>
+                    <th style="width: 24%;">Producto</th>
+                    <th style="width: 12%;">Tipo</th>
+                    <th style="width: 10%; text-align: right;">Cantidad</th>
+                    <th style="width: 15%;">Origen ⇄ Destino</th>
+                    <th style="width: 12%;">Motivo / Ref</th>
+                    <th style="width: 13%;">Responsable</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if transactions %}
+                    {% for tx in transactions %}
+                    <tr class="tx-row" data-type="{{ tx.type }}" data-reason="{{ tx.reason }}" data-product="{{ tx.itemName | lower }}" data-user="{{ tx.performedBy | lower }}">
+                        <td style="font-size: 0.82rem; color: var(--text-secondary);">
+                            {{ tx.date[:16].replace('T', ' ') if tx.date else '—' }}
+                        </td>
+                        <td>
+                            <strong style="display: block;">{{ tx.itemName }}</strong>
+                            {% if tx.notes %}
+                            <small style="color: var(--text-muted); display: block; font-size: 0.75rem; font-style: italic;">Nota: {{ tx.notes }}</small>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if tx.type == 'ENTRADA' %}
+                            <span class="badge badge-success" style="font-weight: bold;"><i class="fa-solid fa-circle-arrow-down" style="margin-right: 4px;"></i>ENTRADA</span>
+                            {% elif tx.type == 'SALIDA' %}
+                            <span class="badge badge-danger" style="font-weight: bold;"><i class="fa-solid fa-circle-arrow-up" style="margin-right: 4px;"></i>SALIDA</span>
+                            {% else %}
+                            <span class="badge badge-primary" style="font-weight: bold; background-color: var(--accent-purple);"><i class="fa-solid fa-shuffle" style="margin-right: 4px;"></i>TRANSFERENCIA</span>
+                            {% endif %}
+                        </td>
+                        <td style="text-align: right; font-weight: bold; font-family: monospace; font-size: 0.95rem; color: {% if tx.type == 'ENTRADA' %}var(--accent-emerald){% elif tx.type == 'SALIDA' %}var(--accent-red){% else %}inherit{% endif %};">
+                            {% if tx.type == 'ENTRADA' %}+{% elif tx.type == 'SALIDA' %}-{% endif %}{{ "{:,.2f}".format(tx.quantity) }}
+                        </td>
+                        <td style="font-size: 0.82rem;">
+                            {% if tx.type == 'ENTRADA' %}
+                            <span style="color: var(--text-secondary);"><i class="fa-solid fa-arrow-right" style="color: var(--accent-emerald); font-size: 0.75rem; margin-right: 4px;"></i>{{ tx.destinationWarehouseName }}</span>
+                            {% elif tx.type == 'SALIDA' %}
+                            <span style="color: var(--text-secondary);"><i class="fa-solid fa-arrow-left" style="color: var(--accent-red); font-size: 0.75rem; margin-right: 4px;"></i>{{ tx.originWarehouseName }}</span>
+                            {% else %}
+                            <span style="display: block; font-size: 0.75rem; color: var(--text-muted);">De: {{ tx.originWarehouseName }}</span>
+                            <span style="display: block; font-size: 0.75rem; color: var(--accent-emerald);">A: {{ tx.destinationWarehouseName }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <strong style="font-size: 0.8rem; background-color: var(--bg-input); padding: 2px 6px; border-radius: 4px; border: 1px solid var(--border-color); text-transform: uppercase;">
+                                {{ tx.reason }}
+                            </strong>
+                            {% if tx.referenceId %}
+                            <span style="display: block; font-size: 0.72rem; color: var(--text-secondary); margin-top: 4px; font-family: monospace;">Ref: {{ tx.referenceId }}</span>
+                            {% endif %}
+                        </td>
+                        <td style="font-size: 0.82rem; color: var(--text-secondary); font-family: monospace;">
+                            {{ tx.performedBy }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr>
+                        <td colspan="7" style="text-align: center; padding: 60px 0; color: var(--text-secondary);">
+                            <i class="fa-solid fa-clock-rotate-left" style="font-size: 3rem; color: var(--text-muted); margin-bottom: 16px; opacity: 0.5; display: block;"></i>
+                            <span>No se han registrado movimientos de inventario en el historial.</span>
+                        </td>
+                    </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    // Filtros dinámicos interactivos para la tabla de transacciones
+    const filterType = document.getElementById('filter-type');
+    const filterReason = document.getElementById('filter-reason');
+    const filterSearch = document.getElementById('filter-search');
+    
+    function applyFilters() {
+        const typeQuery = filterType.value;
+        const reasonQuery = filterReason.value;
+        const searchQuery = filterSearch.value.toLowerCase().trim();
+        const rows = document.querySelectorAll('.tx-row');
+        
+        rows.forEach(row => {
+            const rowType = row.getAttribute('data-type');
+            const rowReason = row.getAttribute('data-reason');
+            const rowProduct = row.getAttribute('data-product');
+            const rowUser = row.getAttribute('data-user');
+            
+            const matchType = (typeQuery === 'ALL' || rowType === typeQuery);
+            const matchReason = (reasonQuery === 'ALL' || rowReason === reasonQuery);
+            const matchSearch = (!searchQuery || rowProduct.includes(searchQuery) || rowUser.includes(searchQuery));
+            
+            if (matchType && matchReason && matchSearch) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    }
+    
+    filterType.addEventListener('change', applyFilters);
+    filterReason.addEventListener('change', applyFilters);
+    filterSearch.addEventListener('input', applyFilters);
+</script>
+{% endblock %}

@@ -1,0 +1,97 @@
+{% extends "layout.html" %}
+
+{% block title %}Directorio CRM Clientes{% endblock %}
+
+{% block page_header %}CRM & Directorio de Clientes{% endblock %}
+
+{% block content %}
+<div class="card-table-wrapper">
+    <div class="table-header-row">
+        <div>
+            <h3 style="font-size: 1.25rem; font-family: var(--font-heading); margin-bottom: 6px;">Directorio de Contactos</h3>
+            <p style="color: var(--text-secondary); font-size: 0.88rem;">Agenda de acuerdos comerciales, CxC e historial fiscal.</p>
+        </div>
+        <a href="{{ url_for('new_client') }}" class="btn btn-primary">
+            <i class="fa-solid fa-user-plus"></i>
+            <span>Nuevo Cliente CRM</span>
+        </a>
+    </div>
+    
+    <div class="table-responsive">
+        <table class="table-premium">
+            <thead>
+                <tr>
+                    <th>Razón Social / Nombre</th>
+                    <th>RNC / Cédula</th>
+                    <th>Contacto</th>
+                    <th>Facturado Acumulado</th>
+                    <th>Próximo Contacto</th>
+                    <th style="text-align: right;">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if clients %}
+                    {% for client in clients %}
+                        <tr>
+                            <td>
+                                <a href="{{ url_for('client_detail', client_id=client.id) }}" style="text-decoration: none; color: inherit;">
+                                    <strong style="font-size: 0.95rem; display: block; margin-bottom: 2px; color: var(--text-primary); transition: color var(--transition-fast);" onmouseover="this.style.color='var(--accent-emerald)'" onmouseout="this.style.color='var(--text-primary)'">{{ client.razonSocial }}</strong>
+                                </a>
+                                <span style="font-size: 0.78rem; color: var(--text-muted);"><i class="fa-solid fa-map-location-dot"></i> {{ client.direccion or 'República Dominicana' }}</span>
+                            </td>
+                            <td>
+                                <span class="badge badge-secondary" style="font-family: monospace;">{{ client.rnc }}</span>
+                            </td>
+                            <td>
+                                <span style="display: block; font-size: 0.88rem;"><i class="fa-solid fa-phone" style="font-size: 0.8rem; color: var(--text-muted);"></i> {{ client.telefono or 'N/A' }}</span>
+                                <span style="font-size: 0.78rem; color: var(--text-secondary);"><i class="fa-solid fa-envelope" style="font-size: 0.8rem; color: var(--text-muted);"></i> {{ client.email or 'N/A' }}</span>
+                            </td>
+                            <td>
+                                <strong style="color: var(--accent-emerald);">RD$ {{ "{:,.2f}".format(client.total_invoiced | default(0.0)) }}</strong>
+                                {% if client.total_cxc | default(0.0) > 0.0 %}
+                                <span style="display: block; font-size: 0.75rem; color: var(--accent-red); font-weight: 500;">CxC: RD$ {{ "{:,.2f}".format(client.total_cxc) }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if client.nextContactDate %}
+                                    <span style="font-size: 0.88rem; color: var(--accent-purple); font-weight: 500;"><i class="fa-solid fa-clock"></i> {{ client.nextContactDate[:10] }}</span>
+                                    {% if client.crmNotes %}
+                                    <span style="display: block; font-size: 0.75rem; color: var(--text-secondary); max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{ client.crmNotes }}">
+                                        {{ client.crmNotes }}
+                                    </span>
+                                    {% endif %}
+                                {% else %}
+                                    <span style="color: var(--text-muted); font-size: 0.85rem;">No programado</span>
+                                {% endif %}
+                            </td>
+                            <td style="text-align: right;">
+                                <div style="display: inline-flex; gap: 8px;">
+                                    <a href="{{ url_for('client_detail', client_id=client.id) }}" class="btn btn-secondary" style="padding: 8px 12px; font-size: 0.8rem; border-color: var(--accent-emerald); color: var(--accent-emerald);" title="Ver Historial y Seguimiento">
+                                        <i class="fa-solid fa-eye"></i>
+                                    </a>
+                                    <a href="{{ url_for('edit_client', client_id=client.id) }}" class="btn btn-secondary" style="padding: 8px 12px; font-size: 0.8rem;" title="Editar Ficha CRM">
+                                        <i class="fa-solid fa-user-pen"></i>
+                                    </a>
+                                    <form action="{{ url_for('delete_client_route', client_id=client.id) }}" method="POST" onsubmit="return confirm('¿Seguro que deseas eliminar este cliente? Se borrarán sus datos del directorio.');" style="display: inline;">
+                                        <button type="submit" class="btn btn-danger" style="padding: 8px 12px; font-size: 0.8rem;" title="Eliminar Cliente">
+                                            <i class="fa-solid fa-trash-can"></i>
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr>
+                        <td colspan="6" style="text-align: center; padding: 60px 0; color: var(--text-secondary);">
+                            <i class="fa-solid fa-users" style="font-size: 3rem; color: var(--text-muted); margin-bottom: 16px; opacity: 0.5; display: block;"></i>
+                            <span>No hay clientes registrados en este directorio aún.</span>
+                            <a href="{{ url_for('new_client') }}" style="color: var(--accent-emerald); font-weight: 600; display: block; margin-top: 10px;">Agregar el primer cliente</a>
+                        </td>
+                    </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

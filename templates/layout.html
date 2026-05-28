@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="es" {% if session.get('is_sandbox_mode', True) %}class="sandbox-mode" {% endif %}>
+
+<head>
+    <meta charset="UTF-8">
+    <script>
+        // Aplicar tema guardado antes de renderizar la página para evitar destellos (flash)
+        (function () {
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+        })();
+    </script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}{% endblock %} - e-Factura</title>
+
+    <!-- Metas de SEO según Buenas Prácticas -->
+    <meta name="description"
+        content="Replicación Web Premium de e-Factura para el cumplimiento de la Ley 32-23 de Facturación Electrónica en República Dominicana.">
+    <meta name="author" content="Antigravity AI">
+
+    <!-- FontAwesome para Iconos Modernos -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Estilo Premium CSS Vanilla -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+
+    {% if company_apply_color_marca_ui and company_color_marca %}
+    <style id="dynamic-brand-styles">
+        :root, body.sandbox-mode, [data-theme="dark"] {
+            --accent-emerald: {{ company_color_marca }};
+            --accent-emerald-hover: {{ company_color_marca }};
+            --accent-purple: {{ company_color_marca }};
+            --accent-purple-hover: {{ company_color_marca }};
+            {% if company_gradient_enabled %}
+            --brand-gradient: linear-gradient(135deg, {{ company_color_marca }}, #60a5fa);
+            {% else %}
+            --brand-gradient: {{ company_color_marca }};
+            {% endif %}
+        }
+        .sandbox-banner {
+            {% if company_gradient_enabled %}
+            background: linear-gradient(90deg, {{ company_color_marca }}, #8b5cf6, {{ company_color_marca }});
+            {% else %}
+            background: {{ company_color_marca }};
+            {% endif %}
+        }
+    </style>
+    {% endif %}
+
+    <!-- Librería Chart.js ligera para Analíticas del Dashboard -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    {% block extra_head %}{% endblock %}
+</head>
+
+<body class="{% if session.get('is_sandbox_mode', True) %}sandbox-mode{% endif %}">
+
+    {% if session.get('is_sandbox_mode', True) %}
+    <!-- Banner superior Sandbox con acento púrpura -->
+    <div class="sandbox-banner" id="sandbox-indicator-banner">
+        <i class="fa-solid fa-flask"></i>
+        <span>ENTORNO DE PRUEBAS ACTIVO - CERTIFICACIÓN / SANDBOX </span>
+    </div>
+    {% endif %}
+
+    <div class="app-container" id="main-app-container">
+        <script>
+            (function () {
+                const sidebarState = localStorage.getItem('sidebar-collapsed');
+                if (sidebarState === 'true') {
+                    document.getElementById('main-app-container').classList.add('sidebar-collapsed');
+                }
+            })();
+        </script>
+        <!-- 1. BARRA LATERAL (SIDEBAR) -->
+        <aside class="sidebar">
+            <div class="sidebar-logo">
+                <div class="logo-text-wrapper"
+                    style="display: flex; align-items: center; gap: 12px; overflow: hidden; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); width: auto;">
+                    <i class="fa-solid fa-receipt" style="font-size: 1.8rem; color: var(--accent-emerald);"></i>
+                    <span class="logo-title">e-Factura</span>
+                    {% if session.get('is_sandbox_mode', True) %}
+                    <span class="sandbox-tag">Sandbox</span>
+                    {% endif %}
+                </div>
+                <button type="button" id="sidebar-toggle-btn" class="sidebar-toggle" title="Contraer / Expandir menú">
+                    <i class="fa-solid fa-chevron-left" id="toggle-icon"></i>
+                </button>
+            </div>
+
+            <nav class="nav-menu">
+                <li class="nav-item {% if active_page == 'dashboard' %}active{% endif %}" data-tooltip="Dashboard">
+                    <a href="{{ url_for('dashboard') }}">
+                        <i class="fa-solid fa-chart-pie"></i>
+                        <span>Dashboard</span>
+                    </a>
+                </li>
+                {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions',
+                {}).get('canInvoice', True) %}
+                <li class="nav-item {% if active_page == 'invoices' %}active{% endif %}" data-tooltip="Documentos">
+                    <a href="{{ url_for('list_invoices') }}">
+                        <i class="fa-solid fa-file-invoice-dollar"></i>
+                        <span>Documentos</span>
+                    </a>
+                </li>
+                <li class="nav-item {% if active_page == 'quotations' %}active{% endif %}" data-tooltip="Cotizaciones">
+                    <a href="{{ url_for('list_quotations') }}">
+                        <i class="fa-solid fa-file-signature"></i>
+                        <span>Cotizaciones</span>
+                    </a>
+                </li>
+                {% endif %}
+                {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions',
+                {}).get('canExpenses', True) %}
+                <li class="nav-item {% if active_page == 'expenses' %}active{% endif %}"
+                    data-tooltip="Control de Gastos">
+                    <a href="{{ url_for('list_expenses') }}">
+                        <i class="fa-solid fa-wallet"></i>
+                        <span>Control de Gastos</span>
+                    </a>
+                </li>
+                {% endif %}
+                {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions',
+                {}).get('canClients', True) %}
+                <li class="nav-item {% if active_page == 'clients' %}active{% endif %}" data-tooltip="CRM Clientes">
+                    <a href="{{ url_for('list_clients') }}">
+                        <i class="fa-solid fa-address-book"></i>
+                        <span>CRM Clientes</span>
+                    </a>
+                </li>
+                <li class="nav-item {% if active_page == 'items' %}active{% endif %}" data-tooltip="Catálogo">
+                    <a href="{{ url_for('list_items') }}">
+                        <i class="fa-solid fa-boxes-stacked"></i>
+                        <span>Catálogo</span>
+                    </a>
+                </li>
+                {% endif %}
+
+                {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions',
+                {}).get('canManageInventory', True) %}
+                <li class="nav-item {% if active_page == 'inventory' %}active{% endif %}" data-tooltip="Inventario">
+                    <a href="{{ url_for('inventory_dashboard') }}">
+                        <i class="fa-solid fa-warehouse"></i>
+                        <span>Inventario</span>
+                    </a>
+                </li>
+                {% endif %}
+                {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions',
+                {}).get('canModifySettings', True) %}
+                <li class="nav-item {% if active_page == 'sequences' %}active{% endif %}"
+                    data-tooltip="Secuencias Fiscales">
+                    <a href="{{ url_for('list_sequences') }}">
+                        <i class="fa-solid fa-barcode"></i>
+                        <span>Secuencias Fiscales</span>
+                    </a>
+                </li>
+                {% endif %}
+                {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions',
+                {}).get('canInvoice', True) %}
+                <li class="nav-item {% if active_page == 'reports' %}active{% endif %}" data-tooltip="Reportes DGII">
+                    <a href="{{ url_for('reports_dashboard') }}">
+                        <i class="fa-solid fa-file-shield"></i>
+                        <span>Reportes DGII</span>
+                    </a>
+                </li>
+                {% endif %}
+                <li class="nav-item {% if active_page == 'help' %}active{% endif %}" data-tooltip="Centro de Ayuda">
+                    <a href="{{ url_for('help_center') }}">
+                        <i class="fa-solid fa-circle-question"></i>
+                        <span>Centro de Ayuda</span>
+                    </a>
+                </li>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="user-badge">
+                    <div class="user-avatar">
+                        {% if company_logo_url %}
+                        <img src="{{ company_logo_url }}" alt="Logo"
+                            style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">
+                        {% else %}
+                        {{ session.get('user', {}).get('name', 'P')[0] | upper }}
+                        {% endif %}
+                    </div>
+                    <div class="user-info">
+                        <span class="user-name">{{ session.get('user', {}).get('name', 'Usuario') }}</span>
+                        <span class="user-role">{{ session.get('user', {}).get('role', 'Owner') }}</span>
+                    </div>
+                </div>
+                <li class="nav-item" style="list-style: none;" data-tooltip="Cerrar Sesión">
+                    <a href="{{ url_for('logout') }}"
+                        style="color: var(--accent-red); padding: 10px 14px; border-radius: var(--radius-sm);">
+                        <i class="fa-solid fa-right-from-bracket"></i>
+                        <span>Cerrar Sesión</span>
+                    </a>
+                </li>
+            </div>
+        </aside>
+
+        <!-- 2. CONTENIDO PRINCIPAL -->
+        <main class="main-content">
+            <header class="header">
+                <div class="page-title">
+                    {% block page_header %}{% endblock %}
+                </div>
+
+                <div class="header-actions">
+                    <!-- Alternador de Entorno Sandbox (Reactivo en UI) -->
+                    <div class="environment-toggle" id="sandbox-toggle"
+                        title="Haz clic para cambiar entre Sandbox y Producción">
+                        <span class="environment-indicator"></span>
+                        <span>ENTORNO: {% if session.get('is_sandbox_mode', True) %}SANDBOX (PRUEBAS){% else
+                            %}PRODUCCIÓN REAL{% endif %}</span>
+                    </div>
+
+                    <!-- Botón de Alternancia de Tema (Claro / Oscuro) -->
+                    <button class="theme-toggle" id="theme-toggle-btn" title="Alternar Modo Oscuro / Claro">
+                        <i class="fa-solid fa-sun" id="theme-icon-light" style="display: none;"></i>
+                        <i class="fa-solid fa-moon" id="theme-icon-dark"></i>
+                    </button>
+
+                    {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions',
+                    {}).get('canModifySettings', True) %}
+                    <a href="{{ url_for('company_settings') }}" class="btn btn-secondary"
+                        style="padding: 8px 16px; font-size: 0.85rem;" title="Ajustes de Empresa">
+                        <i class="fa-solid fa-gears"></i>
+                        <span>Empresa</span>
+                    </a>
+                    {% endif %}
+                </div>
+            </header>
+
+            <!-- Mensajes flash flotantes de Jinja2 -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+            <div class="flashes-container"
+                style="position: fixed; top: 120px; right: 40px; z-index: 1000; display: flex; flex-direction: column; gap: 10px; max-width: 380px; width: 100%;">
+                {% for category, message in messages %}
+                <div class="alert-banner badge {% if category == 'error' %}badge-danger{% else %}badge-success{% endif %}"
+                    style="padding: 16px 20px; border-radius: var(--radius-md); box-shadow: var(--shadow-lg); font-size: 0.88rem; display: flex; align-items: center; justify-content: space-between; text-transform: none; font-weight: 500; backdrop-filter: blur(20px);">
+                    <span>{{ message }}</span>
+                    <i class="fa-solid fa-times" style="margin-left: 15px; cursor: pointer;"
+                        onclick="this.parentElement.remove()"></i>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+            {% endwith %}
+
+            <div class="content-wrapper page-fade-in">
+                {% block content %}{% endblock %}
+            </div>
+        </main>
+    </div>
+
+    <!-- Script Global -->
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    {% block extra_scripts %}{% endblock %}
+</body>
+
+</html>

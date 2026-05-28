@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <script>
+        // Aplicar tema guardado antes de renderizar la página para evitar destellos (flash)
+        (function() {
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+        })();
+    </script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registro de Cuenta - e-Factura</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body class="auth-container">
+    <div class="auth-card" style="max-width: 550px;">
+        <div class="auth-header">
+            <i class="fa-solid fa-receipt" style="font-size: 3rem; color: var(--accent-emerald); margin-bottom: 15px; display: inline-block;"></i>
+            <h2>e-Factura</h2>
+            <p>Registro de Cuenta Multitenant</p>
+        </div>
+        
+        <!-- Mensajes flash locales -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="badge {% if category == 'error' %}badge-danger{% else %}badge-success{% endif %}" style="width: 100%; padding: 12px; margin-bottom: 20px; border-radius: var(--radius-sm); font-size: 0.85rem; text-transform: none; font-weight: 500; text-align: center;">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <form action="{{ url_for('register') }}" method="POST">
+            <div class="form-group">
+                <label for="name">Nombre Completo / Razón Social Emisor</label>
+                <div style="position: relative;">
+                    <i class="fa-solid fa-user" style="position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: var(--text-secondary);"></i>
+                    <input type="text" id="name" name="name" class="form-input" placeholder="Juan Pérez o Mi Empresa SRL" required style="padding-left: 45px; width: 100%;">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="email">Correo Electrónico</label>
+                <div style="position: relative;">
+                    <i class="fa-solid fa-envelope" style="position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: var(--text-secondary);"></i>
+                    <input type="email" id="email" name="email" class="form-input" placeholder="ejemplo@correo.com" required style="padding-left: 45px; width: 100%;">
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label for="role">Rol en el Equipo</label>
+                <div style="position: relative;">
+                    <i class="fa-solid fa-user-gear" style="position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: var(--text-secondary); z-index: 10;"></i>
+                    <select id="role" name="role" class="form-select" required style="padding-left: 45px; width: 100%;" onchange="toggleOwnerField()">
+                        <option value="owner">Propietario / Administrador Principal (Dueño)</option>
+                        <option value="employee">Empleado / Colaborador de Equipo</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Campo visible solo si es Employee -->
+            <div class="form-group" id="owner-uid-group" style="display: none;">
+                <label for="owner_uid">Código UID del Propietario (Owner UID)</label>
+                <div style="position: relative;">
+                    <i class="fa-solid fa-key" style="position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: var(--text-secondary);"></i>
+                    <input type="text" id="owner_uid" name="owner_uid" class="form-input" placeholder="Pega aquí el código del administrador" style="padding-left: 45px; width: 100%;">
+                </div>
+                <small style="color: var(--text-muted); font-size: 0.75rem; margin-top: 4px;">Pide a tu administrador el UID de su perfil para enlazarte a sus datos y secuencias fiscales.</small>
+            </div>
+            
+            <div class="form-group" style="margin-bottom: 24px;">
+                <label for="password">Contraseña de Acceso</label>
+                <div style="position: relative;">
+                    <i class="fa-solid fa-lock" style="position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: var(--text-secondary);"></i>
+                    <input type="password" id="password" name="password" class="form-input" placeholder="Mínimo 6 caracteres" required style="padding-left: 45px; width: 100%;">
+                </div>
+            </div>
+            
+            <button type="submit" class="btn btn-primary" style="width: 100%; padding: 14px; font-size: 1rem; border-radius: var(--radius-sm);">
+                <i class="fa-solid fa-user-plus"></i>
+                <span>Crear Cuenta</span>
+            </button>
+        </form>
+        
+        <div style="margin-top: 24px; text-align: center; font-size: 0.88rem; color: var(--text-secondary);">
+            <span>¿Ya tienes una cuenta registrada? </span>
+            <a href="{{ url_for('login') }}" style="color: var(--accent-emerald); font-weight: 600;">Inicia sesión aquí</a>
+        </div>
+    </div>
+    
+    <script>
+        function toggleOwnerField() {
+            const roleSelect = document.getElementById('role');
+            const ownerGroup = document.getElementById('owner-uid-group');
+            const ownerInput = document.getElementById('owner_uid');
+            
+            if (roleSelect.value === 'employee') {
+                ownerGroup.style.display = 'flex';
+                ownerInput.required = true;
+            } else {
+                ownerGroup.style.display = 'none';
+                ownerInput.required = false;
+                ownerInput.value = '';
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,163 @@
+{% extends "layout.html" %}
+
+{% block title %}Registrar Ajuste de Inventario{% endblock %}
+
+{% block page_header %}Nueva Transacción de Inventario{% endblock %}
+
+{% block content %}
+<div class="card-table-wrapper" style="max-width: 700px; margin: 0 auto; box-sizing: border-box;">
+    <h3 style="font-size: 1.25rem; font-family: var(--font-heading); margin-bottom: 24px; border-bottom: 1px solid var(--border-color); padding-bottom: 14px;">
+        <i class="fa-solid fa-shuffle" style="color: var(--accent-emerald);"></i>
+        <span>Ajuste Físico de Existencias</span>
+    </h3>
+    
+    <form action="{{ url_for('new_inventory_transaction') }}" method="POST" id="tx-form">
+        <div class="form-grid" style="grid-template-columns: 1fr 1fr; width: 100%; box-sizing: border-box;">
+            
+            <!-- Selector de Producto -->
+            <div class="form-group" style="grid-column: 1 / -1;">
+                <label for="itemId">Selecciona el Producto Físico</label>
+                <select id="itemId" name="itemId" class="form-select" required>
+                    <option value="" disabled selected>-- Elige un artículo del catálogo --</option>
+                    {% for item in items %}
+                    <option value="{{ item.id }}">{{ item.name }} {% if item.code %}(SKU: {{ item.code }}){% endif %} - Precio: RD$ {{ "{:,.2f}".format(item.price) }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <!-- Tipo de Transacción -->
+            <div class="form-group">
+                <label for="type">Tipo de Operación</label>
+                <select id="type" name="type" class="form-select" required onchange="toggleWarehousePickers(this.value)">
+                    <option value="ENTRADA" selected>ENTRADA (+) - Aumento de Existencia</option>
+                    <option value="SALIDA">SALIDA (-) - Disminución de Existencia</option>
+                    <option value="TRANSFERENCIA">TRANSFERENCIA (⇄) - Mover entre almacenes</option>
+                </select>
+            </div>
+            
+            <!-- Motivo del Ajuste -->
+            <div class="form-group">
+                <label for="reason">Motivo</label>
+                <select id="reason" name="reason" class="form-select" required>
+                    <!-- Las opciones se poblarán dinámicamente según el tipo de operación por javascript -->
+                </select>
+            </div>
+
+            <!-- Almacén Origen (Solo para SALIDAS y TRANSFERENCIAS) -->
+            <div class="form-group" id="grp-origin-wh" style="display: none;">
+                <label for="originWarehouseId">Almacén Origen</label>
+                <select id="originWarehouseId" name="originWarehouseId" class="form-select">
+                    {% for wh in warehouses %}
+                    <option value="{{ wh.id }}">{{ wh.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Almacén Destino (Solo para ENTRADAS y TRANSFERENCIAS) -->
+            <div class="form-group" id="grp-destination-wh">
+                <label for="destinationWarehouseId">Almacén de Destino</label>
+                <select id="destinationWarehouseId" name="destinationWarehouseId" class="form-select">
+                    {% for wh in warehouses %}
+                    <option value="{{ wh.id }}">{{ wh.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Cantidad a Ajustar -->
+            <div class="form-group">
+                <label for="quantity">Cantidad (Unidades / Peso / Yardas)</label>
+                <input type="number" id="quantity" name="quantity" class="form-input" min="0.01" step="0.01" required placeholder="0.00">
+                <small style="color: var(--text-secondary); font-size: 0.75rem;">Soporta decimales para mediciones fraccionadas.</small>
+            </div>
+
+            <!-- Notas Adicionales -->
+            <div class="form-group" style="grid-column: 1 / -1;">
+                <label for="notes">Notas o Comentarios Internos</label>
+                <textarea id="notes" name="notes" class="form-input" placeholder="Ej: Ajuste de stock por rotura de envase o reabastecimiento..." style="min-height: 80px; resize: vertical; padding: 12px;"></textarea>
+            </div>
+        </div>
+
+        <div style="margin-top: 36px; display: flex; justify-content: flex-end; gap: 15px; border-top: 1px solid var(--border-color); padding-top: 24px;">
+            <a href="{{ url_for('inventory_dashboard') }}" class="btn btn-secondary">
+                <span>Cancelar</span>
+            </a>
+            <button type="submit" class="btn btn-primary" style="padding: 12px 24px;">
+                <i class="fa-solid fa-floppy-disk"></i>
+                <span>Registrar Ajuste</span>
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    // Configuración dinámica de motivos por tipo de operación
+    const reasons = {
+        ENTRADA: [
+            { value: 'COMPRA', text: 'Compra a Proveedor / Reabastecimiento' },
+            { value: 'AJUSTE_MANUAL', text: 'Ajuste Manual / Conteo Físico' },
+            { value: 'DEVOLUCION', text: 'Devolución de Cliente' }
+        ],
+        SALIDA: [
+            { value: 'VENTA', text: 'Venta Directa' },
+            { value: 'AJUSTE_MANUAL', text: 'Ajuste Manual / Conteo Físico' },
+            { value: 'PERDIDA', text: 'Pérdida / Daño / Rotura / Robo' },
+            { value: 'DEVOLUCION', text: 'Devolución a Proveedor' }
+        ],
+        TRANSFERENCIA: [
+            { value: 'TRANSFERENCIA', text: 'Traslado Interno de Mercancías' }
+        ]
+    };
+
+    function toggleWarehousePickers(type) {
+        const grpOrigin = document.getElementById('grp-origin-wh');
+        const grpDest = document.getElementById('grp-destination-wh');
+        const selectOrigin = document.getElementById('originWarehouseId');
+        const selectDest = document.getElementById('destinationWarehouseId');
+        const selectReason = document.getElementById('reason');
+
+        // Poblar motivos
+        selectReason.innerHTML = '';
+        reasons[type].forEach(opt => {
+            const el = document.createElement('option');
+            el.value = opt.value;
+            el.text = opt.text;
+            selectReason.appendChild(el);
+        });
+
+        // Alternar visibilidad de almacenes
+        if (type === 'ENTRADA') {
+            grpOrigin.style.display = 'none';
+            selectOrigin.required = false;
+            grpDest.style.display = 'block';
+            selectDest.required = true;
+        } else if (type === 'SALIDA') {
+            grpOrigin.style.display = 'block';
+            selectOrigin.required = true;
+            grpDest.style.display = 'none';
+            selectDest.required = false;
+        } else if (type === 'TRANSFERENCIA') {
+            grpOrigin.style.display = 'block';
+            selectOrigin.required = true;
+            grpDest.style.display = 'block';
+            selectDest.required = true;
+        }
+    }
+
+    // Inicializar motivos al cargar
+    toggleWarehousePickers(document.getElementById('type').value);
+
+    // Validación local del formulario
+    document.getElementById('tx-form').addEventListener('submit', function(e) {
+        const type = document.getElementById('type').value;
+        const origId = document.getElementById('originWarehouseId').value;
+        const destId = document.getElementById('destinationWarehouseId').value;
+
+        if (type === 'TRANSFERENCIA' && origId === destId) {
+            e.preventDefault();
+            alert('¡Error! El almacén de origen y el almacén de destino no pueden ser el mismo para una transferencia.');
+        }
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,43 @@
+{% extends "layout.html" %}
+
+{% block title %}Módulo de Reportería Fiscal{% endblock %}
+
+{% block page_header %}Reportería Fiscal & Simuladores DGII{% endblock %}
+
+{% block content %}
+<div style="max-width: 1000px; margin: 0 auto;">
+    <p style="color: var(--text-secondary); font-size: 1rem; line-height: 1.5; margin-bottom: 30px;">
+        Bienvenido al módulo de reportería y cumplimiento tributario. Aquí podrás evaluar de forma predictiva y en tiempo real el comportamiento fiscal de tu empresa conforme a la Ley 32-23 de Facturación Electrónica.
+    </p>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px;">
+        <!-- Card IT-1 -->
+        <div class="card-table-wrapper" style="padding: 30px; display: flex; flex-direction: column; gap: 16px; transition: border-color var(--transition-fast);" onmouseover="this.style.borderColor='var(--accent-emerald)'" onmouseout="this.style.borderColor='var(--border-color)'">
+            <h3 style="font-size: 1.35rem; font-family: var(--font-heading); display: flex; align-items: center; gap: 10px;">
+                <i class="fa-solid fa-file-invoice" style="color: var(--accent-emerald); font-size: 1.6rem;"></i>
+                <span>Diagnóstico Fiscal IT-1</span>
+            </h3>
+            <p style="color: var(--text-secondary); font-size: 0.9rem; line-height: 1.5; flex-grow: 1;">
+                Calcula automáticamente una estimación de tu declaración de ITBIS del periodo. Mapea el ITBIS devengado en tus facturas de venta frente al ITBIS deducible de tus facturas de compras y egresos registrados.
+            </p>
+            <a href="{{ url_for('it1_diagnostic') }}" class="btn btn-primary" style="width: 100%; margin-top: 10px;">
+                <span>Ver Diagnóstico IT-1</span>
+            </a>
+        </div>
+        
+        <!-- Card 606 & 607 -->
+        <div class="card-table-wrapper" style="padding: 30px; display: flex; flex-direction: column; gap: 16px; transition: border-color var(--transition-fast);" onmouseover="this.style.borderColor='var(--accent-purple)'" onmouseout="this.style.borderColor='var(--border-color)'">
+            <h3 style="font-size: 1.35rem; font-family: var(--font-heading); display: flex; align-items: center; gap: 10px;">
+                <i class="fa-solid fa-file-csv" style="color: var(--accent-purple); font-size: 1.6rem;"></i>
+                <span>Formatos de Envío 606 & 607</span>
+            </h3>
+            <p style="color: var(--text-secondary); font-size: 0.9rem; line-height: 1.5; flex-grow: 1;">
+                Simula y genera las estructuras oficiales requeridas por la DGII para los reportes de Compras (606) y Ventas (607). Realiza búsquedas interactivas en tus registros e importa las plantillas CSV oficiales limpias.
+            </p>
+            <a href="{{ url_for('simulators_dashboard') }}" class="btn btn-primary" style="width: 100%; margin-top: 10px; background-color: var(--accent-purple); color: white;">
+                <span>Abrir Simuladores</span>
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

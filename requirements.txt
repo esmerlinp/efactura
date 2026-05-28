@@ -1,0 +1,8 @@
+Flask==3.0.3
+python-dotenv==1.0.1
+firebase-admin==6.5.0
+requests==2.31.0
+qrcode==7.4.2
+pdfkit==1.0.0
+pillow
+gunicorn==22.0.0

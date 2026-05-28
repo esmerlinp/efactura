@@ -1,0 +1,943 @@
+{% extends "layout.html" %}
+
+{% block title %}Centro de Ayuda Fiscal - e-Factura{% endblock %}
+
+{% block page_header %}Centro de Ayuda y Educación Fiscal{% endblock %}
+
+{% block extra_head %}
+<style>
+    /* CSS Premium Adicional para el Centro de Ayuda */
+    .help-hero-card {
+        background: linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(124, 58, 237, 0.15) 50%, rgba(37, 99, 235, 0.1) 100%);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: var(--radius-lg);
+        padding: 50px 40px;
+        text-align: center;
+        margin-bottom: 30px;
+        position: relative;
+        overflow: hidden;
+        backdrop-filter: blur(30px);
+        box-shadow: 0 8px 32px 0 rgba(124, 58, 237, 0.15), var(--shadow-lg);
+    }
+    
+    .help-hero-card::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(16, 185, 129, 0.18) 0%, rgba(124, 58, 237, 0.12) 40%, transparent 70%);
+        pointer-events: none;
+        animation: rotateBg 25s linear infinite;
+    }
+
+    @keyframes rotateBg {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+
+    .help-hero-title {
+        font-family: var(--font-heading);
+        font-size: 2.2rem;
+        font-weight: 800;
+        margin-bottom: 12px;
+        background: linear-gradient(135deg, #34d399, #60a5fa, #a78bfa);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+
+    .help-search-container {
+        max-width: 600px;
+        margin: 24px auto 0 auto;
+        position: relative;
+        z-index: 10;
+    }
+
+    .help-search-input {
+        width: 100%;
+        padding: 16px 24px 16px 54px;
+        font-size: 1.05rem;
+        border-radius: 50px;
+        border: 1.5px solid var(--border-color);
+        background-color: rgba(255, 255, 255, 0.04);
+        color: var(--text-primary);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: var(--shadow-sm);
+        backdrop-filter: blur(10px);
+    }
+
+    .help-search-input:focus {
+        border-color: var(--accent-emerald);
+        background-color: rgba(255, 255, 255, 0.08);
+        box-shadow: 0 0 15px rgba(16, 185, 129, 0.2);
+        outline: none;
+    }
+
+    .help-search-icon {
+        position: absolute;
+        left: 22px;
+        top: 50%;
+        transform: translateY(-50%);
+        font-size: 1.2rem;
+        color: var(--text-muted);
+        transition: color 0.3s ease;
+    }
+
+    .help-search-container:focus-within .help-search-icon {
+        color: var(--accent-emerald);
+    }
+
+    /* Pestañas de categorías */
+    .help-tabs {
+        display: flex;
+        justify-content: center;
+        gap: 12px;
+        margin-bottom: 35px;
+        flex-wrap: wrap;
+    }
+
+    .help-tab-btn {
+        background-color: var(--bg-card);
+        border: 1.5px solid var(--border-color);
+        color: var(--text-secondary);
+        padding: 10px 22px;
+        border-radius: 30px;
+        font-size: 0.9rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        box-shadow: var(--shadow-sm);
+    }
+
+    .help-tab-btn:hover {
+        background-color: rgba(255, 255, 255, 0.03);
+        border-color: var(--text-muted);
+        color: var(--text-primary);
+        transform: translateY(-2px);
+    }
+
+    .help-tab-btn.active {
+        background: linear-gradient(135deg, var(--accent-emerald), var(--accent-purple));
+        border-color: transparent;
+        color: white;
+        box-shadow: 0 4px 12px rgba(124, 58, 237, 0.2);
+    }
+
+    /* Grid de FAQ */
+    .faq-container {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        max-width: 900px;
+        margin: 0 auto 50px auto;
+    }
+
+    .faq-item {
+        background-color: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-md);
+        overflow: hidden;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: var(--shadow-sm);
+    }
+
+    .faq-item:hover {
+        border-color: rgba(124, 58, 237, 0.3);
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+        transform: translateY(-1px);
+    }
+
+    .faq-header {
+        padding: 20px 24px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        cursor: pointer;
+        user-select: none;
+        transition: background-color 0.2s ease;
+    }
+
+    .faq-header:hover {
+        background-color: rgba(255, 255, 255, 0.01);
+    }
+
+    .faq-title-wrapper {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+    }
+
+    .faq-icon-box {
+        width: 38px;
+        height: 38px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+    }
+
+    .faq-item.active .faq-icon-box {
+        transform: scale(1.05);
+    }
+
+    .faq-title {
+        font-size: 1.05rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        line-height: 1.4;
+    }
+
+    .faq-chevron {
+        font-size: 0.95rem;
+        color: var(--text-muted);
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .faq-item.active .faq-chevron {
+        transform: rotate(180deg);
+        color: var(--accent-emerald);
+    }
+
+    .faq-content {
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        border-top: 0 solid var(--border-color);
+        background-color: rgba(255, 255, 255, 0.005);
+    }
+
+    .faq-item.active .faq-content {
+        border-top-width: 1px;
+    }
+
+    .faq-body {
+        padding: 24px 32px 30px 78px;
+        font-size: 0.95rem;
+        color: var(--text-secondary);
+        line-height: 1.65;
+    }
+
+    .faq-body strong {
+        color: var(--text-primary);
+    }
+
+    .faq-body code {
+        background-color: var(--bg-input);
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-family: monospace;
+        font-size: 0.85rem;
+        color: var(--accent-purple);
+        border: 1px solid var(--border-color);
+    }
+
+    .faq-badge {
+        font-size: 0.72rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        padding: 3px 8px;
+        border-radius: 4px;
+        letter-spacing: 0.05em;
+        margin-left: 10px;
+        vertical-align: middle;
+    }
+
+    .faq-body ul {
+        margin: 12px 0;
+        padding-left: 20px;
+    }
+
+    .faq-body li {
+        margin-bottom: 6px;
+    }
+
+    /* Tarjetas de glosario rápido */
+    .glossary-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 20px;
+        margin-bottom: 40px;
+    }
+
+    .glossary-card {
+        background-color: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-md);
+        padding: 24px;
+        transition: all 0.3s ease;
+        position: relative;
+    }
+
+    .glossary-card:hover {
+        transform: translateY(-3px);
+        box-shadow: var(--shadow-md);
+        border-color: var(--accent-emerald);
+    }
+
+    .glossary-card-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 14px;
+    }
+
+    .glossary-card-icon {
+        font-size: 1.3rem;
+        color: var(--accent-emerald);
+    }
+
+    .glossary-card-title {
+        font-size: 1.1rem;
+        font-weight: 800;
+        color: var(--text-primary);
+        font-family: var(--font-heading);
+    }
+
+    .glossary-card-text {
+        font-size: 0.88rem;
+        color: var(--text-secondary);
+        line-height: 1.5;
+    }
+
+    /* Animación de alerta */
+    .fiscal-alert-box {
+        background-color: rgba(16, 185, 129, 0.05);
+        border: 1px dashed var(--accent-success);
+        border-radius: var(--radius-sm);
+        padding: 18px;
+        margin-top: 15px;
+        display: flex;
+        gap: 14px;
+        align-items: flex-start;
+    }
+
+    .fiscal-alert-box i {
+        color: var(--accent-success);
+        font-size: 1.2rem;
+        margin-top: 2px;
+    }
+
+    .fiscal-alert-text {
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+        line-height: 1.5;
+    }
+
+    /* No se encontraron resultados */
+    .no-results-state {
+        text-align: center;
+        padding: 40px;
+        display: none;
+    }
+
+    .no-results-state i {
+        font-size: 3rem;
+        color: var(--text-muted);
+        margin-bottom: 16px;
+    }
+
+    .no-results-state h4 {
+        font-size: 1.15rem;
+        font-weight: 700;
+        margin-bottom: 6px;
+        color: var(--text-primary);
+    }
+
+    .no-results-state p {
+        color: var(--text-secondary);
+        font-size: 0.9rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div style="max-width: 1000px; margin: 0 auto;">
+    
+    <!-- Hero / Buscador -->
+    <div class="help-hero-card">
+        <h1 class="help-hero-title">¿Cómo podemos ayudarte hoy?</h1>
+        <p style="color: var(--text-secondary); font-size: 1.05rem; max-width: 500px; margin: 0 auto 20px auto;">
+            Domina los conceptos financieros de la DGII de manera simple, amigable y explicados con peras y manzanas.
+        </p>
+        
+        <div class="help-search-container">
+            <i class="fa-solid fa-magnifying-glass help-search-icon"></i>
+            <input type="text" id="faq-search" class="help-search-input" placeholder="Busca conceptos como 'RST', 'Deducible', 'Retención', 'e-CF'...">
+        </div>
+    </div>
+
+    <!-- Glosario de Conceptos Clave -->
+    <h2 style="font-family: var(--font-heading); font-size: 1.4rem; font-weight: 800; margin-bottom: 20px; color: var(--text-primary);">
+        <i class="fa-solid fa-graduation-cap" style="color: var(--accent-emerald); margin-right: 8px;"></i>
+        Conceptos Básicos en 30 Segundos
+    </h2>
+    <div class="glossary-grid">
+        <div class="glossary-card">
+            <div class="glossary-card-header">
+                <i class="fa-solid fa-shield-halved glossary-card-icon"></i>
+                <h3 class="glossary-card-title">RST</h3>
+            </div>
+            <p class="glossary-card-text">
+                El <strong>Régimen Simplificado (RST)</strong> es un beneficio de la DGII para profesionales y micro-empresas que elimina la tediosa tarea de reportar mensualmente tus facturas de compras (Formato 606). ¡Pagas impuestos basándote sólo en lo que vendes!
+            </p>
+        </div>
+
+        <div class="glossary-card">
+            <div class="glossary-card-header">
+                <i class="fa-solid fa-filter glossary-card-icon" style="color: var(--accent-purple);"></i>
+                <h3 class="glossary-card-title">Gasto Deducible</h3>
+            </div>
+            <p class="glossary-card-text">
+                Es cualquier compra que realizas <strong>exclusivamente</strong> para hacer funcionar tu negocio (ej. tu laptop, internet, software, publicidad). Se restan de tus ingresos para que pagues menos impuestos de forma legal.
+            </p>
+        </div>
+
+        <div class="glossary-card">
+            <div class="glossary-card-header">
+                <i class="fa-solid fa-percent glossary-card-icon" style="color: var(--accent-yellow);"></i>
+                <h3 class="glossary-card-title">Retenciones</h3>
+            </div>
+            <p class="glossary-card-text">
+                Es dinero que tu cliente (si es empresa) te "descuenta" legalmente de la factura y le entrega directamente a la DGII a tu nombre. Funciona como un abono adelantado de tus impuestos finales.
+            </p>
+        </div>
+    </div>
+
+    <!-- Botones de Categorías -->
+    <div class="help-tabs">
+        <button class="help-tab-btn active" data-category="all">
+            <i class="fa-solid fa-list"></i> Todos
+        </button>
+        <button class="help-tab-btn" data-category="rst">
+            <i class="fa-solid fa-percent"></i> Régimen RST
+        </button>
+        <button class="help-tab-btn" data-category="gastos">
+            <i class="fa-solid fa-wallet"></i> Gastos y Deducibilidad
+        </button>
+        <button class="help-tab-btn" data-category="retenciones">
+            <i class="fa-solid fa-hand-holding-dollar"></i> Retenciones y Pagos
+        </button>
+        <button class="help-tab-btn" data-category="comprobantes">
+            <i class="fa-solid fa-receipt"></i> NCF y e-CF Electrónico
+        </button>
+        <button class="help-tab-btn" data-category="contingencia">
+            <i class="fa-solid fa-triangle-exclamation"></i> Operación en Contingencia
+        </button>
+    </div>
+
+    <!-- Preguntas Frecuentes / Acordeones -->
+    <div class="faq-container" id="faq-list">
+        
+        <!-- RST 1 -->
+        <div class="faq-item" data-category="rst">
+            <div class="faq-header">
+                <div class="faq-title-wrapper">
+                    <div class="faq-icon-box" style="background-color: rgba(16, 185, 129, 0.08); color: var(--accent-success);">
+                        <i class="fa-solid fa-lightbulb"></i>
+                    </div>
+                    <span class="faq-title">¿Qué es exactamente el RST de Ingresos y por qué me conviene?</span>
+                </div>
+                <i class="fa-solid fa-chevron-down faq-chevron"></i>
+            </div>
+            <div class="faq-content">
+                <div class="faq-body">
+                    El <strong>Régimen Simplificado de Tributación (RST)</strong> basado en ingresos es un regalo de salud mental fiscal que ofrece la DGII para profesionales independientes, freelancers y pequeñas empresas. 
+                    <br><br>
+                    <strong>¿Por qué es maravilloso?</strong>
+                    <ul>
+                        <li><strong>Cero reportes mensuales:</strong> Te olvidas por completo del estrés de rellenar el Formulario 606 (compras) y el 607 (ventas) todos los meses. Tu contabilidad se simplifica a la mínima expresión.</li>
+                        <li><strong>Adiós IT-1 mensual:</strong> No tienes que declarar ni liquidar el ITBIS (IVA) de forma mensual.</li>
+                        <li><strong>Declaración de un solo paso:</strong> Solo presentas una declaración sumamente sencilla una vez al año (en febrero/marzo) calculada de manera automática según tu facturación anual acumulada.</li>
+                    </ul>
+                    <div class="fiscal-alert-box">
+                        <i class="fa-solid fa-circle-info"></i>
+                        <div class="fiscal-alert-text">
+                            En <strong>e-Factura</strong>, si activas el <strong>Régimen RST</strong> en tu Configuración de Empresa, el Dashboard adaptará automáticamente tu Semáforo de Salud y ocultará las alertas complejas de los reportes mensuales, mostrándote en su lugar una barra visual premium de control del límite anual.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- RST 2 -->
+        <div class="faq-item" data-category="rst">
+            <div class="faq-header">
+                <div class="faq-title-wrapper">
+                    <div class="faq-icon-box" style="background-color: rgba(16, 185, 129, 0.08); color: var(--accent-success);">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                    </div>
+                    <span class="faq-title">¿Cuál es el límite anual de facturación en el RST para el año 2026?</span>
+                </div>
+                <i class="fa-solid fa-chevron-down faq-chevron"></i>
+            </div>
+            <div class="faq-content">
+                <div class="faq-body">
+                    Para el ejercicio fiscal <strong>2026</strong>, la DGII ha establecido el tope máximo anual por inflación para el RST basado en Ingresos en:
+                    <br><br>
+                    <code style="font-size: 1.1rem; padding: 4px 10px; font-weight: 700;">RD$ 12,068,181.09</code>
+                    <br><br>
+                    <strong>¿Qué pasa si superas este límite?</strong>
+                    Si la suma de tus facturas del año calendario excede este valor exacto por un solo centavo, la DGII te excluirá de forma automática del régimen simplificado y te transferirá de manera obligatoria al <strong>Régimen General</strong>. 
+                    Esto significa que tendrás que empezar a reportar compras (606) y ventas (607) todos los meses de forma retroactiva, lo cual suele implicar multas y gastos administrativos elevados.
+                    <br><br>
+                    <strong>¿Cómo te ayuda e-Factura?</strong>
+                    Nuestra barra de progreso en tiempo real lee tus facturas emitidas autorizadas del año fiscal y te muestra con precisión matemática qué tan cerca estás del límite anual (RD$ 12.06M) y activa alertas preventivas (amarilla al 70%, roja al 90%) para que no te lleves sorpresas desagradables al cierre del año.
+                </div>
+            </div>
+        </div>
+
+        <!-- GASTOS 1 -->
+        <div class="faq-item" data-category="gastos">
+            <div class="faq-header">
+                <div class="faq-title-wrapper">
+                    <div class="faq-icon-box" style="background-color: rgba(124, 58, 237, 0.08); color: var(--accent-purple);">
+                        <i class="fa-solid fa-circle-question"></i>
+                    </div>
+                    <span class="faq-title">¿Qué hace que un gasto sea "Deducible" y cómo debo usar el Switch en el software?</span>
+                </div>
+                <i class="fa-solid fa-chevron-down faq-chevron"></i>
+            </div>
+            <div class="faq-content">
+                <div class="faq-body">
+                    De acuerdo con el artículo 287 del Código Tributario de la República Dominicana, un gasto es <strong>deducible</strong> únicamente cuando es <strong>necesario para obtener, mantener y conservar tus ingresos gravados</strong>.
+                    <br><br>
+                    <strong>Ejemplos prácticos:</strong>
+                    <ul>
+                        <li><strong>Gastos de Negocio (Deducibles):</strong> Compra de tu laptop de trabajo, pago del plan corporativo de internet, suscripciones a software (como e-Factura, AWS, Figma), alquiler de tu oficina, transporte para visitar un cliente, etc.</li>
+                        <li><strong>Gastos Personales (No Deducibles):</strong> Compra del supermercado familiar, ropa de uso diario, boletos de cine, regalos de cumpleaños o las comidas personales del fin de semana.</li>
+                    </ul>
+                    <strong>¿Por qué incluimos el Switch/Toggle de deducibilidad en el registro de gastos?</strong>
+                    Sabemos que como freelancer o micro-pyme es muy difícil separar las finanzas personales de las del negocio. 
+                    Por eso, <strong>e-Factura</strong> te permite registrar ambos tipos de gastos:
+                    <ul>
+                        <li>Si marcas <code>Deducible (Sí)</code>: El gasto se incluirá en tu Simulador DGII 606 y se sumará para calcular los impuestos que podrás deducir legalmente.</li>
+                        <li>Si marcas <code>Deducible (No)</code>: El gasto se guardará en tu base de datos para que tengas un control de presupuesto y rentabilidad real de tus finanzas, pero **se filtrará y excluirá al 100%** al exportar tu archivo oficial CSV del 606 o al visualizar el simulador tributario. Así proteges tu cumplimiento legal sin sacrificar tu control financiero interno.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- GASTOS 2 -->
+        <div class="faq-item" data-category="gastos">
+            <div class="faq-header">
+                <div class="faq-title-wrapper">
+                    <div class="faq-icon-box" style="background-color: rgba(124, 58, 237, 0.08); color: var(--accent-purple);">
+                        <i class="fa-solid fa-receipt"></i>
+                    </div>
+                    <span class="faq-title">¿Qué es el NCF de Compras Menores (E43) y cuándo debo utilizarlo?</span>
+                </div>
+                <i class="fa-solid fa-chevron-down faq-chevron"></i>
+            </div>
+            <div class="faq-content">
+                <div class="faq-body">
+                    El **Comprobante de Compras Menores (E43 / Tipo 13)** es un comprobante fiscal especial emitido por ti (el comprador) para registrar aquellas transacciones comerciales donde adquieres bienes o servicios de personas físicas que no están registradas en la DGII o que no te pueden emitir una factura válida con valor de crédito fiscal.
+                    <br><br>
+                    <strong>¿Cuándo usarlo?</strong>
+                    Por ejemplo, cuando contratas un plomero independiente sin RNC para reparar una tubería de la oficina, o realizas compras pequeñas e informales que son estrictamente del negocio.
+                    <br><br>
+                    <strong>Importante:</strong>
+                    La DGII establece límites para no abusar de este tipo de comprobante. Al registrar un gasto en nuestro módulo de control de gastos, puedes asociarle un NCF formal. Si su código inicia con **E43**, la plataforma lo catalogará automáticamente como *Gasto Menor* y lo estructurará correctamente en tus reportes.
+                </div>
+            </div>
+        </div>
+
+        <!-- RETENCIONES 1 -->
+        <div class="faq-item" data-category="retenciones">
+            <div class="faq-header">
+                <div class="faq-title-wrapper">
+                    <div class="faq-icon-box" style="background-color: rgba(245, 158, 11, 0.08); color: var(--accent-yellow);">
+                        <i class="fa-solid fa-percent"></i>
+                    </div>
+                    <span class="faq-title">¿Por qué mi factura tiene retenciones de ISR e ITBIS y cómo se calculan?</span>
+                </div>
+                <i class="fa-solid fa-chevron-down faq-chevron"></i>
+            </div>
+            <div class="faq-content">
+                <div class="faq-body">
+                    En la República Dominicana, cuando prestas servicios profesionales independientes (como consultoría, diseño, software, abogacía) a una **persona jurídica (una empresa)**, la ley obliga a esa empresa a actuar como "agente de retención". 
+                    Esto significa que ellos deben descontar una fracción de tu pago antes de transferirte y reportarlo a la DGII como un abono adelantado de tus propios impuestos.
+                    <br><br>
+                    <strong>Las retenciones de ley estándar en RD para profesionales independientes son:</strong>
+                    <ul>
+                        <li><strong>Retención del Impuesto sobre la Renta (ISR):</strong> **10%** fijo sobre el subtotal neto de los servicios prestados.</li>
+                        <li><strong>Retención de ITBIS:</strong> 
+                            <ul>
+                                <li><strong>100% del ITBIS facturado:</strong> Si prestas servicios profesionales (como consultorías, asesorías, software). La empresa retiene el 18% completo de ITBIS.</li>
+                                <li><strong>30% del ITBIS facturado:</strong> En ciertos servicios técnicos o de alquileres de bienes muebles.</li>
+                            </ul>
+                        </li>
+                    </ul>
+                    <strong>Ejemplo práctico (Factura de Servicios de RD$ 10,000):</strong>
+                    <ul>
+                        <li>Subtotal: RD$ 10,000.00</li>
+                        <li>ITBIS (18%): RD$ 1,800.00</li>
+                        <li>Total Bruto Facturado: RD$ 11,800.00</li>
+                        <li>(-) Retención ISR (10% del Subtotal): -RD$ 1,000.00</li>
+                        <li>(-) Retención ITBIS (100% del ITBIS): -RD$ 1,800.00</li>
+                        <li><strong>Neto a Recibir (Net Payable): RD$ 9,000.00</strong></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- RETENCIONES 2 -->
+        <div class="faq-item" data-category="retenciones">
+            <div class="faq-header">
+                <div class="faq-title-wrapper">
+                    <div class="faq-icon-box" style="background-color: rgba(245, 158, 11, 0.08); color: var(--accent-yellow);">
+                        <i class="fa-solid fa-scale-balanced"></i>
+                    </div>
+                    <span class="faq-title">¿Qué significa el "Neto a Recibir" o "netPayable" destacado en verde?</span>
+                </div>
+                <i class="fa-solid fa-chevron-down faq-chevron"></i>
+            </div>
+            <div class="faq-content">
+                <div class="faq-body">
+                    El valor del **Neto a Recibir** (`netPayable`) es el dato más valioso y práctico para un profesional independiente. 
+                    Muchos freelancers cometen el error de esperar en su cuenta bancaria el "Total" bruto de la factura (que incluye ITBIS) y se confunden o asustan cuando ven un depósito menor en el banco.
+                    <br><br>
+                    El Neto a Recibir calcula con exactitud matemática el total de la factura **menos** todas las retenciones dominicanas (ISR e ITBIS) aplicables de ley. 
+                    **Este es el monto exacto que tu cliente te transferirá por el banco.** 
+                    <br><br>
+                    En e-Factura destacamos este valor en un bloque color **verde esmeralda** premium con la leyenda *"Neto a Recibir"* en tu vista de detalle de facturas para que sepas con absoluta certeza el monto exacto del depósito bancario que debes conciliar.
+                </div>
+            </div>
+        </div>
+
+        <!-- COMPROBANTES 1 -->
+        <div class="faq-item" data-category="comprobantes">
+            <div class="faq-header">
+                <div class="faq-title-wrapper">
+                    <div class="faq-icon-box" style="background-color: rgba(124, 58, 237, 0.08); color: var(--accent-purple);">
+                        <i class="fa-solid fa-passport"></i>
+                    </div>
+                    <span class="faq-title">¿Qué diferencia hay entre un NCF tradicional y un e-CF Electrónico?</span>
+                </div>
+                <i class="fa-solid fa-chevron-down faq-chevron"></i>
+            </div>
+            <div class="faq-content">
+                <div class="faq-body">
+                    Ambos sirven para lo mismo ante los ojos de la DGII (darle validez fiscal a tus ventas y compras), pero la tecnología y el formato cambian radicalmente:
+                    <br><br>
+                    * **NCF Tradicional (Número de Comprobante Fiscal):** Es una secuencia física de caracteres (ej. B0100000023) que solicitas a la DGII y debes imprimir en papel o PDF plano. Su validación no es en tiempo real.
+                    * **e-CF (Comprobante Fiscal Electrónico):** Es un documento tributario en formato digital (XML) firmado con tu firma digital (certificado de la Cámara de Comercio) y que **se transmite a la DGII en tiempo real** al momento exacto de la venta. Se identifica con una secuencia especial que inicia con la letra **E** (ej. E3100000005).
+                    <br><br>
+                    <strong>¿Es obligatorio?</strong>
+                    Sí. La **Ley 32-23 de Facturación Electrónica** en la República Dominicana establece un calendario de obligatoriedad de transición para todos los contribuyentes. Con **e-Factura** ya estás 100% cubierto y preparado, operando mediante la API homologada de Alanube en Sandbox y Producción.
+                </div>
+            </div>
+        </div>
+
+        <!-- COMPROBANTES 2 -->
+        <div class="faq-item" data-category="comprobantes">
+            <div class="faq-header">
+                <div class="faq-title-wrapper">
+                    <div class="faq-icon-box" style="background-color: rgba(124, 58, 237, 0.08); color: var(--accent-purple);">
+                        <i class="fa-solid fa-qrcode"></i>
+                    </div>
+                    <span class="faq-title">¿Por qué mi comprobante firmado incluye un Código QR y qué hace?</span>
+                </div>
+                <i class="fa-solid fa-chevron-down faq-chevron"></i>
+            </div>
+            <div class="faq-content">
+                <div class="faq-body">
+                    El Código QR es una exigencia obligatoria establecida por la Norma General de Facturación Electrónica de la DGII. 
+                    <br><br>
+                    Su propósito es la **transparencia y validación inmediata**. Cualquier persona (tu cliente, un auditor de la DGII o tú mismo) puede escanear ese QR con la cámara de su celular y el sistema lo redirigirá instantáneamente al portal de consulta de la DGII, donde se mostrará la validez oficial del XML firmado y archivado en la nube. 
+                    <br><br>
+                    En e-Factura, generamos y renderizamos dinámicamente este código QR PNG en el lateral de tus facturas autorizadas para garantizar el 100% de cumplimiento legal.
+                </div>
+            </div>
+        </div>
+
+        <!-- COMPROBANTES 3: CORRECCIONES Y ANULACION -->
+        <div class="faq-item" data-category="comprobantes">
+            <div class="faq-header">
+                <div class="faq-title-wrapper">
+                    <div class="faq-icon-box" style="background-color: rgba(124, 58, 237, 0.08); color: var(--accent-purple);">
+                        <i class="fa-solid fa-ban"></i>
+                    </div>
+                    <span class="faq-title">¿Cómo corrijo o anulo un e-CF si cometí un error?</span>
+                </div>
+                <i class="fa-solid fa-chevron-down faq-chevron"></i>
+            </div>
+            <div class="faq-content">
+                <div class="faq-body">
+                    Según la normativa de la DGII, las reglas para corregir o anular un Comprobante Fiscal Electrónico (e-CF) dependen del estado en el que se encuentre el documento:
+                    <br><br>
+                    <strong>1. Si ya lo enviaste a la DGII y al Receptor:</strong>
+                    Las correcciones <strong>sólo</strong> pueden realizarse mediante la emisión de una <strong>Nota de Crédito o Débito Electrónica</strong> (según corresponda). 
+                    <br>
+                    <div class="fiscal-alert-box">
+                        <i class="fa-solid fa-circle-exclamation"></i>
+                        <div class="fiscal-alert-text">
+                            <strong>⚠️ Regla de los 30 días para Devoluciones:</strong> Si emites la Nota de Crédito Electrónica después de <strong>treinta (30) días</strong> contados a partir del nacimiento de la obligación tributaria, la devolución de bienes gravados con ITBIS conllevará <strong>únicamente la restitución del precio pagado, sin incluir la devolución del ITBIS</strong>.
+                        </div>
+                    </div>
+                    <br>
+                    <strong>2. Si está firmado digitalmente pero aún NO ha sido enviado:</strong>
+                    Si el e-CF fue firmado pero nunca se transmitió a la DGII o al cliente, puedes anularlo utilizando el Web Service de Anulación de e-NCF con el formato XML de Anulación (ANECF). Este mismo servicio se utiliza para anular secuencias en blanco (no usadas).
+                    <br><br>
+                    <strong>3. ¿Qué pasa si el cliente (Receptor) lo rechaza?</strong>
+                    Si el e-CF es rechazado por el receptor en el proceso de "Aprobación Comercial", deberás anular la factura enviando obligatoriamente una <strong>Nota de Crédito</strong> tanto a Impuestos Internos como al receptor, indicando el motivo de la anulación.
+                    <br><br>
+                    <strong>4. ¿Qué pasa si el cliente lo aprueba pero la DGII lo rechaza?</strong>
+                    En este escenario crítico, el e-CF <strong>no se considerará válido</strong> (y la aprobación comercial de tu cliente quedará rechazada de igual forma). Deberás emitir un <strong>nuevo e-CF</strong> (con una nueva secuencia) y sustituir el documento que le habías entregado al receptor.
+                </div>
+            </div>
+        </div>
+
+        <!-- CONTINGENCIA 1 -->
+        <div class="faq-item" data-category="contingencia">
+            <div class="faq-header">
+                <div class="faq-title-wrapper">
+                    <div class="faq-icon-box" style="background-color: rgba(239, 68, 68, 0.08); color: var(--accent-red);">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                    </div>
+                    <span class="faq-title">¿Qué es el Estado de Contingencia según la normativa de la DGII?</span>
+                </div>
+                <i class="fa-solid fa-chevron-down faq-chevron"></i>
+            </div>
+            <div class="faq-content">
+                <div class="faq-body">
+                    De conformidad con lo establecido en los <strong>artículos 40 al 43 del reglamento aplicable de Facturación Electrónica</strong>, se considera que un emisor electrónico se encuentra en estado de contingencia cuando se presentan situaciones de fuerza mayor o fallos técnicos que <strong>impiden la emisión y/o el envío</strong> de los Comprobantes Fiscales Electrónicos (e-CF) a la Dirección General de Colecciones (DGII).
+                    <br><br>
+                    Existen dos tipos principales de contingencia del lado del emisor:
+                    <ul>
+                        <li><strong>Contingencia por falta de conectividad:</strong> Tienes capacidad técnica para generar el e-CF, pero no puedes enviarlo a la DGII por problemas de internet o redes.</li>
+                        <li><strong>Imposibilidad de emisión del e-CF:</strong> Presentas un fallo en tus sistemas informáticos locales que te impide generar el formato electrónico.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- CONTINGENCIA 2 -->
+        <div class="faq-item" data-category="contingencia">
+            <div class="faq-header">
+                <div class="faq-title-wrapper">
+                    <div class="faq-icon-box" style="background-color: rgba(239, 68, 68, 0.08); color: var(--accent-red);">
+                        <i class="fa-solid fa-wifi"></i>
+                    </div>
+                    <span class="faq-title">1. Contingencia por falta de conectividad (Emisión Offline)</span>
+                </div>
+                <i class="fa-solid fa-chevron-down faq-chevron"></i>
+            </div>
+            <div class="faq-content">
+                <div class="faq-body">
+                    Esta situación se configura cuando dispones de la capacidad local para generar los e-CF, pero no puedes remitirlos a la DGII para su validación en tiempo real debido a interrupciones o intermitencias en tus servicios de conexión a internet.
+                    <br><br>
+                    En estos casos, debes proceder de la siguiente manera:
+                    <ul>
+                        <li><strong>Generar los e-CF en modalidad offline:</strong> La plataforma firmará localmente el documento simulando las secuencias del rango correspondiente.</li>
+                        <li><strong>Impresión Obligatoria con Leyenda:</strong> Para la entrega de bienes o prestación de servicios, es obligatorio emitir la representación impresa del e-CF, la cual incorporará automáticamente la leyenda: <code style="color: #b91c1c; font-weight: bold; background: rgba(239, 68, 68, 0.08);">“e-CF emitido en modalidad de contingencia”</code>. Dicho comprobante podrá ser validado fiscalmente por tu cliente una vez transcurrido el plazo de regularización.</li>
+                        <li><strong>Plazo de Envío:</strong> Debes remitir estos comprobantes acumulados a la DGII una vez restablecida la conexión, en un plazo máximo de <strong>setenta y dos (72) horas</strong>.</li>
+                    </ul>
+                    <div class="fiscal-alert-box" style="border-color: var(--accent-red); background-color: rgba(239, 68, 68, 0.02);">
+                        <i class="fa-solid fa-shield-halved" style="color: #ef4444;"></i>
+                        <div class="fiscal-alert-text" style="color: var(--text-secondary);">
+                            <strong>🛡️ Lógica automatizada en e-Factura:</strong> Si nuestra API de conexión (Alanube) detecta una interrupción del servicio o red, la plataforma activa de forma reactiva y automática el <strong>MODO CONTINGENCIA (FALLBACK)</strong>. Genera el código QR de validación fiscal local y estampa la leyenda obligatoria tanto en la pantalla de detalle como en el PDF de impresión.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- CONTINGENCIA 3 -->
+        <div class="faq-item" data-category="contingencia">
+            <div class="faq-header">
+                <div class="faq-title-wrapper">
+                    <div class="faq-icon-box" style="background-color: rgba(239, 68, 68, 0.08); color: var(--accent-red);">
+                        <i class="fa-solid fa-circle-xmark"></i>
+                    </div>
+                    <span class="faq-title">2. Cuando no sea posible la emisión del e-CF (Fallo Técnico)</span>
+                </div>
+                <i class="fa-solid fa-chevron-down faq-chevron"></i>
+            </div>
+            <div class="faq-content">
+                <div class="faq-body">
+                    Esta situación se presenta cuando el emisor electrónico sufre una avería grave de hardware o software y no cuenta con la capacidad técnica para generar comprobantes en formato XML electrónico.
+                    <br><br>
+                    En estos escenarios extremos:
+                    <ul>
+                        <li><strong>Comprobantes No Electrónicos:</strong> El contribuyente deberá utilizar secuencias de facturación autorizadas de <strong>Comprobantes Fiscales tradicionales (No Electrónicos)</strong>.</li>
+                        <li><strong>Plazo Límite:</strong> Este tipo de contingencia por imposibilidad técnica no podrá exceder un período máximo de <strong>quince (15) días calendario</strong>.</li>
+                        <li><strong>Notificación:</strong> La DGII establecerá los canales correspondientes para notificar formalmente el inicio y fin de este estado de contingencia.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- CONTINGENCIA 4 -->
+        <div class="faq-item" data-category="contingencia">
+            <div class="faq-header">
+                <div class="faq-title-wrapper">
+                    <div class="faq-icon-box" style="background-color: rgba(239, 68, 68, 0.08); color: var(--accent-red);">
+                        <i class="fa-solid fa-clock-rotate-left"></i>
+                    </div>
+                    <span class="faq-title">3. Regularización posterior a la contingencia y Validez fiscal</span>
+                </div>
+                <i class="fa-solid fa-chevron-down faq-chevron"></i>
+            </div>
+            <div class="faq-content">
+                <div class="faq-body">
+                    Una vez superado el estado de contingencia (ya sea por imposibilidad de emisión o por falta de conectividad), el contribuyente asume compromisos clave para regularizar su estatus:
+                    <br><br>
+                    <ul>
+                        <li><strong>Plazo de regularización:</strong> En un plazo máximo de <strong>treinta (30) días calendario</strong> contados a partir del restablecimiento del servicio, el contribuyente debe generar y remitir a la DGII los e-CF correspondientes a las operaciones realizadas.</li>
+                        <li><strong>Referenciación obligatoria:</strong> Estos e-CF deberán referenciar explícitamente los comprobantes no electrónicos emitidos de forma temporal, siguiendo las especificaciones técnicas dictadas por la DGII.</li>
+                        <li><strong>Sustento de costos:</strong> Mientras se realiza el envío y validación a la DGII, el receptor (tu cliente) podrá utilizar de inmediato los comprobantes no electrónicos entregados durante la contingencia para sustentar sus deducciones de costos, gastos y crédito fiscal de ITBIS.</li>
+                        <li><strong>Notificación de restablecimiento:</strong> Es responsabilidad del contribuyente notificar formalmente a la DGII el restablecimiento del servicio regular de facturación electrónica.</li>
+                    </ul>
+                    <div class="fiscal-alert-box">
+                        <i class="fa-solid fa-circle-exclamation"></i>
+                        <div class="fiscal-alert-text">
+                            <strong>⚠️ Validez de los comprobantes:</strong> Únicamente serán válidos para fines fiscales aquellos comprobantes no electrónicos emitidos durante un estado de contingencia debidamente notificado a la DGII, conforme a los canales y disposiciones oficiales.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- CONTINGENCIA 5 -->
+        <div class="faq-item" data-category="contingencia">
+            <div class="faq-header">
+                <div class="faq-title-wrapper">
+                    <div class="faq-icon-box" style="background-color: rgba(239, 68, 68, 0.08); color: var(--accent-red);">
+                        <i class="fa-solid fa-server"></i>
+                    </div>
+                    <span class="faq-title">4. Contingencia de la DGII (Indisponibilidad del Servidor Estatal)</span>
+                </div>
+                <i class="fa-solid fa-chevron-down faq-chevron"></i>
+            </div>
+            <div class="faq-content">
+                <div class="faq-body">
+                    ¿Qué sucede si tus sistemas funcionan perfectamente pero los servidores de la DGII o su oficina virtual están caídos?
+                    <br><br>
+                    Cuando los sistemas de la DGII no se encuentren disponibles:
+                    <ul>
+                        <li><strong>Almacenamiento Local:</strong> El emisor electrónico deberá generar y almacenar localmente todos los e-CF.</li>
+                        <li><strong>Envío diferido:</strong> Deberá remitirlos en lote una vez restablecida la comunicación y disponibilidad por parte de la DGII.</li>
+                        <li><strong>Caída prolongada (+15 días):</strong> En caso de que la caída de los servidores de la DGII se extienda por más de <strong>quince (15) días hábiles</strong>, se habilitará en la Oficina Virtual (OFV) del contribuyente la opción de envío de reportes (ventas, compras, costos, retenciones, etc.), y se permitirá operar temporalmente mediante comprobantes no electrónicos de contingencia.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Mensaje de no resultados -->
+    <div id="no-results" class="no-results-state">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+        <h4>No encontramos resultados</h4>
+        <p>Prueba buscando con palabras clave más cortas o simples como "RST", "ITBIS" o "Gasto".</p>
+    </div>
+
+    <!-- Banner footer motivacional -->
+    <div style="background-color: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 30px; display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 50px;">
+        <div>
+            <h4 style="font-family: var(--font-heading); font-size: 1.15rem; font-weight: 800; margin-bottom: 6px; color: var(--text-primary);">
+                ¿Tienes dudas sobre un caso tributario complejo?
+            </h4>
+            <p style="color: var(--text-secondary); font-size: 0.88rem; margin: 0; line-height: 1.4;">
+                Recuerda que e-Factura simplifica el uso de la tecnología, pero siempre recomendamos validar tu planeación fiscal con un asesor o contador público autorizado (CPA) certificado en RD.
+            </p>
+        </div>
+        <a href="https://dgii.gov.do" target="_blank" class="btn btn-secondary" style="white-space: nowrap; padding: 12px 24px; font-weight: 600;">
+            <i class="fa-solid fa-building-columns"></i>
+            <span>Ir a Oficina DGII</span>
+        </a>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const searchInput = document.getElementById('faq-search');
+        const tabButtons = document.querySelectorAll('.help-tab-btn');
+        const faqItems = document.querySelectorAll('.faq-item');
+        const noResults = document.getElementById('no-results');
+        let currentCategory = 'all';
+
+        // 1. Lógica del Acordeón (Abrir y Cerrar preguntas)
+        const faqHeaders = document.querySelectorAll('.faq-header');
+        faqHeaders.forEach(header => {
+            header.addEventListener('click', function() {
+                const item = this.parentElement;
+                const content = item.querySelector('.faq-content');
+                const isActive = item.classList.contains('active');
+                
+                // Cerrar todos los demás abiertos para un efecto más limpio
+                faqItems.forEach(i => {
+                    if (i !== item) {
+                        i.classList.remove('active');
+                        i.querySelector('.faq-content').style.maxHeight = null;
+                    }
+                });
+
+                if (isActive) {
+                    item.classList.remove('active');
+                    content.style.maxHeight = null;
+                } else {
+                    item.classList.add('active');
+                    content.style.maxHeight = content.scrollHeight + 'px';
+                }
+            });
+        });
+
+        // 2. Filtro por Pestañas de Categoría
+        tabButtons.forEach(btn => {
+            btn.addEventListener('click', function() {
+                tabButtons.forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                currentCategory = this.getAttribute('data-category');
+                filterFAQ();
+            });
+        });
+
+        // 3. Filtro por Búsqueda (Buscador reactivo)
+        searchInput.addEventListener('input', function() {
+            filterFAQ();
+        });
+
+        // Función unificada de filtrado
+        function filterFAQ() {
+            const query = searchInput.value.toLowerCase().trim();
+            let visibleCount = 0;
+
+            faqItems.forEach(item => {
+                const itemCategory = item.getAttribute('data-category');
+                const titleText = item.querySelector('.faq-title').textContent.toLowerCase();
+                const bodyText = item.querySelector('.faq-body').textContent.toLowerCase();
+                
+                const matchesCategory = (currentCategory === 'all' || itemCategory === currentCategory);
+                const matchesSearch = (query === '' || titleText.includes(query) || bodyText.includes(query));
+
+                if (matchesCategory && matchesSearch) {
+                    item.style.display = 'block';
+                    visibleCount++;
+                } else {
+                    item.style.display = 'none';
+                    // Si estaba activo y se oculta, cerrar el acordeón
+                    item.classList.remove('active');
+                    item.querySelector('.faq-content').style.maxHeight = null;
+                }
+            });
+
+            // Mostrar u ocultar estado de "No resultados"
+            if (visibleCount === 0) {
+                noResults.style.display = 'block';
+            } else {
+                noResults.style.display = 'none';
+            }
+        }
+    });
+</script>
+{% endblock %}

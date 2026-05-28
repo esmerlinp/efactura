@@ -1,0 +1,69 @@
+{% extends "layout.html" %}
+
+{% block title %}Administrar Almacenes{% endblock %}
+
+{% block page_header %}Gestión de Almacenes Físicos{% endblock %}
+
+{% block content %}
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
+    <div>
+        <h3 style="font-size: 1.25rem; font-family: var(--font-heading); margin-bottom: 4px;">Almacenes Registrados</h3>
+        <p style="color: var(--text-secondary); font-size: 0.88rem;">Puntos y sucursales físicas donde resguardas existencias de inventario.</p>
+    </div>
+    <div style="display: flex; gap: 12px;">
+        <a href="{{ url_for('inventory_dashboard') }}" class="btn btn-secondary">
+            <i class="fa-solid fa-arrow-left"></i>
+            <span>Volver a Inventario</span>
+        </a>
+        <a href="{{ url_for('new_warehouse') }}" class="btn btn-primary">
+            <i class="fa-solid fa-plus"></i>
+            <span>Nuevo Almacén</span>
+        </a>
+    </div>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px;">
+    {% for wh in warehouses %}
+    <div class="card-totals-highlight" style="margin-bottom: 0; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 24px; display: flex; flex-direction: column; justify-content: space-between; min-height: 200px;">
+        <div>
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+                <div style="background-color: rgba(16, 185, 129, 0.08); color: var(--accent-emerald); width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; border: 1px solid rgba(16, 185, 129, 0.15);">
+                    <i class="fa-solid fa-warehouse"></i>
+                </div>
+                <div>
+                    <h4 style="font-size: 1.1rem; font-family: var(--font-heading); font-weight: 700; color: var(--text-primary);">{{ wh.name }}</h4>
+                    {% if wh.id == 'default-almacen-principal' %}
+                    <span style="font-size: 0.72rem; background-color: var(--bg-input); color: var(--accent-emerald); border: 1px solid rgba(16, 185, 129, 0.2); padding: 2px 6px; border-radius: 4px; font-weight: bold; text-transform: uppercase;">Predeterminado</span>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <p style="color: var(--text-secondary); font-size: 0.85rem; line-height: 1.4; margin-bottom: 12px;">{{ wh.description or 'Sin descripción disponible.' }}</p>
+            
+            {% if wh.address %}
+            <p style="color: var(--text-secondary); font-size: 0.8rem; display: flex; align-items: center; gap: 6px;">
+                <i class="fa-solid fa-location-dot" style="color: var(--text-muted);"></i>
+                <span>{{ wh.address }}</span>
+            </p>
+            {% endif %}
+        </div>
+        
+        <div style="display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid var(--border-color); padding-top: 16px; margin-top: 20px;">
+            <a href="{{ url_for('edit_warehouse', warehouse_id=wh.id) }}" class="btn btn-secondary" style="padding: 8px 14px; font-size: 0.8rem;" title="Editar Almacén">
+                <i class="fa-solid fa-pen-to-square"></i>
+                <span>Editar</span>
+            </a>
+            
+            {% if wh.id != 'default-almacen-principal' %}
+            <form action="{{ url_for('delete_warehouse_route', warehouse_id=wh.id) }}" method="POST" onsubmit="return confirm('¿Seguro que deseas eliminar este almacén? Se borrará permanentemente de tu base de datos.');" style="display: inline;">
+                <button type="submit" class="btn btn-danger" style="padding: 8px 14px; font-size: 0.8rem;" title="Eliminar Almacén">
+                    <i class="fa-solid fa-trash-can"></i>
+                    <span>Eliminar</span>
+                </button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

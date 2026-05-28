@@ -1,0 +1,140 @@
+{% extends "layout.html" %}
+
+{% block title %}Catálogo de Bienes y Servicios{% endblock %}
+
+{% block page_header %}Catálogo de Artículos{% endblock %}
+
+{% block content %}
+<!-- Sección de Acciones Rápidas y Carga de CSV -->
+<div style="display: grid; grid-template-columns: 2fr 1fr; gap: 30px; margin-bottom: 30px;">
+    <!-- Listado Principal -->
+    <div class="card-table-wrapper" style="margin-bottom: 0;">
+        <div class="table-header-row">
+            <div>
+                <h3 style="font-size: 1.25rem; font-family: var(--font-heading); margin-bottom: 6px;">Catálogo General</h3>
+                <p style="color: var(--text-secondary); font-size: 0.88rem;">Inventario de bienes y servicios para facturación expedita.</p>
+            </div>
+            <a href="{{ url_for('new_item') }}" class="btn btn-primary">
+                <i class="fa-solid fa-plus"></i>
+                <span>Nuevo Artículo</span>
+            </a>
+        </div>
+        
+        <div class="table-responsive">
+            <table class="table-premium">
+                <thead>
+                    <tr>
+                        <th>Código</th>
+                        <th>Nombre / Descripción</th>
+                        <th>Ubicación</th>
+                        <th>Existencia</th>
+                        <th>Tipo</th>
+                        <th>Medida</th>
+                        <th>Tasa ITBIS</th>
+                        <th>Precio Unitario</th>
+                        <th style="text-align: right;">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if items %}
+                        {% for item in items %}
+                            <tr>
+                                <td>
+                                    <span style="font-family: monospace; font-size: 0.85rem; background-color: var(--bg-input); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-color);">
+                                        {{ item.code or 'S/C' }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <strong>{{ item.name }}</strong>
+                                </td>
+                                <td>
+                                    <span style="font-size: 0.88rem; color: var(--text-secondary);">
+                                        {{ item.rackLocation or '—' }}
+                                    </span>
+                                </td>
+                                <td>
+                                    {% if item.type == 'Bien' %}
+                                        <span class="badge {% if item.totalStock <= item.minStock and item.minStock > 0 %}badge-danger{% else %}badge-success{% endif %}" style="font-weight: bold;">
+                                            {{ "{:,.2f}".format(item.totalStock or 0.0) }} {{ item.unit or 'ud' }}
+                                        </span>
+                                        {% if item.totalStock <= item.minStock and item.minStock > 0 %}
+                                            <i class="fa-solid fa-triangle-exclamation" style="color: var(--accent-red); margin-left: 4px;" title="¡Bajo stock de seguridad! (Mínimo: {{ item.minStock }})"></i>
+                                        {% endif %}
+                                    {% else %}
+                                        <span style="color: var(--text-muted); font-size: 0.85rem; font-style: italic;">N/A (Servicio)</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge {% if item.type == 'Servicio' %}badge-primary{% else %}badge-success{% endif %}">
+                                        {{ item.type or 'Bien' }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <span style="font-size: 0.88rem; color: var(--text-secondary);">{{ item.unit or 'Unidad' }}</span>
+                                </td>
+                                <td>
+                                    <strong style="color: var(--accent-purple);">{{ "{:.0%}".format(item.itbisRate) }}</strong>
+                                </td>
+                                <td>
+                                    <strong>RD$ {{ "{:,.2f}".format(item.price) }}</strong>
+                                </td>
+                                <td style="text-align: right;">
+                                    <div style="display: inline-flex; gap: 8px;">
+                                        <a href="{{ url_for('edit_item', item_id=item.id) }}" class="btn btn-secondary" style="padding: 8px 12px; font-size: 0.8rem;" title="Editar Artículo">
+                                            <i class="fa-solid fa-pen-to-square"></i>
+                                        </a>
+                                        <form action="{{ url_for('delete_item_route', item_id=item.id) }}" method="POST" onsubmit="return confirm('¿Seguro que deseas eliminar este artículo?');" style="display: inline;">
+                                            <button type="submit" class="btn btn-danger" style="padding: 8px 12px; font-size: 0.8rem;" title="Eliminar Artículo">
+                                                <i class="fa-solid fa-trash-can"></i>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="7" style="text-align: center; padding: 60px 0; color: var(--text-secondary);">
+                                <i class="fa-solid fa-boxes-stacked" style="font-size: 3rem; color: var(--text-muted); margin-bottom: 16px; opacity: 0.5; display: block;"></i>
+                                <span>No hay productos registrados en el catálogo aún.</span>
+                                <a href="{{ url_for('new_item') }}" style="color: var(--accent-emerald); font-weight: 600; display: block; margin-top: 10px;">Crear primer artículo</a>
+                            </td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <!-- Módulo de Importación Masiva CSV -->
+    <div style="display: flex; flex-direction: column; gap: 24px;">
+        <div class="card-table-wrapper" style="margin-bottom: 0; padding: 28px;">
+            <h3 style="font-size: 1.15rem; font-family: var(--font-heading); margin-bottom: 12px; display: flex; align-items: center; gap: 10px;">
+                <i class="fa-solid fa-file-csv" style="color: var(--accent-emerald); font-size: 1.3rem;"></i>
+                <span>Importación CSV</span>
+            </h3>
+            <p style="color: var(--text-secondary); font-size: 0.85rem; line-height: 1.4; margin-bottom: 20px;">
+                Sube tu catálogo de forma masiva utilizando un archivo delimitado por comas. Descarga la plantilla para ver el orden de las columnas.
+            </p>
+            
+            <form action="{{ url_for('import_items_csv') }}" method="POST" enctype="multipart/form-data" style="display: flex; flex-direction: column; gap: 18px;">
+                <div style="border: 2px dashed var(--border-color); border-radius: var(--radius-sm); padding: 24px 16px; text-align: center; cursor: pointer; transition: border-color var(--transition-fast);" onmouseover="this.style.borderColor='var(--accent-emerald)'" onmouseout="this.style.borderColor='var(--border-color)'" onclick="document.getElementById('csv-file').click()">
+                    <i class="fa-solid fa-cloud-arrow-up" style="font-size: 2.2rem; color: var(--text-muted); margin-bottom: 10px; display: block;"></i>
+                    <span style="font-size: 0.85rem; font-weight: 600; color: var(--text-secondary);" id="file-label">Seleccionar archivo .csv</span>
+                    <input type="file" id="csv-file" name="csv_file" accept=".csv" required style="display: none;" onchange="document.getElementById('file-label').textContent=this.files[0].name; this.parentElement.style.borderColor='var(--accent-emerald)';">
+                </div>
+                
+                <button type="submit" class="btn btn-primary" style="width: 100%;">
+                    <i class="fa-solid fa-upload"></i>
+                    <span>Cargar Catálogo</span>
+                </button>
+            </form>
+            
+            <a href="{{ url_for('download_csv_template') }}" style="display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 0.82rem; color: var(--accent-purple); font-weight: 600; margin-top: 20px; border-top: 1px solid var(--border-color); padding-top: 16px;">
+                <i class="fa-solid fa-download"></i>
+                <span>Descargar Plantilla CSV</span>
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,82 @@
+{% extends "layout.html" %}
+
+{% block title %}{% if item %}Editar Artículo{% else %}Nuevo Artículo{% endif %}{% endblock %}
+
+{% block page_header %}{% if item %}Editar Artículo{% else %}Nuevo Artículo del Catálogo{% endif %}{% endblock %}
+
+{% block content %}
+<div class="card-table-wrapper" style="max-width: 700px; margin: 0 auto;">
+    <h3 style="font-size: 1.25rem; font-family: var(--font-heading); margin-bottom: 24px; border-bottom: 1px solid var(--border-color); padding-bottom: 14px;">
+        <i class="fa-solid fa-box-open" style="color: var(--accent-emerald);"></i>
+        <span>Información del Artículo</span>
+    </h3>
+    
+    <form action="{% if item %}{{ url_for('edit_item', item_id=item.id) }}{% else %}{{ url_for('new_item') }}{% endif %}" method="POST">
+        <div class="form-grid">
+            <div class="form-group">
+                <label for="code">Código de Referencia (Código de Barra / SKU)</label>
+                <input type="text" id="code" name="code" class="form-input" placeholder="Ej: PROD-1025" value="{{ item.code if item else '' }}">
+            </div>
+            
+            <div class="form-group">
+                <label for="type">Tipo de Elemento</label>
+                <select id="type" name="type" class="form-select" required>
+                    <option value="Bien" {% if item and item.type == 'Bien' %}selected{% endif %}>Bien / Producto Físico</option>
+                    <option value="Servicio" {% if item and item.type == 'Servicio' %}selected{% endif %}>Servicio / Asesoría / Consultas</option>
+                </select>
+            </div>
+            
+            <div class="form-group" style="grid-column: 1 / -1;">
+                <label for="name">Nombre / Descripción del Artículo</label>
+                <input type="text" id="name" name="name" class="form-input" placeholder="Ej: Desarrollo de Software a la Medida" required value="{{ item.name if item else '' }}">
+            </div>
+            
+            <div class="form-group">
+                <label for="price">Precio Unitario (RD$)</label>
+                <input type="number" id="price" name="price" class="form-input" placeholder="0.00" step="0.01" required value="{{ item.price if item else '' }}">
+            </div>
+            
+            <div class="form-group">
+                <label for="unit">Unidad de Medida</label>
+                <select id="unit" name="unit" class="form-select" required>
+                    <option value="Unidad" {% if item and item.unit == 'Unidad' %}selected{% endif %}>Unidad (ud)</option>
+                    <option value="Hora" {% if item and item.unit == 'Hora' %}selected{% endif %}>Hora (hr)</option>
+                    <option value="Servicio" {% if item and item.unit == 'Servicio' %}selected{% endif %}>Servicio (srv)</option>
+                    <option value="Caja" {% if item and item.unit == 'Caja' %}selected{% endif %}>Caja (cj)</option>
+                    <option value="Mes" {% if item and item.unit == 'Mes' %}selected{% endif %}>Mes (mes)</option>
+                    <option value="Otros" {% if item and item.unit == 'Otros' %}selected{% endif %}>Otros</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="itbis_rate">Tasa de ITBIS Aplicable</label>
+                <select id="itbis_rate" name="itbisRate" class="form-select" required>
+                    <option value="0.18" {% if item and item.itbisRate == 0.18 %}selected{% endif %}>Gravado con ITBIS General (18%)</option>
+                    <option value="0.16" {% if item and item.itbisRate == 0.16 %}selected{% endif %}>Gravado con ITBIS Reducido (16%)</option>
+                    <option value="0.0" {% if item and item.itbisRate == 0.0 %}selected{% endif %}>Exento de ITBIS (0%)</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="min_stock">Stock Mínimo de Alerta</label>
+                <input type="number" id="min_stock" name="minStock" class="form-input" placeholder="0.00" step="0.01" value="{{ item.minStock if item else '0.00' }}">
+            </div>
+            
+            <div class="form-group">
+                <label for="rack_location">Ubicación Física (Pasillo / Tramo)</label>
+                <input type="text" id="rack_location" name="rackLocation" class="form-input" placeholder="Ej: Pasillo 3, Góndola A" value="{{ item.rackLocation if item else '' }}">
+            </div>
+        </div>
+
+        <div style="margin-top: 36px; display: flex; justify-content: flex-end; gap: 15px; border-top: 1px solid var(--border-color); padding-top: 24px;">
+            <a href="{{ url_for('list_items') }}" class="btn btn-secondary">
+                <span>Cancelar</span>
+            </a>
+            <button type="submit" class="btn btn-primary">
+                <i class="fa-solid fa-floppy-disk"></i>
+                <span>{% if item %}Guardar Cambios{% else %}Registrar Artículo{% endif %}</span>
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}

@@ -1,0 +1,207 @@
+{% extends "layout.html" %}
+
+{% block title %}Inventario y Almacenes{% endblock %}
+
+{% block page_header %}Tablero de Inventario{% endblock %}
+
+{% block content %}
+<!-- Tarjetas de Resumen KPI con Glassmorphism -->
+<div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 30px;">
+    <!-- KPI 1: Almacenes Activos -->
+    <div class="card-totals-highlight" style="margin-bottom: 0; background: linear-gradient(135deg, rgba(16, 185, 129, 0.08), rgba(6, 182, 212, 0.05)); border-left: 5px solid var(--accent-emerald);">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <span style="font-size: 0.8rem; color: var(--text-secondary); font-weight: 600; text-transform: uppercase;">Almacenes</span>
+                <h2 style="font-size: 2rem; font-family: var(--font-heading); margin-top: 6px; font-weight: 800;">{{ warehouses | length }}</h2>
+            </div>
+            <i class="fa-solid fa-warehouse" style="font-size: 2rem; color: var(--accent-emerald); opacity: 0.8;"></i>
+        </div>
+        <p style="color: var(--text-secondary); font-size: 0.78rem; margin-top: 10px;">Puntos de almacenamiento activos.</p>
+    </div>
+
+    <!-- KPI 2: Total Productos -->
+    <div class="card-totals-highlight" style="margin-bottom: 0; background: linear-gradient(135deg, rgba(59, 130, 246, 0.08), rgba(37, 99, 235, 0.05)); border-left: 5px solid var(--accent-purple);">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <span style="font-size: 0.8rem; color: var(--text-secondary); font-weight: 600; text-transform: uppercase;">Catálogo Físico</span>
+                <h2 style="font-size: 2rem; font-family: var(--font-heading); margin-top: 6px; font-weight: 800;">{{ items | length }}</h2>
+            </div>
+            <i class="fa-solid fa-boxes-stacked" style="font-size: 2rem; color: var(--accent-purple); opacity: 0.8;"></i>
+        </div>
+        <p style="color: var(--text-secondary); font-size: 0.78rem; margin-top: 10px;">Bienes materiales registrados.</p>
+    </div>
+
+    <!-- KPI 3: Stock Total Sumado -->
+    {% set ns = namespace(total_units=0.0) %}
+    {% for it in items %}
+        {% set ns.total_units = ns.total_units + (it.totalStock or 0.0) %}
+    {% endfor %}
+    <div class="card-totals-highlight" style="margin-bottom: 0; background: linear-gradient(135deg, rgba(236, 72, 153, 0.08), rgba(244, 63, 94, 0.05)); border-left: 5px solid var(--accent-magenta);">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <span style="font-size: 0.8rem; color: var(--text-secondary); font-weight: 600; text-transform: uppercase;">Existencia Total</span>
+                <h2 style="font-size: 2rem; font-family: var(--font-heading); margin-top: 6px; font-weight: 800;">{{ "{:,.2f}".format(ns.total_units) }}</h2>
+            </div>
+            <i class="fa-solid fa-cubes" style="font-size: 2rem; color: var(--accent-magenta); opacity: 0.8;"></i>
+        </div>
+        <p style="color: var(--text-secondary); font-size: 0.78rem; margin-top: 10px;">Suma general de stock disponible.</p>
+    </div>
+
+    <!-- KPI 4: Alertas de Bajo Stock -->
+    <div class="card-totals-highlight" style="margin-bottom: 0; background: linear-gradient(135deg, rgba(239, 68, 68, 0.08), rgba(220, 38, 38, 0.05)); border-left: 5px solid var(--accent-red);">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <span style="font-size: 0.8rem; color: var(--text-secondary); font-weight: 600; text-transform: uppercase;">Alertas Críticas</span>
+                <h2 style="font-size: 2rem; font-family: var(--font-heading); margin-top: 6px; font-weight: 800; color: {% if low_stock_alerts %}var(--accent-red){% else %}inherit{% endif %};">{{ low_stock_alerts | length }}</h2>
+            </div>
+            <i class="fa-solid fa-circle-exclamation" style="font-size: 2rem; color: var(--accent-red); opacity: 0.8;"></i>
+        </div>
+        <p style="color: var(--text-secondary); font-size: 0.78rem; margin-top: 10px;">Artículos por debajo del mínimo.</p>
+    </div>
+</div>
+
+<!-- Acciones de Inventario Destacadas -->
+<div style="display: flex; justify-content: flex-end; gap: 15px; margin-bottom: 30px;">
+    <a href="{{ url_for('inventory_warehouses') }}" class="btn btn-secondary" style="padding: 12px 20px;">
+        <i class="fa-solid fa-warehouse"></i>
+        <span>Administrar Almacenes</span>
+    </a>
+    <a href="{{ url_for('inventory_transactions') }}" class="btn btn-secondary" style="padding: 12px 20px;">
+        <i class="fa-solid fa-list-check"></i>
+        <span>Kárdex (Movimientos)</span>
+    </a>
+    <a href="{{ url_for('new_inventory_transaction') }}" class="btn btn-primary" style="padding: 12px 24px; font-weight: 600;">
+        <i class="fa-solid fa-shuffle"></i>
+        <span>Ajuste / Transacción Manual</span>
+    </a>
+</div>
+
+<!-- Alertas de Stock Crítico -->
+{% if low_stock_alerts %}
+<div class="card-table-wrapper" style="border: 1px solid rgba(239, 68, 68, 0.2); background: rgba(239, 68, 68, 0.02); margin-bottom: 30px;">
+    <h3 style="font-size: 1.1rem; color: var(--accent-red); font-family: var(--font-heading); margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+        <span>Alertas de Abastecimiento Requerido</span>
+    </h3>
+    <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 20px;">Los siguientes artículos se encuentran en un nivel inferior o igual a su stock de seguridad configurado:</p>
+    
+    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;">
+        {% for item in low_stock_alerts %}
+        <div style="background-color: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 16px; display: flex; align-items: center; gap: 12px;">
+            <div style="background-color: rgba(239, 68, 68, 0.1); color: var(--accent-red); width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 0.9rem;">
+                <i class="fa-solid fa-box"></i>
+            </div>
+            <div style="flex-grow: 1; overflow: hidden;">
+                <strong style="display: block; font-size: 0.9rem; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">{{ item.name }}</strong>
+                <span style="font-size: 0.78rem; color: var(--text-secondary);">Mínimo: {{ item.minStock }} {{ item.unit }} | Ubicación: {{ item.rackLocation or '—' }}</span>
+            </div>
+            <div style="text-align: right;">
+                <span style="font-size: 1rem; font-weight: 800; color: var(--accent-red);">{{ "{:,.2f}".format(item.totalStock or 0.0) }}</span>
+                <span style="font-size: 0.7rem; display: block; color: var(--text-muted);">Restante</span>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<!-- Tabla General de Existencias Cruzadas -->
+<div class="card-table-wrapper">
+    <div class="table-header-row" style="margin-bottom: 20px;">
+        <div>
+            <h3 style="font-size: 1.25rem; font-family: var(--font-heading); margin-bottom: 4px;">Inventario por Almacén</h3>
+            <p style="color: var(--text-secondary); font-size: 0.88rem;">Detalle cruzado del stock de cada producto físico en tus sucursales o depósitos.</p>
+        </div>
+        <!-- Buscador Reactivo Local -->
+        <div style="position: relative; max-width: 320px; width: 100%;">
+            <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-secondary); font-size: 0.9rem;"></i>
+            <input type="text" id="inventory-search" class="form-input" placeholder="Buscar producto o pasillo..." style="padding-left: 40px; width: 100%; border-radius: 30px;">
+        </div>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table-premium" id="inventory-table">
+            <thead>
+                <tr>
+                    <th style="width: 15%;">Código / SKU</th>
+                    <th style="width: 25%;">Descripción del Producto</th>
+                    <th style="width: 18%;">Ubicación (Pasillo)</th>
+                    <!-- Cabeceras Dinámicas para Almacenes -->
+                    {% for wh in warehouses %}
+                    <th style="text-align: right;">{{ wh.name }}</th>
+                    {% endfor %}
+                    <th style="text-align: right; width: 15%;">Existencia Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if items %}
+                    {% for item in items %}
+                    <tr class="inventory-row" data-name="{{ item.name | lower }}" data-code="{{ (item.code or '') | lower }}" data-rack="{{ (item.rackLocation or '') | lower }}">
+                        <td>
+                            <span style="font-family: monospace; font-size: 0.85rem; background-color: var(--bg-input); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-color);">
+                                {{ item.code or 'S/C' }}
+                            </span>
+                        </td>
+                        <td>
+                            <strong style="display: block;">{{ item.name }}</strong>
+                            <small style="color: var(--text-secondary); font-size: 0.75rem;">Categoría: {{ item.type }} | Unidad: {{ item.unit }}</small>
+                        </td>
+                        <td>
+                            <span style="font-size: 0.88rem; color: var(--text-secondary); font-weight: 500;">
+                                <i class="fa-solid fa-location-dot" style="font-size: 0.78rem; margin-right: 4px; color: var(--accent-purple);"></i>
+                                {{ item.rackLocation or '—' }}
+                            </span>
+                        </td>
+                        <!-- Stock por cada Almacén -->
+                        {% for wh in warehouses %}
+                        <td style="text-align: right;">
+                            {% set qty = item.warehouse_stocks.get(wh.id, 0.0) %}
+                            <span style="font-weight: 500; color: {% if qty < 0 %}var(--accent-red){% elif qty == 0 %}var(--text-muted){% else %}inherit{% endif %};">
+                                {{ "{:,.2f}".format(qty) }}
+                            </span>
+                        </td>
+                        {% endfor %}
+                        <td style="text-align: right;">
+                            <span class="badge {% if item.totalStock <= item.minStock and item.minStock > 0 %}badge-danger{% else %}badge-success{% endif %}" style="font-weight: 800; font-size: 0.88rem; padding: 6px 12px;">
+                                {{ "{:,.2f}".format(item.totalStock or 0.0) }} {{ item.unit }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr>
+                        <td colspan="{{ 4 + (warehouses | length) }}" style="text-align: center; padding: 60px 0; color: var(--text-secondary);">
+                            <i class="fa-solid fa-warehouse" style="font-size: 3rem; color: var(--text-muted); margin-bottom: 16px; opacity: 0.5; display: block;"></i>
+                            <span>No hay bienes físicos registrados en el catálogo.</span>
+                            <p style="font-size: 0.82rem; color: var(--text-muted); margin-top: 5px;">Solo los artículos marcados como **Bien / Producto Físico** tienen control de almacenes.</p>
+                            <a href="{{ url_for('new_item') }}" style="color: var(--accent-emerald); font-weight: 600; display: block; margin-top: 15px;">Ir a Catálogo a Crear Producto</a>
+                        </td>
+                    </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    // Filtro reactivo en tiempo real para la tabla de inventarios
+    document.getElementById('inventory-search').addEventListener('input', function(e) {
+        const query = e.target.value.toLowerCase().trim();
+        const rows = document.querySelectorAll('.inventory-row');
+        
+        rows.forEach(row => {
+            const name = row.getAttribute('data-name');
+            const code = row.getAttribute('data-code');
+            const rack = row.getAttribute('data-rack');
+            
+            if (name.includes(query) || code.includes(query) || rack.includes(query)) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    });
+</script>
+{% endblock %}

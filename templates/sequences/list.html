@@ -1,0 +1,293 @@
+{% extends "layout.html" %}
+
+{% block title %}Secuencias Fiscales (e-NCF){% endblock %}
+
+{% block page_header %}Secuencias Fiscales Autorizadas & Auditoría{% endblock %}
+
+{% block content %}<!-- Rangos Autorizados por la DGII (Ancho Completo para mejor distribución) -->
+<div style="margin-bottom: 40px;">
+    <div class="card-table-wrapper" style="margin-bottom: 0;">
+        <h3
+            style="font-size: 1.25rem; font-family: var(--font-heading); margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px; display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-arrow-down-9-1" style="color: var(--accent-emerald);"></i>
+                <span>Rangos Autorizados por la DGII</span>
+            </div>
+            <button type="button" id="btn-open-sequence-modal" class="btn btn-primary"
+                style="padding: 8px 18px; font-size: 0.85rem;">
+                <i class="fa-solid fa-plus-circle"></i>
+                <span>Registrar Secuencia</span>
+            </button>
+        </h3>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px;">
+            {% if sequences %}
+            {% for seq in sequences %}
+            <div
+                style="background-color: rgba(255, 255, 255, 0.01); border: 1px solid gray; border-radius: var(--radius-sm); padding: 20px; position: relative; display: flex; flex-direction: column; justify-content: space-between;">
+                <div>
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
+                        <div>
+                            <strong style="font-size: 1.1rem; color: var(--text-primary);">{{ seq.tipoComprobante
+                                }}</strong>
+                            <span
+                                style="display: block; font-size: 0.78rem; color: var(--text-muted); margin-top: 4px;">Prefijo:
+                                {{ seq.prefijo }}</span>
+                        </div>
+                        <div style="text-align: right;">
+                            <span
+                                class="badge {% if seq.estado == 'ACTIVA' %}badge-success{% else %}badge-secondary{% endif %}">
+                                {{ seq.estado }}
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Barra de porcentaje consumido -->
+                    <div
+                        style="width: 100%; height: 10px; background-color: var(--bg-input); border-radius: 5px; overflow: hidden; margin-bottom: 12px; position: relative;">
+                        <div
+                            style="width: {{ seq.porcentajeUsado * 100 }}%; height: 100%; background-color: {% if seq.cantidadDisponible <= seq.alertaMinimoDisponible %}var(--accent-red){% else %}var(--accent-emerald){% endif %}; border-radius: 5px; transition: width 0.5s ease;">
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <div
+                        style="display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 6px;">
+                        <span>Secuencia Inicial: <strong>{{ seq.secuenciaInicial }}</strong></span>
+                        <span>Secuencia Final: <strong>{{ seq.secuenciaFinal }}</strong></span>
+                    </div>
+                    <div
+                        style="display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--text-secondary); border-top: 1px dashed var(--border-color); padding-top: 6px;">
+                        <span>Último Utilizado: <strong>{{ seq.ultimoConsecutivoUsado }}</strong></span>
+                        <span style="color: var(--accent-purple); font-weight: 700;">{{ seq.cantidadDisponible }} NCF
+                            Libres</span>
+                    </div>
+                    <span
+                        style="display: block; font-size: 0.72rem; color: var(--text-muted); margin-top: 8px; text-align: center;">DGII
+                        Autorización: #{{ seq.numeroAutorizacionDgii }}</span>
+                </div>
+            </div>
+            {% endfor %}
+            {% else %}
+            <div style="grid-column: 1 / -1; text-align: center; color: var(--text-secondary); padding: 40px 0;">
+                <i class="fa-solid fa-barcode"
+                    style="font-size: 2.5rem; opacity: 0.4; margin-bottom: 12px; display: block;"></i>
+                <span>No tienes secuencias fiscales registradas en este entorno.</span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Grid de Anulaciones y Auditoría de Logs inmutables -->
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 40px;">
+    <!-- Envío de Anulación a Alanube / DGII -->
+    <div class="card-table-wrapper">
+        <h3
+            style="font-size: 1.15rem; font-family: var(--font-heading); margin-bottom: 20px; display: flex; align-items: center; gap: 8px;">
+            <i class="fa-solid fa-ban" style="color: var(--accent-red);"></i>
+            <span>Anulación de Secuencias (Alanube)</span>
+        </h3>
+
+        <form action="{{ url_for('new_cancellation_route') }}" method="POST"
+            style="display: flex; flex-direction: column; gap: 15px; margin-bottom: 24px; border-bottom: 1px solid var(--border-color); padding-bottom: 24px;">
+            <div class="form-grid" style="gap: 16px;">
+                <div class="form-group">
+                    <label for="series">Prefijo / Serie (Ej: E31)</label>
+                    <input type="text" id="series" name="series" class="form-input" placeholder="E31" required
+                        style="text-transform: uppercase;">
+                </div>
+                <div class="form-group">
+                    <label for="c_reason">Motivo de Anulación</label>
+                    <input type="text" id="c_reason" name="reason" class="form-input"
+                        placeholder="Error de impresión / Pérdida" required>
+                </div>
+            </div>
+
+            <div class="form-grid" style="gap: 16px;">
+                <div class="form-group">
+                    <label for="c_start">Desde Consecutivo</label>
+                    <input type="number" id="c_start" name="startSequence" class="form-input" placeholder="10" required
+                        min="1">
+                </div>
+                <div class="form-group">
+                    <label for="c_end">Hasta Consecutivo</label>
+                    <input type="number" id="c_end" name="endSequence" class="form-input" placeholder="25" required
+                        min="1">
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-danger" style="width: 100%;">
+                <i class="fa-solid fa-paper-plane"></i>
+                <span>Enviar Petición de Anulación</span>
+            </button>
+        </form>
+
+        <h4 style="font-size: 1rem; font-family: var(--font-heading); margin-bottom: 16px;">Historial de Rango de
+            Anulaciones</h4>
+        <div style="max-height: 250px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px;">
+            {% if cancellations %}
+            {% for canc in cancellations %}
+            <div
+                style="background-color: rgba(255, 255, 255, 0.01); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 12px 16px; display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <strong style="font-size: 0.88rem;">{{ canc.series }} (Rango: {{ canc.startSequence }} - {{
+                        canc.endSequence }})</strong>
+                    <span
+                        style="display: block; font-size: 0.75rem; color: var(--text-secondary); margin-top: 2px;">Razón:
+                        {{ canc.reason }}</span>
+                    {% if canc.cancellationCode %}
+                    <span
+                        style="display: block; font-size: 0.72rem; color: var(--text-muted); font-family: monospace;">Aprobación:
+                        {{ canc.cancellationCode }}</span>
+                    {% endif %}
+                </div>
+                <span class="badge badge-success" style="font-size: 0.65rem;">{{ canc.status }}</span>
+            </div>
+            {% endfor %}
+            {% else %}
+            <div style="text-align: center; color: var(--text-muted); font-size: 0.85rem; padding: 20px 0;">
+                No se han registrado peticiones de anulación de rango.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Logs de Auditoría Inmutables de Consecutivos Consumidos -->
+    <div class="card-table-wrapper">
+        <h3
+            style="font-size: 1.15rem; font-family: var(--font-heading); margin-bottom: 20px; display: flex; align-items: center; gap: 8px;">
+            <i class="fa-solid fa-list-check" style="color: var(--accent-purple);"></i>
+            <span>Logs de Auditoría Fiscal (Inmutable)</span>
+        </h3>
+
+        <div
+            style="max-height: 520px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding-right: 5px;">
+            {% if sequence_logs %}
+            {% for log in sequence_logs %}
+            <div
+                style="background-color: rgba(255, 255, 255, 0.01); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 14px 18px; display: flex; flex-direction: column; gap: 6px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <strong style="font-family: monospace; font-size: 0.95rem; color: var(--accent-purple);">{{ log.encf
+                        }}</strong>
+                    <span class="badge {% if log.estado == 'ACCEPTED' %}badge-success{% else %}badge-primary{% endif %}"
+                        style="font-size: 0.65rem;">
+                        {{ log.estado }}
+                    </span>
+                </div>
+                <div
+                    style="display: flex; justify-content: space-between; font-size: 0.78rem; color: var(--text-secondary);">
+                    <span>Usuario: <strong>{{ log.usuario }}</strong></span>
+                    <span>Registro: {{ log.fechaRegistro[:16] | replace('T', ' ') }}</span>
+                </div>
+                <div
+                    style="font-size: 0.75rem; color: var(--text-muted); border-top: 1px solid var(--border-color); padding-top: 6px; margin-top: 2px;">
+                    <i class="fa-solid fa-circle-info"></i> {{ log.motivo or 'Emitido con éxito.' }}
+                </div>
+            </div>
+            {% endfor %}
+            {% else %}
+            <div style="text-align: center; color: var(--text-muted); font-size: 0.85rem; padding: 40px 0;">
+                No se han registrado consumos de consecutivos fiscales.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Modal Registrar Rango DGII -->
+<div class="search-modal" id="sequence-modal" style="display: none;">
+    <div class="modal-backdrop" id="sequence-modal-backdrop"></div>
+    <div class="modal-content" style="max-width: 500px;">
+        <div class="modal-header">
+            <h3><i class="fa-solid fa-barcode" style="color: var(--accent-emerald);"></i> Registrar Secuencia DGII</h3>
+            <button type="button" class="btn-close-modal" id="btn-close-sequence-modal"><i
+                    class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body">
+            <form action="{{ url_for('new_sequence_route') }}" method="POST"
+                style="display: flex; flex-direction: column; gap: 15px;">
+                <div class="form-group">
+                    <label for="tipo_comprobante">Tipo de e-CF</label>
+                    <select id="tipo_comprobante" name="tipoComprobante" class="form-select" required>
+                        <option value="E31">E31 - Crédito Fiscal</option>
+                        <option value="E32">E32 - Factura de Consumo</option>
+                        <option value="E33">E33 - Nota de Débito</option>
+                        <option value="E34">E34 - Nota de Crédito</option>
+                        <option value="E41">E41 - Comprobante de Compras</option>
+                        <option value="E43">E43 - Gastos Menores</option>
+                        <option value="E47">E47 - Pagos al Exterior</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="autorizacion">Número Autorización DGII</label>
+                    <input type="text" id="autorizacion" name="numeroAutorizacionDgii" class="form-input"
+                        placeholder="Ej: 80946571" required>
+                </div>
+
+                <div class="form-grid" style="gap: 16px; grid-template-columns: 1fr 1fr;">
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label for="inicial">Secuencia Inicial</label>
+                        <input type="number" id="inicial" name="secuenciaInicial" class="form-input" placeholder="1"
+                            required min="1">
+                    </div>
+
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label for="final">Secuencia Final</label>
+                        <input type="number" id="final" name="secuenciaFinal" class="form-input" placeholder="1000"
+                            required min="1">
+                    </div>
+                </div>
+
+                <div class="form-grid" style="gap: 16px; grid-template-columns: 1fr 1fr;">
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label for="minimo">Alerta Mínimo</label>
+                        <input type="number" id="minimo" name="alertaMinimoDisponible" class="form-input" value="100"
+                            required min="1">
+                    </div>
+
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label for="expiracion">Expiración</label>
+                        <input type="date" id="expiracion" name="fechaExpiracion" class="form-input" required
+                            value="{{ default_exp_date }}">
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 15px;">
+                    <i class="fa-solid fa-barcode"></i>
+                    <span>Registrar Rango</span>
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const modal = document.getElementById('sequence-modal');
+        const openBtn = document.getElementById('btn-open-sequence-modal');
+        const closeBtn = document.getElementById('btn-close-sequence-modal');
+        const backdrop = document.getElementById('sequence-modal-backdrop');
+
+        if (openBtn && modal) {
+            openBtn.addEventListener('click', function () {
+                modal.style.display = 'flex';
+            });
+        }
+
+        function closeModal() {
+            if (modal) {
+                modal.style.display = 'none';
+            }
+        }
+
+        if (closeBtn) closeBtn.addEventListener('click', closeModal);
+        if (backdrop) backdrop.addEventListener('click', closeModal);
+    });
+</script>
+{% endblock %}

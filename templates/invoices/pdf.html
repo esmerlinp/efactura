@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% if invoice.isQuotation %}Cotización{% else %}Factura{% endif %} {{ invoice.invoiceNumber }} - {{
+        company.companyName }}</title>
+    {% if auto_print %}
+    <script>
+        window.addEventListener('load', function () {
+            setTimeout(function () { window.print(); }, 500);
+        });
+    </script>
+    {% endif %}
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Arial', 'Helvetica', sans-serif;
+            font-size: 12px;
+            color: #1a1a2e;
+            background: white;
+            padding: 0;
+        }
+
+        /* ---- Encabezado ---- */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            padding: 32px 40px 24px;
+
+            border-bottom: 3px solid {
+                    {
+                    company_color_marca or '#1E3A8A'
+                }
+            }
+
+            ;
+            margin-bottom: 28px;
+        }
+
+        .company-block h1 {
+            font-size: 22px;
+            font-weight: 800;
+
+            color: {
+                    {
+                    company_color_marca or '#1E3A8A'
+                }
+            }
+
+            ;
+            margin-bottom: 4px;
+        }
+
+        .company-block p {
+            font-size: 11px;
+            color: #475569;
+            line-height: 1.5;
+        }
+
+        .document-block {
+            text-align: right;
+        }
+
+        .document-block .doc-number {
+            font-size: 20px;
+            font-weight: 800;
+
+            color: {
+                    {
+                    company_color_marca or '#1E3A8A'
+                }
+            }
+
+            ;
+            margin-bottom: 4px;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 6px;
+        }
+
+        .badge-success {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .badge-draft {
+            background: #f1f5f9;
+            color: #475569;
+        }
+
+        .badge-voided {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .document-block .doc-meta {
+            font-size: 11px;
+            color: #64748b;
+            margin-top: 6px;
+        }
+
+        /* ---- Sección Emisor / Receptor ---- */
+        .parties-grid {
+            display: flex;
+            gap: 24px;
+            margin: 0 40px 24px;
+            padding: 18px 20px;
+            background: #f8fafc;
+
+            border-left: 4px solid {
+                    {
+                    company_color_marca or '#1E3A8A'
+                }
+            }
+
+            ;
+            border-radius: 4px;
+        }
+
+        .party-block {
+            flex: 1;
+        }
+
+        .party-block .party-label {
+            font-size: 9px;
+            text-transform: uppercase;
+            color: #94a3b8;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            margin-bottom: 4px;
+        }
+
+        .party-block .party-name {
+            font-size: 13px;
+            font-weight: 700;
+            color: #111827;
+            margin-bottom: 2px;
+        }
+
+        .party-block .party-rnc {
+            font-family: monospace;
+            font-size: 11px;
+            color: #475569;
+        }
+
+        /* ---- Tabla de Ítems ---- */
+        .items-section {
+            margin: 0 40px 24px;
+        }
+
+        .section-title {
+            font-size: 10px;
+            text-transform: uppercase;
+            color: #94a3b8;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            margin-bottom: 10px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        thead tr {
+            background: {
+                    {
+                    company_color_marca or '#1E3A8A'
+                }
+            }
+
+            ;
+            color: white;
+        }
+
+        thead th {
+            padding: 8px 12px;
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            text-align: left;
+        }
+
+        thead th.right {
+            text-align: right;
+        }
+
+        thead th.center {
+            text-align: center;
+        }
+
+        tbody tr {
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        tbody tr:nth-child(even) {
+            background: #f8fafc;
+        }
+
+        tbody td {
+            padding: 10px 12px;
+            font-size: 11px;
+            color: #374151;
+        }
+
+        tbody td.right {
+            text-align: right;
+        }
+
+        tbody td.center {
+            text-align: center;
+        }
+
+        tbody td.mono {
+            font-family: monospace;
+            font-size: 10px;
+            color: #64748b;
+        }
+
+        tbody td.bold {
+            font-weight: 700;
+            color: #111827;
+        }
+
+        /* ---- Resumen de Totales ---- */
+        .totals-section {
+            display: flex;
+            justify-content: flex-end;
+            margin: 0 40px 28px;
+        }
+
+        .totals-table {
+            min-width: 280px;
+        }
+
+        .totals-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+            font-size: 12px;
+            border-bottom: 1px solid #f1f5f9;
+        }
+
+        .totals-row .label {
+            color: #475569;
+        }
+
+        .totals-row .value {
+            font-weight: 600;
+        }
+
+        .totals-row.total-bold {
+            border-top: 2px solid {
+                    {
+                    company_color_marca or '#1E3A8A'
+                }
+            }
+
+            ;
+
+            border-bottom: 2px solid {
+                    {
+                    company_color_marca or '#1E3A8A'
+                }
+            }
+
+            ;
+            padding: 8px 0;
+            margin-top: 4px;
+        }
+
+        .totals-row.total-bold .label {
+            font-size: 14px;
+            font-weight: 800;
+            color: #111827;
+        }
+
+        .totals-row.total-bold .value {
+            font-size: 14px;
+            font-weight: 800;
+
+            color: {
+                    {
+                    company_color_marca or '#1E3A8A'
+                }
+            }
+
+            ;
+        }
+
+        .totals-row.net-payable .label {
+            color: {
+                    {
+                    company_color_marca or '#1E3A8A'
+                }
+            }
+
+            ;
+            font-weight: 700;
+            font-size: 13px;
+        }
+
+        .totals-row.net-payable .value {
+            color: {
+                    {
+                    company_color_marca or '#1E3A8A'
+                }
+            }
+
+            ;
+            font-weight: 800;
+            font-size: 15px;
+        }
+
+        /* ---- Sección DGII e-CF ---- */
+        .certification-section {
+            margin: 0 40px 28px;
+            padding: 16px 20px;
+            background: #f0f9ff;
+            border: 1px solid #bae6fd;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            gap: 24px;
+        }
+
+        .certification-section .cert-text {
+            flex: 1;
+        }
+
+        .certification-section .cert-label {
+            font-size: 9px;
+            text-transform: uppercase;
+            color: #0369a1;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            margin-bottom: 4px;
+        }
+
+        .certification-section .encf-code {
+            font-family: monospace;
+            font-size: 16px;
+            font-weight: 800;
+
+            color: {
+                    {
+                    company_color_marca or '#1E3A8A'
+                }
+            }
+
+            ;
+            letter-spacing: 0.05em;
+        }
+
+        .certification-section .cert-mode {
+            font-size: 10px;
+            color: #64748b;
+            margin-top: 4px;
+        }
+
+        /* ---- Notas ---- */
+        .notes-section {
+            margin: 0 40px 24px;
+            padding: 12px 16px;
+            background: #fefce8;
+            border-left: 3px solid #f59e0b;
+            border-radius: 4px;
+            font-size: 11px;
+            color: #78350f;
+            line-height: 1.5;
+        }
+
+        /* ---- Pie de página ---- */
+        .footer {
+            margin-top: 20px;
+            padding: 16px 40px;
+            border-top: 1px solid #e2e8f0;
+            text-align: center;
+            font-size: 9px;
+            color: #94a3b8;
+            line-height: 1.6;
+        }
+
+        /* ---- Barra de herramientas (solo pantalla, no impresión) ---- */
+        .print-toolbar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 999;
+
+            background: {
+                    {
+                    company_color_marca or '#1E3A8A'
+                }
+            }
+
+            ;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 24px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+        }
+
+        .print-toolbar .toolbar-msg {
+            color: rgba(255, 255, 255, 0.85);
+            font-size: 13px;
+        }
+
+        .print-toolbar .toolbar-msg strong {
+            color: white;
+        }
+
+        .print-toolbar .toolbar-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn-print {
+            background: white;
+
+            color: {
+                    {
+                    company_color_marca or '#1E3A8A'
+                }
+            }
+
+            ;
+            border: none;
+            padding: 7px 18px;
+            border-radius: 6px;
+            font-weight: 700;
+            font-size: 13px;
+            cursor: pointer;
+        }
+
+        .btn-close {
+            background: rgba(255, 255, 255, 0.15);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            padding: 7px 14px;
+            border-radius: 6px;
+            font-size: 13px;
+            cursor: pointer;
+            text-decoration: none;
+        }
+
+        @media print {
+            .print-toolbar {
+                display: none !important;
+            }
+
+            body {
+                padding-top: 0 !important;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    {% if auto_print %}
+    <!-- Barra de herramientas: Imprimir / Cerrar -->
+    <div class="print-toolbar" id="printToolbar">
+        <span class="toolbar-msg">
+            📄 <strong>Vista previa de impresión</strong> — Elige "Guardar como PDF" en el diálogo de impresión.
+        </span>
+        <div class="toolbar-actions">
+            <button class="btn-print" onclick="window.print()">🖨️ Imprimir / Guardar PDF</button>
+            <a class="btn-close" href="javascript:history.back()">✕ Cerrar</a>
+        </div>
+    </div>
+    <div style="height: 52px;"></div> <!-- spacer para la barra fija -->
+    {% endif %}
+
+    {% set items_per_page = 15 %}
+    {% set total_items = invoice['items']|length %}
+    {% set total_pages = (total_items // items_per_page) + (1 if total_items % items_per_page > 0 else 0) %}
+    {% set total_pages = total_pages if total_pages > 0 else 1 %}
+
+    {% for page_num in range(total_pages) %}
+    <div class="pdf-page" {% if not loop.last %}style="page-break-after: always;" {% endif %}>
+
+        <!-- Encabezado de Empresa y Número de Documento -->
+        {% if company.logoUrl %}
+        <div style="padding: 32px 40px 0;">
+            <img src="{{ company.logoUrl }}" alt="{{ company.companyName }}"
+                style="max-height: 80px; max-width: 180px; object-fit: contain; border-radius: 4px;">
+        </div>
+        {% endif %}
+        <div class="header" style="border-bottom: none; padding-top: {% if company.logoUrl %}16px{% else %}32px{% endif %}; padding-bottom: 0; margin-bottom: 16px;">
+            <div class="company-block">
+                <h1 style="color: {{ current_color }}; font-size: 18px; margin-bottom: 2px;">{{
+                    company.companyName }}</h1>
+                {% if branch %}
+                <p><strong>Sucursal:</strong> {{ branch.name }} ({{ branch.code }})</p>
+                {% endif %}
+                <p><strong>RNC:</strong> {{ company.companyRNC }}</p>
+                <p><strong>Dirección:</strong> {{ company.companyAddress }}</p>
+                <p><strong>Tel/Correo:</strong> {{ company.companyPhone }} &nbsp;|&nbsp; {{ company.companyEmail }}</p>
+                <p><strong>Fecha Emisión:</strong> {{ invoice.date[:10] }}</p>
+            </div>
+            <div class="document-block" style="text-align: right;">
+                {% if invoice.encf %}
+                <div
+                    style="font-size: 14px; font-weight: bold; color: {{ current_color }}; margin-bottom: 4px;">
+                    {{ invoice.ecfType }}</div>
+                <div class="doc-number" style="font-size: 13px; font-weight: normal; color: #111827;">e-NCF: {{
+                    invoice.encf }}</div>
+                {% if invoice.modifiedNCF %}
+                <div style="font-size: 11px; color: #111827; margin-top: 2px;">
+                    <strong>NCF Modificado:</strong> {{ invoice.modifiedNCF }}
+                </div>
+                {% endif %}
+                {% if invoice.modificationReason %}
+                <div style="font-size: 11px; color: #111827; margin-top: 2px;">
+                    {{ invoice.modificationReason }}
+                </div>
+                {% endif %}
+                {% else %}
+                <div
+                    style="font-size: 14px; font-weight: bold; color: {{ current_color }}; margin-bottom: 4px;">
+                    {% if invoice.isQuotation %}Cotización{% else %}Borrador de Factura{% endif %}</div>
+                <div class="doc-number" style="font-size: 13px; font-weight: normal; color: #111827;">Doc. Interno: {{
+                    invoice.invoiceNumber }}</div>
+                {% endif %}
+
+                {% if invoice.ecfType and 'Nota de' not in invoice.ecfType and 'Consumo' not in invoice.ecfType %}
+                <div style="font-size: 11px; color: #111827; margin-top: 4px;">
+                    <strong>Fecha Vencimiento:</strong> {{ invoice.dueDate[:10] }}
+                </div>
+                {% endif %}
+                {% if invoice.status != 'Emitida' %}
+                <div style="margin-top: 8px;">
+                    <span class="badge badge-{{ 'voided' if invoice.status == 'Anulada' else 'draft' }}">{{
+                        invoice.status }}</span>
+                </div>
+                {% endif %}
+                <div style="font-size: 10px; color: #64748b; margin-top: 8px;">
+                    Moneda: {{ invoice.currency }} | Condición: {{ invoice.paymentType }} ({{ invoice.paymentMethod }})
+                </div>
+            </div>
+        </div>
+
+        <!-- Emisor / Receptor -->
+        {% set is_consumo = 'Consumo' in (invoice.ecfType or '') %}
+        {% set is_minor = (invoice.total or 0) < 250000 %} {% set hide_client=is_consumo and is_minor and (not
+            invoice.clientRNC or invoice.clientRNC=='999999999' or not invoice.clientName) %} {% if not hide_client %}
+            <div
+            style="margin: 0 40px 24px; padding: 12px 0; border-top: 2px solid {{ current_light_color }}; border-bottom: 2px solid {{ current_light_color }};">
+            <div style="font-size: 12px; color: #111827; margin-bottom: 4px;">
+                <strong>Razón Social Cliente:</strong> {{ invoice.clientName or 'Consumidor Final' }}
+            </div>
+            <div style="font-size: 12px; color: #111827;">
+                <strong>RNC Cliente:</strong> {{ invoice.clientRNC or '999999999' }}
+            </div>
+    </div>
+    {% else %}
+    <div style="margin: 0 40px 24px; border-top: 2px solid {{ current_light_color }};"></div>
+    {% endif %}
+
+
+    <!-- Tabla de Ítems (Porción de la página) -->
+    <div class="items-section">
+        <table>
+            <thead>
+                <tr>
+                    <th>Cód.</th>
+                    <th>Descripción</th>
+                    <th class="right">Precio Unit.</th>
+                    <th class="center">Cant.</th>
+                    <th class="right">ITBIS</th>
+                    <th class="right">Desc. %</th>
+                    <th class="right">Valor</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% set start_idx = page_num * items_per_page %}
+                {% set end_idx = start_idx + items_per_page %}
+                {% set page_items = invoice['items'][start_idx:end_idx] %}
+
+                {% set ns = namespace(subtotal=0, itbis=0, total=0) %}
+                {% for item in page_items %}
+                {% set item_net = item.price * item.quantity * (1 - item.discountRate) %}
+                {% set item_itbis = item_net * item.itbisRate %}
+                {% set ns.subtotal = ns.subtotal + item_net %}
+                {% set ns.itbis = ns.itbis + item_itbis %}
+                {% set ns.total = ns.total + item.total %}
+                <tr>
+                    <td class="mono">{{ item.code or 'S/C' }}</td>
+                    <td class="bold">{{ item.name }}</td>
+                    <td class="right">RD$ {{ "{:,.2f}".format(item.price) }}</td>
+                    <td class="center">{{ item.quantity }}</td>
+                    <td class="right">{{ "{:.0%}".format(item.itbisRate) }}</td>
+                    <td class="right">{{ "{:.0%}".format(item.discountRate) }}</td>
+                    <td class="right bold">RD$ {{ "{:,.2f}".format(item.total) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Totales y QR (Misma Fila) -->
+    <div class="totals-section"
+        style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 10px;">
+
+        <!-- Bloque QR DGII (Izquierda) -->
+        {% if invoice.encf %}
+        <div class="qr-block" style="text-align: left; padding-bottom: 8px;">
+            {% if qr_base64 %}
+            <div style="padding: 3mm 3mm 3mm 0; background: white; display: inline-block;">
+                <img src="data:image/png;base64,{{ qr_base64 }}" alt="QR Code e-CF"
+                    style="width: 84px; height: 84px; display: block;">
+            </div>
+            {% endif %}
+            {% if invoice.xmlSignature %}
+            <div style="font-size: 10px; color: #111827; margin-top: 2px;">
+                Código de Seguridad: {{ invoice.xmlSignature[:6] }}
+            </div>
+            {% endif %}
+            {% if invoice.xmlSignature and fecha_firma_str %}
+            <div style="font-size: 10px; color: #111827; margin-top: 2px;">
+                Fecha de Firma Digital: {{ fecha_firma_str }}
+            </div>
+            {% endif %}
+            {% if invoice.emisionMode == 'FALLBACK' %}
+            <div
+                style="font-size: 8px; font-weight: bold; color: #b91c1c; margin-top: 4px; border: 1px solid #b91c1c; padding: 2px 4px; border-radius: 3px; display: block; text-align: center; text-transform: uppercase;">
+                e-CF emitido en modalidad de contingencia
+            </div>
+            {% endif %}
+        </div>
+        {% else %}
+        <div></div> <!-- Espaciador -->
+        {% endif %}
+
+        <!-- Tabla de Totales (Derecha) -->
+        <div class="totals-table">
+            {% if not loop.last %}
+            <!-- Totales de Página (Documento Incompleto) -->
+            <div class="totals-row">
+                <span class="label">Subtotal Gravado Página:</span>
+                <span class="value">RD$ {{ "{:,.2f}".format(ns.subtotal) }}</span>
+            </div>
+            <div class="totals-row">
+                <span class="label">Subtotal ITBIS Página:</span>
+                <span class="value">RD$ {{ "{:,.2f}".format(ns.itbis) }}</span>
+            </div>
+            <div class="totals-row total-bold">
+                <span class="label">Monto Total Página:</span>
+                <span class="value">RD$ {{ "{:,.2f}".format(ns.total) }}</span>
+            </div>
+            {% else %}
+            <!-- Totales Finales (Última Página) -->
+            <div class="totals-row">
+                <span class="label">Subtotal Gravado:</span>
+                <span class="value">RD$ {{ "{:,.2f}".format(invoice.subtotal) }}</span>
+            </div>
+            <div class="totals-row">
+                <span class="label">Total ITBIS:</span>
+                <span class="value">RD$ {{ "{:,.2f}".format(invoice.totalITBIS) }}</span>
+            </div>
+            {% if invoice.discountAmount and invoice.discountAmount > 0 %}
+            <div class="totals-row">
+                <span class="label">(-) Descuento:</span>
+                <span class="value">-RD$ {{ "{:,.2f}".format(invoice.discountAmount) }}</span>
+            </div>
+            {% endif %}
+            <div class="totals-row total-bold">
+                <span class="label">Total {% if invoice.isQuotation %}Cotización{% else %}Factura{% endif %}:</span>
+                <span class="value">RD$ {{ "{:,.2f}".format(invoice.total) }}</span>
+            </div>
+            {% if invoice.retainedISR > 0 %}
+            <div class="totals-row">
+                <span class="label">(-) Retención ISR:</span>
+                <span class="value">-RD$ {{ "{:,.2f}".format(invoice.retainedISR) }}</span>
+            </div>
+            {% endif %}
+            {% if invoice.retainedITBIS > 0 %}
+            <div class="totals-row">
+                <span class="label">(-) Retención ITBIS:</span>
+                <span class="value">-RD$ {{ "{:,.2f}".format(invoice.retainedITBIS) }}</span>
+            </div>
+            {% endif %}
+            <div class="totals-row net-payable">
+                <span class="label">Neto a Pagar:</span>
+                <span class="value">RD$ {{ "{:,.2f}".format(invoice.netPayable) }}</span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Pie de página -->
+    <div class="footer"
+        style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #e2e8f0; padding-top: 8px; margin-top: auto;">
+        <div style="text-align: left;">
+            *Este modelo de RI cumple con la Ley 32-23 de la República Dominicana.<br>
+            {% if invoice.encf %}Valide este documento en: <strong>https://dgii.gov.do/validaecf</strong>{% endif %}
+        </div>
+        <div style="text-align: right; font-weight: bold;">
+            Página No. {{ page_num + 1 }} de {{ total_pages }}
+        </div>
+    </div>
+
+    </div> <!-- Cierre de pdf-page -->
+    {% endfor %}
+
+    <!-- Notas / Observaciones (Solo si hay, al final de todo) -->
+    {% if invoice.notes %}
+    <div class="notes-section">
+        <strong>Observaciones:</strong> {{ invoice.notes }}
+    </div>
+    {% endif %}
+
+
+
+</body>
+
+</html>

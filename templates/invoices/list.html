@@ -1,0 +1,140 @@
+{% extends "layout.html" %}
+
+{% block title %}{% if active_page == 'quotations' %}Cotizaciones{% else %}Documentos{% endif %}{% endblock %}
+
+{% block page_header %}{% if active_page == 'quotations' %}Cotizaciones y Presupuestos{% else %}Documentos{% endif %}{%
+endblock %}
+
+{% block content %}
+<div class="card-table-wrapper">
+    <div class="table-header-row">
+        <div>
+            <h3 style="font-size: 1.25rem; font-family: var(--font-heading); margin-bottom: 6px;">
+                {% if active_page == 'quotations' %}Cotizaciones Realizadas{% else %}Facturas Emitidas{% endif %}
+            </h3>
+            <p style="color: var(--text-secondary); font-size: 0.88rem;">
+                {% if active_page == 'quotations' %}
+                Registro y seguimiento de propuestas comerciales y presupuestos para clientes.
+                {% else %}
+                Registro de documentos electrónicos emitidos (Ley 32-23).
+                {% endif %}
+            </p>
+        </div>
+        {% if active_page == 'quotations' %}
+        <a href="/quotations/new" class="btn btn-primary">
+            <i class="fa-solid fa-file-signature"></i>
+            <span>Nueva Cotización</span>
+        </a>
+        {% else %}
+        <a href="/invoices/new" class="btn btn-primary">
+            <i class="fa-solid fa-file-invoice"></i>
+            <span>Nuevo Documento</span>
+        </a>
+        {% endif %}
+    </div>
+
+    <div class="table-responsive">
+        <table class="table-premium">
+            <thead>
+                <tr>
+                    <th>Factura #</th>
+                    <th>e-NCF / Firma</th>
+                    <th>Fecha / Vence</th>
+                    <th>Cliente / RNC</th>
+                    <th>Neto a Pagar</th>
+                    <th>Estado</th>
+                    <th style="text-align: right;">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if invoices %}
+                {% for inv in invoices %}
+                <tr>
+                    <td>
+                        <strong style="font-size: 0.95rem; display: block; margin-bottom: 2px;">{{ inv.invoiceNumber
+                            }}</strong>
+                        <span style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase;">
+                            {{ inv.ecfType.split('(')[0] | default('Consumo') }}
+                        </span>
+                    </td>
+                    <td>
+                        {% if inv.encf %}
+                        <strong style="font-family: monospace; font-size: 0.9rem; color: var(--accent-purple);">{{
+                            inv.encf }}</strong>
+                        {% if inv.xmlSignature %}
+                        <span
+                            style="display: block; font-size: 0.65rem; color: var(--text-muted); font-family: monospace;">Firma:
+                            {{ inv.xmlSignature[:16] }}...</span>
+                        {% endif %}
+                        {% else %}
+                        <span class="badge badge-secondary" style="font-size: 0.65rem;">Borrador</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <span style="display: block; font-size: 0.88rem;">{{ inv.date[:10] }}</span>
+                        <span style="font-size: 0.78rem; color: var(--text-muted);">Vence: {{ inv.dueDate[:10] }}</span>
+                    </td>
+                    <td>
+                        <strong style="font-size: 0.88rem; display: block; margin-bottom: 2px;">{{ inv.clientName
+                            }}</strong>
+                        <span style="font-size: 0.78rem; color: var(--text-secondary); font-family: monospace;">{{
+                            inv.clientRNC or '999999999' }}</span>
+                    </td>
+                    <td>
+                        <strong style="color: var(--accent-emerald);">RD$ {{ "{:,.2f}".format(inv.netPayable)
+                            }}</strong>
+                        <span style="display: block; font-size: 0.75rem; color: var(--text-muted);">Total: RD$ {{
+                            "{:,.2f}".format(inv.total) }}</span>
+                    </td>
+                    <td>
+                        <span
+                            class="badge {% if inv.status == 'Cobrada' %}badge-success{% elif inv.status == 'Emitida' %}badge-primary{% elif inv.status == 'Anulada' %}badge-danger{% else %}badge-secondary{% endif %}">
+                            {{ inv.status }}
+                        </span>
+                    </td>
+                    <td style="text-align: right;">
+                        <div style="display: inline-flex; gap: 8px;">
+                            <a href="{{ url_for('invoice_detail', invoice_id=inv.id) }}" class="btn btn-secondary"
+                                style="padding: 8px 12px; font-size: 0.8rem;" title="Ver Detalle y QR">
+                                <i class="fa-solid fa-eye"></i>
+                            </a>
+                            {% if inv.status != 'Anulada' and not inv.isQuotation %}
+                            <form action="{{ url_for('void_invoice_route', invoice_id=inv.id) }}" method="POST"
+                                onsubmit="return confirm('¿Seguro que deseas anular esta factura fiscal? Se emitirá la anulación a la secuencia correspondiente.');"
+                                style="display: inline;">
+                                <button type="submit" class="btn btn-danger"
+                                    style="padding: 8px 12px; font-size: 0.8rem;" title="Anular Factura">
+                                    <i class="fa-solid fa-ban"></i>
+                                </button>
+                            </form>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+                {% else %}
+                <tr>
+                    <td colspan="7" style="text-align: center; padding: 60px 0; color: var(--text-secondary);">
+                        {% if active_page == 'quotations' %}
+                        <i class="fa-solid fa-file-signature"
+                            style="font-size: 3rem; color: var(--text-muted); margin-bottom: 16px; opacity: 0.5; display: block;"></i>
+                        <span>No hay cotizaciones registradas aún.</span>
+                        <a href="/quotations/new"
+                            style="color: var(--accent-emerald); font-weight: 600; display: block; margin-top: 10px;">Crear
+                            primera cotización</a>
+                        {% else %}
+                        <i class="fa-solid fa-file-invoice-dollar"
+                            style="font-size: 3rem; color: var(--text-muted); margin-bottom: 16px; opacity: 0.5; display: block;"></i>
+                        <span>No hay facturas electrónicas emitidas aún.</span>
+                        <a href="/invoices/new"
+                            style="color: var(--accent-emerald); font-weight: 600; display: block; margin-top: 10px;">Emitir
+                            primera factura</a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
