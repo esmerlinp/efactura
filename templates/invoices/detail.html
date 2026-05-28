@@ -200,8 +200,21 @@
                 </div>
                 
                 {% if invoice.emisionMode == 'FALLBACK' %}
-                <div style="background-color: rgba(239, 68, 68, 0.15); border: 1px solid #ef4444; color: #f87171; font-weight: 700; font-size: 0.82rem; padding: 10px 12px; border-radius: var(--radius-sm); margin-bottom: 16px; text-align: center; text-transform: uppercase; letter-spacing: 0.02em;">
-                    ⚠️ e-CF emitido en modalidad de contingencia
+                <div style="background-color: rgba(239, 68, 68, 0.15); border: 1px solid #ef4444; color: #f87171; font-weight: 700; font-size: 0.82rem; padding: 12px; border-radius: var(--radius-sm); margin-bottom: 16px; text-align: center;">
+                    <div style="text-transform: uppercase; letter-spacing: 0.02em; margin-bottom: 6px;">
+                        ⚠️ e-CF emitido en contingencia
+                    </div>
+                    {% if not invoice.isSyncedWithDGII %}
+                    <form action="{{ url_for('sync_single_invoice_route', invoice_id=invoice.id) }}" method="POST" style="margin-top: 6px;">
+                        <button type="submit" class="btn btn-primary" style="width: 100%; font-size: 0.76rem; padding: 6px 12px; background: linear-gradient(135deg, #f59e0b, #d97706); border: none; font-weight: bold; cursor: pointer;">
+                            <i class="fa-solid fa-rotate"></i> Sincronizar con DGII
+                        </button>
+                    </form>
+                    {% else %}
+                    <div style="font-size: 0.74rem; color: #34d399; font-weight: bold; margin-top: 6px; display: flex; align-items: center; justify-content: center; gap: 4px;">
+                        <i class="fa-solid fa-circle-check"></i> Sincronizado con DGII
+                    </div>
+                    {% endif %}
                 </div>
                 {% endif %}
                 

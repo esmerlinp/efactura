@@ -89,7 +89,7 @@ class AlanubeService:
         print(f"📡 Enviando payload a Alanube API (POST {url})...")
         
         # Activar Contingencia si estamos usando el token simulado por defecto
-        use_fallback = (token == "DEVELOPMENT_SANDBOX_TOKEN" or not token)
+        use_fallback = (token == "DEVELOPMENT_SANDBOX_TOKEN" or token == "PRODUCTION_REAL_TOKEN" or not token)
         
         if not use_fallback:
             try:
@@ -310,7 +310,7 @@ class AlanubeService:
         }
 
         # Modo Contingencia local por defecto
-        if token == "DEVELOPMENT_SANDBOX_TOKEN" or not token:
+        if token == "DEVELOPMENT_SANDBOX_TOKEN" or token == "PRODUCTION_REAL_TOKEN" or not token:
             print("🛡️ Modo contingencia: Anulación de secuencias simulada localmente.")
             return {
                 "success": True,

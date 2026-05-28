@@ -91,6 +91,11 @@ endblock %}
                             class="badge {% if inv.status == 'Cobrada' %}badge-success{% elif inv.status == 'Emitida' %}badge-primary{% elif inv.status == 'Anulada' %}badge-danger{% else %}badge-secondary{% endif %}">
                             {{ inv.status }}
                         </span>
+                        {% if inv.emisionMode == 'FALLBACK' and not inv.isSyncedWithDGII %}
+                        <span class="badge" style="display: block; margin-top: 4px; font-size: 0.68rem; color: #78350f; background-color: #fef3c7; border: 1px solid #fde68a;">
+                            ⚠️ Pendiente DGII
+                        </span>
+                        {% endif %}
                     </td>
                     <td style="text-align: right;">
                         <div style="display: inline-flex; gap: 8px;">
@@ -98,6 +103,13 @@ endblock %}
                                 style="padding: 8px 12px; font-size: 0.8rem;" title="Ver Detalle y QR">
                                 <i class="fa-solid fa-eye"></i>
                             </a>
+                            {% if inv.emisionMode == 'FALLBACK' and not inv.isSyncedWithDGII and inv.status != 'Anulada' %}
+                            <form action="{{ url_for('sync_single_invoice_route', invoice_id=inv.id) }}" method="POST" style="display: inline;">
+                                <button type="submit" class="btn btn-primary" style="padding: 8px 12px; font-size: 0.8rem; background: linear-gradient(135deg, #f59e0b, #d97706); border: none;" title="Sincronizar con DGII">
+                                    <i class="fa-solid fa-rotate"></i>
+                                </button>
+                            </form>
+                            {% endif %}
                             {% if inv.status != 'Anulada' and not inv.isQuotation %}
                             <form action="{{ url_for('void_invoice_route', invoice_id=inv.id) }}" method="POST"
                                 onsubmit="return confirm('¿Seguro que deseas anular esta factura fiscal? Se emitirá la anulación a la secuencia correspondiente.');"

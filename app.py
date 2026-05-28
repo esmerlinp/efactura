@@ -1767,6 +1767,53 @@ def sync_contingency_invoices():
         "results": results
     })
 
+@app.route('/invoices/<invoice_id>/sync', methods=['POST'])
+def sync_single_invoice_route(invoice_id):
+    if 'user' not in session: return redirect(url_for('login'))
+    if not check_permission('canInvoice'):
+        return render_template('auth/restricted.html', feature_name="Sincronizar Comprobante", required_permission="canInvoice")
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+    
+    invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+    if not invoice:
+        flash('Factura no encontrada.', 'error')
+        return redirect(url_for('list_invoices'))
+        
+    company = DatabaseService.get_company_profile(owner_uid)
+    
+    try:
+        res = AlanubeService.emit_electronic_comprobante(company, invoice, sandbox=sandbox)
+        if res.get("success") and res.get("mode") == "API":
+            invoice["isSyncedWithDGII"] = True
+            invoice["emisionMode"] = "API"
+            invoice["xmlSignature"] = res.get("xmlSignature", invoice.get("xmlSignature", ""))
+            invoice["qrCodeURL"] = res.get("qrCodeURL", invoice.get("qrCodeURL", ""))
+            invoice["contingencyEmittedAt"] = None
+            if res.get("pdfUrl"): invoice["firebasePDFURL"] = res["pdfUrl"]
+            if res.get("xmlUrl"): invoice["firebaseXMLURL"] = res["xmlUrl"]
+            
+            DatabaseService.save_invoice(owner_uid, invoice_id, invoice, sandbox=sandbox)
+            
+            # Registrar en Log de Auditoría
+            logs = DatabaseService.get_sequence_logs(owner_uid, sandbox=sandbox)
+            log = next((l for l in logs if l.get("encf") == invoice.get("encf")), None)
+            if log:
+                cuadratura = DGIIService.check_tolerancia_cuadratura(invoice.get("items", []), invoice.get("total", 0))
+                estado_dgii = "ACCEPTED" if cuadratura["within_tolerance"] else "ACCEPTED_CONDITIONAL"
+                DatabaseService.update_sequence_log(owner_uid, log["id"], {
+                    "estado": estado_dgii,
+                    "motivo": f"Regularizado por Sincronización Manual. Firma: {res['xmlSignature'][:12] if res.get('xmlSignature') else 'N/A'}"
+                }, sandbox=sandbox)
+                
+            flash(f"¡Factura {invoice.get('invoiceNumber')} sincronizada con la DGII exitosamente! e-NCF: {invoice.get('encf')}", 'success')
+        else:
+            flash(f"No se pudo sincronizar: {res.get('message') or 'Sigue en modalidad de contingencia (sin conexión a Alanube).'}", 'warning')
+    except Exception as e:
+        flash(f"Error durante la sincronización: {str(e)}", 'error')
+        
+    return redirect(url_for('invoice_detail', invoice_id=invoice_id))
+
 # =========================================================================
 # CONTROL DE GASTOS Y RENTABILIDAD
 # =========================================================================
@@ -2167,7 +2214,183 @@ def delete_team_member_route(employee_uid):
         
     return redirect(url_for('company_settings'))
 
-# =========================================================================
+@app.route('/settings/company/export', methods=['POST'])
+def export_company_data():
+    if 'user' not in session: return redirect(url_for('login'))
+    if not check_permission('canModifySettings'):
+        return render_template('auth/restricted.html', feature_name="Exportación de Datos", required_permission="canModifySettings")
+    
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+    
+    selected_sections = request.form.getlist('sections')
+    if not selected_sections:
+        flash('Debes seleccionar al menos una sección para exportar.', 'error')
+        return redirect(url_for('company_settings'))
+    
+    import io
+    import csv
+    import zipfile
+    from datetime import datetime
+    
+    def build_clients_csv():
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(["ID", "RNC/Cedula", "Razon Social", "Email", "Telefono", "Direccion", "Notas CRM", "Proximo Contacto", "Creado En"])
+        clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox)
+        for c in clients:
+            writer.writerow([
+                c.get("id", ""),
+                c.get("rnc", ""),
+                c.get("razonSocial", ""),
+                c.get("email", ""),
+                c.get("telefono", ""),
+                c.get("direccion", ""),
+                c.get("crmNotes", ""),
+                c.get("nextContactDate", ""),
+                c.get("createdAt", "")
+            ])
+        return output.getvalue()
+
+    def build_products_csv():
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(["ID", "Codigo", "Tipo", "Nombre", "Precio", "Unidad", "Tasa ITBIS", "Stock Minimo", "Ubicacion Estanteria", "Stock Total", "Creado En"])
+        products = DatabaseService.get_items(owner_uid, sandbox=sandbox)
+        for p in products:
+            writer.writerow([
+                p.get("id", ""),
+                p.get("code", ""),
+                p.get("type", ""),
+                p.get("name", ""),
+                f"{p.get('price', 0.0):.2f}",
+                p.get("unit", ""),
+                f"{p.get('itbisRate', 0.18):.2f}",
+                f"{p.get('minStock', 0.0):.2f}",
+                p.get("rackLocation", ""),
+                f"{p.get('totalStock', 0.0):.2f}",
+                p.get("createdAt", "")
+            ])
+        return output.getvalue()
+
+    def build_quotes_csv():
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(["ID", "Numero Cotizacion", "Fecha", "Fecha Vencimiento", "ID Cliente", "Nombre Cliente", "RNC Cliente", "Estado", "Monto Neto a Pagar", "Total ITBIS", "Subtotal", "Total"])
+        quotes = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, quotations_only=True)
+        for q in quotes:
+            writer.writerow([
+                q.get("id", ""),
+                q.get("invoiceNumber", ""),
+                q.get("date", ""),
+                q.get("dueDate", ""),
+                q.get("clientId", ""),
+                q.get("clientName", ""),
+                q.get("clientRNC", ""),
+                q.get("status", ""),
+                f"{q.get('netPayable', 0.0):.2f}",
+                f"{q.get('totalITBIS', 0.0):.2f}",
+                f"{q.get('subtotal', 0.0):.2f}",
+                f"{q.get('total', 0.0):.2f}"
+            ])
+        return output.getvalue()
+
+    def build_expenses_csv():
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(["ID", "Concepto", "Categoria", "Monto", "Monto ITBIS", "Fecha", "RNC Emisor", "NCF", "Notas", "Recurrente", "Deducible"])
+        expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox)
+        for e in expenses:
+            writer.writerow([
+                e.get("id", ""),
+                e.get("concept", ""),
+                e.get("category", ""),
+                f"{e.get('amount', 0.0):.2f}",
+                f"{e.get('itbisAmount', 0.0):.2f}",
+                e.get("date", ""),
+                e.get("rncEmisor", ""),
+                e.get("ncf", ""),
+                e.get("notes", ""),
+                "Si" if e.get("isRecurring") else "No",
+                "Si" if e.get("isDeductible") else "No"
+            ])
+        return output.getvalue()
+
+    def build_documents_csv():
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(["ID", "Numero Documento", "Fecha", "Fecha Vencimiento", "ID Cliente", "Nombre Cliente", "RNC Cliente", "Estado", "Tipo e-CF", "e-NCF", "Sincronizado DGII", "Monto Neto a Pagar", "Total ITBIS", "Subtotal", "Total"])
+        documents = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, quotations_only=False)
+        for d in documents:
+            writer.writerow([
+                d.get("id", ""),
+                d.get("invoiceNumber", ""),
+                d.get("date", ""),
+                d.get("dueDate", ""),
+                d.get("clientId", ""),
+                d.get("clientName", ""),
+                d.get("clientRNC", ""),
+                d.get("status", ""),
+                d.get("ecfType", ""),
+                d.get("encf", ""),
+                "Si" if d.get("isSyncedWithDGII") else "No",
+                f"{d.get('netPayable', 0.0):.2f}",
+                f"{d.get('totalITBIS', 0.0):.2f}",
+                f"{d.get('subtotal', 0.0):.2f}",
+                f"{d.get('total', 0.0):.2f}"
+            ])
+        return output.getvalue()
+
+    csv_generators = {
+        "clients": ("clientes.csv", build_clients_csv),
+        "products": ("productos.csv", build_products_csv),
+        "quotes": ("cotizaciones.csv", build_quotes_csv),
+        "expenses": ("gastos.csv", build_expenses_csv),
+        "documents": ("documentos.csv", build_documents_csv)
+    }
+
+    if len(selected_sections) == 1:
+        sec = selected_sections[0]
+        if sec in csv_generators:
+            filename, generator_fn = csv_generators[sec]
+            csv_data = generator_fn()
+            
+            dest = io.BytesIO()
+            dest.write(b'\xef\xbb\xbf')
+            dest.write(csv_data.encode('utf-8'))
+            dest.seek(0)
+            
+            timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
+            download_name = f"{filename.split('.')[0]}_{timestamp}.csv"
+            
+            return send_file(
+                dest,
+                mimetype="text/csv",
+                as_attachment=True,
+                download_name=download_name
+            )
+    
+    zip_buffer = io.BytesIO()
+    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+        for sec in selected_sections:
+            if sec in csv_generators:
+                filename, generator_fn = csv_generators[sec]
+                csv_data = generator_fn()
+                content_bytes = b'\xef\xbb\xbf' + csv_data.encode('utf-8')
+                zip_file.writestr(filename, content_bytes)
+                
+    zip_buffer.seek(0)
+    timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
+    zip_filename = f"export_datos_empresa_{timestamp}.zip"
+    
+    return send_file(
+        zip_buffer,
+        mimetype="application/zip",
+        as_attachment=True,
+        download_name=zip_filename
+    )
+
+# =========================================================================================
 # REPORTES FISCALES (IT-1, 606, 607)
 # =========================================================================
 @app.route('/reports')
