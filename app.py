@@ -641,6 +641,48 @@ def complete_client_interaction_task(client_id, interaction_id):
         
     return redirect(url_for('client_detail', client_id=client_id))
 
+@app.route('/clients/<client_id>/interactions/quick-note', methods=['POST'])
+def add_quick_note(client_id):
+    if 'user' not in session: return redirect(url_for('login'))
+    if not check_permission('canClients'):
+        return render_template('auth/restricted.html', feature_name="Registrar Nota CRM", required_permission="canClients")
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+    
+    content = request.form.get('content', '').strip()
+    interaction_type = request.form.get('type', 'Nota')
+    complete_task = request.form.get('completeTask') == 'true'
+    
+    if not content:
+        flash('La nota no puede estar vacía.', 'error')
+        return redirect(url_for('dashboard'))
+        
+    interaction_id = str(uuid.uuid4())
+    interaction_dict = {
+        "type": interaction_type,
+        "content": content,
+        "date": datetime.utcnow().strftime("%Y-%m-%d"),
+        "nextContactDate": None,
+        "completed": False,
+        "createdBy": session['user']['email'],
+        "attachmentUrl": "",
+        "attachmentName": ""
+    }
+    
+    DatabaseService.save_client_interaction(owner_uid, client_id, interaction_id, interaction_dict, sandbox=sandbox)
+    
+    # Si se marcó completar compromiso
+    if complete_task:
+        clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox)
+        client = next((c for c in clients if c['id'] == client_id), None)
+        if client:
+            client['nextContactDate'] = None
+            client['crmNotes'] = content[:100]
+            DatabaseService.save_client(owner_uid, client_id, client, sandbox=sandbox)
+            
+    flash('Nota rápida registrada en el historial del cliente.', 'success')
+    return redirect(url_for('dashboard'))
+
 @app.route('/api/rnc-lookup')
 def rnc_lookup():
     if 'user' not in session:
