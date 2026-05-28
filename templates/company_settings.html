@@ -331,6 +331,53 @@
             </div>
         </div>
         {% endif %}
+
+        <!-- Exportar Datos de la Empresa -->
+        <div class="card-table-wrapper" style="margin-bottom: 0; padding: 28px;">
+            <h3 style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-file-export" style="color: var(--accent-emerald);"></i>
+                <span>Exportar Datos (CSV)</span>
+            </h3>
+            <p style="color: var(--text-secondary); font-size: 0.82rem; line-height: 1.4; margin-bottom: 18px;">
+                Descarga un respaldo completo de tu información en archivos CSV. Si seleccionas varias secciones, se descargará un único archivo comprimido (.zip) con todos los CSVs correspondientes.
+            </p>
+
+            <form action="/settings/company/export" method="POST" id="exportForm">
+                <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px;">
+                    <label style="display: flex; align-items: center; gap: 10px; font-size: 0.85rem; cursor: pointer; color: var(--text-primary);">
+                        <input type="checkbox" id="export_all" style="width: 16px; height: 16px; accent-color: var(--accent-emerald);">
+                        <strong>Seleccionar Todo</strong>
+                    </label>
+                    <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 4px 0;">
+                    
+                    <label style="display: flex; align-items: center; gap: 10px; font-size: 0.85rem; cursor: pointer; color: var(--text-primary);">
+                        <input type="checkbox" name="sections" value="clients" class="export-checkbox" style="width: 16px; height: 16px; accent-color: var(--accent-emerald);">
+                        <span>Clientes (CRM)</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 10px; font-size: 0.85rem; cursor: pointer; color: var(--text-primary);">
+                        <input type="checkbox" name="sections" value="products" class="export-checkbox" style="width: 16px; height: 16px; accent-color: var(--accent-emerald);">
+                        <span>Productos y Servicios</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 10px; font-size: 0.85rem; cursor: pointer; color: var(--text-primary);">
+                        <input type="checkbox" name="sections" value="quotes" class="export-checkbox" style="width: 16px; height: 16px; accent-color: var(--accent-emerald);">
+                        <span>Cotizaciones</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 10px; font-size: 0.85rem; cursor: pointer; color: var(--text-primary);">
+                        <input type="checkbox" name="sections" value="expenses" class="export-checkbox" style="width: 16px; height: 16px; accent-color: var(--accent-emerald);">
+                        <span>Gastos y Egresos</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 10px; font-size: 0.85rem; cursor: pointer; color: var(--text-primary);">
+                        <input type="checkbox" name="sections" value="documents" class="export-checkbox" style="width: 16px; height: 16px; accent-color: var(--accent-emerald);">
+                        <span>Documentos (Facturas)</span>
+                    </label>
+                </div>
+
+                <button type="submit" class="btn btn-primary" style="width: 100%;">
+                    <i class="fa-solid fa-download"></i>
+                    <span>Exportar Selección</span>
+                </button>
+            </form>
+        </div>
     </div>
 </div>
 
@@ -893,6 +940,42 @@
         if (applyColorMarcaReports) {
             applyColorMarcaReports.addEventListener('change', function () {
                 saveBrandSetting('applyColorMarcaReports', this.checked ? 'true' : 'false');
+            });
+        }
+
+        // ═══════════════════════════════════════════════════
+        // EXPORTACIÓN DE DATOS (CSV)
+        // ═══════════════════════════════════════════════════
+        const exportAllCheckbox = document.getElementById('export_all');
+        const exportCheckboxes = document.querySelectorAll('.export-checkbox');
+        const exportForm = document.getElementById('exportForm');
+
+        if (exportAllCheckbox) {
+            exportAllCheckbox.addEventListener('change', function () {
+                exportCheckboxes.forEach(cb => {
+                    cb.checked = this.checked;
+                });
+            });
+        }
+
+        exportCheckboxes.forEach(cb => {
+            cb.addEventListener('change', function () {
+                if (!this.checked) {
+                    exportAllCheckbox.checked = false;
+                } else {
+                    const allChecked = Array.from(exportCheckboxes).every(c => c.checked);
+                    exportAllCheckbox.checked = allChecked;
+                }
+            });
+        });
+
+        if (exportForm) {
+            exportForm.addEventListener('submit', function (e) {
+                const anyChecked = Array.from(exportCheckboxes).some(c => c.checked);
+                if (!anyChecked) {
+                    e.preventDefault();
+                    alert('Por favor, selecciona al menos una sección para exportar.');
+                }
             });
         }
     });
