@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <script>
+        // Aplicar tema guardado antes de renderizar la página para evitar destellos (flash)
+        (function() {
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+        })();
+    </script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Iniciar Sesión - e-Factura</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body class="auth-container">
+    <div class="auth-card">
+        <div class="auth-header">
+            <i class="fa-solid fa-receipt" style="font-size: 3rem; color: var(--accent-emerald); margin-bottom: 15px; display: inline-block;"></i>
+            <h2>e-Factura</h2>
+            <p>Cumplimiento de la Ley 32-23 de Facturación Electrónica</p>
+        </div>
+        
+        <!-- Mensajes flash locales -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="badge {% if category == 'error' %}badge-danger{% else %}badge-success{% endif %}" style="width: 100%; padding: 12px; margin-bottom: 20px; border-radius: var(--radius-sm); font-size: 0.85rem; text-transform: none; font-weight: 500; text-align: center;">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <form action="{{ url_for('login') }}" method="POST">
+            <div class="form-group">
+                <label for="email">Correo Electrónico</label>
+                <div style="position: relative;">
+                    <i class="fa-solid fa-envelope" style="position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: var(--text-secondary);"></i>
+                    <input type="email" id="email" name="email" class="form-input" placeholder="ejemplo@correo.com" required style="padding-left: 45px; width: 100%;">
+                </div>
+            </div>
+            
+            <div class="form-group" style="margin-bottom: 24px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <label for="password">Contraseña</label>
+                </div>
+                <div style="position: relative;">
+                    <i class="fa-solid fa-lock" style="position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: var(--text-secondary);"></i>
+                    <input type="password" id="password" name="password" class="form-input" placeholder="••••••••" required style="padding-left: 45px; width: 100%;">
+                </div>
+            </div>
+            
+            <button type="submit" class="btn btn-primary" style="width: 100%; padding: 14px; font-size: 1rem; border-radius: var(--radius-sm);">
+                <i class="fa-solid fa-right-to-bracket"></i>
+                <span>Ingresar al Sistema</span>
+            </button>
+        </form>
+        
+        <div style="margin-top: 24px; text-align: center; font-size: 0.88rem; color: var(--text-secondary);">
+            <span>¿No tienes una cuenta aún? </span>
+            <a href="{{ url_for('register') }}" style="color: var(--accent-emerald); font-weight: 600;">Regístrate aquí</a>
+        </div>
+    </div>
+    
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

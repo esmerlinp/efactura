@@ -1,0 +1,395 @@
+{% extends "layout.html" %}
+
+{% block title %}{% if active_page == 'quotations' %}Nueva Cotización{% else %}Nuevo Documento{% endif %}{% endblock %}
+
+{% block page_header %}{% if active_page == 'quotations' %}Creación de Cotización Comercial{% else %}Generación de Documento Electrónico{% endif %}{% endblock %}
+
+{% block content %}
+<!-- Elementos ocultos con datos serializados para buscadores avanzados -->
+<div id="catalog-data-json" style="display: none;">{{ catalog_json }}</div>
+<div id="clients-data-json" style="display: none;">{{ clients_json }}</div>
+
+<form method="POST" id="invoice-form">
+    
+    <!-- TARJETA 1: ENCABEZADO DEL DOCUMENTO -->
+    <div class="card-segment">
+        <div class="segment-header">
+            <div class="segment-header-icon emerald">
+                <i class="fa-solid fa-file-signature"></i>
+            </div>
+            <h3>Encabezado del Documento</h3>
+        </div>
+        
+        <div class="form-grid">
+            {% if active_page == 'quotations' %}
+            <input type="hidden" name="ecfType" value="Cotización">
+            {% else %}
+            <!-- Selector de Tipo de Documento -->
+            <div class="form-group">
+                <label for="ecf-type-select">Tipo de Documento</label>
+                <select id="ecf-type-select" name="ecfType" class="form-select" required>
+                    <option value="Factura de Consumo (E32)" {% if invoice and invoice.ecfType == 'Factura de Consumo (E32)' %}selected{% endif %}>E32 - Factura de Consumo (Público General)</option>
+                    <option value="Factura de Crédito Fiscal (E31)" {% if invoice and invoice.ecfType == 'Factura de Crédito Fiscal (E31)' %}selected{% endif %}>E31 - Crédito Fiscal (RNC Corporativo)</option>
+                    <option value="Comprobante de Compras (E41)" {% if invoice and invoice.ecfType == 'Comprobante de Compras (E41)' %}selected{% endif %}>E41 - Comprobante de Compras</option>
+                    <option value="Gastos Menores (E43)" {% if invoice and invoice.ecfType == 'Gastos Menores (E43)' %}selected{% endif %}>E43 - Gastos Menores</option>
+                    <option value="Pagos al Exterior (E47)" {% if invoice and invoice.ecfType == 'Pagos al Exterior (E47)' %}selected{% endif %}>E47 - Pagos al Exterior</option>
+                </select>
+            </div>
+            {% endif %}
+            
+            <!-- Selector de Cliente CRM (Buscador Avanzado Premium) -->
+            <div class="form-group">
+                <label for="client-search-input">Cliente Asociado (CRM)</label>
+                <div style="position: relative; display: flex; gap: 8px;">
+                    <input type="text" id="client-search-input" class="form-input" readonly placeholder="-- Haz clic para buscar en Agenda CRM --" style="cursor: pointer; flex-grow: 1; text-overflow: ellipsis; white-space: nowrap; overflow: hidden;" value="{% if invoice and invoice.clientName %}{{ invoice.clientName }} ({{ invoice.clientRNC or 'Consumidor Final' }}){% endif %}">
+                    <input type="hidden" id="client-id-hidden" name="clientId" value="{% if invoice %}{{ invoice.clientId or '' }}{% endif %}">
+                    <button type="button" id="btn-open-client-modal" class="btn btn-secondary" style="padding: 12px 14px;" title="Buscar Cliente">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- RNC del Receptor -->
+            <div class="form-group">
+                <label for="client-rnc-input">RNC / Cédula Receptor</label>
+                <input type="text" id="client-rnc-input" name="clientRNC" class="form-input" placeholder="999999999 (Consumidor Final)" style="font-family: monospace;" value="{% if invoice %}{{ invoice.clientRNC or '' }}{% endif %}">
+                <small id="client-warning" style="color: var(--accent-red); font-size: 0.75rem; margin-top: 4px; display: none;"></small>
+            </div>
+            
+            <div class="form-group">
+                <label for="currency-select">Moneda</label>
+                <select id="currency-select" name="currency" class="form-select">
+                    <option value="DOP" {% if not invoice or invoice.currency == 'DOP' %}selected{% endif %}>Pesos Dominicanos (DOP)</option>
+                    <option value="USD" {% if invoice and invoice.currency == 'USD' %}selected{% endif %}>Dólares Estadounidenses (USD)</option>
+                    <option value="EUR" {% if invoice and invoice.currency == 'EUR' %}selected{% endif %}>Euros (EUR)</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="payment-method-select">Método de Pago</label>
+                <select id="payment-method-select" name="paymentMethod" class="form-select">
+                    <option value="Efectivo" {% if not invoice or invoice.paymentMethod == 'Efectivo' %}selected{% endif %}>Efectivo</option>
+                    <option value="Cheque / Transferencia" {% if invoice and invoice.paymentMethod == 'Cheque / Transferencia' %}selected{% endif %}>Cheque / Transferencia Bancaria</option>
+                    <option value="Tarjeta de Crédito / Débito" {% if invoice and invoice.paymentMethod == 'Tarjeta de Crédito / Débito' %}selected{% endif %}>Tarjeta de Crédito / Débito</option>
+                    <option value="Crédito" {% if invoice and invoice.paymentMethod == 'Crédito' %}selected{% endif %}>Venta a Crédito</option>
+                </select>
+            </div>
+
+            {% if active_page != 'quotations' %}
+            <div class="form-group">
+                <label for="branch-select">Sucursal Emisora</label>
+                <select id="branch-select" name="branchId" class="form-select" required>
+                    {% for branch in branches %}
+                    <option value="{{ branch.id }}" {% if invoice and invoice.branchId == branch.id %}selected{% elif not invoice and branch.isDefault %}selected{% endif %}>{{ branch.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="warehouse-select">Almacén de Despacho</label>
+                <select id="warehouse-select" name="warehouseId" class="form-select" required>
+                    {% for wh in warehouses %}
+                    <option value="{{ wh.id }}" {% if invoice and invoice.warehouseId == wh.id %}selected{% elif not invoice and loop.first %}selected{% endif %}>{{ wh.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% endif %}
+
+            <div class="form-group">
+                <label for="due-date">Fecha Límite de Vencimiento / Pago</label>
+                <input type="date" id="due-date" name="dueDate" class="form-input" required value="{{ default_due_date }}">
+            </div>
+        </div>
+    </div>
+
+    <!-- TARJETA 2: PARTIDAS -->
+    <div class="card-segment">
+        <div class="segment-header">
+            <div class="segment-header-icon purple">
+                <i class="fa-solid fa-list-check"></i>
+            </div>
+            <h3 style="flex-grow: 1;">{% if active_page == 'quotations' %}Partidas de la Cotización{% else %}Partidas de la Factura{% endif %}</h3>
+            <button type="button" id="btn-add-item" class="btn btn-secondary" style="padding: 6px 14px; font-size: 0.82rem;">
+                <i class="fa-solid fa-cart-plus"></i>
+                <span>Añadir Partida</span>
+            </button>
+        </div>
+        
+        <div class="table-responsive">
+            <table class="table-premium" id="items-table" style="min-width: 800px;">
+                <thead>
+                    <tr>
+                        <th style="width: 25%;">Artículo Catálogo</th>
+                        <th style="width: 25%;">Descripción Personalizada</th>
+                        <th style="width: 12%; text-align: right;">Precio Unitario</th>
+                        <th style="width: 8%; text-align: center;">Cant.</th>
+                        <th style="width: 10%;">Tasa ITBIS</th>
+                        <th style="width: 10%; text-align: right;">Desc %</th>
+                        <th style="width: 15%; text-align: right;">Monto</th>
+                        <th style="width: 5%; text-align: center;"></th>
+                    </tr>
+                </thead>
+                <tbody id="invoice-items-body">
+                    {% if invoice and invoice['items'] %}
+                        {% for item in invoice['items'] %}
+                        <tr class="item-row animate-fade-in">
+                            <td>
+                                <div style="position: relative; display: flex; gap: 6px; width: 100%;">
+                                    <input type="text" class="form-input item-catalog-search-input" value="{{ item.name }} ({{ item.code or 'S/C' }})" placeholder="-- Buscar en Catálogo --" readonly style="cursor: pointer; width: 100%; text-overflow: ellipsis; white-space: nowrap; overflow: hidden;">
+                                    <input type="hidden" class="item-catalog-id-hidden" name="items[{{ loop.index0 }}][catalog_id]" value="{{ item.code or '' }}">
+                                    <button type="button" class="btn btn-secondary btn-search-product" style="padding: 8px 10px;" title="Buscar Producto">
+                                        <i class="fa-solid fa-magnifying-glass" style="font-size: 0.8rem;"></i>
+                                    </button>
+                                </div>
+                            </td>
+                            <td>
+                                <input type="text" class="form-input item-name-input" name="items[{{ loop.index0 }}][name]" value="{{ item.name }}" required style="width: 100%;">
+                            </td>
+                            <td>
+                                <input type="number" class="form-input item-price-input" name="items[{{ loop.index0 }}][price]" step="0.01" value="{{ item.price }}" required style="width: 100%; text-align: right;">
+                            </td>
+                            <td>
+                                <input type="number" class="form-input item-qty-input" name="items[{{ loop.index0 }}][quantity]" min="1" value="{{ item.quantity }}" required style="width: 100%; text-align: center;">
+                            </td>
+                            <td>
+                                <select class="form-select item-itbis-select" name="items[{{ loop.index0 }}][itbisRate]" style="width: 100%;">
+                                    <option value="0.18" {% if item.itbisRate == 0.18 %}selected{% endif %}>18%</option>
+                                    <option value="0.16" {% if item.itbisRate == 0.16 %}selected{% endif %}>16%</option>
+                                    <option value="0.0" {% if item.itbisRate == 0.0 %}selected{% endif %}>Exento (0%)</option>
+                                </select>
+                            </td>
+                            <td>
+                                <input type="number" class="form-input item-discount-input" name="items[{{ loop.index0 }}][discountRate]" step="0.01" min="0" max="1" value="{{ item.discountRate }}" style="width: 100%; text-align: right;">
+                            </td>
+                            <td style="text-align: right; vertical-align: middle;">
+                                <strong class="item-total-label">RD$ {{ "{:,.2f}".format(item.total) }}</strong>
+                            </td>
+                            <td style="text-align: center; vertical-align: middle;">
+                                <button type="button" class="btn btn-danger btn-remove-row" style="padding: 8px 12px;"><i class="fa-solid fa-trash-can"></i></button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                    <!-- Filas dinámicas añadidas por invoicing.js -->
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- TARJETA 3 Y 4: RETENCIONES & RESUMEN FINANCIERO -->
+    <div style="display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 30px; align-items: start; margin-bottom: 30px;">
+        
+        <!-- Tarjeta 3: Retenciones y Recurrencia -->
+        <div class="card-segment" style="margin-bottom: 0;">
+            <div class="segment-header">
+                <div class="segment-header-icon yellow">
+                    <i class="fa-solid fa-percent"></i>
+                </div>
+                <h3>Ajustes Globales y Retenciones (RD)</h3>
+            </div>
+            
+            <div class="form-group" style="margin-bottom: 20px;">
+                <label for="discount-global">Descuento Comercial Global (%)</label>
+                <input type="number" id="discount-global" name="discountRate" class="form-input" min="0" max="1" step="0.01" value="0.00" placeholder="Ej: 0.10 para 10%">
+            </div>
+            
+            <div class="form-grid" style="gap: 16px; margin-bottom: 24px;">
+                <div class="form-group">
+                    <label for="isr-rate-select">Retención de ISR (Persona Física)</label>
+                    <select id="isr-rate-select" name="retainedISRRate" class="form-select">
+                        <option value="0.0" selected>Sin retención (0%)</option>
+                        <option value="0.02">2% (Bienes y servicios normales)</option>
+                        <option value="0.10">10% (Honorarios Profesionales / Alquiler)</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="itbis-rate-select">Retención de ITBIS</label>
+                    <select id="itbis-rate-select" name="retainedITBISRate" class="form-select">
+                        <option value="0.0" selected>Sin retención (0%)</option>
+                        <option value="0.30">30% (ITBIS de Bienes corporativos)</option>
+                        <option value="0.75">75% (Servicios normales entre jurídicos)</option>
+                        <option value="1.00">100% (Profesionales independientes)</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Opciones de Recurrencia Programada -->
+            <div class="segment-header" style="margin-top: 10px; margin-bottom: 20px;">
+                <div class="segment-header-icon purple" style="background-color: rgba(139, 92, 246, 0.08); color: var(--accent-purple);">
+                    <i class="fa-solid fa-arrows-spin"></i>
+                </div>
+                <h3>Automatizar / Recurrencia</h3>
+            </div>
+            
+            <div class="form-grid" style="gap: 16px;">
+                <div class="form-group">
+                    <label for="is-recurring">¿Es Factura Recurrente?</label>
+                    <select id="is-recurring" name="isRecurring" class="form-select" onchange="document.getElementById('recurrence-fields').style.display=this.value==='true'?'grid':'none'">
+                        <option value="false" {% if not invoice or not invoice.isRecurring %}selected{% endif %}>No, emisión única</option>
+                        <option value="true" {% if invoice and invoice.isRecurring %}selected{% endif %}>Sí, programar recurrencia</option>
+                    </select>
+                </div>
+                
+                <div class="form-grid" id="recurrence-fields" style="display: {% if invoice and invoice.isRecurring %}grid{% else %}none{% endif %}; gap: 16px; grid-column: 1 / -1;">
+                    <div class="form-group">
+                        <label for="recurrence-interval">Frecuencia</label>
+                        <select id="recurrence-interval" name="recurrenceInterval" class="form-select">
+                            <option value="semanal" {% if invoice and invoice.recurrenceInterval == 'semanal' %}selected{% endif %}>Semanal</option>
+                            <option value="quincenal" {% if invoice and invoice.recurrenceInterval == 'quincenal' %}selected{% endif %}>Quincenal</option>
+                            <option value="mensual" {% if not invoice or invoice.recurrenceInterval == 'mensual' %}selected{% endif %}>Mensual</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="next-recurrence">Primera Ocurrencia Programada</label>
+                        <input type="date" id="next-recurrence" name="nextOccurrenceDate" class="form-input" value="{% if invoice %}{{ invoice.nextOccurrenceDate or '' }}{% endif %}">
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Tarjeta 4: Resumen Financiero robusto (Tarjeta de Totales Destacada) -->
+        <div class="card-totals-highlight">
+            <h4 style="font-size: 1.15rem; font-family: var(--font-heading); margin-bottom: 10px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-calculator" style="color: var(--accent-emerald);"></i>
+                <span>Resumen de Totales</span>
+            </h4>
+            
+            <div style="display: flex; justify-content: space-between; font-size: 0.95rem; color: var(--text-secondary); margin-bottom: 12px;">
+                <span>Subtotal Bruto:</span>
+                <span id="lbl-subtotal-raw">RD$ 0.00</span>
+            </div>
+            
+            <div style="display: flex; justify-content: space-between; font-size: 0.95rem; color: var(--text-secondary); margin-bottom: 12px;">
+                <span>Descuentos Aplicados:</span>
+                <span id="lbl-discount" style="color: var(--accent-red);">-RD$ 0.00</span>
+            </div>
+            
+            <div style="display: flex; justify-content: space-between; font-size: 0.95rem; font-weight: 500; margin-bottom: 12px;">
+                <span>Subtotal Neto:</span>
+                <span id="lbl-subtotal">RD$ 0.00</span>
+            </div>
+            
+            <div style="display: flex; justify-content: space-between; font-size: 0.95rem; color: var(--text-secondary); margin-bottom: 12px;">
+                <span>ITBIS Liquidado (18%):</span>
+                <span id="lbl-itbis">RD$ 0.00</span>
+            </div>
+            
+            <div style="display: flex; justify-content: space-between; font-size: 1.15rem; font-weight: 700; border-top: 1px solid var(--border-color); padding-top: 14px; margin-bottom: 12px;">
+                <span>Total Factura:</span>
+                <span id="lbl-total">RD$ 0.00</span>
+            </div>
+            
+            <div style="display: flex; justify-content: space-between; font-size: 0.9rem; color: var(--text-muted); margin-bottom: 8px;">
+                <span>(-) Retención ISR:</span>
+                <span id="lbl-retained-isr">-RD$ 0.00</span>
+            </div>
+            
+            <div style="display: flex; justify-content: space-between; font-size: 0.9rem; color: var(--text-muted); margin-bottom: 16px;">
+                <span>(-) Retención ITBIS:</span>
+                <span id="lbl-retained-itbis">-RD$ 0.00</span>
+            </div>
+            
+            <div style="display: flex; justify-content: space-between; font-size: 1.35rem; font-weight: 800; border-top: 2px dashed var(--border-color); padding-top: 16px; color: var(--accent-emerald);">
+                <span>Neto a Pagar:</span>
+                <span id="lbl-net-payable">RD$ 0.00</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- BARRA DE ACCIONES FINAL -->
+    <div style="display: flex; justify-content: flex-end; gap: 15px; border-top: 1px solid var(--border-color); padding-top: 24px; margin-bottom: 40px;">
+        <a href="{% if active_page == 'quotations' %}/quotations{% else %}{{ url_for('list_invoices') }}{% endif %}" class="btn btn-secondary">
+            <span>Cancelar</span>
+        </a>
+        {% if active_page != 'quotations' %}
+        <button type="submit" name="action" value="emitir_cobrar" class="btn btn-success" id="submit-invoice-cobrar-btn" style="padding: 14px 28px; background: linear-gradient(135deg, #064e3b 0%, #059669 100%); border: none; color: white;">
+            <i class="fa-solid fa-money-bill-wave"></i>
+            <span>Emitir y Cobrar</span>
+        </button>
+        {% endif %}
+        <button type="submit" name="action" value="guardar" class="btn btn-primary" id="submit-invoice-btn" style="padding: 14px 28px;">
+            <i class="fa-solid fa-paper-plane"></i>
+            <span>{% if active_page == 'quotations' %}Guardar Cotización{% else %}Emitir Borrador{% endif %}</span>
+        </button>
+    </div>
+</form>
+
+<!-- =========================================================================
+     MODALES PREMIUM DE BÚSQUEDA AVANZADA (CLIENTES Y PRODUCTOS)
+     ========================================================================= -->
+
+<!-- Modal Buscar Cliente CRM -->
+<div class="search-modal" id="client-search-modal" style="display: none;">
+    <div class="modal-backdrop" id="client-modal-backdrop"></div>
+    <div class="modal-content" style="max-width: 750px;">
+        <div class="modal-header">
+            <h3><i class="fa-solid fa-address-book" style="color: var(--accent-emerald);"></i> Buscar Cliente CRM</h3>
+            <button type="button" class="btn-close-modal" id="btn-close-client-modal"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group" style="margin-bottom: 20px;">
+                <div style="position: relative;">
+                    <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: var(--text-secondary);"></i>
+                    <input type="text" id="modal-client-filter" class="form-input" placeholder="Filtrar por Nombre, RNC, Correo o Teléfono..." style="padding-left: 45px; width: 100%;">
+                </div>
+            </div>
+            <div class="table-responsive" style="max-height: 350px; overflow-y: auto;">
+                <table class="table-premium" style="width: 100%; border-collapse: collapse;">
+                    <thead>
+                        <tr>
+                            <th style="padding: 12px 16px;">Cliente / Identificación</th>
+                            <th style="padding: 12px 16px;">Datos de Contacto</th>
+                            <th style="text-align: center; width: 140px; padding: 12px 16px;">Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody id="modal-client-list-body">
+                        <!-- Clientes dinámicos cargados por JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- Modal Buscar Producto / Catálogo -->
+<div class="search-modal" id="product-search-modal" style="display: none;">
+    <div class="modal-backdrop" id="product-modal-backdrop"></div>
+    <div class="modal-content" style="max-width: 750px;">
+        <div class="modal-header">
+            <h3><i class="fa-solid fa-boxes-stacked" style="color: var(--accent-emerald);"></i> Buscar Producto / Servicio</h3>
+            <button type="button" class="btn-close-modal" id="btn-close-product-modal"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group" style="margin-bottom: 20px;">
+                <div style="position: relative;">
+                    <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: var(--text-secondary);"></i>
+                    <input type="text" id="modal-product-filter" class="form-input" placeholder="Filtrar por Nombre, Código de barra o SKU..." style="padding-left: 45px; width: 100%;">
+                </div>
+            </div>
+            <div class="table-responsive" style="max-height: 350px; overflow-y: auto;">
+                <table class="table-premium" style="width: 100%;">
+                    <thead>
+                        <tr>
+                            <th>Código</th>
+                            <th>Nombre</th>
+                            <th style="text-align: right;">Precio</th>
+                            <th>Tasa ITBIS</th>
+                            <th style="text-align: center;">Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody id="modal-product-list-body">
+                        <!-- Productos dinámicos cargados por JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/invoicing.js') }}"></script>
+{% endblock %}

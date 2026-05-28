@@ -1,0 +1,677 @@
+{% extends "layout.html" %}
+
+{% block title %}Dashboard Principal{% endblock %}
+
+{% block page_header %}Dashboard General{% endblock %}
+
+{% block content %}
+{% if contingency_invoices %}
+<!-- ALERTA DE CONTINGENCIA OFFLINE -->
+<div id="contingency-alert-banner" style="
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(185, 28, 28, 0.10));
+    border: 1.5px solid rgba(239, 68, 68, 0.5);
+    border-radius: var(--radius-md);
+    padding: 20px 24px;
+    margin-bottom: 28px;
+    display: flex;
+    align-items: flex-start;
+    gap: 18px;
+    box-shadow: 0 0 24px rgba(239, 68, 68, 0.1);
+    animation: contingencyPulse 2.5s ease-in-out infinite;
+">
+    <style>
+        @keyframes contingencyPulse {
+
+            0%,
+            100% {
+                border-color: rgba(239, 68, 68, 0.5);
+                box-shadow: 0 0 24px rgba(239, 68, 68, 0.10);
+            }
+
+            50% {
+                border-color: rgba(239, 68, 68, 0.9);
+                box-shadow: 0 0 32px rgba(239, 68, 68, 0.25);
+            }
+        }
+    </style>
+    <div style="font-size: 1.8rem; margin-top: 2px;">🛡️</div>
+    <div style="flex: 1;">
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px; flex-wrap: wrap;">
+            <h4
+                style="font-family: var(--font-heading); font-size: 1.05rem; font-weight: 800; color: #f87171; margin: 0;">
+                ⚠️ Alerta de Regularización: {{ contingency_invoices|length }} Comprobante(s) Emitido(s) en Modo
+                Contingencia
+            </h4>
+            {% set most_critical = contingency_invoices | sort(attribute='hours_remaining') | first %}
+            {% if most_critical.hours_remaining < 12 %} <span
+                style="background-color: rgba(239,68,68,0.2); color: #fca5a5; font-size: 0.7rem; font-weight: 700; padding: 3px 8px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.04em;">
+                ⏰ CRÍTICO: {{ most_critical.hours_remaining }}h restantes</span>
+                {% else %}
+                <span
+                    style="background-color: rgba(245,158,11,0.2); color: #fde68a; font-size: 0.7rem; font-weight: 700; padding: 3px 8px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.04em;">⏳
+                    {{ most_critical.hours_remaining }}h restantes</span>
+                {% endif %}
+        </div>
+        <p style="color: var(--text-secondary); font-size: 0.88rem; line-height: 1.5; margin: 0 0 14px 0;">
+            Estos comprobantes se firmaron digitalmente mientras no había conectividad con la DGII (Modo Offline). La
+            normativa de la DGII exige que sean enviados al sistema oficial en un plazo máximo de <strong
+                style="color: #f87171;">72 horas</strong> desde su emisión.
+        </p>
+        <!-- Lista compacta de pendientes -->
+        <div style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px;">
+            {% for inv in contingency_invoices %}
+            <div
+                style="display: flex; align-items: center; gap: 10px; font-size: 0.82rem; padding: 8px 12px; background-color: rgba(0,0,0,0.15); border-radius: var(--radius-sm); border: 1px solid rgba(239,68,68,0.2);">
+                <i class="fa-solid fa-file-invoice" style="color: #f87171;"></i>
+                <span style="font-family: monospace; color: var(--text-primary); font-weight: 600;">{{ inv.encf
+                    }}</span>
+                <span style="color: var(--text-secondary);">{{ inv.invoiceNumber }}</span>
+                <span style="color: var(--text-muted);">— RD$ {{ "{:,.2f}".format(inv.total) }}</span>
+                <span
+                    style="margin-left: auto; {% if inv.is_critical %}color: #fca5a5; font-weight: 700;{% else %}color: #fde68a;{% endif %}">{{
+                    inv.hours_remaining }}h restantes</span>
+            </div>
+            {% endfor %}
+        </div>
+        <!-- Botón Sincronizar -->
+        <button id="btn-sync-contingency" onclick="syncContingencyInvoices()" style="
+            display: inline-flex; align-items: center; gap: 8px;
+            background: linear-gradient(135deg, #ef4444, #b91c1c);
+            color: white; border: none; padding: 10px 22px;
+            border-radius: 30px; font-weight: 700; font-size: 0.88rem;
+            cursor: pointer; transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(239,68,68,0.35);
+        ">
+            <i class="fa-solid fa-rotate" id="sync-icon"></i> Sincronizar Ahora con la DGII
+        </button>
+        <span style="font-size: 0.78rem; color: var(--text-muted); margin-left: 12px;">O bien, la sincronización se
+            intentará automáticamente al recargar esta página.</span>
+    </div>
+</div>
+{% endif %}
+<!-- FIN ALERTA DE CONTINGENCIA -->
+
+<!-- Sección de KPIs con Diseño Premium y Efectos Hover -->
+<div class="grid-kpi">
+    <div class="card-kpi">
+        <div class="kpi-details">
+            <h3>Total Facturado (Ingresos)</h3>
+            <div class="kpi-value" style="color: var(--accent-emerald);">RD$ {{ "{:,.2f}".format(stats.total_invoiced)
+                }}</div>
+            <small style="color: var(--text-secondary); font-size: 0.78rem;">Facturas electrónicas emitidas</small>
+        </div>
+        <div class="kpi-icon">
+            <i class="fa-solid fa-arrow-up-right-dots"></i>
+        </div>
+    </div>
+
+    <div class="card-kpi expense">
+        <div class="kpi-details">
+            <h3>Egresos Registrados</h3>
+            <div class="kpi-value" style="color: var(--accent-red);">RD$ {{ "{:,.2f}".format(stats.total_expenses) }}
+            </div>
+            <small style="color: var(--text-secondary); font-size: 0.78rem;">Gastos e imputaciones</small>
+        </div>
+        <div class="kpi-icon">
+            <i class="fa-solid fa-arrow-down-left-dots"></i>
+        </div>
+    </div>
+
+    <div class="card-kpi profit">
+        <div class="kpi-details">
+            <h3>Rentabilidad / Margen Neto</h3>
+            <div class="kpi-value" style="color: var(--accent-yellow);">{{ "{:.1f}%".format(stats.margin_net) }}</div>
+            <small style="color: var(--text-secondary); font-size: 0.78rem;">Beneficios netos sobre ventas</small>
+        </div>
+        <div class="kpi-icon">
+            <i class="fa-solid fa-percent"></i>
+        </div>
+    </div>
+
+    <div class="card-kpi" style="--border-glow: rgba(139, 92, 246, 0.15);">
+        <div class="kpi-details">
+            <h3>Cuentas por Cobrar (CxC)</h3>
+            <div class="kpi-value" style="color: var(--accent-purple);">RD$ {{ "{:,.2f}".format(stats.total_cxc) }}
+            </div>
+            <small style="color: var(--text-secondary); font-size: 0.78rem;">Facturas pendientes de cobro</small>
+        </div>
+        <div class="kpi-icon" style="background-color: rgba(139, 92, 246, 0.1); color: var(--accent-purple);">
+            <i class="fa-solid fa-hand-holding-dollar"></i>
+        </div>
+    </div>
+</div>
+
+<!-- SECCIÓN DE SALUD FISCAL & CONTROL DE REGIMEN (DGII) -->
+<div class="card-table-wrapper" style="margin-bottom: 30px; padding: 28px;">
+    <div
+        style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 18px; margin-bottom: 20px;">
+        <h3
+            style="font-size: 1.25rem; font-family: var(--font-heading); margin-bottom: 0; display: flex; align-items: center; gap: 10px;">
+            <i class="fa-solid fa-heart-pulse" style="color: var(--accent-red);"></i>
+            <span>Diagnóstico de Salud Fiscal & Regulación DGII</span>
+        </h3>
+        <span class="badge {% if profile.regimenFiscal == 'RST' %}badge-success{% else %}badge-primary{% endif %}"
+            style="font-size: 0.8rem; padding: 6px 14px;">
+            Régimen: {% if profile.regimenFiscal == 'RST' %}Simplificado (RST){% else %}General (Ordinario){% endif %}
+        </span>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 30px; align-items: center;">
+        <!-- Lado Izquierdo: Semáforo y Alertas -->
+        <div style="display: flex; gap: 24px; align-items: flex-start;">
+            <!-- Semáforo visual -->
+            <div
+                style="display: flex; flex-direction: column; gap: 10px; background-color: rgba(0, 0, 0, 0.15); padding: 14px; border-radius: 20px; align-items: center; min-width: 60px;">
+                <div
+                    style="width: 28px; height: 28px; border-radius: 50%; background-color: var(--accent-red); opacity: {% if stats.total_cxc > 100000 or (profile.regimenFiscal == 'RST' and rst_income_year >= rst_limit_2026 * 0.9) %}1.0{% else %}0.15{% endif %}; box-shadow: {% if stats.total_cxc > 100000 or (profile.regimenFiscal == 'RST' and rst_income_year >= rst_limit_2026 * 0.9) %}0 0 12px var(--accent-red){% else %}none{% endif %}; transition: all 0.3s ease;">
+                </div>
+                <div
+                    style="width: 28px; height: 28px; border-radius: 50%; background-color: var(--accent-yellow); opacity: {% if (stats.total_cxc > 20000 and stats.total_cxc <= 100000) or (profile.regimenFiscal == 'RST' and rst_income_year >= rst_limit_2026 * 0.7 and rst_income_year < rst_limit_2026 * 0.9) %}1.0{% else %}0.15{% endif %}; box-shadow: {% if (stats.total_cxc > 20000 and stats.total_cxc <= 100000) or (profile.regimenFiscal == 'RST' and rst_income_year >= rst_limit_2026 * 0.7 and rst_income_year < rst_limit_2026 * 0.9) %}0 0 12px var(--accent-yellow){% else %}none{% endif %}; transition: all 0.3s ease;">
+                </div>
+                <div
+                    style="width: 28px; height: 28px; border-radius: 50%; background-color: var(--accent-emerald); opacity: {% if stats.total_cxc <= 20000 and (profile.regimenFiscal != 'RST' or rst_income_year < rst_limit_2026 * 0.7) %}1.0{% else %}0.15{% endif %}; box-shadow: {% if stats.total_cxc <= 20000 and (profile.regimenFiscal != 'RST' or rst_income_year < rst_limit_2026 * 0.7) %}0 0 12px var(--accent-emerald){% else %}none{% endif %}; transition: all 0.3s ease;">
+                </div>
+            </div>
+
+            <!-- Textos y consejos de Salud -->
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+                <h4 style="font-size: 1.05rem; font-family: var(--font-heading); margin-bottom: 2px;">Análisis de
+                    Contabilidad en Tiempo Real</h4>
+
+                {% if profile.regimenFiscal == 'RST' %}
+                <p style="color: var(--text-secondary); font-size: 0.88rem; line-height: 1.4; margin: 0;">
+                    🟢 <strong>Diagnóstico de Régimen:</strong> Estás operando en el <strong>Régimen Simplificado
+                        (RST)</strong>. Este régimen elimina el agobio de reportar egresos mensuales (Formato 606). Tu
+                    único enfoque es no superar el límite de facturación anual.
+                </p>
+                {% if rst_income_year >= rst_limit_2026 * 0.9 %}
+                <p style="color: var(--accent-red); font-size: 0.85rem; font-weight: 600; line-height: 1.4; margin: 0;">
+                    ⚠️ ¡ALERTA CRÍTICA! Has alcanzado el {{ "{:.1f}%".format((rst_income_year / rst_limit_2026) * 100)
+                    }} de tu límite fiscal anual. Si superas los RD$ 12.06M, la DGII te transferirá automáticamente al
+                    Régimen General.
+                </p>
+                {% elif rst_income_year >= rst_limit_2026 * 0.7 %}
+                <p
+                    style="color: var(--accent-yellow); font-size: 0.85rem; font-weight: 600; line-height: 1.4; margin: 0;">
+                    ⚠️ Cuidado: Has superado el 70% de tus ingresos permitidos para este año. Te recomendamos moderar
+                    nuevas emisiones para no rebasar el límite anual de RD$ 12.06 millones.
+                </p>
+                {% else %}
+                <p style="color: var(--text-muted); font-size: 0.82rem; line-height: 1.4; margin: 0;">
+                    👍 <strong>Consejo del Mes:</strong> Tus ingresos acumulados se encuentran dentro del rango seguro.
+                    Sigue disfrutando de la exención de reportar gastos y concéntrate en emitir tus comprobantes
+                    electrónicos fiscales con total normalidad.
+                </p>
+                {% endif %}
+                {% else %}
+                <p style="color: var(--text-secondary); font-size: 0.88rem; line-height: 1.4; margin: 0;">
+                    🔵 <strong>Diagnóstico de Régimen:</strong> Estás en el <strong>Régimen General</strong>. Debes
+                    reportar compras y gastos (Formato 606) y ventas (Formato 607) a más tardar el día 15 de cada mes.
+                </p>
+                <p style="color: var(--text-muted); font-size: 0.82rem; line-height: 1.4; margin: 0;">
+                    💰 <strong>Fondo Tributario Aconsejado:</strong> Has facturado un total de <strong>RD$ {{
+                        "{:,.2f}".format(stats.total_itbis) }}</strong> de ITBIS en este periodo. Te recomendamos
+                    apartar este monto en una cuenta separada para evitar desfalques de caja cuando toque liquidar el
+                    IT-1 ante la DGII.
+                </p>
+                {% endif %}
+
+                {% if stats.total_cxc > 50000 %}
+                <div
+                    style="background-color: rgba(245, 158, 11, 0.05); border-left: 3px solid var(--accent-yellow); padding: 8px 12px; border-radius: var(--radius-xs); margin-top: 4px;">
+                    <span
+                        style="font-size: 0.8rem; font-weight: 700; color: var(--accent-yellow); display: block; margin-bottom: 2px;">⚠️
+                        Alta Cartera de Cuentas por Cobrar</span>
+                    <span style="font-size: 0.78rem; color: var(--text-secondary); line-height: 1.3; display: block;">
+                        Tienes RD$ {{ "{:,.2f}".format(stats.total_cxc) }} pendientes de cobro. Recuerda que la DGII te
+                        exige pagar el ITBIS de las facturas emitidas, *incluso si tus clientes no te las han pagado
+                        aún*. ¡Prioriza la cobranza de tus facturas!
+                    </span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Lado Derecho: Barra de Progreso del RST (sólo si aplica) -->
+        <div
+            style="border-left: 1px solid var(--border-color); padding-left: 30px; height: 100%; display: flex; flex-direction: column; justify-content: center; gap: 12px;">
+            {% if profile.regimenFiscal == 'RST' %}
+            <div
+                style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-secondary); font-weight: 600;">
+                <span>Límite Anual RST 2026 (Ingresos)</span>
+                <span style="font-family: monospace;">{{ "{:.1f}%".format((rst_income_year / rst_limit_2026) * 100)
+                    }}</span>
+            </div>
+
+            <div
+                style="width: 100%; height: 12px; background-color: var(--bg-input); border-radius: 6px; overflow: hidden; position: relative;">
+                <div
+                    style="width: {{ min(100.0, (rst_income_year / rst_limit_2026) * 100) }}%; height: 100%; background-color: {% if rst_income_year >= rst_limit_2026 * 0.9 %}var(--accent-red){% elif rst_income_year >= rst_limit_2026 * 0.7 %}var(--accent-yellow){% else %}var(--accent-emerald){% endif %}; border-radius: 6px; transition: width 0.5s ease; box-shadow: 0 0 8px {% if rst_income_year >= rst_limit_2026 * 0.9 %}var(--accent-red){% elif rst_income_year >= rst_limit_2026 * 0.7 %}var(--accent-yellow){% else %}var(--accent-emerald){% endif %};">
+                </div>
+            </div>
+
+            <div
+                style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); font-family: monospace;">
+                <span>Acumulado: RD$ {{ "{:,.2f}".format(rst_income_year) }}</span>
+                <span>Tope: RD$ {{ "{:,.2f}".format(rst_limit_2026) }}</span>
+            </div>
+            {% else %}
+            <div style="text-align: center; padding: 10px 0;">
+                <i class="fa-solid fa-circle-nodes"
+                    style="font-size: 2.2rem; color: var(--accent-purple); opacity: 0.25; margin-bottom: 8px; display: block;"></i>
+                <span style="font-size: 0.8rem; color: var(--text-secondary); line-height: 1.4; display: block;">
+                    ¿Eres profesional independiente o MIPYME y emites comprobantes de servicios? Considera evaluar con
+                    tu asesor aplicar al <strong>Régimen Simplificado (RST)</strong> para ahorrar costos de
+                    contabilidad.
+                </span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Grid de Reportes Visuales y Alarmas de Auditoría -->
+<div style="display: grid; grid-template-columns: 2fr 1fr; gap: 30px; margin-bottom: 36px;">
+    <!-- Gráficos Analíticos -->
+    <div class="card-table-wrapper" style="display: flex; flex-direction: column; gap: 20px;">
+        <h3
+            style="font-size: 1.15rem; font-family: var(--font-heading); display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <i class="fa-solid fa-chart-line" style="color: var(--accent-emerald);"></i>
+                <span>{{ chart_title }}</span>
+            </div>
+
+            <form action="{{ url_for('dashboard') }}" method="GET" id="filter-form"
+                style="display: flex; align-items: center; gap: 8px; font-size: 0.8rem; margin: 0;">
+                <div style="position: relative; display: flex; align-items: center; gap: 4px;">
+                    <span style="font-size: 0.72rem; color: var(--text-secondary);"><i class="fa-solid fa-slider"></i>
+                        Escala:</span>
+                    <select name="scale" class="form-select"
+                        style="height: 28px; line-height: 26px; padding: 0 8px; font-size: 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background-color: var(--bg-input); color: var(--text-primary); cursor: pointer; box-sizing: border-box; margin: 0; vertical-align: middle;"
+                        onchange="document.getElementById('filter-form').submit()">
+                        <option value="hour" {% if scale=='hour' %}selected{% endif %}>Hora</option>
+                        <option value="day" {% if scale=='day' %}selected{% endif %}>Día</option>
+                        <option value="week" {% if scale=='week' %}selected{% endif %}>Semana</option>
+                        <option value="month" {% if scale=='month' %}selected{% endif %}>Mes</option>
+                        <option value="quarter" {% if scale=='quarter' %}selected{% endif %}>Trimestre</option>
+                        <option value="year" {% if scale=='year' %}selected{% endif %}>Año</option>
+                    </select>
+                </div>
+
+                {% if scale != 'year' %}
+                <div style="display: flex; align-items: center; gap: 4px; margin-left: 4px;">
+                    <span style="font-size: 0.72rem; color: var(--text-secondary);"><i class="fa-solid fa-calendar"></i>
+                        Rango:</span>
+                    <input type="date" name="date" value="{{ date_str }}"
+                        style="height: 28px; line-height: 26px; padding: 0 8px; font-size: 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background-color: var(--bg-input); color: var(--text-primary); cursor: pointer; box-sizing: border-box; margin: 0; vertical-align: middle;"
+                        onchange="document.getElementById('filter-form').submit()">
+                </div>
+                {% endif %}
+            </form>
+        </h3>
+        <div style="position: relative; height: 300px; width: 100%;">
+            <canvas id="flowChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Agenda CRM de Contactos de Clientes para Hoy -->
+    <div class="card-table-wrapper" style="display: flex; flex-direction: column; gap: 20px;">
+        <h3
+            style="font-size: 1.15rem; font-family: var(--font-heading); display: flex; align-items: center; gap: 10px;">
+            <i class="fa-solid fa-calendar-check" style="color: var(--accent-purple);"></i>
+            <span>Compromisos CRM para Hoy</span>
+        </h3>
+
+        <div
+            style="display: flex; flex-direction: column; gap: 12px; max-height: 300px; overflow-y: auto; padding-right: 5px;">
+            {% if crm_contacts %}
+            {% for contact in crm_contacts %}
+            <div class="crm-notification-item"
+                style="background-color: rgba(255, 255, 255, 0.02); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 12px 16px; display: flex; flex-direction: column; gap: 6px; transition: border-color var(--transition-fast);">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <strong
+                        style="font-size: 0.88rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 170px;">{{
+                        contact.razonSocial }}</strong>
+                    <span class="badge badge-primary" style="font-size: 0.6rem;">CRM</span>
+                </div>
+                <p style="color: var(--text-secondary); font-size: 0.8rem; line-height: 1.3;">
+                    {{ contact.crmNotes or 'Sin anotaciones de acuerdo comercial.' }}
+                </p>
+                <div
+                    style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); border-top: 1px solid var(--border-color); padding-top: 6px; margin-top: 4px;">
+                    <span><i class="fa-solid fa-phone"></i> {{ contact.telefono or 'N/A' }}</span>
+                    <a href="{{ url_for('client_detail', client_id=contact.id) }}"
+                        style="color: var(--accent-emerald); font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 4px;">
+                        <i class="fa-solid fa-eye" style="font-size: 0.75rem;"></i> Ver Detalle
+                    </a>
+                </div>
+            </div>
+            {% endfor %}
+            {% else %}
+            <div style="text-align: center; color: var(--text-secondary); font-size: 0.9rem; padding: 40px 0;">
+                <i class="fa-solid fa-circle-check"
+                    style="font-size: 2.2rem; color: var(--accent-emerald); opacity: 0.5; margin-bottom: 12px; display: block;"></i>
+                <span>¡Al día! No tienes contactos pendientes de agenda para hoy.</span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div style="display: grid; grid-template-columns: 2fr 1fr; gap: 30px; margin-bottom: 36px;">
+    <!-- Secuencias Fiscales Críticas o de Mínimo Disponible -->
+    <div class="card-table-wrapper">
+        <h3
+            style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 14px; display: flex; align-items: center; gap: 8px;">
+            <i class="fa-solid fa-triangle-exclamation" style="color: var(--accent-yellow);"></i>
+            <span>Estado de Rangos Autorizados DGII</span>
+        </h3>
+
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+            {% if sequences %}
+            {% for seq in sequences %}
+            <div
+                style="background-color: rgba(255, 255, 255, 0.01); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 10px 14px; display: flex; flex-direction: column; gap: 6px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <strong style="font-size: 0.85rem;">{{ seq.tipoComprobante }}</strong>
+                        <span style="font-size: 0.68rem; color: var(--text-muted); display: block; margin-top: 1px;">Auth: #{{ seq.numeroAutorizacionDgii }}</span>
+                    </div>
+                    <span
+                        class="badge {% if seq.cantidadDisponible <= seq.alertaMinimoDisponible %}badge-danger{% else %}badge-success{% endif %}"
+                        style="font-size: 0.65rem; padding: 3px 8px;">
+                        {{ seq.cantidadDisponible }} disponibles
+                    </span>
+                </div>
+
+                <!-- Barra de porcentaje consumido -->
+                <div
+                    style="width: 100%; height: 4px; background-color: var(--bg-input); border-radius: 2px; overflow: hidden; position: relative;">
+                    <div
+                        style="width: {{ seq.porcentajeUsado * 100 }}%; height: 100%; background-color: {% if seq.cantidadDisponible <= seq.alertaMinimoDisponible %}var(--accent-red){% else %}var(--accent-emerald){% endif %}; border-radius: 2px; transition: width 0.5s ease;">
+                    </div>
+                </div>
+
+                <div
+                    style="display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--text-secondary);">
+                    <span>Rango: {{ seq.secuenciaInicial }} - {{ seq.secuenciaFinal }}</span>
+                    <span>Último: {{ seq.ultimoConsecutivoUsado }}</span>
+                </div>
+            </div>
+            {% endfor %}
+            {% else %}
+            <div style="text-align: center; color: var(--text-secondary); font-size: 0.85rem; padding: 20px 0;">
+                <i class="fa-solid fa-circle-info"
+                    style="font-size: 1.8rem; color: var(--accent-purple); opacity: 0.5; margin-bottom: 8px; display: block;"></i>
+                <span>No tienes secuencias fiscales registradas en este entorno.</span>
+                <a href="{{ url_for('list_sequences') }}"
+                    style="color: var(--accent-emerald); font-weight: 600; display: block; margin-top: 6px;">Autorizar
+                    primera secuencia</a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Distribución de Ventas por Tipo de Documento -->
+    <div class="card-table-wrapper" style="display: flex; flex-direction: column; gap: 20px; align-self: start;">
+        <h3
+            style="font-size: 1.15rem; font-family: var(--font-heading); display: flex; align-items: center; gap: 10px;">
+            <i class="fa-solid fa-chart-pie" style="color: var(--accent-yellow);"></i>
+            <span>Ventas por Tipo de Documento</span>
+        </h3>
+        <div style="position: relative; height: 260px; width: 100%;">
+            <canvas id="typeChart"></canvas>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    // ── Sincronización de comprobantes en Contingencia Offline ──
+    function syncContingencyInvoices() {
+        const btn = document.getElementById('btn-sync-contingency');
+        const icon = document.getElementById('sync-icon');
+        if (!btn) return;
+        btn.disabled = true;
+        btn.style.opacity = '0.6';
+        icon.className = 'fa-solid fa-rotate fa-spin';
+        btn.innerHTML = '<i class="fa-solid fa-rotate fa-spin" id="sync-icon"></i> Sincronizando...';
+
+        fetch('/api/invoices/sync-contingency', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(res => res.json())
+            .then(data => {
+                if (data.synced > 0) {
+                    btn.style.background = 'linear-gradient(135deg, #10b981, #059669)';
+                    btn.innerHTML = '<i class="fa-solid fa-circle-check"></i> ¡' + data.synced + ' sincronizado(s) con éxito!';
+                    setTimeout(() => { window.location.reload(); }, 2000);
+                } else if (data.total_pending === 0) {
+                    btn.innerHTML = '<i class="fa-solid fa-circle-check"></i> Todo al día';
+                    document.getElementById('contingency-alert-banner').style.display = 'none';
+                } else {
+                    btn.disabled = false;
+                    btn.style.opacity = '1';
+                    btn.innerHTML = '<i class="fa-solid fa-rotate"></i> Sin conexión — Reintenta más tarde';
+                }
+            })
+            .catch(() => {
+                btn.disabled = false;
+                btn.style.opacity = '1';
+                btn.innerHTML = '<i class="fa-solid fa-rotate"></i> Error de red. Reintenta';
+            });
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        // Datos Inyectados desde Python para Flujo de Caja (Ingresos vs Egresos)
+        const flowData = {{ chart_data | tojson
+    }};
+
+    const flowCtx = document.getElementById('flowChart').getContext('2d');
+
+    // Crear gradientes espectaculares idénticos a la app iOS
+    const flowInvoicedGrad = flowCtx.createLinearGradient(0, 0, 0, 300);
+    flowInvoicedGrad.addColorStop(0, '#3b82f6'); // Blue gradient
+    flowInvoicedGrad.addColorStop(1, '#1d4ed8');
+
+    const flowExpensesGrad = flowCtx.createLinearGradient(0, 0, 0, 300);
+    flowExpensesGrad.addColorStop(0, '#f87171'); // Red/rose gradient
+    flowExpensesGrad.addColorStop(1, '#dc2626');
+
+    new Chart(flowCtx, {
+        type: 'bar',
+        data: {
+            labels: flowData.labels,
+            datasets: [
+                {
+                    label: 'Ingresos Facturados (RD$)',
+                    data: flowData.invoiced,
+                    backgroundColor: flowInvoicedGrad,
+                    borderRadius: 6,
+                    borderWidth: 0
+                },
+                {
+                    label: 'Egresos / Gastos (RD$)',
+                    data: flowData.expenses,
+                    backgroundColor: flowExpensesGrad,
+                    borderRadius: 6,
+                    borderWidth: 0
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    labels: {
+                        color: '#9ca3af',
+                        font: { family: 'Inter', size: 12, weight: '500' },
+                        usePointStyle: true,
+                        pointStyle: 'circle'
+                    }
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(18, 18, 20, 0.85)',
+                    titleColor: '#ffffff',
+                    bodyColor: '#e5e7eb',
+                    borderColor: 'rgba(255, 255, 255, 0.08)',
+                    borderWidth: 1,
+                    padding: 12,
+                    cornerRadius: 8,
+                    boxPadding: 6,
+                    callbacks: {
+                        label: function (context) {
+                            let label = context.dataset.label || '';
+                            if (label) {
+                                label = label.split(' (')[0] + ': ';
+                            }
+                            if (context.parsed.y !== null) {
+                                label += new Intl.NumberFormat('es-DO', { style: 'currency', currency: 'DOP' }).format(context.parsed.y);
+                            }
+                            return label;
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    grid: { display: false },
+                    ticks: { color: '#9ca3af', font: { family: 'Inter', weight: '500' } }
+                },
+                y: {
+                    grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                    ticks: {
+                        color: '#9ca3af',
+                        font: { family: 'Inter', weight: '500' },
+                        callback: function (value) {
+                            if (value >= 1000) {
+                                return 'RD$ ' + (value / 1000) + 'k';
+                            }
+                            return 'RD$ ' + value;
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    // Datos Inyectados desde Python para Ventas por Tipo de e-CF
+    const typeData = {{ type_chart_data | tojson }};
+
+    // Calcular total formateado para inyectar en el gráfico
+    const totalVal = typeData.values.reduce((sum, val) => sum + val, 0);
+    const formattedTotal = 'RD$ ' + totalVal.toLocaleString('es-DO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+    const typeCtx = document.getElementById('typeChart').getContext('2d');
+
+    // Generar gradientes dinámicos de alta definición
+    const grad1 = typeCtx.createLinearGradient(0, 0, 0, 240);
+    grad1.addColorStop(0, '#34d399');
+    grad1.addColorStop(1, '#059669');
+
+    const grad2 = typeCtx.createLinearGradient(0, 0, 0, 240);
+    grad2.addColorStop(0, '#60a5fa');
+    grad2.addColorStop(1, '#1d4ed8');
+
+    const grad3 = typeCtx.createLinearGradient(0, 0, 0, 240);
+    grad3.addColorStop(0, '#fbbf24');
+    grad3.addColorStop(1, '#d97706');
+
+    const grad4 = typeCtx.createLinearGradient(0, 0, 0, 240);
+    grad4.addColorStop(0, '#c084fc');
+    grad4.addColorStop(1, '#7c3aed');
+
+    const grad5 = typeCtx.createLinearGradient(0, 0, 0, 240);
+    grad5.addColorStop(0, '#f472b6');
+    grad5.addColorStop(1, '#db2777');
+
+    // Plugin para centrar el texto dinámicamente y con precisión matemática dentro de la rosca del doughnut
+    const centerTextPlugin = {
+        id: 'centerTextPlugin',
+        afterDraw: function (chart) {
+            const ctx = chart.ctx;
+            const fontStyle = 'Inter';
+
+            ctx.save();
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            // Coordenadas del centro exacto del doughnut (corrige el desplazamiento de la leyenda lateral)
+            const centerX = ((chart.chartArea.left + chart.chartArea.right) / 2);
+            const centerY = ((chart.chartArea.top + chart.chartArea.bottom) / 2);
+
+            // Obtener colores dinámicos desde el tema CSS del DOM
+            const textColor = window.getComputedStyle(document.documentElement).getPropertyValue('--text-primary').trim() || '#ffffff';
+            const textMutedColor = window.getComputedStyle(document.documentElement).getPropertyValue('--text-secondary').trim() || '#9ca3af';
+
+            // 1. Dibujar subtexto "TOTAL VENTAS"
+            ctx.font = "600 9px " + fontStyle;
+            ctx.fillStyle = textMutedColor;
+            ctx.fillText("TOTAL VENTAS", centerX, centerY - 10);
+
+            // 2. Dibujar valor monetario
+            ctx.font = "bold 15px " + fontStyle;
+            ctx.fillStyle = textColor;
+            ctx.fillText(formattedTotal, centerX, centerY + 10);
+
+            ctx.restore();
+        }
+    };
+
+    new Chart(typeCtx, {
+        type: 'doughnut',
+        data: {
+            labels: typeData.labels,
+            datasets: [{
+                data: typeData.values,
+                backgroundColor: [grad1, grad2, grad3, grad4, grad5],
+                borderWidth: 0,
+                hoverOffset: 8,
+                borderRadius: 6,
+                spacing: 4
+            }]
+        },
+        plugins: [centerTextPlugin],
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'right',
+                    labels: {
+                        color: '#9ca3af',
+                        font: { family: 'Inter', size: 12, weight: '500' },
+                        padding: 16,
+                        usePointStyle: true,
+                        pointStyle: 'circle'
+                    }
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(18, 18, 20, 0.85)',
+                    titleColor: '#ffffff',
+                    bodyColor: '#e5e7eb',
+                    borderColor: 'rgba(255, 255, 255, 0.08)',
+                    borderWidth: 1,
+                    padding: 12,
+                    cornerRadius: 8,
+                    boxPadding: 6,
+                    callbacks: {
+                        label: function (context) {
+                            let label = context.label || '';
+                            if (label) {
+                                label += ': ';
+                            }
+                            if (context.parsed !== null) {
+                                label += new Intl.NumberFormat('es-DO', { style: 'currency', currency: 'DOP' }).format(context.parsed);
+                            }
+                            return label;
+                        }
+                    }
+                }
+            },
+            cutout: '76%'
+        }
+    });
+    });
+</script>
+{% endblock %}

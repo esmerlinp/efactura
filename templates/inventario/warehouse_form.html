@@ -1,0 +1,58 @@
+{% extends "layout.html" %}
+
+{% block title %}{% if warehouse %}Editar Almacén{% else %}Nuevo Almacén{% endif %}{% endblock %}
+
+{% block page_header %}{% if warehouse %}Editar Almacén{% else %}Crear Nuevo Almacén{% endif %}{% endblock %}
+
+{% block content %}
+<div class="card-table-wrapper" style="max-width: 650px; margin: 0 auto;">
+    <h3 style="font-size: 1.25rem; font-family: var(--font-heading); margin-bottom: 24px; border-bottom: 1px solid var(--border-color); padding-bottom: 14px;">
+        <i class="fa-solid fa-warehouse" style="color: var(--accent-emerald);"></i>
+        <span>Detalles de Almacén</span>
+    </h3>
+    
+    <form action="{% if warehouse %}{{ url_for('edit_warehouse', warehouse_id=warehouse.id) }}{% else %}{{ url_for('new_warehouse') }}{% endif %}" method="POST">
+        <div class="form-grid" style="grid-template-columns: 1fr;">
+            <!-- Nombre del Almacén -->
+            <div class="form-group">
+                <label for="name">Nombre del Almacén</label>
+                <input type="text" id="name" name="name" class="form-input" placeholder="Ej: Depósito Norte, Exhibición Principal" required value="{{ warehouse.name if warehouse else '' }}">
+            </div>
+
+            <!-- Sucursal Perteneciente -->
+            <div class="form-group">
+                <label for="branchId">Sucursal (Rama a la que pertenece)</label>
+                <select id="branchId" name="branchId" class="form-input" required>
+                    {% for branch in branches %}
+                    <option value="{{ branch.id }}" {% if warehouse and warehouse.branchId == branch.id %}selected{% elif not warehouse and branch.isDefault %}selected{% endif %}>
+                        {{ branch.name }} ({{ branch.code }})
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <!-- Descripción -->
+            <div class="form-group">
+                <label for="description">Descripción / Propósito</label>
+                <textarea id="description" name="description" class="form-input" placeholder="Ej: Resguardo de mercancía de ferretería pesada..." style="min-height: 100px; resize: vertical; padding: 12px;">{{ warehouse.description if warehouse else '' }}</textarea>
+            </div>
+            
+            <!-- Dirección Física -->
+            <div class="form-group">
+                <label for="address">Dirección Física o Ubicación Geográfica</label>
+                <input type="text" id="address" name="address" class="form-input" placeholder="Ej: Autopista Duarte Km 9, Santo Domingo Oeste" value="{{ warehouse.address if warehouse else '' }}">
+            </div>
+        </div>
+
+        <div style="margin-top: 36px; display: flex; justify-content: flex-end; gap: 15px; border-top: 1px solid var(--border-color); padding-top: 24px;">
+            <a href="{{ url_for('inventory_warehouses') }}" class="btn btn-secondary">
+                <span>Cancelar</span>
+            </a>
+            <button type="submit" class="btn btn-primary">
+                <i class="fa-solid fa-floppy-disk"></i>
+                <span>{% if warehouse %}Guardar Almacén{% else %}Registrar Almacén{% endif %}</span>
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}

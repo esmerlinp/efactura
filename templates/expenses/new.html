@@ -1,0 +1,205 @@
+{% extends "layout.html" %}
+
+{% block title %}Registrar Gasto operativo{% endblock %}
+
+{% block page_header %}Registrar Egreso Operativo{% endblock %}
+
+{% block content %}
+<style>
+    .expense-layout-grid {
+        display: grid;
+        grid-template-columns: 2fr 1fr;
+        gap: 24px;
+        align-items: start;
+        margin-bottom: 24px;
+        width: 100%;
+    }
+
+    .expense-layout-grid .card-table-wrapper {
+        background-color: rgba(255, 255, 255, 0.85); /* Modo Claro Oopaco */
+        backdrop-filter: blur(20px);
+        box-shadow: var(--shadow-md);
+    }
+
+    [data-theme="dark"] .expense-layout-grid .card-table-wrapper {
+        background-color: rgba(15, 23, 42, 0.85); /* Modo Oscuro Oopaco */
+        backdrop-filter: blur(20px);
+        box-shadow: var(--shadow-md);
+    }
+
+    .expense-left-col, .expense-right-col {
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+    }
+
+    .form-inner-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 20px 24px;
+    }
+
+    .recurrence-box {
+        display: none;
+        flex-direction: column;
+        gap: 16px;
+        margin-top: 16px;
+        padding: 18px;
+        background: rgba(255, 255, 255, 0.02);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-sm);
+        backdrop-filter: blur(4px);
+    }
+
+    /* Make text inputs inside grids span columns if needed */
+    .span-full {
+        grid-column: 1 / -1;
+    }
+
+    @media (max-width: 1024px) {
+        .expense-layout-grid {
+            grid-template-columns: 1fr;
+        }
+        .form-inner-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
+<form action="{{ url_for('new_expense_route') }}" method="POST" enctype="multipart/form-data" style="width: 100%;">
+    <div class="expense-layout-grid">
+        <!-- Columna Izquierda: Datos del Egreso -->
+        <div class="expense-left-col">
+            <div class="card-table-wrapper" style="margin-bottom: 0;">
+                <h3 style="font-size: 1.25rem; font-family: var(--font-heading); margin-bottom: 24px; border-bottom: 1px solid var(--border-color); padding-bottom: 14px; display: flex; align-items: center; gap: 10px;">
+                    <i class="fa-solid fa-file-invoice-dollar" style="color: var(--accent-red);"></i>
+                    <span>Información General del Egreso</span>
+                </h3>
+                
+                <div class="form-inner-grid">
+                    <div class="form-group span-full">
+                        <label for="concept">Concepto / Descripción del Gasto</label>
+                        <input type="text" id="concept" name="concept" class="form-input" placeholder="Ej: Compra de Licencias de Office 365 para el Equipo" required style="width: 100%;">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="category">Categoría del Gasto</label>
+                        <select id="category" name="category" class="form-select" required style="width: 100%;">
+                            <option value="Comida y Restaurantes">Comida y Restaurantes</option>
+                            <option value="Transporte y Combustible">Transporte y Combustible</option>
+                            <option value="Servicios Básicos">Servicios Básicos (Luz, Internet)</option>
+                            <option value="Software y Tecnología" selected>Software y Tecnología</option>
+                            <option value="Materiales de Oficina">Materiales de Oficina</option>
+                            <option value="Alquileres">Alquileres</option>
+                            <option value="Impuestos y Tasas">Impuestos y Tasas</option>
+                            <option value="Otros Gastos">Otros Gastos</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="amount">Monto Total del Gasto (RD$)</label>
+                        <input type="number" id="amount" name="amount" class="form-input" placeholder="0.00" step="0.01" required style="width: 100%;">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="date">Fecha de Transacción</label>
+                        <input type="date" id="date" name="date" class="form-input" required value="{{ today_str }}" style="width: 100%;">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="associated-invoice">Imputar a Factura / Proyecto (Rentabilidad)</label>
+                        <select id="associated-invoice" name="associatedInvoiceId" class="form-select" style="width: 100%;">
+                            <option value="">-- Gasto General Operativo --</option>
+                            {% for inv in invoices %}
+                                <option value="{{ inv.id }}">Factura {{ inv.invoiceNumber }} (Total: RD$ {{ "{:,.0f}".format(inv.total) }} - {{ inv.clientName }})</option>
+                            {% endfor %}
+                        </select>
+                        <small style="color: var(--text-muted); font-size: 0.72rem; margin-top: 4px;">Asociar costo a factura calcula el margen neto en tiempo real.</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="rnc-emisor">RNC Emisor del Gasto</label>
+                        <input type="text" id="rnc-emisor" name="rncEmisor" class="form-input" placeholder="Ej: 101888888 (Claro)" style="width: 100%;">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="ncf">NCF del Comprobante Físico</label>
+                        <input type="text" id="ncf" name="ncf" class="form-input" placeholder="Ej: B0100000125" style="width: 100%;">
+                    </div>
+                    
+                    <div class="form-group span-full" style="margin-top: 10px; border-top: 1px dashed var(--border-color); padding-top: 16px;">
+                        <label class="switch-container" style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                            <input type="checkbox" id="is-deductible-checkbox" name="isDeductible" value="true" checked style="width: 18px; height: 18px; accent-color: var(--accent-red);">
+                            <span style="font-weight: 600;">¿Este gasto es para tu negocio (gasto deducible)?</span>
+                        </label>
+                        <small style="color: var(--text-muted); display: block; margin-top: 4px; padding-left: 28px;">
+                            Si desmarcas esta opción, el gasto se registrará para el control de tus finanzas personales y margen neto real, pero se **excluirá automáticamente** de tus simuladores contables y reportes oficiales del Formato 606 enviados a la DGII.
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Columna Derecha: Soporte y Recurrencia -->
+        <div class="expense-right-col">
+            <!-- Card de Soporte Digital -->
+            <div class="card-table-wrapper" style="margin-bottom: 0;">
+                <h3 style="font-size: 1.2rem; font-family: var(--font-heading); margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px; display: flex; align-items: center; gap: 10px;">
+                    <i class="fa-solid fa-paperclip" style="color: var(--accent-blue);"></i>
+                    <span>Soporte Digital</span>
+                </h3>
+                
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label for="attachment">Archivo de Ticket / Recibo / Factura</label>
+                    <input type="file" id="attachment" name="attachment" class="form-input" accept="image/*,application/pdf" style="padding: 10px 12px; height: auto; width: 100%;">
+                    <small style="color: var(--text-muted); font-size: 0.72rem; margin-top: 6px; display: block; line-height: 1.4;">Carga una foto del ticket físico o del PDF de soporte. Se almacenará en tu bucket de Firebase Storage.</small>
+                </div>
+            </div>
+
+            <!-- Card de Automatización (Gasto Recurrente) -->
+            <div class="card-table-wrapper" style="margin-bottom: 0;">
+                <h3 style="font-size: 1.2rem; font-family: var(--font-heading); margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px; display: flex; align-items: center; gap: 10px;">
+                    <i class="fa-solid fa-rotate" style="color: var(--accent-purple);"></i>
+                    <span>Gasto Recurrente</span>
+                </h3>
+                
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label for="is-recurring">¿Es un Gasto Fijo Recurrente?</label>
+                    <select id="is-recurring" name="isRecurring" class="form-select" onchange="document.getElementById('recurrence-fields').style.display=this.value==='true'?'flex':'none'" style="width: 100%;">
+                        <option value="false" selected>No, egreso único</option>
+                        <option value="true">Sí, automatizar registro</option>
+                    </select>
+                    <small style="color: var(--text-muted); font-size: 0.72rem; margin-top: 6px; display: block; line-height: 1.4;">Úsalo para gastos fijos automatizados (ej: alquiler, internet, nóminas, etc.).</small>
+                </div>
+                
+                <!-- Campos Recurrentes Dinámicos -->
+                <div class="recurrence-box" id="recurrence-fields">
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label for="recurrence-interval">Frecuencia del Gasto</label>
+                        <select id="recurrence-interval" name="recurrenceInterval" class="form-select" style="width: 100%;">
+                            <option value="semanal">Semanal</option>
+                            <option value="quincenal">Quincenal</option>
+                            <option value="mensual" selected>Mensual</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label for="next-recurrence">Próxima Fecha de Registro</label>
+                        <input type="date" id="next-recurrence" name="nextOccurrenceDate" class="form-input" style="width: 100%;">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Botones de Acción -->
+    <div style="margin-top: 24px; display: flex; justify-content: flex-end; gap: 15px; border-top: 1px solid var(--border-color); padding-top: 24px;">
+        <a href="{{ url_for('list_expenses') }}" class="btn btn-secondary">
+            <span>Cancelar</span>
+        </a>
+        <button type="submit" class="btn btn-primary" style="padding: 14px 28px;">
+            <i class="fa-solid fa-floppy-disk"></i>
+            <span>Registrar Gasto</span>
+        </button>
+    </div>
+</form>
+{% endblock %}

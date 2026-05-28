@@ -1,0 +1,113 @@
+{% extends "layout.html" %}
+
+{% block title %}Diagnóstico Fiscal IT-1{% endblock %}
+
+{% block page_header %}Diagnóstico Fiscal Formulario IT-1 (Estimado){% endblock %}
+
+{% block content %}
+<div class="card-table-wrapper" style="max-width: 900px; margin: 0 auto; padding: 40px; position: relative;">
+    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 20px; margin-bottom: 30px;">
+        <div>
+            <h3 style="font-size: 1.45rem; font-family: var(--font-heading); display: flex; align-items: center; gap: 10px;">
+                <i class="fa-solid fa-file-invoice" style="color: var(--accent-emerald);"></i>
+                <span>Declaración Estimada de ITBIS</span>
+            </h3>
+            <p style="color: var(--text-secondary); font-size: 0.88rem; margin-top: 4px;">Determinación del ITBIS devengado versus deducible para el período actual.</p>
+        </div>
+        
+        <div style="text-align: right;">
+            <span class="badge badge-primary">Periodo: {{ current_period }}</span>
+        </div>
+    </div>
+
+    <!-- Resultados del saldo de ITBIS -->
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 36px;">
+        <div style="background-color: rgba(255, 255, 255, 0.01); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 24px; text-align: center; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;">
+            <span style="font-size: 0.78rem; text-transform: uppercase; color: var(--text-secondary); font-weight: 700; letter-spacing: 0.05em;">Saldo de ITBIS Estimado</span>
+            
+            {% set itbis_balance = it1.total_itbis_sales - it1.total_itbis_expenses %}
+            {% if itbis_balance >= 0 %}
+                <div style="font-family: var(--font-heading); font-size: 2.1rem; font-weight: 800; color: var(--accent-red);">
+                    RD$ {{ "{:,.2f}".format(itbis_balance) }}
+                </div>
+                <span class="badge badge-danger" style="font-size: 0.7rem;"><i class="fa-solid fa-circle-exclamation"></i> ITBIS Neto a Pagar a la DGII</span>
+            {% else %}
+                <div style="font-family: var(--font-heading); font-size: 2.1rem; font-weight: 800; color: var(--accent-emerald);">
+                    RD$ {{ "{:,.2f}".format(itbis_balance | abs) }}
+                </div>
+                <span class="badge badge-success" style="font-size: 0.7rem;"><i class="fa-solid fa-circle-check"></i> Saldo a Favor del Contribuyente</span>
+            {% endif %}
+        </div>
+        
+        <div style="display: flex; flex-direction: column; gap: 12px; justify-content: center;">
+            <div style="display: flex; justify-content: space-between; font-size: 0.95rem; color: var(--text-secondary);">
+                <span>Ventas Gravadas Totales:</span>
+                <strong>RD$ {{ "{:,.2f}".format(it1.sales_subtotal) }}</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 0.95rem; color: var(--text-secondary);">
+                <span>Compras & Egresos Deducibles:</span>
+                <strong>RD$ {{ "{:,.2f}".format(it1.expenses_subtotal) }}</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 0.78rem; color: var(--text-muted); border-top: 1px solid var(--border-color); padding-top: 10px; margin-top: 4px;">
+                <span>* Este cálculo es informativo y se basa en las facturas y compras del periodo registradas en el sistema.</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mapeo exacto de Casillas del Formulario IT-1 (Simplificado) -->
+    <h4 style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">
+        <i class="fa-solid fa-table-list" style="color: var(--accent-purple);"></i>
+        <span>Casillas Estimadas del IT-1 (DGII)</span>
+    </h4>
+    
+    <div style="display: flex; flex-direction: column; gap: 14px;">
+        <!-- Operaciones en Ventas -->
+        <div style="background-color: rgba(255, 255, 255, 0.01); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 16px;">
+            <h5 style="font-size: 0.9rem; font-family: var(--font-heading); color: var(--accent-emerald); margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.02em;">I. Operaciones Declaradas (Ventas)</h5>
+            
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+                <div style="display: flex; justify-content: space-between; font-size: 0.9rem;">
+                    <span>Casilla 1: Ingresos por Operaciones (Venta General)</span>
+                    <strong style="font-family: monospace;">RD$ {{ "{:,.2f}".format(it1.sales_subtotal) }}</strong>
+                </div>
+                <div style="display: flex; justify-content: space-between; font-size: 0.9rem; border-top: 1px dashed var(--border-color); padding-top: 8px;">
+                    <span>Casilla 11: ITBIS Facturado / Devengado (18% General)</span>
+                    <strong style="font-family: monospace; color: var(--accent-red);">RD$ {{ "{:,.2f}".format(it1.total_itbis_sales) }}</strong>
+                </div>
+            </div>
+        </div>
+
+        <!-- Compras y Egresos Deducibles -->
+        <div style="background-color: rgba(255, 255, 255, 0.01); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 16px;">
+            <h5 style="font-size: 0.9rem; font-family: var(--font-heading); color: var(--accent-purple); margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.02em;">II. Deducciones y Compras</h5>
+            
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+                <div style="display: flex; justify-content: space-between; font-size: 0.9rem;">
+                    <span>Casilla 15: Compras locales deducibles (e-CF E41 y Gastos)</span>
+                    <strong style="font-family: monospace;">RD$ {{ "{:,.2f}".format(it1.expenses_subtotal) }}</strong>
+                </div>
+                <div style="display: flex; justify-content: space-between; font-size: 0.9rem; border-top: 1px dashed var(--border-color); padding-top: 8px;">
+                    <span>Casilla 18: ITBIS pagado en compras locales (Deducible)</span>
+                    <strong style="font-family: monospace; color: var(--accent-emerald);">RD$ {{ "{:,.2f}".format(it1.total_itbis_expenses) }}</strong>
+                </div>
+            </div>
+        </div>
+
+        <!-- Liquidación de Retenciones -->
+        <div style="background-color: rgba(255, 255, 255, 0.01); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 16px;">
+            <h5 style="font-size: 0.9rem; font-family: var(--font-heading); color: var(--accent-yellow); margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.02em;">III. Liquidación de Retenciones</h5>
+            
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+                <div style="display: flex; justify-content: space-between; font-size: 0.9rem;">
+                    <span>Casilla 22: ITBIS Retenido por Terceros (CxC Retenido)</span>
+                    <strong style="font-family: monospace;">RD$ {{ "{:,.2f}".format(it1.total_retained_itbis) }}</strong>
+                </div>
+                <div style="display: flex; justify-content: space-between; font-size: 0.9rem; border-top: 1px dashed var(--border-color); padding-top: 8px;">
+                    <span>Casilla 24: ISR Retenido por Clientes (CxC ISR)</span>
+                    <strong style="font-family: monospace;">RD$ {{ "{:,.2f}".format(it1.total_retained_isr) }}</strong>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
