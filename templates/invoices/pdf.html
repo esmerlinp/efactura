@@ -1,3 +1,8 @@
+{% set apply_brand = company.applyColorMarcaReports %}
+{% set brand_color = company.colorMarca if (apply_brand and company.colorMarca) else '#1E3A8A' %}
+{% set company_color_marca = brand_color %}
+{% set current_color = brand_color %}
+{% set current_light_color = brand_color if apply_brand else '#E2E8F0' %}
 <!DOCTYPE html>
 <html lang="es">
 
