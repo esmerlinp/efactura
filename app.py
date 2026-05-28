@@ -1991,9 +1991,11 @@ def company_settings():
             "applyColorMarcaUI": existing_profile.get('applyColorMarcaUI', True),
             "applyColorMarcaReports": existing_profile.get('applyColorMarcaReports', True),
             "logoUrl": existing_profile.get('logoUrl', ''),
-            "regimenFiscal": request.form.get('regimenFiscal', 'General')
+            "regimenFiscal": request.form.get('regimenFiscal', 'General'),
+            "openaiApiKey": request.form.get('openaiApiKey', '')
         }
         DatabaseService.save_company_profile(owner_uid, profile_dict)
+
         flash('Ajustes y perfil de empresa actualizados correctamente.', 'success')
         return redirect(url_for('company_settings'))
         
@@ -2302,6 +2304,25 @@ def export_report_csv(report_type):
 def help_center():
     if 'user' not in session: return redirect(url_for('login'))
     return render_template('help.html', active_page='help')
+
+@app.route('/api/chatbot', methods=['POST'])
+def chatbot_api():
+    if 'user' not in session:
+        return jsonify({"success": False, "message": "Debes iniciar sesión para interactuar con el chatbot."}), 401
+    
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+    
+    data = request.get_json() or {}
+    message = data.get("message", "").strip()
+    history = data.get("history", [])
+    
+    if not message:
+        return jsonify({"success": False, "message": "El mensaje no puede estar vacío."}), 400
+        
+    from chatbot_service import ChatbotService
+    result = ChatbotService.ask_chatbot(owner_uid, message, history, sandbox=sandbox)
+    return jsonify(result)
 
 if __name__ == '__main__':
     app.run(debug=True, port=5001)

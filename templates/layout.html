@@ -394,6 +394,799 @@
         </main>
     </div>
 
+    <!-- BOTÓN FLOTANTE (FAB) DEL CHATBOT IA -->
+    <div id="chatbot-fab" title="Consultar a e-Factura IA (Asesor Fiscal)">
+        <i class="fa-solid fa-comments"></i>
+        <div id="chatbot-pulse-ring"></div>
+    </div>
+
+    <!-- BARRA LATERAL REDIMENSIONABLE DEL CHATBOT IA -->
+    <aside id="chatbot-sidebar">
+        <!-- Manija de redimensionamiento izquierda -->
+        <div id="chatbot-resize-handle">
+            <div class="resize-indicator-line"></div>
+        </div>
+
+        <!-- Encabezado del Chat -->
+        <div class="chatbot-header">
+            <div class="chatbot-header-title">
+                <div class="chatbot-avatar-pulse">
+                    <i class="fa-solid fa-robot"></i>
+                </div>
+                <div>
+                    <h4 style="font-size: 0.95rem; font-weight: 800; margin: 0; color: var(--text-primary); font-family: var(--font-heading);">Asistente e-Factura</h4>
+                    <span style="font-size: 0.72rem; font-weight: 600; color: var(--accent-emerald); display: flex; align-items: center; gap: 4px;">
+                        <span style="width: 6px; height: 6px; border-radius: 50%; background-color: var(--accent-emerald); display: inline-block;"></span>
+                        Experto Fiscal Activo
+                    </span>
+                </div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <button id="chatbot-clear-btn" class="chatbot-header-action" title="Limpiar conversación">
+                    <i class="fa-solid fa-trash-clock"></i>
+                </button>
+                <button id="chatbot-close-btn" class="chatbot-header-action" title="Cerrar panel">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Cuerpo del Chat (Mensajes) -->
+        <div class="chatbot-body" id="chatbot-messages-container">
+            <div class="chatbot-welcome-card">
+                <i class="fa-solid fa-scale-balanced" style="font-size: 2.2rem; margin-bottom: 12px; background: linear-gradient(135deg, var(--accent-emerald), #60a5fa); -webkit-background-clip: text; -webkit-text-fill-color: transparent;"></i>
+                <h5 style="margin: 0 0 6px 0; font-weight: 800; color: var(--text-primary); font-family: var(--font-heading);">¡Hola! Soy tu Asesor Fiscal IA</h5>
+                <p style="font-size: 0.8rem; line-height: 1.4; color: var(--text-secondary); margin: 0 0 14px 0;">
+                    Estoy capacitado en la **Ley 32-23 de Facturación Electrónica en República Dominicana** y las regulaciones de la **DGII**. Puedo ayudarte a responder consultas sobre:
+                </p>
+                <div class="chatbot-chips-grid">
+                    <button class="chatbot-chip">¿Qué es el RST?</button>
+                    <button class="chatbot-chip">¿Cuál es el límite anual del RST?</button>
+                    <button class="chatbot-chip">¿Cómo registro un gasto deducible?</button>
+                    <button class="chatbot-chip">¿Cómo calculo retenciones de ISR?</button>
+                    <button class="chatbot-chip">¿Qué hago en caso de contingencia?</button>
+                    <button class="chatbot-chip">¿Cuánto he facturado este mes?</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Entrada de Texto del Chat -->
+        <div class="chatbot-footer">
+            <form id="chatbot-form" style="display: flex; gap: 10px; width: 100%; margin: 0; padding: 0;">
+                <input type="text" id="chatbot-input" placeholder="Escribe tu consulta fiscal aquí..." autocomplete="off" required>
+                <button type="submit" id="chatbot-send-btn" title="Enviar mensaje">
+                    <i class="fa-solid fa-paper-plane"></i>
+                </button>
+            </form>
+        </div>
+    </aside>
+
+    <!-- ESTILOS CSS DEL CHATBOT (GLASSMORPHISM PREMIUM) -->
+    <style>
+        /* Estilos del FAB */
+        #chatbot-fab {
+            position: fixed;
+            bottom: 25px;
+            right: 25px;
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: var(--brand-gradient, linear-gradient(135deg, #10b981, #60a5fa));
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            cursor: pointer;
+            box-shadow: 0 4px 20px rgba(16, 185, 129, 0.35);
+            z-index: 1004;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+        }
+
+        #chatbot-fab:hover {
+            transform: scale(1.08) translateY(-2px);
+            box-shadow: 0 6px 25px rgba(16, 185, 129, 0.45);
+        }
+
+        #chatbot-pulse-ring {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border: 3px solid var(--accent-emerald, #10b981);
+            border-radius: 50%;
+            animation: chatbot-pulse-anim 2s infinite;
+            opacity: 0;
+            pointer-events: none;
+            box-sizing: border-box;
+        }
+
+        @keyframes chatbot-pulse-anim {
+            0% { transform: scale(1); opacity: 0.6; }
+            100% { transform: scale(1.4); opacity: 0; }
+        }
+
+        /* Estilos del Sidebar */
+        #chatbot-sidebar {
+            position: fixed;
+            top: 0;
+            right: -850px; /* Oculto por defecto */
+            width: 420px;
+            min-width: 320px;
+            max-width: 800px;
+            height: 100vh;
+            background: var(--chatbot-bg, rgba(20, 20, 20, 0.72));
+            backdrop-filter: blur(35px) saturate(180%);
+            -webkit-backdrop-filter: blur(35px) saturate(180%);
+            border-left: 1px solid var(--border-color);
+            z-index: 1005;
+            display: flex;
+            flex-direction: column;
+            transition: right 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: -10px 0 40px rgba(0, 0, 0, 0.2);
+            box-sizing: border-box;
+        }
+
+        [data-theme="light"] {
+            --chatbot-bg: rgba(255, 255, 255, 0.85);
+            --chatbot-input-bg: rgba(0, 0, 0, 0.03);
+            --chatbot-welcome-bg: rgba(0, 0, 0, 0.02);
+            --chatbot-bubble-ai: rgba(0, 0, 0, 0.04);
+            --chatbot-bubble-ai-color: var(--text-primary);
+        }
+        [data-theme="dark"] {
+            --chatbot-bg: rgba(18, 18, 18, 0.78);
+            --chatbot-input-bg: rgba(255, 255, 255, 0.03);
+            --chatbot-welcome-bg: rgba(255, 255, 255, 0.015);
+            --chatbot-bubble-ai: rgba(255, 255, 255, 0.04);
+            --chatbot-bubble-ai-color: #f3f4f6;
+        }
+
+        #chatbot-sidebar.open {
+            right: 0 !important;
+        }
+
+        /* Manija para redimensionamiento */
+        #chatbot-resize-handle {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 10px;
+            height: 100%;
+            cursor: ew-resize;
+            z-index: 1006;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: transparent;
+            transition: background 0.2s ease;
+        }
+
+        #chatbot-resize-handle:hover, #chatbot-resize-handle.resizing {
+            background: rgba(16, 185, 129, 0.08);
+        }
+
+        .resize-indicator-line {
+            width: 2px;
+            height: 40px;
+            background-color: var(--border-color);
+            border-radius: 2px;
+            transition: background 0.2s ease;
+            opacity: 0.5;
+        }
+
+        #chatbot-resize-handle:hover .resize-indicator-line, #chatbot-resize-handle.resizing .resize-indicator-line {
+            background-color: var(--accent-emerald);
+            opacity: 1;
+        }
+
+        /* Encabezado */
+        .chatbot-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: rgba(255, 255, 255, 0.02);
+            flex-shrink: 0;
+        }
+
+        .chatbot-header-title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .chatbot-avatar-pulse {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            background: rgba(16, 185, 129, 0.12);
+            color: var(--accent-emerald);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.15rem;
+            position: relative;
+        }
+
+        .chatbot-header-action {
+            width: 32px;
+            height: 32px;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border-color);
+            background: transparent;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.25s ease;
+        }
+
+        .chatbot-header-action:hover {
+            background: var(--bg-nav-hover);
+            color: var(--text-primary);
+            border-color: var(--text-muted);
+        }
+
+        #chatbot-close-btn:hover {
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--accent-red);
+            border-color: rgba(239, 68, 68, 0.2);
+        }
+
+        /* Cuerpo */
+        .chatbot-body {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            scrollbar-width: thin;
+        }
+
+        .chatbot-body::-webkit-scrollbar {
+            width: 5px;
+        }
+
+        .chatbot-body::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 10px;
+        }
+
+        .chatbot-welcome-card {
+            background: var(--chatbot-welcome-bg);
+            border: 1px dashed var(--border-color);
+            border-radius: var(--radius-md);
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        .chatbot-chips-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 8px;
+            margin-top: 15px;
+        }
+
+        .chatbot-chip {
+            background: var(--chatbot-welcome-bg);
+            border: 1.5px solid var(--border-color);
+            border-radius: 30px;
+            padding: 8px 14px;
+            font-size: 0.76rem;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.25s ease;
+            text-align: left;
+            font-weight: 600;
+        }
+
+        .chatbot-chip:hover {
+            border-color: var(--accent-emerald);
+            background: rgba(16, 185, 129, 0.05);
+            color: var(--text-primary);
+            transform: translateX(3px);
+        }
+
+        /* Burbujas de Mensajes */
+        .chatbot-message {
+            display: flex;
+            flex-direction: column;
+            max-width: 85%;
+            animation: chatbot-fade-in 0.3s ease;
+            box-sizing: border-box;
+        }
+
+        @keyframes chatbot-fade-in {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .chatbot-message.user {
+            align-self: flex-end;
+        }
+
+        .chatbot-message.ai {
+            align-self: flex-start;
+        }
+
+        .chatbot-bubble {
+            padding: 12px 16px;
+            border-radius: var(--radius-md);
+            font-size: 0.88rem;
+            line-height: 1.5;
+            word-wrap: break-word;
+            box-sizing: border-box;
+        }
+
+        .chatbot-message.user .chatbot-bubble {
+            background: var(--brand-gradient, linear-gradient(135deg, #10b981, #3b82f6));
+            color: white;
+            border-bottom-right-radius: 2px;
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.15);
+        }
+
+        .chatbot-message.ai .chatbot-bubble {
+            background: var(--chatbot-bubble-ai);
+            color: var(--chatbot-bubble-ai-color);
+            border-bottom-left-radius: 2px;
+            border: 1px solid var(--border-color);
+        }
+
+        .chatbot-bubble p {
+            margin: 0 0 10px 0;
+        }
+
+        .chatbot-bubble p:last-child {
+            margin-bottom: 0;
+        }
+
+        .chatbot-bubble strong {
+            color: inherit;
+            font-weight: 700;
+        }
+
+        .chatbot-bubble ul, .chatbot-bubble ol {
+            margin: 8px 0;
+            padding-left: 20px;
+        }
+
+        .chatbot-bubble li {
+            margin-bottom: 4px;
+        }
+
+        .chatbot-bubble code {
+            font-family: monospace;
+            background: rgba(0, 0, 0, 0.15);
+            padding: 2px 5px;
+            border-radius: 3px;
+            font-size: 0.8rem;
+        }
+
+        .chatbot-meta {
+            font-size: 0.68rem;
+            color: var(--text-muted);
+            margin-top: 4px;
+            padding: 0 4px;
+        }
+
+        .chatbot-message.user .chatbot-meta {
+            text-align: right;
+        }
+
+        /* Cargando (Typing indicator) */
+        .chatbot-typing-bubble {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            padding: 12px 18px;
+            background: var(--chatbot-bubble-ai);
+            border-radius: var(--radius-md);
+            border: 1px solid var(--border-color);
+            border-bottom-left-radius: 2px;
+            align-self: flex-start;
+            max-width: 80px;
+        }
+
+        .chatbot-typing-dot {
+            width: 6px;
+            height: 6px;
+            background-color: var(--text-secondary);
+            border-radius: 50%;
+            animation: chatbot-typing-anim 1.4s infinite ease-in-out both;
+        }
+
+        .chatbot-typing-dot:nth-child(1) { animation-delay: -0.32s; }
+        .chatbot-typing-dot:nth-child(2) { animation-delay: -0.16s; }
+
+        @keyframes chatbot-typing-anim {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1.0); }
+        }
+
+        /* Footer */
+        .chatbot-footer {
+            padding: 16px 24px 24px 24px;
+            border-top: 1px solid var(--border-color);
+            background: rgba(0, 0, 0, 0.02);
+            flex-shrink: 0;
+        }
+
+        #chatbot-input {
+            flex-grow: 1;
+            padding: 12px 18px;
+            border-radius: 50px;
+            border: 1.5px solid var(--border-color);
+            background-color: var(--chatbot-input-bg);
+            color: var(--text-primary);
+            font-size: 0.88rem;
+            transition: all 0.25s ease;
+        }
+
+        #chatbot-input:focus {
+            outline: none;
+            border-color: var(--accent-emerald);
+            box-shadow: 0 0 8px rgba(16, 185, 129, 0.15);
+        }
+
+        #chatbot-send-btn {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            border: none;
+            background: var(--brand-gradient, var(--accent-emerald));
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            box-shadow: var(--shadow-sm);
+        }
+
+        #chatbot-send-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 10px rgba(16, 185, 129, 0.2);
+        }
+
+        /* Responsive */
+        @media (max-width: 500px) {
+            #chatbot-sidebar {
+                width: 100% !important;
+                max-width: 100% !important;
+                right: -100%;
+            }
+            #chatbot-resize-handle {
+                display: none;
+            }
+        }
+    </style>
+
+    <!-- JS JAVASCRIPT CONTROLLER DEL CHATBOT IA -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const chatbotFab = document.getElementById('chatbot-fab');
+            const chatbotSidebar = document.getElementById('chatbot-sidebar');
+            const chatbotCloseBtn = document.getElementById('chatbot-close-btn');
+            const chatbotClearBtn = document.getElementById('chatbot-clear-btn');
+            const chatbotForm = document.getElementById('chatbot-form');
+            const chatbotInput = document.getElementById('chatbot-input');
+            const chatbotMessagesContainer = document.getElementById('chatbot-messages-container');
+            const chatbotResizeHandle = document.getElementById('chatbot-resize-handle');
+
+            let conversationHistory = []; // Almacena el historial en memoria [{role: "user"/"assistant", content: "..."}]
+
+            // 1. Persistencia de estado y ancho en LocalStorage
+            const savedWidth = localStorage.getItem('chatbot-sidebar-width') || '420';
+            chatbotSidebar.style.width = savedWidth + 'px';
+
+            const isChatbotOpen = localStorage.getItem('chatbot-sidebar-open') === 'true';
+            if (isChatbotOpen) {
+                chatbotSidebar.classList.add('open');
+            }
+
+            // Cargar historial persistido (opcional)
+            const cachedHistory = localStorage.getItem('chatbot-conversation-history');
+            if (cachedHistory) {
+                try {
+                    conversationHistory = JSON.parse(cachedHistory);
+                    renderSavedMessages();
+                } catch(e) {
+                    conversationHistory = [];
+                }
+            }
+
+            // 2. Toggles de apertura y cierre
+            chatbotFab.addEventListener('click', function() {
+                chatbotSidebar.classList.toggle('open');
+                const isOpen = chatbotSidebar.classList.contains('open');
+                localStorage.setItem('chatbot-sidebar-open', isOpen);
+                if (isOpen) {
+                    chatbotInput.focus();
+                    scrollToBottom();
+                }
+            });
+
+            chatbotCloseBtn.addEventListener('click', function() {
+                chatbotSidebar.classList.remove('open');
+                localStorage.setItem('chatbot-sidebar-open', 'false');
+            });
+
+            // 3. Limpiar Conversación
+            chatbotClearBtn.addEventListener('click', function() {
+                if (confirm('¿Deseas vaciar el historial de la conversación actual?')) {
+                    conversationHistory = [];
+                    localStorage.removeItem('chatbot-conversation-history');
+                    
+                    // Conservar la carta de bienvenida, remover burbujas
+                    const welcomeCard = chatbotMessagesContainer.querySelector('.chatbot-welcome-card');
+                    chatbotMessagesContainer.innerHTML = '';
+                    if (welcomeCard) {
+                        chatbotMessagesContainer.appendChild(welcomeCard);
+                    }
+                }
+            });
+
+            // 4. Redimensionamiento dinámico (Drag to Resize)
+            let isResizing = false;
+            
+            chatbotResizeHandle.addEventListener('mousedown', function(e) {
+                isResizing = true;
+                chatbotResizeHandle.classList.add('resizing');
+                document.body.style.cursor = 'ew-resize';
+                document.body.style.userSelect = 'none';
+                e.preventDefault();
+            });
+
+            document.addEventListener('mousemove', function(e) {
+                if (!isResizing) return;
+                
+                // Calcular el nuevo ancho según la posición horizontal del mouse
+                const sidebarWidth = window.innerWidth - e.clientX;
+                
+                // Restricciones
+                if (sidebarWidth >= 320 && sidebarWidth <= 800) {
+                    chatbotSidebar.style.width = sidebarWidth + 'px';
+                    localStorage.setItem('chatbot-sidebar-width', sidebarWidth);
+                }
+            });
+
+            document.addEventListener('mouseup', function() {
+                if (isResizing) {
+                    isResizing = false;
+                    chatbotResizeHandle.classList.remove('resizing');
+                    document.body.style.cursor = '';
+                    document.body.style.userSelect = '';
+                }
+            });
+
+            // 5. Chips de preguntas predefinidas
+            document.querySelectorAll('.chatbot-chip').forEach(chip => {
+                chip.addEventListener('click', function() {
+                    chatbotInput.value = this.textContent;
+                    chatbotForm.dispatchEvent(new Event('submit'));
+                });
+            });
+
+            // 6. Envío asíncrono AJAX del Mensaje
+            chatbotForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                const userText = chatbotInput.value.trim();
+                if (!userText) return;
+
+                // Renderizar mensaje del usuario
+                appendMessage('user', userText);
+                chatbotInput.value = '';
+
+                // Crear y agregar cargador
+                const typingBubble = appendTypingIndicator();
+                scrollToBottom();
+
+                // Enviar llamada AJAX
+                fetch('/api/chatbot', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        message: userText,
+                        history: conversationHistory
+                    })
+                })
+                .then(res => res.json())
+                .then(data => {
+                    // Remover cargador
+                    typingBubble.remove();
+
+                    if (data.success) {
+                        appendMessage('ai', data.message);
+                        
+                        // Guardar en el historial de memoria y persistencia
+                        conversationHistory.push({role: "user", content: userText});
+                        conversationHistory.push({role: "assistant", content: data.message});
+                        localStorage.setItem('chatbot-conversation-history', JSON.stringify(conversationHistory));
+                    } else {
+                        appendMessage('ai', data.message || "Lo siento, ha ocurrido un error al procesar tu solicitud.");
+                    }
+                    scrollToBottom();
+                })
+                .catch(err => {
+                    typingBubble.remove();
+                    appendMessage('ai', "❌ **Error de comunicación.**\n\nNo he podido conectarme con el servidor. Revisa tu conexión a internet o el estado del sistema.");
+                    scrollToBottom();
+                });
+            });
+
+            // Auxiliares de Renderizado
+            function appendMessage(role, text) {
+                const messageDiv = document.createElement('div');
+                messageDiv.className = `chatbot-message ${role === 'user' ? 'user' : 'ai'}`;
+                
+                const timeStr = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                
+                // Formateador simple de Markdown integrado para enriquecer visualmente
+                const formattedText = parseMarkdown(text);
+
+                messageDiv.innerHTML = `
+                    <div class="chatbot-bubble">
+                        ${formattedText}
+                    </div>
+                    <div class="chatbot-meta">${role === 'user' ? 'Tú' : 'e-Factura IA'} • ${timeStr}</div>
+                `;
+
+                chatbotMessagesContainer.appendChild(messageDiv);
+                return messageDiv;
+            }
+
+            function appendTypingIndicator() {
+                const typingDiv = document.createElement('div');
+                typingDiv.className = 'chatbot-typing-bubble';
+                typingDiv.innerHTML = `
+                    <div class="chatbot-typing-dot"></div>
+                    <div class="chatbot-typing-dot"></div>
+                    <div class="chatbot-typing-dot"></div>
+                `;
+                chatbotMessagesContainer.appendChild(typingDiv);
+                return typingDiv;
+            }
+
+            function scrollToBottom() {
+                chatbotMessagesContainer.scrollTop = chatbotMessagesContainer.scrollHeight;
+            }
+
+            function renderSavedMessages() {
+                // Si hay historial guardado, lo dibuja (excepto si estuviera vacío)
+                if (conversationHistory.length > 0) {
+                    conversationHistory.forEach(item => {
+                        const role = item.role === 'assistant' ? 'ai' : 'user';
+                        appendMessage(role, item.content);
+                    });
+                }
+            }
+
+            // Formateador de Markdown por líneas completo y robusto
+            function parseMarkdown(mdText) {
+                if (!mdText) return '';
+                
+                // 1. Sanitizar etiquetas HTML para seguridad
+                let cleanText = mdText.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+                
+                // 2. Dividir por líneas
+                let lines = cleanText.split('\n');
+                let inList = false;
+                let inOrderedList = false;
+                let inCodeBlock = false;
+                let parsedLines = [];
+                
+                for (let i = 0; i < lines.length; i++) {
+                    let line = lines[i];
+                    let trimmed = line.trim();
+                    
+                    // Bloques de Código de varias líneas (```)
+                    if (trimmed.startsWith('```')) {
+                        if (inCodeBlock) {
+                            parsedLines.push('</code></pre>');
+                            inCodeBlock = false;
+                        } else {
+                            parsedLines.push('<pre style="background: rgba(0,0,0,0.2); padding: 12px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); overflow-x: auto; margin: 8px 0;"><code style="font-family: monospace; font-size: 0.8rem; line-height: 1.4;">');
+                            inCodeBlock = true;
+                        }
+                        continue;
+                    }
+                    
+                    if (inCodeBlock) {
+                        parsedLines.push(line);
+                        continue;
+                    }
+                    
+                    // Reemplazar negritas (**texto**)
+                    line = line.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+                    
+                    // Reemplazar código en línea (`codigo`)
+                    line = line.replace(/`([^`]+)`/g, "<code>$1</code>");
+                    
+                    // Títulos (Headers)
+                    if (trimmed.startsWith('### ')) {
+                        parsedLines.push('<h5 style="margin: 12px 0 6px 0; font-weight: 800; font-family: var(--font-heading); color: var(--text-primary);">' + trimmed.substring(4) + '</h5>');
+                        continue;
+                    } else if (trimmed.startsWith('## ') || trimmed.startsWith('# ')) {
+                        let headerText = trimmed.startsWith('## ') ? trimmed.substring(3) : trimmed.substring(2);
+                        parsedLines.push('<h5 style="margin: 14px 0 8px 0; font-weight: 800; font-family: var(--font-heading); color: var(--accent-emerald);">' + headerText + '</h5>');
+                        continue;
+                    }
+                    
+                    // Listas de viñetas simples (- o *)
+                    let bulletMatch = line.match(/^\s*[-*•]\s+(.+)$/);
+                    if (bulletMatch) {
+                        let content = bulletMatch[1];
+                        if (inOrderedList) {
+                            parsedLines.push('</ol>');
+                            inOrderedList = false;
+                        }
+                        if (!inList) {
+                            parsedLines.push('<ul style="margin: 6px 0; padding-left: 20px; list-style-type: disc;">');
+                            inList = true;
+                        }
+                        parsedLines.push('<li style="margin-bottom: 4px;">' + content + '</li>');
+                        continue;
+                    }
+                    
+                    // Listas numeradas (1. , 2. )
+                    let orderedMatch = line.match(/^\s*\d+\.\s+(.+)$/);
+                    if (orderedMatch) {
+                        let content = orderedMatch[1];
+                        if (inList) {
+                            parsedLines.push('</ul>');
+                            inList = false;
+                        }
+                        if (!inOrderedList) {
+                            parsedLines.push('<ol style="margin: 6px 0; padding-left: 20px;">');
+                            inOrderedList = true;
+                        }
+                        parsedLines.push('<li style="margin-bottom: 4px;">' + content + '</li>');
+                        continue;
+                    }
+                    
+                    // Cerrar listas si la línea es normal y vacía
+                    if (inList && trimmed === '') {
+                        parsedLines.push('</ul>');
+                        inList = false;
+                    }
+                    if (inOrderedList && trimmed === '') {
+                        parsedLines.push('</ol>');
+                        inOrderedList = false;
+                    }
+                    
+                    // Línea normal
+                    parsedLines.push(line);
+                }
+                
+                // Asegurar cierre de todas las etiquetas al final
+                if (inList) parsedLines.push('</ul>');
+                if (inOrderedList) parsedLines.push('</ol>');
+                if (inCodeBlock) parsedLines.push('</code></pre>');
+                
+                // Unir líneas de vuelta
+                let html = parsedLines.join('\n');
+                
+                // Reemplazar saltos de línea con <br> (excepto dentro de listas o bloques pre/code)
+                html = html.replace(/\n/g, "<br>");
+                html = html.replace(/<\/ul><br>/g, "</ul>");
+                html = html.replace(/<\/ol><br>/g, "</ol>");
+                html = html.replace(/<\/pre><br>/g, "</pre>");
+                html = html.replace(/<li><br>/g, "<li>");
+                html = html.replace(/<\/li><br>/g, "</li>");
+                html = html.replace(/<br><br>/g, "<br>"); // Evitar espaciado excesivo
+                
+                return html;
+            }
+        });
+    </script>
+
     <!-- Script Global -->
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
     {% block extra_scripts %}{% endblock %}
