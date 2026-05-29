@@ -132,40 +132,8 @@ def login():
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
-    if 'user' in session:
-        return redirect(url_for('dashboard'))
-        
-    if request.method == 'POST':
-        email = request.form['email']
-        password = request.form['password']
-        name = request.form['name']
-        role = request.form['role']
-        owner_uid = request.form.get('owner_uid')
-        
-        if len(password) < 6:
-            flash('La contraseña debe tener al menos 6 caracteres.', 'error')
-            return render_template('auth/register.html')
-            
-        if role == 'employee' and not owner_uid:
-            flash('Como colaborador de equipo, debes proveer el código UID de tu administrador.', 'error')
-            return render_template('auth/register.html')
-            
-        try:
-            user_profile = DatabaseService.register_user(
-                email=email,
-                password=password,
-                name=name,
-                role=role,
-                owner_uid=owner_uid
-            )
-            session['user'] = user_profile
-            session['is_sandbox_mode'] = False
-            flash('Cuenta creada e iniciada exitosamente.', 'success')
-            return redirect(url_for('dashboard'))
-        except Exception as e:
-            flash(f'Error al registrar cuenta: {str(e)}', 'error')
-            
-    return render_template('auth/register.html')
+    flash('El registro público de cuentas está deshabilitado. Comuníquese con ventas para crear su cuenta.', 'error')
+    return redirect(url_for('login'))
 
 @app.route('/logout')
 def logout():
@@ -1682,10 +1650,6 @@ def pay_invoice_route(invoice_id):
         flash('El monto a abonar debe ser mayor a cero.', 'error')
         return redirect(url_for('invoice_detail', invoice_id=invoice_id))
         
-    if amount > remaining_balance + 0.01:  # tolerancia de centavos
-        flash(f'El monto del abono (RD$ {amount:,.2f}) no puede superar el balance pendiente (RD$ {remaining_balance:,.2f}).', 'error')
-        return redirect(url_for('invoice_detail', invoice_id=invoice_id))
-        
     payment_method = request.form.get('paymentMethod', 'Cheque / Transferencia')
     
     if payment_method == 'Efectivo':
@@ -1695,27 +1659,64 @@ def pay_invoice_route(invoice_id):
         bank = request.form.get('bank', 'Banco Popular Dominicano')
         reference_number = request.form.get('referenceNumber', 'Abono Registrado')
         
+    mora_action = request.form.get('moraAction', 'perdonar')
+    try:
+        mora_amount = float(request.form.get('moraAmount', 0.0))
+    except ValueError:
+        mora_amount = 0.0
+
     payment_dict = {
-        "amount": amount,
         "paymentMethod": payment_method,
         "bank": bank,
         "referenceNumber": reference_number,
         "paymentDate": datetime.utcnow().isoformat(),
         "registeredBy": session['user']['email']
     }
-    
-    try:
-        DatabaseService.register_invoice_payment(owner_uid, invoice_id, payment_dict, sandbox=sandbox)
+
+    if mora_action == 'cobrar' and mora_amount > 0:
+        capital_amount = max(0.0, amount - mora_amount)
+        if capital_amount > remaining_balance + 0.01:
+            flash(f'El monto de capital del abono (RD$ {capital_amount:,.2f}) no puede superar el balance pendiente (RD$ {remaining_balance:,.2f}).', 'error')
+            return redirect(url_for('invoice_detail', invoice_id=invoice_id))
+            
+        payment_dict["amount"] = capital_amount
+        payment_dict["moraAction"] = "cobrado_separado"
+        payment_dict["moraAmount"] = mora_amount
         
-        # Calcular balance restante
-        new_balance = max(0.0, remaining_balance - amount)
-        if new_balance <= 0.01:
-            flash('¡Factura liquidada y saldada al 100% con éxito!', 'success')
-        else:
-            flash(f'¡Abono de RD$ {amount:,.2f} registrado con éxito! Pendiente restante: RD$ {new_balance:,.2f}.', 'success')
-    except Exception as e:
-        flash(f'Error al registrar el cobro: {str(e)}', 'error')
-        
+        try:
+            DatabaseService.register_invoice_payment(owner_uid, invoice_id, payment_dict, sandbox=sandbox)
+            new_balance = max(0.0, remaining_balance - capital_amount)
+            if new_balance <= 0.01:
+                flash(f'¡Abono de RD$ {capital_amount:,.2f} + RD$ {mora_amount:,.2f} de mora cobrado! ¡Factura liquidada y saldada al 100% con éxito!', 'success')
+            else:
+                flash(f'¡Abono de RD$ {capital_amount:,.2f} + RD$ {mora_amount:,.2f} de mora cobrado con éxito! Pendiente restante: RD$ {new_balance:,.2f}.', 'success')
+            flash(f'⚠️ Mora de RD$ {mora_amount:,.2f} cobrada. Debe emitir un e-CF (B02/E32) adicional por el recargo de mora.', 'warning')
+        except Exception as e:
+            flash(f'Error al registrar el cobro: {str(e)}', 'error')
+    else:
+        if amount > remaining_balance + 0.01:
+            flash(f'El monto del abono (RD$ {amount:,.2f}) no puede superar el balance pendiente (RD$ {remaining_balance:,.2f}).', 'error')
+            return redirect(url_for('invoice_detail', invoice_id=invoice_id))
+            
+        payment_dict["amount"] = amount
+        if mora_amount > 0:
+            payment_dict["moraAction"] = "perdonado"
+            payment_dict["moraForgiven"] = mora_amount
+            payment_dict["moraForgivenNote"] = request.form.get('moraNote', '').strip() or 'Mora perdonada por acuerdo comercial'
+            
+        try:
+            DatabaseService.register_invoice_payment(owner_uid, invoice_id, payment_dict, sandbox=sandbox)
+            new_balance = max(0.0, remaining_balance - amount)
+            if new_balance <= 0.01:
+                flash('¡Factura liquidada y saldada al 100% con éxito!', 'success')
+            else:
+                flash(f'¡Abono de RD$ {amount:,.2f} registrado con éxito! Pendiente restante: RD$ {new_balance:,.2f}.', 'success')
+                
+            if mora_amount > 0:
+                flash(f'🤝 Mora de RD$ {mora_amount:,.2f} perdonada. Se registró solo el capital.', 'info')
+        except Exception as e:
+            flash(f'Error al registrar el cobro: {str(e)}', 'error')
+            
     return redirect(url_for('invoice_detail', invoice_id=invoice_id))
 
 @app.route('/invoices/<invoice_id>/sign', methods=['POST'])
