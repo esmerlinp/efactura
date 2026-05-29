@@ -136,6 +136,88 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // 6.1. Control de Secciones de Barra Lateral Colapsables (Dropdowns de Grupos)
+    const sidebarHeaders = document.querySelectorAll('.sidebar-section-header');
+    
+    sidebarHeaders.forEach(header => {
+        header.addEventListener('click', () => {
+            // Si la barra lateral entera está colapsada (minimizada), no hacer nada
+            if (mainAppContainer && mainAppContainer.classList.contains('sidebar-collapsed')) {
+                return;
+            }
+            
+            const section = header.closest('.sidebar-section');
+            if (!section) return;
+            
+            const content = section.querySelector('.sidebar-section-content');
+            if (!content) return;
+            
+            // Evitar spam de clicks durante la animación
+            if (content.dataset.transitioning === 'true') {
+                return;
+            }
+            
+            const isCurrentlyCollapsed = section.classList.contains('collapsed');
+            const sectionId = section.getAttribute('id');
+            
+            content.dataset.transitioning = 'true';
+            
+            if (isCurrentlyCollapsed) {
+                // EXPANDIR
+                content.style.maxHeight = '0px';
+                content.style.opacity = '0';
+                section.classList.remove('collapsed');
+                
+                // Forzar reflow para que el navegador reconozca el estado inicial
+                const height = content.scrollHeight;
+                content.offsetHeight;
+                
+                content.style.maxHeight = height + 'px';
+                content.style.opacity = '1';
+                
+                if (sectionId) {
+                    localStorage.setItem('sidebar-collapsed-' + sectionId, 'false');
+                }
+                
+                const onEnd = (e) => {
+                    if (e.propertyName === 'max-height') {
+                        content.style.maxHeight = '';
+                        content.style.opacity = '';
+                        content.removeAttribute('data-transitioning');
+                        content.removeEventListener('transitionend', onEnd);
+                    }
+                };
+                content.addEventListener('transitionend', onEnd);
+            } else {
+                // COLAPSAR
+                const height = content.scrollHeight;
+                content.style.maxHeight = height + 'px';
+                content.style.opacity = '1';
+                
+                // Forzar reflow
+                content.offsetHeight;
+                
+                section.classList.add('collapsed');
+                content.style.maxHeight = '0px';
+                content.style.opacity = '0';
+                
+                if (sectionId) {
+                    localStorage.setItem('sidebar-collapsed-' + sectionId, 'true');
+                }
+                
+                const onEnd = (e) => {
+                    if (e.propertyName === 'max-height') {
+                        content.style.maxHeight = '';
+                        content.style.opacity = '';
+                        content.removeAttribute('data-transitioning');
+                        content.removeEventListener('transitionend', onEnd);
+                    }
+                };
+                content.addEventListener('transitionend', onEnd);
+            }
+        });
+    });
+
     // 7. Formateo Automático de Entradas de Teléfono y Montos
     function formatPhoneNumber(value) {
         if (!value) return value;
