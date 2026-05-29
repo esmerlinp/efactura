@@ -52,6 +52,10 @@
 
     <!-- Estilos de Secciones del Sidebar -->
     <style>
+        .sidebar-section {
+            margin-bottom: 8px;
+            transition: all 0.3s ease;
+        }
         .sidebar-section-header {
             font-size: 0.65rem;
             font-weight: 800;
@@ -60,8 +64,28 @@
             letter-spacing: 0.08em;
             margin: 18px 14px 6px 14px;
             opacity: 0.7;
-            transition: opacity 0.3s ease, margin 0.3s ease, height 0.3s ease;
+            transition: opacity 0.3s ease, margin 0.3s ease, height 0.3s ease, color 0.3s ease;
             user-select: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .sidebar-collapsed .sidebar-section-header span {
+            display: none;
+        }
+        .sidebar-collapsed .sidebar-section-header .section-toggle-icon {
+            display: none;
+        }
+        .sidebar-section-header:hover {
+            opacity: 1;
+            color: var(--text-primary);
+        }
+        .sidebar-section-header .section-toggle-icon {
+            font-size: 0.65rem;
+            transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            opacity: 0.5;
+            margin-right: 4px;
         }
         .sidebar-collapsed .sidebar-section-header {
             opacity: 0;
@@ -69,6 +93,23 @@
             height: 0;
             overflow: hidden;
             padding: 0;
+        }
+        .sidebar-section-content {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            overflow: hidden;
+            transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
+        }
+        /* Collapsed State */
+        .sidebar-section.collapsed .sidebar-section-content {
+            max-height: 0 !important;
+            opacity: 0;
+            pointer-events: none;
+        }
+        .sidebar-section.collapsed .section-toggle-icon {
+            transform: rotate(-90deg);
         }
         .nav-menu {
             overflow-y: auto;
@@ -129,90 +170,150 @@
 
             <nav class="nav-menu">
                 <!-- SECCIÓN: GENERAL -->
-                <div class="sidebar-section-header">General</div>
-                <li class="nav-item {% if active_page == 'dashboard' %}active{% endif %}" data-tooltip="Dashboard">
-                    <a href="{{ url_for('dashboard') }}">
-                        <i class="fa-solid fa-chart-pie"></i>
-                        <span>Dashboard</span>
-                    </a>
-                </li>
+                <div class="sidebar-section" id="sidebar-section-general">
+                    <div class="sidebar-section-header">
+                        <span>General</span>
+                        <i class="fa-solid fa-chevron-down section-toggle-icon"></i>
+                    </div>
+                    <ul class="sidebar-section-content">
+                        <li class="nav-item {% if active_page == 'dashboard' %}active{% endif %}" data-tooltip="Dashboard">
+                            <a href="{{ url_for('dashboard') }}">
+                                <i class="fa-solid fa-chart-pie"></i>
+                                <span>Dashboard</span>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
 
                 <!-- SECCIÓN: OPERACIONES & VENTAS -->
-                <div class="sidebar-section-header">Operaciones & Ventas</div>
-                {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canInvoice', True) %}
-                <li class="nav-item {% if active_page == 'invoices' %}active{% endif %}" data-tooltip="Documentos">
-                    <a href="{{ url_for('list_invoices') }}">
-                        <i class="fa-solid fa-file-invoice-dollar"></i>
-                        <span>Documentos</span>
-                    </a>
-                </li>
-                <li class="nav-item {% if active_page == 'quotations' %}active{% endif %}" data-tooltip="Cotizaciones">
-                    <a href="{{ url_for('list_quotations') }}">
-                        <i class="fa-solid fa-file-signature"></i>
-                        <span>Cotizaciones</span>
-                    </a>
-                </li>
-                {% endif %}
+                <div class="sidebar-section" id="sidebar-section-ventas">
+                    <div class="sidebar-section-header">
+                        <span>Operaciones & Ventas</span>
+                        <i class="fa-solid fa-chevron-down section-toggle-icon"></i>
+                    </div>
+                    <ul class="sidebar-section-content">
+                        {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canInvoice', True) %}
+                        <li class="nav-item {% if active_page == 'invoices' %}active{% endif %}" data-tooltip="Documentos">
+                            <a href="{{ url_for('list_invoices') }}">
+                                <i class="fa-solid fa-file-invoice-dollar"></i>
+                                <span>Documentos</span>
+                            </a>
+                        </li>
+                        <li class="nav-item {% if active_page == 'quotations' %}active{% endif %}" data-tooltip="Cotizaciones">
+                            <a href="{{ url_for('list_quotations') }}">
+                                <i class="fa-solid fa-file-signature"></i>
+                                <span>Cotizaciones</span>
+                            </a>
+                        </li>
+                        {% endif %}
 
-                {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canClients', True) %}
-                <li class="nav-item {% if active_page == 'clients' %}active{% endif %}" data-tooltip="CRM Clientes">
-                    <a href="{{ url_for('list_clients') }}">
-                        <i class="fa-solid fa-address-book"></i>
-                        <span>CRM Clientes</span>
-                    </a>
-                </li>
-                {% endif %}
+                        {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canClients', True) %}
+                        <li class="nav-item {% if active_page == 'clients' %}active{% endif %}" data-tooltip="CRM Clientes">
+                            <a href="{{ url_for('list_clients') }}">
+                                <i class="fa-solid fa-address-book"></i>
+                                <span>CRM Clientes</span>
+                            </a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </div>
 
                 <!-- SECCIÓN: LOGÍSTICA & INVENTARIO -->
-                <div class="sidebar-section-header">Logística & Inventario</div>
-                {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canClients', True) %}
-                <li class="nav-item {% if active_page == 'items' %}active{% endif %}" data-tooltip="Catálogo">
-                    <a href="{{ url_for('list_items') }}">
-                        <i class="fa-solid fa-boxes-stacked"></i>
-                        <span>Catálogo</span>
-                    </a>
-                </li>
-                {% endif %}
+                <div class="sidebar-section collapsed" id="sidebar-section-logistica">
+                    <div class="sidebar-section-header">
+                        <span>Logística & Inventario</span>
+                        <i class="fa-solid fa-chevron-down section-toggle-icon"></i>
+                    </div>
+                    <ul class="sidebar-section-content">
+                        {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canClients', True) %}
+                        <li class="nav-item {% if active_page == 'items' %}active{% endif %}" data-tooltip="Catálogo">
+                            <a href="{{ url_for('list_items') }}">
+                                <i class="fa-solid fa-boxes-stacked"></i>
+                                <span>Catálogo</span>
+                            </a>
+                        </li>
+                        {% endif %}
 
-                {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canManageInventory', True) %}
-                <li class="nav-item {% if active_page == 'inventory' %}active{% endif %}" data-tooltip="Inventario">
-                    <a href="{{ url_for('inventory_dashboard') }}">
-                        <i class="fa-solid fa-warehouse"></i>
-                        <span>Inventario</span>
-                    </a>
-                </li>
-                {% endif %}
+                        {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canManageInventory', True) %}
+                        <li class="nav-item {% if active_page == 'inventory' %}active{% endif %}" data-tooltip="Inventario">
+                            <a href="{{ url_for('inventory_dashboard') }}">
+                                <i class="fa-solid fa-warehouse"></i>
+                                <span>Inventario</span>
+                            </a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </div>
 
                 <!-- SECCIÓN: FINANZAS -->
                 {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canExpenses', True) %}
-                <div class="sidebar-section-header">Finanzas</div>
-                <li class="nav-item {% if active_page == 'expenses' %}active{% endif %}" data-tooltip="Control de Gastos">
-                    <a href="{{ url_for('list_expenses') }}">
-                        <i class="fa-solid fa-wallet"></i>
-                        <span>Control de Gastos</span>
-                    </a>
-                </li>
+                <div class="sidebar-section collapsed" id="sidebar-section-finanzas">
+                    <div class="sidebar-section-header">
+                        <span>Finanzas</span>
+                        <i class="fa-solid fa-chevron-down section-toggle-icon"></i>
+                    </div>
+                    <ul class="sidebar-section-content">
+                        <li class="nav-item {% if active_page == 'expenses' %}active{% endif %}" data-tooltip="Control de Gastos">
+                            <a href="{{ url_for('list_expenses') }}">
+                                <i class="fa-solid fa-wallet"></i>
+                                <span>Control de Gastos</span>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
                 {% endif %}
 
                 <!-- SECCIÓN: CONFIGURACIÓN & DGII -->
-                <div class="sidebar-section-header">Configuración & DGII</div>
-                {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canModifySettings', True) %}
-                <li class="nav-item {% if active_page == 'sequences' %}active{% endif %}" data-tooltip="Secuencias Fiscales">
-                    <a href="{{ url_for('list_sequences') }}">
-                        <i class="fa-solid fa-barcode"></i>
-                        <span>Secuencias Fiscales</span>
-                    </a>
-                </li>
-                {% endif %}
-                {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canInvoice', True) %}
-                <li class="nav-item {% if active_page == 'reports' %}active{% endif %}" data-tooltip="Reportes DGII">
-                    <a href="{{ url_for('reports_dashboard') }}">
-                        <i class="fa-solid fa-file-shield"></i>
-                        <span>Reportes DGII</span>
-                    </a>
-                </li>
-                {% endif %}
+                <div class="sidebar-section collapsed" id="sidebar-section-configuracion">
+                    <div class="sidebar-section-header">
+                        <span>Configuración & DGII</span>
+                        <i class="fa-solid fa-chevron-down section-toggle-icon"></i>
+                    </div>
+                    <ul class="sidebar-section-content">
+                        {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canModifySettings', True) %}
+                        <li class="nav-item {% if active_page == 'sequences' %}active{% endif %}" data-tooltip="Secuencias Fiscales">
+                            <a href="{{ url_for('list_sequences') }}">
+                                <i class="fa-solid fa-barcode"></i>
+                                <span>Secuencias Fiscales</span>
+                            </a>
+                        </li>
+                        {% endif %}
+                        {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canInvoice', True) %}
+                        <li class="nav-item {% if active_page == 'reports' %}active{% endif %}" data-tooltip="Reportes DGII">
+                            <a href="{{ url_for('reports_dashboard') }}">
+                                <i class="fa-solid fa-file-shield"></i>
+                                <span>Reportes DGII</span>
+                            </a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </div>
 
+                <!-- Inicializar estado de secciones colapsables para evitar visual layout shift -->
+                <script>
+                    (function() {
+                        const sections = ['general', 'ventas', 'logistica', 'finanzas', 'configuracion'];
+                        sections.forEach(id => {
+                            const el = document.getElementById('sidebar-section-' + id);
+                            if (!el) return;
+                            
+                            // Regla de Oro: Si contiene el ítem activo, forzar expandido
+                            const hasActive = el.querySelector('.nav-item.active');
+                            if (hasActive) {
+                                el.classList.remove('collapsed');
+                                return;
+                            }
+                            
+                            // Cargar preferencia del localStorage
+                            const stored = localStorage.getItem('sidebar-collapsed-sidebar-section-' + id);
+                            if (stored === 'true') {
+                                el.classList.add('collapsed');
+                            } else if (stored === 'false') {
+                                el.classList.remove('collapsed');
+                            }
+                        });
+                    })();
+                </script>
             </nav>
 
             <div class="sidebar-footer">
