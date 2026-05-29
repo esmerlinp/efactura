@@ -4,36 +4,60 @@
 
 {% block page_header %}Secuencias Fiscales Autorizadas & Auditoría{% endblock %}
 
-{% block content %}<!-- Rangos Autorizados por la DGII (Ancho Completo para mejor distribución) -->
+{% block content %}{% set tipo_desc_map = {
+    'E31': 'Factura de Crédito Fiscal',
+    'E32': 'Factura de Consumo',
+    'E33': 'Nota de Débito',
+    'E34': 'Nota de Crédito',
+    'E41': 'Comprobante de Compras',
+    'E43': 'Gastos Menores',
+    'E47': 'Pagos al Exterior'
+} %}
+<!-- Rangos Autorizados por la DGII (Ancho Completo para mejor distribución) -->
 <div style="margin-bottom: 40px;">
     <div class="card-table-wrapper" style="margin-bottom: 0;">
         <h3
-            style="font-size: 1.25rem; font-family: var(--font-heading); margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px; display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+            style="font-size: 1.25rem; font-family: var(--font-heading); margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
             <div style="display: flex; align-items: center; gap: 8px;">
                 <i class="fa-solid fa-arrow-down-9-1" style="color: var(--accent-emerald);"></i>
                 <span>Rangos Autorizados por la DGII</span>
             </div>
-            <button type="button" id="btn-open-sequence-modal" class="btn btn-primary"
-                style="padding: 8px 18px; font-size: 0.85rem;">
-                <i class="fa-solid fa-plus-circle"></i>
-                <span>Registrar Secuencia</span>
-            </button>
+            
+            <div style="display: flex; align-items: center; gap: 15px; margin-left: auto;">
+                <!-- Control de Filtro Premium (Segmented Control) -->
+                <div style="display: flex; background: var(--bg-input); padding: 4px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); align-items: center; gap: 4px;">
+                    <button type="button" id="filter-available" class="btn" style="background: var(--accent-emerald); color: white; border: none; padding: 6px 14px; font-size: 0.8rem; height: 32px; border-radius: var(--radius-sm); cursor: pointer; transition: all var(--transition-fast); display: flex; align-items: center; gap: 6px; box-shadow: var(--shadow-sm); font-weight: 600; margin: 0;">
+                        <i class="fa-solid fa-circle-check"></i>
+                        <span>Disponibles</span>
+                    </button>
+                    <button type="button" id="filter-all" class="btn" style="background: transparent; color: var(--text-muted); border: none; padding: 6px 14px; font-size: 0.8rem; height: 32px; border-radius: var(--radius-sm); cursor: pointer; transition: all var(--transition-fast); display: flex; align-items: center; gap: 6px; font-weight: 600; margin: 0;">
+                        <i class="fa-solid fa-list"></i>
+                        <span>Todos</span>
+                    </button>
+                </div>
+                
+                <button type="button" id="btn-open-sequence-modal" class="btn btn-primary"
+                    style="padding: 8px 18px; font-size: 0.85rem; height: 40px; margin: 0; box-sizing: border-box; display: flex; align-items: center; gap: 6px;">
+                    <i class="fa-solid fa-plus-circle"></i>
+                    <span>Registrar Secuencia</span>
+                </button>
+            </div>
         </h3>
 
-        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px;">
+        <div id="sequences-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px;">
             {% if sequences %}
             {% for seq in sequences %}
-            <div
-                style="background-color: rgba(255, 255, 255, 0.01); border: 1px solid gray; border-radius: var(--radius-sm); padding: 20px; position: relative; display: flex; flex-direction: column; justify-content: space-between;">
+            <div class="sequence-card" data-available="{% if seq.cantidadDisponible > 0 %}true{% else %}false{% endif %}"
+                style="background-color: rgba(255, 255, 255, 0.01); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 20px; position: relative; display: flex; flex-direction: column; justify-content: space-between;">
                 <div>
                     <div
                         style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
                         <div>
-                            <strong style="font-size: 1.1rem; color: var(--text-primary);">{{ seq.tipoComprobante
-                                }}</strong>
+                            <strong style="font-size: 1.1rem; color: var(--text-primary);">{{ seq.tipoComprobante }}</strong>
                             <span
-                                style="display: block; font-size: 0.78rem; color: var(--text-muted); margin-top: 4px;">Prefijo:
-                                {{ seq.prefijo }}</span>
+                                style="display: block; font-size: 0.78rem; color: var(--text-muted); margin-top: 4px;">
+                                Prefijo: <strong>{{ seq.prefijo }}</strong> — {{ tipo_desc_map.get(seq.prefijo, 'Comprobante Electrónico') }}
+                            </span>
                         </div>
                         <div style="text-align: right;">
                             <span
@@ -70,6 +94,11 @@
                 </div>
             </div>
             {% endfor %}
+            <div id="empty-state-grid" style="display: none; grid-column: 1 / -1; text-align: center; color: var(--text-secondary); padding: 40px 0; flex-direction: column; align-items: center; justify-content: center; gap: 10px;">
+                <i class="fa-solid fa-barcode"
+                    style="font-size: 2.5rem; opacity: 0.4; margin-bottom: 4px; display: block;"></i>
+                <span>No hay secuencias fiscales con folios disponibles en este momento.</span>
+            </div>
             {% else %}
             <div style="grid-column: 1 / -1; text-align: center; color: var(--text-secondary); padding: 40px 0;">
                 <i class="fa-solid fa-barcode"
@@ -288,6 +317,65 @@
 
         if (closeBtn) closeBtn.addEventListener('click', closeModal);
         if (backdrop) backdrop.addEventListener('click', closeModal);
+
+        // --- Premium Segment Filter Logic ---
+        const filterAvailableBtn = document.getElementById('filter-available');
+        const filterAllBtn = document.getElementById('filter-all');
+        const sequenceCards = document.querySelectorAll('.sequence-card');
+        const emptyStateGrid = document.getElementById('empty-state-grid');
+
+        function applySequenceFilter(filterMode) {
+            let visibleCount = 0;
+            sequenceCards.forEach(card => {
+                const isAvailable = card.getAttribute('data-available') === 'true';
+                if (filterMode === 'available') {
+                    if (isAvailable) {
+                        card.style.display = 'flex';
+                        visibleCount++;
+                    } else {
+                        card.style.display = 'none';
+                    }
+                } else {
+                    card.style.display = 'flex';
+                    visibleCount++;
+                }
+            });
+
+            if (emptyStateGrid) {
+                if (visibleCount === 0) {
+                    emptyStateGrid.style.display = 'flex';
+                } else {
+                    emptyStateGrid.style.display = 'none';
+                }
+            }
+
+            // Update button styles and shadows dynamically to look premium
+            if (filterMode === 'available') {
+                filterAvailableBtn.style.backgroundColor = 'var(--accent-emerald)';
+                filterAvailableBtn.style.color = 'white';
+                filterAvailableBtn.style.boxShadow = 'var(--shadow-sm)';
+                
+                filterAllBtn.style.backgroundColor = 'transparent';
+                filterAllBtn.style.color = 'var(--text-muted)';
+                filterAllBtn.style.boxShadow = 'none';
+            } else {
+                filterAllBtn.style.backgroundColor = 'var(--accent-emerald)';
+                filterAllBtn.style.color = 'white';
+                filterAllBtn.style.boxShadow = 'var(--shadow-sm)';
+                
+                filterAvailableBtn.style.backgroundColor = 'transparent';
+                filterAvailableBtn.style.color = 'var(--text-muted)';
+                filterAvailableBtn.style.boxShadow = 'none';
+            }
+        }
+
+        if (filterAvailableBtn && filterAllBtn) {
+            filterAvailableBtn.addEventListener('click', () => applySequenceFilter('available'));
+            filterAllBtn.addEventListener('click', () => applySequenceFilter('all'));
+            
+            // Set default view to available
+            applySequenceFilter('available');
+        }
     });
 </script>
 {% endblock %}

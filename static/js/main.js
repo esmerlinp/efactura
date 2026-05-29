@@ -10,35 +10,40 @@ document.addEventListener('DOMContentLoaded', () => {
         card.style.animationDelay = `${index * 0.05}s`;
     });
 
-    // 2. Control de Alternancia de Sandbox / Producción
+    // 2. Control de Alternancia de Sandbox / Producción (Unificado)
     const sandboxToggle = document.getElementById('sandbox-toggle');
-    if (sandboxToggle) {
-        sandboxToggle.addEventListener('click', async () => {
-            try {
-                const response = await fetch('/toggle-sandbox', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    }
-                });
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    
-                    // Efecto de parpadeo de pantalla sutil antes de recargar
-                    document.body.style.opacity = '0';
-                    document.body.style.transition = 'opacity 0.25s ease';
-                    
-                    setTimeout(() => {
-                        window.location.reload();
-                    }, 250);
-                } else {
-                    console.error('Fallo al alternar el entorno del Sandbox.');
+    const sandboxBannerToggle = document.getElementById('sandbox-banner-toggle');
+    
+    const triggerToggleSandbox = async () => {
+        try {
+            const response = await fetch('/toggle-sandbox', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
                 }
-            } catch (err) {
-                console.error('Error de red al alternar Sandbox:', err);
+            });
+            
+            if (response.ok) {
+                // Efecto de parpadeo de pantalla sutil antes de recargar
+                document.body.style.opacity = '0';
+                document.body.style.transition = 'opacity 0.25s ease';
+                
+                setTimeout(() => {
+                    window.location.reload();
+                }, 250);
+            } else {
+                console.error('Fallo al alternar el entorno del Sandbox.');
             }
-        });
+        } catch (err) {
+            console.error('Error de red al alternar Sandbox:', err);
+        }
+    };
+
+    if (sandboxToggle) {
+        sandboxToggle.addEventListener('click', triggerToggleSandbox);
+    }
+    if (sandboxBannerToggle) {
+        sandboxBannerToggle.addEventListener('click', triggerToggleSandbox);
     }
 
     // 3. Auto-ocultar Alertas de Jinja (Flask flashes)

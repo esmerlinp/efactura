@@ -48,6 +48,8 @@ def load_fresh_user_profile():
     if request.endpoint == 'static':
         return
     if 'user' in session:
+        if 'is_sandbox_mode' not in session:
+            session['is_sandbox_mode'] = False
         # Cargar perfil fresco en tiempo real de Firestore para sincronización reactiva
         fresh_profile = DatabaseService.get_user_profile(session['user']['uid'])
         if fresh_profile:
@@ -87,9 +89,26 @@ def check_permission(permission_name):
 # =========================================================================
 @app.route('/')
 def home():
-    if 'user' in session:
-        return redirect(url_for('dashboard'))
-    return redirect(url_for('login'))
+    is_logged_in = 'user' in session
+    return render_template('landing.html', is_logged_in=is_logged_in)
+
+@app.route('/api/solicitar-demo', methods=['POST'])
+def api_solicitar_demo():
+    try:
+        data = request.json or {}
+        name = data.get('name')
+        email = data.get('email')
+        phone = data.get('phone')
+        rnc = data.get('rnc', '')
+        volumen = data.get('volumen_facturas', '100')
+        
+        # Registrar solicitud de demo y cotización en consola
+        print(f"INFO [Landing Lead]: Nueva solicitud de demo/cotización recibida. Nombre: {name}, Email: {email}, Teléfono: {phone}, RNC: {rnc}, Volumen: {volumen} e-CF/mes", flush=True)
+        
+        return jsonify({"success": True, "message": "¡Solicitud registrada con éxito!"})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -103,7 +122,7 @@ def login():
         user_profile = DatabaseService.authenticate_user(email, password)
         if user_profile:
             session['user'] = user_profile
-            session['is_sandbox_mode'] = True  # Sandbox por defecto al iniciar
+            session['is_sandbox_mode'] = False  # Producción por defecto al iniciar
             flash('¡Sesión iniciada exitosamente!', 'success')
             return redirect(url_for('dashboard'))
         else:
@@ -140,7 +159,7 @@ def register():
                 owner_uid=owner_uid
             )
             session['user'] = user_profile
-            session['is_sandbox_mode'] = True
+            session['is_sandbox_mode'] = False
             flash('Cuenta creada e iniciada exitosamente.', 'success')
             return redirect(url_for('dashboard'))
         except Exception as e:
@@ -160,7 +179,7 @@ def toggle_sandbox():
     if 'user' not in session:
         return jsonify({"error": "No autorizado"}), 401
     
-    current_mode = session.get('is_sandbox_mode', True)
+    current_mode = session.get('is_sandbox_mode', False)
     session['is_sandbox_mode'] = not current_mode
     return jsonify({"success": True, "sandbox": session['is_sandbox_mode']})
 
@@ -1199,7 +1218,7 @@ def new_invoice_route(invoice_id=None):
             invoice_dict["recurrenceInterval"] = recurrence_interval
             invoice_dict["nextOccurrenceDate"] = next_occurrence if is_recurring else None
             invoice_dict["currency"] = currency
-            invoice_dict["paymentType"] = "Crédito" if due_date > datetime.utcnow().strftime("%Y-%m-%d") else "Contado"
+            invoice_dict["paymentType"] = request.form.get('paymentType') or ("Crédito" if due_date > datetime.utcnow().strftime("%Y-%m-%d") else "Contado")
             invoice_dict["paymentMethod"] = payment_method
             invoice_dict["warehouseId"] = request.form.get('warehouseId', '')
             invoice_dict["branchId"] = request.form.get('branchId', 'default-sucursal-principal')
@@ -1237,7 +1256,7 @@ def new_invoice_route(invoice_id=None):
                 "firebasePDFURL": "",
                 "firebaseXMLURL": "",
                 "currency": currency,
-                "paymentType": "Crédito" if due_date > datetime.utcnow().strftime("%Y-%m-%d") else "Contado",
+                "paymentType": request.form.get('paymentType') or ("Crédito" if due_date > datetime.utcnow().strftime("%Y-%m-%d") else "Contado"),
                 "paymentMethod": payment_method,
                 "incomeType": "01 - Ingresos por operaciones",
                 "customFields": [],

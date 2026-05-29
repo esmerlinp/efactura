@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es" {% if session.get('is_sandbox_mode', True) %}class="sandbox-mode" {% endif %}>
+<html lang="es" {% if session.get('is_sandbox_mode', False) %}class="sandbox-mode" {% endif %}>
 
 <head>
     <meta charset="UTF-8">
@@ -87,13 +87,18 @@
     {% block extra_head %}{% endblock %}
 </head>
 
-<body class="{% if session.get('is_sandbox_mode', True) %}sandbox-mode{% endif %}">
+<body class="{% if session.get('is_sandbox_mode', False) %}sandbox-mode{% endif %}">
 
-    {% if session.get('is_sandbox_mode', True) %}
-    <!-- Banner superior Sandbox con acento púrpura -->
-    <div class="sandbox-banner" id="sandbox-indicator-banner">
-        <i class="fa-solid fa-flask"></i>
-        <span>ENTORNO DE PRUEBAS ACTIVO - CERTIFICACIÓN / SANDBOX </span>
+    {% if session.get('is_sandbox_mode', False) %}
+    <!-- Banner superior Sandbox con acento púrpura e interactividad -->
+    <div class="sandbox-banner" id="sandbox-indicator-banner" style="display: flex; justify-content: center; align-items: center; gap: 15px; flex-wrap: wrap; padding: 8px 16px; min-height: var(--sandbox-banner-height);">
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <i class="fa-solid fa-flask"></i>
+            <span>ENTORNO DE PRUEBAS ACTIVO - CERTIFICACIÓN / SANDBOX</span>
+        </div>
+        <button type="button" id="sandbox-banner-toggle" style="background: rgba(255, 255, 255, 0.2); border: 1px solid rgba(255, 255, 255, 0.4); color: white; padding: 4px 12px; font-size: 0.75rem; font-weight: 700; border-radius: var(--radius-sm); cursor: pointer; transition: all var(--transition-fast); text-transform: uppercase;" onmouseover="this.style.background='rgba(255, 255, 255, 0.35)'" onmouseout="this.style.background='rgba(255, 255, 255, 0.2)'">
+            <i class="fa-solid fa-toggle-on"></i> Cambiar a Producción
+        </button>
     </div>
     {% endif %}
 
@@ -113,7 +118,7 @@
                     style="display: flex; align-items: center; gap: 12px; overflow: hidden; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); width: auto;">
                     <i class="fa-solid fa-receipt" style="font-size: 1.8rem; color: var(--accent-emerald);"></i>
                     <span class="logo-title">e-Factura</span>
-                    {% if session.get('is_sandbox_mode', True) %}
+                    {% if session.get('is_sandbox_mode', False) %}
                     <span class="sandbox-tag">Sandbox</span>
                     {% endif %}
                 </div>
@@ -306,8 +311,8 @@
                                 box-sizing: border-box;
                             " onmouseover="this.style.backgroundColor='var(--bg-nav-hover)'" onmouseout="this.style.backgroundColor='transparent'">
                                 <span class="environment-indicator" style="width: 8px; height: 8px; border-radius: 50%;
-                                    background-color: {% if session.get('is_sandbox_mode', True) %}var(--accent-purple){% else %}var(--accent-emerald){% endif %};
-                                    box-shadow: 0 0 8px {% if session.get('is_sandbox_mode', True) %}var(--accent-purple){% else %}var(--accent-emerald){% endif %};"></span>
+                                    background-color: {% if session.get('is_sandbox_mode', False) %}var(--accent-purple){% else %}var(--accent-emerald){% endif %};
+                                    box-shadow: 0 0 8px {% if session.get('is_sandbox_mode', False) %}var(--accent-purple){% else %}var(--accent-emerald){% endif %};"></span>
                                 <span>Modo Pruebas (Sandbox)</span>
                             </div>
                             <!-- Opción 3: Centro de Ayuda -->
