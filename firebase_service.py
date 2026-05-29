@@ -930,6 +930,46 @@ class DatabaseService:
                             "total": float(it.get("total", 0.0))
                         })
 
+                    # Cargar acuerdo y cuotas con retrocompatibilidad
+                    agreement = data.get("paymentAgreement") or {
+                        "enabled": False,
+                        "installmentsCount": 1,
+                        "frequency": "mensual",
+                        "lateFeePercentage": 5.0
+                    }
+                    
+                    net_payable = float(data.get("netPayable", 0.0))
+                    status = data.get("status", "Borrador")
+                    total_paid = float(data.get("totalPaid", data.get("netPayable", 0.0) if status == "Cobrada" else 0.0))
+                    remaining_balance = float(data.get("remainingBalance", 0.0 if status == "Cobrada" else data.get("netPayable", 0.0)))
+                    
+                    installments = data.get("installments")
+                    if not installments:
+                        # Generar cuota única retrocompatible
+                        installments = [{
+                            "id": "cuota-unica-default",
+                            "installmentNumber": 1,
+                            "amount": net_payable,
+                            "dueDate": serialize_field(data.get("dueDate")),
+                            "status": "Saldada" if status == "Cobrada" else "Pendiente",
+                            "paidAmount": total_paid,
+                            "remainingBalance": remaining_balance
+                        }]
+                    else:
+                        # Asegurar tipos correctos
+                        formatted_installments = []
+                        for inst in installments:
+                            formatted_installments.append({
+                                "id": inst.get("id", str(uuid.uuid4())),
+                                "installmentNumber": int(inst.get("installmentNumber", 1)),
+                                "amount": float(inst.get("amount", 0.0)),
+                                "dueDate": serialize_field(inst.get("dueDate")),
+                                "status": inst.get("status", "Pendiente"),
+                                "paidAmount": float(inst.get("paidAmount", 0.0)),
+                                "remainingBalance": float(inst.get("remainingBalance", 0.0))
+                            })
+                        installments = formatted_installments
+
                     invoices.append({
                         "id": doc.id,
                         "invoiceNumber": data.get("invoiceNumber", ""),
@@ -949,7 +989,7 @@ class DatabaseService:
                         "creditedAmount": float(data.get("creditedAmount", 0.0)),
                         "retainedISR": float(data.get("retainedISR", 0.0)),
                         "retainedITBIS": float(data.get("retainedITBIS", 0.0)),
-                        "netPayable": float(data.get("netPayable", 0.0)),
+                        "netPayable": net_payable,
                         "subtotal": float(data.get("subtotal", 0.0)),
                         "totalITBIS": float(data.get("totalITBIS", 0.0)),
                         "total": float(data.get("total", 0.0)),
@@ -970,6 +1010,10 @@ class DatabaseService:
                         "bank": data.get("bank", ""),
                         "referenceNumber": data.get("referenceNumber", ""),
                         "paymentDate": serialize_field(data.get("paymentDate")),
+                        "totalPaid": total_paid,
+                        "remainingBalance": remaining_balance,
+                        "paymentAgreement": agreement,
+                        "installments": installments,
                         "branchId": data.get("branchId", "default-sucursal-principal"),
                         "createdAt": serialize_field(data.get("createdAt")),
                         "items": items
@@ -1005,6 +1049,47 @@ class DatabaseService:
                             "total": float(it.get("total", 0.0))
                         })
 
+
+                    # Cargar acuerdo y cuotas con retrocompatibilidad
+                    agreement = data.get("paymentAgreement") or {
+                        "enabled": False,
+                        "installmentsCount": 1,
+                        "frequency": "mensual",
+                        "lateFeePercentage": 5.0
+                    }
+                    
+                    net_payable = float(data.get("netPayable", 0.0))
+                    status = data.get("status", "Borrador")
+                    total_paid = float(data.get("totalPaid", data.get("netPayable", 0.0) if status == "Cobrada" else 0.0))
+                    remaining_balance = float(data.get("remainingBalance", 0.0 if status == "Cobrada" else data.get("netPayable", 0.0)))
+                    
+                    installments = data.get("installments")
+                    if not installments:
+                        # Generar cuota única retrocompatible
+                        installments = [{
+                            "id": "cuota-unica-default",
+                            "installmentNumber": 1,
+                            "amount": net_payable,
+                            "dueDate": serialize_field(data.get("dueDate")),
+                            "status": "Saldada" if status == "Cobrada" else "Pendiente",
+                            "paidAmount": total_paid,
+                            "remainingBalance": remaining_balance
+                        }]
+                    else:
+                        # Asegurar tipos correctos
+                        formatted_installments = []
+                        for inst in installments:
+                            formatted_installments.append({
+                                "id": inst.get("id", str(uuid.uuid4())),
+                                "installmentNumber": int(inst.get("installmentNumber", 1)),
+                                "amount": float(inst.get("amount", 0.0)),
+                                "dueDate": serialize_field(inst.get("dueDate")),
+                                "status": inst.get("status", "Pendiente"),
+                                "paidAmount": float(inst.get("paidAmount", 0.0)),
+                                "remainingBalance": float(inst.get("remainingBalance", 0.0))
+                            })
+                        installments = formatted_installments
+
                     return {
                         "id": doc.id,
                         "invoiceNumber": data.get("invoiceNumber", ""),
@@ -1024,7 +1109,7 @@ class DatabaseService:
                         "creditedAmount": float(data.get("creditedAmount", 0.0)),
                         "retainedISR": float(data.get("retainedISR", 0.0)),
                         "retainedITBIS": float(data.get("retainedITBIS", 0.0)),
-                        "netPayable": float(data.get("netPayable", 0.0)),
+                        "netPayable": net_payable,
                         "subtotal": float(data.get("subtotal", 0.0)),
                         "totalITBIS": float(data.get("totalITBIS", 0.0)),
                         "total": float(data.get("total", 0.0)),
@@ -1045,6 +1130,10 @@ class DatabaseService:
                         "bank": data.get("bank", ""),
                         "referenceNumber": data.get("referenceNumber", ""),
                         "paymentDate": serialize_field(data.get("paymentDate")),
+                        "totalPaid": total_paid,
+                        "remainingBalance": remaining_balance,
+                        "paymentAgreement": agreement,
+                        "installments": installments,
                         "branchId": data.get("branchId", "default-sucursal-principal"),
                         "createdAt": serialize_field(data.get("createdAt")),
                         "items": items
@@ -1126,6 +1215,135 @@ class DatabaseService:
             except Exception as e:
                 print(f"⚠️ Fallo al respaldar factura en Firestore: {e}")
         return inv_dict
+
+    @classmethod
+    def get_invoice_payments(cls, owner_uid, invoice_id, sandbox=True):
+        """Retorna el listado de abonos registrados para una factura."""
+        payments = []
+        if firebase_initialized:
+            try:
+                coll_inv = "sandbox_invoices" if sandbox else "invoices"
+                docs = db_firestore.collection("users").document(owner_uid).collection(coll_inv).document(invoice_id).collection("payments").get()
+                for doc in docs:
+                    data = doc.to_dict()
+                    payments.append({
+                        "id": doc.id,
+                        "amount": float(data.get("amount", 0.0)),
+                        "paymentMethod": data.get("paymentMethod", ""),
+                        "bank": data.get("bank", ""),
+                        "referenceNumber": data.get("referenceNumber", ""),
+                        "paymentDate": serialize_field(data.get("paymentDate")),
+                        "registeredBy": data.get("registeredBy", "")
+                    })
+                # Ordenar por fecha de pago ascendente
+                payments.sort(key=lambda x: x["paymentDate"] or "")
+            except Exception as e:
+                print(f"⚠️ Error al obtener abonos de factura: {e}")
+        return payments
+
+    @classmethod
+    def register_invoice_payment(cls, owner_uid, invoice_id, payment_dict, sandbox=True):
+        """Registra un nuevo abono para una factura y actualiza los balances del documento."""
+        if not firebase_initialized:
+            return None
+        try:
+            coll_inv = "sandbox_invoices" if sandbox else "invoices"
+            
+            # Obtener factura actual
+            inv_ref = db_firestore.collection("users").document(owner_uid).collection(coll_inv).document(invoice_id)
+            inv_doc = inv_ref.get()
+            if not inv_doc.exists:
+                raise ValueError("Factura no encontrada.")
+            
+            inv_data = inv_doc.to_dict()
+            net_payable = float(inv_data.get("netPayable", 0.0))
+            
+            # Si totalPaid o remainingBalance no existen en Firestore para esta factura antigua, inicializarlos con fallbacks
+            current_status = inv_data.get("status")
+            current_total_paid = float(inv_data.get("totalPaid", net_payable if current_status == "Cobrada" else 0.0))
+            
+            amount = float(payment_dict["amount"])
+            new_total_paid = current_total_paid + amount
+            new_remaining_balance = max(0.0, net_payable - new_total_paid)
+            
+            # Cargar cuotas existentes o generar cuota única retrocompatible
+            installments = inv_data.get("installments")
+            if not installments:
+                installments = [{
+                    "id": "cuota-unica-default",
+                    "installmentNumber": 1,
+                    "amount": net_payable,
+                    "dueDate": serialize_field(inv_data.get("dueDate")),
+                    "status": "Saldada" if current_status == "Cobrada" else "Pendiente",
+                    "paidAmount": current_total_paid,
+                    "remainingBalance": float(inv_data.get("remainingBalance", 0.0 if current_status == "Cobrada" else net_payable))
+                }]
+            
+            # Distribución en cascada del abono de forma ordenada
+            amount_left_to_allocate = amount
+            updated_installments = []
+            
+            for inst in installments:
+                inst_id = inst.get("id") or str(uuid.uuid4())
+                inst_num = int(inst.get("installmentNumber", 1))
+                inst_amount = float(inst.get("amount", 0.0))
+                inst_due = serialize_field(inst.get("dueDate"))
+                inst_status = inst.get("status", "Pendiente")
+                inst_paid = float(inst.get("paidAmount", 0.0))
+                inst_rem = float(inst.get("remainingBalance", inst_amount - inst_paid))
+                
+                if amount_left_to_allocate > 0 and inst_status == "Pendiente":
+                    allocable = min(amount_left_to_allocate, inst_rem)
+                    amount_left_to_allocate = max(0.0, amount_left_to_allocate - allocable)
+                    inst_paid += allocable
+                    inst_rem = max(0.0, inst_rem - allocable)
+                    
+                    if inst_rem <= 0.01:
+                        inst_status = "Saldada"
+                        inst_rem = 0.0
+                
+                updated_installments.append({
+                    "id": inst_id,
+                    "installmentNumber": inst_num,
+                    "amount": inst_amount,
+                    "dueDate": inst_due,
+                    "status": inst_status,
+                    "paidAmount": inst_paid,
+                    "remainingBalance": inst_rem
+                })
+            
+            # Registrar el abono en la subcolección
+            payment_id = payment_dict.get("id") or str(uuid.uuid4())
+            payment_dict["id"] = payment_id
+            if "paymentDate" not in payment_dict or not payment_dict["paymentDate"]:
+                payment_dict["paymentDate"] = datetime.utcnow().isoformat()
+            payment_dict["paymentDate"] = serialize_field(payment_dict["paymentDate"])
+            
+            inv_ref.collection("payments").document(payment_id).set(payment_dict)
+            
+            # Determinar nuevo estado de factura
+            if new_remaining_balance <= 0.01:  # tolerancia de centavos
+                new_status = "Cobrada"
+                new_remaining_balance = 0.0
+            else:
+                new_status = "Parcialmente Cobrada"
+                
+            # Actualizar ficha principal
+            inv_ref.update({
+                "totalPaid": new_total_paid,
+                "remainingBalance": new_remaining_balance,
+                "status": new_status,
+                "paymentMethod": payment_dict["paymentMethod"], # Mostrar el último método usado
+                "bank": payment_dict["bank"],
+                "referenceNumber": payment_dict["referenceNumber"],
+                "paymentDate": payment_dict["paymentDate"],
+                "installments": updated_installments
+            })
+            
+            return payment_dict
+        except Exception as e:
+            print(f"❌ Error al registrar abono en Firestore: {e}")
+            raise e
 
     # =========================================================================
     # GESTIÓN DE GASTOS Y EGRESOS (EXPENSES)
