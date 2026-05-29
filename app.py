@@ -1625,6 +1625,42 @@ def send_receipt_email(invoice_id):
         print(f"⚠️ Error enviando recibo por email: {e}")
         return jsonify({"success": False, "message": f"Error al enviar el correo: {str(e)}"}), 500
 
+@app.route('/invoices/<invoice_id>/notify-email', methods=['POST'])
+def notify_invoice_email(invoice_id):
+    """Notifica la factura electrónica por email usando la API de Alanube."""
+    if 'user' not in session:
+        return jsonify({"success": False, "message": "No autenticado."}), 401
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+
+    data = request.get_json(silent=True) or {}
+    recipient_email = (data.get("email") or "").strip()
+    pdf_type = data.get("pdfType", "generic")
+
+    invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+    if not invoice:
+        return jsonify({"success": False, "message": "Factura no encontrada."}), 404
+
+    xml_signature = invoice.get("xmlSignature")
+    if not xml_signature:
+        return jsonify({"success": False, "message": "Este comprobante no ha sido firmado digitalmente aún. Fírmelo antes de notificar por correo."}), 400
+
+    company = DatabaseService.get_company_profile(owner_uid)
+
+    res = AlanubeService.notify_by_email(
+        company_profile=company,
+        xml_signature=xml_signature,
+        ecf_type=invoice.get("ecfType", "Factura de Consumo (E32)"),
+        recipient_email=recipient_email if recipient_email else None,
+        pdf_type=pdf_type,
+        sandbox=sandbox
+    )
+
+    if res.get("success"):
+        return jsonify({"success": True, "message": res.get("message")})
+    else:
+        return jsonify({"success": False, "message": res.get("message")}), 500
+
 @app.route('/invoices/<invoice_id>/pay', methods=['POST'])
 def pay_invoice_route(invoice_id):
     if 'user' not in session: return redirect(url_for('login'))
@@ -2802,6 +2838,50 @@ def simulators_dashboard():
         active_tab=tab,
         reports_data=reports_data
     )
+
+@app.route('/reports/dgii-tools', methods=['GET'])
+def dgii_tools():
+    if 'user' not in session: return redirect(url_for('login'))
+    if not check_permission('canInvoice'):
+        return render_template('auth/restricted.html', feature_name="Herramientas DGII", required_permission="canInvoice")
+    
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+    company = DatabaseService.get_company_profile(owner_uid)
+    
+    # Obtener estado de DGII por defecto al cargar la página
+    dgii_status = AlanubeService.check_dgii_status(company, sandbox=sandbox)
+    
+    return render_template('reports/dgii_tools.html', active_page='reports', dgii_status=dgii_status)
+
+@app.route('/reports/check-directory-ajax', methods=['POST'])
+def check_directory_ajax():
+    if 'user' not in session: return jsonify({"success": False, "message": "No autenticado"}), 401
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+    
+    data = request.get_json(silent=True) or {}
+    rnc = data.get("rnc", "").strip()
+    if not rnc:
+        return jsonify({"success": False, "message": "Debe especificar un RNC válido."}), 400
+        
+    company = DatabaseService.get_company_profile(owner_uid)
+    res = AlanubeService.check_directory(company, rnc, sandbox=sandbox)
+    return jsonify(res)
+
+@app.route('/reports/check-dgii-status-ajax', methods=['POST'])
+def check_dgii_status_ajax():
+    if 'user' not in session: return jsonify({"success": False, "message": "No autenticado"}), 401
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+    
+    data = request.get_json(silent=True) or {}
+    env = data.get("environment")
+    maint = data.get("maintenance")
+    
+    company = DatabaseService.get_company_profile(owner_uid)
+    res = AlanubeService.check_dgii_status(company, environment=env, maintenance=maint, sandbox=sandbox)
+    return jsonify(res)
 
 @app.route('/reports/export/<report_type>')
 def export_report_csv(report_type):

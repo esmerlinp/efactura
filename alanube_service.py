@@ -347,3 +347,177 @@ class AlanubeService:
                 "success": False,
                 "message": f"Error de conexión con la API de Alanube: {str(e)}"
             }
+
+    @classmethod
+    def notify_by_email(cls, company_profile, xml_signature, ecf_type="Factura de Consumo (E32)", recipient_email=None, pdf_type="generic", sandbox=True):
+        """
+        Notifica por correo un comprobante electrónico (e-CF) emitido.
+        POST {base_url}{endpoint_path}/notify-by-email
+        """
+        base_url = Config.ALANUBE_SANDBOX_BASE_URL if sandbox else Config.ALANUBE_PRODUCTION_BASE_URL
+        token = Config.ALANUBE_SANDBOX_TOKEN if sandbox else Config.ALANUBE_PRODUCTION_TOKEN
+        company_id = Config.ALANUBE_SANDBOX_COMPANY_ID if sandbox else Config.ALANUBE_PRODUCTION_COMPANY_ID
+
+        path = cls.get_endpoint_path(ecf_type)
+        url = f"{base_url}{path}/notify-by-email"
+        headers = {
+            "accept": "application/json",
+            "content-type": "application/json",
+            "Authorization": f"Bearer {token}"
+        }
+
+        payload = {
+            "id": xml_signature
+        }
+        if company_id:
+            payload["idCompany"] = company_id
+        if recipient_email:
+            payload["mail"] = recipient_email
+        if pdf_type:
+            payload["pdfType"] = pdf_type
+
+        # Si el token es simulado o estamos en modo offline/contingencia sin token real:
+        if token == "DEVELOPMENT_SANDBOX_TOKEN" or token == "PRODUCTION_REAL_TOKEN" or not token:
+            print("🛡️ Modo contingencia / sandbox mock: Notificación por correo simulada localmente.")
+            return {
+                "success": True,
+                "message": f"Notificación enviada exitosamente por correo (Simulado localmente) a {recipient_email or 'correo registrado'}."
+            }
+
+        try:
+            response = requests.post(url, json=payload, headers=headers, timeout=12)
+            if response.status_code >= 200 and response.status_code < 300:
+                return {
+                    "success": True,
+                    "message": "Éxito en la notificación del documento electrónico por correo."
+                }
+            else:
+                try:
+                    error_detail = response.json()
+                    err_msg = error_detail.get("message") or error_detail.get("errors", [{}])[0].get("message") or error_detail.get("response", [{}])[0].get("message") or "Fallo de respuesta."
+                    return {
+                        "success": False,
+                        "message": f"Error de Alanube: {err_msg} (Código HTTP {response.status_code})"
+                    }
+                except Exception:
+                    return {
+                        "success": False,
+                        "message": f"Error en la notificación (Código HTTP {response.status_code})"
+                    }
+        except requests.RequestException as e:
+            return {
+                "success": False,
+                "message": f"Error de conexión con la API de Alanube: {str(e)}"
+            }
+
+    @classmethod
+    def check_directory(cls, company_profile, rnc, sandbox=True):
+        """
+        Consultar el directorio de compañías activas para facturación electrónica por idCompany.
+        GET /dom/v1/check-directory/idCompany/{idCompany}?rnc={rnc}
+        """
+        base_url = Config.ALANUBE_SANDBOX_BASE_URL if sandbox else Config.ALANUBE_PRODUCTION_BASE_URL
+        token = Config.ALANUBE_SANDBOX_TOKEN if sandbox else Config.ALANUBE_PRODUCTION_TOKEN
+        company_id = Config.ALANUBE_SANDBOX_COMPANY_ID if sandbox else Config.ALANUBE_PRODUCTION_COMPANY_ID
+
+        url = f"{base_url}/dom/v1/check-directory/idCompany/{company_id or 'default'}"
+        headers = {
+            "accept": "application/json",
+            "Authorization": f"Bearer {token}"
+        }
+        params = {"rnc": str(rnc).replace("-", "").strip()}
+
+        # Modo contingencia / simulación local
+        if token == "DEVELOPMENT_SANDBOX_TOKEN" or token == "PRODUCTION_REAL_TOKEN" or not token:
+            print("🛡️ Modo contingencia / sandbox mock: Consulta de directorio simulada.")
+            clean_rnc = params["rnc"]
+            if clean_rnc == "999999999":
+                return {
+                    "success": False,
+                    "message": "Compañía no encontrada en el directorio activo de facturación electrónica."
+                }
+            return {
+                "success": True,
+                "rnc": clean_rnc,
+                "active": True,
+                "razonSocial": "Empresa Homologada Electrónica SRL",
+                "urls": ["https://dgii.gov.do/validaecf"],
+                "message": "Compañía activa para facturación electrónica en el directorio de la DGII."
+            }
+
+        try:
+            response = requests.get(url, headers=headers, params=params, timeout=10)
+            if response.status_code >= 200 and response.status_code < 300:
+                return {
+                    "success": True,
+                    "data": response.json(),
+                    "message": "Consulta realizada exitosamente."
+                }
+            else:
+                return {
+                    "success": False,
+                    "message": f"Compañía no encontrada o error al consultar (Código HTTP {response.status_code})"
+                }
+        except requests.RequestException as e:
+            return {
+                "success": False,
+                "message": f"Error de conexión con la API de Alanube: {str(e)}"
+            }
+
+    @classmethod
+    def check_dgii_status(cls, company_profile, environment=None, maintenance=None, sandbox=True):
+        """
+        Consultar el estado de la DGII por idCompany.
+        GET /dom/v1/check-dgii-status/idCompany/{idCompany}?environment={env}&maintenance={maint}
+        """
+        base_url = Config.ALANUBE_SANDBOX_BASE_URL if sandbox else Config.ALANUBE_PRODUCTION_BASE_URL
+        token = Config.ALANUBE_SANDBOX_TOKEN if sandbox else Config.ALANUBE_PRODUCTION_TOKEN
+        company_id = Config.ALANUBE_SANDBOX_COMPANY_ID if sandbox else Config.ALANUBE_PRODUCTION_COMPANY_ID
+
+        url = f"{base_url}/dom/v1/check-dgii-status/idCompany/{company_id or 'default'}"
+        headers = {
+            "accept": "application/json",
+            "Authorization": f"Bearer {token}"
+        }
+        
+        params = {}
+        if environment:
+            params["environment"] = str(environment)
+        if maintenance:
+            params["maintenance"] = str(maintenance)
+
+        # Modo contingencia / simulación local
+        if token == "DEVELOPMENT_SANDBOX_TOKEN" or token == "PRODUCTION_REAL_TOKEN" or not token:
+            print("🛡️ Modo contingencia / sandbox mock: Consulta de estado de DGII simulada.")
+            return {
+                "success": True,
+                "status": "ONLINE",
+                "environments": {
+                    "PreCertificacion": "Disponible",
+                    "Certificacion": "Disponible",
+                    "Produccion": "Disponible"
+                },
+                "maintenanceWindow": "No hay mantenimientos planificados para hoy.",
+                "message": "Servicios de la DGII operando con normalidad."
+            }
+
+        try:
+            response = requests.get(url, headers=headers, params=params, timeout=10)
+            if response.status_code >= 200 and response.status_code < 300:
+                return {
+                    "success": True,
+                    "data": response.json(),
+                    "message": "Estado de la DGII consultado con éxito."
+                }
+            else:
+                return {
+                    "success": False,
+                    "message": f"Error al consultar estado de la DGII (Código HTTP {response.status_code})"
+                }
+        except requests.RequestException as e:
+            return {
+                "success": False,
+                "message": f"Error de conexión con la API de Alanube: {str(e)}"
+            }
+
+
