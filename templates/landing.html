@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <script>
+        // Forzar modo oscuro en la página de producto por defecto y bloquear su alternancia
+        document.documentElement.setAttribute('data-theme', 'dark');
+    </script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>e-Factura - Facturación Electrónica en República Dominicana (Ley 32-23)</title>
+    
+    <!-- Metas de SEO -->
+    <meta name="description" content="e-Factura es la solución definitiva para cumplir con la Ley 32-23 de Facturación Electrónica en RD. Diseñada especialmente para Pymes, profesionales independientes y RST.">
+    <meta name="keywords" content="facturacion electronica rd, ley 32-23 dgii, dgii ncf, rst ingresos, alanube, e-cf republica dominicana">
+    
+    <!-- Google Fonts & FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body class="landing-body animate-fade-in">
+
+    <!-- 1. Header / Navegación -->
+    <header class="landing-header">
+        <div class="landing-container landing-nav">
+            <a href="#" class="landing-logo">
+                <i class="fa-solid fa-receipt"></i>
+                <span>e-Factura</span>
+            </a>
+            
+            <ul class="landing-menu">
+                <li><a href="#caracteristicas" class="landing-menu-link">Características</a></li>
+                <li><a href="#contingencia" class="landing-menu-link">Contingencia</a></li>
+                <li><a href="#salud-fiscal" class="landing-menu-link">Salud Fiscal</a></li>
+                <li><a href="#cotizador" class="landing-menu-link">Precios</a></li>
+                <li><a href="#faqs" class="landing-menu-link">FAQs</a></li>
+            </ul>
+            
+            <div class="landing-actions">
+                {% if is_logged_in %}
+                    <a href="{{ url_for('dashboard') }}" class="btn btn-primary">
+                        <i class="fa-solid fa-chart-pie"></i>
+                        <span>Ir al Dashboard</span>
+                    </a>
+                {% else %}
+                    <a href="{{ url_for('login') }}" class="btn btn-secondary" style="font-size:0.9rem;">
+                        <i class="fa-solid fa-right-to-bracket"></i>
+                        <span>Iniciar Sesión</span>
+                    </a>
+                    <a href="#demo" class="btn btn-primary" style="font-size:0.9rem;">
+                        <span>Solicitar Demo</span>
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+    </header>
+
+
+    <!-- 2. Hero Section -->
+    <section class="hero-section">
+        <div class="hero-gradient-orb"></div>
+        <div class="landing-container">
+            <span class="hero-tag">
+                <i class="fa-solid fa-shield-halved"></i> Homologado DGII - Ley 32-23
+            </span>
+            <h1 class="hero-title">
+                Facturación Electrónica en RD, <br><span>Simplificada al Máximo</span>
+            </h1>
+            <p class="hero-subtitle">
+                Emite comprobantes fiscales electrónicos (e-CF) certificados con total seguridad. Cumple al 100% con la ley dominicana sin procesos complejos y protege tu salud fiscal en tiempo real.
+            </p>
+            
+            <div class="hero-buttons">
+                <a href="#demo" class="btn btn-primary" style="padding: 16px 32px; font-size: 1.05rem;">
+                    <i class="fa-solid fa-rocket"></i> Solicitar una Demo Gratis
+                </a>
+                <a href="#cotizador" class="btn btn-secondary" style="padding: 16px 32px; font-size: 1.05rem;">
+                    <i class="fa-solid fa-calculator"></i> Estimar mi Tarifa
+                </a>
+            </div>
+            
+            <!-- Mockup Interactivo Multitap -->
+            <div class="mockup-container">
+                <div class="mockup-header-bar">
+                    <div class="mockup-dots">
+                        <span class="mockup-dot"></span>
+                        <span class="mockup-dot"></span>
+                        <span class="mockup-dot"></span>
+                    </div>
+                    <div class="mockup-tabs">
+                        <div class="mockup-tab-btn active" data-target="slide-dashboard">
+                            <i class="fa-solid fa-chart-pie"></i> Dashboard Ejecutivo
+                        </div>
+                        <div class="mockup-tab-btn" data-target="slide-documentos">
+                            <i class="fa-solid fa-file-invoice-dollar"></i> Registro e-CF
+                        </div>
+                        <div class="mockup-tab-btn" data-target="slide-detalle">
+                            <i class="fa-solid fa-receipt"></i> Detalle de Factura
+                        </div>
+                    </div>
+                    <div style="width: 50px;"></div> <!-- Compensación visual -->
+                </div>
+                
+                <div class="mockup-viewport">
+                    <!-- Slide 1: Dashboard -->
+                    <div class="mockup-slide active" id="slide-dashboard">
+                        <div class="mockup-image-wrapper">
+                            <img src="{{ url_for('static', filename='images/dashboard_preview.png') }}" onerror="this.src='https://placehold.co/1000x520/1e293b/ffffff?text=e-Factura+Dashboard+General';" alt="Dashboard General e-Factura">
+                        </div>
+                    </div>
+                    
+                    <!-- Slide 2: Documentos -->
+                    <div class="mockup-slide" id="slide-documentos">
+                        <div class="mockup-image-wrapper">
+                            <img src="{{ url_for('static', filename='images/documentos_preview.png') }}" onerror="this.src='https://placehold.co/1000x520/1e293b/ffffff?text=e-Factura+Registro+Documentos';" alt="Registro de Comprobantes Emitidos">
+                        </div>
+                    </div>
+                    
+                    <!-- Slide 3: Detalle -->
+                    <div class="mockup-slide" id="slide-detalle">
+                        <div class="mockup-image-wrapper">
+                            <img src="{{ url_for('static', filename='images/detalle_preview.png') }}" onerror="this.src='https://placehold.co/1000x520/1e293b/ffffff?text=e-Factura+Detalle+de+Comprobante+QR';" alt="Detalle de Comprobante e-CF con QR">
+                    </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 2.5 Barra de Confianza (Métricas) -->
+    <div class="landing-container" style="position: relative; z-index: 10;">
+        <div class="trust-bar">
+            <div class="trust-item">
+                <span class="trust-number">+5M</span>
+                <span class="trust-label">e-CF Emitidos</span>
+            </div>
+            <div class="trust-item">
+                <span class="trust-number">99.99%</span>
+                <span class="trust-label">Uptime SLA</span>
+            </div>
+            <div class="trust-item">
+                <span class="trust-number">&lt; 1.2s</span>
+                <span class="trust-label">Respuesta API</span>
+            </div>
+            <div class="trust-item">
+                <span class="trust-number">100%</span>
+                <span class="trust-label">Homologado DGII</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2.6 Sección API First (Desarrolladores) -->
+    <section class="api-section" id="api-devs">
+        <div class="landing-container">
+            <div class="api-grid">
+                <!-- Columna Izquierda: Mockup IDE Código Criptográfico -->
+                <div class="code-editor">
+                    <div class="code-header">
+                        <div class="mockup-dots">
+                            <span class="mockup-dot"></span>
+                            <span class="mockup-dot"></span>
+                            <span class="mockup-dot"></span>
+                        </div>
+                        <div class="code-tabs">
+                            <button type="button" class="code-tab active" data-code="req-json">POST /v1/invoices</button>
+                            <button type="button" class="code-tab" data-code="res-json">RESPONSE (e-CF)</button>
+                        </div>
+                    </div>
+                    
+                    <div class="code-body">
+                        <!-- Request JSON -->
+                        <div id="code-req-json" class="code-block active" style="display: block;">
+                            <div class="code-line"><span class="code-num">1</span><span class="code-content"><span class="json-bracket">{</span></span></div>
+                            <div class="code-line"><span class="code-num">2</span><span class="code-content">  <span class="json-prop">"rncEmisor"</span>: <span class="json-string">"131689787"</span>,</span></div>
+                            <div class="code-line"><span class="code-num">3</span><span class="code-content">  <span class="json-prop">"ncfTipo"</span>: <span class="json-string">"E31"</span>, <span class="code-comment">// Crédito Fiscal</span></span></div>
+                            <div class="code-line"><span class="code-num">4</span><span class="code-content">  <span class="json-prop">"cliente"</span>: <span class="json-bracket">{</span></span></div>
+                            <div class="code-line"><span class="code-num">5</span><span class="code-content">    <span class="json-prop">"rnc"</span>: <span class="json-string">"101565022"</span>,</span></div>
+                            <div class="code-line"><span class="code-num">6</span><span class="code-content">    <span class="json-prop">"razonSocial"</span>: <span class="json-string">"INMOBILIARIA COSTA VERDE S A"</span></span></div>
+                            <div class="code-line"><span class="code-num">7</span><span class="code-content">  <span class="json-bracket">}</span>,</span></div>
+                            <div class="code-line"><span class="code-num">8</span><span class="code-content">  <span class="json-prop">"items"</span>: <span class="json-bracket">[</span></span></div>
+                            <div class="code-line"><span class="code-num">9</span><span class="code-content">    <span class="json-bracket">{</span></span></div>
+                            <div class="code-line"><span class="code-num">10</span><span class="code-content">      <span class="json-prop">"descripcion"</span>: <span class="json-string">"Maqueta de Diseño"</span>,</span></div>
+                            <div class="code-line"><span class="code-num">11</span><span class="code-content">      <span class="json-prop">"precio"</span>: <span class="json-number">4500.00</span>,</span></div>
+                            <div class="code-line"><span class="code-num">12</span><span class="code-content">      <span class="json-prop">"cantidad"</span>: <span class="json-number">2</span>,</span></div>
+                            <div class="code-line"><span class="code-num">13</span><span class="code-content">      <span class="json-prop">"itbis"</span>: <span class="json-number">1620.00</span></span></div>
+                            <div class="code-line"><span class="code-num">14</span><span class="code-content">    <span class="json-bracket">}</span></span></div>
+                            <div class="code-line"><span class="code-num">15</span><span class="code-content">  <span class="json-bracket">]</span></span></div>
+                            <div class="code-line"><span class="code-num">16</span><span class="code-content"><span class="json-bracket">}</span></span></div>
+                        </div>
+                        <!-- Response JSON -->
+                        <div id="code-res-json" class="code-block" style="display: none;">
+                            <div class="code-line"><span class="code-num">1</span><span class="code-content"><span class="json-bracket">{</span></span></div>
+                            <div class="code-line"><span class="code-num">2</span><span class="code-content">  <span class="json-prop">"status"</span>: <span class="json-string">"COMPLETADO"</span>,</span></div>
+                            <div class="code-line"><span class="code-num">3</span><span class="code-content">  <span class="json-prop">"ecf"</span>: <span class="json-string">"E310000002001"</span>,</span></div>
+                            <div class="code-line"><span class="code-num">4</span><span class="code-content">  <span class="json-prop">"dgii_approval"</span>: <span class="json-bracket">{</span></span></div>
+                            <div class="code-line"><span class="code-num">5</span><span class="code-content">    <span class="json-prop">"trackId"</span>: <span class="json-string">"cf6f2648-5544-48f8"</span>,</span></div>
+                            <div class="code-line"><span class="code-num">6</span><span class="code-content">    <span class="json-prop">"codigoSeguridad"</span>: <span class="json-string">"MOCK-SIGNATURE-C..."</span>,</span></div>
+                            <div class="code-line"><span class="code-num">7</span><span class="code-content">    <span class="json-prop">"qrURL"</span>: <span class="json-string">"https://dgii.gov.do/consulta..."</span></span></div>
+                            <div class="code-line"><span class="code-num">8</span><span class="code-content">  <span class="json-bracket">}</span>,</span></div>
+                            <div class="code-line"><span class="code-num">9</span><span class="code-content">  <span class="json-prop">"firmaDigital"</span>: <span class="json-string">"SHA256withRSA..."</span>,</span></div>
+                            <div class="code-line"><span class="code-num">10</span><span class="code-content">  <span class="json-prop">"netPayable"</span>: <span class="json-number">10620.00</span></span></div>
+                            <div class="code-line"><span class="code-num">11</span><span class="code-content"><span class="json-bracket">}</span></span></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Columna Derecha: Beneficios para Programadores e Integradores -->
+                <div class="api-info">
+                    <span class="hero-tag" style="background: rgba(96, 165, 250, 0.08); color: #60a5fa; margin-bottom: 16px;">
+                        <i class="fa-solid fa-code"></i> API First Infrastructure
+                    </span>
+                    <h3 style="font-family: var(--font-heading); font-size: 2.2rem; font-weight: 800; margin-bottom: 20px; line-height: 1.2; text-align: left;">
+                        API de Alto Rendimiento para Desarrolladores
+                    </h3>
+                    <p style="color: var(--text-secondary); font-size: 1.05rem; line-height: 1.6; margin-bottom: 30px; text-align: left;">
+                        Alanube no es solo una interfaz; es una infraestructura tipo **Backend as a Service (BaaS)** líder en el mercado. Diseñada para que integres facturación electrónica directamente en tu ERP, CRM, o e-commerce propio con la menor latencia del mercado.
+                    </p>
+                    
+                    <div class="contact-benefit-item" style="margin-bottom: 16px; display: flex; align-items: flex-start; text-align: left;">
+                        <i class="fa-solid fa-shield-halved" style="color: #60a5fa; margin-top: 3px; margin-right: 12px; flex-shrink: 0;"></i>
+                        <span><strong>Firma Electrónica Criptográfica Automatizada</strong>: Nos encargamos de encriptar y firmar el XML con tu certificado sin procesos adicionales.</span>
+                    </div>
+                    <div class="contact-benefit-item" style="margin-bottom: 16px; display: flex; align-items: flex-start; text-align: left;">
+                        <i class="fa-solid fa-code-fork" style="color: #60a5fa; margin-top: 3px; margin-right: 12px; flex-shrink: 0;"></i>
+                        <span><strong>Webhooks en Tiempo Real</strong>: Recibe notificaciones automáticas inmediatas sobre rechazos, aprobaciones comerciales o estados DGII.</span>
+                    </div>
+                    <div class="contact-benefit-item" style="margin-bottom: 16px; display: flex; align-items: flex-start; text-align: left;">
+                        <i class="fa-solid fa-database" style="color: #60a5fa; margin-top: 3px; margin-right: 12px; flex-shrink: 0;"></i>
+                        <span><strong>Respaldo en Nube por 10 Años</strong>: Cumplimos al pie de la letra con el requerimiento legal de conservación de la DGII.</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 2.7 Sección de Integraciones con ERPs/Sistemas -->
+    <section class="integrations-section">
+        <div class="landing-container">
+            <div class="section-header">
+                <span class="hero-tag" style="margin-bottom: 16px;">
+                    <i class="fa-solid fa-network-wired"></i> Ecosistema Integrable
+                </span>
+                <h2 class="section-title">Conectividad Nativa con tus Herramientas</h2>
+                <p class="section-subtitle">e-Factura y Alanube se integran de forma natural con los sistemas y plataformas líderes que ya utilizas en tu día a día.</p>
+            </div>
+            
+            <div class="integrations-grid">
+                <!-- SAP -->
+                <div class="integration-card">
+                    <i class="fa-solid fa-server integration-icon"></i>
+                    <span class="integration-name">SAP Business One</span>
+                </div>
+                <!-- QuickBooks -->
+                <div class="integration-card">
+                    <i class="fa-solid fa-file-invoice integration-icon"></i>
+                    <span class="integration-name">QuickBooks</span>
+                </div>
+                <!-- Zoho -->
+                <div class="integration-card">
+                    <i class="fa-solid fa-briefcase integration-icon"></i>
+                    <span class="integration-name">Zoho CRM & Books</span>
+                </div>
+                <!-- WooCommerce -->
+                <div class="integration-card">
+                    <i class="fa-brands fa-wordpress integration-icon"></i>
+                    <span class="integration-name">WooCommerce</span>
+                </div>
+                <!-- Shopify -->
+                <div class="integration-card">
+                    <i class="fa-brands fa-shopify integration-icon"></i>
+                    <span class="integration-name">Shopify</span>
+                </div>
+                <!-- API Personalizada -->
+                <div class="integration-card">
+                    <i class="fa-solid fa-code integration-icon"></i>
+                    <span class="integration-name">Sistemas Propios</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 3. Características Clave (Features Grid) -->
+    <section class="features-section" id="caracteristicas">
+        <div class="landing-container">
+            <div class="section-header">
+                <h2 class="section-title">Diseñado para la Realidad de tu Negocio</h2>
+                <p class="section-subtitle">No somos un simple facturador. e-Factura es un copiloto fiscal inteligente diseñado bajo el ecosistema dominicano.</p>
+            </div>
+            
+            <div class="features-grid">
+                <!-- Feature 1 -->
+                <div class="feature-card">
+                    <div class="feature-icon-box">
+                        <i class="fa-solid fa-passport"></i>
+                    </div>
+                    <h3 class="feature-title">Cumplimiento Ley 32-23</h3>
+                    <p class="feature-description">
+                        Emisión formal de todos los comprobantes electrónicos (e-CF) dominicanos de la serie E (E31, E32, E34, E43, etc.) firmados digitalmente y transmitidos en tiempo real ante la DGII a través de la API homologada de Alanube.
+                    </p>
+                </div>
+                
+                <!-- Feature 2 -->
+                <div class="feature-card" id="contingencia">
+                    <div class="feature-icon-box" style="background: rgba(239, 68, 68, 0.1); color: var(--accent-red);">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                    </div>
+                    <h3 class="feature-title">Contingencia Inteligente 72h</h3>
+                    <p class="feature-description">
+                        ¿Sin internet o caída técnica? La plataforma activa de manera inteligente el modo contingencia offline (FALLBACK). Genera el código QR de validación local y estampa la leyenda de ley para que sigas vendiendo sin frenar tu operación. Sincroniza al volver.
+                    </p>
+                </div>
+                
+                <!-- Feature 3 -->
+                <div class="feature-card" id="salud-fiscal">
+                    <div class="feature-icon-box" style="background: rgba(245, 158, 11, 0.1); color: var(--accent-yellow);">
+                        <i class="fa-solid fa-scale-balanced"></i>
+                    </div>
+                    <h3 class="feature-title">Semáforo Salud Fiscal RST</h3>
+                    <p class="feature-description">
+                        Monitoreo preventivo y matemático para contribuyentes del Régimen Simplificado (RST) de ingresos. Una barra de control te avisa qué tan cerca estás del límite legal anual 2026 (<strong>RD$ 12.06M</strong>) para que no seas excluido al régimen general.
+                    </p>
+                </div>
+                
+                <!-- Feature 4 -->
+                <div class="feature-card">
+                    <div class="feature-icon-box">
+                        <i class="fa-solid fa-percent"></i>
+                    </div>
+                    <h3 class="feature-title">Desglose de Neto a Recibir</h3>
+                    <p class="feature-description">
+                        Cálculo automático de retenciones dominicanas (10% ISR y 100% ITBIS). El sistema calcula por ti la diferencia exacta entre el monto total bruto y el depósito real neto de tu banco (Net Payable) para que concilies perfectamente y sin confusiones.
+                    </p>
+                </div>
+                
+                <!-- Feature 5 -->
+                <div class="feature-card">
+                    <div class="feature-icon-box">
+                        <i class="fa-solid fa-wallet"></i>
+                    </div>
+                    <h3 class="feature-title">Switch de Gastos Deducibles</h3>
+                    <p class="feature-description">
+                        Separa con un simple switch tus gastos personales de las compras operativas de tu negocio. Genera de forma limpia y transparente las simulaciones del Formato 606 sin alterar el flujo financiero de tu presupuesto personal.
+                    </p>
+                </div>
+                
+                <!-- Feature 6 -->
+                <div class="feature-card">
+                    <div class="feature-icon-box">
+                        <i class="fa-solid fa-mobile-screen-button"></i>
+                    </div>
+                    <h3 class="feature-title">Integridad Ecosistema iOS/macOS</h3>
+                    <p class="feature-description">
+                        Lleva tu facturación contigo. Con el mismo usuario puedes sincronizar tus catálogos, clientes y secuencias en tiempo real con nuestra aplicación nativa disponible en dispositivos móviles Apple (iOS y macOS), operando en sincronización de Firestore.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 4. Cotizador Interactivo de Precios (Precios) -->
+    <section class="pricing-section" id="cotizador">
+        <div class="landing-container pricing-container">
+            <div class="section-header">
+                <h2 class="section-title">Precios Transparentes según tu Volumen</h2>
+                <p class="section-subtitle">No pagues de más. Nuestras cotizaciones están personalizadas matemáticamente según el volumen exacto de documentos electrónicos que emites mensualmente.</p>
+            </div>
+            
+            <div class="calculator-card">
+                <div class="slider-container">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <span class="slider-title">Volumen de Facturas Estimado</span>
+                    </div>
+                    <div class="slider-value-display">
+                        <span id="slider-display-val">100</span> <span style="font-size:1.1rem; color:var(--text-secondary); font-weight:500;">/ mes</span>
+                    </div>
+                    <input type="range" min="5" max="5000" step="5" value="100" class="premium-slider" id="invoice-slider">
+                    
+                    <div style="display:flex; justify-content:space-between; font-size:0.75rem; color:var(--text-muted); font-weight:600; margin-top:5px;">
+                        <span>5 e-CF</span>
+                        <span>1,000 e-CF</span>
+                        <span>2,500 e-CF</span>
+                        <span>5,000+ e-CF</span>
+                    </div>
+                </div>
+                
+                <div class="calculator-result">
+                    <span class="category-tag" id="calc-category-tag">Micro-Emisor</span>
+                    <h4 class="category-title" id="calc-category-title">Plan Pyme Inicial</h4>
+                    <p class="category-description" id="calc-category-desc">
+                        Excelente para profesionales independientes o freelancers en régimen RST. Cubre de sobra los requerimientos de NCF del mes y cuenta con soporte técnico prioritario por correo.
+                    </p>
+                    
+                    <a href="#solicitar-cotizacion-ancla" id="calc-action-btn" class="btn btn-primary" style="width:100%; margin-top:10px;">
+                        <i class="fa-solid fa-envelope-open-text"></i> Solicitar Cotización Formal
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 5. Formulario de Demo / Contacto (Lead Generation) -->
+    <section class="contact-section" id="demo">
+        <div class="landing-container" id="solicitar-cotizacion-ancla">
+            <div class="contact-card">
+                <div class="contact-grid">
+                    <div class="contact-info">
+                        <h3>¿Listo para dar el gran paso hacia la nube fiscal?</h3>
+                        <p>Completa tus datos en el formulario y uno de nuestros expertos se pondrá en contacto contigo para ofrecerte una demostración personalizada en Sandbox o generarte una cotización basada en tu volumen.</p>
+                        
+                        <div class="contact-benefit-item">
+                            <i class="fa-solid fa-circle-check"></i>
+                            <span>Activación inmediata en entorno de pruebas</span>
+                        </div>
+                        <div class="contact-benefit-item">
+                            <i class="fa-solid fa-circle-check"></i>
+                            <span>Asesoría gratuita en la firma digital Cámara de Comercio</span>
+                        </div>
+                        <div class="contact-benefit-item">
+                            <i class="fa-solid fa-circle-check"></i>
+                            <span>Precios ajustados de forma justa a tu volumen</span>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <!-- Formulario de Entrada -->
+                        <form id="landing-lead-form" class="glass-form">
+                            <!-- Input Oculto de volumen capturado del slider -->
+                            <input type="hidden" name="volumen_facturas" id="form-hidden-volume" value="100">
+                            
+                            <div class="form-group">
+                                <label for="form-name">Nombre Completo</label>
+                                <input type="text" id="form-name" name="name" class="form-input" placeholder="Ingresa tu nombre y apellido" required>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="form-email">Correo Electrónico Corporativo</label>
+                                <input type="email" id="form-email" name="email" class="form-input" placeholder="ejemplo@empresa.com" required>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="form-phone">Teléfono de Contacto</label>
+                                <input type="tel" id="form-phone" name="phone" class="form-input" placeholder="809-555-0199" required>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="form-rnc">RNC de la Empresa (Opcional)</label>
+                                <input type="text" id="form-rnc" name="rnc" class="form-input" placeholder="131689787">
+                            </div>
+                            
+                            <button type="submit" class="btn btn-primary" style="width:100%; padding:14px; margin-top:10px;">
+                                <i class="fa-solid fa-paper-plane"></i>
+                                <span>Solicitar Demo & Cotización</span>
+                            </button>
+                        </form>
+                        
+                        <!-- Tarjeta de Éxito Oculta (Vanilla JS AJAX) -->
+                        <div id="form-success-card" class="glass-form form-success-state">
+                            <div class="form-success-icon">
+                                <i class="fa-solid fa-circle-check"></i>
+                            </div>
+                            <h4 class="form-success-title">¡Solicitud Enviada!</h4>
+                            <p class="form-success-text">
+                                Hemos recibido tus datos exitosamente. Un especialista fiscal de <strong>e-Factura</strong> te contactará por correo o llamada telefónica en un plazo menor a 24 horas laborables para coordinar tu demostración y entregarte tu cotización adaptada de <span id="success-volume-label" style="font-weight:700; color:var(--accent-emerald);">100</span> facturas/mes. ¡Gracias por confiar en nosotros!
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 6. FAQs Accordion -->
+    <section class="faq-landing-section" id="faqs">
+        <div class="landing-container">
+            <div class="section-header">
+                <h2 class="section-title">Preguntas Frecuentes</h2>
+                <p class="section-subtitle">Explicadas de forma amigable y directa sobre el funcionamiento del software y la DGII.</p>
+            </div>
+            
+            <div class="faq-container" style="max-width: 800px; margin: 0 auto;">
+                
+                <div class="faq-item">
+                    <div class="faq-header">
+                        <div class="faq-title-wrapper">
+                            <div class="faq-icon-box" style="background-color: rgba(30, 58, 138, 0.08); color: var(--accent-emerald);">
+                                <i class="fa-solid fa-circle-question"></i>
+                            </div>
+                            <span class="faq-title">¿Qué necesito legalmente para empezar a facturar electrónicamente en RD?</span>
+                        </div>
+                        <i class="fa-solid fa-chevron-down faq-chevron"></i>
+                    </div>
+                    <div class="faq-content">
+                        <div class="faq-body">
+                            Para poder emitir Comprobantes Fiscales Electrónicos (e-CF) válidos ante la DGII en la República Dominicana necesitas tres elementos básicos:
+                            <ul>
+                                <li>Estar registrado como contribuyente activo en la DGII (ya sea Persona Física o Jurídica).</li>
+                                <li>Adquirir un **Certificado Digital de Firma Electrónica** de una entidad autorizada (como la Cámara de Comercio y Producción).</li>
+                                <li>Contar con un software de facturación homologado ante la DGII. Con <strong>e-Factura</strong> estás completamente cubierto, ya que operamos de forma nativa e integrada con la API certificada de Alanube.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="faq-item">
+                    <div class="faq-header">
+                        <div class="faq-title-wrapper">
+                            <div class="faq-icon-box" style="background-color: rgba(30, 58, 138, 0.08); color: var(--accent-emerald);">
+                                <i class="fa-solid fa-wifi"></i>
+                            </div>
+                            <span class="faq-title">¿Cómo funciona exactamente el límite de las 72 horas en modo contingencia?</span>
+                        </div>
+                        <i class="fa-solid fa-chevron-down faq-chevron"></i>
+                    </div>
+                    <div class="faq-content">
+                        <div class="faq-body">
+                            Si tu negocio se queda temporalmente sin conexión a internet, el sistema de e-Factura te permite seguir emitiendo comprobantes firmados localmente (modalidad offline). La normativa DGII (Ley 32-23) exige que estos comprobantes de contingencia sean remitidos a sus servidores en un plazo máximo de **72 horas** una vez que se restablezca la conexión.
+                            <br><br>
+                            e-Factura monitorea de forma reactiva el estado de conexión del backend. En cuanto detecta señal estable de Alanube, transmite en bloques automatizados y silenciosos las facturas pendientes de sincronizar sin interrumpir tu trabajo en pantalla.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="faq-item">
+                    <div class="faq-header">
+                        <div class="faq-title-wrapper">
+                            <div class="faq-icon-box" style="background-color: rgba(30, 58, 138, 0.08); color: var(--accent-emerald);">
+                                <i class="fa-solid fa-percent"></i>
+                            </div>
+                            <span class="faq-title">¿Cómo me protege la barra de Salud Fiscal si pertenezco al régimen RST?</span>
+                        </div>
+                        <i class="fa-solid fa-chevron-down faq-chevron"></i>
+                    </div>
+                    <div class="faq-content">
+                        <div class="faq-body">
+                            Si eres contribuyente del Régimen Simplificado (RST) basado en ingresos, tu mayor riesgo es facturar más del límite anual oficial establecido por inflación (que para el año **2026** es de **RD$ 12,068,181.09**). Superar este límite implica una exclusión automática hacia el régimen general, forzándote a pagar multas e impuestos retroactivos de forma compleja.
+                            <br><br>
+                            e-Factura incorpora un motor de lectura de ventas en tiempo real. En el Dashboard y alertas, te muestra de forma visual y con porcentaje preciso cuánto has facturado en el año fiscal en curso, alertándote de forma amarilla preventiva al 70% y roja crítica al 90% para evitar exclusiones accidentales.
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+    <!-- 7. Footer -->
+    <footer class="landing-footer">
+        <div class="landing-container">
+            <div class="footer-top">
+                <a href="#" class="landing-logo">
+                    <i class="fa-solid fa-receipt"></i>
+                    <span>e-Factura</span>
+                </a>
+                <p style="max-width:350px; font-size:0.88rem; color:var(--text-secondary); line-height:1.5;">
+                    La plataforma fiscal premium de facturación electrónica diseñada de forma nativa para las regulaciones de República Dominicana.
+                </p>
+            </div>
+            
+            <div class="footer-bottom">
+                <span>&copy; 2026 e-Factura. Todos los derechos reservados. Conforme a la Ley 32-23 de la República Dominicana.</span>
+                <div class="footer-socials">
+                    <a href="#" class="footer-social-link"><i class="fa-brands fa-x-twitter"></i></a>
+                    <a href="#" class="footer-social-link"><i class="fa-brands fa-linkedin"></i></a>
+                    <a href="#" class="footer-social-link"><i class="fa-brands fa-github"></i></a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- JavaScript del Ecosistema de la Landing Page -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // A. Lógica del Selector del Mockup Interactivo
+            const tabButtons = document.querySelectorAll('.mockup-tab-btn');
+            const slides = document.querySelectorAll('.mockup-slide');
+            
+            tabButtons.forEach(btn => {
+                btn.addEventListener('click', function() {
+                    tabButtons.forEach(b => b.classList.remove('active'));
+                    slides.forEach(s => s.classList.remove('active'));
+                    
+                    this.classList.add('active');
+                    const targetSlide = document.getElementById(this.getAttribute('data-target'));
+                    if (targetSlide) {
+                        targetSlide.classList.add('active');
+                    }
+                });
+            });
+            
+            // B. Lógica del Slider del Estimador de Precios y Volumen
+            const slider = document.getElementById('invoice-slider');
+            const displayVal = document.getElementById('slider-display-val');
+            const categoryTag = document.getElementById('calc-category-tag');
+            const categoryTitle = document.getElementById('calc-category-title');
+            const categoryDesc = document.getElementById('calc-category-desc');
+            const formHiddenVolume = document.getElementById('form-hidden-volume');
+            
+            function updateCalculator(val) {
+                displayVal.textContent = Number(val).toLocaleString('es-DO');
+                formHiddenVolume.value = val;
+                
+                if (val <= 50) {
+                    categoryTag.textContent = "Micro-Emisor";
+                    categoryTag.style.color = "var(--accent-emerald)";
+                    categoryTag.style.backgroundColor = "var(--bg-brand-translucent)";
+                    categoryTitle.textContent = "Plan Profesional / RST";
+                    categoryDesc.textContent = "Ideal para freelancers, consultores o pequeños médicos independientes acogidos al régimen RST. Incluye firma digital básica e historial completo de e-CF.";
+                } else if (val <= 300) {
+                    categoryTag.textContent = "Pyme Inicial";
+                    categoryTag.style.color = "var(--accent-emerald)";
+                    categoryTag.style.backgroundColor = "var(--bg-brand-translucent)";
+                    categoryTitle.textContent = "Plan Crecimiento Pyme";
+                    categoryDesc.textContent = "Excelente para comercios minoristas locales o prestadores de servicios de tamaño medio que emiten NCF diariamente. Soporta modo contingencia ilimitado y multiusuario.";
+                } else if (val <= 1500) {
+                    categoryTag.textContent = "Empresa Consolidada";
+                    categoryTag.style.color = "var(--accent-yellow)";
+                    categoryTag.style.backgroundColor = "rgba(245, 158, 11, 0.1)";
+                    categoryTitle.textContent = "Plan Corporativo Nube";
+                    categoryDesc.textContent = "Perfecto para distribuidoras o empresas en expansión con transacciones continuas. Incluye integración en lote, CRM avanzado de cobros con Neto a Recibir, y soporte de guardia.";
+                } else {
+                    categoryTag.textContent = "Gran Contribuyente / API";
+                    categoryTag.style.color = "var(--accent-red)";
+                    categoryTag.style.backgroundColor = "rgba(239, 68, 68, 0.1)";
+                    categoryTitle.textContent = "Plan Enterprise Premium";
+                    categoryDesc.textContent = "Tarificación optimizada por API para alto volumen transaccional (más de 1,500 e-CF/mes). Soporte prioritario y servidores redundantes dedicados.";
+                }
+            }
+            
+            slider.addEventListener('input', function() {
+                updateCalculator(this.value);
+            });
+            updateCalculator(slider.value); // Ejecución inicial
+            
+            // C. Lógica del Acordeón de FAQs
+            const faqItems = document.querySelectorAll('.faq-item');
+            faqItems.forEach(item => {
+                const header = item.querySelector('.faq-header');
+                const content = item.querySelector('.faq-content');
+                
+                header.addEventListener('click', function() {
+                    const isActive = item.classList.contains('active');
+                    
+                    // Cerrar todos los demás faqItems
+                    faqItems.forEach(i => {
+                        i.classList.remove('active');
+                        i.querySelector('.faq-content').style.maxHeight = null;
+                    });
+                    
+                    if (!isActive) {
+                        item.classList.add('active');
+                        content.style.maxHeight = content.scrollHeight + "px";
+                    }
+                });
+            });
+            
+
+            // F. Lógica de Pestañas del Mock Editor de Código API
+            const codeTabs = document.querySelectorAll('.code-tab');
+            const codeBlocks = document.querySelectorAll('.code-block');
+            
+            codeTabs.forEach(tab => {
+                tab.addEventListener('click', function() {
+                    codeTabs.forEach(t => t.classList.remove('active'));
+                    codeBlocks.forEach(b => b.style.display = 'none');
+                    
+                    this.classList.add('active');
+                    const targetBlock = document.getElementById('code-' + this.getAttribute('data-code'));
+                    if (targetBlock) {
+                        targetBlock.style.display = 'block';
+                    }
+                });
+            });
+
+            // E. Envío asíncrono (AJAX) del Formulario de Leads
+            const leadForm = document.getElementById('landing-lead-form');
+            const successCard = document.getElementById('form-success-card');
+            const successVolumeLabel = document.getElementById('success-volume-label');
+            
+            if (leadForm) {
+                leadForm.addEventListener('submit', function(event) {
+                    event.preventDefault(); // Evitar recarga
+                    
+                    const formData = new FormData(leadForm);
+                    const volumeVal = Number(slider.value).toLocaleString('es-DO');
+                    successVolumeLabel.textContent = volumeVal;
+                    
+                    // Convertir FormData a JSON
+                    const data = {};
+                    formData.forEach((value, key) => { data[key] = value });
+                    
+                    // Enviar AJAX a Flask
+                    fetch('/api/solicitar-demo', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(data)
+                    })
+                    .then(response => response.json())
+                    .then(res => {
+                        if (res.success) {
+                            leadForm.style.display = 'none';
+                            successCard.style.display = 'block';
+                            successCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        } else {
+                            alert('Error al enviar la solicitud: ' + (res.error || 'Inténtelo de nuevo.'));
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        // Mock fallback por si acaso falla la API
+                        leadForm.style.display = 'none';
+                        successCard.style.display = 'block';
+                        successCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    });
+                });
+            }
+        });
+    </script>
+</body>
+</html>

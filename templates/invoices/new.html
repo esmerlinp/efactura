@@ -65,13 +65,23 @@
                 </select>
             </div>
             
+            <!-- Condición de Pago (paymentType) -->
             <div class="form-group">
-                <label for="payment-method-select">Método de Pago</label>
+                <label for="payment-type-select">Condición de Pago</label>
+                <select id="payment-type-select" name="paymentType" class="form-select">
+                    <option value="Contado" {% if not invoice or invoice.paymentType == 'Contado' %}selected{% endif %}>Contado (Inmediato)</option>
+                    <option value="Crédito" {% if invoice and invoice.paymentType == 'Crédito' %}selected{% endif %}>Crédito (A Plazo)</option>
+                </select>
+            </div>
+            
+            <!-- Forma de Pago / Medio de Pago (paymentMethod) -->
+            <div class="form-group" id="payment-method-group">
+                <label for="payment-method-select">Forma de Pago</label>
                 <select id="payment-method-select" name="paymentMethod" class="form-select">
                     <option value="Efectivo" {% if not invoice or invoice.paymentMethod == 'Efectivo' %}selected{% endif %}>Efectivo</option>
                     <option value="Cheque / Transferencia" {% if invoice and invoice.paymentMethod == 'Cheque / Transferencia' %}selected{% endif %}>Cheque / Transferencia Bancaria</option>
                     <option value="Tarjeta de Crédito / Débito" {% if invoice and invoice.paymentMethod == 'Tarjeta de Crédito / Débito' %}selected{% endif %}>Tarjeta de Crédito / Débito</option>
-                    <option value="Crédito" {% if invoice and invoice.paymentMethod == 'Crédito' %}selected{% endif %}>Venta a Crédito</option>
+                    <option value="Crédito" {% if invoice and invoice.paymentMethod == 'Crédito' %}selected{% endif %}>Crédito (Cuentas por Cobrar)</option>
                 </select>
             </div>
 
@@ -392,4 +402,52 @@
 
 {% block extra_scripts %}
 <script src="{{ url_for('static', filename='js/invoicing.js') }}"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const paymentTypeSelect = document.getElementById('payment-type-select');
+        const paymentMethodSelect = document.getElementById('payment-method-select');
+        const dueDateInput = document.getElementById('due-date');
+
+        function handlePaymentTypeChange() {
+            if (!paymentTypeSelect || !paymentMethodSelect) return;
+            const isCredit = paymentTypeSelect.value === 'Crédito';
+            
+            // Show/Hide options inside paymentMethodSelect
+            const creditOption = paymentMethodSelect.querySelector('option[value="Crédito"]');
+            const cashOptions = Array.from(paymentMethodSelect.querySelectorAll('option:not([value="Crédito"])'));
+            
+            if (isCredit) {
+                // If Credit, auto-select "Crédito" payment form and disable/hide cash forms
+                if (creditOption) creditOption.style.display = 'block';
+                paymentMethodSelect.value = 'Crédito';
+                cashOptions.forEach(opt => opt.style.display = 'none');
+                
+                // If dueDate is today or in the past, default it to 30 days from now for credit convenience
+                if (dueDateInput) {
+                    const today = new Date().toISOString().split('T')[0];
+                    if (dueDateInput.value <= today) {
+                        const futureDate = new Date();
+                        futureDate.setDate(futureDate.getDate() + 30);
+                        dueDateInput.value = futureDate.toISOString().split('T')[0];
+                    }
+                }
+            } else {
+                // If Contado (Cash), disable/hide "Crédito" payment form and enable cash forms
+                if (creditOption) creditOption.style.display = 'none';
+                cashOptions.forEach(opt => opt.style.display = 'block');
+                
+                // If it was "Crédito", select "Efectivo"
+                if (paymentMethodSelect.value === 'Crédito') {
+                    paymentMethodSelect.value = 'Efectivo';
+                }
+            }
+        }
+
+        if (paymentTypeSelect && paymentMethodSelect) {
+            paymentTypeSelect.addEventListener('change', handlePaymentTypeChange);
+            // Run initially to set the correct state based on loaded invoice data
+            handlePaymentTypeChange();
+        }
+    });
+</script>
 {% endblock %}
