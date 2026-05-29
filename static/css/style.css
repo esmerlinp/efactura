@@ -74,6 +74,10 @@
     --bg-input: rgba(30, 41, 59, 0.7);
     --border-color: rgba(255, 255, 255, 0.12);
     --border-glow: rgba(30, 58, 138, 0.25);
+    --accent-emerald: #60A5FA; /* Azul brillante de alta legibilidad para darkmode */
+    --accent-emerald-hover: #93C5FD;
+    --accent-purple: #60A5FA;
+    --accent-purple-hover: #93C5FD;
     --text-primary: #F8FAFC;
     --text-secondary: #94A3B8;
     --text-muted: #64748B;
@@ -113,6 +117,10 @@ body.sandbox-mode {
 [data-theme="dark"].sandbox-mode,
 [data-theme="dark"] .sandbox-mode,
 body.sandbox-mode[data-theme="dark"] {
+    --accent-emerald: #A78BFA; /* Púrpura brillante de alta legibilidad en sandbox darkmode */
+    --accent-emerald-hover: #C4B5FD;
+    --accent-purple: #A78BFA;
+    --accent-purple-hover: #C4B5FD;
     --bg-brand-translucent: rgba(255, 255, 255, 0.04);
     --bg-brand-translucent-heavy: rgba(255, 255, 255, 0.08);
     --shadow-brand-glow-subtle: inset 0 0 10px rgba(255, 255, 255, 0.02);
