@@ -85,6 +85,48 @@
                 </select>
             </div>
 
+            <!-- Configurar Acuerdo de Pago (Solo Crédito) -->
+            <div id="payment-agreement-group" style="display: none; grid-column: 1 / -1; background-color: rgba(255, 255, 255, 0.01); border: 1px dashed var(--border-color); border-radius: var(--radius-sm); padding: 20px; margin-top: 10px; margin-bottom: 10px;">
+                <h4 style="font-size: 0.95rem; font-family: var(--font-heading); margin-top: 0; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; color: var(--accent-purple);">
+                    <i class="fa-solid fa-calendar-days"></i>
+                    <span>Estructurar Acuerdo de Pago (Cuotas)</span>
+                </h4>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px;">
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label for="agreement-enabled-select">¿Dividir Pago en Cuotas?</label>
+                        <select id="agreement-enabled-select" name="agreementEnabled" class="form-select">
+                            <option value="false">No, pago único al vencimiento</option>
+                            <option value="true">Sí, crear calendario de cuotas</option>
+                        </select>
+                    </div>
+                    
+                    <div id="agreement-details-fields" style="display: none; grid-column: span 3; grid-template-columns: repeat(3, 1fr); gap: 20px;">
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label for="installments-count-select">Cantidad de Cuotas</label>
+                            <select id="installments-count-select" name="installmentsCount" class="form-select">
+                                <option value="2">2 Cuotas</option>
+                                <option value="3">3 Cuotas</option>
+                                <option value="4">4 Cuotas</option>
+                                <option value="6">6 Cuotas</option>
+                                <option value="12">12 Cuotas</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label for="agreement-frequency-select">Frecuencia de Pago</label>
+                            <select id="agreement-frequency-select" name="agreementFrequency" class="form-select">
+                                <option value="mensual">Mensual (30 días)</option>
+                                <option value="quincenal">Quincenal (15 días)</option>
+                                <option value="semanal">Semanal (7 días)</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label for="late-fee-input">Tasa de Mora Mensual (%)</label>
+                            <input type="number" id="late-fee-input" name="lateFeePercentage" class="form-input" min="0" max="100" step="0.1" value="5.0" style="width: 100%;">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             {% if active_page != 'quotations' %}
             <div class="form-group">
                 <label for="branch-select">Sucursal Emisora</label>
@@ -309,12 +351,12 @@
     </div>
 
     <!-- BARRA DE ACCIONES FINAL -->
-    <div style="display: flex; justify-content: flex-end; gap: 15px; border-top: 1px solid var(--border-color); padding-top: 24px; margin-bottom: 40px;">
+    <div style="display: flex; justify-content: flex-end; gap: 15px; border-top: 1px solid var(--border-color); padding-top: 24px; margin-bottom: 12px;">
         <a href="{% if active_page == 'quotations' %}/quotations{% else %}{{ url_for('list_invoices') }}{% endif %}" class="btn btn-secondary">
             <span>Cancelar</span>
         </a>
         {% if active_page != 'quotations' %}
-        <button type="submit" name="action" value="emitir_cobrar" class="btn btn-success" id="submit-invoice-cobrar-btn" style="padding: 14px 28px; background: linear-gradient(135deg, #064e3b 0%, #059669 100%); border: none; color: white;">
+        <button type="submit" name="action" value="emitir_cobrar" class="btn btn-success" id="submit-invoice-cobrar-btn" style="padding: 14px 28px; background: linear-gradient(135deg, #064e3b 0%, #059669 100%); border: none; color: white; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);">
             <i class="fa-solid fa-money-bill-wave"></i>
             <span>Emitir y Cobrar</span>
         </button>
@@ -324,6 +366,9 @@
             <span>{% if active_page == 'quotations' %}Guardar Cotización{% else %}Emitir Borrador{% endif %}</span>
         </button>
     </div>
+
+    <!-- CONTENEDOR PARA LEYENDAS Y AYUDAS DE EMISIÓN (PIE DE PÁGINA) -->
+    <div id="payment-helper-container" style="display: flex; justify-content: flex-end; margin-bottom: 40px; min-height: 20px;"></div>
 </form>
 
 <!-- =========================================================================
@@ -406,7 +451,14 @@
     document.addEventListener('DOMContentLoaded', () => {
         const paymentTypeSelect = document.getElementById('payment-type-select');
         const paymentMethodSelect = document.getElementById('payment-method-select');
+        const paymentMethodGroup = document.getElementById('payment-method-group');
         const dueDateInput = document.getElementById('due-date');
+        const submitCobrarBtn = document.getElementById('submit-invoice-cobrar-btn');
+
+        // Referencias para el Acuerdo de Pago
+        const paymentAgreementGroup = document.getElementById('payment-agreement-group');
+        const agreementEnabledSelect = document.getElementById('agreement-enabled-select');
+        const agreementDetailsFields = document.getElementById('agreement-details-fields');
 
         function handlePaymentTypeChange() {
             if (!paymentTypeSelect || !paymentMethodSelect) return;
@@ -417,10 +469,14 @@
             const cashOptions = Array.from(paymentMethodSelect.querySelectorAll('option:not([value="Crédito"])'));
             
             if (isCredit) {
-                // If Credit, auto-select "Crédito" payment form and disable/hide cash forms
+                // If Credit, hide the payment method dropdown completely because there is no payment yet
+                if (paymentMethodGroup) paymentMethodGroup.style.display = 'none';
                 if (creditOption) creditOption.style.display = 'block';
                 paymentMethodSelect.value = 'Crédito';
                 cashOptions.forEach(opt => opt.style.display = 'none');
+                
+                // Mostrar sección de Acuerdos de Pago
+                if (paymentAgreementGroup) paymentAgreementGroup.style.display = 'grid';
                 
                 // If dueDate is today or in the past, default it to 30 days from now for credit convenience
                 if (dueDateInput) {
@@ -431,15 +487,69 @@
                         dueDateInput.value = futureDate.toISOString().split('T')[0];
                     }
                 }
+
+                // Update Emitir y Cobrar button to Firmar y Emitir (Crédito)
+                if (submitCobrarBtn) {
+                    submitCobrarBtn.setAttribute('value', 'emitir_credito');
+                    submitCobrarBtn.style.background = 'linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%)';
+                    submitCobrarBtn.innerHTML = '<i class="fa-solid fa-file-signature"></i> <span>Firmar y Emitir (Crédito)</span>';
+                    
+                    // Show a subtle help text under the button
+                    let helperText = document.getElementById('payment-helper-text');
+                    if (!helperText) {
+                        helperText = document.createElement('small');
+                        helperText.id = 'payment-helper-text';
+                        helperText.style.display = 'block';
+                        helperText.style.color = '#3b82f6';
+                        helperText.style.fontWeight = '500';
+                        helperText.style.fontSize = '0.85rem';
+                        
+                        const container = document.getElementById('payment-helper-container');
+                        if (container) {
+                            container.appendChild(helperText);
+                        } else {
+                            helperText.style.marginTop = '8px';
+                            submitCobrarBtn.parentNode.insertBefore(helperText, submitCobrarBtn.nextSibling);
+                        }
+                    }
+                    helperText.innerHTML = 'ℹ️ La factura se emitirá a la DGII y quedará <strong>Pendiente de Cobro (Cuentas por Cobrar)</strong>.';
+                }
             } else {
-                // If Contado (Cash), disable/hide "Crédito" payment form and enable cash forms
+                // If Contado (Cash), show the payment method selector since we must record how it's paid
+                if (paymentMethodGroup) paymentMethodGroup.style.display = 'block';
                 if (creditOption) creditOption.style.display = 'none';
                 cashOptions.forEach(opt => opt.style.display = 'block');
+                
+                // Ocultar sección de Acuerdos de Pago
+                if (paymentAgreementGroup) paymentAgreementGroup.style.display = 'none';
+                if (agreementEnabledSelect) agreementEnabledSelect.value = 'false';
+                if (agreementDetailsFields) agreementDetailsFields.style.display = 'none';
                 
                 // If it was "Crédito", select "Efectivo"
                 if (paymentMethodSelect.value === 'Crédito') {
                     paymentMethodSelect.value = 'Efectivo';
                 }
+
+                // Update button back to Emitir y Cobrar
+                if (submitCobrarBtn) {
+                    submitCobrarBtn.setAttribute('value', 'emitir_cobrar');
+                    submitCobrarBtn.style.background = 'linear-gradient(135deg, #064e3b 0%, #059669 100%)';
+                    submitCobrarBtn.innerHTML = '<i class="fa-solid fa-money-bill-wave"></i> <span>Emitir y Cobrar</span>';
+                    
+                    let helperText = document.getElementById('payment-helper-text');
+                    if (helperText) {
+                        helperText.remove();
+                    }
+                }
+            }
+        }
+
+        function handleAgreementToggle() {
+            if (!agreementEnabledSelect || !agreementDetailsFields) return;
+            if (agreementEnabledSelect.value === 'true') {
+                agreementDetailsFields.style.display = 'grid';
+            } else {
+                agreementDetailsFields.style.display = 'none';
             }
         }
 
@@ -447,6 +557,11 @@
             paymentTypeSelect.addEventListener('change', handlePaymentTypeChange);
             // Run initially to set the correct state based on loaded invoice data
             handlePaymentTypeChange();
+        }
+
+        if (agreementEnabledSelect) {
+            agreementEnabledSelect.addEventListener('change', handleAgreementToggle);
+            handleAgreementToggle();
         }
     });
 </script>

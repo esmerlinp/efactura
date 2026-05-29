@@ -1144,6 +1144,18 @@ def new_invoice_route(invoice_id=None):
         recurrence_interval = request.form.get('recurrenceInterval', 'mensual')
         next_occurrence = request.form.get('nextOccurrenceDate')
 
+        # Parámetros de acuerdos de pago
+        agreement_enabled = request.form.get('agreementEnabled') == 'true'
+        try:
+            installments_count = int(request.form.get('installmentsCount', 1))
+        except ValueError:
+            installments_count = 1
+        agreement_frequency = request.form.get('agreementFrequency', 'mensual')
+        try:
+            late_fee_percentage = float(request.form.get('lateFeePercentage', 5.0))
+        except ValueError:
+            late_fee_percentage = 5.0
+
         # Buscar datos del cliente
         client_name = "Consumidor Final"
         client_rnc = request.form.get('clientRNC', '')
@@ -1198,6 +1210,57 @@ def new_invoice_route(invoice_id=None):
         # Determinar si es Cotización o Factura Real
         is_quotation = "cotizacion" in request.path or ecf_type == "Cotización"
         
+        # Generar acuerdo de pagos y cuotas
+        agreement = {
+            "enabled": agreement_enabled if (not is_quotation and ecf_type != "Cotización") else False,
+            "installmentsCount": installments_count if agreement_enabled else 1,
+            "frequency": agreement_frequency,
+            "lateFeePercentage": late_fee_percentage
+        }
+        
+        installments = []
+        if agreement["enabled"] and agreement["installmentsCount"] > 1:
+            base_amount = round(calcs["net_payable"] / agreement["installmentsCount"], 2)
+            total_allocated = 0.0
+            
+            for i in range(agreement["installmentsCount"]):
+                inst_num = i + 1
+                if inst_num == agreement["installmentsCount"]:
+                    inst_amount = round(calcs["net_payable"] - total_allocated, 2)
+                else:
+                    inst_amount = base_amount
+                    total_allocated = round(total_allocated + inst_amount, 2)
+                
+                if agreement["frequency"] == 'semanal':
+                    days_add = 7 * inst_num
+                elif agreement["frequency"] == 'quincenal':
+                    days_add = 15 * inst_num
+                else:  # mensual
+                    days_add = 30 * inst_num
+                    
+                due_date_inst = (datetime.utcnow() + timedelta(days=days_add)).strftime("%Y-%m-%d")
+                
+                installments.append({
+                    "id": str(uuid.uuid4()),
+                    "installmentNumber": inst_num,
+                    "amount": inst_amount,
+                    "dueDate": due_date_inst,
+                    "status": "Pendiente",
+                    "paidAmount": 0.0,
+                    "remainingBalance": inst_amount
+                })
+        else:
+            # Cuota única
+            installments = [{
+                "id": "cuota-unica-default",
+                "installmentNumber": 1,
+                "amount": calcs["net_payable"],
+                "dueDate": due_date,
+                "status": "Pendiente",
+                "paidAmount": 0.0,
+                "remainingBalance": calcs["net_payable"]
+            }]
+            
         if existing_invoice:
             target_invoice_id = invoice_id
             invoice_dict = existing_invoice
@@ -1223,6 +1286,11 @@ def new_invoice_route(invoice_id=None):
             invoice_dict["warehouseId"] = request.form.get('warehouseId', '')
             invoice_dict["branchId"] = request.form.get('branchId', 'default-sucursal-principal')
             invoice_dict["items"] = calcs["items"]
+            # Balances
+            invoice_dict["totalPaid"] = float(existing_invoice.get("totalPaid", calcs["net_payable"] if existing_invoice.get("status") == "Cobrada" else 0.0))
+            invoice_dict["remainingBalance"] = float(existing_invoice.get("remainingBalance", 0.0 if existing_invoice.get("status") == "Cobrada" else calcs["net_payable"]))
+            invoice_dict["paymentAgreement"] = agreement
+            invoice_dict["installments"] = installments
         else:
             random_num = f"{random.randint(1, 999999):06d}"
             inv_number = f"COT-{random_num}" if is_quotation else f"FAC-{random_num}"
@@ -1263,7 +1331,11 @@ def new_invoice_route(invoice_id=None):
                 "exchangeRate": CurrencyService.get_rate(currency),
                 "warehouseId": request.form.get('warehouseId', ''),
                 "branchId": request.form.get('branchId', 'default-sucursal-principal'),
-                "items": calcs["items"]
+                "items": calcs["items"],
+                "totalPaid": 0.0,
+                "remainingBalance": calcs["net_payable"],
+                "paymentAgreement": agreement,
+                "installments": installments
             }
         
         DatabaseService.save_invoice(owner_uid, target_invoice_id, invoice_dict, sandbox=sandbox)
@@ -1273,7 +1345,7 @@ def new_invoice_route(invoice_id=None):
         if is_quotation:
             flash('Cotización creada exitosamente como borrador.', 'success')
             return redirect(url_for('list_quotations'))
-        elif action == 'emitir_cobrar':
+        elif action in ['emitir_cobrar', 'emitir_credito']:
             company = DatabaseService.get_company_profile(owner_uid)
             try:
                 if not invoice_dict.get("encf"):
@@ -1285,7 +1357,6 @@ def new_invoice_route(invoice_id=None):
                 res = AlanubeService.emit_electronic_comprobante(company, invoice_dict, sandbox=sandbox)
                 
                 if res.get("success"):
-                    invoice_dict["status"] = "Cobrada"
                     invoice_dict["encf"] = res["encf"]
                     invoice_dict["xmlSignature"] = res["xmlSignature"]
                     invoice_dict["qrCodeURL"] = res["qrCodeURL"]
@@ -1293,11 +1364,31 @@ def new_invoice_route(invoice_id=None):
                     invoice_dict["firebaseXMLURL"] = res["xmlUrl"]
                     # FALLBACK = emitido offline, aún pendiente de sincronizar con la DGII
                     invoice_dict["isSyncedWithDGII"] = (res.get("mode", "API") == "API")
-                    invoice_dict["paymentDate"] = datetime.utcnow().isoformat()
                     invoice_dict["emisionMode"] = res.get("mode", "API")
                     invoice_dict["contingencyEmittedAt"] = datetime.utcnow().isoformat() if res.get("mode") == "FALLBACK" else None
                     
-                    DatabaseService.save_invoice(owner_uid, target_invoice_id, invoice_dict, sandbox=sandbox)
+                    if action == 'emitir_cobrar':
+                        invoice_dict["status"] = "Cobrada"
+                        invoice_dict["totalPaid"] = invoice_dict["netPayable"]
+                        invoice_dict["remainingBalance"] = 0.0
+                        invoice_dict["paymentDate"] = datetime.utcnow().isoformat()
+                        
+                        # Registrar pago inmediato en subcolección para el historial
+                        payment_dict = {
+                            "amount": invoice_dict["netPayable"],
+                            "paymentMethod": invoice_dict["paymentMethod"],
+                            "bank": invoice_dict.get("bank") or ("Caja Efectivo" if invoice_dict["paymentMethod"] == "Efectivo" else "Banco Popular Dominicano"),
+                            "referenceNumber": invoice_dict.get("referenceNumber") or ("Pago en Efectivo" if invoice_dict["paymentMethod"] == "Efectivo" else "Cobro Inmediato"),
+                            "paymentDate": invoice_dict["paymentDate"],
+                            "registeredBy": session['user']['email']
+                        }
+                        # La factura se guardará al registrar el pago
+                        DatabaseService.register_invoice_payment(owner_uid, target_invoice_id, payment_dict, sandbox=sandbox)
+                    else:
+                        invoice_dict["status"] = "Emitida"
+                        invoice_dict["totalPaid"] = 0.0
+                        invoice_dict["remainingBalance"] = invoice_dict["netPayable"]
+                        DatabaseService.save_invoice(owner_uid, target_invoice_id, invoice_dict, sandbox=sandbox)
                     
                     logs = DatabaseService.get_sequence_logs(owner_uid, sandbox=sandbox)
                     log = next((l for l in logs if l["encf"] == res["encf"]), None)
@@ -1314,7 +1405,10 @@ def new_invoice_route(invoice_id=None):
                             "motivo": motivo
                         }, sandbox=sandbox)
                         
-                    flash(f"¡Comprobante emitido y cobrado con éxito! e-NCF: {res['encf']}", "success")
+                    msg = f"¡Comprobante emitido y cobrado con éxito! e-NCF: {res['encf']}"
+                    if res.get("mode") == "FALLBACK":
+                        msg = f"⚠️ ¡Comprobante emitido en modalidad de contingencia (sin conexión a Alanube)! e-NCF: {res['encf']}. Recuerde sincronizarlo con la DGII en un plazo máximo de 72 horas."
+                    flash(msg, "success")
                 else:
                     flash(f"Borrador creado, pero error al emitir: {res.get('message')}", "warning")
             except Exception as e:
@@ -1346,9 +1440,23 @@ def new_invoice_route(invoice_id=None):
         invoice=existing_invoice
     )
 
+def _get_client_email(owner_uid, invoice, sandbox):
+    """Retorna el email del cliente de la factura, si está disponible."""
+    try:
+        client_id = invoice.get("clientId", "")
+        if client_id:
+            clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox)
+            client = next((c for c in clients if c["id"] == client_id), None)
+            if client:
+                return client.get("email", "")
+    except Exception:
+        pass
+    return ""
+
 @app.route('/invoices/<invoice_id>')
 def invoice_detail(invoice_id):
     if 'user' not in session: return redirect(url_for('login'))
+
     if not check_permission('canInvoice'):
         return render_template('auth/restricted.html', feature_name="Detalle de Factura", required_permission="canInvoice")
     owner_uid = session['user']['ownerUID']
@@ -1359,17 +1467,200 @@ def invoice_detail(invoice_id):
         flash('Factura no encontrada.', 'error')
         return redirect(url_for('list_invoices'))
         
+    payments = DatabaseService.get_invoice_payments(owner_uid, invoice_id, sandbox=sandbox)
     company = DatabaseService.get_company_profile(owner_uid)
     branches = DatabaseService.get_branches(owner_uid, sandbox=sandbox)
     branch = next((b for b in branches if b['id'] == invoice.get("branchId")), None)
     if not branch and branches:
         branch = branches[0]
         
-    return render_template('invoices/detail.html', active_page='invoices', invoice=invoice, company=company, branch=branch)
+    # Motor de Mora dinámico
+    agreement = invoice.get("paymentAgreement") or {"enabled": False, "lateFeePercentage": 5.0}
+    late_fee_percentage = float(agreement.get("lateFeePercentage", 5.0))
+    
+    total_mora = 0.0
+    installments_with_mora = []
+    
+    hoy = datetime.utcnow()
+    
+    for inst in invoice.get("installments", []):
+        inst_rem = float(inst.get("remainingBalance", 0.0))
+        inst_due_str = inst.get("dueDate", "")
+        
+        dias_retraso = 0
+        mora_cuota = 0.0
+        
+        if inst.get("status") == "Pendiente" and inst_due_str:
+            try:
+                due_date_dt = datetime.strptime(inst_due_str[:10], "%Y-%m-%d")
+                if hoy > due_date_dt:
+                    dias_retraso = (hoy - due_date_dt).days
+                    # Recargo mensual de mora calculado por día
+                    tasa_diaria = (late_fee_percentage / 100.0) / 30.0
+                    mora_cuota = round(inst_rem * tasa_diaria * dias_retraso, 2)
+            except Exception as e:
+                print(f"Error parseando vencimiento de cuota: {e}")
+                
+        inst["diasRetraso"] = dias_retraso
+        inst["mora"] = mora_cuota
+        total_mora += mora_cuota
+        
+        installments_with_mora.append(inst)
+        
+    invoice["installments"] = installments_with_mora
+    invoice["totalMora"] = round(total_mora, 2)
+    invoice["overdue"] = (total_mora > 0.0)
+        
+    return render_template('invoices/detail.html', active_page='invoices', invoice=invoice, company=company, branch=branch, payments=payments, client_email=_get_client_email(owner_uid, invoice, sandbox))
+
+@app.route('/invoices/<invoice_id>/send-receipt', methods=['POST'])
+def send_receipt_email(invoice_id):
+    """Envía un Recibo de Ingreso por email al cliente."""
+    if 'user' not in session:
+        return jsonify({"success": False, "message": "No autenticado."}), 401
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+
+    data = request.get_json(silent=True) or {}
+    recipient_email = (data.get("email") or "").strip()
+    if not recipient_email:
+        return jsonify({"success": False, "message": "Dirección de email no especificada."}), 400
+
+    invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+    if not invoice:
+        return jsonify({"success": False, "message": "Factura no encontrada."}), 404
+
+    company = DatabaseService.get_company_profile(owner_uid)
+
+    # Payment data sent from the client
+    payment_id      = data.get("paymentId", "")
+    payment_date    = data.get("paymentDate", "")
+    payment_method  = data.get("paymentMethod", "")
+    payment_bank    = data.get("bank", "")
+    payment_ref     = data.get("referenceNumber", "")
+    payment_amount  = float(data.get("amount", 0.0))
+
+    # Build receipt number (short suffix of payment id)
+    receipt_no = (payment_id[-8:].upper() if payment_id else "N/A")
+
+    smtp_server   = app.config.get("SMTP_SERVER", "")
+    smtp_port     = int(app.config.get("SMTP_PORT", 587))
+    smtp_user     = app.config.get("SMTP_USER", "")
+    smtp_password = app.config.get("SMTP_PASSWORD", "")
+
+    if not smtp_user or not smtp_password:
+        return jsonify({"success": False, "message": "El servidor de correo no está configurado. Configura SMTP_USER y SMTP_PASSWORD en el servidor."}), 503
+
+    company_name    = company.get("companyName", "e-Factura")
+    company_rnc     = company.get("companyRNC", "")
+    company_address = company.get("companyAddress", "")
+    company_phone   = company.get("companyPhone", "")
+    company_email   = company.get("companyEmail", smtp_user)
+
+    html_body = f"""
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body {{ font-family: 'Segoe UI', Arial, sans-serif; background: #f8fafc; color: #1e293b; margin: 0; padding: 0; }}
+    .wrapper {{ max-width: 600px; margin: 30px auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.08); }}
+    .header {{ background: linear-gradient(135deg, #1e3a8a 0%, #7c3aed 100%); padding: 32px 36px; text-align: center; }}
+    .header h1 {{ color: #ffffff; font-size: 1.6rem; margin: 0 0 4px; font-weight: 800; letter-spacing: -0.5px; }}
+    .header p {{ color: rgba(255,255,255,0.75); font-size: 0.88rem; margin: 0; }}
+    .receipt-badge {{ display: inline-block; background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3); color: #fff; padding: 6px 16px; border-radius: 20px; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; margin-top: 14px; }}
+    .body {{ padding: 32px 36px; }}
+    .section-label {{ font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #94a3b8; margin-bottom: 6px; }}
+    .info-grid {{ display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }}
+    .info-item {{ background: #f8fafc; border-radius: 8px; padding: 14px 16px; }}
+    .info-item .label {{ font-size: 0.72rem; color: #64748b; margin-bottom: 3px; }}
+    .info-item .value {{ font-size: 0.92rem; font-weight: 600; color: #0f172a; }}
+    .amount-box {{ background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border: 2px solid #16a34a; border-radius: 10px; padding: 20px 24px; text-align: center; margin: 24px 0; }}
+    .amount-box .label {{ font-size: 0.78rem; color: #166534; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }}
+    .amount-box .amount {{ font-size: 2.1rem; font-weight: 800; color: #15803d; }}
+    .footer-note {{ font-size: 0.78rem; color: #94a3b8; text-align: center; border-top: 1px solid #e2e8f0; padding-top: 20px; margin-top: 24px; line-height: 1.6; }}
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="header">
+      <h1>{company_name}</h1>
+      <p>RNC: {company_rnc} &nbsp;|&nbsp; {company_address}</p>
+      <span class="receipt-badge">✓ Recibo de Ingreso</span>
+    </div>
+    <div class="body">
+      <p style="font-size:0.92rem; color:#475569; margin-top:0;">Estimado cliente, se confirma el registro del siguiente abono:</p>
+
+      <div class="info-grid">
+        <div class="info-item">
+          <div class="label">No. Recibo</div>
+          <div class="value" style="font-family:monospace;">{receipt_no}</div>
+        </div>
+        <div class="info-item">
+          <div class="label">Fecha de Pago</div>
+          <div class="value">{payment_date}</div>
+        </div>
+        <div class="info-item">
+          <div class="label">Factura de Referencia</div>
+          <div class="value" style="font-family:monospace;">{invoice.get('invoiceNumber','')}</div>
+        </div>
+        <div class="info-item">
+          <div class="label">Cliente</div>
+          <div class="value">{invoice.get('clientName','')}</div>
+        </div>
+        <div class="info-item">
+          <div class="label">Forma de Pago</div>
+          <div class="value">{payment_method}</div>
+        </div>
+        <div class="info-item">
+          <div class="label">{"Banco / Referencia" if payment_bank else "Referencia"}</div>
+          <div class="value">{(payment_bank + " · " + payment_ref) if payment_bank else (payment_ref or "—")}</div>
+        </div>
+      </div>
+
+      <div class="amount-box">
+        <div class="label">Monto Recibido</div>
+        <div class="amount">RD$ {payment_amount:,.2f}</div>
+      </div>
+
+      <div class="footer-note">
+        Este recibo es un comprobante administrativo de pago emitido por {company_name}.<br>
+        Para consultas: {company_phone} &nbsp;|&nbsp; {company_email}<br>
+        Emitido el: {datetime.utcnow().strftime('%d/%m/%Y %H:%M')} UTC
+      </div>
+    </div>
+  </div>
+</body>
+</html>
+"""
+
+    try:
+        import smtplib
+        from email.mime.text import MIMEText
+        from email.mime.multipart import MIMEMultipart
+
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = f"Recibo de Pago - Factura {invoice.get('invoiceNumber', '')} | {company_name}"
+        msg["From"]    = f"{company_name} <{smtp_user}>"
+        msg["To"]      = recipient_email
+
+        msg.attach(MIMEText(html_body, "html", "utf-8"))
+
+        with smtplib.SMTP(smtp_server, smtp_port) as server:
+            server.ehlo()
+            server.starttls()
+            server.login(smtp_user, smtp_password)
+            server.sendmail(smtp_user, recipient_email, msg.as_string())
+
+        return jsonify({"success": True, "message": f"Recibo enviado exitosamente a {recipient_email}"})
+    except Exception as e:
+        print(f"⚠️ Error enviando recibo por email: {e}")
+        return jsonify({"success": False, "message": f"Error al enviar el correo: {str(e)}"}), 500
 
 @app.route('/invoices/<invoice_id>/pay', methods=['POST'])
 def pay_invoice_route(invoice_id):
     if 'user' not in session: return redirect(url_for('login'))
+
     if not check_permission('canInvoice'):
         return render_template('auth/restricted.html', feature_name="Registrar Pago", required_permission="canInvoice")
     owner_uid = session['user']['ownerUID']
@@ -1380,20 +1671,51 @@ def pay_invoice_route(invoice_id):
         flash('Factura no encontrada.', 'error')
         return redirect(url_for('list_invoices'))
         
-    bank = request.form.get('bank', 'Caja Efectivo')
-    reference_number = request.form.get('referenceNumber', 'Pago en Efectivo')
+    try:
+        amount = float(request.form.get('amount', invoice.get('remainingBalance', 0.0)))
+    except ValueError:
+        amount = 0.0
+        
+    remaining_balance = float(invoice.get('remainingBalance', invoice.get('netPayable', 0.0) if invoice.get('status') == 'Cobrada' else 0.0))
     
-    invoice["status"] = "Cobrada"
-    invoice["bank"] = bank
-    invoice["referenceNumber"] = reference_number
-    invoice["paymentDate"] = datetime.utcnow().isoformat()
+    if amount <= 0.0:
+        flash('El monto a abonar debe ser mayor a cero.', 'error')
+        return redirect(url_for('invoice_detail', invoice_id=invoice_id))
+        
+    if amount > remaining_balance + 0.01:  # tolerancia de centavos
+        flash(f'El monto del abono (RD$ {amount:,.2f}) no puede superar el balance pendiente (RD$ {remaining_balance:,.2f}).', 'error')
+        return redirect(url_for('invoice_detail', invoice_id=invoice_id))
+        
+    payment_method = request.form.get('paymentMethod', 'Cheque / Transferencia')
     
-    DatabaseService.save_invoice(owner_uid, invoice_id, invoice, sandbox=sandbox)
-    if invoice.get("paymentMethod") == 'Efectivo':
-        flash('¡Cobro en efectivo registrado con éxito!', 'success')
+    if payment_method == 'Efectivo':
+        bank = 'Caja Efectivo'
+        reference_number = 'Pago en Efectivo'
     else:
-        flash(f'¡Cobro por transferencia registrado con éxito en {bank}!', 'success')
+        bank = request.form.get('bank', 'Banco Popular Dominicano')
+        reference_number = request.form.get('referenceNumber', 'Abono Registrado')
+        
+    payment_dict = {
+        "amount": amount,
+        "paymentMethod": payment_method,
+        "bank": bank,
+        "referenceNumber": reference_number,
+        "paymentDate": datetime.utcnow().isoformat(),
+        "registeredBy": session['user']['email']
+    }
     
+    try:
+        DatabaseService.register_invoice_payment(owner_uid, invoice_id, payment_dict, sandbox=sandbox)
+        
+        # Calcular balance restante
+        new_balance = max(0.0, remaining_balance - amount)
+        if new_balance <= 0.01:
+            flash('¡Factura liquidada y saldada al 100% con éxito!', 'success')
+        else:
+            flash(f'¡Abono de RD$ {amount:,.2f} registrado con éxito! Pendiente restante: RD$ {new_balance:,.2f}.', 'success')
+    except Exception as e:
+        flash(f'Error al registrar el cobro: {str(e)}', 'error')
+        
     return redirect(url_for('invoice_detail', invoice_id=invoice_id))
 
 @app.route('/invoices/<invoice_id>/sign', methods=['POST'])
@@ -1455,7 +1777,10 @@ def sign_invoice_route(invoice_id):
                     "motivo": motivo
                 }, sandbox=sandbox)
                 
-            flash(f"¡Comprobante firmado digitalmente con éxito! e-NCF: {res['encf']} (Modo: {res['mode']})", "success")
+            msg = f"¡Comprobante firmado digitalmente con éxito! e-NCF: {res['encf']} (Modo: {res['mode']})"
+            if res.get("mode") == "FALLBACK":
+                msg = f"⚠️ ¡Comprobante firmado en modalidad de contingencia (sin conexión a Alanube)! e-NCF: {res['encf']}. Recuerde sincronizarlo con la DGII en un plazo máximo de 72 horas."
+            flash(msg, "success")
         else:
             flash(f"Error al certificar comprobante: {res.get('message')}", "error")
             

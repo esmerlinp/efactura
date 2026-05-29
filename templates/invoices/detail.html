@@ -5,9 +5,10 @@
 {% block page_header %}Detalle del Documento{% endblock %}
 
 {% block content %}
-<div style="display: grid; grid-template-columns: 3fr 1fr; gap: 30px; max-width: 1200px; margin: 0 auto;">
-    <!-- Vista Principal de Factura Premium -->
-    <div class="card-table-wrapper" style="padding: 40px; position: relative;">
+<div style="display: grid; grid-template-columns: 3fr 1fr; gap: 30px; max-width: 100%; margin: 0 auto;">
+    <div style="display: flex; flex-direction: column; gap: 30px;">
+        <!-- Vista Principal de Factura Premium -->
+        <div class="card-table-wrapper" style="padding: 40px; position: relative;">
         <!-- Píldora de Sandbox visual -->
         {% if session.get('is_sandbox_mode', True) %}
         <div style="position: absolute; top: 0; right: 0; background-color: var(--accent-purple); color: white; padding: 6px 16px; border-bottom-left-radius: var(--radius-sm); font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">
@@ -135,8 +136,141 @@
                     </div>
                     <span>RD$ {{ "{:,.2f}".format(invoice.netPayable) }}</span>
                 </div>
+
+                {% if not invoice.isQuotation %}
+                <!-- Panel de Balances de Pago Histórico -->
+                <div style="background-color: rgba(255, 255, 255, 0.02); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 18px; margin-top: 15px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; text-align: center;">
+                    <div>
+                        <span style="font-size: 0.72rem; color: var(--text-muted); display: block; margin-bottom: 4px; text-transform: uppercase; font-weight: 700;">Neto Facturado</span>
+                        <strong style="font-size: 1.05rem; color: var(--text-primary); display: block;">RD$ {{ "{:,.2f}".format(invoice.netPayable) }}</strong>
+                    </div>
+                    <div style="border-left: 1px solid var(--border-color); border-right: 1px solid var(--border-color);">
+                        <span style="font-size: 0.72rem; color: var(--text-muted); display: block; margin-bottom: 4px; text-transform: uppercase; font-weight: 700;">Total Cobrado</span>
+                        <strong style="font-size: 1.05rem; color: var(--accent-emerald); display: block;">RD$ {{ "{:,.2f}".format(invoice.totalPaid) }}</strong>
+                    </div>
+                    <div>
+                        <span style="font-size: 0.72rem; color: var(--text-muted); display: block; margin-bottom: 4px; text-transform: uppercase; font-weight: 700;">Bal. Pendiente</span>
+                        <strong style="font-size: 1.05rem; color: {% if invoice.remainingBalance > 0.01 %}var(--accent-red){% else %}var(--accent-emerald){% endif %}; display: block;">RD$ {{ "{:,.2f}".format(invoice.remainingBalance) }}</strong>
+                    </div>
+                </div>
+                {% endif %}
             </div>
         </div>
+    </div> <!-- Closes visual invoice card's card-table-wrapper -->
+
+    {% if not invoice.isQuotation and invoice.paymentType == 'Crédito' %}
+    <!-- Calendario de Cuotas / Acuerdo de Pago (Solo para crédito real) -->
+    <div id="payment-agreement-card" class="card-table-wrapper" style="padding: 40px; background: #ffffff; color: #0f172a; border: 1px solid #cbd5e1; box-shadow: var(--shadow-sm); border-radius: var(--radius-md);">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #cbd5e1; padding-bottom: 20px; margin-bottom: 20px;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <div style="width: 42px; height: 42px; border-radius: var(--radius-sm); background-color: rgba(30, 58, 138, 0.08); color: #1e3a8a; display: flex; align-items: center; justify-content: center; font-size: 1.25rem;">
+                    <i class="fa-solid fa-file-invoice-dollar"></i>
+                </div>
+                <div>
+                    <h4 style="font-size: 1.25rem; font-family: var(--font-heading); margin-bottom: 2px; color: #0f172a; font-weight: 800;">Acuerdo de Pago y Cuotas</h4>
+                    <span style="font-size: 0.8rem; color: #64748b; font-weight: 500;">Calendario de amortización oficial y desglose de cuotas a plazo</span>
+                </div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 12px;" class="no-print">
+                <button type="button" onclick="printAmortization()" class="btn btn-secondary" style="border-color: #1e3a8a; color: #1e3a8a; font-size: 0.8rem; padding: 8px 14px; height: 38px; display: inline-flex; align-items: center; gap: 6px; font-weight: 600; background: white;">
+                    <i class="fa-solid fa-print"></i>
+                    <span>Imprimir Amortización</span>
+                </button>
+                {% if invoice.remainingBalance > 0.01 %}
+                <button type="button" onclick="openPaymentModal(0, {{ invoice.remainingBalance }})" class="btn btn-primary" style="background: linear-gradient(135deg, var(--accent-emerald), var(--accent-emerald-hover)); border: none; font-size: 0.8rem; padding: 8px 14px; height: 38px; display: inline-flex; align-items: center; gap: 6px; font-weight: 600; cursor: pointer; border-radius: var(--radius-sm); color: white;">
+                    <i class="fa-solid fa-money-bill-transfer"></i>
+                    <span>Registrar Cobro / Abono</span>
+                </button>
+                {% endif %}
+                {% if invoice.totalMora > 0 %}
+                <span class="badge badge-danger" style="animation: pulse 2s infinite; height: 38px; line-height: 20px; display: inline-flex; align-items: center; justify-content: center; font-size: 0.8rem; padding: 8px 14px; border-radius: var(--radius-sm);"><i class="fa-solid fa-triangle-exclamation"></i> Vencido con Mora</span>
+                {% elif invoice.remainingBalance > 0.01 %}
+                <span class="badge badge-warning" style="height: 38px; line-height: 20px; display: inline-flex; align-items: center; justify-content: center; background-color: rgba(245, 158, 11, 0.08); color: #d97706; font-size: 0.8rem; padding: 8px 14px; border-radius: var(--radius-sm);">Cobro Pendiente</span>
+                {% else %}
+                <span class="badge badge-success" style="height: 38px; line-height: 20px; display: inline-flex; align-items: center; justify-content: center; font-size: 0.8rem; padding: 8px 14px; border-radius: var(--radius-sm);"><i class="fa-solid fa-circle-check"></i> Totalmente Saldado</span>
+                {% endif %}
+            </div>
+        </div>
+
+            <!-- Resumen del Acuerdo -->
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: var(--radius-sm); padding: 16px; color: #0f172a;">
+                <div style="text-align: center;">
+                    <span style="font-size: 0.72rem; color: #64748b; display: block; margin-bottom: 4px; text-transform: uppercase; font-weight: 700;">Cant. Cuotas</span>
+                    <strong style="font-size: 1.1rem; color: #0f172a; display: block; font-weight: 700;">{{ invoice.paymentAgreement.installmentsCount }} cuotas</strong>
+                </div>
+                <div style="text-align: center; border-left: 1px solid #e2e8f0;">
+                    <span style="font-size: 0.72rem; color: #64748b; display: block; margin-bottom: 4px; text-transform: uppercase; font-weight: 700;">Frecuencia</span>
+                    <strong style="font-size: 1.1rem; color: #0f172a; display: block; text-transform: capitalize; font-weight: 700;">{{ invoice.paymentAgreement.frequency }}</strong>
+                </div>
+                <div style="text-align: center; border-left: 1px solid #e2e8f0;">
+                    <span style="font-size: 0.72rem; color: #64748b; display: block; margin-bottom: 4px; text-transform: uppercase; font-weight: 700;">Recargo de Mora</span>
+                    <strong style="font-size: 1.1rem; color: #0f172a; display: block; font-weight: 700;">{{ invoice.paymentAgreement.lateFeePercentage }}% <span style="font-size: 0.75rem; font-weight: 500; color: #64748b;">Mensual</span></strong>
+                </div>
+                <div style="text-align: center; border-left: 1px solid #e2e8f0; background-color: {% if invoice.totalMora > 0 %}#fef2f2{% else %}transparent{% endif %}; border-radius: 4px;">
+                    <span style="font-size: 0.72rem; color: {% if invoice.totalMora > 0 %}#dc2626{% else %}#64748b{% endif %}; display: block; margin-bottom: 4px; text-transform: uppercase; font-weight: 700;">Mora Acumulada</span>
+                    <strong style="font-size: 1.1rem; color: {% if invoice.totalMora > 0 %}#dc2626{% else: %}#0f172a{% endif %}; display: block; font-weight: 700;">RD$ {{ "{:,.2f}".format(invoice.totalMora) }}</strong>
+                </div>
+            </div>
+
+            <!-- Tabla de Cuotas -->
+            <div class="table-responsive">
+                <table class="table-premium" style="font-size: 0.88rem; width: 100%;">
+                    <thead>
+                        <tr>
+                            <th style="text-align: center; width: 60px; color: #475569; border-bottom: 2px solid #cbd5e1; font-weight: 700;">Cuota</th>
+                            <th style="color: #475569; border-bottom: 2px solid #cbd5e1; font-weight: 700;">Vencimiento</th>
+                            <th style="text-align: right; color: #475569; border-bottom: 2px solid #cbd5e1; font-weight: 700;">Monto Original</th>
+                            <th style="text-align: right; color: #475569; border-bottom: 2px solid #cbd5e1; font-weight: 700;">Cobrado</th>
+                            <th style="text-align: right; color: #475569; border-bottom: 2px solid #cbd5e1; font-weight: 700;">Mora Retraso</th>
+                            <th style="text-align: right; color: #475569; border-bottom: 2px solid #cbd5e1; font-weight: 700;">Bal. Pendiente</th>
+                            <th style="text-align: center; color: #475569; border-bottom: 2px solid #cbd5e1; font-weight: 700;">Retraso</th>
+                            <th style="text-align: center; width: 100px; color: #475569; border-bottom: 2px solid #cbd5e1; font-weight: 700;">Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for inst in invoice.installments %}
+                        <tr>
+                            <td style="text-align: center; font-weight: 700; font-family: var(--font-heading); color: #0f172a; border-bottom: 1px solid #e2e8f0; padding: 14px 16px;">
+                                #{{ inst.installmentNumber }}
+                            </td>
+                            <td style="border-bottom: 1px solid #e2e8f0; padding: 14px 16px;">
+                                <span style="font-family: monospace; color: #334155;">{{ inst.dueDate[:10] }}</span>
+                            </td>
+                            <td style="text-align: right; font-weight: 600; color: #0f172a; border-bottom: 1px solid #e2e8f0; padding: 14px 16px;">
+                                RD$ {{ "{:,.2f}".format(inst.amount) }}
+                            </td>
+                            <td style="text-align: right; color: #16a34a; font-weight: 600; border-bottom: 1px solid #e2e8f0; padding: 14px 16px;">
+                                RD$ {{ "{:,.2f}".format(inst.paidAmount) }}
+                            </td>
+                            <td style="text-align: right; border-bottom: 1px solid #e2e8f0; padding: 14px 16px; {% if inst.mora > 0 %}color: #dc2626; font-weight: 700;{% else %}color: #64748b;{% endif %}">
+                                RD$ {{ "{:,.2f}".format(inst.mora) }}
+                            </td>
+                            <td style="text-align: right; font-weight: 700; border-bottom: 1px solid #e2e8f0; padding: 14px 16px; color: {% if inst.remainingBalance > 0.01 %}#dc2626{% else %}#16a34a{% endif %};">
+                                RD$ {{ "{:,.2f}".format(inst.remainingBalance) }}
+                            </td>
+                            <td style="text-align: center; border-bottom: 1px solid #e2e8f0; padding: 14px 16px;">
+                                {% if inst.status == 'Pendiente' and inst.diasRetraso > 0 %}
+                                    <span class="badge badge-danger" style="padding: 2px 6px; font-size: 0.65rem;">{{ inst.diasRetraso }} días vencido</span>
+                                {% elif inst.status == 'Pendiente' %}
+                                    <span class="badge badge-secondary" style="padding: 2px 6px; font-size: 0.65rem; background-color: rgba(245, 158, 11, 0.08); color: #d97706;">Al día</span>
+                                {% else %}
+                                    <span style="color: #16a34a; font-size: 0.85rem;"><i class="fa-solid fa-circle-check"></i></span>
+                                {% endif %}
+                            </td>
+                            <td style="text-align: center; border-bottom: 1px solid #e2e8f0; padding: 14px 16px;">
+                                {% if inst.status == 'Saldada' %}
+                                    <span class="badge badge-success" style="font-size: 0.68rem; padding: 2px 8px; width: 100%; justify-content: center;">Saldada</span>
+                                {% else %}
+                                    <span class="badge badge-danger" style="font-size: 0.68rem; padding: 2px 8px; width: 100%; justify-content: center; background-color: rgba(239, 68, 68, 0.08); color: #dc2626;">Pendiente</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
     </div>
 
     <!-- Barra Lateral de Certificación y Acciones (NCF, Firma, QR) -->
@@ -247,59 +381,61 @@
         </div>
         {% endif %}
         
-        <!-- Módulo de Cobro por Transferencia / Conciliación (solo facturas reales) -->
-        {% if not invoice.isQuotation and invoice.status == 'Emitida' %}
-        <div class="card-table-wrapper" style="padding: 24px; text-align: left;">
-            <h4 style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
-                <i class="fa-solid fa-money-bill-transfer" style="color: var(--accent-emerald);"></i>
-                <span>Registrar Cobro</span>
-            </h4>
-            <p style="color: var(--text-secondary); font-size: 0.78rem; line-height: 1.4; margin-bottom: 16px;">
-                {% if invoice.paymentMethod == 'Efectivo' %}
-                Confirma la recepción del pago en efectivo de esta factura.
-                {% else %}
-                Si ya recibiste la transferencia o depósito de esta factura, regístralo aquí para tu conciliación y simulador del reporte 607.
-                {% endif %}
-            </p>
-            <form action="/invoices/{{ invoice.id }}/pay" method="POST" style="display: flex; flex-direction: column; gap: 12px;">
-                {% if invoice.paymentMethod != 'Efectivo' %}
-                <div class="form-group" style="margin-bottom: 0;">
-                    <label for="bank-select" style="font-size: 0.75rem; font-weight: 600; margin-bottom: 4px; display: block;">Banco Local Destino</label>
-                    <select id="bank-select" name="bank" class="form-select" style="width: 100%; padding: 8px 10px; font-size: 0.8rem; height: auto;" required>
-                        <option value="Banco Popular Dominicano">Banco Popular Dominicano</option>
-                        <option value="Banco BHD">Banco BHD</option>
-                        <option value="Banreservas">Banreservas</option>
-                        <option value="Scotiabank República Dominicana">Scotiabank</option>
-                        <option value="Asociación Popular de Ahorros y Préstamos (APAP)">APAP</option>
-                        <option value="Banco Promerica">Banco Promerica</option>
-                        <option value="Banco Santa Cruz">Banco Santa Cruz</option>
-                        <option value="Asociación Cibao de Ahorros y Préstamos (ACAP)">ACAP</option>
-                    </select>
-                </div>
-                <div class="form-group" style="margin-bottom: 0;">
-                    <label for="ref-input" style="font-size: 0.75rem; font-weight: 600; margin-bottom: 4px; display: block;">Referencia / Depósito</label>
-                    <input type="text" id="ref-input" name="referenceNumber" class="form-input" placeholder="Ej: REF-BPD-12345" style="width: 100%; padding: 8px 10px; font-size: 0.8rem; height: auto;" required>
-                </div>
-                {% else %}
-                <input type="hidden" name="bank" value="Caja Efectivo">
-                <input type="hidden" name="referenceNumber" value="Pago en Efectivo">
-                {% endif %}
-                <button type="submit" class="btn btn-primary" style="width: 100%; font-size: 0.82rem; padding: 10px 16px;">
-                    <i class="fa-solid fa-square-check"></i>
-                    <span>Confirmar Pago</span>
-                </button>
-            </form>
-        </div>
-        {% elif not invoice.isQuotation and (invoice.status == 'Cobrada' or invoice.referenceNumber) %}
+        {% if not invoice.isQuotation and invoice.status == 'Cobrada' %}
         <div class="card-table-wrapper" style="padding: 24px; text-align: left; border: 1.5px solid var(--accent-emerald); background-color: rgba(16, 185, 129, 0.02);">
             <h4 style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 12px; display: flex; align-items: center; gap: 8px; color: var(--accent-emerald);">
                 <i class="fa-solid fa-circle-check"></i>
-                <span>Cobro Confirmado</span>
+                <span>Cobro Completado</span>
             </h4>
             <div style="font-size: 0.82rem; color: var(--text-secondary); line-height: 1.5;">
-                <div style="margin-bottom: 6px;">Banco Destino:<br><strong style="color: var(--text-primary);">{{ invoice.bank }}</strong></div>
-                <div style="margin-bottom: 6px;">Referencia / Depósito:<br><strong style="font-family: monospace; color: var(--accent-purple);">{{ invoice.referenceNumber }}</strong></div>
-                <div>Fecha de Registro:<br><strong style="color: var(--text-primary);">{{ invoice.paymentDate[:10] if invoice.paymentDate else invoice.date[:10] }}</strong></div>
+                Factura liquidada al 100% en sus balances. Todos los abonos y pagos están registrados y archivados en el historial.
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Historial de Abonos / Pagos Realizados -->
+        {% if payments %}
+        <div class="card-table-wrapper" style="padding: 24px; text-align: left;">
+            <h4 style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-receipt" style="color: var(--accent-purple);"></i>
+                <span>Historial de Abonos</span>
+            </h4>
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+                {% for p in payments %}
+                <div style="background: rgba(255, 255, 255, 0.01); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 14px; font-size: 0.82rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap;">
+                        <div style="flex: 1; min-width: 0;">
+                            <strong style="color: var(--text-primary); display: block; margin-bottom: 2px;">{{ p.paymentMethod }}</strong>
+                            <span style="font-size: 0.74rem; color: var(--text-muted); display: block;">Fecha: {{ p.paymentDate[:10] }}</span>
+                            {% if p.bank and p.bank != 'Caja Efectivo' %}
+                            <span style="font-size: 0.72rem; color: var(--text-secondary); display: block; margin-top: 3px;">{{ p.bank }}</span>
+                            <span style="font-family: monospace; font-size: 0.72rem; color: var(--text-muted); display: block;">Ref: {{ p.referenceNumber }}</span>
+                            {% endif %}
+                        </div>
+                        <div style="text-align: right; flex-shrink: 0;">
+                            <strong style="color: var(--accent-emerald); font-size: 0.95rem; display: block; margin-bottom: 8px;">RD$ {{ "{:,.2f}".format(p.amount) }}</strong>
+                            <div style="display: flex; gap: 6px; justify-content: flex-end;" class="no-print">
+                                <button type="button"
+                                    onclick="printReceipt('{{ p.id }}', '{{ p.paymentDate[:10] }}', '{{ p.paymentMethod }}', '{{ p.bank or '' }}', '{{ p.referenceNumber or '' }}', {{ p.amount }})"
+                                    class="btn btn-secondary"
+                                    title="Imprimir Recibo de Ingreso"
+                                    style="font-size: 0.7rem; padding: 4px 10px; height: 28px; display: inline-flex; align-items: center; gap: 4px; border-color: #1e3a8a; color: #1e3a8a;">
+                                    <i class="fa-solid fa-print"></i>
+                                    <span>Recibo</span>
+                                </button>
+                                <button type="button"
+                                    onclick="openEmailReceiptModal('{{ p.id }}', '{{ p.paymentDate[:10] }}', '{{ p.paymentMethod }}', '{{ p.bank or '' }}', '{{ p.referenceNumber or '' }}', {{ p.amount }})"
+                                    class="btn btn-secondary"
+                                    title="Enviar Recibo por Email al Cliente"
+                                    style="font-size: 0.7rem; padding: 4px 10px; height: 28px; display: inline-flex; align-items: center; gap: 4px; border-color: var(--accent-purple); color: var(--accent-purple);">
+                                    <i class="fa-solid fa-paper-plane"></i>
+                                    <span>Email</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
             </div>
         </div>
         {% endif %}
@@ -312,11 +448,7 @@
                 <span>Editar {% if invoice.isQuotation %}Cotización{% else %}Borrador{% endif %}</span>
             </a>
             {% endif %}
-            
-            <a href="{{ url_for('invoice_pdf_download', invoice_id=invoice.id, action='print') }}" target="_blank" class="btn btn-secondary" style="width: 100%;">
-                <i class="fa-solid fa-print"></i>
-                <span>Imprimir Reporte</span>
-            </a>
+
             
             {% if invoice.isQuotation %}
             <a href="{{ url_for('invoice_pdf_download', invoice_id=invoice.id) }}" target="_blank" class="btn btn-secondary" style="width: 100%; border-color: var(--accent-emerald); color: var(--accent-emerald);">
@@ -328,6 +460,12 @@
                 <span>Volver a Cotizaciones</span>
             </a>
             {% else %}
+            {% if invoice.remainingBalance > 0.01 and invoice.status != 'Borrador' %}
+            <button type="button" onclick="openPaymentModal(0, {{ invoice.remainingBalance }})" class="btn btn-primary" style="width: 100%; background: linear-gradient(135deg, var(--accent-emerald), var(--accent-emerald-hover)); border: none; font-size: 0.82rem; padding: 10px 16px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer;">
+                <i class="fa-solid fa-money-bill-transfer"></i>
+                <span>Registrar Cobro</span>
+            </button>
+            {% endif %}
             <a href="{{ url_for('list_invoices') }}" class="btn btn-secondary" style="width: 100%;">
                 <i class="fa-solid fa-arrow-rotate-left"></i>
                 <span>Volver al Listado</span>
@@ -337,4 +475,446 @@
 
     </div>
 </div>
+
+<!-- =========================================================================
+     MODAL PREMIUM PARA REGISTRAR COBRO / ABONO EN CASCADA
+     ========================================================================= -->
+<div class="search-modal" id="payment-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1100; align-items: center; justify-content: center;">
+    <div class="modal-backdrop" onclick="closePaymentModal()" style="position: absolute; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(8px);"></div>
+    <div class="modal-content" style="max-width: 500px; background: var(--bg-card); backdrop-filter: blur(20px); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 30px; position: relative; z-index: 2; box-shadow: var(--shadow-lg); animation: floatIn 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards; color: var(--text-primary); text-align: left;">
+        <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 16px; margin-bottom: 20px;">
+            <h3 style="font-size: 1.25rem; font-family: var(--font-heading); display: flex; align-items: center; gap: 8px; color: var(--text-primary); font-weight: 800; margin: 0;">
+                <i class="fa-solid fa-money-bill-transfer" style="color: var(--accent-emerald);"></i>
+                <span>Registrar Cobro / Abono<span id="modal-cuota-number"></span></span>
+            </h3>
+            <button type="button" onclick="closePaymentModal()" class="btn-close-modal" style="cursor: pointer; font-size: 1.25rem; opacity: 0.7; background: transparent; border: none; color: var(--text-primary);"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body">
+            <form action="/invoices/{{ invoice.id }}/pay" method="POST" id="pay-invoice-form" style="display: flex; flex-direction: column; gap: 16px;">
+                <div style="background-color: rgba(30, 58, 138, 0.05); border-left: 3px solid var(--accent-purple); padding: 12px; border-radius: 4px; font-size: 0.78rem; line-height: 1.45; color: var(--text-secondary);">
+                    <strong>💡 Distribución en Cascada:</strong><br>
+                    El abono se aplicará en cascada saldando las cuotas pendientes más antiguas cronológicamente.
+                </div>
+
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label for="amount-input" style="font-size: 0.8rem; font-weight: 600; margin-bottom: 6px; display: block; color: var(--text-secondary);">Monto a Cobrar / Abonar (RD$)</label>
+                    <input type="number" id="amount-input" name="amount" class="form-input" min="0.01" max="{{ invoice.remainingBalance }}" step="0.01" value="" style="width: 100%; padding: 10px 12px; font-size: 0.9rem; height: 44px;" required>
+                </div>
+                
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label for="payment-method-select-pay" style="font-size: 0.8rem; font-weight: 600; margin-bottom: 6px; display: block; color: var(--text-secondary);">Forma de Pago Real</label>
+                    <select id="payment-method-select-pay" name="paymentMethod" class="form-select" style="width: 100%; padding: 10px 12px; font-size: 0.9rem; height: 44px;" required>
+                        <option value="Cheque / Transferencia">Cheque / Transferencia Bancaria</option>
+                        <option value="Efectivo">Efectivo</option>
+                        <option value="Tarjeta de Crédito / Débito">Tarjeta de Crédito / Débito</option>
+                    </select>
+                </div>
+
+                <div id="bank-transfer-fields" style="display: flex; flex-direction: column; gap: 16px;">
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label for="bank-select" style="font-size: 0.8rem; font-weight: 600; margin-bottom: 6px; display: block; color: var(--text-secondary);">Banco Local Destino</label>
+                        <select id="bank-select" name="bank" class="form-select" style="width: 100%; padding: 10px 12px; font-size: 0.9rem; height: 44px;">
+                            <option value="Banco Popular Dominicano">Banco Popular Dominicano</option>
+                            <option value="Banco BHD">Banco BHD</option>
+                            <option value="Banreservas">Banreservas</option>
+                            <option value="Scotiabank República Dominicana">Scotiabank</option>
+                            <option value="Asociación Popular de Ahorros y Préstamos (APAP)">APAP</option>
+                            <option value="Banco Promerica">Banco Promerica</option>
+                            <option value="Banco Santa Cruz">Banco Santa Cruz</option>
+                            <option value="Asociación Cibao de Ahorros y Préstamos (ACAP)">ACAP</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label for="ref-input" style="font-size: 0.8rem; font-weight: 600; margin-bottom: 6px; display: block; color: var(--text-secondary);">Referencia / Depósito</label>
+                        <input type="text" id="ref-input" name="referenceNumber" class="form-input" placeholder="Ej: REF-BPD-12345" style="width: 100%; padding: 10px 12px; font-size: 0.9rem; height: 44px;">
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary" style="width: 100%; font-size: 0.92rem; padding: 12px 20px; margin-top: 10px;">
+                    <i class="fa-solid fa-square-check"></i>
+                    <span>Confirmar Cobro</span>
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+<!-- =========================================================================
+     MODAL PARA ENVIAR RECIBO POR EMAIL
+     ========================================================================= -->
+<div class="search-modal" id="email-receipt-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1200; align-items: center; justify-content: center;">
+    <div class="modal-backdrop" onclick="closeEmailReceiptModal()" style="position: absolute; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(8px);"></div>
+    <div class="modal-content" style="max-width: 480px; width: calc(100% - 32px); background: var(--bg-card); backdrop-filter: blur(20px); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 30px; position: relative; z-index: 2; box-shadow: var(--shadow-lg); animation: floatIn 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards; color: var(--text-primary); text-align: left;">
+        <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 16px; margin-bottom: 20px;">
+            <h3 style="font-size: 1.1rem; font-family: var(--font-heading); display: flex; align-items: center; gap: 8px; color: var(--text-primary); font-weight: 800; margin: 0;">
+                <i class="fa-solid fa-paper-plane" style="color: var(--accent-purple);"></i>
+                <span>Enviar Recibo por Email</span>
+            </h3>
+            <button type="button" onclick="closeEmailReceiptModal()" style="cursor: pointer; font-size: 1.25rem; opacity: 0.7; background: transparent; border: none; color: var(--text-primary);"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body">
+            <!-- Payment Summary Card -->
+            <div id="email-receipt-summary" style="background: rgba(124, 58, 237, 0.05); border: 1px solid rgba(124, 58, 237, 0.2); border-radius: var(--radius-sm); padding: 14px; margin-bottom: 20px; font-size: 0.82rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <strong id="er-method" style="color: var(--text-primary); display: block;"></strong>
+                        <span id="er-date" style="font-size: 0.74rem; color: var(--text-muted);"></span>
+                    </div>
+                    <strong id="er-amount" style="color: var(--accent-emerald); font-size: 1.05rem;"></strong>
+                </div>
+                <div id="er-bank-row" style="display: none; font-size: 0.72rem; color: var(--text-secondary); margin-top: 6px; font-family: monospace;"></div>
+            </div>
+            <!-- Email Input -->
+            <div class="form-group" style="margin-bottom: 16px;">
+                <label for="email-receipt-input" style="font-size: 0.8rem; font-weight: 600; margin-bottom: 6px; display: block; color: var(--text-secondary);">Email del Destinatario</label>
+                <input type="email" id="email-receipt-input" class="form-input" placeholder="cliente@ejemplo.com" style="width: 100%; padding: 10px 12px; font-size: 0.9rem; height: 44px;" required>
+                <small style="font-size: 0.72rem; color: var(--text-muted); margin-top: 4px; display: block;">El recibo oficial se enviará como correo electrónico al cliente.</small>
+            </div>
+            <!-- Status message -->
+            <div id="email-receipt-status" style="display: none; padding: 10px 14px; border-radius: var(--radius-sm); font-size: 0.82rem; margin-bottom: 14px;"></div>
+            <!-- Buttons -->
+            <div style="display: flex; gap: 10px;">
+                <button type="button" onclick="closeEmailReceiptModal()" class="btn btn-secondary" style="flex: 1;">
+                    <i class="fa-solid fa-xmark"></i>
+                    <span>Cancelar</span>
+                </button>
+                <button type="button" id="send-receipt-btn" onclick="submitEmailReceipt()" class="btn btn-primary" style="flex: 2;">
+                    <i class="fa-solid fa-paper-plane"></i>
+                    <span>Enviar Recibo</span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
+
+
+{% block extra_scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const payMethodSelect = document.getElementById('payment-method-select-pay');
+        const bankTransferFields = document.getElementById('bank-transfer-fields');
+        const bankSelect = document.getElementById('bank-select');
+        const refInput = document.getElementById('ref-input');
+
+        function togglePayFields() {
+            if (!payMethodSelect || !bankTransferFields) return;
+            if (payMethodSelect.value === 'Efectivo') {
+                bankTransferFields.style.display = 'none';
+                if (bankSelect) bankSelect.removeAttribute('required');
+                if (refInput) refInput.removeAttribute('required');
+            } else {
+                bankTransferFields.style.display = 'flex';
+                if (bankSelect) bankSelect.setAttribute('required', 'required');
+                if (refInput) refInput.setAttribute('required', 'required');
+            }
+        }
+
+        if (payMethodSelect) {
+            payMethodSelect.addEventListener('change', togglePayFields);
+            // Run initially to match initial select value
+            togglePayFields();
+        }
+    });
+
+    function printAmortization() {
+        const element = document.getElementById('payment-agreement-card');
+        if (!element) return;
+        
+        const printWindow = window.open('', '_blank', 'width=950,height=850');
+        
+        printWindow.document.write('<!DOCTYPE html><html><head><title>Calendario de Amortización - Factura {{ invoice.invoiceNumber }}</title>');
+        printWindow.document.write('<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">');
+        printWindow.document.write('<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">');
+        printWindow.document.write('<style>');
+        printWindow.document.write('  body { font-family: "Inter", sans-serif; color: #0f172a; padding: 40px; background: #ffffff; line-height: 1.5; }');
+        printWindow.document.write('  h1, h2, h3, h4 { font-family: "Outfit", sans-serif; font-weight: 700; margin: 0; color: #0f172a; }');
+        printWindow.document.write('  .badge { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 20px; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }');
+        printWindow.document.write('  .badge-success { background-color: rgba(16, 185, 129, 0.1); color: #16a34a; }');
+        printWindow.document.write('  .badge-danger { background-color: rgba(239, 68, 68, 0.1); color: #dc2626; }');
+        printWindow.document.write('  .badge-warning { background-color: rgba(245, 158, 11, 0.1); color: #d97706; }');
+        printWindow.document.write('  .badge-secondary { background-color: rgba(156, 163, 175, 0.1); color: #475569; }');
+        printWindow.document.write('  .table-premium { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 0.88rem; }');
+        printWindow.document.write('  .table-premium th { padding: 12px 14px; font-weight: 700; font-size: 0.78rem; text-transform: uppercase; border-bottom: 2px solid #cbd5e1; color: #475569; text-align: left; }');
+        printWindow.document.write('  .table-premium td { padding: 14px 14px; border-bottom: 1px solid #e2e8f0; color: #334155; }');
+        printWindow.document.write('  .table-premium tr:last-child td { border-bottom: 2px solid #cbd5e1; }');
+        printWindow.document.write('  .no-print { display: none !important; }');
+        printWindow.document.write('</style></head><body>');
+        
+        // Header
+        printWindow.document.write('<div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #0f172a; padding-bottom: 20px; margin-bottom: 30px;">');
+        printWindow.document.write('  <div>');
+        printWindow.document.write('    <h1 style="font-size: 1.85rem; font-weight: 800; color: #1e3a8a; margin-bottom: 6px;">' + {{ company.companyName|tojson }} + '</h1>');
+        printWindow.document.write('    <span style="font-family: monospace; font-size: 0.88rem; color: #475569; display: block; margin-bottom: 4px;">RNC Emisor: ' + {{ company.companyRNC|tojson }} + '</span>');
+        printWindow.document.write('    <span style="font-size: 0.82rem; color: #64748b; display: block;">' + {{ company.companyAddress|tojson }} + '</span>');
+        printWindow.document.write('    <span style="font-size: 0.82rem; color: #64748b; display: block;"><i class="fa-solid fa-phone"></i> ' + {{ company.companyPhone|tojson }} + ' | <i class="fa-solid fa-envelope"></i> ' + {{ company.companyEmail|tojson }} + '</span>');
+        printWindow.document.write('  </div>');
+        printWindow.document.write('  <div style="text-align: right;">');
+        printWindow.document.write('    <h2 style="font-size: 1.25rem; font-weight: 800; color: #0f172a; margin-bottom: 6px;">REPORTE DE AMORTIZACIÓN</h2>');
+        printWindow.document.write('    <span style="font-size: 0.88rem; color: #475569; display: block; margin-bottom: 4px;">Factura Nro: <strong>' + {{ invoice.invoiceNumber|tojson }} + '</strong></span>');
+        printWindow.document.write('    <span style="font-size: 0.85rem; color: #475569; display: block; margin-bottom: 4px;">Fecha Factura: ' + {{ invoice.date[:10]|tojson }} + '</span>');
+        printWindow.document.write('    <span style="font-size: 0.85rem; color: #475569; display: block;">Cliente CRM: <strong>' + {{ invoice.clientName|tojson }} + '</strong></span>');
+        printWindow.document.write('  </div>');
+        printWindow.document.write('</div>');
+        
+        // Body content (agreement card details)
+        const clone = element.cloneNode(true);
+        
+        // Remove the print buttons/status block
+        const noPrintElements = clone.querySelectorAll('.no-print');
+        noPrintElements.forEach(el => el.remove());
+        
+        // Remove inline paper styles to make it occupy full width naturally in print
+        clone.removeAttribute('style');
+        clone.style.background = '#ffffff';
+        
+        printWindow.document.write(clone.innerHTML);
+        
+        // Signatures / Footer for formal legal receipt
+        printWindow.document.write('<div style="margin-top: 60px; display: grid; grid-template-columns: 1fr 1fr; gap: 50px; text-align: center;">');
+        printWindow.document.write('  <div style="border-top: 1px solid #cbd5e1; padding-top: 10px;">');
+        printWindow.document.write('    <span style="font-size: 0.8rem; color: #64748b; font-weight: 600; display: block;">Firma Autorizada</span>');
+        printWindow.document.write('    <small style="font-size: 0.72rem; color: #94a3b8;">' + {{ company.companyName|tojson }} + '</small>');
+        printWindow.document.write('  </div>');
+        printWindow.document.write('  <div style="border-top: 1px solid #cbd5e1; padding-top: 10px;">');
+        printWindow.document.write('    <span style="font-size: 0.8rem; color: #64748b; font-weight: 600; display: block;">Firma Conforme del Cliente</span>');
+        printWindow.document.write('    <small style="font-size: 0.72rem; color: #94a3b8;">' + {{ invoice.clientName|tojson }} + '</small>');
+        printWindow.document.write('  </div>');
+        printWindow.document.write('</div>');
+        
+        printWindow.document.write('<div style="margin-top: 40px; text-align: center; border-top: 1px solid #e2e8f0; padding-top: 15px; font-size: 0.72rem; color: #94a3b8;">');
+        printWindow.document.write('  Este es un reporte descriptivo oficial emitido de forma automatizada por el sistema de facturación e-Factura. Emitido el: ' + new Date().toLocaleString() + '');
+        printWindow.document.write('</div>');
+        
+        printWindow.document.write('</body></html>');
+        printWindow.document.close();
+        
+        printWindow.onload = function() {
+            printWindow.print();
+        };
+    }
+
+    function openPaymentModal(cuotaNumber, remainingBalance) {
+        const modal = document.getElementById('payment-modal');
+        const modalCuota = document.getElementById('modal-cuota-number');
+        const amountInput = document.getElementById('amount-input');
+        
+        if (modal && amountInput) {
+            if (modalCuota) {
+                if (cuotaNumber > 0) {
+                    modalCuota.innerText = " - Cuota #" + cuotaNumber;
+                } else {
+                    modalCuota.innerText = "";
+                }
+            }
+            amountInput.value = remainingBalance.toFixed(2);
+            modal.style.display = 'flex';
+        }
+    }
+
+    function closePaymentModal() {
+        const modal = document.getElementById('payment-modal');
+        if (modal) {
+            modal.style.display = 'none';
+        }
+    }
+
+    // =========================================================================
+    // RECIBO DE INGRESO - Imprimir
+    // =========================================================================
+    function printReceipt(paymentId, paymentDate, paymentMethod, bank, ref, amount) {
+        const invoiceNumber = {{ invoice.invoiceNumber|tojson }};
+        const clientName    = {{ invoice.clientName|tojson }};
+        const clientRNC     = {{ invoice.clientRNC|tojson }};
+        const companyName   = {{ company.companyName|tojson }};
+        const companyRNC    = {{ company.companyRNC|tojson }};
+        const companyAddr   = {{ company.companyAddress|tojson }};
+        const companyPhone  = {{ company.companyPhone|tojson }};
+        const companyEmail  = {{ company.companyEmail|tojson }};
+        const receiptNo     = paymentId ? paymentId.slice(-8).toUpperCase() : 'N/A';
+        const amountFmt     = 'RD$ ' + parseFloat(amount).toLocaleString('es-DO', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+
+        const w = window.open('', '_blank', 'width=720,height=900');
+        w.document.write('<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">');
+        w.document.write('<title>Recibo de Ingreso - ' + invoiceNumber + '</title>');
+        w.document.write('<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">');
+        w.document.write('<style>');
+        w.document.write('  * { box-sizing: border-box; margin: 0; padding: 0; }');
+        w.document.write('  body { font-family: "Inter", sans-serif; background: #ffffff; color: #1e293b; padding: 48px 56px; }');
+        w.document.write('  h1, h2, h3 { font-family: "Outfit", sans-serif; font-weight: 800; }');
+        w.document.write('  .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #1e3a8a; padding-bottom: 24px; margin-bottom: 32px; }');
+        w.document.write('  .header-left h1 { font-size: 1.75rem; color: #1e3a8a; margin-bottom: 4px; }');
+        w.document.write('  .header-left span { font-size: 0.78rem; color: #64748b; display: block; }');
+        w.document.write('  .header-right { text-align: right; }');
+        w.document.write('  .header-right h2 { font-size: 1.1rem; color: #0f172a; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 6px; }');
+        w.document.write('  .header-right .receipt-no { font-family: monospace; font-size: 0.9rem; color: #475569; display: block; margin-bottom: 4px; }');
+        w.document.write('  .header-right .receipt-date { font-size: 0.82rem; color: #64748b; }');
+        w.document.write('  .parties { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 28px; }');
+        w.document.write('  .party-card { background: #f8fafc; border-radius: 8px; padding: 16px 20px; }');
+        w.document.write('  .party-card .role { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em; color: #94a3b8; margin-bottom: 8px; }');
+        w.document.write('  .party-card strong { font-size: 0.95rem; color: #0f172a; display: block; margin-bottom: 2px; }');
+        w.document.write('  .party-card span { font-size: 0.78rem; color: #64748b; display: block; }');
+        w.document.write('  .amount-box { background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border: 2px solid #16a34a; border-radius: 12px; padding: 24px 32px; text-align: center; margin: 28px 0; }');
+        w.document.write('  .amount-box .al { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #166534; margin-bottom: 8px; }');
+        w.document.write('  .amount-box .av { font-size: 2.4rem; font-weight: 800; color: #15803d; }');
+        w.document.write('  .detail-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #e2e8f0; font-size: 0.85rem; }');
+        w.document.write('  .detail-row .dl { color: #64748b; }');
+        w.document.write('  .detail-row .dv { font-weight: 600; color: #0f172a; }');
+        w.document.write('  .signatures { display: grid; grid-template-columns: 1fr 1fr; gap: 60px; margin-top: 70px; text-align: center; }');
+        w.document.write('  .sig-line { border-top: 1px solid #94a3b8; padding-top: 10px; font-size: 0.75rem; color: #64748b; }');
+        w.document.write('  .footer { margin-top: 36px; text-align: center; font-size: 0.68rem; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 16px; line-height: 1.7; }');
+        w.document.write('  @media print { body { padding: 20px 30px; } }');
+        w.document.write('</style></head><body>');
+
+        // Header
+        w.document.write('<div class="header">');
+        w.document.write('  <div class="header-left">');
+        w.document.write('    <h1>' + companyName + '</h1>');
+        w.document.write('    <span>RNC: ' + companyRNC + '</span>');
+        w.document.write('    <span>' + companyAddr + '</span>');
+        w.document.write('    <span>' + companyPhone + ' | ' + companyEmail + '</span>');
+        w.document.write('  </div>');
+        w.document.write('  <div class="header-right">');
+        w.document.write('    <h2>Recibo de Ingreso</h2>');
+        w.document.write('    <span class="receipt-no">No. ' + receiptNo + '</span>');
+        w.document.write('    <span class="receipt-date">Fecha: ' + paymentDate + '</span>');
+        w.document.write('  </div>');
+        w.document.write('</div>');
+
+        // Parties
+        w.document.write('<div class="parties">');
+        w.document.write('  <div class="party-card">');
+        w.document.write('    <div class="role">Recibido de</div>');
+        w.document.write('    <strong>' + clientName + '</strong>');
+        if (clientRNC) w.document.write('    <span>RNC/Cédula: ' + clientRNC + '</span>');
+        w.document.write('  </div>');
+        w.document.write('  <div class="party-card">');
+        w.document.write('    <div class="role">Referencia de Factura</div>');
+        w.document.write('    <strong style="font-family:monospace;">' + invoiceNumber + '</strong>');
+        w.document.write('    <span>Abono / Pago parcial</span>');
+        w.document.write('  </div>');
+        w.document.write('</div>');
+
+        // Amount
+        w.document.write('<div class="amount-box">');
+        w.document.write('  <div class="al">Monto Recibido</div>');
+        w.document.write('  <div class="av">' + amountFmt + '</div>');
+        w.document.write('</div>');
+
+        // Detail rows
+        w.document.write('<div class="detail-row"><span class="dl">Forma de Pago</span><span class="dv">' + paymentMethod + '</span></div>');
+        if (bank && bank !== 'Caja Efectivo') {
+            w.document.write('<div class="detail-row"><span class="dl">Banco</span><span class="dv">' + bank + '</span></div>');
+        }
+        if (ref) {
+            w.document.write('<div class="detail-row"><span class="dl">No. Referencia / Depósito</span><span class="dv" style="font-family:monospace;">' + ref + '</span></div>');
+        }
+        w.document.write('<div class="detail-row"><span class="dl">Factura Correspondiente</span><span class="dv" style="font-family:monospace;">' + invoiceNumber + '</span></div>');
+        w.document.write('<div class="detail-row"><span class="dl">Fecha de Registro</span><span class="dv">' + paymentDate + '</span></div>');
+
+        // Signatures
+        w.document.write('<div class="signatures">');
+        w.document.write('  <div class="sig-line">Firma Autorizada<br><small>' + companyName + '</small></div>');
+        w.document.write('  <div class="sig-line">Firma Conforme del Cliente<br><small>' + clientName + '</small></div>');
+        w.document.write('</div>');
+
+        // Footer
+        w.document.write('<div class="footer">');
+        w.document.write('  Este recibo es un comprobante administrativo de ingreso emitido por ' + companyName + '.<br>');
+        w.document.write('  Generado automáticamente por el sistema e-Factura el ' + new Date().toLocaleString('es-DO') + '.');
+        w.document.write('</div>');
+
+        w.document.write('</body></html>');
+        w.document.close();
+        w.onload = function() { w.print(); };
+    }
+
+    // =========================================================================
+    // RECIBO DE INGRESO - Email
+    // =========================================================================
+    let _emailReceiptData = {};
+
+    function openEmailReceiptModal(paymentId, paymentDate, paymentMethod, bank, ref, amount) {
+        _emailReceiptData = { paymentId, paymentDate, paymentMethod, bank, referenceNumber: ref, amount };
+
+        document.getElementById('er-method').textContent = paymentMethod;
+        document.getElementById('er-date').textContent   = 'Fecha: ' + paymentDate;
+        document.getElementById('er-amount').textContent = 'RD$ ' + parseFloat(amount).toLocaleString('es-DO', {minimumFractionDigits:2, maximumFractionDigits:2});
+
+        const bankRow = document.getElementById('er-bank-row');
+        if (bank && bank !== 'Caja Efectivo') {
+            bankRow.textContent = bank + (ref ? ' · Ref: ' + ref : '');
+            bankRow.style.display = 'block';
+        } else {
+            bankRow.style.display = 'none';
+        }
+
+        // Pre-fill with client email if available
+        const emailInput = document.getElementById('email-receipt-input');
+        emailInput.value = {{ client_email|tojson }};
+
+        // Reset status
+        const status = document.getElementById('email-receipt-status');
+        status.style.display = 'none';
+        status.textContent = '';
+
+        const btn = document.getElementById('send-receipt-btn');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i><span> Enviar Recibo</span>';
+
+        document.getElementById('email-receipt-modal').style.display = 'flex';
+    }
+
+    function closeEmailReceiptModal() {
+        document.getElementById('email-receipt-modal').style.display = 'none';
+    }
+
+    function submitEmailReceipt() {
+        const emailInput = document.getElementById('email-receipt-input');
+        const email = emailInput.value.trim();
+        if (!email) { emailInput.focus(); return; }
+
+        const btn    = document.getElementById('send-receipt-btn');
+        const status = document.getElementById('email-receipt-status');
+
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i><span> Enviando...</span>';
+        status.style.display = 'none';
+
+        fetch('/invoices/{{ invoice.id }}/send-receipt', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, ..._emailReceiptData })
+        })
+        .then(r => r.json())
+        .then(data => {
+            status.style.display = 'block';
+            if (data.success) {
+                status.style.background = 'rgba(16, 185, 129, 0.1)';
+                status.style.border     = '1px solid rgba(16, 185, 129, 0.3)';
+                status.style.color      = '#065f46';
+                status.innerHTML = '<i class="fa-solid fa-circle-check"></i> ' + data.message;
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-check"></i><span> Enviado</span>';
+                setTimeout(closeEmailReceiptModal, 2800);
+            } else {
+                status.style.background = 'rgba(239, 68, 68, 0.08)';
+                status.style.border     = '1px solid rgba(239, 68, 68, 0.25)';
+                status.style.color      = '#991b1b';
+                status.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> ' + data.message;
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i><span> Reintentar</span>';
+            }
+        })
+        .catch(err => {
+            status.style.display = 'block';
+            status.style.background = 'rgba(239, 68, 68, 0.08)';
+            status.style.border     = '1px solid rgba(239, 68, 68, 0.25)';
+            status.style.color      = '#991b1b';
+            status.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Error de red: ' + err.message;
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i><span> Reintentar</span>';
+        });
+    }
+</script>
+{% endblock %}
+
