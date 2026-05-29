@@ -1,0 +1,233 @@
+{% extends "layout.html" %}
+
+{% block title %}Herramientas de Consulta Fiscal DGII{% endblock %}
+
+{% block page_header %}Herramientas y Consultas DGII / Alanube{% endblock %}
+
+{% block content %}
+<div style="max-width: 1100px; margin: 0 auto; display: flex; flex-direction: column; gap: 30px;" class="animate-fade-in">
+    <!-- Breadcrumb & Back Link -->
+    <div style="display: flex; align-items: center; gap: 10px;" class="no-print">
+        <a href="{{ url_for('reports_dashboard') }}" style="color: var(--text-muted); font-size: 0.88rem; text-decoration: none; display: flex; align-items: center; gap: 6px; font-weight: 500;" onmouseover="this.style.color='var(--accent-emerald)'" onmouseout="this.style.color='var(--text-muted)'">
+            <i class="fa-solid fa-arrow-left"></i>
+            <span>Volver a Reportería Fiscal</span>
+        </a>
+    </div>
+
+    <!-- Main Grid -->
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; align-items: start;">
+        <!-- Left Side: Directory Check -->
+        <div class="card-table-wrapper" style="padding: 30px; min-height: 480px; display: flex; flex-direction: column; justify-content: space-between; position: relative;">
+            <div>
+                <h3 style="font-size: 1.3rem; font-family: var(--font-heading); margin-bottom: 8px; display: flex; align-items: center; gap: 10px;">
+                    <i class="fa-solid fa-address-book" style="color: var(--accent-emerald); font-size: 1.5rem;"></i>
+                    <span>Directorio de Facturadores Activos</span>
+                </h3>
+                <p style="color: var(--text-secondary); font-size: 0.85rem; line-height: 1.45; margin-bottom: 24px;">
+                    Verifica si una compañía (cliente, proveedor o socio comercial) está registrada y autorizada para emitir y recibir Comprobantes Fiscales Electrónicos (e-CF) ante la DGII.
+                </p>
+
+                <!-- Form Search -->
+                <div style="background-color: var(--bg-input); border: 1.5px solid var(--border-color); border-radius: var(--radius-md); padding: 18px; display: flex; flex-direction: column; gap: 12px; margin-bottom: 24px;">
+                    <label for="dir-rnc-input" style="font-size: 0.78rem; font-weight: 700; text-transform: uppercase; color: var(--text-secondary); letter-spacing: 0.02em;">RNC de la Empresa</label>
+                    <div style="display: flex; gap: 10px; width: 100%;">
+                        <input type="text" id="dir-rnc-input" class="form-input" placeholder="Ej: 132109122" style="flex: 1; padding: 10px 12px; font-size: 0.95rem; height: 44px; font-family: monospace;" maxlength="11" minlength="9">
+                        <button type="button" id="btn-query-dir" onclick="queryDirectory()" class="btn btn-primary" style="height: 44px; padding: 0 20px; font-size: 0.85rem; font-weight: 700; cursor: pointer; border-radius: var(--radius-sm); border: none; background: linear-gradient(135deg, var(--accent-emerald), var(--accent-emerald-hover)); color: white; display: flex; align-items: center; gap: 8px;">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                            <span>Consultar</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Query Result Area -->
+                <div id="dir-result" style="display: none; padding: 20px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); margin-top: 10px; animation: floatIn 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;">
+                    <!-- Content will be injected dynamically -->
+                </div>
+            </div>
+            
+            <div style="font-size: 0.72rem; color: var(--text-muted); line-height: 1.4; border-top: 1px solid var(--border-color); padding-top: 16px; margin-top: 20px;">
+                <strong>💡 Nota:</strong> En el ambiente de pruebas (Sandbox), recibirás por defecto un listado demostrativo con las URLs correspondientes de la DGII. En producción, obtendrás el estado real en vivo.
+            </div>
+        </div>
+
+        <!-- Right Side: DGII Server Status -->
+        <div class="card-table-wrapper" style="padding: 30px; min-height: 480px; display: flex; flex-direction: column; justify-content: space-between;">
+            <div>
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px;">
+                    <div>
+                        <h3 style="font-size: 1.3rem; font-family: var(--font-heading); margin-bottom: 8px; display: flex; align-items: center; gap: 10px;">
+                            <i class="fa-solid fa-server" style="color: var(--accent-purple); font-size: 1.5rem;"></i>
+                            <span>Estado de la API de la DGII</span>
+                        </h3>
+                        <p style="color: var(--text-secondary); font-size: 0.85rem; line-height: 1.45; margin: 0;">
+                            Verifica la disponibilidad de conexión y ventanas de mantenimiento de los servidores de recepción fiscal de la Dirección General de Impuestos Internos.
+                        </p>
+                    </div>
+                    <button type="button" onclick="refreshDgiiStatus()" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.75rem; display: flex; align-items: center; gap: 6px; height: 32px;" title="Actualizar estado">
+                        <i class="fa-solid fa-rotate"></i>
+                        <span>Actualizar</span>
+                    </button>
+                </div>
+
+                <!-- Health status indicator banner -->
+                <div id="dgii-health-banner" style="background: rgba(16, 185, 129, 0.06); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: var(--radius-sm); padding: 16px; display: flex; align-items: center; gap: 15px; margin-bottom: 24px; animation: pulse 3s infinite;">
+                    <div style="width: 14px; height: 14px; border-radius: 50%; background-color: var(--accent-emerald); box-shadow: 0 0 10px var(--accent-emerald);"></div>
+                    <div>
+                        <strong style="font-size: 0.95rem; color: var(--text-primary); display: block; margin-bottom: 2px;">Servicios Activos</strong>
+                        <span id="dgii-general-msg" style="font-size: 0.78rem; color: var(--text-secondary);">El portal de recepción y firma e-CF está disponible y operando con normalidad.</span>
+                    </div>
+                </div>
+
+                <!-- Environment details list -->
+                <div style="display: flex; flex-direction: column; gap: 12px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background-color: var(--bg-input); border: 1px solid var(--border-color); border-radius: var(--radius-sm);">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <i class="fa-solid fa-cube" style="color: var(--text-muted); font-size: 0.9rem;"></i>
+                            <span style="font-size: 0.85rem; font-weight: 600;">Ambiente de Pre-Certificación</span>
+                        </div>
+                        <span class="badge badge-success" style="font-size: 0.7rem; padding: 4px 10px; display: flex; align-items: center; gap: 4px;">
+                            <span style="width: 6px; height: 6px; border-radius: 50%; background-color: white; display: inline-block;"></span>
+                            Disponible
+                        </span>
+                    </div>
+
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background-color: var(--bg-input); border: 1px solid var(--border-color); border-radius: var(--radius-sm);">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <i class="fa-solid fa-cubes" style="color: var(--accent-purple); font-size: 0.9rem;"></i>
+                            <span style="font-size: 0.85rem; font-weight: 600;">Ambiente de Certificación</span>
+                        </div>
+                        <span class="badge badge-success" style="font-size: 0.7rem; padding: 4px 10px; display: flex; align-items: center; gap: 4px;">
+                            <span style="width: 6px; height: 6px; border-radius: 50%; background-color: white; display: inline-block;"></span>
+                            Disponible
+                        </span>
+                    </div>
+
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background-color: var(--bg-input); border: 1px solid var(--border-color); border-radius: var(--radius-sm);">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <i class="fa-solid fa-circle-check" style="color: var(--accent-emerald); font-size: 0.9rem;"></i>
+                            <span style="font-size: 0.85rem; font-weight: 600;">Ambiente de Producción</span>
+                        </div>
+                        <span class="badge badge-success" style="font-size: 0.7rem; padding: 4px 10px; display: flex; align-items: center; gap: 4px;">
+                            <span style="width: 6px; height: 6px; border-radius: 50%; background-color: white; display: inline-block;"></span>
+                            Disponible
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Maintenance info card -->
+            <div style="background-color: var(--bg-input); border-radius: var(--radius-sm); border: 1px dashed var(--border-color); padding: 14px 18px; font-size: 0.76rem; display: flex; align-items: flex-start; gap: 12px; margin-top: 24px;">
+                <i class="fa-solid fa-clock-rotate-left" style="color: var(--accent-purple); font-size: 1.1rem; margin-top: 2px;"></i>
+                <div>
+                    <strong style="color: var(--text-primary); display: block; margin-bottom: 3px;">Ventanas de Mantenimiento DGII:</strong>
+                    <span id="maintenance-msg" style="color: var(--text-secondary); line-height: 1.4;">Actualmente no hay ventanas de mantenimiento programadas para los sistemas de facturación electrónica.</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Extra Page Scripts for Live AJAX querying -->
+<script>
+    function queryDirectory() {
+        const rncInput = document.getElementById('dir-rnc-input');
+        const rnc = rncInput.value.trim();
+        if (!rnc || rnc.length < 9) {
+            rncInput.focus();
+            return;
+        }
+
+        const btn = document.getElementById('btn-query-dir');
+        const resultContainer = document.getElementById('dir-result');
+
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i><span> Consultando...</span>';
+        
+        resultContainer.style.display = 'none';
+
+        fetch('/reports/check-directory-ajax', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ rnc: rnc })
+        })
+        .then(r => r.json())
+        .then(data => {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-magnifying-glass"></i><span> Consultar</span>';
+            resultContainer.style.display = 'block';
+
+            let realData = data.success && data.data ? data.data : data;
+
+            if (data.success) {
+                resultContainer.style.backgroundColor = 'rgba(16, 185, 129, 0.05)';
+                resultContainer.style.borderColor = 'rgba(16, 185, 129, 0.3)';
+                resultContainer.innerHTML = `
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px; color: var(--accent-emerald);">
+                        <i class="fa-solid fa-circle-check" style="font-size: 1.3rem;"></i>
+                        <strong style="font-size: 0.95rem;">Empresa Activa / Homologada</strong>
+                    </div>
+                    <div style="font-size: 0.85rem; color: var(--text-secondary); display: flex; flex-direction: column; gap: 6px;">
+                        <span>RNC: <strong style="font-family: monospace; color: var(--text-primary);">${realData.rnc || rnc}</strong></span>
+                        <span>Razón Social: <strong style="color: var(--text-primary);">${realData.razonSocial || realData.companyName || 'Empresa Homologada Electrónica SRL'}</strong></span>
+                        <span style="font-size: 0.74rem; margin-top: 6px; color: var(--text-muted); border-top: 1px solid var(--border-color); padding-top: 6px; line-height: 1.35;">
+                            Esta empresa cuenta con la autorización formal para emitir y recibir documentos de la serie E (comprobantes electrónicos) según Ley 32-23.
+                        </span>
+                    </div>
+                `;
+            } else {
+                resultContainer.style.backgroundColor = 'rgba(239, 68, 68, 0.04)';
+                resultContainer.style.borderColor = 'rgba(239, 68, 68, 0.25)';
+                resultContainer.innerHTML = `
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px; color: var(--accent-red);">
+                        <i class="fa-solid fa-triangle-exclamation" style="font-size: 1.2rem;"></i>
+                        <strong style="font-size: 0.9rem;">No Homologado en Facturación Electrónica</strong>
+                    </div>
+                    <p style="font-size: 0.8rem; color: var(--text-secondary); line-height: 1.4; margin: 0;">
+                        El RNC ingresado (${rnc}) no se encuentra activo como emisor o receptor en el directorio de facturación electrónica. Emitir comprobantes de la serie B (físicos) en su lugar.
+                    </p>
+                `;
+            }
+        })
+        .catch(err => {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-magnifying-glass"></i><span> Consultar</span>';
+            resultContainer.style.display = 'block';
+            resultContainer.style.backgroundColor = 'rgba(239, 68, 68, 0.04)';
+            resultContainer.style.borderColor = 'rgba(239, 68, 68, 0.25)';
+            resultContainer.innerHTML = `
+                <div style="color: var(--accent-red); font-weight: 700; font-size: 0.85rem; margin-bottom: 4px;">Error de conexión</div>
+                <span style="font-size: 0.78rem; color: var(--text-secondary);">${err.message}</span>
+            `;
+        });
+    }
+
+    function refreshDgiiStatus() {
+        fetch('/reports/check-dgii-status-ajax', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ environment: '2' }) // Consultar producción
+        })
+        .then(r => r.json())
+        .then(data => {
+            const healthBanner = document.getElementById('dgii-health-banner');
+            const generalMsg = document.getElementById('dgii-general-msg');
+            const maintMsg = document.getElementById('maintenance-msg');
+            
+            let realData = data.success && data.data ? data.data : data;
+
+            if (data.success) {
+                healthBanner.style.background = 'rgba(16, 185, 129, 0.06)';
+                healthBanner.style.borderColor = 'rgba(16, 185, 129, 0.2)';
+                generalMsg.textContent = realData.message || 'El portal de recepción y firma e-CF está disponible y operando con normalidad.';
+                if (realData.maintenanceWindow) {
+                    maintMsg.textContent = realData.maintenanceWindow;
+                }
+            } else {
+                healthBanner.style.background = 'rgba(245, 158, 11, 0.08)';
+                healthBanner.style.borderColor = 'rgba(245, 158, 11, 0.25)';
+                generalMsg.textContent = 'DGII presenta intermitencias o el servicio está bajo mantenimiento planificado.';
+            }
+        });
+    }
+</script>
+{% endblock %}
