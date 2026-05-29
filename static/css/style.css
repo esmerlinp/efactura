@@ -559,6 +559,16 @@ body.sandbox-mode .environment-indicator {
     box-shadow: 0 6px 16px var(--shadow-btn-glow);
 }
 
+.btn:disabled, .btn-primary:disabled {
+    background: var(--border-color) !important;
+    color: var(--text-muted) !important;
+    border: 1px solid var(--border-color) !important;
+    box-shadow: none !important;
+    cursor: not-allowed !important;
+    transform: none !important;
+    opacity: 0.65;
+}
+
 .btn-secondary {
     background-color: var(--bg-input);
     border: 1px solid var(--border-color);
