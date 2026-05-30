@@ -1335,12 +1335,20 @@ def new_invoice_route(invoice_id=None):
             if k.startswith('items['):
                 parts = k.split(']')
                 idx = parts[0].replace('items[', '')
-                if idx.isdigit():
-                    item_indices.add(int(idx))
-                    
-        # Obtener el catálogo para resolver automáticamente si es un Bien o Servicio
+          # Obtener el catálogo para resolver automáticamente si es un Bien o Servicio e Impuestos Adicionales
         catalog = DatabaseService.get_items(owner_uid, sandbox=sandbox)
         catalog_types = {it['name'].lower().strip(): it.get('type', 'Bien') for it in catalog}
+        catalog_tax_data = {
+            it['name'].lower().strip(): {
+                "codigoImpuesto": it.get("codigoImpuesto", ""),
+                "tasaImpuestoAdicional": float(it.get("tasaImpuestoAdicional") or 0.0),
+                "gradosAlcohol": float(it.get("gradosAlcohol") or 0.0),
+                "cantidadReferencia": float(it.get("cantidadReferencia") or 0.0),
+                "subcantidad": float(it.get("subcantidad") or 1.0),
+                "precioReferencia": float(it.get("precioReferencia") or 0.0),
+                "unit": it.get("unit", "Unidad")
+            } for it in catalog
+        }
 
         for idx in sorted(item_indices):
             name = request.form.get(f'items[{idx}][name]')
@@ -1357,14 +1365,22 @@ def new_invoice_route(invoice_id=None):
                         item_type = 'Servicio'
                     else:
                         item_type = 'Bien'
-                        
+                
+                tax_data = catalog_tax_data.get(name.lower().strip(), {})
                 parsed_items.append({
                     "name": name,
                     "price": price,
                     "quantity": qty,
                     "itbisRate": itbis_rate,
                     "discountRate": item_disc,
-                    "type": item_type
+                    "type": item_type,
+                    "codigoImpuesto": tax_data.get("codigoImpuesto", ""),
+                    "tasaImpuestoAdicional": tax_data.get("tasaImpuestoAdicional", 0.0),
+                    "gradosAlcohol": tax_data.get("gradosAlcohol", 0.0),
+                    "cantidadReferencia": tax_data.get("cantidadReferencia", 0.0),
+                    "subcantidad": tax_data.get("subcantidad", 1.0),
+                    "precioReferencia": tax_data.get("precioReferencia", 0.0),
+                    "unit": tax_data.get("unit", "Unidad")
                 })
 
         if not parsed_items:

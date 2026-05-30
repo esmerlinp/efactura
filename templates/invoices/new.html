@@ -313,56 +313,93 @@
             </div>
         </div>
         
-        <!-- Tarjeta 4: Resumen Financiero robusto (Tarjeta de Totales Destacada) -->
-        <div class="card-totals-highlight">
-            <h4 style="font-size: 1.15rem; font-family: var(--font-heading); margin-bottom: 10px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px; display: flex; align-items: center; gap: 8px;">
-                <i class="fa-solid fa-calculator" style="color: var(--accent-emerald);"></i>
-                <span>Resumen de Totales</span>
-            </h4>
-            
-            <div style="display: flex; justify-content: space-between; font-size: 0.95rem; color: var(--text-secondary); margin-bottom: 12px;">
-                <span>Subtotal Bruto:</span>
-                <span id="lbl-subtotal-raw">RD$ 0.00</span>
-            </div>
-            
-            <div style="display: flex; justify-content: space-between; font-size: 0.95rem; color: var(--text-secondary); margin-bottom: 12px;">
-                <span>Descuentos Aplicados:</span>
-                <span id="lbl-discount" style="color: var(--accent-red);">-RD$ 0.00</span>
-            </div>
-            
-            <div style="display: flex; justify-content: space-between; font-size: 0.95rem; font-weight: 500; margin-bottom: 12px;">
-                <span>Subtotal Neto:</span>
-                <span id="lbl-subtotal">RD$ 0.00</span>
-            </div>
-            
-            <div style="display: flex; justify-content: space-between; font-size: 0.95rem; color: var(--text-secondary); margin-bottom: 12px;">
-                <span>ITBIS Liquidado (18%):</span>
-                <span id="lbl-itbis">RD$ 0.00</span>
-            </div>
-            
-            <div style="display: flex; justify-content: space-between; font-size: 0.95rem; color: var(--text-secondary); margin-bottom: 12px; display: none;" id="lbl-isc-container">
-                <span>(+) Impuesto Adicional (ISC):</span>
-                <span id="lbl-isc">RD$ 0.00</span>
-            </div>
-            
-            <div style="display: flex; justify-content: space-between; font-size: 1.15rem; font-weight: 700; border-top: 1px solid var(--border-color); padding-top: 14px; margin-bottom: 12px;">
-                <span>Total Factura:</span>
+        <!-- Tarjeta 4: Resumen Financiero de Totales robusto de la DGII -->
+        <div class="card-totals-highlight" style="grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 40px; padding: 28px; background: #fff; border: 1px solid var(--border-color); border-radius: 12px; margin-top: 20px;">
+            <!-- Elementos de compatibilidad ocultos fuera del flujo del grid -->
+            <div style="display: none !important;">
                 <span id="lbl-total">RD$ 0.00</span>
+                <div id="lbl-isc-container"><span id="lbl-isc">RD$ 0.00</span></div>
             </div>
             
-            <div style="display: flex; justify-content: space-between; font-size: 0.9rem; color: var(--text-muted); margin-bottom: 8px;">
-                <span>(-) Retención ISR:</span>
-                <span id="lbl-retained-isr">-RD$ 0.00</span>
+            <!-- Columna Izquierda: TOTAL IMPUESTOS -->
+            <div>
+                <h4 style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 18px; border-bottom: 2px solid #3b82f6; padding-bottom: 8px; color: var(--text-primary); text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-receipt" style="color: #3b82f6;"></i>
+                    <span>Total Impuestos</span>
+                </h4>
+                
+                <div style="display: flex; justify-content: space-between; font-size: 0.95rem; color: var(--text-secondary); margin-bottom: 10px;">
+                    <span>Total Propina (10%):</span>
+                    <span id="lbl-total-propina" style="font-weight: 600; color: var(--text-primary);">RD$ 0.00</span>
+                </div>
+                
+                <div style="display: flex; justify-content: space-between; font-size: 0.95rem; color: var(--text-secondary); margin-bottom: 10px;">
+                    <span>Total CDT (2%):</span>
+                    <span id="lbl-total-cdt" style="font-weight: 600; color: var(--text-primary);">RD$ 0.00</span>
+                </div>
+                
+                <div style="display: flex; justify-content: space-between; font-size: 0.95rem; color: var(--text-secondary); margin-bottom: 10px;">
+                    <span>Total ITBIS:</span>
+                    <span id="lbl-itbis" style="font-weight: 600; color: var(--text-primary);">RD$ 0.00</span>
+                </div>
+                
+                <div style="display: flex; justify-content: space-between; font-size: 0.95rem; color: var(--text-secondary); margin-bottom: 10px;">
+                    <span>Total ISC:</span>
+                    <span id="lbl-total-isc" style="font-weight: 600; color: var(--text-primary);">RD$ 0.00</span>
+                </div>
+                
+                <div style="display: flex; justify-content: space-between; font-size: 0.95rem; color: var(--text-secondary); margin-bottom: 10px;">
+                    <span>Total ISC Específico:</span>
+                    <span id="lbl-total-isc-especifico" style="font-weight: 600; color: var(--text-primary);">RD$ 0.00</span>
+                </div>
+                
+                <div style="display: flex; justify-content: space-between; font-size: 0.95rem; color: var(--text-secondary); margin-bottom: 10px;">
+                    <span>Total ISC AdValorem:</span>
+                    <span id="lbl-total-isc-advalorem" style="font-weight: 600; color: var(--text-primary);">RD$ 0.00</span>
+                </div>
+                
+                <div style="display: flex; justify-content: space-between; font-size: 1.05rem; font-weight: 700; border-top: 1px solid var(--border-color); padding-top: 12px; color: #3b82f6; margin-top: 15px;">
+                    <span>TOTAL IMPUESTOS:</span>
+                    <span id="lbl-total-impuestos">RD$ 0.00</span>
+                </div>
             </div>
             
-            <div style="display: flex; justify-content: space-between; font-size: 0.9rem; color: var(--text-muted); margin-bottom: 16px;">
-                <span>(-) Retención ITBIS:</span>
-                <span id="lbl-retained-itbis">-RD$ 0.00</span>
-            </div>
-            
-            <div style="display: flex; justify-content: space-between; font-size: 1.35rem; font-weight: 800; border-top: 2px dashed var(--border-color); padding-top: 16px; color: var(--accent-emerald);">
-                <span>Neto a Pagar:</span>
-                <span id="lbl-net-payable">RD$ 0.00</span>
+            <!-- Columna Derecha: TOTALES -->
+            <div>
+                <h4 style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 18px; border-bottom: 2px solid var(--accent-emerald); padding-bottom: 8px; color: var(--text-primary); text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-coins" style="color: var(--accent-emerald);"></i>
+                    <span>Totales</span>
+                </h4>
+                
+                <div style="display: flex; justify-content: space-between; font-size: 0.95rem; color: var(--text-secondary); margin-bottom: 10px;">
+                    <span>Total Neto (Subtotal):</span>
+                    <span id="lbl-subtotal" style="font-weight: 600; color: var(--text-primary);">RD$ 0.00</span>
+                </div>
+                
+                <div style="display: flex; justify-content: space-between; font-size: 0.95rem; color: var(--text-secondary); margin-bottom: 10px;">
+                    <span>Total Ítems:</span>
+                    <span id="lbl-total-items-qty" style="font-weight: 600; color: var(--text-primary);">0</span>
+                </div>
+                
+                <div style="display: flex; justify-content: space-between; font-size: 0.95rem; color: var(--text-secondary); margin-bottom: 10px;">
+                    <span>Total ITBIS Retenido:</span>
+                    <span id="lbl-retained-itbis" style="font-weight: 600; color: var(--text-primary);">RD$ 0.00</span>
+                </div>
+                
+                <div style="display: flex; justify-content: space-between; font-size: 0.95rem; color: var(--text-secondary); margin-bottom: 10px;">
+                    <span>Total ISR Retenido:</span>
+                    <span id="lbl-retained-isr" style="font-weight: 600; color: var(--text-primary);">RD$ 0.00</span>
+                </div>
+                
+                <div style="display: flex; justify-content: space-between; font-size: 0.95rem; color: var(--text-secondary); margin-bottom: 10px;">
+                    <span>Total Descuentos Globales:</span>
+                    <span id="lbl-discount" style="font-weight: 600; color: var(--accent-red);">RD$ 0.00</span>
+                </div>
+                
+                <div style="display: flex; justify-content: space-between; font-size: 1.35rem; font-weight: 800; border-top: 2px dashed var(--border-color); padding-top: 14px; color: var(--accent-emerald); margin-top: 15px;">
+                    <span>TOTAL FACTURA:</span>
+                    <span id="lbl-net-payable">RD$ 0.00</span>
+                </div>
             </div>
         </div>
     </div>
@@ -565,7 +602,7 @@
 {% endblock %}
 
 {% block extra_scripts %}
-<script src="{{ url_for('static', filename='js/invoicing.js') }}"></script>
+<script src="{{ url_for('static', filename='js/invoicing.js') }}?v=1.0.{{ range(1, 99999) | random }}"></script>
 <script>
     document.addEventListener('DOMContentLoaded', () => {
         const paymentTypeSelect = document.getElementById('payment-type-select');
