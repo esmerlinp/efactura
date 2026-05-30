@@ -139,15 +139,17 @@
                 <h5 style="font-size: 0.85rem; font-family: var(--font-heading); color: var(--text-main); margin: 16px 0 8px 0; font-weight: 600;">Ubicación Geográfica</h5>
                 <div class="form-grid" style="grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; display: grid;">
                     <div class="form-group">
-                        <label for="province">Provincia</label>
+                        <label for="province">Provincia *</label>
                         <input type="text" id="province" name="province" class="form-input"
-                            placeholder="Ej: Santo Domingo" required value="{{ profile.province or '' }}">
+                            placeholder="Buscar y seleccionar provincia..." required list="provinces-list" value="{{ profile.province or '' }}">
+                        <datalist id="provinces-list"></datalist>
                     </div>
 
                     <div class="form-group">
-                        <label for="municipality">Municipio</label>
+                        <label for="municipality">Municipio *</label>
                         <input type="text" id="municipality" name="municipality" class="form-input"
-                            placeholder="Ej: Santo Domingo de Guzmán" required value="{{ profile.municipality or '' }}">
+                            placeholder="Buscar y seleccionar municipio..." required list="municipalities-list" value="{{ profile.municipality or '' }}">
+                        <datalist id="municipalities-list"></datalist>
                     </div>
 
                     <div class="form-group" style="grid-column: span 2;">
@@ -737,6 +739,268 @@
     };
 
     document.addEventListener('DOMContentLoaded', function () {
+        // Datos geográficos oficiales de RD (Tabla III de la DGII)
+        const rdGeoData = {
+            "Distrito Nacional": [
+                "Santo Domingo de Guzmán"
+            ],
+            "Santo Domingo": [
+                "Santo Domingo Este",
+                "Santo Domingo Oeste",
+                "Santo Domingo Norte",
+                "Boca Chica",
+                "San Antonio de Guerra",
+                "Los Alcarrizos",
+                "Pedro Brand"
+            ],
+            "Santiago": [
+                "Santiago",
+                "Bisonó",
+                "Jánico",
+                "Licey al Medio",
+                "San José de las Matas",
+                "Tamboril",
+                "Villa González",
+                "Puñal",
+                "Sabana Iglesia",
+                "Baitoa"
+            ],
+            "La Altagracia": [
+                "Higüey",
+                "San Rafael del Yuma"
+            ],
+            "La Romana": [
+                "La Romana",
+                "Guaymate",
+                "Villa Hermosa"
+            ],
+            "Duarte": [
+                "San Francisco de Macorís",
+                "Arenoso",
+                "Castillo",
+                "Pimentel",
+                "Villa Riva",
+                "Las Guáranas",
+                "Eugenio María de Hostos"
+            ],
+            "San Cristóbal": [
+                "San Cristóbal",
+                "Sabana Grande de Palenque",
+                "Bajos de Haina",
+                "Cambita Garabitos",
+                "Villa Altagracia",
+                "Yaguate",
+                "San Gregorio de Nigua",
+                "Los Cacaos"
+            ],
+            "La Vega": [
+                "La Vega",
+                "Constanza",
+                "Jarabacoa",
+                "Jima Abajo"
+            ],
+            "San Pedro de Macorís": [
+                "San Pedro de Macorís",
+                "Los Llanos",
+                "Ramón Santana",
+                "Consuelo",
+                "Quisqueya",
+                "Guayacanes"
+            ],
+            "Espaillat": [
+                "Moca",
+                "Cayetano Germosén",
+                "Gaspar Hernández",
+                "Jamao al Norte"
+            ],
+            "Puerto Plata": [
+                "Puerto Plata",
+                "Altamira",
+                "Guananico",
+                "Imbert",
+                "Los Hidalgos",
+                "Luperón",
+                "Sosúa",
+                "Villa Isabela",
+                "Villa Montellano"
+            ],
+            "Peravia": [
+                "Baní",
+                "Nizao",
+                "Matanzas"
+            ],
+            "Monseñor Nouel": [
+                "Bonao",
+                "Maimón",
+                "Piedra Blanca"
+            ],
+            "Azua": [
+                "Azua",
+                "Las Charcas",
+                "Las Yayas de Viajama",
+                "Padre las Casas",
+                "Peralta",
+                "Sabana Yegua",
+                "Pueblo Viejo",
+                "Tábara Arriba",
+                "Guayabal",
+                "Estebanía"
+            ],
+            "Sánchez Ramírez": [
+                "Cotuí",
+                "Cevicos",
+                "Fantino",
+                "La Mata"
+            ],
+            "Monte Plata": [
+                "Monte Plata",
+                "Bayaguana",
+                "Sabana Grande de Boyá",
+                "Yamasá",
+                "Peralvillo"
+            ],
+            "Hato Mayor": [
+                "Hato Mayor",
+                "Sabana de la Mar",
+                "El Valle"
+            ],
+            "San José de Ocoa": [
+                "San José de Ocoa",
+                "Sabana Larga",
+                "Rancho Arriba"
+            ],
+            "Barahona": [
+                "Barahona",
+                "Cabral",
+                "Enriquillo",
+                "Paraíso",
+                "Vicente Noble",
+                "El Peñón",
+                "La Ciénaga",
+                "Fundación",
+                "Las Salinas",
+                "Polo",
+                "Jaquimeyes"
+            ],
+            "Bahoruco": [
+                "Neiba",
+                "Galván",
+                "Tamayo",
+                "Villa Jaragua",
+                "Los Ríos"
+            ],
+            "Dajabón": [
+                "Dajabón",
+                "Loma de Cabrera",
+                "Partido",
+                "Restauración",
+                "El Pino"
+            ],
+            "Elías Piña": [
+                "Comendador",
+                "Bánica",
+                "El Llano",
+                "Hondo Valle",
+                "Pedro Santana",
+                "Juan Santiago"
+            ],
+            "El Seibo": [
+                "El Seibo",
+                "Miches"
+            ],
+            "Independencia": [
+                "Jimaní",
+                "Duvergé",
+                "La Descubierta",
+                "Postrer Río",
+                "Cristóbal",
+                "Mella"
+            ],
+            "María Trinidad Sánchez": [
+                "Nagua",
+                "Cabrera",
+                "El Factor",
+                "Río San Juan"
+            ],
+            "Monte Cristi": [
+                "Monte Cristi",
+                "Castañuelas",
+                "Guayubín",
+                "Las Matas de Santa Cruz",
+                "Pepillo Salcedo",
+                "Villa Vásquez"
+            ],
+            "Pedernales": [
+                "Pedernales",
+                "Oviedo"
+            ],
+            "Hermanas Mirabal": [
+                "Salcedo",
+                "Tenares",
+                "Villa Tapia"
+            ],
+            "Samaná": [
+                "Samana",
+                "Sánchez",
+                "Las Terrenas"
+            ],
+            "San Juan": [
+                "San Juan",
+                "Bohechío",
+                "El Cercado",
+                "Juan de Herrera",
+                "Las Matas de Farfán",
+                "Vallejuelo"
+            ],
+            "Santiago Rodríguez": [
+                "San Ignacio de Sabaneta",
+                "Villa Los Almácigos",
+                "Monción"
+            ],
+            "Valverde": [
+                "Mao",
+                "Esperanza",
+                "Laguna Salada"
+            ]
+        };
+
+        const provinceInput = document.getElementById('province');
+        const provincesDatalist = document.getElementById('provinces-list');
+        const municipalityInput = document.getElementById('municipality');
+        const municipalitiesDatalist = document.getElementById('municipalities-list');
+
+        // Inicializar Datalist de Provincias
+        if (provincesDatalist) {
+            Object.keys(rdGeoData).forEach(prov => {
+                const opt = document.createElement('option');
+                opt.value = prov;
+                provincesDatalist.appendChild(opt);
+            });
+        }
+
+        // Función para actualizar Datalist de Municipios
+        function updateMunicipalities(provinceName) {
+            if (!municipalitiesDatalist) return;
+            municipalitiesDatalist.innerHTML = '';
+            
+            const muns = rdGeoData[provinceName] || [];
+            muns.forEach(mun => {
+                const opt = document.createElement('option');
+                opt.value = mun;
+                municipalitiesDatalist.appendChild(opt);
+            });
+        }
+
+        // Escuchar cambios en el input de Provincia para filtrar Municipios correspondientes
+        if (provinceInput) {
+            provinceInput.addEventListener('input', function() {
+                updateMunicipalities(this.value);
+            });
+            // Ejecutar al cargar para inicializar si hay un valor pre-cargado
+            if (provinceInput.value) {
+                updateMunicipalities(provinceInput.value);
+            }
+        }
         // Modal Añadir/Editar Sucursal
         const branchModal = document.getElementById('branch-modal');
         const openBranchBtn = document.getElementById('btn-open-branch-modal');

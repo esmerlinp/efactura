@@ -101,7 +101,6 @@ class DGIIService:
             unidad_medida = str(item.get('unidadMedida', ''))
             precio_referencia = float(item.get('precioReferencia', 0.0)) # PVP
             tasa_impuesto_ad_valorem = float(item.get('tasaImpuestoAdValorem', 0.0)) # En algunos casos es diferente a adicional
-            
             # Subtotal crudo de la partida
             item_subtotal_raw = DGIIService.dgii_round(price * quantity, 2)
             
@@ -109,49 +108,67 @@ class DGIIService:
             item_discount = DGIIService.dgii_round(item_subtotal_raw * item_discount_rate, 2)
             item_subtotal = item_subtotal_raw - item_discount
             
-            # ISC Específico
-            isc_especifico = float(item.get('montoImpuestoSelectivoEspecifico', 0.0))
-            if '006' <= codigo_impuesto <= '018': # Alcohol Específico
-                # ISC Alcoholes = TasaImpuestoAdicional * GradosAlcohol * CantidadReferencia * Subcantidad * CantidadItem
-                # Asumiendo que grados_alcohol viene como decimal (e.g. 0.043 para 4.30%)
-                # Si viene como 4.30, habría que dividir por 100. Asumimos que viene como porcentaje en formato decimal o se ajusta antes.
-                # Según el ejemplo: 617.93 * 4.30% * 16 * 0.65 * 1 = 276.34
-                val = tasa_impuesto_adicional * (grados_alcohol / 100.0 if grados_alcohol > 1.0 else grados_alcohol) * cantidad_referencia * subcantidad * quantity
-                isc_especifico = DGIIService.dgii_round(val, 2)
-            elif '019' <= codigo_impuesto <= '022': # Cigarrillo Específico
-                val = quantity * cantidad_referencia * tasa_impuesto_adicional
-                isc_especifico = DGIIService.dgii_round(val, 2)
-
-            # ISC Ad-Valorem
+            # Calcular ISC Específico e ISC AdValorem simultáneamente para Alcoholes y Tabacos
+            isc_especifico = 0.0
             isc_advalorem = 0.0
-            if '023' <= codigo_impuesto <= '035': # Alcohol Ad-Valorem
-                if unidad_medida == '18': # Granel
-                    # (PrecioUnitarioItem * (1 + 30%) * tasa impuesto AdValorem) * Cantidad Ítem
-                    val = (price * 1.30 * tasa_impuesto_adicional) * quantity
-                    isc_advalorem = DGIIService.dgii_round(val, 2)
-                else:
-                    # {(PrecioUnitarioReferencia / (1 + ITBIS)) - (ISCEspecifico / (CantItem * CantRef))} / (1 + TasaAdValorem) * CantItem * CantRef * TasaAdValorem
-                    if quantity > 0 and cantidad_referencia > 0:
-                        precio_sin_itbis = precio_referencia / (1 + itbis_rate)
-                        isc_esp_unitario = isc_especifico / (quantity * cantidad_referencia)
-                        precio_sin_isc_esp = precio_sin_itbis - isc_esp_unitario
-                        precio_sin_isc_ad = precio_sin_isc_esp / (1 + tasa_impuesto_adicional)
-                        val = precio_sin_isc_ad * tasa_impuesto_adicional * cantidad_referencia * quantity
-                        isc_advalorem = DGIIService.dgii_round(val, 2)
-            elif '036' <= codigo_impuesto <= '039': # Cigarrillo Ad-Valorem
-                if quantity > 0 and cantidad_referencia > 0:
-                    # {(PrecioUnitarioReferencia / (1 + ITBIS)) - TasaImpuestoEspecifico} / (1 + TasaAdValorem) * CantItem * CantRef * TasaAdValorem
-                    # Nota: TasaImpuestoEspecifico (monto específico) debe pasarse por la propiedad correspondiente (asumimos tasa_impuesto_adicional para ad-valorem, y una tasa específica aparte si es necesario, 
-                    # pero en el ejemplo es la tasa específica restada. Si tenemos ISC Ad-Valorem usamos tasa_impuesto_adicional para la tasa del 20%, y el monto de la tasa específica hay que buscarlo o pasarlo.
-                    # Asumimos que `tasa_impuesto_adicional` es la tasa Ad-Valorem (ej: 0.20) y `tasa_impuesto_adicional_especifico` es el valor (ej: 25.86).
-                    tasa_esp = float(item.get('tasaImpuestoAdicionalEspecifico', 0.0))
-                    precio_sin_itbis = precio_referencia / (1 + itbis_rate)
-                    precio_sin_isc_esp = precio_sin_itbis - tasa_esp
-                    precio_sin_isc_ad = precio_sin_isc_esp / (1 + tasa_impuesto_adicional)
-                    val = precio_sin_isc_ad * tasa_impuesto_adicional * cantidad_referencia * quantity
-                    isc_advalorem = DGIIService.dgii_round(val, 2)
             
-            total_isc = isc_especifico + isc_advalorem
+            is_alcohol = ('006' <= codigo_impuesto <= '018') or ('023' <= codigo_impuesto <= '035')
+            is_tabaco = ('019' <= codigo_impuesto <= '022') or ('036' <= codigo_impuesto <= '039')
+            
+            if is_alcohol:
+                # 1. ISC Específico de Alcohol
+                tasa_esp = tasa_impuesto_adicional if ('006' <= codigo_impuesto <= '018') else 632.58
+                val_esp = tasa_esp * (grados_alcohol / 100.0 if grados_alcohol > 1.0 else grados_alcohol) * cantidad_referencia * subcantidad * quantity
+                isc_especifico = DGIIService.dgii_round(val_esp, 2)
+                
+                # 2. ISC Ad-Valorem de Alcohol (si hay precio de referencia PVP)
+                if precio_referencia > 0.0:
+                    tasa_adv = tasa_impuesto_adicional if ('023' <= codigo_impuesto <= '035') else 0.10
+                    if unidad_medida == '18': # Granel
+                        val_adv = (price * 1.30 * tasa_adv) * quantity
+                        isc_advalorem = DGIIService.dgii_round(val_adv, 2)
+                    else:
+                        if quantity > 0 and cantidad_referencia > 0:
+                            precio_sin_itbis = precio_referencia / (1.0 + itbis_rate)
+                            isc_esp_unitario = isc_especifico / (quantity * cantidad_referencia)
+                            precio_sin_isc_esp = precio_sin_itbis - isc_esp_unitario
+                            precio_sin_isc_ad = precio_sin_isc_esp / (1.0 + tasa_adv)
+                            val_adv = precio_sin_isc_ad * tasa_adv * cantidad_referencia * quantity
+                            isc_advalorem = DGIIService.dgii_round(val_adv, 2)
+                            
+            elif is_tabaco:
+                # 1. ISC Específico de Tabaco
+                tasa_esp = tasa_impuesto_adicional if ('019' <= codigo_impuesto <= '022') else 2.50
+                val_esp = quantity * cantidad_referencia * tasa_esp
+                isc_especifico = DGIIService.dgii_round(val_esp, 2)
+                
+                # 2. ISC Ad-Valorem de Tabaco
+                if precio_referencia > 0.0:
+                    tasa_adv = tasa_impuesto_adicional if ('036' <= codigo_impuesto <= '039') else 0.20
+                    precio_sin_itbis = precio_referencia / (1.0 + itbis_rate)
+                    precio_sin_isc_esp = precio_sin_itbis - tasa_esp
+                    precio_sin_isc_ad = precio_sin_isc_esp / (1.0 + tasa_adv)
+                    val_adv = precio_sin_isc_ad * tasa_adv * cantidad_referencia * quantity
+                    isc_advalorem = DGIIService.dgii_round(val_adv, 2)
+
+            # Otros Impuestos Adicionales (Propina Legal, CDT, Primera Placa, etc. - Códigos 001 a 005)
+            otros_impuestos = 0.0
+            if '001' <= codigo_impuesto <= '005':
+                tasa = tasa_impuesto_adicional
+                if codigo_impuesto == '001': # Propina Legal
+                    tasa = 0.10
+                elif codigo_impuesto == '002': # CDT
+                    tasa = 0.02
+                elif codigo_impuesto == '003': # ISC Seguros
+                    tasa = 0.16
+                elif codigo_impuesto == '004': # Telecomunicaciones
+                    tasa = 0.10
+                elif codigo_impuesto == '005': # Primera Placa
+                    tasa = 0.17
+                
+                otros_impuestos = DGIIService.dgii_round(item_subtotal * tasa, 2)
+            
+            total_isc = isc_especifico + isc_advalorem + otros_impuestos
             
             # ITBIS de la partida (se calcula sobre subtotal + ISC según regla general, pero la DGII suele pedirlo sobre el monto gravado)
             # Para e-CF, el ISC forma parte de la base imponible del ITBIS en la mayoría de los casos.
@@ -165,6 +182,7 @@ class DGIIService:
             total_itbis += item_itbis
             total_isc_especifico += isc_especifico
             total_isc_advalorem += isc_advalorem
+            total_isc_especifico += otros_impuestos # Sumamos en total_otros_impuestos local
             
             calculated_items.append({
                 **item,
@@ -173,6 +191,7 @@ class DGIIService:
                 'subtotal': item_subtotal,
                 'isc_especifico_amount': isc_especifico,
                 'isc_advalorem_amount': isc_advalorem,
+                'otros_impuestos_amount': otros_impuestos,
                 'itbis_amount': item_itbis,
                 'total': item_total
             })
@@ -185,16 +204,21 @@ class DGIIService:
         subtotal = subtotal_raw - total_discount
         
         # Recalcular ITBIS si hay descuento global proporcional o usar la suma de ITBIS individuales
+        total_otros_impuestos = 0.0
         if discount_rate > 0.0:
             total_itbis = 0.0
             for item in calculated_items:
                 item['subtotal'] = DGIIService.dgii_round(item['subtotal'] * (1.0 - discount_rate), 2)
-                base_itbis = item['subtotal'] + item['isc_especifico_amount'] + item['isc_advalorem_amount']
+                item['otros_impuestos_amount'] = DGIIService.dgii_round(item['otros_impuestos_amount'] * (1.0 - discount_rate), 2)
+                base_itbis = item['subtotal'] + item['isc_especifico_amount'] + item['isc_advalorem_amount'] + item['otros_impuestos_amount']
                 item['itbis_amount'] = DGIIService.dgii_round(base_itbis * item['itbisRate'], 2)
-                item['total'] = item['subtotal'] + item['isc_especifico_amount'] + item['isc_advalorem_amount'] + item['itbis_amount']
+                item['total'] = item['subtotal'] + item['isc_especifico_amount'] + item['isc_advalorem_amount'] + item['otros_impuestos_amount'] + item['itbis_amount']
                 total_itbis += item['itbis_amount']
+                total_otros_impuestos += item['otros_impuestos_amount']
+        else:
+            total_otros_impuestos = sum(item['otros_impuestos_amount'] for item in calculated_items)
 
-        total = subtotal + total_isc_especifico + total_isc_advalorem + total_itbis
+        total = subtotal + total_isc_especifico + total_isc_advalorem + total_otros_impuestos + total_itbis
         
         # Retenciones de Impuestos en RD
         retained_isr = DGIIService.dgii_round(subtotal * retained_isr_rate, 2)
@@ -210,10 +234,10 @@ class DGIIService:
             'subtotal': DGIIService.dgii_round(subtotal, 2),
             'total_isc_especifico': DGIIService.dgii_round(total_isc_especifico, 2),
             'total_isc_advalorem': DGIIService.dgii_round(total_isc_advalorem, 2),
+            'total_otros_impuestos': DGIIService.dgii_round(total_otros_impuestos, 2),
             'total_itbis': DGIIService.dgii_round(total_itbis, 2),
             'total': DGIIService.dgii_round(total, 2),
             'retained_isr': DGIIService.dgii_round(retained_isr, 2),
-            'retained_itbis': DGIIService.dgii_round(retained_itbis, 2),
             'net_payable': DGIIService.dgii_round(net_payable, 2)
         }
 
