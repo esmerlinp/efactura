@@ -126,6 +126,118 @@ document.addEventListener('DOMContentLoaded', () => {
     if (modalClientFilter) modalClientFilter.addEventListener('input', (e) => renderClients(e.target.value));
 
     // =========================================================================
+    // GESTIÓN DEL MODAL DE REGISTRO DE NUEVO CLIENTE (AJAX)
+    // =========================================================================
+    const clientCreateModal = document.getElementById('client-create-modal');
+    const clientCreateModalBackdrop = document.getElementById('client-create-modal-backdrop');
+    const btnOpenCreateClientModal = document.getElementById('btn-create-client-modal');
+    const btnCloseCreateClientModal = document.getElementById('btn-close-create-client-modal');
+    const btnCancelCreateClient = document.getElementById('btn-cancel-create-client');
+    const btnSaveNewClient = document.getElementById('btn-save-new-client');
+    const btnSaveNewClientLabel = document.getElementById('btn-save-new-client-label');
+    const createClientAlert = document.getElementById('create-client-alert');
+
+    const openCreateClientModal = () => {
+        if (!clientCreateModal) return;
+        // Reset campos del modal
+        const fields = ['new-client-rnc', 'new-client-razon', 'new-client-email', 'new-client-telefono', 'new-client-direccion'];
+        fields.forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+        if (createClientAlert) { createClientAlert.style.display = 'none'; createClientAlert.textContent = ''; }
+        if (btnSaveNewClientLabel) btnSaveNewClientLabel.textContent = 'Guardar Cliente';
+        if (btnSaveNewClient) btnSaveNewClient.disabled = false;
+        clientCreateModal.style.display = 'flex';
+        const rncField = document.getElementById('new-client-rnc');
+        if (rncField) rncField.focus();
+    };
+
+    const closeCreateClientModal = () => {
+        if (clientCreateModal) clientCreateModal.style.display = 'none';
+    };
+
+    const showCreateAlert = (msg, isError = false) => {
+        if (!createClientAlert) return;
+        createClientAlert.textContent = msg;
+        createClientAlert.style.display = 'block';
+        createClientAlert.style.background = isError ? 'rgba(239,68,68,0.12)' : 'rgba(16,185,129,0.12)';
+        createClientAlert.style.color = isError ? '#dc2626' : '#059669';
+        createClientAlert.style.border = isError ? '1px solid rgba(239,68,68,0.3)' : '1px solid rgba(16,185,129,0.3)';
+    };
+
+    if (btnOpenCreateClientModal) btnOpenCreateClientModal.addEventListener('click', openCreateClientModal);
+    if (btnCloseCreateClientModal) btnCloseCreateClientModal.addEventListener('click', closeCreateClientModal);
+    if (btnCancelCreateClient) btnCancelCreateClient.addEventListener('click', closeCreateClientModal);
+    if (clientCreateModalBackdrop) clientCreateModalBackdrop.addEventListener('click', closeCreateClientModal);
+
+    if (btnSaveNewClient) {
+        btnSaveNewClient.addEventListener('click', async () => {
+            const rnc = (document.getElementById('new-client-rnc')?.value || '').trim();
+            const razonSocial = (document.getElementById('new-client-razon')?.value || '').trim();
+            const email = (document.getElementById('new-client-email')?.value || '').trim();
+            const telefono = (document.getElementById('new-client-telefono')?.value || '').trim();
+            const direccion = (document.getElementById('new-client-direccion')?.value || '').trim();
+
+            if (!razonSocial) {
+                showCreateAlert('La Razón Social es obligatoria.', true);
+                document.getElementById('new-client-razon')?.focus();
+                return;
+            }
+
+            // Indicador de carga
+            btnSaveNewClient.disabled = true;
+            if (btnSaveNewClientLabel) btnSaveNewClientLabel.textContent = 'Guardando...';
+            if (createClientAlert) createClientAlert.style.display = 'none';
+
+            try {
+                const response = await fetch('/clients/ajax_create', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ rnc, razonSocial, email, telefono, direccion })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    const newClient = result.client;
+
+                    // Agregar cliente al array en memoria para buscarlo inmediatamente
+                    crmClients.push({
+                        id: newClient.id,
+                        rnc: newClient.rnc,
+                        razonSocial: newClient.razonSocial,
+                        email: newClient.email,
+                        telefono: newClient.telefono,
+                        direccion: newClient.direccion,
+                        phone: newClient.telefono
+                    });
+
+                    // Autoseleccionar en el formulario de factura
+                    if (clientIdHidden) clientIdHidden.value = newClient.id;
+                    if (clientSearchInput) {
+                        clientSearchInput.value = `${newClient.razonSocial} (${newClient.rnc || 'Consumidor Final'})`;
+                    }
+                    if (clientRncInput) clientRncInput.value = newClient.rnc || '';
+
+                    showCreateAlert(`✓ Cliente "${newClient.razonSocial}" registrado y seleccionado.`, false);
+                    setTimeout(() => {
+                        closeCreateClientModal();
+                        validateTaxConstraints && validateTaxConstraints();
+                    }, 1200);
+                } else {
+                    showCreateAlert(result.error || 'Error al registrar el cliente.', true);
+                    if (btnSaveNewClientLabel) btnSaveNewClientLabel.textContent = 'Guardar Cliente';
+                    btnSaveNewClient.disabled = false;
+                }
+            } catch (err) {
+                showCreateAlert('Error de conexión. Verifique su red e intente de nuevo.', true);
+                if (btnSaveNewClientLabel) btnSaveNewClientLabel.textContent = 'Guardar Cliente';
+                btnSaveNewClient.disabled = false;
+            }
+        });
+    }
+
+
+
+    // =========================================================================
     // GESTIÓN DEL MODAL DE PRODUCTOS
     // =========================================================================
     let activeProductRow = null;
