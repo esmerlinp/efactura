@@ -391,6 +391,23 @@
                                 <i class="fa-solid fa-gears" style="color: var(--accent-emerald); width: 16px; font-size: 0.95rem;"></i>
                                 <span>Administrar Empresa</span>
                             </a>
+                            
+                            <!-- Opción: Exportar Datos (CSV) -->
+                            <div id="btn-open-export-modal" style="
+                                display: flex;
+                                align-items: center;
+                                gap: 12px;
+                                padding: 10px 14px;
+                                font-size: 0.85rem;
+                                font-weight: 500;
+                                color: var(--text-primary);
+                                border-radius: var(--radius-sm);
+                                cursor: pointer;
+                                transition: background-color var(--transition-fast);
+                            " onmouseover="this.style.backgroundColor='var(--bg-nav-hover)'" onmouseout="this.style.backgroundColor='transparent'">
+                                <i class="fa-solid fa-file-export" style="color: var(--accent-emerald); width: 16px; font-size: 0.95rem;"></i>
+                                <span>Exportar Datos (CSV)</span>
+                            </div>
                             {% endif %}
                             
                             <!-- Opción 2: Cambiar a modo pruebas (Sandbox Toggle) -->
@@ -1295,6 +1312,113 @@
 
     <!-- Script Global -->
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+
+    <!-- Modal de Exportación de Datos Premium -->
+    <div class="search-modal" id="global-export-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1100; align-items: center; justify-content: center;">
+        <div class="modal-backdrop" id="global-export-backdrop" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); backdrop-filter: blur(8px);"></div>
+        <div class="modal-content" style="max-width: 500px; width: 90%; background: var(--bg-card); backdrop-filter: blur(24px); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 28px; box-shadow: var(--shadow-lg); z-index: 1101; position: relative;">
+            <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 16px; margin-bottom: 16px;">
+                <h3 style="font-size: 1.15rem; font-family: var(--font-heading); margin: 0; display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-file-export" style="color: var(--accent-emerald);"></i>
+                    <span>Exportar Datos de la Empresa (CSV)</span>
+                </h3>
+                <button type="button" class="btn-close-modal" id="btn-close-global-export" style="background: none; border: none; font-size: 1.25rem; color: var(--text-secondary); cursor: pointer; display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%;"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body" style="padding: 0;">
+                <p style="color: var(--text-secondary); font-size: 0.82rem; line-height: 1.4; margin-bottom: 18px;">
+                    Descarga un respaldo completo de tu información en archivos CSV. Si seleccionas varias secciones, se descargará un único archivo comprimido (.zip) con todos los CSVs correspondientes.
+                </p>
+                <form action="/settings/company/export" method="POST" id="globalExportForm">
+                    <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px;">
+                        <label style="display: flex; align-items: center; gap: 10px; font-size: 0.85rem; cursor: pointer; color: var(--text-primary); font-weight: bold;">
+                            <input type="checkbox" id="global_export_all" style="width: 16px; height: 16px; accent-color: var(--accent-emerald);">
+                            <span>Seleccionar Todo</span>
+                        </label>
+                        <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 4px 0;">
+                        
+                        <label style="display: flex; align-items: center; gap: 10px; font-size: 0.85rem; cursor: pointer; color: var(--text-primary);">
+                            <input type="checkbox" name="sections" value="clients" class="global-export-checkbox" style="width: 16px; height: 16px; accent-color: var(--accent-emerald);">
+                            <span>Clientes (CRM)</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 10px; font-size: 0.85rem; cursor: pointer; color: var(--text-primary);">
+                            <input type="checkbox" name="sections" value="products" class="global-export-checkbox" style="width: 16px; height: 16px; accent-color: var(--accent-emerald);">
+                            <span>Productos y Servicios</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 10px; font-size: 0.85rem; cursor: pointer; color: var(--text-primary);">
+                            <input type="checkbox" name="sections" value="quotes" class="global-export-checkbox" style="width: 16px; height: 16px; accent-color: var(--accent-emerald);">
+                            <span>Cotizaciones</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 10px; font-size: 0.85rem; cursor: pointer; color: var(--text-primary);">
+                            <input type="checkbox" name="sections" value="expenses" class="global-export-checkbox" style="width: 16px; height: 16px; accent-color: var(--accent-emerald);">
+                            <span>Gastos y Egresos</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 10px; font-size: 0.85rem; cursor: pointer; color: var(--text-primary);">
+                            <input type="checkbox" name="sections" value="documents" class="global-export-checkbox" style="width: 16px; height: 16px; accent-color: var(--accent-emerald);">
+                            <span>Documentos (Facturas)</span>
+                        </label>
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="width: 100%;">
+                        <i class="fa-solid fa-download"></i>
+                        <span>Exportar Selección</span>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script del Modal de Exportación Global -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const btnOpen = document.getElementById('btn-open-export-modal');
+            const modal = document.getElementById('global-export-modal');
+            const btnClose = document.getElementById('btn-close-global-export');
+            const backdrop = document.getElementById('global-export-backdrop');
+            
+            if (btnOpen && modal) {
+                btnOpen.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    modal.style.display = 'flex';
+                });
+            }
+            
+            if (btnClose && modal) {
+                btnClose.addEventListener('click', function() {
+                    modal.style.display = 'none';
+                });
+            }
+            
+            if (backdrop && modal) {
+                backdrop.addEventListener('click', function() {
+                    modal.style.display = 'none';
+                });
+            }
+            
+            // Lógica Seleccionar Todo
+            const selectAll = document.getElementById('global_export_all');
+            const checkboxes = document.querySelectorAll('.global-export-checkbox');
+            
+            if (selectAll) {
+                selectAll.addEventListener('change', function() {
+                    checkboxes.forEach(cb => {
+                        cb.checked = selectAll.checked;
+                    });
+                });
+            }
+            
+            // Deseleccionar "Seleccionar Todo" si se desmarca alguna casilla
+            checkboxes.forEach(cb => {
+                cb.addEventListener('change', function() {
+                    if (!this.checked && selectAll) {
+                        selectAll.checked = false;
+                    } else if (selectAll) {
+                        const allChecked = Array.from(checkboxes).every(c => c.checked);
+                        selectAll.checked = allChecked;
+                    }
+                });
+            });
+        });
+    </script>
+
     {% block extra_scripts %}{% endblock %}
 </body>
 

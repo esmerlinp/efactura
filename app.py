@@ -3181,29 +3181,6 @@ def it1_diagnostic():
     current_period = datetime.utcnow().strftime("%Y-%m")
     return render_template('reports/it1.html', active_page='reports', it1=it1, current_period=current_period)
 
-@app.route('/reports/simulators')
-def simulators_dashboard():
-    if 'user' not in session: return redirect(url_for('login'))
-    if not check_permission('canInvoice'):
-        return render_template('auth/restricted.html', feature_name="Simuladores de Reportes", required_permission="canInvoice")
-    owner_uid = session['user']['ownerUID']
-    sandbox = session.get('is_sandbox_mode', True)
-    
-    tab = request.args.get('tab', '606')
-    
-    if tab == '606':
-        expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox)
-        reports_data = [exp for exp in expenses if exp.get('isDeductible', True)]
-    else:
-        invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox)
-        reports_data = [inv for inv in invoices if not inv.get('isQuotation') and inv.get('status') != 'Anulada']
-        
-    return render_template(
-        'reports/simulators.html',
-        active_page='reports',
-        active_tab=tab,
-        reports_data=reports_data
-    )
 
 @app.route('/reports/dgii-tools', methods=['GET'])
 def dgii_tools():
@@ -3249,70 +3226,6 @@ def check_dgii_status_ajax():
     res = AlanubeService.check_dgii_status(company, environment=env, maintenance=maint, sandbox=sandbox)
     return jsonify(res)
 
-@app.route('/reports/export/<report_type>')
-def export_report_csv(report_type):
-    if 'user' not in session: return "No autorizado", 401
-    if not check_permission('canInvoice'):
-        return "Acceso denegado: requiere permiso de facturación", 403
-    owner_uid = session['user']['ownerUID']
-    sandbox = session.get('is_sandbox_mode', True)
-    
-    dest = io.BytesIO()
-    # Escribir en UTF-8 con wrapper de texto
-    wrapper = io.TextIOWrapper(dest, 'utf-8', write_through=True)
-    writer = csv.writer(wrapper)
-    
-    if report_type == '606':
-        # Cabecera oficial simplificada DGII 606
-        writer.writerow(["RNC o Cedula", "Tipo Bien o Servicio", "NCF", "NCF Modificado", "Fecha Comprobante", "Fecha Pago", "Monto Facturado", "ITBIS Facturado", "ITBIS Retenido", "ISR Retenido", "Medio Pago"])
-        expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox)
-        deductible_expenses = [exp for exp in expenses if exp.get('isDeductible', True)]
-        for exp in deductible_expenses:
-            writer.writerow([
-                exp.get("rncEmisor", "101012345"),
-                "02 - Gastos de Tecnología",
-                exp.get("ncf", "B0100000001"),
-                "",
-                exp["date"][:10].replace("-", ""),
-                exp["date"][:10].replace("-", ""),
-                f"{exp['amount'] - exp['itbisAmount']:.2f}",
-                f"{exp['itbisAmount']:.2f}",
-                "0.00",
-                "0.00",
-                "01 - Efectivo"
-            ])
-    else:
-        # Cabecera oficial simplificada DGII 607
-        writer.writerow(["RNC o Cedula", "Tipo Identificacion", "NCF", "NCF Modificado", "Fecha Comprobante", "Monto Facturado", "ITBIS Facturado", "ITBIS Retenido", "Retencion ISR", "Efectivo", "Tarjeta", "Cheque/Transf", "Credito"])
-        invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox)
-        real_invoices = [inv for inv in invoices if not inv.get('isQuotation') and inv.get('status') != 'Anulada']
-        for inv in real_invoices:
-            rnc = inv.get("clientRNC") or "999999999"
-            t_id = "1" if len(rnc) == 9 else ("2" if len(rnc) == 11 else "3")
-            writer.writerow([
-                rnc,
-                t_id,
-                inv.get("encf", ""),
-                "",
-                inv["date"][:10].replace("-", ""),
-                f"{inv['subtotal']:.2f}",
-                f"{inv['totalITBIS']:.2f}",
-                f"{inv.get('retainedITBIS', 0.0):.2f}",
-                f"{inv.get('retainedISR', 0.0):.2f}",
-                f"{inv['netPayable'] if inv['paymentMethod'] == 'Efectivo' else 0.0:.2f}",
-                f"{inv['netPayable'] if inv['paymentMethod'] == 'Tarjeta de Crédito / Débito' else 0.0:.2f}",
-                f"{inv['netPayable'] if inv['paymentMethod'] == 'Cheque / Transferencia' else 0.0:.2f}",
-                f"{inv['netPayable'] if inv['paymentMethod'] == 'Crédito' else 0.0:.2f}"
-            ])
-            
-    dest.seek(0)
-    filename = f"reporte_{report_type}_{datetime.utcnow().strftime('%Y%m%d')}.csv"
-    return send_file(
-        dest,
-        mimetype="text/csv",
-        as_attachment=True,
-        download_name=filename
-    )
 
 @app.route('/help')
 def help_center():
