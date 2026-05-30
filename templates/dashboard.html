@@ -180,8 +180,7 @@
                 {% if profile.regimenFiscal == 'RST' %}
                 <p style="color: var(--text-secondary); font-size: 0.88rem; line-height: 1.4; margin: 0;">
                     🟢 <strong>Diagnóstico de Régimen:</strong> Estás operando en el <strong>Régimen Simplificado
-                        (RST)</strong>. Este régimen elimina el agobio de reportar egresos mensuales (Formato 606). Tu
-                    único enfoque es no superar el límite de facturación anual.
+                        (RST)</strong>. Este régimen simplifica tus declaraciones y tu único enfoque es no superar el límite de facturación anual.
                 </p>
                 {% if rst_income_year >= rst_limit_2026 * 0.9 %}
                 <p style="color: var(--accent-red); font-size: 0.85rem; font-weight: 600; line-height: 1.4; margin: 0;">
@@ -204,8 +203,7 @@
                 {% endif %}
                 {% else %}
                 <p style="color: var(--text-secondary); font-size: 0.88rem; line-height: 1.4; margin: 0;">
-                    🔵 <strong>Diagnóstico de Régimen:</strong> Estás en el <strong>Régimen General</strong>. Debes
-                    reportar compras y gastos (Formato 606) y ventas (Formato 607) a más tardar el día 15 de cada mes.
+                    🔵 <strong>Diagnóstico de Régimen:</strong> Estás en el <strong>Régimen General</strong>. Tu facturación electrónica (e-CF) se reporta y autoriza en tiempo real con la DGII para cada una de tus ventas y comprobantes emitidos.
                 </p>
                 <p style="color: var(--text-muted); font-size: 0.82rem; line-height: 1.4; margin: 0;">
                     💰 <strong>Fondo Tributario Aconsejado:</strong> Has facturado un total de <strong>RD$ {{

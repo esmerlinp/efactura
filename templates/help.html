@@ -384,7 +384,7 @@
                 <h3 class="glossary-card-title">RST</h3>
             </div>
             <p class="glossary-card-text">
-                El <strong>Régimen Simplificado (RST)</strong> es un beneficio de la DGII para profesionales y micro-empresas que elimina la tediosa tarea de reportar mensualmente tus facturas de compras (Formato 606). ¡Pagas impuestos basándote sólo en lo que vendes!
+                El <strong>Régimen Simplificado (RST)</strong> es un beneficio de la DGII para profesionales y micro-empresas que simplifica la tarea de declarar tus impuestos mensualmente. ¡Pagas impuestos basándote sólo en lo que vendes!
             </p>
         </div>
 
@@ -454,7 +454,7 @@
                     <br><br>
                     <strong>¿Por qué es maravilloso?</strong>
                     <ul>
-                        <li><strong>Cero reportes mensuales:</strong> Te olvidas por completo del estrés de rellenar el Formulario 606 (compras) y el 607 (ventas) todos los meses. Tu contabilidad se simplifica a la mínima expresión.</li>
+                        <li><strong>Cero reportes mensuales:</strong> Te olvidas por completo del estrés de rellenar formularios tradicionales todos los meses, ya que los comprobantes electrónicos (e-CF) se transmiten en tiempo real.</li>
                         <li><strong>Adiós IT-1 mensual:</strong> No tienes que declarar ni liquidar el ITBIS (IVA) de forma mensual.</li>
                         <li><strong>Declaración de un solo paso:</strong> Solo presentas una declaración sumamente sencilla una vez al año (en febrero/marzo) calculada de manera automática según tu facturación anual acumulada.</li>
                     </ul>
@@ -487,7 +487,7 @@
                     <br><br>
                     <strong>¿Qué pasa si superas este límite?</strong>
                     Si la suma de tus facturas del año calendario excede este valor exacto por un solo centavo, la DGII te excluirá de forma automática del régimen simplificado y te transferirá de manera obligatoria al <strong>Régimen General</strong>. 
-                    Esto significa que tendrás que empezar a reportar compras (606) y ventas (607) todos los meses de forma retroactiva, lo cual suele implicar multas y gastos administrativos elevados.
+                    Esto significa que tendrás que pasar al Régimen General de forma retroactiva, lo cual suele implicar multas y gastos administrativos elevados.
                     <br><br>
                     <strong>¿Cómo te ayuda e-Factura?</strong>
                     Nuestra barra de progreso en tiempo real lee tus facturas emitidas autorizadas del año fiscal y te muestra con precisión matemática qué tan cerca estás del límite anual (RD$ 12.06M) y activa alertas preventivas (amarilla al 70%, roja al 90%) para que no te lleves sorpresas desagradables al cierre del año.
@@ -519,8 +519,8 @@
                     Sabemos que como freelancer o micro-pyme es muy difícil separar las finanzas personales de las del negocio. 
                     Por eso, <strong>e-Factura</strong> te permite registrar ambos tipos de gastos:
                     <ul>
-                        <li>Si marcas <code>Deducible (Sí)</code>: El gasto se incluirá en tu Simulador DGII 606 y se sumará para calcular los impuestos que podrás deducir legalmente.</li>
-                        <li>Si marcas <code>Deducible (No)</code>: El gasto se guardará en tu base de datos para que tengas un control de presupuesto y rentabilidad real de tus finanzas, pero **se filtrará y excluirá al 100%** al exportar tu archivo oficial CSV del 606 o al visualizar el simulador tributario. Así proteges tu cumplimiento legal sin sacrificar tu control financiero interno.</li>
+                        <li>Si marcas <code>Deducible (Sí)</code>: El gasto se incluirá en tu diagnóstico de IT-1 y se sumará para calcular los impuestos que podrás deducir legalmente.</li>
+                        <li>Si marcas <code>Deducible (No)</code>: El gasto se guardará en tu base de datos para que tengas un control de presupuesto y rentabilidad real de tus finanzas, pero **se filtrará y excluirá al 100%** al visualizar el diagnóstico tributario de IT-1. Así proteges tu cumplimiento legal sin sacrificar tu control financiero interno.</li>
                     </ul>
                 </div>
             </div>
@@ -1081,16 +1081,10 @@
                             </ul>
                         </li>
                     </ul>
-                    <strong>3. Diagnóstico Mensual y Envío de Formatos 606 y 607 (`/reports`):</strong>
+                    <strong>3. Diagnóstico Mensual y Consultas DGII (`/reports`):</strong>
                     <ul>
                         <li><strong>Diagnóstico de IT-1 (`/reports/it1`):</strong> Visualiza en tiempo real tu borrador y simulación del formulario de liquidación del ITBIS. El sistema sumará de forma automatizada tus subtotales de ventas de facturas emitidas autorizadas (ingresos gravados e ITBIS facturado) y restará tus gastos operativos deducibles aprobados (adelantos de ITBIS).</li>
-                        <li><strong>Simulador 606 y 607 (`/reports/simulators`):</strong>
-                            <ul>
-                                <li><strong>Formato 607 (Ventas):</strong> Muestra la tabla de comprobantes electrónicos emitidos en el mes, estructurando las columnas de montos gravados, ITBIS, retenciones sufridas y los medios de pago utilizados (efectivo, tarjeta, transferencias).</li>
-                                <li><strong>Formato 606 (Compras/Gastos):</strong> Alimenta la declaración con los gastos en los que hayas marcado `Deducible: Sí` en el módulo `/expenses`, filtrando y protegiendo tus datos al excluir las partidas personales no deducibles.</li>
-                            </ul>
-                        </li>
-                        <li><strong>Exportación Homologada (`/reports/export/<type>`):</strong> Haz clic en el botón de **Exportar CSV** para descargar de forma inmediata tus archivos de datos perfectamente formateados de acuerdo con la estructura oficial requerida por la Oficina Virtual de la DGII.</li>
+                        <li><strong>Consultas DGII (`/reports/dgii-tools`):</strong> Consulta el estado en vivo de los servidores de la DGII y realiza verificaciones del directorio de RNCs homologados para operar con facturas electrónicas.</li>
                     </ul>
                 </div>
             </div>

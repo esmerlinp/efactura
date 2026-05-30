@@ -26,7 +26,7 @@
             {% else %}
             <!-- Selector de Tipo de Documento -->
             <div class="form-group">
-                <label for="ecf-type-select">Tipo de Documento</label>
+                <label for="ecf-type-select">Tipo de Documento <span style="color: var(--accent-red); font-weight: bold; margin-left: 2px;">*</span></label>
                 <select id="ecf-type-select" name="ecfType" class="form-select" required>
                     <option value="Factura de Consumo (E32)" {% if invoice and invoice.ecfType == 'Factura de Consumo (E32)' %}selected{% endif %}>E32 - Factura de Consumo (Público General)</option>
                     <option value="Factura de Crédito Fiscal (E31)" {% if invoice and invoice.ecfType == 'Factura de Crédito Fiscal (E31)' %}selected{% endif %}>E31 - Crédito Fiscal (RNC Corporativo)</option>
@@ -129,7 +129,7 @@
 
             {% if active_page != 'quotations' %}
             <div class="form-group">
-                <label for="branch-select">Sucursal Emisora</label>
+                <label for="branch-select">Sucursal Emisora <span style="color: var(--accent-red); font-weight: bold; margin-left: 2px;">*</span></label>
                 <select id="branch-select" name="branchId" class="form-select" required>
                     {% for branch in branches %}
                     <option value="{{ branch.id }}" {% if invoice and invoice.branchId == branch.id %}selected{% elif not invoice and branch.isDefault %}selected{% endif %}>{{ branch.name }}</option>
@@ -138,7 +138,7 @@
             </div>
 
             <div class="form-group">
-                <label for="warehouse-select">Almacén de Despacho</label>
+                <label for="warehouse-select">Almacén de Despacho <span style="color: var(--accent-red); font-weight: bold; margin-left: 2px;">*</span></label>
                 <select id="warehouse-select" name="warehouseId" class="form-select" required>
                     {% for wh in warehouses %}
                     <option value="{{ wh.id }}" {% if invoice and invoice.warehouseId == wh.id %}selected{% elif not invoice and loop.first %}selected{% endif %}>{{ wh.name }}</option>
@@ -147,7 +147,7 @@
             </div>
 
             <div class="form-group">
-                <label for="income-type-select">Tipo de Ingreso (DGII)</label>
+                <label for="income-type-select">Tipo de Ingreso (DGII) <span style="color: var(--accent-red); font-weight: bold; margin-left: 2px;">*</span></label>
                 <select id="income-type-select" name="incomeType" class="form-select" required>
                     <option value="01 - Ingresos por operaciones" {% if not invoice or invoice.incomeType == '01 - Ingresos por operaciones' %}selected{% endif %}>01 - Ingresos por operaciones</option>
                     <option value="02 - Ingresos Financieros" {% if invoice and invoice.incomeType == '02 - Ingresos Financieros' %}selected{% endif %}>02 - Ingresos Financieros</option>
@@ -160,7 +160,7 @@
             {% endif %}
 
             <div class="form-group">
-                <label for="due-date">Fecha Límite de Vencimiento / Pago</label>
+                <label for="due-date">Fecha Límite de Vencimiento / Pago <span style="color: var(--accent-red); font-weight: bold; margin-left: 2px;">*</span></label>
                 <input type="date" id="due-date" name="dueDate" class="form-input" required value="{{ default_due_date }}">
             </div>
         </div>
@@ -184,9 +184,9 @@
                 <thead>
                     <tr>
                         <th style="width: 25%;">Artículo Catálogo</th>
-                        <th style="width: 25%;">Descripción Personalizada</th>
-                        <th style="width: 12%; text-align: right;">Precio Unitario</th>
-                        <th style="width: 8%; text-align: center;">Cant.</th>
+                        <th style="width: 25%;">Descripción Personalizada <span style="color: var(--accent-red); font-weight: bold;">*</span></th>
+                        <th style="width: 12%; text-align: right;">Precio Unitario <span style="color: var(--accent-red); font-weight: bold;">*</span></th>
+                        <th style="width: 8%; text-align: center;">Cant. <span style="color: var(--accent-red); font-weight: bold;">*</span></th>
                         <th style="width: 10%;">Tasa ITBIS</th>
                         <th style="width: 10%; text-align: right;">Desc %</th>
                         <th style="width: 15%; text-align: right;">Monto</th>
