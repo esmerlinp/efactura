@@ -238,6 +238,7 @@ class DGIIService:
             'total_itbis': DGIIService.dgii_round(total_itbis, 2),
             'total': DGIIService.dgii_round(total, 2),
             'retained_isr': DGIIService.dgii_round(retained_isr, 2),
+            'retained_itbis': DGIIService.dgii_round(retained_itbis, 2),
             'net_payable': DGIIService.dgii_round(net_payable, 2)
         }
 
