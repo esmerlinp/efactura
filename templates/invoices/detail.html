@@ -153,6 +153,13 @@
                         <strong style="font-size: 1.05rem; color: {% if invoice.remainingBalance > 0.01 %}var(--accent-red){% else %}var(--accent-emerald){% endif %}; display: block;">RD$ {{ "{:,.2f}".format(invoice.remainingBalance) }}</strong>
                     </div>
                 </div>
+                
+                {% if invoice.remainingBalance > 0.01 and invoice.status != 'Borrador' %}
+                <button type="button" onclick="openPaymentModal(0, {{ invoice.remainingBalance }}, {{ invoice.totalMora or 0.0 }})" class="btn" style="width: 100%; margin-top: 8px; background: linear-gradient(135deg, #059669, #10b981); border: none; color: white; font-size: 0.95rem; padding: 14px 16px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; border-radius: var(--radius-sm); box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25); transition: transform 0.2s, box-shadow 0.2s;">
+                    <i class="fa-solid fa-money-bill-transfer"></i>
+                    <span>Registrar Cobro de RD$ {{ "{:,.2f}".format(invoice.remainingBalance) }}</span>
+                </button>
+                {% endif %}
                 {% endif %}
             </div>
         </div>
@@ -386,12 +393,12 @@
         {% endif %}
         
         {% if not invoice.isQuotation and invoice.status == 'Cobrada' %}
-        <div class="card-table-wrapper" style="padding: 24px; text-align: left; border: 1.5px solid var(--accent-emerald); background-color: rgba(16, 185, 129, 0.02);">
-            <h4 style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 12px; display: flex; align-items: center; gap: 8px; color: var(--accent-emerald);">
+        <div class="card-table-wrapper" style="padding: 24px; text-align: left; border: none; background: linear-gradient(135deg, #059669, #10b981); color: white;">
+            <h4 style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 10px; display: flex; align-items: center; gap: 8px; color: white;">
                 <i class="fa-solid fa-circle-check"></i>
                 <span>Cobro Completado</span>
             </h4>
-            <div style="font-size: 0.82rem; color: var(--text-secondary); line-height: 1.5;">
+            <div style="font-size: 0.82rem; color: rgba(255,255,255,0.85); line-height: 1.5;">
                 Factura liquidada al 100% en sus balances. Todos los abonos y pagos están registrados y archivados en el historial.
             </div>
         </div>
@@ -476,12 +483,7 @@
                 <span>Volver a Cotizaciones</span>
             </a>
             {% else %}
-            {% if invoice.remainingBalance > 0.01 and invoice.status != 'Borrador' %}
-            <button type="button" onclick="openPaymentModal(0, {{ invoice.remainingBalance }}, {{ invoice.totalMora or 0.0 }})" class="btn btn-primary" style="width: 100%; background: linear-gradient(135deg, var(--accent-emerald), var(--accent-emerald-hover)); border: none; font-size: 0.82rem; padding: 10px 16px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer;">
-                <i class="fa-solid fa-money-bill-transfer"></i>
-                <span>Registrar Cobro</span>
-            </button>
-            {% endif %}
+            <!-- Botón de Registrar Cobro movido al panel principal de Resumen Financiero -->
             <a href="{{ url_for('list_invoices') }}" class="btn btn-secondary" style="width: 100%;">
                 <i class="fa-solid fa-arrow-rotate-left"></i>
                 <span>Volver al Listado</span>
@@ -611,7 +613,7 @@
                     </div>
                 </div>
 
-                <button type="submit" class="btn btn-primary" style="width: 100%; font-size: 0.92rem; padding: 12px 20px; margin-top: 4px;">
+                <button type="submit" class="btn" style="width: 100%; font-size: 0.92rem; padding: 12px 20px; margin-top: 4px; background: linear-gradient(135deg, #059669, #10b981); border: none; color: white; font-weight: 600; cursor: pointer;">
                     <i class="fa-solid fa-square-check"></i>
                     <span>Confirmar Cobro</span>
                 </button>

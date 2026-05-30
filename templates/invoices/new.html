@@ -405,12 +405,7 @@
         <a href="{% if active_page == 'quotations' %}/quotations{% else %}{{ url_for('list_invoices') }}{% endif %}" class="btn btn-secondary">
             <span>Cancelar</span>
         </a>
-        {% if active_page != 'quotations' %}
-        <button type="submit" name="action" value="emitir_cobrar" class="btn btn-success" id="submit-invoice-cobrar-btn" style="padding: 14px 28px; background: linear-gradient(135deg, #064e3b 0%, #059669 100%); border: none; color: white; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);">
-            <i class="fa-solid fa-money-bill-wave"></i>
-            <span>Emitir y Cobrar</span>
-        </button>
-        {% endif %}
+        <!-- Se ha eliminado el botón "Emitir y Cobrar" por solicitud del usuario para evitar confusiones. Todo se emite como borrador. -->
         <button type="submit" name="action" value="guardar" class="btn btn-primary" id="submit-invoice-btn" style="padding: 14px 28px;">
             <i class="fa-solid fa-paper-plane"></i>
             <span>{% if active_page == 'quotations' %}Guardar Cotización{% else %}Emitir Borrador{% endif %}</span>
