@@ -388,33 +388,60 @@ document.addEventListener('DOMContentLoaded', () => {
         const cleanRnc = (clientRncInput ? clientRncInput.value : '').replace(/[^0-9]/g, '');
         const submitBtnCobrar = document.getElementById('submit-invoice-cobrar-btn');
 
+        const disableSubmitButtons = (disabled) => {
+            submitBtn.disabled = disabled;
+            submitBtn.style.opacity = disabled ? '0.5' : '1';
+            if (submitBtnCobrar) {
+                submitBtnCobrar.disabled = disabled;
+                submitBtnCobrar.style.opacity = disabled ? '0.5' : '1';
+            }
+        };
+
         if (type.includes('E31')) {
-            if (cleanRnc.length !== 9) {
-                clientWarning.textContent = '⚠️ Para Crédito Fiscal (E31) se requiere un RNC corporativo de 9 dígitos.';
+            if (cleanRnc.length !== 9 && cleanRnc.length !== 11) {
+                clientWarning.textContent = '⚠️ Para Crédito Fiscal (E31) se requiere un RNC de 9 dígitos o Cédula de 11 dígitos.';
                 clientWarning.style.display = 'block';
-                submitBtn.disabled = true;
-                submitBtn.style.opacity = '0.5';
-                if (submitBtnCobrar) {
-                    submitBtnCobrar.disabled = true;
-                    submitBtnCobrar.style.opacity = '0.5';
-                }
+                clientWarning.style.color = '#ef4444'; // Red alert
+                disableSubmitButtons(true);
             } else {
-                clientWarning.style.display = 'none';
-                submitBtn.disabled = false;
-                submitBtn.style.opacity = '1';
-                if (submitBtnCobrar) {
-                    submitBtnCobrar.disabled = false;
-                    submitBtnCobrar.style.opacity = '1';
-                }
+                // RNC de formato correcto -> Validar contra el padrón RNC de la DGII en tiempo real
+                clientWarning.textContent = '🔍 Validando RNC/Cédula con el padrón oficial de la DGII...';
+                clientWarning.style.display = 'block';
+                clientWarning.style.color = '#94a3b8'; // Neutral text
+                disableSubmitButtons(true);
+
+                fetch(`/api/rnc-lookup?rnc=${cleanRnc}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.error) {
+                            clientWarning.textContent = `❌ RNC/Cédula no válido: El contribuyente no está registrado en la DGII. No se puede emitir Crédito Fiscal (E31).`;
+                            clientWarning.style.display = 'block';
+                            clientWarning.style.color = '#ef4444'; // Red error alert
+                            disableSubmitButtons(true);
+                        } else {
+                            clientWarning.textContent = `✅ RNC Registrado: ${data.razon_social} (${data.regimen || 'Régimen Normal'})`;
+                            clientWarning.style.display = 'block';
+                            clientWarning.style.color = '#10b981'; // Success emerald
+                            disableSubmitButtons(false);
+                            
+                            // Autocompletar la razón social en el input de búsqueda del cliente si está vacío o es por defecto
+                            const clientSearchInput = document.getElementById('client-search-input');
+                            if (clientSearchInput && (!clientSearchInput.value || clientSearchInput.value.includes('Consumidor Final'))) {
+                                clientSearchInput.value = `${data.razon_social} (${cleanRnc})`;
+                            }
+                        }
+                    })
+                    .catch(err => {
+                        // Fallback ante caídas de conexión externa
+                        clientWarning.textContent = '⚠️ No se pudo verificar el RNC con la DGII (Fallo de red). Procediendo con precaución.';
+                        clientWarning.style.display = 'block';
+                        clientWarning.style.color = '#f59e0b'; // Amber yellow
+                        disableSubmitButtons(false);
+                    });
             }
         } else {
             clientWarning.style.display = 'none';
-            submitBtn.disabled = false;
-            submitBtn.style.opacity = '1';
-            if (submitBtnCobrar) {
-                submitBtnCobrar.disabled = false;
-                submitBtnCobrar.style.opacity = '1';
-            }
+            disableSubmitButtons(false);
         }
     }
 

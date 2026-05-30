@@ -354,14 +354,23 @@ class DatabaseService:
         profile = {
             "ownerUID": owner_uid,
             "companyName": "Mi Empresa SRL",
+            "tradeName": "Mi Empresa",
             "companyRNC": "132109122",
+            "companyType": "associated",
             "companyAddress": "Santo Domingo, RD",
+            "province": "Santo Domingo",
+            "municipality": "Santo Domingo de Guzmán",
             "companyPhone": "809-555-0199",
             "companyEmail": "factura@miempresa.com.do",
             "colorMarca": "#10b981",
             "gradientEnabled": True,
             "logoUrl": "",
-            "regimenFiscal": "General"
+            "logoBase64": "",
+            "regimenFiscal": "General",
+            "certificateName": "",
+            "certificateExtension": "",
+            "certificateContent": "",
+            "certificatePassword": ""
         }
 
         if firebase_initialized:
@@ -1686,3 +1695,54 @@ class DatabaseService:
         except Exception as e:
             print(f"❌ Error al registrar transacción de inventario: {e}")
             return None
+
+    @classmethod
+    def get_company_by_api_key(cls, api_key):
+        """Busca una compañía y su propietario usando una API Key en la colección raíz 'api_keys'."""
+        if not firebase_initialized:
+            return None
+        try:
+            doc = db_firestore.collection("api_keys").document(api_key).get()
+            if doc.exists:
+                data = doc.to_dict()
+                owner_uid = data.get("ownerUID")
+                if owner_uid:
+                    # Retornar el perfil de la compañía completo
+                    return cls.get_company_profile(owner_uid)
+        except Exception as e:
+            print(f"⚠️ Error al buscar compañía por API Key: {e}")
+        return None
+
+    @classmethod
+    def generate_api_key(cls, owner_uid):
+        """Genera una nueva API Key única para un owner_uid y la guarda en la colección api_keys y en su perfil."""
+        if not firebase_initialized:
+            return None
+        try:
+            # Generar API Key
+            new_key = f"ef_{uuid.uuid4().hex}"
+            
+            # 1. Guardar en la colección raíz api_keys para búsqueda ultra rápida
+            db_firestore.collection("api_keys").document(new_key).set({
+                "ownerUID": owner_uid,
+                "createdAt": datetime.utcnow().isoformat()
+            })
+            
+            # 2. Actualizar el perfil de empresa de la compañía para que pueda verla en la UI
+            company_profile = cls.get_company_profile(owner_uid)
+            
+            # Si ya tenía una API Key anterior, podemos opcionalmente borrar la anterior
+            old_key = company_profile.get("apiKey")
+            if old_key:
+                try:
+                    db_firestore.collection("api_keys").document(old_key).delete()
+                except Exception:
+                    pass
+            
+            company_profile["apiKey"] = new_key
+            cls.save_company_profile(owner_uid, company_profile)
+            return new_key
+        except Exception as e:
+            print(f"⚠️ Error al generar API Key: {e}")
+            return None
+

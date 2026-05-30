@@ -16,12 +16,19 @@ from config import Config
 from firebase_service import DatabaseService
 from dgii_service import DGIIService
 from currency_service import CurrencyService
+from ecf_emission_service import EcfEmissionService
 from alanube_service import AlanubeService
 from recurrence_service import RecurrenceService
+
 
 # Inicializar Flask
 app = Flask(__name__)
 app.config.from_object(Config)
+
+# Registrar Blueprint de la API REST v1
+from api import api_bp
+app.register_blueprint(api_bp, url_prefix='/api/v1')
+
 
 # Registrar funciones matemáticas útiles en Jinja2
 app.jinja_env.globals.update(min=min, max=max)
@@ -54,6 +61,17 @@ def load_fresh_user_profile():
         fresh_profile = DatabaseService.get_user_profile(session['user']['uid'])
         if fresh_profile:
             session['user'] = fresh_profile
+        
+        # En modo producción, obligar al propietario a configurar el perfil si no lo ha hecho
+        if not session.get('is_sandbox_mode', True):
+            owner_uid = session['user'].get('ownerUID')
+            if owner_uid:
+                company_profile = DatabaseService.get_company_profile(owner_uid)
+                if not company_profile.get('configured', False):
+                    # Evitar bucle de redirección en páginas esenciales
+                    if request.endpoint not in ['company_settings', 'logout', 'toggle_sandbox', 'static', None]:
+                        flash("Para poder operar en Modo de Producción, debes primero configurar y guardar los datos reales de tu empresa.", "warning")
+                        return redirect(url_for('company_settings'))
 
 @app.context_processor
 def inject_company_brand():
@@ -147,8 +165,12 @@ def toggle_sandbox():
     if 'user' not in session:
         return jsonify({"error": "No autorizado"}), 401
     
-    current_mode = session.get('is_sandbox_mode', False)
-    session['is_sandbox_mode'] = not current_mode
+    data = request.get_json(silent=True) or {}
+    if 'sandbox' in data:
+        session['is_sandbox_mode'] = bool(data['sandbox'])
+    else:
+        current_mode = session.get('is_sandbox_mode', False)
+        session['is_sandbox_mode'] = not current_mode
     return jsonify({"success": True, "sandbox": session['is_sandbox_mode']})
 
 # =========================================================================
@@ -351,7 +373,17 @@ def dashboard():
     # Agenda CRM del día
     today_str = datetime.utcnow().strftime("%Y-%m-%d")
     clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox)
-    crm_contacts = [c for c in clients if c.get('nextContactDate') and c['nextContactDate'][:10] == today_str]
+    
+    # Calcular CxC para cada cliente y filtrar clientes con deudas pendientes
+    for c in clients:
+        c_id = c['id']
+        c_sales = [inv for inv in real_invoices if inv['clientId'] == c_id]
+        c['total_cxc'] = sum(inv['netPayable'] for inv in c_sales if inv['status'] in ['Emitida', 'Vencida'])
+
+    crm_contacts = [
+        c for c in clients 
+        if (c.get('nextContactDate') and c['nextContactDate'][:10] == today_str) or c.get('total_cxc', 0.0) > 0.0
+    ]
 
     # Calcular ingresos acumulados RST 2026 (Ingresos de facturas reales en el año en curso)
     current_year_str = str(datetime.utcnow().year)
@@ -1052,8 +1084,84 @@ def list_invoices():
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
     
+    q = request.args.get('q', '').strip()
+    status = request.args.get('status', '').strip()
+    start_date = request.args.get('start_date', '').strip()
+    end_date = request.args.get('end_date', '').strip()
+    per_page = request.args.get('per_page', '10').strip()
+    try:
+        page = int(request.args.get('page', 1))
+    except ValueError:
+        page = 1
+        
     invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, quotations_only=False)
-    return render_template('invoices/list.html', active_page='invoices', invoices=invoices)
+    
+    # Filtrar
+    filtered = []
+    for inv in invoices:
+        if q:
+            q_lower = q.lower()
+            if (q_lower not in inv.get('invoiceNumber', '').lower() and 
+                q_lower not in inv.get('clientName', '').lower() and 
+                q_lower not in inv.get('clientRNC', '').lower() and 
+                q_lower not in inv.get('encf', '').lower()):
+                continue
+        if status:
+            if status == "Pendiente DGII":
+                if not (inv.get('emisionMode') == 'FALLBACK' and not inv.get('isSyncedWithDGII') and inv.get('status') != 'Anulada'):
+                    continue
+            elif status == "Con Saldo Pendiente":
+                if not (inv.get('netPayable', 0.0) > 0.0 and inv.get('status') not in ['Anulada', 'Borrador', 'Cobrada']):
+                    continue
+            elif inv.get('status') != status:
+                continue
+        inv_date = inv.get('date', '')[:10]
+        if start_date and inv_date < start_date:
+            continue
+        if end_date and inv_date > end_date:
+            continue
+        filtered.append(inv)
+        
+    total_items = len(filtered)
+    if per_page == 'all':
+        per_page_val = max(1, total_items)
+    else:
+        try:
+            per_page_val = int(per_page)
+            if per_page_val not in [5, 10, 15, 20]:
+                per_page_val = 10
+        except ValueError:
+            per_page_val = 10
+            
+    total_pages = max(1, (total_items + per_page_val - 1) // per_page_val)
+    if page < 1: page = 1
+    if page > total_pages: page = total_pages
+    
+    start_idx = (page - 1) * per_page_val
+    end_idx = start_idx + per_page_val
+    paginated_invoices = filtered[start_idx:end_idx]
+    
+    start_count = ((page - 1) * per_page_val) + 1 if total_items > 0 else 0
+    end_count = min(page * per_page_val, total_items)
+    
+    return render_template(
+        'invoices/list.html', 
+        active_page='invoices', 
+        invoices=paginated_invoices,
+        page=page,
+        total_pages=total_pages,
+        total_items=total_items,
+        pages_range=range(1, total_pages + 1),
+        has_prev=page > 1,
+        has_next=page < total_pages,
+        start_count=start_count,
+        end_count=end_count,
+        per_page=per_page,
+        q=q,
+        status=status,
+        start_date=start_date,
+        end_date=end_date
+    )
 
 @app.route('/quotations')
 def list_quotations():
@@ -1063,8 +1171,78 @@ def list_quotations():
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
     
+    q = request.args.get('q', '').strip()
+    status = request.args.get('status', '').strip()
+    start_date = request.args.get('start_date', '').strip()
+    end_date = request.args.get('end_date', '').strip()
+    per_page = request.args.get('per_page', '10').strip()
+    try:
+        page = int(request.args.get('page', 1))
+    except ValueError:
+        page = 1
+        
     quotations = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, quotations_only=True)
-    return render_template('invoices/list.html', active_page='quotations', invoices=quotations)
+    
+    # Filtrar
+    filtered = []
+    for inv in quotations:
+        if q:
+            q_lower = q.lower()
+            if (q_lower not in inv.get('invoiceNumber', '').lower() and 
+                q_lower not in inv.get('clientName', '').lower() and 
+                q_lower not in inv.get('clientRNC', '').lower() and 
+                q_lower not in inv.get('encf', '').lower()):
+                continue
+        if status:
+            if inv.get('status') != status:
+                continue
+        inv_date = inv.get('date', '')[:10]
+        if start_date and inv_date < start_date:
+            continue
+        if end_date and inv_date > end_date:
+            continue
+        filtered.append(inv)
+        
+    total_items = len(filtered)
+    if per_page == 'all':
+        per_page_val = max(1, total_items)
+    else:
+        try:
+            per_page_val = int(per_page)
+            if per_page_val not in [5, 10, 15, 20]:
+                per_page_val = 10
+        except ValueError:
+            per_page_val = 10
+            
+    total_pages = max(1, (total_items + per_page_val - 1) // per_page_val)
+    if page < 1: page = 1
+    if page > total_pages: page = total_pages
+    
+    start_idx = (page - 1) * per_page_val
+    end_idx = start_idx + per_page_val
+    paginated_quotations = filtered[start_idx:end_idx]
+    
+    start_count = ((page - 1) * per_page_val) + 1 if total_items > 0 else 0
+    end_count = min(page * per_page_val, total_items)
+    
+    return render_template(
+        'invoices/list.html', 
+        active_page='quotations', 
+        invoices=paginated_quotations,
+        page=page,
+        total_pages=total_pages,
+        total_items=total_items,
+        pages_range=range(1, total_pages + 1),
+        has_prev=page > 1,
+        has_next=page < total_pages,
+        start_count=start_count,
+        end_count=end_count,
+        per_page=per_page,
+        q=q,
+        status=status,
+        start_date=start_date,
+        end_date=end_date
+    )
 
 @app.route('/invoices/new', methods=['GET', 'POST'])
 @app.route('/quotations/new', methods=['GET', 'POST'])
@@ -1106,6 +1284,7 @@ def new_invoice_route(invoice_id=None):
         discount_rate = float(request.form.get('discountRate', 0.0))
         retained_isr_rate = float(request.form.get('retainedISRRate', 0.0))
         retained_itbis_rate = float(request.form.get('retainedITBISRate', 0.0))
+        income_type = request.form.get('incomeType', '01 - Ingresos por operaciones')
         
         # Parámetros de recurrencia
         is_recurring = request.form.get('isRecurring') == 'true'
@@ -1147,6 +1326,10 @@ def new_invoice_route(invoice_id=None):
                 if idx.isdigit():
                     item_indices.add(int(idx))
                     
+        # Obtener el catálogo para resolver automáticamente si es un Bien o Servicio
+        catalog = DatabaseService.get_items(owner_uid, sandbox=sandbox)
+        catalog_types = {it['name'].lower().strip(): it.get('type', 'Bien') for it in catalog}
+
         for idx in sorted(item_indices):
             name = request.form.get(f'items[{idx}][name]')
             price = float(request.form.get(f'items[{idx}][price]', 0.0))
@@ -1155,12 +1338,21 @@ def new_invoice_route(invoice_id=None):
             item_disc = float(request.form.get(f'items[{idx}][discountRate]', 0.0))
             
             if name:
+                # Detección inteligente del tipo
+                item_type = catalog_types.get(name.lower().strip())
+                if not item_type:
+                    if any(x in name.lower() for x in ['asesoria', 'asesoría', 'consultoria', 'consultoría', 'servicio', 'honorarios', 'soporte', 'mantenimiento']):
+                        item_type = 'Servicio'
+                    else:
+                        item_type = 'Bien'
+                        
                 parsed_items.append({
                     "name": name,
                     "price": price,
                     "quantity": qty,
                     "itbisRate": itbis_rate,
-                    "discountRate": item_disc
+                    "discountRate": item_disc,
+                    "type": item_type
                 })
 
         if not parsed_items:
@@ -1253,6 +1445,7 @@ def new_invoice_route(invoice_id=None):
             invoice_dict["paymentMethod"] = payment_method
             invoice_dict["warehouseId"] = request.form.get('warehouseId', '')
             invoice_dict["branchId"] = request.form.get('branchId', 'default-sucursal-principal')
+            invoice_dict["incomeType"] = income_type
             invoice_dict["items"] = calcs["items"]
             # Balances
             invoice_dict["totalPaid"] = float(existing_invoice.get("totalPaid", calcs["net_payable"] if existing_invoice.get("status") == "Cobrada" else 0.0))
@@ -1294,7 +1487,7 @@ def new_invoice_route(invoice_id=None):
                 "currency": currency,
                 "paymentType": request.form.get('paymentType') or ("Crédito" if due_date > datetime.utcnow().strftime("%Y-%m-%d") else "Contado"),
                 "paymentMethod": payment_method,
-                "incomeType": "01 - Ingresos por operaciones",
+                "incomeType": income_type,
                 "customFields": [],
                 "exchangeRate": CurrencyService.get_rate(currency),
                 "warehouseId": request.form.get('warehouseId', ''),
@@ -1322,14 +1515,14 @@ def new_invoice_route(invoice_id=None):
                     encf, log_id = DatabaseService.consume_next_sequence(owner_uid, ecf_short, user_email, sandbox=sandbox)
                     invoice_dict["encf"] = encf
                     
-                res = AlanubeService.emit_electronic_comprobante(company, invoice_dict, sandbox=sandbox)
+                res = EcfEmissionService.emit_electronic_comprobante(company, invoice_dict, sandbox=sandbox)
                 
                 if res.get("success"):
-                    invoice_dict["encf"] = res["encf"]
-                    invoice_dict["xmlSignature"] = res["xmlSignature"]
-                    invoice_dict["qrCodeURL"] = res["qrCodeURL"]
-                    invoice_dict["firebasePDFURL"] = res["pdfUrl"]
-                    invoice_dict["firebaseXMLURL"] = res["xmlUrl"]
+                    invoice_dict["encf"] = res.get("encf", invoice_dict.get("encf", ""))
+                    invoice_dict["xmlSignature"] = res.get("xmlSignature", "")
+                    invoice_dict["qrCodeURL"] = res.get("qrCodeURL", "")
+                    invoice_dict["firebasePDFURL"] = res.get("pdfUrl", "")
+                    invoice_dict["firebaseXMLURL"] = res.get("xmlUrl", "")
                     # FALLBACK = emitido offline, aún pendiente de sincronizar con la DGII
                     invoice_dict["isSyncedWithDGII"] = (res.get("mode", "API") == "API")
                     invoice_dict["emisionMode"] = res.get("mode", "API")
@@ -1359,12 +1552,14 @@ def new_invoice_route(invoice_id=None):
                         DatabaseService.save_invoice(owner_uid, target_invoice_id, invoice_dict, sandbox=sandbox)
                     
                     logs = DatabaseService.get_sequence_logs(owner_uid, sandbox=sandbox)
-                    log = next((l for l in logs if l["encf"] == res["encf"]), None)
+                    log = next((l for l in logs if l["encf"] == res.get("encf")), None)
                     if log:
                         # Verificar cuadratura y regla de tolerancia
                         cuadratura = DGIIService.check_tolerancia_cuadratura(invoice_dict["items"], invoice_dict["total"])
                         estado_dgii = "ACCEPTED" if cuadratura["within_tolerance"] else "ACCEPTED_CONDITIONAL"
-                        motivo = f"Aprobado por la DGII. Firma: {res['xmlSignature'][:12]}"
+                        
+                        sig_show = res.get("xmlSignature") or res.get("trackId") or "N/A"
+                        motivo = f"Aprobado por la DGII. Firma/TrackID: {sig_show[:12]}"
                         if estado_dgii == "ACCEPTED_CONDITIONAL":
                             motivo = f"Aceptado Condicional por tolerancia: {', '.join(cuadratura['warnings'])}"
                         
@@ -1373,9 +1568,9 @@ def new_invoice_route(invoice_id=None):
                             "motivo": motivo
                         }, sandbox=sandbox)
                         
-                    msg = f"¡Comprobante emitido y cobrado con éxito! e-NCF: {res['encf']}"
+                    msg = f"¡Comprobante emitido y cobrado con éxito! e-NCF: {res.get('encf')}"
                     if res.get("mode") == "FALLBACK":
-                        msg = f"⚠️ ¡Comprobante emitido en modalidad de contingencia (sin conexión a Alanube)! e-NCF: {res['encf']}. Recuerde sincronizarlo con la DGII en un plazo máximo de 72 horas."
+                        msg = f"⚠️ ¡Comprobante emitido en modalidad de contingencia (sin conexión a Alanube)! e-NCF: {res.get('encf')}. Recuerde sincronizarlo con la DGII en un plazo máximo de 72 horas."
                     flash(msg, "success")
                 else:
                     flash(f"Borrador creado, pero error al emitir: {res.get('message')}", "warning")
@@ -1781,15 +1976,15 @@ def sign_invoice_route(invoice_id):
             invoice["encf"] = encf
             
         # Llamada asíncrona simulada al emisor Alanube (con Fallback de contingencia)
-        res = AlanubeService.emit_electronic_comprobante(company, invoice, sandbox=sandbox)
+        res = EcfEmissionService.emit_electronic_comprobante(company, invoice, sandbox=sandbox)
         
         if res.get("success"):
             invoice["status"] = "Emitida"
-            invoice["encf"] = res["encf"]
-            invoice["xmlSignature"] = res["xmlSignature"]
-            invoice["qrCodeURL"] = res["qrCodeURL"]
-            invoice["firebasePDFURL"] = res["pdfUrl"]
-            invoice["firebaseXMLURL"] = res["xmlUrl"]
+            invoice["encf"] = res.get("encf", invoice.get("encf", ""))
+            invoice["xmlSignature"] = res.get("xmlSignature", "")
+            invoice["qrCodeURL"] = res.get("qrCodeURL", "")
+            invoice["firebasePDFURL"] = res.get("pdfUrl", "")
+            invoice["firebaseXMLURL"] = res.get("xmlUrl", "")
             # FALLBACK = emitido offline, aún pendiente de sincronizar con la DGII
             invoice["isSyncedWithDGII"] = (res.get("mode", "API") == "API")
             invoice["emisionMode"] = res.get("mode", "API")
@@ -1799,12 +1994,14 @@ def sign_invoice_route(invoice_id):
             
             # Sincronizar en log de auditoría
             logs = DatabaseService.get_sequence_logs(owner_uid, sandbox=sandbox)
-            log = next((l for l in logs if l["encf"] == res["encf"]), None)
+            log = next((l for l in logs if l["encf"] == res.get("encf")), None)
             if log:
                 # Verificar cuadratura y regla de tolerancia
                 cuadratura = DGIIService.check_tolerancia_cuadratura(invoice["items"], invoice["total"])
                 estado_dgii = "ACCEPTED" if cuadratura["within_tolerance"] else "ACCEPTED_CONDITIONAL"
-                motivo = f"Aprobado por la DGII. Firma: {res['xmlSignature'][:12]}"
+                
+                sig_show = res.get("xmlSignature") or res.get("trackId") or "N/A"
+                motivo = f"Aprobado por la DGII. Firma/TrackID: {sig_show[:12]}"
                 if estado_dgii == "ACCEPTED_CONDITIONAL":
                     motivo = f"Aceptado Condicional por tolerancia: {', '.join(cuadratura['warnings'])}"
                 
@@ -1814,9 +2011,9 @@ def sign_invoice_route(invoice_id):
                     "motivo": motivo
                 }, sandbox=sandbox)
                 
-            msg = f"¡Comprobante firmado digitalmente con éxito! e-NCF: {res['encf']} (Modo: {res['mode']})"
+            msg = f"¡Comprobante firmado digitalmente con éxito! e-NCF: {res.get('encf')} (Modo: {res.get('mode', 'API')})"
             if res.get("mode") == "FALLBACK":
-                msg = f"⚠️ ¡Comprobante firmado en modalidad de contingencia (sin conexión a Alanube)! e-NCF: {res['encf']}. Recuerde sincronizarlo con la DGII en un plazo máximo de 72 horas."
+                msg = f"⚠️ ¡Comprobante firmado en modalidad de contingencia (sin conexión a Alanube)! e-NCF: {res.get('encf')}. Recuerde sincronizarlo con la DGII en un plazo máximo de 72 horas."
             flash(msg, "success")
         else:
             flash(f"Error al certificar comprobante: {res.get('message')}", "error")
@@ -2020,11 +2217,33 @@ def invoice_xml_download(invoice_id):
     if not invoice:
         return "Factura no encontrada", 404
 
-    xml_content = invoice.get('xmlContent') or invoice.get('xmlSignature') or ''
+    xml_content = invoice.get('xmlContent') or ''
+    
+    # Si no tiene el contenido del XML guardado, lo construimos y firmamos dinámicamente 
+    # utilizando el perfil de la compañía para que siempre se descargue un XML válido
+    if not xml_content or not (xml_content.strip().startswith('<?xml') or xml_content.strip().startswith('<ECF') or xml_content.strip().startswith('<eCF')):
+        try:
+            from dgii_xml_builder import DgiiXmlBuilder
+            from dgii_signer import DgiiSigner
+            company = DatabaseService.get_company_profile(owner_uid)
+            raw_xml = DgiiXmlBuilder.build_invoice_xml(company, invoice)
+            signed_xml_bytes = DgiiSigner.sign_xml(raw_xml, company)
+            xml_content = signed_xml_bytes.decode('utf-8')
+        except Exception as e:
+            # Fallback secundario
+            xml_content = invoice.get('xmlContent') or invoice.get('xmlSignature') or ''
+            if not xml_content:
+                return f"No se pudo generar el XML de comprobante: {str(e)}", 500
+
     if not xml_content:
         return "No hay XML disponible para este comprobante", 404
 
     inv_num = invoice.get('invoiceNumber', invoice_id).replace('/', '-').replace(' ', '_')
+    
+    # Asegurar que tenga la cabecera de declaración XML estándar
+    if not xml_content.strip().startswith('<?xml'):
+        xml_content = '<?xml version="1.0" encoding="UTF-8"?>\n' + xml_content
+
     response = make_response(xml_content)
     response.headers['Content-Type'] = 'application/xml; charset=utf-8'
     response.headers['Content-Disposition'] = f'attachment; filename="{inv_num}.xml"'
@@ -2053,7 +2272,7 @@ def void_invoice_route(invoice_id):
             "endSequence": int(invoice["encf"][3:]),
             "reason": "Anulación de comprobante por solicitud del cliente / error de digitación"
         }
-        res = AlanubeService.emit_cancellation(company, canc_dict, sandbox=sandbox)
+        res = EcfEmissionService.emit_cancellation(company, canc_dict, sandbox=sandbox)
         if res.get("success"):
             invoice["status"] = "Anulada"
             DatabaseService.save_invoice(owner_uid, invoice_id, invoice, sandbox=sandbox)
@@ -2111,8 +2330,8 @@ def sync_contingency_invoices():
         inv_id = inv['id']
         try:
             # Re-emitir a Alanube con el mismo encf ya asignado
-            res = AlanubeService.emit_electronic_comprobante(company, inv, sandbox=sandbox)
-            if res.get("success") and res.get("mode") == "API":
+            res = EcfEmissionService.emit_electronic_comprobante(company, inv, sandbox=sandbox)
+            if res.get("success") and res.get("mode", "API") == "API":
                 inv["isSyncedWithDGII"] = True
                 inv["emisionMode"] = "API"
                 inv["xmlSignature"] = res.get("xmlSignature", inv.get("xmlSignature", ""))
@@ -2164,8 +2383,8 @@ def sync_single_invoice_route(invoice_id):
     company = DatabaseService.get_company_profile(owner_uid)
     
     try:
-        res = AlanubeService.emit_electronic_comprobante(company, invoice, sandbox=sandbox)
-        if res.get("success") and res.get("mode") == "API":
+        res = EcfEmissionService.emit_electronic_comprobante(company, invoice, sandbox=sandbox)
+        if res.get("success") and res.get("mode", "API") == "API":
             invoice["isSyncedWithDGII"] = True
             invoice["emisionMode"] = "API"
             invoice["xmlSignature"] = res.get("xmlSignature", invoice.get("xmlSignature", ""))
@@ -2376,7 +2595,7 @@ def new_cancellation_route():
         "reason": request.form['reason']
     }
     
-    res = AlanubeService.emit_cancellation(company, canc_dict, sandbox=sandbox)
+    res = EcfEmissionService.emit_cancellation(company, canc_dict, sandbox=sandbox)
     
     if res.get("success"):
         DatabaseService.save_cancellation(owner_uid, canc_id, {
@@ -2408,23 +2627,151 @@ def company_settings():
         # Preservar logoUrl y configuraciones de marca existentes
         existing_profile = DatabaseService.get_company_profile(owner_uid)
         
+        # Procesar certificado nuevo si se carga
+        cert_file = request.files.get('certificateFile')
+        cert_name = existing_profile.get('certificateName', '')
+        cert_ext = existing_profile.get('certificateExtension', '')
+        cert_content = existing_profile.get('certificateContent', '')
+        
+        if cert_file and cert_file.filename:
+            import base64
+            file_data = cert_file.read()
+            filename = cert_file.filename
+            ext = filename.rsplit('.', 1)[-1].lower() if '.' in filename else 'p12'
+            cert_name = filename.rsplit('.', 1)[0]
+            cert_ext = f".{ext}"
+            cert_content = base64.b64encode(file_data).decode('utf-8')
+
         profile_dict = {
             "companyName": request.form['companyName'],
             "companyRNC": request.form['companyRNC'],
             "companyAddress": request.form.get('companyAddress', ''),
             "companyPhone": request.form.get('companyPhone', ''),
             "companyEmail": request.form.get('companyEmail', ''),
+            "tradeName": request.form.get('tradeName', ''),
+            "companyType": "associated",
+            "province": request.form.get('province', ''),
+            "municipality": request.form.get('municipality', ''),
+            "certificateName": cert_name,
+            "certificateExtension": cert_ext,
+            "certificateContent": cert_content,
+            "certificatePassword": request.form.get('certificatePassword', ''),
             "colorMarca": existing_profile.get('colorMarca', '#10b981'),
             "gradientEnabled": existing_profile.get('gradientEnabled', True),
             "applyColorMarcaUI": existing_profile.get('applyColorMarcaUI', True),
             "applyColorMarcaReports": existing_profile.get('applyColorMarcaReports', True),
             "logoUrl": existing_profile.get('logoUrl', ''),
             "regimenFiscal": request.form.get('regimenFiscal', 'General'),
-            "openaiApiKey": request.form.get('openaiApiKey', '')
+            "openaiApiKey": request.form.get('openaiApiKey', ''),
+            "configured": True
         }
         DatabaseService.save_company_profile(owner_uid, profile_dict)
 
-        flash('Ajustes y perfil de empresa actualizados correctamente.', 'success')
+        # Si se presionó el botón de registrar en Alanube o importar desde Alanube
+        if request.form.get('registerAlanube') == 'true':
+            if not profile_dict.get("certificateContent"):
+                flash("Error: Se requiere cargar y guardar un archivo de Certificado Digital (.p12 o .pfx) con su contraseña antes de poder activarlo.", "error")
+            else:
+                sandbox = session.get('is_sandbox_mode', True)
+                res = AlanubeService.register_company(profile_dict, sandbox=sandbox)
+                if res.get("success"):
+                    flash("¡Certificado digital habilitado y activado exitosamente para la emisión de e-CF!", "success")
+                else:
+                    flash(f"Error al habilitar el certificado digital: {res.get('message')}", "error")
+        elif request.form.get('importAlanube') == 'true':
+            sandbox = session.get('is_sandbox_mode', True)
+            target_rnc = request.form.get('companyRNC', '').replace("-", "").strip()
+            if not target_rnc:
+                flash("Por favor, introduce un RNC válido para realizar la importación.", "error")
+            else:
+                res = AlanubeService.get_company_from_alanube(target_rnc, sandbox=sandbox)
+                if res.get("success") and res.get("data"):
+                    data = res["data"]
+                    # Sincronizar todos los campos recuperados de Alanube
+                    profile_dict["companyName"] = data.get("name") or profile_dict["companyName"]
+                    profile_dict["tradeName"] = data.get("tradeName") or profile_dict["tradeName"]
+                    profile_dict["companyAddress"] = data.get("address") or profile_dict["companyAddress"]
+                    profile_dict["companyEmail"] = data.get("email") or profile_dict["companyEmail"]
+                    profile_dict["companyType"] = data.get("type") or profile_dict["companyType"]
+                    profile_dict["province"] = data.get("province") or profile_dict["province"]
+                    profile_dict["municipality"] = data.get("municipality") or profile_dict["municipality"]
+                    
+                    # Certificado
+                    cert_data = data.get("certificate")
+                    if cert_data:
+                        profile_dict["certificateName"] = cert_data.get("name", "firma_digital")
+                        profile_dict["certificateExtension"] = cert_data.get("extension", ".p12")
+                        profile_dict["certificateContent"] = cert_data.get("content", "")
+                        profile_dict["certificatePassword"] = cert_data.get("password", "")
+                    
+                    # Logo
+                    if data.get("logo"):
+                        profile_dict["logoBase64"] = data.get("logo")
+                    
+                    # Guardar en Firestore con la información actualizada
+                    DatabaseService.save_company_profile(owner_uid, profile_dict)
+                    flash("¡Sincronización exitosa! La información de la empresa y el certificado digital se han descargado de Alanube y guardado de forma segura en Firestore.", "success")
+                else:
+                    flash(f"Error al sincronizar desde Alanube: {res.get('message', 'No se encontraron datos')}", "error")
+        else:
+            flash('Ajustes y perfil de empresa actualizados correctamente.', 'success')
+
+        if request.form.get('is_wizard') == 'true':
+            # PROCESAR ACTIVOS OPCIONALES DEL WIZARD ONBOARDING
+            sandbox = session.get('is_sandbox_mode', True)
+            
+            # 1. Primer Producto
+            w_prod_name = request.form.get('wizard_product_name', '').strip()
+            if w_prod_name:
+                w_prod_price = float(request.form.get('wizard_product_price') or 0.0)
+                w_prod_itbis = float(request.form.get('wizard_product_itbis') or 0.18)
+                item_id = str(uuid.uuid4())
+                item_dict = {
+                    "code": "PROD-001",
+                    "type": "Bien",
+                    "name": w_prod_name,
+                    "price": w_prod_price,
+                    "unit": "Unidad",
+                    "itbisRate": w_prod_itbis,
+                    "minStock": 0.0,
+                    "rackLocation": "",
+                    "totalStock": 100.0
+                }
+                DatabaseService.save_item(owner_uid, item_id, item_dict, sandbox=sandbox)
+                
+            # 2. Primer Almacén / Sucursal
+            w_branch_name = request.form.get('wizard_branch_name', '').strip()
+            if w_branch_name:
+                w_branch_code = request.form.get('wizard_branch_code', '').strip() or "001"
+                w_branch_address = request.form.get('wizard_branch_address', '').strip() or profile_dict.get("companyAddress", "")
+                branch_id = str(uuid.uuid4())
+                branch_dict = {
+                    "name": w_branch_name,
+                    "code": w_branch_code,
+                    "address": w_branch_address,
+                    "isDefault": True
+                }
+                DatabaseService.save_branch(owner_uid, branch_id, branch_dict, sandbox=sandbox)
+                
+            # 3. Primer Cliente
+            w_client_name = request.form.get('wizard_client_name', '').strip()
+            if w_client_name:
+                w_client_rnc = request.form.get('wizard_client_rnc', '').strip() or "00300749256"
+                w_client_email = request.form.get('wizard_client_email', '').strip()
+                client_id = str(uuid.uuid4())
+                client_dict = {
+                    "rnc": w_client_rnc,
+                    "razonSocial": w_client_name,
+                    "email": w_client_email,
+                    "telefono": "",
+                    "direccion": "",
+                    "crmNotes": "Cliente creado mediante asistente de Onboarding",
+                    "nextContactDate": ""
+                }
+                DatabaseService.save_client(owner_uid, client_id, client_dict, sandbox=sandbox)
+                
+            return redirect(url_for('company_settings', onboarding_success='true'))
+
         return redirect(url_for('company_settings'))
         
     profile = DatabaseService.get_company_profile(owner_uid)
@@ -2435,7 +2782,23 @@ def company_settings():
     # Obtener sucursales
     branches = DatabaseService.get_branches(owner_uid, sandbox=session.get('is_sandbox_mode', True))
 
-    return render_template('company_settings.html', active_page='settings', profile=profile, team=team, branches=branches)
+    onboarding_success = request.args.get('onboarding_success') == 'true'
+    show_wizard = not profile.get('configured', False)
+    return render_template('company_settings.html', active_page='settings', profile=profile, team=team, branches=branches, show_wizard=show_wizard, onboarding_success=onboarding_success)
+
+@app.route('/settings/company/generate-api-key', methods=['POST'])
+def generate_company_api_key():
+    if 'user' not in session: return redirect(url_for('login'))
+    if not check_permission('canModifySettings'):
+        return render_template('auth/restricted.html', feature_name="Configuración de la Empresa", required_permission="canModifySettings")
+    
+    owner_uid = session['user']['ownerUID']
+    new_key = DatabaseService.generate_api_key(owner_uid)
+    if new_key:
+        flash('¡Nueva API Key generada con éxito!', 'success')
+    else:
+        flash('Ocurrió un error al generar la API Key.', 'error')
+    return redirect(url_for('company_settings'))
 
 @app.route('/settings/company/brand', methods=['POST'])
 def save_company_brand_settings():
@@ -2456,14 +2819,17 @@ def save_company_brand_settings():
         
     logo_file = request.files.get('logoFile')
     if logo_file and logo_file.filename:
+        import base64
         file_data = logo_file.read()
         mime_type = logo_file.content_type or "image/png"
         ext = logo_file.filename.rsplit('.', 1)[-1].lower() if '.' in logo_file.filename else 'png'
         dest_path = f"users/{owner_uid}/company/logo_{uuid.uuid4().hex[:8]}.{ext}"
         existing_profile['logoUrl'] = DatabaseService.upload_file_to_storage(file_data, dest_path, mime_type)
+        existing_profile['logoBase64'] = base64.b64encode(file_data).decode('utf-8')
         
     if request.form.get('removeLogo') == 'true':
         existing_profile['logoUrl'] = ''
+        existing_profile['logoBase64'] = ''
         
     DatabaseService.save_company_profile(owner_uid, existing_profile)
     return jsonify({"success": True, "profile": existing_profile})

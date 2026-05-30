@@ -145,6 +145,18 @@
                     {% endfor %}
                 </select>
             </div>
+
+            <div class="form-group">
+                <label for="income-type-select">Tipo de Ingreso (DGII)</label>
+                <select id="income-type-select" name="incomeType" class="form-select" required>
+                    <option value="01 - Ingresos por operaciones" {% if not invoice or invoice.incomeType == '01 - Ingresos por operaciones' %}selected{% endif %}>01 - Ingresos por operaciones</option>
+                    <option value="02 - Ingresos Financieros" {% if invoice and invoice.incomeType == '02 - Ingresos Financieros' %}selected{% endif %}>02 - Ingresos Financieros</option>
+                    <option value="03 - Ingresos Extraordinarios" {% if invoice and invoice.incomeType == '03 - Ingresos Extraordinarios' %}selected{% endif %}>03 - Ingresos Extraordinarios</option>
+                    <option value="04 - Arrendamientos" {% if invoice and invoice.incomeType == '04 - Arrendamientos' %}selected{% endif %}>04 - Arrendamientos</option>
+                    <option value="05 - Venta de Activo Depreciable" {% if invoice and invoice.incomeType == '05 - Venta de Activo Depreciable' %}selected{% endif %}>05 - Venta de Activo Depreciable</option>
+                    <option value="06 - Otros Ingresos" {% if invoice and invoice.incomeType == '06 - Otros Ingresos' %}selected{% endif %}>06 - Otros Ingresos</option>
+                </select>
+            </div>
             {% endif %}
 
             <div class="form-group">
@@ -443,6 +455,104 @@
         </div>
     </div>
 </div>
+
+<!-- Modal de Confirmación Tipo Borrador -->
+<div class="search-modal" id="confirmation-draft-modal" style="display: none;">
+    <div class="modal-backdrop" id="confirmation-modal-backdrop" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background-color: rgba(0, 0, 0, 0.6); z-index: 1000; backdrop-filter: blur(4px);"></div>
+    <div class="modal-content" style="max-width: 900px; width: 95%; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1001; background: #ffffff; border: 1px solid #e2e8f0; border-radius: var(--radius-md); box-shadow: var(--shadow-lg); display: flex; flex-direction: column; overflow: hidden; max-height: 90vh; --text-primary: #1e293b; --text-secondary: #475569; --text-muted: #64748b; --border-color: #e2e8f0; --bg-table-hover: rgba(0, 0, 0, 0.02);">
+        <div class="modal-header" style="border-bottom: 1px solid var(--border-color); padding: 20px 24px; display: flex; justify-content: space-between; align-items: center;">
+            <h3 style="font-size: 1.2rem; font-family: var(--font-heading); margin: 0; display: flex; align-items: center; gap: 8px; color: var(--text-primary);">
+                <i class="fa-solid fa-file-invoice" style="color: var(--accent-emerald);"></i> Vista Previa de Validación (Borrador)
+            </h3>
+            <button type="button" class="btn-close-modal" id="btn-close-confirm-modal" style="background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.25rem;"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body" style="padding: 24px; overflow-y: auto;">
+            <!-- Alerta informativa -->
+            <div style="background-color: rgba(16, 185, 129, 0.05); border-left: 4px solid var(--accent-emerald); border-radius: var(--radius-sm); padding: 14px 18px; margin-bottom: 24px; display: flex; align-items: center; gap: 12px;">
+                <i class="fa-solid fa-circle-exclamation" style="color: var(--accent-emerald); font-size: 1.2rem;"></i>
+                <div style="font-size: 0.88rem; color: var(--text-secondary);">
+                    Por favor, valide detalladamente las partidas y montos del comprobante. Al presionar <strong>Confirmar Emisión</strong>, el documento será emitido formalmente.
+                </div>
+            </div>
+
+            <!-- Grid de datos clave -->
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; background-color: #f8fafc; border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 20px; margin-bottom: 24px;">
+                <div>
+                    <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: bold; display: block; margin-bottom: 4px;">Tipo de Comprobante</span>
+                    <strong id="confirm-doc-type" style="font-size: 0.95rem; color: var(--text-primary);">Factura de Consumo (E32)</strong>
+                </div>
+                <div>
+                    <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: bold; display: block; margin-bottom: 4px;">Cliente Receptor</span>
+                    <strong id="confirm-client-name" style="font-size: 0.95rem; color: var(--text-primary);">Público General</strong>
+                </div>
+                <div>
+                    <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: bold; display: block; margin-bottom: 4px;">RNC / Cédula Receptor</span>
+                    <strong id="confirm-client-rnc" style="font-size: 0.95rem; color: var(--text-primary);">999999999</strong>
+                </div>
+                <div>
+                    <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: bold; display: block; margin-bottom: 4px;">Condición de Pago</span>
+                    <strong id="confirm-payment-type" style="font-size: 0.95rem; color: var(--text-primary);">Contado</strong>
+                </div>
+                <div>
+                    <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: bold; display: block; margin-bottom: 4px;">Fecha Límite</span>
+                    <strong id="confirm-due-date" style="font-size: 0.95rem; color: var(--text-primary);">2026-05-29</strong>
+                </div>
+                <div>
+                    <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: bold; display: block; margin-bottom: 4px;">Moneda</span>
+                    <strong id="confirm-currency" style="font-size: 0.95rem; color: var(--text-primary);">DOP</strong>
+                </div>
+            </div>
+
+            <!-- Tabla de partidas del borrador -->
+            <h4 style="font-size: 0.95rem; font-family: var(--font-heading); margin-bottom: 12px; font-weight: 600; color: var(--text-primary);">Detalle de Partidas</h4>
+            <div class="table-responsive" style="max-height: 200px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: var(--radius-sm); margin-bottom: 24px;">
+                <table class="table-premium" style="width: 100%; border-collapse: collapse;">
+                    <thead>
+                        <tr>
+                            <th style="padding: 10px 12px; font-size: 0.8rem; text-align: left; background-color: #f8fafc;">Item / Descripción</th>
+                            <th style="padding: 10px 12px; text-align: right; font-size: 0.8rem; background-color: #f8fafc;">Precio</th>
+                            <th style="padding: 10px 12px; text-align: center; font-size: 0.8rem; background-color: #f8fafc;">Cant.</th>
+                            <th style="padding: 10px 12px; text-align: right; font-size: 0.8rem; background-color: #f8fafc;">ITBIS</th>
+                            <th style="padding: 10px 12px; text-align: right; font-size: 0.8rem; background-color: #f8fafc;">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody id="confirm-items-tbody">
+                        <!-- Cargar dinámicamente -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Totales Destacados en el Modal -->
+            <div style="display: flex; justify-content: flex-end; margin-bottom: 24px;">
+                <div style="width: 320px; background-color: #f8fafc; border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 16px;">
+                    <div style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 8px;">
+                        <span>Subtotal:</span>
+                        <span id="confirm-subtotal">RD$ 0.00</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 8px;">
+                        <span>ITBIS:</span>
+                        <span id="confirm-itbis">RD$ 0.00</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 1.15rem; font-weight: bold; color: var(--accent-emerald); border-top: 1px solid var(--border-color); padding-top: 10px;">
+                        <span>Neto a Pagar:</span>
+                        <span id="confirm-total">RD$ 0.00</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Acciones de confirmación -->
+            <div style="display: flex; justify-content: flex-end; gap: 15px; border-top: 1px solid var(--border-color); padding-top: 20px;">
+                <button type="button" class="btn btn-secondary" id="btn-cancel-confirm" style="padding: 12px 24px;">
+                    <span>Seguir Editando</span>
+                </button>
+                <button type="button" class="btn btn-success" id="btn-final-emit" style="padding: 12px 28px; background: linear-gradient(135deg, #064e3b 0%, #059669 100%); border: none; color: white; display: flex; align-items: center; gap: 8px; font-weight: 600; cursor: pointer;">
+                    <i class="fa-solid fa-circle-check"></i>
+                    <span>Confirmar Emisión</span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_scripts %}
@@ -562,6 +672,99 @@
         if (agreementEnabledSelect) {
             agreementEnabledSelect.addEventListener('change', handleAgreementToggle);
             handleAgreementToggle();
+        }
+
+        // =========================================================================
+        // LÓGICA DEL MODAL DE CONFIRMACIÓN TIPO BORRADOR (VALIDACIÓN PREVIA)
+        // =========================================================================
+        const confirmationModal = document.getElementById('confirmation-draft-modal');
+        const btnCloseConfirmModal = document.getElementById('btn-close-confirm-modal');
+        const btnCancelConfirm = document.getElementById('btn-cancel-confirm');
+        const btnFinalEmit = document.getElementById('btn-final-emit');
+        const invoiceForm = document.getElementById('invoice-form');
+
+        if (submitCobrarBtn) {
+            submitCobrarBtn.addEventListener('click', (e) => {
+                // 1. Validar requeridos del formulario HTML5 antes de abrir
+                if (!invoiceForm.checkValidity()) {
+                    invoiceForm.reportValidity();
+                    return;
+                }
+
+                // Asegurar que haya al menos una partida agregada
+                const rows = document.querySelectorAll('#items-table tbody tr.item-row');
+                if (rows.length === 0) {
+                    alert('Por favor, añada al menos una partida a la factura antes de emitirla.');
+                    return;
+                }
+
+                e.preventDefault();
+
+                // 2. Extraer y mapear encabezados en el Modal
+                const ecfTypeSelect = document.getElementById('ecf-type-select');
+                document.getElementById('confirm-doc-type').innerText = ecfTypeSelect ? ecfTypeSelect.options[ecfTypeSelect.selectedIndex].text : 'Cotización / Venta';
+                document.getElementById('confirm-client-name').innerText = document.getElementById('client-search-input').value || 'Consumidor Final';
+                document.getElementById('confirm-client-rnc').innerText = document.getElementById('client-rnc-input').value || '999999999';
+                document.getElementById('confirm-payment-type').innerText = document.getElementById('payment-type-select').value;
+                document.getElementById('confirm-due-date').innerText = document.getElementById('due-date').value;
+                document.getElementById('confirm-currency').innerText = document.getElementById('currency-select').value;
+
+                // 3. Extraer montos
+                document.getElementById('confirm-subtotal').innerText = document.getElementById('lbl-subtotal').innerText;
+                document.getElementById('confirm-itbis').innerText = document.getElementById('lbl-itbis').innerText;
+                document.getElementById('confirm-total').innerText = document.getElementById('lbl-net-payable').innerText;
+
+                // 4. Poblar partidas en la tabla del borrador
+                const confirmTbody = document.getElementById('confirm-items-tbody');
+                confirmTbody.innerHTML = '';
+                
+                rows.forEach(row => {
+                    const itemName = row.querySelector('.item-name-input').value;
+                    const price = parseFloat(row.querySelector('.item-price-input').value) || 0;
+                    const qty = parseFloat(row.querySelector('.item-qty-input').value) || 0;
+                    const itbisVal = row.querySelector('.item-itbis-select').value;
+                    const totalLabel = row.querySelector('.item-total-label').innerText;
+
+                    const tr = document.createElement('tr');
+                    tr.style.borderBottom = '1px solid var(--border-color)';
+                    tr.innerHTML = `
+                        <td style="padding: 12px; font-size: 0.85rem; color: var(--text-primary); text-align: left;">${itemName}</td>
+                        <td style="padding: 12px; font-size: 0.85rem; color: var(--text-secondary); text-align: right;">RD$ ${price.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                        <td style="padding: 12px; font-size: 0.85rem; color: var(--text-primary); text-align: center;">${qty}</td>
+                        <td style="padding: 12px; font-size: 0.85rem; color: var(--text-secondary); text-align: right;">${(parseFloat(itbisVal)*100)}%</td>
+                        <td style="padding: 12px; font-size: 0.85rem; color: var(--text-primary); font-weight: bold; text-align: right;">${totalLabel}</td>
+                    `;
+                    confirmTbody.appendChild(tr);
+                });
+
+                // 5. Mostrar Modal con animación
+                if (confirmationModal) {
+                    confirmationModal.style.display = 'flex';
+                }
+            });
+        }
+
+        // Funciones para cerrar modal
+        const closeModal = () => {
+            if (confirmationModal) confirmationModal.style.display = 'none';
+        };
+
+        if (btnCloseConfirmModal) btnCloseConfirmModal.addEventListener('click', closeModal);
+        if (btnCancelConfirm) btnCancelConfirm.addEventListener('click', closeModal);
+
+        // Envío final confirmado
+        if (btnFinalEmit) {
+            btnFinalEmit.addEventListener('click', () => {
+                // Insertar dinámicamente el valor de la acción en un campo hidden
+                const actionInput = document.createElement('input');
+                actionInput.type = 'hidden';
+                actionInput.name = 'action';
+                actionInput.value = submitCobrarBtn.getAttribute('value') || 'emitir_cobrar';
+                invoiceForm.appendChild(actionInput);
+
+                closeModal();
+                invoiceForm.submit();
+            });
         }
     });
 </script>

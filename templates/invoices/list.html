@@ -6,6 +6,24 @@
 endblock %}
 
 {% block content %}
+<style>
+    .table-premium-scroll-wrapper {
+        max-height: 500px;
+        overflow-y: auto;
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-sm);
+        margin-bottom: 12px;
+        position: relative;
+    }
+    .table-premium-scroll-wrapper thead th {
+        position: sticky;
+        top: 0;
+        background-color: var(--bg-card);
+        z-index: 10;
+        box-shadow: inset 0 -1px 0 var(--border-color);
+    }
+</style>
+
 <div class="card-table-wrapper">
     <div class="table-header-row">
         <div>
@@ -33,120 +51,297 @@ endblock %}
         {% endif %}
     </div>
 
-    <div class="table-responsive">
-        <table class="table-premium">
-            <thead>
-                <tr>
-                    <th>Factura #</th>
-                    <th>e-NCF / Firma</th>
-                    <th>Fecha / Vence</th>
-                    <th>Cliente / RNC</th>
-                    <th>Neto a Pagar</th>
-                    <th>Estado</th>
-                    <th style="text-align: right;">Acciones</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% if invoices %}
-                {% for inv in invoices %}
-                <tr>
-                    <td>
-                        <strong style="font-size: 0.95rem; display: block; margin-bottom: 2px;">{{ inv.invoiceNumber
-                            }}</strong>
-                        <span style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase;">
-                            {{ inv.ecfType.split('(')[0] | default('Consumo') }}
-                        </span>
-                    </td>
-                    <td>
-                        {% if inv.encf %}
-                        <strong style="font-family: monospace; font-size: 0.9rem; color: var(--accent-purple);">{{
-                            inv.encf }}</strong>
-                        {% if inv.xmlSignature %}
-                        <span
-                            style="display: block; font-size: 0.65rem; color: var(--text-muted); font-family: monospace;">Firma:
-                            {{ inv.xmlSignature[:16] }}...</span>
-                        {% endif %}
-                        {% else %}
-                        <span class="badge badge-secondary" style="font-size: 0.65rem;">Borrador</span>
-                        {% endif %}
-                    </td>
-                    <td>
-                        <span style="display: block; font-size: 0.88rem;">{{ inv.date[:10] }}</span>
-                        <span style="font-size: 0.78rem; color: var(--text-muted);">Vence: {{ inv.dueDate[:10] }}</span>
-                    </td>
-                    <td>
-                        <strong style="font-size: 0.88rem; display: block; margin-bottom: 2px;">{{ inv.clientName
-                            }}</strong>
-                        <span style="font-size: 0.78rem; color: var(--text-secondary); font-family: monospace;">{{
-                            inv.clientRNC or '999999999' }}</span>
-                    </td>
-                    <td>
-                        <strong style="color: var(--accent-emerald);">RD$ {{ "{:,.2f}".format(inv.netPayable)
-                            }}</strong>
-                        <span style="display: block; font-size: 0.75rem; color: var(--text-muted);">Total: RD$ {{
-                            "{:,.2f}".format(inv.total) }}</span>
-                    </td>
-                    <td>
-                        <span
-                            class="badge {% if inv.status == 'Cobrada' %}badge-success{% elif inv.status == 'Emitida' %}badge-primary{% elif inv.status == 'Anulada' %}badge-danger{% else %}badge-secondary{% endif %}">
-                            {{ inv.status }}
-                        </span>
-                        {% if inv.emisionMode == 'FALLBACK' and not inv.isSyncedWithDGII %}
-                        <span class="badge" style="display: block; margin-top: 4px; font-size: 0.68rem; color: #78350f; background-color: #fef3c7; border: 1px solid #fde68a;">
-                            ⚠️ Pendiente DGII
-                        </span>
-                        {% endif %}
-                    </td>
-                    <td style="text-align: right;">
-                        <div style="display: inline-flex; gap: 8px;">
-                            <a href="{{ url_for('invoice_detail', invoice_id=inv.id) }}" class="btn btn-secondary"
-                                style="padding: 8px 12px; font-size: 0.8rem;" title="Ver Detalle y QR">
-                                <i class="fa-solid fa-eye"></i>
-                            </a>
-                            {% if inv.emisionMode == 'FALLBACK' and not inv.isSyncedWithDGII and inv.status != 'Anulada' %}
-                            <form action="{{ url_for('sync_single_invoice_route', invoice_id=inv.id) }}" method="POST" style="display: inline;">
-                                <button type="submit" class="btn btn-primary" style="padding: 8px 12px; font-size: 0.8rem; background: linear-gradient(135deg, #f59e0b, #d97706); border: none;" title="Sincronizar con DGII">
-                                    <i class="fa-solid fa-rotate"></i>
-                                </button>
-                            </form>
-                            {% endif %}
-                            {% if inv.status != 'Anulada' and not inv.isQuotation %}
-                            <form action="{{ url_for('void_invoice_route', invoice_id=inv.id) }}" method="POST"
-                                onsubmit="return confirm('¿Seguro que deseas anular esta factura fiscal? Se emitirá la anulación a la secuencia correspondiente.');"
-                                style="display: inline;">
-                                <button type="submit" class="btn btn-danger"
-                                    style="padding: 8px 12px; font-size: 0.8rem;" title="Anular Factura">
-                                    <i class="fa-solid fa-ban"></i>
-                                </button>
-                            </form>
-                            {% endif %}
-                        </div>
-                    </td>
-                </tr>
-                {% endfor %}
-                {% else %}
-                <tr>
-                    <td colspan="7" style="text-align: center; padding: 60px 0; color: var(--text-secondary);">
-                        {% if active_page == 'quotations' %}
-                        <i class="fa-solid fa-file-signature"
-                            style="font-size: 3rem; color: var(--text-muted); margin-bottom: 16px; opacity: 0.5; display: block;"></i>
-                        <span>No hay cotizaciones registradas aún.</span>
-                        <a href="/quotations/new"
-                            style="color: var(--accent-emerald); font-weight: 600; display: block; margin-top: 10px;">Crear
-                            primera cotización</a>
-                        {% else %}
-                        <i class="fa-solid fa-file-invoice-dollar"
-                            style="font-size: 3rem; color: var(--text-muted); margin-bottom: 16px; opacity: 0.5; display: block;"></i>
-                        <span>No hay facturas electrónicas emitidas aún.</span>
-                        <a href="/invoices/new"
-                            style="color: var(--accent-emerald); font-weight: 600; display: block; margin-top: 10px;">Emitir
-                            primera factura</a>
-                        {% endif %}
-                    </td>
-                </tr>
-                {% endif %}
-            </tbody>
-        </table>
+    <!-- Panel de Filtros Premium -->
+    <div class="filters-card" style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 18px; margin-bottom: 24px;">
+        <form method="GET" action="{% if active_page == 'quotations' %}/quotations{% else %}/invoices{% endif %}" id="filters-form" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; align-items: end;">
+            <!-- Búsqueda -->
+            <div style="grid-column: span 2; min-width: 220px;">
+                <label for="q" style="display: block; font-size: 0.78rem; font-weight: 600; margin-bottom: 6px; color: var(--text-secondary);">Buscar Documento</label>
+                <div style="position: relative;">
+                    <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.88rem;"></i>
+                    <input type="text" name="q" id="q" value="{{ q or '' }}" class="form-input" placeholder="Factura #, Cliente, RNC o e-NCF..." style="padding-left: 36px; width: 100%; height: 38px; font-size: 0.88rem; background-color: var(--bg-body); border-color: var(--border-color); border-radius: var(--radius-sm); color: var(--text-primary);">
+                </div>
+            </div>
+
+            <!-- Selector de Estado -->
+            <div>
+                <label for="status" style="display: block; font-size: 0.78rem; font-weight: 600; margin-bottom: 6px; color: var(--text-secondary);">Estado</label>
+                <select name="status" id="status" class="form-input" style="width: 100%; height: 38px; font-size: 0.88rem; cursor: pointer; background-color: var(--bg-body); border-color: var(--border-color); border-radius: var(--radius-sm); color: var(--text-primary);">
+                    <option value="">-- Todos --</option>
+                    <option value="Borrador" {% if status == 'Borrador' %}selected{% endif %}>Borrador</option>
+                    <option value="Emitida" {% if status == 'Emitida' %}selected{% endif %}>Emitida</option>
+                    <option value="Cobrada" {% if status == 'Cobrada' %}selected{% endif %}>Cobrada</option>
+                    <option value="Anulada" {% if status == 'Anulada' %}selected{% endif %}>Anulada</option>
+                    {% if active_page != 'quotations' %}
+                    <option value="Con Saldo Pendiente" {% if status == 'Con Saldo Pendiente' %}selected{% endif %}>💸 Con Saldo Pendiente</option>
+                    <option value="Pendiente DGII" {% if status == 'Pendiente DGII' %}selected{% endif %}>⚠️ Pendiente DGII</option>
+                    {% endif %}
+                </select>
+            </div>
+
+            <!-- Selector de Cantidad de Registros -->
+            <div>
+                <label for="per_page" style="display: block; font-size: 0.78rem; font-weight: 600; margin-bottom: 6px; color: var(--text-secondary);">Mostrar</label>
+                <select name="per_page" id="per_page" class="form-input" style="width: 100%; height: 38px; font-size: 0.88rem; cursor: pointer; background-color: var(--bg-body); border-color: var(--border-color); border-radius: var(--radius-sm); color: var(--text-primary);">
+                    <option value="5" {% if per_page == '5' %}selected{% endif %}>5 registros</option>
+                    <option value="10" {% if per_page == '10' or not per_page %}selected{% endif %}>10 registros</option>
+                    <option value="15" {% if per_page == '15' %}selected{% endif %}>15 registros</option>
+                    <option value="20" {% if per_page == '20' %}selected{% endif %}>20 registros</option>
+                    <option value="all" {% if per_page == 'all' %}selected{% endif %}>Todos</option>
+                </select>
+            </div>
+
+            <!-- Fecha Inicio -->
+            <div>
+                <label for="start_date" style="display: block; font-size: 0.78rem; font-weight: 600; margin-bottom: 6px; color: var(--text-secondary);">Desde (Fecha)</label>
+                <input type="date" name="start_date" id="start_date" value="{{ start_date or '' }}" class="form-input" style="width: 100%; height: 38px; font-size: 0.88rem; background-color: var(--bg-body); border-color: var(--border-color); border-radius: var(--radius-sm); color: var(--text-primary);">
+            </div>
+
+            <!-- Fecha Fin -->
+            <div>
+                <label for="end_date" style="display: block; font-size: 0.78rem; font-weight: 600; margin-bottom: 6px; color: var(--text-secondary);">Hasta (Fecha)</label>
+                <input type="date" name="end_date" id="end_date" value="{{ end_date or '' }}" class="form-input" style="width: 100%; height: 38px; font-size: 0.88rem; background-color: var(--bg-body); border-color: var(--border-color); border-radius: var(--radius-sm); color: var(--text-primary);">
+            </div>
+
+            <!-- Botón de Limpiar Filtros -->
+            <div>
+                <a href="{% if active_page == 'quotations' %}/quotations{% else %}/invoices{% endif %}" class="btn btn-secondary" style="height: 38px; padding: 0 16px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; border-radius: var(--radius-sm); width: 100%;" title="Limpiar Filtros">
+                    <i class="fa-solid fa-eraser"></i>
+                    <span>Limpiar</span>
+                </a>
+            </div>
+        </form>
     </div>
+
+    <!-- Contenedor Scrollable para la Tabla -->
+    <div class="table-premium-scroll-wrapper">
+        <div class="table-responsive" style="border: none; margin-bottom: 0;">
+            <table class="table-premium">
+                <thead>
+                    <tr>
+                        <th>Factura #</th>
+                        <th>e-NCF / Firma</th>
+                        <th>Fecha / Vence</th>
+                        <th>Cliente / RNC</th>
+                        <th>Neto a Pagar</th>
+                        <th>Estado</th>
+                        <th style="text-align: right;">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if invoices %}
+                    {% for inv in invoices %}
+                    <tr>
+                        <td>
+                            <strong style="font-size: 0.95rem; display: block; margin-bottom: 2px;">{{ inv.invoiceNumber
+                                }}</strong>
+                            <span style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase;">
+                                {{ inv.ecfType.split('(')[0] | default('Consumo') }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if inv.encf %}
+                            <strong style="font-family: monospace; font-size: 0.9rem; color: var(--accent-purple);">{{
+                                inv.encf }}</strong>
+                            {% if inv.xmlSignature %}
+                            <span
+                                style="display: block; font-size: 0.65rem; color: var(--text-muted); font-family: monospace;">Firma:
+                                {{ inv.xmlSignature[:16] }}...</span>
+                            {% endif %}
+                            {% else %}
+                            <span class="badge badge-secondary" style="font-size: 0.65rem;">Borrador</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span style="display: block; font-size: 0.88rem;">{{ inv.date[:10] }}</span>
+                            <span style="font-size: 0.78rem; color: var(--text-muted);">Vence: {{ inv.dueDate[:10] }}</span>
+                        </td>
+                        <td>
+                            <strong style="font-size: 0.88rem; display: block; margin-bottom: 2px;">{{ inv.clientName
+                                }}</strong>
+                            <span style="font-size: 0.78rem; color: var(--text-secondary); font-family: monospace;">{{
+                                inv.clientRNC or '999999999' }}</span>
+                        </td>
+                        <td>
+                            {% if inv.status == 'Anulada' %}
+                            <strong style="color: var(--text-muted); text-decoration: line-through;">RD$ {{ "{:,.2f}".format(inv.netPayable) }}</strong>
+                            <span style="display: block; font-size: 0.75rem; color: var(--text-muted);">Total: RD$ {{ "{:,.2f}".format(inv.total) }}</span>
+                            {% elif inv.status == 'Cobrada' or inv.netPayable == 0 %}
+                            <strong style="color: var(--accent-emerald);">RD$ 0.00</strong>
+                            <span style="display: block; font-size: 0.72rem; color: var(--accent-emerald); font-weight: 600;">
+                                <i class="fa-solid fa-circle-check"></i> Pagado 100%
+                            </span>
+                            {% elif inv.netPayable < inv.total %}
+                            <strong style="color: var(--accent-yellow);">RD$ {{ "{:,.2f}".format(inv.netPayable) }}</strong>
+                            <span style="display: block; font-size: 0.72rem; color: var(--accent-yellow); font-weight: 600;">
+                                <i class="fa-solid fa-circle-half-stroke"></i> Cobro Parcial (Falta {{ "{:.0f}%".format((inv.netPayable / inv.total) * 100) }})
+                            </span>
+                            <span style="display: block; font-size: 0.68rem; color: var(--text-muted);">Total: RD$ {{ "{:,.2f}".format(inv.total) }}</span>
+                            {% else %}
+                            <strong style="color: var(--accent-red);">RD$ {{ "{:,.2f}".format(inv.netPayable) }}</strong>
+                            <span style="display: block; font-size: 0.72rem; color: var(--accent-red); font-weight: 600;">
+                                <i class="fa-solid fa-clock"></i> Pendiente Completo
+                            </span>
+                            <span style="display: block; font-size: 0.68rem; color: var(--text-muted);">Total: RD$ {{ "{:,.2f}".format(inv.total) }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if inv.status == 'Anulada' %}
+                            <span class="badge badge-danger">Anulada</span>
+                            {% elif inv.netPayable == 0 %}
+                            <span class="badge badge-success">Cobrada</span>
+                            {% elif inv.status == 'Emitida' %}
+                            {% if inv.netPayable < inv.total %}
+                            <span class="badge" style="background-color: rgba(245, 158, 11, 0.15); color: var(--accent-yellow); border: 1px solid rgba(245, 158, 11, 0.25);">Cobro Parcial</span>
+                            {% else %}
+                            <span class="badge badge-primary">Emitida (CxC)</span>
+                            {% endif %}
+                            {% else %}
+                            <span class="badge badge-secondary">{{ inv.status }}</span>
+                            {% endif %}
+                            {% if inv.emisionMode == 'FALLBACK' and not inv.isSyncedWithDGII %}
+                            <span class="badge" style="display: block; margin-top: 4px; font-size: 0.68rem; color: #78350f; background-color: #fef3c7; border: 1px solid #fde68a;">
+                                ⚠️ Pendiente DGII
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td style="text-align: right;">
+                            <div style="display: inline-flex; gap: 8px;">
+                                <a href="{{ url_for('invoice_detail', invoice_id=inv.id) }}" class="btn btn-secondary"
+                                    style="padding: 8px 12px; font-size: 0.8rem;" title="Ver Detalle y QR">
+                                    <i class="fa-solid fa-eye"></i>
+                                </a>
+                                {% if inv.emisionMode == 'FALLBACK' and not inv.isSyncedWithDGII and inv.status != 'Anulada' %}
+                                <form action="{{ url_for('sync_single_invoice_route', invoice_id=inv.id) }}" method="POST" style="display: inline;">
+                                    <button type="submit" class="btn btn-primary" style="padding: 8px 12px; font-size: 0.8rem; background: linear-gradient(135deg, #f59e0b, #d97706); border: none;" title="Sincronizar con DGII">
+                                        <i class="fa-solid fa-rotate"></i>
+                                    </button>
+                                </form>
+                                {% endif %}
+                                {% if inv.status != 'Anulada' and not inv.isQuotation %}
+                                <form action="{{ url_for('void_invoice_route', invoice_id=inv.id) }}" method="POST"
+                                    onsubmit="return confirm('¿Seguro que deseas anular esta factura fiscal? Se emitirá la anulación a la secuencia correspondiente.');"
+                                    style="display: inline;">
+                                    <button type="submit" class="btn btn-danger"
+                                        style="padding: 8px 12px; font-size: 0.8rem;" title="Anular Factura">
+                                        <i class="fa-solid fa-ban"></i>
+                                    </button>
+                                </form>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% else %}
+                    <tr>
+                        <td colspan="7" style="text-align: center; padding: 60px 0; color: var(--text-secondary);">
+                            {% if active_page == 'quotations' %}
+                            <i class="fa-solid fa-file-signature"
+                                style="font-size: 3rem; color: var(--text-muted); margin-bottom: 16px; opacity: 0.5; display: block;"></i>
+                            <span>No hay cotizaciones registradas aún o ningún registro coincide con los filtros aplicados.</span>
+                            <a href="/quotations/new"
+                                style="color: var(--accent-emerald); font-weight: 600; display: block; margin-top: 10px;">Crear
+                                primera cotización</a>
+                            {% else %}
+                            <i class="fa-solid fa-file-invoice-dollar"
+                                style="font-size: 3rem; color: var(--text-muted); margin-bottom: 16px; opacity: 0.5; display: block;"></i>
+                            <span>No hay facturas electrónicas emitidas aún o ningún registro coincide con los filtros aplicados.</span>
+                            <a href="/invoices/new"
+                                style="color: var(--accent-emerald); font-weight: 600; display: block; margin-top: 10px;">Emitir
+                                primera factura</a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Paginación Premium -->
+    {% if total_pages and total_pages > 1 and per_page != 'all' %}
+    <div class="pagination-container" style="display: flex; justify-content: space-between; align-items: center; margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border-color); flex-wrap: wrap; gap: 16px;">
+        <div style="color: var(--text-secondary); font-size: 0.85rem;">
+            Mostrando <strong style="color: var(--text-primary);">{{ start_count }}</strong> a <strong style="color: var(--text-primary);">{{ end_count }}</strong> de <strong style="color: var(--text-primary);">{{ total_items }}</strong> registros
+        </div>
+        <div class="pagination-buttons" style="display: flex; gap: 6px;">
+            <!-- Anterior -->
+            {% if has_prev %}
+            <a href="?page={{ page - 1 }}&q={{ q or '' }}&status={{ status or '' }}&start_date={{ start_date or '' }}&end_date={{ end_date or '' }}&per_page={{ per_page or '10' }}" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.82rem; display: inline-flex; align-items: center; gap: 6px; border-radius: var(--radius-sm);">
+                <i class="fa-solid fa-chevron-left" style="font-size: 0.75rem;"></i>
+                <span>Anterior</span>
+            </a>
+            {% else %}
+            <button class="btn btn-secondary" disabled style="padding: 6px 12px; font-size: 0.82rem; display: inline-flex; align-items: center; gap: 6px; opacity: 0.5; cursor: not-allowed; border-radius: var(--radius-sm);">
+                <i class="fa-solid fa-chevron-left" style="font-size: 0.75rem;"></i>
+                <span>Anterior</span>
+            </button>
+            {% endif %}
+
+            <!-- Números de Página -->
+            {% for p in pages_range %}
+                {% if p == page %}
+                <button class="btn btn-primary" style="padding: 6px 12px; font-size: 0.82rem; min-width: 34px; text-align: center; border-radius: var(--radius-sm);">{{ p }}</button>
+                {% else %}
+                <a href="?page={{ p }}&q={{ q or '' }}&status={{ status or '' }}&start_date={{ start_date or '' }}&end_date={{ end_date or '' }}&per_page={{ per_page or '10' }}" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.82rem; min-width: 34px; text-align: center; border-radius: var(--radius-sm);">{{ p }}</a>
+                {% endif %}
+            {% endfor %}
+
+            <!-- Siguiente -->
+            {% if has_next %}
+            <a href="?page={{ page + 1 }}&q={{ q or '' }}&status={{ status or '' }}&start_date={{ start_date or '' }}&end_date={{ end_date or '' }}&per_page={{ per_page or '10' }}" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.82rem; display: inline-flex; align-items: center; gap: 6px; border-radius: var(--radius-sm);">
+                <span>Siguiente</span>
+                <i class="fa-solid fa-chevron-right" style="font-size: 0.75rem;"></i>
+            </a>
+            {% else %}
+            <button class="btn btn-secondary" disabled style="padding: 6px 12px; font-size: 0.82rem; display: inline-flex; align-items: center; gap: 6px; opacity: 0.5; cursor: not-allowed; border-radius: var(--radius-sm);">
+                <span>Siguiente</span>
+                <i class="fa-solid fa-chevron-right" style="font-size: 0.75rem;"></i>
+            </button>
+            {% endif %}
+        </div>
+    </div>
+    {% else %}
+    <div style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 16px; text-align: right;">
+        Mostrando <strong style="color: var(--text-primary);">{{ total_items }}</strong> registros en total.
+    </div>
+    {% endif %}
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            const form = document.getElementById('filters-form');
+            const searchInput = document.getElementById('q');
+            const selectStatus = document.getElementById('status');
+            const selectPerPage = document.getElementById('per_page');
+            const startDate = document.getElementById('start_date');
+            const endDate = document.getElementById('end_date');
+            
+            // Función de debounce para la búsqueda de texto
+            let debounceTimer;
+            searchInput.addEventListener('input', function() {
+                clearTimeout(debounceTimer);
+                debounceTimer = setTimeout(() => {
+                    form.submit();
+                }, 500);
+            });
+            
+            // Envío automático al cambiar dropdowns y fechas
+            [selectStatus, selectPerPage, startDate, endDate].forEach(elem => {
+                if (elem) {
+                    elem.addEventListener('change', () => {
+                        form.submit();
+                    });
+                }
+            });
+            
+            // Enfocar input de búsqueda al final del texto al recargar si tiene valor
+            if (searchInput.value) {
+                searchInput.focus();
+                const val = searchInput.value;
+                searchInput.value = '';
+                searchInput.value = val;
+            }
+        });
+    </script>
 </div>
 {% endblock %}
