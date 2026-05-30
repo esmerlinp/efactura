@@ -337,6 +337,7 @@ document.addEventListener('DOMContentLoaded', () => {
         [priceInput, qtyInput, itbisSelect, discountInput].forEach(input => {
             if (input) {
                 input.addEventListener('input', recalculateTotals);
+                input.addEventListener('change', recalculateTotals);
             }
         });
 
@@ -373,6 +374,11 @@ document.addEventListener('DOMContentLoaded', () => {
         let totalDiscount = 0.0;
         let totalITBIS = 0.0;
         let totalIsc = 0.0;
+        let totalPropina = 0.0;
+        let totalCdt = 0.0;
+        let totalIscEspecifico = 0.0;
+        let totalIscAdvalorem = 0.0;
+        let totalItemsQty = 0;
         
         const rows = itemsTableBody.querySelectorAll('.item-row');
         
@@ -396,20 +402,45 @@ document.addEventListener('DOMContentLoaded', () => {
             const subcant = parseFloat(row.dataset.subcantidad) || 0.0;
             const precioRef = parseFloat(row.dataset.precioReferencia) || 0.0;
             
-            if (codImp >= '006' && codImp <= '018') { // Alcohol Específico
-                iscEspecifico = tasaImp * (gradosAlc / 100.0) * cantRef * subcant * qty;
-            } else if (codImp >= '019' && codImp <= '022') { // Cigarrillo Específico
-                iscEspecifico = qty * cantRef * tasaImp;
-            }
+            // Calcular ISC Específico e ISC AdValorem simultáneamente para Alcoholes y Tabacos
+            const isAlcohol = (codImp >= '006' && codImp <= '018') || (codImp >= '023' && codImp <= '035');
+            const isTabaco = (codImp >= '019' && codImp <= '022') || (codImp >= '036' && codImp <= '039');
             
-            if (codImp >= '023' && codImp <= '035') { // Alcohol Ad-Valorem
-                iscAdvalorem = (precioRef / (1 + itbisRate)) * tasaImp * cantRef * qty;
-            } else if (codImp >= '036' && codImp <= '039') { // Cigarrillo Ad-Valorem
-                iscAdvalorem = (precioRef / (1 + itbisRate)) * tasaImp * cantRef * qty;
+            if (isAlcohol) {
+                const tasaEsp = (codImp >= '006' && codImp <= '018') ? tasaImp : 632.58;
+                iscEspecifico = tasaEsp * (gradosAlc / 100.0) * cantRef * subcant * qty;
+                
+                if (precioRef > 0.0) {
+                    const tasaAdv = (codImp >= '023' && codImp <= '035') ? tasaImp : 0.10;
+                    if (row.querySelector('.item-unit-select')?.value === 'Granel') {
+                        iscAdvalorem = price * 1.30 * tasaAdv * qty;
+                    } else {
+                        if (qty > 0 && cantRef > 0) {
+                            const precioSinItbis = precioRef / (1.0 + itbisRate);
+                            const iscEspUnitario = iscEspecifico / (qty * cantRef);
+                            const precioSinIscEsp = precioSinItbis - iscEspUnitario;
+                            const precioSinIscAd = precioSinIscEsp / (1.0 + tasaAdv);
+                            iscAdvalorem = precioSinIscAd * tasaAdv * cantRef * qty;
+                        }
+                    }
+                }
+            } else if (isTabaco) {
+                const tasaEsp = (codImp >= '019' && codImp <= '022') ? tasaImp : 2.50;
+                iscEspecifico = qty * cantRef * tasaEsp;
+                
+                if (precioRef > 0.0) {
+                    const tasaAdv = (codImp >= '036' && codImp <= '039') ? tasaImp : 0.20;
+                    const precioSinItbis = precioRef / (1.0 + itbisRate);
+                    const precioSinIscEsp = precioSinItbis - tasaEsp;
+                    const precioSinIscAd = precioSinIscEsp / (1.0 + tasaAdv);
+                    iscAdvalorem = precioSinIscAd * tasaAdv * cantRef * qty;
+                }
             } else if (codImp === '001') { // Propina Legal
                 iscAdvalorem = rowSubtotal * 0.10;
+                totalPropina += iscAdvalorem;
             } else if (codImp === '002') { // CDT
                 iscAdvalorem = rowSubtotal * 0.02;
+                totalCdt += iscAdvalorem;
             } else if (codImp === '003' || codImp === '004') { // Seguros / Telecomunicaciones
                 iscAdvalorem = rowSubtotal * tasaImp;
             }
@@ -422,6 +453,9 @@ document.addEventListener('DOMContentLoaded', () => {
             totalDiscount += rowDiscount;
             totalITBIS += rowITBIS;
             totalIsc += rowIsc;
+            totalIscEspecifico += iscEspecifico;
+            totalIscAdvalorem += iscAdvalorem;
+            totalItemsQty += qty;
             
             row.querySelector('.item-total-label').textContent = formatCurrencyDOP(rowTotal);
         });
@@ -435,6 +469,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (globalDiscRate > 0.0) {
             totalITBIS = totalITBIS * (1.0 - globalDiscRate);
             totalIsc = totalIsc * (1.0 - globalDiscRate);
+            totalPropina = totalPropina * (1.0 - globalDiscRate);
+            totalCdt = totalCdt * (1.0 - globalDiscRate);
+            totalIscEspecifico = totalIscEspecifico * (1.0 - globalDiscRate);
+            totalIscAdvalorem = totalIscAdvalorem * (1.0 - globalDiscRate);
         }
 
         const total = subtotal + totalIsc + totalITBIS;
@@ -446,12 +484,31 @@ document.addEventListener('DOMContentLoaded', () => {
         const retainedITBIS = totalITBIS * itbisRetRate;
         const netPayable = Math.max(0.0, total - retainedISR - retainedITBIS);
 
-        lblSubtotalRaw.textContent = formatCurrencyDOP(subtotalRaw);
-        lblDiscount.textContent = formatCurrencyDOP(totalDiscount);
-        lblSubtotal.textContent = formatCurrencyDOP(subtotal);
-        lblITBIS.textContent = formatCurrencyDOP(totalITBIS);
+        if (lblSubtotalRaw) lblSubtotalRaw.textContent = formatCurrencyDOP(subtotalRaw);
+        if (lblDiscount) lblDiscount.textContent = formatCurrencyDOP(totalDiscount);
+        if (lblSubtotal) lblSubtotal.textContent = formatCurrencyDOP(subtotal);
+        if (lblITBIS) lblITBIS.textContent = formatCurrencyDOP(totalITBIS);
         
-        // Mostrar / Ocultar la sección de Impuestos Adicionales (ISC) en los totales
+        // Elementos dinámicos desagregados (desglosados)
+        const lblTotalPropina = document.getElementById('lbl-total-propina');
+        const lblTotalCdt = document.getElementById('lbl-total-cdt');
+        const lblTotalIsc = document.getElementById('lbl-total-isc');
+        const lblTotalIscEspecifico = document.getElementById('lbl-total-isc-especifico');
+        const lblTotalIscAdvalorem = document.getElementById('lbl-total-isc-advalorem');
+        const lblTotalImpuestos = document.getElementById('lbl-total-impuestos');
+        const lblTotalItemsQty = document.getElementById('lbl-total-items-qty');
+
+        if (lblTotalPropina) lblTotalPropina.textContent = formatCurrencyDOP(totalPropina);
+        if (lblTotalCdt) lblTotalCdt.textContent = formatCurrencyDOP(totalCdt);
+        if (lblTotalIsc) lblTotalIsc.textContent = formatCurrencyDOP(totalIsc);
+        if (lblTotalIscEspecifico) lblTotalIscEspecifico.textContent = formatCurrencyDOP(totalIscEspecifico);
+        if (lblTotalIscAdvalorem) lblTotalIscAdvalorem.textContent = formatCurrencyDOP(totalIscAdvalorem);
+        
+        const totalImpuestosSum = totalITBIS + totalIsc + totalPropina + totalCdt;
+        if (lblTotalImpuestos) lblTotalImpuestos.textContent = formatCurrencyDOP(totalImpuestosSum);
+        if (lblTotalItemsQty) lblTotalItemsQty.textContent = formatCurrencyDOP(subtotalRaw);
+
+        // Mostrar / Ocultar la sección de Impuestos Adicionales (ISC) en los totales (mantenido por compatibilidad)
         const lblIsc = document.getElementById('lbl-isc');
         const lblIscContainer = document.getElementById('lbl-isc-container');
         if (lblIsc && lblIscContainer) {
@@ -463,10 +520,10 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         
-        lblTotal.textContent = formatCurrencyDOP(total);
-        lblRetainedISR.textContent = formatCurrencyDOP(retainedISR);
-        lblRetainedITBIS.textContent = formatCurrencyDOP(retainedITBIS);
-        lblNetPayable.textContent = formatCurrencyDOP(netPayable);
+        if (lblTotal) lblTotal.textContent = formatCurrencyDOP(total);
+        if (lblRetainedISR) lblRetainedISR.textContent = formatCurrencyDOP(retainedISR);
+        if (lblRetainedITBIS) lblRetainedITBIS.textContent = formatCurrencyDOP(retainedITBIS);
+        if (lblNetPayable) lblNetPayable.textContent = formatCurrencyDOP(netPayable);
     }
 
     [discountGlobalInput, isrRateSelect, itbisRateSelect].forEach(control => {

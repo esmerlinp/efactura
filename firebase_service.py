@@ -630,7 +630,13 @@ class DatabaseService:
                         "minStock": float(data.get("minStock", 0.0)),
                         "rackLocation": data.get("rackLocation", ""),
                         "totalStock": float(data.get("totalStock", 0.0)),
-                        "createdAt": serialize_field(data.get("createdAt"))
+                        "createdAt": serialize_field(data.get("createdAt")),
+                        "codigoImpuesto": data.get("codigoImpuesto", ""),
+                        "tasaImpuestoAdicional": float(data.get("tasaImpuestoAdicional", 0.0)),
+                        "gradosAlcohol": float(data.get("gradosAlcohol", 0.0)),
+                        "cantidadReferencia": float(data.get("cantidadReferencia", 0.0)),
+                        "subcantidad": float(data.get("subcantidad", 1.0)),
+                        "precioReferencia": float(data.get("precioReferencia", 0.0))
                     })
                 items.sort(key=lambda x: x["name"].lower())
             except Exception as e:
