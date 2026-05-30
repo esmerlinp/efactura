@@ -479,6 +479,51 @@ def new_client():
         
     return render_template('clients/form.html', active_page='clients', client=None)
 
+@app.route('/clients/ajax_create', methods=['POST'])
+def ajax_create_client():
+    """Ruta AJAX para crear un cliente desde la pantalla de facturación sin recargar la página."""
+    if 'user' not in session:
+        return jsonify({"success": False, "error": "No autenticado."}), 401
+    if not check_permission('canClients'):
+        return jsonify({"success": False, "error": "Sin permiso para registrar clientes."}), 403
+    
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+    
+    data = request.json or request.form
+    rnc = (data.get('rnc') or '').strip()
+    razon_social = (data.get('razonSocial') or '').strip()
+    
+    if not razon_social:
+        return jsonify({"success": False, "error": "La Razón Social es obligatoria."}), 400
+    
+    client_id = str(uuid.uuid4())
+    client_dict = {
+        "rnc": rnc,
+        "razonSocial": razon_social,
+        "email": (data.get('email') or '').strip(),
+        "telefono": (data.get('telefono') or '').strip(),
+        "direccion": (data.get('direccion') or '').strip(),
+        "crmNotes": "Registrado desde formulario de facturación",
+        "nextContactDate": "",
+        "createdAt": datetime.utcnow().isoformat()
+    }
+    
+    DatabaseService.save_client(owner_uid, client_id, client_dict, sandbox=sandbox)
+    
+    return jsonify({
+        "success": True,
+        "message": "Cliente registrado exitosamente.",
+        "client": {
+            "id": client_id,
+            "rnc": rnc,
+            "razonSocial": razon_social,
+            "email": client_dict["email"],
+            "telefono": client_dict["telefono"],
+            "direccion": client_dict["direccion"],
+        }
+    })
+
 @app.route('/clients/<client_id>/edit', methods=['GET', 'POST'])
 def edit_client(client_id):
     if 'user' not in session: return redirect(url_for('login'))

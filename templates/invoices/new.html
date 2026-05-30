@@ -10,163 +10,182 @@
 <div id="clients-data-json" style="display: none;">{{ clients_json }}</div>
 
 <form method="POST" id="invoice-form">
-    
-    <!-- TARJETA 1: ENCABEZADO DEL DOCUMENTO -->
-    <div class="card-segment">
-        <div class="segment-header">
-            <div class="segment-header-icon emerald">
-                <i class="fa-solid fa-file-signature"></i>
-            </div>
-            <h3>Encabezado del Documento</h3>
-        </div>
-        
-        <div class="form-grid">
-            {% if active_page == 'quotations' %}
-            <input type="hidden" name="ecfType" value="Cotización">
-            {% else %}
-            <!-- Selector de Tipo de Documento -->
-            <div class="form-group">
-                <label for="ecf-type-select">Tipo de Documento <span style="color: var(--accent-red); font-weight: bold; margin-left: 2px;">*</span></label>
-                <select id="ecf-type-select" name="ecfType" class="form-select" required>
-                    <option value="Factura de Consumo (E32)" {% if invoice and invoice.ecfType == 'Factura de Consumo (E32)' %}selected{% endif %}>E32 - Factura de Consumo (Público General)</option>
-                    <option value="Factura de Crédito Fiscal (E31)" {% if invoice and invoice.ecfType == 'Factura de Crédito Fiscal (E31)' %}selected{% endif %}>E31 - Crédito Fiscal (RNC Corporativo)</option>
-                    <option value="Comprobante de Compras (E41)" {% if invoice and invoice.ecfType == 'Comprobante de Compras (E41)' %}selected{% endif %}>E41 - Comprobante de Compras</option>
-                    <option value="Gastos Menores (E43)" {% if invoice and invoice.ecfType == 'Gastos Menores (E43)' %}selected{% endif %}>E43 - Gastos Menores</option>
-                    <option value="Pagos al Exterior (E47)" {% if invoice and invoice.ecfType == 'Pagos al Exterior (E47)' %}selected{% endif %}>E47 - Pagos al Exterior</option>
-                </select>
-            </div>
-            {% endif %}
-            
-            <!-- Selector de Cliente CRM (Buscador Avanzado Premium) -->
-            <div class="form-group">
-                <label for="client-search-input">Cliente Asociado (CRM)</label>
-                <div style="position: relative; display: flex; gap: 8px;">
-                    <input type="text" id="client-search-input" class="form-input" readonly placeholder="-- Haz clic para buscar en Agenda CRM --" style="cursor: pointer; flex-grow: 1; text-overflow: ellipsis; white-space: nowrap; overflow: hidden;" value="{% if invoice and invoice.clientName %}{{ invoice.clientName }} ({{ invoice.clientRNC or 'Consumidor Final' }}){% endif %}">
-                    <input type="hidden" id="client-id-hidden" name="clientId" value="{% if invoice %}{{ invoice.clientId or '' }}{% endif %}">
-                    <button type="button" id="btn-open-client-modal" class="btn btn-secondary" style="padding: 12px 14px;" title="Buscar Cliente">
-                        <i class="fa-solid fa-magnifying-glass"></i>
-                    </button>
-                </div>
-            </div>
-            
-            <!-- RNC del Receptor -->
-            <div class="form-group">
-                <label for="client-rnc-input">RNC / Cédula Receptor</label>
-                <input type="text" id="client-rnc-input" name="clientRNC" class="form-input" placeholder="999999999 (Consumidor Final)" style="font-family: monospace;" value="{% if invoice %}{{ invoice.clientRNC or '' }}{% endif %}">
-                <small id="client-warning" style="color: var(--accent-red); font-size: 0.75rem; margin-top: 4px; display: none;"></small>
-            </div>
-            
-            <div class="form-group">
-                <label for="currency-select">Moneda</label>
-                <select id="currency-select" name="currency" class="form-select">
-                    <option value="DOP" {% if not invoice or invoice.currency == 'DOP' %}selected{% endif %}>Pesos Dominicanos (DOP)</option>
-                    <option value="USD" {% if invoice and invoice.currency == 'USD' %}selected{% endif %}>Dólares Estadounidenses (USD)</option>
-                    <option value="EUR" {% if invoice and invoice.currency == 'EUR' %}selected{% endif %}>Euros (EUR)</option>
-                </select>
-            </div>
-            
-            <!-- Condición de Pago (paymentType) -->
-            <div class="form-group">
-                <label for="payment-type-select">Condición de Pago</label>
-                <select id="payment-type-select" name="paymentType" class="form-select">
-                    <option value="Contado" {% if not invoice or invoice.paymentType == 'Contado' %}selected{% endif %}>Contado (Inmediato)</option>
-                    <option value="Crédito" {% if invoice and invoice.paymentType == 'Crédito' %}selected{% endif %}>Crédito (A Plazo)</option>
-                </select>
-            </div>
-            
-            <!-- Forma de Pago / Medio de Pago (paymentMethod) -->
-            <div class="form-group" id="payment-method-group">
-                <label for="payment-method-select">Forma de Pago</label>
-                <select id="payment-method-select" name="paymentMethod" class="form-select">
-                    <option value="Efectivo" {% if not invoice or invoice.paymentMethod == 'Efectivo' %}selected{% endif %}>Efectivo</option>
-                    <option value="Cheque / Transferencia" {% if invoice and invoice.paymentMethod == 'Cheque / Transferencia' %}selected{% endif %}>Cheque / Transferencia Bancaria</option>
-                    <option value="Tarjeta de Crédito / Débito" {% if invoice and invoice.paymentMethod == 'Tarjeta de Crédito / Débito' %}selected{% endif %}>Tarjeta de Crédito / Débito</option>
-                    <option value="Crédito" {% if invoice and invoice.paymentMethod == 'Crédito' %}selected{% endif %}>Crédito (Cuentas por Cobrar)</option>
-                </select>
-            </div>
 
-            <!-- Configurar Acuerdo de Pago (Solo Crédito) -->
-            <div id="payment-agreement-group" style="display: none; grid-column: 1 / -1; background-color: rgba(255, 255, 255, 0.01); border: 1px dashed var(--border-color); border-radius: var(--radius-sm); padding: 20px; margin-top: 10px; margin-bottom: 10px;">
-                <h4 style="font-size: 0.95rem; font-family: var(--font-heading); margin-top: 0; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; color: var(--accent-purple);">
-                    <i class="fa-solid fa-calendar-days"></i>
-                    <span>Estructurar Acuerdo de Pago (Cuotas)</span>
-                </h4>
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px;">
-                    <div class="form-group" style="margin-bottom: 0;">
-                        <label for="agreement-enabled-select">¿Dividir Pago en Cuotas?</label>
-                        <select id="agreement-enabled-select" name="agreementEnabled" class="form-select">
-                            <option value="false">No, pago único al vencimiento</option>
-                            <option value="true">Sí, crear calendario de cuotas</option>
-                        </select>
-                    </div>
-                    
-                    <div id="agreement-details-fields" style="display: none; grid-column: span 3; grid-template-columns: repeat(3, 1fr); gap: 20px;">
+    <!-- FILA SUPERIOR: ENCABEZADO + CLIENTE LADO A LADO -->
+    <div style="display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 18px; margin-bottom: 18px; align-items: start;">
+
+        <!-- TARJETA 1: ENCABEZADO DEL DOCUMENTO -->
+        <div class="card-segment" style="margin-bottom: 0;">
+            <div class="segment-header">
+                <div class="segment-header-icon emerald">
+                    <i class="fa-solid fa-file-signature"></i>
+                </div>
+                <h3>Encabezado del Documento</h3>
+            </div>
+            
+            <div class="form-grid">
+                {% if active_page == 'quotations' %}
+                <input type="hidden" name="ecfType" value="Cotización">
+                {% else %}
+                <!-- Selector de Tipo de Documento -->
+                <div class="form-group">
+                    <label for="ecf-type-select">Tipo de Documento <span style="color: var(--accent-red); font-weight: bold; margin-left: 2px;">*</span></label>
+                    <select id="ecf-type-select" name="ecfType" class="form-select" required>
+                        <option value="Factura de Consumo (E32)" {% if invoice and invoice.ecfType == 'Factura de Consumo (E32)' %}selected{% endif %}>E32 - Factura de Consumo (Público General)</option>
+                        <option value="Factura de Crédito Fiscal (E31)" {% if invoice and invoice.ecfType == 'Factura de Crédito Fiscal (E31)' %}selected{% endif %}>E31 - Crédito Fiscal (RNC Corporativo)</option>
+                        <option value="Comprobante de Compras (E41)" {% if invoice and invoice.ecfType == 'Comprobante de Compras (E41)' %}selected{% endif %}>E41 - Comprobante de Compras</option>
+                        <option value="Gastos Menores (E43)" {% if invoice and invoice.ecfType == 'Gastos Menores (E43)' %}selected{% endif %}>E43 - Gastos Menores</option>
+                        <option value="Pagos al Exterior (E47)" {% if invoice and invoice.ecfType == 'Pagos al Exterior (E47)' %}selected{% endif %}>E47 - Pagos al Exterior</option>
+                    </select>
+                </div>
+                {% endif %}
+                
+                <div class="form-group">
+                    <label for="currency-select">Moneda</label>
+                    <select id="currency-select" name="currency" class="form-select">
+                        <option value="DOP" {% if not invoice or invoice.currency == 'DOP' %}selected{% endif %}>Pesos Dominicanos (DOP)</option>
+                        <option value="USD" {% if invoice and invoice.currency == 'USD' %}selected{% endif %}>Dólares Estadounidenses (USD)</option>
+                        <option value="EUR" {% if invoice and invoice.currency == 'EUR' %}selected{% endif %}>Euros (EUR)</option>
+                    </select>
+                </div>
+                
+                <!-- Condición de Pago -->
+                <div class="form-group">
+                    <label for="payment-type-select">Condición de Pago</label>
+                    <select id="payment-type-select" name="paymentType" class="form-select">
+                        <option value="Contado" {% if not invoice or invoice.paymentType == 'Contado' %}selected{% endif %}>Contado (Inmediato)</option>
+                        <option value="Crédito" {% if invoice and invoice.paymentType == 'Crédito' %}selected{% endif %}>Crédito (A Plazo)</option>
+                    </select>
+                </div>
+                
+                <!-- Forma de Pago -->
+                <div class="form-group" id="payment-method-group">
+                    <label for="payment-method-select">Forma de Pago</label>
+                    <select id="payment-method-select" name="paymentMethod" class="form-select">
+                        <option value="Efectivo" {% if not invoice or invoice.paymentMethod == 'Efectivo' %}selected{% endif %}>Efectivo</option>
+                        <option value="Cheque / Transferencia" {% if invoice and invoice.paymentMethod == 'Cheque / Transferencia' %}selected{% endif %}>Cheque / Transferencia Bancaria</option>
+                        <option value="Tarjeta de Crédito / Débito" {% if invoice and invoice.paymentMethod == 'Tarjeta de Crédito / Débito' %}selected{% endif %}>Tarjeta de Crédito / Débito</option>
+                        <option value="Crédito" {% if invoice and invoice.paymentMethod == 'Crédito' %}selected{% endif %}>Crédito (Cuentas por Cobrar)</option>
+                    </select>
+                </div>
+
+                <!-- Configurar Acuerdo de Pago (Solo Crédito) -->
+                <div id="payment-agreement-group" style="display: none; grid-column: 1 / -1; background-color: rgba(255, 255, 255, 0.01); border: 1px dashed var(--border-color); border-radius: var(--radius-sm); padding: 16px; margin-top: 4px;">
+                    <h4 style="font-size: 0.88rem; font-family: var(--font-heading); margin-top: 0; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; color: var(--accent-purple);">
+                        <i class="fa-solid fa-calendar-days"></i>
+                        <span>Estructurar Acuerdo de Pago (Cuotas)</span>
+                    </h4>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px;">
                         <div class="form-group" style="margin-bottom: 0;">
-                            <label for="installments-count-select">Cantidad de Cuotas</label>
-                            <select id="installments-count-select" name="installmentsCount" class="form-select">
-                                <option value="2">2 Cuotas</option>
-                                <option value="3">3 Cuotas</option>
-                                <option value="4">4 Cuotas</option>
-                                <option value="6">6 Cuotas</option>
-                                <option value="12">12 Cuotas</option>
+                            <label for="agreement-enabled-select">¿Dividir en Cuotas?</label>
+                            <select id="agreement-enabled-select" name="agreementEnabled" class="form-select">
+                                <option value="false">No, pago único</option>
+                                <option value="true">Sí, calendario de cuotas</option>
                             </select>
                         </div>
-                        <div class="form-group" style="margin-bottom: 0;">
-                            <label for="agreement-frequency-select">Frecuencia de Pago</label>
-                            <select id="agreement-frequency-select" name="agreementFrequency" class="form-select">
-                                <option value="mensual">Mensual (30 días)</option>
-                                <option value="quincenal">Quincenal (15 días)</option>
-                                <option value="semanal">Semanal (7 días)</option>
-                            </select>
-                        </div>
-                        <div class="form-group" style="margin-bottom: 0;">
-                            <label for="late-fee-input">Tasa de Mora Mensual (%)</label>
-                            <input type="number" id="late-fee-input" name="lateFeePercentage" class="form-input" min="0" max="100" step="0.1" value="5.0" style="width: 100%;">
+                        <div id="agreement-details-fields" style="display: none; grid-column: span 3; grid-template-columns: repeat(3, 1fr); gap: 12px;">
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label for="installments-count-select">Cantidad de Cuotas</label>
+                                <select id="installments-count-select" name="installmentsCount" class="form-select">
+                                    <option value="2">2 Cuotas</option>
+                                    <option value="3">3 Cuotas</option>
+                                    <option value="4">4 Cuotas</option>
+                                    <option value="6">6 Cuotas</option>
+                                    <option value="12">12 Cuotas</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label for="agreement-frequency-select">Frecuencia de Pago</label>
+                                <select id="agreement-frequency-select" name="agreementFrequency" class="form-select">
+                                    <option value="mensual">Mensual (30 días)</option>
+                                    <option value="quincenal">Quincenal (15 días)</option>
+                                    <option value="semanal">Semanal (7 días)</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label for="late-fee-input">Tasa de Mora Mensual (%)</label>
+                                <input type="number" id="late-fee-input" name="lateFeePercentage" class="form-input" min="0" max="100" step="0.1" value="5.0" style="width: 100%;">
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
 
-            {% if active_page != 'quotations' %}
-            <div class="form-group">
-                <label for="branch-select">Sucursal Emisora <span style="color: var(--accent-red); font-weight: bold; margin-left: 2px;">*</span></label>
-                <select id="branch-select" name="branchId" class="form-select" required>
-                    {% for branch in branches %}
-                    <option value="{{ branch.id }}" {% if invoice and invoice.branchId == branch.id %}selected{% elif not invoice and branch.isDefault %}selected{% endif %}>{{ branch.name }}</option>
-                    {% endfor %}
-                </select>
-            </div>
+                {% if active_page != 'quotations' %}
+                <div class="form-group">
+                    <label for="branch-select">Sucursal Emisora <span style="color: var(--accent-red); font-weight: bold; margin-left: 2px;">*</span></label>
+                    <select id="branch-select" name="branchId" class="form-select" required>
+                        {% for branch in branches %}
+                        <option value="{{ branch.id }}" {% if invoice and invoice.branchId == branch.id %}selected{% elif not invoice and branch.isDefault %}selected{% endif %}>{{ branch.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
 
-            <div class="form-group">
-                <label for="warehouse-select">Almacén de Despacho <span style="color: var(--accent-red); font-weight: bold; margin-left: 2px;">*</span></label>
-                <select id="warehouse-select" name="warehouseId" class="form-select" required>
-                    {% for wh in warehouses %}
-                    <option value="{{ wh.id }}" {% if invoice and invoice.warehouseId == wh.id %}selected{% elif not invoice and loop.first %}selected{% endif %}>{{ wh.name }}</option>
-                    {% endfor %}
-                </select>
-            </div>
+                <div class="form-group">
+                    <label for="warehouse-select">Almacén de Despacho <span style="color: var(--accent-red); font-weight: bold; margin-left: 2px;">*</span></label>
+                    <select id="warehouse-select" name="warehouseId" class="form-select" required>
+                        {% for wh in warehouses %}
+                        <option value="{{ wh.id }}" {% if invoice and invoice.warehouseId == wh.id %}selected{% elif not invoice and loop.first %}selected{% endif %}>{{ wh.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
 
-            <div class="form-group">
-                <label for="income-type-select">Tipo de Ingreso (DGII) <span style="color: var(--accent-red); font-weight: bold; margin-left: 2px;">*</span></label>
-                <select id="income-type-select" name="incomeType" class="form-select" required>
-                    <option value="01 - Ingresos por operaciones" {% if not invoice or invoice.incomeType == '01 - Ingresos por operaciones' %}selected{% endif %}>01 - Ingresos por operaciones</option>
-                    <option value="02 - Ingresos Financieros" {% if invoice and invoice.incomeType == '02 - Ingresos Financieros' %}selected{% endif %}>02 - Ingresos Financieros</option>
-                    <option value="03 - Ingresos Extraordinarios" {% if invoice and invoice.incomeType == '03 - Ingresos Extraordinarios' %}selected{% endif %}>03 - Ingresos Extraordinarios</option>
-                    <option value="04 - Arrendamientos" {% if invoice and invoice.incomeType == '04 - Arrendamientos' %}selected{% endif %}>04 - Arrendamientos</option>
-                    <option value="05 - Venta de Activo Depreciable" {% if invoice and invoice.incomeType == '05 - Venta de Activo Depreciable' %}selected{% endif %}>05 - Venta de Activo Depreciable</option>
-                    <option value="06 - Otros Ingresos" {% if invoice and invoice.incomeType == '06 - Otros Ingresos' %}selected{% endif %}>06 - Otros Ingresos</option>
-                </select>
-            </div>
-            {% endif %}
+                <div class="form-group">
+                    <label for="income-type-select">Tipo de Ingreso (DGII) <span style="color: var(--accent-red); font-weight: bold; margin-left: 2px;">*</span></label>
+                    <select id="income-type-select" name="incomeType" class="form-select" required>
+                        <option value="01 - Ingresos por operaciones" {% if not invoice or invoice.incomeType == '01 - Ingresos por operaciones' %}selected{% endif %}>01 - Ingresos por operaciones</option>
+                        <option value="02 - Ingresos Financieros" {% if invoice and invoice.incomeType == '02 - Ingresos Financieros' %}selected{% endif %}>02 - Ingresos Financieros</option>
+                        <option value="03 - Ingresos Extraordinarios" {% if invoice and invoice.incomeType == '03 - Ingresos Extraordinarios' %}selected{% endif %}>03 - Ingresos Extraordinarios</option>
+                        <option value="04 - Arrendamientos" {% if invoice and invoice.incomeType == '04 - Arrendamientos' %}selected{% endif %}>04 - Arrendamientos</option>
+                        <option value="05 - Venta de Activo Depreciable" {% if invoice and invoice.incomeType == '05 - Venta de Activo Depreciable' %}selected{% endif %}>05 - Venta de Activo Depreciable</option>
+                        <option value="06 - Otros Ingresos" {% if invoice and invoice.incomeType == '06 - Otros Ingresos' %}selected{% endif %}>06 - Otros Ingresos</option>
+                    </select>
+                </div>
+                {% endif %}
 
-            <div class="form-group">
-                <label for="due-date">Fecha Límite de Vencimiento / Pago <span style="color: var(--accent-red); font-weight: bold; margin-left: 2px;">*</span></label>
-                <input type="date" id="due-date" name="dueDate" class="form-input" required value="{{ default_due_date }}">
+                <div class="form-group">
+                    <label for="due-date">Fecha de Vencimiento / Pago <span style="color: var(--accent-red); font-weight: bold; margin-left: 2px;">*</span></label>
+                    <input type="date" id="due-date" name="dueDate" class="form-input" required value="{{ default_due_date }}">
+                </div>
             </div>
         </div>
-    </div>
+
+        <!-- TARJETA 1B: DATOS DEL CLIENTE / RECEPTOR -->
+        <div class="card-segment" style="margin-bottom: 0;">
+            <div class="segment-header">
+                <div class="segment-header-icon" style="background-color: rgba(59, 130, 246, 0.08); color: #3b82f6;">
+                    <i class="fa-solid fa-address-card"></i>
+                </div>
+                <h3 style="flex-grow: 1;">Datos del Cliente / Receptor</h3>
+                <button type="button" id="btn-create-client-modal" class="btn btn-primary" style="padding: 6px 12px; font-size: 0.8rem; gap: 5px;">
+                    <i class="fa-solid fa-user-plus"></i>
+                    <span>Nuevo Cliente</span>
+                </button>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+                <!-- Buscador CRM -->
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label for="client-search-input">Buscar en Agenda CRM</label>
+                    <div style="display: flex; gap: 8px;">
+                        <input type="text" id="client-search-input" class="form-input" readonly placeholder="-- Clic para buscar en CRM --" style="cursor: pointer; flex-grow: 1; text-overflow: ellipsis; white-space: nowrap; overflow: hidden;" value="{% if invoice and invoice.clientName %}{{ invoice.clientName }} ({{ invoice.clientRNC or 'Consumidor Final' }}){% endif %}">
+                        <input type="hidden" id="client-id-hidden" name="clientId" value="{% if invoice %}{{ invoice.clientId or '' }}{% endif %}">
+                        <button type="button" id="btn-open-client-modal" class="btn btn-secondary" style="padding: 8px 14px; white-space: nowrap;" title="Buscar Cliente">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                        </button>
+                    </div>
+                </div>
+                <!-- RNC del Receptor -->
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label for="client-rnc-input">RNC / Cédula del Receptor</label>
+                    <input type="text" id="client-rnc-input" name="clientRNC" class="form-input" placeholder="Ej: 101234567 (vacío = Consumidor Final)" style="font-family: monospace;" value="{% if invoice %}{{ invoice.clientRNC or '' }}{% endif %}">
+                    <small id="client-warning" style="color: var(--accent-red); font-size: 0.75rem; margin-top: 2px; display: none;"></small>
+                </div>
+            </div>
+        </div>
+
+    </div><!-- / fin fila superior -->
 
     <!-- TARJETA 2: PARTIDAS -->
+
     <div class="card-segment">
         <div class="segment-header">
             <div class="segment-header-icon purple">
@@ -241,168 +260,147 @@
         </div>
     </div>
 
-    <!-- TARJETA 3 Y 4: RETENCIONES & RESUMEN FINANCIERO -->
-    <div style="display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 30px; align-items: start; margin-bottom: 30px;">
-        
-        <!-- Tarjeta 3: Retenciones y Recurrencia -->
-        <div class="card-segment" style="margin-bottom: 0;">
-            <div class="segment-header">
-                <div class="segment-header-icon yellow">
-                    <i class="fa-solid fa-percent"></i>
-                </div>
-                <h3>Ajustes Globales y Retenciones (RD)</h3>
+    <!-- TARJETA 3: AJUSTES GLOBALES Y RETENCIONES (ANCHO COMPLETO) -->
+    <div class="card-segment">
+        <div class="segment-header">
+            <div class="segment-header-icon yellow">
+                <i class="fa-solid fa-percent"></i>
             </div>
-            
-            <div class="form-group" style="margin-bottom: 20px;">
-                <label for="discount-global">Descuento Comercial Global (%)</label>
-                <input type="number" id="discount-global" name="discountRate" class="form-input" min="0" max="1" step="0.01" value="0.00" placeholder="Ej: 0.10 para 10%">
-            </div>
-            
-            <div class="form-grid" style="gap: 16px; margin-bottom: 24px;">
-                <div class="form-group">
-                    <label for="isr-rate-select">Retención de ISR (Persona Física)</label>
-                    <select id="isr-rate-select" name="retainedISRRate" class="form-select">
-                        <option value="0.0" selected>Sin retención (0%)</option>
-                        <option value="0.02">2% (Bienes y servicios normales)</option>
-                        <option value="0.10">10% (Honorarios Profesionales / Alquiler)</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label for="itbis-rate-select">Retención de ITBIS</label>
-                    <select id="itbis-rate-select" name="retainedITBISRate" class="form-select">
-                        <option value="0.0" selected>Sin retención (0%)</option>
-                        <option value="0.30">30% (ITBIS de Bienes corporativos)</option>
-                        <option value="0.75">75% (Servicios normales entre jurídicos)</option>
-                        <option value="1.00">100% (Profesionales independientes)</option>
-                    </select>
-                </div>
-            </div>
+            <h3>Ajustes Globales y Retenciones (RD)</h3>
+        </div>
 
-            <!-- Opciones de Recurrencia Programada -->
-            <div class="segment-header" style="margin-top: 10px; margin-bottom: 20px;">
-                <div class="segment-header-icon purple" style="background-color: rgba(139, 92, 246, 0.08); color: var(--accent-purple);">
-                    <i class="fa-solid fa-arrows-spin"></i>
-                </div>
-                <h3>Automatizar / Recurrencia</h3>
+        <!-- Grid de 4 columnas: aprovecha el ancho completo -->
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; align-items: end;">
+            <div class="form-group" style="margin-bottom: 0;">
+                <label for="discount-global">Descuento Global (%)</label>
+                <input type="number" id="discount-global" name="discountRate" class="form-input" min="0" max="1" step="0.01" value="0.00" placeholder="Ej: 0.10 = 10%">
             </div>
-            
-            <div class="form-grid" style="gap: 16px;">
-                <div class="form-group">
-                    <label for="is-recurring">¿Es Factura Recurrente?</label>
-                    <select id="is-recurring" name="isRecurring" class="form-select" onchange="document.getElementById('recurrence-fields').style.display=this.value==='true'?'grid':'none'">
-                        <option value="false" {% if not invoice or not invoice.isRecurring %}selected{% endif %}>No, emisión única</option>
-                        <option value="true" {% if invoice and invoice.isRecurring %}selected{% endif %}>Sí, programar recurrencia</option>
-                    </select>
-                </div>
-                
-                <div class="form-grid" id="recurrence-fields" style="display: {% if invoice and invoice.isRecurring %}grid{% else %}none{% endif %}; gap: 16px; grid-column: 1 / -1;">
-                    <div class="form-group">
-                        <label for="recurrence-interval">Frecuencia</label>
-                        <select id="recurrence-interval" name="recurrenceInterval" class="form-select">
-                            <option value="semanal" {% if invoice and invoice.recurrenceInterval == 'semanal' %}selected{% endif %}>Semanal</option>
-                            <option value="quincenal" {% if invoice and invoice.recurrenceInterval == 'quincenal' %}selected{% endif %}>Quincenal</option>
-                            <option value="mensual" {% if not invoice or invoice.recurrenceInterval == 'mensual' %}selected{% endif %}>Mensual</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="next-recurrence">Primera Ocurrencia Programada</label>
-                        <input type="date" id="next-recurrence" name="nextOccurrenceDate" class="form-input" value="{% if invoice %}{{ invoice.nextOccurrenceDate or '' }}{% endif %}">
-                    </div>
-                </div>
+            <div class="form-group" style="margin-bottom: 0;">
+                <label for="isr-rate-select">Retención ISR</label>
+                <select id="isr-rate-select" name="retainedISRRate" class="form-select">
+                    <option value="0.0" selected>Sin retención (0%)</option>
+                    <option value="0.02">2% — Bienes y servicios</option>
+                    <option value="0.10">10% — Honorarios / Alquiler</option>
+                </select>
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+                <label for="itbis-rate-select">Retención ITBIS</label>
+                <select id="itbis-rate-select" name="retainedITBISRate" class="form-select">
+                    <option value="0.0" selected>Sin retención (0%)</option>
+                    <option value="0.30">30% — Bienes corporativos</option>
+                    <option value="0.75">75% — Servicios jurídicos</option>
+                    <option value="1.00">100% — Profesionales independientes</option>
+                </select>
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+                <label for="is-recurring">¿Factura Recurrente?</label>
+                <select id="is-recurring" name="isRecurring" class="form-select" onchange="document.getElementById('recurrence-fields').style.display=this.value==='true'?'grid':'none'">
+                    <option value="false" {% if not invoice or not invoice.isRecurring %}selected{% endif %}>No, emisión única</option>
+                    <option value="true" {% if invoice and invoice.isRecurring %}selected{% endif %}>Sí, programar recurrencia</option>
+                </select>
             </div>
         </div>
-        
-        <!-- Tarjeta 4: Resumen Financiero de Totales robusto de la DGII -->
-        <div class="card-totals-highlight" style="grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 40px; padding: 28px; background: #fff; border: 1px solid var(--border-color); border-radius: 12px; margin-top: 20px;">
-            <!-- Elementos de compatibilidad ocultos fuera del flujo del grid -->
-            <div style="display: none !important;">
-                <span id="lbl-total">RD$ 0.00</span>
-                <div id="lbl-isc-container"><span id="lbl-isc">RD$ 0.00</span></div>
+
+        <!-- Sub-campos de Recurrencia (se expanden si se selecciona "Sí") -->
+        <div id="recurrence-fields" style="display: {% if invoice and invoice.isRecurring %}grid{% else %}none{% endif %}; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-top: 14px; padding-top: 14px; border-top: 1px dashed var(--border-color);">
+            <div class="form-group" style="margin-bottom: 0;">
+                <label for="recurrence-interval">Frecuencia de Recurrencia</label>
+                <select id="recurrence-interval" name="recurrenceInterval" class="form-select">
+                    <option value="semanal" {% if invoice and invoice.recurrenceInterval == 'semanal' %}selected{% endif %}>Semanal</option>
+                    <option value="quincenal" {% if invoice and invoice.recurrenceInterval == 'quincenal' %}selected{% endif %}>Quincenal</option>
+                    <option value="mensual" {% if not invoice or invoice.recurrenceInterval == 'mensual' %}selected{% endif %}>Mensual</option>
+                </select>
             </div>
-            
-            <!-- Columna Izquierda: TOTAL IMPUESTOS -->
+            <div class="form-group" style="margin-bottom: 0;">
+                <label for="next-recurrence">Primera Ocurrencia Programada</label>
+                <input type="date" id="next-recurrence" name="nextOccurrenceDate" class="form-input" value="{% if invoice %}{{ invoice.nextOccurrenceDate or '' }}{% endif %}">
+            </div>
+        </div>
+    </div>
+
+    <!-- TARJETA 4: RESUMEN FINANCIERO DE TOTALES (ANCHO COMPLETO) -->
+    <div class="card-totals-highlight" style="margin-bottom: 18px; display: flex; flex-direction: column; padding: 18px 22px; gap: 0;">
+        <!-- Elementos de compatibilidad ocultos fuera del flujo del grid -->
+        <div style="display: none !important;">
+            <span id="lbl-total">RD$ 0.00</span>
+            <div id="lbl-isc-container"><span id="lbl-isc">RD$ 0.00</span></div>
+        </div>
+
+        <!-- Grid interno: Impuestos | Totales -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 18px;">
+
+            <!-- Col Izquierda: TOTAL IMPUESTOS -->
             <div>
-                <h4 style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 18px; border-bottom: 2px solid #3b82f6; padding-bottom: 8px; color: var(--text-primary); text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 8px;">
+                <h4 style="font-size: 0.82rem; font-family: var(--font-heading); margin-bottom: 10px; border-bottom: 2px solid #3b82f6; padding-bottom: 6px; color: var(--text-primary); text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px;">
                     <i class="fa-solid fa-receipt" style="color: #3b82f6;"></i>
-                    <span>Total Impuestos</span>
+                    <span>Impuestos</span>
                 </h4>
-                
-                <div style="display: flex; justify-content: space-between; font-size: 0.95rem; color: var(--text-secondary); margin-bottom: 10px;">
-                    <span>Total Propina (10%):</span>
+                <div style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 6px;">
+                    <span>Propina (10%):</span>
                     <span id="lbl-total-propina" style="font-weight: 600; color: var(--text-primary);">RD$ 0.00</span>
                 </div>
-                
-                <div style="display: flex; justify-content: space-between; font-size: 0.95rem; color: var(--text-secondary); margin-bottom: 10px;">
-                    <span>Total CDT (2%):</span>
+                <div style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 6px;">
+                    <span>CDT (2%):</span>
                     <span id="lbl-total-cdt" style="font-weight: 600; color: var(--text-primary);">RD$ 0.00</span>
                 </div>
-                
-                <div style="display: flex; justify-content: space-between; font-size: 0.95rem; color: var(--text-secondary); margin-bottom: 10px;">
-                    <span>Total ITBIS:</span>
+                <div style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 6px;">
+                    <span>ITBIS:</span>
                     <span id="lbl-itbis" style="font-weight: 600; color: var(--text-primary);">RD$ 0.00</span>
                 </div>
-                
-                <div style="display: flex; justify-content: space-between; font-size: 0.95rem; color: var(--text-secondary); margin-bottom: 10px;">
-                    <span>Total ISC:</span>
+                <div style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 6px;">
+                    <span>ISC Total:</span>
                     <span id="lbl-total-isc" style="font-weight: 600; color: var(--text-primary);">RD$ 0.00</span>
                 </div>
-                
-                <div style="display: flex; justify-content: space-between; font-size: 0.95rem; color: var(--text-secondary); margin-bottom: 10px;">
-                    <span>Total ISC Específico:</span>
+                <div style="display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 4px; padding-left: 8px;">
+                    <span style="color: var(--text-muted);">↳ Específico:</span>
                     <span id="lbl-total-isc-especifico" style="font-weight: 600; color: var(--text-primary);">RD$ 0.00</span>
                 </div>
-                
-                <div style="display: flex; justify-content: space-between; font-size: 0.95rem; color: var(--text-secondary); margin-bottom: 10px;">
-                    <span>Total ISC AdValorem:</span>
+                <div style="display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 8px; padding-left: 8px;">
+                    <span style="color: var(--text-muted);">↳ AdValorem:</span>
                     <span id="lbl-total-isc-advalorem" style="font-weight: 600; color: var(--text-primary);">RD$ 0.00</span>
                 </div>
-                
-                <div style="display: flex; justify-content: space-between; font-size: 1.05rem; font-weight: 700; border-top: 1px solid var(--border-color); padding-top: 12px; color: #3b82f6; margin-top: 15px;">
+                <div style="display: flex; justify-content: space-between; font-size: 0.9rem; font-weight: 700; border-top: 1px solid var(--border-color); padding-top: 8px; color: #3b82f6;">
                     <span>TOTAL IMPUESTOS:</span>
                     <span id="lbl-total-impuestos">RD$ 0.00</span>
                 </div>
             </div>
-            
-            <!-- Columna Derecha: TOTALES -->
-            <div>
-                <h4 style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 18px; border-bottom: 2px solid var(--accent-emerald); padding-bottom: 8px; color: var(--text-primary); text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 8px;">
-                    <i class="fa-solid fa-coins" style="color: var(--accent-emerald);"></i>
-                    <span>Totales</span>
-                </h4>
-                
-                <div style="display: flex; justify-content: space-between; font-size: 0.95rem; color: var(--text-secondary); margin-bottom: 10px;">
-                    <span>Total Neto (Subtotal):</span>
-                    <span id="lbl-subtotal" style="font-weight: 600; color: var(--text-primary);">RD$ 0.00</span>
+
+            <!-- Col Derecha: TOTALES -->
+            <div style="display: flex; flex-direction: column; justify-content: space-between;">
+                <div>
+                    <h4 style="font-size: 0.82rem; font-family: var(--font-heading); margin-bottom: 10px; border-bottom: 2px solid var(--accent-emerald); padding-bottom: 6px; color: var(--text-primary); text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px;">
+                        <i class="fa-solid fa-coins" style="color: var(--accent-emerald);"></i>
+                        <span>Totales</span>
+                    </h4>
+                    <div style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 6px;">
+                        <span>Subtotal Neto:</span>
+                        <span id="lbl-subtotal" style="font-weight: 600; color: var(--text-primary);">RD$ 0.00</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 6px;">
+                        <span>Total Ítems:</span>
+                        <span id="lbl-total-items-qty" style="font-weight: 600; color: var(--text-primary);">0</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 6px;">
+                        <span>ITBIS Retenido:</span>
+                        <span id="lbl-retained-itbis" style="font-weight: 600; color: var(--text-primary);">RD$ 0.00</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 6px;">
+                        <span>ISR Retenido:</span>
+                        <span id="lbl-retained-isr" style="font-weight: 600; color: var(--text-primary);">RD$ 0.00</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 8px;">
+                        <span>Descuentos:</span>
+                        <span id="lbl-discount" style="font-weight: 600; color: var(--accent-red);">RD$ 0.00</span>
+                    </div>
                 </div>
-                
-                <div style="display: flex; justify-content: space-between; font-size: 0.95rem; color: var(--text-secondary); margin-bottom: 10px;">
-                    <span>Total Ítems:</span>
-                    <span id="lbl-total-items-qty" style="font-weight: 600; color: var(--text-primary);">0</span>
-                </div>
-                
-                <div style="display: flex; justify-content: space-between; font-size: 0.95rem; color: var(--text-secondary); margin-bottom: 10px;">
-                    <span>Total ITBIS Retenido:</span>
-                    <span id="lbl-retained-itbis" style="font-weight: 600; color: var(--text-primary);">RD$ 0.00</span>
-                </div>
-                
-                <div style="display: flex; justify-content: space-between; font-size: 0.95rem; color: var(--text-secondary); margin-bottom: 10px;">
-                    <span>Total ISR Retenido:</span>
-                    <span id="lbl-retained-isr" style="font-weight: 600; color: var(--text-primary);">RD$ 0.00</span>
-                </div>
-                
-                <div style="display: flex; justify-content: space-between; font-size: 0.95rem; color: var(--text-secondary); margin-bottom: 10px;">
-                    <span>Total Descuentos Globales:</span>
-                    <span id="lbl-discount" style="font-weight: 600; color: var(--accent-red);">RD$ 0.00</span>
-                </div>
-                
-                <div style="display: flex; justify-content: space-between; font-size: 1.35rem; font-weight: 800; border-top: 2px dashed var(--border-color); padding-top: 14px; color: var(--accent-emerald); margin-top: 15px;">
+                <div style="display: flex; justify-content: space-between; font-size: 1.2rem; font-weight: 800; border-top: 2px dashed var(--border-color); padding-top: 10px; color: var(--accent-emerald); margin-top: 4px;">
                     <span>TOTAL FACTURA:</span>
                     <span id="lbl-net-payable">RD$ 0.00</span>
                 </div>
             </div>
-        </div>
-    </div>
+
+        </div><!-- /grid interno -->
+    </div><!-- /card-totals-highlight -->
 
     <!-- BARRA DE ACCIONES FINAL -->
     <div style="display: flex; justify-content: flex-end; gap: 15px; border-top: 1px solid var(--border-color); padding-top: 24px; margin-bottom: 12px;">
@@ -428,6 +426,50 @@
 <!-- =========================================================================
      MODALES PREMIUM DE BÚSQUEDA AVANZADA (CLIENTES Y PRODUCTOS)
      ========================================================================= -->
+
+<!-- Modal Registrar Nuevo Cliente (AJAX - sin recargar) -->
+<div class="search-modal" id="client-create-modal" style="display: none;">
+    <div class="modal-backdrop" id="client-create-modal-backdrop"></div>
+    <div class="modal-content" style="max-width: 600px;">
+        <div class="modal-header">
+            <h3><i class="fa-solid fa-user-plus" style="color: var(--accent-emerald);"></i> Registrar Nuevo Cliente</h3>
+            <button type="button" class="btn-close-modal" id="btn-close-create-client-modal"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body">
+            <div id="create-client-alert" style="display:none; padding: 10px 16px; border-radius: var(--radius-sm); margin-bottom: 16px; font-size: 0.87rem; font-weight: 500;"></div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                <div class="form-group">
+                    <label for="new-client-rnc">RNC / Cédula <span style="font-size: 0.75rem; color: var(--text-muted);">(opcional para consumidor)</span></label>
+                    <input type="text" id="new-client-rnc" class="form-input" placeholder="Ej: 101234567" style="font-family: monospace;">
+                </div>
+                <div class="form-group">
+                    <label for="new-client-razon">Razón Social / Nombre <span style="color: var(--accent-red);">*</span></label>
+                    <input type="text" id="new-client-razon" class="form-input" placeholder="Nombre completo o empresa">
+                </div>
+                <div class="form-group">
+                    <label for="new-client-email">Correo Electrónico</label>
+                    <input type="email" id="new-client-email" class="form-input" placeholder="cliente@empresa.com">
+                </div>
+                <div class="form-group">
+                    <label for="new-client-telefono">Teléfono</label>
+                    <input type="tel" id="new-client-telefono" class="form-input" placeholder="809-000-0000">
+                </div>
+                <div class="form-group" style="grid-column: 1 / -1;">
+                    <label for="new-client-direccion">Dirección</label>
+                    <input type="text" id="new-client-direccion" class="form-input" placeholder="Calle, sector, ciudad, provincia">
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 10px; padding: 16px 24px; border-top: 1px solid var(--border-color);">
+            <button type="button" id="btn-cancel-create-client" class="btn btn-secondary">
+                <i class="fa-solid fa-xmark"></i> Cancelar
+            </button>
+            <button type="button" id="btn-save-new-client" class="btn btn-primary" style="min-width: 160px;">
+                <i class="fa-solid fa-floppy-disk"></i> <span id="btn-save-new-client-label">Guardar Cliente</span>
+            </button>
+        </div>
+    </div>
+</div>
 
 <!-- Modal Buscar Cliente CRM -->
 <div class="search-modal" id="client-search-modal" style="display: none;">
