@@ -159,8 +159,7 @@ document.addEventListener('DOMContentLoaded', () => {
             </tr>
         `).join('');
 
-        // Vincular clics de selección de producto
-        modalProductListBody.querySelectorAll('.btn-select-product').forEach(btn => {
+         modalProductListBody.querySelectorAll('.btn-select-product').forEach(btn => {
             btn.addEventListener('click', () => {
                 if (activeProductRow) {
                      const id = btn.getAttribute('data-id');
@@ -168,6 +167,49 @@ document.addEventListener('DOMContentLoaded', () => {
                      const price = btn.getAttribute('data-price');
                      const itbis = btn.getAttribute('data-itbis');
                      const code = btn.getAttribute('data-code');
+
+                     // Check if product is already in another row
+                     let duplicateRow = null;
+                     const rows = itemsTableBody.querySelectorAll('.item-row');
+                     rows.forEach(row => {
+                         if (row !== activeProductRow) {
+                             const existingIdInput = row.querySelector('.item-catalog-id-hidden');
+                             if (existingIdInput && existingIdInput.value === id) {
+                                 duplicateRow = row;
+                             }
+                         }
+                     });
+
+                     if (duplicateRow) {
+                          // Increment quantity of existing row
+                          const qtyInput = duplicateRow.querySelector('.item-qty-input');
+                          if (qtyInput) {
+                              qtyInput.value = parseInt(qtyInput.value || 0) + 1;
+                          }
+                          
+                          // Remove the empty active row since the product was merged into an existing row
+                          if (rows.length > 1) {
+                              activeProductRow.remove();
+                              realignRowIndexes();
+                          } else {
+                              // If it is the only row, just reset inputs so it is clean
+                              const searchInput = activeProductRow.querySelector('.item-catalog-search-input');
+                              const catalogIdHidden = activeProductRow.querySelector('.item-catalog-id-hidden');
+                              const nameInput = activeProductRow.querySelector('.item-name-input');
+                              const priceInput = activeProductRow.querySelector('.item-price-input');
+                              const itbisSelect = activeProductRow.querySelector('.item-itbis-select');
+                              
+                              if (catalogIdHidden) catalogIdHidden.value = '';
+                              if (searchInput) searchInput.value = '';
+                              if (nameInput) nameInput.value = '';
+                              if (priceInput) priceInput.value = '0.00';
+                              if (itbisSelect) itbisSelect.value = '0.18';
+                          }
+                          
+                          closeProductModal();
+                          recalculateTotals();
+                          return;
+                     }
 
                      const searchInput = activeProductRow.querySelector('.item-catalog-search-input');
                      const catalogIdHidden = activeProductRow.querySelector('.item-catalog-id-hidden');
@@ -185,7 +227,7 @@ document.addEventListener('DOMContentLoaded', () => {
                      recalculateTotals();
                 }
             });
-        });
+         });
     };
 
     const openProductModal = () => {
@@ -224,7 +266,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 </td>
                 <td>
-                    <input type="text" class="form-input item-name-input" name="items[${rowIndex}][name]" required style="width: 100%;">
+                    <input type="text" class="form-input item-name-input" name="items[${rowIndex}][name]" required readonly style="width: 100%; background-color: var(--bg-input-readonly, rgba(0,0,0,0.02));">
                 </td>
                 <td>
                     <input type="number" class="form-input item-price-input" name="items[${rowIndex}][price]" step="0.01" value="0.00" required style="width: 100%; text-align: right;">
