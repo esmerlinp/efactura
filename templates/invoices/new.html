@@ -180,16 +180,16 @@
         </div>
         
         <div class="table-responsive">
-            <table class="table-premium" id="items-table" style="min-width: 800px;">
+            <table class="table-premium" id="items-table" style="min-width: 1150px;">
                 <thead>
                     <tr>
-                        <th style="width: 25%;">Artículo Catálogo</th>
-                        <th style="width: 25%;">Descripción Personalizada <span style="color: var(--accent-red); font-weight: bold;">*</span></th>
-                        <th style="width: 12%; text-align: right;">Precio Unitario <span style="color: var(--accent-red); font-weight: bold;">*</span></th>
-                        <th style="width: 8%; text-align: center;">Cant. <span style="color: var(--accent-red); font-weight: bold;">*</span></th>
-                        <th style="width: 10%;">Tasa ITBIS</th>
-                        <th style="width: 10%; text-align: right;">Desc %</th>
-                        <th style="width: 15%; text-align: right;">Monto</th>
+                        <th style="width: 22%; white-space: nowrap;">Artículo / Catálogo</th>
+                        <th style="width: 25%; white-space: nowrap;">Descripción <span style="color: var(--accent-red); font-weight: bold;">*</span></th>
+                        <th style="width: 12%; text-align: right; white-space: nowrap;">Precio Unit. <span style="color: var(--accent-red); font-weight: bold;">*</span></th>
+                        <th style="width: 8%; text-align: center; white-space: nowrap;">Cant. <span style="color: var(--accent-red); font-weight: bold;">*</span></th>
+                        <th style="width: 10%; white-space: nowrap;">ITBIS</th>
+                        <th style="width: 10%; text-align: right; white-space: nowrap;">Desc. %</th>
+                        <th style="width: 13%; text-align: right; white-space: nowrap;">Monto</th>
                         <th style="width: 5%; text-align: center;"></th>
                     </tr>
                 </thead>
@@ -207,7 +207,7 @@
                                 </div>
                             </td>
                             <td>
-                                <input type="text" class="form-input item-name-input" name="items[{{ loop.index0 }}][name]" value="{{ item.name }}" required style="width: 100%;">
+                                <input type="text" class="form-input item-name-input" name="items[{{ loop.index0 }}][name]" value="{{ item.name }}" required readonly style="width: 100%; background-color: var(--bg-input-readonly, rgba(0,0,0,0.02));">
                             </td>
                             <td>
                                 <input type="number" class="form-input item-price-input" name="items[{{ loop.index0 }}][price]" step="0.01" value="{{ item.price }}" required style="width: 100%; text-align: right;">
