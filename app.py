@@ -1380,7 +1380,10 @@ def new_invoice_route(invoice_id=None):
             if k.startswith('items['):
                 parts = k.split(']')
                 idx = parts[0].replace('items[', '')
-          # Obtener el catálogo para resolver automáticamente si es un Bien o Servicio e Impuestos Adicionales
+                if idx.isdigit():
+                    item_indices.add(int(idx))
+                    
+        # Obtener el catálogo para resolver automáticamente si es un Bien o Servicio e Impuestos Adicionales
         catalog = DatabaseService.get_items(owner_uid, sandbox=sandbox)
         catalog_types = {it['name'].lower().strip(): it.get('type', 'Bien') for it in catalog}
         catalog_tax_data = {
