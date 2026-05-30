@@ -66,6 +66,71 @@
                 <label for="rack_location">Ubicación Física (Pasillo / Tramo)</label>
                 <input type="text" id="rack_location" name="rackLocation" class="form-input" placeholder="Ej: Pasillo 3, Góndola A" value="{{ item.rackLocation if item else '' }}">
             </div>
+
+            <!-- Sección de Impuestos Adicionales / Selectivos DGII -->
+            <div class="form-group" style="grid-column: 1 / -1; margin-top: 20px; padding: 24px; background: rgba(99, 102, 241, 0.04); border: 1px dashed rgba(99, 102, 241, 0.3); border-radius: 12px;">
+                <h4 style="font-size: 1rem; font-family: var(--font-heading); margin-bottom: 18px; color: var(--primary-color); display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-calculator" style="color: var(--primary-color);"></i>
+                    <span>Impuestos Adicionales y Selectivos (DGII)</span>
+                </h4>
+                
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px;">
+                    <div class="form-group">
+                        <label for="codigo_impuesto">Tipo de Impuesto Adicional</label>
+                        <select id="codigo_impuesto" name="codigoImpuesto" class="form-select" onchange="toggleIscFields()">
+                            <option value="" {% if not item or not item.codigoImpuesto %}selected{% endif %}>Ninguno</option>
+                            <option value="001" {% if item and item.codigoImpuesto == '001' %}selected{% endif %}>Propina Legal (10%)</option>
+                            <option value="002" {% if item and item.codigoImpuesto == '002' %}selected{% endif %}>Contribución Telecomunicaciones - CDT (2%)</option>
+                            <option value="003" {% if item and item.codigoImpuesto == '003' %}selected{% endif %}>ISC Seguros en general (16%)</option>
+                            <option value="004" {% if item and item.codigoImpuesto == '004' %}selected{% endif %}>ISC Telecomunicaciones (10%)</option>
+                            <option value="005" {% if item and item.codigoImpuesto == '005' %}selected{% endif %}>Primera Placa Vehículos (17%)</option>
+                            <option value="006" {% if item and item.codigoImpuesto == '006' %}selected{% endif %}>ISC Específico - Cerveza</option>
+                            <option value="007" {% if item and item.codigoImpuesto == '007' %}selected{% endif %}>ISC Específico - Vinos de uva</option>
+                            <option value="014" {% if item and item.codigoImpuesto == '014' %}selected{% endif %}>ISC Específico - Ron y aguardientes</option>
+                            <option value="023" {% if item and item.codigoImpuesto == '023' %}selected{% endif %}>ISC AdValorem - Cervezas</option>
+                            <option value="024" {% if item and item.codigoImpuesto == '024' %}selected{% endif %}>ISC AdValorem - Vinos de uva</option>
+                            <option value="030" {% if item and item.codigoImpuesto == '030' %}selected{% endif %}>ISC AdValorem - Ron y aguardientes</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group isc-field general-tasa">
+                        <label for="tasa_impuesto_adicional">Tasa o Monto Unitario</label>
+                        <input type="number" id="tasa_impuesto_adicional" name="tasaImpuestoAdicional" class="form-input" placeholder="0.00" step="0.0001" value="{{ item.tasaImpuestoAdicional if item else '0.00' }}">
+                    </div>
+                    
+                    <div class="form-group isc-field alcohol-only" style="display: none;">
+                        <label for="grados_alcohol">Grados de Alcohol (%)</label>
+                        <input type="number" id="grados_alcohol" name="gradosAlcohol" class="form-input" placeholder="Ej: 5.0" step="0.01" value="{{ item.gradosAlcohol if item else '0.00' }}">
+                        <span style="font-size: 0.78rem; color: #6b7280; display: block; margin-top: 5px;">Porcentaje de alcohol por volumen (ej: cerveza estándar = 5.0, vino = 12.0, ron = 37.5).</span>
+                    </div>
+                    
+                    <div class="form-group isc-field alcohol-only" style="display: none;">
+                        <label for="cantidad_referencia">Litros de Referencia</label>
+                        <input type="number" id="cantidad_referencia" name="cantidadReferencia" class="form-input" placeholder="Ej: 0.355" step="0.0001" value="{{ item.cantidadReferencia if item else '0.00' }}">
+                        <span style="font-size: 0.78rem; color: #6b7280; display: block; margin-top: 5px;">
+                            Volumen neto en litros del envase individual.
+                            <span style="display: block; margin-top: 4px; color: var(--primary-color); font-weight: 500;">
+                                <i class="fa-solid fa-wand-magic-sparkles"></i> Conversor rápido:
+                                <a href="#" onclick="convertFromOz(event)" style="text-decoration: underline; color: var(--primary-color);">12 oz (0.355 L)</a> |
+                                <a href="#" onclick="convertFromMl(event, 700)" style="text-decoration: underline; color: var(--primary-color);">700 ml (0.70 L)</a> |
+                                <a href="#" onclick="convertFromMl(event, 350)" style="text-decoration: underline; color: var(--primary-color);">350 ml (0.35 L)</a>
+                            </span>
+                        </span>
+                    </div>
+                    
+                    <div class="form-group isc-field alcohol-only" style="display: none;">
+                        <label for="subcantidad">Subcantidad</label>
+                        <input type="number" id="subcantidad" name="subcantidad" class="form-input" placeholder="1.0" step="0.01" value="{{ item.subcantidad if item else '1.0' }}">
+                        <span style="font-size: 0.78rem; color: #6b7280; display: block; margin-top: 5px;">Factor de proporción física. Coloque <strong>1.00</strong> por defecto para unidades embotelladas estándar.</span>
+                    </div>
+                    
+                    <div class="form-group isc-field advalorem-only" style="display: none;">
+                        <label for="precio_referencia">Precio Referencia (PVP)</label>
+                        <input type="number" id="precio_referencia" name="precioReferencia" class="form-input" placeholder="0.00" step="0.01" value="{{ item.precioReferencia if item else '0.00' }}">
+                        <span style="font-size: 0.78rem; color: #6b7280; display: block; margin-top: 5px;">Precio oficial de venta sugerido al público final (PVP) regulado y publicado por la DGII.</span>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <div style="margin-top: 36px; display: flex; justify-content: flex-end; gap: 15px; border-top: 1px solid var(--border-color); padding-top: 24px;">
@@ -79,4 +144,65 @@
         </div>
     </form>
 </div>
+
+<script>
+function toggleIscFields() {
+    const cod = document.getElementById('codigo_impuesto').value;
+    const isAlcohol = (cod >= '006' && cod <= '018') || (cod >= '023' && cod <= '035');
+    const isAdValorem = (cod >= '023' && cod <= '039');
+    
+    // Asignación automática de tasas oficiales de la DGII (Tabla I)
+    const tasaInput = document.getElementById('tasa_impuesto_adicional');
+    if (cod === '001') { // Propina Legal
+        tasaInput.value = '0.10';
+    } else if (cod === '002') { // CDT
+        tasaInput.value = '0.02';
+    } else if (cod === '003') { // ISC Seguros
+        tasaInput.value = '0.16';
+    } else if (cod === '004') { // ISC Telecomunicaciones
+        tasaInput.value = '0.10';
+    } else if (cod === '005') { // Primera Placa
+        tasaInput.value = '0.17';
+    } else if (cod >= '006' && cod <= '018') { // ISC Específico Alcohol
+        tasaInput.value = '632.58';
+    } else if (cod === '019' || cod === '020') { // Cigarrillos 20u
+        tasaInput.value = '53.51';
+    } else if (cod === '021' || cod === '022') { // Cigarrillos 10u
+        tasaInput.value = '26.75';
+    } else if (cod >= '023' && cod <= '035') { // ISC AdValorem Alcoholes
+        tasaInput.value = '0.10';
+    } else if (cod >= '036' && cod <= '039') { // ISC AdValorem Cigarrillos
+        tasaInput.value = '0.20';
+    } else {
+        tasaInput.value = '0.00';
+    }
+    
+    // Deshabilitar la edición para garantizar el cumplimiento normativo
+    if (cod === '') {
+        tasaInput.readOnly = false;
+    } else {
+        tasaInput.readOnly = true;
+        tasaInput.style.backgroundColor = 'var(--bg-card-hover)';
+    }
+    
+    document.querySelectorAll('.alcohol-only').forEach(el => {
+        el.style.display = isAlcohol ? 'block' : 'none';
+    });
+    
+    document.querySelectorAll('.advalorem-only').forEach(el => {
+        el.style.display = isAdValorem ? 'block' : 'none';
+    });
+}
+document.addEventListener('DOMContentLoaded', toggleIscFields);
+
+function convertFromOz(event) {
+    event.preventDefault();
+    document.getElementById('cantidad_referencia').value = '0.3550';
+}
+
+function convertFromMl(event, ml) {
+    event.preventDefault();
+    document.getElementById('cantidad_referencia').value = (ml / 1000.0).toFixed(4);
+}
+</script>
 {% endblock %}

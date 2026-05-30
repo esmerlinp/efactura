@@ -340,6 +340,11 @@
                 <span id="lbl-itbis">RD$ 0.00</span>
             </div>
             
+            <div style="display: flex; justify-content: space-between; font-size: 0.95rem; color: var(--text-secondary); margin-bottom: 12px; display: none;" id="lbl-isc-container">
+                <span>(+) Impuesto Adicional (ISC):</span>
+                <span id="lbl-isc">RD$ 0.00</span>
+            </div>
+            
             <div style="display: flex; justify-content: space-between; font-size: 1.15rem; font-weight: 700; border-top: 1px solid var(--border-color); padding-top: 14px; margin-bottom: 12px;">
                 <span>Total Factura:</span>
                 <span id="lbl-total">RD$ 0.00</span>
@@ -533,6 +538,10 @@
                         <span>ITBIS:</span>
                         <span id="confirm-itbis">RD$ 0.00</span>
                     </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 8px; display: none;" id="confirm-isc-container">
+                        <span>Impuesto Adicional (ISC):</span>
+                        <span id="confirm-isc">RD$ 0.00</span>
+                    </div>
                     <div style="display: flex; justify-content: space-between; font-size: 1.15rem; font-weight: bold; color: var(--accent-emerald); border-top: 1px solid var(--border-color); padding-top: 10px;">
                         <span>Neto a Pagar:</span>
                         <span id="confirm-total">RD$ 0.00</span>
@@ -708,12 +717,20 @@
                 document.getElementById('confirm-payment-type').innerText = document.getElementById('payment-type-select').value;
                 document.getElementById('confirm-due-date').innerText = document.getElementById('due-date').value;
                 document.getElementById('confirm-currency').innerText = document.getElementById('currency-select').value;
-
                 // 3. Extraer montos
                 document.getElementById('confirm-subtotal').innerText = document.getElementById('lbl-subtotal').innerText;
                 document.getElementById('confirm-itbis').innerText = document.getElementById('lbl-itbis').innerText;
+                
+                const iscVal = document.getElementById('lbl-isc').innerText;
+                const iscContainer = document.getElementById('confirm-isc-container');
+                if (parseFloat(iscVal.replace(/[^0-9.]/g, '')) > 0) {
+                    document.getElementById('confirm-isc').innerText = iscVal;
+                    iscContainer.style.display = 'flex';
+                } else {
+                    iscContainer.style.display = 'none';
+                }
+                
                 document.getElementById('confirm-total').innerText = document.getElementById('lbl-net-payable').innerText;
-
                 // 4. Poblar partidas en la tabla del borrador
                 const confirmTbody = document.getElementById('confirm-items-tbody');
                 confirmTbody.innerHTML = '';

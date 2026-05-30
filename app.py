@@ -743,7 +743,13 @@ def new_item():
             "itbisRate": float(request.form.get('itbisRate', 0.18)),
             "minStock": float(request.form.get('minStock') or 0.0),
             "rackLocation": request.form.get('rackLocation', ''),
-            "totalStock": 0.0
+            "totalStock": 0.0,
+            "codigoImpuesto": request.form.get('codigoImpuesto', '').strip(),
+            "tasaImpuestoAdicional": float(request.form.get('tasaImpuestoAdicional') or 0.0),
+            "gradosAlcohol": float(request.form.get('gradosAlcohol') or 0.0),
+            "cantidadReferencia": float(request.form.get('cantidadReferencia') or 0.0),
+            "subcantidad": float(request.form.get('subcantidad') or 0.0),
+            "precioReferencia": float(request.form.get('precioReferencia') or 0.0)
         }
         
         DatabaseService.save_item(owner_uid, item_id, item_dict, sandbox=sandbox)
@@ -778,7 +784,13 @@ def edit_item(item_id):
             "minStock": float(request.form.get('minStock') or 0.0),
             "rackLocation": request.form.get('rackLocation', ''),
             "totalStock": float(item.get("totalStock", 0.0)),
-            "createdAt": item["createdAt"]
+            "createdAt": item["createdAt"],
+            "codigoImpuesto": request.form.get('codigoImpuesto', '').strip(),
+            "tasaImpuestoAdicional": float(request.form.get('tasaImpuestoAdicional') or 0.0),
+            "gradosAlcohol": float(request.form.get('gradosAlcohol') or 0.0),
+            "cantidadReferencia": float(request.form.get('cantidadReferencia') or 0.0),
+            "subcantidad": float(request.form.get('subcantidad') or 0.0),
+            "precioReferencia": float(request.form.get('precioReferencia') or 0.0)
         }
         DatabaseService.save_item(owner_uid, item_id, item_dict, sandbox=sandbox)
         flash('Artículo del catálogo actualizado.', 'success')

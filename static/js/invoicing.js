@@ -223,6 +223,19 @@ document.addEventListener('DOMContentLoaded', () => {
                      priceInput.value = parseFloat(price).toFixed(2);
                      itbisSelect.value = itbis;
 
+                     // Buscar el producto en catalogItems para asociar campos del Impuesto Selectivo (ISC)
+                     const product = catalogItems.find(p => p.id === id || p.code === code);
+                     if (product) {
+                         activeProductRow.dataset.codigoImpuesto = product.codigoImpuesto || "";
+                         activeProductRow.dataset.tasaImpuestoAdicional = product.tasaImpuestoAdicional || 0.0;
+                         activeProductRow.dataset.gradosAlcohol = product.gradosAlcohol || 0.0;
+                         activeProductRow.dataset.cantidadReferencia = product.cantidadReferencia || 0.0;
+                         activeProductRow.dataset.subcantidad = product.subcantidad || 0.0;
+                         activeProductRow.dataset.precioReferencia = product.precioReferencia || 0.0;
+                     } else {
+                         activeProductRow.dataset.codigoImpuesto = "";
+                     }
+
                      closeProductModal();
                      recalculateTotals();
                 }
@@ -359,6 +372,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let subtotalRaw = 0.0;
         let totalDiscount = 0.0;
         let totalITBIS = 0.0;
+        let totalIsc = 0.0;
         
         const rows = itemsTableBody.querySelectorAll('.item-row');
         
@@ -371,12 +385,43 @@ document.addEventListener('DOMContentLoaded', () => {
             const rowSubtotalRaw = price * qty;
             const rowDiscount = rowSubtotalRaw * itemDiscRate;
             const rowSubtotal = rowSubtotalRaw - rowDiscount;
-            const rowITBIS = rowSubtotal * itbisRate;
-            const rowTotal = rowSubtotal + rowITBIS;
+            
+            // Cálculos dinámicos de Impuesto Selectivo al Consumo (ISC) en el frontend
+            let iscEspecifico = 0.0;
+            let iscAdvalorem = 0.0;
+            const codImp = (row.dataset.codigoImpuesto || "").trim().padStart(3, '0');
+            const tasaImp = parseFloat(row.dataset.tasaImpuestoAdicional) || 0.0;
+            const gradosAlc = parseFloat(row.dataset.gradosAlcohol) || 0.0;
+            const cantRef = parseFloat(row.dataset.cantidadReferencia) || 0.0;
+            const subcant = parseFloat(row.dataset.subcantidad) || 0.0;
+            const precioRef = parseFloat(row.dataset.precioReferencia) || 0.0;
+            
+            if (codImp >= '006' && codImp <= '018') { // Alcohol Específico
+                iscEspecifico = tasaImp * (gradosAlc / 100.0) * cantRef * subcant * qty;
+            } else if (codImp >= '019' && codImp <= '022') { // Cigarrillo Específico
+                iscEspecifico = qty * cantRef * tasaImp;
+            }
+            
+            if (codImp >= '023' && codImp <= '035') { // Alcohol Ad-Valorem
+                iscAdvalorem = (precioRef / (1 + itbisRate)) * tasaImp * cantRef * qty;
+            } else if (codImp >= '036' && codImp <= '039') { // Cigarrillo Ad-Valorem
+                iscAdvalorem = (precioRef / (1 + itbisRate)) * tasaImp * cantRef * qty;
+            } else if (codImp === '001') { // Propina Legal
+                iscAdvalorem = rowSubtotal * 0.10;
+            } else if (codImp === '002') { // CDT
+                iscAdvalorem = rowSubtotal * 0.02;
+            } else if (codImp === '003' || codImp === '004') { // Seguros / Telecomunicaciones
+                iscAdvalorem = rowSubtotal * tasaImp;
+            }
+            
+            const rowIsc = iscEspecifico + iscAdvalorem;
+            const rowITBIS = (rowSubtotal + rowIsc) * itbisRate; // El ISC forma parte de la base imponible del ITBIS
+            const rowTotal = rowSubtotal + rowIsc + rowITBIS;
             
             subtotalRaw += rowSubtotalRaw;
             totalDiscount += rowDiscount;
             totalITBIS += rowITBIS;
+            totalIsc += rowIsc;
             
             row.querySelector('.item-total-label').textContent = formatCurrencyDOP(rowTotal);
         });
@@ -389,9 +434,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (globalDiscRate > 0.0) {
             totalITBIS = totalITBIS * (1.0 - globalDiscRate);
+            totalIsc = totalIsc * (1.0 - globalDiscRate);
         }
 
-        const total = subtotal + totalITBIS;
+        const total = subtotal + totalIsc + totalITBIS;
 
         const isrRate = parseFloat(isrRateSelect.value) || 0.0;
         const itbisRetRate = parseFloat(itbisRateSelect.value) || 0.0;
@@ -404,6 +450,19 @@ document.addEventListener('DOMContentLoaded', () => {
         lblDiscount.textContent = formatCurrencyDOP(totalDiscount);
         lblSubtotal.textContent = formatCurrencyDOP(subtotal);
         lblITBIS.textContent = formatCurrencyDOP(totalITBIS);
+        
+        // Mostrar / Ocultar la sección de Impuestos Adicionales (ISC) en los totales
+        const lblIsc = document.getElementById('lbl-isc');
+        const lblIscContainer = document.getElementById('lbl-isc-container');
+        if (lblIsc && lblIscContainer) {
+            lblIsc.textContent = formatCurrencyDOP(totalIsc);
+            if (totalIsc > 0.01) {
+                lblIscContainer.style.display = 'flex';
+            } else {
+                lblIscContainer.style.display = 'none';
+            }
+        }
+        
         lblTotal.textContent = formatCurrencyDOP(total);
         lblRetainedISR.textContent = formatCurrencyDOP(retainedISR);
         lblRetainedITBIS.textContent = formatCurrencyDOP(retainedITBIS);
