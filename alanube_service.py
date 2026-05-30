@@ -65,10 +65,6 @@ class AlanubeService:
         if not client_rnc and number_code == "32":
             client_rnc = "999999999"  # Consumidor final genérico
 
-        # Si es Crédito Fiscal (E31) y no tiene RNC corporativo válido, lanzar error
-        if number_code == "31" and (client_rnc == "999999999" or len(client_rnc) != 9):
-            raise ValueError("Para emitir un Crédito Fiscal (E31) se requiere un RNC de cliente corporativo de 9 dígitos.")
-
         # Construir payload estructurado de Alanube
         payload = cls.build_payload(company_profile, invoice, company_rnc, client_rnc, number_code, short_code)
 
@@ -170,7 +166,13 @@ class AlanubeService:
         
         if number_code in ["31", "32", "33", "34"]:
             id_doc["taxAmountIndicator"] = 0
-            id_doc["incomeType"] = 1
+            # Resolver código numérico de tipo de ingreso (ej: "01 - Ingresos por operaciones" -> 1)
+            raw_income_type = invoice.get("incomeType", "01")
+            try:
+                num_part = raw_income_type.split("-")[0].strip()
+                id_doc["incomeType"] = int(num_part)
+            except Exception:
+                id_doc["incomeType"] = 1
 
         if number_code == "41":
             id_doc["paymentDeadline"] = invoice.get("dueDate", date_str)
@@ -519,5 +521,152 @@ class AlanubeService:
                 "success": False,
                 "message": f"Error de conexión con la API de Alanube: {str(e)}"
             }
+
+    @classmethod
+    def register_company(cls, company_profile, sandbox=True):
+        """
+        Registra la empresa como compañía en el API de Alanube.
+        POST /dom/v1/companies
+        """
+        base_url = Config.ALANUBE_SANDBOX_BASE_URL if sandbox else Config.ALANUBE_PRODUCTION_BASE_URL
+        token = Config.ALANUBE_SANDBOX_TOKEN if sandbox else Config.ALANUBE_PRODUCTION_TOKEN
+
+        url = f"{base_url}/dom/v1/companies"
+        headers = {
+            "accept": "application/json",
+            "content-type": "application/json",
+            "Authorization": f"Bearer {token}"
+        }
+
+        # Estructurar objeto del certificado
+        cert_payload = None
+        if company_profile.get("certificateContent"):
+            cert_payload = {
+                "name": company_profile.get("certificateName", "firma_digital"),
+                "extension": company_profile.get("certificateExtension", ".p12"),
+                "content": company_profile.get("certificateContent"),
+                "password": company_profile.get("certificatePassword", "")
+            }
+
+        payload = {
+            "name": company_profile.get("companyName"),
+            "tradeName": company_profile.get("tradeName", company_profile.get("companyName")),
+            "identification": str(company_profile.get("companyRNC", "")).replace("-", "").strip(),
+            "type": company_profile.get("companyType", "associated"),
+            "address": company_profile.get("companyAddress", "Santo Domingo, RD"),
+            "province": company_profile.get("province", "Santo Domingo"),
+            "municipality": company_profile.get("municipality", "Santo Domingo de Guzmán"),
+            "email": company_profile.get("companyEmail")
+        }
+
+        if cert_payload:
+            payload["certificate"] = cert_payload
+
+        if company_profile.get("logoBase64"):
+            payload["logo"] = company_profile.get("logoBase64")
+
+        # Modo contingencia / simulación local
+        if token == "DEVELOPMENT_SANDBOX_TOKEN" or token == "PRODUCTION_REAL_TOKEN" or not token:
+            print("🛡️ Modo contingencia / sandbox mock: Registro de empresa simulado.")
+            return {
+                "success": True,
+                "message": "Compañía registrada / sincronizada exitosamente con Alanube (Simulado localmente)."
+            }
+
+        try:
+            response = requests.post(url, json=payload, headers=headers, timeout=15)
+            if response.status_code >= 200 and response.status_code < 300:
+                return {
+                    "success": True,
+                    "message": "Compañía registrada exitosamente en la plataforma de Alanube."
+                }
+            else:
+                try:
+                    error_detail = response.json()
+                    err_msg = error_detail.get("message") or error_detail.get("errors", [{}])[0].get("message") or error_detail.get("response", [{}])[0].get("message") or "Fallo de respuesta."
+                    return {
+                        "success": False,
+                        "message": f"Error de Alanube: {err_msg} (Código HTTP {response.status_code})"
+                    }
+                except Exception:
+                    return {
+                        "success": False,
+                        "message": f"Error en registro de compañía (Código HTTP {response.status_code})"
+                    }
+        except requests.RequestException as e:
+            return {
+                "success": False,
+                "message": f"Error de conexión con la API de Alanube: {str(e)}"
+            }
+
+    @classmethod
+    def get_company_from_alanube(cls, identification, sandbox=True):
+        """
+        Obtiene la información de una compañía registrada en Alanube.
+        GET /dom/v1/companies/{identification}
+        """
+        base_url = Config.ALANUBE_SANDBOX_BASE_URL if sandbox else Config.ALANUBE_PRODUCTION_BASE_URL
+        token = Config.ALANUBE_SANDBOX_TOKEN if sandbox else Config.ALANUBE_PRODUCTION_TOKEN
+
+        clean_id = str(identification).replace("-", "").strip()
+        url = f"{base_url}/dom/v1/companies/{clean_id}"
+        headers = {
+            "accept": "application/json",
+            "Authorization": f"Bearer {token}"
+        }
+
+        # Simulación en caso de usar tokens de prueba o modo contingencia
+        if token == "DEVELOPMENT_SANDBOX_TOKEN" or token == "PRODUCTION_REAL_TOKEN" or not token:
+            print("🛡️ Modo contingencia / sandbox mock: Consulta de datos de empresa simulada.")
+            return {
+                "success": True,
+                "data": {
+                    "name": "Alanube Sincronizada S.R.L.",
+                    "tradeName": "Alanube Sincronizada",
+                    "identification": clean_id,
+                    "type": "main",
+                    "address": "Av. Winston Churchill, Santo Domingo",
+                    "province": "Distrito Nacional",
+                    "municipality": "Santo Domingo de Guzmán",
+                    "email": "contacto@alanubesincronizada.com.do",
+                    "logo": "",
+                    "certificate": {
+                        "name": "firma_sincronizada",
+                        "extension": ".p12",
+                        "content": "MOCK_BASE64_CERTIFICATE_CONTENT_FROM_ALANUBE",
+                        "password": "PasswordAlanubeMock123"
+                    }
+                },
+                "message": "Datos de empresa obtenidos correctamente de Alanube (Simulado)."
+            }
+
+        try:
+            response = requests.get(url, headers=headers, timeout=12)
+            if response.status_code >= 200 and response.status_code < 300:
+                return {
+                    "success": True,
+                    "data": response.json(),
+                    "message": "Datos de empresa obtenidos exitosamente de Alanube."
+                }
+            else:
+                try:
+                    error_detail = response.json()
+                    err_msg = error_detail.get("message") or error_detail.get("errors", [{}])[0].get("message") or "Error desconocido."
+                    return {
+                        "success": False,
+                        "message": f"Error de Alanube: {err_msg} (Código HTTP {response.status_code})"
+                    }
+                except Exception:
+                    return {
+                        "success": False,
+                        "message": f"Fallo al obtener datos de empresa de Alanube (Código HTTP {response.status_code})"
+                    }
+        except requests.RequestException as e:
+            return {
+                "success": False,
+                "message": f"Error de conexión con la API de Alanube: {str(e)}"
+            }
+
+
 
 

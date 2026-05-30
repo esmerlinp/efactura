@@ -361,7 +361,7 @@
                         <i class="fa-solid fa-file-pdf" style="color: var(--accent-red);"></i>
                         <span>Descargar PDF</span>
                     </a>
-                    <a href="{{ invoice.firebaseXMLURL or '#' }}" target="_blank" class="btn btn-secondary" style="width: 100%; font-size: 0.82rem; padding: 8px 16px;">
+                    <a href="/invoices/{{ invoice.id }}/xml" class="btn btn-secondary" style="width: 100%; font-size: 0.82rem; padding: 8px 16px;">
                         <i class="fa-solid fa-file-code" style="color: var(--accent-emerald);"></i>
                         <span>Descargar XML</span>
                     </a>

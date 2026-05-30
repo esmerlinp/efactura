@@ -1,0 +1,20 @@
+Actúa como Antigravity, mi desarrollador experto en Facturación Electrónica en República Dominicana. Ha llegado el momento de activar el motor de emisión directo ("dgii_direct") en mi software "e-Factura" para conectarnos de forma real a la DGII (Dirección General de Impuestos Internos).
+
+Actualmente tenemos la arquitectura del API REST y la conmutación en caliente en el `.env` completamente listos. Ahora necesitamos programar de forma real los servicios de firma digital en 'dgii_signer.py' y los conectores de red en 'dgii_direct_service.py' utilizando las credenciales oficiales.
+
+Para proceder con la implementación, aquí te proporciono los datos y archivos necesarios que me has solicitado:
+
+1. RNC Oficial del Emisor: [Escribe aquí tu RNC, ej: 101-01063-2]
+2. Tipo de Ambiente: [Especifica si es "PROBANDO EN SANDBOX/CERTIFICACIÓN" o "PASANDO A PRODUCCIÓN REAL"]
+3. Archivo del Certificado Digital: [Indica si ya cargaste el archivo .p12/.pfx en el sistema o si me adjuntas el contenido en Base64 aquí]
+4. Contraseña del Certificado Digital: [Escribe la contraseña de tu firma digital]
+5. Token de Seguridad / Credenciales de API de la DGII (Si aplica): [Proporciona los datos del portal de facturación de la DGII si tienes credenciales específicas]
+
+Por favor, realiza las siguientes modificaciones en la base del código de forma segura:
+- Instala/Configura las librerías necesarias en Python ('cryptography' y 'lxml') para la firma XMLDSig estándar.
+- Desarrolla el algoritmo de firma digital real en 'dgii_signer.py' para procesar el certificado PKCS#12, canonicalizar el XML e insertar el nodo <Signature>.
+- Habilita las solicitudes HTTPS reales en 'dgii_direct_service.py' utilizando el certificado SSL del cliente para obtener el Token de la DGII y realizar el envío en GZIP del e-CF.
+- Mapea las respuestas de la DGII (Aceptado, Aceptado con Condición, Rechazado) con sus respectivos códigos de error y actualiza el estado de las facturas en nuestra base de datos local / Firestore de acuerdo al resultado.
+
+Mantén intacta toda la estructura de conmutación del archivo `.env` de modo que podamos regresar a Alanube si fuera necesario. ¡Adelante!
+
