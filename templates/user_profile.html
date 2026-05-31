@@ -1,0 +1,844 @@
+{% extends "layout.html" %}
+
+{% block title %}Mi Perfil{% endblock %}
+
+{% block page_header %}Mi Perfil de Usuario{% endblock %}
+
+{% block extra_head %}
+<style>
+    /* ===== PROFILE PAGE STYLES ===== */
+    .profile-container {
+        max-width: 900px;
+        margin: 0 auto;
+        display: flex;
+        flex-direction: column;
+        gap: 28px;
+    }
+
+    /* Hero Card */
+    .profile-hero-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: 20px;
+        padding: 36px 40px;
+        display: flex;
+        align-items: center;
+        gap: 32px;
+        position: relative;
+        overflow: hidden;
+        box-shadow: var(--shadow-md);
+    }
+
+    .profile-hero-card::before {
+        content: '';
+        position: absolute;
+        top: -60px;
+        right: -60px;
+        width: 260px;
+        height: 260px;
+        background: radial-gradient(circle, rgba(16, 185, 129, 0.08) 0%, transparent 70%);
+        pointer-events: none;
+    }
+
+    .profile-avatar-large {
+        width: 92px;
+        height: 92px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, var(--accent-emerald), #60a5fa);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 2.5rem;
+        font-weight: 800;
+        font-family: var(--font-heading);
+        flex-shrink: 0;
+        box-shadow: 0 4px 20px rgba(16, 185, 129, 0.35);
+        border: 3px solid rgba(255,255,255,0.15);
+        position: relative;
+    }
+
+    .profile-avatar-large img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        border-radius: 50%;
+    }
+
+    .profile-hero-info {
+        flex: 1;
+    }
+
+    .profile-hero-name {
+        font-size: 1.75rem;
+        font-weight: 800;
+        font-family: var(--font-heading);
+        color: var(--text-primary);
+        margin: 0 0 6px 0;
+        line-height: 1.2;
+    }
+
+    .profile-hero-email {
+        font-size: 0.92rem;
+        color: var(--text-secondary);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 14px;
+    }
+
+    .profile-hero-badges {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    .profile-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 5px 12px;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+
+    .profile-badge-owner {
+        background: rgba(16, 185, 129, 0.1);
+        color: var(--accent-emerald);
+        border: 1px solid rgba(16, 185, 129, 0.25);
+    }
+
+    .profile-badge-employee {
+        background: rgba(96, 165, 250, 0.1);
+        color: #60a5fa;
+        border: 1px solid rgba(96, 165, 250, 0.25);
+    }
+
+    .profile-badge-member-since {
+        background: var(--bg-nav-hover);
+        color: var(--text-secondary);
+        border: 1px solid var(--border-color);
+    }
+
+    /* Section Cards */
+    .profile-section-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: 16px;
+        overflow: hidden;
+        box-shadow: var(--shadow-sm);
+        transition: box-shadow 0.25s ease;
+    }
+
+    .profile-section-card:hover {
+        box-shadow: var(--shadow-md);
+    }
+
+    .profile-section-header {
+        padding: 22px 32px;
+        border-bottom: 1px solid var(--border-color);
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        background: rgba(255,255,255,0.015);
+    }
+
+    .profile-section-icon {
+        width: 38px;
+        height: 38px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1rem;
+        flex-shrink: 0;
+    }
+
+    .profile-section-icon.green {
+        background: rgba(16, 185, 129, 0.1);
+        color: var(--accent-emerald);
+    }
+
+    .profile-section-icon.red {
+        background: rgba(239, 68, 68, 0.1);
+        color: var(--accent-red);
+    }
+
+    .profile-section-icon.purple {
+        background: rgba(139, 92, 246, 0.1);
+        color: var(--accent-purple);
+    }
+
+    .profile-section-title {
+        font-size: 1.05rem;
+        font-weight: 700;
+        font-family: var(--font-heading);
+        color: var(--text-primary);
+        margin: 0;
+    }
+
+    .profile-section-subtitle {
+        font-size: 0.8rem;
+        color: var(--text-secondary);
+        margin: 2px 0 0 0;
+    }
+
+    .profile-section-body {
+        padding: 28px 32px;
+    }
+
+    /* Form grid */
+    .profile-form-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+    }
+
+    .profile-form-grid.single {
+        grid-template-columns: 1fr;
+    }
+
+    .profile-form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .profile-form-group.full-width {
+        grid-column: span 2;
+    }
+
+    .profile-label {
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: var(--text-secondary);
+        letter-spacing: 0.02em;
+    }
+
+    .profile-input {
+        padding: 11px 14px;
+        border: 1.5px solid var(--border-color);
+        border-radius: var(--radius-sm);
+        background: var(--bg-input);
+        color: var(--text-primary);
+        font-size: 0.9rem;
+        font-family: var(--font-body);
+        transition: all 0.2s ease;
+        outline: none;
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    .profile-input:focus {
+        border-color: var(--accent-emerald);
+        box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+    }
+
+    .profile-input:disabled,
+    .profile-input[readonly] {
+        opacity: 0.6;
+        cursor: not-allowed;
+        background: var(--bg-nav-hover);
+    }
+
+    .profile-input-wrapper {
+        position: relative;
+    }
+
+    .profile-input-wrapper .profile-input {
+        padding-right: 44px;
+    }
+
+    .profile-input-eye {
+        position: absolute;
+        right: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        background: none;
+        border: none;
+        color: var(--text-muted);
+        cursor: pointer;
+        font-size: 0.9rem;
+        padding: 4px;
+        transition: color 0.2s ease;
+    }
+
+    .profile-input-eye:hover {
+        color: var(--text-primary);
+    }
+
+    /* Save button */
+    .profile-save-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 13px 32px;
+        background: linear-gradient(135deg, var(--accent-emerald), #059669);
+        color: white;
+        border: none;
+        border-radius: var(--radius-sm);
+        font-size: 0.9rem;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.25s ease;
+        box-shadow: 0 2px 12px rgba(16, 185, 129, 0.3);
+        font-family: var(--font-body);
+        width: 100%;
+    }
+
+    .profile-save-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 18px rgba(16, 185, 129, 0.4);
+    }
+
+    .profile-save-btn:active {
+        transform: translateY(0);
+    }
+
+    .profile-save-btn.danger {
+        background: linear-gradient(135deg, var(--accent-red), #b91c1c);
+        box-shadow: 0 2px 12px rgba(239, 68, 68, 0.3);
+    }
+
+    .profile-save-btn.danger:hover {
+        box-shadow: 0 4px 18px rgba(239, 68, 68, 0.4);
+    }
+
+    .profile-save-btn:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        transform: none;
+    }
+
+    /* Permissions grid */
+    .perm-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+        margin-top: 4px;
+    }
+
+    .perm-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 12px 14px;
+        border-radius: 10px;
+        border: 1px solid var(--border-color);
+        background: var(--bg-nav-hover);
+    }
+
+    .perm-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        flex-shrink: 0;
+    }
+
+    .perm-dot.on { background: var(--accent-emerald); box-shadow: 0 0 6px var(--accent-emerald); }
+    .perm-dot.off { background: var(--text-muted); }
+
+    .perm-label {
+        font-size: 0.82rem;
+        color: var(--text-primary);
+        font-weight: 500;
+    }
+
+    /* Password strength bar */
+    .pwd-strength-bar {
+        height: 4px;
+        border-radius: 2px;
+        background: var(--border-color);
+        margin-top: 6px;
+        overflow: hidden;
+    }
+
+    .pwd-strength-fill {
+        height: 100%;
+        border-radius: 2px;
+        transition: width 0.3s ease, background 0.3s ease;
+        width: 0%;
+    }
+
+    .pwd-strength-text {
+        font-size: 0.72rem;
+        margin-top: 4px;
+        font-weight: 600;
+    }
+
+    /* Password requirement checklist */
+    .pwd-requirements {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        margin-top: 8px;
+    }
+
+    .pwd-req-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.75rem;
+        color: var(--text-muted);
+        transition: color 0.2s ease;
+    }
+
+    .pwd-req-item.met {
+        color: var(--accent-emerald);
+    }
+
+    .pwd-req-item i {
+        font-size: 0.7rem;
+        width: 12px;
+    }
+
+    /* Divider */
+    .profile-divider {
+        border: none;
+        border-top: 1px solid var(--border-color);
+        margin: 24px 0;
+    }
+
+    /* Footer of form */
+    .profile-form-footer {
+        display: flex;
+        justify-content: flex-end;
+        margin-top: 24px;
+        padding-top: 20px;
+        border-top: 1px solid var(--border-color);
+    }
+
+    .profile-form-footer .profile-save-btn {
+        width: auto;
+        min-width: 200px;
+    }
+
+    /* Readonly label badge */
+    .readonly-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 2px 8px;
+        background: var(--bg-nav-hover);
+        border: 1px solid var(--border-color);
+        border-radius: 20px;
+        font-size: 0.68rem;
+        font-weight: 600;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-left: 8px;
+        vertical-align: middle;
+    }
+
+    /* Flash inline */
+    .profile-alert {
+        padding: 12px 16px;
+        border-radius: 10px;
+        font-size: 0.85rem;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 20px;
+    }
+
+    .profile-alert-success {
+        background: rgba(16, 185, 129, 0.08);
+        border: 1px solid rgba(16, 185, 129, 0.25);
+        color: var(--accent-emerald);
+    }
+
+    .profile-alert-error {
+        background: rgba(239, 68, 68, 0.08);
+        border: 1px solid rgba(239, 68, 68, 0.25);
+        color: var(--accent-red);
+    }
+
+    @media (max-width: 700px) {
+        .profile-hero-card { flex-direction: column; text-align: center; }
+        .profile-hero-badges { justify-content: center; }
+        .profile-form-grid { grid-template-columns: 1fr; }
+        .profile-form-group.full-width { grid-column: span 1; }
+        .perm-grid { grid-template-columns: 1fr; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="profile-container">
+
+    <!-- ====== HERO CARD ====== -->
+    <div class="profile-hero-card">
+        <div class="profile-avatar-large">
+            {% if company_logo_url %}
+                <img src="{{ company_logo_url }}" alt="Avatar">
+            {% else %}
+                {{ user.name[0] | upper if user.name else 'U' }}
+            {% endif %}
+        </div>
+        <div class="profile-hero-info">
+            <h1 class="profile-hero-name">{{ user.name or 'Sin nombre' }}</h1>
+            <div class="profile-hero-email">
+                <i class="fa-solid fa-envelope"></i>
+                <span>{{ user.email }}</span>
+            </div>
+            <div class="profile-hero-badges">
+                <span class="profile-badge {{ 'profile-badge-owner' if user.role == 'owner' else 'profile-badge-employee' }}">
+                    <i class="fa-solid {{ 'fa-crown' if user.role == 'owner' else 'fa-user' }}"></i>
+                    {{ 'Propietario' if user.role == 'owner' else 'Colaborador' }}
+                </span>
+                {% if user.createdAt %}
+                <span class="profile-badge profile-badge-member-since">
+                    <i class="fa-solid fa-calendar-check"></i>
+                    Desde {{ user.createdAt[:10] }}
+                </span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- ====== INFORMACIÓN PERSONAL ====== -->
+    <div class="profile-section-card">
+        <div class="profile-section-header">
+            <div class="profile-section-icon green">
+                <i class="fa-solid fa-user-pen"></i>
+            </div>
+            <div>
+                <h2 class="profile-section-title">Información Personal</h2>
+                <p class="profile-section-subtitle">Actualiza tu nombre, teléfono y dirección de contacto</p>
+            </div>
+        </div>
+        <div class="profile-section-body">
+            {% if info_error %}
+            <div class="profile-alert profile-alert-error">
+                <i class="fa-solid fa-circle-exclamation"></i>
+                {{ info_error }}
+            </div>
+            {% endif %}
+            {% if info_success %}
+            <div class="profile-alert profile-alert-success">
+                <i class="fa-solid fa-circle-check"></i>
+                {{ info_success }}
+            </div>
+            {% endif %}
+
+            <form method="POST" action="{{ url_for('update_user_profile') }}" id="form-info" novalidate>
+                <input type="hidden" name="action" value="update_info">
+                <div class="profile-form-grid">
+                    <div class="profile-form-group">
+                        <label class="profile-label" for="prof-name">Nombre Completo</label>
+                        <input type="text" id="prof-name" name="name" class="profile-input"
+                            placeholder="Ej: Juan Pérez" required
+                            value="{{ user.name or '' }}" maxlength="80">
+                    </div>
+                    <div class="profile-form-group">
+                        <label class="profile-label" for="prof-email">
+                            Correo Electrónico
+                            <span class="readonly-badge"><i class="fa-solid fa-lock"></i> Solo lectura</span>
+                        </label>
+                        <input type="email" id="prof-email" class="profile-input"
+                            value="{{ user.email }}" readonly disabled>
+                    </div>
+                    <div class="profile-form-group">
+                        <label class="profile-label" for="prof-phone">Teléfono</label>
+                        <input type="tel" id="prof-phone" name="phone" class="profile-input"
+                            placeholder="Ej: 809-555-0100"
+                            value="{{ user.phone or '' }}" maxlength="20">
+                    </div>
+                    <div class="profile-form-group">
+                        <label class="profile-label" for="prof-role">
+                            Rol en la Empresa
+                            <span class="readonly-badge"><i class="fa-solid fa-lock"></i> Solo lectura</span>
+                        </label>
+                        <input type="text" id="prof-role" class="profile-input"
+                            value="{{ 'Propietario' if user.role == 'owner' else 'Colaborador' }}" readonly disabled>
+                    </div>
+                    <div class="profile-form-group full-width">
+                        <label class="profile-label" for="prof-address">Dirección Personal</label>
+                        <input type="text" id="prof-address" name="address" class="profile-input"
+                            placeholder="Ej: Calle 5, Sector X, Santo Domingo"
+                            value="{{ user.address or '' }}" maxlength="120">
+                    </div>
+                </div>
+
+                <div class="profile-form-footer">
+                    <button type="submit" class="profile-save-btn" id="btn-save-info">
+                        <i class="fa-solid fa-floppy-disk"></i>
+                        <span>Guardar Cambios</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ====== CAMBIO DE CONTRASEÑA ====== -->
+    <div class="profile-section-card">
+        <div class="profile-section-header">
+            <div class="profile-section-icon red">
+                <i class="fa-solid fa-shield-halved"></i>
+            </div>
+            <div>
+                <h2 class="profile-section-title">Seguridad de la Cuenta</h2>
+                <p class="profile-section-subtitle">Cambia tu contraseña de acceso. Se requiere verificar la contraseña actual.</p>
+            </div>
+        </div>
+        <div class="profile-section-body">
+            {% if pwd_error %}
+            <div class="profile-alert profile-alert-error">
+                <i class="fa-solid fa-circle-exclamation"></i>
+                {{ pwd_error }}
+            </div>
+            {% endif %}
+            {% if pwd_success %}
+            <div class="profile-alert profile-alert-success">
+                <i class="fa-solid fa-circle-check"></i>
+                {{ pwd_success }}
+            </div>
+            {% endif %}
+
+            <form method="POST" action="{{ url_for('change_user_password') }}" id="form-password" novalidate>
+                <div class="profile-form-grid">
+                    <!-- Contraseña actual -->
+                    <div class="profile-form-group full-width">
+                        <label class="profile-label" for="pwd-current">Contraseña Actual <span style="color: var(--accent-red);">*</span></label>
+                        <div class="profile-input-wrapper">
+                            <input type="password" id="pwd-current" name="current_password" class="profile-input"
+                                placeholder="••••••••" required autocomplete="current-password">
+                            <button type="button" class="profile-input-eye" onclick="togglePwd('pwd-current', this)" title="Mostrar/Ocultar">
+                                <i class="fa-solid fa-eye"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Nueva contraseña -->
+                    <div class="profile-form-group">
+                        <label class="profile-label" for="pwd-new">Nueva Contraseña <span style="color: var(--accent-red);">*</span></label>
+                        <div class="profile-input-wrapper">
+                            <input type="password" id="pwd-new" name="new_password" class="profile-input"
+                                placeholder="••••••••" required autocomplete="new-password"
+                                minlength="6" oninput="checkPasswordStrength(this.value)">
+                            <button type="button" class="profile-input-eye" onclick="togglePwd('pwd-new', this)" title="Mostrar/Ocultar">
+                                <i class="fa-solid fa-eye"></i>
+                            </button>
+                        </div>
+                        <div class="pwd-strength-bar">
+                            <div class="pwd-strength-fill" id="pwd-strength-fill"></div>
+                        </div>
+                        <span class="pwd-strength-text" id="pwd-strength-text" style="color: var(--text-muted);"></span>
+                        <div class="pwd-requirements" id="pwd-requirements">
+                            <div class="pwd-req-item" id="req-len"><i class="fa-solid fa-circle"></i> Mínimo 6 caracteres</div>
+                            <div class="pwd-req-item" id="req-upper"><i class="fa-solid fa-circle"></i> Al menos una mayúscula</div>
+                            <div class="pwd-req-item" id="req-num"><i class="fa-solid fa-circle"></i> Al menos un número</div>
+                        </div>
+                    </div>
+
+                    <!-- Confirmar contraseña -->
+                    <div class="profile-form-group">
+                        <label class="profile-label" for="pwd-confirm">Confirmar Nueva Contraseña <span style="color: var(--accent-red);">*</span></label>
+                        <div class="profile-input-wrapper">
+                            <input type="password" id="pwd-confirm" name="confirm_password" class="profile-input"
+                                placeholder="••••••••" required autocomplete="new-password"
+                                oninput="checkPasswordMatch()">
+                            <button type="button" class="profile-input-eye" onclick="togglePwd('pwd-confirm', this)" title="Mostrar/Ocultar">
+                                <i class="fa-solid fa-eye"></i>
+                            </button>
+                        </div>
+                        <span class="pwd-strength-text" id="pwd-match-text" style="color: var(--text-muted);"></span>
+                    </div>
+                </div>
+
+                <div class="profile-form-footer">
+                    <button type="submit" class="profile-save-btn danger" id="btn-save-pwd"
+                        onclick="return validatePasswordForm()">
+                        <i class="fa-solid fa-key"></i>
+                        <span>Cambiar Contraseña</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ====== PERMISOS ACTUALES ====== -->
+    <div class="profile-section-card">
+        <div class="profile-section-header">
+            <div class="profile-section-icon purple">
+                <i class="fa-solid fa-user-shield"></i>
+            </div>
+            <div>
+                <h2 class="profile-section-title">Permisos Asignados</h2>
+                <p class="profile-section-subtitle">Módulos a los que tienes acceso en esta cuenta corporativa</p>
+            </div>
+        </div>
+        <div class="profile-section-body">
+            {% set perms = user.get('permissions', {}) %}
+            {% if user.role == 'owner' %}
+            <div class="profile-alert profile-alert-success" style="margin-bottom: 0;">
+                <i class="fa-solid fa-crown"></i>
+                Como <strong>Propietario</strong>, tienes acceso completo y sin restricciones a todos los módulos.
+            </div>
+            {% else %}
+            <div class="perm-grid">
+                <div class="perm-item">
+                    <div class="perm-dot {{ 'on' if perms.get('canInvoice', True) else 'off' }}"></div>
+                    <div>
+                        <div class="perm-label">Facturación y Documentos</div>
+                        <div style="font-size:0.72rem; color: var(--text-muted);">Crear y emitir e-CF</div>
+                    </div>
+                </div>
+                <div class="perm-item">
+                    <div class="perm-dot {{ 'on' if perms.get('canExpenses', True) else 'off' }}"></div>
+                    <div>
+                        <div class="perm-label">Control de Gastos</div>
+                        <div style="font-size:0.72rem; color: var(--text-muted);">Ver y registrar egresos</div>
+                    </div>
+                </div>
+                <div class="perm-item">
+                    <div class="perm-dot {{ 'on' if perms.get('canClients', True) else 'off' }}"></div>
+                    <div>
+                        <div class="perm-label">CRM y Clientes</div>
+                        <div style="font-size:0.72rem; color: var(--text-muted);">Gestionar directorio</div>
+                    </div>
+                </div>
+                <div class="perm-item">
+                    <div class="perm-dot {{ 'on' if perms.get('canManageInventory', True) else 'off' }}"></div>
+                    <div>
+                        <div class="perm-label">Inventario</div>
+                        <div style="font-size:0.72rem; color: var(--text-muted);">Almacenes y stock</div>
+                    </div>
+                </div>
+                <div class="perm-item">
+                    <div class="perm-dot {{ 'on' if perms.get('canModifySettings', True) else 'off' }}"></div>
+                    <div>
+                        <div class="perm-label">Configuración</div>
+                        <div style="font-size:0.72rem; color: var(--text-muted);">Ajustes de empresa</div>
+                    </div>
+                </div>
+            </div>
+            <p style="font-size: 0.78rem; color: var(--text-muted); margin-top: 16px; display: flex; align-items: center; gap: 6px;">
+                <i class="fa-solid fa-circle-info"></i>
+                Los permisos son asignados por el Propietario. Contacta a tu administrador para modificarlos.
+            </p>
+            {% endif %}
+        </div>
+    </div>
+
+</div>
+
+<script>
+    // ============ TOGGLE VISIBILITY ============
+    function togglePwd(inputId, btn) {
+        const input = document.getElementById(inputId);
+        const icon = btn.querySelector('i');
+        if (input.type === 'password') {
+            input.type = 'text';
+            icon.className = 'fa-solid fa-eye-slash';
+        } else {
+            input.type = 'password';
+            icon.className = 'fa-solid fa-eye';
+        }
+    }
+
+    // ============ PASSWORD STRENGTH ============
+    function checkPasswordStrength(val) {
+        const fill = document.getElementById('pwd-strength-fill');
+        const text = document.getElementById('pwd-strength-text');
+        const reqLen = document.getElementById('req-len');
+        const reqUpper = document.getElementById('req-upper');
+        const reqNum = document.getElementById('req-num');
+
+        const hasLen = val.length >= 6;
+        const hasUpper = /[A-Z]/.test(val);
+        const hasNum = /[0-9]/.test(val);
+
+        reqLen.className = 'pwd-req-item' + (hasLen ? ' met' : '');
+        reqLen.querySelector('i').className = 'fa-solid ' + (hasLen ? 'fa-circle-check' : 'fa-circle');
+        reqUpper.className = 'pwd-req-item' + (hasUpper ? ' met' : '');
+        reqUpper.querySelector('i').className = 'fa-solid ' + (hasUpper ? 'fa-circle-check' : 'fa-circle');
+        reqNum.className = 'pwd-req-item' + (hasNum ? ' met' : '');
+        reqNum.querySelector('i').className = 'fa-solid ' + (hasNum ? 'fa-circle-check' : 'fa-circle');
+
+        const score = [hasLen, hasUpper, hasNum, val.length >= 10, /[^a-zA-Z0-9]/.test(val)].filter(Boolean).length;
+
+        const levels = [
+            { w: '0%', color: 'var(--border-color)', label: '' },
+            { w: '25%', color: '#ef4444', label: 'Muy débil' },
+            { w: '50%', color: '#f97316', label: 'Débil' },
+            { w: '75%', color: '#eab308', label: 'Aceptable' },
+            { w: '90%', color: '#22c55e', label: 'Fuerte' },
+            { w: '100%', color: '#10b981', label: 'Muy fuerte' },
+        ];
+        const lvl = val.length === 0 ? 0 : Math.min(score, 5);
+        fill.style.width = levels[lvl].w;
+        fill.style.background = levels[lvl].color;
+        text.textContent = levels[lvl].label;
+        text.style.color = levels[lvl].color;
+
+        // Also re-check match
+        checkPasswordMatch();
+    }
+
+    function checkPasswordMatch() {
+        const newPwd = document.getElementById('pwd-new').value;
+        const confirmPwd = document.getElementById('pwd-confirm').value;
+        const matchText = document.getElementById('pwd-match-text');
+        if (!confirmPwd) {
+            matchText.textContent = '';
+            return;
+        }
+        if (newPwd === confirmPwd) {
+            matchText.textContent = '✓ Las contraseñas coinciden';
+            matchText.style.color = 'var(--accent-emerald)';
+        } else {
+            matchText.textContent = '✗ Las contraseñas no coinciden';
+            matchText.style.color = 'var(--accent-red)';
+        }
+    }
+
+    function validatePasswordForm() {
+        const current = document.getElementById('pwd-current').value.trim();
+        const newPwd = document.getElementById('pwd-new').value;
+        const confirm = document.getElementById('pwd-confirm').value;
+
+        if (!current) {
+            alert('Por favor ingresa tu contraseña actual para continuar.');
+            document.getElementById('pwd-current').focus();
+            return false;
+        }
+        if (newPwd.length < 6) {
+            alert('La nueva contraseña debe tener al menos 6 caracteres.');
+            document.getElementById('pwd-new').focus();
+            return false;
+        }
+        if (newPwd !== confirm) {
+            alert('Las contraseñas nuevas no coinciden. Por favor verifica.');
+            document.getElementById('pwd-confirm').focus();
+            return false;
+        }
+        if (newPwd === current) {
+            alert('La nueva contraseña debe ser diferente a la actual.');
+            document.getElementById('pwd-new').focus();
+            return false;
+        }
+        return true;
+    }
+
+    // ============ SAVE BUTTON LOADING STATE ============
+    document.getElementById('form-info').addEventListener('submit', function() {
+        const btn = document.getElementById('btn-save-info');
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> <span>Guardando...</span>';
+        btn.disabled = true;
+    });
+
+    document.getElementById('form-password').addEventListener('submit', function(e) {
+        if (!validatePasswordForm()) { e.preventDefault(); return; }
+        const btn = document.getElementById('btn-save-pwd');
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> <span>Procesando...</span>';
+        btn.disabled = true;
+    });
+</script>
+{% endblock %}
