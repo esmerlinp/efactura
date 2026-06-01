@@ -68,25 +68,73 @@ def client_detail(company_id):
     plans = DatabaseService.get_all_plans()
         
     if request.method == 'POST':
-        status = request.form.get('status')
-        plan_id = request.form.get('planId')
-        document_limit = request.form.get('documentLimit')
-        storage_limit = request.form.get('storageLimitMB')
-        monthly_payment = request.form.get('monthlyPayment')
-        additional_doc_cost = request.form.get('additionalDocumentCost')
-        billing_day = request.form.get('billingDay')
+        update_data = {}
         
-        update_data = {
-            'status': status,
-            'planId': plan_id,
-            'documentLimit': int(document_limit) if document_limit else '',
-            'storageLimitMB': int(storage_limit) if storage_limit else '',
-            'monthlyPayment': float(monthly_payment) if monthly_payment else 0.0,
-            'additionalDocumentCost': float(additional_doc_cost) if additional_doc_cost else 0.0,
-            'billingDay': int(billing_day) if billing_day else 1
-        }
-        DatabaseService.update_company(company_id, update_data)
-        flash('Datos de la empresa actualizados.', 'success')
+        # Formulario 1: Ajustes de cuenta/Plan (si vienen campos del plan)
+        if 'planId' in request.form or 'status' in request.form:
+            status = request.form.get('status')
+            plan_id = request.form.get('planId')
+            document_limit = request.form.get('documentLimit')
+            storage_limit = request.form.get('storageLimitMB')
+            monthly_payment = request.form.get('monthlyPayment')
+            additional_doc_cost = request.form.get('additionalDocumentCost')
+            billing_day = request.form.get('billingDay')
+            
+            update_data.update({
+                'status': status,
+                'planId': plan_id,
+                'documentLimit': int(document_limit) if document_limit else '',
+                'storageLimitMB': int(storage_limit) if storage_limit else '',
+                'monthlyPayment': float(monthly_payment) if monthly_payment else 0.0,
+                'additionalDocumentCost': float(additional_doc_cost) if additional_doc_cost else 0.0,
+                'billingDay': int(billing_day) if billing_day else 1
+            })
+            flash('Configuración de cuenta y plan actualizada.', 'success')
+
+        # Formulario 2: Identidad fiscal y certificado (si vienen campos fiscales)
+        elif 'companyName' in request.form or 'companyRNC' in request.form:
+            company_name = request.form.get('companyName')
+            company_rnc = request.form.get('companyRNC')
+            trade_name = request.form.get('tradeName')
+            company_address = request.form.get('companyAddress')
+            company_phone = request.form.get('companyPhone')
+            company_email = request.form.get('companyEmail')
+            province = request.form.get('province')
+            municipality = request.form.get('municipality')
+            certificate_password = request.form.get('certificatePassword')
+            
+            update_data.update({
+                'companyName': company_name,
+                'companyRNC': company_rnc,
+                'tradeName': trade_name,
+                'companyAddress': company_address,
+                'companyPhone': company_phone,
+                'companyEmail': company_email,
+                'province': province,
+                'municipality': municipality,
+                'certificatePassword': certificate_password
+            })
+
+            # Procesar nuevo certificado si se carga
+            cert_file = request.files.get('certificateFile')
+            if cert_file and cert_file.filename:
+                import base64
+                file_data = cert_file.read()
+                filename = cert_file.filename
+                ext = filename.rsplit('.', 1)[-1].lower() if '.' in filename else 'p12'
+                cert_name = filename.rsplit('.', 1)[0]
+                cert_ext = f".{ext}"
+                cert_content = base64.b64encode(file_data).decode('utf-8')
+                
+                update_data['certificateName'] = cert_name
+                update_data['certificateExtension'] = cert_ext
+                update_data['certificateContent'] = cert_content
+                
+            flash('Identidad fiscal y firma digital actualizadas.', 'success')
+
+        if update_data:
+            DatabaseService.update_company(company_id, update_data)
+            
         return redirect(url_for('client_detail', company_id=company_id))
         
     payments = DatabaseService.get_payments(company_id)

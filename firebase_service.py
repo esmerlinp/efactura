@@ -1827,13 +1827,23 @@ class DatabaseService:
             if not date_val:
                 return None
             if hasattr(date_val, 'year'):
+                if hasattr(date_val, 'to_datetime'):
+                    try:
+                        date_val = date_val.to_datetime()
+                    except Exception:
+                        pass
+                if hasattr(date_val, 'replace'):
+                    try:
+                        return date_val.replace(tzinfo=None)
+                    except Exception:
+                        pass
                 return date_val
             if isinstance(date_val, str):
                 try:
-                    return datetime.datetime.fromisoformat(date_val.split('Z')[0].split('+')[0])
+                    return datetime.datetime.fromisoformat(date_val.split('Z')[0].split('+')[0]).replace(tzinfo=None)
                 except Exception:
                     try:
-                        return datetime.datetime.strptime(date_val[:10], '%Y-%m-%d')
+                        return datetime.datetime.strptime(date_val[:10], '%Y-%m-%d').replace(tzinfo=None)
                     except Exception:
                         pass
             return None
@@ -1909,13 +1919,23 @@ class DatabaseService:
             if not date_val:
                 return None
             if hasattr(date_val, 'year'):
+                if hasattr(date_val, 'to_datetime'):
+                    try:
+                        date_val = date_val.to_datetime()
+                    except Exception:
+                        pass
+                if hasattr(date_val, 'replace'):
+                    try:
+                        return date_val.replace(tzinfo=None)
+                    except Exception:
+                        pass
                 return date_val
             if isinstance(date_val, str):
                 try:
-                    return datetime.datetime.fromisoformat(date_val.split('Z')[0].split('+')[0])
+                    return datetime.datetime.fromisoformat(date_val.split('Z')[0].split('+')[0]).replace(tzinfo=None)
                 except Exception:
                     try:
-                        return datetime.datetime.strptime(date_val[:10], '%Y-%m-%d')
+                        return datetime.datetime.strptime(date_val[:10], '%Y-%m-%d').replace(tzinfo=None)
                     except Exception:
                         pass
             return None
