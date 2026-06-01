@@ -1,0 +1,219 @@
+{% extends "layout.html" %}
+
+{% block title %}Mi Plan y Consumo{% endblock %}
+
+{% block page_header %}
+<div style="display: flex; flex-direction: column; gap: 4px;">
+    <h1 style="font-size: 1.6rem; font-weight: 800; color: var(--text-primary); margin: 0; font-family: var(--font-heading);">💳 Mi Plan y Consumo</h1>
+    <span style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500;">Controla tu consumo de facturación y consulta tus pagos en tiempo real</span>
+</div>
+{% endblock %}
+
+{% block content %}
+<div style="display: grid; grid-template-columns: 1.2fr 1.8fr; gap: 24px; margin-top: 10px;">
+    
+    <!-- Columna Izquierda: Información de Plan & Cobro Proyectado -->
+    <div style="display: flex; flex-direction: column; gap: 24px;">
+        
+        <!-- Tarjeta de Plan Activo -->
+        <div class="card" style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.04), rgba(96, 165, 250, 0.04)); border: 1px solid var(--border-color); border-radius: var(--radius-md);">
+            <div class="card-header" style="border-bottom: 1px solid var(--border-color); padding-bottom: 14px; display: flex; justify-content: space-between; align-items: center;">
+                <h3 style="margin: 0; font-size: 1.1rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-cube" style="color: var(--accent-emerald);"></i> Plan Habilitado
+                </h3>
+                <span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; font-weight: 700; border-radius: 20px; padding: 4px 10px; font-size: 0.75rem;">
+                    {{ profile.status | default('Activo') | upper }}
+                </span>
+            </div>
+            
+            <div class="card-body" style="padding-top: 18px; display: flex; flex-direction: column; gap: 14px;">
+                <div style="text-align: center; padding: 10px 0; border-bottom: 1px dashed var(--border-color);">
+                    <span style="font-size: 0.82rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700; letter-spacing: 0.05em;">Suscripción Activa</span>
+                    <h2 style="font-size: 1.65rem; font-weight: 800; color: var(--text-primary); margin: 6px 0 0 0; font-family: var(--font-heading);">{{ plan_name }}</h2>
+                </div>
+                
+                <div style="display: flex; flex-direction: column; gap: 12px; font-size: 0.88rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="color: var(--text-secondary);">Costo Mensual Fijo:</span>
+                        <strong style="color: var(--text-primary);">RD$ {{ profile.monthlyPayment | default(0) | float | round(2) }}</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="color: var(--text-secondary);">Costo por Doc. Adicional:</span>
+                        <strong style="color: var(--text-primary);">RD$ {{ profile.additionalDocumentCost | default(0) | float | round(2) }}</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="color: var(--text-secondary);">Límite de Documentos:</span>
+                        <strong style="color: var(--text-primary);">{{ profile.documentLimit | default('Ilimitado') }} e-CF / mes</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="color: var(--text-secondary);">Límite Almacenamiento:</span>
+                        <strong style="color: var(--text-primary);">{{ profile.storageLimitMB | default('Ilimitado') }} MB</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 10px; border-top: 1px solid var(--border-color);">
+                        <span style="color: var(--text-secondary);">Día de Corte Mensual:</span>
+                        <span style="font-weight: 700; color: #2563EB;">Día {{ profile.billingDay | default(1) }} de cada mes</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Cobro Proyectado al Vencimiento -->
+        <div class="card" style="border: 1px solid var(--border-color); border-radius: var(--radius-md);">
+            <div class="card-header" style="border-bottom: 1px solid var(--border-color); padding-bottom: 14px;">
+                <h3 style="margin: 0; font-size: 1.1rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-calculator" style="color: #3b82f6;"></i> Proyección Próximo Pago
+                </h3>
+            </div>
+            
+            {% set limit = profile.documentLimit | default(0) | int %}
+            {% set current = stats.prod_current_cycle | default(0) | int %}
+            {% set excess = [0, current - limit]|max if limit > 0 else 0 %}
+            {% set monthly = profile.monthlyPayment | default(0) | float %}
+            {% set extra_cost = profile.additionalDocumentCost | default(0) | float %}
+            {% set excess_total = excess * extra_cost %}
+            {% set total_bill = monthly + excess_total %}
+            
+            <div class="card-body" style="padding-top: 18px; display: flex; flex-direction: column; justify-content: space-between; height: 100%;">
+                <div style="display: flex; flex-direction: column; gap: 10px; font-size: 0.88rem; margin-bottom: 16px;">
+                    <div style="display: flex; justify-content: space-between;">
+                        <span style="color: var(--text-secondary);">Cuota del Servicio:</span>
+                        <span style="font-weight: 600; color: var(--text-primary);">RD$ {{ monthly | round(2) }}</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between;">
+                        <span style="color: var(--text-secondary);">Excedentes ({{ excess }} docs):</span>
+                        <span style="font-weight: 600; color: var(--text-primary);">RD$ {{ excess_total | round(2) }}</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; padding-top: 10px; border-top: 1px dashed var(--border-color);">
+                        <span style="color: var(--text-muted); font-size: 0.82rem; max-width: 75%;">Próximo cargo estimado el {{ stats.current_cycle_end }}:</span>
+                    </div>
+                </div>
+                
+                <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(59, 130, 246, 0.05); padding: 14px; border-radius: var(--radius-sm); border: 1px solid rgba(59, 130, 246, 0.1);">
+                    <span style="font-weight: 700; color: var(--text-primary);">Total a Cobrar:</span>
+                    <strong style="font-size: 1.35rem; color: #2563EB; font-weight: 800;">RD$ {{ total_bill | round(2) }}</strong>
+                </div>
+            </div>
+        </div>
+        
+    </div>
+
+    <!-- Columna Derecha: Medidor de Consumo y Historial de Pagos -->
+    <div style="display: flex; flex-direction: column; gap: 24px;">
+        
+        <!-- Tarjeta de Consumo de Documentos -->
+        <div class="card" style="border: 1px solid var(--border-color); border-radius: var(--radius-md);">
+            <div class="card-header" style="border-bottom: 1px solid var(--border-color); padding-bottom: 14px; display: flex; justify-content: space-between; align-items: center;">
+                <h3 style="margin: 0; font-size: 1.1rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-chart-line" style="color: #60a5fa;"></i> Consumo del Periodo Actual
+                </h3>
+                <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 600;">
+                    Ciclo: {{ stats.current_cycle_start }} al {{ stats.current_cycle_end }}
+                </span>
+            </div>
+            
+            <div class="card-body" style="padding-top: 18px;">
+                <div style="display: grid; grid-template-columns: 1.5fr 1fr; gap: 24px; align-items: center;">
+                    <div>
+                        <h4 style="margin: 0 0 10px 0; font-size: 0.95rem; font-weight: 700; color: var(--text-primary);">Documentos Emitidos (Producción)</h4>
+                        
+                        <div style="font-size: 1.5rem; font-weight: 800; color: var(--text-primary); margin-bottom: 10px;">
+                            {{ current }} <span style="font-size: 0.9rem; font-weight: 500; color: var(--text-muted);">/ {% if limit > 0 %}{{ limit }} e-CF{% else %}ilimitados{% endif %}</span>
+                        </div>
+                        
+                        {% if limit > 0 %}
+                            {% set pct = (current / limit * 100) | round | int %}
+                            {% set bar_color = '#10b981' %}
+                            {% if current > limit %}{% set bar_color = '#ef4444' %}{% elif pct >= 80 %}{% set bar_color = '#f59e0b' %}{% endif %}
+                            
+                            <div style="width: 100%; height: 10px; background: rgba(0,0,0,0.06); border-radius: 5px; overflow: hidden; margin-bottom: 8px;">
+                                <div style="width: {{ [pct, 100]|min }}%; height: 100%; background: {{ bar_color }}; border-radius: 5px; transition: width 0.3s ease;"></div>
+                            </div>
+                            
+                            <div style="font-size: 0.8rem; color: var(--text-muted); display: flex; justify-content: space-between;">
+                                <span>{{ pct }}% del plan mensual consumido</span>
+                                {% if current > limit %}
+                                <span style="color: #ef4444; font-weight: 700;">+{{ current - limit }} excedentes</span>
+                                {% endif %}
+                            </div>
+                        {% else %}
+                            <div style="width: 100%; height: 10px; background: linear-gradient(90deg, #3b82f6, #10b981); border-radius: 5px; margin-bottom: 8px;"></div>
+                            <span style="font-size: 0.8rem; color: var(--text-muted);">Operando con plan de capacidad ilimitada.</span>
+                        {% endif %}
+                    </div>
+                    
+                    <div style="background: rgba(0, 0, 0, 0.02); border-radius: var(--radius-md); padding: 14px; border: 1px dashed var(--border-color); text-align: center;">
+                        <span style="font-size: 0.78rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Modo Sandbox</span>
+                        <div style="font-size: 1.3rem; font-weight: 800; color: var(--text-secondary); margin: 6px 0;">
+                            {{ stats.sandbox_current_cycle }} <span style="font-size: 0.8rem; font-weight: 500;">docs</span>
+                        </div>
+                        <span style="font-size: 0.75rem; color: var(--text-muted); display: block;">Pruebas emitidas en el ciclo (histórico: {{ stats.sandbox_total }})</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Historial de Facturas de Cobro y Pagos -->
+        <div class="card" style="border: 1px solid var(--border-color); border-radius: var(--radius-md);">
+            <div class="card-header" style="border-bottom: 1px solid var(--border-color); padding-bottom: 14px; display: flex; justify-content: space-between; align-items: center;">
+                <h3 style="margin: 0; font-size: 1.1rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-file-invoice" style="color: #f59e0b;"></i> Historial de Facturas e Invoices
+                </h3>
+            </div>
+            
+            <div class="card-body" style="padding-top: 18px;">
+                {% if payments %}
+                <div class="table-wrapper" style="max-height: 250px; overflow-y: auto;">
+                    <table class="data-table" style="width: 100%; border-collapse: collapse; font-size: 0.88rem;">
+                        <thead>
+                            <tr style="border-bottom: 1px solid var(--border-color); text-align: left;">
+                                <th style="padding: 10px;">Fecha</th>
+                                <th style="padding: 10px;">Método</th>
+                                <th style="padding: 10px;">Referencia</th>
+                                <th style="padding: 10px; text-align: right;">Monto</th>
+                                <th style="padding: 10px; text-align: center;">Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for pay in payments %}
+                            <tr style="border-bottom: 1px solid var(--border-color);">
+                                <td style="padding: 10px;">
+                                    {% if pay.date and pay.date.strftime %}
+                                        {{ pay.date.strftime('%d/%m/%Y') }}
+                                    {% else %}
+                                        {{ pay.date[:10] if pay.date is string else pay.date }}
+                                    {% endif %}
+                                </td>
+                                <td style="padding: 10px;">
+                                    <span class="status-badge" style="background: rgba(37, 99, 235, 0.08); color: #2563eb; padding: 2px 6px; font-size: 0.72rem; font-weight: 700;">
+                                        {{ pay.method }}
+                                    </span>
+                                </td>
+                                <td style="padding: 10px; color: var(--text-secondary);" title="{{ pay.reference }}">
+                                    {{ pay.reference | default('—') | truncate(20) }}
+                                </td>
+                                <td style="padding: 10px; text-align: right; font-weight: 700; color: var(--text-primary);">
+                                    RD$ {{ pay.amount | float | round(2) }}
+                                </td>
+                                <td style="padding: 10px; text-align: center;">
+                                    <span class="status-badge" style="background: rgba(16, 185, 129, 0.1); color: #10b981; padding: 2px 6px; font-size: 0.72rem; font-weight: 700; border-radius: 10px;">
+                                        Saldado
+                                    </span>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div style="text-align: center; padding: 30px 16px;">
+                    <span style="font-size: 2.2rem; display: block; margin-bottom: 8px;">📑</span>
+                    <p style="margin: 0; font-size: 0.88rem; color: var(--text-muted);">No hay facturas o pagos registrados en tu historial aún.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+    </div>
+    
+</div>
+{% endblock %}

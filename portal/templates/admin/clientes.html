@@ -32,6 +32,7 @@
                     <th>Empresa / RNC</th>
                     <th>Plan</th>
                     <th>Límite Docs</th>
+                    <th>Consumo Ciclo</th>
                     <th>Estado</th>
                     <th>Configurada</th>
                     <th>Acciones</th>
@@ -57,6 +58,29 @@
                             {{ company.documentLimit | default('∞') }}
                             <span class="doc-period">/ mes</span>
                         </span>
+                    </td>
+                    <td>
+                        {% set limit = company.documentLimit | default(0) | int %}
+                        {% set current = company.stats.prod_current_cycle | default(0) | int %}
+                        {% if limit > 0 %}
+                            {% if current > limit %}
+                                <span class="status-badge" style="background: rgba(239, 68, 68, 0.15); color: #ef4444;" title="Límite superado en este ciclo">
+                                    {{ current }} / {{ limit }} (+{{ current - limit }})
+                                </span>
+                            {% elif current >= limit * 0.8 %}
+                                <span class="status-badge" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b;" title="Consumo alto en este ciclo">
+                                    {{ current }} / {{ limit }}
+                                </span>
+                            {% else %}
+                                <span class="status-badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981;" title="Consumo dentro del límite">
+                                    {{ current }} / {{ limit }}
+                                </span>
+                            {% endif %}
+                        {% else %}
+                            <span class="status-badge" style="background: rgba(59, 130, 246, 0.15); color: #3b82f6;" title="Límite ilimitado">
+                                {{ current }} / ∞
+                            </span>
+                        {% endif %}
                     </td>
                     <td>
                         {% set status = company.status | default('Activo') %}
