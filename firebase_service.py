@@ -1883,3 +1883,131 @@ class DatabaseService:
             print(f"❌ Error en get_payments({company_id}): {e}")
             return []
 
+    @classmethod
+    def get_billing_history(cls, owner_uid, billing_day=1, monthly_payment=0, additional_document_cost=0, document_limit=0, created_at=None):
+        """
+        Genera el historial de ciclos de facturación, consumo y pagos de los últimos 6 meses.
+        """
+        import datetime
+        if not firebase_initialized:
+            return []
+            
+        history = []
+        payments_list = cls.get_payments(owner_uid)
+        
+        # Obtener todas las facturas de producción (excluyendo cotizaciones)
+        invoices = []
+        try:
+            prod_docs = db_firestore.collection('users').document(owner_uid).collection('invoices')\
+                .where('isQuotation', '==', False).stream()
+            for doc in prod_docs:
+                invoices.append(doc.to_dict())
+        except Exception as e:
+            print(f"⚠️ Error al obtener facturas para historial: {e}")
+            
+        def parse_date(date_val):
+            if not date_val:
+                return None
+            if hasattr(date_val, 'year'):
+                return date_val
+            if isinstance(date_val, str):
+                try:
+                    return datetime.datetime.fromisoformat(date_val.split('Z')[0].split('+')[0])
+                except Exception:
+                    try:
+                        return datetime.datetime.strptime(date_val[:10], '%Y-%m-%d')
+                    except Exception:
+                        pass
+            return None
+
+        # Calcular los últimos 6 ciclos finalizados
+        now = datetime.datetime.now()
+        try:
+            billing_day = int(billing_day) if billing_day else 1
+            if billing_day < 1 or billing_day > 28:
+                billing_day = 1
+        except Exception:
+            billing_day = 1
+
+        current_year = now.year
+        current_month = now.month
+        
+        if now.day >= billing_day:
+            anchor_date = datetime.datetime(current_year, current_month, billing_day)
+        else:
+            if current_month == 1:
+                anchor_date = datetime.datetime(current_year - 1, 12, billing_day)
+            else:
+                anchor_date = datetime.datetime(current_year, current_month - 1, billing_day)
+
+        reg_date = parse_date(created_at)
+
+        # Generar los últimos 6 ciclos finalizados
+        for i in range(1, 7):
+            year = anchor_date.year
+            month = anchor_date.month - i
+            while month <= 0:
+                month += 12
+                year -= 1
+                
+            cycle_start = datetime.datetime(year, month, billing_day, 0, 0, 0)
+            
+            next_month = month + 1
+            next_year = year
+            if next_month > 12:
+                next_month -= 12
+                next_year += 1
+            cycle_end = datetime.datetime(next_year, next_month, billing_day, 23, 59, 59)
+            
+            # Omitir ciclos que finalizaron antes de la fecha de registro del cliente
+            if reg_date and cycle_end < reg_date:
+                continue
+            
+            # Contar documentos en este rango
+            count = 0
+            for inv in invoices:
+                d_date = parse_date(inv.get('date') or inv.get('createdAt'))
+                if d_date and cycle_start <= d_date <= cycle_end:
+                    count += 1
+            
+            # Calcular cargos
+            excess = max(0, count - document_limit) if document_limit > 0 else 0
+            excess_charge = excess * additional_document_cost
+            total_charge = monthly_payment + excess_charge
+            
+            # Buscar si hay algún pago en este periodo
+            paid = False
+            payment_ref = ""
+            payment_date = None
+            
+            payment_grace_end = cycle_end + datetime.timedelta(days=15)
+            for p in payments_list:
+                p_date = parse_date(p.get('date'))
+                if p_date and (cycle_start <= p_date <= payment_grace_end):
+                    paid = True
+                    payment_ref = p.get('reference', p.get('method', 'Manual'))
+                    payment_date = p_date.strftime('%Y-%m-%d')
+                    break
+                    
+            history.append({
+                'period_label': f"{cycle_start.strftime('%B %Y')} ({cycle_start.strftime('%d/%m')} - {cycle_end.strftime('%d/%m')})",
+                'start_date': cycle_start.strftime('%Y-%m-%d'),
+                'end_date': cycle_end.strftime('%Y-%m-%d'),
+                'consumed_docs': count,
+                'excess_docs': excess,
+                'monthly_fee': monthly_payment,
+                'excess_charge': excess_charge,
+                'total_charge': total_charge,
+                'status': 'Saldado' if paid else 'Pendiente',
+                'payment_ref': payment_ref,
+                'payment_date': payment_date
+            })
+            
+        meses_en = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+        meses_es = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
+        for h in history:
+            for en, es in zip(meses_en, meses_es):
+                h['period_label'] = h['period_label'].replace(en, es)
+                h['period_label'] = h['period_label'].replace(en.lower(), es.lower())
+                
+        return history
