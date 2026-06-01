@@ -3556,5 +3556,42 @@ def chatbot_api():
     result = ChatbotService.ask_chatbot(owner_uid, message, history, sandbox=sandbox)
     return jsonify(result)
 
+@app.route('/suscripcion')
+def client_subscription_page():
+    if 'user' not in session: return redirect(url_for('login'))
+    owner_uid = session['user']['ownerUID']
+    
+    # 1. Obtener perfil de la empresa
+    profile = DatabaseService.get_company_profile(owner_uid)
+    
+    # 2. Cargar datos del plan
+    plan_name = "Plan Personalizado"
+    from firebase_service import db_firestore
+    try:
+        plan_id = profile.get('planId')
+        if plan_id:
+            plan_doc = db_firestore.collection('plans').document(plan_id).get()
+            if plan_doc.exists:
+                plan_data = plan_doc.to_dict()
+                plan_name = plan_data.get('name', 'Plan Registrado')
+    except Exception as e:
+        print(f"⚠️ Error al obtener plan en suscripción del cliente: {e}")
+
+    # 3. Obtener estadísticas de consumo
+    billing_day = profile.get('billingDay', 1)
+    stats = DatabaseService.get_invoice_stats(owner_uid, billing_day)
+    
+    # 4. Obtener historial de pagos
+    payments = DatabaseService.get_payments(owner_uid)
+    
+    return render_template(
+        'subscription.html', 
+        active_page='subscription',
+        profile=profile,
+        plan_name=plan_name,
+        stats=stats,
+        payments=payments
+    )
+
 if __name__ == '__main__':
     app.run(debug=True, port=5001)

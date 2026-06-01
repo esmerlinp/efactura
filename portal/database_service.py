@@ -75,6 +75,8 @@ class DatabaseService:
                             'additionalDocumentCost': company_data.get('additionalDocumentCost', 0),
                             'billingDay': company_data.get('billingDay', 1),
                         }
+                        # Cargar estadísticas de consumo
+                        company['stats'] = cls.get_invoice_stats(owner_uid, company['billingDay'])
                         companies.append(company)
                     except Exception as e:
                         print(f"⚠️ Error leyendo perfil de {owner_uid}: {e}")
@@ -103,7 +105,7 @@ class DatabaseService:
             profile_data = profile_doc.to_dict()
             company_data = company_doc.to_dict() if company_doc.exists else {}
 
-            return {
+            company_obj = {
                 'id': company_id,
                 'ownerUID': company_id,
                 'razonSocial': company_data.get('companyName', profile_data.get('name', 'Sin nombre')),
@@ -119,6 +121,8 @@ class DatabaseService:
                 'additionalDocumentCost': company_data.get('additionalDocumentCost', 0),
                 'billingDay': company_data.get('billingDay', 1),
             }
+            company_obj['stats'] = cls.get_invoice_stats(company_id, company_obj['billingDay'])
+            return company_obj
         except Exception as e:
             print(f"❌ Error en get_company({company_id}): {e}")
             return None
@@ -198,3 +202,88 @@ class DatabaseService:
         except Exception as e:
             print(f"❌ Error en get_payments({company_id}): {e}")
             return []
+
+    @classmethod
+    def get_invoice_stats(cls, owner_uid, billing_day=1):
+        """
+        Calcula estadísticas de facturas emitidas en producción y sandbox para el ciclo actual.
+        """
+        db = cls.get_db()
+        import datetime
+        
+        stats = {
+            'prod_total': 0,
+            'prod_current_cycle': 0,
+            'sandbox_total': 0,
+            'sandbox_current_cycle': 0,
+            'current_cycle_start': None,
+            'current_cycle_end': None
+        }
+        
+        now = datetime.datetime.now()
+        try:
+            billing_day = int(billing_day) if billing_day else 1
+            if billing_day < 1 or billing_day > 28:
+                billing_day = 1
+        except Exception:
+            billing_day = 1
+            
+        # Rango del ciclo de facturación
+        if now.day >= billing_day:
+            start_date = datetime.datetime(now.year, now.month, billing_day, 0, 0, 0)
+            if now.month == 12:
+                end_date = datetime.datetime(now.year + 1, 1, billing_day, 23, 59, 59)
+            else:
+                end_date = datetime.datetime(now.year, now.month + 1, billing_day, 23, 59, 59)
+        else:
+            if now.month == 1:
+                start_date = datetime.datetime(now.year - 1, 12, billing_day, 0, 0, 0)
+            else:
+                start_date = datetime.datetime(now.year, now.month - 1, billing_day, 0, 0, 0)
+            end_date = datetime.datetime(now.year, now.month, billing_day, 23, 59, 59)
+            
+        stats['current_cycle_start'] = start_date.strftime('%Y-%m-%d')
+        stats['current_cycle_end'] = end_date.strftime('%Y-%m-%d')
+        
+        def parse_date(date_val):
+            if not date_val:
+                return None
+            if hasattr(date_val, 'year'):
+                return date_val
+            if isinstance(date_val, str):
+                try:
+                    return datetime.datetime.fromisoformat(date_val.split('Z')[0].split('+')[0])
+                except Exception:
+                    try:
+                        return datetime.datetime.strptime(date_val[:10], '%Y-%m-%d')
+                    except Exception:
+                        pass
+            return None
+
+        # Contar facturas de producción (excluyendo cotizaciones)
+        try:
+            prod_docs = db.collection('users').document(owner_uid).collection('invoices')\
+                .where('isQuotation', '==', False).stream()
+            for doc in prod_docs:
+                data = doc.to_dict()
+                stats['prod_total'] += 1
+                doc_date = parse_date(data.get('date') or data.get('createdAt'))
+                if doc_date and start_date <= doc_date <= end_date:
+                    stats['prod_current_cycle'] += 1
+        except Exception as e:
+            print(f"⚠️ Error counting prod invoices for {owner_uid}: {e}")
+            
+        # Contar facturas de sandbox (excluyendo cotizaciones)
+        try:
+            sandbox_docs = db.collection('users').document(owner_uid).collection('sandbox_invoices')\
+                .where('isQuotation', '==', False).stream()
+            for doc in sandbox_docs:
+                data = doc.to_dict()
+                stats['sandbox_total'] += 1
+                doc_date = parse_date(data.get('date') or data.get('createdAt'))
+                if doc_date and start_date <= doc_date <= end_date:
+                    stats['sandbox_current_cycle'] += 1
+        except Exception as e:
+            print(f"⚠️ Error counting sandbox invoices for {owner_uid}: {e}")
+            
+        return stats
