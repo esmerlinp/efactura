@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 import uuid
 import random
-from firebase_service import DatabaseService
+from app.services.db_service import DatabaseService
 
 class RecurrenceService:
     @staticmethod

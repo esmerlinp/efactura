@@ -1,6 +1,6 @@
 import sys
 import xml.etree.ElementTree as ET
-from dgii_xml_builder import DgiiXmlBuilder
+from app.services.dgii_xml_builder import DgiiXmlBuilder
 
 def run_xml_tests():
     print("🧪 Iniciando pruebas de generación de XML Fiscal DGII...")

@@ -1,7 +1,7 @@
 import requests
 import json
 from config import Config
-from firebase_service import DatabaseService
+from app.services.db_service import DatabaseService
 
 class ChatbotService:
     

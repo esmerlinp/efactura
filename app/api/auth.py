@@ -1,6 +1,7 @@
+# app/api/auth.py
 import functools
 from flask import request, jsonify, g
-from firebase_service import DatabaseService
+from app.services.db_service import DatabaseService
 
 def require_api_key(f):
     """
