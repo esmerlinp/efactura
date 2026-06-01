@@ -942,7 +942,16 @@ class DatabaseService:
                             "discountRate": float(it.get("discountRate", 0.0)),
                             "subtotal": float(it.get("subtotal", 0.0)),
                             "itbisAmount": float(it.get("itbisAmount", it.get("itbis_amount", 0.0))),
-                            "total": float(it.get("total", 0.0))
+                            "total": float(it.get("total", 0.0)),
+                            "codigoImpuesto": it.get("codigoImpuesto", ""),
+                            "tasaImpuestoAdicional": float(it.get("tasaImpuestoAdicional", 0.0)),
+                            "gradosAlcohol": float(it.get("gradosAlcohol", 0.0)),
+                            "cantidadReferencia": float(it.get("cantidadReferencia", 0.0)),
+                            "subcantidad": float(it.get("subcantidad", 1.0)),
+                            "precioReferencia": float(it.get("precioReferencia", 0.0)),
+                            "isc_especifico_amount": float(it.get("isc_especifico_amount", it.get("iscEspecificoAmount", 0.0))),
+                            "isc_advalorem_amount": float(it.get("isc_advalorem_amount", it.get("iscAdValoremAmount", 0.0))),
+                            "otros_impuestos_amount": float(it.get("otros_impuestos_amount", it.get("otrosImpuestosAmount", 0.0)))
                         })
 
                     # Cargar acuerdo y cuotas con retrocompatibilidad
@@ -1061,7 +1070,16 @@ class DatabaseService:
                             "discountRate": float(it.get("discountRate", 0.0)),
                             "subtotal": float(it.get("subtotal", 0.0)),
                             "itbisAmount": float(it.get("itbisAmount", it.get("itbis_amount", 0.0))),
-                            "total": float(it.get("total", 0.0))
+                            "total": float(it.get("total", 0.0)),
+                            "codigoImpuesto": it.get("codigoImpuesto", ""),
+                            "tasaImpuestoAdicional": float(it.get("tasaImpuestoAdicional", 0.0)),
+                            "gradosAlcohol": float(it.get("gradosAlcohol", 0.0)),
+                            "cantidadReferencia": float(it.get("cantidadReferencia", 0.0)),
+                            "subcantidad": float(it.get("subcantidad", 1.0)),
+                            "precioReferencia": float(it.get("precioReferencia", 0.0)),
+                            "isc_especifico_amount": float(it.get("isc_especifico_amount", it.get("iscEspecificoAmount", 0.0))),
+                            "isc_advalorem_amount": float(it.get("isc_advalorem_amount", it.get("iscAdValoremAmount", 0.0))),
+                            "otros_impuestos_amount": float(it.get("otros_impuestos_amount", it.get("otrosImpuestosAmount", 0.0)))
                         })
 
 
@@ -1181,7 +1199,16 @@ class DatabaseService:
                 "discountRate": float(item.get("discountRate", 0.0)),
                 "subtotal": float(item["subtotal"]),
                 "itbisAmount": float(item.get("itbisAmount", item.get("itbis_amount", 0.0))),
-                "total": float(item["total"])
+                "total": float(item["total"]),
+                "codigoImpuesto": item.get("codigoImpuesto", ""),
+                "tasaImpuestoAdicional": float(item.get("tasaImpuestoAdicional", 0.0)),
+                "gradosAlcohol": float(item.get("gradosAlcohol", 0.0)),
+                "cantidadReferencia": float(item.get("cantidadReferencia", 0.0)),
+                "subcantidad": float(item.get("subcantidad", 1.0)),
+                "precioReferencia": float(item.get("precioReferencia", 0.0)),
+                "isc_especifico_amount": float(item.get("isc_especifico_amount", item.get("iscEspecificoAmount", 0.0))),
+                "isc_advalorem_amount": float(item.get("isc_advalorem_amount", item.get("iscAdValoremAmount", 0.0))),
+                "otros_impuestos_amount": float(item.get("otros_impuestos_amount", item.get("otrosImpuestosAmount", 0.0)))
             })
         
         inv_dict["items"] = fs_items

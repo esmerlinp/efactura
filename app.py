@@ -67,6 +67,16 @@ def load_fresh_user_profile():
             owner_uid = session['user'].get('ownerUID')
             if owner_uid:
                 company_profile = DatabaseService.get_company_profile(owner_uid)
+                
+                # Bloqueo por Suspensión de Cuenta (Módulo Portal Administrativo)
+                if company_profile.get('status') == 'Suspendido':
+                    restricted_endpoints = ['new_invoice_route', 'new_expense_route', 'ajax_create_client', 'delete_expense_route']
+                    if request.endpoint in restricted_endpoints:
+                        if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.is_json:
+                            return jsonify({"success": False, "error": "Tu cuenta está suspendida por falta de pago."}), 403
+                        flash("Tu cuenta está suspendida por falta de pago. No puedes emitir nuevas facturas, cotizaciones ni registrar gastos.", "error")
+                        return redirect(url_for('dashboard'))
+
                 if not company_profile.get('configured', False):
                     # Evitar bucle de redirección en páginas esenciales
                     if request.endpoint not in ['company_settings', 'logout', 'toggle_sandbox', 'static', 'user_profile_page', 'update_user_profile', 'change_user_password', None]:
@@ -1683,6 +1693,9 @@ def new_invoice_route(invoice_id=None):
             invoice_dict["subtotal"] = calcs["subtotal"]
             invoice_dict["totalITBIS"] = calcs["total_itbis"]
             invoice_dict["total"] = calcs["total"]
+            invoice_dict["totalISCEspecifico"] = calcs["total_isc_especifico"]
+            invoice_dict["totalISCAdValorem"] = calcs["total_isc_advalorem"]
+            invoice_dict["totalOtrosImpuestos"] = calcs["total_otros_impuestos"]
             invoice_dict["isQuotation"] = is_quotation
             invoice_dict["notes"] = request.form.get('notes', '')
             invoice_dict["isRecurring"] = is_recurring
@@ -1724,6 +1737,9 @@ def new_invoice_route(invoice_id=None):
                 "subtotal": calcs["subtotal"],
                 "totalITBIS": calcs["total_itbis"],
                 "total": calcs["total"],
+                "totalISCEspecifico": calcs["total_isc_especifico"],
+                "totalISCAdValorem": calcs["total_isc_advalorem"],
+                "totalOtrosImpuestos": calcs["total_otros_impuestos"],
                 "isQuotation": is_quotation,
                 "isConvertedToInvoice": False,
                 "notes": request.form.get('notes', ''),
@@ -1864,6 +1880,43 @@ def _get_client_email(owner_uid, invoice, sandbox):
         pass
     return ""
 
+def _enrich_invoice_totals(invoice):
+    """Calcula y agrega totales de impuestos adicionales de forma dinámica para compatibilidad y visualización."""
+    if not invoice:
+        return invoice
+        
+    total_propina = 0.0
+    total_cdt = 0.0
+    total_isc_especifico = 0.0
+    total_isc_advalorem = 0.0
+    total_otros_selectivos = 0.0
+    
+    for item in invoice.get("items", []):
+        isc_esp = float(item.get("isc_especifico_amount") or 0.0)
+        isc_adv = float(item.get("isc_advalorem_amount") or 0.0)
+        otros_imp = float(item.get("otros_impuestos_amount") or 0.0)
+        cod_imp = str(item.get("codigoImpuesto") or "").strip().zfill(3)
+        
+        total_isc_especifico += isc_esp
+        total_isc_advalorem += isc_adv
+        
+        if cod_imp == "001":
+            total_propina += otros_imp
+        elif cod_imp == "002":
+            total_cdt += otros_imp
+        elif cod_imp in ["003", "004", "005"]:
+            total_otros_selectivos += otros_imp
+            
+    invoice["totalPropina"] = round(total_propina, 2)
+    invoice["totalCDT"] = round(total_cdt, 2)
+    invoice["totalISCEspecifico"] = round(total_isc_especifico, 2)
+    invoice["totalISCAdValorem"] = round(total_isc_advalorem, 2)
+    invoice["totalOtrosSelectivos"] = round(total_otros_selectivos, 2)
+    invoice["totalISCTotal"] = round(total_isc_especifico + total_isc_advalorem + total_otros_selectivos, 2)
+    invoice["totalImpuestosAdicionales"] = round(invoice["totalISCTotal"] + total_propina + total_cdt, 2)
+    
+    return invoice
+
 @app.route('/invoices/<invoice_id>')
 def invoice_detail(invoice_id):
     if 'user' not in session: return redirect(url_for('login'))
@@ -1877,6 +1930,8 @@ def invoice_detail(invoice_id):
     if not invoice:
         flash('Factura no encontrada.', 'error')
         return redirect(url_for('list_invoices'))
+    
+    invoice = _enrich_invoice_totals(invoice)
         
     payments = DatabaseService.get_invoice_payments(owner_uid, invoice_id, sandbox=sandbox)
     company = DatabaseService.get_company_profile(owner_uid)
@@ -2359,6 +2414,8 @@ def invoice_pdf_download(invoice_id):
     invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
     if not invoice:
         return "Factura no encontrada", 404
+
+    invoice = _enrich_invoice_totals(invoice)
 
     company = DatabaseService.get_company_profile(owner_uid)
     inv_num = invoice.get('invoiceNumber', invoice_id).replace('/', '-').replace(' ', '_')
