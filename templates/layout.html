@@ -182,12 +182,6 @@
                                 <span>Dashboard</span>
                             </a>
                         </li>
-                        <li class="nav-item {% if active_page == 'subscription' %}active{% endif %}" data-tooltip="Mi Plan y Consumo">
-                            <a href="{{ url_for('client_subscription_page') }}">
-                                <i class="fa-solid fa-credit-card"></i>
-                                <span>Mi Plan y Consumo</span>
-                            </a>
-                        </li>
                     </ul>
                 </div>
 
@@ -424,6 +418,22 @@
                                 <span>Exportar Datos (CSV)</span>
                             </div>
                             {% endif %}
+                            
+                            <!-- Opción: Mi Plan y Consumo -->
+                            <a href="{{ url_for('client_subscription_page') }}" style="
+                                display: flex;
+                                align-items: center;
+                                gap: 12px;
+                                padding: 10px 14px;
+                                font-size: 0.85rem;
+                                font-weight: 500;
+                                color: var(--text-primary);
+                                border-radius: var(--radius-sm);
+                                transition: background-color var(--transition-fast);
+                            " onmouseover="this.style.backgroundColor='var(--bg-nav-hover)'" onmouseout="this.style.backgroundColor='transparent'">
+                                <i class="fa-solid fa-credit-card" style="color: var(--accent-emerald); width: 16px; font-size: 0.95rem;"></i>
+                                <span>Mi Plan y Consumo</span>
+                            </a>
                             
                             <!-- Opción 2: Cambiar a modo pruebas (Sandbox Toggle) -->
                             <div class="environment-toggle" id="sandbox-toggle" style="

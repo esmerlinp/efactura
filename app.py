@@ -3584,13 +3584,30 @@ def client_subscription_page():
     # 4. Obtener historial de pagos
     payments = DatabaseService.get_payments(owner_uid)
     
+    # 5. Obtener historial de facturación de meses anteriores (filtrado por fecha de registro)
+    user_profile = DatabaseService.get_user_profile(session['user']['uid'])
+    created_at = user_profile.get('createdAt') if user_profile else None
+    
+    monthly_payment = float(profile.get('monthlyPayment', 0))
+    additional_cost = float(profile.get('additionalDocumentCost', 0))
+    document_limit = int(profile.get('documentLimit', 0)) if profile.get('documentLimit') else 0
+    billing_history = DatabaseService.get_billing_history(
+        owner_uid, 
+        billing_day=billing_day,
+        monthly_payment=monthly_payment,
+        additional_document_cost=additional_cost,
+        document_limit=document_limit,
+        created_at=created_at
+    )
+    
     return render_template(
         'subscription.html', 
         active_page='subscription',
         profile=profile,
         plan_name=plan_name,
         stats=stats,
-        payments=payments
+        payments=payments,
+        billing_history=billing_history
     )
 
 if __name__ == '__main__':
