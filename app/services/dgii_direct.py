@@ -2,8 +2,8 @@ import uuid
 import requests
 import gzip
 from datetime import datetime
-from dgii_xml_builder import DgiiXmlBuilder
-from dgii_signer import DgiiSigner
+from app.services.dgii_xml_builder import DgiiXmlBuilder
+from app.services.dgii_signer import DgiiSigner
 
 # Endpoints oficiales de la DGII (Homologación / Certificación)
 DGII_AUTH_URL = "https://ecf.dgii.gov.do/test/autenticacion/api/Autenticacion/Semilla"
@@ -52,7 +52,7 @@ class DgiiDirectService:
             
             # 2. Firmar XML
             print(f"\n👉 Paso 3: Aplicando algoritmo de Firma Digital XMLDSig W3C...", flush=True)
-            from dgii_signer import DgiiSigner
+            from app.services.dgii_signer import DgiiSigner
             signed_xml = DgiiSigner.sign_xml(raw_xml, company_profile)
             print(f"   ✅ [XML Firmado] Bloque <Signature> inyectado con éxito en el documento.", flush=True)
             

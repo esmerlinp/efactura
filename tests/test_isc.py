@@ -1,4 +1,4 @@
-from dgii_service import DGIIService
+from app.services.dgii import DGIIService
 
 def run_tests():
     print("\nTest 4: ISC Alcohol Ad-Valorem (No Granel)")

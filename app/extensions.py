@@ -1,0 +1,20 @@
+# app/extensions.py
+from app.services.db_service import DatabaseService
+
+# Filtro Jinja2 personalizado para formatear montos monetarios (ej. 1,000.00)
+def formatted_filter(value):
+    try:
+        return f"{float(value):,.2f}"
+    except (ValueError, TypeError):
+        return value
+
+def init_extensions(app):
+    """Inicializa base de datos local y registra filtros globales de Jinja2."""
+    # Inicializar Base de Datos SQLite local y tablas de Firebase Auth
+    DatabaseService.init_local_db()
+
+    # Registrar filtros personalizados
+    app.template_filter('formatted')(formatted_filter)
+    
+    # Registrar funciones matemáticas útiles en Jinja2
+    app.jinja_env.globals.update(min=min, max=max)

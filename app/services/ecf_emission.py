@@ -1,6 +1,6 @@
 from config import Config
-from alanube_service import AlanubeService
-from dgii_direct_service import DgiiDirectService
+from app.services.alanube import AlanubeService
+from app.services.dgii_direct import DgiiDirectService
 
 class EcfEmissionService:
     
