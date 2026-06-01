@@ -79,6 +79,27 @@
                                 </td>
                                 <td>
                                     <strong>{{ item.name }}</strong>
+                                    {% if item.codigoImpuesto %}
+                                    <span style="display: block; font-size: 0.72rem; color: var(--accent-purple); font-weight: 700; margin-top: 4px; letter-spacing: 0.02em;">
+                                        <i class="fa-solid fa-percent"></i> 
+                                        {% if item.codigoImpuesto == '001' %}Propina Legal 10%
+                                        {% elif item.codigoImpuesto == '002' %}CDT 2%
+                                        {% elif item.codigoImpuesto == '003' %}ISC Seguros 16%
+                                        {% elif item.codigoImpuesto == '004' %}CDT 10%
+                                        {% elif item.codigoImpuesto == '005' %}Primera Placa 17%
+                                        {% elif item.codigoImpuesto == '006' %}ISC Cerveza (Específico)
+                                        {% elif item.codigoImpuesto == '007' %}ISC Vinos (Específico)
+                                        {% elif item.codigoImpuesto == '014' %}ISC Ron/Aguardientes (Específico)
+                                        {% elif item.codigoImpuesto == '023' %}ISC Cervezas (AdValorem)
+                                        {% elif item.codigoImpuesto == '024' %}ISC Vinos (AdValorem)
+                                        {% elif item.codigoImpuesto == '030' %}ISC Ron/Aguardientes (AdValorem)
+                                        {% else %}Imp. Adicional ({{ item.codigoImpuesto }})
+                                        {% endif %}
+                                        {% if item.tasaImpuestoAdicional and item.tasaImpuestoAdicional > 0.0001 and item.codigoImpuesto not in ['001', '002', '003', '004', '005'] %}
+                                            ({{ "{:.1%}".format(item.tasaImpuestoAdicional) }})
+                                        {% endif %}
+                                    </span>
+                                    {% endif %}
                                 </td>
                                 <td>
                                     <span style="font-size: 0.88rem; color: var(--text-secondary);">

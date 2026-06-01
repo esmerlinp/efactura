@@ -3,6 +3,13 @@
 {% set company_color_marca = brand_color %}
 {% set current_color = brand_color %}
 {% set current_light_color = brand_color if apply_brand else '#E2E8F0' %}
+{% set has_additional_taxes = namespace(value=false) %}
+{% for item in invoice['items'] %}
+    {% set item_isc = (item.isc_especifico_amount or 0) + (item.isc_advalorem_amount or 0) + (item.otros_impuestos_amount or 0) %}
+    {% if item_isc > 0.01 %}
+        {% set has_additional_taxes.value = true %}
+    {% endif %}
+{% endfor %}
 <!DOCTYPE html>
 <html lang="es">
 
@@ -394,6 +401,31 @@
             text-decoration: none;
         }
 
+        .pdf-page {
+            position: relative;
+        }
+
+        /* Watermark for Sandbox / Test environment */
+        .sandbox-watermark {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-30deg);
+            font-size: 72px;
+            font-weight: 800;
+            color: rgba(239, 68, 68, 0.14); /* Nice light red with opacity */
+            border: 8px solid rgba(239, 68, 68, 0.14);
+            padding: 15px 30px;
+            border-radius: 16px;
+            text-transform: uppercase;
+            letter-spacing: 5px;
+            white-space: nowrap;
+            pointer-events: none;
+            z-index: 1000;
+            user-select: none;
+            text-align: center;
+        }
+
         @media print {
             .print-toolbar {
                 display: none !important;
@@ -401,6 +433,14 @@
 
             body {
                 padding-top: 0 !important;
+            }
+            
+            /* Ensure the watermark prints properly in all browsers */
+            .sandbox-watermark {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+                color: rgba(239, 68, 68, 0.14) !important;
+                border-color: rgba(239, 68, 68, 0.14) !important;
             }
         }
     </style>
@@ -412,7 +452,11 @@
     <!-- Barra de herramientas: Imprimir / Cerrar -->
     <div class="print-toolbar" id="printToolbar">
         <span class="toolbar-msg">
+            {% if sandbox %}
+            ⚠️ <strong>Ambiente Sandbox (Pruebas)</strong> — Los comprobantes emitidos no tienen validez fiscal y llevan marca de agua.
+            {% else %}
             📄 <strong>Vista previa de impresión</strong> — Elige "Guardar como PDF" en el diálogo de impresión.
+            {% endif %}
         </span>
         <div class="toolbar-actions">
             <button class="btn-print" onclick="window.print()">🖨️ Imprimir / Guardar PDF</button>
@@ -429,6 +473,9 @@
 
     {% for page_num in range(total_pages) %}
     <div class="pdf-page" {% if not loop.last %}style="page-break-after: always;" {% endif %}>
+        {% if sandbox %}
+        <div class="sandbox-watermark">SIN VALOR COMERCIAL</div>
+        {% endif %}
 
         <!-- Encabezado de Empresa y Número de Documento -->
         {% if company.logoUrl %}
@@ -519,7 +566,9 @@
                     <th class="right">Precio Unit.</th>
                     <th class="center">Cant.</th>
                     <th class="right">ITBIS</th>
+                    {% if has_additional_taxes.value %}
                     <th class="right">Imp. Adic.</th>
+                    {% endif %}
                     <th class="right">Desc. %</th>
                     <th class="right">Valor</th>
                 </tr>
@@ -556,7 +605,9 @@
                     <td class="right">RD$ {{ "{:,.2f}".format(item.price) }}</td>
                     <td class="center">{{ item.quantity }}</td>
                     <td class="right">{{ "{:.0%}".format(item.itbisRate) }}</td>
+                    {% if has_additional_taxes.value %}
                     <td class="right">{% if item_isc > 0.01 %}RD$ {{ "{:,.2f}".format(item_isc) }}{% else %}-{% endif %}</td>
+                    {% endif %}
                     <td class="right">{{ "{:.0%}".format(item.discountRate) }}</td>
                     <td class="right bold">RD$ {{ "{:,.2f}".format(item.total) }}</td>
                 </tr>
