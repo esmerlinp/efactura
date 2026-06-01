@@ -23,6 +23,8 @@
             box-sizing: border-box;
             margin: 0;
             padding: 0;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
         }
 
         body {
@@ -40,13 +42,7 @@
             align-items: flex-start;
             padding: 32px 40px 24px;
 
-            border-bottom: 3px solid {
-                    {
-                    company_color_marca or '#1E3A8A'
-                }
-            }
-
-            ;
+            border-bottom: 3px solid {{ company_color_marca or '#1E3A8A' }};
             margin-bottom: 28px;
         }
 
@@ -54,13 +50,7 @@
             font-size: 22px;
             font-weight: 800;
 
-            color: {
-                    {
-                    company_color_marca or '#1E3A8A'
-                }
-            }
-
-            ;
+            color: {{ company_color_marca or '#1E3A8A' }};
             margin-bottom: 4px;
         }
 
@@ -78,13 +68,7 @@
             font-size: 20px;
             font-weight: 800;
 
-            color: {
-                    {
-                    company_color_marca or '#1E3A8A'
-                }
-            }
-
-            ;
+            color: {{ company_color_marca or '#1E3A8A' }};
             margin-bottom: 4px;
         }
 
@@ -128,13 +112,7 @@
             padding: 18px 20px;
             background: #f8fafc;
 
-            border-left: 4px solid {
-                    {
-                    company_color_marca or '#1E3A8A'
-                }
-            }
-
-            ;
+            border-left: 4px solid {{ company_color_marca or '#1E3A8A' }};
             border-radius: 4px;
         }
 
@@ -184,14 +162,7 @@
         }
 
         thead tr {
-            background: {
-                    {
-                    company_color_marca or '#1E3A8A'
-                }
-            }
-
-            ;
-            color: white;
+            background: #f8fafc !important;
         }
 
         thead th {
@@ -201,6 +172,9 @@
             text-transform: uppercase;
             letter-spacing: 0.05em;
             text-align: left;
+            color: #1e293b !important;
+            border-top: 1px solid #e2e8f0 !important;
+            border-bottom: 2px solid {{ company_color_marca or '#1E3A8A' }} !important;
         }
 
         thead th.right {
@@ -272,21 +246,9 @@
         }
 
         .totals-row.total-bold {
-            border-top: 2px solid {
-                    {
-                    company_color_marca or '#1E3A8A'
-                }
-            }
+            border-top: 2px solid {{ company_color_marca or '#1E3A8A' }};
 
-            ;
-
-            border-bottom: 2px solid {
-                    {
-                    company_color_marca or '#1E3A8A'
-                }
-            }
-
-            ;
+            border-bottom: 2px solid {{ company_color_marca or '#1E3A8A' }};
             padding: 8px 0;
             margin-top: 4px;
         }
@@ -301,35 +263,17 @@
             font-size: 14px;
             font-weight: 800;
 
-            color: {
-                    {
-                    company_color_marca or '#1E3A8A'
-                }
-            }
-
-            ;
+            color: {{ company_color_marca or '#1E3A8A' }};
         }
 
         .totals-row.net-payable .label {
-            color: {
-                    {
-                    company_color_marca or '#1E3A8A'
-                }
-            }
-
-            ;
+            color: {{ company_color_marca or '#1E3A8A' }};
             font-weight: 700;
             font-size: 13px;
         }
 
         .totals-row.net-payable .value {
-            color: {
-                    {
-                    company_color_marca or '#1E3A8A'
-                }
-            }
-
-            ;
+            color: {{ company_color_marca or '#1E3A8A' }};
             font-weight: 800;
             font-size: 15px;
         }
@@ -364,13 +308,7 @@
             font-size: 16px;
             font-weight: 800;
 
-            color: {
-                    {
-                    company_color_marca or '#1E3A8A'
-                }
-            }
-
-            ;
+            color: {{ company_color_marca or '#1E3A8A' }};
             letter-spacing: 0.05em;
         }
 
@@ -411,13 +349,7 @@
             right: 0;
             z-index: 999;
 
-            background: {
-                    {
-                    company_color_marca or '#1E3A8A'
-                }
-            }
-
-            ;
+            background: {{ company_color_marca or '#1E3A8A' }};
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -442,13 +374,7 @@
         .btn-print {
             background: white;
 
-            color: {
-                    {
-                    company_color_marca or '#1E3A8A'
-                }
-            }
-
-            ;
+            color: {{ company_color_marca or '#1E3A8A' }};
             border: none;
             padding: 7px 18px;
             border-radius: 6px;
@@ -593,6 +519,7 @@
                     <th class="right">Precio Unit.</th>
                     <th class="center">Cant.</th>
                     <th class="right">ITBIS</th>
+                    <th class="right">Imp. Adic.</th>
                     <th class="right">Desc. %</th>
                     <th class="right">Valor</th>
                 </tr>
@@ -604,17 +531,32 @@
 
                 {% set ns = namespace(subtotal=0, itbis=0, total=0) %}
                 {% for item in page_items %}
-                {% set item_net = item.price * item.quantity * (1 - item.discountRate) %}
-                {% set item_itbis = item_net * item.itbisRate %}
-                {% set ns.subtotal = ns.subtotal + item_net %}
+                {% set item_subtotal = item.get('subtotal', item.price * item.quantity * (1 - item.discountRate)) %}
+                {% set item_itbis = item.get('itbis_amount', item_subtotal * item.itbisRate) %}
+                {% set item_isc = (item.isc_especifico_amount or 0) + (item.isc_advalorem_amount or 0) + (item.otros_impuestos_amount or 0) %}
+                {% set ns.subtotal = ns.subtotal + item_subtotal %}
                 {% set ns.itbis = ns.itbis + item_itbis %}
                 {% set ns.total = ns.total + item.total %}
                 <tr>
                     <td class="mono">{{ item.code or 'S/C' }}</td>
-                    <td class="bold">{{ item.name }}</td>
+                    <td class="bold">
+                        {{ item.name }}
+                        {% if item_isc > 0.01 %}
+                        <div style="font-size: 8px; color: #7c3aed; font-weight: normal; margin-top: 2px;">
+                            {% if item.codigoImpuesto == '001' %}Propina Legal 10%
+                            {% elif item.codigoImpuesto == '002' %}CDT 2%
+                            {% elif item.codigoImpuesto == '003' %}ISC Seguros 16%
+                            {% elif item.codigoImpuesto == '004' %}CDT 10%
+                            {% elif item.codigoImpuesto == '005' %}Primera Placa 17%
+                            {% else %}Impuesto Selectivo (ISC)
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                    </td>
                     <td class="right">RD$ {{ "{:,.2f}".format(item.price) }}</td>
                     <td class="center">{{ item.quantity }}</td>
                     <td class="right">{{ "{:.0%}".format(item.itbisRate) }}</td>
+                    <td class="right">{% if item_isc > 0.01 %}RD$ {{ "{:,.2f}".format(item_isc) }}{% else %}-{% endif %}</td>
                     <td class="right">{{ "{:.0%}".format(item.discountRate) }}</td>
                     <td class="right bold">RD$ {{ "{:,.2f}".format(item.total) }}</td>
                 </tr>
@@ -683,6 +625,36 @@
                 <span class="label">Total ITBIS:</span>
                 <span class="value">RD$ {{ "{:,.2f}".format(invoice.totalITBIS) }}</span>
             </div>
+            {% if invoice.totalPropina and invoice.totalPropina > 0.01 %}
+            <div class="totals-row">
+                <span class="label">Propina Legal (10%):</span>
+                <span class="value">RD$ {{ "{:,.2f}".format(invoice.totalPropina) }}</span>
+            </div>
+            {% endif %}
+            {% if invoice.totalCDT and invoice.totalCDT > 0.01 %}
+            <div class="totals-row">
+                <span class="label">CDT (2%):</span>
+                <span class="value">RD$ {{ "{:,.2f}".format(invoice.totalCDT) }}</span>
+            </div>
+            {% endif %}
+            {% if invoice.totalISCEspecifico and invoice.totalISCEspecifico > 0.01 %}
+            <div class="totals-row">
+                <span class="label">ISC Específico:</span>
+                <span class="value">RD$ {{ "{:,.2f}".format(invoice.totalISCEspecifico) }}</span>
+            </div>
+            {% endif %}
+            {% if invoice.totalISCAdValorem and invoice.totalISCAdValorem > 0.01 %}
+            <div class="totals-row">
+                <span class="label">ISC Ad-Valorem:</span>
+                <span class="value">RD$ {{ "{:,.2f}".format(invoice.totalISCAdValorem) }}</span>
+            </div>
+            {% endif %}
+            {% if invoice.totalOtrosSelectivos and invoice.totalOtrosSelectivos > 0.01 %}
+            <div class="totals-row">
+                <span class="label">Otros Impuestos Selectivos:</span>
+                <span class="value">RD$ {{ "{:,.2f}".format(invoice.totalOtrosSelectivos) }}</span>
+            </div>
+            {% endif %}
             {% if invoice.discountAmount and invoice.discountAmount > 0 %}
             <div class="totals-row">
                 <span class="label">(-) Descuento:</span>

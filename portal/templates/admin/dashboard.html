@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+
+{% block page_title %}Dashboard{% endblock %}
+{% block page_subtitle %}Resumen operativo del sistema e-Factura{% endblock %}
+
+{% block content %}
+<!-- KPI Cards -->
+<div class="kpi-grid">
+    <div class="kpi-card kpi-blue">
+        <div class="kpi-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                <circle cx="9" cy="7" r="4"/>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+            </svg>
+        </div>
+        <div class="kpi-content">
+            <div class="kpi-value">{{ stats.total_companies }}</div>
+            <div class="kpi-label">Total de Empresas</div>
+        </div>
+        <div class="kpi-trend kpi-trend-up">↑ Clientes</div>
+    </div>
+    <div class="kpi-card kpi-green">
+        <div class="kpi-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="20 6 9 17 4 12"/>
+            </svg>
+        </div>
+        <div class="kpi-content">
+            <div class="kpi-value">{{ stats.active_companies }}</div>
+            <div class="kpi-label">Cuentas Activas</div>
+        </div>
+        <div class="kpi-trend kpi-trend-up">↑ Activas</div>
+    </div>
+    <div class="kpi-card kpi-orange">
+        <div class="kpi-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="8" x2="12" y2="12"/>
+                <line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+        </div>
+        <div class="kpi-content">
+            <div class="kpi-value">{{ stats.suspended_companies }}</div>
+            <div class="kpi-label">Suspendidas</div>
+        </div>
+        <div class="kpi-trend kpi-trend-neutral">— Por pago</div>
+    </div>
+    <div class="kpi-card kpi-purple">
+        <div class="kpi-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="12" y1="1" x2="12" y2="23"/>
+                <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+            </svg>
+        </div>
+        <div class="kpi-content">
+            <div class="kpi-value">{{ stats.active_companies }}</div>
+            <div class="kpi-label">Cuentas al día</div>
+        </div>
+        <div class="kpi-trend kpi-trend-up">↑ Al corriente</div>
+    </div>
+</div>
+
+<!-- Quick Access Section -->
+<div class="section-grid-2" style="margin-top: 32px;">
+    <!-- Recent Companies Table -->
+    <div class="card span-2">
+        <div class="card-header">
+            <h2 class="card-title">Acceso Rápido</h2>
+            <a href="{{ url_for('clientes') }}" class="btn btn-ghost btn-sm">Ver todo →</a>
+        </div>
+        <div class="card-body">
+            <div class="quick-links-grid">
+                <a href="{{ url_for('clientes') }}" class="quick-link">
+                    <div class="ql-icon ql-blue">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                            <circle cx="9" cy="7" r="4"/>
+                        </svg>
+                    </div>
+                    <div class="ql-content">
+                        <div class="ql-title">Gestionar Empresas</div>
+                        <div class="ql-desc">Ver y editar cuentas de clientes</div>
+                    </div>
+                    <svg class="ql-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M5 12h14M12 5l7 7-7 7"/>
+                    </svg>
+                </a>
+                <a href="{{ url_for('planes') }}" class="quick-link">
+                    <div class="ql-icon ql-purple">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+                        </svg>
+                    </div>
+                    <div class="ql-content">
+                        <div class="ql-title">Configurar Planes</div>
+                        <div class="ql-desc">Crear y editar planes de facturación</div>
+                    </div>
+                    <svg class="ql-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M5 12h14M12 5l7 7-7 7"/>
+                    </svg>
+                </a>
+                <a href="{{ url_for('new_plan') }}" class="quick-link">
+                    <div class="ql-icon ql-green">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/>
+                            <line x1="8" y1="12" x2="16" y2="12"/>
+                        </svg>
+                    </div>
+                    <div class="ql-content">
+                        <div class="ql-title">Nuevo Plan</div>
+                        <div class="ql-desc">Crear un nuevo plan de servicio</div>
+                    </div>
+                    <svg class="ql-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M5 12h14M12 5l7 7-7 7"/>
+                    </svg>
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

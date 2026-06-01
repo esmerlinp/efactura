@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+
+{% block page_title %}Empresas{% endblock %}
+{% block page_subtitle %}Gestión de cuentas de clientes e-Factura{% endblock %}
+
+{% block content %}
+<div class="toolbar">
+    <div class="search-box">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        <input type="text" id="search-input" placeholder="Buscar empresa por nombre o RNC..." oninput="filterTable()">
+    </div>
+    <div class="toolbar-filters">
+        <select id="status-filter" class="filter-select" onchange="filterTable()">
+            <option value="">Todos los estados</option>
+            <option value="Activo">Activo</option>
+            <option value="Suspendido">Suspendido</option>
+            <option value="Cancelado">Cancelado</option>
+        </select>
+    </div>
+</div>
+
+<div class="card" style="margin-top: 20px;">
+    <div class="card-header">
+        <h2 class="card-title">Cuentas Registradas <span class="badge-count">{{ companies|length }}</span></h2>
+    </div>
+    <div class="table-wrapper">
+        <table class="data-table" id="companies-table">
+            <thead>
+                <tr>
+                    <th>Empresa / RNC</th>
+                    <th>Plan</th>
+                    <th>Límite Docs</th>
+                    <th>Estado</th>
+                    <th>Configurada</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for company in companies %}
+                <tr class="table-row" data-name="{{ company.razonSocial | default('') | lower }}" data-rnc="{{ company.rnc | default('') }}" data-status="{{ company.status | default('Activo') }}">
+                    <td>
+                        <div class="cell-company">
+                            <div class="company-avatar">{{ (company.razonSocial or 'E')[0] | upper }}</div>
+                            <div>
+                                <div class="company-name">{{ company.razonSocial | default('Sin nombre') }}</div>
+                                <div class="company-rnc">{{ company.rnc | default('RNC no registrado') }}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td>
+                        <span class="plan-badge">{{ company.planId | default('Sin plan') }}</span>
+                    </td>
+                    <td>
+                        <span class="doc-limit">
+                            {{ company.documentLimit | default('∞') }}
+                            <span class="doc-period">/ mes</span>
+                        </span>
+                    </td>
+                    <td>
+                        {% set status = company.status | default('Activo') %}
+                        <span class="status-badge status-{{ status | lower | replace(' ', '-') }}">
+                            {% if status == 'Activo' %}● {% elif status == 'Suspendido' %}⊗ {% else %}○ {% endif %}
+                            {{ status }}
+                        </span>
+                    </td>
+                    <td>
+                        {% if company.configured %}
+                        <span class="check-icon">✓</span>
+                        {% else %}
+                        <span class="cross-icon">✗</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="{{ url_for('client_detail', company_id=company.id) }}" class="btn btn-sm btn-primary">
+                            Gestionar
+                        </a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" class="table-empty">
+                        <div class="empty-state">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                                <circle cx="9" cy="7" r="4"/>
+                            </svg>
+                            <p>No hay empresas registradas aún.</p>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function filterTable() {
+    const search = document.getElementById('search-input').value.toLowerCase();
+    const statusFilter = document.getElementById('status-filter').value;
+    const rows = document.querySelectorAll('#companies-table tbody .table-row');
+    rows.forEach(row => {
+        const name = row.dataset.name || '';
+        const rnc = row.dataset.rnc || '';
+        const status = row.dataset.status || '';
+        const matchesSearch = name.includes(search) || rnc.includes(search);
+        const matchesStatus = !statusFilter || status === statusFilter;
+        row.style.display = matchesSearch && matchesStatus ? '' : 'none';
+    });
+}
+</script>
+{% endblock %}

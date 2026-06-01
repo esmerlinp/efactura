@@ -57,7 +57,7 @@
                 <span style="font-family: monospace; font-size: 0.88rem; color: var(--text-secondary); display: block;">RNC/Cédula: {{ invoice.clientRNC or '999999999 (Consumidor Final)' }}</span>
             </div>
             
-            <div>
+            <div style="text-align: right;">
                 <span style="font-size: 0.78rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600; display: block; margin-bottom: 6px;">Detalles de Transacción</span>
                 <span style="font-size: 0.85rem; color: var(--text-secondary); display: block; margin-bottom: 4px;">Moneda: <strong>{{ invoice.currency }}</strong></span>
                 <span style="font-size: 0.85rem; color: var(--text-secondary); display: block; margin-bottom: 4px;">Método Pago: <strong>{{ invoice.paymentMethod }}</strong></span>
@@ -69,26 +69,42 @@
         <div class="table-responsive" style="margin-bottom: 30px;">
             <table class="table-premium">
                 <thead>
-                    <tr>
-                        <th>Cód.</th>
-                        <th>Artículo / Descripción</th>
-                        <th style="text-align: right;">Precio Unitario</th>
-                        <th style="text-align: center;">Cantidad</th>
-                        <th style="text-align: right;">ITBIS</th>
-                        <th style="text-align: right;">Desc. %</th>
-                        <th style="text-align: right;">Subtotal Partida</th>
+                    <tr style="border-bottom: 2px solid var(--border-color); background-color: rgba(255,255,255,0.015);">
+                        <th style="padding: 16px 20px; font-weight: 800; font-size: 0.85rem; text-transform: uppercase; color: var(--text-primary); letter-spacing: 0.05em;">Cód.</th>
+                        <th style="padding: 16px 20px; font-weight: 800; font-size: 0.85rem; text-transform: uppercase; color: var(--text-primary); letter-spacing: 0.05em;">Artículo / Descripción</th>
+                        <th style="padding: 16px 20px; font-weight: 800; font-size: 0.85rem; text-transform: uppercase; color: var(--text-primary); letter-spacing: 0.05em; text-align: right;">Precio Unitario</th>
+                        <th style="padding: 16px 20px; font-weight: 800; font-size: 0.85rem; text-transform: uppercase; color: var(--text-primary); letter-spacing: 0.05em; text-align: center;">Cantidad</th>
+                        <th style="padding: 16px 20px; font-weight: 800; font-size: 0.85rem; text-transform: uppercase; color: var(--text-primary); letter-spacing: 0.05em; text-align: right;">ITBIS</th>
+                        <th style="padding: 16px 20px; font-weight: 800; font-size: 0.85rem; text-transform: uppercase; color: var(--text-primary); letter-spacing: 0.05em; text-align: right;">Imp. Adic.</th>
+                        <th style="padding: 16px 20px; font-weight: 800; font-size: 0.85rem; text-transform: uppercase; color: var(--text-primary); letter-spacing: 0.05em; text-align: right;">Desc. %</th>
+                        <th style="padding: 16px 20px; font-weight: 800; font-size: 0.85rem; text-transform: uppercase; color: var(--text-primary); letter-spacing: 0.05em; text-align: right;">Subtotal Partida</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for item in invoice['items'] %}
+                        {% set item_isc = (item.isc_especifico_amount or 0) + (item.isc_advalorem_amount or 0) + (item.otros_impuestos_amount or 0) %}
                         <tr>
-                            <td><span style="font-family: monospace; font-size: 0.8rem;">{{ item.code or 'S/C' }}</span></td>
-                            <td><strong>{{ item.name }}</strong></td>
-                            <td style="text-align: right;">RD$ {{ "{:,.2f}".format(item.price) }}</td>
-                            <td style="text-align: center;">{{ item.quantity }}</td>
-                            <td style="text-align: right;">RD$ {{ "{:,.2f}".format(item.itbisAmount) }} ({{ "{:.0%}".format(item.itbisRate) }})</td>
-                            <td style="text-align: right;">{{ "{:.0%}".format(item.discountRate) }}</td>
-                            <td style="text-align: right;"><strong>RD$ {{ "{:,.2f}".format(item.total) }}</strong></td>
+                            <td style="padding: 18px 20px; vertical-align: middle;"><span style="font-family: monospace; font-size: 0.85rem; font-weight: 600; color: var(--text-secondary);">{{ item.code or 'S/C' }}</span></td>
+                            <td style="padding: 18px 20px; vertical-align: middle;">
+                                <strong style="font-size: 0.98rem; font-weight: 700; color: var(--text-primary); letter-spacing: -0.01em;">{{ item.name }}</strong>
+                                {% if item_isc > 0.01 %}
+                                <span style="display: block; font-size: 0.74rem; color: var(--accent-purple); font-weight: 700; margin-top: 4px; letter-spacing: 0.02em;">
+                                    <i class="fa-solid fa-percent"></i> {% if item.codigoImpuesto == '001' %}Propina Legal 10%
+                                    {% elif item.codigoImpuesto == '002' %}CDT 2%
+                                    {% elif item.codigoImpuesto == '003' %}ISC Seguros 16%
+                                    {% elif item.codigoImpuesto == '004' %}CDT 10%
+                                    {% elif item.codigoImpuesto == '005' %}Primera Placa 17%
+                                    {% else %}Impuesto Selectivo (ISC)
+                                    {% endif %}
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td style="padding: 18px 20px; text-align: right; vertical-align: middle; font-size: 0.95rem; font-weight: 600; color: var(--text-primary);">RD$ {{ "{:,.2f}".format(item.price) }}</td>
+                            <td style="padding: 18px 20px; text-align: center; vertical-align: middle; font-size: 0.95rem; font-weight: 700; color: var(--text-primary);">{{ item.quantity }}</td>
+                            <td style="padding: 18px 20px; text-align: right; vertical-align: middle; font-size: 0.95rem; font-weight: 600; color: var(--text-secondary);">RD$ {{ "{:,.2f}".format(item.itbisAmount) }} ({{ "{:.0%}".format(item.itbisRate) }})</td>
+                            <td style="padding: 18px 20px; text-align: right; vertical-align: middle; font-size: 0.95rem; font-weight: 700; color: var(--accent-purple);">{% if item_isc > 0.01 %}RD$ {{ "{:,.2f}".format(item_isc) }}{% else %}-{% endif %}</td>
+                            <td style="padding: 18px 20px; text-align: right; vertical-align: middle; font-size: 0.95rem; font-weight: 600; color: var(--text-muted);">{{ "{:.0%}".format(item.discountRate) }}</td>
+                            <td style="padding: 18px 20px; text-align: right; vertical-align: middle; font-size: 1rem; font-weight: 800; color: var(--text-primary);">RD$ {{ "{:,.2f}".format(item.total) }}</td>
                         </tr>
                     {% endfor %}
                 </tbody>
@@ -113,6 +129,36 @@
                     <span>ITBIS Total:</span>
                     <span>RD$ {{ "{:,.2f}".format(invoice.totalITBIS) }}</span>
                 </div>
+                {% if invoice.totalPropina and invoice.totalPropina > 0.01 %}
+                <div style="display: flex; justify-content: space-between; font-size: 0.9rem; color: var(--text-secondary);">
+                    <span>Propina Legal (10%):</span>
+                    <span>RD$ {{ "{:,.2f}".format(invoice.totalPropina) }}</span>
+                </div>
+                {% endif %}
+                {% if invoice.totalCDT and invoice.totalCDT > 0.01 %}
+                <div style="display: flex; justify-content: space-between; font-size: 0.9rem; color: var(--text-secondary);">
+                    <span>CDT (2%):</span>
+                    <span>RD$ {{ "{:,.2f}".format(invoice.totalCDT) }}</span>
+                </div>
+                {% endif %}
+                {% if invoice.totalISCEspecifico and invoice.totalISCEspecifico > 0.01 %}
+                <div style="display: flex; justify-content: space-between; font-size: 0.9rem; color: var(--text-secondary);">
+                    <span>ISC Específico:</span>
+                    <span>RD$ {{ "{:,.2f}".format(invoice.totalISCEspecifico) }}</span>
+                </div>
+                {% endif %}
+                {% if invoice.totalISCAdValorem and invoice.totalISCAdValorem > 0.01 %}
+                <div style="display: flex; justify-content: space-between; font-size: 0.9rem; color: var(--text-secondary);">
+                    <span>ISC Ad-Valorem:</span>
+                    <span>RD$ {{ "{:,.2f}".format(invoice.totalISCAdValorem) }}</span>
+                </div>
+                {% endif %}
+                {% if invoice.totalOtrosSelectivos and invoice.totalOtrosSelectivos > 0.01 %}
+                <div style="display: flex; justify-content: space-between; font-size: 0.9rem; color: var(--text-secondary);">
+                    <span>Otros Impuestos Selectivos:</span>
+                    <span>RD$ {{ "{:,.2f}".format(invoice.totalOtrosSelectivos) }}</span>
+                </div>
+                {% endif %}
                 <div style="display: flex; justify-content: space-between; font-size: 1.05rem; font-weight: 700; border-bottom: 1px solid var(--border-color); padding-bottom: 8px;">
                     <span>Total Factura:</span>
                     <span>RD$ {{ "{:,.2f}".format(invoice.total) }}</span>
@@ -364,7 +410,7 @@
                 </span>
                 
                 <div style="border-top: 1px solid var(--border-color); padding-top: 16px; display: flex; flex-direction: column; gap: 8px;">
-                    <a href="{{ invoice.firebasePDFURL or '#' }}" target="_blank" class="btn btn-secondary" style="width: 100%; font-size: 0.82rem; padding: 8px 16px;">
+                    <a href="{{ invoice.firebasePDFURL or url_for('invoice_pdf_download', invoice_id=invoice.id) }}" target="_blank" class="btn btn-secondary" style="width: 100%; font-size: 0.82rem; padding: 8px 16px;">
                         <i class="fa-solid fa-file-pdf" style="color: var(--accent-red);"></i>
                         <span>Descargar PDF</span>
                     </a>
@@ -466,24 +512,24 @@
         <!-- Acciones Generales -->
         <div class="card-table-wrapper" style="padding: 24px; display: flex; flex-direction: column; gap: 12px;">
             {% if invoice.status == 'Borrador' %}
-            <a href="{{ url_for('new_invoice_route', invoice_id=invoice.id) }}" class="btn btn-primary" style="width: 100%;">
+            <a href="{{ url_for('new_invoice_route', invoice_id=invoice.id) }}" class="btn btn-primary" style="width: 100%; {% if company.get('gradientEnabled', True) %}background: linear-gradient(135deg, var(--accent-purple), var(--accent-purple-hover));{% else %}background: var(--accent-purple);{% endif %} border: none; color: white;">
                 <i class="fa-solid fa-pen-to-square"></i>
                 <span>Editar {% if invoice.isQuotation %}Cotización{% else %}Borrador{% endif %}</span>
             </a>
             {% endif %}
 
+            <!-- Unified Premium Print Button -->
+            <a href="{{ url_for('invoice_pdf_download', invoice_id=invoice.id) }}?action=print" target="_blank" class="btn btn-secondary" style="width: 100%; border-color: var(--accent-emerald); color: var(--accent-emerald); display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
+                <i class="fa-solid fa-print"></i>
+                <span>Imprimir Documento / PDF</span>
+            </a>
             
             {% if invoice.isQuotation %}
-            <a href="{{ url_for('invoice_pdf_download', invoice_id=invoice.id) }}" target="_blank" class="btn btn-secondary" style="width: 100%; border-color: var(--accent-emerald); color: var(--accent-emerald);">
-                <i class="fa-solid fa-file-pdf"></i>
-                <span>Descargar Cotización</span>
-            </a>
             <a href="{{ url_for('list_quotations') }}" class="btn btn-secondary" style="width: 100%;">
                 <i class="fa-solid fa-arrow-rotate-left"></i>
                 <span>Volver a Cotizaciones</span>
             </a>
             {% else %}
-            <!-- Botón de Registrar Cobro movido al panel principal de Resumen Financiero -->
             <a href="{{ url_for('list_invoices') }}" class="btn btn-secondary" style="width: 100%;">
                 <i class="fa-solid fa-arrow-rotate-left"></i>
                 <span>Volver al Listado</span>
