@@ -120,6 +120,17 @@ class DatabaseService:
                 'monthlyPayment': company_data.get('monthlyPayment', 0),
                 'additionalDocumentCost': company_data.get('additionalDocumentCost', 0),
                 'billingDay': company_data.get('billingDay', 1),
+                'companyName': company_data.get('companyName', ''),
+                'companyRNC': company_data.get('companyRNC', ''),
+                'companyAddress': company_data.get('companyAddress', ''),
+                'companyPhone': company_data.get('companyPhone', ''),
+                'companyEmail': company_data.get('companyEmail', ''),
+                'tradeName': company_data.get('tradeName', ''),
+                'province': company_data.get('province', ''),
+                'municipality': company_data.get('municipality', ''),
+                'certificateName': company_data.get('certificateName', ''),
+                'certificateExtension': company_data.get('certificateExtension', ''),
+                'certificatePassword': company_data.get('certificatePassword', ''),
             }
             company_obj['stats'] = cls.get_invoice_stats(company_id, company_obj['billingDay'])
             return company_obj

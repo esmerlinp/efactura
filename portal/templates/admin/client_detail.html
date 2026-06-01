@@ -53,8 +53,36 @@
     
     <!-- Right Column: Edit Form -->
     <div class="detail-main">
-        <!-- Tarjeta de Consumo y Proyección de Cobro -->
-        <div class="card" style="margin-bottom: 24px; background: linear-gradient(135deg, rgba(16, 185, 129, 0.03), rgba(37, 99, 235, 0.03)); border: 1px solid var(--border-color);">
+        <div class="tabs-container">
+            <!-- Navigation Tabs -->
+            <div class="tabs-nav">
+                <button class="tab-btn active" onclick="switchTab(event, 'tab-plan')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                        <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+                        <rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/>
+                    </svg>
+                    <span>Plan y Límites</span>
+                </button>
+                <button class="tab-btn" onclick="switchTab(event, 'tab-fiscal')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                        <rect x="2" y="7" width="20" height="14" rx="2" ry="2"/>
+                        <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+                    </svg>
+                    <span>Identidad y Firma</span>
+                </button>
+                <button class="tab-btn" onclick="switchTab(event, 'tab-payments')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                        <rect x="2" y="4" width="20" height="16" rx="2"/>
+                        <line x1="2" y1="10" x2="22" y2="10"/>
+                    </svg>
+                    <span>Control de Pagos</span>
+                </button>
+            </div>
+            
+            <!-- Tab 1: Plan y Límites -->
+            <div id="tab-plan" class="tab-content active">
+                <!-- Tarjeta de Consumo y Proyección de Cobro -->
+                <div class="card" style="margin-bottom: 24px; background: linear-gradient(135deg, rgba(16, 185, 129, 0.03), rgba(37, 99, 235, 0.03)); border: 1px solid var(--border-color);">
             <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 14px;">
                 <h2 class="card-title" style="display: flex; align-items: center; gap: 8px; margin: 0; font-size: 1.15rem; font-weight: 700;">
                     📊 Consumo y Proyección de Cobro
@@ -130,9 +158,12 @@
             </div>
         </div>
 
-        <div class="card">
-            <div class="card-header">
-                <h2 class="card-title">Configuración de Cuenta</h2>
+        <!-- Tarjeta 1: Configuración de Plan y Cuenta -->
+        <div class="card" style="margin-bottom: 24px;">
+            <div class="card-header" style="border-bottom: 1px solid var(--border-color); padding-bottom: 14px;">
+                <h2 class="card-title" style="display: flex; align-items: center; gap: 8px; margin: 0; font-size: 1.1rem; font-weight: 700;">
+                    ⚙️ Configuración del Plan y Límites
+                </h2>
             </div>
             <div class="card-body">
                 <form method="POST" action="{{ url_for('client_detail', company_id=company.id) }}" class="edit-form">
@@ -225,16 +256,115 @@
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
                                     <polyline points="20 6 9 17 4 12"/>
                                 </svg>
-                                Guardar Cambios
+                                Guardar Ajustes del Plan
                             </button>
                         </div>
                     </div>
                 </form>
             </div>
         </div>
-        
-        <!-- Historial y Registro de Pagos -->
-        <div class="card" style="margin-top: 24px;">
+            </div><!-- #tab-plan -->
+
+            <!-- Tab 2: Identidad Fiscal y Firma Digital -->
+            <div id="tab-fiscal" class="tab-content">
+                <!-- Tarjeta 2: Identidad Fiscal y Certificado Digital -->
+                <div class="card" style="margin-bottom: 24px;">
+            <div class="card-header" style="border-bottom: 1px solid var(--border-color); padding-bottom: 14px;">
+                <h2 class="card-title" style="display: flex; align-items: center; gap: 8px; margin: 0; font-size: 1.1rem; font-weight: 700;">
+                    💼 Identidad Fiscal y Certificado Digital
+                </h2>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('client_detail', company_id=company.id) }}" class="edit-form" enctype="multipart/form-data">
+                    
+                    <div class="form-section">
+                        <div class="form-grid-2">
+                            <div class="form-group">
+                                <label class="form-label">Nombre o Razón social *</label>
+                                <input type="text" name="companyName" class="form-input" 
+                                    value="{{ company.companyName | default('') }}" placeholder="Ej: Mi Empresa SRL" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">RNC Comercial *</label>
+                                <input type="text" name="companyRNC" class="form-input" 
+                                    value="{{ company.companyRNC | default('') }}" placeholder="Ej: 131689787" required>
+                            </div>
+                        </div>
+                        <div class="form-grid-2" style="margin-top: 10px;">
+                            <div class="form-group">
+                                <label class="form-label">Nombre Comercial</label>
+                                <input type="text" name="tradeName" class="form-input" 
+                                    value="{{ company.tradeName | default('') }}" placeholder="Ej: Tienda Mi Empresa">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Correo electrónico Comercial</label>
+                                <input type="email" name="companyEmail" class="form-input" 
+                                    value="{{ company.companyEmail | default('') }}" placeholder="facturacion@empresa.com.do">
+                            </div>
+                        </div>
+                        <div class="form-grid-3" style="margin-top: 10px;">
+                            <div class="form-group">
+                                <label class="form-label">Teléfono Comercial</label>
+                                <input type="text" name="companyPhone" class="form-input" 
+                                    value="{{ company.companyPhone | default('') }}" placeholder="809-555-0199">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Provincia</label>
+                                <input type="text" name="province" class="form-input" 
+                                    value="{{ company.province | default('') }}" placeholder="Ej: Distrito Nacional">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Municipio</label>
+                                <input type="text" name="municipality" class="form-input" 
+                                    value="{{ company.municipality | default('') }}" placeholder="Ej: Santo Domingo Centro">
+                            </div>
+                        </div>
+                        <div class="form-group" style="margin-top: 10px;">
+                            <label class="form-label">Dirección Comercial</label>
+                            <textarea name="companyAddress" class="form-input" placeholder="Calle, Sector, Santo Domingo, RD" rows="2" style="resize: vertical; font-family: inherit;">{{ company.companyAddress | default('') }}</textarea>
+                        </div>
+                        <div class="form-grid-2" style="margin-top: 10px;">
+                            <div class="form-group">
+                                <label class="form-label">Certificado Digital (.p12 / .pfx)</label>
+                                <input type="file" name="certificateFile" class="form-input" accept=".p12,.pfx" style="padding-top: 8px;">
+                                {% if company.certificateName %}
+                                <small style="color: var(--success); font-size: 0.78rem; font-weight: 700; margin-top: 4px; display: block;">
+                                    ✓ Certificado cargado: {{ company.certificateName }}{{ company.certificateExtension }}
+                                </small>
+                                {% else %}
+                                <small style="color: var(--text-muted); font-size: 0.78rem; margin-top: 4px; display: block;">
+                                    No hay ningún certificado cargado.
+                                </small>
+                                {% endif %}
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Contraseña del Certificado</label>
+                                <input type="password" name="certificatePassword" class="form-input" 
+                                    value="{{ company.certificatePassword | default('') }}" placeholder="••••••••">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-section" style="margin-top: 24px;">
+                        <div class="form-actions">
+                            <a href="{{ url_for('clientes') }}" class="btn btn-ghost">Cancelar</a>
+                            <button type="submit" class="btn btn-primary btn-lg" style="background: var(--purple); border-color: var(--purple);">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                                    <polyline points="20 6 9 17 4 12"/>
+                                </svg>
+                                Guardar Datos Fiscales & Firma
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+            </div><!-- #tab-fiscal -->
+
+            <!-- Tab 3: Control de Pagos -->
+            <div id="tab-payments" class="tab-content">
+                <!-- Historial y Registro de Pagos -->
+                <div class="card" style="margin-top: 24px;">
             <div class="card-header">
                 <h2 class="card-title">Historial y Registro de Pagos</h2>
             </div>
@@ -332,12 +462,54 @@
                 </div>
             </div>
         </div>
+            </div><!-- #tab-payments -->
+        </div><!-- .tabs-container -->
     </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
+function switchTab(event, tabId) {
+    // Hide all tab contents
+    document.querySelectorAll('.tab-content').forEach(content => {
+        content.classList.remove('active');
+    });
+    // Remove active class from all tab buttons
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    
+    // Show active tab
+    const activeTabEl = document.getElementById(tabId);
+    if (activeTabEl) {
+        activeTabEl.classList.add('active');
+    }
+    
+    // Add active class to clicked button or matching button
+    if (event && event.currentTarget) {
+        event.currentTarget.classList.add('active');
+    } else {
+        const matchingBtn = Array.from(document.querySelectorAll('.tab-btn')).find(b => 
+            b.getAttribute('onclick') && b.getAttribute('onclick').includes(tabId)
+        );
+        if (matchingBtn) {
+            matchingBtn.classList.add('active');
+        }
+    }
+    
+    // Save tab selection in localStorage
+    localStorage.setItem('activeClientTab', tabId);
+}
+
+// Restore tab selection on load
+document.addEventListener('DOMContentLoaded', function() {
+    const activeTab = localStorage.getItem('activeClientTab');
+    if (activeTab && document.getElementById(activeTab)) {
+        switchTab(null, activeTab);
+    }
+});
+
 function applyPlanDefaults(select) {
     const opt = select.options[select.selectedIndex];
     if (!opt.value) return;
