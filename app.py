@@ -2495,7 +2495,7 @@ def invoice_pdf_download(invoice_id):
 
     if WEASYPRINT_AVAILABLE and action == 'download':
         # Generar PDF binario con WeasyPrint
-        rendered_html = render_template('invoices/pdf.html', invoice=invoice, company=company, branch=branch, auto_print=False, qr_base64=qr_base64, fecha_firma_str=fecha_firma_str)
+        rendered_html = render_template('invoices/pdf.html', invoice=invoice, company=company, branch=branch, auto_print=False, qr_base64=qr_base64, fecha_firma_str=fecha_firma_str, sandbox=sandbox)
         pdf_bytes = WeasyprintHTML(string=rendered_html, base_url=request.host_url).write_pdf()
         response = make_response(pdf_bytes)
         response.headers['Content-Type'] = 'application/pdf'
@@ -2504,7 +2504,7 @@ def invoice_pdf_download(invoice_id):
     else:
         # Fallback sin dependencias externas o si action es 'print':
         # devolver HTML optimizado para impresión y auto-disparar el diálogo Imprimir del navegador
-        rendered_html = render_template('invoices/pdf.html', invoice=invoice, company=company, branch=branch, auto_print=True, qr_base64=qr_base64, fecha_firma_str=fecha_firma_str)
+        rendered_html = render_template('invoices/pdf.html', invoice=invoice, company=company, branch=branch, auto_print=True, qr_base64=qr_base64, fecha_firma_str=fecha_firma_str, sandbox=sandbox)
         response = make_response(rendered_html)
         response.headers['Content-Type'] = 'text/html; charset=utf-8'
         return response
