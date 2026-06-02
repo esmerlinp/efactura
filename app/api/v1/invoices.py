@@ -282,6 +282,23 @@ def get_invoices():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+@api_invoices_bp.route('/documents', methods=['GET'])
+@require_api_key
+def get_documents():
+    """
+    GET /api/v1/documents
+    Retorna la lista de todos los documentos (facturas y cotizaciones) para el owner de la API.
+    """
+    try:
+        documents = DatabaseService.get_invoices(g.owner_uid, sandbox=g.sandbox_mode, include_all=True)
+        return jsonify({
+            "success": True,
+            "invoices": documents
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 @api_invoices_bp.route('/invoices/<invoice_id>', methods=['GET'])
 @require_api_key
 def get_invoice_detail(invoice_id):
