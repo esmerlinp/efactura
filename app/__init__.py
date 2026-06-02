@@ -1,6 +1,28 @@
-# app/__init__.py
-import os
-from flask import Flask, request, session, jsonify, flash, redirect, url_for as flask_url_for
+import flask
+import flask.helpers
+
+# Guardar la referencia al url_for original para evitar recursión
+_original_url_for = flask.helpers.url_for
+
+def custom_url_for(endpoint, **values):
+    try:
+        return _original_url_for(endpoint, **values)
+    except Exception:
+        # Si falla el endpoint global, intentar con el prefijo de nuestros Blueprints web
+        for bp_name in ['web_auth', 'web_dashboard', 'web_clients', 'web_invoices']:
+            try:
+                return _original_url_for(f"{bp_name}.{endpoint}", **values)
+            except Exception:
+                pass
+        # Si de todas formas falla, relanzar el error original
+        raise
+
+flask.helpers.url_for = custom_url_for
+flask.url_for = custom_url_for
+
+flask_url_for = _original_url_for
+
+from flask import Flask, request, session, jsonify, flash, redirect
 from config import Config
 from app.extensions import init_extensions
 from app.services.db_service import DatabaseService

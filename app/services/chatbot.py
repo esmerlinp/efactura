@@ -38,7 +38,7 @@ class ChatbotService:
             
             # 5. Facturas / Documentos
             invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox)
-            real_invoices = [inv for inv in invoices if not inv.get('isQuotation') and inv.get('status') != 'Anulada']
+            real_invoices = [inv for inv in invoices if not inv.get('isQuotation') and inv.get('status') not in ['Anulada', 'Borrador']]
             invoices_summary = []
             total_sales_amount = 0.0
             for inv in real_invoices[:10]:

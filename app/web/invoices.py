@@ -617,6 +617,7 @@ def new_invoice_route(invoice_id=None):
         retained_isr_rate = float(request.form.get('retainedISRRate', 0.0))
         retained_itbis_rate = float(request.form.get('retainedITBISRate', 0.0))
         income_type = request.form.get('incomeType', '01 - Ingresos por operaciones')
+        comentario = request.form.get('comentario', '').strip()
         
         # Parámetros de recurrencia
         is_recurring = request.form.get('isRecurring') == 'true'
@@ -791,6 +792,7 @@ def new_invoice_route(invoice_id=None):
             invoice_dict["totalOtrosImpuestos"] = calcs["total_otros_impuestos"]
             invoice_dict["isQuotation"] = is_quotation
             invoice_dict["notes"] = request.form.get('notes', '')
+            invoice_dict["comentario"] = comentario
             invoice_dict["isRecurring"] = is_recurring
             invoice_dict["recurrenceInterval"] = recurrence_interval
             invoice_dict["nextOccurrenceDate"] = next_occurrence if is_recurring else None
@@ -836,6 +838,7 @@ def new_invoice_route(invoice_id=None):
                 "isQuotation": is_quotation,
                 "isConvertedToInvoice": False,
                 "notes": request.form.get('notes', ''),
+                "comentario": comentario,
                 "isRecurring": is_recurring,
                 "recurrenceInterval": recurrence_interval,
                 "nextOccurrenceDate": next_occurrence if is_recurring else None,
@@ -2556,8 +2559,8 @@ def it1_diagnostic():
     invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox)
     expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox)
     
-    # Filtrar reales
-    real_invoices = [inv for inv in invoices if not inv.get('isQuotation') and inv.get('status') != 'Anulada']
+    # Filtrar reales (excluyendo cotizaciones y borradores)
+    real_invoices = [inv for inv in invoices if not inv.get('isQuotation') and inv.get('status') not in ['Anulada', 'Borrador']]
     
     sales_subtotal = sum(inv['subtotal'] for inv in real_invoices)
     total_itbis_sales = sum(inv['totalITBIS'] for inv in real_invoices)
@@ -2659,7 +2662,7 @@ def client_subscription_page():
     
     # 2. Cargar datos del plan
     plan_name = "Plan Personalizado"
-    from firebase_service import db_firestore
+    from app.services.db_service import db_firestore
     try:
         plan_id = profile.get('planId')
         if plan_id:

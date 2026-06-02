@@ -130,6 +130,10 @@
                     <span style="font-size: 0.78rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600; display: block; margin-bottom: 6px;">Términos y Observaciones</span>
                     <p style="color: var(--text-secondary); font-size: 0.85rem; max-width: 400px; line-height: 1.4;">{{ invoice.notes }}</p>
                 {% endif %}
+                {% if invoice.comentario %}
+                    <span style="font-size: 0.78rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600; display: block; margin-bottom: 6px; margin-top: 15px;">Comentarios Adicionales</span>
+                    <p style="color: var(--text-secondary); font-size: 0.85rem; max-width: 400px; line-height: 1.4;"><i class="fa-regular fa-comment" style="margin-right: 6px; color: var(--accent-purple);"></i>{{ invoice.comentario }}</p>
+                {% endif %}
             </div>
             
             <div style="min-width: 320px; display: flex; flex-direction: column; gap: 12px;">

@@ -377,6 +377,7 @@ def create_draft_invoice():
             "isQuotation": is_quotation,
             "isConvertedToInvoice": bool(data.get('is_converted', False)),
             "notes": data.get('notes', ''),
+            "comentario": data.get('comentario', ''),
             "isRecurring": bool(data.get('is_recurring', False)),
             "recurrenceInterval": data.get('recurrence_interval', 'mensual'),
             "nextOccurrenceDate": data.get('next_occurrence_date'),
@@ -475,6 +476,7 @@ def update_invoice(invoice_id):
             "isQuotation": bool(data.get('is_quotation', invoice.get('isQuotation'))),
             "isConvertedToInvoice": bool(data.get('is_converted', invoice.get('isConvertedToInvoice'))),
             "notes": data.get('notes', invoice.get('notes')),
+            "comentario": data.get('comentario', invoice.get('comentario', '')),
             "isRecurring": bool(data.get('is_recurring', invoice.get('isRecurring'))),
             "recurrenceInterval": data.get('recurrence_interval', invoice.get('recurrenceInterval')),
             "nextOccurrenceDate": data.get('next_occurrence_date', invoice.get('nextOccurrenceDate')),
@@ -779,7 +781,7 @@ def get_dashboard_summary():
         invoices = DatabaseService.get_invoices(g.owner_uid, sandbox=g.sandbox_mode)
         expenses = DatabaseService.get_expenses(g.owner_uid, sandbox=g.sandbox_mode)
         
-        real_invoices = [inv for inv in invoices if not inv.get('isQuotation') and inv.get('status') != 'Anulada']
+        real_invoices = [inv for inv in invoices if not inv.get('isQuotation') and inv.get('status') not in ['Anulada', 'Borrador']]
         
         total_invoiced = sum(inv.get('total', 0.0) for inv in real_invoices)
         total_expenses = sum(exp.get('amount', 0.0) for exp in expenses)

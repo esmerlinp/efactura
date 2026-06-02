@@ -2,7 +2,8 @@
 
 {% block title %}{% if active_page == 'quotations' %}Nueva Cotización{% else %}Nuevo Documento{% endif %}{% endblock %}
 
-{% block page_header %}{% if active_page == 'quotations' %}Creación de Cotización Comercial{% else %}Generación de Documento Electrónico{% endif %}{% endblock %}
+{% block page_header %}{% if active_page == 'quotations' %}Creación de Cotización Comercial{% else %}Generación de
+Documento Electrónico{% endif %}{% endblock %}
 
 {% block content %}
 <!-- Elementos ocultos con datos serializados para buscadores avanzados -->
@@ -12,7 +13,8 @@
 <form method="POST" id="invoice-form">
 
     <!-- FILA SUPERIOR: ENCABEZADO + CLIENTE LADO A LADO -->
-    <div style="display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 18px; margin-bottom: 18px; align-items: stretch;">
+    <div
+        style="display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 18px; margin-bottom: 18px; align-items: stretch;">
 
         <!-- TARJETA 1: ENCABEZADO DEL DOCUMENTO -->
         <div class="card-segment" style="margin-bottom: 0;">
@@ -22,50 +24,75 @@
                 </div>
                 <h3>Encabezado del Documento</h3>
             </div>
-            
+
             <div class="form-grid">
                 {% if active_page == 'quotations' %}
                 <input type="hidden" name="ecfType" value="Cotización">
                 {% else %}
                 <!-- 1. Clasificación del Documento -->
                 <div class="form-group">
-                    <label for="ecf-type-select">Tipo de Documento <span style="color: var(--accent-red); font-weight: bold; margin-left: 2px;">*</span></label>
+                    <label for="ecf-type-select">Tipo de Documento <span
+                            style="color: var(--accent-red); font-weight: bold; margin-left: 2px;">*</span></label>
                     <select id="ecf-type-select" name="ecfType" class="form-select" required>
-                        <option value="Factura de Consumo (E32)" {% if invoice and invoice.ecfType == 'Factura de Consumo (E32)' %}selected{% endif %}>E32 - Factura de Consumo (Público General)</option>
-                        <option value="Factura de Crédito Fiscal (E31)" {% if invoice and invoice.ecfType == 'Factura de Crédito Fiscal (E31)' %}selected{% endif %}>E31 - Crédito Fiscal (RNC Corporativo)</option>
-                        <option value="Comprobante de Compras (E41)" {% if invoice and invoice.ecfType == 'Comprobante de Compras (E41)' %}selected{% endif %}>E41 - Comprobante de Compras</option>
-                        <option value="Gastos Menores (E43)" {% if invoice and invoice.ecfType == 'Gastos Menores (E43)' %}selected{% endif %}>E43 - Gastos Menores</option>
-                        <option value="Pagos al Exterior (E47)" {% if invoice and invoice.ecfType == 'Pagos al Exterior (E47)' %}selected{% endif %}>E47 - Pagos al Exterior</option>
+                        <option value="Factura de Consumo (E32)" {% if invoice and
+                            invoice.ecfType=='Factura de Consumo (E32)' %}selected{% endif %}>E32 - Factura de Consumo
+                            (Público General)</option>
+                        <option value="Factura de Crédito Fiscal (E31)" {% if invoice and
+                            invoice.ecfType=='Factura de Crédito Fiscal (E31)' %}selected{% endif %}>E31 - Crédito
+                            Fiscal (RNC Corporativo)</option>
+                        <option value="Comprobante de Compras (E41)" {% if invoice and
+                            invoice.ecfType=='Comprobante de Compras (E41)' %}selected{% endif %}>E41 - Comprobante de
+                            Compras</option>
+                        <option value="Gastos Menores (E43)" {% if invoice and invoice.ecfType=='Gastos Menores (E43)'
+                            %}selected{% endif %}>E43 - Gastos Menores</option>
+                        <option value="Pagos al Exterior (E47)" {% if invoice and
+                            invoice.ecfType=='Pagos al Exterior (E47)' %}selected{% endif %}>E47 - Pagos al Exterior
+                        </option>
                     </select>
                 </div>
-                
+
                 <div class="form-group">
-                    <label for="income-type-select">Tipo de Ingreso (DGII) <span style="color: var(--accent-red); font-weight: bold; margin-left: 2px;">*</span></label>
+                    <label for="income-type-select">Tipo de Ingreso (DGII) <span
+                            style="color: var(--accent-red); font-weight: bold; margin-left: 2px;">*</span></label>
                     <select id="income-type-select" name="incomeType" class="form-select" required>
-                        <option value="01 - Ingresos por operaciones" {% if not invoice or invoice.incomeType == '01 - Ingresos por operaciones' %}selected{% endif %}>01 - Ingresos por operaciones</option>
-                        <option value="02 - Ingresos Financieros" {% if invoice and invoice.incomeType == '02 - Ingresos Financieros' %}selected{% endif %}>02 - Ingresos Financieros</option>
-                        <option value="03 - Ingresos Extraordinarios" {% if invoice and invoice.incomeType == '03 - Ingresos Extraordinarios' %}selected{% endif %}>03 - Ingresos Extraordinarios</option>
-                        <option value="04 - Arrendamientos" {% if invoice and invoice.incomeType == '04 - Arrendamientos' %}selected{% endif %}>04 - Arrendamientos</option>
-                        <option value="05 - Venta de Activo Depreciable" {% if invoice and invoice.incomeType == '05 - Venta de Activo Depreciable' %}selected{% endif %}>05 - Venta de Activo Depreciable</option>
-                        <option value="06 - Otros Ingresos" {% if invoice and invoice.incomeType == '06 - Otros Ingresos' %}selected{% endif %}>06 - Otros Ingresos</option>
+                        <option value="01 - Ingresos por operaciones" {% if not invoice or
+                            invoice.incomeType=='01 - Ingresos por operaciones' %}selected{% endif %}>01 - Ingresos por
+                            operaciones</option>
+                        <option value="02 - Ingresos Financieros" {% if invoice and
+                            invoice.incomeType=='02 - Ingresos Financieros' %}selected{% endif %}>02 - Ingresos
+                            Financieros</option>
+                        <option value="03 - Ingresos Extraordinarios" {% if invoice and
+                            invoice.incomeType=='03 - Ingresos Extraordinarios' %}selected{% endif %}>03 - Ingresos
+                            Extraordinarios</option>
+                        <option value="04 - Arrendamientos" {% if invoice and invoice.incomeType=='04 - Arrendamientos'
+                            %}selected{% endif %}>04 - Arrendamientos</option>
+                        <option value="05 - Venta de Activo Depreciable" {% if invoice and
+                            invoice.incomeType=='05 - Venta de Activo Depreciable' %}selected{% endif %}>05 - Venta de
+                            Activo Depreciable</option>
+                        <option value="06 - Otros Ingresos" {% if invoice and invoice.incomeType=='06 - Otros Ingresos'
+                            %}selected{% endif %}>06 - Otros Ingresos</option>
                     </select>
                 </div>
 
                 <!-- 2. Emisión y Logística -->
                 <div class="form-group">
-                    <label for="branch-select">Sucursal Emisora <span style="color: var(--accent-red); font-weight: bold; margin-left: 2px;">*</span></label>
+                    <label for="branch-select">Sucursal Emisora <span
+                            style="color: var(--accent-red); font-weight: bold; margin-left: 2px;">*</span></label>
                     <select id="branch-select" name="branchId" class="form-select" required>
                         {% for branch in branches %}
-                        <option value="{{ branch.id }}" {% if invoice and invoice.branchId == branch.id %}selected{% elif not invoice and branch.isDefault %}selected{% endif %}>{{ branch.name }}</option>
+                        <option value="{{ branch.id }}" {% if invoice and invoice.branchId==branch.id %}selected{% elif
+                            not invoice and branch.isDefault %}selected{% endif %}>{{ branch.name }}</option>
                         {% endfor %}
                     </select>
                 </div>
 
                 <div class="form-group">
-                    <label for="warehouse-select">Almacén Despacho <span style="color: var(--accent-red); font-weight: bold; margin-left: 2px;">*</span></label>
+                    <label for="warehouse-select">Almacén Despacho <span
+                            style="color: var(--accent-red); font-weight: bold; margin-left: 2px;">*</span></label>
                     <select id="warehouse-select" name="warehouseId" class="form-select" required>
                         {% for wh in warehouses %}
-                        <option value="{{ wh.id }}" {% if invoice and invoice.warehouseId == wh.id %}selected{% elif not invoice and loop.first %}selected{% endif %}>{{ wh.name }}</option>
+                        <option value="{{ wh.id }}" {% if invoice and invoice.warehouseId==wh.id %}selected{% elif not
+                            invoice and loop.first %}selected{% endif %}>{{ wh.name }}</option>
                         {% endfor %}
                     </select>
                 </div>
@@ -75,38 +102,53 @@
                 <div class="form-group">
                     <label for="currency-select">Moneda</label>
                     <select id="currency-select" name="currency" class="form-select">
-                        <option value="DOP" {% if not invoice or invoice.currency == 'DOP' %}selected{% endif %}>Pesos Dominicanos (DOP)</option>
-                        <option value="USD" {% if invoice and invoice.currency == 'USD' %}selected{% endif %}>Dólares Estadounidenses (USD)</option>
-                        <option value="EUR" {% if invoice and invoice.currency == 'EUR' %}selected{% endif %}>Euros (EUR)</option>
+                        <option value="DOP" {% if not invoice or invoice.currency=='DOP' %}selected{% endif %}>Pesos
+                            Dominicanos (DOP)</option>
+                        <option value="USD" {% if invoice and invoice.currency=='USD' %}selected{% endif %}>Dólares
+                            Estadounidenses (USD)</option>
+                        <option value="EUR" {% if invoice and invoice.currency=='EUR' %}selected{% endif %}>Euros (EUR)
+                        </option>
                     </select>
                 </div>
-                
+
                 <div class="form-group">
                     <label for="payment-type-select">Condición de Pago</label>
                     <select id="payment-type-select" name="paymentType" class="form-select">
-                        <option value="Contado" {% if not invoice or invoice.paymentType == 'Contado' %}selected{% endif %}>Contado (Inmediato)</option>
-                        <option value="Crédito" {% if invoice and invoice.paymentType == 'Crédito' %}selected{% endif %}>Crédito (A Plazo)</option>
+                        <option value="Contado" {% if not invoice or invoice.paymentType=='Contado' %}selected{% endif
+                            %}>Contado (Inmediato)</option>
+                        <option value="Crédito" {% if invoice and invoice.paymentType=='Crédito' %}selected{% endif %}>
+                            Crédito (A Plazo)</option>
                     </select>
                 </div>
-                
+
                 <div class="form-group">
-                    <label for="due-date">Fecha de Vencimiento / Pago <span style="color: var(--accent-red); font-weight: bold; margin-left: 2px;">*</span></label>
-                    <input type="date" id="due-date" name="dueDate" class="form-input" required value="{{ default_due_date }}">
+                    <label for="due-date">Fecha de Vencimiento / Pago <span
+                            style="color: var(--accent-red); font-weight: bold; margin-left: 2px;">*</span></label>
+                    <input type="date" id="due-date" name="dueDate" class="form-input" required
+                        value="{{ default_due_date }}">
                 </div>
 
                 <div class="form-group" id="payment-method-group">
                     <label for="payment-method-select">Forma de Pago</label>
                     <select id="payment-method-select" name="paymentMethod" class="form-select">
-                        <option value="Efectivo" {% if not invoice or invoice.paymentMethod == 'Efectivo' %}selected{% endif %}>Efectivo</option>
-                        <option value="Cheque / Transferencia" {% if invoice and invoice.paymentMethod == 'Cheque / Transferencia' %}selected{% endif %}>Cheque / Transferencia Bancaria</option>
-                        <option value="Tarjeta de Crédito / Débito" {% if invoice and invoice.paymentMethod == 'Tarjeta de Crédito / Débito' %}selected{% endif %}>Tarjeta de Crédito / Débito</option>
-                        <option value="Crédito" {% if invoice and invoice.paymentMethod == 'Crédito' %}selected{% endif %}>Crédito (Cuentas por Cobrar)</option>
+                        <option value="Efectivo" {% if not invoice or invoice.paymentMethod=='Efectivo' %}selected{%
+                            endif %}>Efectivo</option>
+                        <option value="Cheque / Transferencia" {% if invoice and
+                            invoice.paymentMethod=='Cheque / Transferencia' %}selected{% endif %}>Cheque / Transferencia
+                            Bancaria</option>
+                        <option value="Tarjeta de Crédito / Débito" {% if invoice and
+                            invoice.paymentMethod=='Tarjeta de Crédito / Débito' %}selected{% endif %}>Tarjeta de
+                            Crédito / Débito</option>
+                        <option value="Crédito" {% if invoice and invoice.paymentMethod=='Crédito' %}selected{% endif
+                            %}>Crédito (Cuentas por Cobrar)</option>
                     </select>
                 </div>
 
                 <!-- Configurar Acuerdo de Pago (Solo Crédito) -->
-                <div id="payment-agreement-group" style="display: none; grid-column: 1 / -1; background-color: rgba(255, 255, 255, 0.01); border: 1px dashed var(--border-color); border-radius: var(--radius-sm); padding: 16px; margin-top: 4px;">
-                    <h4 style="font-size: 0.88rem; font-family: var(--font-heading); margin-top: 0; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; color: var(--accent-purple);">
+                <div id="payment-agreement-group"
+                    style="display: none; grid-column: 1 / -1; background-color: rgba(255, 255, 255, 0.01); border: 1px dashed var(--border-color); border-radius: var(--radius-sm); padding: 16px; margin-top: 4px;">
+                    <h4
+                        style="font-size: 0.88rem; font-family: var(--font-heading); margin-top: 0; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; color: var(--accent-purple);">
                         <i class="fa-solid fa-calendar-days"></i>
                         <span>Estructurar Acuerdo de Pago (Cuotas)</span>
                     </h4>
@@ -118,7 +160,8 @@
                                 <option value="true">Sí, calendario de cuotas</option>
                             </select>
                         </div>
-                        <div id="agreement-details-fields" style="display: none; grid-column: span 3; grid-template-columns: repeat(3, 1fr); gap: 12px;">
+                        <div id="agreement-details-fields"
+                            style="display: none; grid-column: span 3; grid-template-columns: repeat(3, 1fr); gap: 12px;">
                             <div class="form-group" style="margin-bottom: 0;">
                                 <label for="installments-count-select">Cantidad de Cuotas</label>
                                 <select id="installments-count-select" name="installmentsCount" class="form-select">
@@ -139,7 +182,8 @@
                             </div>
                             <div class="form-group" style="margin-bottom: 0;">
                                 <label for="late-fee-input">Tasa de Mora Mensual (%)</label>
-                                <input type="number" id="late-fee-input" name="lateFeePercentage" class="form-input" min="0" max="100" step="0.1" value="5.0" style="width: 100%;">
+                                <input type="number" id="late-fee-input" name="lateFeePercentage" class="form-input"
+                                    min="0" max="100" step="0.1" value="5.0" style="width: 100%;">
                             </div>
                         </div>
                     </div>
@@ -154,7 +198,8 @@
                     <i class="fa-solid fa-address-card"></i>
                 </div>
                 <h3 style="flex-grow: 1;">Datos del Cliente / Receptor</h3>
-                <button type="button" id="btn-create-client-modal" class="btn btn-primary" style="padding: 6px 12px; font-size: 0.8rem; gap: 5px;">
+                <button type="button" id="btn-create-client-modal" class="btn btn-primary"
+                    style="padding: 6px 12px; font-size: 0.8rem; gap: 5px;">
                     <i class="fa-solid fa-user-plus"></i>
                     <span>Nuevo Cliente</span>
                 </button>
@@ -164,9 +209,14 @@
                 <div class="form-group" style="margin-bottom: 0;">
                     <label for="client-search-input">Buscar en Agenda CRM</label>
                     <div style="display: flex; gap: 8px;">
-                        <input type="text" id="client-search-input" class="form-input" readonly placeholder="-- Clic para buscar en CRM --" style="cursor: pointer; flex-grow: 1; text-overflow: ellipsis; white-space: nowrap; overflow: hidden;" value="{% if invoice and invoice.clientName %}{{ invoice.clientName }} ({{ invoice.clientRNC or 'Consumidor Final' }}){% endif %}">
-                        <input type="hidden" id="client-id-hidden" name="clientId" value="{% if invoice %}{{ invoice.clientId or '' }}{% endif %}">
-                        <button type="button" id="btn-open-client-modal" class="btn btn-secondary" style="padding: 8px 14px; white-space: nowrap;" title="Buscar Cliente">
+                        <input type="text" id="client-search-input" class="form-input" readonly
+                            placeholder="-- Clic para buscar en CRM --"
+                            style="cursor: pointer; flex-grow: 1; text-overflow: ellipsis; white-space: nowrap; overflow: hidden;"
+                            value="{% if invoice and invoice.clientName %}{{ invoice.clientName }} ({{ invoice.clientRNC or 'Consumidor Final' }}){% endif %}">
+                        <input type="hidden" id="client-id-hidden" name="clientId"
+                            value="{% if invoice %}{{ invoice.clientId or '' }}{% endif %}">
+                        <button type="button" id="btn-open-client-modal" class="btn btn-secondary"
+                            style="padding: 8px 14px; white-space: nowrap;" title="Buscar Cliente">
                             <i class="fa-solid fa-magnifying-glass"></i>
                         </button>
                     </div>
@@ -174,8 +224,11 @@
                 <!-- RNC del Receptor -->
                 <div class="form-group" style="margin-bottom: 0;">
                     <label for="client-rnc-input">RNC / Cédula del Receptor</label>
-                    <input type="text" id="client-rnc-input" name="clientRNC" class="form-input" placeholder="Ej: 101234567 (vacío = Consumidor Final)" style="font-family: monospace;" value="{% if invoice %}{{ invoice.clientRNC or '' }}{% endif %}">
-                    <small id="client-warning" style="color: var(--accent-red); font-size: 0.75rem; margin-top: 2px; display: none;"></small>
+                    <input type="text" id="client-rnc-input" name="clientRNC" class="form-input"
+                        placeholder="Ej: 101234567 (vacío = Consumidor Final)" style="font-family: monospace;"
+                        value="{% if invoice %}{{ invoice.clientRNC or '' }}{% endif %}">
+                    <small id="client-warning"
+                        style="color: var(--accent-red); font-size: 0.75rem; margin-top: 2px; display: none;"></small>
                 </div>
             </div>
         </div>
@@ -189,21 +242,26 @@
             <div class="segment-header-icon purple">
                 <i class="fa-solid fa-list-check"></i>
             </div>
-            <h3 style="flex-grow: 1;">{% if active_page == 'quotations' %}Partidas de la Cotización{% else %}Partidas de la Factura{% endif %}</h3>
-            <button type="button" id="btn-add-item" class="btn btn-secondary" style="padding: 6px 14px; font-size: 0.82rem;">
+            <h3 style="flex-grow: 1;">{% if active_page == 'quotations' %}Partidas de la Cotización{% else %}Partidas de
+                la Factura{% endif %}</h3>
+            <button type="button" id="btn-add-item" class="btn btn-secondary"
+                style="padding: 6px 14px; font-size: 0.82rem;">
                 <i class="fa-solid fa-cart-plus"></i>
                 <span>Añadir Partida</span>
             </button>
         </div>
-        
+
         <div class="table-responsive">
             <table class="table-premium" id="items-table" style="min-width: 1150px;">
                 <thead>
                     <tr>
                         <th style="width: 22%; white-space: nowrap;">Artículo / Catálogo</th>
-                        <th style="width: 25%; white-space: nowrap;">Descripción <span style="color: var(--accent-red); font-weight: bold;">*</span></th>
-                        <th style="width: 12%; text-align: right; white-space: nowrap;">Precio Unit. <span style="color: var(--accent-red); font-weight: bold;">*</span></th>
-                        <th style="width: 8%; text-align: center; white-space: nowrap;">Cant. <span style="color: var(--accent-red); font-weight: bold;">*</span></th>
+                        <th style="width: 25%; white-space: nowrap;">Descripción <span
+                                style="color: var(--accent-red); font-weight: bold;">*</span></th>
+                        <th style="width: 12%; text-align: right; white-space: nowrap;">Precio Unit. <span
+                                style="color: var(--accent-red); font-weight: bold;">*</span></th>
+                        <th style="width: 8%; text-align: center; white-space: nowrap;">Cant. <span
+                                style="color: var(--accent-red); font-weight: bold;">*</span></th>
                         <th style="width: 10%; white-space: nowrap;">ITBIS</th>
                         <th style="width: 10%; text-align: right; white-space: nowrap;">Desc. %</th>
                         <th style="width: 13%; text-align: right; white-space: nowrap;">Monto</th>
@@ -212,44 +270,59 @@
                 </thead>
                 <tbody id="invoice-items-body">
                     {% if invoice and invoice['items'] %}
-                        {% for item in invoice['items'] %}
-                        <tr class="item-row animate-fade-in">
-                            <td>
-                                <div style="position: relative; display: flex; gap: 6px; width: 100%;">
-                                    <input type="text" class="form-input item-catalog-search-input" value="{{ item.name }} ({{ item.code or 'S/C' }})" placeholder="-- Buscar en Catálogo --" readonly style="cursor: pointer; width: 100%; text-overflow: ellipsis; white-space: nowrap; overflow: hidden;">
-                                    <input type="hidden" class="item-catalog-id-hidden" name="items[{{ loop.index0 }}][catalog_id]" value="{{ item.code or '' }}">
-                                    <button type="button" class="btn btn-secondary btn-search-product" style="padding: 8px 10px;" title="Buscar Producto">
-                                        <i class="fa-solid fa-magnifying-glass" style="font-size: 0.8rem;"></i>
-                                    </button>
-                                </div>
-                            </td>
-                            <td>
-                                <input type="text" class="form-input item-name-input" name="items[{{ loop.index0 }}][name]" value="{{ item.name }}" required readonly style="width: 100%; background-color: var(--bg-input-readonly, rgba(0,0,0,0.02));">
-                            </td>
-                            <td>
-                                <input type="number" class="form-input item-price-input" name="items[{{ loop.index0 }}][price]" step="0.01" value="{{ item.price }}" required style="width: 100%; text-align: right;">
-                            </td>
-                            <td>
-                                <input type="number" class="form-input item-qty-input" name="items[{{ loop.index0 }}][quantity]" min="1" value="{{ item.quantity }}" required style="width: 100%; text-align: center;">
-                            </td>
-                            <td>
-                                <select class="form-select item-itbis-select" name="items[{{ loop.index0 }}][itbisRate]" style="width: 100%;">
-                                    <option value="0.18" {% if item.itbisRate == 0.18 %}selected{% endif %}>18%</option>
-                                    <option value="0.16" {% if item.itbisRate == 0.16 %}selected{% endif %}>16%</option>
-                                    <option value="0.0" {% if item.itbisRate == 0.0 %}selected{% endif %}>Exento (0%)</option>
-                                </select>
-                            </td>
-                            <td>
-                                <input type="number" class="form-input item-discount-input" name="items[{{ loop.index0 }}][discountRate]" step="0.01" min="0" max="1" value="{{ item.discountRate }}" style="width: 100%; text-align: right;">
-                            </td>
-                            <td style="text-align: right; vertical-align: middle;">
-                                <strong class="item-total-label">RD$ {{ "{:,.2f}".format(item.total) }}</strong>
-                            </td>
-                            <td style="text-align: center; vertical-align: middle;">
-                                <button type="button" class="btn btn-danger btn-remove-row" style="padding: 8px 12px;"><i class="fa-solid fa-trash-can"></i></button>
-                            </td>
-                        </tr>
-                        {% endfor %}
+                    {% for item in invoice['items'] %}
+                    <tr class="item-row animate-fade-in">
+                        <td>
+                            <div style="position: relative; display: flex; gap: 6px; width: 100%;">
+                                <input type="text" class="form-input item-catalog-search-input"
+                                    value="{{ item.name }} ({{ item.code or 'S/C' }})"
+                                    placeholder="-- Buscar en Catálogo --" readonly
+                                    style="cursor: pointer; width: 100%; text-overflow: ellipsis; white-space: nowrap; overflow: hidden;">
+                                <input type="hidden" class="item-catalog-id-hidden"
+                                    name="items[{{ loop.index0 }}][catalog_id]" value="{{ item.code or '' }}">
+                                <button type="button" class="btn btn-secondary btn-search-product"
+                                    style="padding: 8px 10px;" title="Buscar Producto">
+                                    <i class="fa-solid fa-magnifying-glass" style="font-size: 0.8rem;"></i>
+                                </button>
+                            </div>
+                        </td>
+                        <td>
+                            <input type="text" class="form-input item-name-input" name="items[{{ loop.index0 }}][name]"
+                                value="{{ item.name }}" required readonly
+                                style="width: 100%; background-color: var(--bg-input-readonly, rgba(0,0,0,0.02));">
+                        </td>
+                        <td>
+                            <input type="number" class="form-input item-price-input"
+                                name="items[{{ loop.index0 }}][price]" step="0.01" value="{{ item.price }}" required
+                                style="width: 100%; text-align: right;">
+                        </td>
+                        <td>
+                            <input type="number" class="form-input item-qty-input"
+                                name="items[{{ loop.index0 }}][quantity]" min="1" value="{{ item.quantity }}" required
+                                style="width: 100%; text-align: center;">
+                        </td>
+                        <td>
+                            <select class="form-select item-itbis-select" name="items[{{ loop.index0 }}][itbisRate]"
+                                style="width: 100%;">
+                                <option value="0.18" {% if item.itbisRate==0.18 %}selected{% endif %}>18%</option>
+                                <option value="0.16" {% if item.itbisRate==0.16 %}selected{% endif %}>16%</option>
+                                <option value="0.0" {% if item.itbisRate==0.0 %}selected{% endif %}>Exento (0%)</option>
+                            </select>
+                        </td>
+                        <td>
+                            <input type="number" class="form-input item-discount-input"
+                                name="items[{{ loop.index0 }}][discountRate]" step="0.01" min="0" max="1"
+                                value="{{ item.discountRate }}" style="width: 100%; text-align: right;">
+                        </td>
+                        <td style="text-align: right; vertical-align: middle;">
+                            <strong class="item-total-label">RD$ {{ "{:,.2f}".format(item.total) }}</strong>
+                        </td>
+                        <td style="text-align: center; vertical-align: middle;">
+                            <button type="button" class="btn btn-danger btn-remove-row" style="padding: 8px 12px;"><i
+                                    class="fa-solid fa-trash-can"></i></button>
+                        </td>
+                    </tr>
+                    {% endfor %}
                     {% else %}
                     <!-- Filas dinámicas añadidas por invoicing.js -->
                     {% endif %}
@@ -271,7 +344,8 @@
         <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; align-items: end;">
             <div class="form-group" style="margin-bottom: 0;">
                 <label for="discount-global">Descuento Global (%)</label>
-                <input type="number" id="discount-global" name="discountRate" class="form-input" min="0" max="1" step="0.01" value="0.00" placeholder="Ej: 0.10 = 10%">
+                <input type="number" id="discount-global" name="discountRate" class="form-input" min="0" max="1"
+                    step="0.01" value="0.00" placeholder="Ej: 0.10 = 10%">
             </div>
             <div class="form-group" style="margin-bottom: 0;">
                 <label for="isr-rate-select">Retención ISR</label>
@@ -292,32 +366,64 @@
             </div>
             <div class="form-group" style="margin-bottom: 0;">
                 <label for="is-recurring">¿Factura Recurrente?</label>
-                <select id="is-recurring" name="isRecurring" class="form-select" onchange="document.getElementById('recurrence-fields').style.display=this.value==='true'?'grid':'none'">
-                    <option value="false" {% if not invoice or not invoice.isRecurring %}selected{% endif %}>No, emisión única</option>
-                    <option value="true" {% if invoice and invoice.isRecurring %}selected{% endif %}>Sí, programar recurrencia</option>
+                <select id="is-recurring" name="isRecurring" class="form-select"
+                    onchange="document.getElementById('recurrence-fields').style.display=this.value==='true'?'grid':'none'">
+                    <option value="false" {% if not invoice or not invoice.isRecurring %}selected{% endif %}>No, emisión
+                        única</option>
+                    <option value="true" {% if invoice and invoice.isRecurring %}selected{% endif %}>Sí, programar
+                        recurrencia</option>
                 </select>
             </div>
         </div>
 
         <!-- Sub-campos de Recurrencia (se expanden si se selecciona "Sí") -->
-        <div id="recurrence-fields" style="display: {% if invoice and invoice.isRecurring %}grid{% else %}none{% endif %}; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-top: 14px; padding-top: 14px; border-top: 1px dashed var(--border-color);">
+        <div id="recurrence-fields"
+            style="display: {% if invoice and invoice.isRecurring %}grid{% else %}none{% endif %}; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-top: 14px; padding-top: 14px; border-top: 1px dashed var(--border-color);">
             <div class="form-group" style="margin-bottom: 0;">
                 <label for="recurrence-interval">Frecuencia de Recurrencia</label>
                 <select id="recurrence-interval" name="recurrenceInterval" class="form-select">
-                    <option value="semanal" {% if invoice and invoice.recurrenceInterval == 'semanal' %}selected{% endif %}>Semanal</option>
-                    <option value="quincenal" {% if invoice and invoice.recurrenceInterval == 'quincenal' %}selected{% endif %}>Quincenal</option>
-                    <option value="mensual" {% if not invoice or invoice.recurrenceInterval == 'mensual' %}selected{% endif %}>Mensual</option>
+                    <option value="semanal" {% if invoice and invoice.recurrenceInterval=='semanal' %}selected{% endif
+                        %}>Semanal</option>
+                    <option value="quincenal" {% if invoice and invoice.recurrenceInterval=='quincenal' %}selected{%
+                        endif %}>Quincenal</option>
+                    <option value="mensual" {% if not invoice or invoice.recurrenceInterval=='mensual' %}selected{%
+                        endif %}>Mensual</option>
                 </select>
             </div>
             <div class="form-group" style="margin-bottom: 0;">
                 <label for="next-recurrence">Primera Ocurrencia Programada</label>
-                <input type="date" id="next-recurrence" name="nextOccurrenceDate" class="form-input" value="{% if invoice %}{{ invoice.nextOccurrenceDate or '' }}{% endif %}">
+                <input type="date" id="next-recurrence" name="nextOccurrenceDate" class="form-input"
+                    value="{% if invoice %}{{ invoice.nextOccurrenceDate or '' }}{% endif %}">
+            </div>
+        </div>
+    </div>
+
+    <!-- TARJETA: COMENTARIOS ADICIONALES (ANCHO COMPLETO) -->
+    <div class="card-segment">
+        <div class="segment-header">
+            <div class="segment-header-icon purple">
+                <i class="fa-solid fa-comment-dots"></i>
+            </div>
+            <h3>{% if active_page == 'quotations' %}Comentarios de la Cotización{% else %}Comentarios de la Factura{%
+                endif %}</h3>
+        </div>
+        <div class="form-group" style="margin-bottom: 0;">
+            <label for="invoice-comentario">Comentario</label>
+            <div style="position: relative; display: flex; align-items: stretch; width: 100%; margin-top: 8px;">
+                <span
+                    style="position: absolute; left: 14px; top: 12px; color: var(--text-muted); font-size: 1.1rem; pointer-events: none;">
+                    <i class="fa-regular fa-comment"></i>
+                </span>
+                <textarea id="invoice-comentario" name="comentario" class="form-textarea" rows="3"
+                    placeholder="Escribe aquí algún comentario, observación o instrucción adicional para este documento..."
+                    style="padding-left: 42px; font-family: inherit; font-size: 0.92rem; min-height: 80px; width: 100%; resize: vertical; border-radius: var(--radius-sm);">{% if invoice %}{{ invoice.comentario or '' }}{% endif %}</textarea>
             </div>
         </div>
     </div>
 
     <!-- TARJETA 4: RESUMEN FINANCIERO DE TOTALES (ANCHO COMPLETO) -->
-    <div class="card-totals-highlight" style="margin-bottom: 18px; display: flex; flex-direction: column; padding: 18px 22px; gap: 0;">
+    <div class="card-totals-highlight"
+        style="margin-bottom: 18px; display: flex; flex-direction: column; padding: 18px 22px; gap: 0;">
         <!-- Elementos de compatibilidad ocultos fuera del flujo del grid -->
         <div style="display: none !important;">
             <span id="lbl-total">RD$ 0.00</span>
@@ -329,35 +435,45 @@
 
             <!-- Col Izquierda: TOTAL IMPUESTOS -->
             <div>
-                <h4 style="font-size: 0.82rem; font-family: var(--font-heading); margin-bottom: 10px; border-bottom: 2px solid #3b82f6; padding-bottom: 6px; color: var(--text-primary); text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px;">
+                <h4
+                    style="font-size: 0.82rem; font-family: var(--font-heading); margin-bottom: 10px; border-bottom: 2px solid #3b82f6; padding-bottom: 6px; color: var(--text-primary); text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px;">
                     <i class="fa-solid fa-receipt" style="color: #3b82f6;"></i>
                     <span>Impuestos</span>
                 </h4>
-                <div style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 6px;">
+                <div
+                    style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 6px;">
                     <span>Propina (10%):</span>
                     <span id="lbl-total-propina" style="font-weight: 600; color: var(--text-primary);">RD$ 0.00</span>
                 </div>
-                <div style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 6px;">
+                <div
+                    style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 6px;">
                     <span>CDT (2%):</span>
                     <span id="lbl-total-cdt" style="font-weight: 600; color: var(--text-primary);">RD$ 0.00</span>
                 </div>
-                <div style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 6px;">
+                <div
+                    style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 6px;">
                     <span>ITBIS:</span>
                     <span id="lbl-itbis" style="font-weight: 600; color: var(--text-primary);">RD$ 0.00</span>
                 </div>
-                <div style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 6px;">
+                <div
+                    style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 6px;">
                     <span>ISC Total:</span>
                     <span id="lbl-total-isc" style="font-weight: 600; color: var(--text-primary);">RD$ 0.00</span>
                 </div>
-                <div style="display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 4px; padding-left: 8px;">
+                <div
+                    style="display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 4px; padding-left: 8px;">
                     <span style="color: var(--text-muted);">↳ Específico:</span>
-                    <span id="lbl-total-isc-especifico" style="font-weight: 600; color: var(--text-primary);">RD$ 0.00</span>
+                    <span id="lbl-total-isc-especifico" style="font-weight: 600; color: var(--text-primary);">RD$
+                        0.00</span>
                 </div>
-                <div style="display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 8px; padding-left: 8px;">
+                <div
+                    style="display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 8px; padding-left: 8px;">
                     <span style="color: var(--text-muted);">↳ AdValorem:</span>
-                    <span id="lbl-total-isc-advalorem" style="font-weight: 600; color: var(--text-primary);">RD$ 0.00</span>
+                    <span id="lbl-total-isc-advalorem" style="font-weight: 600; color: var(--text-primary);">RD$
+                        0.00</span>
                 </div>
-                <div style="display: flex; justify-content: space-between; font-size: 0.9rem; font-weight: 700; border-top: 1px solid var(--border-color); padding-top: 8px; color: #3b82f6;">
+                <div
+                    style="display: flex; justify-content: space-between; font-size: 0.9rem; font-weight: 700; border-top: 1px solid var(--border-color); padding-top: 8px; color: #3b82f6;">
                     <span>TOTAL IMPUESTOS:</span>
                     <span id="lbl-total-impuestos">RD$ 0.00</span>
                 </div>
@@ -366,32 +482,41 @@
             <!-- Col Derecha: TOTALES -->
             <div style="display: flex; flex-direction: column; justify-content: space-between;">
                 <div>
-                    <h4 style="font-size: 0.82rem; font-family: var(--font-heading); margin-bottom: 10px; border-bottom: 2px solid var(--accent-emerald); padding-bottom: 6px; color: var(--text-primary); text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px;">
+                    <h4
+                        style="font-size: 0.82rem; font-family: var(--font-heading); margin-bottom: 10px; border-bottom: 2px solid var(--accent-emerald); padding-bottom: 6px; color: var(--text-primary); text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px;">
                         <i class="fa-solid fa-coins" style="color: var(--accent-emerald);"></i>
                         <span>Totales</span>
                     </h4>
-                    <div style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 6px;">
+                    <div
+                        style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 6px;">
                         <span>Subtotal Neto:</span>
                         <span id="lbl-subtotal" style="font-weight: 600; color: var(--text-primary);">RD$ 0.00</span>
                     </div>
-                    <div style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 6px;">
+                    <div
+                        style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 6px;">
                         <span>Total Ítems:</span>
                         <span id="lbl-total-items-qty" style="font-weight: 600; color: var(--text-primary);">0</span>
                     </div>
-                    <div style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 6px;">
+                    <div
+                        style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 6px;">
                         <span>ITBIS Retenido:</span>
-                        <span id="lbl-retained-itbis" style="font-weight: 600; color: var(--text-primary);">RD$ 0.00</span>
+                        <span id="lbl-retained-itbis" style="font-weight: 600; color: var(--text-primary);">RD$
+                            0.00</span>
                     </div>
-                    <div style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 6px;">
+                    <div
+                        style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 6px;">
                         <span>ISR Retenido:</span>
-                        <span id="lbl-retained-isr" style="font-weight: 600; color: var(--text-primary);">RD$ 0.00</span>
+                        <span id="lbl-retained-isr" style="font-weight: 600; color: var(--text-primary);">RD$
+                            0.00</span>
                     </div>
-                    <div style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 8px;">
+                    <div
+                        style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 8px;">
                         <span>Descuentos:</span>
                         <span id="lbl-discount" style="font-weight: 600; color: var(--accent-red);">RD$ 0.00</span>
                     </div>
                 </div>
-                <div style="display: flex; justify-content: space-between; font-size: 1.2rem; font-weight: 800; border-top: 2px dashed var(--border-color); padding-top: 10px; color: var(--accent-emerald); margin-top: 4px;">
+                <div
+                    style="display: flex; justify-content: space-between; font-size: 1.2rem; font-weight: 800; border-top: 2px dashed var(--border-color); padding-top: 10px; color: var(--accent-emerald); margin-top: 4px;">
                     <span>TOTAL FACTURA:</span>
                     <span id="lbl-net-payable">RD$ 0.00</span>
                 </div>
@@ -401,19 +526,23 @@
     </div><!-- /card-totals-highlight -->
 
     <!-- BARRA DE ACCIONES FINAL -->
-    <div style="display: flex; justify-content: flex-end; gap: 15px; border-top: 1px solid var(--border-color); padding-top: 24px; margin-bottom: 12px;">
-        <a href="{% if active_page == 'quotations' %}/quotations{% else %}{{ url_for('list_invoices') }}{% endif %}" class="btn btn-secondary">
+    <div
+        style="display: flex; justify-content: flex-end; gap: 15px; border-top: 1px solid var(--border-color); padding-top: 24px; margin-bottom: 12px;">
+        <a href="{% if active_page == 'quotations' %}/quotations{% else %}{{ url_for('list_invoices') }}{% endif %}"
+            class="btn btn-secondary">
             <span>Cancelar</span>
         </a>
         <!-- Se ha eliminado el botón "Emitir y Cobrar" por solicitud del usuario para evitar confusiones. Todo se emite como borrador. -->
-        <button type="submit" name="action" value="guardar" class="btn btn-primary" id="submit-invoice-btn" style="padding: 14px 28px;">
+        <button type="submit" name="action" value="guardar" class="btn btn-primary" id="submit-invoice-btn"
+            style="padding: 14px 28px;">
             <i class="fa-solid fa-paper-plane"></i>
             <span>{% if active_page == 'quotations' %}Guardar Cotización{% else %}Emitir Borrador{% endif %}</span>
         </button>
     </div>
 
     <!-- CONTENEDOR PARA LEYENDAS Y AYUDAS DE EMISIÓN (PIE DE PÁGINA) -->
-    <div id="payment-helper-container" style="display: flex; justify-content: flex-end; margin-bottom: 40px; min-height: 20px;"></div>
+    <div id="payment-helper-container"
+        style="display: flex; justify-content: flex-end; margin-bottom: 40px; min-height: 20px;"></div>
 </form>
 
 <!-- =========================================================================
@@ -426,17 +555,24 @@
     <div class="modal-content" style="max-width: 600px;">
         <div class="modal-header">
             <h3><i class="fa-solid fa-user-plus" style="color: var(--accent-emerald);"></i> Registrar Nuevo Cliente</h3>
-            <button type="button" class="btn-close-modal" id="btn-close-create-client-modal"><i class="fa-solid fa-xmark"></i></button>
+            <button type="button" class="btn-close-modal" id="btn-close-create-client-modal"><i
+                    class="fa-solid fa-xmark"></i></button>
         </div>
         <div class="modal-body">
-            <div id="create-client-alert" style="display:none; padding: 10px 16px; border-radius: var(--radius-sm); margin-bottom: 16px; font-size: 0.87rem; font-weight: 500;"></div>
+            <div id="create-client-alert"
+                style="display:none; padding: 10px 16px; border-radius: var(--radius-sm); margin-bottom: 16px; font-size: 0.87rem; font-weight: 500;">
+            </div>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
                 <div class="form-group">
-                    <label for="new-client-rnc">RNC / Cédula <span style="font-size: 0.75rem; color: var(--text-muted);">(opcional para consumidor)</span></label>
-                    <input type="text" id="new-client-rnc" class="form-input" placeholder="Ej: 101234567" style="font-family: monospace;">
+                    <label for="new-client-rnc">RNC / Cédula <span
+                            style="font-size: 0.75rem; color: var(--text-muted);">(opcional para
+                            consumidor)</span></label>
+                    <input type="text" id="new-client-rnc" class="form-input" placeholder="Ej: 101234567"
+                        style="font-family: monospace;">
                 </div>
                 <div class="form-group">
-                    <label for="new-client-razon">Razón Social / Nombre <span style="color: var(--accent-red);">*</span></label>
+                    <label for="new-client-razon">Razón Social / Nombre <span
+                            style="color: var(--accent-red);">*</span></label>
                     <input type="text" id="new-client-razon" class="form-input" placeholder="Nombre completo o empresa">
                 </div>
                 <div class="form-group">
@@ -449,11 +585,13 @@
                 </div>
                 <div class="form-group" style="grid-column: 1 / -1;">
                     <label for="new-client-direccion">Dirección</label>
-                    <input type="text" id="new-client-direccion" class="form-input" placeholder="Calle, sector, ciudad, provincia">
+                    <input type="text" id="new-client-direccion" class="form-input"
+                        placeholder="Calle, sector, ciudad, provincia">
                 </div>
             </div>
         </div>
-        <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 10px; padding: 16px 24px; border-top: 1px solid var(--border-color);">
+        <div class="modal-footer"
+            style="display: flex; justify-content: flex-end; gap: 10px; padding: 16px 24px; border-top: 1px solid var(--border-color);">
             <button type="button" id="btn-cancel-create-client" class="btn btn-secondary">
                 <i class="fa-solid fa-xmark"></i> Cancelar
             </button>
@@ -470,13 +608,17 @@
     <div class="modal-content" style="max-width: 750px;">
         <div class="modal-header">
             <h3><i class="fa-solid fa-address-book" style="color: var(--accent-emerald);"></i> Buscar Cliente CRM</h3>
-            <button type="button" class="btn-close-modal" id="btn-close-client-modal"><i class="fa-solid fa-xmark"></i></button>
+            <button type="button" class="btn-close-modal" id="btn-close-client-modal"><i
+                    class="fa-solid fa-xmark"></i></button>
         </div>
         <div class="modal-body">
             <div class="form-group" style="margin-bottom: 20px;">
                 <div style="position: relative;">
-                    <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: var(--text-secondary);"></i>
-                    <input type="text" id="modal-client-filter" class="form-input" placeholder="Filtrar por Nombre, RNC, Correo o Teléfono..." style="padding-left: 45px; width: 100%;">
+                    <i class="fa-solid fa-magnifying-glass"
+                        style="position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: var(--text-secondary);"></i>
+                    <input type="text" id="modal-client-filter" class="form-input"
+                        placeholder="Filtrar por Nombre, RNC, Correo o Teléfono..."
+                        style="padding-left: 45px; width: 100%;">
                 </div>
             </div>
             <div class="table-responsive" style="max-height: 350px; overflow-y: auto;">
@@ -503,14 +645,19 @@
     <div class="modal-backdrop" id="product-modal-backdrop"></div>
     <div class="modal-content" style="max-width: 750px;">
         <div class="modal-header">
-            <h3><i class="fa-solid fa-boxes-stacked" style="color: var(--accent-emerald);"></i> Buscar Producto / Servicio</h3>
-            <button type="button" class="btn-close-modal" id="btn-close-product-modal"><i class="fa-solid fa-xmark"></i></button>
+            <h3><i class="fa-solid fa-boxes-stacked" style="color: var(--accent-emerald);"></i> Buscar Producto /
+                Servicio</h3>
+            <button type="button" class="btn-close-modal" id="btn-close-product-modal"><i
+                    class="fa-solid fa-xmark"></i></button>
         </div>
         <div class="modal-body">
             <div class="form-group" style="margin-bottom: 20px;">
                 <div style="position: relative;">
-                    <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: var(--text-secondary);"></i>
-                    <input type="text" id="modal-product-filter" class="form-input" placeholder="Filtrar por Nombre, Código de barra o SKU..." style="padding-left: 45px; width: 100%;">
+                    <i class="fa-solid fa-magnifying-glass"
+                        style="position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: var(--text-secondary);"></i>
+                    <input type="text" id="modal-product-filter" class="form-input"
+                        placeholder="Filtrar por Nombre, Código de barra o SKU..."
+                        style="padding-left: 45px; width: 100%;">
                 </div>
             </div>
             <div class="table-responsive" style="max-height: 350px; overflow-y: auto;">
@@ -535,62 +682,102 @@
 
 <!-- Modal de Confirmación Tipo Borrador -->
 <div class="search-modal" id="confirmation-draft-modal" style="display: none;">
-    <div class="modal-backdrop" id="confirmation-modal-backdrop" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background-color: rgba(0, 0, 0, 0.6); z-index: 1000; backdrop-filter: blur(4px);"></div>
-    <div class="modal-content" style="max-width: 900px; width: 95%; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1001; background: #ffffff; border: 1px solid #e2e8f0; border-radius: var(--radius-md); box-shadow: var(--shadow-lg); display: flex; flex-direction: column; overflow: hidden; max-height: 90vh; --text-primary: #1e293b; --text-secondary: #475569; --text-muted: #64748b; --border-color: #e2e8f0; --bg-table-hover: rgba(0, 0, 0, 0.02);">
-        <div class="modal-header" style="border-bottom: 1px solid var(--border-color); padding: 20px 24px; display: flex; justify-content: space-between; align-items: center;">
-            <h3 style="font-size: 1.2rem; font-family: var(--font-heading); margin: 0; display: flex; align-items: center; gap: 8px; color: var(--text-primary);">
-                <i class="fa-solid fa-file-invoice" style="color: var(--accent-emerald);"></i> Vista Previa de Validación (Borrador)
+    <div class="modal-backdrop" id="confirmation-modal-backdrop"
+        style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background-color: rgba(0, 0, 0, 0.6); z-index: 1000; backdrop-filter: blur(4px);">
+    </div>
+    <div class="modal-content"
+        style="max-width: 900px; width: 95%; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1001; background: #ffffff; border: 1px solid #e2e8f0; border-radius: var(--radius-md); box-shadow: var(--shadow-lg); display: flex; flex-direction: column; overflow: hidden; max-height: 90vh; --text-primary: #1e293b; --text-secondary: #475569; --text-muted: #64748b; --border-color: #e2e8f0; --bg-table-hover: rgba(0, 0, 0, 0.02);">
+        <div class="modal-header"
+            style="border-bottom: 1px solid var(--border-color); padding: 20px 24px; display: flex; justify-content: space-between; align-items: center;">
+            <h3
+                style="font-size: 1.2rem; font-family: var(--font-heading); margin: 0; display: flex; align-items: center; gap: 8px; color: var(--text-primary);">
+                <i class="fa-solid fa-file-invoice" style="color: var(--accent-emerald);"></i> Vista Previa de
+                Validación (Borrador)
             </h3>
-            <button type="button" class="btn-close-modal" id="btn-close-confirm-modal" style="background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.25rem;"><i class="fa-solid fa-xmark"></i></button>
+            <button type="button" class="btn-close-modal" id="btn-close-confirm-modal"
+                style="background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.25rem;"><i
+                    class="fa-solid fa-xmark"></i></button>
         </div>
         <div class="modal-body" style="padding: 24px; overflow-y: auto;">
             <!-- Alerta informativa -->
-            <div style="background-color: rgba(16, 185, 129, 0.05); border-left: 4px solid var(--accent-emerald); border-radius: var(--radius-sm); padding: 14px 18px; margin-bottom: 24px; display: flex; align-items: center; gap: 12px;">
+            <div
+                style="background-color: rgba(16, 185, 129, 0.05); border-left: 4px solid var(--accent-emerald); border-radius: var(--radius-sm); padding: 14px 18px; margin-bottom: 24px; display: flex; align-items: center; gap: 12px;">
                 <i class="fa-solid fa-circle-exclamation" style="color: var(--accent-emerald); font-size: 1.2rem;"></i>
                 <div style="font-size: 0.88rem; color: var(--text-secondary);">
-                    Por favor, valide detalladamente las partidas y montos del comprobante. Al presionar <strong>Confirmar Emisión</strong>, el documento será emitido formalmente.
+                    Por favor, valide detalladamente las partidas y montos del comprobante. Al presionar
+                    <strong>Confirmar Emisión</strong>, el documento será emitido formalmente.
                 </div>
             </div>
 
             <!-- Grid de datos clave -->
-            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; background-color: #f8fafc; border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 20px; margin-bottom: 24px;">
+            <div
+                style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; background-color: #f8fafc; border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 20px; margin-bottom: 24px;">
                 <div>
-                    <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: bold; display: block; margin-bottom: 4px;">Tipo de Comprobante</span>
-                    <strong id="confirm-doc-type" style="font-size: 0.95rem; color: var(--text-primary);">Factura de Consumo (E32)</strong>
+                    <span
+                        style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: bold; display: block; margin-bottom: 4px;">Tipo
+                        de Comprobante</span>
+                    <strong id="confirm-doc-type" style="font-size: 0.95rem; color: var(--text-primary);">Factura de
+                        Consumo (E32)</strong>
                 </div>
                 <div>
-                    <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: bold; display: block; margin-bottom: 4px;">Cliente Receptor</span>
-                    <strong id="confirm-client-name" style="font-size: 0.95rem; color: var(--text-primary);">Público General</strong>
+                    <span
+                        style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: bold; display: block; margin-bottom: 4px;">Cliente
+                        Receptor</span>
+                    <strong id="confirm-client-name" style="font-size: 0.95rem; color: var(--text-primary);">Público
+                        General</strong>
                 </div>
                 <div>
-                    <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: bold; display: block; margin-bottom: 4px;">RNC / Cédula Receptor</span>
-                    <strong id="confirm-client-rnc" style="font-size: 0.95rem; color: var(--text-primary);">999999999</strong>
+                    <span
+                        style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: bold; display: block; margin-bottom: 4px;">RNC
+                        / Cédula Receptor</span>
+                    <strong id="confirm-client-rnc"
+                        style="font-size: 0.95rem; color: var(--text-primary);">999999999</strong>
                 </div>
                 <div>
-                    <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: bold; display: block; margin-bottom: 4px;">Condición de Pago</span>
-                    <strong id="confirm-payment-type" style="font-size: 0.95rem; color: var(--text-primary);">Contado</strong>
+                    <span
+                        style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: bold; display: block; margin-bottom: 4px;">Condición
+                        de Pago</span>
+                    <strong id="confirm-payment-type"
+                        style="font-size: 0.95rem; color: var(--text-primary);">Contado</strong>
                 </div>
                 <div>
-                    <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: bold; display: block; margin-bottom: 4px;">Fecha Límite</span>
-                    <strong id="confirm-due-date" style="font-size: 0.95rem; color: var(--text-primary);">2026-05-29</strong>
+                    <span
+                        style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: bold; display: block; margin-bottom: 4px;">Fecha
+                        Límite</span>
+                    <strong id="confirm-due-date"
+                        style="font-size: 0.95rem; color: var(--text-primary);">2026-05-29</strong>
                 </div>
                 <div>
-                    <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: bold; display: block; margin-bottom: 4px;">Moneda</span>
+                    <span
+                        style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: bold; display: block; margin-bottom: 4px;">Moneda</span>
                     <strong id="confirm-currency" style="font-size: 0.95rem; color: var(--text-primary);">DOP</strong>
                 </div>
             </div>
 
             <!-- Tabla de partidas del borrador -->
-            <h4 style="font-size: 0.95rem; font-family: var(--font-heading); margin-bottom: 12px; font-weight: 600; color: var(--text-primary);">Detalle de Partidas</h4>
-            <div class="table-responsive" style="max-height: 200px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: var(--radius-sm); margin-bottom: 24px;">
+            <h4
+                style="font-size: 0.95rem; font-family: var(--font-heading); margin-bottom: 12px; font-weight: 600; color: var(--text-primary);">
+                Detalle de Partidas</h4>
+            <div class="table-responsive"
+                style="max-height: 200px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: var(--radius-sm); margin-bottom: 24px;">
                 <table class="table-premium" style="width: 100%; border-collapse: collapse;">
                     <thead>
                         <tr>
-                            <th style="padding: 10px 12px; font-size: 0.8rem; text-align: left; background-color: #f8fafc;">Item / Descripción</th>
-                            <th style="padding: 10px 12px; text-align: right; font-size: 0.8rem; background-color: #f8fafc;">Precio</th>
-                            <th style="padding: 10px 12px; text-align: center; font-size: 0.8rem; background-color: #f8fafc;">Cant.</th>
-                            <th style="padding: 10px 12px; text-align: right; font-size: 0.8rem; background-color: #f8fafc;">ITBIS</th>
-                            <th style="padding: 10px 12px; text-align: right; font-size: 0.8rem; background-color: #f8fafc;">Total</th>
+                            <th
+                                style="padding: 10px 12px; font-size: 0.8rem; text-align: left; background-color: #f8fafc;">
+                                Item / Descripción</th>
+                            <th
+                                style="padding: 10px 12px; text-align: right; font-size: 0.8rem; background-color: #f8fafc;">
+                                Precio</th>
+                            <th
+                                style="padding: 10px 12px; text-align: center; font-size: 0.8rem; background-color: #f8fafc;">
+                                Cant.</th>
+                            <th
+                                style="padding: 10px 12px; text-align: right; font-size: 0.8rem; background-color: #f8fafc;">
+                                ITBIS</th>
+                            <th
+                                style="padding: 10px 12px; text-align: right; font-size: 0.8rem; background-color: #f8fafc;">
+                                Total</th>
                         </tr>
                     </thead>
                     <tbody id="confirm-items-tbody">
@@ -601,20 +788,25 @@
 
             <!-- Totales Destacados en el Modal -->
             <div style="display: flex; justify-content: flex-end; margin-bottom: 24px;">
-                <div style="width: 320px; background-color: #f8fafc; border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 16px;">
-                    <div style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 8px;">
+                <div
+                    style="width: 320px; background-color: #f8fafc; border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 16px;">
+                    <div
+                        style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 8px;">
                         <span>Subtotal:</span>
                         <span id="confirm-subtotal">RD$ 0.00</span>
                     </div>
-                    <div style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 8px;">
+                    <div
+                        style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 8px;">
                         <span>ITBIS:</span>
                         <span id="confirm-itbis">RD$ 0.00</span>
                     </div>
-                    <div style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 8px; display: none;" id="confirm-isc-container">
+                    <div style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 8px; display: none;"
+                        id="confirm-isc-container">
                         <span>Impuesto Adicional (ISC):</span>
                         <span id="confirm-isc">RD$ 0.00</span>
                     </div>
-                    <div style="display: flex; justify-content: space-between; font-size: 1.15rem; font-weight: bold; color: var(--accent-emerald); border-top: 1px solid var(--border-color); padding-top: 10px;">
+                    <div
+                        style="display: flex; justify-content: space-between; font-size: 1.15rem; font-weight: bold; color: var(--accent-emerald); border-top: 1px solid var(--border-color); padding-top: 10px;">
                         <span>Neto a Pagar:</span>
                         <span id="confirm-total">RD$ 0.00</span>
                     </div>
@@ -622,11 +814,13 @@
             </div>
 
             <!-- Acciones de confirmación -->
-            <div style="display: flex; justify-content: flex-end; gap: 15px; border-top: 1px solid var(--border-color); padding-top: 20px;">
+            <div
+                style="display: flex; justify-content: flex-end; gap: 15px; border-top: 1px solid var(--border-color); padding-top: 20px;">
                 <button type="button" class="btn btn-secondary" id="btn-cancel-confirm" style="padding: 12px 24px;">
                     <span>Seguir Editando</span>
                 </button>
-                <button type="button" class="btn btn-success" id="btn-final-emit" style="padding: 12px 28px; background: linear-gradient(135deg, #064e3b 0%, #059669 100%); border: none; color: white; display: flex; align-items: center; gap: 8px; font-weight: 600; cursor: pointer;">
+                <button type="button" class="btn btn-success" id="btn-final-emit"
+                    style="padding: 12px 28px; background: linear-gradient(135deg, #064e3b 0%, #059669 100%); border: none; color: white; display: flex; align-items: center; gap: 8px; font-weight: 600; cursor: pointer;">
                     <i class="fa-solid fa-circle-check"></i>
                     <span>Confirmar Emisión</span>
                 </button>
@@ -654,21 +848,21 @@
         function handlePaymentTypeChange() {
             if (!paymentTypeSelect || !paymentMethodSelect) return;
             const isCredit = paymentTypeSelect.value === 'Crédito';
-            
+
             // Show/Hide options inside paymentMethodSelect
             const creditOption = paymentMethodSelect.querySelector('option[value="Crédito"]');
             const cashOptions = Array.from(paymentMethodSelect.querySelectorAll('option:not([value="Crédito"])'));
-            
+
             if (isCredit) {
                 // If Credit, hide the payment method dropdown completely because there is no payment yet
                 if (paymentMethodGroup) paymentMethodGroup.style.display = 'none';
                 if (creditOption) creditOption.style.display = 'block';
                 paymentMethodSelect.value = 'Crédito';
                 cashOptions.forEach(opt => opt.style.display = 'none');
-                
+
                 // Mostrar sección de Acuerdos de Pago
                 if (paymentAgreementGroup) paymentAgreementGroup.style.display = 'grid';
-                
+
                 // If dueDate is today or in the past, default it to 30 days from now for credit convenience
                 if (dueDateInput) {
                     const today = new Date().toISOString().split('T')[0];
@@ -684,7 +878,7 @@
                     submitCobrarBtn.setAttribute('value', 'emitir_credito');
                     submitCobrarBtn.style.background = 'linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%)';
                     submitCobrarBtn.innerHTML = '<i class="fa-solid fa-file-signature"></i> <span>Firmar y Emitir (Crédito)</span>';
-                    
+
                     // Show a subtle help text under the button
                     let helperText = document.getElementById('payment-helper-text');
                     if (!helperText) {
@@ -694,7 +888,7 @@
                         helperText.style.color = '#3b82f6';
                         helperText.style.fontWeight = '500';
                         helperText.style.fontSize = '0.85rem';
-                        
+
                         const container = document.getElementById('payment-helper-container');
                         if (container) {
                             container.appendChild(helperText);
@@ -710,12 +904,12 @@
                 if (paymentMethodGroup) paymentMethodGroup.style.display = 'block';
                 if (creditOption) creditOption.style.display = 'none';
                 cashOptions.forEach(opt => opt.style.display = 'block');
-                
+
                 // Ocultar sección de Acuerdos de Pago
                 if (paymentAgreementGroup) paymentAgreementGroup.style.display = 'none';
                 if (agreementEnabledSelect) agreementEnabledSelect.value = 'false';
                 if (agreementDetailsFields) agreementDetailsFields.style.display = 'none';
-                
+
                 // If it was "Crédito", select "Efectivo"
                 if (paymentMethodSelect.value === 'Crédito') {
                     paymentMethodSelect.value = 'Efectivo';
@@ -726,7 +920,7 @@
                     submitCobrarBtn.setAttribute('value', 'emitir_cobrar');
                     submitCobrarBtn.style.background = 'linear-gradient(135deg, #064e3b 0%, #059669 100%)';
                     submitCobrarBtn.innerHTML = '<i class="fa-solid fa-money-bill-wave"></i> <span>Emitir y Cobrar</span>';
-                    
+
                     let helperText = document.getElementById('payment-helper-text');
                     if (helperText) {
                         helperText.remove();
@@ -792,7 +986,7 @@
                 // 3. Extraer montos
                 document.getElementById('confirm-subtotal').innerText = document.getElementById('lbl-subtotal').innerText;
                 document.getElementById('confirm-itbis').innerText = document.getElementById('lbl-itbis').innerText;
-                
+
                 const iscVal = document.getElementById('lbl-isc').innerText;
                 const iscContainer = document.getElementById('confirm-isc-container');
                 if (parseFloat(iscVal.replace(/[^0-9.]/g, '')) > 0) {
@@ -801,12 +995,12 @@
                 } else {
                     iscContainer.style.display = 'none';
                 }
-                
+
                 document.getElementById('confirm-total').innerText = document.getElementById('lbl-net-payable').innerText;
                 // 4. Poblar partidas en la tabla del borrador
                 const confirmTbody = document.getElementById('confirm-items-tbody');
                 confirmTbody.innerHTML = '';
-                
+
                 rows.forEach(row => {
                     const itemName = row.querySelector('.item-name-input').value;
                     const price = parseFloat(row.querySelector('.item-price-input').value) || 0;
@@ -818,9 +1012,9 @@
                     tr.style.borderBottom = '1px solid var(--border-color)';
                     tr.innerHTML = `
                         <td style="padding: 12px; font-size: 0.85rem; color: var(--text-primary); text-align: left;">${itemName}</td>
-                        <td style="padding: 12px; font-size: 0.85rem; color: var(--text-secondary); text-align: right;">RD$ ${price.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                        <td style="padding: 12px; font-size: 0.85rem; color: var(--text-secondary); text-align: right;">RD$ ${price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                         <td style="padding: 12px; font-size: 0.85rem; color: var(--text-primary); text-align: center;">${qty}</td>
-                        <td style="padding: 12px; font-size: 0.85rem; color: var(--text-secondary); text-align: right;">${(parseFloat(itbisVal)*100)}%</td>
+                        <td style="padding: 12px; font-size: 0.85rem; color: var(--text-secondary); text-align: right;">${(parseFloat(itbisVal) * 100)}%</td>
                         <td style="padding: 12px; font-size: 0.85rem; color: var(--text-primary); font-weight: bold; text-align: right;">${totalLabel}</td>
                     `;
                     confirmTbody.appendChild(tr);

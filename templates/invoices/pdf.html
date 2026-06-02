@@ -752,9 +752,14 @@
     {% endfor %}
 
     <!-- Notas / Observaciones (Solo si hay, al final de todo) -->
-    {% if invoice.notes %}
+    {% if invoice.notes or invoice.comentario %}
     <div class="notes-section">
-        <strong>Observaciones:</strong> {{ invoice.notes }}
+        {% if invoice.notes %}
+        <div><strong>Observaciones:</strong> {{ invoice.notes }}</div>
+        {% endif %}
+        {% if invoice.comentario %}
+        <div style="margin-top: 4px;"><strong>Comentario Adicional:</strong> {{ invoice.comentario }}</div>
+        {% endif %}
     </div>
     {% endif %}
 
