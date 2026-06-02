@@ -494,7 +494,7 @@
                 <p><strong>RNC:</strong> {{ company.companyRNC }}</p>
                 <p><strong>Dirección:</strong> {{ company.companyAddress }}</p>
                 <p><strong>Tel/Correo:</strong> {{ company.companyPhone }} &nbsp;|&nbsp; {{ company.companyEmail }}</p>
-                <p><strong>Fecha Emisión:</strong> {{ invoice.date[:10] }}</p>
+                <p><strong>Fecha Emisión:</strong> {{ invoice.date[:10] }}{% if invoice.date|length > 10 %} {{ invoice.date[11:16] }}{% endif %}</p>
             </div>
             <div class="document-block" style="text-align: right;">
                 {% if invoice.encf %}

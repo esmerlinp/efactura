@@ -108,13 +108,13 @@ def emit_invoice():
         res = EcfEmissionService.emit_electronic_comprobante(company, invoice_dict, sandbox=g.sandbox_mode)
         
         if res.get('success'):
-            invoice_dict["status"] = "Emitida"
+            invoice_dict["status"] = "Pendiente DGII" if res.get("status") == "PENDING" else "Emitida"
             invoice_dict["encf"] = res.get("encf", invoice_dict.get("encf", ""))
             invoice_dict["xmlSignature"] = res.get("xmlSignature") or res.get("trackId") or ""
             invoice_dict["qrCodeURL"] = res.get("qrCodeURL", "")
             invoice_dict["firebasePDFURL"] = res.get("pdfUrl", "")
             invoice_dict["firebaseXMLURL"] = res.get("xmlUrl", "")
-            invoice_dict["isSyncedWithDGII"] = (res.get("mode", "API") == "API")
+            invoice_dict["isSyncedWithDGII"] = (res.get("mode", "API") == "API" and res.get("status") != "PENDING")
             invoice_dict["emisionMode"] = res.get("mode", "API")
             
             # Guardamos con el estado final actualizado

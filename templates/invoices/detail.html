@@ -44,7 +44,7 @@
                 {% else %}
                 <span class="badge badge-success" style="margin-bottom: 10px;">{{ invoice.status }}</span>
                 {% endif %}
-                <div style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 4px;">Fecha: <strong>{{ invoice.date[:10] }}</strong></div>
+                <div style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 4px;">Fecha: <strong>{{ invoice.date[:10] }}{% if invoice.date|length > 10 %} {{ invoice.date[11:16] }}{% endif %}</strong></div>
                 <div style="font-size: 0.85rem; color: var(--text-secondary);">Vence: <strong>{{ invoice.dueDate[:10] }}</strong></div>
             </div>
         </div>
@@ -539,6 +539,18 @@
                 <i class="fa-solid fa-print"></i>
                 <span>Imprimir Documento / PDF</span>
             </a>
+
+            {% if not invoice.isQuotation and invoice.encf and invoice.ecfType not in ['Nota de Crédito (E34)', 'Nota de Débito (E33)'] %}
+            <!-- Notas de Crédito / Débito (Ley 32-23) -->
+            <a href="{{ url_for('new_invoice_route') }}?reference_invoice_id={{ invoice.id }}&note_type=E34" class="btn btn-secondary" style="width: 100%; border-color: var(--accent-red); color: var(--accent-red); display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
+                <i class="fa-solid fa-file-circle-minus"></i>
+                <span>Emitir Nota de Crédito (E34)</span>
+            </a>
+            <a href="{{ url_for('new_invoice_route') }}?reference_invoice_id={{ invoice.id }}&note_type=E33" class="btn btn-secondary" style="width: 100%; border-color: var(--accent-purple); color: var(--accent-purple); display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
+                <i class="fa-solid fa-file-circle-plus"></i>
+                <span>Emitir Nota de Débito (E33)</span>
+            </a>
+            {% endif %}
             
             {% if invoice.isQuotation %}
             <a href="{{ url_for('list_quotations') }}" class="btn btn-secondary" style="width: 100%;">
@@ -849,7 +861,7 @@
         printWindow.document.write('  <div style="text-align: right;">');
         printWindow.document.write('    <h2 style="font-size: 1.25rem; font-weight: 800; color: #0f172a; margin-bottom: 6px;">REPORTE DE AMORTIZACIÓN</h2>');
         printWindow.document.write('    <span style="font-size: 0.88rem; color: #475569; display: block; margin-bottom: 4px;">Factura Nro: <strong>' + {{ invoice.invoiceNumber|tojson }} + '</strong></span>');
-        printWindow.document.write('    <span style="font-size: 0.85rem; color: #475569; display: block; margin-bottom: 4px;">Fecha Factura: ' + {{ invoice.date[:10]|tojson }} + '</span>');
+        printWindow.document.write('    <span style="font-size: 0.85rem; color: #475569; display: block; margin-bottom: 4px;">Fecha Factura: ' + {{ (invoice.date[:10] + (' ' + invoice.date[11:16] if invoice.date|length > 10 else ''))|tojson }} + '</span>');
         printWindow.document.write('    <span style="font-size: 0.85rem; color: #475569; display: block;">Cliente CRM: <strong>' + {{ invoice.clientName|tojson }} + '</strong></span>');
         printWindow.document.write('  </div>');
         printWindow.document.write('</div>');

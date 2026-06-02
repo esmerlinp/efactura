@@ -274,7 +274,7 @@ class DatabaseService:
         # Contar facturas de producción (excluyendo cotizaciones y borradores)
         try:
             prod_docs = db.collection('users').document(owner_uid).collection('invoices')\
-                .where('isQuotation', '==', False).stream()
+                .where(filter=firestore.FieldFilter('isQuotation', '==', False)).stream()
             for doc in prod_docs:
                 data = doc.to_dict()
                 if data.get('status') == 'Borrador':
@@ -289,7 +289,7 @@ class DatabaseService:
         # Contar facturas de sandbox (excluyendo cotizaciones y borradores)
         try:
             sandbox_docs = db.collection('users').document(owner_uid).collection('sandbox_invoices')\
-                .where('isQuotation', '==', False).stream()
+                .where(filter=firestore.FieldFilter('isQuotation', '==', False)).stream()
             for doc in sandbox_docs:
                 data = doc.to_dict()
                 if data.get('status') == 'Borrador':

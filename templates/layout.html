@@ -351,6 +351,14 @@
                 </div>
 
                 <div class="header-actions">
+                    {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canInvoice', True) %}
+                    <!-- Acceso directo: Nuevo Documento -->
+                    <a href="{{ url_for('new_invoice_route') }}" class="btn btn-primary" style="padding: 8px 16px; font-size: 0.85rem; text-decoration: none; display: inline-flex; align-items: center; gap: 8px;">
+                        <i class="fa-solid fa-file-circle-plus"></i>
+                        <span>Nuevo Documento</span>
+                    </a>
+                    {% endif %}
+
                     <!-- Botón de Alternancia de Tema (Claro / Oscuro) -->
                     <button class="theme-toggle" id="theme-toggle-btn" title="Alternar Modo Oscuro / Claro">
                         <i class="fa-solid fa-sun" id="theme-icon-light" style="display: none;"></i>

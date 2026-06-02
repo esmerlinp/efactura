@@ -337,10 +337,15 @@
                                 </small>
                                 {% endif %}
                             </div>
-                            <div class="form-group">
+                             <div class="form-group">
                                 <label class="form-label">Contraseña del Certificado</label>
                                 <input type="password" name="certificatePassword" class="form-input" 
-                                    value="{{ company.certificatePassword | default('') }}" placeholder="••••••••">
+                                    value="" placeholder="••••••••">
+                                {% if company.certificatePassword %}
+                                <small style="color: var(--success); font-size: 0.78rem; font-weight: 700; margin-top: 4px; display: block;">
+                                    ✓ Contraseña guardada. Ingrese una nueva solo si desea cambiarla.
+                                </small>
+                                {% endif %}
                             </div>
                         </div>
                     </div>
