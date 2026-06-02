@@ -101,7 +101,9 @@ def client_detail(company_id):
             company_email = request.form.get('companyEmail')
             province = request.form.get('province')
             municipality = request.form.get('municipality')
-            certificate_password = request.form.get('certificatePassword')
+            certificate_password = request.form.get('certificatePassword', '').strip()
+            if not certificate_password:
+                certificate_password = company.get('certificatePassword', '')
             
             update_data.update({
                 'companyName': company_name,

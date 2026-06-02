@@ -4,7 +4,50 @@
 
 {% block page_header %}Secuencias Fiscales Autorizadas & Auditoría{% endblock %}
 
-{% block content %}{% set tipo_desc_map = {
+{% block content %}
+<style>
+    .premium-details {
+        background: transparent;
+        border: none;
+        border-radius: var(--radius-xs);
+        padding: 0;
+        margin: 0;
+    }
+    .premium-details summary::-webkit-details-marker {
+        display: none;
+    }
+    .premium-details summary {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        color: var(--accent-purple);
+        font-size: 0.75rem;
+        font-weight: 600;
+        cursor: pointer;
+        user-select: none;
+        outline: none;
+        padding: 4px 0;
+        transition: color var(--transition-fast);
+    }
+    .premium-details summary:hover {
+        color: var(--accent-emerald);
+    }
+    .premium-details .details-icon {
+        transition: transform var(--transition-fast);
+    }
+    .premium-details[open] .details-icon {
+        transform: rotate(90deg);
+    }
+    .btn-copy {
+        transition: color var(--transition-fast), background-color var(--transition-fast);
+    }
+    .btn-copy:hover {
+        color: var(--accent-emerald) !important;
+        background-color: rgba(255, 255, 255, 0.05) !important;
+        border-radius: var(--radius-xs);
+    }
+</style>
+{% set tipo_desc_map = {
     'E31': 'Factura de Crédito Fiscal',
     'E32': 'Factura de Consumo',
     'E33': 'Nota de Débito',
@@ -215,6 +258,42 @@
                     style="font-size: 0.75rem; color: var(--text-muted); border-top: 1px solid var(--border-color); padding-top: 6px; margin-top: 2px;">
                     <i class="fa-solid fa-circle-info"></i> {{ log.motivo or 'Emitido con éxito.' }}
                 </div>
+                {% if log.xmlEnviado or log.respuestaDGII %}
+                <div style="margin-top: 8px; border-top: 1px dashed var(--border-color); padding-top: 8px;">
+                    <details class="premium-details">
+                        <summary>
+                            <i class="fa-solid fa-chevron-right details-icon"></i>
+                            <span>Ver detalles de transmisión (Payload / API)</span>
+                        </summary>
+                        <div style="margin-top: 8px; display: flex; flex-direction: column; gap: 10px; cursor: default;">
+                            {% if log.xmlEnviado %}
+                            <div>
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                                    <span style="font-size: 0.7rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase;">Payload Enviado (Alanube)</span>
+                                    <button type="button" class="btn-copy" onclick="event.stopPropagation(); const pre = this.parentElement.nextElementSibling; navigator.clipboard.writeText(pre.innerText); const icon = this.querySelector('i'); const span = this.querySelector('span'); icon.className = 'fa-solid fa-check'; span.innerText = 'Copiado'; setTimeout(() => { icon.className = 'fa-regular fa-copy'; span.innerText = 'Copiar'; }, 1500);" style="background: transparent; border: none; padding: 2px 6px; font-size: 0.75rem; color: var(--text-muted); cursor: pointer; display: flex; align-items: center; gap: 4px;" title="Copiar Payload">
+                                        <i class="fa-regular fa-copy"></i>
+                                        <span style="font-size: 0.7rem;">Copiar</span>
+                                    </button>
+                                </div>
+                                <pre style="background: rgba(0, 0, 0, 0.2); border: 1px solid var(--border-color); border-radius: var(--radius-xs); padding: 8px; font-family: monospace; font-size: 0.7rem; color: var(--text-primary); overflow-x: auto; white-space: pre-wrap; word-break: break-all; max-height: 150px; margin: 0;">{{ log.xmlEnviado }}</pre>
+                            </div>
+                            {% endif %}
+                            {% if log.respuestaDGII %}
+                            <div>
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                                    <span style="font-size: 0.7rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase;">Respuesta de API</span>
+                                    <button type="button" class="btn-copy" onclick="event.stopPropagation(); const pre = this.parentElement.nextElementSibling; navigator.clipboard.writeText(pre.innerText); const icon = this.querySelector('i'); const span = this.querySelector('span'); icon.className = 'fa-solid fa-check'; span.innerText = 'Copiado'; setTimeout(() => { icon.className = 'fa-regular fa-copy'; span.innerText = 'Copiar'; }, 1500);" style="background: transparent; border: none; padding: 2px 6px; font-size: 0.75rem; color: var(--text-muted); cursor: pointer; display: flex; align-items: center; gap: 4px;" title="Copiar Respuesta">
+                                        <i class="fa-regular fa-copy"></i>
+                                        <span style="font-size: 0.7rem;">Copiar</span>
+                                    </button>
+                                </div>
+                                <pre style="background: rgba(0, 0, 0, 0.2); border: 1px solid var(--border-color); border-radius: var(--radius-xs); padding: 8px; font-family: monospace; font-size: 0.7rem; color: var(--text-primary); overflow-x: auto; white-space: pre-wrap; word-break: break-all; max-height: 150px; margin: 0;">{{ log.respuestaDGII }}</pre>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </details>
+                </div>
+                {% endif %}
             </div>
             {% endfor %}
             {% else %}

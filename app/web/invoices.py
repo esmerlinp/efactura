@@ -3,7 +3,7 @@ import io
 import csv
 import json
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify, send_file, make_response
 import qrcode
 try:
@@ -577,10 +577,16 @@ def list_quotations():
     )
 
 @web_invoices_bp.route('/invoices/new', methods=['GET', 'POST'])
-@web_invoices_bp.route('/quotations/new', methods=['GET', 'POST'])
 @web_invoices_bp.route('/invoices/<invoice_id>/edit', methods=['GET', 'POST'])
-@web_invoices_bp.route('/quotations/<invoice_id>/edit', methods=['GET', 'POST'])
 def new_invoice_route(invoice_id=None):
+    return _new_document_helper(invoice_id=invoice_id, is_quotation=False)
+
+@web_invoices_bp.route('/quotations/new', methods=['GET', 'POST'])
+@web_invoices_bp.route('/quotations/<invoice_id>/edit', methods=['GET', 'POST'])
+def new_quotation_route(invoice_id=None):
+    return _new_document_helper(invoice_id=invoice_id, is_quotation=True)
+
+def _new_document_helper(invoice_id=None, is_quotation=False):
     if 'user' not in session: return redirect(url_for('login'))
     if not check_permission('canInvoice'):
         return render_template('auth/restricted.html', feature_name="Emisión de Documentos", required_permission="canInvoice")
@@ -596,11 +602,41 @@ def new_invoice_route(invoice_id=None):
         if existing_invoice.get('status') not in ['Borrador', 'Rechazada']:
             flash('Solo se pueden editar documentos en estado Borrador.', 'error')
             return redirect(url_for('invoice_detail', invoice_id=invoice_id))
+    else:
+        if request.method == 'GET':
+            ref_id = request.args.get('reference_invoice_id')
+            if ref_id:
+                ref_inv = DatabaseService.get_invoice(owner_uid, ref_id, sandbox=sandbox)
+                if ref_inv:
+                    note_type = request.args.get('note_type', 'E34')
+                    ecf_type_str = "Nota de Crédito (E34)" if note_type == 'E34' else "Nota de Débito (E33)"
+                    
+                    # Clone original document information and items
+                    existing_invoice = {
+                        "clientId": ref_inv.get("clientId", ""),
+                        "clientRNC": ref_inv.get("clientRNC", ""),
+                        "clientName": ref_inv.get("clientName") or ref_inv.get("razonSocial", ""),
+                        "razonSocial": ref_inv.get("razonSocial") or ref_inv.get("clientName", ""),
+                        "currency": ref_inv.get("currency", "DOP"),
+                        "exchangeRate": ref_inv.get("exchangeRate", 1.0),
+                        "items": ref_inv.get("items", []),
+                        "discountRate": ref_inv.get("discountRate", 0.0),
+                        "ecfType": ecf_type_str,
+                        "incomeType": ref_inv.get("incomeType", "01 - Ingresos por operaciones"),
+                        "isQuotation": False,
+                        "referencedInvoiceTotal": ref_inv.get("netPayable", 0.0),
+                        "informationReference": {
+                            "modificationCode": 3,
+                            "ncfModified": ref_inv.get("encf", ""),
+                            "ncfModifiedDate": ref_inv.get("date", "")[:10] if ref_inv.get("date") else datetime.utcnow().strftime("%Y-%m-%d"),
+                            "reasonForModification": "Corrección de importes"
+                        }
+                    }
 
     if existing_invoice:
         is_quotation_route = existing_invoice.get('isQuotation', False)
     else:
-        is_quotation_route = "quotation" in request.path or "cotizacion" in request.path
+        is_quotation_route = is_quotation
         
     active_page = 'quotations' if is_quotation_route else 'invoices'
     
@@ -814,7 +850,7 @@ def new_invoice_route(invoice_id=None):
             target_invoice_id = str(uuid.uuid4())
             invoice_dict = {
                 "invoiceNumber": inv_number,
-                "date": datetime.utcnow().strftime("%Y-%m-%d"),
+                "date": datetime.now(timezone(timedelta(hours=-4))).strftime("%Y-%m-%d %H:%M:%S"),
                 "dueDate": due_date,
                 "clientId": client_id,
                 "clientName": client_name,
@@ -859,6 +895,29 @@ def new_invoice_route(invoice_id=None):
                 "installments": installments
             }
         
+        # Guardar información de referencia para Notas de Crédito / Débito (Ley 32-23)
+        if ecf_type in ["Nota de Débito (E33)", "Nota de Crédito (E34)"]:
+            ref_ncf = request.form.get("refNcfModified", "").strip()
+            ref_date = request.form.get("refNcfModifiedDate", "").strip()
+            ref_code = request.form.get("refModificationCode", "3")
+            ref_reason = request.form.get("refReasonForModification", "").strip() or "Corrección de importes"
+            
+            if ref_ncf and ref_date:
+                invoice_dict["informationReference"] = {
+                    "modificationCode": int(ref_code),
+                    "ncfModified": ref_ncf,
+                    "ncfModifiedDate": ref_date,
+                    "reasonForModification": ref_reason
+                }
+                # Copiar llaves de compatibilidad a nivel superior
+                invoice_dict["ncfModified"] = ref_ncf
+                invoice_dict["ncfModifiedDate"] = ref_date
+                invoice_dict["modificationCode"] = int(ref_code)
+                invoice_dict["reasonForModification"] = ref_reason
+                
+            if request.form.get("referencedInvoiceTotal"):
+                invoice_dict["referencedInvoiceTotal"] = float(request.form.get("referencedInvoiceTotal", 0.0))
+
         DatabaseService.save_invoice(owner_uid, target_invoice_id, invoice_dict, sandbox=sandbox)
         
         action = request.form.get('action')
@@ -906,7 +965,7 @@ def new_invoice_route(invoice_id=None):
                         # La factura se guardará al registrar el pago
                         DatabaseService.register_invoice_payment(owner_uid, target_invoice_id, payment_dict, sandbox=sandbox)
                     else:
-                        invoice_dict["status"] = "Emitida"
+                        invoice_dict["status"] = "Pendiente DGII" if res.get("status") == "PENDING" else "Emitida"
                         invoice_dict["totalPaid"] = 0.0
                         invoice_dict["remainingBalance"] = invoice_dict["netPayable"]
                         DatabaseService.save_invoice(owner_uid, target_invoice_id, invoice_dict, sandbox=sandbox)
@@ -925,7 +984,9 @@ def new_invoice_route(invoice_id=None):
                         
                         DatabaseService.update_sequence_log(owner_uid, log["id"], {
                             "estado": estado_dgii,
-                            "motivo": motivo
+                            "motivo": motivo,
+                            "xmlEnviado": json.dumps(res.get("requestPayload"), indent=2) if res.get("requestPayload") else "",
+                            "respuestaDGII": json.dumps(res.get("responseBody"), indent=2) if res.get("responseBody") else ""
                         }, sandbox=sandbox)
                         
                     msg = f"¡Comprobante emitido y cobrado con éxito! e-NCF: {res.get('encf')}"
@@ -1378,16 +1439,17 @@ def sign_invoice_route(invoice_id):
         res = EcfEmissionService.emit_electronic_comprobante(company, invoice, sandbox=sandbox)
         
         if res.get("success"):
-            invoice["status"] = "Emitida"
+            invoice["status"] = "Pendiente DGII" if res.get("status") == "PENDING" else "Emitida"
             invoice["encf"] = res.get("encf", invoice.get("encf", ""))
             invoice["xmlSignature"] = res.get("xmlSignature", "")
             invoice["qrCodeURL"] = res.get("qrCodeURL", "")
             invoice["firebasePDFURL"] = res.get("pdfUrl", "")
             invoice["firebaseXMLURL"] = res.get("xmlUrl", "")
             # FALLBACK = emitido offline, aún pendiente de sincronizar con la DGII
-            invoice["isSyncedWithDGII"] = (res.get("mode", "API") == "API")
+            invoice["isSyncedWithDGII"] = (res.get("mode", "API") == "API" and res.get("status") != "PENDING")
             invoice["emisionMode"] = res.get("mode", "API")
             invoice["contingencyEmittedAt"] = datetime.utcnow().isoformat() if res.get("mode") == "FALLBACK" else None
+            invoice["date"] = datetime.now(timezone(timedelta(hours=-4))).strftime("%Y-%m-%d %H:%M:%S")
             
             DatabaseService.save_invoice(owner_uid, invoice_id, invoice, sandbox=sandbox)
             
@@ -1407,7 +1469,9 @@ def sign_invoice_route(invoice_id):
                 # Guardar actualización
                 DatabaseService.update_sequence_log(owner_uid, log["id"], {
                     "estado": estado_dgii,
-                    "motivo": motivo
+                    "motivo": motivo,
+                    "xmlEnviado": json.dumps(res.get("requestPayload"), indent=2) if res.get("requestPayload") else "",
+                    "respuestaDGII": json.dumps(res.get("responseBody"), indent=2) if res.get("responseBody") else ""
                 }, sandbox=sandbox)
                 
             msg = f"¡Comprobante firmado digitalmente con éxito! e-NCF: {res.get('encf')} (Modo: {res.get('mode', 'API')})"
@@ -1748,7 +1812,9 @@ def sync_contingency_invoices():
                     estado_dgii = "ACCEPTED" if cuadratura["within_tolerance"] else "ACCEPTED_CONDITIONAL"
                     DatabaseService.update_sequence_log(owner_uid, log["id"], {
                         "estado": estado_dgii,
-                        "motivo": f"Regularizado por Sincronización Post-Contingencia. Firma: {res['xmlSignature'][:12] if res.get('xmlSignature') else 'N/A'}"
+                        "motivo": f"Regularizado por Sincronización Post-Contingencia. Firma: {res['xmlSignature'][:12] if res.get('xmlSignature') else 'N/A'}",
+                        "xmlEnviado": json.dumps(res.get("requestPayload"), indent=2) if res.get("requestPayload") else "",
+                        "respuestaDGII": json.dumps(res.get("responseBody"), indent=2) if res.get("responseBody") else ""
                     }, sandbox=sandbox)
 
                 synced_count += 1
@@ -1804,7 +1870,9 @@ def sync_single_invoice_route(invoice_id):
                 estado_dgii = "ACCEPTED" if cuadratura["within_tolerance"] else "ACCEPTED_CONDITIONAL"
                 DatabaseService.update_sequence_log(owner_uid, log["id"], {
                     "estado": estado_dgii,
-                    "motivo": f"Regularizado por Sincronización Manual. Firma: {res['xmlSignature'][:12] if res.get('xmlSignature') else 'N/A'}"
+                    "motivo": f"Regularizado por Sincronización Manual. Firma: {res['xmlSignature'][:12] if res.get('xmlSignature') else 'N/A'}",
+                    "xmlEnviado": json.dumps(res.get("requestPayload"), indent=2) if res.get("requestPayload") else "",
+                    "respuestaDGII": json.dumps(res.get("responseBody"), indent=2) if res.get("responseBody") else ""
                 }, sandbox=sandbox)
                 
             flash(f"¡Factura {invoice.get('invoiceNumber')} sincronizada con la DGII exitosamente! e-NCF: {invoice.get('encf')}", 'success')
@@ -2043,6 +2111,10 @@ def company_settings():
             cert_ext = f".{ext}"
             cert_content = base64.b64encode(file_data).decode('utf-8')
 
+        cert_password = request.form.get('certificatePassword', '').strip()
+        if not cert_password:
+            cert_password = existing_profile.get('certificatePassword', '')
+
         profile_dict = {
             "companyName": request.form['companyName'],
             "companyRNC": request.form['companyRNC'],
@@ -2056,7 +2128,7 @@ def company_settings():
             "certificateName": cert_name,
             "certificateExtension": cert_ext,
             "certificateContent": cert_content,
-            "certificatePassword": request.form.get('certificatePassword', ''),
+            "certificatePassword": cert_password,
             "colorMarca": existing_profile.get('colorMarca', '#10b981'),
             "gradientEnabled": existing_profile.get('gradientEnabled', True),
             "applyColorMarcaUI": existing_profile.get('applyColorMarcaUI', True),
@@ -2064,6 +2136,8 @@ def company_settings():
             "logoUrl": existing_profile.get('logoUrl', ''),
             "regimenFiscal": request.form.get('regimenFiscal', 'General'),
             "openaiApiKey": request.form.get('openaiApiKey', ''),
+            "alanubeCompanyIDSandbox": request.form.get('alanubeCompanyIDSandbox', '').strip(),
+            "alanubeCompanyIDProduction": request.form.get('alanubeCompanyIDProduction', '').strip(),
             "configured": True
         }
         DatabaseService.save_company_profile(owner_uid, profile_dict)
@@ -2185,7 +2259,7 @@ def company_settings():
 
     onboarding_success = request.args.get('onboarding_success') == 'true'
     show_wizard = not profile.get('configured', False)
-    return render_template('company_settings.html', active_page='settings', profile=profile, team=team, branches=branches, show_wizard=show_wizard, onboarding_success=onboarding_success)
+    return render_template('company_settings.html', active_page='settings', profile=profile, team=team, branches=branches, show_wizard=show_wizard, onboarding_success=onboarding_success, e_cf_provider=Config.E_CF_PROVIDER.lower())
 
 @web_invoices_bp.route('/settings/company/generate-api-key', methods=['POST'])
 def generate_company_api_key():

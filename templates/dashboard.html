@@ -5,6 +5,14 @@
 {% block page_header %}Dashboard General{% endblock %}
 
 {% block content %}
+<style>
+@media (max-width: 1024px) {
+    .grid-two-cols, .grid-three-cols {
+        grid-template-columns: 1fr !important;
+        gap: 24px !important;
+    }
+}
+</style>
 {% if contingency_invoices %}
 <!-- ALERTA DE CONTINGENCIA OFFLINE -->
 <div id="contingency-alert-banner" style="
@@ -91,13 +99,46 @@
 <!-- FIN ALERTA DE CONTINGENCIA -->
 
 <!-- Sección de KPIs con Diseño Premium y Efectos Hover -->
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 14px;">
+    <h2 style="font-size: 1.2rem; font-family: var(--font-heading); margin: 0; display: flex; align-items: center; gap: 8px;">
+        <i class="fa-solid fa-wallet" style="color: var(--accent-emerald);"></i>
+        <span>Resumen Financiero</span>
+    </h2>
+    <form action="{{ url_for('dashboard') }}" method="GET" id="kpi-filter-form" style="margin: 0; display: flex; align-items: center; gap: 8px;">
+        <!-- Conservar escala y fecha del gráfico -->
+        <input type="hidden" name="scale" value="{{ scale }}">
+        <input type="hidden" name="date" value="{{ date_str }}">
+        
+        <span style="font-size: 0.78rem; color: var(--text-secondary); font-weight: 600;">Período KPIs:</span>
+        <select name="kpi_period" class="form-select" 
+            style="height: 28px; width: auto; min-width: 170px; padding: 0 24px 0 8px; font-size: 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background-color: var(--bg-input); color: var(--text-primary); cursor: pointer; box-sizing: border-box; display: inline-flex; align-items: center; vertical-align: middle; margin: 0;"
+            onchange="document.getElementById('kpi-filter-form').submit()">
+            <option value="month" {% if kpi_period == 'month' %}selected{% endif %}>Este Mes ({{ current_month_name }})</option>
+            <option value="prev_month" {% if kpi_period == 'prev_month' %}selected{% endif %}>Mes Anterior</option>
+            <option value="year" {% if kpi_period == 'year' %}selected{% endif %}>Este Año ({{ selected_year }})</option>
+            <option value="all" {% if kpi_period == 'all' %}selected{% endif %}>Todo el Tiempo</option>
+        </select>
+    </form>
+</div>
+
+{% set period_label = "" %}
+{% if kpi_period == 'month' %}
+    {% set period_label = " este mes" %}
+{% elif kpi_period == 'prev_month' %}
+    {% set period_label = " mes anterior" %}
+{% elif kpi_period == 'year' %}
+    {% set period_label = " este año" %}
+{% else %}
+    {% set period_label = " histórico" %}
+{% endif %}
+
 <div class="grid-kpi">
     <div class="card-kpi">
         <div class="kpi-details">
             <h3>Total Facturado (Ingresos)</h3>
             <div class="kpi-value" style="color: var(--accent-emerald);">RD$ {{ "{:,.2f}".format(stats.total_invoiced)
                 }}</div>
-            <small style="color: var(--text-secondary); font-size: 0.78rem;">Facturas electrónicas emitidas</small>
+            <small style="color: var(--text-secondary); font-size: 0.78rem;">Facturas emitidas{{ period_label }}</small>
         </div>
         <div class="kpi-icon">
             <i class="fa-solid fa-arrow-up-right-dots"></i>
@@ -109,7 +150,7 @@
             <h3>Egresos Registrados</h3>
             <div class="kpi-value" style="color: var(--accent-red);">RD$ {{ "{:,.2f}".format(stats.total_expenses) }}
             </div>
-            <small style="color: var(--text-secondary); font-size: 0.78rem;">Gastos e imputaciones</small>
+            <small style="color: var(--text-secondary); font-size: 0.78rem;">Gastos{{ period_label }}</small>
         </div>
         <div class="kpi-icon">
             <i class="fa-solid fa-arrow-down-left-dots"></i>
@@ -120,7 +161,7 @@
         <div class="kpi-details">
             <h3>Rentabilidad / Margen Neto</h3>
             <div class="kpi-value" style="color: var(--accent-yellow);">{{ "{:.1f}%".format(stats.margin_net) }}</div>
-            <small style="color: var(--text-secondary); font-size: 0.78rem;">Beneficios netos sobre ventas</small>
+            <small style="color: var(--text-secondary); font-size: 0.78rem;">Margen neto{{ period_label }}</small>
         </div>
         <div class="kpi-icon">
             <i class="fa-solid fa-percent"></i>
@@ -132,10 +173,218 @@
             <h3>Cuentas por Cobrar (CxC)</h3>
             <div class="kpi-value" style="color: var(--accent-purple);">RD$ {{ "{:,.2f}".format(stats.total_cxc) }}
             </div>
-            <small style="color: var(--text-secondary); font-size: 0.78rem;">Facturas pendientes de cobro</small>
+            <small style="color: var(--text-secondary); font-size: 0.78rem;">Saldo pendiente total (histórico)</small>
         </div>
         <div class="kpi-icon" style="background-color: rgba(139, 92, 246, 0.1); color: var(--accent-purple);">
             <i class="fa-solid fa-hand-holding-dollar"></i>
+        </div>
+    </div>
+</div>
+
+<!-- Grid de Reportes Visuales y Alarmas de Auditoría -->
+<div class="grid-two-cols" style="display: grid; grid-template-columns: 2fr 1fr; gap: 30px; margin-bottom: 36px;">
+    <!-- Gráficos Analíticos -->
+    <div class="card-table-wrapper" style="display: flex; flex-direction: column; gap: 20px; height: 100%; box-sizing: border-box;">
+        <h3
+            style="font-size: 1.15rem; font-family: var(--font-heading); display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <i class="fa-solid fa-chart-line" style="color: var(--accent-emerald);"></i>
+                <span>{{ chart_title }}</span>
+            </div>
+
+            <form action="{{ url_for('dashboard') }}" method="GET" id="filter-form"
+                style="display: flex; align-items: center; gap: 8px; font-size: 0.8rem; margin: 0;">
+                <div style="display: flex; align-items: center; gap: 6px;">
+                    <span style="font-size: 0.75rem; color: var(--text-secondary); display: inline-flex; align-items: center; gap: 4px; font-weight: 600;">
+                        <i class="fa-solid fa-slider" style="font-size: 0.75rem; opacity: 0.8;"></i>
+                        <span>Escala:</span>
+                    </span>
+                    <select name="scale" class="form-select"
+                        style="height: 28px; width: auto; min-width: 100px; padding: 0 20px 0 8px; font-size: 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background-color: var(--bg-input); color: var(--text-primary); cursor: pointer; box-sizing: border-box; margin: 0; vertical-align: middle; display: inline-flex; align-items: center;"
+                        onchange="document.getElementById('filter-form').submit()">
+                        <option value="hour" {% if scale=='hour' %}selected{% endif %}>Hora</option>
+                        <option value="day" {% if scale=='day' %}selected{% endif %}>Día</option>
+                        <option value="week" {% if scale=='week' %}selected{% endif %}>Semana</option>
+                        <option value="month" {% if scale=='month' %}selected{% endif %}>Mes</option>
+                        <option value="quarter" {% if scale=='quarter' %}selected{% endif %}>Trimestre</option>
+                        <option value="year" {% if scale=='year' %}selected{% endif %}>Año</option>
+                    </select>
+                </div>
+
+                {% if scale != 'year' %}
+                <div style="display: flex; align-items: center; gap: 6px; margin-left: 8px;">
+                    <span style="font-size: 0.75rem; color: var(--text-secondary); display: inline-flex; align-items: center; gap: 4px; font-weight: 600;">
+                        <i class="fa-solid fa-calendar" style="font-size: 0.75rem; opacity: 0.8;"></i>
+                        <span>Rango:</span>
+                    </span>
+                    <input type="date" name="date" value="{{ date_str }}"
+                        style="height: 28px; width: auto; padding: 0 8px; font-size: 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background-color: var(--bg-input); color: var(--text-primary); cursor: pointer; box-sizing: border-box; margin: 0; vertical-align: middle; display: inline-flex; align-items: center;"
+                        onchange="document.getElementById('filter-form').submit()">
+                </div>
+                {% endif %}
+            </form>
+        </h3>
+        <div style="position: relative; height: 300px; width: 100%;">
+            <canvas id="flowChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Agenda CRM de Contactos de Clientes para Hoy -->
+    <div class="card-table-wrapper" style="display: flex; flex-direction: column; gap: 20px; height: 100%; box-sizing: border-box;">
+        <h3
+            style="font-size: 1.15rem; font-family: var(--font-heading); display: flex; align-items: center; gap: 10px;">
+            <i class="fa-solid fa-calendar-check" style="color: var(--accent-purple);"></i>
+            <span>Compromisos CRM para Hoy</span>
+        </h3>
+
+        <div
+            style="display: flex; flex-direction: column; gap: 12px; max-height: 300px; overflow-y: auto; padding-right: 5px;">
+            {% if crm_contacts %}
+            {% for contact in crm_contacts %}
+            <div class="crm-notification-item"
+                style="background-color: rgba(255, 255, 255, 0.02); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 12px 16px; display: flex; flex-direction: column; gap: 6px; transition: border-color var(--transition-fast);">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <strong
+                        style="font-size: 0.88rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 170px;">{{
+                        contact.razonSocial }}</strong>
+                    <div style="display: flex; gap: 6px; align-items: center;">
+                        {% if contact.total_cxc and contact.total_cxc > 0 %}
+                        <span class="badge" style="background-color: rgba(239, 68, 68, 0.12); color: var(--accent-red); border: 1px solid rgba(239, 68, 68, 0.2); font-size: 0.65rem; padding: 2px 6px;">
+                            <i class="fa-solid fa-hand-holding-dollar" style="margin-right: 2px;"></i> RD$ {{ contact.total_cxc | formatted }}
+                        </span>
+                        {% endif %}
+                        <span class="badge badge-primary" style="font-size: 0.6rem;">CRM</span>
+                    </div>
+                </div>
+                <p style="color: var(--text-secondary); font-size: 0.8rem; line-height: 1.3;">
+                    {% if contact.crmNotes %}
+                        {{ contact.crmNotes }}
+                    {% elif contact.total_cxc and contact.total_cxc > 0 %}
+                        <span style="color: var(--accent-red); font-weight: 500;"><i class="fa-solid fa-triangle-exclamation"></i> Cliente con saldo pendiente por cobrar.</span>
+                    {% else %}
+                        Sin anotaciones de acuerdo comercial.
+                    {% endif %}
+                </p>
+                <div
+                    style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); border-top: 1px solid var(--border-color); padding-top: 6px; margin-top: 4px;">
+                    <span><i class="fa-solid fa-phone"></i> {{ contact.telefono or 'N/A' }}</span>
+                    <div style="display: inline-flex; gap: 12px; align-items: center;">
+                        <button type="button" onclick="openQuickNoteModal('{{ contact.id }}', '{{ contact.razonSocial }}')"
+                            style="color: var(--accent-purple); font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; font-size: 0.75rem;">
+                            <i class="fa-solid fa-comment-dots"></i> + Nota
+                        </button>
+                        <a href="{{ url_for('client_detail', client_id=contact.id) }}"
+                            style="color: var(--accent-emerald); font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 4px;">
+                            <i class="fa-solid fa-eye" style="font-size: 0.75rem;"></i> Detalle
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% if not loop.last %}
+            <div style="border-top: 1px solid var(--border-color); opacity: 0.35; margin: 2px 0;"></div>
+            {% endif %}
+            {% endfor %}
+            {% else %}
+            <div style="text-align: center; color: var(--text-secondary); font-size: 0.9rem; padding: 40px 0;">
+                <i class="fa-solid fa-circle-check"
+                    style="font-size: 2.2rem; color: var(--accent-emerald); opacity: 0.5; margin-bottom: 12px; display: block;"></i>
+                <span>¡Al día! No tienes contactos pendientes de agenda para hoy.</span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="grid-three-cols" style="display: grid; grid-template-columns: 1.2fr 0.9fr 1.1fr; gap: 30px; margin-bottom: 36px;">
+    <!-- Secuencias Fiscales Críticas o de Mínimo Disponible -->
+    <div class="card-table-wrapper" style="display: flex; flex-direction: column; gap: 20px; height: 100%; box-sizing: border-box;">
+        <h3
+            style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 14px; display: flex; align-items: center; gap: 8px;">
+            <i class="fa-solid fa-triangle-exclamation" style="color: var(--accent-yellow);"></i>
+            <span>Estado de Rangos Autorizados DGII</span>
+        </h3>
+
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+            {% if sequences %}
+            {% for seq in sequences %}
+            <div
+                style="background-color: rgba(255, 255, 255, 0.01); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 10px 14px; display: flex; flex-direction: column; gap: 6px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <strong style="font-size: 0.85rem;">{{ seq.tipoComprobante }}</strong>
+                        <span style="font-size: 0.68rem; color: var(--text-muted); display: block; margin-top: 1px;">Auth: #{{ seq.numeroAutorizacionDgii }}</span>
+                    </div>
+                    <span
+                        class="badge {% if seq.cantidadDisponible <= seq.alertaMinimoDisponible %}badge-danger{% else %}badge-success{% endif %}"
+                        style="font-size: 0.65rem; padding: 3px 8px;">
+                        {{ seq.cantidadDisponible }} disponibles
+                    </span>
+                </div>
+
+                <!-- Barra de porcentaje consumido -->
+                <div
+                    style="width: 100%; height: 4px; background-color: var(--bg-input); border-radius: 2px; overflow: hidden; position: relative;">
+                    <div
+                        style="width: {{ seq.porcentajeUsado * 100 }}%; height: 100%; background-color: {% if seq.cantidadDisponible <= seq.alertaMinimoDisponible %}var(--accent-red){% else %}var(--accent-emerald){% endif %}; border-radius: 2px; transition: width 0.5s ease;">
+                    </div>
+                </div>
+
+                <div
+                    style="display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--text-secondary);">
+                    <span>Rango: {{ seq.secuenciaInicial }} - {{ seq.secuenciaFinal }}</span>
+                    <span>Último: {{ seq.ultimoConsecutivoUsado }}</span>
+                </div>
+            </div>
+            {% endfor %}
+            {% else %}
+            <div style="text-align: center; color: var(--text-secondary); font-size: 0.85rem; padding: 20px 0;">
+                <i class="fa-solid fa-circle-info"
+                    style="font-size: 1.8rem; color: var(--accent-purple); opacity: 0.5; margin-bottom: 8px; display: block;"></i>
+                <span>No tienes secuencias fiscales registradas en este entorno.</span>
+                <a href="{{ url_for('list_sequences') }}"
+                    style="color: var(--accent-emerald); font-weight: 600; display: block; margin-top: 6px;">Autorizar
+                    primera secuencia</a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Consumo del Plan de Facturación -->
+    <div class="card-table-wrapper" style="display: flex; flex-direction: column; gap: 20px; height: 100%; box-sizing: border-box;">
+        <h3
+            style="font-size: 1.15rem; font-family: var(--font-heading); display: flex; align-items: center; gap: 10px;">
+            <i class="fa-solid fa-gauge-high" style="color: var(--accent-emerald);"></i>
+            <span>Consumo del Plan</span>
+        </h3>
+        
+        <div style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%;">
+            <div style="position: relative; height: 180px; width: 100%; display: flex; align-items: center; justify-content: center;">
+                <canvas id="planChart"></canvas>
+                <!-- Texto en el centro de la rosca -->
+                <div style="position: absolute; text-align: center; margin-top: 30px;">
+                    <span style="font-size: 1.6rem; font-weight: 800; color: var(--text-primary); display: block; font-family: var(--font-heading);">{{ docs_used }}</span>
+                    <span style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600; letter-spacing: 0.05em;">de {{ docs_limit }} e-CF</span>
+                </div>
+            </div>
+            <div style="text-align: center; margin-top: 10px;">
+                <span class="badge {% if plan_pct >= 90 %}badge-danger{% elif plan_pct >= 70 %}badge-warning{% else %}badge-success{% endif %}" style="font-size: 0.7rem;">
+                    {{ plan_name }} ({{ "{:.1f}%".format(plan_pct) }})
+                </span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Distribución de Ventas por Tipo de Documento -->
+    <div class="card-table-wrapper" style="display: flex; flex-direction: column; gap: 20px; height: 100%; box-sizing: border-box;">
+        <h3
+            style="font-size: 1.15rem; font-family: var(--font-heading); display: flex; align-items: center; gap: 10px;">
+            <i class="fa-solid fa-chart-pie" style="color: var(--accent-yellow);"></i>
+            <span>Ventas por Tipo de Documento</span>
+        </h3>
+        <div style="flex: 1; display: flex; align-items: center; justify-content: center; width: 100%;">
+            <div style="position: relative; height: 260px; width: 100%;">
+                <canvas id="typeChart"></canvas>
+            </div>
         </div>
     </div>
 </div>
@@ -263,184 +512,6 @@
                 </span>
             </div>
             {% endif %}
-        </div>
-    </div>
-</div>
-
-<!-- Grid de Reportes Visuales y Alarmas de Auditoría -->
-<div style="display: grid; grid-template-columns: 2fr 1fr; gap: 30px; margin-bottom: 36px;">
-    <!-- Gráficos Analíticos -->
-    <div class="card-table-wrapper" style="display: flex; flex-direction: column; gap: 20px;">
-        <h3
-            style="font-size: 1.15rem; font-family: var(--font-heading); display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;">
-            <div style="display: flex; align-items: center; gap: 10px;">
-                <i class="fa-solid fa-chart-line" style="color: var(--accent-emerald);"></i>
-                <span>{{ chart_title }}</span>
-            </div>
-
-            <form action="{{ url_for('dashboard') }}" method="GET" id="filter-form"
-                style="display: flex; align-items: center; gap: 8px; font-size: 0.8rem; margin: 0;">
-                <div style="display: flex; align-items: center; gap: 6px;">
-                    <span style="font-size: 0.75rem; color: var(--text-secondary); display: inline-flex; align-items: center; gap: 4px; font-weight: 600;">
-                        <i class="fa-solid fa-slider" style="font-size: 0.75rem; opacity: 0.8;"></i>
-                        <span>Escala:</span>
-                    </span>
-                    <select name="scale" class="form-select"
-                        style="height: 28px; width: auto; min-width: 100px; padding: 0 20px 0 8px; font-size: 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background-color: var(--bg-input); color: var(--text-primary); cursor: pointer; box-sizing: border-box; margin: 0; vertical-align: middle; display: inline-flex; align-items: center;"
-                        onchange="document.getElementById('filter-form').submit()">
-                        <option value="hour" {% if scale=='hour' %}selected{% endif %}>Hora</option>
-                        <option value="day" {% if scale=='day' %}selected{% endif %}>Día</option>
-                        <option value="week" {% if scale=='week' %}selected{% endif %}>Semana</option>
-                        <option value="month" {% if scale=='month' %}selected{% endif %}>Mes</option>
-                        <option value="quarter" {% if scale=='quarter' %}selected{% endif %}>Trimestre</option>
-                        <option value="year" {% if scale=='year' %}selected{% endif %}>Año</option>
-                    </select>
-                </div>
-
-                {% if scale != 'year' %}
-                <div style="display: flex; align-items: center; gap: 6px; margin-left: 8px;">
-                    <span style="font-size: 0.75rem; color: var(--text-secondary); display: inline-flex; align-items: center; gap: 4px; font-weight: 600;">
-                        <i class="fa-solid fa-calendar" style="font-size: 0.75rem; opacity: 0.8;"></i>
-                        <span>Rango:</span>
-                    </span>
-                    <input type="date" name="date" value="{{ date_str }}"
-                        style="height: 28px; width: auto; padding: 0 8px; font-size: 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background-color: var(--bg-input); color: var(--text-primary); cursor: pointer; box-sizing: border-box; margin: 0; vertical-align: middle; display: inline-flex; align-items: center;"
-                        onchange="document.getElementById('filter-form').submit()">
-                </div>
-                {% endif %}
-            </form>
-        </h3>
-        <div style="position: relative; height: 300px; width: 100%;">
-            <canvas id="flowChart"></canvas>
-        </div>
-    </div>
-
-    <!-- Agenda CRM de Contactos de Clientes para Hoy -->
-    <div class="card-table-wrapper" style="display: flex; flex-direction: column; gap: 20px;">
-        <h3
-            style="font-size: 1.15rem; font-family: var(--font-heading); display: flex; align-items: center; gap: 10px;">
-            <i class="fa-solid fa-calendar-check" style="color: var(--accent-purple);"></i>
-            <span>Compromisos CRM para Hoy</span>
-        </h3>
-
-        <div
-            style="display: flex; flex-direction: column; gap: 12px; max-height: 300px; overflow-y: auto; padding-right: 5px;">
-            {% if crm_contacts %}
-            {% for contact in crm_contacts %}
-            <div class="crm-notification-item"
-                style="background-color: rgba(255, 255, 255, 0.02); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 12px 16px; display: flex; flex-direction: column; gap: 6px; transition: border-color var(--transition-fast);">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <strong
-                        style="font-size: 0.88rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 170px;">{{
-                        contact.razonSocial }}</strong>
-                    <div style="display: flex; gap: 6px; align-items: center;">
-                        {% if contact.total_cxc and contact.total_cxc > 0 %}
-                        <span class="badge" style="background-color: rgba(239, 68, 68, 0.12); color: var(--accent-red); border: 1px solid rgba(239, 68, 68, 0.2); font-size: 0.65rem; padding: 2px 6px;">
-                            <i class="fa-solid fa-hand-holding-dollar" style="margin-right: 2px;"></i> RD$ {{ contact.total_cxc | formatted }}
-                        </span>
-                        {% endif %}
-                        <span class="badge badge-primary" style="font-size: 0.6rem;">CRM</span>
-                    </div>
-                </div>
-                <p style="color: var(--text-secondary); font-size: 0.8rem; line-height: 1.3;">
-                    {% if contact.crmNotes %}
-                        {{ contact.crmNotes }}
-                    {% elif contact.total_cxc and contact.total_cxc > 0 %}
-                        <span style="color: var(--accent-red); font-weight: 500;"><i class="fa-solid fa-triangle-exclamation"></i> Cliente con saldo pendiente por cobrar.</span>
-                    {% else %}
-                        Sin anotaciones de acuerdo comercial.
-                    {% endif %}
-                </p>
-                <div
-                    style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); border-top: 1px solid var(--border-color); padding-top: 6px; margin-top: 4px;">
-                    <span><i class="fa-solid fa-phone"></i> {{ contact.telefono or 'N/A' }}</span>
-                    <div style="display: inline-flex; gap: 12px; align-items: center;">
-                        <button type="button" onclick="openQuickNoteModal('{{ contact.id }}', '{{ contact.razonSocial }}')"
-                            style="color: var(--accent-purple); font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; font-size: 0.75rem;">
-                            <i class="fa-solid fa-comment-dots"></i> + Nota
-                        </button>
-                        <a href="{{ url_for('client_detail', client_id=contact.id) }}"
-                            style="color: var(--accent-emerald); font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 4px;">
-                            <i class="fa-solid fa-eye" style="font-size: 0.75rem;"></i> Detalle
-                        </a>
-                    </div>
-                </div>
-            </div>
-            {% endfor %}
-            {% else %}
-            <div style="text-align: center; color: var(--text-secondary); font-size: 0.9rem; padding: 40px 0;">
-                <i class="fa-solid fa-circle-check"
-                    style="font-size: 2.2rem; color: var(--accent-emerald); opacity: 0.5; margin-bottom: 12px; display: block;"></i>
-                <span>¡Al día! No tienes contactos pendientes de agenda para hoy.</span>
-            </div>
-            {% endif %}
-        </div>
-    </div>
-</div>
-
-<div style="display: grid; grid-template-columns: 2fr 1fr; gap: 30px; margin-bottom: 36px;">
-    <!-- Secuencias Fiscales Críticas o de Mínimo Disponible -->
-    <div class="card-table-wrapper">
-        <h3
-            style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 14px; display: flex; align-items: center; gap: 8px;">
-            <i class="fa-solid fa-triangle-exclamation" style="color: var(--accent-yellow);"></i>
-            <span>Estado de Rangos Autorizados DGII</span>
-        </h3>
-
-        <div style="display: flex; flex-direction: column; gap: 8px;">
-            {% if sequences %}
-            {% for seq in sequences %}
-            <div
-                style="background-color: rgba(255, 255, 255, 0.01); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 10px 14px; display: flex; flex-direction: column; gap: 6px;">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <div>
-                        <strong style="font-size: 0.85rem;">{{ seq.tipoComprobante }}</strong>
-                        <span style="font-size: 0.68rem; color: var(--text-muted); display: block; margin-top: 1px;">Auth: #{{ seq.numeroAutorizacionDgii }}</span>
-                    </div>
-                    <span
-                        class="badge {% if seq.cantidadDisponible <= seq.alertaMinimoDisponible %}badge-danger{% else %}badge-success{% endif %}"
-                        style="font-size: 0.65rem; padding: 3px 8px;">
-                        {{ seq.cantidadDisponible }} disponibles
-                    </span>
-                </div>
-
-                <!-- Barra de porcentaje consumido -->
-                <div
-                    style="width: 100%; height: 4px; background-color: var(--bg-input); border-radius: 2px; overflow: hidden; position: relative;">
-                    <div
-                        style="width: {{ seq.porcentajeUsado * 100 }}%; height: 100%; background-color: {% if seq.cantidadDisponible <= seq.alertaMinimoDisponible %}var(--accent-red){% else %}var(--accent-emerald){% endif %}; border-radius: 2px; transition: width 0.5s ease;">
-                    </div>
-                </div>
-
-                <div
-                    style="display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--text-secondary);">
-                    <span>Rango: {{ seq.secuenciaInicial }} - {{ seq.secuenciaFinal }}</span>
-                    <span>Último: {{ seq.ultimoConsecutivoUsado }}</span>
-                </div>
-            </div>
-            {% endfor %}
-            {% else %}
-            <div style="text-align: center; color: var(--text-secondary); font-size: 0.85rem; padding: 20px 0;">
-                <i class="fa-solid fa-circle-info"
-                    style="font-size: 1.8rem; color: var(--accent-purple); opacity: 0.5; margin-bottom: 8px; display: block;"></i>
-                <span>No tienes secuencias fiscales registradas en este entorno.</span>
-                <a href="{{ url_for('list_sequences') }}"
-                    style="color: var(--accent-emerald); font-weight: 600; display: block; margin-top: 6px;">Autorizar
-                    primera secuencia</a>
-            </div>
-            {% endif %}
-        </div>
-    </div>
-
-    <!-- Distribución de Ventas por Tipo de Documento -->
-    <div class="card-table-wrapper" style="display: flex; flex-direction: column; gap: 20px; align-self: start;">
-        <h3
-            style="font-size: 1.15rem; font-family: var(--font-heading); display: flex; align-items: center; gap: 10px;">
-            <i class="fa-solid fa-chart-pie" style="color: var(--accent-yellow);"></i>
-            <span>Ventas por Tipo de Documento</span>
-        </h3>
-        <div style="position: relative; height: 260px; width: 100%;">
-            <canvas id="typeChart"></canvas>
         </div>
     </div>
 </div>
@@ -698,6 +769,60 @@
                 }
             },
             cutout: '76%'
+        }
+    });
+
+    // ── Gráfico de Consumo del Plan ──
+    const planCtx = document.getElementById('planChart').getContext('2d');
+    const docsUsed = {{ docs_used }};
+    const docsLimit = {{ docs_limit }};
+    const docsRemaining = Math.max(0, docsLimit - docsUsed);
+    const planPct = {{ plan_pct }};
+
+    // Color del arco activo según porcentaje de uso
+    let arcColor = '#10b981'; // Emerald
+    if (planPct >= 90) {
+        arcColor = '#ef4444'; // Red
+    } else if (planPct >= 70) {
+        arcColor = '#f59e0b'; // Yellow/Amber
+    }
+
+    new Chart(planCtx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Consumido', 'Disponible'],
+            datasets: [{
+                data: [docsUsed, docsRemaining],
+                backgroundColor: [arcColor, 'rgba(156, 163, 175, 0.15)'],
+                borderWidth: 0,
+                borderRadius: 4,
+                spacing: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            rotation: -90,
+            circumference: 180,
+            cutout: '78%',
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: 'rgba(18, 18, 20, 0.85)',
+                    titleColor: '#ffffff',
+                    bodyColor: '#e5e7eb',
+                    borderColor: 'rgba(255, 255, 255, 0.08)',
+                    borderWidth: 1,
+                    padding: 10,
+                    cornerRadius: 6,
+                    callbacks: {
+                        label: function (context) {
+                            let val = context.parsed;
+                            return ' ' + context.label + ': ' + val + ' comprobante(s)';
+                        }
+                    }
+                }
+            }
         }
     });
     });

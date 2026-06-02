@@ -2,6 +2,7 @@ import os
 import json
 import uuid
 import requests
+import traceback
 from datetime import datetime
 from werkzeug.security import generate_password_hash, check_password_hash
 from config import Config
@@ -12,12 +13,12 @@ db_firestore = None
 firebase_storage_bucket = None
 
 try:
-    if os.path.exists(Config.FIREBASE_SERVICE_ACCOUNT_JSON):
-        import firebase_admin
-        from firebase_admin import credentials, firestore, storage, auth
-        
-        # Verificar si ya está inicializado para evitar excepciones
-        if not firebase_admin._apps:
+    import firebase_admin
+    from firebase_admin import credentials, firestore, storage, auth
+    
+    # Verificar si ya está inicializado para evitar excepciones
+    if not firebase_admin._apps:
+        if os.path.exists(Config.FIREBASE_SERVICE_ACCOUNT_JSON):
             cred = credentials.Certificate(Config.FIREBASE_SERVICE_ACCOUNT_JSON)
             if Config.FIREBASE_STORAGE_BUCKET:
                 firebase_admin.initialize_app(cred, {
@@ -25,16 +26,23 @@ try:
                 })
             else:
                 firebase_admin.initialize_app(cred)
-        
-        db_firestore = firestore.client()
-        if Config.FIREBASE_STORAGE_BUCKET:
-            firebase_storage_bucket = storage.bucket()
-        firebase_initialized = True
-        print("🔥 Firebase Admin SDK inicializado correctamente y conectado a Firestore.")
-    else:
-        print("⚠️ No se encontró firebase-adminsdk.json. El sistema operará en MODO LOCAL (SQLite).")
+        else:
+            # Fallback para entornos GCP (App Engine, Cloud Run, etc.) usando credenciales por defecto de la aplicación (ADC)
+            if Config.FIREBASE_STORAGE_BUCKET:
+                firebase_admin.initialize_app(options={
+                    'storageBucket': Config.FIREBASE_STORAGE_BUCKET
+                })
+            else:
+                firebase_admin.initialize_app()
+    
+    db_firestore = firestore.client()
+    if Config.FIREBASE_STORAGE_BUCKET:
+        firebase_storage_bucket = storage.bucket()
+    firebase_initialized = True
+    print("🔥 Firebase Admin SDK inicializado correctamente y conectado a Firestore.")
 except Exception as e:
     print(f"❌ Error al inicializar Firebase Admin SDK: {e}. Operando en MODO LOCAL (SQLite).")
+    traceback.print_exc()
 
 
 def serialize_field(val):
@@ -758,9 +766,9 @@ class DatabaseService:
         @firestore.transactional
         def run_in_transaction(transaction):
             seq_ref_query = db_firestore.collection("users").document(owner_uid).collection(coll_seq)\
-                .where("tipoComprobante", "==", tipo_comprobante)\
-                .where("estado", "==", "ACTIVA")\
-                .where("bloqueadaManualmente", "==", False)\
+                .where(filter=firestore.FieldFilter("tipoComprobante", "==", tipo_comprobante))\
+                .where(filter=firestore.FieldFilter("estado", "==", "ACTIVA"))\
+                .where(filter=firestore.FieldFilter("bloqueadaManualmente", "==", False))\
                 .limit(1)
             
             seq_docs = seq_ref_query.get(transaction=transaction)
@@ -926,7 +934,7 @@ class DatabaseService:
                 if include_all:
                     docs = coll_ref.get()
                 else:
-                    docs = coll_ref.where("isQuotation", "==", quotations_only).get()
+                    docs = coll_ref.where(filter=firestore.FieldFilter("isQuotation", "==", quotations_only)).get()
                 
                 for doc in docs:
                     data = doc.to_dict()
@@ -1721,7 +1729,7 @@ class DatabaseService:
             # No se puede hacer query-read después de writes dentro de Firestore.
             try:
                 all_stocks = db_firestore.collection("users").document(owner_uid)\
-                    .collection(coll_stock).where("itemId", "==", item_id).get()
+                    .collection(coll_stock).where(filter=firestore.FieldFilter("itemId", "==", item_id)).get()
                 real_total = sum(float(s.to_dict().get("quantity", 0.0)) for s in all_stocks)
                 db_firestore.collection("users").document(owner_uid)\
                     .collection(coll_items).document(item_id).update({"totalStock": real_total})
@@ -1854,7 +1862,7 @@ class DatabaseService:
         # Contar facturas de producción (excluyendo cotizaciones y borradores)
         try:
             prod_docs = db_firestore.collection('users').document(owner_uid).collection('invoices')\
-                .where('isQuotation', '==', False).stream()
+                .where(filter=firestore.FieldFilter('isQuotation', '==', False)).stream()
             for doc in prod_docs:
                 data = doc.to_dict()
                 if data.get('status') == 'Borrador':
@@ -1869,7 +1877,7 @@ class DatabaseService:
         # Contar facturas de sandbox (excluyendo cotizaciones y borradores)
         try:
             sandbox_docs = db_firestore.collection('users').document(owner_uid).collection('sandbox_invoices')\
-                .where('isQuotation', '==', False).stream()
+                .where(filter=firestore.FieldFilter('isQuotation', '==', False)).stream()
             for doc in sandbox_docs:
                 data = doc.to_dict()
                 if data.get('status') == 'Borrador':
@@ -1916,7 +1924,7 @@ class DatabaseService:
         invoices = []
         try:
             prod_docs = db_firestore.collection('users').document(owner_uid).collection('invoices')\
-                .where('isQuotation', '==', False).stream()
+                .where(filter=firestore.FieldFilter('isQuotation', '==', False)).stream()
             for doc in prod_docs:
                 data = doc.to_dict()
                 if data.get('status') == 'Borrador':

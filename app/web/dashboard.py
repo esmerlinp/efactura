@@ -17,6 +17,28 @@ def dashboard():
     # Procesar automáticamente recurrencias programadas al abrir dashboard
     RecurrenceService.process_pending_recurrences(owner_uid, sandbox=sandbox)
     
+    # Obtener filtros de escala, fecha y KPI
+    scale = request.args.get('scale', 'month')
+    date_str = request.args.get('date', datetime.utcnow().strftime("%Y-%m-%d"))
+    kpi_period = request.args.get('kpi_period', 'month')
+    
+    try:
+        selected_date = datetime.strptime(date_str, "%Y-%m-%d")
+    except Exception:
+        selected_date = datetime.utcnow()
+        date_str = selected_date.strftime("%Y-%m-%d")
+        
+    selected_month = selected_date.month
+    selected_year = selected_date.year
+    
+    # Calcular mes anterior
+    if selected_month == 1:
+        prev_month = 12
+        prev_month_year = selected_year - 1
+    else:
+        prev_month = selected_month - 1
+        prev_month_year = selected_year
+        
     # Obtener facturas y gastos
     invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox)
     expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox)
@@ -26,12 +48,57 @@ def dashboard():
     # Filtrar cotizaciones y borradores
     real_invoices = [inv for inv in invoices if not inv.get('isQuotation') and inv.get('status') not in ['Anulada', 'Borrador']]
     
-    # Calcular KPIs
-    total_invoiced = sum(inv['total'] for inv in real_invoices)
-    total_expenses = sum(exp['amount'] for exp in expenses)
-    total_itbis = sum(inv.get('totalITBIS', 0.0) for inv in real_invoices)
+    # Helper para parsear fechas
+    def parse_doc_date(doc_date_str):
+        try:
+            if 'T' in doc_date_str:
+                return datetime.strptime(doc_date_str[:19], "%Y-%m-%dT%H:%M:%S")
+            return datetime.strptime(doc_date_str[:10], "%Y-%m-%d")
+        except Exception:
+            return None
+            
+    # Filtrar facturas y gastos para los KPIs según kpi_period
+    kpi_invoices = []
+    kpi_expenses = []
     
-    # Cuentas por Cobrar (CxC): Facturas emitidas o vencidas pendientes de pago
+    for inv in real_invoices:
+        dt = parse_doc_date(inv.get('date'))
+        if not dt:
+            continue
+        if kpi_period == 'month':
+            if dt.month == selected_month and dt.year == selected_year:
+                kpi_invoices.append(inv)
+        elif kpi_period == 'prev_month':
+            if dt.month == prev_month and dt.year == prev_month_year:
+                kpi_invoices.append(inv)
+        elif kpi_period == 'year':
+            if dt.year == selected_year:
+                kpi_invoices.append(inv)
+        else: # 'all'
+            kpi_invoices.append(inv)
+            
+    for exp in expenses:
+        dt = parse_doc_date(exp.get('date'))
+        if not dt:
+            continue
+        if kpi_period == 'month':
+            if dt.month == selected_month and dt.year == selected_year:
+                kpi_expenses.append(exp)
+        elif kpi_period == 'prev_month':
+            if dt.month == prev_month and dt.year == prev_month_year:
+                kpi_expenses.append(exp)
+        elif kpi_period == 'year':
+            if dt.year == selected_year:
+                kpi_expenses.append(exp)
+        else: # 'all'
+            kpi_expenses.append(exp)
+            
+    # Calcular KPIs basados en datos filtrados
+    total_invoiced = sum(inv['total'] for inv in kpi_invoices)
+    total_expenses = sum(exp['amount'] for exp in kpi_expenses)
+    total_itbis = sum(inv.get('totalITBIS', 0.0) for inv in kpi_invoices)
+    
+    # Cuentas por Cobrar (CxC): Siempre acumulado de toda la vida para evitar deslices en cobranzas
     total_cxc = sum(inv['netPayable'] for inv in real_invoices if inv['status'] in ['Emitida', 'Vencida'])
     
     margin_net = 0.0
@@ -47,15 +114,6 @@ def dashboard():
     }
     
     # 1. Gráfico de Flujo de Caja (Ventas vs Egresos) con Filtro Temporal Completo (Igual a iOS)
-    scale = request.args.get('scale', 'month')
-    date_str = request.args.get('date', datetime.utcnow().strftime("%Y-%m-%d"))
-    
-    try:
-        selected_date = datetime.strptime(date_str, "%Y-%m-%d")
-    except Exception:
-        selected_date = datetime.utcnow()
-        date_str = selected_date.strftime("%Y-%m-%d")
-        
     labels = []
     buckets = {}
     current_year = selected_date.year
@@ -239,6 +297,28 @@ def dashboard():
                 'is_critical': hours_remaining < 12
             })
 
+    # 3. Consumo del Plan
+    billing_day = profile.get('billingDay', 1)
+    plan_stats = DatabaseService.get_invoice_stats(owner_uid, billing_day)
+    
+    docs_used = plan_stats['sandbox_current_cycle'] if sandbox else plan_stats['prod_current_cycle']
+    docs_limit = int(profile.get('documentLimit', 100)) if profile.get('documentLimit') else 100
+    plan_pct = min(100.0, (docs_used / docs_limit) * 100.0) if docs_limit > 0 else 0.0
+    
+    plan_name = "Plan Personalizado"
+    from app.services.db_service import db_firestore
+    try:
+        plan_id = profile.get('planId')
+        if plan_id:
+            plan_doc = db_firestore.collection('plans').document(plan_id).get()
+            if plan_doc.exists:
+                plan_name = plan_doc.to_dict().get('name', 'Plan Activo')
+    except Exception:
+        pass
+
+    months_full = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
+    current_month_name = months_full[selected_month - 1]
+
     return render_template(
         'dashboard.html',
         active_page='dashboard',
@@ -253,5 +333,12 @@ def dashboard():
         profile=profile,
         rst_income_year=rst_income_year,
         rst_limit_2026=rst_limit_2026,
-        contingency_invoices=contingency_invoices
+        contingency_invoices=contingency_invoices,
+        kpi_period=kpi_period,
+        current_month_name=current_month_name,
+        selected_year=selected_year,
+        plan_name=plan_name,
+        docs_used=docs_used,
+        docs_limit=docs_limit,
+        plan_pct=plan_pct
     )

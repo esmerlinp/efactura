@@ -6,6 +6,7 @@
 Documento Electrónico{% endif %}{% endblock %}
 
 {% block content %}
+{% set is_referencing = invoice and invoice.informationReference is defined and invoice.informationReference %}
 <!-- Elementos ocultos con datos serializados para buscadores avanzados -->
 <div id="catalog-data-json" style="display: none;">{{ catalog_json }}</div>
 <div id="clients-data-json" style="display: none;">{{ clients_json }}</div>
@@ -33,13 +34,17 @@ Documento Electrónico{% endif %}{% endblock %}
                 <div class="form-group">
                     <label for="ecf-type-select">Tipo de Documento <span
                             style="color: var(--accent-red); font-weight: bold; margin-left: 2px;">*</span></label>
-                    <select id="ecf-type-select" name="ecfType" class="form-select" required>
+                    <select id="ecf-type-select" name="{% if is_referencing %}ecfTypeDisabled{% else %}ecfType{% endif %}" class="form-select" required {% if is_referencing %}disabled style="opacity: 0.85; cursor: not-allowed;"{% endif %}>
                         <option value="Factura de Consumo (E32)" {% if invoice and
                             invoice.ecfType=='Factura de Consumo (E32)' %}selected{% endif %}>E32 - Factura de Consumo
                             (Público General)</option>
                         <option value="Factura de Crédito Fiscal (E31)" {% if invoice and
                             invoice.ecfType=='Factura de Crédito Fiscal (E31)' %}selected{% endif %}>E31 - Crédito
                             Fiscal (RNC Corporativo)</option>
+                        <option value="Nota de Débito (E33)" {% if invoice and
+                            invoice.ecfType=='Nota de Débito (E33)' %}selected{% endif %}>E33 - Nota de Débito</option>
+                        <option value="Nota de Crédito (E34)" {% if invoice and
+                            invoice.ecfType=='Nota de Crédito (E34)' %}selected{% endif %}>E34 - Nota de Crédito</option>
                         <option value="Comprobante de Compras (E41)" {% if invoice and
                             invoice.ecfType=='Comprobante de Compras (E41)' %}selected{% endif %}>E41 - Comprobante de
                             Compras</option>
@@ -49,6 +54,9 @@ Documento Electrónico{% endif %}{% endblock %}
                             invoice.ecfType=='Pagos al Exterior (E47)' %}selected{% endif %}>E47 - Pagos al Exterior
                         </option>
                     </select>
+                    {% if is_referencing %}
+                    <input type="hidden" name="ecfType" value="{{ invoice.ecfType }}">
+                    {% endif %}
                 </div>
 
                 <div class="form-group">
@@ -101,14 +109,17 @@ Documento Electrónico{% endif %}{% endblock %}
                 <!-- 3. Condiciones Financieras -->
                 <div class="form-group">
                     <label for="currency-select">Moneda</label>
-                    <select id="currency-select" name="currency" class="form-select">
+                    <select id="currency-select" name="{% if is_referencing %}currencyDisabled{% else %}currency{% endif %}" class="form-select" {% if is_referencing %}disabled style="opacity: 0.85; cursor: not-allowed;"{% endif %}>
                         <option value="DOP" {% if not invoice or invoice.currency=='DOP' %}selected{% endif %}>Pesos
                             Dominicanos (DOP)</option>
                         <option value="USD" {% if invoice and invoice.currency=='USD' %}selected{% endif %}>Dólares
                             Estadounidenses (USD)</option>
                         <option value="EUR" {% if invoice and invoice.currency=='EUR' %}selected{% endif %}>Euros (EUR)
-                        </option>
+                            </option>
                     </select>
+                    {% if is_referencing %}
+                    <input type="hidden" name="currency" value="{{ invoice.currency }}">
+                    {% endif %}
                 </div>
 
                 <div class="form-group">
@@ -188,6 +199,57 @@ Documento Electrónico{% endif %}{% endblock %}
                         </div>
                     </div>
                 </div>
+
+                <!-- Información de Referencia para Notas de Crédito / Débito -->
+                <div id="reference-info-group"
+                    style="display: none; grid-column: 1 / -1; background-color: rgba(255, 255, 255, 0.01); border: 1px dashed var(--border-color); border-radius: var(--radius-sm); padding: 16px; margin-top: 4px;">
+                    <h4 style="font-size: 0.88rem; font-family: var(--font-heading); margin-top: 0; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; color: var(--accent-purple);">
+                        <i class="fa-solid fa-circle-info"></i>
+                        <span>Información de Referencia (Documento Modificado)</span>
+                    </h4>
+
+                    <!-- Banner de Orientación / Propósito de Uso (Ley 32-23) -->
+                    <div id="note-helper-banner" style="display: none; border-left: 4px solid var(--accent-purple); padding: 12px 16px; border-radius: var(--radius-sm); margin-bottom: 16px; font-size: 0.82rem; line-height: 1.45; color: var(--text-primary);">
+                        <div style="font-weight: 800; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
+                            <i id="note-banner-icon" class="fa-solid fa-circle-question"></i>
+                            <span id="note-banner-title">Guía de Comprobante</span>
+                        </div>
+                        <span id="note-banner-text">Cargando orientación...</span>
+                    </div>
+
+                    {% if invoice and invoice.referencedInvoiceTotal %}
+                    <input type="hidden" name="referencedInvoiceTotal" id="referenced-invoice-total" value="{{ invoice.referencedInvoiceTotal }}">
+                    {% endif %}
+
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;">
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label for="ref-ncf-modified">e-CF / NCF Modificado <span style="color: var(--accent-red); font-weight: bold;">*</span></label>
+                            <input type="text" id="ref-ncf-modified" name="refNcfModified" class="form-input" placeholder="Ej: E310000000001" style="font-family: monospace; {% if is_referencing %}cursor: not-allowed; opacity: 0.85;{% endif %}"
+                                   value="{% if invoice and invoice.informationReference %}{{ invoice.informationReference.ncfModified }}{% elif invoice %}{{ invoice.ncfModified or '' }}{% endif %}"
+                                   {% if is_referencing %}readonly{% endif %}>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label for="ref-ncf-modified-date">Fecha de Emisión NCF <span style="color: var(--accent-red); font-weight: bold;">*</span></label>
+                            <input type="date" id="ref-ncf-modified-date" name="refNcfModifiedDate" class="form-input" style="{% if is_referencing %}cursor: not-allowed; opacity: 0.85;{% endif %}"
+                                   value="{% if invoice and invoice.informationReference %}{{ invoice.informationReference.ncfModifiedDate }}{% elif invoice %}{{ invoice.ncfModifiedDate or '' }}{% endif %}"
+                                   {% if is_referencing %}readonly{% endif %}>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label for="ref-modification-code">Código de Modificación <span style="color: var(--accent-red); font-weight: bold;">*</span></label>
+                            <select id="ref-modification-code" name="refModificationCode" class="form-select">
+                                <option value="1" {% if invoice and ((invoice.informationReference and invoice.informationReference.modificationCode == 1) or invoice.modificationCode == 1) %}selected{% endif %}>01 - Anulación de Documento</option>
+                                <option value="2" {% if invoice and ((invoice.informationReference and invoice.informationReference.modificationCode == 2) or invoice.modificationCode == 2) %}selected{% endif %}>02 - Corrección de Texto</option>
+                                <option value="3" {% if not invoice or ((invoice.informationReference and invoice.informationReference.modificationCode == 3) or invoice.modificationCode == 3 or not invoice.modificationCode) %}selected{% endif %}>03 - Devolución de Mercancías / Ajuste de importes</option>
+                                <option value="4" {% if invoice and ((invoice.informationReference and invoice.informationReference.modificationCode == 4) or invoice.modificationCode == 4) %}selected{% endif %}>04 - Reemplazo de e-CF Activo</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0; grid-column: span 2;">
+                            <label for="ref-reason-modification">Motivo de Modificación <span style="color: var(--accent-red); font-weight: bold;">*</span></label>
+                            <input type="text" id="ref-reason-modification" name="refReasonForModification" class="form-input" placeholder="Ej: Devolución de mercancía dañada o error en precio"
+                                   value="{% if invoice and invoice.informationReference %}{{ invoice.informationReference.reasonForModification }}{% elif invoice and invoice.reasonForModification %}{{ invoice.reasonForModification }}{% else %}Corrección de importes{% endif %}">
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -199,7 +261,8 @@ Documento Electrónico{% endif %}{% endblock %}
                 </div>
                 <h3 style="flex-grow: 1;">Datos del Cliente / Receptor</h3>
                 <button type="button" id="btn-create-client-modal" class="btn btn-primary"
-                    style="padding: 6px 12px; font-size: 0.8rem; gap: 5px;">
+                    style="padding: 6px 12px; font-size: 0.8rem; gap: 5px; {% if is_referencing %}opacity: 0.65; cursor: not-allowed;{% endif %}"
+                    {% if is_referencing %}disabled{% endif %}>
                     <i class="fa-solid fa-user-plus"></i>
                     <span>Nuevo Cliente</span>
                 </button>
@@ -211,12 +274,14 @@ Documento Electrónico{% endif %}{% endblock %}
                     <div style="display: flex; gap: 8px;">
                         <input type="text" id="client-search-input" class="form-input" readonly
                             placeholder="-- Clic para buscar en CRM --"
-                            style="cursor: pointer; flex-grow: 1; text-overflow: ellipsis; white-space: nowrap; overflow: hidden;"
-                            value="{% if invoice and invoice.clientName %}{{ invoice.clientName }} ({{ invoice.clientRNC or 'Consumidor Final' }}){% endif %}">
+                            style="flex-grow: 1; text-overflow: ellipsis; white-space: nowrap; overflow: hidden; {% if is_referencing %}cursor: not-allowed; opacity: 0.85;{% else %}cursor: pointer;{% endif %}"
+                            value="{% if invoice and invoice.clientName %}{{ invoice.clientName }} ({{ invoice.clientRNC or 'Consumidor Final' }}){% endif %}"
+                            {% if is_referencing %}disabled{% endif %}>
                         <input type="hidden" id="client-id-hidden" name="clientId"
                             value="{% if invoice %}{{ invoice.clientId or '' }}{% endif %}">
                         <button type="button" id="btn-open-client-modal" class="btn btn-secondary"
-                            style="padding: 8px 14px; white-space: nowrap;" title="Buscar Cliente">
+                            style="padding: 8px 14px; white-space: nowrap; {% if is_referencing %}opacity: 0.65; cursor: not-allowed;{% endif %}" title="Buscar Cliente"
+                            {% if is_referencing %}disabled{% endif %}>
                             <i class="fa-solid fa-magnifying-glass"></i>
                         </button>
                     </div>
@@ -225,8 +290,9 @@ Documento Electrónico{% endif %}{% endblock %}
                 <div class="form-group" style="margin-bottom: 0;">
                     <label for="client-rnc-input">RNC / Cédula del Receptor</label>
                     <input type="text" id="client-rnc-input" name="clientRNC" class="form-input"
-                        placeholder="Ej: 101234567 (vacío = Consumidor Final)" style="font-family: monospace;"
-                        value="{% if invoice %}{{ invoice.clientRNC or '' }}{% endif %}">
+                        placeholder="Ej: 101234567 (vacío = Consumidor Final)" style="font-family: monospace; {% if is_referencing %}cursor: not-allowed; opacity: 0.85;{% endif %}"
+                        value="{% if invoice %}{{ invoice.clientRNC or '' }}{% endif %}"
+                        {% if is_referencing %}readonly{% endif %}>
                     <small id="client-warning"
                         style="color: var(--accent-red); font-size: 0.75rem; margin-top: 2px; display: none;"></small>
                 </div>
@@ -948,6 +1014,61 @@ Documento Electrónico{% endif %}{% endblock %}
             handleAgreementToggle();
         }
 
+        // Lógica de Notas de Crédito / Débito (Ley 32-23)
+        const ecfTypeSelect = document.getElementById('ecf-type-select');
+        const referenceInfoGroup = document.getElementById('reference-info-group');
+        const refNcfModified = document.getElementById('ref-ncf-modified');
+        const refNcfModifiedDate = document.getElementById('ref-ncf-modified-date');
+        const refReasonModification = document.getElementById('ref-reason-modification');
+
+        // Banners
+        const noteHelperBanner = document.getElementById('note-helper-banner');
+        const noteBannerIcon = document.getElementById('note-banner-icon');
+        const noteBannerTitle = document.getElementById('note-banner-title');
+        const noteBannerText = document.getElementById('note-banner-text');
+
+        function handleEcfTypeChange() {
+            if (!ecfTypeSelect || !referenceInfoGroup) return;
+            const val = ecfTypeSelect.value;
+            const isNote = val === 'Nota de Débito (E33)' || val === 'Nota de Crédito (E34)';
+            
+            if (isNote) {
+                referenceInfoGroup.style.display = 'grid';
+                if (refNcfModified) refNcfModified.setAttribute('required', 'true');
+                if (refNcfModifiedDate) refNcfModifiedDate.setAttribute('required', 'true');
+                if (refReasonModification) refReasonModification.setAttribute('required', 'true');
+                
+                // Actualizar Banner de Ayuda / Orientación DGII
+                if (noteHelperBanner) {
+                    noteHelperBanner.style.display = 'block';
+                    if (val === 'Nota de Crédito (E34)') {
+                        noteHelperBanner.style.borderColor = 'var(--accent-red)';
+                        noteHelperBanner.style.backgroundColor = 'rgba(239, 68, 68, 0.05)';
+                        if (noteBannerIcon) noteBannerIcon.className = 'fa-solid fa-file-circle-minus';
+                        if (noteBannerTitle) noteBannerTitle.innerText = 'E34 - Nota de Crédito Electrónica';
+                        if (noteBannerText) noteBannerText.innerHTML = '<strong>Objetivo de uso:</strong> Se emite para <strong>restar, anular o aplicar devoluciones/descuentos</strong> a un comprobante fiscal emitido previamente. Reduce la deuda del cliente o genera un saldo a su favor. <br><small style="opacity: 0.85; display: inline-block; margin-top: 4px;">ℹ️ Los datos del receptor, la moneda y el documento original están bloqueados por consistencia fiscal.</small>';
+                    } else {
+                        noteHelperBanner.style.borderColor = 'var(--accent-purple)';
+                        noteHelperBanner.style.backgroundColor = 'rgba(167, 139, 250, 0.05)';
+                        if (noteBannerIcon) noteBannerIcon.className = 'fa-solid fa-file-circle-plus';
+                        if (noteBannerTitle) noteBannerTitle.innerText = 'E33 - Nota de Débito Electrónica';
+                        if (noteBannerText) noteBannerText.innerHTML = '<strong>Objetivo de uso:</strong> Se emite para <strong>sumar o incrementar</strong> el valor facturado anteriormente (por ejemplo, por cargos de mora, gastos de transporte u omisiones). Aumenta la cuenta por cobrar. <br><small style="opacity: 0.85; display: inline-block; margin-top: 4px;">ℹ️ Los datos del receptor, la moneda y el documento original están bloqueados por consistencia fiscal.</small>';
+                    }
+                }
+            } else {
+                referenceInfoGroup.style.display = 'none';
+                if (refNcfModified) refNcfModified.removeAttribute('required');
+                if (refNcfModifiedDate) refNcfModifiedDate.removeAttribute('required');
+                if (refReasonModification) refReasonModification.removeAttribute('required');
+                if (noteHelperBanner) noteHelperBanner.style.display = 'none';
+            }
+        }
+
+        if (ecfTypeSelect) {
+            ecfTypeSelect.addEventListener('change', handleEcfTypeChange);
+            handleEcfTypeChange();
+        }
+
         // =========================================================================
         // LÓGICA DEL MODAL DE CONFIRMACIÓN TIPO BORRADOR (VALIDACIÓN PREVIA)
         // =========================================================================
@@ -970,6 +1091,18 @@ Documento Electrónico{% endif %}{% endblock %}
                 if (rows.length === 0) {
                     alert('Por favor, añada al menos una partida a la factura antes de emitirla.');
                     return;
+                }
+
+                // Validar que una Nota de Crédito (E34) no exceda el monto de la factura original
+                const refTotalInput = document.getElementById('referenced-invoice-total');
+                if (refTotalInput && ecfTypeSelect && ecfTypeSelect.value === 'Nota de Crédito (E34)') {
+                    const refTotal = parseFloat(refTotalInput.value) || 0;
+                    const noteTotalText = document.getElementById('lbl-net-payable').innerText;
+                    const noteTotal = parseFloat(noteTotalText.replace(/[^0-9.]/g, '')) || 0;
+                    if (noteTotal > refTotal) {
+                        alert(`⚠️ Error de Validación Fiscal:\n\nEl monto de la Nota de Crédito (RD$ ${noteTotal.toLocaleString('es-DO', {minimumFractionDigits: 2})}) excede el total del comprobante modificado (RD$ ${refTotal.toLocaleString('es-DO', {minimumFractionDigits: 2})}).\n\nSi desea incrementar el valor del documento original, debe emitir una Nota de Débito (E33).`);
+                        return;
+                    }
                 }
 
                 e.preventDefault();

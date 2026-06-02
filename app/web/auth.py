@@ -43,7 +43,7 @@ def login():
         user_profile = DatabaseService.authenticate_user(email, password)
         if user_profile:
             session['user'] = user_profile
-            session['is_sandbox_mode'] = False  # Producción por defecto al iniciar
+            session['is_sandbox_mode'] = True  # Sandbox por defecto al iniciar
             flash('¡Sesión iniciada exitosamente!', 'success')
             return redirect(url_for('web_dashboard.dashboard'))
         else:

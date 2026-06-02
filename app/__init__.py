@@ -45,7 +45,7 @@ def create_app():
             return
         if 'user' in session:
             if 'is_sandbox_mode' not in session:
-                session['is_sandbox_mode'] = False
+                session['is_sandbox_mode'] = True
             # Cargar perfil fresco en tiempo real de Firestore para sincronización reactiva
             fresh_profile = DatabaseService.get_user_profile(session['user']['uid'])
             if fresh_profile:
@@ -59,7 +59,7 @@ def create_app():
                     
                     # Bloqueo por Suspensión de Cuenta (Módulo Portal Administrativo)
                     if company_profile.get('status') == 'Suspendido':
-                        restricted_endpoints = ['web_invoices.new_invoice_route', 'web_invoices.new_expense_route', 'web_clients.ajax_create_client', 'web_invoices.delete_expense_route']
+                        restricted_endpoints = ['web_invoices.new_invoice_route', 'web_invoices.new_quotation_route', 'web_invoices.new_expense_route', 'web_clients.ajax_create_client', 'web_invoices.delete_expense_route']
                         if request.endpoint in restricted_endpoints:
                             if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.is_json:
                                 return jsonify({"success": False, "error": "Tu cuenta está suspendida por falta de pago."}), 403
