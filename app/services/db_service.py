@@ -1848,12 +1848,14 @@ class DatabaseService:
                         pass
             return None
 
-        # Contar facturas de producción (excluyendo cotizaciones)
+        # Contar facturas de producción (excluyendo cotizaciones y borradores)
         try:
             prod_docs = db_firestore.collection('users').document(owner_uid).collection('invoices')\
                 .where('isQuotation', '==', False).stream()
             for doc in prod_docs:
                 data = doc.to_dict()
+                if data.get('status') == 'Borrador':
+                    continue
                 stats['prod_total'] += 1
                 doc_date = parse_date(data.get('date') or data.get('createdAt'))
                 if doc_date and start_date <= doc_date <= end_date:
@@ -1861,12 +1863,14 @@ class DatabaseService:
         except Exception as e:
             print(f"⚠️ Error counting prod invoices for {owner_uid}: {e}")
             
-        # Contar facturas de sandbox (excluyendo cotizaciones)
+        # Contar facturas de sandbox (excluyendo cotizaciones y borradores)
         try:
             sandbox_docs = db_firestore.collection('users').document(owner_uid).collection('sandbox_invoices')\
                 .where('isQuotation', '==', False).stream()
             for doc in sandbox_docs:
                 data = doc.to_dict()
+                if data.get('status') == 'Borrador':
+                    continue
                 stats['sandbox_total'] += 1
                 doc_date = parse_date(data.get('date') or data.get('createdAt'))
                 if doc_date and start_date <= doc_date <= end_date:
@@ -1905,13 +1909,16 @@ class DatabaseService:
         history = []
         payments_list = cls.get_payments(owner_uid)
         
-        # Obtener todas las facturas de producción (excluyendo cotizaciones)
+        # Obtener todas las facturas de producción (excluyendo cotizaciones y borradores)
         invoices = []
         try:
             prod_docs = db_firestore.collection('users').document(owner_uid).collection('invoices')\
                 .where('isQuotation', '==', False).stream()
             for doc in prod_docs:
-                invoices.append(doc.to_dict())
+                data = doc.to_dict()
+                if data.get('status') == 'Borrador':
+                    continue
+                invoices.append(data)
         except Exception as e:
             print(f"⚠️ Error al obtener facturas para historial: {e}")
             

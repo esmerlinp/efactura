@@ -106,6 +106,7 @@ class RecurrenceService:
                     "isQuotation": is_quotation,
                     "isConvertedToInvoice": False,
                     "notes": original.get("notes", ""),
+                    "comentario": original.get("comentario", ""),
                     "isRecurring": False, # Las copias generadas no son programadoras principales
                     "recurrenceInterval": "mensual",
                     "nextOccurrenceDate": None,

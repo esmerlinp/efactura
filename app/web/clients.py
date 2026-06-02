@@ -22,7 +22,7 @@ def list_clients():
     # Integrar sumas por cliente
     for client in clients:
         c_id = client['id']
-        client_sales = [inv for inv in invoices if inv['clientId'] == c_id and not inv.get('isQuotation') and inv.get('status') != 'Anulada']
+        client_sales = [inv for inv in invoices if inv['clientId'] == c_id and not inv.get('isQuotation') and inv.get('status') not in ['Anulada', 'Borrador']]
         client['total_invoiced'] = sum(inv['total'] for inv in client_sales)
         client['total_cxc'] = sum(inv['netPayable'] for inv in client_sales if inv['status'] in ['Emitida', 'Vencida'])
 
@@ -163,8 +163,8 @@ def client_detail(client_id):
     client_invoices = [inv for inv in all_invoices if inv['clientId'] == client_id and not inv.get('isQuotation')]
     client_quotations = [inv for inv in all_invoices if inv['clientId'] == client_id and inv.get('isQuotation')]
     
-    # Calcular sumas financieras específicas
-    client['total_invoiced'] = sum(inv['total'] for inv in client_invoices if inv.get('status') != 'Anulada')
+    # Calcular sumas financieras específicas (excluyendo cotizaciones, anuladas y borradores)
+    client['total_invoiced'] = sum(inv['total'] for inv in client_invoices if inv.get('status') not in ['Anulada', 'Borrador'])
     client['total_cxc'] = sum(inv['netPayable'] for inv in client_invoices if inv['status'] in ['Emitida', 'Vencida'])
     
     # Obtener interacciones

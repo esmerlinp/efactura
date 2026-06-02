@@ -23,8 +23,8 @@ def dashboard():
     sequences = DatabaseService.get_sequences(owner_uid, sandbox=sandbox)
     profile = DatabaseService.get_company_profile(owner_uid)
     
-    # Filtrar cotizaciones
-    real_invoices = [inv for inv in invoices if not inv.get('isQuotation') and inv.get('status') != 'Anulada']
+    # Filtrar cotizaciones y borradores
+    real_invoices = [inv for inv in invoices if not inv.get('isQuotation') and inv.get('status') not in ['Anulada', 'Borrador']]
     
     # Calcular KPIs
     total_invoiced = sum(inv['total'] for inv in real_invoices)
