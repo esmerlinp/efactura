@@ -916,14 +916,17 @@ class DatabaseService:
     # =========================================================================
 
     @classmethod
-    def get_invoices(cls, owner_uid, sandbox=True, quotations_only=False):
+    def get_invoices(cls, owner_uid, sandbox=True, quotations_only=False, include_all=False):
         """Retorna las facturas o cotizaciones de un owner."""
         invoices = []
         if firebase_initialized:
             try:
                 coll_name = "sandbox_invoices" if sandbox else "invoices"
-                docs = db_firestore.collection("users").document(owner_uid).collection(coll_name)\
-                    .where("isQuotation", "==", quotations_only).get()
+                coll_ref = db_firestore.collection("users").document(owner_uid).collection(coll_name)
+                if include_all:
+                    docs = coll_ref.get()
+                else:
+                    docs = coll_ref.where("isQuotation", "==", quotations_only).get()
                 
                 for doc in docs:
                     data = doc.to_dict()
