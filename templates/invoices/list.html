@@ -7,21 +7,6 @@ endblock %}
 
 {% block content %}
 <style>
-    .table-premium-scroll-wrapper {
-        max-height: 500px;
-        overflow-y: auto;
-        border: 1px solid var(--border-color);
-        border-radius: var(--radius-sm);
-        margin-bottom: 12px;
-        position: relative;
-    }
-    .table-premium-scroll-wrapper thead th {
-        position: sticky;
-        top: 0;
-        background-color: var(--bg-card);
-        z-index: 10;
-        box-shadow: inset 0 -1px 0 var(--border-color);
-    }
     .invoice-link, .client-link {
         text-decoration: none;
         transition: color 0.2s ease, text-decoration 0.2s ease;
@@ -70,74 +55,63 @@ endblock %}
         {% endif %}
     </div>
 
-    <!-- Panel de Filtros Premium -->
-    <div class="filters-card" style="background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 18px; margin-bottom: 24px;">
-        <form method="GET" action="{% if active_page == 'quotations' %}/quotations{% else %}/invoices{% endif %}" id="filters-form" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; align-items: end;">
+    <!-- Filtros Minimalistas en una sola línea -->
+    <div style="display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; background-color: transparent; align-items: center; border-bottom: 1px solid rgba(0, 0, 0, 0.05); padding-bottom: 12px;">
+        <form method="GET" action="{% if active_page == 'quotations' %}/quotations{% else %}/invoices{% endif %}" id="filters-form" style="display: flex; gap: 12px; align-items: center; width: 100%; flex-wrap: wrap; margin: 0;">
+            
             <!-- Búsqueda -->
-            <div style="grid-column: span 2; min-width: 220px;">
-                <label for="q" style="display: block; font-size: 0.78rem; font-weight: 600; margin-bottom: 6px; color: var(--text-secondary);">Buscar Documento</label>
-                <div style="position: relative;">
-                    <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.88rem;"></i>
-                    <input type="text" name="q" id="q" value="{{ q or '' }}" class="form-input" placeholder="Factura #, Cliente, RNC o e-NCF..." style="padding-left: 36px; width: 100%; height: 38px; font-size: 0.88rem; background-color: var(--bg-body); border-color: var(--border-color); border-radius: var(--radius-sm); color: var(--text-primary);">
-                </div>
+            <div style="position: relative; flex-grow: 1; min-width: 220px; max-width: 350px;">
+                <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.85rem;"></i>
+                <input type="text" name="q" id="q" value="{{ q or '' }}" placeholder="Buscar Factura #, Cliente, RNC..." style="width: 100%; height: 34px; padding: 0 16px 0 38px; background-color: var(--bg-input); border: 1px solid transparent; border-radius: 20px; color: var(--text-primary); font-size: 0.85rem; transition: background-color var(--transition-fast);" onfocus="this.style.backgroundColor='#ffffff'; this.style.borderColor='var(--border-color)';" onblur="if(!this.value){this.style.backgroundColor='var(--bg-input)'; this.style.borderColor='transparent';}">
             </div>
 
             <!-- Selector de Estado -->
-            <div>
-                <label for="status" style="display: block; font-size: 0.78rem; font-weight: 600; margin-bottom: 6px; color: var(--text-secondary);">Estado</label>
-                <select name="status" id="status" class="form-input" style="width: 100%; height: 38px; font-size: 0.88rem; cursor: pointer; background-color: var(--bg-body); border-color: var(--border-color); border-radius: var(--radius-sm); color: var(--text-primary);">
-                    <option value="">-- Todos --</option>
+            <div style="min-width: 130px;">
+                <select name="status" id="status" style="width: 100%; height: 34px; padding: 0 10px; background-color: transparent; border: 1px solid transparent; border-bottom: 1px solid var(--border-color); color: var(--text-secondary); font-size: 0.85rem; cursor: pointer; outline: none;">
+                    <option value="">Todos los Estados</option>
                     <option value="Borrador" {% if status == 'Borrador' %}selected{% endif %}>Borrador</option>
                     <option value="Emitida" {% if status == 'Emitida' %}selected{% endif %}>Emitida</option>
                     <option value="Cobrada" {% if status == 'Cobrada' %}selected{% endif %}>Cobrada</option>
                     <option value="Anulada" {% if status == 'Anulada' %}selected{% endif %}>Anulada</option>
                     {% if active_page != 'quotations' %}
-                    <option value="Con Saldo Pendiente" {% if status == 'Con Saldo Pendiente' %}selected{% endif %}>💸 Con Saldo Pendiente</option>
+                    <option value="Con Saldo Pendiente" {% if status == 'Con Saldo Pendiente' %}selected{% endif %}>💸 Con Saldo</option>
                     <option value="Pendiente DGII" {% if status == 'Pendiente DGII' %}selected{% endif %}>⚠️ Pendiente DGII</option>
                     {% endif %}
                 </select>
             </div>
 
-            <!-- Selector de Cantidad de Registros -->
-            <div>
-                <label for="per_page" style="display: block; font-size: 0.78rem; font-weight: 600; margin-bottom: 6px; color: var(--text-secondary);">Mostrar</label>
-                <select name="per_page" id="per_page" class="form-input" style="width: 100%; height: 38px; font-size: 0.88rem; cursor: pointer; background-color: var(--bg-body); border-color: var(--border-color); border-radius: var(--radius-sm); color: var(--text-primary);">
-                    <option value="5" {% if per_page == '5' %}selected{% endif %}>5 registros</option>
-                    <option value="10" {% if per_page == '10' or not per_page %}selected{% endif %}>10 registros</option>
-                    <option value="15" {% if per_page == '15' %}selected{% endif %}>15 registros</option>
-                    <option value="20" {% if per_page == '20' %}selected{% endif %}>20 registros</option>
-                    <option value="all" {% if per_page == 'all' %}selected{% endif %}>Todos</option>
+            <!-- Fechas -->
+            <div style="display: flex; align-items: center; gap: 6px; border-bottom: 1px solid var(--border-color); padding-bottom: 2px;">
+                <i class="fa-regular fa-calendar" style="color: var(--text-muted); font-size: 0.85rem;"></i>
+                <input type="date" name="start_date" id="start_date" value="{{ start_date or '' }}" style="height: 30px; background: transparent; border: none; color: var(--text-secondary); font-size: 0.85rem; outline: none; cursor: pointer;" title="Desde">
+                <span style="color: var(--text-muted); font-size: 0.85rem;">-</span>
+                <input type="date" name="end_date" id="end_date" value="{{ end_date or '' }}" style="height: 30px; background: transparent; border: none; color: var(--text-secondary); font-size: 0.85rem; outline: none; cursor: pointer;" title="Hasta">
+            </div>
+
+            <!-- Limpiar -->
+            <a href="{% if active_page == 'quotations' %}/quotations{% else %}/invoices{% endif %}" style="color: var(--text-muted); font-size: 0.85rem; text-decoration: none; padding: 6px 10px; border-radius: var(--radius-sm); display: flex; align-items: center; gap: 4px;" title="Limpiar Filtros" onmouseover="this.style.backgroundColor='rgba(0,0,0,0.03)'; this.style.color='var(--text-primary)'" onmouseout="this.style.backgroundColor='transparent'; this.style.color='var(--text-muted)'">
+                <i class="fa-solid fa-eraser"></i> Limpiar
+            </a>
+
+            <!-- Mostrar N Registros (Alineado a la derecha) -->
+            <div style="display: flex; align-items: center; gap: 6px; margin-left: auto;">
+                <span style="font-size: 0.75rem; color: var(--text-muted);">Filas:</span>
+                <select name="per_page" id="per_page" style="background: transparent; border: none; color: var(--text-secondary); font-size: 0.8rem; cursor: pointer; outline: none; font-weight: 500;">
+                    <option value="5" {% if per_page == '5' or not per_page %}selected{% endif %}>5</option>
+                    <option value="10" {% if per_page == '10' %}selected{% endif %}>10</option>
+                    <option value="15" {% if per_page == '15' %}selected{% endif %}>15</option>
+                    <option value="20" {% if per_page == '20' %}selected{% endif %}>20</option>
+                    <option value="all" {% if per_page == 'all' %}selected{% endif %}>Todas</option>
                 </select>
-            </div>
-
-            <!-- Fecha Inicio -->
-            <div>
-                <label for="start_date" style="display: block; font-size: 0.78rem; font-weight: 600; margin-bottom: 6px; color: var(--text-secondary);">Desde (Fecha)</label>
-                <input type="date" name="start_date" id="start_date" value="{{ start_date or '' }}" class="form-input" style="width: 100%; height: 38px; font-size: 0.88rem; background-color: var(--bg-body); border-color: var(--border-color); border-radius: var(--radius-sm); color: var(--text-primary);">
-            </div>
-
-            <!-- Fecha Fin -->
-            <div>
-                <label for="end_date" style="display: block; font-size: 0.78rem; font-weight: 600; margin-bottom: 6px; color: var(--text-secondary);">Hasta (Fecha)</label>
-                <input type="date" name="end_date" id="end_date" value="{{ end_date or '' }}" class="form-input" style="width: 100%; height: 38px; font-size: 0.88rem; background-color: var(--bg-body); border-color: var(--border-color); border-radius: var(--radius-sm); color: var(--text-primary);">
-            </div>
-
-            <!-- Botón de Limpiar Filtros -->
-            <div>
-                <a href="{% if active_page == 'quotations' %}/quotations{% else %}/invoices{% endif %}" class="btn btn-secondary" style="height: 38px; padding: 0 16px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; border-radius: var(--radius-sm); width: 100%;" title="Limpiar Filtros">
-                    <i class="fa-solid fa-eraser"></i>
-                    <span>Limpiar</span>
-                </a>
             </div>
         </form>
     </div>
 
-    <!-- Contenedor Scrollable para la Tabla -->
-    <div class="table-premium-scroll-wrapper">
-        <div class="table-responsive" style="border: none; margin-bottom: 0;">
-            <table class="table-premium">
-                <thead>
-                    <tr>
+    <!-- Contenedor Tabla -->
+    <div class="table-responsive">
+        <table class="table-premium">
+            <thead>
+                <tr>
                         <th>Factura #</th>
                         <th>e-NCF / Firma</th>
                         <th>Fecha / Vence</th>
@@ -229,11 +203,6 @@ endblock %}
                             {% else %}
                             <span class="badge badge-secondary">{{ inv.status }}</span>
                             {% endif %}
-                            {% if inv.emisionMode == 'FALLBACK' and not inv.isSyncedWithDGII %}
-                            <span class="badge" style="display: block; margin-top: 4px; font-size: 0.68rem; color: #78350f; background-color: #fef3c7; border: 1px solid #fde68a;">
-                                ⚠️ Pendiente DGII
-                            </span>
-                            {% endif %}
                         </td>
                         <td style="text-align: right;">
                             <div style="display: inline-flex; gap: 8px;">
@@ -286,7 +255,6 @@ endblock %}
                 </tbody>
             </table>
         </div>
-    </div>
 
     <!-- Paginación Premium -->
     {% if total_pages and total_pages > 1 and per_page != 'all' %}

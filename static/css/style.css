@@ -2,18 +2,18 @@
    SISTEMA DE DISEÑO PREMIUM - e-Factura WEB
    ========================================================================= */
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Roboto+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap');
 
 :root {
-    /* Paleta de Colores (Modo Claro Premium - Basado en app iOS) */
-    --bg-main: #F8FAFC;
-    --bg-main-gradient: linear-gradient(135deg, #F8FAFC 0%, #E0F2FE 50%, #EEF2FF 100%);
-    --bg-card: rgba(255, 255, 255, 0.45);
-    --bg-sidebar: rgba(230, 237, 246, 0.93);
-    --bg-header: rgba(255, 255, 255, 0.5);
-    --bg-input: rgba(255, 255, 255, 0.7);
-    --border-color: rgba(255, 255, 255, 0.6);
-    --border-glow: rgba(30, 58, 138, 0.15);
+    /* Paleta de Colores (Estilo Consola Firebase / Google) */
+    --bg-main: #f8f9fa;
+    --bg-main-gradient: #f8f9fa;
+    --bg-card: #ffffff;
+    --bg-sidebar: #ffffff;
+    --bg-header: #ffffff;
+    --bg-input: #ffffff;
+    --border-color: #dadce0;
+    --border-glow: transparent;
     
     /* Colores de Acento Oficiales de la app iOS (Modo Producción - Azul) */
     --accent-emerald: #1E3A8A; /* primaryBlue de iOS */
@@ -25,10 +25,10 @@
     --accent-success: #16A34A; /* Verde positivo DGII oficial */
     --accent-success-hover: #15803d;
     
-    /* Texto */
-    --text-primary: #111827;
-    --text-secondary: #475569;
-    --text-muted: #64748b;
+    /* Texto (Estilo Google) */
+    --text-primary: #202124;
+    --text-secondary: #5f6368;
+    --text-muted: #80868b;
     
     /* Sombras y Efectos (Estilo iOS GlassCard) */
     --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.03);
@@ -37,9 +37,10 @@
     --shadow-glow: 0 0 15px rgba(30, 58, 138, 0.15);
     --shadow-glow-purple: 0 0 15px rgba(124, 58, 237, 0.15);
     
-    /* Tipografía y Tamaños */
-    --font-heading: 'Outfit', 'Inter', sans-serif;
-    --font-body: 'Inter', sans-serif;
+    /* Tipografía y Tamaños (Estilo Firebase/Material) */
+    --font-heading: 'Google Sans', 'Roboto', 'Inter', Helvetica, Arial, sans-serif;
+    --font-body: 'Roboto', 'Inter', Helvetica, Arial, sans-serif;
+    --font-mono: 'Roboto Mono', Consolas, Monaco, monospace;
     
     /* Bordes y Transiciones */
     --radius-sm: 8px;
@@ -142,6 +143,8 @@ body {
     background: var(--bg-main-gradient);
     background-attachment: fixed;
     color: var(--text-primary);
+    font-size: 14px;
+    line-height: 1.5; /* 21px aprox. en font 14px, ideal para interfaces técnicas */
     overflow-x: hidden;
     min-height: 100vh;
     transition: background var(--transition-smooth), color var(--transition-smooth);
@@ -149,8 +152,8 @@ body {
 
 h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-heading);
-    font-weight: 600;
-    letter-spacing: -0.02em;
+    font-weight: 400; /* Peso ligero estilo Google */
+    letter-spacing: 0;
 }
 
 a {
@@ -187,7 +190,7 @@ button, input, select, textarea {
 
 .app-container {
     display: grid;
-    grid-template-columns: 280px 1fr;
+    grid-template-columns: 256px 1fr; /* Firebase standard sidebar width */
     min-height: 100vh;
     transition: grid-template-columns 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -225,7 +228,7 @@ button, input, select, textarea {
     background-color: var(--bg-sidebar);
     /* Se elimina el backdrop-filter pesado para un diseño más limpio */
     border-right: 1px solid var(--border-color);
-    padding: 30px 20px;
+    padding: 24px 0; /* Padding lateral 0 para que los items ocupen el ancho, los márgenes van en los items */
     display: flex;
     flex-direction: column;
     height: calc(100vh - var(--sandbox-banner-height)); /* Compensación banner */
@@ -240,7 +243,8 @@ button, input, select, textarea {
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    margin-bottom: 40px;
+    margin-bottom: 24px;
+    padding: 0 24px; /* Compensar el padding quitado al sidebar */
     position: relative;
 }
 
@@ -251,8 +255,8 @@ button, input, select, textarea {
 
 .sidebar-logo span {
     font-family: var(--font-heading);
-    font-size: 1.35rem;
-    font-weight: 800;
+    font-size: 1.25rem;
+    font-weight: 500; /* Reducido de 800 */
     background: var(--brand-gradient);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -274,46 +278,43 @@ button, input, select, textarea {
     list-style: none;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 2px;
     flex-grow: 1;
+    padding: 0 12px; /* Espacio para que el border-radius de los items se note */
 }
 
 .nav-item a {
     display: flex;
     align-items: center;
-    gap: 16px;
-    padding: 12px 16px;
-    border-radius: var(--radius-sm);
-    color: var(--text-muted);
+    gap: 12px;
+    padding: 10px 16px;
+    border-radius: 24px;
+    color: var(--text-secondary);
     font-weight: 500;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     transition: all var(--transition-fast);
 }
 
 .nav-item a i {
     font-size: 1.1rem;
-    opacity: 0.8;
-}
-
-.nav-item.active a, .nav-item a:hover {
-    color: var(--text-primary);
+    width: 24px;
+    text-align: center;
 }
 
 .nav-item a:hover {
-    background-color: var(--bg-nav-hover);
+    background-color: #f1f3f4;
+    color: var(--text-primary);
 }
 
 .nav-item.active a {
-    /* Indicador minimalista */
-    border-left: 3px solid var(--accent-emerald);
-    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-    padding-left: 13px;
-    background-color: var(--bg-nav-hover);
+    /* Indicador minimalista (Mismo color que el fondo general) */
+    background-color: var(--bg-main);
+    color: var(--text-primary);
     font-weight: 600;
 }
 
 .nav-item.active a i {
-    color: var(--accent-emerald);
+    color: var(--text-primary);
     opacity: 1;
 }
 
@@ -373,6 +374,7 @@ button, input, select, textarea {
     display: flex;
     flex-direction: column;
     min-height: calc(100vh - var(--sandbox-banner-height));
+    min-width: 0; /* Previene el desbordamiento horizontal en grid 1fr */
 }
 
 /* Encabezado */
@@ -398,9 +400,8 @@ button, input, select, textarea {
 }
 
 .page-title {
-    font-size: 1.15rem;
-    font-weight: 600;
-    letter-spacing: -0.01em;
+    font-size: 1.35rem;
+    font-weight: 400; /* Reducido de 600 */
     font-family: var(--font-heading);
     color: var(--text-primary);
 }
@@ -446,10 +447,32 @@ body.sandbox-mode .environment-indicator {
     box-shadow: 0 0 8px var(--accent-purple);
 }
 
-/* Panel de Contenido */
+/* Panel de Contenido (Firebase Responsive Grid) */
 .content-wrapper {
-    padding: 40px;
+    padding: 32px; /* Default para >1440px */
     flex-grow: 1;
+    min-width: 0; /* Permite que el contenido se encoja y no empuje los bordes fuera de la pantalla */
+}
+
+@media screen and (max-width: 1439px) {
+    .content-wrapper {
+        padding: 24px;
+    }
+    .header {
+        padding: 0 24px;
+    }
+}
+
+@media screen and (max-width: 1024px) {
+    .content-wrapper {
+        padding: 16px;
+    }
+    .header {
+        padding: 0 16px;
+    }
+    .card-table-wrapper {
+        padding: 16px;
+    }
 }
 
 /* =========================================================================
@@ -465,37 +488,19 @@ body.sandbox-mode .environment-indicator {
 
 .card-kpi {
     background-color: var(--bg-card);
-    backdrop-filter: blur(12px);
     border: 1px solid var(--border-color);
-    border-radius: var(--radius-md);
-    padding: 24px;
+    border-radius: var(--radius-sm);
+    padding: 18px 24px;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    box-shadow: var(--shadow-sm);
+    box-shadow: 0 1px 2px 0 rgba(60,64,67,0.3), 0 1px 3px 1px rgba(60,64,67,0.15); /* Sombra suave Firebase/Material */
     transition: all var(--transition-smooth);
     position: relative;
     overflow: hidden;
 }
 
-.card-kpi::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 4px;
-    height: 100%;
-    background-color: var(--accent-emerald);
-    opacity: 0.7;
-}
 
-.card-kpi.expense::before {
-    background-color: var(--accent-red);
-}
-
-.card-kpi.profit::before {
-    background-color: var(--accent-yellow);
-}
 
 .card-kpi:hover {
     transform: translateY(-4px);
@@ -504,29 +509,31 @@ body.sandbox-mode .environment-indicator {
 }
 
 .kpi-details h3 {
-    font-size: 0.85rem;
+    font-size: 0.8125rem;
+    font-weight: 500;
     color: var(--text-secondary);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+    text-transform: none; /* Firebase usa formato oración para títulos de tarjetas */
     margin-bottom: 8px;
 }
 
 .kpi-value {
     font-family: var(--font-heading);
-    font-size: 1.85rem;
-    font-weight: 800;
+    font-size: 2.1rem;
+    font-weight: 400; /* Reducido de 800 para no verse tan cargado */
+    color: var(--text-primary);
 }
 
 .kpi-icon {
-    width: 48px;
-    height: 48px;
+    width: 40px;
+    height: 40px;
     border-radius: var(--radius-sm);
-    background-color: var(--bg-brand-translucent);
-    color: var(--accent-emerald);
+    background-color: transparent;
+    color: var(--text-muted);
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 1.35rem;
+    opacity: 0.6;
 }
 
 .card-kpi.expense .kpi-icon {
@@ -548,10 +555,10 @@ body.sandbox-mode .environment-indicator {
     align-items: center;
     justify-content: center;
     gap: 10px;
-    padding: 12px 24px;
-    font-weight: 600;
+    padding: 10px 20px;
+    font-weight: 500; /* Reducido de 600 */
     font-family: var(--font-heading);
-    font-size: 0.92rem;
+    font-size: 0.875rem;
     border-radius: var(--radius-sm);
     cursor: pointer;
     transition: all var(--transition-fast);
@@ -662,12 +669,17 @@ body.sandbox-mode .environment-indicator {
 
 .card-table-wrapper {
     background-color: var(--bg-card);
-    backdrop-filter: blur(12px);
     border: 1px solid var(--border-color);
-    border-radius: var(--radius-md);
-    padding: 24px;
-    box-shadow: var(--shadow-sm);
+    border-radius: var(--radius-sm);
+    padding: 24px 0; /* Sin padding horizontal para que la tabla sea edge-to-edge */
+    box-shadow: none;
     overflow: hidden;
+}
+
+/* Aplicar padding horizontal solo a los elementos que no son la tabla */
+.card-table-wrapper > *:not(.table-responsive) {
+    padding-left: 24px !important;
+    padding-right: 24px !important;
 }
 
 .table-header-row {
@@ -689,21 +701,27 @@ body.sandbox-mode .environment-indicator {
 }
 
 .table-premium th {
-    padding: 16px 20px;
-    font-weight: 600;
-    font-size: 0.82rem;
+    padding: 14px 24px; /* Aumentado a 24px para alinearse con el padding de la tarjeta edge-to-edge */
+    font-weight: 500;
+    font-size: 0.75rem;
     color: var(--text-secondary);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
     text-transform: uppercase;
-    letter-spacing: 0.05em;
-    border-bottom: 1px solid var(--border-color);
+    letter-spacing: 0.02em;
+    white-space: nowrap; /* Evitar que los headers se rompan en múltiples líneas (ej. FECHA / VENCE) */
 }
 
 .table-premium td {
-    padding: 18px 20px;
-    font-size: 0.92rem;
-    border-bottom: 1px solid var(--border-color);
+    padding: 16px 24px;
+    font-size: 0.90rem;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.04);
     color: var(--text-primary);
     vertical-align: middle;
+}
+
+/* Eliminar el borde inferior de la última fila para que no choque con la tarjeta */
+.table-premium tbody tr:last-child td {
+    border-bottom: none;
 }
 
 .table-premium tbody tr {
@@ -711,7 +729,7 @@ body.sandbox-mode .environment-indicator {
 }
 
 .table-premium tbody tr:hover {
-    background-color: var(--bg-table-hover);
+    background-color: rgba(0, 0, 0, 0.015); /* Hover ultra sutil en lugar del anterior */
 }
 
 /* Badges / Pill Tags */
@@ -1056,13 +1074,13 @@ body.sandbox-mode .segment-header-icon.emerald {
     box-shadow: var(--shadow-glow);
 }
 
-/* Estado Colapsado */
+/* Estado Colapsado (Estilo Firebase) */
 .app-container.sidebar-collapsed {
-    grid-template-columns: 80px 1fr;
+    grid-template-columns: 72px 1fr;
 }
 
 .app-container.sidebar-collapsed .sidebar {
-    padding: 30px 12px;
+    padding: 24px 8px;
 }
 
 .app-container.sidebar-collapsed .logo-text-wrapper {
@@ -1075,11 +1093,37 @@ body.sandbox-mode .segment-header-icon.emerald {
 .app-container.sidebar-collapsed .sidebar-logo {
     justify-content: center;
     gap: 0;
+    margin-bottom: 24px;
+}
+
+.app-container.sidebar-collapsed .sidebar-section-header {
+    display: none; /* Ocultar headers de sección en modo colapsado */
+}
+
+.app-container.sidebar-collapsed .sidebar-section {
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 8px;
+    margin-bottom: 8px;
+}
+
+.app-container.sidebar-collapsed .sidebar-section:last-child {
+    border-bottom: none;
+}
+
+.app-container.sidebar-collapsed .nav-item {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    margin-bottom: 4px;
 }
 
 .app-container.sidebar-collapsed .nav-item a {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%; /* Iconos circulares / pill shape */
+    padding: 0;
     justify-content: center;
-    padding: 14px 0;
+    align-items: center;
     gap: 0;
 }
 
@@ -1089,23 +1133,28 @@ body.sandbox-mode .segment-header-icon.emerald {
 
 .app-container.sidebar-collapsed .nav-item.active a {
     border-left: none;
-    padding-left: 0;
     background-color: var(--bg-brand-translucent-heavy);
-    box-shadow: var(--shadow-brand-glow);
+    box-shadow: none;
+    color: var(--text-primary);
 }
 
 .app-container.sidebar-collapsed .user-badge {
     justify-content: center;
     padding: 0;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
 }
 
-.app-container.sidebar-collapsed .user-info {
-    display: none;
+.app-container.sidebar-collapsed .user-info,
+.app-container.sidebar-collapsed .profile-hint-icon {
+    display: none !important;
 }
 
 .app-container.sidebar-collapsed .sidebar-footer {
-    padding-top: 15px;
+    padding-top: 16px;
     align-items: center;
+    border-top: 1px solid var(--border-color);
 }
 
 .app-container.sidebar-collapsed .sidebar-footer .nav-item {
@@ -1115,9 +1164,12 @@ body.sandbox-mode .segment-header-icon.emerald {
 }
 
 .app-container.sidebar-collapsed .sidebar-footer .nav-item a {
-    width: 100%;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
     justify-content: center;
-    padding: 10px 0;
+    align-items: center;
+    padding: 0;
     gap: 0;
 }
 
