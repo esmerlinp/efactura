@@ -21,8 +21,12 @@
     <!-- FontAwesome para Iconos Modernos -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
-    <!-- Estilo Premium CSS Vanilla -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v={{ range(1, 1000000) | random }}">
+    <!-- Estilos según Tema -->
+    {% if company_theme == 'moderno' %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style_moderno.css') }}?v={{ range(1, 1000000) | random }}">
+    {% else %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style_clasico.css') }}?v={{ range(1, 1000000) | random }}">
+    {% endif %}
 
     {% if company_apply_color_marca_ui and company_color_marca %}
     <style id="dynamic-brand-styles">

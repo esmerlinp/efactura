@@ -2338,6 +2338,7 @@ def company_settings():
             "openaiApiKey": request.form.get('openaiApiKey', ''),
             "alanubeCompanyIDSandbox": request.form.get('alanubeCompanyIDSandbox', '').strip(),
             "alanubeCompanyIDProduction": request.form.get('alanubeCompanyIDProduction', '').strip(),
+            "theme": request.form.get('theme', existing_profile.get('theme', 'moderno')),
             "configured": True
         }
         DatabaseService.save_company_profile(owner_uid, profile_dict)
@@ -2491,6 +2492,8 @@ def save_company_brand_settings():
         existing_profile['applyColorMarcaUI'] = request.form.get('applyColorMarcaUI') == 'true'
     if 'applyColorMarcaReports' in request.form:
         existing_profile['applyColorMarcaReports'] = request.form.get('applyColorMarcaReports') == 'true'
+    if 'theme' in request.form:
+        existing_profile['theme'] = request.form.get('theme')
         
     logo_file = request.files.get('logoFile')
     if logo_file and logo_file.filename:

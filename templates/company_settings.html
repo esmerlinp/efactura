@@ -371,8 +371,16 @@
                         <i class="fa-solid fa-trash-can"></i>
                     </button>
                 </div>
-                <!-- Color y Degradados en fila inferior de 2 columnas -->
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                <!-- Configuración de Tema, Color y Degradados -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px;">
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label for="companyTheme">Tema de la Aplicación</label>
+                        <select id="companyTheme" name="theme" class="form-input" style="width: 100%; cursor: pointer;">
+                            <option value="moderno" {% if profile.theme == 'moderno' or not profile.theme %}selected{% endif %}>Moderno (Premium)</option>
+                            <option value="clasico" {% if profile.theme == 'clasico' %}selected{% endif %}>Clásico (Alanube)</option>
+                        </select>
+                    </div>
+
                     <div class="form-group" style="margin-bottom: 0;">
                         <label for="colorMarca">Color de Marca</label>
                         <div style="display: flex; gap: 10px; align-items: center;">
@@ -1398,10 +1406,21 @@
                 .then(res => res.json())
                 .then(data => {
                     console.log(`Ajuste de marca [${key}] guardado exitosamente`);
+                    if (key === 'theme') {
+                        // Recargar instantáneamente para aplicar el nuevo archivo CSS
+                        window.location.reload();
+                    }
                 })
                 .catch(err => {
                     console.error(`Error al guardar ajuste de marca [${key}]:`, err);
                 });
+        }
+
+        const companyThemeSelect = document.getElementById('companyTheme');
+        if (companyThemeSelect) {
+            companyThemeSelect.addEventListener('change', function() {
+                saveBrandSetting('theme', this.value);
+            });
         }
 
         function applyLiveBrandColors() {
