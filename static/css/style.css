@@ -223,9 +223,9 @@ button, input, select, textarea {
 
 .sidebar {
     background-color: var(--bg-sidebar);
-    backdrop-filter: blur(16px);
+    /* Se elimina el backdrop-filter pesado para un diseño más limpio */
     border-right: 1px solid var(--border-color);
-    padding: 30px 24px;
+    padding: 30px 20px;
     display: flex;
     flex-direction: column;
     height: calc(100vh - var(--sandbox-banner-height)); /* Compensación banner */
@@ -282,28 +282,39 @@ button, input, select, textarea {
     display: flex;
     align-items: center;
     gap: 16px;
-    padding: 14px 18px;
-    border-radius: var(--radius-md);
-    color: var(--text-secondary);
+    padding: 12px 16px;
+    border-radius: var(--radius-sm);
+    color: var(--text-muted);
     font-weight: 500;
-    font-size: 0.95rem;
+    font-size: 0.9rem;
     transition: all var(--transition-fast);
 }
 
 .nav-item a i {
-    font-size: 1.15rem;
+    font-size: 1.1rem;
+    opacity: 0.8;
 }
 
 .nav-item.active a, .nav-item a:hover {
     color: var(--text-primary);
+}
+
+.nav-item a:hover {
     background-color: var(--bg-nav-hover);
 }
 
 .nav-item.active a {
-    border-left: 4px solid var(--accent-emerald);
-    padding-left: 14px;
-    background-color: var(--bg-brand-translucent);
-    box-shadow: var(--shadow-brand-glow-subtle);
+    /* Indicador minimalista */
+    border-left: 3px solid var(--accent-emerald);
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    padding-left: 13px;
+    background-color: var(--bg-nav-hover);
+    font-weight: 600;
+}
+
+.nav-item.active a i {
+    color: var(--accent-emerald);
+    opacity: 1;
 }
 
 .sidebar-footer {
