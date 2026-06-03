@@ -1176,11 +1176,13 @@ body.sandbox-mode .segment-header-icon.emerald {
     opacity: 0 !important;
     pointer-events: none;
     margin-right: 0 !important;
+    margin-left: 0 !important;
 }
 
 .app-container.sidebar-collapsed .sidebar-logo {
-    justify-content: center;
-    gap: 0;
+    justify-content: center !important;
+    gap: 0 !important;
+    padding: 0 !important;
     margin-bottom: 24px;
 }
 
@@ -1229,8 +1231,8 @@ body.sandbox-mode .segment-header-icon.emerald {
 }
 
 .app-container.sidebar-collapsed .user-badge {
-    justify-content: center;
-    padding: 0;
+    justify-content: center !important;
+    padding: 0 !important;
     width: 44px;
     height: 44px;
     border-radius: 50%;

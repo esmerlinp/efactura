@@ -376,8 +376,10 @@
                     <div class="form-group" style="margin-bottom: 0;">
                         <label for="companyTheme">Tema de la Aplicación</label>
                         <select id="companyTheme" name="theme" class="form-input" style="width: 100%; cursor: pointer;">
-                            <option value="moderno" {% if profile.theme == 'moderno' or not profile.theme %}selected{% endif %}>Moderno (Premium)</option>
-                            <option value="clasico" {% if profile.theme == 'clasico' %}selected{% endif %}>Clásico (Alanube)</option>
+                            <option value="moderno" {% if profile.theme=='moderno' or not profile.theme %}selected{%
+                                endif %}>Moderno</option>
+                            <option value="clasico" {% if profile.theme=='clasico' %}selected{% endif %}>Clásico
+                            </option>
                         </select>
                     </div>
 
@@ -1418,7 +1420,7 @@
 
         const companyThemeSelect = document.getElementById('companyTheme');
         if (companyThemeSelect) {
-            companyThemeSelect.addEventListener('change', function() {
+            companyThemeSelect.addEventListener('change', function () {
                 saveBrandSetting('theme', this.value);
             });
         }
