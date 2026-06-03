@@ -4,6 +4,8 @@ import json
 from datetime import datetime
 from urllib.parse import quote
 from config import Config
+# pyrefly: ignore [missing-import]
+
 
 class AlanubeService:
     @classmethod
@@ -58,7 +60,7 @@ class AlanubeService:
         if code and code in dgii_errors_map:
             return f"{code} - {dgii_errors_map[code]} ({message or ''})"
             
-        return message or "Error de comunicación con Alanube/DGII."
+        return message or "Error de comunicación."
 
     @staticmethod
     def get_endpoints():
