@@ -14,37 +14,43 @@
     --bg-input: #ffffff;
     --border-color: #dadce0;
     --border-glow: transparent;
-    
+
     /* Colores de Acento Oficiales de la app iOS (Modo Producción - Azul) */
-    --accent-emerald: #1E3A8A; /* primaryBlue de iOS */
-    --accent-emerald-hover: #2563EB; /* Azul real brillante */
-    --accent-purple: #1E3A8A; /* primaryBlue de iOS */
-    --accent-purple-hover: #2563EB; /* Azul real brillante */
+    --accent-emerald: #1E3A8A;
+    /* primaryBlue de iOS */
+    --accent-emerald-hover: #2563EB;
+    /* Azul real brillante */
+    --accent-purple: #1E3A8A;
+    /* primaryBlue de iOS */
+    --accent-purple-hover: #2563EB;
+    /* Azul real brillante */
     --accent-red: #DC2626;
     --accent-yellow: #F59E0B;
-    --accent-success: #16A34A; /* Verde positivo DGII oficial */
+    --accent-success: #16A34A;
+    /* Verde positivo DGII oficial */
     --accent-success-hover: #15803d;
-    
+
     /* Texto (Estilo Google) */
     --text-primary: #202124;
     --text-secondary: #5f6368;
     --text-muted: #80868b;
-    
+
     /* Sombras y Efectos (Estilo iOS GlassCard) */
     --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.03);
     --shadow-md: 0 8px 32px rgba(0, 0, 0, 0.06);
     --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.1);
     --shadow-glow: 0 0 15px rgba(30, 58, 138, 0.15);
     --shadow-glow-purple: 0 0 15px rgba(124, 58, 237, 0.15);
-    
+
     /* Tipografía y Tamaños (Estilo Firebase/Material) */
     --font-heading: 'Google Sans', 'Roboto', 'Inter', Helvetica, Arial, sans-serif;
     --font-body: 'Roboto', 'Inter', Helvetica, Arial, sans-serif;
     --font-mono: 'Roboto Mono', Consolas, Monaco, monospace;
-    
+
     /* Bordes y Transiciones */
     --radius-sm: 8px;
-    --radius-md: 16px; /* Sincronizado con app iOS (cornerRadius: 16) */
+    --radius-md: 16px;
+    /* Sincronizado con app iOS (cornerRadius: 16) */
     --radius-lg: 24px;
     --transition-fast: 0.15s ease;
     --transition-smooth: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -61,7 +67,8 @@
     --shadow-brand-glow: 0 0 10px rgba(30, 58, 138, 0.08);
     --shadow-btn-glow: 0 4px 12px rgba(30, 58, 138, 0.25);
     --brand-gradient: linear-gradient(135deg, var(--accent-emerald), #60a5fa);
-    --accent-indicator: #16A34A; /* Verde positivo en Producción */
+    --accent-indicator: #16A34A;
+    /* Verde positivo en Producción */
     --sandbox-banner-height: 0px;
 }
 
@@ -75,7 +82,8 @@
     --bg-input: rgba(30, 41, 59, 0.7);
     --border-color: rgba(255, 255, 255, 0.12);
     --border-glow: rgba(30, 58, 138, 0.25);
-    --accent-emerald: #60A5FA; /* Azul brillante de alta legibilidad para darkmode */
+    --accent-emerald: #60A5FA;
+    /* Azul brillante de alta legibilidad para darkmode */
     --accent-emerald-hover: #93C5FD;
     --accent-purple: #60A5FA;
     --accent-purple-hover: #93C5FD;
@@ -98,7 +106,8 @@
 
 /* Modo Sandbox (Entorno de pruebas - Púrpura) */
 body.sandbox-mode {
-    --accent-emerald: #7C3AED; /* Sincronizado: púrpura de iOS */
+    --accent-emerald: #7C3AED;
+    /* Sincronizado: púrpura de iOS */
     --accent-emerald-hover: #8B5CF6;
     --accent-purple: #7C3AED;
     --accent-purple-hover: #8B5CF6;
@@ -110,7 +119,8 @@ body.sandbox-mode {
     --shadow-brand-glow: 0 0 10px rgba(124, 58, 237, 0.08);
     --shadow-btn-glow: 0 4px 12px rgba(124, 58, 237, 0.25);
     --brand-gradient: linear-gradient(135deg, var(--accent-emerald), #a78bfa);
-    --accent-indicator: #7C3AED; /* Púrpura en Sandbox */
+    --accent-indicator: #7C3AED;
+    /* Púrpura en Sandbox */
     --sandbox-banner-height: 36px;
 }
 
@@ -118,7 +128,8 @@ body.sandbox-mode {
 [data-theme="dark"].sandbox-mode,
 [data-theme="dark"] .sandbox-mode,
 body.sandbox-mode[data-theme="dark"] {
-    --accent-emerald: #A78BFA; /* Púrpura brillante de alta legibilidad en sandbox darkmode */
+    --accent-emerald: #A78BFA;
+    /* Púrpura brillante de alta legibilidad en sandbox darkmode */
     --accent-emerald-hover: #C4B5FD;
     --accent-purple: #A78BFA;
     --accent-purple-hover: #C4B5FD;
@@ -144,15 +155,22 @@ body {
     background-attachment: fixed;
     color: var(--text-primary);
     font-size: 14px;
-    line-height: 1.5; /* 21px aprox. en font 14px, ideal para interfaces técnicas */
+    line-height: 1.5;
+    /* 21px aprox. en font 14px, ideal para interfaces técnicas */
     overflow-x: hidden;
     min-height: 100vh;
     transition: background var(--transition-smooth), color var(--transition-smooth);
 }
 
-h1, h2, h3, h4, h5, h6 {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
     font-family: var(--font-heading);
-    font-weight: 400; /* Peso ligero estilo Google */
+    font-weight: 400;
+    /* Peso ligero estilo Google */
     letter-spacing: 0;
 }
 
@@ -161,7 +179,10 @@ a {
     text-decoration: none;
 }
 
-button, input, select, textarea {
+button,
+input,
+select,
+textarea {
     outline: none;
     border: none;
     background: none;
@@ -173,13 +194,16 @@ button, input, select, textarea {
     width: 6px;
     height: 6px;
 }
+
 ::-webkit-scrollbar-track {
     background: var(--bg-main);
 }
+
 ::-webkit-scrollbar-thumb {
     background: var(--border-color);
     border-radius: 10px;
 }
+
 ::-webkit-scrollbar-thumb:hover {
     background: var(--text-muted);
 }
@@ -190,7 +214,8 @@ button, input, select, textarea {
 
 .app-container {
     display: grid;
-    grid-template-columns: 256px 1fr; /* Firebase standard sidebar width */
+    grid-template-columns: 256px 1fr;
+    /* Firebase standard sidebar width */
     min-height: 100vh;
     transition: grid-template-columns 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -228,10 +253,12 @@ button, input, select, textarea {
     background-color: var(--bg-sidebar);
     /* Se elimina el backdrop-filter pesado para un diseño más limpio */
     border-right: 1px solid var(--border-color);
-    padding: 24px 0; /* Padding lateral 0 para que los items ocupen el ancho, los márgenes van en los items */
+    padding: 24px 0;
+    /* Padding lateral 0 para que los items ocupen el ancho, los márgenes van en los items */
     display: flex;
     flex-direction: column;
-    height: calc(100vh - var(--sandbox-banner-height)); /* Compensación banner */
+    height: calc(100vh - var(--sandbox-banner-height));
+    /* Compensación banner */
     position: sticky;
     top: var(--sandbox-banner-height);
     z-index: 90;
@@ -241,25 +268,40 @@ button, input, select, textarea {
 .sidebar-logo {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 12px;
+    justify-content: flex-start;
+    /* Mantener icono y texto muy juntos */
+    gap: 1px;
     margin-bottom: 24px;
-    padding: 0 24px; /* Compensar el padding quitado al sidebar */
+    padding: 0 10px;
     position: relative;
 }
 
-.sidebar-logo img {
-    height: 38px;
-    border-radius: 8px;
+.sidebar-logo .app-brand-logo {
+    height: 55px;
+    /* Aumentado a petición del usuario para mayor visibilidad */
+    width: auto;
+    object-fit: contain;
+    flex-shrink: 0;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), filter 0.3s ease;
+    filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.08));
+    /* Sombra sutil para darle volumen y separarlo del fondo */
 }
 
-.sidebar-logo span {
-    font-family: var(--font-heading);
-    font-size: 1.25rem;
-    font-weight: 500; /* Reducido de 800 */
-    background: var(--brand-gradient);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
+.sidebar-logo .app-brand-logo:hover {
+    transform: scale(1.03);
+    /* Ligero zoom de interactividad */
+    filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.12));
+    /* Sombra más pronunciada al pasar el mouse */
+}
+
+.sidebar-logo span.logo-title {
+    font-family: 'Google Sans', var(--font-heading);
+    font-size: 1.4rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    /* Color gris característico de Firebase */
+    letter-spacing: -0.5px;
+    line-height: 1;
 }
 
 .sidebar-logo .sandbox-tag {
@@ -280,7 +322,8 @@ button, input, select, textarea {
     flex-direction: column;
     gap: 2px;
     flex-grow: 1;
-    padding: 0 12px; /* Espacio para que el border-radius de los items se note */
+    padding: 0 12px;
+    /* Espacio para que el border-radius de los items se note */
 }
 
 .nav-item a {
@@ -374,7 +417,8 @@ button, input, select, textarea {
     display: flex;
     flex-direction: column;
     min-height: calc(100vh - var(--sandbox-banner-height));
-    min-width: 0; /* Previene el desbordamiento horizontal en grid 1fr */
+    min-width: 0;
+    /* Previene el desbordamiento horizontal en grid 1fr */
 }
 
 /* Encabezado */
@@ -401,7 +445,8 @@ button, input, select, textarea {
 
 .page-title {
     font-size: 1.35rem;
-    font-weight: 400; /* Reducido de 600 */
+    font-weight: 400;
+    /* Reducido de 600 */
     font-family: var(--font-heading);
     color: var(--text-primary);
 }
@@ -449,15 +494,18 @@ body.sandbox-mode .environment-indicator {
 
 /* Panel de Contenido (Firebase Responsive Grid) */
 .content-wrapper {
-    padding: 32px; /* Default para >1440px */
+    padding: 32px;
+    /* Default para >1440px */
     flex-grow: 1;
-    min-width: 0; /* Permite que el contenido se encoja y no empuje los bordes fuera de la pantalla */
+    min-width: 0;
+    /* Permite que el contenido se encoja y no empuje los bordes fuera de la pantalla */
 }
 
 @media screen and (max-width: 1439px) {
     .content-wrapper {
         padding: 24px;
     }
+
     .header {
         padding: 0 24px;
     }
@@ -467,9 +515,11 @@ body.sandbox-mode .environment-indicator {
     .content-wrapper {
         padding: 16px;
     }
+
     .header {
         padding: 0 16px;
     }
+
     .card-table-wrapper {
         padding: 16px;
     }
@@ -494,7 +544,8 @@ body.sandbox-mode .environment-indicator {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    box-shadow: 0 1px 2px 0 rgba(60,64,67,0.3), 0 1px 3px 1px rgba(60,64,67,0.15); /* Sombra suave Firebase/Material */
+    box-shadow: 0 1px 2px 0 rgba(60, 64, 67, 0.3), 0 1px 3px 1px rgba(60, 64, 67, 0.15);
+    /* Sombra suave Firebase/Material */
     transition: all var(--transition-smooth);
     position: relative;
     overflow: hidden;
@@ -512,14 +563,16 @@ body.sandbox-mode .environment-indicator {
     font-size: 0.8125rem;
     font-weight: 500;
     color: var(--text-secondary);
-    text-transform: none; /* Firebase usa formato oración para títulos de tarjetas */
+    text-transform: none;
+    /* Firebase usa formato oración para títulos de tarjetas */
     margin-bottom: 8px;
 }
 
 .kpi-value {
     font-family: var(--font-heading);
     font-size: 2.1rem;
-    font-weight: 400; /* Reducido de 800 para no verse tan cargado */
+    font-weight: 400;
+    /* Reducido de 800 para no verse tan cargado */
     color: var(--text-primary);
 }
 
@@ -556,7 +609,8 @@ body.sandbox-mode .environment-indicator {
     justify-content: center;
     gap: 10px;
     padding: 10px 20px;
-    font-weight: 500; /* Reducido de 600 */
+    font-weight: 500;
+    /* Reducido de 600 */
     font-family: var(--font-heading);
     font-size: 0.875rem;
     border-radius: var(--radius-sm);
@@ -577,7 +631,8 @@ body.sandbox-mode .environment-indicator {
     box-shadow: 0 6px 16px var(--shadow-btn-glow);
 }
 
-.btn:disabled, .btn-primary:disabled {
+.btn:disabled,
+.btn-primary:disabled {
     background: var(--border-color) !important;
     color: var(--text-muted) !important;
     border: 1px solid var(--border-color) !important;
@@ -629,7 +684,9 @@ body.sandbox-mode .environment-indicator {
     color: var(--text-secondary);
 }
 
-.form-input, .form-select, .form-textarea {
+.form-input,
+.form-select,
+.form-textarea {
     background-color: var(--bg-input);
     border: 1px solid #cbd5e1;
     color: var(--text-primary);
@@ -648,7 +705,8 @@ body.sandbox-mode .environment-indicator {
     border: 1px solid #475569;
 }
 
-.form-input, .form-select {
+.form-input,
+.form-select {
     height: 42px;
     line-height: 20px;
 }
@@ -658,7 +716,9 @@ body.sandbox-mode .environment-indicator {
     min-height: 100px;
 }
 
-.form-input:focus, .form-select:focus, .form-textarea:focus {
+.form-input:focus,
+.form-select:focus,
+.form-textarea:focus {
     border-color: var(--accent-emerald);
     box-shadow: var(--shadow-glow);
 }
@@ -671,13 +731,14 @@ body.sandbox-mode .environment-indicator {
     background-color: var(--bg-card);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-sm);
-    padding: 24px 0; /* Sin padding horizontal para que la tabla sea edge-to-edge */
+    padding: 24px 0;
+    /* Sin padding horizontal para que la tabla sea edge-to-edge */
     box-shadow: none;
     overflow: hidden;
 }
 
 /* Aplicar padding horizontal solo a los elementos que no son la tabla */
-.card-table-wrapper > *:not(.table-responsive) {
+.card-table-wrapper>*:not(.table-responsive) {
     padding-left: 24px !important;
     padding-right: 24px !important;
 }
@@ -701,14 +762,16 @@ body.sandbox-mode .environment-indicator {
 }
 
 .table-premium th {
-    padding: 14px 24px; /* Aumentado a 24px para alinearse con el padding de la tarjeta edge-to-edge */
+    padding: 14px 24px;
+    /* Aumentado a 24px para alinearse con el padding de la tarjeta edge-to-edge */
     font-weight: 500;
     font-size: 0.75rem;
     color: var(--text-secondary);
     border-bottom: 1px solid rgba(0, 0, 0, 0.08);
     text-transform: uppercase;
     letter-spacing: 0.02em;
-    white-space: nowrap; /* Evitar que los headers se rompan en múltiples líneas (ej. FECHA / VENCE) */
+    white-space: nowrap;
+    /* Evitar que los headers se rompan en múltiples líneas (ej. FECHA / VENCE) */
 }
 
 .table-premium td {
@@ -729,7 +792,8 @@ body.sandbox-mode .environment-indicator {
 }
 
 .table-premium tbody tr:hover {
-    background-color: rgba(0, 0, 0, 0.015); /* Hover ultra sutil en lugar del anterior */
+    background-color: rgba(0, 0, 0, 0.015);
+    /* Hover ultra sutil en lugar del anterior */
 }
 
 /* Badges / Pill Tags */
@@ -774,19 +838,42 @@ body.sandbox-mode .environment-indicator {
    ========================================================================= */
 
 @keyframes pulse {
-    0% { transform: scale(1); opacity: 1; }
-    50% { transform: scale(1.1); opacity: 0.8; }
-    100% { transform: scale(1); opacity: 1; }
+    0% {
+        transform: scale(1);
+        opacity: 1;
+    }
+
+    50% {
+        transform: scale(1.1);
+        opacity: 0.8;
+    }
+
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
 }
 
 @keyframes floatIn {
-    from { transform: translateY(15px); opacity: 0; }
-    to { transform: translateY(0); opacity: 1; }
+    from {
+        transform: translateY(15px);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
 }
 
 @keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
 }
 
 .animate-fade-in {
@@ -870,7 +957,8 @@ body.sandbox-mode .environment-indicator {
 }
 
 /* Placeholder inputs alta legibilidad */
-.form-input::placeholder, .form-textarea::placeholder {
+.form-input::placeholder,
+.form-textarea::placeholder {
     color: var(--text-muted);
     opacity: 0.8;
 }
@@ -1097,7 +1185,8 @@ body.sandbox-mode .segment-header-icon.emerald {
 }
 
 .app-container.sidebar-collapsed .sidebar-section-header {
-    display: none; /* Ocultar headers de sección en modo colapsado */
+    display: none;
+    /* Ocultar headers de sección en modo colapsado */
 }
 
 .app-container.sidebar-collapsed .sidebar-section {
@@ -1120,7 +1209,8 @@ body.sandbox-mode .segment-header-icon.emerald {
 .app-container.sidebar-collapsed .nav-item a {
     width: 44px;
     height: 44px;
-    border-radius: 50%; /* Iconos circulares / pill shape */
+    border-radius: 50%;
+    /* Iconos circulares / pill shape */
     padding: 0;
     justify-content: center;
     align-items: center;
@@ -1306,7 +1396,8 @@ body.sandbox-mode .segment-header-icon.emerald {
 
 @media (max-width: 992px) {
     .landing-menu {
-        display: none; /* Simplificado para móviles - responsive simple */
+        display: none;
+        /* Simplificado para móviles - responsive simple */
     }
 }
 
@@ -1470,8 +1561,13 @@ body.sandbox-mode .segment-header-icon.emerald {
     background-color: #ef4444;
 }
 
-.mockup-dot:nth-child(2) { background-color: #eab308; }
-.mockup-dot:nth-child(3) { background-color: #22c55e; }
+.mockup-dot:nth-child(2) {
+    background-color: #eab308;
+}
+
+.mockup-dot:nth-child(3) {
+    background-color: #22c55e;
+}
 
 .mockup-tabs {
     display: flex;
@@ -1555,6 +1651,7 @@ body.sandbox-mode .segment-header-icon.emerald {
 .mockup-slide:nth-child(1) .mockup-image-wrapper {
     background-color: #f8fafc;
 }
+
 [data-theme="dark"] .mockup-slide:nth-child(1) .mockup-image-wrapper {
     background-color: #0f172a;
 }
@@ -1562,6 +1659,7 @@ body.sandbox-mode .segment-header-icon.emerald {
 .mockup-slide:nth-child(2) .mockup-image-wrapper {
     background-color: #f8fafc;
 }
+
 [data-theme="dark"] .mockup-slide:nth-child(2) .mockup-image-wrapper {
     background-color: #0f172a;
 }
@@ -1569,6 +1667,7 @@ body.sandbox-mode .segment-header-icon.emerald {
 .mockup-slide:nth-child(3) .mockup-image-wrapper {
     background-color: #ffffff;
 }
+
 [data-theme="dark"] .mockup-slide:nth-child(3) .mockup-image-wrapper {
     background-color: #0f172a;
 }
@@ -1605,6 +1704,7 @@ body.sandbox-mode .segment-header-icon.emerald {
     max-width: 600px;
     margin: 0 auto;
 }
+
 .features-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -2108,10 +2208,26 @@ body.sandbox-mode .segment-header-icon.emerald {
     white-space: pre;
 }
 
-.code-content .json-prop { color: #f43f5e; } /* Propiedad */
-.code-content .json-string { color: #34d399; } /* Cadenas */
-.code-content .json-number { color: #fbbf24; } /* Números */
-.code-content .json-bracket { color: #818cf8; } /* Corchetes */
+.code-content .json-prop {
+    color: #f43f5e;
+}
+
+/* Propiedad */
+.code-content .json-string {
+    color: #34d399;
+}
+
+/* Cadenas */
+.code-content .json-number {
+    color: #fbbf24;
+}
+
+/* Números */
+.code-content .json-bracket {
+    color: #818cf8;
+}
+
+/* Corchetes */
 
 /* C. Integraciones con Sistemas */
 .integrations-section {
@@ -2175,6 +2291,3 @@ body.sandbox-mode .segment-header-icon.emerald {
     font-weight: 700;
     color: var(--text-primary);
 }
-
-
-

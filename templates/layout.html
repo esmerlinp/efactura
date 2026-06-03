@@ -12,7 +12,7 @@
     </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}{% endblock %} - e-Factura</title>
-
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/efactura_logo.png') }}">
     <!-- Metas de SEO según Buenas Prácticas -->
     <meta name="description"
         content="Replicación Web Premium de e-Factura para el cumplimiento de la Ley 32-23 de Facturación Electrónica en República Dominicana.">
@@ -56,6 +56,7 @@
             margin-bottom: 8px;
             transition: all 0.3s ease;
         }
+
         .sidebar-section-header {
             font-size: 0.75rem;
             font-weight: 500;
@@ -71,28 +72,33 @@
             align-items: center;
             justify-content: space-between;
         }
-        
+
         .sidebar-section:first-child .sidebar-section-header {
             border-top: none;
             margin-top: 8px;
             padding-top: 0;
         }
+
         .sidebar-collapsed .sidebar-section-header span {
             display: none;
         }
+
         .sidebar-collapsed .sidebar-section-header .section-toggle-icon {
             display: none;
         }
+
         .sidebar-section-header:hover {
             opacity: 1;
             color: var(--text-primary);
         }
+
         .sidebar-section-header .section-toggle-icon {
             font-size: 0.65rem;
             transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
             opacity: 0.5;
             margin-right: 4px;
         }
+
         .sidebar-collapsed .sidebar-section-header {
             opacity: 0;
             margin: 0;
@@ -100,6 +106,7 @@
             overflow: hidden;
             padding: 0;
         }
+
         .sidebar-section-content {
             list-style: none;
             display: flex;
@@ -108,25 +115,30 @@
             overflow: hidden;
             transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
         }
+
         /* Collapsed State */
         .sidebar-section.collapsed .sidebar-section-content {
             max-height: 0 !important;
             opacity: 0;
             pointer-events: none;
         }
+
         .sidebar-section.collapsed .section-toggle-icon {
             transform: rotate(-90deg);
         }
+
         .nav-menu {
             overflow-y: auto;
             max-height: calc(100vh - 200px);
             padding-right: 4px;
         }
+
         .nav-menu::-webkit-scrollbar {
             width: 4px;
         }
+
         .nav-menu::-webkit-scrollbar-thumb {
-            background: rgba(0,0,0,0.1);
+            background: rgba(0, 0, 0, 0.1);
             border-radius: 4px;
         }
     </style>
@@ -138,12 +150,16 @@
 
     {% if session.get('is_sandbox_mode', False) %}
     <!-- Banner superior Sandbox con acento púrpura e interactividad -->
-    <div class="sandbox-banner" id="sandbox-indicator-banner" style="display: flex; justify-content: center; align-items: center; gap: 15px; flex-wrap: wrap; padding: 8px 16px; min-height: var(--sandbox-banner-height);">
+    <div class="sandbox-banner" id="sandbox-indicator-banner"
+        style="display: flex; justify-content: center; align-items: center; gap: 15px; flex-wrap: wrap; padding: 8px 16px; min-height: var(--sandbox-banner-height);">
         <div style="display: flex; align-items: center; gap: 8px;">
             <i class="fa-solid fa-flask"></i>
             <span>ENTORNO DE PRUEBAS ACTIVO - CERTIFICACIÓN / SANDBOX</span>
         </div>
-        <button type="button" id="sandbox-banner-toggle" style="background: rgba(255, 255, 255, 0.2); border: 1px solid rgba(255, 255, 255, 0.4); color: white; padding: 4px 12px; font-size: 0.75rem; font-weight: 700; border-radius: var(--radius-sm); cursor: pointer; transition: all var(--transition-fast); text-transform: uppercase;" onmouseover="this.style.background='rgba(255, 255, 255, 0.35)'" onmouseout="this.style.background='rgba(255, 255, 255, 0.2)'">
+        <button type="button" id="sandbox-banner-toggle"
+            style="background: rgba(255, 255, 255, 0.2); border: 1px solid rgba(255, 255, 255, 0.4); color: white; padding: 4px 12px; font-size: 0.75rem; font-weight: 700; border-radius: var(--radius-sm); cursor: pointer; transition: all var(--transition-fast); text-transform: uppercase;"
+            onmouseover="this.style.background='rgba(255, 255, 255, 0.35)'"
+            onmouseout="this.style.background='rgba(255, 255, 255, 0.2)'">
             <i class="fa-solid fa-toggle-on"></i> Cambiar a Producción
         </button>
     </div>
@@ -161,9 +177,9 @@
         <!-- 1. BARRA LATERAL (SIDEBAR) -->
         <aside class="sidebar">
             <div class="sidebar-logo">
+                <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Logo" class="app-brand-logo">
                 <div class="logo-text-wrapper"
-                    style="display: flex; align-items: center; gap: 12px; overflow: hidden; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); width: auto;">
-                    <i class="fa-solid fa-receipt" style="font-size: 1.8rem; color: var(--accent-emerald);"></i>
+                    style="display: flex; align-items: center; gap: 8px; overflow: hidden; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); width: auto; margin-left: -28px;">
                     <span class="logo-title">e-Factura</span>
                     {% if session.get('is_sandbox_mode', False) %}
                     <span class="sandbox-tag">Sandbox</span>
@@ -179,7 +195,8 @@
                         <i class="fa-solid fa-chevron-down section-toggle-icon"></i>
                     </div>
                     <ul class="sidebar-section-content">
-                        <li class="nav-item {% if active_page == 'dashboard' %}active{% endif %}" data-tooltip="Dashboard">
+                        <li class="nav-item {% if active_page == 'dashboard' %}active{% endif %}"
+                            data-tooltip="Dashboard">
                             <a href="{{ url_for('dashboard') }}">
                                 <i class="fa-solid fa-chart-pie"></i>
                                 <span>Dashboard</span>
@@ -195,14 +212,17 @@
                         <i class="fa-solid fa-chevron-down section-toggle-icon"></i>
                     </div>
                     <ul class="sidebar-section-content">
-                        {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canInvoice', True) %}
-                        <li class="nav-item {% if active_page == 'invoices' %}active{% endif %}" data-tooltip="Documentos">
+                        {% if session.get('user', {}).get('role') == 'owner' or session.get('user',
+                        {}).get('permissions', {}).get('canInvoice', True) %}
+                        <li class="nav-item {% if active_page == 'invoices' %}active{% endif %}"
+                            data-tooltip="Documentos">
                             <a href="{{ url_for('list_invoices') }}">
                                 <i class="fa-solid fa-file-invoice-dollar"></i>
                                 <span>Documentos</span>
                             </a>
                         </li>
-                        <li class="nav-item {% if active_page == 'quotations' %}active{% endif %}" data-tooltip="Cotizaciones">
+                        <li class="nav-item {% if active_page == 'quotations' %}active{% endif %}"
+                            data-tooltip="Cotizaciones">
                             <a href="{{ url_for('list_quotations') }}">
                                 <i class="fa-solid fa-file-signature"></i>
                                 <span>Cotizaciones</span>
@@ -210,8 +230,10 @@
                         </li>
                         {% endif %}
 
-                        {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canClients', True) %}
-                        <li class="nav-item {% if active_page == 'clients' %}active{% endif %}" data-tooltip="CRM Clientes">
+                        {% if session.get('user', {}).get('role') == 'owner' or session.get('user',
+                        {}).get('permissions', {}).get('canClients', True) %}
+                        <li class="nav-item {% if active_page == 'clients' %}active{% endif %}"
+                            data-tooltip="CRM Clientes">
                             <a href="{{ url_for('list_clients') }}">
                                 <i class="fa-solid fa-address-book"></i>
                                 <span>CRM Clientes</span>
@@ -228,7 +250,8 @@
                         <i class="fa-solid fa-chevron-down section-toggle-icon"></i>
                     </div>
                     <ul class="sidebar-section-content">
-                        {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canClients', True) %}
+                        {% if session.get('user', {}).get('role') == 'owner' or session.get('user',
+                        {}).get('permissions', {}).get('canClients', True) %}
                         <li class="nav-item {% if active_page == 'items' %}active{% endif %}" data-tooltip="Catálogo">
                             <a href="{{ url_for('list_items') }}">
                                 <i class="fa-solid fa-boxes-stacked"></i>
@@ -237,8 +260,10 @@
                         </li>
                         {% endif %}
 
-                        {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canManageInventory', True) %}
-                        <li class="nav-item {% if active_page == 'inventory' %}active{% endif %}" data-tooltip="Inventario">
+                        {% if session.get('user', {}).get('role') == 'owner' or session.get('user',
+                        {}).get('permissions', {}).get('canManageInventory', True) %}
+                        <li class="nav-item {% if active_page == 'inventory' %}active{% endif %}"
+                            data-tooltip="Inventario">
                             <a href="{{ url_for('inventory_dashboard') }}">
                                 <i class="fa-solid fa-warehouse"></i>
                                 <span>Inventario</span>
@@ -249,14 +274,16 @@
                 </div>
 
                 <!-- SECCIÓN: FINANZAS -->
-                {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canExpenses', True) %}
+                {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions',
+                {}).get('canExpenses', True) %}
                 <div class="sidebar-section collapsed" id="sidebar-section-finanzas">
                     <div class="sidebar-section-header">
                         <span>Finanzas</span>
                         <i class="fa-solid fa-chevron-down section-toggle-icon"></i>
                     </div>
                     <ul class="sidebar-section-content">
-                        <li class="nav-item {% if active_page == 'expenses' %}active{% endif %}" data-tooltip="Control de Gastos">
+                        <li class="nav-item {% if active_page == 'expenses' %}active{% endif %}"
+                            data-tooltip="Control de Gastos">
                             <a href="{{ url_for('list_expenses') }}">
                                 <i class="fa-solid fa-wallet"></i>
                                 <span>Control de Gastos</span>
@@ -273,16 +300,20 @@
                         <i class="fa-solid fa-chevron-down section-toggle-icon"></i>
                     </div>
                     <ul class="sidebar-section-content">
-                        {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canModifySettings', True) %}
-                        <li class="nav-item {% if active_page == 'sequences' %}active{% endif %}" data-tooltip="Secuencias Fiscales">
+                        {% if session.get('user', {}).get('role') == 'owner' or session.get('user',
+                        {}).get('permissions', {}).get('canModifySettings', True) %}
+                        <li class="nav-item {% if active_page == 'sequences' %}active{% endif %}"
+                            data-tooltip="Secuencias Fiscales">
                             <a href="{{ url_for('list_sequences') }}">
                                 <i class="fa-solid fa-barcode"></i>
                                 <span>Secuencias Fiscales</span>
                             </a>
                         </li>
                         {% endif %}
-                        {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canInvoice', True) %}
-                        <li class="nav-item {% if active_page == 'reports' %}active{% endif %}" data-tooltip="Reportes DGII">
+                        {% if session.get('user', {}).get('role') == 'owner' or session.get('user',
+                        {}).get('permissions', {}).get('canInvoice', True) %}
+                        <li class="nav-item {% if active_page == 'reports' %}active{% endif %}"
+                            data-tooltip="Reportes DGII">
                             <a href="{{ url_for('reports_dashboard') }}">
                                 <i class="fa-solid fa-file-shield"></i>
                                 <span>Reportes DGII</span>
@@ -294,19 +325,19 @@
 
                 <!-- Inicializar estado de secciones colapsables para evitar visual layout shift -->
                 <script>
-                    (function() {
+                    (function () {
                         const sections = ['general', 'ventas', 'logistica', 'finanzas', 'configuracion'];
                         sections.forEach(id => {
                             const el = document.getElementById('sidebar-section-' + id);
                             if (!el) return;
-                            
+
                             // Regla de Oro: Si contiene el ítem activo, forzar expandido
                             const hasActive = el.querySelector('.nav-item.active');
                             if (hasActive) {
                                 el.classList.remove('collapsed');
                                 return;
                             }
-                            
+
                             // Cargar preferencia del localStorage
                             const stored = localStorage.getItem('sidebar-collapsed-sidebar-section-' + id);
                             if (stored === 'true') {
@@ -321,17 +352,17 @@
 
             <div class="sidebar-footer" style="flex-direction: column; gap: 12px;">
                 <!-- Botón Toggle tipo Firebase en el bottom -->
-                <button type="button" id="sidebar-toggle-btn" class="sidebar-toggle" title="Contraer / Expandir menú" style="margin: 0 auto;">
+                <button type="button" id="sidebar-toggle-btn" class="sidebar-toggle" title="Contraer / Expandir menú"
+                    style="margin: 0 auto;">
                     <i class="fa-solid fa-chevron-left" id="toggle-icon"></i>
                 </button>
                 <a href="{{ url_for('user_profile_page') }}" class="user-badge user-badge-link"
-                   title="Ver y editar mi perfil"
-                   style="text-decoration: none; display: flex; align-items: center; gap: 12px;
+                    title="Ver y editar mi perfil" style="text-decoration: none; display: flex; align-items: center; gap: 12px;
                           padding: 10px 14px; border-radius: var(--radius-sm);
                           transition: background-color 0.2s ease, transform 0.15s ease;
                           cursor: pointer; position: relative;"
-                   onmouseover="this.style.backgroundColor='var(--bg-nav-hover)'; this.querySelector('.profile-hint-icon').style.opacity='1';"
-                   onmouseout="this.style.backgroundColor='transparent'; this.querySelector('.profile-hint-icon').style.opacity='0';">
+                    onmouseover="this.style.backgroundColor='var(--bg-nav-hover)'; this.querySelector('.profile-hint-icon').style.opacity='1';"
+                    onmouseout="this.style.backgroundColor='transparent'; this.querySelector('.profile-hint-icon').style.opacity='0';">
                     <div class="user-avatar" style="position: relative; flex-shrink: 0;">
                         {% if company_logo_url %}
                         <img src="{{ company_logo_url }}" alt="Logo"
@@ -341,11 +372,15 @@
                         {% endif %}
                     </div>
                     <div class="user-info" style="overflow: hidden; flex: 1; min-width: 0;">
-                        <span class="user-name" style="display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ session.get('user', {}).get('name', 'Usuario') }}</span>
-                        <span class="user-role" style="display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ session.get('user', {}).get('role', 'owner') | capitalize }}</span>
+                        <span class="user-name"
+                            style="display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{
+                            session.get('user', {}).get('name', 'Usuario') }}</span>
+                        <span class="user-role"
+                            style="display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{
+                            session.get('user', {}).get('role', 'owner') | capitalize }}</span>
                     </div>
                     <i class="fa-solid fa-pen-to-square profile-hint-icon"
-                       style="font-size: 0.75rem; color: var(--accent-emerald); opacity: 0; transition: opacity 0.2s ease; flex-shrink: 0;"></i>
+                        style="font-size: 0.75rem; color: var(--accent-emerald); opacity: 0; transition: opacity 0.2s ease; flex-shrink: 0;"></i>
                 </a>
             </div>
         </aside>
@@ -358,23 +393,29 @@
                 </div>
 
                 <div class="header-actions">
-                    {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canInvoice', True) %}
+                    {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions',
+                    {}).get('canInvoice', True) %}
                     <!-- Acceso directo: Nuevo Documento -->
-                    <a href="{{ url_for('new_invoice_route') }}" class="btn btn-primary" style="padding: 8px 16px; font-size: 0.85rem; text-decoration: none; display: inline-flex; align-items: center; gap: 8px;">
+                    <a href="{{ url_for('new_invoice_route') }}" class="btn btn-primary"
+                        style="padding: 8px 16px; font-size: 0.85rem; text-decoration: none; display: inline-flex; align-items: center; gap: 8px;">
                         <i class="fa-solid fa-file-circle-plus"></i>
                         <span>Nuevo Documento</span>
                     </a>
                     {% endif %}
 
                     <!-- Icono CRM / Notificaciones -->
-                    <div class="crm-dropdown" id="crm-dropdown-trigger" style="position: relative; display: inline-block;">
-                        <button class="btn btn-secondary" style="padding: 8px 12px; font-size: 1rem; cursor: pointer; border: none; background: transparent;" title="Compromisos CRM para Hoy">
+                    <div class="crm-dropdown" id="crm-dropdown-trigger"
+                        style="position: relative; display: inline-block;">
+                        <button class="btn btn-secondary"
+                            style="padding: 8px 12px; font-size: 1rem; cursor: pointer; border: none; background: transparent;"
+                            title="Compromisos CRM para Hoy">
                             <i class="fa-regular fa-bell"></i>
                             {% if crm_contacts is defined and crm_contacts|length > 0 %}
-                            <span style="position: absolute; top: 2px; right: 2px; background-color: var(--accent-red); color: white; border-radius: 50%; width: 8px; height: 8px;"></span>
+                            <span
+                                style="position: absolute; top: 2px; right: 2px; background-color: var(--accent-red); color: white; border-radius: 50%; width: 8px; height: 8px;"></span>
                             {% endif %}
                         </button>
-                        
+
                         <!-- Menú Desplegable CRM -->
                         <div class="dropdown-menu" id="crm-dropdown-menu" style="
                             display: none;
@@ -391,34 +432,45 @@
                             flex-direction: column;
                             box-sizing: border-box;
                         ">
-                            <div style="padding: 12px 16px; border-bottom: 1px solid var(--border-color); font-weight: 500; font-size: 0.85rem;">
+                            <div
+                                style="padding: 12px 16px; border-bottom: 1px solid var(--border-color); font-weight: 500; font-size: 0.85rem;">
                                 Compromisos CRM para Hoy
                             </div>
                             <div style="max-height: 300px; overflow-y: auto; padding: 8px;">
                                 {% if crm_contacts is defined and crm_contacts %}
                                 {% for contact in crm_contacts %}
-                                <div class="crm-notification-item" style="padding: 10px; border-bottom: 1px solid var(--border-color); font-size: 0.8rem;">
-                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-                                        <strong style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 170px;">{{ contact.razonSocial }}</strong>
-                                        <span class="badge" style="background-color: #e8f0fe; color: #1a73e8; border: none; font-size: 0.6rem; padding: 2px 6px;">CRM</span>
+                                <div class="crm-notification-item"
+                                    style="padding: 10px; border-bottom: 1px solid var(--border-color); font-size: 0.8rem;">
+                                    <div
+                                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                                        <strong
+                                            style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 170px;">{{
+                                            contact.razonSocial }}</strong>
+                                        <span class="badge"
+                                            style="background-color: #e8f0fe; color: #1a73e8; border: none; font-size: 0.6rem; padding: 2px 6px;">CRM</span>
                                     </div>
                                     <p style="color: var(--text-secondary); margin: 0 0 6px 0; font-size: 0.75rem;">
                                         {% if contact.crmNotes %}
-                                            {{ contact.crmNotes }}
+                                        {{ contact.crmNotes }}
                                         {% elif contact.total_cxc and contact.total_cxc > 0 %}
-                                            <span style="color: var(--text-secondary);"><i class="fa-solid fa-circle-info"></i> Cliente con saldo pendiente.</span>
+                                        <span style="color: var(--text-secondary);"><i
+                                                class="fa-solid fa-circle-info"></i> Cliente con saldo pendiente.</span>
                                         {% else %}
-                                            Sin anotaciones.
+                                        Sin anotaciones.
                                         {% endif %}
                                     </p>
                                     <div style="display: flex; justify-content: space-between; align-items: center;">
-                                        <span style="color: var(--text-muted); font-size: 0.7rem;"><i class="fa-solid fa-phone"></i> {{ contact.telefono or 'N/A' }}</span>
-                                        <a href="{{ url_for('client_detail', client_id=contact.id) }}" style="color: var(--accent-emerald); font-weight: 500; text-decoration: none; font-size: 0.75rem;"><i class="fa-solid fa-eye"></i> Ver</a>
+                                        <span style="color: var(--text-muted); font-size: 0.7rem;"><i
+                                                class="fa-solid fa-phone"></i> {{ contact.telefono or 'N/A' }}</span>
+                                        <a href="{{ url_for('client_detail', client_id=contact.id) }}"
+                                            style="color: var(--accent-emerald); font-weight: 500; text-decoration: none; font-size: 0.75rem;"><i
+                                                class="fa-solid fa-eye"></i> Ver</a>
                                     </div>
                                 </div>
                                 {% endfor %}
                                 {% else %}
-                                <div style="text-align: center; color: var(--text-muted); font-size: 0.8rem; padding: 20px 0;">
+                                <div
+                                    style="text-align: center; color: var(--text-muted); font-size: 0.8rem; padding: 20px 0;">
                                     No tienes compromisos para hoy.
                                 </div>
                                 {% endif %}
@@ -427,13 +479,16 @@
                     </div>
 
                     <!-- Dropdown de Empresa -->
-                    <div class="company-dropdown" id="company-dropdown-trigger" style="position: relative; display: inline-block;">
-                        <button class="btn btn-secondary" style="padding: 8px 16px; font-size: 0.85rem; display: flex; align-items: center; gap: 8px; cursor: pointer;" title="Menú de Empresa y Cuenta">
+                    <div class="company-dropdown" id="company-dropdown-trigger"
+                        style="position: relative; display: inline-block;">
+                        <button class="btn btn-secondary"
+                            style="padding: 8px 16px; font-size: 0.85rem; display: flex; align-items: center; gap: 8px; cursor: pointer;"
+                            title="Menú de Empresa y Cuenta">
                             <i class="fa-solid fa-building"></i>
                             <span>Empresa</span>
                             <i class="fa-solid fa-chevron-down" style="font-size: 0.7rem; opacity: 0.7;"></i>
                         </button>
-                        
+
                         <!-- Menú Desplegable (Dropdown Menu) -->
                         <div class="dropdown-menu" id="company-dropdown-menu" style="
                             display: none;
@@ -454,7 +509,8 @@
                             box-sizing: border-box;
                         ">
                             <!-- Opción 1: Administrar Empresa -->
-                            {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canModifySettings', True) %}
+                            {% if session.get('user', {}).get('role') == 'owner' or session.get('user',
+                            {}).get('permissions', {}).get('canModifySettings', True) %}
                             <a href="{{ url_for('company_settings') }}" style="
                                 display: flex;
                                 align-items: center;
@@ -465,11 +521,13 @@
                                 color: var(--text-primary);
                                 border-radius: var(--radius-sm);
                                 transition: background-color var(--transition-fast);
-                            " onmouseover="this.style.backgroundColor='var(--bg-nav-hover)'" onmouseout="this.style.backgroundColor='transparent'">
-                                <i class="fa-solid fa-gears" style="color: var(--accent-emerald); width: 16px; font-size: 0.95rem;"></i>
+                            " onmouseover="this.style.backgroundColor='var(--bg-nav-hover)'"
+                                onmouseout="this.style.backgroundColor='transparent'">
+                                <i class="fa-solid fa-gears"
+                                    style="color: var(--accent-emerald); width: 16px; font-size: 0.95rem;"></i>
                                 <span>Administrar Empresa</span>
                             </a>
-                            
+
                             <!-- Opción: Exportar Datos (CSV) -->
                             <div id="btn-open-export-modal" style="
                                 display: flex;
@@ -482,12 +540,14 @@
                                 border-radius: var(--radius-sm);
                                 cursor: pointer;
                                 transition: background-color var(--transition-fast);
-                            " onmouseover="this.style.backgroundColor='var(--bg-nav-hover)'" onmouseout="this.style.backgroundColor='transparent'">
-                                <i class="fa-solid fa-file-export" style="color: var(--accent-emerald); width: 16px; font-size: 0.95rem;"></i>
+                            " onmouseover="this.style.backgroundColor='var(--bg-nav-hover)'"
+                                onmouseout="this.style.backgroundColor='transparent'">
+                                <i class="fa-solid fa-file-export"
+                                    style="color: var(--accent-emerald); width: 16px; font-size: 0.95rem;"></i>
                                 <span>Exportar Datos (CSV)</span>
                             </div>
                             {% endif %}
-                            
+
                             <!-- Opción: Mi Plan y Consumo -->
                             <a href="{{ url_for('client_subscription_page') }}" style="
                                 display: flex;
@@ -499,11 +559,13 @@
                                 color: var(--text-primary);
                                 border-radius: var(--radius-sm);
                                 transition: background-color var(--transition-fast);
-                            " onmouseover="this.style.backgroundColor='var(--bg-nav-hover)'" onmouseout="this.style.backgroundColor='transparent'">
-                                <i class="fa-solid fa-credit-card" style="color: var(--accent-emerald); width: 16px; font-size: 0.95rem;"></i>
+                            " onmouseover="this.style.backgroundColor='var(--bg-nav-hover)'"
+                                onmouseout="this.style.backgroundColor='transparent'">
+                                <i class="fa-solid fa-credit-card"
+                                    style="color: var(--accent-emerald); width: 16px; font-size: 0.95rem;"></i>
                                 <span>Mi Plan y Consumo</span>
                             </a>
-                            
+
                             <!-- Opción 2: Cambiar a modo pruebas (Sandbox Toggle) -->
                             <div class="environment-toggle" id="sandbox-toggle" style="
                                 display: flex;
@@ -521,8 +583,10 @@
                                 background-color: transparent;
                                 width: 100%;
                                 box-sizing: border-box;
-                            " onmouseover="this.style.backgroundColor='var(--bg-nav-hover)'" onmouseout="this.style.backgroundColor='transparent'">
-                                <span class="environment-indicator" style="width: 8px; height: 8px; border-radius: 50%;
+                            " onmouseover="this.style.backgroundColor='var(--bg-nav-hover)'"
+                                onmouseout="this.style.backgroundColor='transparent'">
+                                <span class="environment-indicator"
+                                    style="width: 8px; height: 8px; border-radius: 50%;
                                     background-color: {% if session.get('is_sandbox_mode', False) %}var(--accent-purple){% else %}var(--accent-emerald){% endif %};
                                     box-shadow: 0 0 8px {% if session.get('is_sandbox_mode', False) %}var(--accent-purple){% else %}var(--accent-emerald){% endif %};"></span>
                                 <span>Modo Pruebas (Sandbox)</span>
@@ -538,11 +602,13 @@
                                 color: var(--text-primary);
                                 border-radius: var(--radius-sm);
                                 transition: background-color var(--transition-fast);
-                            " onmouseover="this.style.backgroundColor='var(--bg-nav-hover)'" onmouseout="this.style.backgroundColor='transparent'">
-                                <i class="fa-solid fa-circle-question" style="color: var(--accent-emerald); width: 16px; font-size: 0.95rem;"></i>
+                            " onmouseover="this.style.backgroundColor='var(--bg-nav-hover)'"
+                                onmouseout="this.style.backgroundColor='transparent'">
+                                <i class="fa-solid fa-circle-question"
+                                    style="color: var(--accent-emerald); width: 16px; font-size: 0.95rem;"></i>
                                 <span>Centro de Ayuda</span>
                             </a>
-                            
+
                             <!-- Opción: Modo Oscuro -->
                             <div id="theme-toggle-dropdown-btn" style="
                                 display: flex;
@@ -555,16 +621,19 @@
                                 border-radius: var(--radius-sm);
                                 cursor: pointer;
                                 transition: background-color var(--transition-fast);
-                            " onmouseover="this.style.backgroundColor='var(--bg-nav-hover)'" onmouseout="this.style.backgroundColor='transparent'">
+                            " onmouseover="this.style.backgroundColor='var(--bg-nav-hover)'"
+                                onmouseout="this.style.backgroundColor='transparent'">
                                 <div style="display: flex; align-items: center; gap: 12px;">
-                                    <i class="fa-solid fa-moon" id="theme-icon-dropdown-dark" style="color: var(--text-secondary); width: 16px; font-size: 0.95rem;"></i>
-                                    <i class="fa-solid fa-sun" id="theme-icon-dropdown-light" style="display: none; color: #f59e0b; width: 16px; font-size: 0.95rem;"></i>
+                                    <i class="fa-solid fa-moon" id="theme-icon-dropdown-dark"
+                                        style="color: var(--text-secondary); width: 16px; font-size: 0.95rem;"></i>
+                                    <i class="fa-solid fa-sun" id="theme-icon-dropdown-light"
+                                        style="display: none; color: #f59e0b; width: 16px; font-size: 0.95rem;"></i>
                                     <span>Modo Oscuro</span>
                                 </div>
                             </div>
-                            
+
                             <div style="height: 1px; background-color: var(--border-color); margin: 4px 0;"></div>
-                            
+
                             <!-- Opción 3: Cerrar Sesión -->
                             <a href="{{ url_for('logout') }}" style="
                                 display: flex;
@@ -576,7 +645,8 @@
                                 color: var(--accent-red);
                                 border-radius: var(--radius-sm);
                                 transition: background-color var(--transition-fast);
-                            " onmouseover="this.style.backgroundColor='rgba(220, 38, 38, 0.08)'" onmouseout="this.style.backgroundColor='transparent'">
+                            " onmouseover="this.style.backgroundColor='rgba(220, 38, 38, 0.08)'"
+                                onmouseout="this.style.backgroundColor='transparent'">
                                 <i class="fa-solid fa-right-from-bracket" style="width: 16px; font-size: 0.95rem;"></i>
                                 <span>Cerrar Sesión</span>
                             </a>
@@ -586,19 +656,19 @@
 
                 <!-- Script de Dropdowns del Header -->
                 <script>
-                    document.addEventListener('DOMContentLoaded', function() {
+                    document.addEventListener('DOMContentLoaded', function () {
                         const setupDropdown = (triggerId, menuId) => {
                             const trigger = document.getElementById(triggerId);
                             const menu = document.getElementById(menuId);
                             if (trigger && menu) {
-                                trigger.addEventListener('click', function(event) {
+                                trigger.addEventListener('click', function (event) {
                                     event.stopPropagation();
                                     const isDisplayed = menu.style.display === 'flex';
                                     // Cerrar otros dropdowns
                                     document.querySelectorAll('.dropdown-menu').forEach(m => m.style.display = 'none');
                                     menu.style.display = isDisplayed ? 'none' : 'flex';
                                 });
-                                window.addEventListener('click', function(event) {
+                                window.addEventListener('click', function (event) {
                                     if (!trigger.contains(event.target)) {
                                         menu.style.display = 'none';
                                     }
@@ -654,9 +724,13 @@
                     <i class="fa-solid fa-robot"></i>
                 </div>
                 <div>
-                    <h4 style="font-size: 0.95rem; font-weight: 800; margin: 0; color: var(--text-primary); font-family: var(--font-heading);">Asistente e-Factura</h4>
-                    <span style="font-size: 0.72rem; font-weight: 600; color: var(--accent-emerald); display: flex; align-items: center; gap: 4px;">
-                        <span style="width: 6px; height: 6px; border-radius: 50%; background-color: var(--accent-emerald); display: inline-block;"></span>
+                    <h4
+                        style="font-size: 0.95rem; font-weight: 800; margin: 0; color: var(--text-primary); font-family: var(--font-heading);">
+                        Asistente e-Factura</h4>
+                    <span
+                        style="font-size: 0.72rem; font-weight: 600; color: var(--accent-emerald); display: flex; align-items: center; gap: 4px;">
+                        <span
+                            style="width: 6px; height: 6px; border-radius: 50%; background-color: var(--accent-emerald); display: inline-block;"></span>
                         Experto Fiscal Activo
                     </span>
                 </div>
@@ -674,10 +748,14 @@
         <!-- Cuerpo del Chat (Mensajes) -->
         <div class="chatbot-body" id="chatbot-messages-container">
             <div class="chatbot-welcome-card">
-                <i class="fa-solid fa-scale-balanced" style="font-size: 2.2rem; margin-bottom: 12px; background: linear-gradient(135deg, var(--accent-emerald), #60a5fa); -webkit-background-clip: text; -webkit-text-fill-color: transparent;"></i>
-                <h5 style="margin: 0 0 6px 0; font-weight: 800; color: var(--text-primary); font-family: var(--font-heading);">¡Hola! Soy tu Asesor Fiscal IA</h5>
+                <i class="fa-solid fa-scale-balanced"
+                    style="font-size: 2.2rem; margin-bottom: 12px; background: linear-gradient(135deg, var(--accent-emerald), #60a5fa); -webkit-background-clip: text; -webkit-text-fill-color: transparent;"></i>
+                <h5
+                    style="margin: 0 0 6px 0; font-weight: 800; color: var(--text-primary); font-family: var(--font-heading);">
+                    ¡Hola! Soy tu Asesor Fiscal IA</h5>
                 <p style="font-size: 0.8rem; line-height: 1.4; color: var(--text-secondary); margin: 0 0 14px 0;">
-                    Estoy capacitado en la **Ley 32-23 de Facturación Electrónica en República Dominicana** y las regulaciones de la **DGII**. Puedo ayudarte a responder consultas sobre:
+                    Estoy capacitado en la **Ley 32-23 de Facturación Electrónica en República Dominicana** y las
+                    regulaciones de la **DGII**. Puedo ayudarte a responder consultas sobre:
                 </p>
                 <div class="chatbot-chips-grid">
                     <button class="chatbot-chip">¿Qué es el RST?</button>
@@ -693,7 +771,8 @@
         <!-- Entrada de Texto del Chat -->
         <div class="chatbot-footer">
             <form id="chatbot-form" style="display: flex; gap: 10px; width: 100%; margin: 0; padding: 0;">
-                <input type="text" id="chatbot-input" placeholder="Escribe tu consulta fiscal aquí..." autocomplete="off" required>
+                <input type="text" id="chatbot-input" placeholder="Escribe tu consulta fiscal aquí..."
+                    autocomplete="off" required>
                 <button type="submit" id="chatbot-send-btn" title="Enviar mensaje">
                     <i class="fa-solid fa-paper-plane"></i>
                 </button>
@@ -742,15 +821,23 @@
         }
 
         @keyframes chatbot-pulse-anim {
-            0% { transform: scale(1); opacity: 0.6; }
-            100% { transform: scale(1.4); opacity: 0; }
+            0% {
+                transform: scale(1);
+                opacity: 0.6;
+            }
+
+            100% {
+                transform: scale(1.4);
+                opacity: 0;
+            }
         }
 
         /* Estilos del Sidebar */
         #chatbot-sidebar {
             position: fixed;
             top: 0;
-            right: -850px; /* Oculto por defecto */
+            right: -850px;
+            /* Oculto por defecto */
             width: 420px;
             min-width: 320px;
             max-width: 800px;
@@ -774,6 +861,7 @@
             --chatbot-bubble-ai: rgba(0, 0, 0, 0.04);
             --chatbot-bubble-ai-color: var(--text-primary);
         }
+
         [data-theme="dark"] {
             --chatbot-bg: rgba(18, 18, 18, 0.78);
             --chatbot-input-bg: rgba(255, 255, 255, 0.03);
@@ -802,7 +890,8 @@
             transition: background 0.2s ease;
         }
 
-        #chatbot-resize-handle:hover, #chatbot-resize-handle.resizing {
+        #chatbot-resize-handle:hover,
+        #chatbot-resize-handle.resizing {
             background: rgba(16, 185, 129, 0.08);
         }
 
@@ -815,7 +904,8 @@
             opacity: 0.5;
         }
 
-        #chatbot-resize-handle:hover .resize-indicator-line, #chatbot-resize-handle.resizing .resize-indicator-line {
+        #chatbot-resize-handle:hover .resize-indicator-line,
+        #chatbot-resize-handle.resizing .resize-indicator-line {
             background-color: var(--accent-emerald);
             opacity: 1;
         }
@@ -942,8 +1032,15 @@
         }
 
         @keyframes chatbot-fade-in {
-            from { opacity: 0; transform: translateY(8px); }
-            to { opacity: 1; transform: translateY(0); }
+            from {
+                opacity: 0;
+                transform: translateY(8px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
         .chatbot-message.user {
@@ -990,7 +1087,8 @@
             font-weight: 700;
         }
 
-        .chatbot-bubble ul, .chatbot-bubble ol {
+        .chatbot-bubble ul,
+        .chatbot-bubble ol {
             margin: 8px 0;
             padding-left: 20px;
         }
@@ -1040,12 +1138,25 @@
             animation: chatbot-typing-anim 1.4s infinite ease-in-out both;
         }
 
-        .chatbot-typing-dot:nth-child(1) { animation-delay: -0.32s; }
-        .chatbot-typing-dot:nth-child(2) { animation-delay: -0.16s; }
+        .chatbot-typing-dot:nth-child(1) {
+            animation-delay: -0.32s;
+        }
+
+        .chatbot-typing-dot:nth-child(2) {
+            animation-delay: -0.16s;
+        }
 
         @keyframes chatbot-typing-anim {
-            0%, 80%, 100% { transform: scale(0); }
-            40% { transform: scale(1.0); }
+
+            0%,
+            80%,
+            100% {
+                transform: scale(0);
+            }
+
+            40% {
+                transform: scale(1.0);
+            }
         }
 
         /* Footer */
@@ -1100,6 +1211,7 @@
                 max-width: 100% !important;
                 right: -100%;
             }
+
             #chatbot-resize-handle {
                 display: none;
             }
@@ -1108,7 +1220,7 @@
 
     <!-- JS JAVASCRIPT CONTROLLER DEL CHATBOT IA -->
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             const chatbotFab = document.getElementById('chatbot-fab');
             const chatbotSidebar = document.getElementById('chatbot-sidebar');
             const chatbotCloseBtn = document.getElementById('chatbot-close-btn');
@@ -1135,13 +1247,13 @@
                 try {
                     conversationHistory = JSON.parse(cachedHistory);
                     renderSavedMessages();
-                } catch(e) {
+                } catch (e) {
                     conversationHistory = [];
                 }
             }
 
             // 2. Toggles de apertura y cierre
-            chatbotFab.addEventListener('click', function() {
+            chatbotFab.addEventListener('click', function () {
                 chatbotSidebar.classList.toggle('open');
                 const isOpen = chatbotSidebar.classList.contains('open');
                 localStorage.setItem('chatbot-sidebar-open', isOpen);
@@ -1151,17 +1263,17 @@
                 }
             });
 
-            chatbotCloseBtn.addEventListener('click', function() {
+            chatbotCloseBtn.addEventListener('click', function () {
                 chatbotSidebar.classList.remove('open');
                 localStorage.setItem('chatbot-sidebar-open', 'false');
             });
 
             // 3. Limpiar Conversación
-            chatbotClearBtn.addEventListener('click', function() {
+            chatbotClearBtn.addEventListener('click', function () {
                 if (confirm('¿Deseas vaciar el historial de la conversación actual?')) {
                     conversationHistory = [];
                     localStorage.removeItem('chatbot-conversation-history');
-                    
+
                     // Conservar la carta de bienvenida, remover burbujas
                     const welcomeCard = chatbotMessagesContainer.querySelector('.chatbot-welcome-card');
                     chatbotMessagesContainer.innerHTML = '';
@@ -1173,8 +1285,8 @@
 
             // 4. Redimensionamiento dinámico (Drag to Resize)
             let isResizing = false;
-            
-            chatbotResizeHandle.addEventListener('mousedown', function(e) {
+
+            chatbotResizeHandle.addEventListener('mousedown', function (e) {
                 isResizing = true;
                 chatbotResizeHandle.classList.add('resizing');
                 document.body.style.cursor = 'ew-resize';
@@ -1182,12 +1294,12 @@
                 e.preventDefault();
             });
 
-            document.addEventListener('mousemove', function(e) {
+            document.addEventListener('mousemove', function (e) {
                 if (!isResizing) return;
-                
+
                 // Calcular el nuevo ancho según la posición horizontal del mouse
                 const sidebarWidth = window.innerWidth - e.clientX;
-                
+
                 // Restricciones
                 if (sidebarWidth >= 320 && sidebarWidth <= 800) {
                     chatbotSidebar.style.width = sidebarWidth + 'px';
@@ -1195,7 +1307,7 @@
                 }
             });
 
-            document.addEventListener('mouseup', function() {
+            document.addEventListener('mouseup', function () {
                 if (isResizing) {
                     isResizing = false;
                     chatbotResizeHandle.classList.remove('resizing');
@@ -1206,14 +1318,14 @@
 
             // 5. Chips de preguntas predefinidas
             document.querySelectorAll('.chatbot-chip').forEach(chip => {
-                chip.addEventListener('click', function() {
+                chip.addEventListener('click', function () {
                     chatbotInput.value = this.textContent;
                     chatbotForm.dispatchEvent(new Event('submit'));
                 });
             });
 
             // 6. Envío asíncrono AJAX del Mensaje
-            chatbotForm.addEventListener('submit', function(e) {
+            chatbotForm.addEventListener('submit', function (e) {
                 e.preventDefault();
                 const userText = chatbotInput.value.trim();
                 if (!userText) return;
@@ -1237,37 +1349,37 @@
                         history: conversationHistory
                     })
                 })
-                .then(res => res.json())
-                .then(data => {
-                    // Remover cargador
-                    typingBubble.remove();
+                    .then(res => res.json())
+                    .then(data => {
+                        // Remover cargador
+                        typingBubble.remove();
 
-                    if (data.success) {
-                        appendMessage('ai', data.message);
-                        
-                        // Guardar en el historial de memoria y persistencia
-                        conversationHistory.push({role: "user", content: userText});
-                        conversationHistory.push({role: "assistant", content: data.message});
-                        localStorage.setItem('chatbot-conversation-history', JSON.stringify(conversationHistory));
-                    } else {
-                        appendMessage('ai', data.message || "Lo siento, ha ocurrido un error al procesar tu solicitud.");
-                    }
-                    scrollToBottom();
-                })
-                .catch(err => {
-                    typingBubble.remove();
-                    appendMessage('ai', "❌ **Error de comunicación.**\n\nNo he podido conectarme con el servidor. Revisa tu conexión a internet o el estado del sistema.");
-                    scrollToBottom();
-                });
+                        if (data.success) {
+                            appendMessage('ai', data.message);
+
+                            // Guardar en el historial de memoria y persistencia
+                            conversationHistory.push({ role: "user", content: userText });
+                            conversationHistory.push({ role: "assistant", content: data.message });
+                            localStorage.setItem('chatbot-conversation-history', JSON.stringify(conversationHistory));
+                        } else {
+                            appendMessage('ai', data.message || "Lo siento, ha ocurrido un error al procesar tu solicitud.");
+                        }
+                        scrollToBottom();
+                    })
+                    .catch(err => {
+                        typingBubble.remove();
+                        appendMessage('ai', "❌ **Error de comunicación.**\n\nNo he podido conectarme con el servidor. Revisa tu conexión a internet o el estado del sistema.");
+                        scrollToBottom();
+                    });
             });
 
             // Auxiliares de Renderizado
             function appendMessage(role, text) {
                 const messageDiv = document.createElement('div');
                 messageDiv.className = `chatbot-message ${role === 'user' ? 'user' : 'ai'}`;
-                
-                const timeStr = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-                
+
+                const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
                 // Formateador simple de Markdown integrado para enriquecer visualmente
                 const formattedText = parseMarkdown(text);
 
@@ -1311,21 +1423,21 @@
             // Formateador de Markdown por líneas completo y robusto
             function parseMarkdown(mdText) {
                 if (!mdText) return '';
-                
+
                 // 1. Sanitizar etiquetas HTML para seguridad
                 let cleanText = mdText.replace(/</g, "&lt;").replace(/>/g, "&gt;");
-                
+
                 // 2. Dividir por líneas
                 let lines = cleanText.split('\n');
                 let inList = false;
                 let inOrderedList = false;
                 let inCodeBlock = false;
                 let parsedLines = [];
-                
+
                 for (let i = 0; i < lines.length; i++) {
                     let line = lines[i];
                     let trimmed = line.trim();
-                    
+
                     // Bloques de Código de varias líneas (```)
                     if (trimmed.startsWith('```')) {
                         if (inCodeBlock) {
@@ -1337,18 +1449,18 @@
                         }
                         continue;
                     }
-                    
+
                     if (inCodeBlock) {
                         parsedLines.push(line);
                         continue;
                     }
-                    
+
                     // Reemplazar negritas (**texto**)
                     line = line.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
-                    
+
                     // Reemplazar código en línea (`codigo`)
                     line = line.replace(/`([^`]+)`/g, "<code>$1</code>");
-                    
+
                     // Títulos (Headers)
                     if (trimmed.startsWith('### ')) {
                         parsedLines.push('<h5 style="margin: 12px 0 6px 0; font-weight: 800; font-family: var(--font-heading); color: var(--text-primary);">' + trimmed.substring(4) + '</h5>');
@@ -1358,7 +1470,7 @@
                         parsedLines.push('<h5 style="margin: 14px 0 8px 0; font-weight: 800; font-family: var(--font-heading); color: var(--accent-emerald);">' + headerText + '</h5>');
                         continue;
                     }
-                    
+
                     // Listas de viñetas simples (- o *)
                     let bulletMatch = line.match(/^\s*[-*•]\s+(.+)$/);
                     if (bulletMatch) {
@@ -1374,7 +1486,7 @@
                         parsedLines.push('<li style="margin-bottom: 4px;">' + content + '</li>');
                         continue;
                     }
-                    
+
                     // Listas numeradas (1. , 2. )
                     let orderedMatch = line.match(/^\s*\d+\.\s+(.+)$/);
                     if (orderedMatch) {
@@ -1390,7 +1502,7 @@
                         parsedLines.push('<li style="margin-bottom: 4px;">' + content + '</li>');
                         continue;
                     }
-                    
+
                     // Cerrar listas si la línea es normal y vacía
                     if (inList && trimmed === '') {
                         parsedLines.push('</ul>');
@@ -1400,19 +1512,19 @@
                         parsedLines.push('</ol>');
                         inOrderedList = false;
                     }
-                    
+
                     // Línea normal
                     parsedLines.push(line);
                 }
-                
+
                 // Asegurar cierre de todas las etiquetas al final
                 if (inList) parsedLines.push('</ul>');
                 if (inOrderedList) parsedLines.push('</ol>');
                 if (inCodeBlock) parsedLines.push('</code></pre>');
-                
+
                 // Unir líneas de vuelta
                 let html = parsedLines.join('\n');
-                
+
                 // Reemplazar saltos de línea con <br> (excepto dentro de listas o bloques pre/code)
                 html = html.replace(/\n/g, "<br>");
                 html = html.replace(/<\/ul><br>/g, "</ul>");
@@ -1421,7 +1533,7 @@
                 html = html.replace(/<li><br>/g, "<li>");
                 html = html.replace(/<\/li><br>/g, "</li>");
                 html = html.replace(/<br><br>/g, "<br>"); // Evitar espaciado excesivo
-                
+
                 return html;
             }
         });
@@ -1431,46 +1543,67 @@
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 
     <!-- Modal de Exportación de Datos Premium -->
-    <div class="search-modal" id="global-export-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1100; align-items: center; justify-content: center;">
-        <div class="modal-backdrop" id="global-export-backdrop" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); backdrop-filter: blur(8px);"></div>
-        <div class="modal-content" style="max-width: 500px; width: 90%; background: var(--bg-card); backdrop-filter: blur(24px); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 28px; box-shadow: var(--shadow-lg); z-index: 1101; position: relative;">
-            <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 16px; margin-bottom: 16px;">
-                <h3 style="font-size: 1.15rem; font-family: var(--font-heading); margin: 0; display: flex; align-items: center; gap: 8px;">
+    <div class="search-modal" id="global-export-modal"
+        style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1100; align-items: center; justify-content: center;">
+        <div class="modal-backdrop" id="global-export-backdrop"
+            style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); backdrop-filter: blur(8px);">
+        </div>
+        <div class="modal-content"
+            style="max-width: 500px; width: 90%; background: var(--bg-card); backdrop-filter: blur(24px); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 28px; box-shadow: var(--shadow-lg); z-index: 1101; position: relative;">
+            <div class="modal-header"
+                style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 16px; margin-bottom: 16px;">
+                <h3
+                    style="font-size: 1.15rem; font-family: var(--font-heading); margin: 0; display: flex; align-items: center; gap: 8px;">
                     <i class="fa-solid fa-file-export" style="color: var(--accent-emerald);"></i>
                     <span>Exportar Datos de la Empresa (CSV)</span>
                 </h3>
-                <button type="button" class="btn-close-modal" id="btn-close-global-export" style="background: none; border: none; font-size: 1.25rem; color: var(--text-secondary); cursor: pointer; display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%;"><i class="fa-solid fa-xmark"></i></button>
+                <button type="button" class="btn-close-modal" id="btn-close-global-export"
+                    style="background: none; border: none; font-size: 1.25rem; color: var(--text-secondary); cursor: pointer; display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%;"><i
+                        class="fa-solid fa-xmark"></i></button>
             </div>
             <div class="modal-body" style="padding: 0;">
                 <p style="color: var(--text-secondary); font-size: 0.82rem; line-height: 1.4; margin-bottom: 18px;">
-                    Descarga un respaldo completo de tu información en archivos CSV. Si seleccionas varias secciones, se descargará un único archivo comprimido (.zip) con todos los CSVs correspondientes.
+                    Descarga un respaldo completo de tu información en archivos CSV. Si seleccionas varias secciones, se
+                    descargará un único archivo comprimido (.zip) con todos los CSVs correspondientes.
                 </p>
                 <form action="/settings/company/export" method="POST" id="globalExportForm">
                     <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px;">
-                        <label style="display: flex; align-items: center; gap: 10px; font-size: 0.85rem; cursor: pointer; color: var(--text-primary); font-weight: bold;">
-                            <input type="checkbox" id="global_export_all" style="width: 16px; height: 16px; accent-color: var(--accent-emerald);">
+                        <label
+                            style="display: flex; align-items: center; gap: 10px; font-size: 0.85rem; cursor: pointer; color: var(--text-primary); font-weight: bold;">
+                            <input type="checkbox" id="global_export_all"
+                                style="width: 16px; height: 16px; accent-color: var(--accent-emerald);">
                             <span>Seleccionar Todo</span>
                         </label>
                         <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 4px 0;">
-                        
-                        <label style="display: flex; align-items: center; gap: 10px; font-size: 0.85rem; cursor: pointer; color: var(--text-primary);">
-                            <input type="checkbox" name="sections" value="clients" class="global-export-checkbox" style="width: 16px; height: 16px; accent-color: var(--accent-emerald);">
+
+                        <label
+                            style="display: flex; align-items: center; gap: 10px; font-size: 0.85rem; cursor: pointer; color: var(--text-primary);">
+                            <input type="checkbox" name="sections" value="clients" class="global-export-checkbox"
+                                style="width: 16px; height: 16px; accent-color: var(--accent-emerald);">
                             <span>Clientes (CRM)</span>
                         </label>
-                        <label style="display: flex; align-items: center; gap: 10px; font-size: 0.85rem; cursor: pointer; color: var(--text-primary);">
-                            <input type="checkbox" name="sections" value="products" class="global-export-checkbox" style="width: 16px; height: 16px; accent-color: var(--accent-emerald);">
+                        <label
+                            style="display: flex; align-items: center; gap: 10px; font-size: 0.85rem; cursor: pointer; color: var(--text-primary);">
+                            <input type="checkbox" name="sections" value="products" class="global-export-checkbox"
+                                style="width: 16px; height: 16px; accent-color: var(--accent-emerald);">
                             <span>Productos y Servicios</span>
                         </label>
-                        <label style="display: flex; align-items: center; gap: 10px; font-size: 0.85rem; cursor: pointer; color: var(--text-primary);">
-                            <input type="checkbox" name="sections" value="quotes" class="global-export-checkbox" style="width: 16px; height: 16px; accent-color: var(--accent-emerald);">
+                        <label
+                            style="display: flex; align-items: center; gap: 10px; font-size: 0.85rem; cursor: pointer; color: var(--text-primary);">
+                            <input type="checkbox" name="sections" value="quotes" class="global-export-checkbox"
+                                style="width: 16px; height: 16px; accent-color: var(--accent-emerald);">
                             <span>Cotizaciones</span>
                         </label>
-                        <label style="display: flex; align-items: center; gap: 10px; font-size: 0.85rem; cursor: pointer; color: var(--text-primary);">
-                            <input type="checkbox" name="sections" value="expenses" class="global-export-checkbox" style="width: 16px; height: 16px; accent-color: var(--accent-emerald);">
+                        <label
+                            style="display: flex; align-items: center; gap: 10px; font-size: 0.85rem; cursor: pointer; color: var(--text-primary);">
+                            <input type="checkbox" name="sections" value="expenses" class="global-export-checkbox"
+                                style="width: 16px; height: 16px; accent-color: var(--accent-emerald);">
                             <span>Gastos y Egresos</span>
                         </label>
-                        <label style="display: flex; align-items: center; gap: 10px; font-size: 0.85rem; cursor: pointer; color: var(--text-primary);">
-                            <input type="checkbox" name="sections" value="documents" class="global-export-checkbox" style="width: 16px; height: 16px; accent-color: var(--accent-emerald);">
+                        <label
+                            style="display: flex; align-items: center; gap: 10px; font-size: 0.85rem; cursor: pointer; color: var(--text-primary);">
+                            <input type="checkbox" name="sections" value="documents" class="global-export-checkbox"
+                                style="width: 16px; height: 16px; accent-color: var(--accent-emerald);">
                             <span>Documentos (Facturas)</span>
                         </label>
                     </div>
@@ -1485,46 +1618,46 @@
 
     <!-- Script del Modal de Exportación Global -->
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             const btnOpen = document.getElementById('btn-open-export-modal');
             const modal = document.getElementById('global-export-modal');
             const btnClose = document.getElementById('btn-close-global-export');
             const backdrop = document.getElementById('global-export-backdrop');
-            
+
             if (btnOpen && modal) {
-                btnOpen.addEventListener('click', function(e) {
+                btnOpen.addEventListener('click', function (e) {
                     e.preventDefault();
                     modal.style.display = 'flex';
                 });
             }
-            
+
             if (btnClose && modal) {
-                btnClose.addEventListener('click', function() {
+                btnClose.addEventListener('click', function () {
                     modal.style.display = 'none';
                 });
             }
-            
+
             if (backdrop && modal) {
-                backdrop.addEventListener('click', function() {
+                backdrop.addEventListener('click', function () {
                     modal.style.display = 'none';
                 });
             }
-            
+
             // Lógica Seleccionar Todo
             const selectAll = document.getElementById('global_export_all');
             const checkboxes = document.querySelectorAll('.global-export-checkbox');
-            
+
             if (selectAll) {
-                selectAll.addEventListener('change', function() {
+                selectAll.addEventListener('change', function () {
                     checkboxes.forEach(cb => {
                         cb.checked = selectAll.checked;
                     });
                 });
             }
-            
+
             // Deseleccionar "Seleccionar Todo" si se desmarca alguna casilla
             checkboxes.forEach(cb => {
-                cb.addEventListener('change', function() {
+                cb.addEventListener('change', function () {
                     if (!this.checked && selectAll) {
                         selectAll.checked = false;
                     } else if (selectAll) {

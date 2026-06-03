@@ -1,17 +1,20 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <script>
         // Aplicar tema guardado antes de renderizar la página para evitar destellos (flash)
-        (function() {
+        (function () {
             const savedTheme = localStorage.getItem('theme') || 'light';
             document.documentElement.setAttribute('data-theme', savedTheme);
         })();
     </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Iniciar Sesión - e-Factura</title>
-    <meta name="description" content="Accede a tu cuenta de e-Factura para gestionar tu facturación electrónica conforme a la Ley 32-23.">
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/efactura_logo.png') }}">
+    <meta name="description"
+        content="Accede a tu cuenta de e-Factura para gestionar tu facturación electrónica conforme a la Ley 32-23.">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <style>
@@ -34,13 +37,18 @@
         }
 
         @keyframes fadeInOverlay {
-            from { opacity: 0; }
-            to   { opacity: 1; }
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
         }
 
         .forgot-modal {
             background: var(--bg-card, #1a1a2e);
-            border: 1px solid var(--border-color, rgba(255,255,255,0.1));
+            border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
             border-radius: 20px;
             padding: 36px 32px 30px;
             max-width: 420px;
@@ -51,8 +59,15 @@
         }
 
         @keyframes slideUpModal {
-            from { opacity: 0; transform: translateY(24px) scale(0.96); }
-            to   { opacity: 1; transform: translateY(0) scale(1); }
+            from {
+                opacity: 0;
+                transform: translateY(24px) scale(0.96);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
         }
 
         .forgot-modal-close {
@@ -164,69 +179,78 @@
             transition: color 0.2s ease;
         }
 
-        .pwd-eye-btn:hover { color: var(--text-primary); }
+        .pwd-eye-btn:hover {
+            color: var(--text-primary);
+        }
 
         /* Submit btn spinner */
-        .btn-spinner { display: none; }
-        .loading .btn-spinner { display: inline-block; }
-        .loading .btn-label  { display: none; }
+        .btn-spinner {
+            display: none;
+        }
+
+        .loading .btn-spinner {
+            display: inline-block;
+        }
+
+        .loading .btn-label {
+            display: none;
+        }
     </style>
 </head>
+
 <body class="auth-container">
     <div class="auth-card">
         <div class="auth-header">
-            <i class="fa-solid fa-receipt" style="font-size: 3rem; color: var(--accent-emerald); margin-bottom: 15px; display: inline-block;"></i>
+            <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Logo e-Factura"
+                style="height: 100px; margin-bottom: -10px; display: inline-block; filter: drop-shadow(0 4px 12px rgba(0,0,0,0.15));">
             <h2>e-Factura</h2>
             <p>Cumplimiento de la Ley 32-23 de Facturación Electrónica</p>
         </div>
-        
+
         <!-- Mensajes flash locales -->
         {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                {% for category, message in messages %}
-                    <div class="badge {% if category == 'error' %}badge-danger{% else %}badge-success{% endif %}"
-                         style="width: 100%; padding: 12px; margin-bottom: 20px; border-radius: var(--radius-sm); font-size: 0.85rem; text-transform: none; font-weight: 500; text-align: center;">
-                        {{ message }}
-                    </div>
-                {% endfor %}
-            {% endif %}
+        {% if messages %}
+        {% for category, message in messages %}
+        <div class="badge {% if category == 'error' %}badge-danger{% else %}badge-success{% endif %}"
+            style="width: 100%; padding: 12px; margin-bottom: 20px; border-radius: var(--radius-sm); font-size: 0.85rem; text-transform: none; font-weight: 500; text-align: center;">
+            {{ message }}
+        </div>
+        {% endfor %}
+        {% endif %}
         {% endwith %}
 
         <form action="{{ url_for('login') }}" method="POST" id="login-form">
             <div class="form-group">
                 <label for="email">Correo Electrónico</label>
                 <div style="position: relative;">
-                    <i class="fa-solid fa-envelope" style="position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: var(--text-secondary);"></i>
-                    <input type="email" id="email" name="email" class="form-input"
-                        placeholder="ejemplo@correo.com" required
-                        style="padding-left: 45px; width: 100%;"
-                        autocomplete="email">
+                    <i class="fa-solid fa-envelope"
+                        style="position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: var(--text-secondary);"></i>
+                    <input type="email" id="email" name="email" class="form-input" placeholder="ejemplo@correo.com"
+                        required style="padding-left: 45px; width: 100%;" autocomplete="email">
                 </div>
             </div>
-            
+
             <div class="form-group" style="margin-bottom: 8px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
                     <label for="password" style="margin: 0;">Contraseña</label>
                     <!-- ⬇ Enlace "¿Olvidaste tu contraseña?" -->
-                    <button type="button" class="forgot-link" id="btn-open-forgot"
-                        onclick="openForgotModal()">
+                    <button type="button" class="forgot-link" id="btn-open-forgot" onclick="openForgotModal()">
                         ¿Olvidaste tu contraseña?
                     </button>
                 </div>
                 <div style="position: relative;">
-                    <i class="fa-solid fa-lock" style="position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: var(--text-secondary);"></i>
-                    <input type="password" id="password" name="password" class="form-input"
-                        placeholder="••••••••" required
-                        style="padding-left: 45px; padding-right: 44px; width: 100%;"
+                    <i class="fa-solid fa-lock"
+                        style="position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: var(--text-secondary);"></i>
+                    <input type="password" id="password" name="password" class="form-input" placeholder="••••••••"
+                        required style="padding-left: 45px; padding-right: 44px; width: 100%;"
                         autocomplete="current-password">
                     <button type="button" class="pwd-eye-btn" onclick="toggleLoginPwd()" title="Mostrar/Ocultar">
                         <i class="fa-solid fa-eye" id="login-eye-icon"></i>
                     </button>
                 </div>
             </div>
-            
-            <button type="submit" class="btn btn-primary"
-                id="login-btn"
+
+            <button type="submit" class="btn btn-primary" id="login-btn"
                 style="width: 100%; padding: 14px; font-size: 1rem; border-radius: var(--radius-sm); margin-top: 20px;">
                 <i class="fa-solid fa-right-to-bracket btn-label"></i>
                 <span class="btn-label">Ingresar al Sistema</span>
@@ -234,9 +258,11 @@
                 <span class="btn-spinner"> Verificando...</span>
             </button>
         </form>
-        
-        <div style="margin-top: 24px; text-align: center; font-size: 0.82rem; color: var(--text-muted); line-height: 1.45;">
-            <span>Para registrar una nueva cuenta de empresa o colaborador, póngase en contacto con el personal de ventas autorizado.</span>
+
+        <div
+            style="margin-top: 24px; text-align: center; font-size: 0.82rem; color: var(--text-muted); line-height: 1.45;">
+            <span>Para registrar una nueva cuenta de empresa o colaborador, póngase en contacto con el personal de
+                ventas autorizado.</span>
         </div>
     </div>
 
@@ -244,7 +270,7 @@
     <!-- MODAL: ¿Olvidaste tu contraseña?                             -->
     <!-- ============================================================ -->
     <div id="forgot-overlay" role="dialog" aria-modal="true" aria-labelledby="forgot-title"
-         onclick="if(event.target===this) closeForgotModal()">
+        onclick="if(event.target===this) closeForgotModal()">
         <div class="forgot-modal">
             <button class="forgot-modal-close" onclick="closeForgotModal()" title="Cerrar" aria-label="Cerrar">
                 <i class="fa-solid fa-xmark"></i>
@@ -264,15 +290,15 @@
 
             <form id="forgot-form" onsubmit="submitForgotPassword(event)" novalidate>
                 <div class="form-group" style="margin-bottom: 20px;">
-                    <label for="forgot-email" style="font-size: 0.82rem; font-weight: 600; color: var(--text-secondary);">
+                    <label for="forgot-email"
+                        style="font-size: 0.82rem; font-weight: 600; color: var(--text-secondary);">
                         Correo Electrónico
                     </label>
                     <div style="position: relative; margin-top: 6px;">
-                        <i class="fa-solid fa-envelope" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-secondary); font-size: 0.9rem;"></i>
-                        <input type="email" id="forgot-email" name="email"
-                            class="form-input"
-                            placeholder="tu@correo.com"
-                            required autocomplete="email"
+                        <i class="fa-solid fa-envelope"
+                            style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-secondary); font-size: 0.9rem;"></i>
+                        <input type="email" id="forgot-email" name="email" class="form-input"
+                            placeholder="tu@correo.com" required autocomplete="email"
                             style="padding-left: 42px; width: 100%;">
                     </div>
                 </div>
@@ -286,7 +312,8 @@
                 </button>
             </form>
 
-            <p style="font-size: 0.75rem; color: var(--text-muted); text-align: center; margin: 16px 0 0 0; line-height: 1.5;">
+            <p
+                style="font-size: 0.75rem; color: var(--text-muted); text-align: center; margin: 16px 0 0 0; line-height: 1.5;">
                 <i class="fa-solid fa-shield-halved" style="color: var(--accent-emerald);"></i>
                 El enlace expirará en 1 hora por seguridad.
                 Revisa también tu carpeta de Spam.
@@ -299,13 +326,13 @@
         // ===== Toggle password visibility =====
         function toggleLoginPwd() {
             const input = document.getElementById('password');
-            const icon  = document.getElementById('login-eye-icon');
+            const icon = document.getElementById('login-eye-icon');
             input.type = input.type === 'password' ? 'text' : 'password';
             icon.className = input.type === 'password' ? 'fa-solid fa-eye' : 'fa-solid fa-eye-slash';
         }
 
         // ===== Login form loading state =====
-        document.getElementById('login-form').addEventListener('submit', function() {
+        document.getElementById('login-form').addEventListener('submit', function () {
             const btn = document.getElementById('login-btn');
             btn.classList.add('loading');
             btn.disabled = true;
@@ -337,17 +364,17 @@
         }
 
         // Cerrar con Escape
-        document.addEventListener('keydown', function(e) {
+        document.addEventListener('keydown', function (e) {
             if (e.key === 'Escape') closeForgotModal();
         });
 
         // ===== Submit forgot password via AJAX =====
         async function submitForgotPassword(e) {
             e.preventDefault();
-            const email    = document.getElementById('forgot-email').value.trim();
+            const email = document.getElementById('forgot-email').value.trim();
             const submitBtn = document.getElementById('forgot-submit-btn');
-            const alertEl   = document.getElementById('forgot-alert');
-            const form      = document.getElementById('forgot-form');
+            const alertEl = document.getElementById('forgot-alert');
+            const form = document.getElementById('forgot-form');
 
             if (!email) {
                 showForgotAlert('error', 'Por favor ingresa tu correo electrónico.');
@@ -400,4 +427,5 @@
         }
     </script>
 </body>
+
 </html>
