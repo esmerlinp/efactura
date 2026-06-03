@@ -6,12 +6,14 @@
 
 {% block content %}
 <style>
-@media (max-width: 1024px) {
-    .grid-two-cols, .grid-three-cols {
-        grid-template-columns: 1fr !important;
-        gap: 24px !important;
+    @media (max-width: 1024px) {
+
+        .grid-two-cols,
+        .grid-three-cols {
+            grid-template-columns: 1fr !important;
+            gap: 24px !important;
+        }
     }
-}
 </style>
 {% if contingency_invoices %}
 <!-- ALERTA DE CONTINGENCIA OFFLINE -->
@@ -47,29 +49,36 @@
         display: flex;
         align-items: center;
         justify-content: center;
-    " onmouseover="this.style.opacity='1'; this.style.color='var(--accent-red)'" onmouseout="this.style.opacity='0.7'; this.style.color='var(--text-muted)'" title="No volver a mostrar en esta sesión">
+    " onmouseover="this.style.opacity='1'; this.style.color='var(--accent-red)'"
+        onmouseout="this.style.opacity='0.7'; this.style.color='var(--text-muted)'"
+        title="No volver a mostrar en esta sesión">
         <i class="fa-solid fa-xmark"></i>
     </button>
     <div style="font-size: 1.35rem; color: #f59e0b; line-height: 1; margin-top: 2px;">⚠️</div>
     <div style="flex: 1;">
         <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 6px; flex-wrap: wrap;">
-            <h4 style="font-family: var(--font-heading); font-size: 0.95rem; font-weight: 700; color: var(--text-primary); margin: 0;">
+            <h4
+                style="font-family: var(--font-heading); font-size: 0.95rem; font-weight: 500; color: var(--text-primary); margin: 0;">
                 Comprobantes en Modo Contingencia (Offline)
             </h4>
-            <span style="background-color: rgba(245, 158, 11, 0.12); color: #e0a96d; font-size: 0.7rem; font-weight: 700; padding: 2px 8px; border-radius: 12px; text-transform: uppercase; border: 1px solid rgba(245, 158, 11, 0.2);">
+            <span
+                style="background-color: rgba(245, 158, 11, 0.12); color: #e0a96d; font-size: 0.7rem; font-weight: 500; padding: 2px 8px; border-radius: 12px; text-transform: uppercase; border: 1px solid rgba(245, 158, 11, 0.2);">
                 {{ contingency_invoices|length }} pendiente(s)
             </span>
         </div>
         <p style="color: var(--text-secondary); font-size: 0.82rem; line-height: 1.45; margin: 0 0 14px 0;">
-            Estos comprobantes se firmaron localmente mientras no había conexión con la DGII. Recuerda que la normativa exige enviarlos al sistema oficial en un plazo máximo de 72 horas.
+            Estos comprobantes se firmaron localmente mientras no había conexión con la DGII. Recuerda que la normativa
+            exige enviarlos al sistema oficial en un plazo máximo de 72 horas.
         </p>
-        
+
         <!-- Lista compacta y limpia de pendientes -->
         <div style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px;">
             {% for inv in contingency_invoices %}
-            <div style="display: flex; align-items: center; gap: 10px; font-size: 0.8rem; padding: 6px 12px; background-color: var(--bg-input); border-radius: var(--radius-xs); border: 1px solid var(--border-color);">
+            <div
+                style="display: flex; align-items: center; gap: 10px; font-size: 0.8rem; padding: 6px 12px; background-color: var(--bg-input); border-radius: var(--radius-xs); border: 1px solid var(--border-color);">
                 <i class="fa-solid fa-file-invoice" style="color: #f59e0b; opacity: 0.8;"></i>
-                <span style="font-family: monospace; color: var(--text-primary); font-weight: 600;">{{ inv.encf }}</span>
+                <span style="font-family: monospace; color: var(--text-primary); font-weight: 500;">{{ inv.encf
+                    }}</span>
                 <span style="color: var(--text-secondary);">{{ inv.invoiceNumber }}</span>
                 <span style="color: var(--text-muted);">— RD$ {{ "{:,.2f}".format(inv.total) }}</span>
                 <span style="margin-left: auto; color: var(--text-muted); font-size: 0.75rem;">
@@ -84,7 +93,7 @@
                 display: inline-flex; align-items: center; gap: 6px;
                 background-color: #f59e0b;
                 color: #111827; border: none; padding: 8px 18px;
-                border-radius: var(--radius-xs); font-weight: 700; font-size: 0.78rem;
+                border-radius: var(--radius-xs); font-weight: 500; font-size: 0.78rem;
                 cursor: pointer; transition: background-color 0.2s ease;
             " onmouseover="this.style.backgroundColor='#d97706'" onmouseout="this.style.backgroundColor='#f59e0b'">
                 <i class="fa-solid fa-rotate" id="sync-icon"></i> Sincronizar con la DGII
@@ -98,420 +107,332 @@
 {% endif %}
 <!-- FIN ALERTA DE CONTINGENCIA -->
 
-<!-- Sección de KPIs con Diseño Premium y Efectos Hover -->
-<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 14px;">
-    <h2 style="font-size: 1.2rem; font-family: var(--font-heading); margin: 0; display: flex; align-items: center; gap: 8px;">
-        <i class="fa-solid fa-wallet" style="color: var(--accent-emerald);"></i>
-        <span>Resumen Financiero</span>
+<!-- Título y Filtros fuera de la tarjeta (Estilo Firebase Firestore) -->
+<div
+    style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 12px; margin-top: 10px;">
+    <h2 style="font-size: 0.95rem; font-weight: 500; color: var(--text-secondary); margin: 0;">
+        Resumen Financiero
     </h2>
-    <form action="{{ url_for('dashboard') }}" method="GET" id="kpi-filter-form" style="margin: 0; display: flex; align-items: center; gap: 8px;">
-        <!-- Conservar escala y fecha del gráfico -->
+    <form action="{{ url_for('dashboard') }}" method="GET" id="kpi-filter-form"
+        style="margin: 0; display: flex; align-items: center; gap: 8px;">
         <input type="hidden" name="scale" value="{{ scale }}">
         <input type="hidden" name="date" value="{{ date_str }}">
-        
-        <span style="font-size: 0.78rem; color: var(--text-secondary); font-weight: 600;">Período KPIs:</span>
-        <select name="kpi_period" class="form-select" 
-            style="height: 28px; width: auto; min-width: 170px; padding: 0 24px 0 8px; font-size: 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background-color: var(--bg-input); color: var(--text-primary); cursor: pointer; box-sizing: border-box; display: inline-flex; align-items: center; vertical-align: middle; margin: 0;"
+
+        <i class="fa-regular fa-calendar" style="font-size: 0.85rem; color: var(--text-muted);"></i>
+        <select name="kpi_period" class="form-select"
+            style="height: 28px; width: auto; padding: 0 24px 0 0; font-size: 0.85rem; font-weight: 500; border: none; background-color: transparent; color: var(--text-primary); cursor: pointer; display: inline-flex; outline: none; margin: 0;"
             onchange="document.getElementById('kpi-filter-form').submit()">
-            <option value="month" {% if kpi_period == 'month' %}selected{% endif %}>Este Mes ({{ current_month_name }})</option>
-            <option value="prev_month" {% if kpi_period == 'prev_month' %}selected{% endif %}>Mes Anterior</option>
-            <option value="year" {% if kpi_period == 'year' %}selected{% endif %}>Este Año ({{ selected_year }})</option>
-            <option value="all" {% if kpi_period == 'all' %}selected{% endif %}>Todo el Tiempo</option>
+            <option value="month" {% if kpi_period=='month' %}selected{% endif %}>Este Mes ({{ current_month_name }})
+            </option>
+            <option value="prev_month" {% if kpi_period=='prev_month' %}selected{% endif %}>Mes Anterior</option>
+            <option value="year" {% if kpi_period=='year' %}selected{% endif %}>Este Año ({{ selected_year }})</option>
+            <option value="all" {% if kpi_period=='all' %}selected{% endif %}>Todo el Tiempo</option>
         </select>
     </form>
 </div>
 
 {% set period_label = "" %}
 {% if kpi_period == 'month' %}
-    {% set period_label = " este mes" %}
+{% set period_label = " este mes" %}
 {% elif kpi_period == 'prev_month' %}
-    {% set period_label = " mes anterior" %}
+{% set period_label = " mes anterior" %}
 {% elif kpi_period == 'year' %}
-    {% set period_label = " este año" %}
+{% set period_label = " este año" %}
 {% else %}
-    {% set period_label = " histórico" %}
+{% set period_label = " histórico" %}
 {% endif %}
 
-<div class="grid-kpi">
-    <div class="card-kpi">
-        <div class="kpi-details">
-            <h3>Total Facturado (Ingresos)</h3>
-            <div class="kpi-value" style="color: var(--accent-emerald);">RD$ {{ "{:,.2f}".format(stats.total_invoiced)
-                }}</div>
-            <small style="color: var(--text-secondary); font-size: 0.78rem;">Facturas emitidas{{ period_label }}</small>
+<!-- Tarjeta Única de KPIs -->
+<div class="card-table-wrapper"
+    style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 24px; padding: 24px; margin-bottom: 30px; box-shadow: none;">
+
+    <!-- KPI 1: Ingresos -->
+    <div style="display: flex; flex-direction: column; gap: 4px;">
+        <span style="font-size: 0.8rem; color: var(--text-secondary);">Total Facturado (Ingresos)</span>
+        <div
+            style="font-size: 1.6rem; color: var(--accent-emerald); font-weight: 400; font-family: var(--font-heading); display: flex; align-items: center; gap: 8px;">
+            <i class="fa-solid fa-square" style="font-size: 0.4rem; color: var(--accent-emerald);"></i>
+            RD$ {{ "{:,.2f}".format(stats.total_invoiced) }}
         </div>
-        <div class="kpi-icon">
-            <i class="fa-solid fa-arrow-up-right-dots"></i>
-        </div>
+        <span style="font-size: 0.75rem; color: var(--text-muted);">Facturas emitidas{{ period_label }}</span>
     </div>
 
-    <div class="card-kpi expense">
-        <div class="kpi-details">
-            <h3>Egresos Registrados</h3>
-            <div class="kpi-value" style="color: var(--accent-red);">RD$ {{ "{:,.2f}".format(stats.total_expenses) }}
-            </div>
-            <small style="color: var(--text-secondary); font-size: 0.78rem;">Gastos{{ period_label }}</small>
+    <!-- KPI 2: Egresos -->
+    <div style="display: flex; flex-direction: column; gap: 4px;">
+        <span style="font-size: 0.8rem; color: var(--text-secondary);">Egresos Registrados</span>
+        <div
+            style="font-size: 1.6rem; color: var(--accent-red); font-weight: 400; font-family: var(--font-heading); display: flex; align-items: center; gap: 8px;">
+            <i class="fa-solid fa-square" style="font-size: 0.4rem; color: var(--accent-red);"></i>
+            RD$ {{ "{:,.2f}".format(stats.total_expenses) }}
         </div>
-        <div class="kpi-icon">
-            <i class="fa-solid fa-arrow-down-left-dots"></i>
-        </div>
+        <span style="font-size: 0.75rem; color: var(--text-muted);">Gastos{{ period_label }}</span>
     </div>
 
-    <div class="card-kpi profit">
-        <div class="kpi-details">
-            <h3>Rentabilidad / Margen Neto</h3>
-            <div class="kpi-value" style="color: var(--accent-yellow);">{{ "{:.1f}%".format(stats.margin_net) }}</div>
-            <small style="color: var(--text-secondary); font-size: 0.78rem;">Margen neto{{ period_label }}</small>
+    <!-- KPI 3: Margen -->
+    <div style="display: flex; flex-direction: column; gap: 4px;">
+        <span style="font-size: 0.8rem; color: var(--text-secondary);">Rentabilidad / Margen Neto</span>
+        <div
+            style="font-size: 1.6rem; color: var(--accent-yellow); font-weight: 400; font-family: var(--font-heading); display: flex; align-items: center; gap: 8px;">
+            <i class="fa-solid fa-square" style="font-size: 0.4rem; color: var(--accent-yellow);"></i>
+            {{ "{:.1f}%".format(stats.margin_net) }}
         </div>
-        <div class="kpi-icon">
-            <i class="fa-solid fa-percent"></i>
-        </div>
+        <span style="font-size: 0.75rem; color: var(--text-muted);">Margen neto{{ period_label }}</span>
     </div>
 
-    <div class="card-kpi" style="--border-glow: rgba(139, 92, 246, 0.15);">
-        <div class="kpi-details">
-            <h3>Cuentas por Cobrar (CxC)</h3>
-            <div class="kpi-value" style="color: var(--accent-purple);">RD$ {{ "{:,.2f}".format(stats.total_cxc) }}
-            </div>
-            <small style="color: var(--text-secondary); font-size: 0.78rem;">Saldo pendiente total (histórico)</small>
+    <!-- KPI 4: CxC -->
+    <div style="display: flex; flex-direction: column; gap: 4px;">
+        <span style="font-size: 0.8rem; color: var(--text-secondary);">Cuentas por Cobrar (CxC)</span>
+        <div
+            style="font-size: 1.6rem; color: var(--accent-purple); font-weight: 400; font-family: var(--font-heading); display: flex; align-items: center; gap: 8px;">
+            <i class="fa-solid fa-square" style="font-size: 0.4rem; color: var(--accent-purple);"></i>
+            RD$ {{ "{:,.2f}".format(stats.total_cxc) }}
         </div>
-        <div class="kpi-icon" style="background-color: rgba(139, 92, 246, 0.1); color: var(--accent-purple);">
-            <i class="fa-solid fa-hand-holding-dollar"></i>
-        </div>
+        <span style="font-size: 0.75rem; color: var(--text-muted);">Saldo pendiente total</span>
     </div>
 </div>
 
-<!-- Grid de Reportes Visuales y Alarmas de Auditoría -->
-<div class="grid-two-cols" style="display: grid; grid-template-columns: 2fr 1fr; gap: 30px; margin-bottom: 36px;">
-    <!-- Gráficos Analíticos -->
-    <div class="card-table-wrapper" style="display: flex; flex-direction: column; gap: 20px; height: 100%; box-sizing: border-box;">
-        <h3
-            style="font-size: 1.15rem; font-family: var(--font-heading); display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;">
-            <div style="display: flex; align-items: center; gap: 10px;">
-                <i class="fa-solid fa-chart-line" style="color: var(--accent-emerald);"></i>
-                <span>{{ chart_title }}</span>
+<!-- Reporte de Desempeño Mensual (Fila Independiente) -->
+<div style="margin-bottom: 30px;">
+    <!-- Título y Filtros fuera de la tarjeta -->
+    <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 12px;">
+        <h2 style="font-size: 0.95rem; font-weight: 500; color: var(--text-secondary); margin: 0;">
+            {{ chart_title }}
+        </h2>
+
+        <form action="{{ url_for('dashboard') }}" method="GET" id="filter-form"
+            style="display: flex; align-items: center; gap: 16px; margin: 0;">
+
+            {% if scale != 'year' %}
+            <div style="display: flex; align-items: center; gap: 6px;">
+                <i class="fa-regular fa-calendar" style="font-size: 0.85rem; color: var(--text-muted);"></i>
+                <input type="date" name="date" value="{{ date_str }}"
+                    style="height: 28px; width: auto; padding: 0 4px; font-size: 0.85rem; font-weight: 500; border: none; background-color: transparent; color: var(--text-primary); cursor: pointer; display: inline-flex; outline: none; margin: 0;"
+                    onchange="document.getElementById('filter-form').submit()">
             </div>
+            {% endif %}
 
-            <form action="{{ url_for('dashboard') }}" method="GET" id="filter-form"
-                style="display: flex; align-items: center; gap: 8px; font-size: 0.8rem; margin: 0;">
-                <div style="display: flex; align-items: center; gap: 6px;">
-                    <span style="font-size: 0.75rem; color: var(--text-secondary); display: inline-flex; align-items: center; gap: 4px; font-weight: 600;">
-                        <i class="fa-solid fa-slider" style="font-size: 0.75rem; opacity: 0.8;"></i>
-                        <span>Escala:</span>
-                    </span>
-                    <select name="scale" class="form-select"
-                        style="height: 28px; width: auto; min-width: 100px; padding: 0 20px 0 8px; font-size: 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background-color: var(--bg-input); color: var(--text-primary); cursor: pointer; box-sizing: border-box; margin: 0; vertical-align: middle; display: inline-flex; align-items: center;"
-                        onchange="document.getElementById('filter-form').submit()">
-                        <option value="hour" {% if scale=='hour' %}selected{% endif %}>Hora</option>
-                        <option value="day" {% if scale=='day' %}selected{% endif %}>Día</option>
-                        <option value="week" {% if scale=='week' %}selected{% endif %}>Semana</option>
-                        <option value="month" {% if scale=='month' %}selected{% endif %}>Mes</option>
-                        <option value="quarter" {% if scale=='quarter' %}selected{% endif %}>Trimestre</option>
-                        <option value="year" {% if scale=='year' %}selected{% endif %}>Año</option>
-                    </select>
-                </div>
+            <div style="display: flex; align-items: center; gap: 6px;">
+                <span style="font-size: 0.85rem; color: var(--text-muted);">Escala:</span>
+                <select name="scale" class="form-select"
+                    style="height: 28px; width: auto; padding: 0 16px 0 0; font-size: 0.85rem; font-weight: 500; border: none; background-color: transparent; color: var(--text-primary); cursor: pointer; display: inline-flex; outline: none; margin: 0;"
+                    onchange="document.getElementById('filter-form').submit()">
+                    <option value="hour" {% if scale=='hour' %}selected{% endif %}>Hora</option>
+                    <option value="day" {% if scale=='day' %}selected{% endif %}>Día</option>
+                    <option value="week" {% if scale=='week' %}selected{% endif %}>Semana</option>
+                    <option value="month" {% if scale=='month' %}selected{% endif %}>Mes</option>
+                    <option value="quarter" {% if scale=='quarter' %}selected{% endif %}>Trimestre</option>
+                    <option value="year" {% if scale=='year' %}selected{% endif %}>Año</option>
+                </select>
+            </div>
+        </form>
+    </div>
 
-                {% if scale != 'year' %}
-                <div style="display: flex; align-items: center; gap: 6px; margin-left: 8px;">
-                    <span style="font-size: 0.75rem; color: var(--text-secondary); display: inline-flex; align-items: center; gap: 4px; font-weight: 600;">
-                        <i class="fa-solid fa-calendar" style="font-size: 0.75rem; opacity: 0.8;"></i>
-                        <span>Rango:</span>
-                    </span>
-                    <input type="date" name="date" value="{{ date_str }}"
-                        style="height: 28px; width: auto; padding: 0 8px; font-size: 0.75rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background-color: var(--bg-input); color: var(--text-primary); cursor: pointer; box-sizing: border-box; margin: 0; vertical-align: middle; display: inline-flex; align-items: center;"
-                        onchange="document.getElementById('filter-form').submit()">
-                </div>
-                {% endif %}
-            </form>
-        </h3>
-        <div style="position: relative; height: 300px; width: 100%;">
+    <!-- Gráficos Analíticos -->
+    <div class="card-table-wrapper"
+        style="display: flex; flex-direction: column; box-sizing: border-box; width: 100%; padding: 24px; box-shadow: none;">
+        <div style="position: relative; height: 350px; width: 100%;">
             <canvas id="flowChart"></canvas>
         </div>
     </div>
-
-    <!-- Agenda CRM de Contactos de Clientes para Hoy -->
-    <div class="card-table-wrapper" style="display: flex; flex-direction: column; gap: 20px; height: 100%; box-sizing: border-box;">
-        <h3
-            style="font-size: 1.15rem; font-family: var(--font-heading); display: flex; align-items: center; gap: 10px;">
-            <i class="fa-solid fa-calendar-check" style="color: var(--accent-purple);"></i>
-            <span>Compromisos CRM para Hoy</span>
-        </h3>
-
-        <div
-            style="display: flex; flex-direction: column; gap: 12px; max-height: 300px; overflow-y: auto; padding-right: 5px;">
-            {% if crm_contacts %}
-            {% for contact in crm_contacts %}
-            <div class="crm-notification-item"
-                style="background-color: rgba(255, 255, 255, 0.02); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 12px 16px; display: flex; flex-direction: column; gap: 6px; transition: border-color var(--transition-fast);">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <strong
-                        style="font-size: 0.88rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 170px;">{{
-                        contact.razonSocial }}</strong>
-                    <div style="display: flex; gap: 6px; align-items: center;">
-                        {% if contact.total_cxc and contact.total_cxc > 0 %}
-                        <span class="badge" style="background-color: rgba(239, 68, 68, 0.12); color: var(--accent-red); border: 1px solid rgba(239, 68, 68, 0.2); font-size: 0.65rem; padding: 2px 6px;">
-                            <i class="fa-solid fa-hand-holding-dollar" style="margin-right: 2px;"></i> RD$ {{ contact.total_cxc | formatted }}
-                        </span>
-                        {% endif %}
-                        <span class="badge badge-primary" style="font-size: 0.6rem;">CRM</span>
-                    </div>
-                </div>
-                <p style="color: var(--text-secondary); font-size: 0.8rem; line-height: 1.3;">
-                    {% if contact.crmNotes %}
-                        {{ contact.crmNotes }}
-                    {% elif contact.total_cxc and contact.total_cxc > 0 %}
-                        <span style="color: var(--accent-red); font-weight: 500;"><i class="fa-solid fa-triangle-exclamation"></i> Cliente con saldo pendiente por cobrar.</span>
-                    {% else %}
-                        Sin anotaciones de acuerdo comercial.
-                    {% endif %}
-                </p>
-                <div
-                    style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); border-top: 1px solid var(--border-color); padding-top: 6px; margin-top: 4px;">
-                    <span><i class="fa-solid fa-phone"></i> {{ contact.telefono or 'N/A' }}</span>
-                    <div style="display: inline-flex; gap: 12px; align-items: center;">
-                        <button type="button" onclick="openQuickNoteModal('{{ contact.id }}', '{{ contact.razonSocial }}')"
-                            style="color: var(--accent-purple); font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; font-size: 0.75rem;">
-                            <i class="fa-solid fa-comment-dots"></i> + Nota
-                        </button>
-                        <a href="{{ url_for('client_detail', client_id=contact.id) }}"
-                            style="color: var(--accent-emerald); font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 4px;">
-                            <i class="fa-solid fa-eye" style="font-size: 0.75rem;"></i> Detalle
-                        </a>
-                    </div>
-                </div>
-            </div>
-            {% if not loop.last %}
-            <div style="border-top: 1px solid var(--border-color); opacity: 0.35; margin: 2px 0;"></div>
-            {% endif %}
-            {% endfor %}
-            {% else %}
-            <div style="text-align: center; color: var(--text-secondary); font-size: 0.9rem; padding: 40px 0;">
-                <i class="fa-solid fa-circle-check"
-                    style="font-size: 2.2rem; color: var(--accent-emerald); opacity: 0.5; margin-bottom: 12px; display: block;"></i>
-                <span>¡Al día! No tienes contactos pendientes de agenda para hoy.</span>
-            </div>
-            {% endif %}
-        </div>
-    </div>
 </div>
 
-<div class="grid-three-cols" style="display: grid; grid-template-columns: 1.2fr 0.9fr 1.1fr; gap: 30px; margin-bottom: 36px;">
-    <!-- Secuencias Fiscales Críticas o de Mínimo Disponible -->
-    <div class="card-table-wrapper" style="display: flex; flex-direction: column; gap: 20px; height: 100%; box-sizing: border-box;">
-        <h3
-            style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 14px; display: flex; align-items: center; gap: 8px;">
-            <i class="fa-solid fa-triangle-exclamation" style="color: var(--accent-yellow);"></i>
-            <span>Estado de Rangos Autorizados DGII</span>
-        </h3>
-
-        <div style="display: flex; flex-direction: column; gap: 8px;">
-            {% if sequences %}
-            {% for seq in sequences %}
-            <div
-                style="background-color: rgba(255, 255, 255, 0.01); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 10px 14px; display: flex; flex-direction: column; gap: 6px;">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <div>
-                        <strong style="font-size: 0.85rem;">{{ seq.tipoComprobante }}</strong>
-                        <span style="font-size: 0.68rem; color: var(--text-muted); display: block; margin-top: 1px;">Auth: #{{ seq.numeroAutorizacionDgii }}</span>
-                    </div>
-                    <span
-                        class="badge {% if seq.cantidadDisponible <= seq.alertaMinimoDisponible %}badge-danger{% else %}badge-success{% endif %}"
-                        style="font-size: 0.65rem; padding: 3px 8px;">
-                        {{ seq.cantidadDisponible }} disponibles
-                    </span>
-                </div>
-
-                <!-- Barra de porcentaje consumido -->
-                <div
-                    style="width: 100%; height: 4px; background-color: var(--bg-input); border-radius: 2px; overflow: hidden; position: relative;">
-                    <div
-                        style="width: {{ seq.porcentajeUsado * 100 }}%; height: 100%; background-color: {% if seq.cantidadDisponible <= seq.alertaMinimoDisponible %}var(--accent-red){% else %}var(--accent-emerald){% endif %}; border-radius: 2px; transition: width 0.5s ease;">
-                    </div>
-                </div>
-
-                <div
-                    style="display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--text-secondary);">
-                    <span>Rango: {{ seq.secuenciaInicial }} - {{ seq.secuenciaFinal }}</span>
-                    <span>Último: {{ seq.ultimoConsecutivoUsado }}</span>
-                </div>
-            </div>
-            {% endfor %}
-            {% else %}
-            <div style="text-align: center; color: var(--text-secondary); font-size: 0.85rem; padding: 20px 0;">
-                <i class="fa-solid fa-circle-info"
-                    style="font-size: 1.8rem; color: var(--accent-purple); opacity: 0.5; margin-bottom: 8px; display: block;"></i>
-                <span>No tienes secuencias fiscales registradas en este entorno.</span>
-                <a href="{{ url_for('list_sequences') }}"
-                    style="color: var(--accent-emerald); font-weight: 600; display: block; margin-top: 6px;">Autorizar
-                    primera secuencia</a>
-            </div>
-            {% endif %}
-        </div>
-    </div>
+<!-- Fila de Gráficos Secundarios: Consumo y Tipos -->
+<div
+    style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 30px; margin-bottom: 30px; align-items: stretch;">
 
     <!-- Consumo del Plan de Facturación -->
-    <div class="card-table-wrapper" style="display: flex; flex-direction: column; gap: 20px; height: 100%; box-sizing: border-box;">
-        <h3
-            style="font-size: 1.15rem; font-family: var(--font-heading); display: flex; align-items: center; gap: 10px;">
-            <i class="fa-solid fa-gauge-high" style="color: var(--accent-emerald);"></i>
-            <span>Consumo del Plan</span>
-        </h3>
-        
-        <div style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%;">
-            <div style="position: relative; height: 180px; width: 100%; display: flex; align-items: center; justify-content: center;">
-                <canvas id="planChart"></canvas>
-                <!-- Texto en el centro de la rosca -->
-                <div style="position: absolute; text-align: center; margin-top: 30px;">
-                    <span style="font-size: 1.6rem; font-weight: 800; color: var(--text-primary); display: block; font-family: var(--font-heading);">{{ docs_used }}</span>
-                    <span style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600; letter-spacing: 0.05em;">de {{ docs_limit }} e-CF</span>
+    <div style="display: flex; flex-direction: column;">
+        <!-- Título fuera de la tarjeta -->
+        <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 12px;">
+            <h2 style="font-size: 0.95rem; font-weight: 500; color: var(--text-secondary); margin: 0;">
+                Consumo del Plan
+            </h2>
+        </div>
+
+        <div class="card-table-wrapper"
+            style="flex: 1; display: flex; flex-direction: column; box-sizing: border-box; width: 100%; padding: 24px; box-shadow: none;">
+            <div
+                style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%;">
+                <div
+                    style="position: relative; height: 220px; width: 220px; display: flex; align-items: center; justify-content: center; margin: 0 auto;">
+                    <canvas id="planChart"></canvas>
+                    <!-- Texto en el centro de la rosca -->
+                    <div style="position: absolute; text-align: center; margin-top: 25px;">
+                        <span
+                            style="font-size: 1.8rem; font-weight: 400; color: var(--text-primary); display: block; font-family: var(--font-heading);">{{
+                            docs_used }}</span>
+                        <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 500;">de {{ docs_limit
+                            }} e-CF</span>
+                    </div>
                 </div>
-            </div>
-            <div style="text-align: center; margin-top: 10px;">
-                <span class="badge {% if plan_pct >= 90 %}badge-danger{% elif plan_pct >= 70 %}badge-warning{% else %}badge-success{% endif %}" style="font-size: 0.7rem;">
-                    {{ plan_name }} ({{ "{:.1f}%".format(plan_pct) }})
-                </span>
+                <div style="text-align: center; margin-top: 24px;">
+                    <span
+                        class="badge {% if plan_pct >= 90 %}badge-danger{% elif plan_pct >= 70 %}badge-warning{% else %}badge-success{% endif %}"
+                        style="font-size: 0.8rem; padding: 4px 12px; border: none; background-color: var(--bg-input); color: var(--text-primary);">
+                        {{ plan_name }} ({{ "{:.1f}%".format(plan_pct) }})
+                    </span>
+                </div>
             </div>
         </div>
     </div>
 
     <!-- Distribución de Ventas por Tipo de Documento -->
-    <div class="card-table-wrapper" style="display: flex; flex-direction: column; gap: 20px; height: 100%; box-sizing: border-box;">
-        <h3
-            style="font-size: 1.15rem; font-family: var(--font-heading); display: flex; align-items: center; gap: 10px;">
-            <i class="fa-solid fa-chart-pie" style="color: var(--accent-yellow);"></i>
-            <span>Ventas por Tipo de Documento</span>
-        </h3>
-        <div style="flex: 1; display: flex; align-items: center; justify-content: center; width: 100%;">
-            <div style="position: relative; height: 260px; width: 100%;">
-                <canvas id="typeChart"></canvas>
+    <div style="display: flex; flex-direction: column;">
+        <!-- Título fuera de la tarjeta -->
+        <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 12px;">
+            <h2 style="font-size: 0.95rem; font-weight: 500; color: var(--text-secondary); margin: 0;">
+                Ventas por Tipo de Documento
+            </h2>
+        </div>
+
+        <div class="card-table-wrapper"
+            style="flex: 1; display: flex; flex-direction: column; box-sizing: border-box; width: 100%; padding: 24px; box-shadow: none;">
+            <div style="flex: 1; display: flex; align-items: center; justify-content: center; width: 100%;">
+                <div
+                    style="position: relative; height: 350px; width: 350px; display: flex; justify-content: center; margin: 0 auto;">
+                    <canvas id="typeChart"></canvas>
+                </div>
             </div>
         </div>
     </div>
 </div>
 
 <!-- SECCIÓN DE SALUD FISCAL & CONTROL DE REGIMEN (DGII) -->
-<div class="card-table-wrapper" style="margin-bottom: 30px; padding: 28px;">
-    <div
-        style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 18px; margin-bottom: 20px;">
-        <h3
-            style="font-size: 1.25rem; font-family: var(--font-heading); margin-bottom: 0; display: flex; align-items: center; gap: 10px;">
-            <i class="fa-solid fa-heart-pulse" style="color: var(--accent-red);"></i>
-            <span>Diagnóstico de Salud Fiscal & Regulación DGII</span>
-        </h3>
+<div style="margin-bottom: 30px;">
+    <!-- Título fuera de la tarjeta -->
+    <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 12px;">
+        <h2 style="font-size: 0.95rem; font-weight: 500; color: var(--text-secondary); margin: 0;">
+            Diagnóstico de Salud Fiscal & Regulación DGII
+        </h2>
         <span class="badge {% if profile.regimenFiscal == 'RST' %}badge-success{% else %}badge-primary{% endif %}"
-            style="font-size: 0.8rem; padding: 6px 14px;">
+            style="font-size: 0.8rem; padding: 4px 12px; border: none; background-color: var(--bg-input); color: var(--text-primary);">
             Régimen: {% if profile.regimenFiscal == 'RST' %}Simplificado (RST){% else %}General (Ordinario){% endif %}
         </span>
     </div>
 
-    <div style="display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 30px; align-items: center;">
-        <!-- Lado Izquierdo: Semáforo y Alertas -->
-        <div style="display: flex; gap: 24px; align-items: flex-start;">
-            <!-- Semáforo visual -->
-            <div
-                style="display: flex; flex-direction: column; gap: 10px; background-color: rgba(0, 0, 0, 0.15); padding: 14px; border-radius: 20px; align-items: center; min-width: 60px;">
+    <div class="card-table-wrapper" style="padding: 24px; box-shadow: none;">
+
+        <div style="display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 30px; align-items: center;">
+            <!-- Lado Izquierdo: Semáforo y Alertas -->
+            <div style="display: flex; gap: 24px; align-items: flex-start;">
+                <!-- Semáforo visual -->
                 <div
-                    style="width: 28px; height: 28px; border-radius: 50%; background-color: var(--accent-red); opacity: {% if stats.total_cxc > 100000 or (profile.regimenFiscal == 'RST' and rst_income_year >= rst_limit_2026 * 0.9) %}1.0{% else %}0.15{% endif %}; box-shadow: {% if stats.total_cxc > 100000 or (profile.regimenFiscal == 'RST' and rst_income_year >= rst_limit_2026 * 0.9) %}0 0 12px var(--accent-red){% else %}none{% endif %}; transition: all 0.3s ease;">
+                    style="display: flex; flex-direction: column; gap: 10px; background-color: rgba(0, 0, 0, 0.15); padding: 14px; border-radius: 20px; align-items: center; min-width: 60px;">
+                    <div
+                        style="width: 28px; height: 28px; border-radius: 50%; background-color: var(--accent-red); opacity: {% if stats.total_cxc > 100000 or (profile.regimenFiscal == 'RST' and rst_income_year >= rst_limit_2026 * 0.9) %}1.0{% else %}0.15{% endif %}; box-shadow: {% if stats.total_cxc > 100000 or (profile.regimenFiscal == 'RST' and rst_income_year >= rst_limit_2026 * 0.9) %}0 0 12px var(--accent-red){% else %}none{% endif %}; transition: all 0.3s ease;">
+                    </div>
+                    <div
+                        style="width: 28px; height: 28px; border-radius: 50%; background-color: var(--accent-yellow); opacity: {% if (stats.total_cxc > 20000 and stats.total_cxc <= 100000) or (profile.regimenFiscal == 'RST' and rst_income_year >= rst_limit_2026 * 0.7 and rst_income_year < rst_limit_2026 * 0.9) %}1.0{% else %}0.15{% endif %}; box-shadow: {% if (stats.total_cxc > 20000 and stats.total_cxc <= 100000) or (profile.regimenFiscal == 'RST' and rst_income_year >= rst_limit_2026 * 0.7 and rst_income_year < rst_limit_2026 * 0.9) %}0 0 12px var(--accent-yellow){% else %}none{% endif %}; transition: all 0.3s ease;">
+                    </div>
+                    <div
+                        style="width: 28px; height: 28px; border-radius: 50%; background-color: var(--accent-emerald); opacity: {% if stats.total_cxc <= 20000 and (profile.regimenFiscal != 'RST' or rst_income_year < rst_limit_2026 * 0.7) %}1.0{% else %}0.15{% endif %}; box-shadow: {% if stats.total_cxc <= 20000 and (profile.regimenFiscal != 'RST' or rst_income_year < rst_limit_2026 * 0.7) %}0 0 12px var(--accent-emerald){% else %}none{% endif %}; transition: all 0.3s ease;">
+                    </div>
                 </div>
-                <div
-                    style="width: 28px; height: 28px; border-radius: 50%; background-color: var(--accent-yellow); opacity: {% if (stats.total_cxc > 20000 and stats.total_cxc <= 100000) or (profile.regimenFiscal == 'RST' and rst_income_year >= rst_limit_2026 * 0.7 and rst_income_year < rst_limit_2026 * 0.9) %}1.0{% else %}0.15{% endif %}; box-shadow: {% if (stats.total_cxc > 20000 and stats.total_cxc <= 100000) or (profile.regimenFiscal == 'RST' and rst_income_year >= rst_limit_2026 * 0.7 and rst_income_year < rst_limit_2026 * 0.9) %}0 0 12px var(--accent-yellow){% else %}none{% endif %}; transition: all 0.3s ease;">
-                </div>
-                <div
-                    style="width: 28px; height: 28px; border-radius: 50%; background-color: var(--accent-emerald); opacity: {% if stats.total_cxc <= 20000 and (profile.regimenFiscal != 'RST' or rst_income_year < rst_limit_2026 * 0.7) %}1.0{% else %}0.15{% endif %}; box-shadow: {% if stats.total_cxc <= 20000 and (profile.regimenFiscal != 'RST' or rst_income_year < rst_limit_2026 * 0.7) %}0 0 12px var(--accent-emerald){% else %}none{% endif %}; transition: all 0.3s ease;">
+
+                <!-- Textos y consejos de Salud -->
+                <div style="display: flex; flex-direction: column; gap: 12px;">
+                    <h4 style="font-size: 1.05rem; font-family: var(--font-heading); margin-bottom: 2px;">Análisis de
+                        Contabilidad en Tiempo Real</h4>
+
+                    {% if profile.regimenFiscal == 'RST' %}
+                    <p style="color: var(--text-secondary); font-size: 0.88rem; line-height: 1.4; margin: 0;">
+                        🟢 <strong>Diagnóstico de Régimen:</strong> Estás operando en el <strong>Régimen Simplificado
+                            (RST)</strong>. Este régimen simplifica tus declaraciones y tu único enfoque es no superar
+                        el límite de facturación anual.
+                    </p>
+                    {% if rst_income_year >= rst_limit_2026 * 0.9 %}
+                    <p
+                        style="color: var(--accent-red); font-size: 0.85rem; font-weight: 500; line-height: 1.4; margin: 0;">
+                        ⚠️ ¡ALERTA CRÍTICA! Has alcanzado el {{ "{:.1f}%".format((rst_income_year / rst_limit_2026) *
+                        100)
+                        }} de tu límite fiscal anual. Si superas los RD$ 12.06M, la DGII te transferirá automáticamente
+                        al
+                        Régimen General.
+                    </p>
+                    {% elif rst_income_year >= rst_limit_2026 * 0.7 %}
+                    <p
+                        style="color: var(--accent-yellow); font-size: 0.85rem; font-weight: 500; line-height: 1.4; margin: 0;">
+                        ⚠️ Cuidado: Has superado el 70% de tus ingresos permitidos para este año. Te recomendamos
+                        moderar
+                        nuevas emisiones para no rebasar el límite anual de RD$ 12.06 millones.
+                    </p>
+                    {% else %}
+                    <p style="color: var(--text-muted); font-size: 0.82rem; line-height: 1.4; margin: 0;">
+                        👍 <strong>Consejo del Mes:</strong> Tus ingresos acumulados se encuentran dentro del rango
+                        seguro.
+                        Sigue disfrutando de la exención de reportar gastos y concéntrate en emitir tus comprobantes
+                        electrónicos fiscales con total normalidad.
+                    </p>
+                    {% endif %}
+                    {% else %}
+                    <p style="color: var(--text-secondary); font-size: 0.88rem; line-height: 1.4; margin: 0;">
+                        🔵 <strong>Diagnóstico de Régimen:</strong> Estás en el <strong>Régimen General</strong>. Tu
+                        facturación electrónica (e-CF) se reporta y autoriza en tiempo real con la DGII para cada una de
+                        tus ventas y comprobantes emitidos.
+                    </p>
+                    <p style="color: var(--text-muted); font-size: 0.82rem; line-height: 1.4; margin: 0;">
+                        💰 <strong>Fondo Tributario Aconsejado:</strong> Has facturado un total de <strong>RD$ {{
+                            "{:,.2f}".format(stats.total_itbis) }}</strong> de ITBIS en este periodo. Te recomendamos
+                        apartar este monto en una cuenta separada para evitar desfalques de caja cuando toque liquidar
+                        el
+                        IT-1 ante la DGII.
+                    </p>
+                    {% endif %}
+
+                    {% if stats.total_cxc > 50000 %}
+                    <div
+                        style="background-color: rgba(245, 158, 11, 0.05); border-left: 3px solid var(--accent-yellow); padding: 8px 12px; border-radius: var(--radius-xs); margin-top: 4px;">
+                        <span
+                            style="font-size: 0.8rem; font-weight: 700; color: var(--accent-yellow); display: block; margin-bottom: 2px;">⚠️
+                            Alta Cartera de Cuentas por Cobrar</span>
+                        <span
+                            style="font-size: 0.78rem; color: var(--text-secondary); line-height: 1.3; display: block;">
+                            Tienes RD$ {{ "{:,.2f}".format(stats.total_cxc) }} pendientes de cobro. Recuerda que la DGII
+                            te
+                            exige pagar el ITBIS de las facturas emitidas, *incluso si tus clientes no te las han pagado
+                            aún*. ¡Prioriza la cobranza de tus facturas!
+                        </span>
+                    </div>
+                    {% endif %}
                 </div>
             </div>
 
-            <!-- Textos y consejos de Salud -->
-            <div style="display: flex; flex-direction: column; gap: 12px;">
-                <h4 style="font-size: 1.05rem; font-family: var(--font-heading); margin-bottom: 2px;">Análisis de
-                    Contabilidad en Tiempo Real</h4>
-
+            <!-- Lado Derecho: Barra de Progreso del RST (sólo si aplica) -->
+            <div
+                style="border-left: 1px solid var(--border-color); padding-left: 30px; height: 100%; display: flex; flex-direction: column; justify-content: center; gap: 12px;">
                 {% if profile.regimenFiscal == 'RST' %}
-                <p style="color: var(--text-secondary); font-size: 0.88rem; line-height: 1.4; margin: 0;">
-                    🟢 <strong>Diagnóstico de Régimen:</strong> Estás operando en el <strong>Régimen Simplificado
-                        (RST)</strong>. Este régimen simplifica tus declaraciones y tu único enfoque es no superar el límite de facturación anual.
-                </p>
-                {% if rst_income_year >= rst_limit_2026 * 0.9 %}
-                <p style="color: var(--accent-red); font-size: 0.85rem; font-weight: 600; line-height: 1.4; margin: 0;">
-                    ⚠️ ¡ALERTA CRÍTICA! Has alcanzado el {{ "{:.1f}%".format((rst_income_year / rst_limit_2026) * 100)
-                    }} de tu límite fiscal anual. Si superas los RD$ 12.06M, la DGII te transferirá automáticamente al
-                    Régimen General.
-                </p>
-                {% elif rst_income_year >= rst_limit_2026 * 0.7 %}
-                <p
-                    style="color: var(--accent-yellow); font-size: 0.85rem; font-weight: 600; line-height: 1.4; margin: 0;">
-                    ⚠️ Cuidado: Has superado el 70% de tus ingresos permitidos para este año. Te recomendamos moderar
-                    nuevas emisiones para no rebasar el límite anual de RD$ 12.06 millones.
-                </p>
-                {% else %}
-                <p style="color: var(--text-muted); font-size: 0.82rem; line-height: 1.4; margin: 0;">
-                    👍 <strong>Consejo del Mes:</strong> Tus ingresos acumulados se encuentran dentro del rango seguro.
-                    Sigue disfrutando de la exención de reportar gastos y concéntrate en emitir tus comprobantes
-                    electrónicos fiscales con total normalidad.
-                </p>
-                {% endif %}
-                {% else %}
-                <p style="color: var(--text-secondary); font-size: 0.88rem; line-height: 1.4; margin: 0;">
-                    🔵 <strong>Diagnóstico de Régimen:</strong> Estás en el <strong>Régimen General</strong>. Tu facturación electrónica (e-CF) se reporta y autoriza en tiempo real con la DGII para cada una de tus ventas y comprobantes emitidos.
-                </p>
-                <p style="color: var(--text-muted); font-size: 0.82rem; line-height: 1.4; margin: 0;">
-                    💰 <strong>Fondo Tributario Aconsejado:</strong> Has facturado un total de <strong>RD$ {{
-                        "{:,.2f}".format(stats.total_itbis) }}</strong> de ITBIS en este periodo. Te recomendamos
-                    apartar este monto en una cuenta separada para evitar desfalques de caja cuando toque liquidar el
-                    IT-1 ante la DGII.
-                </p>
-                {% endif %}
-
-                {% if stats.total_cxc > 50000 %}
                 <div
-                    style="background-color: rgba(245, 158, 11, 0.05); border-left: 3px solid var(--accent-yellow); padding: 8px 12px; border-radius: var(--radius-xs); margin-top: 4px;">
-                    <span
-                        style="font-size: 0.8rem; font-weight: 700; color: var(--accent-yellow); display: block; margin-bottom: 2px;">⚠️
-                        Alta Cartera de Cuentas por Cobrar</span>
-                    <span style="font-size: 0.78rem; color: var(--text-secondary); line-height: 1.3; display: block;">
-                        Tienes RD$ {{ "{:,.2f}".format(stats.total_cxc) }} pendientes de cobro. Recuerda que la DGII te
-                        exige pagar el ITBIS de las facturas emitidas, *incluso si tus clientes no te las han pagado
-                        aún*. ¡Prioriza la cobranza de tus facturas!
+                    style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-secondary); font-weight: 500;">
+                    <span>Límite Anual RST 2026 (Ingresos)</span>
+                    <span style="font-family: monospace;">{{ "{:.1f}%".format((rst_income_year / rst_limit_2026) * 100)
+                        }}</span>
+                </div>
+
+                <div
+                    style="width: 100%; height: 12px; background-color: var(--bg-input); border-radius: 6px; overflow: hidden; position: relative;">
+                    <div
+                        style="width: {{ min(100.0, (rst_income_year / rst_limit_2026) * 100) }}%; height: 100%; background-color: {% if rst_income_year >= rst_limit_2026 * 0.9 %}var(--accent-red){% elif rst_income_year >= rst_limit_2026 * 0.7 %}var(--accent-yellow){% else %}var(--accent-emerald){% endif %}; border-radius: 6px; transition: width 0.5s ease; box-shadow: 0 0 8px {% if rst_income_year >= rst_limit_2026 * 0.9 %}var(--accent-red){% elif rst_income_year >= rst_limit_2026 * 0.7 %}var(--accent-yellow){% else %}var(--accent-emerald){% endif %};">
+                    </div>
+                </div>
+
+                <div
+                    style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); font-family: monospace;">
+                    <span>Acumulado: RD$ {{ "{:,.2f}".format(rst_income_year) }}</span>
+                    <span>Tope: RD$ {{ "{:,.2f}".format(rst_limit_2026) }}</span>
+                </div>
+                {% else %}
+                <div style="text-align: center; padding: 10px 0;">
+                    <i class="fa-solid fa-circle-nodes"
+                        style="font-size: 2.2rem; color: var(--accent-purple); opacity: 0.25; margin-bottom: 8px; display: block;"></i>
+                    <span style="font-size: 0.8rem; color: var(--text-secondary); line-height: 1.4; display: block;">
+                        ¿Eres profesional independiente o MIPYME y emites comprobantes de servicios? Considera evaluar
+                        con
+                        tu asesor aplicar al <strong>Régimen Simplificado (RST)</strong> para ahorrar costos de
+                        contabilidad.
                     </span>
                 </div>
                 {% endif %}
             </div>
-        </div>
-
-        <!-- Lado Derecho: Barra de Progreso del RST (sólo si aplica) -->
-        <div
-            style="border-left: 1px solid var(--border-color); padding-left: 30px; height: 100%; display: flex; flex-direction: column; justify-content: center; gap: 12px;">
-            {% if profile.regimenFiscal == 'RST' %}
-            <div
-                style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-secondary); font-weight: 600;">
-                <span>Límite Anual RST 2026 (Ingresos)</span>
-                <span style="font-family: monospace;">{{ "{:.1f}%".format((rst_income_year / rst_limit_2026) * 100)
-                    }}</span>
-            </div>
-
-            <div
-                style="width: 100%; height: 12px; background-color: var(--bg-input); border-radius: 6px; overflow: hidden; position: relative;">
-                <div
-                    style="width: {{ min(100.0, (rst_income_year / rst_limit_2026) * 100) }}%; height: 100%; background-color: {% if rst_income_year >= rst_limit_2026 * 0.9 %}var(--accent-red){% elif rst_income_year >= rst_limit_2026 * 0.7 %}var(--accent-yellow){% else %}var(--accent-emerald){% endif %}; border-radius: 6px; transition: width 0.5s ease; box-shadow: 0 0 8px {% if rst_income_year >= rst_limit_2026 * 0.9 %}var(--accent-red){% elif rst_income_year >= rst_limit_2026 * 0.7 %}var(--accent-yellow){% else %}var(--accent-emerald){% endif %};">
-                </div>
-            </div>
-
-            <div
-                style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); font-family: monospace;">
-                <span>Acumulado: RD$ {{ "{:,.2f}".format(rst_income_year) }}</span>
-                <span>Tope: RD$ {{ "{:,.2f}".format(rst_limit_2026) }}</span>
-            </div>
-            {% else %}
-            <div style="text-align: center; padding: 10px 0;">
-                <i class="fa-solid fa-circle-nodes"
-                    style="font-size: 2.2rem; color: var(--accent-purple); opacity: 0.25; margin-bottom: 8px; display: block;"></i>
-                <span style="font-size: 0.8rem; color: var(--text-secondary); line-height: 1.4; display: block;">
-                    ¿Eres profesional independiente o MIPYME y emites comprobantes de servicios? Considera evaluar con
-                    tu asesor aplicar al <strong>Régimen Simplificado (RST)</strong> para ahorrar costos de
-                    contabilidad.
-                </span>
-            </div>
-            {% endif %}
         </div>
     </div>
 </div>
@@ -567,14 +488,9 @@
 
     const flowCtx = document.getElementById('flowChart').getContext('2d');
 
-    // Crear gradientes espectaculares idénticos a la app iOS
-    const flowInvoicedGrad = flowCtx.createLinearGradient(0, 0, 0, 300);
-    flowInvoicedGrad.addColorStop(0, '#3b82f6'); // Blue gradient
-    flowInvoicedGrad.addColorStop(1, '#1d4ed8');
-
-    const flowExpensesGrad = flowCtx.createLinearGradient(0, 0, 0, 300);
-    flowExpensesGrad.addColorStop(0, '#f87171'); // Red/rose gradient
-    flowExpensesGrad.addColorStop(1, '#dc2626');
+    // Colores sólidos minimalistas (Estilo Firebase / Google Cloud)
+    const colorInvoiced = '#4285F4'; // Azul Google
+    const colorExpenses = '#EA4335'; // Rojo Google
 
     new Chart(flowCtx, {
         type: 'bar',
@@ -584,16 +500,18 @@
                 {
                     label: 'Ingresos Facturados (RD$)',
                     data: flowData.invoiced,
-                    backgroundColor: flowInvoicedGrad,
-                    borderRadius: 6,
-                    borderWidth: 0
+                    backgroundColor: colorInvoiced,
+                    borderRadius: 4,
+                    borderWidth: 0,
+                    barPercentage: 0.6
                 },
                 {
                     label: 'Egresos / Gastos (RD$)',
                     data: flowData.expenses,
-                    backgroundColor: flowExpensesGrad,
-                    borderRadius: 6,
-                    borderWidth: 0
+                    backgroundColor: colorExpenses,
+                    borderRadius: 4,
+                    borderWidth: 0,
+                    barPercentage: 0.6
                 }
             ]
         },
@@ -663,26 +581,8 @@
 
     const typeCtx = document.getElementById('typeChart').getContext('2d');
 
-    // Generar gradientes dinámicos de alta definición
-    const grad1 = typeCtx.createLinearGradient(0, 0, 0, 240);
-    grad1.addColorStop(0, '#34d399');
-    grad1.addColorStop(1, '#059669');
-
-    const grad2 = typeCtx.createLinearGradient(0, 0, 0, 240);
-    grad2.addColorStop(0, '#60a5fa');
-    grad2.addColorStop(1, '#1d4ed8');
-
-    const grad3 = typeCtx.createLinearGradient(0, 0, 0, 240);
-    grad3.addColorStop(0, '#fbbf24');
-    grad3.addColorStop(1, '#d97706');
-
-    const grad4 = typeCtx.createLinearGradient(0, 0, 0, 240);
-    grad4.addColorStop(0, '#c084fc');
-    grad4.addColorStop(1, '#7c3aed');
-
-    const grad5 = typeCtx.createLinearGradient(0, 0, 0, 240);
-    grad5.addColorStop(0, '#f472b6');
-    grad5.addColorStop(1, '#db2777');
+    // Colores planos de alta legibilidad
+    const solidColors = ['#0F9D58', '#4285F4', '#F4B400', '#AB47BC', '#EC407A'];
 
     // Plugin para centrar el texto dinámicamente y con precisión matemática dentro de la rosca del doughnut
     const centerTextPlugin = {
@@ -723,11 +623,10 @@
             labels: typeData.labels,
             datasets: [{
                 data: typeData.values,
-                backgroundColor: [grad1, grad2, grad3, grad4, grad5],
-                borderWidth: 0,
-                hoverOffset: 8,
-                borderRadius: 6,
-                spacing: 4
+                backgroundColor: solidColors,
+                borderWidth: 1,
+                borderColor: '#ffffff',
+                hoverOffset: 4
             }]
         },
         plugins: [centerTextPlugin],
@@ -852,20 +751,29 @@
         padding: 28px;
         margin: 20px;
     ">
-        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 14px; margin-bottom: 20px;">
-            <h3 style="font-size: 1.15rem; font-family: var(--font-heading); margin-bottom: 0; display: flex; align-items: center; gap: 8px;">
+        <div
+            style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 14px; margin-bottom: 20px;">
+            <h3
+                style="font-size: 1.15rem; font-family: var(--font-heading); margin-bottom: 0; display: flex; align-items: center; gap: 8px;">
                 <i class="fa-solid fa-comment-medical" style="color: var(--accent-purple);"></i>
                 <span id="quickNoteModalTitle">Nota Rápida</span>
             </h3>
-            <button type="button" onclick="closeQuickNoteModal()" style="font-size: 1.25rem; color: var(--text-secondary); cursor: pointer; transition: color var(--transition-fast);" onmouseover="this.style.color='var(--accent-red)'" onmouseout="this.style.color='var(--text-secondary)'">
+            <button type="button" onclick="closeQuickNoteModal()"
+                style="font-size: 1.25rem; color: var(--text-secondary); cursor: pointer; transition: color var(--transition-fast);"
+                onmouseover="this.style.color='var(--accent-red)'"
+                onmouseout="this.style.color='var(--text-secondary)'">
                 <i class="fa-solid fa-xmark"></i>
             </button>
         </div>
 
         <form id="quickNoteForm" action="" method="POST" style="display: flex; flex-direction: column; gap: 16px;">
             <div>
-                <label for="quickNoteType" style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px; color: var(--text-secondary);">Tipo de Interacción</label>
-                <select id="quickNoteType" name="type" class="form-control" style="width: 100%; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background-color: var(--bg-input); color: var(--text-primary); padding: 10px; box-sizing: border-box;" required>
+                <label for="quickNoteType"
+                    style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px; color: var(--text-secondary);">Tipo
+                    de Interacción</label>
+                <select id="quickNoteType" name="type" class="form-control"
+                    style="width: 100%; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background-color: var(--bg-input); color: var(--text-primary); padding: 10px; box-sizing: border-box;"
+                    required>
                     <option value="Nota" selected>📝 Nota Interna / Comentario</option>
                     <option value="Llamada">📞 Llamada Telefónica</option>
                     <option value="Reunión">🤝 Reunión Presencial / Virtual</option>
@@ -874,20 +782,31 @@
             </div>
 
             <div>
-                <label for="quickNoteContent" style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px; color: var(--text-secondary);">Contenido de la Nota</label>
-                <textarea id="quickNoteContent" name="content" placeholder="Escribe un breve resumen del contacto de hoy..." rows="4" class="form-control" style="width: 100%; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background-color: var(--bg-input); color: var(--text-primary); padding: 12px; font-family: inherit; resize: vertical; box-sizing: border-box;" required></textarea>
+                <label for="quickNoteContent"
+                    style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px; color: var(--text-secondary);">Contenido
+                    de la Nota</label>
+                <textarea id="quickNoteContent" name="content"
+                    placeholder="Escribe un breve resumen del contacto de hoy..." rows="4" class="form-control"
+                    style="width: 100%; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background-color: var(--bg-input); color: var(--text-primary); padding: 12px; font-family: inherit; resize: vertical; box-sizing: border-box;"
+                    required></textarea>
             </div>
 
-            <div style="display: flex; align-items: center; gap: 8px; background-color: var(--bg-input); padding: 10px 14px; border: 1px solid var(--border-color); border-radius: var(--radius-sm);">
-                <input type="checkbox" id="quickNoteCompleteTask" name="completeTask" value="true" checked style="width: 16px; height: 16px; cursor: pointer;">
-                <label for="quickNoteCompleteTask" style="font-size: 0.82rem; font-weight: 600; color: var(--text-primary); cursor: pointer; user-select: none; margin: 0;">
+            <div
+                style="display: flex; align-items: center; gap: 8px; background-color: var(--bg-input); padding: 10px 14px; border: 1px solid var(--border-color); border-radius: var(--radius-sm);">
+                <input type="checkbox" id="quickNoteCompleteTask" name="completeTask" value="true" checked
+                    style="width: 16px; height: 16px; cursor: pointer;">
+                <label for="quickNoteCompleteTask"
+                    style="font-size: 0.82rem; font-weight: 600; color: var(--text-primary); cursor: pointer; user-select: none; margin: 0;">
                     Completar compromiso y quitar del Dashboard
                 </label>
             </div>
 
-            <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 10px; border-top: 1px solid var(--border-color); padding-top: 16px;">
-                <button type="button" class="btn btn-secondary" onclick="closeQuickNoteModal()" style="padding: 10px 18px;">Cancelar</button>
-                <button type="submit" class="btn btn-primary" style="padding: 10px 24px; font-weight: 600; display: flex; align-items: center; gap: 6px;">
+            <div
+                style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 10px; border-top: 1px solid var(--border-color); padding-top: 16px;">
+                <button type="button" class="btn btn-secondary" onclick="closeQuickNoteModal()"
+                    style="padding: 10px 18px;">Cancelar</button>
+                <button type="submit" class="btn btn-primary"
+                    style="padding: 10px 24px; font-weight: 500; display: flex; align-items: center; gap: 6px;">
                     <i class="fa-solid fa-floppy-disk"></i>
                     <span>Guardar Nota</span>
                 </button>
@@ -902,12 +821,12 @@
         const form = document.getElementById('quickNoteForm');
         const titleSpan = document.getElementById('quickNoteModalTitle');
         const textarea = document.getElementById('quickNoteContent');
-        
+
         // Asignar el action dinámicamente con la ruta de Flask
         form.action = '/clients/' + clientId + '/interactions/quick-note';
         titleSpan.textContent = 'Nota Rápida: ' + clientName;
         textarea.value = '';
-        
+
         modal.style.display = 'flex';
         textarea.focus();
     }
@@ -918,7 +837,7 @@
     }
 
     // Cerrar si se hace clic fuera del contenido de la tarjeta modal
-    window.addEventListener('click', function(event) {
+    window.addEventListener('click', function (event) {
         const modal = document.getElementById('quickNoteModal');
         if (event.target === modal) {
             closeQuickNoteModal();

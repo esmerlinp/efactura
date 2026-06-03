@@ -420,7 +420,7 @@ def list_invoices():
     status = request.args.get('status', '').strip()
     start_date = request.args.get('start_date', '').strip()
     end_date = request.args.get('end_date', '').strip()
-    per_page = request.args.get('per_page', '10').strip()
+    per_page = request.args.get('per_page', '5').strip()
     try:
         page = int(request.args.get('page', 1))
     except ValueError:
@@ -461,9 +461,9 @@ def list_invoices():
         try:
             per_page_val = int(per_page)
             if per_page_val not in [5, 10, 15, 20]:
-                per_page_val = 10
+                per_page_val = 5
         except ValueError:
-            per_page_val = 10
+            per_page_val = 5
             
     total_pages = max(1, (total_items + per_page_val - 1) // per_page_val)
     if page < 1: page = 1

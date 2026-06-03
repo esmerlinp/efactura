@@ -5,39 +5,40 @@
 {% block page_header %}Historial de Movimientos de Inventario{% endblock %}
 
 {% block content %}
-<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
-    <div>
-        <h3 style="font-size: 1.25rem; font-family: var(--font-heading); margin-bottom: 4px;">Kárdex de Auditoría</h3>
-        <p style="color: var(--text-secondary); font-size: 0.88rem;">Registro inmutable de todas las entradas, salidas y transferencias de existencias.</p>
-    </div>
-    <div style="display: flex; gap: 12px;">
-        <a href="{{ url_for('inventory_dashboard') }}" class="btn btn-secondary">
-            <i class="fa-solid fa-arrow-left"></i>
-            <span>Volver a Inventario</span>
-        </a>
-        <a href="{{ url_for('new_inventory_transaction') }}" class="btn btn-primary">
-            <i class="fa-solid fa-shuffle"></i>
-            <span>Nuevo Ajuste Manual</span>
-        </a>
-    </div>
-</div>
-
-<!-- Filtros de Transacciones Reactivos -->
-<div class="card-table-wrapper" style="margin-bottom: 24px; padding: 20px;">
-    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;">
+<div class="card-table-wrapper">
+    <div class="table-header-row" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
         <div>
-            <label for="filter-type" style="display: block; font-size: 0.78rem; font-weight: 600; margin-bottom: 6px; color: var(--text-secondary);">Filtrar por Tipo</label>
-            <select id="filter-type" class="form-select" style="padding: 10px;">
+            <h3 style="font-size: 1.25rem; font-family: var(--font-heading); margin-bottom: 4px;">Kárdex de Auditoría</h3>
+            <p style="color: var(--text-secondary); font-size: 0.88rem; margin: 0;">Registro inmutable de todas las entradas, salidas y transferencias.</p>
+        </div>
+        <div style="display: flex; gap: 12px;">
+            <a href="{{ url_for('inventory_dashboard') }}" class="btn btn-secondary">
+                <i class="fa-solid fa-arrow-left"></i>
+                <span>Volver a Inventario</span>
+            </a>
+            <a href="{{ url_for('new_inventory_transaction') }}" class="btn btn-primary">
+                <i class="fa-solid fa-shuffle"></i>
+                <span>Nuevo Ajuste</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- Filtros Minimalistas -->
+    <div style="display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; background-color: transparent; align-items: center; border-bottom: 1px solid rgba(0, 0, 0, 0.05); padding-bottom: 12px;">
+        <div style="position: relative; flex-grow: 1; min-width: 220px; max-width: 350px;">
+            <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.85rem;"></i>
+            <input type="text" id="filter-search" placeholder="Buscar Producto, Responsable..." style="width: 100%; height: 34px; padding: 0 16px 0 38px; background-color: var(--bg-input); border: 1px solid transparent; border-radius: 20px; color: var(--text-primary); font-size: 0.85rem; transition: background-color var(--transition-fast);" onfocus="this.style.backgroundColor='#ffffff'; this.style.borderColor='var(--border-color)';" onblur="if(!this.value){this.style.backgroundColor='var(--bg-input)'; this.style.borderColor='transparent';}">
+        </div>
+        <div style="min-width: 150px;">
+            <select id="filter-type" style="width: 100%; height: 34px; padding: 0 10px; background-color: transparent; border: 1px solid transparent; border-bottom: 1px solid var(--border-color); color: var(--text-secondary); font-size: 0.85rem; cursor: pointer; outline: none;">
                 <option value="ALL">Todos los tipos</option>
                 <option value="ENTRADA">ENTRADAS (+)</option>
                 <option value="SALIDA">SALIDAS (-)</option>
                 <option value="TRANSFERENCIA">TRANSFERENCIAS (⇄)</option>
             </select>
         </div>
-        
-        <div>
-            <label for="filter-reason" style="display: block; font-size: 0.78rem; font-weight: 600; margin-bottom: 6px; color: var(--text-secondary);">Filtrar por Motivo</label>
-            <select id="filter-reason" class="form-select" style="padding: 10px;">
+        <div style="min-width: 160px;">
+            <select id="filter-reason" style="width: 100%; height: 34px; padding: 0 10px; background-color: transparent; border: 1px solid transparent; border-bottom: 1px solid var(--border-color); color: var(--text-secondary); font-size: 0.85rem; cursor: pointer; outline: none;">
                 <option value="ALL">Todos los motivos</option>
                 <option value="VENTA">VENTAS</option>
                 <option value="COMPRA">COMPRAS</option>
@@ -47,19 +48,7 @@
                 <option value="DEVOLUCION">DEVOLUCIONES</option>
             </select>
         </div>
-        
-        <div style="grid-column: 3 / -1;">
-            <label for="filter-search" style="display: block; font-size: 0.78rem; font-weight: 600; margin-bottom: 6px; color: var(--text-secondary);">Búsqueda por Producto o Responsable</label>
-            <div style="position: relative;">
-                <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-secondary); font-size: 0.85rem;"></i>
-                <input type="text" id="filter-search" class="form-input" placeholder="Ej: Cemento Cibao, Vendedor..." style="padding-left: 38px;">
-            </div>
-        </div>
     </div>
-</div>
-
-<!-- Listado de Transacciones -->
-<div class="card-table-wrapper">
     <div class="table-responsive">
         <table class="table-premium" id="transactions-table">
             <thead>

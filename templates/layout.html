@@ -22,7 +22,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
     <!-- Estilo Premium CSS Vanilla -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v={{ range(1, 1000000) | random }}">
 
     {% if company_apply_color_marca_ui and company_color_marca %}
     <style id="dynamic-brand-styles">
@@ -57,19 +57,25 @@
             transition: all 0.3s ease;
         }
         .sidebar-section-header {
-            font-size: 0.65rem;
-            font-weight: 600;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-            margin: 20px 16px 8px 16px;
-            opacity: 0.6;
+            font-size: 0.75rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+            margin: 16px 0 8px 0;
+            padding: 16px 16px 0 16px;
+            border-top: 1px solid var(--border-color);
+            opacity: 1;
             transition: opacity 0.3s ease, margin 0.3s ease, height 0.3s ease, color 0.3s ease;
             user-select: none;
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: space-between;
+        }
+        
+        .sidebar-section:first-child .sidebar-section-header {
+            border-top: none;
+            margin-top: 8px;
+            padding-top: 0;
         }
         .sidebar-collapsed .sidebar-section-header span {
             display: none;
@@ -163,9 +169,6 @@
                     <span class="sandbox-tag">Sandbox</span>
                     {% endif %}
                 </div>
-                <button type="button" id="sidebar-toggle-btn" class="sidebar-toggle" title="Contraer / Expandir menú">
-                    <i class="fa-solid fa-chevron-left" id="toggle-icon"></i>
-                </button>
             </div>
 
             <nav class="nav-menu">
@@ -316,7 +319,11 @@
                 </script>
             </nav>
 
-            <div class="sidebar-footer">
+            <div class="sidebar-footer" style="flex-direction: column; gap: 12px;">
+                <!-- Botón Toggle tipo Firebase en el bottom -->
+                <button type="button" id="sidebar-toggle-btn" class="sidebar-toggle" title="Contraer / Expandir menú" style="margin: 0 auto;">
+                    <i class="fa-solid fa-chevron-left" id="toggle-icon"></i>
+                </button>
                 <a href="{{ url_for('user_profile_page') }}" class="user-badge user-badge-link"
                    title="Ver y editar mi perfil"
                    style="text-decoration: none; display: flex; align-items: center; gap: 12px;
@@ -359,11 +366,65 @@
                     </a>
                     {% endif %}
 
-                    <!-- Botón de Alternancia de Tema (Claro / Oscuro) -->
-                    <button class="theme-toggle" id="theme-toggle-btn" title="Alternar Modo Oscuro / Claro">
-                        <i class="fa-solid fa-sun" id="theme-icon-light" style="display: none;"></i>
-                        <i class="fa-solid fa-moon" id="theme-icon-dark"></i>
-                    </button>
+                    <!-- Icono CRM / Notificaciones -->
+                    <div class="crm-dropdown" id="crm-dropdown-trigger" style="position: relative; display: inline-block;">
+                        <button class="btn btn-secondary" style="padding: 8px 12px; font-size: 1rem; cursor: pointer; border: none; background: transparent;" title="Compromisos CRM para Hoy">
+                            <i class="fa-regular fa-bell"></i>
+                            {% if crm_contacts is defined and crm_contacts|length > 0 %}
+                            <span style="position: absolute; top: 2px; right: 2px; background-color: var(--accent-red); color: white; border-radius: 50%; width: 8px; height: 8px;"></span>
+                            {% endif %}
+                        </button>
+                        
+                        <!-- Menú Desplegable CRM -->
+                        <div class="dropdown-menu" id="crm-dropdown-menu" style="
+                            display: none;
+                            position: absolute;
+                            right: 0;
+                            top: calc(100% + 8px);
+                            background-color: var(--bg-sidebar);
+                            border: 1px solid var(--border-color);
+                            border-radius: var(--radius-md);
+                            width: 320px;
+                            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+                            padding: 0;
+                            z-index: 1000;
+                            flex-direction: column;
+                            box-sizing: border-box;
+                        ">
+                            <div style="padding: 12px 16px; border-bottom: 1px solid var(--border-color); font-weight: 500; font-size: 0.85rem;">
+                                Compromisos CRM para Hoy
+                            </div>
+                            <div style="max-height: 300px; overflow-y: auto; padding: 8px;">
+                                {% if crm_contacts is defined and crm_contacts %}
+                                {% for contact in crm_contacts %}
+                                <div class="crm-notification-item" style="padding: 10px; border-bottom: 1px solid var(--border-color); font-size: 0.8rem;">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                                        <strong style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 170px;">{{ contact.razonSocial }}</strong>
+                                        <span class="badge" style="background-color: #e8f0fe; color: #1a73e8; border: none; font-size: 0.6rem; padding: 2px 6px;">CRM</span>
+                                    </div>
+                                    <p style="color: var(--text-secondary); margin: 0 0 6px 0; font-size: 0.75rem;">
+                                        {% if contact.crmNotes %}
+                                            {{ contact.crmNotes }}
+                                        {% elif contact.total_cxc and contact.total_cxc > 0 %}
+                                            <span style="color: var(--text-secondary);"><i class="fa-solid fa-circle-info"></i> Cliente con saldo pendiente.</span>
+                                        {% else %}
+                                            Sin anotaciones.
+                                        {% endif %}
+                                    </p>
+                                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                                        <span style="color: var(--text-muted); font-size: 0.7rem;"><i class="fa-solid fa-phone"></i> {{ contact.telefono or 'N/A' }}</span>
+                                        <a href="{{ url_for('client_detail', client_id=contact.id) }}" style="color: var(--accent-emerald); font-weight: 500; text-decoration: none; font-size: 0.75rem;"><i class="fa-solid fa-eye"></i> Ver</a>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                                {% else %}
+                                <div style="text-align: center; color: var(--text-muted); font-size: 0.8rem; padding: 20px 0;">
+                                    No tienes compromisos para hoy.
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
 
                     <!-- Dropdown de Empresa -->
                     <div class="company-dropdown" id="company-dropdown-trigger" style="position: relative; display: inline-block;">
@@ -482,7 +543,27 @@
                                 <span>Centro de Ayuda</span>
                             </a>
                             
-                            <div style="border-top: 1px solid var(--border-color); margin: 6px 0;"></div>
+                            <!-- Opción: Modo Oscuro -->
+                            <div id="theme-toggle-dropdown-btn" style="
+                                display: flex;
+                                align-items: center;
+                                justify-content: space-between;
+                                padding: 10px 14px;
+                                font-size: 0.85rem;
+                                font-weight: 500;
+                                color: var(--text-primary);
+                                border-radius: var(--radius-sm);
+                                cursor: pointer;
+                                transition: background-color var(--transition-fast);
+                            " onmouseover="this.style.backgroundColor='var(--bg-nav-hover)'" onmouseout="this.style.backgroundColor='transparent'">
+                                <div style="display: flex; align-items: center; gap: 12px;">
+                                    <i class="fa-solid fa-moon" id="theme-icon-dropdown-dark" style="color: var(--text-secondary); width: 16px; font-size: 0.95rem;"></i>
+                                    <i class="fa-solid fa-sun" id="theme-icon-dropdown-light" style="display: none; color: #f59e0b; width: 16px; font-size: 0.95rem;"></i>
+                                    <span>Modo Oscuro</span>
+                                </div>
+                            </div>
+                            
+                            <div style="height: 1px; background-color: var(--border-color); margin: 4px 0;"></div>
                             
                             <!-- Opción 3: Cerrar Sesión -->
                             <a href="{{ url_for('logout') }}" style="
@@ -503,26 +584,29 @@
                     </div>
                 </div>
 
-                <!-- Script del Dropdown de Empresa -->
+                <!-- Script de Dropdowns del Header -->
                 <script>
                     document.addEventListener('DOMContentLoaded', function() {
-                        const trigger = document.getElementById('company-dropdown-trigger');
-                        const menu = document.getElementById('company-dropdown-menu');
-                        
-                        if (trigger && menu) {
-                            trigger.addEventListener('click', function(event) {
-                                event.stopPropagation();
-                                const isDisplayed = menu.style.display === 'flex';
-                                menu.style.display = isDisplayed ? 'none' : 'flex';
-                            });
-                            
-                            // Cerrar el dropdown al hacer clic fuera de él
-                            window.addEventListener('click', function(event) {
-                                if (!trigger.contains(event.target)) {
-                                    menu.style.display = 'none';
-                                }
-                            });
-                        }
+                        const setupDropdown = (triggerId, menuId) => {
+                            const trigger = document.getElementById(triggerId);
+                            const menu = document.getElementById(menuId);
+                            if (trigger && menu) {
+                                trigger.addEventListener('click', function(event) {
+                                    event.stopPropagation();
+                                    const isDisplayed = menu.style.display === 'flex';
+                                    // Cerrar otros dropdowns
+                                    document.querySelectorAll('.dropdown-menu').forEach(m => m.style.display = 'none');
+                                    menu.style.display = isDisplayed ? 'none' : 'flex';
+                                });
+                                window.addEventListener('click', function(event) {
+                                    if (!trigger.contains(event.target)) {
+                                        menu.style.display = 'none';
+                                    }
+                                });
+                            }
+                        };
+                        setupDropdown('company-dropdown-trigger', 'company-dropdown-menu');
+                        setupDropdown('crm-dropdown-trigger', 'crm-dropdown-menu');
                     });
                 </script>
             </header>

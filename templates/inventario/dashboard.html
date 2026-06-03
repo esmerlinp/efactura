@@ -5,59 +5,53 @@
 {% block page_header %}Tablero de Inventario{% endblock %}
 
 {% block content %}
-<!-- Tarjetas de Resumen KPI con Glassmorphism -->
-<div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 30px;">
-    <!-- KPI 1: Almacenes Activos -->
-    <div class="card-totals-highlight" style="margin-bottom: 0; background: linear-gradient(135deg, rgba(16, 185, 129, 0.08), rgba(6, 182, 212, 0.05)); border-left: 5px solid var(--accent-emerald);">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-            <div>
-                <span style="font-size: 0.8rem; color: var(--text-secondary); font-weight: 600; text-transform: uppercase;">Almacenes</span>
-                <h2 style="font-size: 2rem; font-family: var(--font-heading); margin-top: 6px; font-weight: 800;">{{ warehouses | length }}</h2>
-            </div>
-            <i class="fa-solid fa-warehouse" style="font-size: 2rem; color: var(--accent-emerald); opacity: 0.8;"></i>
+<!-- Tarjeta Única de KPIs (Estilo Resumen Financiero) -->
+<div class="card-table-wrapper" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 24px; padding: 24px; margin-bottom: 30px; box-shadow: none;">
+
+    <!-- KPI 1: Almacenes -->
+    <div style="display: flex; flex-direction: column; gap: 4px;">
+        <span style="font-size: 0.8rem; color: var(--text-secondary);">Almacenes Activos</span>
+        <div style="font-size: 1.6rem; color: var(--accent-emerald); font-weight: 400; font-family: var(--font-heading); display: flex; align-items: center; gap: 8px;">
+            <i class="fa-solid fa-square" style="font-size: 0.4rem; color: var(--accent-emerald);"></i>
+            {{ warehouses | length }}
         </div>
-        <p style="color: var(--text-secondary); font-size: 0.78rem; margin-top: 10px;">Puntos de almacenamiento activos.</p>
+        <span style="font-size: 0.75rem; color: var(--text-muted);">Puntos de almacenamiento</span>
     </div>
 
-    <!-- KPI 2: Total Productos -->
-    <div class="card-totals-highlight" style="margin-bottom: 0; background: linear-gradient(135deg, rgba(59, 130, 246, 0.08), rgba(37, 99, 235, 0.05)); border-left: 5px solid var(--accent-purple);">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-            <div>
-                <span style="font-size: 0.8rem; color: var(--text-secondary); font-weight: 600; text-transform: uppercase;">Catálogo Físico</span>
-                <h2 style="font-size: 2rem; font-family: var(--font-heading); margin-top: 6px; font-weight: 800;">{{ items | length }}</h2>
-            </div>
-            <i class="fa-solid fa-boxes-stacked" style="font-size: 2rem; color: var(--accent-purple); opacity: 0.8;"></i>
+    <!-- KPI 2: Catálogo Físico -->
+    <div style="display: flex; flex-direction: column; gap: 4px;">
+        <span style="font-size: 0.8rem; color: var(--text-secondary);">Catálogo Físico</span>
+        <div style="font-size: 1.6rem; color: var(--accent-purple); font-weight: 400; font-family: var(--font-heading); display: flex; align-items: center; gap: 8px;">
+            <i class="fa-solid fa-square" style="font-size: 0.4rem; color: var(--accent-purple);"></i>
+            {{ items | length }}
         </div>
-        <p style="color: var(--text-secondary); font-size: 0.78rem; margin-top: 10px;">Bienes materiales registrados.</p>
+        <span style="font-size: 0.75rem; color: var(--text-muted);">Bienes registrados</span>
     </div>
 
-    <!-- KPI 3: Stock Total Sumado -->
+    <!-- KPI 3: Existencia Total -->
     {% set ns = namespace(total_units=0.0) %}
     {% for it in items %}
         {% set ns.total_units = ns.total_units + (it.totalStock or 0.0) %}
     {% endfor %}
-    <div class="card-totals-highlight" style="margin-bottom: 0; background: linear-gradient(135deg, rgba(236, 72, 153, 0.08), rgba(244, 63, 94, 0.05)); border-left: 5px solid var(--accent-magenta);">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-            <div>
-                <span style="font-size: 0.8rem; color: var(--text-secondary); font-weight: 600; text-transform: uppercase;">Existencia Total</span>
-                <h2 style="font-size: 2rem; font-family: var(--font-heading); margin-top: 6px; font-weight: 800;">{{ "{:,.2f}".format(ns.total_units) }}</h2>
-            </div>
-            <i class="fa-solid fa-cubes" style="font-size: 2rem; color: var(--accent-magenta); opacity: 0.8;"></i>
+    <div style="display: flex; flex-direction: column; gap: 4px;">
+        <span style="font-size: 0.8rem; color: var(--text-secondary);">Existencia Total</span>
+        <div style="font-size: 1.6rem; color: var(--accent-magenta); font-weight: 400; font-family: var(--font-heading); display: flex; align-items: center; gap: 8px;">
+            <i class="fa-solid fa-square" style="font-size: 0.4rem; color: var(--accent-magenta);"></i>
+            {{ "{:,.2f}".format(ns.total_units) }}
         </div>
-        <p style="color: var(--text-secondary); font-size: 0.78rem; margin-top: 10px;">Suma general de stock disponible.</p>
+        <span style="font-size: 0.75rem; color: var(--text-muted);">Suma general de stock</span>
     </div>
 
-    <!-- KPI 4: Alertas de Bajo Stock -->
-    <div class="card-totals-highlight" style="margin-bottom: 0; background: linear-gradient(135deg, rgba(239, 68, 68, 0.08), rgba(220, 38, 38, 0.05)); border-left: 5px solid var(--accent-red);">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-            <div>
-                <span style="font-size: 0.8rem; color: var(--text-secondary); font-weight: 600; text-transform: uppercase;">Alertas Críticas</span>
-                <h2 style="font-size: 2rem; font-family: var(--font-heading); margin-top: 6px; font-weight: 800; color: {% if low_stock_alerts %}var(--accent-red){% else %}inherit{% endif %};">{{ low_stock_alerts | length }}</h2>
-            </div>
-            <i class="fa-solid fa-circle-exclamation" style="font-size: 2rem; color: var(--accent-red); opacity: 0.8;"></i>
+    <!-- KPI 4: Alertas -->
+    <div style="display: flex; flex-direction: column; gap: 4px;">
+        <span style="font-size: 0.8rem; color: var(--text-secondary);">Alertas Críticas</span>
+        <div style="font-size: 1.6rem; color: {% if low_stock_alerts %}var(--accent-red){% else %}var(--text-primary){% endif %}; font-weight: 400; font-family: var(--font-heading); display: flex; align-items: center; gap: 8px;">
+            <i class="fa-solid fa-square" style="font-size: 0.4rem; color: {% if low_stock_alerts %}var(--accent-red){% else %}var(--text-muted){% endif %};"></i>
+            {{ low_stock_alerts | length }}
         </div>
-        <p style="color: var(--text-secondary); font-size: 0.78rem; margin-top: 10px;">Artículos por debajo del mínimo.</p>
+        <span style="font-size: 0.75rem; color: var(--text-muted);">Artículos por debajo del mínimo</span>
     </div>
+
 </div>
 
 <!-- Acciones de Inventario Destacadas -->
@@ -115,13 +109,13 @@
     </div>
 
     <!-- Filtros de Búsqueda Avanzada (Más compactos) -->
-    <div style="display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; background-color: var(--bg-input); padding: 10px 14px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); align-items: center; width: 100%;">
-        <div style="position: relative; flex-grow: 1; min-width: 280px;">
+    <div style="display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; background-color: transparent; align-items: center; border-bottom: 1px solid rgba(0, 0, 0, 0.05); padding-bottom: 12px;">
+        <div style="position: relative; flex-grow: 1; min-width: 280px; max-width: 350px;">
             <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.85rem;"></i>
-            <input type="text" id="inventory-search" placeholder="Buscar por código, descripción o ubicación..." style="width: 100%; height: 36px; padding: 0 16px 0 38px; background-color: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-sm); color: var(--text-primary); font-size: 0.88rem; transition: border-color var(--transition-fast);" oninput="applyFilters()">
+            <input type="text" id="inventory-search" placeholder="Buscar por código, descripción o ubicación..." style="width: 100%; height: 34px; padding: 0 16px 0 38px; background-color: var(--bg-input); border: 1px solid transparent; border-radius: 20px; color: var(--text-primary); font-size: 0.85rem; transition: background-color var(--transition-fast);" onfocus="this.style.backgroundColor='#ffffff'; this.style.borderColor='var(--border-color)';" onblur="if(!this.value){this.style.backgroundColor='var(--bg-input)'; this.style.borderColor='transparent';}" oninput="applyFilters()">
         </div>
         <div style="min-width: 200px;">
-            <select id="stock-filter" style="width: 100%; height: 36px; padding: 0 10px; background-color: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-sm); color: var(--text-primary); font-size: 0.88rem; cursor: pointer;" onchange="applyFilters()">
+            <select id="stock-filter" style="width: 100%; height: 34px; padding: 0 10px; background-color: transparent; border: 1px solid transparent; border-bottom: 1px solid var(--border-color); color: var(--text-secondary); font-size: 0.85rem; cursor: pointer; outline: none;" onchange="applyFilters()">
                 <option value="all">Todo el Inventario</option>
                 <option value="low-stock">⚠️ Stock Bajo / Alerta</option>
                 <option value="in-stock">Disponible</option>

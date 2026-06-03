@@ -64,10 +64,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // 5. Control de Alternancia de Tema (Oscuro / Claro) con persistencia
-    const themeToggleBtn = document.getElementById('theme-toggle-btn');
+    const themeToggleBtn = document.getElementById('theme-toggle-dropdown-btn');
     if (themeToggleBtn) {
-        const themeIconLight = document.getElementById('theme-icon-light');
-        const themeIconDark = document.getElementById('theme-icon-dark');
+        const themeIconLight = document.getElementById('theme-icon-dropdown-light');
+        const themeIconDark = document.getElementById('theme-icon-dropdown-dark');
         
         // Función para actualizar iconos
         const updateThemeIcons = (theme) => {
