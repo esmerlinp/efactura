@@ -193,10 +193,12 @@ def create_app():
     from app.web.dashboard import web_dashboard_bp
     from app.web.clients import web_clients_bp
     from app.web.invoices import web_invoices_bp
+    from app.web.notes import web_notes_bp
 
     app.register_blueprint(web_auth_bp)
     app.register_blueprint(web_dashboard_bp)
     app.register_blueprint(web_clients_bp)
     app.register_blueprint(web_invoices_bp)
+    app.register_blueprint(web_notes_bp)
 
     return app

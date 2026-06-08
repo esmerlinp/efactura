@@ -586,6 +586,23 @@ def new_invoice_route(invoice_id=None):
 def new_quotation_route(invoice_id=None):
     return _new_document_helper(invoice_id=invoice_id, is_quotation=True)
 
+@web_invoices_bp.route('/invoices/<invoice_id>/update_status', methods=['POST'])
+def update_invoice_status_ajax(invoice_id):
+    if 'user' not in session: return jsonify({'success': False, 'error': 'No autorizado'}), 401
+    if not check_permission('canInvoice'): return jsonify({'success': False, 'error': 'Sin permisos'}), 403
+    
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+    
+    data = request.json
+    new_status = data.get('status')
+    
+    if not new_status:
+        return jsonify({'success': False, 'error': 'Estado no proporcionado'}), 400
+        
+    DatabaseService.update_invoice_status_simple(owner_uid, invoice_id, new_status, sandbox=sandbox)
+    return jsonify({'success': True})
+
 def _new_document_helper(invoice_id=None, is_quotation=False):
     if 'user' not in session: return redirect(url_for('login'))
     if not check_permission('canInvoice'):
@@ -598,10 +615,10 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
         existing_invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
         if not existing_invoice:
             flash('Documento no encontrado.', 'error')
-            return redirect(url_for('list_invoices'))
+            return redirect(url_for('web_invoices.list_invoices'))
         if existing_invoice.get('status') not in ['Borrador', 'Rechazada']:
             flash('Solo se pueden editar documentos en estado Borrador.', 'error')
-            return redirect(url_for('invoice_detail', invoice_id=invoice_id))
+            return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
     else:
         if request.method == 'GET':
             ref_id = request.args.get('reference_invoice_id')

@@ -1,97 +1,282 @@
 {% extends "layout.html" %}
 
-{% block title %}Directorio CRM Clientes{% endblock %}
+{% block title %}Pipeline CRM{% endblock %}
 
-{% block page_header %}CRM & Directorio de Clientes{% endblock %}
+{% block page_header %}Pipeline de Ventas y CRM{% endblock %}
 
 {% block content %}
-<div class="card-table-wrapper">
-    <div class="table-header-row">
-        <div>
-            <h3 style="font-size: 1.25rem; font-family: var(--font-heading); margin-bottom: 6px;">Directorio de Contactos</h3>
-            <p style="color: var(--text-secondary); font-size: 0.88rem;">Agenda de acuerdos comerciales, CxC e historial fiscal.</p>
-        </div>
-        <a href="{{ url_for('new_client') }}" class="btn btn-primary">
-            <i class="fa-solid fa-user-plus"></i>
-            <span>Nuevo Cliente CRM</span>
+<style>
+    /* Kanban Layout Compacto */
+    .kanban-board {
+        display: flex;
+        gap: 15px;
+        margin-top: 20px;
+        overflow-x: auto;
+        padding-bottom: 20px;
+        min-height: 500px;
+    }
+    
+    .kanban-column {
+        flex: 1;
+        min-width: 250px;
+        max-width: 350px;
+        background: rgba(255, 255, 255, 0.02);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-md);
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .kanban-header {
+        padding: 10px 15px;
+        border-bottom: 1px solid var(--border-color);
+        font-family: var(--font-heading);
+        font-size: 1rem;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: rgba(0,0,0,0.1);
+        border-top-left-radius: var(--radius-md);
+        border-top-right-radius: var(--radius-md);
+    }
+    
+    .kanban-cards {
+        padding: 10px;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        min-height: 150px;
+    }
+
+    /* Client Card */
+    .client-card {
+        border-radius: var(--radius-sm);
+        padding: 12px 15px;
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        background: rgba(30, 41, 59, 0.5);
+        border: 1px solid var(--border-color);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        cursor: grab;
+        transition: box-shadow var(--transition-fast);
+    }
+    
+    .client-card:active {
+        cursor: grabbing;
+    }
+    
+    .client-card:hover {
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.2);
+        border-color: rgba(16, 185, 129, 0.3);
+    }
+    
+    .client-title {
+        font-size: 1rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        font-family: var(--font-heading);
+        margin-bottom: 4px;
+        word-break: break-word;
+        text-decoration: none;
+    }
+
+    .client-title:hover {
+        color: var(--accent-emerald);
+    }
+    
+    .client-meta {
+        font-size: 0.8rem;
+        color: var(--text-secondary);
+        margin-bottom: 8px;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    .client-finance {
+        font-size: 0.85rem;
+        background: rgba(0,0,0,0.2);
+        padding: 6px;
+        border-radius: var(--radius-sm);
+        margin-bottom: 10px;
+    }
+
+    .card-actions {
+        display: flex;
+        gap: 8px;
+        justify-content: flex-end;
+        margin-top: auto;
+    }
+
+    .btn-icon {
+        background: rgba(255, 255, 255, 0.1);
+        border: none;
+        color: var(--text-secondary);
+        border-radius: 50%;
+        width: 28px;
+        height: 28px;
+        font-size: 0.8rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.2s;
+        text-decoration: none;
+    }
+
+    .btn-icon:hover {
+        background: rgba(255, 255, 255, 0.2);
+        color: var(--text-primary);
+    }
+    
+    .btn-icon.eye:hover { color: var(--accent-emerald); }
+    .btn-icon.edit:hover { color: var(--accent-blue); }
+    
+    /* Stage specific colors */
+    .kanban-column#col-prospecto .kanban-header { border-bottom-color: var(--accent-yellow); color: var(--accent-yellow); }
+    .kanban-column#col-contactado .kanban-header { border-bottom-color: var(--accent-blue); color: var(--accent-blue); }
+    .kanban-column#col-negociacion .kanban-header { border-bottom-color: var(--accent-purple); color: var(--accent-purple); }
+    .kanban-column#col-activo .kanban-header { border-bottom-color: var(--accent-emerald); color: var(--accent-emerald); }
+</style>
+
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+    <div>
+        <p style="color: var(--text-secondary); font-size: 0.95rem; margin: 0;">Gestiona tus clientes arrastrándolos por el embudo de ventas.</p>
+    </div>
+    <a href="{{ url_for('web_clients.new_client') }}" class="btn btn-primary" style="font-size: 0.9rem;">
+        <i class="fa-solid fa-user-plus"></i> Nuevo Lead
+    </a>
+</div>
+
+{% macro render_client(client) %}
+<div class="client-card" id="client-{{ client.id }}" draggable="true" ondragstart="drag(event)">
+    <a href="{{ url_for('web_clients.client_detail', client_id=client.id) }}" class="client-title">
+        {{ client.razonSocial }}
+    </a>
+    
+    <div class="client-meta">
+        <span><i class="fa-solid fa-id-card"></i> {{ client.rnc }}</span>
+        <span><i class="fa-solid fa-phone"></i> {{ client.telefono or 'N/A' }}</span>
+        {% if client.nextContactDate %}
+        <span style="color: var(--accent-purple); font-weight: 500;"><i class="fa-solid fa-clock"></i> Contacto: {{ client.nextContactDate[:10] }}</span>
+        {% endif %}
+    </div>
+
+    {% if client.total_invoiced and client.total_invoiced > 0 %}
+    <div class="client-finance">
+        <strong style="color: var(--accent-emerald); display: block;">Ventas: RD$ {{ "{:,.2f}".format(client.total_invoiced) }}</strong>
+        {% if client.total_cxc > 0 %}
+        <span style="color: var(--accent-red); font-weight: 500; font-size: 0.8rem;">CxC: RD$ {{ "{:,.2f}".format(client.total_cxc) }}</span>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <div class="card-actions">
+        <a href="{{ url_for('web_clients.client_detail', client_id=client.id) }}" class="btn-icon eye" title="Ver Ficha">
+            <i class="fa-solid fa-eye"></i>
+        </a>
+        <a href="{{ url_for('web_clients.edit_client', client_id=client.id) }}" class="btn-icon edit" title="Editar">
+            <i class="fa-solid fa-pen"></i>
         </a>
     </div>
+</div>
+{% endmacro %}
+
+<div class="kanban-board">
+    <!-- Prospecto -->
+    <div class="kanban-column" id="col-Prospecto" ondrop="drop(event)" ondragover="allowDrop(event)">
+        <h4 class="kanban-header"><i class="fa-solid fa-user-astronaut"></i> Prospecto</h4>
+        <div class="kanban-cards">
+            {% for client in clients if client.pipelineStage == 'Prospecto' %}
+                {{ render_client(client) }}
+            {% endfor %}
+        </div>
+    </div>
     
-    <div class="table-responsive">
-        <table class="table-premium">
-            <thead>
-                <tr>
-                    <th>Razón Social / Nombre</th>
-                    <th>RNC / Cédula</th>
-                    <th>Contacto</th>
-                    <th>Facturado Acumulado</th>
-                    <th>Próximo Contacto</th>
-                    <th style="text-align: right;">Acciones</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% if clients %}
-                    {% for client in clients %}
-                        <tr>
-                            <td>
-                                <a href="{{ url_for('client_detail', client_id=client.id) }}" style="text-decoration: none; color: inherit;">
-                                    <strong style="font-size: 0.95rem; display: block; margin-bottom: 2px; color: var(--text-primary); transition: color var(--transition-fast);" onmouseover="this.style.color='var(--accent-emerald)'" onmouseout="this.style.color='var(--text-primary)'">{{ client.razonSocial }}</strong>
-                                </a>
-                                <span style="font-size: 0.78rem; color: var(--text-muted);"><i class="fa-solid fa-map-location-dot"></i> {{ client.direccion or 'República Dominicana' }}</span>
-                            </td>
-                            <td>
-                                <span class="badge badge-secondary" style="font-family: monospace;">{{ client.rnc }}</span>
-                            </td>
-                            <td>
-                                <span style="display: block; font-size: 0.88rem;"><i class="fa-solid fa-phone" style="font-size: 0.8rem; color: var(--text-muted);"></i> {{ client.telefono or 'N/A' }}</span>
-                                <span style="font-size: 0.78rem; color: var(--text-secondary);"><i class="fa-solid fa-envelope" style="font-size: 0.8rem; color: var(--text-muted);"></i> {{ client.email or 'N/A' }}</span>
-                            </td>
-                            <td>
-                                <strong style="color: var(--accent-emerald);">RD$ {{ "{:,.2f}".format(client.total_invoiced | default(0.0)) }}</strong>
-                                {% if client.total_cxc | default(0.0) > 0.0 %}
-                                <span style="display: block; font-size: 0.75rem; color: var(--accent-red); font-weight: 500;">CxC: RD$ {{ "{:,.2f}".format(client.total_cxc) }}</span>
-                                {% endif %}
-                            </td>
-                            <td>
-                                {% if client.nextContactDate %}
-                                    <span style="font-size: 0.88rem; color: var(--accent-purple); font-weight: 500;"><i class="fa-solid fa-clock"></i> {{ client.nextContactDate[:10] }}</span>
-                                    {% if client.crmNotes %}
-                                    <span style="display: block; font-size: 0.75rem; color: var(--text-secondary); max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{ client.crmNotes }}">
-                                        {{ client.crmNotes }}
-                                    </span>
-                                    {% endif %}
-                                {% else %}
-                                    <span style="color: var(--text-muted); font-size: 0.85rem;">No programado</span>
-                                {% endif %}
-                            </td>
-                            <td style="text-align: right;">
-                                <div style="display: inline-flex; gap: 8px;">
-                                    <a href="{{ url_for('client_detail', client_id=client.id) }}" class="btn btn-secondary" style="padding: 8px 12px; font-size: 0.8rem; border-color: var(--accent-emerald); color: var(--accent-emerald);" title="Ver Historial y Seguimiento">
-                                        <i class="fa-solid fa-eye"></i>
-                                    </a>
-                                    <a href="{{ url_for('edit_client', client_id=client.id) }}" class="btn btn-secondary" style="padding: 8px 12px; font-size: 0.8rem;" title="Editar Ficha CRM">
-                                        <i class="fa-solid fa-user-pen"></i>
-                                    </a>
-                                    <form action="{{ url_for('delete_client_route', client_id=client.id) }}" method="POST" onsubmit="return confirm('¿Seguro que deseas eliminar este cliente? Se borrarán sus datos del directorio.');" style="display: inline;">
-                                        <button type="submit" class="btn btn-danger" style="padding: 8px 12px; font-size: 0.8rem;" title="Eliminar Cliente">
-                                            <i class="fa-solid fa-trash-can"></i>
-                                        </button>
-                                    </form>
-                                </div>
-                            </td>
-                        </tr>
-                    {% endfor %}
-                {% else %}
-                    <tr>
-                        <td colspan="6" style="text-align: center; padding: 60px 0; color: var(--text-secondary);">
-                            <i class="fa-solid fa-users" style="font-size: 3rem; color: var(--text-muted); margin-bottom: 16px; opacity: 0.5; display: block;"></i>
-                            <span>No hay clientes registrados en este directorio aún.</span>
-                            <a href="{{ url_for('new_client') }}" style="color: var(--accent-emerald); font-weight: 600; display: block; margin-top: 10px;">Agregar el primer cliente</a>
-                        </td>
-                    </tr>
-                {% endif %}
-            </tbody>
-        </table>
+    <!-- Contactado -->
+    <div class="kanban-column" id="col-Contactado" ondrop="drop(event)" ondragover="allowDrop(event)">
+        <h4 class="kanban-header"><i class="fa-solid fa-phone-volume"></i> Contactado</h4>
+        <div class="kanban-cards">
+            {% for client in clients if client.pipelineStage == 'Contactado' %}
+                {{ render_client(client) }}
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- En Negociación -->
+    <div class="kanban-column" id="col-Negociacion" ondrop="drop(event)" ondragover="allowDrop(event)">
+        <h4 class="kanban-header"><i class="fa-solid fa-comments-dollar"></i> En Negociación</h4>
+        <div class="kanban-cards">
+            {% for client in clients if client.pipelineStage == 'En Negociación' %}
+                {{ render_client(client) }}
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Cliente Activo -->
+    <div class="kanban-column" id="col-Activo" ondrop="drop(event)" ondragover="allowDrop(event)">
+        <h4 class="kanban-header"><i class="fa-solid fa-handshake"></i> Cliente Activo</h4>
+        <div class="kanban-cards">
+            {% for client in clients if client.pipelineStage == 'Cliente Activo' %}
+                {{ render_client(client) }}
+            {% endfor %}
+        </div>
     </div>
 </div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    function allowDrop(ev) {
+        ev.preventDefault();
+    }
+
+    function drag(ev) {
+        ev.dataTransfer.setData("text", ev.currentTarget.id);
+        ev.currentTarget.style.opacity = '0.5';
+    }
+
+    document.addEventListener("dragend", function(event) {
+        if (event.target.classList && event.target.classList.contains('client-card')) {
+            event.target.style.opacity = '1';
+        }
+    });
+
+    function drop(ev) {
+        ev.preventDefault();
+        var data = ev.dataTransfer.getData("text");
+        if (!data) return;
+        
+        var card = document.getElementById(data);
+        if (!card) return;
+        
+        var targetCol = ev.target.closest('.kanban-column');
+        
+        if (targetCol && card) {
+            var cardsContainer = targetCol.querySelector('.kanban-cards');
+            cardsContainer.appendChild(card);
+            card.style.opacity = '1';
+            
+            // Map column ID to stage name
+            let status = 'Prospecto';
+            if (targetCol.id === 'col-Contactado') status = 'Contactado';
+            if (targetCol.id === 'col-Negociacion') status = 'En Negociación';
+            if (targetCol.id === 'col-Activo') status = 'Cliente Activo';
+            
+            // Save to backend
+            const clientId = data.replace('client-', '');
+            fetch('{{ url_for("web_clients.list_clients") }}/' + clientId + '/update_pipeline', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ pipelineStage: status })
+            }).then(res => res.json())
+            .catch(err => console.error(err));
+        }
+    }
+</script>
 {% endblock %}

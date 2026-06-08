@@ -1,0 +1,655 @@
+{% extends "layout.html" %}
+
+{% block title %}Tablero Kanban de Notas{% endblock %}
+
+{% block page_header %}Gestor de Tareas y Notas{% endblock %}
+
+{% block content %}
+<style>
+    /* Kanban Layout */
+    .kanban-board {
+        display: flex;
+        gap: 15px;
+        margin-top: 20px;
+        overflow-x: auto;
+        padding-bottom: 20px;
+        min-height: 500px;
+    }
+    
+    .kanban-column {
+        flex: 1;
+        min-width: 250px;
+        background: rgba(255, 255, 255, 0.02);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-md);
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .kanban-header {
+        padding: 10px 15px;
+        border-bottom: 1px solid var(--border-color);
+        font-family: var(--font-heading);
+        font-size: 1rem;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: rgba(0,0,0,0.1);
+        border-top-left-radius: var(--radius-md);
+        border-top-right-radius: var(--radius-md);
+    }
+    
+    .kanban-cards {
+        padding: 10px;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        min-height: 150px;
+    }
+
+    /* Note Card */
+    .note-card {
+        border-radius: var(--radius-sm);
+        padding: 12px 15px;
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        transition: box-shadow var(--transition-fast);
+        border: 1px solid transparent;
+        cursor: grab;
+    }
+    
+    .note-card:active {
+        cursor: grabbing;
+    }
+    
+    .note-card:hover {
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.2);
+    }
+    
+    .note-done {
+        filter: grayscale(80%);
+        opacity: 0.6;
+        transition: all 0.3s ease;
+    }
+    .note-done .note-title {
+        text-decoration: line-through;
+    }
+    
+    .note-card .card-actions {
+        position: absolute;
+        bottom: 12px;
+        right: 12px;
+        opacity: 0;
+        transition: opacity var(--transition-fast);
+    }
+    
+    .note-card:hover .card-actions {
+        opacity: 1;
+    }
+
+    .btn-icon {
+        background: rgba(255, 255, 255, 0.1);
+        border: none;
+        color: var(--text-secondary);
+        border-radius: 50%;
+        width: 28px;
+        height: 28px;
+        font-size: 0.8rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .btn-icon:hover {
+        background: rgba(255, 255, 255, 0.2);
+        color: var(--text-primary);
+    }
+
+    .btn-icon.delete:hover {
+        color: var(--accent-red);
+        background: rgba(239, 68, 68, 0.1);
+    }
+
+    /* Note Content */
+    .note-title {
+        font-size: 1rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        font-family: var(--font-heading);
+        margin-bottom: 6px;
+        padding-right: 20px; /* space for icon */
+        word-break: break-word;
+    }
+    
+    .note-content {
+        white-space: pre-wrap;
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+        line-height: 1.5;
+        word-break: break-word;
+        padding-bottom: 12px; /* space for actions */
+    }
+
+    /* Creator Box */
+    .note-creator-wrapper {
+        max-width: 600px;
+        margin: 0 auto 40px auto;
+        position: relative;
+        z-index: 50;
+    }
+
+    .note-creator {
+        background: rgba(30, 41, 59, 0.7);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-md);
+        box-shadow: var(--shadow-lg);
+        overflow: hidden;
+        transition: all 0.3s ease;
+    }
+
+    .note-creator.expanded {
+        border-color: rgba(16, 185, 129, 0.4);
+    }
+
+    .creator-input-fake {
+        width: 100%;
+        padding: 15px 20px;
+        background: transparent;
+        border: none;
+        color: #f8fafc;
+        font-size: 1rem;
+        font-family: var(--font-main);
+        outline: none;
+        cursor: text;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .creator-input-fake span {
+        color: #94a3b8;
+    }
+
+    .creator-expanded-area {
+        display: none;
+        padding: 0 20px 20px 20px;
+    }
+
+    .note-creator.expanded .creator-expanded-area {
+        display: block;
+    }
+    .note-creator.expanded .creator-input-fake {
+        display: none;
+    }
+
+    .creator-title {
+        width: 100%;
+        padding: 15px 0 10px 0;
+        background: transparent;
+        border: none;
+        color: #f8fafc;
+        font-size: 1.1rem;
+        font-weight: 600;
+        font-family: var(--font-heading);
+        outline: none;
+    }
+    
+    .creator-title::placeholder { color: #94a3b8; }
+
+    .creator-content {
+        width: 100%;
+        min-height: 100px;
+        background: transparent;
+        border: none;
+        color: #f8fafc;
+        font-size: 0.95rem;
+        font-family: var(--font-main);
+        outline: none;
+        resize: none;
+        line-height: 1.5;
+    }
+    
+    .creator-content::placeholder { color: #94a3b8; }
+
+    .creator-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 15px;
+    }
+
+    .creator-tools {
+        display: flex;
+        gap: 10px;
+    }
+
+    .tool-select {
+        background: rgba(0, 0, 0, 0.2);
+        border: 1px solid var(--border-color);
+        color: var(--text-secondary);
+        border-radius: var(--radius-sm);
+        padding: 6px 10px;
+        font-size: 0.85rem;
+        outline: none;
+        cursor: pointer;
+    }
+
+    /* Backdrop */
+    .creator-backdrop {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.4);
+        z-index: 40;
+        display: none;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+    
+    .creator-backdrop.active {
+        display: block;
+        opacity: 1;
+    }
+
+    /* Search Bar */
+    .search-wrapper {
+        max-width: 600px;
+        margin: 0 auto 30px auto;
+        position: relative;
+    }
+    
+    .search-input {
+        width: 100%;
+        padding: 12px 20px 12px 45px;
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid var(--border-color);
+        border-radius: 50px;
+        color: var(--text-primary);
+        font-size: 0.95rem;
+        outline: none;
+        transition: border-color var(--transition-fast);
+    }
+    
+    .search-input:focus {
+        border-color: var(--accent-emerald);
+        background: rgba(255, 255, 255, 0.05);
+    }
+    
+    .search-icon {
+        position: absolute;
+        left: 18px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--text-muted);
+    }
+
+</style>
+
+<!-- Creator Backdrop -->
+<div class="creator-backdrop" id="creator-backdrop"></div>
+
+<div style="margin-bottom: 40px; position: relative;">
+    
+    <!-- Descriptive Text -->
+    <div style="max-width: 600px; margin: 0 auto 25px auto; text-align: center; color: var(--text-secondary); font-size: 0.95rem; line-height: 1.5;">
+        Utiliza este tablero Kanban para gestionar tus apuntes y tareas. Puedes crear tarjetas <strong>Privadas</strong> o <strong>Compartidas</strong>, y arrastrarlas entre las columnas según su progreso.
+    </div>
+
+    <!-- Search Bar -->
+    <div class="search-wrapper">
+        <i class="fa-solid fa-search search-icon"></i>
+        <input type="text" class="search-input" id="search-notes" placeholder="Buscar en mis notas/tareas...">
+    </div>
+
+    <!-- Inline Note Creator -->
+    <div class="note-creator-wrapper">
+        <div class="note-creator" id="note-creator">
+            <div class="creator-input-fake" id="creator-trigger">
+                <span>Añadir una nueva tarea o nota...</span>
+                <i class="fa-solid fa-check-square" style="color: var(--text-muted);"></i>
+            </div>
+            
+            <div class="creator-expanded-area">
+                <input type="text" class="creator-title" id="new-note-title" placeholder="Título">
+                <textarea class="creator-content" id="new-note-content" placeholder="Describe la tarea o apunte..."></textarea>
+                
+                <div class="creator-footer">
+                    <div class="creator-tools">
+                        <select class="tool-select" id="new-note-color" title="Color de fondo">
+                            <option value="default">Por Defecto</option>
+                            <option value="yellow">Amarillo</option>
+                            <option value="blue">Azul</option>
+                            <option value="green">Verde</option>
+                            <option value="pink">Rosa</option>
+                        </select>
+                        <select class="tool-select" id="new-note-visibility" title="Privacidad">
+                            <option value="private">Privada</option>
+                            <option value="shared">Compartida</option>
+                        </select>
+                    </div>
+                    <div>
+                        <button type="button" class="btn btn-secondary" style="background: transparent; border: none; padding: 6px 12px; font-size: 0.9rem;" id="btn-close-creator">Cerrar</button>
+                        <button type="button" class="btn btn-primary" style="padding: 6px 16px; font-size: 0.9rem; margin-left: 8px;" id="btn-save-note">Guardar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Kanban Board -->
+    {% set color_map = {
+        'default': 'rgba(30, 41, 59, 0.4)',
+        'yellow': 'rgba(250, 204, 21, 0.12)',
+        'blue': 'rgba(59, 130, 246, 0.12)',
+        'green': 'rgba(16, 185, 129, 0.12)',
+        'pink': 'rgba(236, 72, 153, 0.12)'
+    } %}
+    {% set border_map = {
+        'default': 'var(--border-color)',
+        'yellow': 'rgba(250, 204, 21, 0.3)',
+        'blue': 'rgba(59, 130, 246, 0.3)',
+        'green': 'rgba(16, 185, 129, 0.3)',
+        'pink': 'rgba(236, 72, 153, 0.3)'
+    } %}
+
+    {% macro render_note(note, color_map, border_map, user_uid) %}
+    <div class="note-card {% if note.status == 'done' %}note-done{% endif %}" id="note-{{ note.id }}" draggable="true" ondragstart="drag(event)" data-title="{{ note.title | lower }}" data-content="{{ note.content | lower }}" style="background-color: {{ color_map.get(note.color, color_map['default']) }}; border-color: {{ border_map.get(note.color, border_map['default']) }}; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);">
+        
+        <div class="note-title">
+            {{ note.title }}
+        </div>
+        
+        <div class="note-content">{{ note.content }}</div>
+        
+        <div style="font-size: 0.72rem; color: var(--text-muted); display: flex; align-items: center; gap: 8px;">
+            {% if note.visibility == 'private' %}
+                <i class="fa-solid fa-lock" title="Privada"></i>
+            {% else %}
+                <i class="fa-solid fa-users" title="Compartida"></i>
+            {% endif %}
+            <span>{{ note.createdAt[:10] }}</span>
+        </div>
+
+        <div class="card-actions">
+            {% if note.createdBy == user_uid or note.visibility == 'private' %}
+            <button class="btn-icon" onclick="editNote('{{ note.id }}')" title="Editar nota" style="margin-right: 4px;">
+                <i class="fa-solid fa-pen"></i>
+            </button>
+            {% endif %}
+            <button class="btn-icon delete" onclick="deleteNote('{{ note.id }}')" title="Eliminar nota">
+                <i class="fa-solid fa-trash-can"></i>
+            </button>
+        </div>
+    </div>
+    {% endmacro %}
+
+    <div class="kanban-board">
+        <!-- Columna Pendiente -->
+        <div class="kanban-column" id="col-pending" ondrop="drop(event)" ondragover="allowDrop(event)">
+            <h4 class="kanban-header"><i class="fa-solid fa-list-ul" style="color: var(--accent-purple);"></i> Pendiente</h4>
+            <div class="kanban-cards">
+                {% for note in notes if note.status == 'pending' %}
+                    {{ render_note(note, color_map, border_map, user_uid) }}
+                {% endfor %}
+            </div>
+        </div>
+        
+        <!-- Columna En Proceso -->
+        <div class="kanban-column" id="col-in_progress" ondrop="drop(event)" ondragover="allowDrop(event)">
+            <h4 class="kanban-header"><i class="fa-solid fa-spinner" style="color: var(--accent-emerald);"></i> En Proceso</h4>
+            <div class="kanban-cards">
+                {% for note in notes if note.status == 'in_progress' %}
+                    {{ render_note(note, color_map, border_map, user_uid) }}
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Columna Hecho -->
+        <div class="kanban-column" id="col-done" ondrop="drop(event)" ondragover="allowDrop(event)">
+            <h4 class="kanban-header"><i class="fa-solid fa-check-double" style="color: var(--text-muted);"></i> Hecho</h4>
+            <div class="kanban-cards">
+                {% for note in notes if note.status == 'done' %}
+                    {{ render_note(note, color_map, border_map, user_uid) }}
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        // --- Inline Creator Logic ---
+        const creator = document.getElementById('note-creator');
+        const trigger = document.getElementById('creator-trigger');
+        const backdrop = document.getElementById('creator-backdrop');
+        const btnClose = document.getElementById('btn-close-creator');
+        const btnSave = document.getElementById('btn-save-note');
+        
+        const inputTitle = document.getElementById('new-note-title');
+        const inputContent = document.getElementById('new-note-content');
+        const selectColor = document.getElementById('new-note-color');
+        const selectVis = document.getElementById('new-note-visibility');
+        
+        let currentEditId = null;
+
+        function expandCreator() {
+            creator.classList.add('expanded');
+            backdrop.classList.add('active');
+            inputContent.focus();
+        }
+
+        function collapseCreator() {
+            creator.classList.remove('expanded');
+            backdrop.classList.remove('active');
+            setTimeout(() => { currentEditId = null; }, 300);
+        }
+
+        function resetCreator() {
+            inputTitle.value = '';
+            inputContent.value = '';
+            selectColor.value = 'default';
+            selectVis.value = 'private'; // default
+            currentEditId = null;
+        }
+
+        trigger.addEventListener('click', expandCreator);
+        btnClose.addEventListener('click', () => {
+            collapseCreator();
+            // If empty, reset
+            if(!inputTitle.value && !inputContent.value) {
+                resetCreator();
+            }
+        });
+        backdrop.addEventListener('click', () => {
+            collapseCreator();
+        });
+
+        // Auto-resize textarea
+        inputContent.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = (this.scrollHeight) + 'px';
+        });
+
+        // Save Note
+        btnSave.addEventListener('click', function() {
+            const title = inputTitle.value.trim() || 'Sin título';
+            const content = inputContent.value.trim();
+
+            if(!content) {
+                inputContent.focus();
+                return;
+            }
+
+            btnSave.disabled = true;
+            btnSave.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+
+            fetch('{{ url_for("web_notes.create_note") }}', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    note_id: currentEditId,
+                    title: title,
+                    content: content,
+                    visibility: selectVis.value,
+                    color: selectColor.value
+                })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if(data.success) {
+                    window.location.reload();
+                } else {
+                    alert('Error: ' + (data.error || 'Desconocido'));
+                    btnSave.disabled = false;
+                    btnSave.innerHTML = 'Guardar';
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                alert('Error de conexión');
+                btnSave.disabled = false;
+                btnSave.innerHTML = 'Guardar';
+            });
+        });
+
+        // --- Search Logic ---
+        const searchInput = document.getElementById('search-notes');
+        const noteCards = document.querySelectorAll('.note-card');
+
+        searchInput.addEventListener('input', function(e) {
+            const term = e.target.value.toLowerCase().trim();
+            noteCards.forEach(card => {
+                const title = card.getAttribute('data-title') || '';
+                const content = card.getAttribute('data-content') || '';
+                if(title.includes(term) || content.includes(term)) {
+                    card.style.display = 'flex';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        });
+        
+        // Expose editNote to global scope
+        window.editNote = function(noteId) {
+            const card = document.getElementById('note-' + noteId);
+            if(card) {
+                const titleText = card.querySelector('.note-title').innerText.trim();
+                const contentText = card.querySelector('.note-content').innerText.trim();
+                
+                // Get raw style background to determine color select mapping approximately
+                const rawBg = card.style.backgroundColor || '';
+                if(rawBg.includes('250, 204')) selectColor.value = 'yellow';
+                else if(rawBg.includes('59, 130')) selectColor.value = 'blue';
+                else if(rawBg.includes('16, 185')) selectColor.value = 'green';
+                else if(rawBg.includes('236, 72')) selectColor.value = 'pink';
+                else selectColor.value = 'default';
+                
+                const isShared = card.querySelector('.fa-users') !== null;
+                selectVis.value = isShared ? 'shared' : 'private';
+                
+                inputTitle.value = titleText;
+                inputContent.value = contentText;
+                currentEditId = noteId;
+                
+                // Expand and scroll to top
+                expandCreator();
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                inputContent.style.height = 'auto';
+                inputContent.style.height = (inputContent.scrollHeight) + 'px';
+            }
+        };
+    });
+
+    function deleteNote(noteId) {
+        if(confirm('¿Estás seguro de que deseas eliminar esta nota/tarea?')) {
+            const card = document.getElementById('note-' + noteId);
+            if(card) card.style.opacity = '0.3';
+            
+            fetch('{{ url_for("web_notes.list_notes") }}/delete/' + noteId, {
+                method: 'POST'
+            })
+            .then(res => res.json())
+            .then(data => {
+                if(data.success) {
+                    if(card) {
+                        card.remove();
+                    } else {
+                        window.location.reload();
+                    }
+                } else {
+                    alert('Error al eliminar.');
+                    if(card) card.style.opacity = '1';
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                alert('Error de conexión');
+                if(card) card.style.opacity = '1';
+            });
+        }
+    }
+
+    // --- HTML5 Drag and Drop Kanban Logic ---
+    function allowDrop(ev) {
+        ev.preventDefault();
+    }
+
+    function drag(ev) {
+        ev.dataTransfer.setData("text", ev.target.id);
+        ev.target.style.opacity = '0.5';
+    }
+
+    // Restore opacity if dropped outside
+    document.addEventListener("dragend", function(event) {
+        if (event.target.classList && event.target.classList.contains('note-card')) {
+            event.target.style.opacity = '1';
+        }
+    });
+
+    function drop(ev) {
+        ev.preventDefault();
+        var data = ev.dataTransfer.getData("text");
+        if (!data) return;
+        
+        var card = document.getElementById(data);
+        if (!card) return;
+        
+        var targetCol = ev.target.closest('.kanban-column');
+        
+        if (targetCol && card) {
+            var cardsContainer = targetCol.querySelector('.kanban-cards');
+            cardsContainer.appendChild(card);
+            card.style.opacity = '1';
+            
+            // Update styling if it's "Done"
+            const status = targetCol.id.replace('col-', '');
+            if (status === 'done') {
+                card.classList.add('note-done');
+            } else {
+                card.classList.remove('note-done');
+            }
+            
+            // Save to backend
+            const noteId = data.replace('note-', '');
+            fetch('{{ url_for("web_notes.list_notes") }}/update_status/' + noteId, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: status })
+            }).then(res => res.json())
+            .catch(err => console.error(err));
+        }
+    }
+</script>
+{% endblock %}
