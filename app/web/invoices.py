@@ -1331,8 +1331,8 @@ def notify_invoice_email(invoice_id):
     xml_content = invoice.get('xmlContent') or ''
     if not xml_content or not (xml_content.strip().startswith('<?xml') or xml_content.strip().startswith('<ECF') or xml_content.strip().startswith('<eCF')):
         try:
-            from dgii_xml_builder import DgiiXmlBuilder
-            from dgii_signer import DgiiSigner
+            from app.services.dgii_xml_builder import DgiiXmlBuilder
+            from app.services.dgii_signer import DgiiSigner
             raw_xml = DgiiXmlBuilder.build_invoice_xml(company, invoice)
             signed_xml_bytes = DgiiSigner.sign_xml(raw_xml, company)
             xml_content = signed_xml_bytes.decode('utf-8')
@@ -1909,8 +1909,8 @@ def invoice_xml_download(invoice_id):
     # utilizando el perfil de la compañía para que siempre se descargue un XML válido
     if not xml_content or not (xml_content.strip().startswith('<?xml') or xml_content.strip().startswith('<ECF') or xml_content.strip().startswith('<eCF')):
         try:
-            from dgii_xml_builder import DgiiXmlBuilder
-            from dgii_signer import DgiiSigner
+            from app.services.dgii_xml_builder import DgiiXmlBuilder
+            from app.services.dgii_signer import DgiiSigner
             company = DatabaseService.get_company_profile(owner_uid)
             raw_xml = DgiiXmlBuilder.build_invoice_xml(company, invoice)
             signed_xml_bytes = DgiiSigner.sign_xml(raw_xml, company)
