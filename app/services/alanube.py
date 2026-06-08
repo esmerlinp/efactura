@@ -196,6 +196,24 @@ class AlanubeService:
         if use_fallback:
             print("🛡️ Ejecutando firma mock y código QR de validación local según Ley 32-23...")
             
+            # --- LOG API ERROR ---
+            try:
+                import os, json
+                from datetime import datetime
+                from flask import current_app
+                log_file_path = os.path.join(current_app.root_path, '../api_errores.log')
+                log_entry = f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] ERROR EXTERNO (ALANUBE):\n"
+                log_entry += f"Ruta: POST {url}\n"
+                log_entry += f"HTTP Code: {response_status_code}\n"
+                log_entry += f"Payload: {json.dumps(payload)}\n"
+                log_entry += f"Response: {json.dumps(error_detail) if isinstance(error_detail, dict) else error_detail}\n"
+                log_entry += ("-" * 60) + "\n"
+                with open(log_file_path, 'a', encoding='utf-8') as f:
+                    f.write(log_entry)
+            except Exception as e:
+                print(f"Error escribiendo en api_errores.log desde alanube.py: {e}")
+            # ---------------------
+            
             # Generar e-NCF simulado si no está establecido
             encf = invoice.get("encf")
             if not encf or "PENDIENTE" in encf:
