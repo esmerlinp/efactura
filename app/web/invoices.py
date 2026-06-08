@@ -1943,17 +1943,18 @@ def void_invoice_route(invoice_id):
             DatabaseService.save_invoice(owner_uid, invoice_id, invoice, sandbox=sandbox)
             
             # Registrar anulación local
+            cancellation_code = res.get("cancellationCode", f"CAN-{uuid.uuid4().hex[:8].upper()}")
             DatabaseService.save_cancellation(owner_uid, str(uuid.uuid4()), {
                 "series": canc_dict["series"],
                 "startSequence": canc_dict["startSequence"],
                 "endSequence": canc_dict["endSequence"],
                 "reason": canc_dict["reason"],
                 "status": "Aceptado",
-                "cancellationCode": res["cancellationCode"],
-                "responseMessage": res["message"]
+                "cancellationCode": cancellation_code,
+                "responseMessage": res.get("message", "")
             }, sandbox=sandbox)
             
-            flash(f"Comprobante anulado y reportado a la DGII. Código: {res['cancellationCode']}", "success")
+            flash(f"Comprobante anulado y reportado a la DGII. Código: {cancellation_code}", "success")
         else:
             flash(f"Fallo al anular comprobante en la API: {res.get('message')}", "error")
     else:

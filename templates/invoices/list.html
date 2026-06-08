@@ -218,14 +218,11 @@ endblock %}
                                 </form>
                                 {% endif %}
                                 {% if inv.status != 'Anulada' and not inv.isQuotation %}
-                                <form action="{{ url_for('void_invoice_route', invoice_id=inv.id) }}" method="POST"
-                                    onsubmit="return confirm('¿Seguro que deseas anular esta factura fiscal? Se emitirá la anulación a la secuencia correspondiente.');"
-                                    style="display: inline;">
-                                    <button type="submit" class="btn btn-danger"
-                                        style="padding: 8px 12px; font-size: 0.8rem;" title="Anular Factura">
-                                        <i class="fa-solid fa-ban"></i>
-                                    </button>
-                                </form>
+                                <button type="button" class="btn btn-danger"
+                                    onclick="openVoidModal('{{ url_for('void_invoice_route', invoice_id=inv.id) }}', '{{ inv.invoiceNumber }}')"
+                                    style="padding: 8px 12px; font-size: 0.8rem;" title="Anular Factura">
+                                    <i class="fa-solid fa-ban"></i>
+                                </button>
                                 {% endif %}
                             </div>
                         </td>
@@ -338,6 +335,108 @@ endblock %}
                 const val = searchInput.value;
                 searchInput.value = '';
                 searchInput.value = val;
+            }
+        });
+    </script>
+    <!-- Modal Anular Factura Custom -->
+    <div id="void-modal" class="search-modal" style="display: none; justify-content: center; align-items: center; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 2000;">
+        <div class="modal-backdrop" onclick="closeVoidModal()" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px);"></div>
+        <div class="modal-content animate-fade-in" style="max-width: 450px; width: 90%; padding: 0; border-radius: var(--radius-md); position: relative; z-index: 2001; background: #ffffff; box-shadow: var(--shadow-lg);">
+            <div class="modal-header" style="border-bottom: 1px solid var(--border-color); padding: 20px 24px; display: flex; justify-content: space-between; align-items: center;">
+                <h3 style="margin: 0; font-size: 1.15rem; font-family: var(--font-heading); display: flex; align-items: center; gap: 10px;">
+                    <i class="fa-solid fa-triangle-exclamation" style="color: var(--accent-red); font-size: 1.3rem;"></i>
+                    <span>Confirmar Anulación</span>
+                </h3>
+                <button class="btn-close-modal" type="button" onclick="closeVoidModal()" style="background: transparent; border: none; font-size: 1.2rem; cursor: pointer; color: var(--text-muted);">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="modal-body" style="padding: 24px;">
+                <p style="color: var(--text-secondary); font-size: 0.9rem; line-height: 1.5; margin-bottom: 20px; margin-top: 0;">
+                    Estás a punto de anular la factura <strong id="void-invoice-display" style="color: var(--text-primary);"></strong>. Esta acción emitirá la anulación a la secuencia correspondiente.
+                </p>
+                <form id="void-invoice-form" method="POST" action="" style="display: flex; flex-direction: column; gap: 16px; margin: 0;">
+                    <div>
+                        <label for="void-invoice-input" style="display: block; font-size: 0.85rem; font-weight: 600; color: var(--text-primary); margin-bottom: 8px;">
+                            Para confirmar, escriba el número de la factura:
+                        </label>
+                        <input type="text" id="void-invoice-input" name="void_invoice_input" class="form-control" autocomplete="off" placeholder="Ej. E310000000001" style="width: 100%; height: 40px; padding: 0 12px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background-color: var(--bg-input); color: var(--text-primary); font-family: monospace; font-size: 0.95rem;">
+                        <span id="void-error-msg" style="display: none; color: var(--accent-red); font-size: 0.8rem; margin-top: 6px;"><i class="fa-solid fa-circle-xmark"></i> El número no coincide.</span>
+                    </div>
+                    
+                    <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 10px;">
+                        <button type="button" class="btn btn-secondary" onclick="closeVoidModal()" style="padding: 10px 16px;">Cancelar</button>
+                        <button type="submit" id="void-submit-btn" class="btn btn-danger" style="padding: 10px 16px; opacity: 0.5; cursor: not-allowed;" disabled>
+                            <i class="fa-solid fa-ban"></i> Anular Factura
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentVoidInvoiceNumber = '';
+
+        function openVoidModal(actionUrl, invoiceNumber) {
+            const modal = document.getElementById('void-modal');
+            const displaySpan = document.getElementById('void-invoice-display');
+            const form = document.getElementById('void-invoice-form');
+            const input = document.getElementById('void-invoice-input');
+            const submitBtn = document.getElementById('void-submit-btn');
+            const errorMsg = document.getElementById('void-error-msg');
+            
+            currentVoidInvoiceNumber = invoiceNumber;
+            displaySpan.textContent = invoiceNumber;
+            form.action = actionUrl;
+            
+            input.value = '';
+            errorMsg.style.display = 'none';
+            submitBtn.disabled = true;
+            submitBtn.style.opacity = '0.5';
+            submitBtn.style.cursor = 'not-allowed';
+            
+            if (modal) {
+                modal.style.display = 'flex';
+                document.body.style.overflow = 'hidden';
+                setTimeout(() => input.focus(), 100);
+            }
+        }
+
+        function closeVoidModal() {
+            const modal = document.getElementById('void-modal');
+            if (modal) {
+                modal.style.display = 'none';
+                document.body.style.overflow = 'auto';
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const voidInput = document.getElementById('void-invoice-input');
+            const voidSubmitBtn = document.getElementById('void-submit-btn');
+            const voidErrorMsg = document.getElementById('void-error-msg');
+            const voidForm = document.getElementById('void-invoice-form');
+            
+            if (voidInput && voidSubmitBtn && voidErrorMsg && voidForm) {
+                voidInput.addEventListener('input', function() {
+                    if (this.value.trim() === currentVoidInvoiceNumber) {
+                        voidSubmitBtn.disabled = false;
+                        voidSubmitBtn.style.opacity = '1';
+                        voidSubmitBtn.style.cursor = 'pointer';
+                        voidErrorMsg.style.display = 'none';
+                    } else {
+                        voidSubmitBtn.disabled = true;
+                        voidSubmitBtn.style.opacity = '0.5';
+                        voidSubmitBtn.style.cursor = 'not-allowed';
+                    }
+                });
+                
+                voidForm.addEventListener('submit', function(e) {
+                    if (voidInput.value.trim() !== currentVoidInvoiceNumber) {
+                        e.preventDefault();
+                        voidErrorMsg.style.display = 'block';
+                    }
+                });
             }
         });
     </script>

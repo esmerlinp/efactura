@@ -326,7 +326,7 @@
     <!-- Panel del Propietario & Multitenancy (Equipo) -->
     <div style="display: flex; flex-direction: column; gap: 24px;">
 
-        <!-- Diseño de la Marca -->
+                <!-- Diseño de la Marca -->
         <div class="card-table-wrapper" style="margin-bottom: 0; padding: 28px;">
             <h3
                 style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 18px; display: flex; align-items: center; gap: 8px;">
@@ -334,120 +334,126 @@
                 <span>Diseño de la Marca</span>
             </h3>
 
-            <!-- Logo de la Empresa en fila independiente al inicio -->
-            <div class="form-group" style="margin-bottom: 24px;">
-                <label style="margin-bottom: 10px; display: flex; align-items: center; gap: 8px;">
-                    <i class="fa-solid fa-image" style="color: var(--accent-purple);"></i>
-                    Logo de la Empresa (Reportes y Documentos)
-                </label>
+            <!-- Fila 1: Logo de Empresa -->
+            <div style="display: grid; grid-template-columns: 1fr; margin-bottom: 24px;">
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label style="margin-bottom: 10px; display: flex; align-items: center; gap: 8px;">
+                        <i class="fa-solid fa-image" style="color: var(--accent-purple);"></i>
+                        Logo de la Empresa
+                    </label>
 
-                <input type="hidden" name="removeLogo" id="removeLogoField" value="false">
-                <input type="file" id="logoFileInput" name="logoFile" accept="image/png,image/jpeg,image/webp,image/gif"
-                    style="display: none;">
+                    <input type="hidden" name="removeLogo" id="removeLogoField" value="false">
+                    <input type="file" id="logoFileInput" name="logoFile" accept="image/png,image/jpeg,image/webp,image/gif"
+                        style="display: none;">
 
-                <!-- Zona Única de Carga / Drop / Preview (Alineación fila independiente) -->
-                <div id="logo-drop-zone"
-                    style="position: relative; width: 100%; height: 110px; border: 2px dashed var(--border-color); border-radius: var(--radius-sm); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; cursor: pointer; background: var(--bg-input); overflow: hidden; transition: all 0.25s ease;"
-                    onclick="document.getElementById('logoFileInput').click();">
+                    <!-- Zona Única de Carga / Drop / Preview (Alineación fila independiente) -->
+                    <div id="logo-drop-zone"
+                        style="position: relative; width: 100%; height: 110px; border: 2px dashed var(--border-color); border-radius: var(--radius-sm); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; cursor: pointer; background: var(--bg-input); overflow: hidden; transition: all 0.25s ease;"
+                        onclick="document.getElementById('logoFileInput').click();">
 
-                    <img id="logo-preview-img" src="{{ profile.logoUrl or '' }}" alt="Logo de la empresa"
-                        style="max-width: 100%; max-height: 100%; object-fit: contain; position: absolute; z-index: 1; {% if not profile.logoUrl %}display: none;{% endif %}">
+                        <img id="logo-preview-img" src="{{ profile.logoUrl or '' }}" alt="Logo de la empresa"
+                            style="max-width: 100%; max-height: 100%; object-fit: contain; position: absolute; z-index: 1; {% if not profile.logoUrl %}display: none;{% endif %}">
 
-                    <div id="logo-empty-state"
-                        style="display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 2; transition: opacity 0.2s ease; {% if profile.logoUrl %}opacity: 0; background: rgba(0,0,0,0.6); width: 100%; height: 100%;{% endif %}"
-                        onmouseover="if(document.getElementById('logo-preview-img').style.display !== 'none') this.style.opacity=1;"
-                        onmouseout="if(document.getElementById('logo-preview-img').style.display !== 'none') this.style.opacity=0;">
-                        <i id="logo-empty-icon" class="fa-solid fa-cloud-arrow-up"
-                            style="font-size: 1.5rem; transition: color 0.25s ease; {% if profile.logoUrl %}color: white;{% else %}color: var(--text-muted);{% endif %}"></i>
-                        <span id="logo-empty-text-1"
-                            style="font-size: 0.75rem; text-align: center; line-height: 1.4; margin-top: 6px; {% if profile.logoUrl %}color: white;{% else %}color: var(--text-secondary);{% endif %}">
-                            <strong>Haz clic</strong> o <strong>arrastra</strong> la imagen de tu logo corporativo aquí
-                        </span>
+                        <div id="logo-empty-state"
+                            style="display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 2; transition: opacity 0.2s ease; {% if profile.logoUrl %}opacity: 0; background: rgba(0,0,0,0.6); width: 100%; height: 100%;{% endif %}"
+                            onmouseover="if(document.getElementById('logo-preview-img').style.display !== 'none') this.style.opacity=1;"
+                            onmouseout="if(document.getElementById('logo-preview-img').style.display !== 'none') this.style.opacity=0;">
+                            <i id="logo-empty-icon" class="fa-solid fa-cloud-arrow-up"
+                                style="font-size: 1.5rem; transition: color 0.25s ease; {% if profile.logoUrl %}color: white;{% else %}color: var(--text-muted);{% endif %}"></i>
+                            <span id="logo-empty-text-1"
+                                style="font-size: 0.75rem; text-align: center; line-height: 1.4; margin-top: 6px; {% if profile.logoUrl %}color: white;{% else %}color: var(--text-secondary);{% endif %}">
+                                <strong>Haz clic</strong> o <strong>arrastra</strong> la imagen aquí
+                            </span>
+                        </div>
+
+                        <button type="button" id="btn-remove-logo"
+                            style="position: absolute; top: 8px; right: 8px; width: 24px; height: 24px; border-radius: 50%; background: var(--accent-red); color: white; border: 2px solid white; font-size: 0.7rem; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: var(--shadow-sm); transition: transform 0.2s ease; z-index: 3; {% if not profile.logoUrl %}display: none;{% endif %}"
+                            title="Eliminar logo" onclick="event.stopPropagation();">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
                     </div>
-
-                    <button type="button" id="btn-remove-logo"
-                        style="position: absolute; top: 8px; right: 8px; width: 24px; height: 24px; border-radius: 50%; background: var(--accent-red); color: white; border: 2px solid white; font-size: 0.7rem; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: var(--shadow-sm); transition: transform 0.2s ease; z-index: 3; {% if not profile.logoUrl %}display: none;{% endif %}"
-                        title="Eliminar logo" onclick="event.stopPropagation();">
-                        <i class="fa-solid fa-trash-can"></i>
-                    </button>
                 </div>
-                <!-- Configuración de Tema, Color y Degradados -->
-                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px;">
-                    <div class="form-group" style="margin-bottom: 0;">
-                        <label for="companyTheme">Tema de la Aplicación</label>
-                        <select id="companyTheme" name="theme" class="form-input" style="width: 100%; cursor: pointer;">
-                            <option value="moderno" {% if profile.theme=='moderno' or not profile.theme %}selected{%
-                                endif %}>Moderno</option>
-                            <option value="clasico" {% if profile.theme=='clasico' %}selected{% endif %}>Clásico
-                            </option>
-                        </select>
-                    </div>
+            </div>
 
-                    <div class="form-group" style="margin-bottom: 0;">
-                        <label for="colorMarca">Color de Marca</label>
-                        <div style="display: flex; gap: 10px; align-items: center;">
-                            <input type="color" id="colorMarca" name="colorMarca" class="form-input"
-                                style="padding: 0; width: 50px; height: 42px; border: none; cursor: pointer; background: none;"
-                                value="{{ profile.colorMarca }}">
-                            <span id="colorMarcaHex" style="font-family: monospace; font-size: 0.9rem;">{{
-                                profile.colorMarca }}</span>
-                        </div>
-                    </div>
+            <!-- Fila 2: Tema de la Aplicación -->
+            <div style="display: grid; grid-template-columns: 1fr; margin-bottom: 24px;">
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label for="companyTheme">Tema de la Aplicación</label>
+                    <select id="companyTheme" name="theme" class="form-input" style="width: 100%; cursor: pointer;">
+                        <option value="moderno" {% if profile.theme=='moderno' or not profile.theme %}selected{%
+                            endif %}>Moderno</option>
+                        <option value="clasico" {% if profile.theme=='clasico' %}selected{% endif %}>Clásico
+                        </option>
+                    </select>
+                </div>
+            </div>
 
-                    <div class="form-group" style="margin-bottom: 0;">
-                        <label>Efecto Degradado</label>
-                        <!-- Toggle Degradado de Marca -->
-                        <div style="margin-top: 4px; display: flex; align-items: center; gap: 12px;">
-                            <input type="hidden" name="gradientEnabled" id="gradientEnabledField"
-                                value="{{ 'true' if profile.gradientEnabled else 'false' }}">
-                            <button type="button" id="gradient-toggle-btn"
-                                style="position: relative; width: 46px; height: 26px; border-radius: 13px; border: none; cursor: pointer; transition: all 0.3s ease; padding: 0; flex-shrink: 0;
-                                       background: {% if profile.gradientEnabled %}linear-gradient(90deg, {{ profile.colorMarca }}, #60a5fa){% else %}rgba(156, 163, 175, 0.35){% endif %};"
-                                title="Activar / desactivar degradado">
-                                <span id="gradient-toggle-knob"
-                                    style="position: absolute; top: 3px; {% if profile.gradientEnabled %}left: 23px;{% else %}left: 3px;{% endif %} width: 20px; height: 20px; border-radius: 50%; background: white; box-shadow: 0 1px 4px rgba(0,0,0,0.2); transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);"></span>
-                            </button>
-                            <span id="gradient-status-text"
-                                style="font-size: 0.82rem; font-weight: 600; color: var(--text-primary); display: none;"></span>
-                        </div>
+            <!-- Fila 3: Color de Marca y Degradado -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 24px;">
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label for="colorMarca">Color de Marca</label>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <input type="color" id="colorMarca" name="colorMarca" class="form-input"
+                            style="padding: 0; width: 50px; height: 42px; border: none; cursor: pointer; background: none;"
+                            value="{{ profile.colorMarca }}">
+                        <span id="colorMarcaHex" style="font-family: monospace; font-size: 0.9rem;">{{
+                            profile.colorMarca }}</span>
                     </div>
                 </div>
 
-                <!-- Preview del degradado vs sólido en una sola línea independiente -->
-                <div style="margin-top: 18px; margin-bottom: 4px;">
-                    <label
-                        style="font-size: 0.78rem; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 6px;">Visualización
-                        del Color / Degradado:</label>
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label>Efecto Degradado</label>
+                    <div style="margin-top: 4px; display: flex; align-items: center; gap: 12px;">
+                        <input type="hidden" name="gradientEnabled" id="gradientEnabledField"
+                            value="{{ 'true' if profile.gradientEnabled else 'false' }}">
+                        <button type="button" id="gradient-toggle-btn"
+                            style="position: relative; width: 46px; height: 26px; border-radius: 13px; border: none; cursor: pointer; transition: all 0.3s ease; padding: 0; flex-shrink: 0;
+                                   background: {% if profile.gradientEnabled %}linear-gradient(90deg, {{ profile.colorMarca }}, #60a5fa){% else %}rgba(156, 163, 175, 0.35){% endif %};"
+                            title="Activar / desactivar degradado">
+                            <span id="gradient-toggle-knob"
+                                style="position: absolute; top: 3px; {% if profile.gradientEnabled %}left: 23px;{% else %}left: 3px;{% endif %} width: 20px; height: 20px; border-radius: 50%; background: white; box-shadow: 0 1px 4px rgba(0,0,0,0.2); transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);"></span>
+                        </button>
+                        <span id="gradient-status-text"
+                            style="font-size: 0.82rem; font-weight: 600; color: var(--text-primary); display: none;"></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Fila 4: Visualización del Color / Degradado -->
+            <div style="display: grid; grid-template-columns: 1fr;">
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label style="font-size: 0.78rem; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 6px;">
+                        Visualización del Color / Degradado:
+                    </label>
                     <div id="gradient-preview"
-                        style="height: 18px; border-radius: 4px; transition: all 0.4s ease;
-                     background: {% if profile.gradientEnabled %}linear-gradient(90deg, {{ profile.colorMarca }}, #60a5fa){% else %}{{ profile.colorMarca }}{% endif %};">
+                        style="height: 18px; border-radius: 4px; transition: all 0.4s ease; background: {% if profile.gradientEnabled %}linear-gradient(90deg, {{ profile.colorMarca }}, #60a5fa){% else %}{{ profile.colorMarca }}{% endif %};">
                     </div>
                 </div>
+            </div>
 
-                <!-- Habilitar color de marca en fila independiente al final -->
-                <div
-                    style="margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 10px;">
-                    <span
-                        style="font-size: 0.82rem; font-weight: 600; color: var(--text-secondary); display: flex; align-items: center; gap: 6px;">
-                        <i class="fa-solid fa-sliders" style="color: var(--accent-purple);"></i>
-                        Habilitar color de marca en:
-                    </span>
-                    <div style="display: flex; gap: 20px; align-items: center; flex-wrap: wrap; margin-top: 4px;">
-                        <label
-                            style="display: flex; align-items: center; gap: 8px; font-size: 0.82rem; cursor: pointer; color: var(--text-primary);">
-                            <input type="checkbox" id="applyColorMarcaUI" name="applyColorMarcaUI" value="true" {% if
-                                profile.applyColorMarcaUI %}checked{% endif %}
-                                style="cursor: pointer; width: 16px; height: 16px; accent-color: var(--accent-emerald);">
-                            <span>Interfaz (UI) de pantalla</span>
-                        </label>
-                        <label
-                            style="display: flex; align-items: center; gap: 8px; font-size: 0.82rem; cursor: pointer; color: var(--text-primary);">
-                            <input type="checkbox" id="applyColorMarcaReports" name="applyColorMarcaReports"
-                                value="true" {% if profile.applyColorMarcaReports %}checked{% endif %}
-                                style="cursor: pointer; width: 16px; height: 16px; accent-color: var(--accent-emerald);">
-                            <span>Reportes / PDF</span>
-                        </label>
-                    </div>
+            <!-- Fila 3: Habilitar color de marca -->
+            <div
+                style="margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 10px;">
+                <span
+                    style="font-size: 0.82rem; font-weight: 600; color: var(--text-secondary); display: flex; align-items: center; gap: 6px;">
+                    <i class="fa-solid fa-sliders" style="color: var(--accent-purple);"></i>
+                    Habilitar color de marca en:
+                </span>
+                <div style="display: flex; gap: 20px; align-items: center; flex-wrap: wrap; margin-top: 4px;">
+                    <label
+                        style="display: flex; align-items: center; gap: 8px; font-size: 0.82rem; cursor: pointer; color: var(--text-primary);">
+                        <input type="checkbox" id="applyColorMarcaUI" name="applyColorMarcaUI" value="true" {% if
+                            profile.applyColorMarcaUI %}checked{% endif %}
+                            style="cursor: pointer; width: 16px; height: 16px; accent-color: var(--accent-emerald);">
+                        <span>Interfaz (UI) de pantalla</span>
+                    </label>
+                    <label
+                        style="display: flex; align-items: center; gap: 8px; font-size: 0.82rem; cursor: pointer; color: var(--text-primary);">
+                        <input type="checkbox" id="applyColorMarcaReports" name="applyColorMarcaReports"
+                            value="true" {% if profile.applyColorMarcaReports %}checked{% endif %}
+                            style="cursor: pointer; width: 16px; height: 16px; accent-color: var(--accent-emerald);">
+                        <span>Reportes / PDF</span>
+                    </label>
                 </div>
             </div>
         </div>
