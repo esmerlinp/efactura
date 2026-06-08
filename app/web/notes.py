@@ -14,11 +14,13 @@ def list_notes():
     sandbox = session.get('is_sandbox_mode', True)
     
     notes = DatabaseService.get_notes(owner_uid, user_uid, sandbox=sandbox)
+    statuses = DatabaseService.get_note_statuses(owner_uid, sandbox=sandbox)
     
     return render_template(
         'notes/list.html',
         active_page='notes',
         notes=notes,
+        statuses=statuses,
         user_uid=user_uid
     )
 
@@ -78,4 +80,26 @@ def delete_note(note_id):
     
     DatabaseService.delete_note(owner_uid, note_id, sandbox=sandbox)
     
+    return jsonify({'success': True})
+
+@web_notes_bp.route('/notes/save_statuses', methods=['POST'])
+def save_statuses():
+    if 'user' not in session:
+        return jsonify({'success': False, 'error': 'No autorizado'}), 401
+        
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+    
+    data = request.json
+    statuses = data.get('statuses', [])
+    
+    if not isinstance(statuses, list):
+        return jsonify({'success': False, 'error': 'Formato inválido'}), 400
+        
+    # Validar que cada estado tenga id y name
+    for s in statuses:
+        if 'id' not in s or 'name' not in s:
+            return jsonify({'success': False, 'error': 'Faltan campos requeridos'}), 400
+            
+    DatabaseService.save_note_statuses(owner_uid, statuses, sandbox=sandbox)
     return jsonify({'success': True})

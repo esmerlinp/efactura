@@ -2101,7 +2101,7 @@ class DatabaseService:
                             "color": data.get("color", "default"),
                             "visibility": visibility,
                             "createdBy": created_by,
-                            "status": data.get("status", "pending"),
+                            "status": data.get("status", "abierta"),
                             "createdAt": serialize_field(data.get("createdAt")),
                             "updatedAt": serialize_field(data.get("updatedAt"))
                         })
@@ -2123,7 +2123,7 @@ class DatabaseService:
         note_dict["createdAt"] = serialize_field(note_dict["createdAt"])
         note_dict["updatedAt"] = serialize_field(note_dict["updatedAt"])
         note_dict["visibility"] = note_dict.get("visibility", "shared")
-        note_dict["status"] = note_dict.get("status", "pending")
+        note_dict["status"] = note_dict.get("status", "abierta")
 
         if firebase_initialized:
             try:
@@ -2153,3 +2153,41 @@ class DatabaseService:
                 db_firestore.collection("users").document(owner_uid).collection(coll_name).document(note_id).delete()
             except Exception as e:
                 print(f"⚠️ Fallo al borrar nota de Firestore: {e}")
+
+    @classmethod
+    def get_note_statuses(cls, owner_uid, sandbox=True):
+        """Retorna las columnas/estados configurados para el tablero de notas."""
+        default_statuses = [
+            {"id": "abierta", "name": "Abierta", "color": "var(--accent-purple)", "order": 1},
+            {"id": "in_progress", "name": "En Proceso", "color": "var(--accent-blue)", "order": 2},
+            {"id": "done", "name": "Cerrado", "color": "var(--text-muted)", "order": 3}
+        ]
+        if not firebase_initialized:
+            return default_statuses
+        try:
+            coll_name = "sandbox_settings" if sandbox else "settings"
+            doc_ref = db_firestore.collection("users").document(owner_uid).collection(coll_name).document("note_board")
+            doc = doc_ref.get()
+            if doc.exists:
+                data = doc.to_dict()
+                if "statuses" in data and isinstance(data["statuses"], list):
+                    return data["statuses"]
+            
+            # Save and return defaults if not exists
+            doc_ref.set({"statuses": default_statuses})
+            return default_statuses
+        except Exception as e:
+            print(f"⚠️ Error get_note_statuses: {e}")
+            return default_statuses
+
+    @classmethod
+    def save_note_statuses(cls, owner_uid, statuses, sandbox=True):
+        """Guarda la lista de columnas/estados para las notas."""
+        if not firebase_initialized:
+            return
+        try:
+            coll_name = "sandbox_settings" if sandbox else "settings"
+            doc_ref = db_firestore.collection("users").document(owner_uid).collection(coll_name).document("note_board")
+            doc_ref.set({"statuses": statuses}, merge=True)
+        except Exception as e:
+            print(f"⚠️ Error save_note_statuses: {e}")

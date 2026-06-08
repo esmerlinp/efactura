@@ -73,41 +73,54 @@ endblock %}
 
     .doc-card {
         border-radius: var(--radius-sm);
-        padding: 15px;
+        padding: 10px 12px;
         position: relative;
         display: flex;
         flex-direction: column;
         background: #ffffff;
-        border: 1px solid var(--border-color);
-        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        border: 1px solid rgba(0, 0, 0, 0.06);
+        box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.04), 0 1px 2px -1px rgba(0, 0, 0, 0.02);
         cursor: grab;
-        transition: box-shadow var(--transition-fast), border-color var(--transition-fast);
+        transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.2s ease;
     }
     
-    .doc-card:active { cursor: grabbing; }
-    .doc-card:hover { box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08); border-color: rgba(16, 185, 129, 0.3); }
+    .doc-card:active {
+        cursor: grabbing;
+        transform: scale(0.98);
+    }
+    
+    .doc-card:hover {
+        box-shadow: 0 12px 20px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+        border-color: rgba(16, 185, 129, 0.4);
+        transform: translateY(-3px);
+    }
     
     .doc-card.readonly {
         cursor: default;
     }
-    .doc-card.readonly:active { cursor: default; }
-    
-    .doc-title { font-size: 1rem; font-weight: 600; color: var(--text-primary); font-family: var(--font-heading); margin-bottom: 4px; text-decoration: none; }
-    .doc-title:hover { color: var(--accent-emerald); }
-    .doc-meta { font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 12px; display: flex; flex-direction: column; gap: 4px; }
-    
-    .doc-finance { 
-        font-size: 0.85rem; 
-        background: #f8fafc;
-        border: 1px dashed var(--border-color);
-        padding: 8px 10px; 
-        border-radius: var(--radius-sm); 
-        margin-bottom: 12px; 
+    .doc-card.readonly:active { cursor: default; transform: none; }
+    .doc-card.readonly:hover {
+        transform: none;
+        box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.04), 0 1px 2px -1px rgba(0, 0, 0, 0.02);
+        border-color: rgba(0, 0, 0, 0.06);
     }
     
-    .card-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: auto; border-top: 1px solid var(--border-color); padding-top: 10px; }
-    .btn-icon { background: #f1f5f9; border: 1px solid transparent; color: var(--text-secondary); border-radius: 50%; width: 30px; height: 30px; font-size: 0.8rem; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; text-decoration: none; }
-    .btn-icon:hover { background: #e2e8f0; color: var(--text-primary); border-color: var(--border-color); }
+    .doc-title { font-size: 0.9rem; font-weight: 600; color: var(--text-primary); font-family: var(--font-heading); margin-bottom: 2px; text-decoration: none; line-height: 1.2; }
+    .doc-title:hover { color: var(--accent-emerald); }
+    .doc-meta { font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 8px; display: flex; flex-direction: column; gap: 3px; }
+    
+    .doc-finance { 
+        font-size: 0.8rem; 
+        background: #f8fafc;
+        border: 1px dashed var(--border-color);
+        padding: 6px 8px; 
+        border-radius: var(--radius-sm); 
+        margin-bottom: 8px; 
+    }
+    
+    .card-actions { display: flex; gap: 6px; justify-content: flex-end; margin-top: auto; border-top: 1px solid rgba(0,0,0,0.04); padding-top: 8px; }
+    .btn-icon { background: #f1f5f9; border: 1px solid transparent; color: var(--text-secondary); border-radius: 50%; width: 26px; height: 26px; font-size: 0.75rem; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; text-decoration: none; }
+    .btn-icon:hover { background: #e2e8f0; color: var(--text-primary); border-color: rgba(0,0,0,0.1); transform: scale(1.05); }
     
     .kanban-column#col-Borrador .kanban-header, .kanban-column#col-Borradores .kanban-header { border-bottom-color: var(--text-muted); color: var(--text-muted); }
     .kanban-column#col-Enviada .kanban-header, .kanban-column#col-PorCobrar .kanban-header { border-bottom-color: var(--accent-blue); color: var(--accent-blue); }
@@ -391,7 +404,6 @@ endblock %}
                     <th>Fecha / Vence</th>
                     <th>Cliente / RNC</th>
                     <th>Neto a Pagar</th>
-                    <th>Estado</th>
                     <th style="text-align: right;">Acciones</th>
                 </tr>
             </thead>
@@ -401,15 +413,17 @@ endblock %}
                 <tr>
                     <td>
                         <a href="{{ url_for('web_invoices.invoice_detail', invoice_id=inv.id) }}" class="invoice-link">
-                            <strong style="font-size: 0.95rem; display: block; margin-bottom: 2px;">{{ inv.invoiceNumber }}</strong>
+                            <span style="font-size: 0.85rem; display: block; margin-bottom: 2px;">{{ inv.invoiceNumber }}</span>
                         </a>
-                        <span style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase;">
+                        {% if active_page != 'quotations' %}
+                        <span style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase;">
                             {{ inv.ecfType.split('(')[0] | default('Consumo') }}
                         </span>
+                        {% endif %}
                     </td>
                     <td>
                         {% if inv.encf %}
-                        <strong style="font-family: monospace; font-size: 0.9rem; color: var(--accent-purple);">{{ inv.encf }}</strong>
+                        <span style="font-family: monospace; font-size: 0.85rem; color: var(--accent-purple);">{{ inv.encf }}</span>
                         {% if inv.xmlSignature %}
                         <span style="display: block; font-size: 0.65rem; color: var(--text-muted); font-family: monospace;">Firma: {{ inv.xmlSignature[:16] }}...</span>
                         {% endif %}
@@ -418,60 +432,45 @@ endblock %}
                         {% endif %}
                     </td>
                     <td>
-                        <span style="display: block; font-size: 0.88rem;">
+                        <span style="display: block; font-size: 0.85rem;">
                             {{ inv.date[:10] }}
                             {% if inv.date|length > 10 %}
-                            <span style="font-size: 0.72rem; color: var(--text-muted); margin-left: 4px;"><i class="fa-regular fa-clock" style="font-size: 0.68rem; margin-right: 2px;"></i>{{ inv.date[11:16] }}</span>
+                            <span style="font-size: 0.7rem; color: var(--text-muted); margin-left: 4px;"><i class="fa-regular fa-clock" style="font-size: 0.65rem; margin-right: 2px;"></i>{{ inv.date[11:16] }}</span>
                             {% endif %}
                         </span>
-                        <span style="font-size: 0.78rem; color: var(--text-muted);">Vence: {{ inv.dueDate[:10] }}</span>
+                        <span style="font-size: 0.75rem; color: var(--text-muted);">Vence: {{ inv.dueDate[:10] }}</span>
                     </td>
                     <td>
                         {% if inv.clientId and inv.clientId != 'api_client_default' %}
                         <a href="{{ url_for('web_clients.client_detail', client_id=inv.clientId) }}" class="client-link">
-                            <strong style="font-size: 0.88rem; display: block; margin-bottom: 2px;">{{ inv.clientName }}</strong>
+                            <span style="font-size: 0.85rem; display: block; margin-bottom: 2px;">{{ inv.clientName }}</span>
                         </a>
                         {% else %}
-                        <strong style="font-size: 0.88rem; display: block; margin-bottom: 2px;">{{ inv.clientName }}</strong>
+                        <span style="font-size: 0.85rem; display: block; margin-bottom: 2px;">{{ inv.clientName }}</span>
                         {% endif %}
-                        <span style="font-size: 0.78rem; color: var(--text-secondary); font-family: monospace;">{{ inv.clientRNC or '999999999' }}</span>
+                        <span style="font-size: 0.75rem; color: var(--text-secondary); font-family: monospace;">{{ inv.clientRNC or '999999999' }}</span>
                     </td>
                     <td>
                         {% if inv.status == 'Anulada' %}
-                        <strong style="color: var(--text-muted); text-decoration: line-through;">RD$ {{ "{:,.2f}".format(inv.netPayable) }}</strong>
-                        <span style="display: block; font-size: 0.75rem; color: var(--text-muted);">Total: RD$ {{ "{:,.2f}".format(inv.total) }}</span>
+                        <span style="color: var(--text-muted); text-decoration: line-through; font-size: 0.85rem;">RD$ {{ "{:,.2f}".format(inv.netPayable) }}</span>
+                        <span style="display: block; font-size: 0.7rem; color: var(--text-muted);">Total: RD$ {{ "{:,.2f}".format(inv.total) }}</span>
                         {% elif inv.status == 'Cobrada' or inv.netPayable == 0 %}
-                        <strong style="color: var(--accent-emerald);">RD$ 0.00</strong>
-                        <span style="display: block; font-size: 0.72rem; color: var(--accent-emerald); font-weight: 600;">
+                        <span style="color: var(--accent-emerald); font-size: 0.85rem;">RD$ 0.00</span>
+                        <span style="display: block; font-size: 0.7rem; color: var(--accent-emerald); font-weight: 500;">
                             <i class="fa-solid fa-circle-check"></i> Pagado 100%
                         </span>
                         {% elif inv.netPayable < inv.total %}
-                        <strong style="color: var(--accent-yellow);">RD$ {{ "{:,.2f}".format(inv.netPayable) }}</strong>
-                        <span style="display: block; font-size: 0.72rem; color: var(--accent-yellow); font-weight: 600;">
+                        <span style="color: var(--accent-yellow); font-size: 0.85rem;">RD$ {{ "{:,.2f}".format(inv.netPayable) }}</span>
+                        <span style="display: block; font-size: 0.7rem; color: var(--accent-yellow); font-weight: 500;">
                             <i class="fa-solid fa-circle-half-stroke"></i> Cobro Parcial
                         </span>
-                        <span style="display: block; font-size: 0.68rem; color: var(--text-muted);">Total: RD$ {{ "{:,.2f}".format(inv.total) }}</span>
+                        <span style="display: block; font-size: 0.65rem; color: var(--text-muted);">Total: RD$ {{ "{:,.2f}".format(inv.total) }}</span>
                         {% else %}
-                        <strong style="color: var(--accent-red);">RD$ {{ "{:,.2f}".format(inv.netPayable) }}</strong>
-                        <span style="display: block; font-size: 0.72rem; color: var(--accent-red); font-weight: 600;">
+                        <span style="color: var(--accent-red); font-size: 0.85rem;">RD$ {{ "{:,.2f}".format(inv.netPayable) }}</span>
+                        <span style="display: block; font-size: 0.7rem; color: var(--accent-red); font-weight: 500;">
                             <i class="fa-solid fa-clock"></i> Pendiente
                         </span>
-                        <span style="display: block; font-size: 0.68rem; color: var(--text-muted);">Total: RD$ {{ "{:,.2f}".format(inv.total) }}</span>
-                        {% endif %}
-                    </td>
-                    <td>
-                        {% if inv.status == 'Anulada' %}
-                        <span class="badge badge-danger">Anulada</span>
-                        {% elif inv.netPayable == 0 %}
-                        <span class="badge badge-success">Cobrada</span>
-                        {% elif inv.status == 'Emitida' %}
-                        {% if inv.netPayable < inv.total %}
-                        <span class="badge" style="background-color: rgba(245, 158, 11, 0.15); color: var(--accent-yellow); border: 1px solid rgba(245, 158, 11, 0.25);">Cobro Parcial</span>
-                        {% else %}
-                        <span class="badge badge-primary">Emitida (CxC)</span>
-                        {% endif %}
-                        {% else %}
-                        <span class="badge badge-secondary">{{ inv.status }}</span>
+                        <span style="display: block; font-size: 0.65rem; color: var(--text-muted);">Total: RD$ {{ "{:,.2f}".format(inv.total) }}</span>
                         {% endif %}
                     </td>
                     <td style="text-align: right;">
@@ -595,7 +594,7 @@ endblock %}
 
         document.addEventListener("DOMContentLoaded", function() {
             // Restore view mode
-            const savedMode = localStorage.getItem('docViewMode') || 'kanban';
+            const savedMode = localStorage.getItem('docViewMode') || 'table';
             setViewMode(savedMode);
 
             const form = document.getElementById('filters-form');

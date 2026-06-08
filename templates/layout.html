@@ -408,10 +408,12 @@
                     {% endif %}
 
                     <!-- Acceso a Notas -->
-                    <a href="{{ url_for('web_notes.list_notes') }}" class="btn btn-secondary"
-                        style="padding: 8px 12px; font-size: 1rem; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; border: none; background: transparent; cursor: pointer;"
-                        title="Ver Notas Abiertas">
-                        <i class="fa-solid fa-sticky-note" style="color: var(--text-secondary);"></i>
+                    <a href="{{ url_for('web_notes.list_notes') }}" 
+                        style="padding: 8px 12px; font-size: 1.1rem; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; border: none; background: transparent; cursor: pointer; border-radius: var(--radius-sm); transition: all 0.2s ease; color: var(--text-secondary);"
+                        onmouseover="this.style.backgroundColor='var(--bg-nav-hover)'; this.style.color='var(--accent-emerald)';"
+                        onmouseout="this.style.backgroundColor='transparent'; this.style.color='var(--text-secondary)';"
+                        title="Gestor de Tareas y Notas">
+                        <i class="fa-solid fa-clipboard-check"></i>
                     </a>
 
                     <!-- Icono CRM / Notificaciones -->
