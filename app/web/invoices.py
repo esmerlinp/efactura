@@ -1191,7 +1191,7 @@ def send_receipt_email(invoice_id):
     if not smtp_user or not smtp_password:
         return jsonify({"success": False, "message": "El servidor de correo no está configurado. Configura SMTP_USER y SMTP_PASSWORD en el servidor."}), 503
 
-    company_name    = company.get("companyName", "e-Factura")
+    company_name    = company.get("tradeName") or company.get("companyName", "e-Factura")
     company_rnc     = company.get("companyRNC", "")
     company_address = company.get("companyAddress", "")
     company_phone   = company.get("companyPhone", "")
@@ -1224,6 +1224,7 @@ def send_receipt_email(invoice_id):
 <body>
   <div class="wrapper">
     <div class="header">
+      {f'<img src="{company.get("logoUrl")}" alt="Logo" style="max-height: 50px; margin-bottom: 15px;">' if company.get("logoUrl") else ''}
       <h1>{company_name}</h1>
       <p>RNC: {company_rnc} &nbsp;|&nbsp; {company_address}</p>
       <span class="receipt-badge">✓ Recibo de Ingreso</span>
@@ -1428,7 +1429,7 @@ def notify_invoice_email(invoice_id):
     msg = MIMEMultipart()
     
     encf = invoice.get('encf', 'N/A')
-    company_name = company.get("companyName", "EMISOR")
+    company_name = company.get("tradeName") or company.get("companyName", "EMISOR")
     ecf_type = invoice.get('ecfType', 'Factura de Consumo Electrónica')
     date_str = invoice.get('date', '')[:10]
     total_str = f"$ {invoice.get('total', 0.0):.2f} {invoice.get('currency', 'DOP')}"
@@ -1438,6 +1439,8 @@ def notify_invoice_email(invoice_id):
     msg["From"] = f"{company_name} <{smtp_user}>"
     msg["To"] = recipient_email
 
+    logo_url = company.get('logoUrl', '')
+    
     html_body = f"""
     <html>
     <head>
@@ -1464,6 +1467,7 @@ def notify_invoice_email(invoice_id):
     <body>
         <div class="container">
             <div class="header">
+                {f'<img src="{logo_url}" alt="Logo" style="max-height: 60px; margin-bottom: 15px;">' if logo_url else ''}
                 <h1>{company_name}</h1>
             </div>
             <div class="content">
