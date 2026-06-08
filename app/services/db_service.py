@@ -510,6 +510,7 @@ class DatabaseService:
                         "direccion": data.get("direccion", ""),
                         "crmNotes": data.get("crmNotes", ""),
                         "nextContactDate": serialize_field(data.get("nextContactDate")),
+                        "pipelineStage": data.get("pipelineStage", "Prospecto"),
                         "createdAt": serialize_field(data.get("createdAt"))
                     })
                 clients.sort(key=lambda x: x["razonSocial"].lower())
@@ -527,6 +528,7 @@ class DatabaseService:
         
         client_dict["nextContactDate"] = serialize_field(client_dict.get("nextContactDate"))
         client_dict["createdAt"] = serialize_field(client_dict.get("createdAt"))
+        client_dict["pipelineStage"] = client_dict.get("pipelineStage", "Prospecto")
 
         if firebase_initialized:
             try:
@@ -536,6 +538,19 @@ class DatabaseService:
                 print(f"⚠️ Fallo al respaldar cliente en Firestore: {e}")
 
         return client_dict
+
+    @classmethod
+    def update_client_pipeline(cls, owner_uid, client_id, pipeline_stage, sandbox=True):
+        """Actualiza la etapa del pipeline CRM de un cliente."""
+        if firebase_initialized:
+            try:
+                coll_name = "sandbox_clients" if sandbox else "clients"
+                db_firestore.collection("users").document(owner_uid).collection(coll_name).document(client_id).update({
+                    "pipelineStage": pipeline_stage, 
+                    "updatedAt": firestore.SERVER_TIMESTAMP
+                })
+            except Exception as e:
+                print(f"⚠️ Fallo al actualizar pipeline de cliente: {e}")
 
     @classmethod
     def delete_client(cls, owner_uid, client_id, sandbox=True):
@@ -1185,6 +1200,16 @@ class DatabaseService:
             except Exception as e:
                 print(f"⚠️ Error al obtener factura por ID desde Firestore: {e}")
         return None
+
+    @classmethod
+    def update_invoice_status_simple(cls, owner_uid, invoice_id, new_status, sandbox=True):
+        """Actualiza únicamente el estado de una factura (usado en Kanban de Cotizaciones)."""
+        if firebase_initialized:
+            try:
+                coll_name = "sandbox_invoices" if sandbox else "invoices"
+                db_firestore.collection("users").document(owner_uid).collection(coll_name).document(invoice_id).update({"status": new_status, "updatedAt": firestore.SERVER_TIMESTAMP})
+            except Exception as e:
+                print(f"⚠️ Fallo al actualizar estado de la factura/cotización: {e}")
 
     @classmethod
     def save_invoice(cls, owner_uid, invoice_id, inv_dict, sandbox=True):
@@ -2049,3 +2074,82 @@ class DatabaseService:
                 h['period_label'] = h['period_label'].replace(en.lower(), es.lower())
                 
         return history
+
+    # =========================================================================
+    # GESTIÓN DE NOTAS (NOTES)
+    # =========================================================================
+
+    @classmethod
+    def get_notes(cls, owner_uid, user_uid, sandbox=True):
+        """Retorna la lista de notas (compartidas + privadas del usuario)."""
+        notes = []
+        if firebase_initialized:
+            try:
+                coll_name = "sandbox_notes" if sandbox else "notes"
+                docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).get()
+                for doc in docs:
+                    data = doc.to_dict()
+                    visibility = data.get("visibility", "shared")
+                    created_by = data.get("createdBy", "")
+                    
+                    # Filtrar: Mostrar si es compartida, o si es privada y el creador es el usuario actual
+                    if visibility == "shared" or (visibility == "private" and created_by == user_uid):
+                        notes.append({
+                            "id": doc.id,
+                            "title": data.get("title", "Nota sin título"),
+                            "content": data.get("content", ""),
+                            "color": data.get("color", "default"),
+                            "visibility": visibility,
+                            "createdBy": created_by,
+                            "status": data.get("status", "pending"),
+                            "createdAt": serialize_field(data.get("createdAt")),
+                            "updatedAt": serialize_field(data.get("updatedAt"))
+                        })
+                notes.sort(key=lambda x: x.get("createdAt", ""), reverse=True)
+            except Exception as e:
+                print(f"⚠️ Error al obtener notas desde Firestore: {e}")
+        return notes
+
+    @classmethod
+    def save_note(cls, owner_uid, note_id, note_dict, sandbox=True):
+        """Guarda o actualiza una nota en Firestore."""
+        note_dict["id"] = note_id
+        note_dict["ownerUID"] = owner_uid
+        if "createdAt" not in note_dict or not note_dict["createdAt"]:
+            note_dict["createdAt"] = datetime.utcnow().isoformat()
+        
+        note_dict["updatedAt"] = datetime.utcnow().isoformat()
+        
+        note_dict["createdAt"] = serialize_field(note_dict["createdAt"])
+        note_dict["updatedAt"] = serialize_field(note_dict["updatedAt"])
+        note_dict["visibility"] = note_dict.get("visibility", "shared")
+        note_dict["status"] = note_dict.get("status", "pending")
+
+        if firebase_initialized:
+            try:
+                coll_name = "sandbox_notes" if sandbox else "notes"
+                db_firestore.collection("users").document(owner_uid).collection(coll_name).document(note_id).set(note_dict)
+            except Exception as e:
+                print(f"⚠️ Fallo al guardar nota en Firestore: {e}")
+
+        return note_dict
+
+    @classmethod
+    def update_note_status(cls, owner_uid, note_id, status, sandbox=True):
+        """Actualiza solo el estado de una nota en Firestore."""
+        if firebase_initialized:
+            try:
+                coll_name = "sandbox_notes" if sandbox else "notes"
+                db_firestore.collection("users").document(owner_uid).collection(coll_name).document(note_id).update({"status": status})
+            except Exception as e:
+                print(f"⚠️ Fallo al actualizar estado de nota en Firestore: {e}")
+
+    @classmethod
+    def delete_note(cls, owner_uid, note_id, sandbox=True):
+        """Elimina una nota en Firestore."""
+        if firebase_initialized:
+            try:
+                coll_name = "sandbox_notes" if sandbox else "notes"
+                db_firestore.collection("users").document(owner_uid).collection(coll_name).document(note_id).delete()
+            except Exception as e:
+                print(f"⚠️ Fallo al borrar nota de Firestore: {e}")

@@ -407,6 +407,13 @@
                     </a>
                     {% endif %}
 
+                    <!-- Acceso a Notas -->
+                    <a href="{{ url_for('web_notes.list_notes') }}" class="btn btn-secondary"
+                        style="padding: 8px 12px; font-size: 1rem; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; border: none; background: transparent; cursor: pointer;"
+                        title="Ver Notas Abiertas">
+                        <i class="fa-solid fa-sticky-note" style="color: var(--text-secondary);"></i>
+                    </a>
+
                     <!-- Icono CRM / Notificaciones -->
                     <div class="crm-dropdown" id="crm-dropdown-trigger"
                         style="position: relative; display: inline-block;">

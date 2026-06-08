@@ -143,6 +143,22 @@ def delete_client_route(client_id):
     flash('Cliente eliminado del directorio.', 'success')
     return redirect(url_for('list_clients'))
 
+@web_clients_bp.route('/clients/<client_id>/update_pipeline', methods=['POST'])
+def update_client_pipeline(client_id):
+    if 'user' not in session:
+        return jsonify({'success': False, 'error': 'No autorizado'}), 401
+    if not check_permission('canClients'):
+        return jsonify({'success': False, 'error': 'Sin permisos'}), 403
+        
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+    
+    data = request.json
+    new_stage = data.get('pipelineStage')
+    
+    DatabaseService.update_client_pipeline(owner_uid, client_id, new_stage, sandbox=sandbox)
+    return jsonify({'success': True})
+
 @web_clients_bp.route('/clients/<client_id>')
 def client_detail(client_id):
     if 'user' not in session: return redirect(url_for('login'))
