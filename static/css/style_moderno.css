@@ -275,6 +275,9 @@ body:not(.sidebar-collapsed) .sidebar-logo .logo-text-wrapper {
 
 .sidebar-logo img {
     height: 38px;
+    width: auto;
+    object-fit: contain;
+    flex-shrink: 0;
     border-radius: 8px;
 }
 
@@ -1146,17 +1149,18 @@ body.sandbox-mode .segment-header-icon.emerald {
 }
 
 .app-container.sidebar-collapsed .logo-text-wrapper {
-    width: 0 !important;
-    opacity: 0 !important;
-    pointer-events: none;
-    margin-right: 0 !important;
-    margin-left: 0 !important;
+    display: none !important;
 }
 
 .app-container.sidebar-collapsed .sidebar-logo {
     justify-content: center !important;
+    align-items: center !important;
     gap: 0 !important;
     padding: 0 !important;
+    margin-bottom: 24px !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    width: 100% !important;
 }
 
 .app-container.sidebar-collapsed .sidebar-section-header {
@@ -1203,11 +1207,17 @@ body.sandbox-mode .segment-header-icon.emerald {
 
 .app-container.sidebar-collapsed .user-badge {
     justify-content: center !important;
+    align-items: center !important;
     padding: 0 !important;
+    width: 44px !important;
+    height: 44px !important;
+    border-radius: 50% !important;
+    margin: 0 auto !important;
 }
 
-.app-container.sidebar-collapsed .user-info {
-    display: none;
+.app-container.sidebar-collapsed .user-info,
+.app-container.sidebar-collapsed .profile-hint-icon {
+    display: none !important;
 }
 
 .app-container.sidebar-collapsed .sidebar-footer {
