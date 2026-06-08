@@ -51,22 +51,26 @@
 
     /* Note Card */
     .note-card {
-        border-radius: var(--radius-sm);
-        padding: 12px 15px;
+        border-radius: var(--radius-md);
+        padding: 12px;
         position: relative;
         display: flex;
         flex-direction: column;
-        transition: box-shadow var(--transition-fast);
-        border: 1px solid transparent;
-        cursor: grab;
+        transition: box-shadow var(--transition-fast), transform 0.2s ease;
+        border: 1px solid rgba(0,0,0,0.06);
+        cursor: pointer;
+        height: 140px; /* Exact same height for all notes */
+        box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.04);
     }
     
     .note-card:active {
         cursor: grabbing;
+        transform: scale(0.98);
     }
     
     .note-card:hover {
-        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.2);
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        transform: translateY(-2px);
     }
     
     .note-done {
@@ -80,10 +84,13 @@
     
     .note-card .card-actions {
         position: absolute;
-        bottom: 12px;
-        right: 12px;
+        top: 8px;
+        right: 8px;
         opacity: 0;
+        display: flex;
+        gap: 4px;
         transition: opacity var(--transition-fast);
+        z-index: 2;
     }
     
     .note-card:hover .card-actions {
@@ -91,13 +98,13 @@
     }
 
     .btn-icon {
-        background: rgba(255, 255, 255, 0.1);
-        border: none;
+        background: rgba(255, 255, 255, 0.4);
+        border: 1px solid transparent;
         color: var(--text-secondary);
         border-radius: 50%;
-        width: 28px;
-        height: 28px;
-        font-size: 0.8rem;
+        width: 26px;
+        height: 26px;
+        font-size: 0.75rem;
         display: inline-flex;
         align-items: center;
         justify-content: center;
@@ -106,39 +113,58 @@
     }
 
     .btn-icon:hover {
-        background: rgba(255, 255, 255, 0.2);
+        background: rgba(255, 255, 255, 0.8);
         color: var(--text-primary);
+        border-color: rgba(0,0,0,0.1);
+        transform: scale(1.1);
     }
 
     .btn-icon.delete:hover {
         color: var(--accent-red);
-        background: rgba(239, 68, 68, 0.1);
+        background: rgba(239, 68, 68, 0.15);
     }
 
     /* Note Content */
     .note-title {
-        font-size: 1rem;
-        font-weight: 600;
+        font-size: 0.95rem;
+        font-weight: 700;
         color: var(--text-primary);
         font-family: var(--font-heading);
         margin-bottom: 6px;
-        padding-right: 20px; /* space for icon */
-        word-break: break-word;
+        padding-right: 28px; /* space for icon */
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
     
     .note-content {
         white-space: pre-wrap;
-        font-size: 0.85rem;
+        font-size: 0.8rem;
         color: var(--text-secondary);
-        line-height: 1.5;
+        line-height: 1.4;
         word-break: break-word;
-        padding-bottom: 12px; /* space for actions */
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        flex: 1; /* Pushes the footer down */
+    }
+    
+    .note-footer {
+        font-size: 0.72rem;
+        color: var(--text-muted);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: 8px;
+        padding-top: 8px;
+        border-top: 1px solid rgba(0,0,0,0.05);
     }
 
     /* Creator Box */
     .note-creator-wrapper {
-        max-width: 600px;
-        margin: 0 auto 40px auto;
+        flex: 2;
+        min-width: 300px;
         position: relative;
         z-index: 50;
     }
@@ -160,11 +186,11 @@
 
     .creator-input-fake {
         width: 100%;
-        padding: 15px 20px;
+        padding: 12px 20px;
         background: transparent;
         border: none;
         color: #f8fafc;
-        font-size: 1rem;
+        font-size: 0.95rem;
         font-family: var(--font-main);
         outline: none;
         cursor: text;
@@ -260,10 +286,18 @@
         opacity: 1;
     }
 
-    /* Search Bar */
+    /* Search Bar & Top Controls */
+    .top-controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 15px;
+        margin-bottom: 20px;
+        align-items: flex-start;
+    }
+    
     .search-wrapper {
-        max-width: 600px;
-        margin: 0 auto 30px auto;
+        flex: 1;
+        min-width: 250px;
         position: relative;
     }
     
@@ -297,17 +331,11 @@
 <!-- Creator Backdrop -->
 <div class="creator-backdrop" id="creator-backdrop"></div>
 
-<div style="margin-bottom: 40px; position: relative;">
-    
-    <!-- Descriptive Text -->
-    <div style="max-width: 600px; margin: 0 auto 25px auto; text-align: center; color: var(--text-secondary); font-size: 0.95rem; line-height: 1.5;">
-        Utiliza este tablero Kanban para gestionar tus apuntes y tareas. Puedes crear tarjetas <strong>Privadas</strong> o <strong>Compartidas</strong>, y arrastrarlas entre las columnas según su progreso.
-    </div>
-
+<div class="top-controls">
     <!-- Search Bar -->
     <div class="search-wrapper">
         <i class="fa-solid fa-search search-icon"></i>
-        <input type="text" class="search-input" id="search-notes" placeholder="Buscar en mis notas/tareas...">
+        <input type="text" class="search-input" id="search-notes" placeholder="Buscar en mis notas...">
     </div>
 
     <!-- Inline Note Creator -->
@@ -315,7 +343,7 @@
         <div class="note-creator" id="note-creator">
             <div class="creator-input-fake" id="creator-trigger">
                 <span>Añadir una nueva tarea o nota...</span>
-                <i class="fa-solid fa-check-square" style="color: var(--text-muted);"></i>
+                <i class="fa-solid fa-pen-to-square" style="color: var(--text-muted);"></i>
             </div>
             
             <div class="creator-expanded-area">
@@ -324,16 +352,9 @@
                 
                 <div class="creator-footer">
                     <div class="creator-tools">
-                        <select class="tool-select" id="new-note-color" title="Color de fondo">
-                            <option value="default">Por Defecto</option>
-                            <option value="yellow">Amarillo</option>
-                            <option value="blue">Azul</option>
-                            <option value="green">Verde</option>
-                            <option value="pink">Rosa</option>
-                        </select>
                         <select class="tool-select" id="new-note-visibility" title="Privacidad">
                             <option value="private">Privada</option>
-                            <option value="shared">Compartida</option>
+                            <option value="shared" selected>Compartida</option>
                         </select>
                     </div>
                     <div>
@@ -344,6 +365,14 @@
             </div>
         </div>
     </div>
+    
+    <!-- Configuración del Tablero Button -->
+    <div style="flex-basis: 100%; display: flex; justify-content: flex-end;">
+        <button type="button" class="btn btn-secondary" style="font-size: 0.85rem;" onclick="openBoardConfig()">
+            <i class="fa-solid fa-gear"></i> Configurar Tablero
+        </button>
+    </div>
+</div>
 
     <!-- Kanban Board -->
     {% set color_map = {
@@ -351,26 +380,30 @@
         'yellow': 'rgba(250, 204, 21, 0.12)',
         'blue': 'rgba(59, 130, 246, 0.12)',
         'green': 'rgba(16, 185, 129, 0.12)',
-        'pink': 'rgba(236, 72, 153, 0.12)'
+        'pink': 'rgba(236, 72, 153, 0.12)',
+        'purple': 'rgba(139, 92, 246, 0.12)',
+        'orange': 'rgba(249, 115, 22, 0.12)'
     } %}
     {% set border_map = {
         'default': 'var(--border-color)',
         'yellow': 'rgba(250, 204, 21, 0.3)',
         'blue': 'rgba(59, 130, 246, 0.3)',
         'green': 'rgba(16, 185, 129, 0.3)',
-        'pink': 'rgba(236, 72, 153, 0.3)'
+        'pink': 'rgba(236, 72, 153, 0.3)',
+        'purple': 'rgba(139, 92, 246, 0.3)',
+        'orange': 'rgba(249, 115, 22, 0.3)'
     } %}
 
-    {% macro render_note(note, color_map, border_map, user_uid) %}
-    <div class="note-card {% if note.status == 'done' %}note-done{% endif %}" id="note-{{ note.id }}" draggable="true" ondragstart="drag(event)" data-title="{{ note.title | lower }}" data-content="{{ note.content | lower }}" style="background-color: {{ color_map.get(note.color, color_map['default']) }}; border-color: {{ border_map.get(note.color, border_map['default']) }}; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);">
+    {% macro render_note(note, status_color, user_uid) %}
+    <div class="note-card {% if note.status == 'done' %}note-done{% endif %}" id="note-{{ note.id }}" draggable="true" ondragstart="drag(event)" data-title="{{ note.title | lower }}" data-content="{{ note.content | lower }}" style="background-color: {{ color_map.get(status_color, color_map['default']) }}; border-color: {{ border_map.get(status_color, border_map['default']) }}; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);" onclick="editNote('{{ note.id }}')">
         
-        <div class="note-title">
+        <div class="note-title" title="{{ note.title }}">
             {{ note.title }}
         </div>
         
         <div class="note-content">{{ note.content }}</div>
         
-        <div style="font-size: 0.72rem; color: var(--text-muted); display: flex; align-items: center; gap: 8px;">
+        <div class="note-footer">
             {% if note.visibility == 'private' %}
                 <i class="fa-solid fa-lock" title="Privada"></i>
             {% else %}
@@ -380,12 +413,7 @@
         </div>
 
         <div class="card-actions">
-            {% if note.createdBy == user_uid or note.visibility == 'private' %}
-            <button class="btn-icon" onclick="editNote('{{ note.id }}')" title="Editar nota" style="margin-right: 4px;">
-                <i class="fa-solid fa-pen"></i>
-            </button>
-            {% endif %}
-            <button class="btn-icon delete" onclick="deleteNote('{{ note.id }}')" title="Eliminar nota">
+            <button class="btn-icon delete" onclick="event.stopPropagation(); deleteNote('{{ note.id }}')" title="Eliminar nota">
                 <i class="fa-solid fa-trash-can"></i>
             </button>
         </div>
@@ -393,36 +421,48 @@
     {% endmacro %}
 
     <div class="kanban-board">
-        <!-- Columna Pendiente -->
-        <div class="kanban-column" id="col-pending" ondrop="drop(event)" ondragover="allowDrop(event)">
-            <h4 class="kanban-header"><i class="fa-solid fa-list-ul" style="color: var(--accent-purple);"></i> Pendiente</h4>
+        {% set status_ids = statuses | map(attribute='id') | list %}
+        {% set sorted_statuses = statuses|sort(attribute='order') %}
+        {% set first_status_id = (sorted_statuses|first).id if sorted_statuses else 'abierta' %}
+        {% for status in sorted_statuses %}
+        <div class="kanban-column" id="col-{{ status.id }}" ondrop="drop(event)" ondragover="allowDrop(event)">
+            <h4 class="kanban-header">
+                {{ status.name }}
+            </h4>
             <div class="kanban-cards">
-                {% for note in notes if note.status == 'pending' %}
-                    {{ render_note(note, color_map, border_map, user_uid) }}
+                {% for note in notes %}
+                    {% if note.status == status.id or (status.id == first_status_id and note.status not in status_ids) %}
+                        {{ render_note(note, status.color, user_uid) }}
+                    {% endif %}
                 {% endfor %}
             </div>
         </div>
-        
-        <!-- Columna En Proceso -->
-        <div class="kanban-column" id="col-in_progress" ondrop="drop(event)" ondragover="allowDrop(event)">
-            <h4 class="kanban-header"><i class="fa-solid fa-spinner" style="color: var(--accent-emerald);"></i> En Proceso</h4>
-            <div class="kanban-cards">
-                {% for note in notes if note.status == 'in_progress' %}
-                    {{ render_note(note, color_map, border_map, user_uid) }}
-                {% endfor %}
-            </div>
-        </div>
-
-        <!-- Columna Hecho -->
-        <div class="kanban-column" id="col-done" ondrop="drop(event)" ondragover="allowDrop(event)">
-            <h4 class="kanban-header"><i class="fa-solid fa-check-double" style="color: var(--text-muted);"></i> Hecho</h4>
-            <div class="kanban-cards">
-                {% for note in notes if note.status == 'done' %}
-                    {{ render_note(note, color_map, border_map, user_uid) }}
-                {% endfor %}
-            </div>
-        </div>
+        {% endfor %}
     </div>
+</div>
+
+<!-- Board Config Modal -->
+<div id="boardConfigModal" class="search-modal" style="display: none; justify-content: center; align-items: center; z-index: 9999;">
+  <div class="modal-backdrop" onclick="closeBoardConfig()"></div>
+  <div class="modal-content animate-fade-in" style="width: 100%; max-width: 600px; padding: 0; border-radius: var(--radius-md); background: var(--bg-card); border: 1px solid var(--border-color);">
+    <div class="modal-header" style="border-bottom: 1px solid var(--border-color); padding: 20px 24px; display: flex; justify-content: space-between; align-items: center;">
+      <h5 class="modal-title" style="font-family: var(--font-heading); color: var(--text-primary); margin: 0; font-size: 1.1rem;">Configurar Columnas</h5>
+      <button type="button" class="btn-close-modal" onclick="closeBoardConfig()" style="background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.2rem;"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div class="modal-body" style="padding: 24px;">
+      <p class="text-muted" style="font-size: 0.85rem; margin-bottom: 20px;">Arrastra para reordenar, cambia los nombres o asigna colores. Si eliminas una columna, sus notas volverán al estado "Abierta".</p>
+      <div id="statusList" class="list-group mb-3" style="display: flex; flex-direction: column; gap: 10px;">
+          <!-- Rendered via JS -->
+      </div>
+      <button type="button" class="btn btn-secondary" onclick="addNewStatus()" style="width: 100%; padding: 10px; margin-top: 15px;">
+          <i class="fa-solid fa-plus"></i> Añadir Columna
+      </button>
+    </div>
+    <div class="modal-footer" style="border-top: 1px solid var(--border-color); padding: 20px 24px; display: flex; justify-content: flex-end; gap: 10px;">
+      <button type="button" class="btn" style="background: transparent; border: 1px solid var(--border-color); color: var(--text-primary);" onclick="closeBoardConfig()">Cancelar</button>
+      <button type="button" class="btn btn-primary" onclick="saveBoardConfig()">Guardar Cambios</button>
+    </div>
+  </div>
 </div>
 
 {% endblock %}
@@ -439,7 +479,6 @@
         
         const inputTitle = document.getElementById('new-note-title');
         const inputContent = document.getElementById('new-note-content');
-        const selectColor = document.getElementById('new-note-color');
         const selectVis = document.getElementById('new-note-visibility');
         
         let currentEditId = null;
@@ -459,9 +498,13 @@
         function resetCreator() {
             inputTitle.value = '';
             inputContent.value = '';
-            selectColor.value = 'default';
-            selectVis.value = 'private'; // default
+            selectVis.value = 'shared'; // default
             currentEditId = null;
+            const creator = document.getElementById('note-creator');
+            if (creator) {
+                creator.style.backgroundColor = '';
+                creator.style.borderColor = '';
+            }
         }
 
         trigger.addEventListener('click', expandCreator);
@@ -502,8 +545,7 @@
                     note_id: currentEditId,
                     title: title,
                     content: content,
-                    visibility: selectVis.value,
-                    color: selectColor.value
+                    visibility: selectVis.value
                 })
             })
             .then(res => res.json())
@@ -548,14 +590,6 @@
                 const titleText = card.querySelector('.note-title').innerText.trim();
                 const contentText = card.querySelector('.note-content').innerText.trim();
                 
-                // Get raw style background to determine color select mapping approximately
-                const rawBg = card.style.backgroundColor || '';
-                if(rawBg.includes('250, 204')) selectColor.value = 'yellow';
-                else if(rawBg.includes('59, 130')) selectColor.value = 'blue';
-                else if(rawBg.includes('16, 185')) selectColor.value = 'green';
-                else if(rawBg.includes('236, 72')) selectColor.value = 'pink';
-                else selectColor.value = 'default';
-                
                 const isShared = card.querySelector('.fa-users') !== null;
                 selectVis.value = isShared ? 'shared' : 'private';
                 
@@ -565,6 +599,13 @@
                 
                 // Expand and scroll to top
                 expandCreator();
+                
+                const creator = document.getElementById('note-creator');
+                if (creator) {
+                    creator.style.backgroundColor = card.style.backgroundColor;
+                    creator.style.borderColor = card.style.borderColor;
+                }
+                
                 window.scrollTo({ top: 0, behavior: 'smooth' });
                 inputContent.style.height = 'auto';
                 inputContent.style.height = (inputContent.scrollHeight) + 'px';
@@ -648,8 +689,159 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ status: status })
             }).then(res => res.json())
+            .then(data => {
+                if(data.success) {
+                    window.location.reload();
+                }
+            })
             .catch(err => console.error(err));
         }
     }
+    
+    // --- Board Configuration Logic ---
+    let boardStatuses = {{ statuses | tojson | safe }};
+    
+    window.openBoardConfig = function() {
+        renderStatusConfigList();
+        const modal = document.getElementById('boardConfigModal');
+        if(modal) modal.style.display = 'flex';
+    };
+    
+    window.closeBoardConfig = function() {
+        const modal = document.getElementById('boardConfigModal');
+        if(modal) modal.style.display = 'none';
+    };
+    
+    function renderStatusConfigList() {
+        const list = document.getElementById('statusList');
+        list.innerHTML = '';
+        boardStatuses.sort((a,b) => a.order - b.order).forEach((status, index) => {
+            const colors = ['default', 'yellow', 'blue', 'green', 'pink', 'purple', 'orange'];
+            let colorOptions = colors.map(c => `<option value="${c}" ${status.color === c ? 'selected' : ''}>${c}</option>`).join('');
+            
+            list.innerHTML += `
+                <div class="status-item" data-id="${status.id}" draggable="true" ondragstart="dragStatus(event)" ondragover="allowDropStatus(event)" ondrop="dropStatus(event)" style="display: flex; align-items: center; justify-content: space-between; gap: 12px; background: var(--bg-body); padding: 12px 16px; margin-bottom: 10px; border-radius: var(--radius-md); border: 1px solid var(--border-color); flex-wrap: nowrap; transition: transform 0.2s;">
+                    
+                    <div style="display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0;">
+                        <i class="fa-solid fa-grip-vertical text-muted" style="cursor: grab; font-size: 1.1rem; opacity: 0.5;"></i>
+                        
+                        <div style="display: flex; align-items: center; gap: 8px; flex: 1; background: var(--bg-card); border-radius: var(--radius-sm); border: 1px solid var(--border-color); padding: 6px 12px;">
+                            <input type="text" class="status-name" value="${status.name}" placeholder="Nombre de columna" style="flex: 1; min-width: 80px; background: transparent; border: none; outline: none; color: var(--text-primary); font-size: 0.95rem; font-weight: 500;">
+                            
+                            <div style="width: 1px; height: 20px; background: var(--border-color);"></div>
+                            
+                            <select class="status-color" style="width: auto; min-width: 90px; background: transparent; border: none; outline: none; color: var(--text-muted); font-size: 0.85rem; cursor: pointer;">
+                                ${colorOptions}
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <button type="button" onclick="removeStatus(this)" style="background: transparent; border: none; color: var(--accent-red); cursor: pointer; padding: 6px; opacity: 0.7; transition: opacity 0.2s ease;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'" title="Eliminar Columna">
+                        <i class="fa-solid fa-trash-can" style="font-size: 1.1rem;"></i>
+                    </button>
+                    
+                </div>
+            `;
+        });
+    }
+    
+    window.addNewStatus = function() {
+        const newId = 'status_' + Math.random().toString(36).substr(2, 9);
+        boardStatuses.push({
+            id: newId,
+            name: 'Nueva Columna',
+            color: 'default',
+            order: boardStatuses.length + 1
+        });
+        renderStatusConfigList();
+    };
+    
+    window.removeStatus = function(btn) {
+        if(confirm('¿Estás seguro? Las notas en esta columna regresarán al estado por defecto.')) {
+            btn.closest('.status-item').remove();
+        }
+    };
+    
+    function syncDOMToBoardStatuses() {
+        const items = document.querySelectorAll('#statusList .status-item');
+        items.forEach((item, index) => {
+            const id = item.getAttribute('data-id');
+            const stat = boardStatuses.find(s => s.id === id);
+            if(stat) {
+                stat.name = item.querySelector('.status-name').value.trim() || 'Sin Nombre';
+                stat.color = item.querySelector('.status-color').value;
+                stat.order = index + 1;
+            }
+        });
+    }
+
+    let draggedStatusId = null;
+    window.dragStatus = function(ev) {
+        draggedStatusId = ev.target.closest('.status-item').getAttribute('data-id');
+        ev.dataTransfer.effectAllowed = 'move';
+        ev.target.closest('.status-item').style.opacity = '0.5';
+    };
+    
+    document.addEventListener("dragend", function(event) {
+        if (event.target.classList && event.target.classList.contains('status-item')) {
+            event.target.style.opacity = '1';
+        }
+    });
+
+    window.allowDropStatus = function(ev) {
+        ev.preventDefault();
+        ev.dataTransfer.dropEffect = 'move';
+    };
+
+    window.dropStatus = function(ev) {
+        ev.preventDefault();
+        if(!draggedStatusId) return;
+        
+        const targetItem = ev.target.closest('.status-item');
+        if(!targetItem) return;
+        
+        const targetId = targetItem.getAttribute('data-id');
+        if(draggedStatusId === targetId) return;
+        
+        syncDOMToBoardStatuses();
+        
+        const draggedIndex = boardStatuses.findIndex(s => s.id === draggedStatusId);
+        const targetIndex = boardStatuses.findIndex(s => s.id === targetId);
+        
+        if (draggedIndex > -1 && targetIndex > -1) {
+            const [item] = boardStatuses.splice(draggedIndex, 1);
+            boardStatuses.splice(targetIndex, 0, item);
+            renderStatusConfigList();
+        }
+        draggedStatusId = null;
+    };
+    
+    window.saveBoardConfig = function() {
+        syncDOMToBoardStatuses();
+        
+        const newStatuses = boardStatuses.map((s, index) => {
+            s.order = index + 1;
+            return {
+                id: s.id,
+                name: s.name,
+                color: s.color,
+                order: s.order
+            };
+        });
+        
+        fetch('{{ url_for("web_notes.save_statuses") }}', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ statuses: newStatuses })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if(data.success) {
+                window.location.reload();
+            } else {
+                alert('Error al guardar configuración.');
+            }
+        });
+    };
 </script>
 {% endblock %}

@@ -53,35 +53,37 @@
     /* Client Card */
     .client-card {
         border-radius: var(--radius-sm);
-        padding: 12px 15px;
+        padding: 10px 12px;
         position: relative;
         display: flex;
         flex-direction: column;
-        background: rgba(30, 41, 59, 0.5);
-        border: 1px solid var(--border-color);
-        backdrop-filter: blur(10px);
-        -webkit-backdrop-filter: blur(10px);
+        background: #ffffff;
+        border: 1px solid rgba(0, 0, 0, 0.06);
+        box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.04), 0 1px 2px -1px rgba(0, 0, 0, 0.02);
         cursor: grab;
-        transition: box-shadow var(--transition-fast);
+        transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.2s ease;
     }
     
     .client-card:active {
         cursor: grabbing;
+        transform: scale(0.98);
     }
     
     .client-card:hover {
-        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.2);
-        border-color: rgba(16, 185, 129, 0.3);
+        box-shadow: 0 12px 20px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+        border-color: rgba(16, 185, 129, 0.4);
+        transform: translateY(-3px);
     }
     
     .client-title {
-        font-size: 1rem;
-        font-weight: 600;
+        font-size: 0.9rem;
+        font-weight: 700;
         color: var(--text-primary);
         font-family: var(--font-heading);
         margin-bottom: 4px;
         word-break: break-word;
         text-decoration: none;
+        line-height: 1.2;
     }
 
     .client-title:hover {
@@ -89,37 +91,56 @@
     }
     
     .client-meta {
-        font-size: 0.8rem;
+        font-size: 0.75rem;
         color: var(--text-secondary);
+        margin-bottom: 8px;
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+    }
+    
+    .client-meta span {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    
+    .client-meta i {
+        width: 12px;
+        font-size: 0.7rem;
+        text-align: center;
+        color: var(--text-muted);
+    }
+
+    .client-finance {
+        font-size: 0.8rem;
+        background: #f8fafc;
+        border: 1px dashed var(--border-color);
+        padding: 6px 8px;
+        border-radius: var(--radius-sm);
         margin-bottom: 8px;
         display: flex;
         flex-direction: column;
         gap: 2px;
     }
 
-    .client-finance {
-        font-size: 0.85rem;
-        background: rgba(0,0,0,0.2);
-        padding: 6px;
-        border-radius: var(--radius-sm);
-        margin-bottom: 10px;
-    }
-
     .card-actions {
         display: flex;
-        gap: 8px;
+        gap: 6px;
         justify-content: flex-end;
         margin-top: auto;
+        border-top: 1px solid rgba(0,0,0,0.04);
+        padding-top: 8px;
     }
 
     .btn-icon {
-        background: rgba(255, 255, 255, 0.1);
-        border: none;
+        background: #f1f5f9;
+        border: 1px solid transparent;
         color: var(--text-secondary);
         border-radius: 50%;
-        width: 28px;
-        height: 28px;
-        font-size: 0.8rem;
+        width: 24px;
+        height: 24px;
+        font-size: 0.75rem;
         display: inline-flex;
         align-items: center;
         justify-content: center;
@@ -129,8 +150,10 @@
     }
 
     .btn-icon:hover {
-        background: rgba(255, 255, 255, 0.2);
+        background: #e2e8f0;
         color: var(--text-primary);
+        border-color: rgba(0,0,0,0.1);
+        transform: scale(1.05);
     }
     
     .btn-icon.eye:hover { color: var(--accent-emerald); }

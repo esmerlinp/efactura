@@ -610,25 +610,31 @@ body.sandbox-mode .environment-indicator {
     gap: 10px;
     padding: 10px 20px;
     font-weight: 500;
-    /* Reducido de 600 */
     font-family: var(--font-heading);
     font-size: 0.875rem;
-    border-radius: var(--radius-sm);
+    border-radius: 4px;
+    /* Classic structured corners */
     cursor: pointer;
     transition: all var(--transition-fast);
 }
 
 .btn-primary {
-    background: linear-gradient(90deg, var(--accent-emerald), var(--accent-emerald-hover));
+    background: var(--accent-emerald);
+    /* Solid background */
     color: white;
-    box-shadow: var(--shadow-btn-glow);
-    border: none;
+    border: 1px solid var(--accent-emerald-hover);
+    /* Defined border */
+    box-shadow: none;
+    /* Remove modern glow */
 }
 
 .btn-primary:hover {
-    background: linear-gradient(90deg, var(--accent-emerald-hover), var(--accent-emerald));
-    transform: translateY(-1px);
-    box-shadow: 0 6px 16px var(--shadow-btn-glow);
+    background: var(--accent-emerald-hover);
+    /* Solid hover effect */
+    transform: none;
+    /* No floating animation */
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    /* Classic subtle drop shadow */
 }
 
 .btn:disabled,
@@ -643,13 +649,22 @@ body.sandbox-mode .environment-indicator {
 }
 
 .btn-secondary {
-    background-color: var(--bg-input);
+    background-color: var(--bg-main);
+    /* Light solid base */
     border: 1px solid var(--border-color);
+    /* Clear boundary */
     color: var(--text-primary);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+    /* Tiny classic depth */
 }
 
 .btn-secondary:hover {
-    border-color: var(--text-secondary);
+    background-color: rgba(0, 0, 0, 0.04);
+    border-color: var(--text-muted);
+}
+
+[data-theme="dark"] .btn-secondary:hover {
+    background-color: rgba(255, 255, 255, 0.06);
 }
 
 .btn-danger {
@@ -762,11 +777,11 @@ body.sandbox-mode .environment-indicator {
 }
 
 .table-premium th {
-    padding: 14px 24px;
-    /* Aumentado a 24px para alinearse con el padding de la tarjeta edge-to-edge */
+    padding: 10px 24px;
     font-weight: 500;
     font-size: 0.75rem;
     color: var(--text-secondary);
+    background-color: var(--bg-main);
     border-bottom: 1px solid rgba(0, 0, 0, 0.08);
     text-transform: uppercase;
     letter-spacing: 0.02em;
@@ -775,7 +790,7 @@ body.sandbox-mode .environment-indicator {
 }
 
 .table-premium td {
-    padding: 16px 24px;
+    padding: 10px 24px;
     font-size: 0.90rem;
     border-bottom: 1px solid rgba(0, 0, 0, 0.04);
     color: var(--text-primary);
