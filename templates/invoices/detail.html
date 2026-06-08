@@ -18,10 +18,10 @@
 
         <!-- Encabezado de Factura Comercial -->
         <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid var(--border-color); padding-bottom: 30px; margin-bottom: 30px;">
-            <div style="display: flex; align-items: flex-start; gap: 16px;">
+            <div style="display: flex; align-items: center; gap: 24px;">
                 {% if company.logoUrl %}
-                <div style="flex-shrink: 0;">
-                    <img src="{{ company.logoUrl }}" alt="{{ company.tradeName or company.companyName }}" style="max-height: 72px; max-width: 100px; object-fit: contain; border-radius: var(--radius-sm); border: 1px solid var(--border-color); padding: 4px; background: white;">
+                <div style="flex-shrink: 0; display: flex; align-items: center;">
+                    <img src="{{ company.logoUrl }}" alt="{{ company.tradeName or company.companyName }}" style="max-height: 100px; max-width: 150px; object-fit: contain; background: transparent;">
                 </div>
                 {% endif %}
                 <div>
