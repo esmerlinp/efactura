@@ -307,23 +307,24 @@ class AlanubeService:
                         val = 1
                 id_doc[key] = val
 
+        if "paymentFormsTable" not in id_doc:
+            # Default paymentFormsTable para todos los comprobantes (es mandatorio en muchos casos)
+            pay_method = 1  # Efectivo
+            method_map = {"efectivo": 1, "cheque": 2, "tarjeta": 3, "credito": 4, "crédito": 4, "bonos": 5, "permuta": 6, "otras": 7}
+            raw_method = str(invoice.get("paymentMethod", "Efectivo")).lower()
+            for k, v in method_map.items():
+                if k in raw_method:
+                    pay_method = v
+                    break
+            id_doc["paymentFormsTable"] = [
+                {"paymentMethod": pay_method, "paymentAmount": invoice.get("total", 0.0)}
+            ]
+
         if number_code == "41":
             if "paymentDeadline" not in id_doc:
                 id_doc["paymentDeadline"] = invoice.get("dueDate", date_str)
             if "paymentTerm" not in id_doc:
                 id_doc["paymentTerm"] = "30 días"
-            if "paymentFormsTable" not in id_doc:
-                # Default paymentFormsTable
-                pay_method = 1  # Efectivo
-                method_map = {"efectivo": 1, "cheque": 2, "tarjeta": 3, "credito": 4, "crédito": 4, "bonos": 5, "permuta": 6, "otras": 7}
-                raw_method = str(invoice.get("paymentMethod", "Efectivo")).lower()
-                for k, v in method_map.items():
-                    if k in raw_method:
-                        pay_method = v
-                        break
-                id_doc["paymentFormsTable"] = [
-                    {"paymentMethod": pay_method, "paymentAmount": invoice.get("total")}
-                ]
 
         if number_code == "47":
             if "paymentDeadline" not in id_doc:
@@ -372,12 +373,9 @@ class AlanubeService:
         # Procesar número de factura interna
         internal_inv_num = invoice.get("internalInvoiceNumber")
         if not internal_inv_num:
-            inv_num_str = str(invoice.get("invoiceNumber", "456789"))
-            digits = "".join([c for c in inv_num_str if c.isdigit()])
-            if digits:
-                internal_inv_num = int(digits)
-            else:
-                internal_inv_num = 456789
+            internal_inv_num = str(invoice.get("invoiceNumber", "456789"))
+            if len(internal_inv_num) > 60:
+                internal_inv_num = internal_inv_num[:60]
 
         # Obtener comentario/notas del documento para el emisor
         comment = (invoice.get("comentario") or invoice.get("notes") or "").strip()
@@ -525,7 +523,7 @@ class AlanubeService:
                 "productCode": item_code,
                 "itemCodeTable": item_code_table,
                 "itemName": item["name"],
-                "quantityItem": int(qty_val),
+                "quantityItem": float(qty_val),
                 "unitPriceItem": float(price_val),
                 "itemAmount": float(sub_val),
                 "goodServiceIndicator": 2 if item.get("type", "Bien").lower() == "servicio" else 1,

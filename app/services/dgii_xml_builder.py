@@ -232,10 +232,28 @@ class DgiiXmlBuilder:
         currency_code = cls.map_currency(invoice_data.get("currency", "DOP"))
         ET.SubElement(id_doc, "TipoMoneda").text = currency_code
         
-        # Forma de pago (1 = Efectivo, 2 = Crédito, etc.)
+        # Indicadores requeridos
+        ET.SubElement(id_doc, "IndicadorMontoGravado").text = "0" if tipo_ecf in ["31", "32", "33", "34"] else "1"
+        ET.SubElement(id_doc, "TipoIngresos").text = "01"
+        
+        # TipoPago y FormaPago
         pay_method = invoice_data.get("paymentMethod", "Efectivo")
-        forma_pago = "1" if pay_method == "Efectivo" else "2"
-        ET.SubElement(id_doc, "FormaPago").text = forma_pago
+        tipo_pago = "2" if pay_method.lower() == "crédito" or pay_method.lower() == "credito" else "1"
+        ET.SubElement(id_doc, "TipoPago").text = tipo_pago
+        
+        # Tabla Formas de Pago
+        tabla_formas = ET.SubElement(id_doc, "TablaFormasPago")
+        forma_de_pago = ET.SubElement(tabla_formas, "FormaDePago")
+        
+        # Mapeo a FormaPago (1: Efectivo, 2: Cheque, 3: Tarjeta, etc.)
+        forma_pago_val = "1" # Efectivo
+        if "tarjeta" in pay_method.lower():
+            forma_pago_val = "3"
+        elif "cheque" in pay_method.lower():
+            forma_pago_val = "2"
+            
+        ET.SubElement(forma_de_pago, "FormaPago").text = forma_pago_val
+        ET.SubElement(forma_de_pago, "MontoPago").text = f"{float(invoice_data.get('total', 0.0)):.2f}"
         
         # Encabezado -> Emisor
         emisor = ET.SubElement(encabezado, "Emisor")
@@ -250,7 +268,15 @@ class DgiiXmlBuilder:
         ET.SubElement(emisor, "Municipio").text = mun_code
         ET.SubElement(emisor, "Provincia").text = prov_code
         
-        ET.SubElement(emisor, "TelefonoEmisor").text = company_profile.get("companyPhone", "")
+        ET.SubElement(emisor, "TelefonoEmisor").text = company_profile.get("companyPhone", "809-555-5555")
+        
+        correo_emisor = company_profile.get("companyEmail")
+        if correo_emisor:
+            ET.SubElement(emisor, "CorreoEmisor").text = correo_emisor
+            
+        internal_num = invoice_data.get("internalInvoiceNumber") or str(invoice_data.get("invoiceNumber", ""))
+        if internal_num:
+            ET.SubElement(emisor, "NumeroFacturaInterna").text = str(internal_num)[:60]
         
         # Encabezado -> Receptor (Condicional según actualización 19-11-2021)
         receptor = ET.SubElement(encabezado, "Receptor")
