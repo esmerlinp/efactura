@@ -135,6 +135,47 @@ def create_app():
         return dict(url_for=custom_url_for)
 
     # =========================================================================
+    # LOG DE FALLOS EN APIS
+    # =========================================================================
+    @app.after_request
+    def log_failed_api_calls(response):
+        if request.path.startswith('/api/') and response.status_code >= 400:
+            import os
+            from datetime import datetime
+            
+            # root_path is typically the 'app' folder, so we go one level up for the main folder
+            log_file_path = os.path.join(app.root_path, '../api_errores.log')
+            
+            payload = ""
+            if request.is_json:
+                payload = request.get_data(as_text=True)
+            elif request.form:
+                payload = str(request.form.to_dict())
+            elif request.data:
+                payload = request.get_data(as_text=True)
+                
+            resp_data = ""
+            try:
+                resp_data = response.get_data(as_text=True)
+            except Exception:
+                resp_data = "No se pudo leer la respuesta"
+            
+            log_entry = f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] ERROR API:\n"
+            log_entry += f"Ruta: {request.method} {request.path}\n"
+            log_entry += f"HTTP Code: {response.status_code}\n"
+            log_entry += f"Payload: {payload}\n"
+            log_entry += f"Response: {resp_data}\n"
+            log_entry += ("-" * 60) + "\n"
+            
+            try:
+                with open(log_file_path, 'a', encoding='utf-8') as f:
+                    f.write(log_entry)
+            except Exception as e:
+                print(f"Error escribiendo en api_errores.log: {e}")
+                
+        return response
+
+    # =========================================================================
     # REGISTRO DE BLUEPRINTS
     # =========================================================================
     

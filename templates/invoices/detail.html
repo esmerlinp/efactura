@@ -21,12 +21,12 @@
             <div style="display: flex; align-items: flex-start; gap: 16px;">
                 {% if company.logoUrl %}
                 <div style="flex-shrink: 0;">
-                    <img src="{{ company.logoUrl }}" alt="{{ company.companyName }}" style="max-height: 72px; max-width: 100px; object-fit: contain; border-radius: var(--radius-sm); border: 1px solid var(--border-color); padding: 4px; background: white;">
+                    <img src="{{ company.logoUrl }}" alt="{{ company.tradeName or company.companyName }}" style="max-height: 72px; max-width: 100px; object-fit: contain; border-radius: var(--radius-sm); border: 1px solid var(--border-color); padding: 4px; background: white;">
                 </div>
                 {% endif %}
                 <div>
                     <h2 style="font-size: 1.85rem; font-weight: 800; font-family: var(--font-heading); {% if company.get('gradientEnabled', True) %}background: linear-gradient(135deg, var(--accent-emerald), #6ee7b7); -webkit-background-clip: text; -webkit-text-fill-color: transparent;{% else %}color: var(--accent-emerald);{% endif %} margin-bottom: 8px;">
-                        {{ company.companyName }}
+                        {{ company.tradeName or company.companyName }}
                     </h2>
                     <span style="font-family: monospace; font-size: 0.88rem; color: var(--text-secondary); display: block; margin-bottom: 4px;">RNC Emisor: {{ company.companyRNC }}</span>
                     {% if branch %}
@@ -853,7 +853,7 @@
         // Header
         printWindow.document.write('<div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #0f172a; padding-bottom: 20px; margin-bottom: 30px;">');
         printWindow.document.write('  <div>');
-        printWindow.document.write('    <h1 style="font-size: 1.85rem; font-weight: 800; color: #1e3a8a; margin-bottom: 6px;">' + {{ company.companyName|tojson }} + '</h1>');
+        printWindow.document.write('    <h1 style="font-size: 1.85rem; font-weight: 800; color: #1e3a8a; margin-bottom: 6px;">' + {{ (company.tradeName or company.companyName)|tojson }} + '</h1>');
         printWindow.document.write('    <span style="font-family: monospace; font-size: 0.88rem; color: #475569; display: block; margin-bottom: 4px;">RNC Emisor: ' + {{ company.companyRNC|tojson }} + '</span>');
         printWindow.document.write('    <span style="font-size: 0.82rem; color: #64748b; display: block;">' + {{ company.companyAddress|tojson }} + '</span>');
         printWindow.document.write('    <span style="font-size: 0.82rem; color: #64748b; display: block;"><i class="fa-solid fa-phone"></i> ' + {{ company.companyPhone|tojson }} + ' | <i class="fa-solid fa-envelope"></i> ' + {{ company.companyEmail|tojson }} + '</span>');
@@ -883,7 +883,7 @@
         printWindow.document.write('<div style="margin-top: 60px; display: grid; grid-template-columns: 1fr 1fr; gap: 50px; text-align: center;">');
         printWindow.document.write('  <div style="border-top: 1px solid #cbd5e1; padding-top: 10px;">');
         printWindow.document.write('    <span style="font-size: 0.8rem; color: #64748b; font-weight: 600; display: block;">Firma Autorizada</span>');
-        printWindow.document.write('    <small style="font-size: 0.72rem; color: #94a3b8;">' + {{ company.companyName|tojson }} + '</small>');
+        printWindow.document.write('    <small style="font-size: 0.72rem; color: #94a3b8;">' + {{ (company.tradeName or company.companyName)|tojson }} + '</small>');
         printWindow.document.write('  </div>');
         printWindow.document.write('  <div style="border-top: 1px solid #cbd5e1; padding-top: 10px;">');
         printWindow.document.write('    <span style="font-size: 0.8rem; color: #64748b; font-weight: 600; display: block;">Firma Conforme del Cliente</span>');
@@ -1015,7 +1015,7 @@
         const invoiceNumber = {{ invoice.invoiceNumber|tojson }};
         const clientName    = {{ invoice.clientName|tojson }};
         const clientRNC     = {{ invoice.clientRNC|tojson }};
-        const companyName   = {{ company.companyName|tojson }};
+        const companyName   = {{ (company.tradeName or company.companyName)|tojson }};
         const companyRNC    = {{ company.companyRNC|tojson }};
         const companyAddr   = {{ company.companyAddress|tojson }};
         const companyPhone  = {{ company.companyPhone|tojson }};
