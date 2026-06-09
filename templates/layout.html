@@ -244,6 +244,13 @@
                                 <span>Cotizaciones</span>
                             </a>
                         </li>
+                        <li class="nav-item {% if active_page == 'cxc' %}active{% endif %}"
+                            data-tooltip="Control de CxC">
+                            <a href="{{ url_for('cxc_dashboard') }}">
+                                <i class="fa-solid fa-hand-holding-dollar"></i>
+                                <span>Control de CxC</span>
+                            </a>
+                        </li>
                         {% endif %}
 
                         {% if session.get('user', {}).get('role') == 'owner' or session.get('user',

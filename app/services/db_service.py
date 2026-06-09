@@ -1067,6 +1067,15 @@ class DatabaseService:
                     
                     net_payable = float(data.get("netPayable", 0.0))
                     status = data.get("status", "Borrador")
+                    
+                    # Evaluar vencimiento de facturas
+                    due_date_str = serialize_field(data.get("dueDate"))
+                    if status in ["Emitida", "Parcialmente Cobrada"] and due_date_str:
+                        due_date_clean = due_date_str[:10]
+                        today_str = datetime.utcnow().strftime("%Y-%m-%d")
+                        if due_date_clean < today_str:
+                            status = "Vencida"
+                            
                     total_paid = float(data.get("totalPaid", data.get("netPayable", 0.0) if status == "Cobrada" else 0.0))
                     remaining_balance = float(data.get("remainingBalance", 0.0 if status == "Cobrada" else data.get("netPayable", 0.0)))
                     
@@ -1196,6 +1205,15 @@ class DatabaseService:
                     
                     net_payable = float(data.get("netPayable", 0.0))
                     status = data.get("status", "Borrador")
+                    
+                    # Evaluar vencimiento de facturas
+                    due_date_str = serialize_field(data.get("dueDate"))
+                    if status in ["Emitida", "Parcialmente Cobrada"] and due_date_str:
+                        due_date_clean = due_date_str[:10]
+                        today_str = datetime.utcnow().strftime("%Y-%m-%d")
+                        if due_date_clean < today_str:
+                            status = "Vencida"
+                            
                     total_paid = float(data.get("totalPaid", data.get("netPayable", 0.0) if status == "Cobrada" else 0.0))
                     remaining_balance = float(data.get("remainingBalance", 0.0 if status == "Cobrada" else data.get("netPayable", 0.0)))
                     
@@ -2623,3 +2641,46 @@ class DatabaseService:
             db_firestore.collection("users").document(owner_uid).collection(coll_name).document(register_id).update(settings_dict)
         except Exception as e:
             print(f"⚠️ Error al actualizar configuración de caja: {e}")
+
+    @classmethod
+    def save_payment_promise(cls, owner_uid, promise_id, promise_dict, sandbox=True):
+        """Guarda o actualiza una promesa de pago en Firestore."""
+        promise_dict["id"] = promise_id
+        promise_dict["ownerUID"] = owner_uid
+        if "createdAt" not in promise_dict or not promise_dict["createdAt"]:
+            promise_dict["createdAt"] = datetime.utcnow().isoformat()
+        
+        if firebase_initialized:
+            try:
+                coll_name = "sandbox_payment_promises" if sandbox else "payment_promises"
+                db_firestore.collection("users").document(owner_uid).collection(coll_name).document(promise_id).set(promise_dict)
+            except Exception as e:
+                print(f"⚠️ Fallo al guardar promesa de pago: {e}")
+        return promise_dict
+
+    @classmethod
+    def get_payment_promises(cls, owner_uid, sandbox=True):
+        """Retorna todas las promesas de pago del owner."""
+        promises = []
+        if firebase_initialized:
+            try:
+                coll_name = "sandbox_payment_promises" if sandbox else "payment_promises"
+                docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).get()
+                for doc in docs:
+                    data = doc.to_dict()
+                    promises.append({
+                        "id": doc.id,
+                        "clientId": data.get("clientId", ""),
+                        "clientName": data.get("clientName", ""),
+                        "invoiceId": data.get("invoiceId", ""),
+                        "invoiceNumber": data.get("invoiceNumber", ""),
+                        "fechaPromesa": data.get("fechaPromesa", ""),
+                        "montoPrometido": float(data.get("montoPrometido", 0.0)),
+                        "estado": data.get("estado", "Pendiente"),
+                        "notas": data.get("notas", ""),
+                        "createdAt": data.get("createdAt", "")
+                    })
+                promises.sort(key=lambda x: x["fechaPromesa"] or "")
+            except Exception as e:
+                print(f"⚠️ Error al obtener promesas de pago: {e}")
+        return promises
