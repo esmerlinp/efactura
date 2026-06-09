@@ -9,7 +9,7 @@ def custom_url_for(endpoint, **values):
         return _original_url_for(endpoint, **values)
     except Exception:
         # Si falla el endpoint global, intentar con el prefijo de nuestros Blueprints web
-        for bp_name in ['web_auth', 'web_dashboard', 'web_clients', 'web_invoices']:
+        for bp_name in ['web_auth', 'web_dashboard', 'web_clients', 'web_invoices', 'web_pos']:
             try:
                 return _original_url_for(f"{bp_name}.{endpoint}", **values)
             except Exception:
@@ -76,13 +76,14 @@ def create_app():
     @app.context_processor
     def inject_company_brand():
         """Inyecta el logo y color de marca de la empresa en todos los templates."""
+        from flask import has_request_context
         logo_url = ''
         gradient_enabled = True
         color_marca = ''
         apply_ui = True
         apply_reports = True
         theme = 'moderno'
-        if 'user' in session:
+        if has_request_context() and 'user' in session:
             owner_uid = session['user'].get('ownerUID')
             if owner_uid:
                 company = DatabaseService.get_company_profile(owner_uid)
@@ -105,7 +106,8 @@ def create_app():
     @app.context_processor
     def utility_processor():
         def check_permission(permission_name):
-            if 'user' not in session:
+            from flask import has_request_context
+            if not has_request_context() or 'user' not in session:
                 return False
             user = session['user']
             if user.get('role') == 'owner':
@@ -125,7 +127,7 @@ def create_app():
                 return flask_url_for(endpoint, **values)
             except Exception:
                 # Si falla, intentar buscar agregando el prefijo de nuestros Blueprints web
-                for bp_name in ['web_auth', 'web_dashboard', 'web_clients', 'web_invoices']:
+                for bp_name in ['web_auth', 'web_dashboard', 'web_clients', 'web_invoices', 'web_pos']:
                     try:
                         return flask_url_for(f"{bp_name}.{endpoint}", **values)
                     except Exception:
@@ -194,11 +196,13 @@ def create_app():
     from app.web.clients import web_clients_bp
     from app.web.invoices import web_invoices_bp
     from app.web.notes import web_notes_bp
+    from app.web.pos import web_pos_bp
 
     app.register_blueprint(web_auth_bp)
     app.register_blueprint(web_dashboard_bp)
     app.register_blueprint(web_clients_bp)
     app.register_blueprint(web_invoices_bp)
     app.register_blueprint(web_notes_bp)
+    app.register_blueprint(web_pos_bp)
 
     return app

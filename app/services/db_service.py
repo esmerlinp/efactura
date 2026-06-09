@@ -157,7 +157,9 @@ class DatabaseService:
                 "canExpenses": True,
                 "canClients": True,
                 "canModifySettings": True,
-                "canManageInventory": True
+                "canManageInventory": True,
+                "canManagePOS": True,
+                "canViewDashboard": True
             },
             "createdAt": created_at
         }
@@ -226,7 +228,9 @@ class DatabaseService:
                         "canExpenses": bool(perms.get("canExpenses", True)),
                         "canClients": bool(perms.get("canClients", True)),
                         "canModifySettings": bool(perms.get("canModifySettings", True)),
-                        "canManageInventory": bool(perms.get("canManageInventory", True))
+                        "canManageInventory": bool(perms.get("canManageInventory", True)),
+                        "canManagePOS": bool(perms.get("canManagePOS", True)),
+                        "canViewDashboard": bool(perms.get("canViewDashboard", True))
                     },
                     "createdAt": created_at
                 }
@@ -245,7 +249,9 @@ class DatabaseService:
                         "canExpenses": True,
                         "canClients": True,
                         "canModifySettings": True,
-                        "canManageInventory": True
+                        "canManageInventory": True,
+                        "canManagePOS": True,
+                        "canViewDashboard": True
                     },
                     "createdAt": datetime.utcnow().isoformat()
                 }
@@ -278,7 +284,9 @@ class DatabaseService:
                         "canExpenses": bool(perms.get("canExpenses", True)),
                         "canClients": bool(perms.get("canClients", True)),
                         "canModifySettings": bool(perms.get("canModifySettings", True)),
-                        "canManageInventory": bool(perms.get("canManageInventory", True))
+                        "canManageInventory": bool(perms.get("canManageInventory", True)),
+                        "canManagePOS": bool(perms.get("canManagePOS", True)),
+                        "canViewDashboard": bool(perms.get("canViewDashboard", True))
                     },
                     "createdAt": serialize_field(data.get("createdAt"))
                 }
@@ -318,13 +326,15 @@ class DatabaseService:
                             "uid": emp_uid,
                             "name": emp_data.get("name", ""),
                             "email": emp_data.get("email", ""),
-                            "permissions": emp_data.get("permissions", {
-                                "canInvoice": True,
-                                "canExpenses": True,
-                                "canClients": True,
-                                "canModifySettings": True,
-                                "canManageInventory": True
-                            })
+                            "permissions": {
+                                "canInvoice": bool(emp_data.get("permissions", {}).get("canInvoice", True)),
+                                "canExpenses": bool(emp_data.get("permissions", {}).get("canExpenses", True)),
+                                "canClients": bool(emp_data.get("permissions", {}).get("canClients", True)),
+                                "canModifySettings": bool(emp_data.get("permissions", {}).get("canModifySettings", True)),
+                                "canManageInventory": bool(emp_data.get("permissions", {}).get("canManageInventory", True)),
+                                "canManagePOS": bool(emp_data.get("permissions", {}).get("canManagePOS", True)),
+                                "canViewDashboard": bool(emp_data.get("permissions", {}).get("canViewDashboard", True))
+                            }
                         })
             except Exception as e:
                 print(f"⚠️ Error al obtener miembros del equipo: {e}")
@@ -519,6 +529,67 @@ class DatabaseService:
         return clients
 
     @classmethod
+    def get_client(cls, owner_uid, client_id, sandbox=True):
+        """Retorna un cliente específico por su ID."""
+        if firebase_initialized:
+            try:
+                coll_name = "sandbox_clients" if sandbox else "clients"
+                doc = db_firestore.collection("users").document(owner_uid).collection(coll_name).document(client_id).get()
+                if doc.exists:
+                    data = doc.to_dict()
+                    return {
+                        "id": doc.id,
+                        "rnc": data.get("rnc", ""),
+                        "razonSocial": data.get("razonSocial", ""),
+                        "email": data.get("email", ""),
+                        "telefono": data.get("telefono", ""),
+                        "direccion": data.get("direccion", ""),
+                        "crmNotes": data.get("crmNotes", ""),
+                        "nextContactDate": data.get("nextContactDate", "")
+                    }
+            except Exception as e:
+                print(f"⚠️ Error al obtener cliente específico desde Firestore: {e}")
+        return None
+
+    @classmethod
+    def get_client_by_rnc(cls, owner_uid, rnc, sandbox=True):
+        """Busca un cliente por su RNC localmente en Firestore."""
+        if firebase_initialized:
+            try:
+                coll_name = "sandbox_clients" if sandbox else "clients"
+                clean_rnc = str(rnc).replace("-", "").strip()
+                docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).where("rnc", "==", clean_rnc).get()
+                for doc in docs:
+                    data = doc.to_dict()
+                    return {
+                        "id": doc.id,
+                        "rnc": data.get("rnc", ""),
+                        "razonSocial": data.get("razonSocial", ""),
+                        "email": data.get("email", ""),
+                        "telefono": data.get("telefono", ""),
+                        "direccion": data.get("direccion", ""),
+                        "crmNotes": data.get("crmNotes", ""),
+                        "nextContactDate": data.get("nextContactDate", "")
+                    }
+                # Intentar también con guiones por si acaso
+                docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).where("rnc", "==", rnc).get()
+                for doc in docs:
+                    data = doc.to_dict()
+                    return {
+                        "id": doc.id,
+                        "rnc": data.get("rnc", ""),
+                        "razonSocial": data.get("razonSocial", ""),
+                        "email": data.get("email", ""),
+                        "telefono": data.get("telefono", ""),
+                        "direccion": data.get("direccion", ""),
+                        "crmNotes": data.get("crmNotes", ""),
+                        "nextContactDate": data.get("nextContactDate", "")
+                    }
+            except Exception as e:
+                print(f"⚠️ Error al obtener cliente por RNC desde Firestore: {e}")
+        return None
+
+    @classmethod
     def save_client(cls, owner_uid, client_id, client_dict, sandbox=True):
         """Guarda o actualiza un cliente en Firestore."""
         client_dict["id"] = client_id
@@ -648,6 +719,9 @@ class DatabaseService:
                         "type": data.get("type", "Bien"),
                         "name": data.get("name", ""),
                         "price": float(data.get("price", 0.0)),
+                        "costPrice": float(data.get("costPrice", 0.0)),
+                        "barcode": data.get("barcode", ""),
+                        "categoryId": data.get("categoryId", "general"),
                         "unit": data.get("unit", "Unidad"),
                         "itbisRate": float(data.get("itbisRate", 0.18)),
                         "minStock": float(data.get("minStock", 0.0)),
@@ -675,6 +749,9 @@ class DatabaseService:
             item_dict["createdAt"] = datetime.utcnow().isoformat()
         
         item_dict["price"] = float(item_dict.get("price", 0.0))
+        item_dict["costPrice"] = float(item_dict.get("costPrice", 0.0))
+        item_dict["barcode"] = item_dict.get("barcode", "")
+        item_dict["categoryId"] = item_dict.get("categoryId", "general")
         item_dict["itbisRate"] = float(item_dict.get("itbisRate", 0.18))
         item_dict["minStock"] = float(item_dict.get("minStock", 0.0))
         item_dict["rackLocation"] = item_dict.get("rackLocation", "")
@@ -1285,6 +1362,53 @@ class DatabaseService:
                         cls.register_inventory_transaction(owner_uid, tx_dict, sandbox=sandbox)
             
             inv_dict["stockReduced"] = True
+
+        elif status == "Anulada":
+            if inv_dict.get("stockReduced") and not inv_dict.get("stockReverted"):
+                wh_id = inv_dict.get("warehouseId")
+                if not wh_id:
+                    whs = cls.get_warehouses(owner_uid, sandbox=sandbox)
+                    wh_id = whs[0]["id"] if whs else "default-almacen-principal"
+                    inv_dict["warehouseId"] = wh_id
+                    
+                for it in fs_items:
+                    if it.get("type", "Bien") == "Bien" and it.get("id"):
+                        items_catalog = cls.get_items(owner_uid, sandbox=sandbox)
+                        catalog_ids = {cit["id"] for cit in items_catalog}
+                        if it["id"] in catalog_ids:
+                            tx_dict = {
+                                "itemId": it["id"],
+                                "itemName": it["name"],
+                                "type": "ENTRADA",
+                                "quantity": float(it["quantity"]),
+                                "reason": "AJUSTE",
+                                "referenceId": inv_dict.get("invoiceNumber") or invoice_id,
+                                "originWarehouseId": "",
+                                "destinationWarehouseId": wh_id,
+                                "notes": f"Reversión de Venta (Anulación de Factura {inv_dict.get('invoiceNumber')})",
+                                "performedBy": "Sistema e-Factura (Automático)"
+                            }
+                            cls.register_inventory_transaction(owner_uid, tx_dict, sandbox=sandbox)
+                            
+                inv_dict["stockReverted"] = True
+
+            # Anular siempre la transacción de caja asociada si existe en el turno actual (independiente del stock de productos)
+            if firebase_initialized:
+                try:
+                    coll_txs = "sandbox_cash_transactions" if sandbox else "cash_transactions"
+                    txs_ref = db_firestore.collection("users").document(owner_uid).collection(coll_txs)\
+                        .where(filter=firestore.FieldFilter("referenceId", "==", invoice_id)).get()
+                    for doc in txs_ref:
+                        t_data = doc.to_dict()
+                        notes = t_data.get("notes", "")
+                        if not notes.startswith("[ANULADA]"):
+                            notes = f"[ANULADA] {notes}"
+                        doc.reference.update({
+                            "status": "VOIDED",
+                            "notes": notes
+                        })
+                except Exception as e:
+                    print(f"⚠️ Error al marcar como anulada la transacción de caja asociada: {e}")
 
         if firebase_initialized:
             try:
@@ -2191,3 +2315,311 @@ class DatabaseService:
             doc_ref.set({"statuses": statuses}, merge=True)
         except Exception as e:
             print(f"⚠️ Error save_note_statuses: {e}")
+
+    # =========================================================================
+    # GESTIÓN DE CAJA Y TURNOS POS
+    # =========================================================================
+
+    @classmethod
+    def get_cash_registers(cls, owner_uid, sandbox=True):
+        """Retorna la lista de cajas registradoras de la empresa."""
+        registers = []
+        if firebase_initialized:
+            try:
+                coll_name = "sandbox_cash_registers" if sandbox else "cash_registers"
+                docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).get()
+                for doc in docs:
+                    data = doc.to_dict()
+                    registers.append({
+                        "id": doc.id,
+                        "name": data.get("name", "Caja"),
+                        "status": data.get("status", "CLOSED"),  # OPEN o CLOSED
+                        "consolidationMode": data.get("consolidationMode", False),
+                        "createdAt": serialize_field(data.get("createdAt"))
+                    })
+                
+                # Crear caja por defecto si está vacía
+                if not registers:
+                    default_id = "default-caja-principal"
+                    default_reg = {
+                        "id": default_id,
+                        "name": "Caja Principal 01",
+                        "status": "CLOSED",
+                        "createdAt": datetime.utcnow().isoformat()
+                    }
+                    cls.save_cash_register(owner_uid, default_id, default_reg, sandbox=sandbox)
+                    registers.append(default_reg)
+                else:
+                    registers.sort(key=lambda x: x["name"].lower())
+            except Exception as e:
+                print(f"⚠️ Error al obtener cajas registradoras: {e}")
+        return registers
+
+    @classmethod
+    def save_cash_register(cls, owner_uid, register_id, reg_dict, sandbox=True):
+        """Guarda o actualiza una caja registradora en Firestore."""
+        reg_dict["id"] = register_id
+        reg_dict["ownerUID"] = owner_uid
+        if "createdAt" not in reg_dict or not reg_dict["createdAt"]:
+            reg_dict["createdAt"] = datetime.utcnow().isoformat()
+        reg_dict["createdAt"] = serialize_field(reg_dict["createdAt"])
+        # Normalizar bandera de modo consolidado
+        if "consolidationMode" not in reg_dict:
+            reg_dict["consolidationMode"] = False
+
+        if firebase_initialized:
+            try:
+                coll_name = "sandbox_cash_registers" if sandbox else "cash_registers"
+                db_firestore.collection("users").document(owner_uid).collection(coll_name).document(register_id).set(reg_dict)
+            except Exception as e:
+                print(f"⚠️ Fallo al guardar caja registradora en Firestore: {e}")
+        return reg_dict
+
+
+    @classmethod
+    def get_cash_shifts(cls, owner_uid, sandbox=True):
+        """Retorna el listado completo de turnos de caja registrados."""
+        shifts = []
+        if firebase_initialized:
+            try:
+                coll_name = "sandbox_cash_shifts" if sandbox else "cash_shifts"
+                docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).get()
+                for doc in docs:
+                    data = doc.to_dict()
+                    shifts.append({
+                        "id": doc.id,
+                        "registerId": data.get("registerId"),
+                        "openedByUserId": data.get("openedByUserId"),
+                        "openedByUserEmail": data.get("openedByUserEmail", "cajero@efactura.com.do"),
+                        "openingTime": serialize_field(data.get("openingTime")),
+                        "closingTime": serialize_field(data.get("closingTime")),
+                        "openingAmount": float(data.get("openingAmount", 0.0)),
+                        "closingAmountExpected": float(data.get("closingAmountExpected", 0.0)) if data.get("closingAmountExpected") is not None else None,
+                        "closingAmountDeclared": float(data.get("closingAmountDeclared", 0.0)) if data.get("closingAmountDeclared") is not None else None,
+                        "difference": float(data.get("difference", 0.0)) if data.get("difference") is not None else None,
+                        "status": data.get("status", "CLOSED")
+                    })
+                # Ordenar por fecha de apertura descendente
+                shifts.sort(key=lambda x: x["openingTime"] or "", reverse=True)
+            except Exception as e:
+                print(f"⚠️ Error al obtener turnos de caja: {e}")
+        return shifts
+
+    @classmethod
+    def get_open_shift(cls, owner_uid, user_uid, sandbox=True):
+        """Retorna el turno de caja abierto del usuario actual (si existe)."""
+        if firebase_initialized:
+            try:
+                coll_name = "sandbox_cash_shifts" if sandbox else "cash_shifts"
+                docs = db_firestore.collection("users").document(owner_uid).collection(coll_name)\
+                    .where(filter=firestore.FieldFilter("openedByUserId", "==", user_uid))\
+                    .where(filter=firestore.FieldFilter("status", "==", "OPEN")).limit(1).get()
+                for doc in docs:
+                    data = doc.to_dict()
+                    return {
+                        "id": doc.id,
+                        "registerId": data.get("registerId", ""),
+                        "openedByUserId": data.get("openedByUserId", ""),
+                        "openingTime": serialize_field(data.get("openingTime")),
+                        "openingAmount": float(data.get("openingAmount", 0.0)),
+                        "status": "OPEN"
+                    }
+            except Exception as e:
+                print(f"⚠️ Error al obtener turno abierto: {e}")
+        return None
+
+    @classmethod
+    def open_cash_shift(cls, owner_uid, shift_dict, sandbox=True):
+        """Abre un nuevo turno de caja registradora."""
+        shift_id = shift_dict.get("id") or str(uuid.uuid4())
+        shift_dict["id"] = shift_id
+        shift_dict["status"] = "OPEN"
+        shift_dict["openingTime"] = datetime.utcnow().isoformat()
+        shift_dict["openingAmount"] = float(shift_dict.get("openingAmount", 0.0))
+        
+        if firebase_initialized:
+            try:
+                # 1. Guardar turno de caja
+                coll_shifts = "sandbox_cash_shifts" if sandbox else "cash_shifts"
+                db_firestore.collection("users").document(owner_uid).collection(coll_shifts).document(shift_id).set(shift_dict)
+                
+                # 2. Actualizar estado de la caja registradora a OPEN
+                coll_regs = "sandbox_cash_registers" if sandbox else "cash_registers"
+                db_firestore.collection("users").document(owner_uid).collection(coll_regs).document(shift_dict["registerId"]).update({
+                    "status": "OPEN"
+                })
+            except Exception as e:
+                print(f"⚠️ Error al abrir turno de caja: {e}")
+                return None
+        return shift_dict
+
+    @classmethod
+    def close_cash_shift(cls, owner_uid, shift_id, declared_amount, sandbox=True):
+        """Cierra el turno de caja especificado y calcula descuadres."""
+        if not firebase_initialized:
+            return None
+        try:
+            coll_shifts = "sandbox_cash_shifts" if sandbox else "cash_shifts"
+            coll_regs = "sandbox_cash_registers" if sandbox else "cash_registers"
+            coll_txs = "sandbox_cash_transactions" if sandbox else "cash_transactions"
+
+            # 1. Obtener datos del turno actual
+            shift_ref = db_firestore.collection("users").document(owner_uid).collection(coll_shifts).document(shift_id)
+            shift_doc = shift_ref.get()
+            if not shift_doc.exists:
+                return None
+            shift_data = shift_doc.to_dict()
+
+            opening_amount = float(shift_data.get("openingAmount", 0.0))
+            register_id = shift_data.get("registerId")
+
+            # 2. Calcular monto esperado en caja sumando transacciones asociadas a este turno
+            tx_docs = db_firestore.collection("users").document(owner_uid).collection(coll_txs)\
+                .where(filter=firestore.FieldFilter("shiftId", "==", shift_id)).get()
+            
+            incomes_total = 0.0
+            expenses_total = 0.0
+
+            for doc in tx_docs:
+                t_data = doc.to_dict()
+                if t_data.get("status") == "VOIDED":
+                    continue
+                t_amount = float(t_data.get("amount", 0.0))
+                t_type = t_data.get("type", "SALE")
+                if t_type == "SALE" or t_type == "IN":
+                    incomes_total += t_amount
+                elif t_type == "OUT":
+                    expenses_total += t_amount
+
+            closing_expected = opening_amount + incomes_total - expenses_total
+            difference = declared_amount - closing_expected
+
+            # 3. Guardar cierre
+            shift_ref.update({
+                "status": "CLOSED",
+                "closingTime": datetime.utcnow().isoformat(),
+                "closingAmountExpected": closing_expected,
+                "closingAmountDeclared": declared_amount,
+                "difference": difference
+            })
+
+            # 4. Cambiar estado de la caja registradora física a CLOSED
+            db_firestore.collection("users").document(owner_uid).collection(coll_regs).document(register_id).update({
+                "status": "CLOSED"
+            })
+
+            return {
+                "id": shift_id,
+                "closingAmountExpected": closing_expected,
+                "closingAmountDeclared": declared_amount,
+                "difference": difference
+            }
+        except Exception as e:
+            print(f"⚠️ Error al cerrar turno de caja: {e}")
+            return None
+
+    @classmethod
+    def get_cash_transactions(cls, owner_uid, shift_id, sandbox=True):
+        """Retorna las transacciones asociadas a un turno de caja."""
+        txs = []
+        if firebase_initialized:
+            try:
+                coll_name = "sandbox_cash_transactions" if sandbox else "cash_transactions"
+                docs = db_firestore.collection("users").document(owner_uid).collection(coll_name)\
+                    .where(filter=firestore.FieldFilter("shiftId", "==", shift_id)).get()
+                for doc in docs:
+                    data = doc.to_dict()
+                    txs.append({
+                        "id": doc.id,
+                        "shiftId": data.get("shiftId", ""),
+                        "type": data.get("type", "SALE"),
+                        "amount": float(data.get("amount", 0.0)),
+                        "paymentMethod": data.get("paymentMethod", "Efectivo"),
+                        "referenceId": data.get("referenceId", ""),
+                        "notes": data.get("notes", ""),
+                        "status": data.get("status", "ACTIVE"),
+                        "date": serialize_field(data.get("date"))
+                    })
+                txs.sort(key=lambda x: x["date"] or "")
+            except Exception as e:
+                print(f"⚠️ Error al obtener transacciones de caja: {e}")
+        return txs
+
+    @classmethod
+    def register_cash_transaction(cls, owner_uid, tx_dict, sandbox=True):
+        """Registra una transacción manual o de venta en la caja registradora."""
+        tx_id = tx_dict.get("id") or str(uuid.uuid4())
+        tx_dict["id"] = tx_id
+        tx_dict["ownerUID"] = owner_uid
+        if "date" not in tx_dict or not tx_dict["date"]:
+            tx_dict["date"] = datetime.utcnow().isoformat()
+        tx_dict["date"] = serialize_field(tx_dict["date"])
+        tx_dict["amount"] = float(tx_dict["amount"])
+
+        if firebase_initialized:
+            try:
+                coll_name = "sandbox_cash_transactions" if sandbox else "cash_transactions"
+                db_firestore.collection("users").document(owner_uid).collection(coll_name).document(tx_id).set(tx_dict)
+            except Exception as e:
+                print(f"⚠️ Fallo al registrar transacción de caja: {e}")
+                return None
+        return tx_dict
+
+    @classmethod
+    def get_pending_consolidation_invoices(cls, owner_uid, shift_id, sandbox=True):
+        """Retorna todas las facturas con status PENDING_CONSOLIDATION del turno indicado."""
+        invoices = []
+        if not firebase_initialized:
+            return invoices
+        try:
+            coll_name = "sandbox_invoices" if sandbox else "invoices"
+            docs = db_firestore.collection("users").document(owner_uid).collection(coll_name)\
+                .where(filter=firestore.FieldFilter("posShiftId", "==", shift_id))\
+                .where(filter=firestore.FieldFilter("status", "==", "PENDING_CONSOLIDATION")).get()
+            for doc in docs:
+                data = doc.to_dict()
+                invoices.append({
+                    "id": doc.id,
+                    "invoiceNumber": data.get("invoiceNumber", ""),
+                    "date": serialize_field(data.get("date")),
+                    "total": float(data.get("total", 0.0)),
+                    "subtotal": float(data.get("subtotal", 0.0)),
+                    "totalITBIS": float(data.get("totalITBIS", 0.0)),
+                    "items": data.get("items", []),
+                    "paymentMethod": data.get("paymentMethod", "Efectivo"),
+                })
+        except Exception as e:
+            print(f"⚠️ Error al obtener facturas pendientes de consolidación: {e}")
+        return invoices
+
+    @classmethod
+    def mark_invoices_consolidated(cls, owner_uid, invoice_ids, encf_consolidado, invoice_number_consolidado, sandbox=True):
+        """Marca masivamente facturas como Consolidada y guarda referencia al ENCF del consolidado."""
+        if not firebase_initialized or not invoice_ids:
+            return
+        try:
+            coll_name = "sandbox_invoices" if sandbox else "invoices"
+            batch = db_firestore.batch()
+            for inv_id in invoice_ids:
+                ref = db_firestore.collection("users").document(owner_uid).collection(coll_name).document(inv_id)
+                batch.update(ref, {
+                    "status": "Consolidada",
+                    "encfConsolidado": encf_consolidado,
+                    "invoiceNumberConsolidado": invoice_number_consolidado,
+                    "consolidadoAt": datetime.utcnow().isoformat(),
+                    "isSyncedWithDGII": True,
+                })
+            batch.commit()
+        except Exception as e:
+            print(f"⚠️ Error al marcar facturas como consolidadas: {e}")
+
+    @classmethod
+    def update_cash_register_settings(cls, owner_uid, register_id, settings_dict, sandbox=True):
+        """Actualiza campos de configuración de una caja registradora sin sobreescribir todo el documento."""
+        if not firebase_initialized:
+            return
+        try:
+            coll_name = "sandbox_cash_registers" if sandbox else "cash_registers"
+            db_firestore.collection("users").document(owner_uid).collection(coll_name).document(register_id).update(settings_dict)
+        except Exception as e:
+            print(f"⚠️ Error al actualizar configuración de caja: {e}")

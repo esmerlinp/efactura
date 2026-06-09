@@ -143,16 +143,22 @@
                     <tr class="inventory-row" 
                         data-name="{{ item.name | lower }}" 
                         data-code="{{ (item.code or '') | lower }}" 
+                        data-barcode="{{ (item.barcode or '') | lower }}" 
                         data-rack="{{ (item.rackLocation or '') | lower }}"
                         data-stock-low="{% if item.totalStock <= item.minStock and item.minStock > 0 %}true{% else %}false{% endif %}">
                         <td>
-                            <span style="font-family: monospace; font-size: 0.85rem; background-color: var(--bg-input); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-color);">
+                            <span style="font-family: monospace; font-size: 0.85rem; background-color: var(--bg-input); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-color); display: block; margin-bottom: 4px; text-align: center;">
                                 {{ item.code or 'S/C' }}
                             </span>
+                            {% if item.barcode %}
+                            <span style="font-size: 0.75rem; color: var(--text-secondary); display: block; text-align: center;">
+                                <i class="fa-solid fa-barcode"></i> {{ item.barcode }}
+                            </span>
+                            {% endif %}
                         </td>
                         <td>
                             <strong style="display: block;">{{ item.name }}</strong>
-                            <small style="color: var(--text-secondary); font-size: 0.75rem;">Categoría: {{ item.type }} | Unidad: {{ item.unit }}</small>
+                            <small style="color: var(--text-secondary); font-size: 0.75rem;">Categoría: {{ item.categoryId | capitalize if item.categoryId else 'General' }} | Unidad: {{ item.unit }}</small>
                         </td>
                         <td>
                             <span style="font-size: 0.88rem; color: var(--text-secondary); font-weight: 500;">
@@ -244,10 +250,11 @@ function applyFilters() {
 
     filteredRows = rows.filter(row => {
         // 1. Filtrado por texto de búsqueda
-        const code = row.getAttribute('data-code').toLowerCase();
-        const name = row.getAttribute('data-name').toLowerCase();
-        const rack = row.getAttribute('data-rack').toLowerCase();
-        const matchesSearch = code.includes(searchVal) || name.includes(searchVal) || rack.includes(searchVal);
+        const code = (row.getAttribute('data-code') || '').toLowerCase();
+        const barcode = (row.getAttribute('data-barcode') || '').toLowerCase();
+        const name = (row.getAttribute('data-name') || '').toLowerCase();
+        const rack = (row.getAttribute('data-rack') || '').toLowerCase();
+        const matchesSearch = code.includes(searchVal) || barcode.includes(searchVal) || name.includes(searchVal) || rack.includes(searchVal);
         
         // 2. Filtrado por stock
         const isLowStock = row.getAttribute('data-stock-low') === 'true';

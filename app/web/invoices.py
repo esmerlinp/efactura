@@ -60,6 +60,9 @@ def new_item():
         item_id = str(uuid.uuid4())
         item_dict = {
             "code": request.form.get('code', ''),
+            "barcode": request.form.get('barcode', '').strip(),
+            "costPrice": float(request.form.get('costPrice') or 0.0),
+            "categoryId": request.form.get('categoryId', 'general').strip(),
             "type": request.form.get('type', 'Bien'),
             "name": request.form['name'],
             "price": float(request.form['price']),
@@ -100,6 +103,9 @@ def edit_item(item_id):
     if request.method == 'POST':
         item_dict = {
             "code": request.form.get('code', ''),
+            "barcode": request.form.get('barcode', '').strip(),
+            "costPrice": float(request.form.get('costPrice') or 0.0),
+            "categoryId": request.form.get('categoryId', 'general').strip(),
             "type": request.form.get('type', 'Bien'),
             "name": request.form['name'],
             "price": float(request.form['price']),
@@ -1302,6 +1308,232 @@ def send_receipt_email(invoice_id):
         print(f"⚠️ Error enviando recibo por email: {e}")
         return jsonify({"success": False, "message": f"Error al enviar el correo: {str(e)}"}), 500
 
+def send_invoice_email(owner_uid, invoice, recipient_email, sandbox=True, base_url=None):
+    """Función auxiliar para enviar factura electrónica por correo usando SMTP y Weasyprint."""
+    try:
+        company = DatabaseService.get_company_profile(owner_uid)
+
+        # 1. Preparar SMTP
+        from flask import current_app as app
+        smtp_server   = app.config.get("SMTP_SERVER", "")
+        smtp_port     = int(app.config.get("SMTP_PORT", 587))
+        smtp_user     = app.config.get("SMTP_USER", "")
+        smtp_password = app.config.get("SMTP_PASSWORD", "")
+
+        if not smtp_server or not smtp_user or not smtp_password:
+            return False, "Servidor de correo no configurado (SMTP)."
+
+        # 2. Generar XML
+        xml_content = invoice.get('xmlContent') or ''
+        if not xml_content or not (xml_content.strip().startswith('<?xml') or xml_content.strip().startswith('<ECF') or xml_content.strip().startswith('<eCF')):
+            try:
+                from app.services.dgii_xml_builder import DgiiXmlBuilder
+                from app.services.dgii_signer import DgiiSigner
+                raw_xml = DgiiXmlBuilder.build_invoice_xml(company, invoice)
+                signed_xml_bytes = DgiiSigner.sign_xml(raw_xml, company)
+                xml_content = signed_xml_bytes.decode('utf-8')
+            except Exception as e:
+                xml_content = invoice.get('xmlContent') or invoice.get('xmlSignature') or ''
+                
+        if not xml_content:
+            return False, "No se pudo generar el XML de la factura."
+
+        # 3. Generar PDF
+        import io
+        import base64
+        import qrcode
+        import urllib.parse
+        from datetime import datetime
+
+        qr_url = invoice.get("qrCodeURL")
+        fecha_firma_str = ""
+
+        if invoice.get("encf") and invoice.get("xmlSignature"):
+            try:
+                fecha_emision_dt = datetime.strptime(invoice.get("date", "")[:10], "%Y-%m-%d")
+                fecha_emision_str = fecha_emision_dt.strftime("%d-%m-%Y")
+            except:
+                fecha_emision_str = ""
+                
+            if invoice.get("paymentDate"):
+                try:
+                    dt = datetime.fromisoformat(invoice["paymentDate"].replace('Z', '+00:00'))
+                    fecha_firma_str = dt.strftime("%d-%m-%Y %H:%M:%S")
+                except:
+                    fecha_firma_str = fecha_emision_str + " 12:00:00"
+            else:
+                fecha_firma_str = fecha_emision_str + " 12:00:00"
+
+            codigo_seg = invoice.get("xmlSignature", "")[:6]
+            rnc_emisor = company.get("companyRNC", "").replace("-", "").strip()
+            rnc_comprador = invoice.get("clientRNC", "").replace("-", "").strip()
+            if not rnc_comprador: rnc_comprador = "999999999"
+            monto_total = f"{invoice.get('total', 0.0):.2f}"
+            
+            is_consumo = 'Consumo' in invoice.get("ecfType", "")
+            if is_consumo and invoice.get("total", 0.0) < 250000:
+                query_params = {
+                    "RncEmisor": rnc_emisor,
+                    "ENCF": invoice.get("encf"),
+                    "MontoTotal": monto_total,
+                    "CodigoSeguridad": codigo_seg
+                }
+                qs = urllib.parse.urlencode(query_params, quote_via=urllib.parse.quote)
+                qr_url = "https://fc.dgii.gov.do/eCF/ConsultaTimbreFC?" + qs
+            else:
+                query_params = {
+                    "RncEmisor": rnc_emisor,
+                    "RncComprador": rnc_comprador,
+                    "ENCF": invoice.get("encf"),
+                    "FechaEmision": fecha_emision_str,
+                    "MontoTotal": monto_total,
+                    "FechaFirma": fecha_firma_str,
+                    "CodigoSeguridad": codigo_seg
+                }
+                qs = urllib.parse.urlencode(query_params, quote_via=urllib.parse.quote)
+                qr_url = "https://ecf.dgii.gov.do/ecf/ConsultaTimbre?" + qs
+
+        if not qr_url:
+            qr_url = "https://dgii.gov.do/validaecf"
+
+        qr = qrcode.QRCode(version=1, box_size=10, border=0)
+        qr.add_data(qr_url)
+        qr.make(fit=True)
+        img = qr.make_image(fill_color="black", back_color="white")
+        stream = io.BytesIO()
+        img.save(stream, format="PNG")
+        qr_base64 = base64.b64encode(stream.getvalue()).decode('utf-8')
+
+        branches = DatabaseService.get_branches(owner_uid, sandbox=sandbox)
+        branch = next((b for b in branches if b['id'] == invoice.get("branchId")), None)
+        if not branch and branches:
+            branch = branches[0]
+
+        invoice_enriched = _enrich_invoice_totals(invoice.copy())
+        rendered_html = render_template('invoices/pdf.html', invoice=invoice_enriched, company=company, branch=branch, auto_print=False, qr_base64=qr_base64, fecha_firma_str=fecha_firma_str, sandbox=sandbox)
+        
+        pdf_bytes = None
+        if WEASYPRINT_AVAILABLE:
+            pdf_bytes = WeasyprintHTML(string=rendered_html, base_url=base_url).write_pdf()
+            
+        # 4. Construir correo
+        import smtplib
+        from email.mime.text import MIMEText
+        from email.mime.multipart import MIMEMultipart
+        from email.mime.application import MIMEApplication
+
+        msg = MIMEMultipart()
+        
+        encf = invoice.get('encf', 'N/A')
+        company_name = company.get("tradeName") or company.get("companyName", "EMISOR")
+        ecf_type = invoice.get('ecfType', 'Factura de Consumo Electrónica')
+        date_str = invoice.get('date', '')[:10]
+        total_str = f"$ {invoice.get('total', 0.0):.2f} {invoice.get('currency', 'DOP')}"
+        client_name = invoice.get('clientName') or invoice.get('razonSocial', 'Consumidor Final')
+        
+        msg["Subject"] = f"{ecf_type} No. [{encf}] - [{company_name}]"
+        msg["From"] = f"{company_name} <{smtp_user}>"
+        msg["To"] = recipient_email
+
+        logo_url = company.get('logoUrl', '')
+        
+        html_body = f"""
+        <html>
+        <head>
+            <style>
+                body {{ font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f4f7f6; margin: 0; padding: 0; }}
+                .container {{ max-width: 600px; margin: 30px auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }}
+                .header {{ background-color: #1a365d; color: #ffffff; padding: 30px 40px; text-align: center; }}
+                .header h1 {{ margin: 0; font-size: 24px; font-weight: 500; letter-spacing: 1px; }}
+                .content {{ padding: 40px; color: #333333; line-height: 1.6; }}
+                .greeting {{ font-size: 18px; margin-bottom: 20px; color: #2d3748; }}
+                .message {{ margin-bottom: 30px; font-size: 15px; color: #4a5568; }}
+                .summary-box {{ background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 20px; margin-bottom: 30px; }}
+                .summary-title {{ font-size: 16px; font-weight: 600; color: #2d3748; margin-bottom: 15px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; }}
+                .summary-table {{ width: 100%; border-collapse: collapse; }}
+                .summary-table td {{ padding: 10px 0; border-bottom: 1px solid #edf2f7; font-size: 14px; }}
+                .summary-table td:first-child {{ color: #718096; font-weight: 500; width: 45%; }}
+                .summary-table td:last-child {{ color: #2d3748; font-weight: 600; text-align: right; }}
+                .summary-table tr:last-child td {{ border-bottom: none; }}
+                .footer {{ background-color: #edf2f7; padding: 20px; text-align: center; font-size: 13px; color: #718096; border-top: 1px solid #e2e8f0; }}
+                .verify-link {{ color: #3182ce; text-decoration: none; font-weight: 500; }}
+                .verify-link:hover {{ text-decoration: underline; }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    {f'<img src="{logo_url}" alt="Logo" style="max-height: 60px; margin-bottom: 15px;">' if logo_url else ''}
+                    <h1>{company_name}</h1>
+                </div>
+                <div class="content">
+                    <div class="greeting">Estimado cliente: {client_name},</div>
+                    <div class="message">
+                        Ha generado un comprobante electrónico utilizando el nuevo sistema de Factura Electrónica de República Dominicana.<br><br>
+                        Adjunto podrá descargar un archivo XML el cual está firmado electrónicamente y aceptado en la DGII. Adicionalmente su representación impresa en formato PDF.<br><br>
+                        En <a href="{qr_url}" class="verify-link">este enlace</a> podrá verificar la aceptación en la DGII del comprobante electrónico adjunto.
+                    </div>
+                    
+                    <div class="summary-box">
+                        <div class="summary-title">Resumen del comprobante electrónico</div>
+                        <table class="summary-table">
+                            <tr>
+                                <td>Tipo de documento</td>
+                                <td>{ecf_type}</td>
+                            </tr>
+                            <tr>
+                                <td>Número eCF</td>
+                                <td>{encf}</td>
+                            </tr>
+                            <tr>
+                                <td>Fecha de emisión</td>
+                                <td>{date_str}</td>
+                            </tr>
+                            <tr>
+                                <td>Estado en DGII</td>
+                                <td>Aceptado</td>
+                            </tr>
+                            <tr>
+                                <td>Total Importe</td>
+                                <td>{total_str}</td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+                <div class="footer">
+                    Este es un mensaje generado automáticamente, por favor no responda a este correo.
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+
+        msg.attach(MIMEText(html_body, "html"))
+
+        # Adjuntar XML
+        xml_attachment = MIMEApplication(xml_content.encode('utf-8'), _subtype="xml")
+        xml_attachment.add_header('Content-Disposition', 'attachment', filename=f"{encf}.xml")
+        msg.attach(xml_attachment)
+
+        # Adjuntar PDF
+        if pdf_bytes:
+            pdf_attachment = MIMEApplication(pdf_bytes, _subtype="pdf")
+            pdf_attachment.add_header('Content-Disposition', 'attachment', filename=f"{encf}.pdf")
+            msg.attach(pdf_attachment)
+
+        # 5. Enviar Correo
+        with smtplib.SMTP(smtp_server, smtp_port) as server:
+            server.starttls()
+            server.login(smtp_user, smtp_password)
+            server.sendmail(smtp_user, recipient_email, msg.as_string())
+        
+        return True, f"Factura enviada exitosamente por correo a {recipient_email}."
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        print(f"⚠️ Error enviando factura por email: {e}")
+        return False, str(e)
+
 @web_invoices_bp.route('/invoices/<invoice_id>/notify-email', methods=['POST'])
 def notify_invoice_email(invoice_id):
     """Notifica la factura electrónica por email usando SMTP."""
@@ -1319,227 +1551,11 @@ def notify_invoice_email(invoice_id):
     if not invoice:
         return jsonify({"success": False, "message": "Factura no encontrada."}), 404
 
-    company = DatabaseService.get_company_profile(owner_uid)
-
-    # 1. Preparar SMTP
-    from flask import current_app as app
-    smtp_server   = app.config.get("SMTP_SERVER", "")
-    smtp_port     = int(app.config.get("SMTP_PORT", 587))
-    smtp_user     = app.config.get("SMTP_USER", "")
-    smtp_password = app.config.get("SMTP_PASSWORD", "")
-
-    if not smtp_server or not smtp_user or not smtp_password:
-        return jsonify({"success": False, "message": "Servidor de correo no configurado (SMTP)."}), 500
-
-    # 2. Generar XML
-    xml_content = invoice.get('xmlContent') or ''
-    if not xml_content or not (xml_content.strip().startswith('<?xml') or xml_content.strip().startswith('<ECF') or xml_content.strip().startswith('<eCF')):
-        try:
-            from app.services.dgii_xml_builder import DgiiXmlBuilder
-            from app.services.dgii_signer import DgiiSigner
-            raw_xml = DgiiXmlBuilder.build_invoice_xml(company, invoice)
-            signed_xml_bytes = DgiiSigner.sign_xml(raw_xml, company)
-            xml_content = signed_xml_bytes.decode('utf-8')
-        except Exception as e:
-            xml_content = invoice.get('xmlContent') or invoice.get('xmlSignature') or ''
-            
-    if not xml_content:
-        return jsonify({"success": False, "message": "No se pudo generar el XML de la factura."}), 500
-
-    # 3. Generar PDF
-    import io
-    import base64
-    import qrcode
-    import urllib.parse
-    from datetime import datetime
-
-    qr_url = invoice.get("qrCodeURL")
-    fecha_firma_str = ""
-
-    if invoice.get("encf") and invoice.get("xmlSignature"):
-        try:
-            fecha_emision_dt = datetime.strptime(invoice.get("date", "")[:10], "%Y-%m-%d")
-            fecha_emision_str = fecha_emision_dt.strftime("%d-%m-%Y")
-        except:
-            fecha_emision_str = ""
-            
-        if invoice.get("paymentDate"):
-            try:
-                dt = datetime.fromisoformat(invoice["paymentDate"].replace('Z', '+00:00'))
-                fecha_firma_str = dt.strftime("%d-%m-%Y %H:%M:%S")
-            except:
-                fecha_firma_str = fecha_emision_str + " 12:00:00"
-        else:
-            fecha_firma_str = fecha_emision_str + " 12:00:00"
-
-        codigo_seg = invoice.get("xmlSignature", "")[:6]
-        rnc_emisor = company.get("companyRNC", "").replace("-", "").strip()
-        rnc_comprador = invoice.get("clientRNC", "").replace("-", "").strip()
-        if not rnc_comprador: rnc_comprador = "999999999"
-        monto_total = f"{invoice.get('total', 0.0):.2f}"
-        
-        is_consumo = 'Consumo' in invoice.get("ecfType", "")
-        if is_consumo and invoice.get("total", 0.0) < 250000:
-            query_params = {
-                "RncEmisor": rnc_emisor,
-                "ENCF": invoice.get("encf"),
-                "MontoTotal": monto_total,
-                "CodigoSeguridad": codigo_seg
-            }
-            qs = urllib.parse.urlencode(query_params, quote_via=urllib.parse.quote)
-            qr_url = "https://fc.dgii.gov.do/eCF/ConsultaTimbreFC?" + qs
-        else:
-            query_params = {
-                "RncEmisor": rnc_emisor,
-                "RncComprador": rnc_comprador,
-                "ENCF": invoice.get("encf"),
-                "FechaEmision": fecha_emision_str,
-                "MontoTotal": monto_total,
-                "FechaFirma": fecha_firma_str,
-                "CodigoSeguridad": codigo_seg
-            }
-            qs = urllib.parse.urlencode(query_params, quote_via=urllib.parse.quote)
-            qr_url = "https://ecf.dgii.gov.do/ecf/ConsultaTimbre?" + qs
-
-    if not qr_url:
-        qr_url = "https://dgii.gov.do/validaecf"
-
-    qr = qrcode.QRCode(version=1, box_size=10, border=0)
-    qr.add_data(qr_url)
-    qr.make(fit=True)
-    img = qr.make_image(fill_color="black", back_color="white")
-    stream = io.BytesIO()
-    img.save(stream, format="PNG")
-    qr_base64 = base64.b64encode(stream.getvalue()).decode('utf-8')
-
-    branches = DatabaseService.get_branches(owner_uid, sandbox=sandbox)
-    branch = next((b for b in branches if b['id'] == invoice.get("branchId")), None)
-    if not branch and branches:
-        branch = branches[0]
-
-    invoice_enriched = _enrich_invoice_totals(invoice.copy())
-    rendered_html = render_template('invoices/pdf.html', invoice=invoice_enriched, company=company, branch=branch, auto_print=False, qr_base64=qr_base64, fecha_firma_str=fecha_firma_str, sandbox=sandbox)
-    
-    pdf_bytes = None
-    if WEASYPRINT_AVAILABLE:
-        pdf_bytes = WeasyprintHTML(string=rendered_html, base_url=request.host_url).write_pdf()
-        
-    # 4. Construir correo (Plantilla Elegante)
-    import smtplib
-    from email.mime.text import MIMEText
-    from email.mime.multipart import MIMEMultipart
-    from email.mime.application import MIMEApplication
-
-    msg = MIMEMultipart()
-    
-    encf = invoice.get('encf', 'N/A')
-    company_name = company.get("tradeName") or company.get("companyName", "EMISOR")
-    ecf_type = invoice.get('ecfType', 'Factura de Consumo Electrónica')
-    date_str = invoice.get('date', '')[:10]
-    total_str = f"$ {invoice.get('total', 0.0):.2f} {invoice.get('currency', 'DOP')}"
-    client_name = invoice.get('clientName') or invoice.get('razonSocial', 'Consumidor Final')
-    
-    msg["Subject"] = f"{ecf_type} No. [{encf}] - [{company_name}]"
-    msg["From"] = f"{company_name} <{smtp_user}>"
-    msg["To"] = recipient_email
-
-    logo_url = company.get('logoUrl', '')
-    
-    html_body = f"""
-    <html>
-    <head>
-        <style>
-            body {{ font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f4f7f6; margin: 0; padding: 0; }}
-            .container {{ max-width: 600px; margin: 30px auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }}
-            .header {{ background-color: #1a365d; color: #ffffff; padding: 30px 40px; text-align: center; }}
-            .header h1 {{ margin: 0; font-size: 24px; font-weight: 500; letter-spacing: 1px; }}
-            .content {{ padding: 40px; color: #333333; line-height: 1.6; }}
-            .greeting {{ font-size: 18px; margin-bottom: 20px; color: #2d3748; }}
-            .message {{ margin-bottom: 30px; font-size: 15px; color: #4a5568; }}
-            .summary-box {{ background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 20px; margin-bottom: 30px; }}
-            .summary-title {{ font-size: 16px; font-weight: 600; color: #2d3748; margin-bottom: 15px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; }}
-            .summary-table {{ width: 100%; border-collapse: collapse; }}
-            .summary-table td {{ padding: 10px 0; border-bottom: 1px solid #edf2f7; font-size: 14px; }}
-            .summary-table td:first-child {{ color: #718096; font-weight: 500; width: 45%; }}
-            .summary-table td:last-child {{ color: #2d3748; font-weight: 600; text-align: right; }}
-            .summary-table tr:last-child td {{ border-bottom: none; }}
-            .footer {{ background-color: #edf2f7; padding: 20px; text-align: center; font-size: 13px; color: #718096; border-top: 1px solid #e2e8f0; }}
-            .verify-link {{ color: #3182ce; text-decoration: none; font-weight: 500; }}
-            .verify-link:hover {{ text-decoration: underline; }}
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <div class="header">
-                {f'<img src="{logo_url}" alt="Logo" style="max-height: 60px; margin-bottom: 15px;">' if logo_url else ''}
-                <h1>{company_name}</h1>
-            </div>
-            <div class="content">
-                <div class="greeting">Estimado cliente: {client_name},</div>
-                <div class="message">
-                    Ha generado un comprobante electrónico utilizando el nuevo sistema de Factura Electrónica de República Dominicana.<br><br>
-                    Adjunto podrá descargar un archivo XML el cual está firmado electrónicamente y aceptado en la DGII. Adicionalmente su representación impresa en formato PDF.<br><br>
-                    En <a href="{qr_url}" class="verify-link">este enlace</a> podrá verificar la aceptación en la DGII del comprobante electrónico adjunto.
-                </div>
-                
-                <div class="summary-box">
-                    <div class="summary-title">Resumen del comprobante electrónico</div>
-                    <table class="summary-table">
-                        <tr>
-                            <td>Tipo de documento</td>
-                            <td>{ecf_type}</td>
-                        </tr>
-                        <tr>
-                            <td>Número eCF</td>
-                            <td>{encf}</td>
-                        </tr>
-                        <tr>
-                            <td>Fecha de emisión</td>
-                            <td>{date_str}</td>
-                        </tr>
-                        <tr>
-                            <td>Estado en DGII</td>
-                            <td>Aceptado</td>
-                        </tr>
-                        <tr>
-                            <td>Total Importe</td>
-                            <td>{total_str}</td>
-                        </tr>
-                    </table>
-                </div>
-            </div>
-            <div class="footer">
-                Este es un mensaje generado automáticamente, por favor no responda a este correo.
-            </div>
-        </div>
-    </body>
-    </html>
-    """
-
-    msg.attach(MIMEText(html_body, "html"))
-
-    # Adjuntar XML
-    xml_attachment = MIMEApplication(xml_content.encode('utf-8'), _subtype="xml")
-    xml_attachment.add_header('Content-Disposition', 'attachment', filename=f"{encf}.xml")
-    msg.attach(xml_attachment)
-
-    # Adjuntar PDF
-    if pdf_bytes:
-        pdf_attachment = MIMEApplication(pdf_bytes, _subtype="pdf")
-        pdf_attachment.add_header('Content-Disposition', 'attachment', filename=f"{encf}.pdf")
-        msg.attach(pdf_attachment)
-
-    # 5. Enviar Correo
-    try:
-        with smtplib.SMTP(smtp_server, smtp_port) as server:
-            server.starttls()
-            server.login(smtp_user, smtp_password)
-            server.sendmail(smtp_user, recipient_email, msg.as_string())
-        
-        return jsonify({"success": True, "message": f"Factura enviada exitosamente por correo a {recipient_email}."})
-    except Exception as e:
-        print(f"⚠️ Error enviando factura por email: {e}")
-        return jsonify({"success": False, "message": f"Error al enviar el correo: {str(e)}"}), 500
+    success, message = send_invoice_email(owner_uid, invoice, recipient_email, sandbox=sandbox, base_url=request.host_url)
+    if success:
+        return jsonify({"success": True, "message": message})
+    else:
+        return jsonify({"success": False, "message": f"Error al enviar el correo: {message}"}), 500
 
 @web_invoices_bp.route('/invoices/<invoice_id>/pay', methods=['POST'])
 def pay_invoice_route(invoice_id):
@@ -2477,16 +2493,13 @@ def company_settings():
         return redirect(url_for('company_settings'))
         
     profile = DatabaseService.get_company_profile(owner_uid)
-    
-    # Obtener equipo
-    team = DatabaseService.get_team_members(owner_uid)
 
     # Obtener sucursales
     branches = DatabaseService.get_branches(owner_uid, sandbox=session.get('is_sandbox_mode', True))
 
     onboarding_success = request.args.get('onboarding_success') == 'true'
     show_wizard = not profile.get('configured', False)
-    return render_template('company_settings.html', active_page='settings', profile=profile, team=team, branches=branches, show_wizard=show_wizard, onboarding_success=onboarding_success, e_cf_provider=Config.E_CF_PROVIDER.lower())
+    return render_template('company_settings.html', active_page='settings', profile=profile, branches=branches, show_wizard=show_wizard, onboarding_success=onboarding_success, e_cf_provider=Config.E_CF_PROVIDER.lower())
 
 @web_invoices_bp.route('/settings/company/generate-api-key', methods=['POST'])
 def generate_company_api_key():
@@ -2538,12 +2551,22 @@ def save_company_brand_settings():
     DatabaseService.save_company_profile(owner_uid, existing_profile)
     return jsonify({"success": True, "profile": existing_profile})
 
+@web_invoices_bp.route('/settings/team', methods=['GET'])
+def team_settings():
+    if 'user' not in session: return redirect(url_for('login'))
+    if session['user'].get('role') != 'owner':
+        flash('No tienes permisos de propietario.', 'error')
+        return redirect(url_for('dashboard'))
+    owner_uid = session['user']['ownerUID']
+    team = DatabaseService.get_team_members(owner_uid)
+    return render_template('team_settings.html', active_page='team_settings', team=team)
+
 @web_invoices_bp.route('/settings/team/new', methods=['POST'])
 def add_team_member():
     if 'user' not in session: return redirect(url_for('login'))
     if session['user'].get('role') != 'owner':
         flash('No tienes permisos de propietario.', 'error')
-        return redirect(url_for('company_settings'))
+        return redirect(url_for('team_settings'))
     
     owner_uid = session['user']['ownerUID']
     
@@ -2556,7 +2579,9 @@ def add_team_member():
         "canExpenses": 'canExpenses' in request.form,
         "canClients": 'canClients' in request.form,
         "canModifySettings": 'canModifySettings' in request.form,
-        "canManageInventory": 'canManageInventory' in request.form
+        "canManageInventory": 'canManageInventory' in request.form,
+        "canManagePOS": 'canManagePOS' in request.form,
+        "canViewDashboard": 'canViewDashboard' in request.form
     }
     
     try:
@@ -2574,7 +2599,7 @@ def add_team_member():
     except Exception as e:
         flash(f'Error al registrar colaborador: {str(e)}', 'error')
         
-    return redirect(url_for('company_settings'))
+    return redirect(url_for('team_settings'))
 
 @web_invoices_bp.route('/settings/branches/save', methods=['POST'])
 def save_branch_route():
@@ -2632,14 +2657,16 @@ def update_team_member_permissions(employee_uid):
     if 'user' not in session: return redirect(url_for('login'))
     if session['user'].get('role') != 'owner':
         flash('No tienes permisos de propietario.', 'error')
-        return redirect(url_for('company_settings'))
+        return redirect(url_for('team_settings'))
     
     permissions = {
         "canInvoice": 'canInvoice' in request.form,
         "canExpenses": 'canExpenses' in request.form,
         "canClients": 'canClients' in request.form,
         "canModifySettings": 'canModifySettings' in request.form,
-        "canManageInventory": 'canManageInventory' in request.form
+        "canManageInventory": 'canManageInventory' in request.form,
+        "canManagePOS": 'canManagePOS' in request.form,
+        "canViewDashboard": 'canViewDashboard' in request.form
     }
     
     if DatabaseService.update_employee_permissions(employee_uid, permissions):
@@ -2647,14 +2674,14 @@ def update_team_member_permissions(employee_uid):
     else:
         flash('Error al actualizar permisos.', 'error')
         
-    return redirect(url_for('company_settings'))
+    return redirect(url_for('team_settings'))
 
 @web_invoices_bp.route('/settings/team/<employee_uid>/delete', methods=['POST'])
 def delete_team_member_route(employee_uid):
     if 'user' not in session: return redirect(url_for('login'))
     if session['user'].get('role') != 'owner':
         flash('No tienes permisos de propietario.', 'error')
-        return redirect(url_for('company_settings'))
+        return redirect(url_for('team_settings'))
     
     owner_uid = session['user']['ownerUID']
     
@@ -2663,7 +2690,7 @@ def delete_team_member_route(employee_uid):
     else:
         flash('Error al desvincular colaborador.', 'error')
         
-    return redirect(url_for('company_settings'))
+    return redirect(url_for('team_settings'))
 
 @web_invoices_bp.route('/settings/company/export', methods=['POST'])
 def export_company_data():

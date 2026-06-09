@@ -14,8 +14,13 @@
     <form action="{% if item %}{{ url_for('edit_item', item_id=item.id) }}{% else %}{{ url_for('new_item') }}{% endif %}" method="POST">
         <div class="form-grid">
             <div class="form-group">
-                <label for="code">Código de Referencia (Código de Barra / SKU)</label>
+                <label for="code">Código de Referencia (SKU)</label>
                 <input type="text" id="code" name="code" class="form-input" placeholder="Ej: PROD-1025" value="{{ item.code if item else '' }}">
+            </div>
+            
+            <div class="form-group">
+                <label for="barcode">Código de Barra (Escáner)</label>
+                <input type="text" id="barcode" name="barcode" class="form-input" placeholder="Ej: 7460123456789" value="{{ item.barcode if item else '' }}">
             </div>
             
             <div class="form-group">
@@ -26,14 +31,31 @@
                 </select>
             </div>
             
+            <div class="form-group">
+                <label for="category_id">Categoría</label>
+                <select id="category_id" name="categoryId" class="form-select">
+                    <option value="general" {% if not item or item.categoryId == 'general' %}selected{% endif %}>General</option>
+                    <option value="alimentos" {% if item and item.categoryId == 'alimentos' %}selected{% endif %}>Alimentos y Bebidas</option>
+                    <option value="electronica" {% if item and item.categoryId == 'electronica' %}selected{% endif %}>Electrónica</option>
+                    <option value="servicios" {% if item and item.categoryId == 'servicios' %}selected{% endif %}>Servicios</option>
+                    <option value="ferreteria" {% if item and item.categoryId == 'ferreteria' %}selected{% endif %}>Ferretería</option>
+                    <option value="otros" {% if item and item.categoryId == 'otros' %}selected{% endif %}>Otros</option>
+                </select>
+            </div>
+            
             <div class="form-group" style="grid-column: 1 / -1;">
                 <label for="name">Nombre / Descripción del Artículo</label>
                 <input type="text" id="name" name="name" class="form-input" placeholder="Ej: Desarrollo de Software a la Medida" required value="{{ item.name if item else '' }}">
             </div>
             
             <div class="form-group">
-                <label for="price">Precio Unitario (RD$)</label>
+                <label for="price">Precio de Venta (RD$)</label>
                 <input type="number" id="price" name="price" class="form-input" placeholder="0.00" step="0.01" required value="{{ item.price if item else '' }}">
+            </div>
+            
+            <div class="form-group">
+                <label for="cost_price">Precio de Costo (RD$)</label>
+                <input type="number" id="cost_price" name="costPrice" class="form-input" placeholder="0.00" step="0.01" value="{{ item.costPrice if item else '' }}">
             </div>
             
             <div class="form-group">

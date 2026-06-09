@@ -1,0 +1,992 @@
+{% extends "layout.html" %}
+
+{% block title %}Punto de Venta - Terminal{% endblock %}
+
+{% block page_header %}Terminal de Caja{% endblock %}
+
+{% block content %}
+<!-- Contenedor Principal en Grid de 2 Columnas -->
+<div style="display: grid; grid-template-columns: 1fr 420px; gap: 24px; min-height: calc(100vh - 180px); width: 100%;">
+
+    <!-- COLUMNA IZQUIERDA: Catálogo y Búsqueda -->
+    <div style="display: flex; flex-direction: column; gap: 20px;">
+        
+        <!-- Barra de Búsqueda y Código de Barras -->
+        <div class="card-table-wrapper" style="padding: 20px; margin-bottom: 0;">
+            <div style="display: grid; grid-template-columns: 1fr auto; gap: 15px; align-items: center;">
+                <div style="position: relative; width: 100%;">
+                    <i class="fa-solid fa-barcode" style="position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 1.1rem;"></i>
+                    <input type="text" id="barcode-search" placeholder="Escanee código de barra o busque producto..." 
+                           style="width: 100%; height: 46px; padding: 0 16px 0 46px; background-color: var(--bg-input); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary); font-size: 1rem; outline: none; transition: all 0.2s;"
+                           onkeydown="handleBarcodeSearch(event)">
+                </div>
+                <button onclick="focusBarcode()" class="btn btn-secondary" style="height: 46px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-weight: 600;">
+                    <i class="fa-solid fa-keyboard"></i>
+                    <span>Lector Activo</span>
+                </button>
+            </div>
+            <div style="margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap;">
+                <button onclick="filterCatalog('all')" class="cat-chip active" id="chip-all">Todos</button>
+                <button onclick="filterCatalog('alimentos')" class="cat-chip" id="chip-alimentos">Alimentos / Bebidas</button>
+                <button onclick="filterCatalog('electronica')" class="cat-chip" id="chip-electronica">Electrónica</button>
+                <button onclick="filterCatalog('servicios')" class="cat-chip" id="chip-servicios">Servicios</button>
+                <button onclick="filterCatalog('ferreteria')" class="cat-chip" id="chip-ferreteria">Ferretería</button>
+                <button onclick="filterCatalog('general')" class="cat-chip" id="chip-general">General</button>
+            </div>
+        </div>
+
+        <!-- Grid de Productos -->
+        <div id="products-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 16px; overflow-y: auto; max-height: calc(100vh - 320px); padding-right: 5px;">
+            <!-- Renderizado dinámico desde JS -->
+        </div>
+
+    </div>
+
+    <!-- COLUMNA DERECHA: Carrito de Compras e Importes -->
+    <div class="card-table-wrapper" style="padding: 24px; margin-bottom: 0; display: flex; flex-direction: column; justify-content: space-between; height: 100%; box-sizing: border-box; border-left: 1px solid var(--border-color);">
+        
+        <div>
+            <!-- Datos del Cliente -->
+            <div style="border-bottom: 1px solid var(--border-color); padding-bottom: 16px; margin-bottom: 16px;">
+                <h4 style="font-size: 0.95rem; font-family: var(--font-heading); margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
+                    <i class="fa-solid fa-user-tag" style="color: var(--accent-emerald);"></i>
+                    <span>Identificar Cliente (RNC / Cédula)</span>
+                </h4>
+                <div style="display: grid; grid-template-columns: 1fr 40px 40px; gap: 8px; align-items: center;">
+                    <input type="text" id="client-search-input" class="form-input" style="height: 38px; font-family: monospace;" placeholder="Ej. 132109122 o 22400183741" onkeydown="if(event.key === 'Enter') performClientPOSSearch()">
+                    <button type="button" class="btn btn-secondary" onclick="performClientPOSSearch()" id="btn-client-search" style="padding: 0; height: 38px; display: flex; align-items: center; justify-content: center; border-radius: var(--radius-sm);" title="Buscar cliente (Local / DGII)">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                    </button>
+                    <button type="button" class="btn btn-secondary" onclick="openNewClientModal()" style="padding: 0; height: 38px; display: flex; align-items: center; justify-content: center; border-radius: var(--radius-sm);" title="Registrar nuevo cliente manualmente">
+                        <i class="fa-solid fa-user-plus"></i>
+                    </button>
+                </div>
+                <div style="margin-top: 12px; padding: 10px 12px; background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border-color); border-radius: var(--radius-sm);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                        <span id="client-display-name" style="font-weight: 700; font-size: 0.88rem; color: var(--text-primary);">Consumidor Final</span>
+                        <button type="button" id="btn-clear-client" onclick="clearPOSClient()" style="display: none; background: none; border: none; color: var(--accent-red); cursor: pointer; font-size: 0.82rem; padding: 0;" title="Quitar cliente">
+                            <i class="fa-solid fa-circle-xmark"></i> Quitar
+                        </button>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.76rem; color: var(--text-secondary); gap: 8px; margin-top: 2px;">
+                        <span id="client-rnc-label">RNC: 999999999</span>
+                        <select id="client-type-select" onchange="updateEcfTypeFromSelect(this.value)" disabled
+                            style="font-size: 0.73rem; padding: 2px 6px; border-radius: 4px; border: 1px solid var(--border-color); background: rgba(255,255,255,0.06); color: var(--text-secondary); cursor: not-allowed; outline: none; max-width: 170px;">
+                            <option value="Factura de Consumo (E32)">Consumo (E32)</option>
+                            <option value="Factura de Crédito Fiscal (E31)">Crédito Fiscal (E31)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Listado del Carrito -->
+            <h4 style="font-size: 0.95rem; font-family: var(--font-heading); margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between;">
+                <span>Detalle de Compra</span>
+                <span id="cart-count" class="badge badge-primary" style="font-size: 0.7rem;">0 artículos</span>
+            </h4>
+            
+            <div id="cart-items" style="display: flex; flex-direction: column; gap: 12px; max-height: calc(100vh - 560px); overflow-y: auto; padding-right: 5px; margin-bottom: 16px;">
+                <div id="cart-empty-state" style="text-align: center; padding: 40px 0; color: var(--text-secondary);">
+                    <i class="fa-solid fa-basket-shopping" style="font-size: 2rem; color: var(--text-muted); opacity: 0.5; margin-bottom: 8px; display: block;"></i>
+                    <span>Carrito vacío</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Totales y Botón Cobrar -->
+        <div style="border-top: 1px solid var(--border-color); padding-top: 16px;">
+            <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; font-size: 0.9rem; color: var(--text-secondary);">
+                <div style="display: flex; justify-content: space-between;">
+                    <span>Subtotal:</span>
+                    <span id="subtotal-val">RD$ 0.00</span>
+                </div>
+                <div style="display: flex; justify-content: space-between;">
+                    <span>ITBIS (18% / 16%):</span>
+                    <span id="itbis-val">RD$ 0.00</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; font-size: 1.3rem; font-weight: 800; color: var(--text-primary); border-top: 1px dashed var(--border-color); padding-top: 8px; margin-top: 4px;">
+                    <span>Total General:</span>
+                    <span id="total-val" style="color: var(--accent-emerald);">RD$ 0.00</span>
+                </div>
+            </div>
+
+            <!-- Métodos de Pago Rápido -->
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px;">
+                <button onclick="setPaymentMethod('Efectivo')" class="pay-method-btn active" id="pay-cash">
+                    <i class="fa-solid fa-money-bill-1-wave"></i>
+                    <span>Efectivo</span>
+                </button>
+                <button onclick="setPaymentMethod('Tarjeta')" class="pay-method-btn" id="pay-card">
+                    <i class="fa-solid fa-credit-card"></i>
+                    <span>Tarjeta</span>
+                </button>
+                <button onclick="setPaymentMethod('Transferencia')" class="pay-method-btn" id="pay-trans">
+                    <i class="fa-solid fa-building-columns"></i>
+                    <span>Transf.</span>
+                </button>
+            </div>
+
+            <button onclick="openCheckoutModal()" id="btn-cobrar" class="btn btn-primary" style="width: 100%; height: 50px; font-size: 1.1rem; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; gap: 10px;" disabled>
+                <i class="fa-solid fa-cash-register"></i>
+                <span>Cobrar (F10)</span>
+            </button>
+        </div>
+
+    </div>
+
+</div>
+
+<!-- MODAL: DETALLE DE COBRO (Efectivo Recibido y Cambio) -->
+<div id="checkout-modal" class="search-modal" style="display: none; justify-content: center; align-items: center;">
+    <div class="modal-backdrop" onclick="closeCheckoutModal()"></div>
+    <div class="modal-content animate-fade-in" style="max-width: 440px; padding: 0; border-radius: var(--radius-md);">
+        <div class="modal-header" style="border-bottom: 1px solid var(--border-color); padding: 20px 24px;">
+            <h3 style="margin: 0; font-size: 1.15rem; font-family: var(--font-heading); display: flex; align-items: center; gap: 10px;">
+                <i class="fa-solid fa-calculator" style="color: var(--accent-emerald);"></i>
+                <span>Registrar Pago</span>
+            </h3>
+            <button class="btn-close-modal" onclick="closeCheckoutModal()">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="modal-body" style="padding: 24px;">
+            <div style="text-align: center; margin-bottom: 20px; padding: 14px; background: rgba(99, 102, 241, 0.05); border-radius: 8px;">
+                <span style="font-size: 0.82rem; color: var(--text-secondary); text-transform: uppercase; font-weight: 600;">Monto a Cobrar</span>
+                <div id="checkout-total" style="font-size: 2rem; font-weight: 800; color: var(--accent-emerald); margin-top: 4px;">RD$ 0.00</div>
+            </div>
+
+            <div id="cash-calculator-fields">
+                <div class="form-group" style="margin-bottom: 14px;">
+                    <label for="received-amount">Monto Recibido (RD$)</label>
+                    <input type="number" id="received-amount" class="form-input" placeholder="0.00" step="0.01" style="font-size: 1.25rem; height: 44px; text-align: center; font-weight: 700; width: 100%;" oninput="calculateChange()">
+                </div>
+                
+                <!-- Sugerencias de Billetes -->
+                <div style="display: flex; gap: 8px; margin-bottom: 20px; justify-content: center;" id="bill-suggestions">
+                    <!-- Dinámico -->
+                </div>
+
+                <div style="text-align: center; padding: 10px; border-top: 1px solid var(--border-color); margin-bottom: 20px;">
+                    <span style="font-size: 0.82rem; color: var(--text-secondary);">Cambio / Devuelta</span>
+                    <div id="change-amount" style="font-size: 1.5rem; font-weight: 700; color: var(--text-primary); margin-top: 2px;">RD$ 0.00</div>
+                </div>
+            </div>
+
+            <button onclick="processCheckoutSubmit()" id="btn-finalizar-venta" class="btn btn-primary" style="width: 100%; height: 46px; font-weight: 700; font-size: 1rem; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                <i class="fa-solid fa-check-double"></i>
+                <span>Registrar Venta (e-CF)</span>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: ÉXITO DE FACTURACIÓN (Imprimir / Ticket) -->
+<div id="success-modal" class="search-modal" style="display: none; justify-content: center; align-items: center;">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content animate-fade-in" style="max-width: 440px; padding: 32px; text-align: center;">
+        <i class="fa-solid fa-circle-check" style="font-size: 4rem; color: var(--accent-emerald); margin-bottom: 16px;"></i>
+        
+        <h3 style="font-size: 1.3rem; font-family: var(--font-heading); margin-bottom: 8px;">¡Venta Registrada con Éxito!</h3>
+        <p style="color: var(--text-secondary); font-size: 0.88rem; margin-bottom: 24px;" id="success-msg">Comprobante Fiscal emitido correctamente.</p>
+
+        <div style="display: flex; flex-direction: column; gap: 12px; width: 100%;">
+            <button onclick="printCurrentReceipt()" class="btn btn-primary" style="height: 46px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
+                <i class="fa-solid fa-print"></i>
+                <span>Imprimir Ticket (80mm)</span>
+            </button>
+            <button onclick="reloadPOS()" class="btn btn-secondary" style="height: 46px; font-weight: 600;">
+                <span>Nueva Venta</span>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL: REGISTRAR NUEVO CLIENTE -->
+<div id="new-client-modal" class="search-modal" style="display: none; justify-content: center; align-items: center; z-index: 1100;">
+    <div class="modal-backdrop" onclick="closeNewClientModal()"></div>
+    <div class="modal-content animate-fade-in" style="max-width: 460px; padding: 0; border-radius: var(--radius-md);">
+        <div class="modal-header" style="border-bottom: 1px solid var(--border-color); padding: 20px 24px; display: flex; justify-content: space-between; align-items: center;">
+            <h3 style="font-size: 1.1rem; font-weight: 700; color: var(--text-primary); margin: 0; display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-user-plus" style="color: var(--accent-emerald);"></i>
+                <span>Registrar Nuevo Cliente</span>
+            </h3>
+            <button class="btn-close-modal" onclick="closeNewClientModal()" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 1.2rem;">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="modal-body" style="padding: 24px; display: flex; flex-direction: column; gap: 16px;">
+            <div id="new-client-error" style="display: none; background: rgba(239, 68, 68, 0.1); border: 1px solid var(--accent-red); color: var(--accent-red); padding: 10px; border-radius: var(--radius-sm); font-size: 0.85rem;"></div>
+            
+            <div class="form-group">
+                <label style="font-size: 0.82rem; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 6px;">RNC / Cédula *</label>
+                <div style="display: flex; gap: 8px;">
+                    <input type="text" id="new-client-rnc" class="form-input" style="width: 100%;" placeholder="Ej. 132109122 o 22400183741" required>
+                    <button type="button" class="btn btn-secondary" onclick="lookupRNCFromPOS()" id="btn-lookup-rnc" style="padding: 0 12px; display: flex; align-items: center; justify-content: center;" title="Buscar RNC en DGII (Alanube)">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label style="font-size: 0.82rem; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 6px;">Razón Social / Nombre *</label>
+                <input type="text" id="new-client-razonSocial" class="form-input" style="width: 100%;" placeholder="Ej. Juan Pérez o Comercial SRL" required>
+            </div>
+            
+            <div class="form-group">
+                <label style="font-size: 0.82rem; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 6px;">Correo Electrónico</label>
+                <input type="email" id="new-client-email" class="form-input" style="width: 100%;" placeholder="cliente@correo.com">
+            </div>
+            
+            <div class="form-group">
+                <label style="font-size: 0.82rem; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 6px;">Teléfono</label>
+                <input type="text" id="new-client-telefono" class="form-input" style="width: 100%;" placeholder="809-555-5555">
+            </div>
+            
+            <div class="form-group">
+                <label style="font-size: 0.82rem; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 6px;">Dirección</label>
+                <input type="text" id="new-client-direccion" class="form-input" style="width: 100%;" placeholder="Calle principal #12, Santo Domingo">
+            </div>
+        </div>
+        <div class="modal-footer" style="border-top: 1px solid var(--border-color); padding: 16px 24px; display: flex; justify-content: flex-end; gap: 12px; background: rgba(0, 0, 0, 0.05);">
+            <button class="btn btn-secondary" onclick="closeNewClientModal()">Cancelar</button>
+            <button class="btn btn-primary" onclick="submitNewClientFromPOS()" id="btn-save-client">
+                <i class="fa-solid fa-floppy-disk"></i> Guardar Cliente
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+// Catálogo de Productos cargado dinámicamente desde Jinja2
+const productCatalog = [
+    {% for item in items %}
+    {
+        id: {{ item.id | tojson }},
+        code: {{ (item.code or '') | tojson }},
+        barcode: {{ (item.barcode or '') | tojson }},
+        categoryId: {{ (item.categoryId or 'general') | tojson }},
+        name: {{ item.name | tojson }},
+        price: {{ item.price | tojson }},
+        type: {{ (item.type or 'Bien') | tojson }},
+        itbisRate: {{ (item.itbisRate or 0.18) | tojson }}
+    }{% if not loop.last %},{% endif %}
+    {% endfor %}
+];
+
+let cart = [];
+let currentPaymentMethod = 'Efectivo';
+let currentClientId = 'default';
+let currentClientName = 'Consumidor Final';
+let currentClientRNC = '999999999';
+let currentEcfType = 'Factura de Consumo (E32)';
+let successInvoiceId = null;
+
+function saveCart() {
+    localStorage.setItem('pos_cart', JSON.stringify(cart));
+}
+
+// Inicialización
+document.addEventListener('DOMContentLoaded', () => {
+    filterCatalog('all');
+    
+    // Cargar carrito desde caché (localStorage)
+    const savedCart = localStorage.getItem('pos_cart');
+    if (savedCart) {
+        try {
+            cart = JSON.parse(savedCart);
+            renderCart();
+        } catch (e) {
+            console.error('Error al restaurar carrito:', e);
+            cart = [];
+        }
+    }
+    
+    focusBarcode();
+    
+    // Captura de atajos de teclado
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'F10') {
+            e.preventDefault();
+            if (cart.length > 0) openCheckoutModal();
+        }
+    });
+});
+
+function focusBarcode() {
+    const input = document.getElementById('barcode-search');
+    if (input) input.focus();
+}
+
+function handleBarcodeSearch(event) {
+    if (event.key === 'Enter') {
+        event.preventDefault();
+        const value = event.target.value.trim().toLowerCase();
+        if (!value) return;
+        
+        // Buscar por código exacto o código de barras
+        const product = productCatalog.find(p => p.barcode.toLowerCase() === value || p.code.toLowerCase() === value);
+        if (product) {
+            addToCart(product.id);
+            event.target.value = '';
+        } else {
+            // Si no coincide exacto, aplicar filtro normal en la grilla
+            applyTextSearchFilter(value);
+        }
+    }
+}
+
+function applyTextSearchFilter(query) {
+    const grid = document.getElementById('products-grid');
+    grid.innerHTML = '';
+    
+    const filtered = productCatalog.filter(p => 
+        p.name.toLowerCase().includes(query) || 
+        p.code.toLowerCase().includes(query) || 
+        p.barcode.toLowerCase().includes(query)
+    );
+    
+    renderProductGrid(filtered);
+}
+
+function filterCatalog(categoryId) {
+    // Actualizar chips activos
+    document.querySelectorAll('.cat-chip').forEach(el => el.classList.remove('active'));
+    document.getElementById(`chip-${categoryId}`).classList.add('active');
+    
+    const filtered = categoryId === 'all' 
+        ? productCatalog 
+        : productCatalog.filter(p => p.categoryId === categoryId);
+        
+    renderProductGrid(filtered);
+}
+
+function renderProductGrid(products) {
+    const grid = document.getElementById('products-grid');
+    grid.innerHTML = '';
+    
+    if (products.length === 0) {
+        grid.innerHTML = `
+            <div style="grid-column: 1 / -1; text-align: center; padding: 40px 0; color: var(--text-secondary);">
+                <i class="fa-solid fa-boxes-packing" style="font-size: 2.5rem; color: var(--text-muted); opacity: 0.5; margin-bottom: 8px; display: block;"></i>
+                <span>No se encontraron productos</span>
+            </div>
+        `;
+        return;
+    }
+    
+    products.forEach(p => {
+        const card = document.createElement('div');
+        card.className = 'product-pos-card';
+        card.style = `
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            padding: 16px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            gap: 12px;
+        `;
+        card.setAttribute('onclick', `addToCart('${p.id}')`);
+        card.onmouseover = function() { this.style.borderColor = 'var(--accent-emerald)'; this.style.transform = 'translateY(-2px)'; };
+        card.onmouseout = function() { this.style.borderColor = 'var(--border-color)'; this.style.transform = 'none'; };
+        
+        card.innerHTML = `
+            <div>
+                <strong style="display: block; font-size: 0.88rem; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;">${p.name}</strong>
+                <span style="font-size: 0.72rem; color: var(--text-muted); font-family: monospace; display: block; margin-top: 4px;">SKU: ${p.code || 'S/C'}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-size: 1rem; font-weight: 800; color: var(--accent-emerald);">RD$ ${p.price.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                <span class="badge ${p.type === 'Servicio' ? 'badge-primary' : 'badge-success'}" style="font-size: 0.62rem; padding: 2px 6px;">${p.type}</span>
+            </div>
+        `;
+        grid.appendChild(card);
+    });
+}
+
+function addToCart(productId) {
+    const product = productCatalog.find(p => p.id === productId);
+    if (!product) return;
+    
+    const existing = cart.find(item => item.id === productId);
+    if (existing) {
+        existing.quantity++;
+    } else {
+        cart.push({
+            id: product.id,
+            name: product.name,
+            price: product.price,
+            itbisRate: product.itbisRate,
+            type: product.type,
+            quantity: 1
+        });
+    }
+    
+    renderCart();
+    saveCart();
+    focusBarcode();
+}
+
+function updateQty(productId, delta) {
+    const item = cart.find(i => i.id === productId);
+    if (!item) return;
+    
+    item.quantity += delta;
+    if (item.quantity <= 0) {
+        cart = cart.filter(i => i.id !== productId);
+    }
+    
+    renderCart();
+    saveCart();
+}
+
+function deleteCartItem(productId) {
+    cart = cart.filter(i => i.id !== productId);
+    renderCart();
+    saveCart();
+}
+
+function renderCart() {
+    const container = document.getElementById('cart-items');
+    const emptyState = document.getElementById('cart-empty-state');
+    
+    // Limpiar ítems renderizados anteriores
+    const elements = container.querySelectorAll('.cart-row');
+    elements.forEach(el => el.remove());
+    
+    if (cart.length === 0) {
+        if (emptyState) emptyState.style.display = 'block';
+        document.getElementById('btn-cobrar').disabled = true;
+        document.getElementById('cart-count').textContent = '0 artículos';
+        updateTotals(0, 0, 0);
+        return;
+    }
+    
+    if (emptyState) emptyState.style.display = 'none';
+    document.getElementById('btn-cobrar').disabled = false;
+    
+    let subtotal = 0;
+    let totalItbis = 0;
+    let totalItemsCount = 0;
+    
+    cart.forEach(item => {
+        totalItemsCount += item.quantity;
+        
+        // Calcular fiscalmente: el precio ya incluye el ITBIS en la lógica comercial de mostrador
+        // Fórmula de desglose: Base = Total / (1 + Tasa ITBIS)
+        const lineTotal = item.price * item.quantity;
+        const lineBase = lineTotal / (1 + item.itbisRate);
+        const lineItbis = lineTotal - lineBase;
+        
+        subtotal += lineBase;
+        totalItbis += lineItbis;
+        
+        const row = document.createElement('div');
+        row.className = 'cart-row';
+        row.style = `
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+        `;
+        row.innerHTML = `
+            <div style="flex-grow: 1; overflow: hidden;">
+                <strong style="display: block; font-size: 0.85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${item.name}</strong>
+                <span style="font-size: 0.75rem; color: var(--text-muted);">RD$ ${item.price.toFixed(2)} c/u</span>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
+                <button onclick="updateQty('${item.id}', -1)" style="width: 24px; height: 24px; border-radius: 50%; border: 1px solid var(--border-color); background: none; cursor: pointer; color: var(--text-primary); font-weight: bold;">-</button>
+                <span style="font-size: 0.85rem; font-weight: 700; width: 20px; text-align: center;">${item.quantity}</span>
+                <button onclick="updateQty('${item.id}', 1)" style="width: 24px; height: 24px; border-radius: 50%; border: 1px solid var(--border-color); background: none; cursor: pointer; color: var(--text-primary); font-weight: bold;">+</button>
+            </div>
+            <div style="text-align: right; width: 80px; flex-shrink: 0; display: flex; align-items: center; justify-content: flex-end; gap: 10px;">
+                <strong style="font-size: 0.85rem; color: var(--text-primary);">RD$ ${lineTotal.toFixed(2)}</strong>
+                <button onclick="deleteCartItem('${item.id}')" style="background: none; border: none; color: var(--accent-red); cursor: pointer; font-size: 0.95rem;">
+                    <i class="fa-solid fa-trash-can"></i>
+                </button>
+            </div>
+        `;
+        container.appendChild(row);
+    });
+    
+    document.getElementById('cart-count').textContent = `${totalItemsCount} artículos`;
+    const total = subtotal + totalItbis;
+    updateTotals(subtotal, totalItbis, total);
+}
+
+function updateTotals(sub, itbis, total) {
+    document.getElementById('subtotal-val').textContent = `RD$ ${sub.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+    document.getElementById('itbis-val').textContent = `RD$ ${itbis.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+    document.getElementById('total-val').textContent = `RD$ ${total.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+}
+
+function setPaymentMethod(method) {
+    currentPaymentMethod = method;
+    document.querySelectorAll('.pay-method-btn').forEach(btn => btn.classList.remove('active'));
+    
+    if (method === 'Efectivo') document.getElementById('pay-cash').classList.add('active');
+    else if (method === 'Tarjeta') document.getElementById('pay-card').classList.add('active');
+    else if (method === 'Transferencia') document.getElementById('pay-trans').classList.add('active');
+    
+    focusBarcode();
+}
+
+function updateClientInfo() {
+    const selector = document.getElementById('client-selector');
+    const selected = selector.options[selector.selectedIndex];
+    
+    currentClientId = selector.value;
+    currentClientName = selected.getAttribute('data-name');
+    currentClientRNC = selected.getAttribute('data-rnc');
+    
+    document.getElementById('client-rnc-label').textContent = `RNC: ${currentClientRNC}`;
+    
+    // Determinar e-CF automáticamente según presencia y largo de RNC
+    const label = document.getElementById('client-type-label');
+    if (currentClientRNC === '999999999' || !currentClientRNC) {
+        currentEcfType = 'Factura de Consumo (E32)';
+        label.textContent = 'Factura de Consumo (E32)';
+    } else {
+        currentEcfType = 'Factura de Crédito Fiscal (E31)';
+        label.textContent = 'Crédito Fiscal (E31)';
+    }
+}
+
+// Lógica de Cobro y Checkout Modal
+function getCartTotalAmount() {
+    let total = 0;
+    cart.forEach(item => {
+        total += item.price * item.quantity;
+    });
+    return total;
+}
+
+function openCheckoutModal() {
+    const total = getCartTotalAmount();
+    document.getElementById('checkout-total').textContent = `RD$ ${total.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+    
+    const calcFields = document.getElementById('cash-calculator-fields');
+    if (currentPaymentMethod === 'Efectivo') {
+        calcFields.style.display = 'block';
+        document.getElementById('received-amount').value = '';
+        document.getElementById('change-amount').textContent = 'RD$ 0.00';
+        setupBillSuggestions(total);
+    } else {
+        calcFields.style.display = 'none';
+    }
+    
+    document.getElementById('checkout-modal').style.display = 'flex';
+    if (currentPaymentMethod === 'Efectivo') {
+        setTimeout(() => document.getElementById('received-amount').focus(), 100);
+    }
+}
+
+function closeCheckoutModal() {
+    document.getElementById('checkout-modal').style.display = 'none';
+    focusBarcode();
+}
+
+function setupBillSuggestions(total) {
+    const container = document.getElementById('bill-suggestions');
+    container.innerHTML = '';
+    
+    const denominations = [100, 200, 500, 1000, 2000];
+    const suggestions = [];
+    
+    // Billetes fijos si total es menor
+    denominations.forEach(den => {
+        if (den >= total && suggestions.length < 4) {
+            suggestions.push(den);
+        }
+    });
+    
+    // Agregar el monto exacto
+    suggestions.unshift(Math.ceil(total));
+    
+    // Filtrar duplicados y tomar máximo 4 opciones
+    const uniqueSuggestions = [...new Set(suggestions)].slice(0, 4);
+    
+    uniqueSuggestions.forEach(amt => {
+        const btn = document.createElement('button');
+        btn.className = 'btn btn-secondary';
+        btn.style = 'padding: 6px 12px; font-size: 0.85rem; font-weight: 700; cursor: pointer;';
+        btn.textContent = `RD$ ${amt}`;
+        btn.addEventListener('click', () => {
+            document.getElementById('received-amount').value = amt;
+            calculateChange();
+        });
+        container.appendChild(btn);
+    });
+}
+
+function calculateChange() {
+    const total = getCartTotalAmount();
+    const received = parseFloat(document.getElementById('received-amount').value) || 0;
+    const change = Math.max(0, received - total);
+    
+    document.getElementById('change-amount').textContent = `RD$ ${change.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+}
+
+function processCheckoutSubmit() {
+    const total = getCartTotalAmount();
+    const received = parseFloat(document.getElementById('received-amount').value) || 0;
+    
+    if (currentPaymentMethod === 'Efectivo' && received < total) {
+        alert('El monto recibido es menor al total a pagar.');
+        return;
+    }
+    
+    // Deshabilitar botón para evitar doble submit
+    const btn = document.getElementById('btn-finalizar-venta');
+    btn.disabled = true;
+    btn.textContent = 'Procesando e-CF...';
+    
+    // Construir estructura para llamar a la API POS
+    const payload = {
+        clientId: currentClientId === 'default' ? '' : currentClientId,
+        clientName: currentClientName,
+        clientRNC: currentClientRNC,
+        paymentMethod: currentPaymentMethod,
+        ecfType: currentEcfType,
+        items: cart.map(item => ({
+            id: item.id,
+            name: item.name,
+            price: item.price,
+            quantity: item.quantity,
+            itbisRate: item.itbisRate,
+            type: item.type
+        }))
+    };
+    
+    fetch('/pos/invoice/new', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload)
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            successInvoiceId = data.invoiceId;
+            if (data.consolidated) {
+                document.getElementById('success-msg').innerHTML =
+                    `<span style="color:#ca8a04;"><i class="fa-solid fa-layer-group"></i> Venta registrada en modo consolidado.</span><br>` +
+                    `<small style="color:#92400e; font-size:0.82rem;">Esta venta ser\u00e1 incluida en un \u00fanico Comprobante Electr\u00f3nico de Consumo (E32) al cerrar el turno, seg\u00fan Norma DGII 02-2023.</small>`;
+            } else {
+                document.getElementById('success-msg').textContent = `Comprobante ${data.encf} emitido de forma exitosa.`;
+            }
+            document.getElementById('checkout-modal').style.display = 'none';
+            document.getElementById('success-modal').style.display = 'flex';
+
+            // Vaciar y guardar carrito vacío en caché al finalizar venta
+            cart = [];
+            saveCart();
+        } else {
+            alert(`Error al guardar venta: ${data.error}`);
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-check-double"></i> <span>Registrar Venta (e-CF)</span>';
+        }
+    })
+    .catch(err => {
+        console.error(err);
+        alert('Ocurrió un error al conectar con el servidor.');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-check-double"></i> <span>Registrar Venta (e-CF)</span>';
+    });
+}
+
+function printCurrentReceipt() {
+    if (successInvoiceId) {
+        window.open(`/pos/invoice/${successInvoiceId}/print`, '_blank');
+    }
+}
+
+function reloadPOS() {
+    cart = [];
+    saveCart();
+    renderCart();
+    clearPOSClient();
+    document.getElementById('success-modal').style.display = 'none';
+    focusBarcode();
+}
+
+// Lógica de Registro de Cliente desde POS
+function openNewClientModal() {
+    document.getElementById('new-client-error').style.display = 'none';
+    document.getElementById('new-client-razonSocial').value = '';
+    document.getElementById('new-client-rnc').value = '';
+    document.getElementById('new-client-email').value = '';
+    document.getElementById('new-client-telefono').value = '';
+    document.getElementById('new-client-direccion').value = '';
+    document.getElementById('new-client-modal').style.display = 'flex';
+}
+
+function closeNewClientModal() {
+    document.getElementById('new-client-modal').style.display = 'none';
+}
+
+function lookupRNCFromPOS() {
+    const rncInput = document.getElementById('new-client-rnc');
+    const rnc = rncInput.value.trim().replace(/-/g, '');
+    if (!rnc || rnc.length < 9) {
+        alert('Por favor ingrese un RNC o Cédula válido (mínimo 9 dígitos).');
+        rncInput.focus();
+        return;
+    }
+    
+    const btn = document.getElementById('btn-lookup-rnc');
+    const nameInput = document.getElementById('new-client-razonSocial');
+    
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+    
+    fetch('/reports/check-directory-ajax', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rnc: rnc })
+    })
+    .then(r => r.json())
+    .then(data => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-magnifying-glass"></i>';
+        
+        let realData = data.success && data.data ? data.data : data;
+        
+        if (data.success) {
+            const clientName = realData.razonSocial || realData.companyName || 'Empresa Homologada Electrónica SRL';
+            nameInput.value = clientName;
+            // Ocultar error previo si existe
+            document.getElementById('new-client-error').style.display = 'none';
+        } else {
+            alert('El RNC no está activo en el directorio de facturación electrónica de la DGII, pero puedes proceder a guardarlo manualmente para Crédito Fiscal si es necesario.');
+        }
+    })
+    .catch(err => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-magnifying-glass"></i>';
+        console.error(err);
+        alert('Error al consultar el RNC. Por favor, digítalo manualmente.');
+    });
+}
+
+function submitNewClientFromPOS() {
+    const razonSocial = document.getElementById('new-client-razonSocial').value.trim();
+    const rnc = document.getElementById('new-client-rnc').value.trim();
+    const email = document.getElementById('new-client-email').value.trim();
+    const telefono = document.getElementById('new-client-telefono').value.trim();
+    const direccion = document.getElementById('new-client-direccion').value.trim();
+    
+    if (!razonSocial) {
+        showClientError('La Razón Social es requerida.');
+        return;
+    }
+    
+    if (!rnc) {
+        showClientError('El RNC o Cédula es requerido para facturar crédito fiscal.');
+        return;
+    }
+    
+    const btn = document.getElementById('btn-save-client');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Guardando...';
+    
+    fetch('/clients/ajax_create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            rnc: rnc,
+            razonSocial: razonSocial,
+            email: email,
+            telefono: telefono,
+            direccion: direccion
+        })
+    })
+    .then(r => r.json())
+    .then(data => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Guardar Cliente';
+        
+        if (data.success) {
+            // Seleccionar el nuevo cliente directamente
+            selectPOSClient(data.client);
+            closeNewClientModal();
+        } else {
+            showClientError(data.error || 'Error al guardar cliente.');
+        }
+    })
+    .catch(err => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Guardar Cliente';
+        showClientError(err.message || 'Error de conexión.');
+    });
+}
+
+function showClientError(msg) {
+    const errDiv = document.getElementById('new-client-error');
+    errDiv.textContent = msg;
+    errDiv.style.display = 'block';
+}
+
+// Lógica de Búsqueda de Clientes en POS (Local / DGII)
+function performClientPOSSearch() {
+    const input = document.getElementById('client-search-input');
+    const rnc = input.value.trim().replace(/-/g, '');
+    
+    if (!rnc) {
+        clearPOSClient();
+        return;
+    }
+    
+    if (rnc === '999999999') {
+        clearPOSClient();
+        return;
+    }
+    
+    const btn = document.getElementById('btn-client-search');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+    
+    fetch('/pos/client/lookup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rnc: rnc })
+    })
+    .then(r => r.json())
+    .then(data => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-magnifying-glass"></i>';
+        
+        if (data.success) {
+            // Seleccionar cliente
+            selectPOSClient(data.client);
+        } else {
+            // No encontrado. Preguntar si desea registrarlo
+            const confirmRegister = confirm('El cliente no existe localmente ni en la DGII. ¿Deseas registrarlo manualmente?');
+            if (confirmRegister) {
+                openNewClientModal();
+                // Pre-rellenar RNC
+                document.getElementById('new-client-rnc').value = rnc;
+                document.getElementById('new-client-razonSocial').focus();
+            }
+        }
+    })
+    .catch(err => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-magnifying-glass"></i>';
+        console.error(err);
+        alert('Error al buscar cliente.');
+    });
+}
+
+function selectPOSClient(client) {
+    currentClientId = client.id;
+    currentClientName = client.razonSocial;
+    currentClientRNC = client.rnc;
+
+    document.getElementById('client-display-name').textContent = client.razonSocial;
+    document.getElementById('client-rnc-label').textContent = `RNC: ${client.rnc}`;
+
+    const typeSelect = document.getElementById('client-type-select');
+
+    // Consumidor Final genérico → sólo Consumo E32, selector bloqueado
+    if (client.rnc === '999999999' || !client.rnc) {
+        currentEcfType = 'Factura de Consumo (E32)';
+        typeSelect.value = 'Factura de Consumo (E32)';
+        typeSelect.disabled = true;
+        typeSelect.style.cursor = 'not-allowed';
+        typeSelect.style.color = 'var(--text-muted)';
+    } else {
+        // Cliente real → pre-seleccionar Crédito Fiscal pero permitir cambio
+        currentEcfType = 'Factura de Crédito Fiscal (E31)';
+        typeSelect.value = 'Factura de Crédito Fiscal (E31)';
+        typeSelect.disabled = false;
+        typeSelect.style.cursor = 'pointer';
+        typeSelect.style.color = 'var(--text-primary)';
+    }
+
+    document.getElementById('btn-clear-client').style.display = 'inline-block';
+
+    // Rellenar input con el RNC seleccionado
+    document.getElementById('client-search-input').value = client.rnc;
+}
+
+function clearPOSClient() {
+    currentClientId = 'default';
+    currentClientName = 'Consumidor Final';
+    currentClientRNC = '999999999';
+    currentEcfType = 'Factura de Consumo (E32)';
+
+    document.getElementById('client-display-name').textContent = 'Consumidor Final';
+    document.getElementById('client-rnc-label').textContent = 'RNC: 999999999';
+
+    const typeSelect = document.getElementById('client-type-select');
+    typeSelect.value = 'Factura de Consumo (E32)';
+    typeSelect.disabled = true;
+    typeSelect.style.cursor = 'not-allowed';
+    typeSelect.style.color = 'var(--text-muted)';
+
+    document.getElementById('client-search-input').value = '';
+    document.getElementById('btn-clear-client').style.display = 'none';
+}
+
+function updateEcfTypeFromSelect(value) {
+    currentEcfType = value;
+}
+</script>
+
+<style>
+/* Estilos premium para la terminal de venta rápida */
+.cat-chip {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    padding: 6px 14px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+.cat-chip:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text-primary);
+}
+.cat-chip.active {
+    background: var(--accent-emerald);
+    color: white;
+    border-color: var(--accent-emerald);
+}
+
+.pay-method-btn {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    border-radius: var(--radius-sm);
+    padding: 10px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    transition: all 0.2s ease;
+}
+.pay-method-btn:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+.pay-method-btn.active {
+    background: rgba(16, 185, 129, 0.1);
+    color: var(--accent-emerald);
+    border-color: var(--accent-emerald);
+}
+</style>
+{% endblock %}

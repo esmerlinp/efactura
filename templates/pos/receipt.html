@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ticket {{ invoice.invoiceNumber }}</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 12px;
+            color: #000;
+            background: #fff;
+            padding: 10px;
+            width: 80mm;
+            margin: 0 auto;
+        }
+        
+        /* Previsualización en pantalla */
+        @media screen {
+            body {
+                margin: 30px auto;
+                border: 1px solid #ccc;
+                box-shadow: 0 0 10px rgba(0,0,0,0.15);
+                padding: 15px;
+                border-radius: 4px;
+                background: #fbfbfb;
+            }
+            .screen-actions {
+                display: flex;
+                justify-content: space-between;
+                margin-bottom: 20px;
+                gap: 10px;
+            }
+            .btn {
+                flex: 1;
+                padding: 8px 12px;
+                border-radius: 4px;
+                border: 1px solid #ddd;
+                background: #f0f0f0;
+                cursor: pointer;
+                font-family: system-ui, -apple-system, sans-serif;
+                font-size: 13px;
+                font-weight: 600;
+                text-align: center;
+                text-decoration: none;
+                color: #333;
+            }
+            .btn-primary {
+                background: #10b981;
+                color: white;
+                border-color: #059669;
+            }
+        }
+        
+        @media print {
+            .screen-actions {
+                display: none !important;
+            }
+            body {
+                margin: 0;
+                padding: 5px;
+                width: 100%;
+                border: none;
+                box-shadow: none;
+            }
+        }
+
+        .text-center { text-align: center; }
+        .text-right { text-align: right; }
+        .bold { font-weight: bold; }
+        
+        .divider {
+            border-top: 1px dashed #000;
+            margin: 8px 0;
+        }
+        .double-divider {
+            border-top: 2px double #000;
+            margin: 8px 0;
+        }
+
+        .header-section {
+            margin-bottom: 12px;
+            line-height: 1.4;
+        }
+        .company-name {
+            font-size: 16px;
+            font-weight: bold;
+            margin-bottom: 4px;
+        }
+        
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 2px 0;
+        }
+        
+        .items-section {
+            margin: 10px 0;
+        }
+        .item-row {
+            margin-bottom: 6px;
+        }
+        .item-header {
+            display: flex;
+            justify-content: space-between;
+            font-weight: bold;
+        }
+        .item-details {
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            padding-left: 10px;
+            color: #333;
+        }
+        
+        .totals-section {
+            margin: 10px 0;
+            line-height: 1.5;
+        }
+        
+        .qr-section {
+            margin: 15px 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+        }
+        .qr-image {
+            width: 120px;
+            height: 120px;
+        }
+        .xml-signature {
+            font-size: 10px;
+            word-break: break-all;
+        }
+        
+        /* Sandbox watermark overlay */
+        .sandbox-watermark {
+            border: 2px solid #ff0000;
+            color: #ff0000;
+            font-weight: bold;
+            text-align: center;
+            padding: 6px;
+            margin: 10px 0;
+            text-transform: uppercase;
+            font-size: 13px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="screen-actions">
+        <button class="btn btn-primary" onclick="window.print()">🖨️ Imprimir</button>
+        <button class="btn" onclick="window.close()">✕ Cerrar</button>
+    </div>
+
+    {% if sandbox %}
+    <div class="sandbox-watermark">
+        SANDBOX - SIN VALOR FISCAL
+    </div>
+    {% endif %}
+
+    <div class="header-section text-center">
+        {% if company.logoUrl %}
+        <div style="margin-bottom: 6px;">
+            <img src="{{ company.logoUrl }}" alt="Logo" style="max-height: 50px; max-width: 150px; object-fit: contain;">
+        </div>
+        {% endif %}
+        <div class="company-name">{{ company.tradeName or company.companyName }}</div>
+        <div>RNC: {{ company.companyRNC }}</div>
+        {% if branch %}
+        <div>Sucursal: {{ branch.name }}</div>
+        {% endif %}
+        <div>Tel: {{ company.companyPhone }}</div>
+        <div>{{ company.companyAddress }}</div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="header-section">
+        {% if invoice.encf %}
+        <div class="bold text-center" style="font-size: 13px; margin-bottom: 4px;">{{ invoice.ecfType }}</div>
+        <div class="bold">e-NCF: {{ invoice.encf }}</div>
+        {% if invoice.modifiedNCF %}
+        <div>Modifica NCF: {{ invoice.modifiedNCF }}</div>
+        {% endif %}
+        {% else %}
+        <div class="bold text-center" style="font-size: 13px; margin-bottom: 4px;">DOCUMENTO INTERNO (VENTA)</div>
+        {% endif %}
+        <div>Doc: {{ invoice.invoiceNumber }}</div>
+        <div>Fecha: {{ formatted_date }} {{ formatted_time }}</div>
+        <div>Cajero: {{ session['user']['name'] or 'Caja General' }}</div>
+        <div>Condición: Contado</div>
+        {% if invoice.paymentMethod %}
+        <div>Método Pago: {{ invoice.paymentMethod }}</div>
+        {% endif %}
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Info del Cliente -->
+    <div class="header-section">
+        <div class="bold">CLIENTE:</div>
+        <div>Razón Social: {{ invoice.clientName or 'Consumidor Final' }}</div>
+        <div>RNC/Cédula: {{ invoice.clientRNC or '999999999' }}</div>
+    </div>
+
+    <div class="double-divider"></div>
+
+    <div class="bold">DESCRIPCIÓN DE PRODUCTOS</div>
+    <div class="divider"></div>
+
+    <div class="items-section">
+        {% for item in invoice['items'] %}
+        <div class="item-row">
+            <div class="item-header">
+                <span>{{ item.name }}</span>
+            </div>
+            <div class="item-details">
+                <span>{{ item.quantity }} x RD$ {{ "{:,.2f}".format(item.price) }}</span>
+                <span class="bold">RD$ {{ "{:,.2f}".format(item.price * item.quantity) }}</span>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="totals-section">
+        <div class="info-row">
+            <span>Subtotal:</span>
+            <span>RD$ {{ "{:,.2f}".format(invoice.subtotal) }}</span>
+        </div>
+        <div class="info-row">
+            <span>ITBIS Total:</span>
+            <span>RD$ {{ "{:,.2f}".format(invoice.totalITBIS) }}</span>
+        </div>
+        {% if invoice.discountAmount and invoice.discountAmount > 0 %}
+        <div class="info-row">
+            <span>Descuento:</span>
+            <span>-RD$ {{ "{:,.2f}".format(invoice.discountAmount) }}</span>
+        </div>
+        {% endif %}
+        <div class="info-row bold" style="font-size: 14px; margin-top: 4px;">
+            <span>TOTAL A PAGAR:</span>
+            <span>RD$ {{ "{:,.2f}".format(invoice.netPayable) }}</span>
+        </div>
+    </div>
+
+    <div class="divider"></div>
+
+    {% if invoice.encf %}
+    <div class="qr-section text-center">
+        {% if qr_base64 %}
+        <img class="qr-image" src="data:image/png;base64,{{ qr_base64 }}" alt="QR DGII">
+        {% endif %}
+        <div class="xml-signature">Firma: {{ invoice.xmlSignature[:16] }}...</div>
+        <div style="font-size: 9px; margin-top: 4px;">
+            *Este es un Resumen Impreso de Factura Electrónica conforme la Ley 32-23.
+        </div>
+        <div style="font-size: 9px; font-weight: bold; margin-top: 2px;">
+            Valide en: https://dgii.gov.do/validaecf
+        </div>
+    </div>
+    <div class="divider"></div>
+    {% endif %}
+
+    <div class="text-center" style="margin-top: 15px; margin-bottom: 20px; font-size: 11px;">
+        *** ¡Gracias por su compra! ***
+    </div>
+
+    <script>
+        // Disparar el diálogo de impresión automáticamente cuando la página termine de cargarse
+        window.onload = function() {
+            setTimeout(function() {
+                window.print();
+            }, 300);
+        };
+    </script>
+</body>
+</html>
