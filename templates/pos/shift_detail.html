@@ -1,0 +1,158 @@
+{% extends "layout.html" %}
+
+{% block title %}Detalle de Turno - Caja{% endblock %}
+
+{% block page_header %}Detalle de Turno de Caja{% endblock %}
+
+{% block content %}
+<div style="display: flex; flex-direction: column; gap: 30px; width: 100%;">
+
+    <!-- Botón de regreso -->
+    <div style="display: flex; justify-content: flex-start; margin-bottom: -10px;">
+        <a href="{{ url_for('web_pos.pos_admin_dashboard') }}" class="btn btn-secondary" style="height: 38px; display: inline-flex; align-items: center; gap: 8px; font-weight: 600; font-size: 0.85rem; border-color: var(--border-color);">
+            <i class="fa-solid fa-arrow-left"></i>
+            <span>Volver a Administración</span>
+        </a>
+    </div>
+
+    <!-- Fila Superior: Resumen Financiero del Turno -->
+    <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 24px; flex-wrap: wrap;">
+        
+        <!-- Info Básica -->
+        <div class="card-table-wrapper" style="padding: 24px; display: flex; flex-direction: column; justify-content: space-between;">
+            <div>
+                <h4 style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-desktop" style="color: var(--accent-purple);"></i>
+                    <span>Identificación del Turno</span>
+                </h4>
+                
+                <div style="display: flex; flex-direction: column; gap: 12px; font-size: 0.9rem; color: var(--text-secondary);">
+                    <div><strong>Caja Registradora:</strong><br><span style="color: var(--text-primary); font-weight: 700;">{{ shift.registerName }}</span></div>
+                    <div><strong>Operador / Cajero:</strong><br><span style="color: var(--text-primary); font-weight: 700; word-break: break-all;">{{ shift.openedByUserEmail }}</span></div>
+                    <div><strong>ID de Turno (Sistema):</strong><br><span style="font-family: monospace; font-size: 0.8rem;">{{ shift.id }}</span></div>
+                </div>
+            </div>
+            
+            <div style="margin-top: 24px; padding-top: 16px; border-top: 1px dashed var(--border-color);">
+                <span class="badge {% if shift.status == 'OPEN' %}badge-success{% else %}badge-draft{% endif %}" style="font-size: 0.8rem; padding: 6px 12px; font-weight: bold; width: 100%; text-align: center;">
+                    {% if shift.status == 'OPEN' %}Turno Activo{% else %}Turno Cerrado{% endif %}
+                </span>
+            </div>
+        </div>
+
+        <!-- Resultados del Arqueo / Tiempos -->
+        <div class="card-table-wrapper" style="padding: 24px;">
+            <h4 style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-calculator" style="color: var(--accent-emerald);"></i>
+                <span>Resumen del Arqueo Financiero</span>
+            </h4>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 20px; font-size: 0.9rem;">
+                <div style="display: flex; flex-direction: column; gap: 8px; color: var(--text-secondary);">
+                    <div><strong>Fecha Apertura:</strong><br><span style="color: var(--text-primary);">{{ shift.openingTime[:10] }} {{ shift.openingTime[11:19] }}</span></div>
+                    <div><strong>Fecha Cierre:</strong><br><span style="color: var(--text-primary);">{% if shift.closingTime %}{{ shift.closingTime[:10] }} {{ shift.closingTime[11:19] }}{% else %}-{% endif %}</span></div>
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 8px; color: var(--text-secondary);">
+                    <div><strong>Fondo Inicial en Efectivo:</strong><br><span style="color: var(--text-primary); font-weight: 700;">RD$ {{ "{:,.2f}".format(shift.openingAmount) }}</span></div>
+                    <div><strong>Estado Cuadre:</strong><br>
+                        {% if shift.difference is not none %}
+                            {% if shift.difference | abs < 0.01 %}
+                            <span class="badge badge-success" style="font-size: 0.75rem;">Cuadrado (RD$ 0.00)</span>
+                            {% elif shift.difference > 0 %}
+                            <span class="badge badge-primary" style="font-size: 0.75rem;">Sobrante (+RD$ {{ "{:,.2f}".format(shift.difference) }})</span>
+                            {% else %}
+                            <span class="badge badge-danger" style="font-size: 0.75rem;">Faltante (RD$ {{ "{:,.2f}".format(shift.difference) }})</span>
+                            {% endif %}
+                        {% else %}
+                        <span class="badge badge-primary" style="font-size: 0.75rem;">Operando (En curso)</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            {% if shift.status == 'CLOSED' %}
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; border-top: 1px dashed var(--border-color); padding-top: 16px; text-align: center;">
+                <div style="background: rgba(255,255,255,0.02); padding: 12px; border: 1px solid var(--border-color); border-radius: 6px;">
+                    <span style="font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase;">Efectivo Esperado</span>
+                    <div style="font-size: 1.15rem; font-weight: 800; color: var(--text-primary); margin-top: 4px;">RD$ {{ "{:,.2f}".format(shift.closingAmountExpected) }}</div>
+                </div>
+                <div style="background: rgba(255,255,255,0.02); padding: 12px; border: 1px solid var(--border-color); border-radius: 6px;">
+                    <span style="font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase;">Efectivo Declarado</span>
+                    <div style="font-size: 1.15rem; font-weight: 800; color: var(--text-primary); margin-top: 4px;">RD$ {{ "{:,.2f}".format(shift.closingAmountDeclared) }}</div>
+                </div>
+                <div style="background: rgba(255,255,255,0.02); padding: 12px; border: 1px solid var(--border-color); border-radius: 6px;">
+                    <span style="font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase;">Diferencia Arqueo</span>
+                    <div style="font-size: 1.15rem; font-weight: 800; color: {% if shift.difference < 0 %}var(--accent-red){% else %}var(--accent-emerald){% endif %}; margin-top: 4px;">
+                        {% if shift.difference > 0 %}+{% endif %}RD$ {{ "{:,.2f}".format(shift.difference) }}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+    </div>
+
+    <!-- Fila Inferior: Listado de Transacciones Detalladas -->
+    <div class="card-table-wrapper">
+        <div>
+            <h3 style="font-size: 1.25rem; font-family: var(--font-heading); margin-bottom: 4px;">Historial de Movimientos del Turno</h3>
+            <p style="color: var(--text-secondary); font-size: 0.88rem; margin-bottom: 20px;">Listado auditado de todas las transacciones financieras asociadas a esta sesión de caja.</p>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table-premium">
+                <thead>
+                    <tr>
+                        <th>Hora</th>
+                        <th>Tipo de Movimiento</th>
+                        <th>Concepto / Notas de Auditoría</th>
+                        <th>Método de Pago</th>
+                        <th style="text-align: right;">Monto</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if transactions %}
+                        {% for tx in transactions %}
+                        <tr {% if tx.status == 'VOIDED' %}style="opacity: 0.6;"{% endif %}>
+                            <td {% if tx.status == 'VOIDED' %}style="text-decoration: line-through;"{% endif %}>{{ tx.date[11:19] }}</td>
+                            <td>
+                                {% if tx.status == 'VOIDED' %}
+                                <span class="badge badge-voided" style="background: #fee2e2; color: #991b1b; padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: bold;">Anulada</span>
+                                {% else %}
+                                <span class="badge {% if tx.type == 'SALE' %}badge-success{% elif tx.type == 'IN' %}badge-primary{% else %}badge-danger{% endif %}" style="font-size: 0.7rem;">
+                                    {% if tx.type == 'SALE' %}Venta POS
+                                    {% elif tx.type == 'IN' %}Entrada de Efectivo
+                                    {% else %}Salida de Efectivo
+                                    {% endif %}
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td {% if tx.status == 'VOIDED' %}style="text-decoration: line-through; color: var(--text-muted);"{% endif %}>
+                                {{ tx.notes or 'Sin notas registradas' }}
+                                {% if tx.type == 'SALE' and tx.referenceId and tx.status != 'VOIDED' %}
+                                <a href="{{ url_for('web_pos.print_receipt', invoice_id=tx.referenceId) }}" target="_blank" style="margin-left: 10px; color: var(--accent-purple); font-weight: 600; text-decoration: none; font-size: 0.8rem;">
+                                    <i class="fa-solid fa-print"></i> Re-imprimir Ticket
+                                </a>
+                                {% endif %}
+                            </td>
+                            <td {% if tx.status == 'VOIDED' %}style="text-decoration: line-through;"{% endif %}>{{ tx.paymentMethod }}</td>
+                            <td style="text-align: right; font-weight: 700; {% if tx.status == 'VOIDED' %}text-decoration: line-through; color: var(--text-muted);{% else %}color: {% if tx.type == 'OUT' %}var(--accent-red){% else %}var(--accent-emerald){% endif %};{% endif %}">
+                                {% if tx.type == 'OUT' and tx.status != 'VOIDED' %}-{% endif %}RD$ {{ "{:,.2f}".format(tx.amount) }}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="5" style="text-align: center; padding: 40px 0; color: var(--text-secondary);">
+                                <i class="fa-solid fa-receipt" style="font-size: 2.5rem; color: var(--text-muted); margin-bottom: 12px; opacity: 0.5; display: block;"></i>
+                                <span>No se registraron movimientos en este turno de caja.</span>
+                            </td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+{% endblock %}

@@ -52,14 +52,15 @@
             <table class="table-premium" id="items-table">
                 <thead>
                     <tr>
-                        <th>Código</th>
+                        <th>Código / SKU</th>
                         <th>Nombre / Descripción</th>
-                        <th>Ubicación</th>
+                        <th>Ubicación / Cat.</th>
                         <th>Existencia</th>
                         <th>Tipo</th>
                         <th>Medida</th>
                         <th>Tasa ITBIS</th>
-                        <th>Precio Unitario</th>
+                        <th>Costo Unitario</th>
+                        <th>Precio Venta</th>
                         <th style="text-align: right;">Acciones</th>
                     </tr>
                 </thead>
@@ -68,14 +69,21 @@
                         {% for item in items %}
                             <tr class="item-row" 
                                 data-code="{{ item.code or '' }}" 
+                                data-barcode="{{ item.barcode or '' }}" 
+                                data-category="{{ item.categoryId or 'general' }}" 
                                 data-name="{{ item.name or '' }}" 
                                 data-location="{{ item.rackLocation or '' }}" 
                                 data-type="{{ item.type or 'Bien' }}" 
                                 data-stock-low="{% if item.type == 'Bien' and item.totalStock <= item.minStock and item.minStock > 0 %}true{% else %}false{% endif %}">
                                 <td>
-                                    <span style="font-family: monospace; font-size: 0.85rem; background-color: var(--bg-input); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-color);">
+                                    <span style="font-family: monospace; font-size: 0.85rem; background-color: var(--bg-input); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-color); display: block; margin-bottom: 4px; text-align: center;">
                                         {{ item.code or 'S/C' }}
                                     </span>
+                                    {% if item.barcode %}
+                                    <span style="font-size: 0.75rem; color: var(--text-secondary); display: block; text-align: center;">
+                                        <i class="fa-solid fa-barcode"></i> {{ item.barcode }}
+                                    </span>
+                                    {% endif %}
                                 </td>
                                 <td>
                                     <strong>{{ item.name }}</strong>
@@ -102,8 +110,11 @@
                                     {% endif %}
                                 </td>
                                 <td>
-                                    <span style="font-size: 0.88rem; color: var(--text-secondary);">
+                                    <span style="font-size: 0.88rem; color: var(--text-secondary); display: block; margin-bottom: 4px;">
                                         {{ item.rackLocation or '—' }}
+                                    </span>
+                                    <span style="font-size: 0.75rem; background-color: rgba(99, 102, 241, 0.1); color: var(--accent-purple); padding: 2px 6px; border-radius: 20px; font-weight: 600; display: inline-block;">
+                                        {{ item.categoryId | capitalize if item.categoryId else 'General' }}
                                     </span>
                                 </td>
                                 <td>
@@ -130,6 +141,9 @@
                                     <strong style="color: var(--accent-purple);">{{ "{:.0%}".format(item.itbisRate) }}</strong>
                                 </td>
                                 <td>
+                                    <span style="color: var(--text-secondary); font-size: 0.9rem;">RD$ {{ "{:,.2f}".format(item.costPrice or 0.0) }}</span>
+                                </td>
+                                <td>
                                     <strong>RD$ {{ "{:,.2f}".format(item.price) }}</strong>
                                 </td>
                                 <td style="text-align: right;">
@@ -148,7 +162,7 @@
                         {% endfor %}
                     {% else %}
                         <tr id="no-items-placeholder">
-                            <td colspan="9" style="text-align: center; padding: 60px 0; color: var(--text-secondary);">
+                            <td colspan="10" style="text-align: center; padding: 60px 0; color: var(--text-secondary);">
                                 <i class="fa-solid fa-boxes-stacked" style="font-size: 3rem; color: var(--text-muted); margin-bottom: 16px; opacity: 0.5; display: block;"></i>
                                 <span>No hay productos registrados en el catálogo aún.</span>
                                 <a href="{{ url_for('new_item') }}" style="color: var(--accent-emerald); font-weight: 600; display: block; margin-top: 10px;">Crear primer artículo</a>
@@ -158,7 +172,7 @@
                     
                     <!-- Fila oculta de búsqueda sin resultados -->
                     <tr id="no-results-row" style="display: none;">
-                        <td colspan="9" style="text-align: center; padding: 60px 0; color: var(--text-secondary);">
+                        <td colspan="10" style="text-align: center; padding: 60px 0; color: var(--text-secondary);">
                             <i class="fa-solid fa-magnifying-glass" style="font-size: 3rem; color: var(--text-muted); margin-bottom: 16px; opacity: 0.5; display: block;"></i>
                             <span>No se encontraron artículos que coincidan con los filtros de búsqueda aplicados.</span>
                         </td>
@@ -253,10 +267,12 @@ function applyFilters() {
 
     filteredRows = rows.filter(row => {
         // 1. Filtrado por texto de búsqueda
-        const code = row.getAttribute('data-code').toLowerCase();
-        const name = row.getAttribute('data-name').toLowerCase();
-        const location = row.getAttribute('data-location').toLowerCase();
-        const matchesSearch = code.includes(searchVal) || name.includes(searchVal) || location.includes(searchVal);
+        const code = (row.getAttribute('data-code') || '').toLowerCase();
+        const barcode = (row.getAttribute('data-barcode') || '').toLowerCase();
+        const name = (row.getAttribute('data-name') || '').toLowerCase();
+        const location = (row.getAttribute('data-location') || '').toLowerCase();
+        const category = (row.getAttribute('data-category') || '').toLowerCase();
+        const matchesSearch = code.includes(searchVal) || barcode.includes(searchVal) || name.includes(searchVal) || location.includes(searchVal) || category.includes(searchVal);
         
         // 2. Filtrado por tipo (Bien/Servicio)
         const type = row.getAttribute('data-type');

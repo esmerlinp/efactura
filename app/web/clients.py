@@ -70,7 +70,7 @@ def ajax_create_client():
     """Ruta AJAX para crear un cliente desde la pantalla de facturación sin recargar la página."""
     if 'user' not in session:
         return jsonify({"success": False, "error": "No autenticado."}), 401
-    if not check_permission('canClients'):
+    if not (check_permission('canClients') or check_permission('canManagePOS')):
         return jsonify({"success": False, "error": "Sin permiso para registrar clientes."}), 403
     
     owner_uid = session['user']['ownerUID']

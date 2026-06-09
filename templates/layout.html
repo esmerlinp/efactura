@@ -199,6 +199,7 @@
                         <i class="fa-solid fa-chevron-down section-toggle-icon"></i>
                     </div>
                     <ul class="sidebar-section-content">
+                        {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canViewDashboard', True) %}
                         <li class="nav-item {% if active_page == 'dashboard' %}active{% endif %}"
                             data-tooltip="Dashboard">
                             <a href="{{ url_for('dashboard') }}">
@@ -206,6 +207,7 @@
                                 <span>Dashboard</span>
                             </a>
                         </li>
+                        {% endif %}
                     </ul>
                 </div>
 
@@ -216,6 +218,16 @@
                         <i class="fa-solid fa-chevron-down section-toggle-icon"></i>
                     </div>
                     <ul class="sidebar-section-content">
+                        {% if session.get('user', {}).get('role') == 'owner' or session.get('user',
+                        {}).get('permissions', {}).get('canManagePOS', True) %}
+                        <li class="nav-item {% if active_page == 'pos' %}active{% endif %}"
+                            data-tooltip="Caja / POS">
+                            <a href="{{ url_for('pos_dashboard') }}">
+                                <i class="fa-solid fa-cash-register"></i>
+                                <span>Caja Registradora</span>
+                            </a>
+                        </li>
+                        {% endif %}
                         {% if session.get('user', {}).get('role') == 'owner' or session.get('user',
                         {}).get('permissions', {}).get('canInvoice', True) %}
                         <li class="nav-item {% if active_page == 'invoices' %}active{% endif %}"
@@ -491,14 +503,14 @@
                         </div>
                     </div>
 
-                    <!-- Dropdown de Empresa -->
+                    <!-- Dropdown de Configuración -->
                     <div class="company-dropdown" id="company-dropdown-trigger"
                         style="position: relative; display: inline-block;">
                         <button class="btn btn-secondary"
                             style="padding: 8px 16px; font-size: 0.85rem; display: flex; align-items: center; gap: 8px; cursor: pointer;"
-                            title="Menú de Empresa y Cuenta">
-                            <i class="fa-solid fa-building"></i>
-                            <span>Empresa</span>
+                            title="Menú de Configuración y Cuenta">
+                            <i class="fa-solid fa-gears"></i>
+                            <span>Configuración</span>
                             <i class="fa-solid fa-chevron-down" style="font-size: 0.7rem; opacity: 0.7;"></i>
                         </button>
 
@@ -540,6 +552,26 @@
                                     style="color: var(--accent-emerald); width: 16px; font-size: 0.95rem;"></i>
                                 <span>Administrar Empresa</span>
                             </a>
+
+                            <!-- Opción: Usuarios y Permisos -->
+                            {% if session.get('user', {}).get('role') == 'owner' %}
+                            <a href="{{ url_for('team_settings') }}" style="
+                                display: flex;
+                                align-items: center;
+                                gap: 12px;
+                                padding: 10px 14px;
+                                font-size: 0.85rem;
+                                font-weight: 500;
+                                color: var(--text-primary);
+                                border-radius: var(--radius-sm);
+                                transition: background-color var(--transition-fast);
+                            " onmouseover="this.style.backgroundColor='var(--bg-nav-hover)'"
+                                onmouseout="this.style.backgroundColor='transparent'">
+                                <i class="fa-solid fa-users-gear"
+                                    style="color: var(--accent-emerald); width: 16px; font-size: 0.95rem;"></i>
+                                <span>Usuarios y Permisos</span>
+                            </a>
+                            {% endif %}
 
                             <!-- Opción: Exportar Datos (CSV) -->
                             <div id="btn-open-export-modal" style="
