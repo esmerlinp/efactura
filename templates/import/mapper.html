@@ -1,0 +1,259 @@
+{% extends "layout.html" %}
+
+{% block title %}Asistente de Mapeo de Importación{% endblock %}
+
+{% block page_header %}Mapeador de Importación Universal{% endblock %}
+
+{% block content %}
+<style>
+    .mapper-container {
+        max-width: 900px;
+        margin: 0 auto 40px auto;
+        display: flex;
+        flex-direction: column;
+        gap: 30px;
+    }
+    .mapping-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 16px;
+        background: rgba(255, 255, 255, 0.02);
+        border: 1px solid var(--border-color);
+        padding: 24px;
+        border-radius: var(--radius-md);
+    }
+    .mapping-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 20px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+        flex-wrap: wrap;
+    }
+    .mapping-row:last-child {
+        border-bottom: none;
+        padding-bottom: 0;
+    }
+    .field-info {
+        flex: 1;
+        min-width: 250px;
+    }
+    .field-name {
+        font-weight: 600;
+        font-size: 0.95rem;
+        color: var(--text-primary);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .field-required {
+        color: var(--accent-red);
+        font-size: 0.8rem;
+        font-weight: bold;
+    }
+    .field-optional {
+        color: var(--text-muted);
+        font-size: 0.75rem;
+        font-style: italic;
+    }
+    .field-desc {
+        font-size: 0.82rem;
+        color: var(--text-secondary);
+        margin-top: 4px;
+    }
+    .selector-wrapper {
+        min-width: 240px;
+    }
+    .preview-card {
+        background: #ffffff;
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-md);
+        padding: 24px;
+        box-shadow: var(--shadow-sm);
+    }
+</style>
+
+<div class="mapper-container">
+    <!-- Header Informativo -->
+    <div class="preview-card" style="background: linear-gradient(135deg, rgba(99, 102, 241, 0.05), rgba(16, 185, 129, 0.02)); border-left: 5px solid var(--accent-emerald);">
+        <h3 style="margin: 0 0 8px 0; font-family: var(--font-heading); display: flex; align-items: center; gap: 10px;">
+            <i class="fa-solid fa-wand-magic-sparkles" style="color: var(--accent-emerald);"></i>
+            <span>Asistente de Mapeo Inteligente</span>
+        </h3>
+        <p style="margin: 0; color: var(--text-secondary); font-size: 0.9rem; line-height: 1.5;">
+            Relaciona cada campo del sistema con una columna de tu archivo subido. Hemos seleccionado automáticamente las columnas que parecen coincidir con los campos requeridos.
+        </p>
+    </div>
+
+    <!-- Formulario de Mapeo -->
+    <form action="{{ url_for('web_import_mapper.process_import') }}" method="POST" id="mapper-form">
+        <input type="hidden" name="import_type" value="{{ import_type }}">
+        <input type="hidden" name="temp_filename" value="{{ temp_filename }}">
+
+        <div class="preview-card">
+            <h3 style="margin-top: 0; margin-bottom: 20px; font-family: var(--font-heading); font-size: 1.1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">
+                Asociación de Columnas
+            </h3>
+            <div class="mapping-grid">
+                {% for field in target_fields %}
+                <div class="mapping-row">
+                    <div class="field-info">
+                        <span class="field-name">
+                            {{ field.name }}
+                            {% if field.required %}
+                                <span class="field-required">* Requerido</span>
+                            {% else %}
+                                <span class="field-optional">(Opcional)</span>
+                            {% endif %}
+                        </span>
+                        <div class="field-desc">Campo de destino en e-Factura.</div>
+                    </div>
+                    <div class="selector-wrapper">
+                        <select name="map_{{ field.id }}" id="select_{{ field.id }}" class="form-select column-selector" data-suggestions='{{ field.suggestions | tojson }}' style="width: 100%;" {% if field.required %}required{% endif %}>
+                            <option value="">-- Ignorar este campo --</option>
+                            {% for header in headers %}
+                                <option value="{{ loop.index0 }}">{{ header }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Vista Previa de Datos Mapeados -->
+        <div class="preview-card" style="margin-top: 30px;">
+            <h3 style="margin-top: 0; margin-bottom: 16px; font-family: var(--font-heading); font-size: 1.1rem;">
+                Vista Previa de los Datos (Primeras Filas)
+            </h3>
+            <div class="table-responsive" style="border: 1px solid var(--border-color); border-radius: var(--radius-sm); overflow: hidden;">
+                <table class="table-premium" style="margin: 0;">
+                    <thead>
+                        <tr id="preview-thead">
+                            <!-- Se poblará dinámicamente -->
+                        </tr>
+                    </thead>
+                    <tbody id="preview-tbody">
+                        <!-- Se poblará dinámicamente -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Acciones del Formulario -->
+        <div style="margin-top: 30px; display: flex; justify-content: flex-end; gap: 15px;">
+            {% if import_type == 'clients' %}
+                <a href="{{ url_for('web_clients.list_clients') }}" class="btn btn-secondary" style="height: 44px; display: inline-flex; align-items: center;">Cancelar</a>
+            {% elif import_type == 'products' %}
+                <a href="{{ url_for('list_items') }}" class="btn btn-secondary" style="height: 44px; display: inline-flex; align-items: center;">Cancelar</a>
+            {% else %}
+                <a href="{{ url_for('web_invoices.list_invoices') }}" class="btn btn-secondary" style="height: 44px; display: inline-flex; align-items: center;">Cancelar</a>
+            {% endif %}
+            <button type="submit" class="btn btn-primary" style="height: 44px; display: inline-flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-cloud-arrow-down"></i>
+                <span>Confirmar e Importar Ahora</span>
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const rawPreviewRows = {{ preview_rows | tojson }};
+    const targetFields = {{ target_fields | tojson }};
+    
+    // 1. Auto-mapeo basado en sugerencias
+    targetFields.forEach(field => {
+        const select = document.getElementById(`select_${field.id}`);
+        if (!select) return;
+        
+        const suggestions = JSON.parse(select.getAttribute('data-suggestions') || '[]');
+        
+        // Intentar encontrar coincidencia
+        for (let i = 0; i < select.options.length; i++) {
+            const optionText = select.options[i].text.toLowerCase().trim();
+            
+            // Comprobar coincidencia exacta o por sugerencias
+            const matched = suggestions.some(sugg => {
+                return optionText === sugg.toLowerCase() || 
+                       optionText.includes(sugg.toLowerCase()) ||
+                       sugg.toLowerCase().includes(optionText);
+            });
+            
+            if (matched) {
+                select.selectedIndex = i;
+                break;
+            }
+        }
+    });
+
+    // 2. Renderizar tabla de vista previa basada en las asignaciones actuales
+    function updatePreviewTable() {
+        const thead = document.getElementById('preview-thead');
+        const tbody = document.getElementById('preview-tbody');
+        if (!thead || !tbody) return;
+
+        thead.innerHTML = '';
+        tbody.innerHTML = '';
+
+        // Obtener campos mapeados activos
+        const activeMappings = [];
+        targetFields.forEach(field => {
+            const select = document.getElementById(`select_${field.id}`);
+            if (select && select.value !== "") {
+                activeMappings.push({
+                    id: field.id,
+                    name: field.name,
+                    csvIndex: parseInt(select.value)
+                });
+            }
+        });
+
+        if (activeMappings.length === 0) {
+            thead.innerHTML = '<th>Ningún campo seleccionado</th>';
+            tbody.innerHTML = '<tr><td style="text-align: center; color: var(--text-muted); padding: 20px;">Por favor, asocia al menos una columna para ver la vista previa.</td></tr>';
+            return;
+        }
+
+        // Render cabecera
+        activeMappings.forEach(mapping => {
+            const th = document.createElement('th');
+            th.textContent = mapping.name;
+            thead.appendChild(th);
+        });
+
+        // Render filas de datos
+        if (rawPreviewRows.length === 0) {
+            const tr = document.createElement('tr');
+            const td = document.createElement('td');
+            td.colSpan = activeMappings.length;
+            td.style.textAlign = 'center';
+            td.style.color = 'var(--text-muted)';
+            td.textContent = 'No hay filas de datos disponibles para mostrar.';
+            tr.appendChild(td);
+            tbody.appendChild(tr);
+            return;
+        }
+
+        rawPreviewRows.forEach(row => {
+            const tr = document.createElement('tr');
+            activeMappings.forEach(mapping => {
+                const td = document.createElement('td');
+                td.textContent = row[mapping.csvIndex] || '';
+                tr.appendChild(td);
+            });
+            tbody.appendChild(tr);
+        });
+    }
+
+    // Escuchar cambios en los selectores para refrescar la vista previa
+    document.querySelectorAll('.column-selector').forEach(select => {
+        select.addEventListener('change', updatePreviewTable);
+    });
+
+    // Carga inicial
+    updatePreviewTable();
+});
+</script>
+{% endblock %}

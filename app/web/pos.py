@@ -50,7 +50,8 @@ def pos_dashboard():
     if open_shift:
         current_register = next((r for r in registers if r['id'] == open_shift['registerId']), None)
         transactions = DatabaseService.get_cash_transactions(owner_uid, open_shift['id'], sandbox=sandbox)
-        if current_register and current_register.get('consolidationMode'):
+        company = DatabaseService.get_company_profile(owner_uid)
+        if company and company.get('consolidationEnabled'):
             pending = DatabaseService.get_pending_consolidation_invoices(owner_uid, open_shift['id'], sandbox=sandbox)
             pending_consolidation_count = len(pending)
 
@@ -403,17 +404,16 @@ def create_pos_sale():
     invoice_number = f"POS-{datetime.utcnow().strftime('%y%m%d%H%M%S')}"
 
     # --- Determinar si aplica modo consolidado ---
-    # Condiciones DGII: E32, Consumidor Final (RNC 999999999), total < RD$250,000
-    CONSOLIDATION_THRESHOLD = 250000.0
-    registers = DatabaseService.get_cash_registers(owner_uid, sandbox=sandbox)
-    current_register = next((r for r in registers if r['id'] == open_shift.get('registerId')), None)
-    consolidation_mode = current_register.get('consolidationMode', False) if current_register else False
+    # Condiciones DGII: E32, Consumidor Final (RNC 999999999), total < monto configurable de la empresa
+    company = DatabaseService.get_company_profile(owner_uid)
+    consolidation_enabled = company.get('consolidationEnabled', False)
+    consolidation_threshold = float(company.get('consolidationThreshold') or 250000.0)
     is_consumer_final = (client_id == 'default' or client_rnc == '999999999')
     qualifies_for_consolidation = (
-        consolidation_mode
+        consolidation_enabled
         and ecf_type == 'Factura de Consumo (E32)'
         and is_consumer_final
-        and calcs['total'] < CONSOLIDATION_THRESHOLD
+        and calcs['total'] < consolidation_threshold
     )
     # -------------------------------------------
 

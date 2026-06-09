@@ -223,17 +223,18 @@
                 Sube tu catálogo de forma masiva utilizando un archivo delimitado por comas (.csv). Descarga la plantilla oficial para asegurar el orden correcto de las columnas.
             </p>
             
-            <form action="{{ url_for('import_items_csv') }}" method="POST" enctype="multipart/form-data" style="display: flex; flex-direction: column; gap: 18px;">
+            <form action="{{ url_for('web_import_mapper.upload_file') }}" method="POST" enctype="multipart/form-data" style="display: flex; flex-direction: column; gap: 18px;">
+                <input type="hidden" name="import_type" value="products">
                 <div id="dropzone" style="border: 2px dashed var(--border-color); border-radius: var(--radius-sm); padding: 30px 16px; text-align: center; cursor: pointer; transition: all var(--transition-fast) ease-in-out;">
                     <i class="fa-solid fa-cloud-arrow-up" style="font-size: 2.5rem; color: var(--text-muted); margin-bottom: 12px; display: block; transition: transform var(--transition-fast);"></i>
                     <span style="font-size: 0.88rem; font-weight: 600; color: var(--text-secondary);" id="file-label">Seleccionar archivo .csv</span>
                     <p style="font-size: 0.78rem; color: var(--text-muted); margin-top: 6px; margin-bottom: 0;">o arrastra tu archivo aquí</p>
                 </div>
-                <input type="file" id="csv-file" name="csv_file" accept=".csv" style="display: none;">
+                <input type="file" id="csv-file" name="file" accept=".csv" style="display: none;">
                 
                 <button type="submit" id="upload-btn" class="btn btn-primary" style="width: 100%; transition: all var(--transition-fast) ease;" disabled>
                     <i class="fa-solid fa-upload"></i>
-                    <span>Cargar Catálogo</span>
+                    <span>Cargar y Configurar Mapeo</span>
                 </button>
             </form>
             

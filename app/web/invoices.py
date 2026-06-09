@@ -2381,6 +2381,8 @@ def company_settings():
             "alanubeCompanyIDSandbox": request.form.get('alanubeCompanyIDSandbox', '').strip(),
             "alanubeCompanyIDProduction": request.form.get('alanubeCompanyIDProduction', '').strip(),
             "theme": request.form.get('theme', existing_profile.get('theme', 'moderno')),
+            "consolidationEnabled": request.form.get('consolidationEnabled') == 'true',
+            "consolidationThreshold": float(request.form.get('consolidationThreshold') or 250000.0),
             "configured": True
         }
         DatabaseService.save_company_profile(owner_uid, profile_dict)
