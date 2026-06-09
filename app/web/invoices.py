@@ -9,7 +9,11 @@ import qrcode
 try:
     from weasyprint import HTML as WeasyprintHTML
     WEASYPRINT_AVAILABLE = True
-except Exception:
+    print("✅ WeasyPrint cargado correctamente en invoices.py")
+except Exception as e:
+    import traceback
+    print("❌ ERROR AL CARGAR WEASYPRINT en invoices.py:")
+    traceback.print_exc()
     WEASYPRINT_AVAILABLE = False
 import random
 from config import Config
