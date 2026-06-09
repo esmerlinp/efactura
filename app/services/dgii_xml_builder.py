@@ -324,8 +324,8 @@ class DgiiXmlBuilder:
         ET.SubElement(totales, "TotalISRRetencion").text = f"{retained_isr:.2f}"
         
         # Mapeo y codificación de impuestos adicionales en Totales (Tabla I)
-        total_isc_especifico = float(invoice_data.get("total_isc_especifico", invoice_data.get("totalIscEspecifico", 0.0)))
-        total_isc_advalorem = float(invoice_data.get("total_isc_advalorem", invoice_data.get("totalIscAdvalorem", 0.0)))
+        total_isc_especifico = float(invoice_data.get("total_isc_especifico", invoice_data.get("totalISCEspecifico", invoice_data.get("totalIscEspecifico", 0.0))))
+        total_isc_advalorem = float(invoice_data.get("total_isc_advalorem", invoice_data.get("totalISCAdValorem", invoice_data.get("totalIscAdvalorem", 0.0))))
         otros_impuestos = float(invoice_data.get("totalOtrosImpuestos", 0.0))
         
         monto_impuesto_adicional = total_isc_especifico + total_isc_advalorem + otros_impuestos
@@ -429,6 +429,24 @@ class DgiiXmlBuilder:
             ET.SubElement(detalle, "PrecioUnitarioItem").text = f"{float(item.get('price', 0.0)):.2f}"
             ET.SubElement(detalle, "MontoItem").text = f"{float(item.get('subtotal', 0.0)):.2f}"
             ET.SubElement(detalle, "MontoITBISItem").text = f"{float(item.get('itbisAmount', item.get('itbis_amount', 0.0))):.2f}"
+            
+            # Impuesto Adicional a nivel de Detalle
+            cod_imp = str(item.get("codigoImpuesto", "")).strip().zfill(3)
+            if cod_imp and cod_imp != "000" and cod_imp != "00":
+                impuesto_detalle = ET.SubElement(detalle, "ImpuestoAdicional")
+                ET.SubElement(impuesto_detalle, "TipoImpuesto").text = cod_imp
+                ET.SubElement(impuesto_detalle, "TasaImpuestoAdicional").text = f"{float(item.get('tasaImpuestoAdicional', 0.0)):.2f}"
+                
+                val_esp = float(item.get("isc_especifico_amount", item.get("montoImpuestoSelectivoEspecifico", 0.0)))
+                val_adv = float(item.get("isc_advalorem_amount", item.get("montoImpuestoSelectivoAdvalorem", 0.0)))
+                val_otr = float(item.get("otros_impuestos_amount", 0.0))
+                
+                if '006' <= cod_imp <= '022':
+                    ET.SubElement(impuesto_detalle, "MontoImpuestoSelectivoConsumoEspecífico").text = f"{val_esp:.2f}"
+                elif '023' <= cod_imp <= '039':
+                    ET.SubElement(impuesto_detalle, "MontoImpuestoSelectivoConsumoAdvalorem").text = f"{val_adv:.2f}"
+                else:
+                    ET.SubElement(impuesto_detalle, "MontoOtrosImpuestosAdicionales").text = f"{val_otr:.2f}"
             
         # Convertir a cadena de texto XML formateada
         raw_xml = ET.tostring(root, encoding="utf-8")

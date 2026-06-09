@@ -1,3 +1,10 @@
+import os
+import platform
+
+# Fix para WeasyPrint en desarrollo local con Mac (Apple Silicon / ARM64)
+if platform.system() == 'Darwin':
+    os.environ['DYLD_FALLBACK_LIBRARY_PATH'] = '/opt/homebrew/lib'
+
 # app.py
 from app import create_app
 
