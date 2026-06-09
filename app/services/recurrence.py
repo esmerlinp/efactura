@@ -141,9 +141,39 @@ class RecurrenceService:
         for original in recurring_expenses:
             next_date_str = original["nextOccurrenceDate"][:10]
             if next_date_str <= today_str:
+                # Verificar fecha límite/finalización
+                end_date = original.get("recurrenceEndDate")
+                if end_date and next_date_str > end_date[:10]:
+                    print(f"🚫 Recurrencia de gasto {original['concept']} finalizada por fecha límite: {end_date}")
+                    original["isRecurring"] = False
+                    original["nextOccurrenceDate"] = None
+                    DatabaseService.save_expense(owner_uid, original["id"], original, sandbox=sandbox)
+                    continue
+
                 print(f"🔄 Procesando gasto recurrente: {original['concept']} programado para {next_date_str}")
                 
                 new_id = str(uuid.uuid4())
+                
+                # Para el nuevo gasto de CxP, si es crédito, el estatus es Pendiente y se debe calcular el dueDate a partir del offset original
+                payment_type = original.get("paymentType", "Contado")
+                cxp_status = "Pagado"
+                due_date = ""
+                if payment_type == "Crédito":
+                    cxp_status = "Pendiente"
+                    orig_date_str = original.get("date", "")[:10]
+                    orig_due_str = original.get("dueDate", "")[:10]
+                    if orig_date_str and orig_due_str:
+                        try:
+                            orig_date = datetime.strptime(orig_date_str, "%Y-%m-%d")
+                            orig_due = datetime.strptime(orig_due_str, "%Y-%m-%d")
+                            days_offset = (orig_due - orig_date).days
+                            occurrence_date = datetime.strptime(next_date_str, "%Y-%m-%d")
+                            due_date = (occurrence_date + timedelta(days=days_offset)).strftime("%Y-%m-%d")
+                        except Exception:
+                            due_date = next_date_str
+                    else:
+                        due_date = next_date_str
+
                 new_expense = {
                     "id": new_id,
                     "concept": original["concept"],
@@ -163,7 +193,20 @@ class RecurrenceService:
                     "associatedInvoiceId": original.get("associatedInvoiceId", ""),
                     "itbisAmount": original.get("itbisAmount", 0.0),
                     "isITBISDeductible": original.get("isITBISDeductible", True),
-                    "firebaseAttachmentURLs": []
+                    "isDeductible": original.get("isDeductible", True),
+                    "firebaseAttachmentURLs": [],
+                    # Campos de e-CF y CxP copiados:
+                    "ecfType": original.get("ecfType", "E31"),
+                    "ecfNumber": original.get("ecfNumber", ""),
+                    "cne": original.get("cne", ""),
+                    "tipoGastoDGII": original.get("tipoGastoDGII", "02"),
+                    "paymentType": payment_type,
+                    "cxpStatus": cxp_status,
+                    "cxpRemainingBalance": 0.0 if payment_type == 'Contado' else original["amount"],
+                    "approvalStatus": original.get("approvalStatus", "Aprobado"),
+                    "requestedBy": original.get("requestedBy", "Sistema"),
+                    "approvedBy": original.get("approvedBy", "Sistema") if original.get("approvalStatus", "Aprobado") == "Aprobado" else "",
+                    "dueDate": due_date
                 }
                 
                 # Guardar el nuevo gasto
@@ -171,7 +214,11 @@ class RecurrenceService:
                 
                 # Calcular la próxima ocurrencia en el gasto original y actualizarlo
                 next_occurrence = cls.calculate_next_date(next_date_str, original["recurrenceInterval"])
-                original["nextOccurrenceDate"] = next_occurrence
+                if end_date and next_occurrence > end_date[:10]:
+                    original["isRecurring"] = False
+                    original["nextOccurrenceDate"] = None
+                else:
+                    original["nextOccurrenceDate"] = next_occurrence
                 
                 # Re-guardar el original con la nueva fecha programada
                 DatabaseService.save_expense(owner_uid, original["id"], original, sandbox=sandbox)

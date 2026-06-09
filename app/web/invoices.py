@@ -2189,7 +2189,7 @@ def new_expense_route():
     if request.method == 'POST':
         expense_id = str(uuid.uuid4())
         
-        # Procesar archivo subido (recibo/ticket) a Storage
+        # Procesar archivo subido (recibo/ticket/XML) a Storage
         attachment_file = request.files.get('attachment')
         attachment_urls = []
         if attachment_file and attachment_file.filename:
@@ -2197,7 +2197,6 @@ def new_expense_route():
             mime_type = attachment_file.content_type or "image/jpeg"
             dest_path = f"users/{owner_uid}/expenses/{expense_id}/{attachment_file.filename}"
             
-            # Subir a Firebase Storage (o local fallback si no está configurado)
             public_url = DatabaseService.upload_file_to_storage(file_data, dest_path, mime_type)
             attachment_urls.append(public_url)
             
@@ -2206,6 +2205,15 @@ def new_expense_route():
         is_deductible = request.form.get('isDeductible') == 'true'
         recurrence_interval = request.form.get('recurrenceInterval', 'mensual')
         next_occurrence = request.form.get('nextOccurrenceDate')
+        recurrence_end_date = request.form.get('recurrenceEndDate')
+        
+        payment_type = request.form.get('paymentType', 'Contado')
+        due_date = request.form.get('dueDate', '')
+        
+        # CxP Status
+        cxp_status = 'Pagado'
+        if payment_type == 'Crédito':
+            cxp_status = 'Pendiente'
 
         expense_dict = {
             "concept": request.form['concept'],
@@ -2214,7 +2222,7 @@ def new_expense_route():
             "date": request.form['date'],
             "rncEmisor": request.form.get('rncEmisor', ''),
             "ncf": request.form.get('ncf', ''),
-            "isMinorExpense": "E43" in request.form.get('ncf', ''),
+            "isMinorExpense": "E43" in request.form.get('ncf', '') or "B13" in request.form.get('ncf', ''),
             "isSyncedWithDGII": False,
             "qrCodeURL": "",
             "xmlSignature": "",
@@ -2222,11 +2230,24 @@ def new_expense_route():
             "isRecurring": is_recurring,
             "recurrenceInterval": recurrence_interval,
             "nextOccurrenceDate": next_occurrence if is_recurring else None,
+            "recurrenceEndDate": recurrence_end_date if is_recurring else None,
             "associatedInvoiceId": request.form.get('associatedInvoiceId', ''),
-            "itbisAmount": amount * 0.18 / 1.18,  # Cálculo de ITBIS estándar incluido
+            "itbisAmount": float(request.form.get('itbisAmount', amount * 0.18 / 1.18)),
             "isITBISDeductible": is_deductible,
             "isDeductible": is_deductible,
-            "firebaseAttachmentURLs": attachment_urls
+            "firebaseAttachmentURLs": attachment_urls,
+            # Nuevos campos e-CF y CxP:
+            "ecfType": request.form.get('ecfType', 'E31'),
+            "ecfNumber": request.form.get('ncf', ''),
+            "cne": request.form.get('cne', ''),
+            "tipoGastoDGII": request.form.get('tipoGastoDGII', '02'),
+            "paymentType": payment_type,
+            "cxpStatus": cxp_status,
+            "cxpRemainingBalance": 0.0 if payment_type == 'Contado' else amount,
+            "approvalStatus": request.form.get('approvalStatus', 'Aprobado'),
+            "requestedBy": session['user'].get('name', 'Usuario'),
+            "approvedBy": session['user'].get('name', 'Usuario') if request.form.get('approvalStatus', 'Aprobado') == 'Aprobado' else '',
+            "dueDate": due_date
         }
         
         DatabaseService.save_expense(owner_uid, expense_id, expense_dict, sandbox=sandbox)
@@ -2254,6 +2275,197 @@ def delete_expense_route(expense_id):
     DatabaseService.delete_expense(owner_uid, expense_id, sandbox=sandbox)
     flash('Gasto eliminado.', 'success')
     return redirect(url_for('list_expenses'))
+
+@web_invoices_bp.route('/expenses/<expense_id>/edit', methods=['GET', 'POST'])
+def edit_expense_route(expense_id):
+    if 'user' not in session: return redirect(url_for('login'))
+    if not check_permission('canExpenses'):
+        return render_template('auth/restricted.html', feature_name="Editar Gasto", required_permission="canExpenses")
+        
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+    
+    # Obtener el gasto existente
+    expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox)
+    expense = None
+    for exp in expenses:
+        if exp['id'] == expense_id:
+            expense = exp
+            break
+            
+    if not expense:
+        flash('Gasto no encontrado.', 'error')
+        return redirect(url_for('list_expenses'))
+        
+    if request.method == 'POST':
+        attachment_file = request.files.get('attachment')
+        attachment_urls = expense.get('firebaseAttachmentURLs', [])
+        if attachment_file and attachment_file.filename:
+            file_data = attachment_file.read()
+            mime_type = attachment_file.content_type or "image/jpeg"
+            dest_path = f"users/{owner_uid}/expenses/{expense_id}/{attachment_file.filename}"
+            public_url = DatabaseService.upload_file_to_storage(file_data, dest_path, mime_type)
+            attachment_urls = [public_url]
+            
+        amount = float(request.form['amount'])
+        is_recurring = request.form.get('isRecurring') == 'true'
+        is_deductible = request.form.get('isDeductible') == 'true'
+        recurrence_interval = request.form.get('recurrenceInterval', 'mensual')
+        next_occurrence = request.form.get('nextOccurrenceDate')
+        recurrence_end_date = request.form.get('recurrenceEndDate')
+        
+        payment_type = request.form.get('paymentType', 'Contado')
+        due_date = request.form.get('dueDate', '')
+        
+        cxp_status = expense.get('cxpStatus', 'Pagado')
+        if payment_type == 'Crédito' and cxp_status == 'Pagado':
+            cxp_status = 'Pendiente'
+        elif payment_type == 'Contado':
+            cxp_status = 'Pagado'
+            
+        current_rem = float(expense.get('cxpRemainingBalance', 0.0))
+        if payment_type == 'Contado':
+            rem_bal = 0.0
+        else:
+            if amount != expense.get('amount', 0.0):
+                rem_bal = amount
+            else:
+                rem_bal = current_rem
+
+        expense_dict = {
+            "concept": request.form['concept'],
+            "category": request.form['category'],
+            "amount": amount,
+            "date": request.form['date'],
+            "rncEmisor": request.form.get('rncEmisor', ''),
+            "ncf": request.form.get('ncf', ''),
+            "isMinorExpense": "E43" in request.form.get('ncf', '') or "B13" in request.form.get('ncf', ''),
+            "isSyncedWithDGII": expense.get('isSyncedWithDGII', False),
+            "qrCodeURL": expense.get('qrCodeURL', ''),
+            "xmlSignature": expense.get('xmlSignature', ''),
+            "notes": request.form.get('notes', ''),
+            "isRecurring": is_recurring,
+            "recurrenceInterval": recurrence_interval,
+            "nextOccurrenceDate": next_occurrence if is_recurring else None,
+            "recurrenceEndDate": recurrence_end_date if is_recurring else None,
+            "associatedInvoiceId": request.form.get('associatedInvoiceId', ''),
+            "itbisAmount": float(request.form.get('itbisAmount', amount * 0.18 / 1.18)),
+            "isITBISDeductible": is_deductible,
+            "isDeductible": is_deductible,
+            "firebaseAttachmentURLs": attachment_urls,
+            "ecfType": request.form.get('ecfType', 'E31'),
+            "ecfNumber": request.form.get('ncf', ''),
+            "cne": request.form.get('cne', ''),
+            "tipoGastoDGII": request.form.get('tipoGastoDGII', '02'),
+            "paymentType": payment_type,
+            "cxpStatus": cxp_status,
+            "cxpRemainingBalance": rem_bal,
+            "approvalStatus": request.form.get('approvalStatus', 'Aprobado'),
+            "requestedBy": expense.get('requestedBy', session['user'].get('name', 'Usuario')),
+            "approvedBy": session['user'].get('name', 'Usuario') if request.form.get('approvalStatus', 'Aprobado') == 'Aprobado' else '',
+            "dueDate": due_date,
+            "createdAt": expense.get('createdAt')
+        }
+        
+        DatabaseService.save_expense(owner_uid, expense_id, expense_dict, sandbox=sandbox)
+        flash('Gasto operativo actualizado exitosamente.', 'success')
+        return redirect(url_for('list_expenses'))
+        
+    invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox)
+    
+    return render_template(
+        'expenses/edit.html',
+        active_page='expenses',
+        expense=expense,
+        invoices=invoices
+    )
+
+@web_invoices_bp.route('/api/expenses/ocr-upload', methods=['POST'])
+def api_expenses_ocr_upload():
+    if 'user' not in session: return jsonify({"success": False, "error": "No autorizado"}), 401
+    
+    upload_file = request.files.get('file')
+    if not upload_file:
+        return jsonify({"success": False, "error": "No se recibió ningún archivo."}), 400
+        
+    filename = upload_file.filename.lower()
+    from app.services.ocr_service import OCRService
+    
+    if filename.endswith('.xml'):
+        xml_content = upload_file.read()
+        res = OCRService.process_xml_ecf(xml_content)
+    else:
+        # En una app real, usaríamos PIL y pytesseract.
+        # Aquí procesamos como imagen simulada
+        res = OCRService.process_image_ocr(upload_file.read())
+        
+    return jsonify(res)
+
+@web_invoices_bp.route('/expenses/cxp')
+def list_cxp():
+    if 'user' not in session: return redirect(url_for('login'))
+    if not check_permission('canExpenses'):
+        return render_template('auth/restricted.html', feature_name="Cuentas por Pagar (CxP)", required_permission="canExpenses")
+        
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+    
+    expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox)
+    
+    cxp_list = []
+    total_cxp_pending = 0.0
+    total_cxp_vencido = 0.0
+    
+    today_str = datetime.utcnow().strftime("%Y-%m-%d")
+    
+    for exp in expenses:
+        if exp.get('paymentType') == 'Crédito':
+            due_date = exp.get('dueDate', '')
+            status = exp.get('cxpStatus', 'Pendiente')
+            rem_bal = float(exp.get('cxpRemainingBalance', exp.get('amount', 0.0)))
+            
+            if status in ['Pendiente', 'Abonado'] and due_date and due_date < today_str:
+                status = 'Vencido'
+                exp['cxpStatus'] = 'Vencido'
+                
+            cxp_list.append(exp)
+            
+            if status in ['Pendiente', 'Abonado', 'Vencido']:
+                total_cxp_pending += rem_bal
+                if status == 'Vencido' or (due_date and due_date < today_str):
+                    total_cxp_vencido += rem_bal
+                    
+    return render_template(
+        'expenses/cxp.html',
+        active_page='expenses_cxp',
+        cxp_list=cxp_list,
+        total_cxp_pending=total_cxp_pending,
+        total_cxp_vencido=total_cxp_vencido,
+        today_str=today_str
+    )
+
+@web_invoices_bp.route('/expenses/cxp/<expense_id>/pay', methods=['POST'])
+def pay_cxp_route(expense_id):
+    if 'user' not in session: return redirect(url_for('login'))
+    if not check_permission('canExpenses'):
+        return jsonify({"success": False, "message": "No autorizado"}), 403
+        
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+    
+    data = request.get_json(silent=True) or {}
+    amount = float(data.get("amount", 0.0))
+    
+    if amount <= 0:
+        return jsonify({"success": False, "message": "Monto no válido."}), 400
+        
+    registered_by = session['user'].get('name', 'Usuario Admin')
+    success, message = DatabaseService.save_cxp_payment(owner_uid, expense_id, amount, registered_by=registered_by, sandbox=sandbox)
+    
+    if success:
+        return jsonify({"success": True, "message": message})
+    else:
+        return jsonify({"success": False, "message": message}), 500
 
 # =========================================================================
 # SECUENCIAS FISCALES
