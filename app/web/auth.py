@@ -13,6 +13,14 @@ def home():
     is_logged_in = 'user' in session
     return render_template('landing.html', is_logged_in=is_logged_in)
 
+@web_auth_bp.route('/api-docs')
+def api_docs():
+    return render_template('api_docs.html')
+
+@web_auth_bp.route('/faqs')
+def faqs():
+    return render_template('faqs.html')
+
 @web_auth_bp.route('/api/solicitar-demo', methods=['POST'])
 def api_solicitar_demo():
     try:

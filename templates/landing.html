@@ -11,7 +11,7 @@
     
     <!-- Metas de SEO -->
     <meta name="description" content="e-Factura es la solución definitiva para cumplir con la Ley 32-23 de Facturación Electrónica en RD. Diseñada especialmente para Pymes, profesionales independientes y RST.">
-    <meta name="keywords" content="facturacion electronica rd, ley 32-23 dgii, dgii ncf, rst ingresos, alanube, e-cf republica dominicana">
+    <meta name="keywords" content="facturacion electronica rd, ley 32-23 dgii, dgii ncf, rst ingresos, e-cf republica dominicana">
     
     <!-- Google Fonts & FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -36,7 +36,8 @@
                 <li><a href="#contingencia" class="landing-menu-link">Contingencia</a></li>
                 <li><a href="#salud-fiscal" class="landing-menu-link">Salud Fiscal</a></li>
                 <li><a href="#cotizador" class="landing-menu-link">Precios</a></li>
-                <li><a href="#faqs" class="landing-menu-link">FAQs</a></li>
+                <li><a href="{{ url_for('web_auth.api_docs') }}" class="landing-menu-link">API</a></li>
+                <li><a href="{{ url_for('web_auth.faqs') }}" class="landing-menu-link">FAQs</a></li>
             </ul>
             
             <div class="landing-actions">
@@ -214,7 +215,7 @@
                         API de Alto Rendimiento para Desarrolladores
                     </h3>
                     <p style="color: var(--text-secondary); font-size: 1.05rem; line-height: 1.6; margin-bottom: 30px; text-align: left;">
-                        Alanube no es solo una interfaz; es una infraestructura tipo **Backend as a Service (BaaS)** líder en el mercado. Diseñada para que integres facturación electrónica directamente en tu ERP, CRM, o e-commerce propio con la menor latencia del mercado.
+                        e-Factura provee una infraestructura tipo **Backend as a Service (BaaS)** líder en el mercado. Diseñada para que integres facturación electrónica directamente en tu ERP, CRM, o e-commerce propio con la menor latencia del mercado.
                     </p>
                     
                     <div class="contact-benefit-item" style="margin-bottom: 16px; display: flex; align-items: flex-start; text-align: left;">
@@ -225,16 +226,22 @@
                         <i class="fa-solid fa-code-fork" style="color: #60a5fa; margin-top: 3px; margin-right: 12px; flex-shrink: 0;"></i>
                         <span><strong>Webhooks en Tiempo Real</strong>: Recibe notificaciones automáticas inmediatas sobre rechazos, aprobaciones comerciales o estados DGII.</span>
                     </div>
-                    <div class="contact-benefit-item" style="margin-bottom: 16px; display: flex; align-items: flex-start; text-align: left;">
+                    <div class="contact-benefit-item" style="margin-bottom: 24px; display: flex; align-items: flex-start; text-align: left;">
                         <i class="fa-solid fa-database" style="color: #60a5fa; margin-top: 3px; margin-right: 12px; flex-shrink: 0;"></i>
                         <span><strong>Respaldo en Nube por 10 Años</strong>: Cumplimos al pie de la letra con el requerimiento legal de conservación de la DGII.</span>
                     </div>
+                    
+                    <a href="{{ url_for('web_auth.api_docs') }}" class="btn btn-primary" style="font-size: 1rem; width: fit-content;">
+                        <i class="fa-solid fa-book"></i> Ver Documentación de la API
+                    </a>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- 2.7 Sección de Integraciones con ERPs/Sistemas -->
+
+
+    <!-- 2.8 Sección de Integraciones con ERPs/Sistemas -->
     <section class="integrations-section">
         <div class="landing-container">
             <div class="section-header">
@@ -242,7 +249,7 @@
                     <i class="fa-solid fa-network-wired"></i> Ecosistema Integrable
                 </span>
                 <h2 class="section-title">Conectividad Nativa con tus Herramientas</h2>
-                <p class="section-subtitle">e-Factura y Alanube se integran de forma natural con los sistemas y plataformas líderes que ya utilizas en tu día a día.</p>
+                <p class="section-subtitle">e-Factura se integra de forma natural con los sistemas y plataformas líderes que ya utilizas en tu día a día.</p>
             </div>
             
             <div class="integrations-grid">
@@ -296,7 +303,7 @@
                     </div>
                     <h3 class="feature-title">Cumplimiento Ley 32-23</h3>
                     <p class="feature-description">
-                        Emisión formal de todos los comprobantes electrónicos (e-CF) dominicanos de la serie E (E31, E32, E34, E43, etc.) firmados digitalmente y transmitidos en tiempo real ante la DGII a través de la API homologada de Alanube.
+                        Emisión formal de todos los comprobantes electrónicos (e-CF) dominicanos de la serie E (E31, E32, E34, E43, etc.) firmados digitalmente y transmitidos en tiempo real ante la DGII a través de nuestra plataforma homologada.
                     </p>
                 </div>
                 
@@ -470,80 +477,6 @@
         </div>
     </section>
 
-    <!-- 6. FAQs Accordion -->
-    <section class="faq-landing-section" id="faqs">
-        <div class="landing-container">
-            <div class="section-header">
-                <h2 class="section-title">Preguntas Frecuentes</h2>
-                <p class="section-subtitle">Explicadas de forma amigable y directa sobre el funcionamiento del software y la DGII.</p>
-            </div>
-            
-            <div class="faq-container" style="max-width: 800px; margin: 0 auto;">
-                
-                <div class="faq-item">
-                    <div class="faq-header">
-                        <div class="faq-title-wrapper">
-                            <div class="faq-icon-box" style="background-color: rgba(30, 58, 138, 0.08); color: var(--accent-emerald);">
-                                <i class="fa-solid fa-circle-question"></i>
-                            </div>
-                            <span class="faq-title">¿Qué necesito legalmente para empezar a facturar electrónicamente en RD?</span>
-                        </div>
-                        <i class="fa-solid fa-chevron-down faq-chevron"></i>
-                    </div>
-                    <div class="faq-content">
-                        <div class="faq-body">
-                            Para poder emitir Comprobantes Fiscales Electrónicos (e-CF) válidos ante la DGII en la República Dominicana necesitas tres elementos básicos:
-                            <ul>
-                                <li>Estar registrado como contribuyente activo en la DGII (ya sea Persona Física o Jurídica).</li>
-                                <li>Adquirir un **Certificado Digital de Firma Electrónica** de una entidad autorizada (como la Cámara de Comercio y Producción).</li>
-                                <li>Contar con un software de facturación homologado ante la DGII. Con <strong>e-Factura</strong> estás completamente cubierto, ya que operamos de forma nativa e integrada con la API certificada de Alanube.</li>
-                            </ul>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="faq-item">
-                    <div class="faq-header">
-                        <div class="faq-title-wrapper">
-                            <div class="faq-icon-box" style="background-color: rgba(30, 58, 138, 0.08); color: var(--accent-emerald);">
-                                <i class="fa-solid fa-wifi"></i>
-                            </div>
-                            <span class="faq-title">¿Cómo funciona exactamente el límite de las 72 horas en modo contingencia?</span>
-                        </div>
-                        <i class="fa-solid fa-chevron-down faq-chevron"></i>
-                    </div>
-                    <div class="faq-content">
-                        <div class="faq-body">
-                            Si tu negocio se queda temporalmente sin conexión a internet, el sistema de e-Factura te permite seguir emitiendo comprobantes firmados localmente (modalidad offline). La normativa DGII (Ley 32-23) exige que estos comprobantes de contingencia sean remitidos a sus servidores en un plazo máximo de **72 horas** una vez que se restablezca la conexión.
-                            <br><br>
-                            e-Factura monitorea de forma reactiva el estado de conexión del backend. En cuanto detecta señal estable de Alanube, transmite en bloques automatizados y silenciosos las facturas pendientes de sincronizar sin interrumpir tu trabajo en pantalla.
-                        </div>
-                    </div>
-                </div>
-
-                <div class="faq-item">
-                    <div class="faq-header">
-                        <div class="faq-title-wrapper">
-                            <div class="faq-icon-box" style="background-color: rgba(30, 58, 138, 0.08); color: var(--accent-emerald);">
-                                <i class="fa-solid fa-percent"></i>
-                            </div>
-                            <span class="faq-title">¿Cómo me protege la barra de Salud Fiscal si pertenezco al régimen RST?</span>
-                        </div>
-                        <i class="fa-solid fa-chevron-down faq-chevron"></i>
-                    </div>
-                    <div class="faq-content">
-                        <div class="faq-body">
-                            Si eres contribuyente del Régimen Simplificado (RST) basado en ingresos, tu mayor riesgo es facturar más del límite anual oficial establecido por inflación (que para el año **2026** es de **RD$ 12,068,181.09**). Superar este límite implica una exclusión automática hacia el régimen general, forzándote a pagar multas e impuestos retroactivos de forma compleja.
-                            <br><br>
-                            e-Factura incorpora un motor de lectura de ventas en tiempo real. En el Dashboard y alertas, te muestra de forma visual y con porcentaje preciso cuánto has facturado en el año fiscal en curso, alertándote de forma amarilla preventiva al 70% y roja crítica al 90% para evitar exclusiones accidentales.
-                        </div>
-                    </div>
-                </div>
-
-            </div>
-        </div>
-    </section>
-
     <!-- 7. Footer -->
     <footer class="landing-footer">
         <div class="landing-container">
@@ -631,29 +564,6 @@
                 updateCalculator(this.value);
             });
             updateCalculator(slider.value); // Ejecución inicial
-            
-            // C. Lógica del Acordeón de FAQs
-            const faqItems = document.querySelectorAll('.faq-item');
-            faqItems.forEach(item => {
-                const header = item.querySelector('.faq-header');
-                const content = item.querySelector('.faq-content');
-                
-                header.addEventListener('click', function() {
-                    const isActive = item.classList.contains('active');
-                    
-                    // Cerrar todos los demás faqItems
-                    faqItems.forEach(i => {
-                        i.classList.remove('active');
-                        i.querySelector('.faq-content').style.maxHeight = null;
-                    });
-                    
-                    if (!isActive) {
-                        item.classList.add('active');
-                        content.style.maxHeight = content.scrollHeight + "px";
-                    }
-                });
-            });
-            
 
             // F. Lógica de Pestañas del Mock Editor de Código API
             const codeTabs = document.querySelectorAll('.code-tab');
@@ -661,13 +571,22 @@
             
             codeTabs.forEach(tab => {
                 tab.addEventListener('click', function() {
-                    codeTabs.forEach(t => t.classList.remove('active'));
-                    codeBlocks.forEach(b => b.style.display = 'none');
-                    
-                    this.classList.add('active');
-                    const targetBlock = document.getElementById('code-' + this.getAttribute('data-code'));
-                    if (targetBlock) {
-                        targetBlock.style.display = 'block';
+                    const parent = this.closest('.code-editor');
+                    if (parent) {
+                        const tabs = parent.querySelectorAll('.code-tab');
+                        const blocks = parent.querySelectorAll('.code-block');
+                        
+                        tabs.forEach(t => t.classList.remove('active'));
+                        blocks.forEach(b => b.style.display = 'none');
+                        
+                        this.classList.add('active');
+                        const targetId = this.getAttribute('data-code');
+                        if (targetId) {
+                            const targetBlock = document.getElementById('code-' + targetId);
+                            if (targetBlock) {
+                                targetBlock.style.display = 'block';
+                            }
+                        }
                     }
                 });
             });
