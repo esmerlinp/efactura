@@ -827,3 +827,154 @@ def get_dashboard_summary():
         })
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
+
+
+# =========================================================================
+# ENDPOINTS PARA CORREOS ELECTRÓNICOS
+# =========================================================================
+
+@api_invoices_bp.route('/invoices/<invoice_id>/send_receipt', methods=['POST'])
+@require_api_key
+def send_receipt_endpoint(invoice_id):
+    """
+    POST /api/v1/invoices/<invoice_id>/send_receipt
+    Envía un Recibo de Ingreso por email al cliente.
+    """
+    try:
+        data = request.json or {}
+        recipient_email = (data.get("email") or "").strip()
+        if not recipient_email:
+            return jsonify({"success": False, "error": "Dirección de email no especificada."}), 400
+
+        invoice = DatabaseService.get_invoice(g.owner_uid, invoice_id, sandbox=g.sandbox_mode)
+        if not invoice:
+            return jsonify({"success": False, "error": "Factura no encontrada."}), 404
+
+        company = DatabaseService.get_company_profile(g.owner_uid)
+
+        payment_id      = data.get("paymentId", "")
+        payment_date    = data.get("paymentDate", datetime.utcnow().strftime('%Y-%m-%d'))
+        payment_method  = data.get("paymentMethod", "Efectivo")
+        payment_bank    = data.get("bank", "")
+        payment_ref     = data.get("referenceNumber", "")
+        payment_amount  = float(data.get("amount", 0.0))
+
+        receipt_no = (payment_id[-8:].upper() if payment_id else "N/A")
+
+        from flask import current_app as app
+        smtp_server   = app.config.get("SMTP_SERVER", "")
+        smtp_port     = int(app.config.get("SMTP_PORT", 587))
+        smtp_user     = app.config.get("SMTP_USER", "")
+        smtp_password = app.config.get("SMTP_PASSWORD", "")
+
+        if not smtp_user or not smtp_password:
+            return jsonify({"success": False, "error": "El servidor de correo no está configurado en el backend."}), 503
+
+        company_name    = company.get("tradeName") or company.get("companyName", "e-Factura")
+
+        html_body = f"""
+        <html><body>
+        <h2>Recibo de Ingreso - {company_name}</h2>
+        <p>No. Recibo: {receipt_no}</p>
+        <p>Fecha de Pago: {payment_date}</p>
+        <p>Factura de Referencia: {invoice.get('invoiceNumber','')}</p>
+        <p>Forma de Pago: {payment_method}</p>
+        <p>Monto Recibido: RD$ {payment_amount:,.2f}</p>
+        </body></html>
+        """
+
+        import smtplib
+        from email.mime.text import MIMEText
+        from email.mime.multipart import MIMEMultipart
+
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = f"Recibo de Pago - Factura {invoice.get('invoiceNumber', '')} | {company_name}"
+        msg["From"]    = f"{company_name} <{smtp_user}>"
+        msg["To"]      = recipient_email
+
+        msg.attach(MIMEText(html_body, "html", "utf-8"))
+
+        with smtplib.SMTP(smtp_server, smtp_port) as server:
+            server.ehlo()
+            server.starttls()
+            server.login(smtp_user, smtp_password)
+            server.sendmail(smtp_user, recipient_email, msg.as_string())
+
+        return jsonify({"success": True, "message": f"Recibo enviado exitosamente a {recipient_email}"})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@api_invoices_bp.route('/invoices/<invoice_id>/send_email', methods=['POST'])
+@require_api_key
+def send_invoice_email_endpoint(invoice_id):
+    """
+    POST /api/v1/invoices/<invoice_id>/send_email
+    Envía la factura electrónica (XML/PDF) por email al cliente usando SMTP.
+    """
+    try:
+        data = request.json or {}
+        recipient_email = (data.get("email") or "").strip()
+        if not recipient_email:
+            return jsonify({"success": False, "error": "Dirección de correo no especificada."}), 400
+
+        invoice = DatabaseService.get_invoice(g.owner_uid, invoice_id, sandbox=g.sandbox_mode)
+        if not invoice:
+            return jsonify({"success": False, "error": "Factura no encontrada."}), 404
+
+        company = DatabaseService.get_company_profile(g.owner_uid)
+
+        from flask import current_app as app
+        smtp_server   = app.config.get("SMTP_SERVER", "")
+        smtp_port     = int(app.config.get("SMTP_PORT", 587))
+        smtp_user     = app.config.get("SMTP_USER", "")
+        smtp_password = app.config.get("SMTP_PASSWORD", "")
+
+        if not smtp_server or not smtp_user or not smtp_password:
+            return jsonify({"success": False, "error": "Servidor de correo no configurado (SMTP)."}), 500
+
+        xml_content = invoice.get('xmlContent') or invoice.get('xmlSignature') or ''
+        
+        pdf_url = invoice.get("firebasePDFURL", "")
+        xml_url = invoice.get("firebaseXMLURL", "")
+
+        company_name = company.get("tradeName") or company.get("companyName", "EMISOR")
+        encf = invoice.get('encf', 'N/A')
+        ecf_type = invoice.get('ecfType', 'Factura de Consumo Electrónica')
+
+        import smtplib
+        from email.mime.text import MIMEText
+        from email.mime.multipart import MIMEMultipart
+        from email.mime.application import MIMEApplication
+
+        msg = MIMEMultipart()
+        msg["Subject"] = f"{ecf_type} No. [{encf}] - [{company_name}]"
+        msg["From"] = f"{company_name} <{smtp_user}>"
+        msg["To"] = recipient_email
+
+        html_body = f"""
+        <html><body>
+        <h2>{company_name}</h2>
+        <p>Estimado cliente,</p>
+        <p>Adjunto a este correo encontrará su comprobante electrónico ({ecf_type}) con e-NCF {encf}.</p>
+        <p>Puede visualizar el PDF de su factura en el siguiente enlace: <a href="{pdf_url}">Ver Factura (PDF)</a></p>
+        <p>Puede descargar el XML de su factura en el siguiente enlace: <a href="{xml_url}">Descargar Factura (XML)</a></p>
+        </body></html>
+        """
+
+        msg.attach(MIMEText(html_body, "html", "utf-8"))
+
+        if xml_content:
+            xml_attachment = MIMEApplication(xml_content.encode('utf-8'), _subtype="xml")
+            xml_attachment.add_header('Content-Disposition', 'attachment', filename=f"{encf}.xml")
+            msg.attach(xml_attachment)
+
+        with smtplib.SMTP(smtp_server, smtp_port) as server:
+            server.ehlo()
+            server.starttls()
+            server.login(smtp_user, smtp_password)
+            server.sendmail(smtp_user, recipient_email, msg.as_string())
+
+        return jsonify({"success": True, "message": f"Factura enviada exitosamente por correo a {recipient_email}."})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500

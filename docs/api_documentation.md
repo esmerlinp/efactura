@@ -154,6 +154,71 @@ Registra a un cliente de forma externa en la agenda de e-Factura.
 
 ---
 
+### 2.6 Consultar Documentos y Cotizaciones
+`GET /api/v1/invoices` y `GET /api/v1/documents`
+
+Retorna el listado de documentos. Usa el parámetro `?is_quotation=true` en `/invoices` para obtener cotizaciones.
+
+---
+
+### 2.7 Consultar Clientes
+`GET /api/v1/clients`
+
+Retorna el listado de clientes registrados en el directorio de la empresa.
+
+---
+
+### 2.8 Consultar Productos y Servicios
+`GET /api/v1/items`
+
+Retorna el catálogo de artículos y servicios de la empresa.
+
+---
+
+### 2.9 Consultar Secuencias Fiscales Autorizadas
+`GET /api/v1/dgii/sequences`
+
+Consulta las secuencias (rangos) de comprobantes fiscales autorizadas y su estado de consumo (usadas vs disponibles).
+
+---
+
+### 2.10 Consultar Auditoría DGII
+`GET /api/v1/dgii/audit`
+
+Consulta los logs de auditoría de secuencias usadas, mostrando si la DGII las aceptó, los Track IDs y motivos de aceptación condicional.
+
+---
+
+### 2.11 Enviar Recibo de Ingreso por Correo
+`POST /api/v1/invoices/<invoice_id>/send_receipt`
+
+Envía un correo electrónico al cliente con el recibo de pago de una factura cobrada. Soporta SMTP interno configurado.
+
+#### Payload de Ejemplo
+```json
+{
+  "email": "cliente@ejemplo.com",
+  "paymentMethod": "Efectivo",
+  "amount": 2500.00
+}
+```
+
+---
+
+### 2.12 Enviar Factura Electrónica (XML/PDF) por Correo
+`POST /api/v1/invoices/<invoice_id>/send_email`
+
+Envía un correo electrónico al cliente adjuntando su comprobante fiscal electrónico y enlaces al XML y PDF.
+
+#### Payload de Ejemplo
+```json
+{
+  "email": "cliente@ejemplo.com"
+}
+```
+
+---
+
 ## 3. Ejemplo de Integración en cURL
 
 ```bash

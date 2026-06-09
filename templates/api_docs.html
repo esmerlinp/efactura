@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Documentación API REST - e-Factura</title>
+    
+    <!-- Google Fonts & FontAwesome -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        :root {
+            --primary: #1E3A8A; /* Azul Corporativo */
+            --primary-light: #eff6ff;
+            --primary-hover: #2563EB;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --bg-main: #f8fafc;
+            --bg-card: #ffffff;
+            --border: #e2e8f0;
+            
+            --success: #10b981;
+            --success-light: #ecfdf5;
+            --danger: #ef4444;
+            --danger-light: #fef2f2;
+            --warning: #f59e0b;
+            --warning-light: #fffbeb;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            line-height: 1.6;
+        }
+
+        h1, h2, h3, h4 {
+            font-family: 'Outfit', sans-serif;
+            font-weight: 600;
+            color: var(--primary);
+        }
+
+        /* HEADER */
+        header {
+            background-color: var(--bg-card);
+            border-bottom: 1px solid var(--border);
+            padding: 16px 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: var(--primary);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .nav-links a {
+            text-decoration: none;
+            color: var(--text-muted);
+            font-weight: 500;
+            margin-left: 20px;
+            transition: color 0.2s;
+        }
+
+        .nav-links a:hover {
+            color: var(--primary);
+        }
+
+        /* LAYOUT */
+        .container {
+            display: flex;
+            max-width: 1400px;
+            margin: 0 auto;
+            min-height: calc(100vh - 65px);
+        }
+
+        /* SIDEBAR */
+        .sidebar {
+            width: 280px;
+            background-color: var(--bg-card);
+            border-right: 1px solid var(--border);
+            padding: 30px 20px;
+            position: sticky;
+            top: 65px;
+            height: calc(100vh - 65px);
+            overflow-y: auto;
+        }
+
+        .sidebar h4 {
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+            margin-top: 24px;
+        }
+
+        .sidebar h4:first-child { margin-top: 0; }
+
+        .nav-item {
+            display: block;
+            padding: 10px 16px;
+            border-radius: 8px;
+            color: var(--text-main);
+            text-decoration: none;
+            font-size: 0.95rem;
+            font-weight: 500;
+            margin-bottom: 4px;
+            transition: all 0.2s;
+            cursor: pointer;
+            border: 1px solid transparent;
+        }
+
+        .nav-item:hover {
+            background-color: var(--primary-light);
+            color: var(--primary);
+        }
+
+        .nav-item.active {
+            background-color: var(--primary-light);
+            color: var(--primary);
+            border-color: #bfdbfe;
+            font-weight: 600;
+        }
+
+        /* CONTENT AREA */
+        .content {
+            flex: 1;
+            padding: 40px 60px;
+            overflow-y: auto;
+        }
+
+        .page-header {
+            margin-bottom: 40px;
+        }
+
+        .page-header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            color: var(--text-main);
+        }
+
+        .page-header p {
+            color: var(--text-muted);
+            font-size: 1.1rem;
+            max-width: 800px;
+        }
+
+        /* ENDPOINT PANES */
+        .endpoint-pane {
+            display: none;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 32px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+            margin-bottom: 40px;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        .endpoint-pane.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .endpoint-header {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .badge {
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-weight: 700;
+            font-size: 0.85rem;
+            letter-spacing: 0.05em;
+        }
+
+        .badge.post { background: var(--primary-light); color: var(--primary); }
+        .badge.get { background: var(--success-light); color: var(--success); }
+        .badge.delete { background: var(--danger-light); color: var(--danger); }
+
+        .endpoint-url {
+            font-family: monospace;
+            font-size: 1.2rem;
+            color: var(--text-main);
+            font-weight: 600;
+        }
+
+        .description {
+            color: var(--text-muted);
+            margin-bottom: 30px;
+            font-size: 1.05rem;
+        }
+
+        h3 {
+            font-size: 1.2rem;
+            margin-bottom: 16px;
+            color: var(--text-main);
+            border-left: 4px solid var(--primary);
+            padding-left: 12px;
+        }
+
+        /* CODE BLOCKS */
+        .code-container {
+            background-color: #1e1e1e; /* Estilo editor oscuro por contraste */
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 24px;
+            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
+        }
+
+        .code-header {
+            background: #2d2d2d;
+            padding: 10px 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .code-lang {
+            color: #a3a3a3;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .code-body {
+            padding: 20px;
+            overflow-x: auto;
+            color: #d4d4d8;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.9rem;
+            line-height: 1.5;
+            white-space: pre;
+        }
+
+        .code-body .string { color: #a5b4fc; }
+        .code-body .number { color: #fcd34d; }
+        .code-body .keyword { color: #f472b6; }
+        .code-body .comment { color: #71717a; font-style: italic; }
+
+        /* TABLES */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 30px;
+            font-size: 0.95rem;
+        }
+
+        th, td {
+            padding: 14px 16px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+
+        th {
+            background-color: var(--bg-main);
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+
+        td.param-name {
+            font-family: monospace;
+            font-weight: 600;
+            color: var(--primary);
+        }
+
+        td.param-type {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+
+        @media (max-width: 768px) {
+            .container { flex-direction: column; }
+            .sidebar { width: 100%; height: auto; position: static; padding: 20px; }
+            .content { padding: 20px; }
+            header { padding: 16px 20px; }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <a href="/" class="logo">
+            <i class="fa-solid fa-receipt"></i> e-Factura
+        </a>
+        <div class="nav-links">
+            <a href="/">Volver al Portal</a>
+        </div>
+    </header>
+
+    <div class="container">
+        <!-- Sidebar Navigation -->
+        <div class="sidebar">
+            <h4>Introducción</h4>
+            <a class="nav-item active" data-target="intro">Visión General</a>
+            <a class="nav-item" data-target="auth">Autenticación</a>
+            
+            <h4>Comprobantes (e-CF)</h4>
+            <a class="nav-item" data-target="emit">Emitir Comprobante</a>
+            <a class="nav-item" data-target="status">Consultar Estado</a>
+            <a class="nav-item" data-target="cancel">Anular Documento</a>
+
+            <h4>Consultas</h4>
+            <a class="nav-item" data-target="docs">Documentos y Cotiz.</a>
+            <a class="nav-item" data-target="clients">Clientes</a>
+            <a class="nav-item" data-target="items">Productos</a>
+            
+            <h4>Auditoría y DGII</h4>
+            <a class="nav-item" data-target="sequences">Secuencias (NCF)</a>
+            <a class="nav-item" data-target="audit">Auditoría DGII</a>
+
+            <h4>Notificaciones</h4>
+            <a class="nav-item" data-target="email">Enviar por Correo</a>
+            <a class="nav-item" data-target="receipt">Enviar Recibo</a>
+        </div>
+
+        <!-- Main Content -->
+        <div class="content">
+            <div class="page-header">
+                <h1>Documentación API REST</h1>
+                <p>Integra facturación electrónica directamente en tu ERP o aplicación. Nuestra API RESTful está diseñada para ser rápida, segura y completamente homologada por la DGII.</p>
+            </div>
+
+            <!-- Intro Pane -->
+            <div class="endpoint-pane active" id="pane-intro">
+                <h2>Bienvenido a la API de e-Factura</h2>
+                <p class="description" style="margin-top: 16px;">
+                    e-Factura proporciona un <strong>Backend as a Service (BaaS)</strong> robusto para la emisión y gestión de Comprobantes Fiscales Electrónicos (e-CF) en la República Dominicana (Ley 32-23).
+                </p>
+                <p class="description">
+                    Nuestra infraestructura se encarga de la firma digital, el encolamiento y la comunicación con la DGII. Tu sistema solo debe enviar un JSON con la estructura de la factura y nosotros nos encargamos del resto.
+                </p>
+
+                <h3>Base URL</h3>
+                <div class="code-container">
+                    <div class="code-body">https://api.e-factura.do/v1</div>
+                </div>
+
+                <h3>Formatos</h3>
+                <p class="description">Todas las peticiones y respuestas utilizan el formato <code>application/json</code>. Asegúrate de incluir la cabecera <code>Content-Type: application/json</code> en todas tus llamadas.</p>
+            </div>
+
+            <!-- Auth Pane -->
+            <div class="endpoint-pane" id="pane-auth">
+                <div class="endpoint-header">
+                    <span class="badge post">POST</span>
+                    <span class="endpoint-url">/auth/token</span>
+                </div>
+                <p class="description">Obtén un token Bearer temporal utilizando tus credenciales de API Key. Este token expira en 24 horas y es requerido para todas las operaciones posteriores.</p>
+
+                <h3>Request Body</h3>
+                <table>
+                    <thead>
+                        <tr><th>Parámetro</th><th>Tipo</th><th>Descripción</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="param-name">api_key</td>
+                            <td class="param-type">string</td>
+                            <td>Tu clave secreta de API proveída en el panel de control.</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h3>Ejemplo cURL</h3>
+                <div class="code-container">
+                    <div class="code-header"><span class="code-lang">BASH</span></div>
+                    <div class="code-body">curl -X POST https://api.e-factura.do/v1/auth/token \
+  -H <span class="string">"Content-Type: application/json"</span> \
+  -d <span class="string">'{"api_key": "sk_test_123456789"}'</span></div>
+                </div>
+            </div>
+
+            <!-- Emit Pane -->
+            <div class="endpoint-pane" id="pane-emit">
+                <div class="endpoint-header">
+                    <span class="badge post">POST</span>
+                    <span class="endpoint-url">/invoices</span>
+                </div>
+                <p class="description">Envía los datos de la factura en formato JSON. El sistema validará la estructura, aplicará la firma criptográfica y encolará el documento para su envío a la DGII.</p>
+
+                <h3>Cabeceras Requeridas</h3>
+                <table>
+                    <tbody>
+                        <tr>
+                            <td class="param-name">Authorization</td>
+                            <td><code>Bearer TU_TOKEN_JWT</code></td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h3>Ejemplo Payload JSON</h3>
+                <div class="code-container">
+                    <div class="code-header"><span class="code-lang">JSON</span></div>
+                    <div class="code-body">{
+  <span class="string">"rncEmisor"</span>: <span class="string">"131689787"</span>,
+  <span class="string">"ncfTipo"</span>: <span class="string">"E31"</span>, <span class="comment">// Crédito Fiscal Electrónico</span>
+  <span class="string">"cliente"</span>: {
+    <span class="string">"rnc"</span>: <span class="string">"101565022"</span>,
+    <span class="string">"razonSocial"</span>: <span class="string">"EMPRESA DE EJEMPLO"</span>
+  },
+  <span class="string">"items"</span>: [
+    {
+      <span class="string">"descripcion"</span>: <span class="string">"Servicio de Consultoría"</span>,
+      <span class="string">"precio"</span>: <span class="number">1000.00</span>,
+      <span class="string">"cantidad"</span>: <span class="number">1</span>,
+      <span class="string">"itbis"</span>: <span class="number">180.00</span>
+    }
+  ]
+}</div>
+                </div>
+            </div>
+
+            <!-- Status Pane -->
+            <div class="endpoint-pane" id="pane-status">
+                <div class="endpoint-header">
+                    <span class="badge get">GET</span>
+                    <span class="endpoint-url">/invoices/{trackId}</span>
+                </div>
+                <p class="description">Consulta el estado de procesamiento de un e-CF enviado previamente mediante el <code>trackId</code> retornado en la creación.</p>
+
+                <h3>Respuesta Exitosa</h3>
+                <div class="code-container">
+                    <div class="code-header"><span class="code-lang">JSON</span></div>
+                    <div class="code-body">{
+  <span class="string">"trackId"</span>: <span class="string">"cf6f2648-5544-48f8"</span>,
+  <span class="string">"status"</span>: <span class="string">"APROBADO_DGII"</span>,
+  <span class="string">"ecf"</span>: <span class="string">"E310000002001"</span>,
+  <span class="string">"qrURL"</span>: <span class="string">"https://dgii.gov.do/consultas/qr?id=..."</span>,
+  <span class="string">"xmlURL"</span>: <span class="string">"https://api.e-factura.do/v1/invoices/xml/cf6f2648"</span>
+}</div>
+                </div>
+            </div>
+
+            <!-- Cancel Pane -->
+            <div class="endpoint-pane" id="pane-cancel">
+                <div class="endpoint-header">
+                    <span class="badge delete">DELETE</span>
+                    <span class="endpoint-url">/invoices/{ecf}</span>
+                </div>
+                <p class="description">Solicita la anulación de un e-CF. Deberás proveer el motivo de la anulación en el cuerpo de la petición. La DGII auditará este proceso.</p>
+
+                <h3>Ejemplo Python</h3>
+                <div class="code-container">
+                    <div class="code-header"><span class="code-lang">PYTHON</span></div>
+                    <div class="code-body"><span class="keyword">import</span> requests
+
+url = <span class="string">"https://api.e-factura.do/v1/invoices/E310000002001"</span>
+headers = {<span class="string">"Authorization"</span>: <span class="string">"Bearer TU_TOKEN"</span>}
+payload = {<span class="string">"motivo"</span>: <span class="string">"Error en digitación de monto"</span>}
+
+response = requests.delete(url, headers=headers, json=payload)
+<span class="keyword">print</span>(response.json())</div>
+                </div>
+            </div>
+
+            <!-- Consultas Pane -->
+            <div class="endpoint-pane" id="pane-docs">
+                <div class="endpoint-header">
+                    <span class="badge get">GET</span>
+                    <span class="endpoint-url">/invoices</span>
+                </div>
+                <p class="description">Retorna el listado de documentos y cotizaciones.</p>
+            </div>
+            <div class="endpoint-pane" id="pane-clients">
+                <div class="endpoint-header">
+                    <span class="badge get">GET</span>
+                    <span class="endpoint-url">/clients</span>
+                </div>
+                <p class="description">Retorna el listado de clientes registrados en el directorio de la empresa.</p>
+            </div>
+            <div class="endpoint-pane" id="pane-items">
+                <div class="endpoint-header">
+                    <span class="badge get">GET</span>
+                    <span class="endpoint-url">/items</span>
+                </div>
+                <p class="description">Retorna el catálogo de artículos y servicios de la empresa.</p>
+            </div>
+            
+            <!-- Auditoría Pane -->
+            <div class="endpoint-pane" id="pane-sequences">
+                <div class="endpoint-header">
+                    <span class="badge get">GET</span>
+                    <span class="endpoint-url">/dgii/sequences</span>
+                </div>
+                <p class="description">Consulta las secuencias (rangos) de comprobantes fiscales autorizadas y su estado de consumo (usadas vs disponibles).</p>
+            </div>
+            <div class="endpoint-pane" id="pane-audit">
+                <div class="endpoint-header">
+                    <span class="badge get">GET</span>
+                    <span class="endpoint-url">/dgii/audit</span>
+                </div>
+                <p class="description">Consulta los logs de auditoría de secuencias usadas, mostrando si la DGII las aceptó, los Track IDs y motivos de aceptación condicional.</p>
+            </div>
+
+            <!-- Notificaciones Pane -->
+            <div class="endpoint-pane" id="pane-email">
+                <div class="endpoint-header">
+                    <span class="badge post">POST</span>
+                    <span class="endpoint-url">/invoices/{invoice_id}/send_email</span>
+                </div>
+                <p class="description">Envía un correo electrónico al cliente adjuntando su comprobante fiscal electrónico y enlaces al XML y PDF.</p>
+                <h3>Payload de Ejemplo</h3>
+                <div class="code-container">
+                    <div class="code-header"><span class="code-lang">JSON</span></div>
+                    <div class="code-body">{
+  <span class="string">"email"</span>: <span class="string">"cliente@ejemplo.com"</span>
+}</div>
+                </div>
+            </div>
+            <div class="endpoint-pane" id="pane-receipt">
+                <div class="endpoint-header">
+                    <span class="badge post">POST</span>
+                    <span class="endpoint-url">/invoices/{invoice_id}/send_receipt</span>
+                </div>
+                <p class="description">Envía un correo electrónico al cliente con el recibo de pago de una factura cobrada. Soporta SMTP interno configurado.</p>
+                <h3>Payload de Ejemplo</h3>
+                <div class="code-container">
+                    <div class="code-header"><span class="code-lang">JSON</span></div>
+                    <div class="code-body">{
+  <span class="string">"email"</span>: <span class="string">"cliente@ejemplo.com"</span>,
+  <span class="string">"paymentMethod"</span>: <span class="string">"Efectivo"</span>,
+  <span class="string">"amount"</span>: <span class="number">2500.00</span>
+}</div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const navItems = document.querySelectorAll('.nav-item');
+            const panes = document.querySelectorAll('.endpoint-pane');
+
+            navItems.forEach(item => {
+                item.addEventListener('click', () => {
+                    // Remover active class de todos los links
+                    navItems.forEach(n => n.classList.remove('active'));
+                    // Agregar active al link actual
+                    item.classList.add('active');
+
+                    // Ocultar todos los paneles
+                    panes.forEach(p => p.classList.remove('active'));
+                    
+                    // Mostrar el panel correspondiente
+                    const targetId = 'pane-' + item.getAttribute('data-target');
+                    const targetPane = document.getElementById(targetId);
+                    if (targetPane) {
+                        targetPane.classList.add('active');
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>
