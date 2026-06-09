@@ -175,6 +175,40 @@
     </a>
 </div>
 
+<!-- Filtros Minimalistas -->
+<div style="display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; background-color: transparent; align-items: center; border-bottom: 1px solid rgba(0, 0, 0, 0.05); padding-bottom: 12px;">
+    <form method="GET" action="{{ url_for('web_clients.list_clients') }}" id="filters-form" style="display: flex; gap: 12px; align-items: center; width: 100%; flex-wrap: wrap; margin: 0;">
+        
+        <!-- Búsqueda -->
+        <div style="position: relative; flex-grow: 1; min-width: 220px; max-width: 350px;">
+            <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.85rem;"></i>
+            <input type="text" name="q" id="q" value="{{ q or '' }}" placeholder="Buscar Razón Social, RNC, Tel..." style="width: 100%; height: 34px; padding: 0 16px 0 38px; background-color: var(--bg-input); border: 1px solid transparent; border-radius: 20px; color: var(--text-primary); font-size: 0.85rem; transition: background-color var(--transition-fast);" onfocus="this.style.backgroundColor='#ffffff'; this.style.borderColor='var(--border-color)';" onblur="if(!this.value){this.style.backgroundColor='var(--bg-input)'; this.style.borderColor='transparent';}">
+        </div>
+
+        <!-- Selector de Estado -->
+        <div style="min-width: 130px;">
+            <select name="stage" id="stage" style="width: 100%; height: 34px; padding: 0 10px; background-color: transparent; border: 1px solid transparent; border-bottom: 1px solid var(--border-color); color: var(--text-secondary); font-size: 0.85rem; cursor: pointer; outline: none;">
+                <option value="">Todas las Etapas</option>
+                <option value="Prospecto" {% if stage == 'Prospecto' %}selected{% endif %}>Prospecto</option>
+                <option value="Contactado" {% if stage == 'Contactado' %}selected{% endif %}>Contactado</option>
+                <option value="En Negociación" {% if stage == 'En Negociación' %}selected{% endif %}>En Negociación</option>
+                <option value="Cliente Activo" {% if stage == 'Cliente Activo' %}selected{% endif %}>Cliente Activo</option>
+            </select>
+        </div>
+
+        <!-- Limpiar -->
+        <a href="{{ url_for('web_clients.list_clients') }}" style="color: var(--text-muted); font-size: 0.85rem; text-decoration: none; padding: 6px 10px; border-radius: var(--radius-sm); display: flex; align-items: center; gap: 4px;" title="Limpiar Filtros" onmouseover="this.style.backgroundColor='rgba(0,0,0,0.03)'; this.style.color='var(--text-primary)'" onmouseout="this.style.backgroundColor='transparent'; this.style.color='var(--text-muted)'">
+            <i class="fa-solid fa-eraser"></i> Limpiar
+        </a>
+
+        <!-- Vista Toggle -->
+        <div style="display: flex; align-items: center; gap: 4px; margin-left: auto; background: rgba(0,0,0,0.05); padding: 4px; border-radius: var(--radius-md);">
+            <button type="button" id="btn-kanban" onclick="switchView('kanban')" style="border: none; background: #ffffff; padding: 6px 10px; border-radius: var(--radius-sm); cursor: pointer; color: var(--text-primary); font-size: 0.85rem; box-shadow: 0 1px 2px rgba(0,0,0,0.1);"><i class="fa-solid fa-table-columns"></i> Kanban</button>
+            <button type="button" id="btn-list" onclick="switchView('list')" style="border: none; background: transparent; padding: 6px 10px; border-radius: var(--radius-sm); cursor: pointer; color: var(--text-secondary); font-size: 0.85rem;"><i class="fa-solid fa-list"></i> Lista</button>
+        </div>
+    </form>
+</div>
+
 {% macro render_client(client) %}
 <div class="client-card" id="client-{{ client.id }}" draggable="true" ondragstart="drag(event)">
     <a href="{{ url_for('web_clients.client_detail', client_id=client.id) }}" class="client-title">
@@ -251,10 +285,140 @@
     </div>
 </div>
 
+<!-- List View -->
+<div id="list-view" class="card-table-wrapper" style="display: none; padding: 0;">
+    <div class="table-responsive">
+        <table class="table-premium">
+            <thead>
+                <tr>
+                    <th>Razón Social</th>
+                    <th>RNC</th>
+                    <th>Teléfono</th>
+                    <th>Etapa (Pipeline)</th>
+                    <th>Próximo Contacto</th>
+                    <th style="text-align: right;">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for client in clients %}
+                <tr>
+                    <td>
+                        <a href="{{ url_for('web_clients.client_detail', client_id=client.id) }}" class="client-link">
+                            <span style="font-size: 0.85rem; display: block; margin-bottom: 2px;">{{ client.razonSocial }}</span>
+                        </a>
+                    </td>
+                    <td><span style="font-size: 0.85rem; font-family: monospace;">{{ client.rnc }}</span></td>
+                    <td><span style="font-size: 0.85rem;">{{ client.telefono or 'N/A' }}</span></td>
+                    <td>
+                        {% if client.pipelineStage == 'Prospecto' %}
+                        <span class="badge badge-warning" style="font-size: 0.65rem;">{{ client.pipelineStage }}</span>
+                        {% elif client.pipelineStage == 'Contactado' %}
+                        <span class="badge" style="background-color: rgba(59, 130, 246, 0.12); color: var(--accent-blue); font-size: 0.65rem;">{{ client.pipelineStage }}</span>
+                        {% elif client.pipelineStage == 'En Negociación' %}
+                        <span class="badge badge-primary" style="font-size: 0.65rem;">{{ client.pipelineStage }}</span>
+                        {% elif client.pipelineStage == 'Cliente Activo' %}
+                        <span class="badge badge-success" style="font-size: 0.65rem;">{{ client.pipelineStage }}</span>
+                        {% else %}
+                        <span class="badge badge-secondary" style="font-size: 0.65rem;">{{ client.pipelineStage }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if client.nextContactDate %}
+                        <span style="color: var(--accent-purple); font-weight: 500; font-size: 0.75rem;"><i class="fa-solid fa-clock"></i> {{ client.nextContactDate[:10] }}</span>
+                        {% else %}
+                        <span class="text-muted" style="font-size: 0.75rem;">N/A</span>
+                        {% endif %}
+                    </td>
+                    <td style="text-align: right;">
+                        <div style="display: inline-flex; gap: 8px;">
+                            <a href="{{ url_for('web_clients.client_detail', client_id=client.id) }}" class="btn btn-secondary" style="padding: 8px 12px; font-size: 0.8rem;" title="Ver Ficha"><i class="fa-solid fa-eye"></i></a>
+                            <a href="{{ url_for('web_clients.edit_client', client_id=client.id) }}" class="btn btn-secondary" style="padding: 8px 12px; font-size: 0.8rem;" title="Editar"><i class="fa-solid fa-pen"></i></a>
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" style="text-align: center; padding: 60px 0; color: var(--text-secondary);">
+                        <i class="fa-solid fa-users" style="font-size: 3rem; color: var(--text-muted); margin-bottom: 16px; opacity: 0.5; display: block;"></i>
+                        <span>No hay clientes registrados en el CRM.</span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block extra_scripts %}
 <script>
+    // View Switcher Logic
+    function switchView(viewName) {
+        const kanban = document.querySelector('.kanban-board');
+        const listView = document.getElementById('list-view');
+        const btnKanban = document.getElementById('btn-kanban');
+        const btnList = document.getElementById('btn-list');
+
+        if (viewName === 'kanban') {
+            kanban.style.display = 'flex';
+            listView.style.display = 'none';
+            btnKanban.style.background = '#ffffff';
+            btnKanban.style.color = 'var(--text-primary)';
+            btnKanban.style.boxShadow = '0 1px 2px rgba(0,0,0,0.1)';
+            
+            btnList.style.background = 'transparent';
+            btnList.style.color = 'var(--text-secondary)';
+            btnList.style.boxShadow = 'none';
+            localStorage.setItem('crmView', 'kanban');
+        } else {
+            kanban.style.display = 'none';
+            listView.style.display = 'block';
+            btnList.style.background = '#ffffff';
+            btnList.style.color = 'var(--text-primary)';
+            btnList.style.boxShadow = '0 1px 2px rgba(0,0,0,0.1)';
+            
+            btnKanban.style.background = 'transparent';
+            btnKanban.style.color = 'var(--text-secondary)';
+            btnKanban.style.boxShadow = 'none';
+            localStorage.setItem('crmView', 'list');
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const savedView = localStorage.getItem('crmView') || 'kanban';
+        switchView(savedView);
+
+        // Auto-submit logic for filter
+        const form = document.getElementById('filters-form');
+        const searchInput = document.getElementById('q');
+        const selectStage = document.getElementById('stage');
+        
+        let debounceTimer;
+        if (searchInput) {
+            searchInput.addEventListener('input', function() {
+                clearTimeout(debounceTimer);
+                debounceTimer = setTimeout(() => {
+                    form.submit();
+                }, 500);
+            });
+
+            if (searchInput.value) {
+                searchInput.focus();
+                const val = searchInput.value;
+                searchInput.value = '';
+                searchInput.value = val;
+            }
+        }
+        
+        if (selectStage) {
+            selectStage.addEventListener('change', () => {
+                form.submit();
+            });
+        }
+    });
+
+    // Kanban Logic
     function allowDrop(ev) {
         ev.preventDefault();
     }
