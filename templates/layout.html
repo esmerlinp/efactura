@@ -312,6 +312,13 @@
                                 <span>Control de Gastos</span>
                             </a>
                         </li>
+                        <li class="nav-item {% if active_page == 'expenses_cxp' %}active{% endif %}"
+                            data-tooltip="Cuentas por Pagar (CxP)">
+                            <a href="{{ url_for('list_cxp') }}">
+                                <i class="fa-solid fa-receipt"></i>
+                                <span>Cuentas por Pagar (CxP)</span>
+                            </a>
+                        </li>
                     </ul>
                 </div>
                 {% endif %}

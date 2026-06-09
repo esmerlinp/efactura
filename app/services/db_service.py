@@ -1595,12 +1595,25 @@ class DatabaseService:
                         "isRecurring": bool(data.get("isRecurring", False)),
                         "recurrenceInterval": data.get("recurrenceInterval", "mensual"),
                         "nextOccurrenceDate": serialize_field(data.get("nextOccurrenceDate")),
+                        "recurrenceEndDate": serialize_field(data.get("recurrenceEndDate")),
                         "associatedInvoiceId": data.get("associatedInvoiceId", ""),
                         "itbisAmount": float(data.get("itbisAmount", 0.0)),
                         "isITBISDeductible": bool(data.get("isITBISDeductible", True)),
                         "isDeductible": bool(data.get("isDeductible", True)),
                         "firebaseAttachmentURLs": data.get("firebaseAttachmentURLs", []),
-                        "createdAt": serialize_field(data.get("createdAt"))
+                        "createdAt": serialize_field(data.get("createdAt")),
+                        # Nuevos campos e-CF y CxP:
+                        "ecfType": data.get("ecfType", ""),
+                        "ecfNumber": data.get("ecfNumber", ""),
+                        "cne": data.get("cne", ""),
+                        "tipoGastoDGII": data.get("tipoGastoDGII", ""),
+                        "paymentType": data.get("paymentType", "Contado"),
+                        "cxpStatus": data.get("cxpStatus", "Pagado"),
+                        "cxpRemainingBalance": float(data.get("cxpRemainingBalance", 0.0)),
+                        "approvalStatus": data.get("approvalStatus", "Aprobado"),
+                        "requestedBy": data.get("requestedBy", ""),
+                        "approvedBy": data.get("approvedBy", ""),
+                        "dueDate": serialize_field(data.get("dueDate", ""))
                     })
                 expenses.sort(key=lambda x: x["date"] or "", reverse=True)
             except Exception as e:
@@ -1623,8 +1636,22 @@ class DatabaseService:
         exp_dict["isITBISDeductible"] = bool(exp_dict.get("isITBISDeductible", True))
         exp_dict["isDeductible"] = bool(exp_dict.get("isDeductible", True))
         
+        # Nuevos campos e-CF y CxP:
+        exp_dict["ecfType"] = exp_dict.get("ecfType", "")
+        exp_dict["ecfNumber"] = exp_dict.get("ecfNumber", "")
+        exp_dict["cne"] = exp_dict.get("cne", "")
+        exp_dict["tipoGastoDGII"] = exp_dict.get("tipoGastoDGII", "")
+        exp_dict["paymentType"] = exp_dict.get("paymentType", "Contado")
+        exp_dict["cxpStatus"] = exp_dict.get("cxpStatus", "Pagado")
+        exp_dict["cxpRemainingBalance"] = float(exp_dict.get("cxpRemainingBalance", 0.0 if exp_dict["paymentType"] == "Contado" else exp_dict["amount"]))
+        exp_dict["approvalStatus"] = exp_dict.get("approvalStatus", "Aprobado")
+        exp_dict["requestedBy"] = exp_dict.get("requestedBy", "")
+        exp_dict["approvedBy"] = exp_dict.get("approvedBy", "")
+        exp_dict["dueDate"] = serialize_field(exp_dict.get("dueDate", ""))
+        
         exp_dict["date"] = serialize_field(exp_dict["date"])
         exp_dict["nextOccurrenceDate"] = serialize_field(exp_dict.get("nextOccurrenceDate"))
+        exp_dict["recurrenceEndDate"] = serialize_field(exp_dict.get("recurrenceEndDate"))
         exp_dict["createdAt"] = serialize_field(exp_dict["createdAt"])
 
         if firebase_initialized:
@@ -1635,6 +1662,66 @@ class DatabaseService:
                 print(f"⚠️ Fallo al respaldar gasto en Firestore: {e}")
 
         return exp_dict
+
+    @classmethod
+    def save_cxp_payment(cls, owner_uid, expense_id, payment_amount, registered_by="Usuario", sandbox=True):
+        """Registra un abono/pago a una cuenta por pagar (gasto a crédito)."""
+        if not firebase_initialized:
+            return False, "Firebase no inicializado."
+        try:
+            coll_name = "sandbox_expenses" if sandbox else "expenses"
+            doc_ref = db_firestore.collection("users").document(owner_uid).collection(coll_name).document(expense_id)
+            doc = doc_ref.get()
+            if not doc.exists:
+                return False, "Gasto/Factura no encontrado."
+                
+            data = doc.to_dict()
+            amount = float(data.get("amount", 0.0))
+            current_rem = float(data.get("cxpRemainingBalance", amount))
+            
+            new_rem = max(0.0, current_rem - payment_amount)
+            new_status = "Pagado" if new_rem <= 0.01 else "Abonado"
+            
+            # Registrar el pago en una subcolección del gasto
+            payment_id = str(uuid.uuid4())
+            payment_doc = {
+                "id": payment_id,
+                "amount": payment_amount,
+                "paymentDate": datetime.utcnow().isoformat(),
+                "registeredBy": registered_by
+            }
+            doc_ref.collection("cxp_payments").document(payment_id).set(payment_doc)
+            
+            # Actualizar gasto principal
+            doc_ref.update({
+                "cxpRemainingBalance": new_rem,
+                "cxpStatus": new_status
+            })
+            return True, f"Pago de RD$ {payment_amount:,.2f} registrado con éxito. Nuevo balance: RD$ {new_rem:,.2f}."
+        except Exception as e:
+            print(f"⚠️ Error en save_cxp_payment: {e}")
+            return False, str(e)
+            
+    @classmethod
+    def get_cxp_payments(cls, owner_uid, expense_id, sandbox=True):
+        """Retorna todos los abonos realizados a una cuenta por pagar."""
+        payments = []
+        if firebase_initialized:
+            try:
+                coll_name = "sandbox_expenses" if sandbox else "expenses"
+                docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).document(expense_id).collection("cxp_payments").get()
+                for doc in docs:
+                    data = doc.to_dict()
+                    payments.append({
+                        "id": doc.id,
+                        "amount": float(data.get("amount", 0.0)),
+                        "paymentDate": data.get("paymentDate", ""),
+                        "registeredBy": data.get("registeredBy", "")
+                    })
+                payments.sort(key=lambda x: x["paymentDate"], reverse=True)
+            except Exception as e:
+                print(f"⚠️ Error al obtener pagos de CxP: {e}")
+        return payments
 
     @classmethod
     def delete_expense(cls, owner_uid, expense_id, sandbox=True):

@@ -1,14 +1,14 @@
 {% extends "layout.html" %}
 
-{% block title %}Registrar Gasto operativo{% endblock %}
+{% block title %}Registrar Comprobante e-CF o Gasto{% endblock %}
 
-{% block page_header %}Registrar Egreso Operativo{% endblock %}
+{% block page_header %}Registrar Egreso Fiscal / e-CF{% endblock %}
 
 {% block content %}
 <style>
     .expense-layout-grid {
         display: grid;
-        grid-template-columns: 2fr 1fr;
+        grid-template-columns: 1.6fr 1fr;
         gap: 24px;
         align-items: start;
         margin-bottom: 24px;
@@ -16,70 +16,97 @@
     }
 
     .expense-layout-grid .card-table-wrapper {
-        background-color: rgba(255, 255, 255, 0.85); /* Modo Claro Oopaco */
+        background-color: rgba(255, 255, 255, 0.85);
         backdrop-filter: blur(20px);
         box-shadow: var(--shadow-md);
     }
 
     [data-theme="dark"] .expense-layout-grid .card-table-wrapper {
-        background-color: rgba(15, 23, 42, 0.85); /* Modo Oscuro Oopaco */
+        background-color: rgba(15, 23, 42, 0.85);
         backdrop-filter: blur(20px);
         box-shadow: var(--shadow-md);
-    }
-
-    .expense-left-col, .expense-right-col {
-        display: flex;
-        flex-direction: column;
-        gap: 24px;
     }
 
     .form-inner-grid {
         display: grid;
         grid-template-columns: repeat(2, 1fr);
-        gap: 20px 24px;
+        gap: 18px 20px;
     }
 
-    .recurrence-box {
-        display: none;
-        flex-direction: column;
-        gap: 16px;
-        margin-top: 16px;
-        padding: 18px;
-        background: rgba(255, 255, 255, 0.02);
-        border: 1px solid var(--border-color);
-        border-radius: var(--radius-sm);
-        backdrop-filter: blur(4px);
-    }
-
-    /* Make text inputs inside grids span columns if needed */
     .span-full {
         grid-column: 1 / -1;
     }
 
-    @media (max-width: 1024px) {
-        .expense-layout-grid {
-            grid-template-columns: 1fr;
-        }
-        .form-inner-grid {
-            grid-template-columns: 1fr;
-        }
+    .uploader-zone {
+        border: 2px dashed var(--border-color);
+        border-radius: var(--radius-md);
+        padding: 30px 20px;
+        text-align: center;
+        background: rgba(0,0,0,0.01);
+        cursor: pointer;
+        transition: all 0.25s ease;
+        position: relative;
+    }
+    .uploader-zone:hover, .uploader-zone.dragover {
+        border-color: var(--accent-emerald);
+        background: rgba(16, 185, 129, 0.03);
+    }
+
+    .field-highlighted {
+        animation: highlightPulse 2s infinite ease-in-out;
+        border-color: var(--accent-emerald) !important;
+        box-shadow: 0 0 8px rgba(16, 185, 129, 0.2) !important;
+    }
+    @keyframes highlightPulse {
+        0%, 100% { background-color: transparent; }
+        50% { background-color: rgba(16, 185, 129, 0.05); }
+    }
+
+    .recurrence-box, .credit-box {
+        display: none;
+        flex-direction: column;
+        gap: 12px;
+        margin-top: 14px;
+        padding: 16px;
+        background: rgba(0,0,0,0.02);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-sm);
+    }
+
+    /* WebRTC Camera Widget */
+    #camera-container {
+        display: none;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+        margin-top: 12px;
+        border: 1px solid var(--border-color);
+        padding: 12px;
+        border-radius: var(--radius-sm);
+        background: rgba(0,0,0,0.02);
+    }
+    #camera-preview {
+        width: 100%;
+        max-width: 320px;
+        border-radius: var(--radius-xs);
+        transform: scaleX(-1); /* mirror */
     }
 </style>
 
-<form action="{{ url_for('new_expense_route') }}" method="POST" enctype="multipart/form-data" style="width: 100%;">
+<form action="{{ url_for('new_expense_route') }}" method="POST" enctype="multipart/form-data" style="width: 100%;" id="expense-form">
     <div class="expense-layout-grid">
         <!-- Columna Izquierda: Datos del Egreso -->
-        <div class="expense-left-col">
+        <div style="display:flex; flex-direction:column; gap:24px;">
             <div class="card-table-wrapper" style="margin-bottom: 0;">
-                <h3 style="font-size: 1.25rem; font-family: var(--font-heading); margin-bottom: 24px; border-bottom: 1px solid var(--border-color); padding-bottom: 14px; display: flex; align-items: center; gap: 10px;">
+                <h3 style="font-size: 1.15rem; font-family: var(--font-heading); margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px; display: flex; align-items: center; gap: 10px;">
                     <i class="fa-solid fa-file-invoice-dollar" style="color: var(--accent-red);"></i>
-                    <span>Información General del Egreso</span>
+                    <span>Datos del Comprobante Fiscal / e-CF</span>
                 </h3>
                 
                 <div class="form-inner-grid">
                     <div class="form-group span-full">
-                        <label for="concept">Concepto / Descripción del Gasto</label>
-                        <input type="text" id="concept" name="concept" class="form-input" placeholder="Ej: Compra de Licencias de Office 365 para el Equipo" required style="width: 100%;">
+                        <label for="concept">Concepto / Detalle del Gasto</label>
+                        <input type="text" id="concept" name="concept" class="form-input" placeholder="Ej: Pago de Servidor Mensual Google Cloud" required style="width: 100%;">
                     </div>
                     
                     <div class="form-group">
@@ -95,96 +122,176 @@
                             <option value="Otros Gastos">Otros Gastos</option>
                         </select>
                     </div>
-                    
+
                     <div class="form-group">
-                        <label for="amount">Monto Total del Gasto (RD$)</label>
-                        <input type="number" id="amount" name="amount" class="form-input" placeholder="0.00" step="0.01" required style="width: 100%;">
+                        <label for="tipoGastoDGII">Tipo de Gasto Deducible (DGII 606)</label>
+                        <select id="tipoGastoDGII" name="tipoGastoDGII" class="form-select" required style="width: 100%;">
+                            <option value="01">01 - Gastos de Personal</option>
+                            <option value="02" selected>02 - Gastos por Trabajos, Suministros y Servicios</option>
+                            <option value="03">03 - Arrendamientos</option>
+                            <option value="04">04 - Gastos de Activos Fijos</option>
+                            <option value="05">05 - Gastos de Representación</option>
+                            <option value="06">06 - Otras Deducciones Admitidas</option>
+                            <option value="07">07 - Gastos Financieros</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="ecfType">Tipo de Comprobante e-CF</label>
+                        <select id="ecfType" name="ecfType" class="form-select" style="width: 100%;">
+                            <option value="E31" selected>E31 - Factura de Crédito Fiscal Electrónica</option>
+                            <option value="E32">E32 - Factura de Consumo Electrónica</option>
+                            <option value="E41">E41 - Nota de Débito Electrónica</option>
+                            <option value="E43">E43 - Gastos Menores Electrónicos</option>
+                            <option value="E45">E45 - Comprobante Gubernamental Electrónico</option>
+                        </select>
                     </div>
                     
                     <div class="form-group">
-                        <label for="date">Fecha de Transacción</label>
+                        <label for="ncf">NCF Electrónico (e-CF)</label>
+                        <input type="text" id="ncf" name="ncf" class="form-input" placeholder="Ej: E310120000452" required style="width: 100%; font-family: monospace;">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="rnc-emisor">RNC del Proveedor</label>
+                        <input type="text" id="rnc-emisor" name="rncEmisor" class="form-input" placeholder="Ej: 101001011" required style="width: 100%; font-family: monospace;">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="cne">Código de Seguridad (CNE)</label>
+                        <input type="text" id="cne" name="cne" class="form-input" placeholder="Firma digital corta de DGII" style="width: 100%; font-family: monospace;">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="amount">Monto Total Facturado (RD$)</label>
+                        <input type="number" id="amount" name="amount" class="form-input" placeholder="0.00" step="0.01" required style="width: 100%; font-weight: bold;">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="itbisAmount">ITBIS Adelantado / Deducible (RD$)</label>
+                        <input type="number" id="itbisAmount" name="itbisAmount" class="form-input" placeholder="0.00" step="0.01" style="width: 100%;">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="date">Fecha del Comprobante</label>
                         <input type="date" id="date" name="date" class="form-input" required value="{{ today_str }}" style="width: 100%;">
                     </div>
                     
                     <div class="form-group">
-                        <label for="associated-invoice">Imputar a Factura / Proyecto (Rentabilidad)</label>
+                        <label for="associated-invoice">Imputar a Proyecto / Factura de Ingreso</label>
                         <select id="associated-invoice" name="associatedInvoiceId" class="form-select" style="width: 100%;">
                             <option value="">-- Gasto General Operativo --</option>
                             {% for inv in invoices %}
-                                <option value="{{ inv.id }}">Factura {{ inv.invoiceNumber }} (Total: RD$ {{ "{:,.0f}".format(inv.total) }} - {{ inv.clientName }})</option>
+                                <option value="{{ inv.id }}">Factura {{ inv.invoiceNumber }} (RD$ {{ "{:,.0f}".format(inv.total) }} - {{ inv.clientName }})</option>
                             {% endfor %}
                         </select>
-                        <small style="color: var(--text-muted); font-size: 0.72rem; margin-top: 4px;">Asociar costo a factura calcula el margen neto en tiempo real.</small>
                     </div>
-                    
-                    <div class="form-group">
-                        <label for="rnc-emisor">RNC Emisor del Gasto</label>
-                        <input type="text" id="rnc-emisor" name="rncEmisor" class="form-input" placeholder="Ej: 101888888 (Claro)" style="width: 100%;">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="ncf">NCF del Comprobante Físico</label>
-                        <input type="text" id="ncf" name="ncf" class="form-input" placeholder="Ej: B0100000125" style="width: 100%;">
-                    </div>
-                    
+
                     <div class="form-group span-full" style="margin-top: 10px; border-top: 1px dashed var(--border-color); padding-top: 16px;">
                         <label class="switch-container" style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
                             <input type="checkbox" id="is-deductible-checkbox" name="isDeductible" value="true" checked style="width: 18px; height: 18px; accent-color: var(--accent-red);">
                             <span style="font-weight: 600;">¿Este gasto es para tu negocio (gasto deducible)?</span>
                         </label>
-                        <small style="color: var(--text-muted); display: block; margin-top: 4px; padding-left: 28px;">
-                            Si desmarcas esta opción, el gasto se registrará para el control de tus finanzas personales y margen neto real, pero se **excluirá automáticamente** de tus simuladores contables y reportes internos de gastos.
-                        </small>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Columna Derecha: Soporte y Recurrencia -->
-        <div class="expense-right-col">
-            <!-- Card de Soporte Digital -->
+        <!-- Columna Derecha: Carga de e-CF & CxP -->
+        <div style="display:flex; flex-direction:column; gap:24px;">
+            <!-- CARD DE CARGA DUAL / OCR -->
             <div class="card-table-wrapper" style="margin-bottom: 0;">
-                <h3 style="font-size: 1.2rem; font-family: var(--font-heading); margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px; display: flex; align-items: center; gap: 10px;">
-                    <i class="fa-solid fa-paperclip" style="color: var(--accent-blue);"></i>
-                    <span>Soporte Digital</span>
+                <h3 style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 16px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; display: flex; align-items: center; gap: 10px;">
+                    <i class="fa-solid fa-wand-magic-sparkles" style="color: var(--accent-emerald);"></i>
+                    <span>Cargador Inteligente e-CF</span>
                 </h3>
                 
-                <div class="form-group" style="margin-bottom: 0;">
-                    <label for="attachment">Archivo de Ticket / Recibo / Factura</label>
-                    <input type="file" id="attachment" name="attachment" class="form-input" accept="image/*,application/pdf" style="padding: 10px 12px; height: auto; width: 100%;">
-                    <small style="color: var(--text-muted); font-size: 0.72rem; margin-top: 6px; display: block; line-height: 1.4;">Carga una foto del ticket físico o del PDF de soporte. Se almacenará en tu bucket de Firebase Storage.</small>
+                <div class="uploader-zone" id="drop-zone" onclick="document.getElementById('ocr-file').click()">
+                    <i class="fa-solid fa-cloud-arrow-up" style="font-size: 2.2rem; color: var(--text-muted); margin-bottom: 8px;"></i>
+                    <p style="font-size: 0.8rem; font-weight:600; margin: 0 0 4px 0; color: var(--text-primary);">Arrastra XML de e-CF o Foto del Ticket</p>
+                    <span style="font-size: 0.7rem; color: var(--text-muted);">También puedes hacer clic para subir</span>
+                    <input type="file" id="ocr-file" accept=".xml,image/*" style="display:none" onchange="uploadForOCR(this.files[0])">
+                </div>
+
+                <div style="display: flex; gap: 10px; margin-top: 12px;">
+                    <button type="button" class="btn btn-secondary" style="flex:1; justify-content:center;" onclick="toggleCamera()">
+                        <i class="fa-solid fa-camera"></i> Tomar Foto
+                    </button>
+                </div>
+
+                <!-- Cámara WebRTC Widget -->
+                <div id="camera-container">
+                    <video id="camera-preview" autoplay playsinline></video>
+                    <button type="button" class="btn btn-success btn-sm" onclick="capturePhoto()">Capturar</button>
+                </div>
+
+                <div id="ocr-status" style="margin-top: 12px; font-size: 0.78rem; text-align: center; color: var(--text-muted); display: none;">
+                    <i class="fa-solid fa-spinner fa-spin" style="margin-right: 6px;"></i><span>Leyendo datos fiscales del e-CF...</span>
                 </div>
             </div>
 
-            <!-- Card de Automatización (Gasto Recurrente) -->
+            <!-- CARD CONDICIONES DE PAGO & CXP -->
             <div class="card-table-wrapper" style="margin-bottom: 0;">
-                <h3 style="font-size: 1.2rem; font-family: var(--font-heading); margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px; display: flex; align-items: center; gap: 10px;">
-                    <i class="fa-solid fa-rotate" style="color: var(--accent-purple);"></i>
-                    <span>Gasto Recurrente</span>
+                <h3 style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 16px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; display: flex; align-items: center; gap: 10px;">
+                    <i class="fa-solid fa-credit-card" style="color: var(--accent-blue);"></i>
+                    <span>Condiciones de Pago / CxP</span>
                 </h3>
                 
-                <div class="form-group" style="margin-bottom: 0;">
-                    <label for="is-recurring">¿Es un Gasto Fijo Recurrente?</label>
-                    <select id="is-recurring" name="isRecurring" class="form-select" onchange="document.getElementById('recurrence-fields').style.display=this.value==='true'?'flex':'none'" style="width: 100%;">
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label for="paymentType">Tipo de Pago</label>
+                    <select id="paymentType" name="paymentType" class="form-select" onchange="toggleCxpFields(this.value)" style="width: 100%;">
+                        <option value="Contado" selected>Contado (Pagado al instante)</option>
+                        <option value="Crédito">Crédito (Cuenta por Pagar - CxP)</option>
+                    </select>
+                </div>
+
+                <div class="credit-box" id="cxp-fields">
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label for="dueDate">Fecha de Vencimiento de Factura</label>
+                        <input type="date" id="dueDate" name="dueDate" class="form-input" style="width: 100%;">
+                    </div>
+                </div>
+
+                <div class="form-group" style="margin-top:14px; margin-bottom:0;">
+                    <label for="approvalStatus">Estatus de Gasto Interno</label>
+                    <select id="approvalStatus" name="approvalStatus" class="form-select" style="width: 100%;">
+                        <option value="Aprobado" selected>Aprobado automáticamente</option>
+                        <option value="Pendiente">Pendiente de Firma/Aprobación</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- CARD DE AUTOMATIZACIÓN (GASTO RECURRENTE) -->
+            <div class="card-table-wrapper" style="margin-bottom: 0;">
+                <h3 style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 16px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; display: flex; align-items: center; gap: 10px;">
+                    <i class="fa-solid fa-arrows-spin" style="color: var(--accent-purple);"></i>
+                    <span>Gasto Recurrente / Automatización</span>
+                </h3>
+                
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label for="isRecurring">¿Es un Gasto Fijo Recurrente?</label>
+                    <select id="isRecurring" name="isRecurring" class="form-select" onchange="toggleRecurrenceFields(this.value)" style="width: 100%;">
                         <option value="false" selected>No, egreso único</option>
                         <option value="true">Sí, automatizar registro</option>
                     </select>
-                    <small style="color: var(--text-muted); font-size: 0.72rem; margin-top: 6px; display: block; line-height: 1.4;">Úsalo para gastos fijos automatizados (ej: alquiler, internet, nóminas, etc.).</small>
                 </div>
-                
-                <!-- Campos Recurrentes Dinámicos -->
+
                 <div class="recurrence-box" id="recurrence-fields">
-                    <div class="form-group" style="margin-bottom: 0;">
-                        <label for="recurrence-interval">Frecuencia del Gasto</label>
-                        <select id="recurrence-interval" name="recurrenceInterval" class="form-select" style="width: 100%;">
+                    <div class="form-group" style="margin-bottom: 12px;">
+                        <label for="recurrenceInterval">Frecuencia del Gasto</label>
+                        <select id="recurrenceInterval" name="recurrenceInterval" class="form-select" style="width: 100%;">
                             <option value="semanal">Semanal</option>
                             <option value="quincenal">Quincenal</option>
                             <option value="mensual" selected>Mensual</option>
                         </select>
                     </div>
+                    <div class="form-group" style="margin-bottom: 12px;">
+                        <label for="nextOccurrenceDate">Próxima Fecha de Registro</label>
+                        <input type="date" id="nextOccurrenceDate" name="nextOccurrenceDate" class="form-input" style="width: 100%;">
+                    </div>
                     <div class="form-group" style="margin-bottom: 0;">
-                        <label for="next-recurrence">Próxima Fecha de Registro</label>
-                        <input type="date" id="next-recurrence" name="nextOccurrenceDate" class="form-input" style="width: 100%;">
+                        <label for="recurrenceEndDate">Fecha de Finalización (Límite)</label>
+                        <input type="date" id="recurrenceEndDate" name="recurrenceEndDate" class="form-input" style="width: 100%;">
                     </div>
                 </div>
             </div>
@@ -196,10 +303,154 @@
         <a href="{{ url_for('list_expenses') }}" class="btn btn-secondary">
             <span>Cancelar</span>
         </a>
-        <button type="submit" class="btn btn-primary" style="padding: 14px 28px;">
+        <button type="submit" class="btn btn-primary" style="padding: 14px 28px; background: var(--accent-emerald); border-color: var(--accent-emerald);">
             <i class="fa-solid fa-floppy-disk"></i>
-            <span>Registrar Gasto</span>
+            <span>Registrar Gasto e-CF</span>
         </button>
     </div>
 </form>
+
+<script>
+    // Drag and Drop
+    const dropZone = document.getElementById('drop-zone');
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dropZone.addEventListener(eventName, (e) => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        }, false);
+    });
+    ['dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+        }, false);
+    });
+    dropZone.addEventListener('drop', (e) => {
+        const dt = e.dataTransfer;
+        const files = dt.files;
+        if (files.length) {
+            uploadForOCR(files[0]);
+        }
+    });
+
+    // Auto-calculate ITBIS when amount changes
+    document.getElementById('amount').addEventListener('input', function() {
+        const val = parseFloat(this.value);
+        if (!isNaN(val)) {
+            // Sugerir el 18% del ITBIS incluido por defecto
+            document.getElementById('itbisAmount').value = (val * 0.18 / 1.18).toFixed(2);
+        }
+    });
+
+    function toggleCxpFields(val) {
+        document.getElementById('cxp-fields').style.display = val === 'Crédito' ? 'flex' : 'none';
+        if (val === 'Crédito') {
+            // Por defecto colocar vencimiento a 30 días
+            const date = new Date();
+            date.setDate(date.getDate() + 30);
+            document.getElementById('dueDate').value = date.toISOString().split('T')[0];
+        }
+    }
+
+    function toggleRecurrenceFields(val) {
+        document.getElementById('recurrence-fields').style.display = val === 'true' ? 'flex' : 'none';
+        if (val === 'true' && !document.getElementById('nextOccurrenceDate').value) {
+            document.getElementById('nextOccurrenceDate').value = document.getElementById('date').value;
+        }
+    }
+
+    function uploadForOCR(file) {
+        if (!file) return;
+
+        const statusDiv = document.getElementById('ocr-status');
+        statusDiv.style.display = 'block';
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        fetch('/api/expenses/ocr-upload', {
+            method: 'POST',
+            body: formData
+        })
+        .then(res => res.json())
+        .then(data => {
+            statusDiv.style.display = 'none';
+            if (data.success) {
+                // Rellenar campos y dar feedback visual
+                const fields = {
+                    'rnc-emisor': data.rncEmisor,
+                    'ncf': data.ncf,
+                    'amount': data.amount,
+                    'itbisAmount': data.itbisAmount,
+                    'date': data.date,
+                    'cne': data.cne,
+                    'ecfType': data.ecfType
+                };
+
+                for (let key in fields) {
+                    const el = document.getElementById(key);
+                    if (el && fields[key]) {
+                        el.value = fields[key];
+                        el.classList.add('field-highlighted');
+                        setTimeout(() => el.classList.remove('field-highlighted'), 3000);
+                    }
+                }
+                alert(data.notes || 'Comprobante fiscal e-CF procesado exitosamente.');
+            } else {
+                alert('No se pudieron extraer los datos fiscales: ' + data.error);
+            }
+        })
+        .catch(err => {
+            statusDiv.style.display = 'none';
+            alert('Error de red al procesar el OCR.');
+        });
+    }
+
+    // WebRTC Camera Logic
+    let stream = null;
+    function toggleCamera() {
+        const container = document.getElementById('camera-container');
+        const preview = document.getElementById('camera-preview');
+        
+        if (container.style.display === 'flex') {
+            stopCamera();
+            container.style.display = 'none';
+        } else {
+            navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+            .then(s => {
+                stream = s;
+                preview.srcObject = s;
+                container.style.display = 'flex';
+            })
+            .catch(err => {
+                alert('No se pudo acceder a la cámara del dispositivo.');
+            });
+        }
+    }
+
+    function stopCamera() {
+        if (stream) {
+            stream.getTracks().forEach(track => track.stop());
+            stream = null;
+        }
+    }
+
+    function capturePhoto() {
+        const preview = document.getElementById('camera-preview');
+        const canvas = document.createElement('canvas');
+        canvas.width = preview.videoWidth;
+        canvas.height = preview.videoHeight;
+        
+        const ctx = canvas.getContext('2d');
+        ctx.translate(canvas.width, 0);
+        ctx.scale(-1, 1); // mirror back
+        ctx.drawImage(preview, 0, 0, canvas.width, canvas.height);
+        
+        canvas.toBlob(blob => {
+            const file = new File([blob], "camera-capture.jpg", { type: "image/jpeg" });
+            uploadForOCR(file);
+            toggleCamera(); // cerrar cámara
+        }, 'image/jpeg');
+    }
+</script>
 {% endblock %}

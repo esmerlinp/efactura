@@ -1,0 +1,241 @@
+{% extends "layout.html" %}
+
+{% block title %}Cuentas por Pagar (CxP){% endblock %}
+
+{% block page_header %}Control de Cuentas por Pagar (CxP){% endblock %}
+
+{% block content %}
+<style>
+    .kpi-card-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 20px;
+        margin-bottom: 30px;
+    }
+    .kpi-mini-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-md);
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        position: relative;
+        overflow: hidden;
+    }
+    .kpi-mini-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 4px;
+        height: 100%;
+    }
+    .kpi-blue::before { background: #3b82f6; }
+    .kpi-red::before { background: var(--accent-red); }
+
+    .status-badge {
+        font-size: 0.75rem;
+        font-weight: 600;
+        padding: 3px 8px;
+        border-radius: 12px;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+    }
+    .badge-pendiente { background: rgba(59, 130, 246, 0.12); color: #3b82f6; }
+    .badge-parcial { background: rgba(245, 158, 11, 0.12); color: #f59e0b; }
+    .badge-vencido { background: rgba(239, 68, 68, 0.12); color: var(--accent-red); }
+    .badge-pagado { background: rgba(16, 185, 129, 0.12); color: var(--accent-emerald); }
+
+    .action-btn-group {
+        display: flex;
+        gap: 6px;
+        justify-content: center;
+    }
+    .action-btn {
+        width: 32px;
+        height: 32px;
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--border-color);
+        background: var(--bg-card);
+        color: var(--text-secondary);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        text-decoration: none;
+    }
+    .action-btn:hover {
+        background: var(--bg-nav-hover);
+        color: var(--text-primary);
+        border-color: var(--text-muted);
+    }
+    .btn-pay:hover { color: var(--accent-emerald); border-color: rgba(16, 185, 129, 0.3); }
+</style>
+
+<!-- KPIs SUPERIORES -->
+<div class="kpi-card-grid">
+    <div class="kpi-mini-card kpi-blue">
+        <span style="font-size: 0.78rem; color: var(--text-secondary); font-weight: 500;">Balance Total CxP</span>
+        <div style="font-size: 1.5rem; font-weight: 700; color: var(--text-primary); font-family: var(--font-heading); margin-top: 4px;">
+            RD$ {{ "{:,.2f}".format(total_cxp_pending) }}
+        </div>
+        <span style="font-size: 0.72rem; color: var(--text-muted);">Saldo total pendiente a proveedores</span>
+    </div>
+
+    <div class="kpi-mini-card kpi-red">
+        <span style="font-size: 0.78rem; color: var(--text-secondary); font-weight: 500;">Balance Vencido</span>
+        <div style="font-size: 1.5rem; font-weight: 700; color: var(--accent-red); font-family: var(--font-heading); margin-top: 4px;">
+            RD$ {{ "{:,.2f}".format(total_cxp_vencido) }}
+        </div>
+        <span style="font-size: 0.72rem; color: var(--text-muted);">Requiere liquidación prioritaria</span>
+    </div>
+</div>
+
+<div class="card-table-wrapper" style="box-shadow: none; padding: 0; overflow: hidden; margin-bottom: 24px;">
+    <table class="table-premium" style="width: 100%; border-collapse: collapse;">
+        <thead>
+            <tr style="text-align: left; background: rgba(0,0,0,0.02); border-bottom: 1px solid var(--border-color);">
+                <th style="padding: 14px 16px; font-size: 0.78rem; color: var(--text-secondary); text-transform: uppercase;">Proveedor / Concepto</th>
+                <th style="padding: 14px 16px; font-size: 0.78rem; color: var(--text-secondary); text-transform: uppercase;">NCF / e-CF</th>
+                <th style="padding: 14px 16px; font-size: 0.78rem; color: var(--text-secondary); text-transform: uppercase;">Vencimiento</th>
+                <th style="padding: 14px 16px; font-size: 0.78rem; color: var(--text-secondary); text-transform: uppercase; text-align: right;">Monto Total</th>
+                <th style="padding: 14px 16px; font-size: 0.78rem; color: var(--text-secondary); text-transform: uppercase; text-align: right;">Pendiente</th>
+                <th style="padding: 14px 16px; font-size: 0.78rem; color: var(--text-secondary); text-transform: uppercase;">Estatus</th>
+                <th style="padding: 14px 16px; font-size: 0.78rem; color: var(--text-secondary); text-transform: uppercase; text-align: center;">Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for cxp in cxp_list %}
+            <tr style="border-bottom: 1px solid var(--border-color);" class="cxp-row" data-expense-id="{{ cxp.id }}">
+                <td style="padding: 14px 16px;">
+                    <strong style="color: var(--text-primary); display: block; margin-bottom: 2px;">{{ cxp.concept }}</strong>
+                    <span style="font-size: 0.78rem; color: var(--text-muted); font-family: monospace;">RNC: {{ cxp.rncEmisor }}</span>
+                </td>
+                <td style="padding: 14px 16px;">
+                    <span style="font-family: monospace; font-weight: 600; color: var(--text-primary);">
+                        {{ cxp.ncf }}
+                    </span>
+                    <span style="font-size: 0.72rem; color: var(--text-muted); display: block;">Tipo: {{ cxp.ecfType or 'E31' }}</span>
+                </td>
+                <td style="padding: 14px 16px;">
+                    <span style="font-size: 0.82rem; {% if cxp.cxpStatus == 'Vencido' %}color: var(--accent-red); font-weight: 600;{% endif %}">
+                        {{ cxp.dueDate or 'No registrada' }}
+                    </span>
+                </td>
+                <td style="padding: 14px 16px; text-align: right; font-size: 0.85rem; color: var(--text-secondary);">
+                    RD$ {{ "{:,.2f}".format(cxp.amount) }}
+                </td>
+                <td style="padding: 14px 16px; text-align: right; font-weight: 700; font-size: 0.85rem; color: var(--text-primary);">
+                    RD$ {{ "{:,.2f}".format(cxp.cxpRemainingBalance) }}
+                </td>
+                <td style="padding: 14px 16px;">
+                    <span class="status-badge {% if cxp.cxpStatus == 'Vencido' %}badge-vencido{% elif cxp.cxpStatus == 'Abonado' %}badge-parcial{% elif cxp.cxpStatus == 'Pagado' %}badge-pagado{% else %}badge-pendiente{% endif %}">
+                        <i class="fa-solid {% if cxp.cxpStatus == 'Vencido' %}fa-circle-exclamation{% elif cxp.cxpStatus == 'Abonado' %}fa-clock{% elif cxp.cxpStatus == 'Pagado' %}fa-circle-check{% else %}fa-circle-dot{% endif %}"></i>
+                        {{ cxp.cxpStatus }}
+                    </span>
+                </td>
+                <td style="padding: 14px 16px; align-items: center;">
+                    <div class="action-btn-group">
+                        {% if cxp.cxpStatus != 'Pagado' %}
+                        <button onclick="openPayModal('{{ cxp.id }}', '{{ cxp.concept }}', {{ cxp.cxpRemainingBalance }})" class="action-btn btn-pay" title="Registrar Pago/Abono">
+                            <i class="fa-solid fa-hand-holding-dollar"></i>
+                        </button>
+                        {% endif %}
+                        {% if cxp.firebaseAttachmentURLs and cxp.firebaseAttachmentURLs|length > 0 %}
+                        <a href="{{ cxp.firebaseAttachmentURLs[0] }}" target="_blank" class="action-btn" title="Ver Soporte Digital">
+                            <i class="fa-solid fa-paperclip"></i>
+                        </a>
+                        {% endif %}
+                    </div>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="7" style="padding: 40px; text-align: center; color: var(--text-muted);">
+                    <i class="fa-solid fa-circle-check" style="font-size: 2.2rem; color: var(--accent-emerald); opacity: 0.3; margin-bottom: 8px; display: block;"></i>
+                    ¡Al día! No tienes cuentas por pagar pendientes a tus proveedores.
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- MODAL REGISTRAR PAGO CXP -->
+<div id="payCxpModal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 2000; align-items: center; justify-content: center;">
+    <div onclick="closePayModal()" style="position: absolute; width: 100%; height: 100%; background: rgba(0,0,0,0.4); backdrop-filter: blur(4px);"></div>
+    <div class="card-table-wrapper" style="max-width: 420px; width: 90%; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 24px; z-index: 2001; position: relative;">
+        <h3 style="font-size: 1.05rem; font-family: var(--font-heading); margin-bottom: 4px; display: flex; align-items: center; gap: 8px;">
+            <i class="fa-solid fa-wallet" style="color: var(--accent-emerald);"></i>
+            <span>Registrar Pago a Proveedor</span>
+        </h3>
+        <p style="color: var(--text-secondary); font-size: 0.78rem; line-height: 1.4; margin-bottom: 18px;">
+            Ingresa el monto del abono o pago total realizado para saldar el balance pendiente.
+        </p>
+        
+        <form id="cxp-payment-form" onsubmit="submitCxpPayment(event)">
+            <input type="hidden" id="modal-expense-id">
+            
+            <div style="margin-bottom: 12px;">
+                <label style="display: block; font-size: 0.78rem; color: var(--text-secondary); margin-bottom: 4px;">Proveedor / Concepto</label>
+                <input type="text" id="modal-expense-concept" class="form-input" readonly style="background: rgba(0,0,0,0.03); width:100%;">
+            </div>
+            
+            <div style="margin-bottom: 18px;">
+                <label style="display: block; font-size: 0.78rem; color: var(--text-secondary); margin-bottom: 4px;">Monto de Pago (RD$)</label>
+                <input type="number" step="0.01" id="modal-payment-amount" class="form-input" required style="width:100%; font-weight:bold; font-size:1.1rem; text-align:right;">
+            </div>
+            
+            <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                <button type="button" onclick="closePayModal()" class="btn btn-secondary" style="font-size: 0.8rem; padding: 8px 16px;">Cancelar</button>
+                <button type="submit" class="btn btn-primary" style="font-size: 0.8rem; padding: 8px 16px; background: var(--accent-emerald); border-color: var(--accent-emerald);">Registrar Pago</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function openPayModal(expenseId, concept, remainingBalance) {
+        document.getElementById('modal-expense-id').value = expenseId;
+        document.getElementById('modal-expense-concept').value = concept;
+        document.getElementById('modal-payment-amount').value = remainingBalance.toFixed(2);
+        document.getElementById('payCxpModal').style.display = 'flex';
+    }
+
+    function closePayModal() {
+        document.getElementById('payCxpModal').style.display = 'none';
+    }
+
+    function submitCxpPayment(e) {
+        e.preventDefault();
+        const expenseId = document.getElementById('modal-expense-id').value;
+        const amount = parseFloat(document.getElementById('modal-payment-amount').value);
+
+        if (isNaN(amount) || amount <= 0) {
+            alert('Monto de pago inválido.');
+            return;
+        }
+
+        fetch(`/expenses/cxp/${expenseId}/pay`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ amount: amount })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                window.location.reload();
+            } else {
+                alert('Error: ' + data.message);
+            }
+        })
+        .catch(err => {
+            alert('Error de red al procesar el abono a la cuenta por pagar.');
+        });
+    }
+</script>
+{% endblock %}
