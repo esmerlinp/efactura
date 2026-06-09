@@ -26,7 +26,18 @@ def list_clients():
         client['total_invoiced'] = sum(inv['total'] for inv in client_sales)
         client['total_cxc'] = sum(inv['netPayable'] for inv in client_sales if inv['status'] in ['Emitida', 'Vencida'])
 
-    return render_template('clients/list.html', active_page='clients', clients=clients)
+    # Aplicar filtros
+    q = request.args.get('q', '').strip()
+    q_lower = q.lower()
+    stage = request.args.get('stage', '').strip()
+    
+    if q_lower:
+        clients = [c for c in clients if q_lower in c.get('razonSocial', '').lower() or q_lower in c.get('rnc', '').lower() or q_lower in c.get('telefono', '').lower()]
+        
+    if stage:
+        clients = [c for c in clients if c.get('pipelineStage') == stage]
+
+    return render_template('clients/list.html', active_page='clients', clients=clients, q=q, stage=stage)
 
 @web_clients_bp.route('/clients/new', methods=['GET', 'POST'])
 def new_client():
