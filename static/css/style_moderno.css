@@ -749,10 +749,9 @@ body.sandbox-mode .environment-indicator {
 
 .table-premium th {
     padding: 10px 24px;
-    font-weight: 600;
+    font-weight: bold;
     font-size: 0.82rem;
     color: var(--text-secondary);
-    background-color: var(--bg-main);
     text-transform: uppercase;
     letter-spacing: 0.05em;
     border-bottom: 1px solid var(--border-color);
