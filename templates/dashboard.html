@@ -203,6 +203,12 @@
         <form action="{{ url_for('dashboard') }}" method="GET" id="filter-form"
             style="display: flex; align-items: center; gap: 16px; margin: 0;">
 
+            <!-- Switcher de Bar/Line -->
+            <div style="display: flex; align-items: center; gap: 4px; background: rgba(0,0,0,0.05); padding: 4px; border-radius: var(--radius-md);">
+                <button type="button" id="btn-chart-bar" onclick="switchChartType('bar')" style="border: none; background: #ffffff; padding: 6px 10px; border-radius: var(--radius-sm); cursor: pointer; color: var(--text-primary); font-size: 0.85rem; box-shadow: 0 1px 2px rgba(0,0,0,0.1);" title="Gráfico de Barras"><i class="fa-solid fa-chart-column"></i></button>
+                <button type="button" id="btn-chart-line" onclick="switchChartType('line')" style="border: none; background: transparent; padding: 6px 10px; border-radius: var(--radius-sm); cursor: pointer; color: var(--text-secondary); font-size: 0.85rem;" title="Gráfico de Líneas"><i class="fa-solid fa-chart-line"></i></button>
+            </div>
+
             {% if scale != 'year' %}
             <div style="display: flex; align-items: center; gap: 6px;">
                 <i class="fa-regular fa-calendar" style="font-size: 0.85rem; color: var(--text-muted);"></i>
@@ -493,85 +499,131 @@
     const colorInvoiced = '#4285F4'; // Azul Google
     const colorExpenses = '#EA4335'; // Rojo Google
 
-    new Chart(flowCtx, {
-        type: 'bar',
-        data: {
-            labels: flowData.labels,
-            datasets: [
-                {
-                    label: 'Ingresos Facturados (RD$)',
-                    data: flowData.invoiced,
-                    backgroundColor: colorInvoiced,
-                    borderRadius: 4,
-                    borderWidth: 0,
-                    barPercentage: 0.6
-                },
-                {
-                    label: 'Egresos / Gastos (RD$)',
-                    data: flowData.expenses,
-                    backgroundColor: colorExpenses,
-                    borderRadius: 4,
-                    borderWidth: 0,
-                    barPercentage: 0.6
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    labels: {
-                        color: '#9ca3af',
-                        font: { family: 'Inter', size: 12, weight: '500' },
-                        usePointStyle: true,
-                        pointStyle: 'circle'
+    let flowChartInstance;
+    let currentChartType = localStorage.getItem('flowChartType') || 'bar';
+
+    window.switchChartType = function(type) {
+        localStorage.setItem('flowChartType', type);
+        currentChartType = type;
+        updateChartButtons(type);
+        initFlowChart(type);
+    };
+
+    function updateChartButtons(type) {
+        const btnBar = document.getElementById('btn-chart-bar');
+        const btnLine = document.getElementById('btn-chart-line');
+        if (!btnBar || !btnLine) return;
+        if (type === 'bar') {
+            btnBar.style.background = '#ffffff';
+            btnBar.style.color = 'var(--text-primary)';
+            btnBar.style.boxShadow = '0 1px 2px rgba(0,0,0,0.1)';
+            btnLine.style.background = 'transparent';
+            btnLine.style.color = 'var(--text-secondary)';
+            btnLine.style.boxShadow = 'none';
+        } else {
+            btnLine.style.background = '#ffffff';
+            btnLine.style.color = 'var(--text-primary)';
+            btnLine.style.boxShadow = '0 1px 2px rgba(0,0,0,0.1)';
+            btnBar.style.background = 'transparent';
+            btnBar.style.color = 'var(--text-secondary)';
+            btnBar.style.boxShadow = 'none';
+        }
+    }
+
+    function initFlowChart(type) {
+        if (flowChartInstance) {
+            flowChartInstance.destroy();
+        }
+        flowChartInstance = new Chart(flowCtx, {
+            type: type,
+            data: {
+                labels: flowData.labels,
+                datasets: [
+                    {
+                        label: 'Ingresos Facturados (RD$)',
+                        data: flowData.invoiced,
+                        backgroundColor: type === 'line' ? 'transparent' : colorInvoiced,
+                        borderColor: colorInvoiced,
+                        borderWidth: type === 'line' ? 3 : 0,
+                        pointBackgroundColor: colorInvoiced,
+                        borderRadius: type === 'bar' ? 4 : 0,
+                        barPercentage: 0.6,
+                        tension: 0.3
+                    },
+                    {
+                        label: 'Egresos / Gastos (RD$)',
+                        data: flowData.expenses,
+                        backgroundColor: type === 'line' ? 'transparent' : colorExpenses,
+                        borderColor: colorExpenses,
+                        borderWidth: type === 'line' ? 3 : 0,
+                        pointBackgroundColor: colorExpenses,
+                        borderRadius: type === 'bar' ? 4 : 0,
+                        barPercentage: 0.6,
+                        tension: 0.3
                     }
-                },
-                tooltip: {
-                    backgroundColor: 'rgba(18, 18, 20, 0.85)',
-                    titleColor: '#ffffff',
-                    bodyColor: '#e5e7eb',
-                    borderColor: 'rgba(255, 255, 255, 0.08)',
-                    borderWidth: 1,
-                    padding: 12,
-                    cornerRadius: 8,
-                    boxPadding: 6,
-                    callbacks: {
-                        label: function (context) {
-                            let label = context.dataset.label || '';
-                            if (label) {
-                                label = label.split(' (')[0] + ': ';
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        labels: {
+                            color: '#9ca3af',
+                            font: { family: 'Inter', size: 12, weight: '500' },
+                            usePointStyle: true,
+                            pointStyle: 'circle'
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(18, 18, 20, 0.85)',
+                        titleColor: '#ffffff',
+                        bodyColor: '#e5e7eb',
+                        borderColor: 'rgba(255, 255, 255, 0.08)',
+                        borderWidth: 1,
+                        padding: 12,
+                        cornerRadius: 8,
+                        boxPadding: 6,
+                        callbacks: {
+                            label: function (context) {
+                                let label = context.dataset.label || '';
+                                if (label) {
+                                    label = label.split(' (')[0] + ': ';
+                                }
+                                if (context.parsed.y !== null) {
+                                    label += new Intl.NumberFormat('es-DO', { style: 'currency', currency: 'DOP' }).format(context.parsed.y);
+                                }
+                                return label;
                             }
-                            if (context.parsed.y !== null) {
-                                label += new Intl.NumberFormat('es-DO', { style: 'currency', currency: 'DOP' }).format(context.parsed.y);
-                            }
-                            return label;
                         }
                     }
-                }
-            },
-            scales: {
-                x: {
-                    grid: { display: false },
-                    ticks: { color: '#9ca3af', font: { family: 'Inter', weight: '500' } }
                 },
-                y: {
-                    grid: { color: 'rgba(255, 255, 255, 0.05)' },
-                    ticks: {
-                        color: '#9ca3af',
-                        font: { family: 'Inter', weight: '500' },
-                        callback: function (value) {
-                            if (value >= 1000) {
-                                return 'RD$ ' + (value / 1000) + 'k';
+                scales: {
+                    x: {
+                        grid: { display: false },
+                        ticks: { color: '#9ca3af', font: { family: 'Inter', weight: '500' } }
+                    },
+                    y: {
+                        grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                        ticks: {
+                            color: '#9ca3af',
+                            font: { family: 'Inter', weight: '500' },
+                            callback: function (value) {
+                                if (value >= 1000) {
+                                    return 'RD$ ' + (value / 1000) + 'k';
+                                }
+                                return 'RD$ ' + value;
                             }
-                            return 'RD$ ' + value;
                         }
                     }
                 }
             }
-        }
-    });
+        });
+    }
+
+    // Inicializar con la preferencia del usuario
+    updateChartButtons(currentChartType);
+    initFlowChart(currentChartType);
 
     // Datos Inyectados desde Python para Ventas por Tipo de e-CF
     const typeData = {{ type_chart_data | tojson }};
