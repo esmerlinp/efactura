@@ -1,0 +1,400 @@
+{% extends "layout.html" %}
+
+{% block title %}Control de Cuentas por Cobrar (CxC){% endblock %}
+
+{% block page_header %}Control de Cuentas por Cobrar (CxC){% endblock %}
+
+{% block content %}
+<style>
+    .kpi-card-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 20px;
+        margin-bottom: 30px;
+    }
+    .kpi-mini-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-md);
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        position: relative;
+        overflow: hidden;
+    }
+    .kpi-mini-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 4px;
+        height: 100%;
+    }
+    .kpi-emerald::before { background: var(--accent-emerald); }
+    .kpi-blue::before { background: #3b82f6; }
+    .kpi-red::before { background: var(--accent-red); }
+    .kpi-purple::before { background: var(--accent-purple); }
+
+    .cxc-layout {
+        display: grid;
+        grid-template-columns: 1.6fr 1fr;
+        gap: 30px;
+        align-items: start;
+    }
+    @media (max-width: 1200px) {
+        .cxc-layout {
+            grid-template-columns: 1fr;
+        }
+    }
+    
+    .status-badge {
+        font-size: 0.75rem;
+        font-weight: 600;
+        padding: 3px 8px;
+        border-radius: 12px;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+    }
+    .badge-pendiente { background: rgba(59, 130, 246, 0.12); color: #3b82f6; }
+    .badge-parcial { background: rgba(245, 158, 11, 0.12); color: #f59e0b; }
+    .badge-vencida { background: rgba(239, 68, 68, 0.12); color: var(--accent-red); }
+    .badge-cumplida { background: rgba(16, 185, 129, 0.12); color: var(--accent-emerald); }
+    .badge-incumplida { background: rgba(239, 68, 68, 0.12); color: var(--accent-red); }
+
+    .action-btn-group {
+        display: flex;
+        gap: 6px;
+    }
+    .action-btn {
+        width: 32px;
+        height: 32px;
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--border-color);
+        background: var(--bg-card);
+        color: var(--text-secondary);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        text-decoration: none;
+    }
+    .action-btn:hover {
+        background: var(--bg-nav-hover);
+        color: var(--text-primary);
+        border-color: var(--text-muted);
+    }
+    .btn-remind-email:hover { color: #3b82f6; border-color: rgba(59, 130, 246, 0.3); }
+    .btn-remind-wa:hover { color: #25d366; border-color: rgba(37, 211, 102, 0.3); }
+    .btn-promise:hover { color: var(--accent-purple); border-color: rgba(167, 139, 250, 0.3); }
+</style>
+
+<!-- KPIs SUPERIORES -->
+<div class="kpi-card-grid">
+    <div class="kpi-mini-card kpi-emerald">
+        <span style="font-size: 0.78rem; color: var(--text-secondary); font-weight: 500;">Saldado / Cobrado</span>
+        <div style="font-size: 1.45rem; font-weight: 700; color: var(--text-primary); font-family: var(--font-heading); margin-top: 4px;">
+            RD$ {{ "{:,.2f}".format(total_cobrado) }}
+        </div>
+        <span style="font-size: 0.72rem; color: var(--text-muted);">Periodo actual</span>
+    </div>
+    
+    <div class="kpi-mini-card kpi-blue">
+        <span style="font-size: 0.78rem; color: var(--text-secondary); font-weight: 500;">Balance por Cobrar</span>
+        <div style="font-size: 1.45rem; font-weight: 700; color: var(--text-primary); font-family: var(--font-heading); margin-top: 4px;">
+            RD$ {{ "{:,.2f}".format(total_outstanding) }}
+        </div>
+        <span style="font-size: 0.72rem; color: var(--text-muted);">{{ invoices|length }} documento(s) pendiente(s)</span>
+    </div>
+
+    <div class="kpi-mini-card kpi-red">
+        <span style="font-size: 0.78rem; color: var(--text-secondary); font-weight: 500;">Balance Vencido</span>
+        <div style="font-size: 1.45rem; font-weight: 700; color: var(--accent-red); font-family: var(--font-heading); margin-top: 4px;">
+            RD$ {{ "{:,.2f}".format(total_vencido) }}
+        </div>
+        <span style="font-size: 0.72rem; color: var(--text-muted);">Exige seguimiento inmediato</span>
+    </div>
+
+    <div class="kpi-mini-card kpi-purple">
+        <span style="font-size: 0.78rem; color: var(--text-secondary); font-weight: 500;">Prometido en Tránsito</span>
+        <div style="font-size: 1.45rem; font-weight: 700; color: var(--accent-purple); font-family: var(--font-heading); margin-top: 4px;">
+            RD$ {{ "{:,.2f}".format(total_prometido) }}
+        </div>
+        <span style="font-size: 0.72rem; color: var(--text-muted);">{{ active_promises_count }} promesa(s) de pago activa(s)</span>
+    </div>
+</div>
+
+<div class="cxc-layout">
+    <!-- COLUMNA IZQUIERDA: FACTURAS PENDIENTES -->
+    <div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <h2 style="font-size: 0.95rem; font-weight: 600; color: var(--text-secondary); margin: 0;">
+                Cartera de Clientes Pendientes / Vencidos
+            </h2>
+        </div>
+        
+        <div class="card-table-wrapper" style="box-shadow: none; padding: 0; overflow: hidden;">
+            <table class="table-premium" style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="text-align: left; background: rgba(0,0,0,0.02); border-bottom: 1px solid var(--border-color);">
+                        <th style="padding: 14px 16px; font-size: 0.78rem; color: var(--text-secondary); text-transform: uppercase;">Factura / Cliente</th>
+                        <th style="padding: 14px 16px; font-size: 0.78rem; color: var(--text-secondary); text-transform: uppercase;">Vencimiento</th>
+                        <th style="padding: 14px 16px; font-size: 0.78rem; color: var(--text-secondary); text-transform: uppercase; text-align: right;">Total</th>
+                        <th style="padding: 14px 16px; font-size: 0.78rem; color: var(--text-secondary); text-transform: uppercase; text-align: right;">Pendiente</th>
+                        <th style="padding: 14px 16px; font-size: 0.78rem; color: var(--text-secondary); text-transform: uppercase;">Estado</th>
+                        <th style="padding: 14px 16px; font-size: 0.78rem; color: var(--text-secondary); text-transform: uppercase; text-align: center;">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for inv in invoices %}
+                    <tr style="border-bottom: 1px solid var(--border-color);" class="cxc-row" data-invoice-id="{{ inv.id }}">
+                        <td style="padding: 14px 16px;">
+                            <a href="{{ url_for('invoice_detail', invoice_id=inv.id) }}" style="font-weight: 600; color: var(--text-primary); text-decoration: none; display: block; margin-bottom: 2px;">
+                                {{ inv.invoiceNumber }}
+                            </a>
+                            <span style="font-size: 0.78rem; color: var(--text-muted);">{{ inv.clientName }}</span>
+                        </td>
+                        <td style="padding: 14px 16px;">
+                            <span style="font-size: 0.82rem; {% if inv.status == 'Vencida' %}color: var(--accent-red); font-weight:600;{% endif %}">
+                                {{ inv.dueDate }}
+                            </span>
+                        </td>
+                        <td style="padding: 14px 16px; text-align: right; font-size: 0.85rem; color: var(--text-secondary);">
+                            RD$ {{ "{:,.2f}".format(inv.netPayable) }}
+                        </td>
+                        <td style="padding: 14px 16px; text-align: right; font-weight: 700; font-size: 0.85rem; color: var(--text-primary);">
+                            RD$ {{ "{:,.2f}".format(inv.remainingBalance) }}
+                        </td>
+                        <td style="padding: 14px 16px;">
+                            <span class="status-badge {% if inv.status == 'Vencida' %}badge-vencida{% elif inv.status == 'Parcialmente Cobrada' %}badge-parcial{% else %}badge-pendiente{% endif %}">
+                                <i class="fa-solid {% if inv.status == 'Vencida' %}fa-circle-exclamation{% elif inv.status == 'Parcialmente Cobrada' %}fa-clock{% else %}fa-circle-dot{% endif %}"></i>
+                                {% if inv.status == 'Emitida' %}Pendiente{% else %}{{ inv.status }}{% endif %}
+                            </span>
+                        </td>
+                        <td style="padding: 14px 16px; align-items: center; justify-content: center;">
+                            <div class="action-btn-group" style="justify-content: center;">
+                                <button onclick="openPromiseModal('{{ inv.id }}', '{{ inv.invoiceNumber }}', '{{ inv.clientName }}', {{ inv.remainingBalance }})" class="action-btn btn-promise" title="Registrar Promesa de Pago">
+                                    <i class="fa-solid fa-calendar-plus"></i>
+                                </button>
+                                <button onclick="sendReminder('{{ inv.id }}', 'email', '{{ inv.clientEmail }}')" class="action-btn btn-remind-email" title="Enviar recordatorio por Email" {% if not inv.clientEmail %}disabled style="opacity:0.4;"{% endif %}>
+                                    <i class="fa-solid fa-envelope"></i>
+                                </button>
+                                <button onclick="sendReminder('{{ inv.id }}', 'whatsapp', '{{ inv.clientPhone }}')" class="action-btn btn-remind-wa" title="Enviar recordatorio por WhatsApp" {% if not inv.clientPhone %}disabled style="opacity:0.4;"{% endif %}>
+                                    <i class="fa-solid fa-phone"></i>
+                                </button>
+                                <a href="http://localhost:5002/portal/cliente/{{ session.get('user', {}).get('ownerUID', 'W2n2BfR1G4eN3K7m7n8b9v0c1x2z') }}/{{ inv.clientId }}?sandbox={{ 'true' if session.get('is_sandbox_mode', True) else 'false' }}" target="_blank" class="action-btn" title="Ir al Portal de Cliente">
+                                    <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" style="padding: 30px; text-align: center; color: var(--text-muted);">
+                            <i class="fa-solid fa-circle-check" style="font-size: 2rem; color: var(--accent-emerald); opacity: 0.3; margin-bottom: 8px; display: block;"></i>
+                            ¡Excelente! No hay cuentas vencidas ni saldos pendientes de cobro.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- COLUMNA DERECHA: PROMESAS DE PAGO / CALENDARIO -->
+    <div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <h2 style="font-size: 0.95rem; font-weight: 600; color: var(--text-secondary); margin: 0;">
+                Compromisos y Promesas de Pago
+            </h2>
+        </div>
+        
+        <div class="card-table-wrapper" style="box-shadow: none; padding: 20px; display: flex; flex-direction: column; gap: 16px;">
+            {% for promise in promises %}
+            <div style="border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 14px; background: rgba(255,255,255,0.01); display: flex; flex-direction: column; gap: 8px; position: relative;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                    <div>
+                        <strong style="font-size: 0.85rem; color: var(--text-primary);">{{ promise.clientName }}</strong>
+                        <span style="font-size: 0.72rem; color: var(--text-muted); display: block;">
+                            Factura: {{ promise.invoiceNumber }}
+                        </span>
+                    </div>
+                    <span class="status-badge {% if promise.estado == 'Cumplida' %}badge-cumplida{% elif promise.estado == 'Incumplida' %}badge-incumplida{% else %}badge-pendiente{% endif %}">
+                        {{ promise.estado }}
+                    </span>
+                </div>
+                
+                <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px dashed var(--border-color); padding-top: 8px; margin-top: 4px;">
+                    <div>
+                        <span style="font-size: 0.72rem; color: var(--text-muted); display: block;">Fecha Prometida</span>
+                        <strong style="font-size: 0.8rem; color: var(--text-primary);">
+                            <i class="fa-regular fa-calendar-days" style="margin-right: 4px;"></i> {{ promise.fechaPromesa }}
+                        </strong>
+                    </div>
+                    <div style="text-align: right;">
+                        <span style="font-size: 0.72rem; color: var(--text-muted); display: block;">Monto Prometido</span>
+                        <strong style="font-size: 0.85rem; color: var(--text-primary);">
+                            RD$ {{ "{:,.2f}".format(promise.montoPrometido) }}
+                        </strong>
+                    </div>
+                </div>
+                
+                {% if promise.notas %}
+                <div style="font-size: 0.76rem; color: var(--text-secondary); background: rgba(0,0,0,0.02); padding: 6px 10px; border-radius: 4px;">
+                    {{ promise.notas }}
+                </div>
+                {% endif %}
+
+                {% if promise.estado == 'Pendiente' %}
+                <div style="display: flex; gap: 6px; margin-top: 6px; justify-content: flex-end;">
+                    <button onclick="updatePromiseStatus('{{ promise.id }}', 'Cumplida')" class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.72rem; border-color: var(--accent-emerald); color: var(--accent-emerald); background: transparent;">
+                        <i class="fa-solid fa-check"></i> Cumplida
+                    </button>
+                    <button onclick="updatePromiseStatus('{{ promise.id }}', 'Incumplida')" class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.72rem; border-color: var(--accent-red); color: var(--accent-red); background: transparent;">
+                        <i class="fa-solid fa-xmark"></i> Incumplida
+                    </button>
+                </div>
+                {% endif %}
+            </div>
+            {% else %}
+            <div style="padding: 24px; text-align: center; color: var(--text-muted);">
+                No hay promesas de pago registradas.
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- MODAL REGISTRO PROMESA DE PAGO -->
+<div id="promiseModal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 2000; align-items: center; justify-content: center;">
+    <div onclick="closePromiseModal()" style="position: absolute; width: 100%; height: 100%; background: rgba(0,0,0,0.4); backdrop-filter: blur(4px);"></div>
+    <div class="card-table-wrapper" style="max-width: 450px; width: 90%; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 24px; z-index: 2001; position: relative;">
+        <h3 style="font-size: 1.05rem; font-family: var(--font-heading); margin-bottom: 4px; display: flex; align-items: center; gap: 8px;">
+            <i class="fa-solid fa-calendar-plus" style="color: var(--accent-purple);"></i>
+            <span>Registrar Promesa de Pago</span>
+        </h3>
+        <p style="color: var(--text-secondary); font-size: 0.78rem; line-height: 1.4; margin-bottom: 18px;">
+            Registra una promesa de pago acordada con el cliente para realizar seguimiento automático en el calendario.
+        </p>
+        
+        <form action="/cxc/promises/add" method="POST">
+            <input type="hidden" name="invoiceId" id="modal-invoice-id">
+            
+            <div style="margin-bottom: 12px;">
+                <label style="display: block; font-size: 0.78rem; color: var(--text-secondary); margin-bottom: 4px;">Factura</label>
+                <input type="text" id="modal-invoice-number" class="form-control" readonly style="background: rgba(0,0,0,0.03);">
+            </div>
+            
+            <div style="margin-bottom: 12px;">
+                <label style="display: block; font-size: 0.78rem; color: var(--text-secondary); margin-bottom: 4px;">Cliente</label>
+                <input type="text" id="modal-client-name" class="form-control" readonly style="background: rgba(0,0,0,0.03);">
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+                <div>
+                    <label style="display: block; font-size: 0.78rem; color: var(--text-secondary); margin-bottom: 4px;">Fecha Promesa</label>
+                    <input type="date" name="fechaPromesa" id="modal-fecha-promesa" class="form-control" required>
+                </div>
+                <div>
+                    <label style="display: block; font-size: 0.78rem; color: var(--text-secondary); margin-bottom: 4px;">Monto Prometido (RD$)</label>
+                    <input type="number" step="0.01" name="montoPrometido" id="modal-monto-prometido" class="form-control" required>
+                </div>
+            </div>
+            
+            <div style="margin-bottom: 18px;">
+                <label style="display: block; font-size: 0.78rem; color: var(--text-secondary); margin-bottom: 4px;">Notas y Comentarios</label>
+                <textarea name="notas" class="form-control" rows="3" placeholder="Ej: Llamada de seguimiento realizada, el cliente pagará por transferencia..."></textarea>
+            </div>
+            
+            <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                <button type="button" onclick="closePromiseModal()" class="btn btn-secondary" style="font-size: 0.8rem; padding: 8px 16px;">Cancelar</button>
+                <button type="submit" class="btn btn-primary" style="font-size: 0.8rem; padding: 8px 16px; background: var(--accent-purple); border-color: var(--accent-purple);">Guardar Compromiso</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function openPromiseModal(invoiceId, invoiceNumber, clientName, remainingBalance) {
+        document.getElementById('modal-invoice-id').value = invoiceId;
+        document.getElementById('modal-invoice-number').value = invoiceNumber;
+        document.getElementById('modal-client-name').value = clientName;
+        document.getElementById('modal-monto-prometido').value = remainingBalance;
+        
+        // Colocar fecha de hoy por defecto
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('modal-fecha-promesa').value = today;
+        
+        document.getElementById('promiseModal').style.display = 'flex';
+    }
+
+    function closePromiseModal() {
+        document.getElementById('promiseModal').style.display = 'none';
+    }
+
+    function sendReminder(invoiceId, method, recipient) {
+        if (!recipient) {
+            alert('El cliente no tiene este dato de contacto registrado.');
+            return;
+        }
+        
+        if (!confirm(`¿Confirmas enviar el recordatorio de cobro por ${method} a: ${recipient}?`)) {
+            return;
+        }
+
+        const row = document.querySelector(`.cxc-row[data-invoice-id="${invoiceId}"]`);
+        const btn = event.currentTarget;
+        const originalHtml = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+
+        fetch(`/cxc/remind/${invoiceId}/${method}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ recipient: recipient })
+        })
+        .then(res => res.json())
+        .then(data => {
+            btn.innerHTML = originalHtml;
+            btn.disabled = false;
+            if (data.success) {
+                alert(data.message);
+                window.location.reload();
+            } else {
+                alert(`Error: ${data.message}`);
+            }
+        })
+        .catch(err => {
+            btn.innerHTML = originalHtml;
+            btn.disabled = false;
+            alert('Error de red al enviar el recordatorio.');
+        });
+    }
+
+    function updatePromiseStatus(promiseId, newStatus) {
+        if (!confirm(`¿Deseas marcar esta promesa como ${newStatus}?`)) {
+            return;
+        }
+
+        fetch(`/cxc/promises/${promiseId}/update-status`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ estado: newStatus })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                window.location.reload();
+            } else {
+                alert(`Error: ${data.message}`);
+            }
+        })
+        .catch(err => {
+            alert('Error de red al actualizar el estado de la promesa.');
+        });
+    }
+</script>
+{% endblock %}

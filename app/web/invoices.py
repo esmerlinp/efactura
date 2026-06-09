@@ -1773,6 +1773,27 @@ def convert_quotation_route(invoice_id):
     return redirect(url_for('invoice_detail', invoice_id=invoice_id))
 
 
+@web_invoices_bp.route('/quotations/<invoice_id>/approve', methods=['POST'])
+def approve_quotation_route(invoice_id):
+    """Aprueba manualmente una cotización cambiándole el estado a 'Aprobada'."""
+    if 'user' not in session: return redirect(url_for('login'))
+    if not check_permission('canInvoice'):
+        return render_template('auth/restricted.html', feature_name="Aprobar Cotización", required_permission="canInvoice")
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+    
+    invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+    if not invoice or not invoice.get('isQuotation'):
+        flash('Cotización no encontrada.', 'error')
+        return redirect(url_for('list_quotations'))
+        
+    invoice['status'] = 'Aprobada'
+    DatabaseService.save_invoice(owner_uid, invoice_id, invoice, sandbox=sandbox)
+    flash('Cotización aprobada manualmente con éxito.', 'success')
+    return redirect(url_for('invoice_detail', invoice_id=invoice_id))
+
+
+
 @web_invoices_bp.route('/invoices/<invoice_id>/qr-image')
 def invoice_qr_image(invoice_id):
     if 'user' not in session: return "No autorizado", 401
@@ -3037,6 +3058,204 @@ def client_subscription_page():
         payments=payments,
         billing_history=billing_history
     )
+
+
+# -------------------------------------------------------------
+# CxC (Cuentas por Cobrar) and Payment Promises Module
+# -------------------------------------------------------------
+
+@web_invoices_bp.route('/cxc')
+def cxc_dashboard():
+    if 'user' not in session: return redirect(url_for('login'))
+    if not check_permission('canInvoice'):
+        return render_template('auth/restricted.html', feature_name="Dashboard CxC", required_permission="canInvoice")
+        
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+    
+    # 1. Obtener todas las facturas
+    invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, quotations_only=False)
+    
+    # 2. Filtrar facturas pendientes o vencidas
+    # Estados de cobro: Emitida, Parcialmente Cobrada, Vencida (dinámico en get_invoices)
+    cxc_invoices = []
+    total_outstanding = 0.0
+    total_vencido = 0.0
+    total_cobrado_periodo = 0.0
+    
+    for inv in invoices:
+        status = inv.get('status')
+        # Si es cobrada, sumar al total cobrado para KPIs
+        if status == "Cobrada":
+            total_cobrado_periodo += float(inv.get('totalPaid', inv.get('netPayable', 0.0)))
+        elif status in ["Emitida", "Parcialmente Cobrada", "Vencida"]:
+            # Excluir Consumidor Final o facturas sin cliente asociado de la cartera de CxC
+            client_name = inv.get('clientName', '')
+            client_id = inv.get('clientId', '')
+            if not client_id or 'consumidor final' in client_name.lower():
+                continue
+                
+            cxc_invoices.append(inv)
+            rem_bal = float(inv.get('remainingBalance', inv.get('netPayable', 0.0)))
+            total_outstanding += rem_bal
+            if status == "Vencida":
+                total_vencido += rem_bal
+                
+    # 3. Obtener promesas de pago
+    promises = DatabaseService.get_payment_promises(owner_uid, sandbox=sandbox)
+    active_promises = [p for p in promises if p.get('estado') == 'Pendiente']
+    total_prometido = sum(float(p.get('montoPrometido', 0.0)) for p in active_promises)
+    
+    # Obtener listado de clientes para el formulario de promesas/búsquedas si es necesario
+    clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox)
+    
+    return render_template(
+        'cxc/dashboard.html',
+        active_page='cxc',
+        invoices=cxc_invoices,
+        promises=promises,
+        clients=clients,
+        total_outstanding=total_outstanding,
+        total_vencido=total_vencido,
+        total_cobrado=total_cobrado_periodo,
+        total_prometido=total_prometido,
+        active_promises_count=len(active_promises)
+    )
+
+@web_invoices_bp.route('/cxc/promises/add', methods=['POST'])
+def add_payment_promise():
+    if 'user' not in session: return redirect(url_for('login'))
+    if not check_permission('canInvoice'):
+        flash("No tienes permiso para gestionar promesas de pago.", "error")
+        return redirect(url_for('cxc_dashboard'))
+        
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+    
+    invoice_id = request.form.get('invoiceId')
+    fecha_promesa = request.form.get('fechaPromesa')
+    monto_prometido = request.form.get('montoPrometido', 0.0)
+    notas = request.form.get('notas', '')
+    
+    if not invoice_id or not fecha_promesa:
+        flash("Factura y fecha de promesa son campos obligatorios.", "error")
+        return redirect(url_for('cxc_dashboard'))
+        
+    invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+    if not invoice:
+        flash("Factura no encontrada.", "error")
+        return redirect(url_for('cxc_dashboard'))
+        
+    promise_id = str(uuid.uuid4())
+    promise_dict = {
+        "clientId": invoice.get("clientId", ""),
+        "clientName": invoice.get("clientName", "Cliente General"),
+        "invoiceId": invoice_id,
+        "invoiceNumber": invoice.get("invoiceNumber", ""),
+        "fechaPromesa": fecha_promesa,
+        "montoPrometido": float(monto_prometido),
+        "estado": "Pendiente",
+        "notas": notas
+    }
+    
+    DatabaseService.save_payment_promise(owner_uid, promise_id, promise_dict, sandbox=sandbox)
+    
+    # Registrar también en el CRM del cliente como interacción programada
+    if invoice.get("clientId"):
+        interaction_dict = {
+            "type": "Promesa de Pago",
+            "title": f"Promesa de Pago Registrada",
+            "content": f"El cliente prometió pagar RD$ {float(monto_prometido):,.2f} el {fecha_promesa}. Notas: {notas}",
+            "date": datetime.utcnow().isoformat(),
+            "nextContactDate": fecha_promesa,
+            "completed": False,
+            "registeredBy": session['user'].get('name', 'Usuario')
+        }
+        DatabaseService.save_client_interaction(owner_uid, invoice["clientId"], str(uuid.uuid4()), interaction_dict, sandbox=sandbox)
+        
+    flash("Promesa de pago registrada exitosamente.", "success")
+    return redirect(url_for('cxc_dashboard'))
+
+@web_invoices_bp.route('/cxc/promises/<promise_id>/update-status', methods=['POST'])
+def update_payment_promise_status(promise_id):
+    if 'user' not in session: return redirect(url_for('login'))
+    if not check_permission('canInvoice'):
+        return jsonify({"success": False, "message": "No autorizado"}), 403
+        
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+    
+    data = request.get_json(silent=True) or {}
+    new_estado = data.get("estado", "Cumplida") # Cumplida o Incumplida
+    
+    promises = DatabaseService.get_payment_promises(owner_uid, sandbox=sandbox)
+    target_promise = None
+    for p in promises:
+        if p['id'] == promise_id:
+            target_promise = p
+            break
+            
+    if not target_promise:
+        return jsonify({"success": False, "message": "Promesa no encontrada"}), 404
+        
+    target_promise['estado'] = new_estado
+    DatabaseService.save_payment_promise(owner_uid, promise_id, target_promise, sandbox=sandbox)
+    
+    # Registrar en CRM
+    if target_promise.get("clientId"):
+        interaction_dict = {
+            "type": "CRM",
+            "title": f"Promesa de Pago - {new_estado}",
+            "content": f"La promesa de pago por RD$ {float(target_promise.get('montoPrometido', 0.0)):,.2f} fue marcada como {new_estado}.",
+            "date": datetime.utcnow().isoformat(),
+            "completed": True,
+            "registeredBy": session['user'].get('name', 'Usuario')
+        }
+        DatabaseService.save_client_interaction(owner_uid, target_promise["clientId"], str(uuid.uuid4()), interaction_dict, sandbox=sandbox)
+        
+    return jsonify({"success": True, "message": f"Promesa marcada como {new_estado}."})
+
+@web_invoices_bp.route('/cxc/remind/<invoice_id>/<method>', methods=['POST'])
+def send_invoice_cxc_reminder(invoice_id, method):
+    if 'user' not in session:
+        return jsonify({"success": False, "message": "No autorizado"}), 401
+        
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+    
+    invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+    if not invoice:
+        return jsonify({"success": False, "message": "Factura no encontrada"}), 404
+        
+    data = request.get_json(silent=True) or {}
+    recipient = data.get("recipient", "").strip()
+    
+    if not recipient:
+        if method == 'email':
+            recipient = invoice.get("clientEmail", "")
+        else:
+            recipient = invoice.get("clientPhone", "")
+            
+    if not recipient:
+        return jsonify({"success": False, "message": "No se especificó contacto de destino."}), 400
+        
+    from app.services.notifications import NotificationService
+    portal_url = f"http://localhost:5002/portal/cliente/{owner_uid}/{invoice.get('clientId')}?sandbox={'true' if sandbox else 'false'}"
+    
+    success, message = NotificationService.send_cxc_reminder(
+        owner_uid=owner_uid,
+        invoice=invoice,
+        recipient_contact=recipient,
+        method=method,
+        sandbox=sandbox,
+        portal_url=portal_url
+    )
+    
+    if success:
+        return jsonify({"success": True, "message": message})
+    else:
+        return jsonify({"success": False, "message": message}), 500
+
 
 if __name__ == '__main__':
     app.run(debug=True, port=5001)

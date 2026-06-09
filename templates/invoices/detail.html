@@ -349,13 +349,40 @@
         <!-- ══════════════════════════════════════════════════════════
              PANEL DE CONVERSIÓN DE COTIZACIÓN → FACTURA REAL
         ══════════════════════════════════════════════════════════ -->
+        {% if invoice.status != 'Aprobada' %}
+        <div class="card-table-wrapper" style="padding: 24px; text-align: center; border: 1.5px solid var(--accent-yellow); background: rgba(245, 158, 11, 0.03);">
+            <div style="width: 52px; height: 52px; border-radius: 50%; background: var(--accent-yellow); display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; color: white;">
+                <i class="fa-solid fa-clock" style="font-size: 1.2rem;"></i>
+            </div>
+            <h4 style="font-size: 1.05rem; font-family: var(--font-heading); margin-bottom: 8px; color: #d97706;">Cotización Pendiente</h4>
+            <p style="color: var(--text-secondary); font-size: 0.79rem; line-height: 1.45; margin-bottom: 20px;">
+                Esta propuesta está pendiente de aprobación. Puedes enviársela al cliente para su firma o aprobarla manualmente.
+            </p>
+
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+                <form action="/quotations/{{ invoice.id }}/approve" method="POST" style="margin: 0;">
+                    <button type="submit" class="btn btn-primary" style="width:100%; background: var(--accent-yellow); border-color: var(--accent-yellow); font-weight: 700;">
+                        <i class="fa-solid fa-check"></i>
+                        <span>Aprobar Manualmente</span>
+                    </button>
+                </form>
+                
+                {% if invoice.clientId %}
+                <a href="http://localhost:5002/portal/cliente/{{ session.get('user', {}).get('ownerUID', 'W2n2BfR1G4eN3K7m7n8b9v0c1x2z') }}/{{ invoice.clientId }}?sandbox={{ 'true' if session.get('is_sandbox_mode', True) else 'false' }}" target="_blank" class="btn btn-secondary" style="width:100%; border-color: var(--accent-purple); color: var(--accent-purple); display: inline-flex; align-items: center; justify-content: center; gap: 6px;">
+                    <i class="fa-solid fa-up-right-from-square"></i>
+                    <span>Ver Portal de Cliente</span>
+                </a>
+                {% endif %}
+            </div>
+        </div>
+        {% else %}
         <div class="card-table-wrapper" style="padding: 24px; text-align: center; border: 1.5px solid var(--accent-purple); {% if company.get('gradientEnabled', True) %}background: linear-gradient(160deg, rgba(124,58,237,0.04), rgba(167,139,250,0.02));{% else %}background: rgba(124,58,237,0.04);{% endif %}">
             <div style="width: 52px; height: 52px; border-radius: 50%; {% if company.get('gradientEnabled', True) %}background: linear-gradient(135deg,#7c3aed,#a78bfa);{% else %}background: var(--accent-purple);{% endif %} display: flex; align-items: center; justify-content: center; margin: 0 auto 12px;">
                 <i class="fa-solid fa-wand-magic-sparkles" style="color:white; font-size: 1.2rem;"></i>
             </div>
             <h4 style="font-size: 1.05rem; font-family: var(--font-heading); margin-bottom: 8px; color: var(--accent-purple);">Convertir a Factura Fiscal</h4>
             <p style="color: var(--text-secondary); font-size: 0.79rem; line-height: 1.45; margin-bottom: 20px;">
-                Esta cotización está aprobada por tu cliente. Conviértela en un Comprobante Fiscal Electrónico (e-CF) para emitirla a la DGII y registrarla en tus ingresos.
+                Esta cotización está aprobada. Conviértela en un Comprobante Fiscal Electrónico (e-CF) para emitirla a la DGII y registrarla en tus ingresos.
             </p>
 
             <form action="/invoices/{{ invoice.id }}/convert" method="POST" style="display: flex; flex-direction: column; gap: 10px;">
@@ -382,6 +409,7 @@
                 </p>
             </div>
         </div>
+        {% endif %}
 
         {% else %}
         <!-- Módulo Fiscal DGII e-CF (documento ya convertido) -->
