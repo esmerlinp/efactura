@@ -170,9 +170,16 @@
     <div>
         <p style="color: var(--text-secondary); font-size: 0.95rem; margin: 0;">Gestiona tus clientes arrastrándolos por el embudo de ventas.</p>
     </div>
-    <a href="{{ url_for('web_clients.new_client') }}" class="btn btn-primary" style="font-size: 0.9rem;">
-        <i class="fa-solid fa-user-plus"></i> Nuevo Lead
-    </a>
+    <div style="display: flex; gap: 12px; align-items: center;">
+        <button class="btn btn-secondary" onclick="openImportModal()" style="height: 44px; display: inline-flex; align-items: center; font-size: 0.9rem;">
+            <i class="fa-solid fa-file-import"></i>
+            <span>Importar CSV</span>
+        </button>
+        <a href="{{ url_for('web_clients.new_client') }}" class="btn btn-primary" style="height: 44px; display: inline-flex; align-items: center; font-size: 0.9rem;">
+            <i class="fa-solid fa-user-plus"></i>
+            <span>Nuevo Lead</span>
+        </a>
+    </div>
 </div>
 
 <!-- Filtros Minimalistas -->
@@ -465,5 +472,164 @@
             .catch(err => console.error(err));
         }
     }
+
+    // ==========================================
+    // Lógica del Modal de Importación
+    // ==========================================
+    function openImportModal() {
+        const modal = document.getElementById('import-modal');
+        if (modal) {
+            modal.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+        }
+    }
+
+    function closeImportModal() {
+        const modal = document.getElementById('import-modal');
+        if (modal) {
+            modal.style.display = 'none';
+            document.body.style.overflow = 'auto';
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const dropzone = document.getElementById('dropzone');
+        const fileInput = document.getElementById('csv-file');
+        const fileLabel = document.getElementById('file-label');
+        const uploadBtn = document.getElementById('upload-btn');
+        const uploadIcon = dropzone ? dropzone.querySelector('.fa-cloud-arrow-up') : null;
+
+        if (dropzone && fileInput && uploadBtn) {
+            const form = dropzone.closest('form');
+
+            if (form) {
+                form.addEventListener('submit', function(e) {
+                    if (!fileInput.files || fileInput.files.length === 0) {
+                        e.preventDefault();
+                        alert('Por favor, selecciona o arrastra un archivo .csv antes de continuar.');
+                    }
+                });
+            }
+
+            dropzone.addEventListener('click', function() {
+                fileInput.click();
+            });
+
+            // Hover effects
+            dropzone.addEventListener('mouseenter', function() {
+                if (!fileInput.files.length) {
+                    dropzone.style.borderColor = 'var(--accent-emerald)';
+                    if (uploadIcon) uploadIcon.style.transform = 'translateY(-3px)';
+                }
+            });
+            dropzone.addEventListener('mouseleave', function() {
+                if (!fileInput.files.length) {
+                    dropzone.style.borderColor = 'var(--border-color)';
+                    if (uploadIcon) uploadIcon.style.transform = 'none';
+                }
+            });
+
+            // Drag and drop events
+            ['dragenter', 'dragover'].forEach(eventName => {
+                dropzone.addEventListener(eventName, function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    dropzone.style.borderColor = 'var(--accent-emerald)';
+                    dropzone.style.backgroundColor = 'rgba(16, 185, 129, 0.05)';
+                    if (uploadIcon) uploadIcon.style.transform = 'scale(1.1) translateY(-3px)';
+                }, false);
+            });
+
+            ['dragleave', 'drop'].forEach(eventName => {
+                dropzone.addEventListener(eventName, function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    dropzone.style.backgroundColor = 'transparent';
+                    if (!fileInput.files.length) {
+                        dropzone.style.borderColor = 'var(--border-color)';
+                        if (uploadIcon) uploadIcon.style.transform = 'none';
+                    } else {
+                        dropzone.style.borderColor = 'var(--accent-emerald)';
+                        if (uploadIcon) uploadIcon.style.transform = 'scale(1.05)';
+                    }
+                }, false);
+            });
+
+            dropzone.addEventListener('drop', function(e) {
+                const dt = e.dataTransfer;
+                const files = dt.files;
+
+                if (files && files.length > 0) {
+                    const file = files[0];
+                    if (file.name.endsWith('.csv')) {
+                        fileInput.files = files;
+                        fileInput.dispatchEvent(new Event('change'));
+                    } else {
+                        alert('Por favor, selecciona únicamente archivos con extensión .csv');
+                    }
+                }
+            }, false);
+
+            fileInput.addEventListener('change', function() {
+                if (fileInput.files && fileInput.files.length > 0) {
+                    fileLabel.textContent = fileInput.files[0].name;
+                    fileLabel.style.color = 'var(--accent-emerald)';
+                    dropzone.style.borderColor = 'var(--accent-emerald)';
+                    dropzone.style.backgroundColor = 'rgba(16, 185, 129, 0.02)';
+                    uploadBtn.disabled = false;
+                    if (uploadIcon) {
+                        uploadIcon.style.color = 'var(--accent-emerald)';
+                        uploadIcon.style.transform = 'scale(1.05)';
+                    }
+                } else {
+                    fileLabel.textContent = 'Seleccionar archivo .csv';
+                    fileLabel.style.color = 'var(--text-secondary)';
+                    dropzone.style.borderColor = 'var(--border-color)';
+                    dropzone.style.backgroundColor = 'transparent';
+                    uploadBtn.disabled = true;
+                    if (uploadIcon) {
+                        uploadIcon.style.color = 'var(--text-muted)';
+                        uploadIcon.style.transform = 'none';
+                    }
+                }
+            });
+        }
+    });
 </script>
+
+<!-- Modal de Importación Masiva CSV de Clientes -->
+<div id="import-modal" class="search-modal" style="display: none; justify-content: center; align-items: center; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 2000;">
+    <div class="modal-backdrop" onclick="closeImportModal()" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px);"></div>
+    <div class="modal-content animate-fade-in" style="max-width: 500px; padding: 0; border-radius: var(--radius-md); position: relative; z-index: 2001; background: #ffffff; box-shadow: var(--shadow-lg);">
+        <div class="modal-header" style="border-bottom: 1px solid var(--border-color); padding: 20px 24px; display: flex; justify-content: space-between; align-items: center;">
+            <h3 style="margin: 0; font-size: 1.15rem; font-family: var(--font-heading); display: flex; align-items: center; gap: 10px;">
+                <i class="fa-solid fa-file-csv" style="color: var(--accent-emerald); font-size: 1.3rem;"></i>
+                <span>Importación de Clientes CRM</span>
+            </h3>
+            <button class="btn-close-modal" onclick="closeImportModal()" style="background: transparent; border: none; font-size: 1.2rem; cursor: pointer; color: var(--text-muted);">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="modal-body" style="padding: 28px;">
+            <p style="color: var(--text-secondary); font-size: 0.85rem; line-height: 1.45; margin-bottom: 20px; margin-top: 0;">
+                Sube tu listado de clientes en formato .csv. Podrás mapear tus columnas en el siguiente paso.
+            </p>
+            
+            <form action="{{ url_for('web_import_mapper.upload_file') }}" method="POST" enctype="multipart/form-data" style="display: flex; flex-direction: column; gap: 18px; margin: 0;">
+                <input type="hidden" name="import_type" value="clients">
+                <div id="dropzone" style="border: 2px dashed var(--border-color); border-radius: var(--radius-sm); padding: 30px 16px; text-align: center; cursor: pointer; transition: all var(--transition-fast) ease-in-out;">
+                    <i class="fa-solid fa-cloud-arrow-up" style="font-size: 2.5rem; color: var(--text-muted); margin-bottom: 12px; display: block; transition: transform var(--transition-fast);"></i>
+                    <span style="font-size: 0.88rem; font-weight: 600; color: var(--text-secondary);" id="file-label">Seleccionar archivo .csv</span>
+                    <p style="font-size: 0.78rem; color: var(--text-muted); margin-top: 6px; margin-bottom: 0;">o arrastra tu archivo aquí</p>
+                </div>
+                <input type="file" id="csv-file" name="file" accept=".csv" style="display: none;">
+                
+                <button type="submit" id="upload-btn" class="btn btn-primary" style="width: 100%; transition: all var(--transition-fast) ease;" disabled>
+                    <i class="fa-solid fa-upload"></i>
+                    <span>Cargar y Configurar Mapeo</span>
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
 {% endblock %}

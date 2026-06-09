@@ -197,6 +197,7 @@ def create_app():
     from app.web.invoices import web_invoices_bp
     from app.web.notes import web_notes_bp
     from app.web.pos import web_pos_bp
+    from app.web.import_mapper import web_import_mapper_bp
 
     app.register_blueprint(web_auth_bp)
     app.register_blueprint(web_dashboard_bp)
@@ -204,5 +205,6 @@ def create_app():
     app.register_blueprint(web_invoices_bp)
     app.register_blueprint(web_notes_bp)
     app.register_blueprint(web_pos_bp)
+    app.register_blueprint(web_import_mapper_bp)
 
     return app

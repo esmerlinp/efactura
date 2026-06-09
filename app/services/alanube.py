@@ -412,20 +412,22 @@ class AlanubeService:
             "address": invoice_buyer.get("address") or invoice.get("clientAddress", "República Dominicana")
         }
         
-        # Resolver correo del cliente
-        client_email = invoice_buyer.get("mail") or invoice.get("clientEmail")
-        if not client_email and company_profile.get("ownerUID"):
-            try:
-                from app.services.db_service import DatabaseService
-                owner_uid = company_profile["ownerUID"]
-                client_id = invoice.get("clientId")
-                if client_id:
-                    clients = DatabaseService.get_clients(owner_uid, sandbox=True) + DatabaseService.get_clients(owner_uid, sandbox=False)
-                    client_obj = next((c for c in clients if c["id"] == client_id), None)
-                    if client_obj:
-                        client_email = client_obj.get("email")
-            except Exception:
-                pass
+        # Resolver correo del cliente (solo si no es Factura de Consumo E32, ya que Consumidor Final no debe recibir correos automáticos)
+        client_email = None
+        if number_code != "32":
+            client_email = invoice_buyer.get("mail") or invoice.get("clientEmail")
+            if not client_email and company_profile.get("ownerUID"):
+                try:
+                    from app.services.db_service import DatabaseService
+                    owner_uid = company_profile["ownerUID"]
+                    client_id = invoice.get("clientId")
+                    if client_id:
+                        clients = DatabaseService.get_clients(owner_uid, sandbox=True) + DatabaseService.get_clients(owner_uid, sandbox=False)
+                        client_obj = next((c for c in clients if c["id"] == client_id), None)
+                        if client_obj:
+                            client_email = client_obj.get("email")
+                except Exception:
+                    pass
         buyer["mail"] = client_email or "contacto@cliente.com"
         
         client_contact = invoice_buyer.get("contact") or invoice.get("clientContact") or invoice.get("contact")
