@@ -1311,9 +1311,17 @@ body.sandbox-mode .segment-header-icon.emerald {
 }
 
 .landing-container {
-    max-width: 1280px;
+    max-width: 100%;
+    width: 100%;
     margin: 0 auto;
-    padding: 0 24px;
+    padding: 0 40px;
+    box-sizing: border-box;
+}
+
+@media (max-width: 768px) {
+    .landing-container {
+        padding: 0 20px;
+    }
 }
 
 /* 1. Header / Navegación */
@@ -1380,7 +1388,7 @@ body.sandbox-mode .segment-header-icon.emerald {
 
 .landing-menu-link {
     font-size: 0.95rem;
-    font-weight: 600;
+    font-weight: 500;
     color: var(--text-secondary);
     transition: all var(--transition-fast);
     position: relative;
@@ -1442,7 +1450,7 @@ body.sandbox-mode .segment-header-icon.emerald {
     padding: 8px 18px;
     border-radius: 50px;
     font-size: 0.85rem;
-    font-weight: 700;
+    font-weight: 500;
     letter-spacing: 0.05em;
     text-transform: uppercase;
     margin-bottom: 24px;
@@ -1455,7 +1463,7 @@ body.sandbox-mode .segment-header-icon.emerald {
 .hero-title {
     font-family: var(--font-heading);
     font-size: 3.8rem;
-    font-weight: 800;
+    font-weight: 600;
     line-height: 1.15;
     letter-spacing: -0.03em;
     margin-bottom: 24px;
@@ -1554,7 +1562,7 @@ body.sandbox-mode .segment-header-icon.emerald {
 .mockup-tab-btn {
     padding: 8px 16px;
     font-size: 0.85rem;
-    font-weight: 600;
+    font-weight: 500;
     color: var(--text-secondary);
     border-radius: var(--radius-sm);
     cursor: pointer;
@@ -1670,7 +1678,7 @@ body.sandbox-mode .segment-header-icon.emerald {
 .section-title {
     font-family: var(--font-heading);
     font-size: 2.5rem;
-    font-weight: 800;
+    font-weight: 600;
     letter-spacing: -0.02em;
     margin-bottom: 16px;
 }
@@ -1740,7 +1748,7 @@ body.sandbox-mode .segment-header-icon.emerald {
 .feature-title {
     font-family: var(--font-heading);
     font-size: 1.3rem;
-    font-weight: 700;
+    font-weight: 600;
     margin-bottom: 12px;
 }
 
@@ -1792,7 +1800,7 @@ body.sandbox-mode .segment-header-icon.emerald {
 }
 
 .slider-title {
-    font-weight: 700;
+    font-weight: 500;
     font-size: 1.1rem;
     color: var(--text-primary);
 }
@@ -1800,7 +1808,7 @@ body.sandbox-mode .segment-header-icon.emerald {
 .slider-value-display {
     font-family: var(--font-heading);
     font-size: 2.2rem;
-    font-weight: 800;
+    font-weight: 600;
     color: var(--accent-emerald);
 }
 
@@ -1855,7 +1863,7 @@ body.sandbox-mode .segment-header-icon.emerald {
     padding: 6px 14px;
     border-radius: 30px;
     font-size: 0.8rem;
-    font-weight: 700;
+    font-weight: 500;
     letter-spacing: 0.05em;
     background-color: var(--bg-brand-translucent);
     color: var(--accent-emerald);
@@ -1865,7 +1873,7 @@ body.sandbox-mode .segment-header-icon.emerald {
 .category-title {
     font-family: var(--font-heading);
     font-size: 1.6rem;
-    font-weight: 800;
+    font-weight: 600;
     margin-top: 10px;
 }
 
@@ -1913,7 +1921,7 @@ body.sandbox-mode .segment-header-icon.emerald {
 .contact-info h3 {
     font-family: var(--font-heading);
     font-size: 2.2rem;
-    font-weight: 800;
+    font-weight: 600;
     margin-bottom: 20px;
     line-height: 1.2;
 }
@@ -1930,7 +1938,7 @@ body.sandbox-mode .segment-header-icon.emerald {
     align-items: center;
     gap: 16px;
     margin-bottom: 16px;
-    font-weight: 600;
+    font-weight: 500;
     font-size: 0.95rem;
 }
 
@@ -1972,7 +1980,7 @@ body.sandbox-mode .segment-header-icon.emerald {
 .form-success-title {
     font-family: var(--font-heading);
     font-size: 1.5rem;
-    font-weight: 800;
+    font-weight: 600;
     margin-bottom: 12px;
 }
 
@@ -2048,7 +2056,7 @@ body.sandbox-mode .segment-header-icon.emerald {
 
 /* A. Barra de Confianza y Estadísticas */
 .trust-bar {
-    background: rgba(15, 23, 42, 0.45);
+    background: rgba(255, 255, 255, 0.7);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
     border: 1px solid var(--border-color);
@@ -2060,9 +2068,14 @@ body.sandbox-mode .segment-header-icon.emerald {
     grid-template-columns: repeat(4, 1fr);
     gap: 20px;
     text-align: center;
-    box-shadow: var(--shadow-sm), inset 0 0 15px rgba(255, 255, 255, 0.02);
+    box-shadow: var(--shadow-sm), inset 0 0 15px rgba(0, 0, 0, 0.02);
     z-index: 10;
     position: relative;
+}
+
+[data-theme="dark"] .trust-bar {
+    background: rgba(15, 23, 42, 0.45);
+    box-shadow: var(--shadow-sm), inset 0 0 15px rgba(255, 255, 255, 0.02);
 }
 
 @media (max-width: 768px) {
@@ -2082,7 +2095,7 @@ body.sandbox-mode .segment-header-icon.emerald {
 .trust-number {
     font-family: var(--font-heading);
     font-size: 2.2rem;
-    font-weight: 800;
+    font-weight: 600;
     background: linear-gradient(135deg, var(--accent-emerald), #60a5fa);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -2092,7 +2105,7 @@ body.sandbox-mode .segment-header-icon.emerald {
 .trust-label {
     font-size: 0.8rem;
     color: var(--text-secondary);
-    font-weight: 700;
+    font-weight: 500;
     text-transform: uppercase;
     letter-spacing: 0.05em;
 }
@@ -2144,7 +2157,7 @@ body.sandbox-mode .segment-header-icon.emerald {
 .code-tab {
     padding: 6px 12px;
     font-size: 0.78rem;
-    font-weight: 700;
+    font-weight: 500;
     color: var(--text-secondary);
     border-radius: 4px;
     cursor: pointer;
@@ -2265,7 +2278,7 @@ body.sandbox-mode .segment-header-icon.emerald {
 .integration-name {
     font-family: var(--font-heading);
     font-size: 0.85rem;
-    font-weight: 700;
+    font-weight: 500;
     color: var(--text-primary);
 }
 

@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="es" data-theme="dark">
+<html lang="es" data-theme="light">
 <head>
     <meta charset="UTF-8">
     <script>
-        // Forzar modo oscuro en la página de producto por defecto y bloquear su alternancia
-        document.documentElement.setAttribute('data-theme', 'dark');
+        // Forzar modo claro en la página de producto por defecto
+        document.documentElement.setAttribute('data-theme', 'light');
     </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>e-Factura - Facturación Electrónica en República Dominicana (Ley 32-23)</title>
@@ -27,8 +27,7 @@
     <header class="landing-header">
         <div class="landing-container landing-nav">
             <a href="#" class="landing-logo">
-                <i class="fa-solid fa-receipt"></i>
-                <span>e-Factura</span>
+                <img src="{{ url_for('static', filename='images/logo.png') }}" alt="e-Factura" style="height: 48px; width: auto; object-fit: contain;">
             </a>
             
             <ul class="landing-menu">
@@ -490,7 +489,7 @@
                             </div>
                             <h4 class="form-success-title">¡Solicitud Enviada!</h4>
                             <p class="form-success-text">
-                                Hemos recibido tus datos exitosamente. Un especialista fiscal de <strong>e-Factura</strong> te contactará por correo o llamada telefónica en un plazo menor a 24 horas laborables para coordinar tu demostración y entregarte tu cotización adaptada de <span id="success-volume-label" style="font-weight:700; color:var(--accent-emerald);">100</span> facturas/mes. ¡Gracias por confiar en nosotros!
+                                Hemos recibido tus datos exitosamente. Un especialista fiscal de <strong>e-Factura</strong> te contactará por correo o llamada telefónica en un plazo menor a 24 horas laborables para coordinar tu demostración y entregarte tu cotización adaptada de <span id="success-volume-label" style="font-weight:500; color:var(--accent-emerald);">100</span> facturas/mes. ¡Gracias por confiar en nosotros!
                             </p>
                         </div>
                     </div>
@@ -504,8 +503,7 @@
         <div class="landing-container">
             <div class="footer-top">
                 <a href="#" class="landing-logo">
-                    <i class="fa-solid fa-receipt"></i>
-                    <span>e-Factura</span>
+                    <img src="{{ url_for('static', filename='images/logo.png') }}" alt="e-Factura" style="height: 40px; width: auto; object-fit: contain;">
                 </a>
                 <p style="max-width:350px; font-size:0.88rem; color:var(--text-secondary); line-height:1.5;">
                     La plataforma fiscal premium de facturación electrónica diseñada de forma nativa para las regulaciones de República Dominicana.
