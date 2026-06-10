@@ -3452,7 +3452,7 @@ def send_invoice_cxc_reminder(invoice_id, method):
         return jsonify({"success": False, "message": "No se especificó contacto de destino."}), 400
         
     from app.services.notifications import NotificationService
-    portal_url = f"http://localhost:5002/portal/cliente/{owner_uid}/{invoice.get('clientId')}?sandbox={'true' if sandbox else 'false'}"
+    portal_url = f"{request.host_url.rstrip('/')}/portal/cliente/{owner_uid}/{invoice.get('clientId')}?sandbox={'true' if sandbox else 'false'}"
     
     success, message = NotificationService.send_cxc_reminder(
         owner_uid=owner_uid,

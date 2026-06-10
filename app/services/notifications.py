@@ -27,7 +27,12 @@ class NotificationService:
         
         # Construir URL del portal si no viene especificado
         if not portal_url:
-            portal_url = f"http://localhost:5002/portal/cliente/{owner_uid}/{client_id}?sandbox={'true' if sandbox else 'false'}"
+            from flask import request
+            try:
+                base_url = request.host_url.rstrip('/')
+            except Exception:
+                base_url = os.environ.get("PORTAL_BASE_URL", "http://localhost:5001").rstrip('/')
+            portal_url = f"{base_url}/portal/cliente/{owner_uid}/{client_id}?sandbox={'true' if sandbox else 'false'}"
 
         if method == 'email':
             # Configuración SMTP
