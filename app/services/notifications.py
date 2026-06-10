@@ -10,7 +10,7 @@ from app.services.db_service import DatabaseService
 
 class NotificationService:
     @classmethod
-    def send_cxc_reminder(cls, owner_uid, invoice, recipient_contact, method='email', sandbox=True, portal_url=""):
+    def send_cxc_reminder(cls, owner_uid, invoice, recipient_contact, method='email', sandbox=True, portal_url="", custom_message=None):
         """
         Envía un recordatorio de pago (vía email o WhatsApp) y registra la interacción en el historial del cliente.
         """
@@ -47,7 +47,7 @@ class NotificationService:
                     print(f"⚠️ SMTP no configurado. Simulando envío de email a {recipient_contact}...")
                     cls._record_interaction(owner_uid, client_id, "Email", 
                                             f"Recordatorio de Pago enviado (Email Simulado)",
-                                            f"Simulación de envío para factura {invoice_number} al correo {recipient_contact}. Balance pendiente: RD$ {remaining_balance:,.2f}.", 
+                                            f"Simulación de envío para factura {invoice_number} al correo {recipient_contact}. Balance pendiente: RD$ {remaining_balance:,.2f}.\nContenido custom: {custom_message}", 
                                             sandbox=sandbox)
                     return True, f"Simulado: Recordatorio enviado por correo a {recipient_contact} (SMTP no configurado)."
                 return False, "Servidor de correo SMTP no configurado en los ajustes de la aplicación."
@@ -59,6 +59,8 @@ class NotificationService:
                 msg["From"] = f"{company_name} <{smtp_user}>"
                 msg["To"] = recipient_contact
                 
+                content_html = custom_message.replace("\n", "<br>") if custom_message else f"Le escribimos para recordarle que tiene un balance pendiente de pago correspondiente a la factura <strong>{invoice_number}</strong>."
+                
                 html_body = f"""
                 <html>
                 <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #333; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
@@ -69,7 +71,7 @@ class NotificationService:
                     
                     <p>Estimado/a cliente,</p>
                     
-                    <p>Le escribimos para recordarle que tiene un balance pendiente de pago correspondiente a la factura <strong>{invoice_number}</strong>.</p>
+                    <p>{content_html}</p>
                     
                     <div style="background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; padding: 16px; margin: 20px 0;">
                         <table style="width: 100%; border-collapse: collapse;">
@@ -132,16 +134,11 @@ class NotificationService:
                 return False, f"Fallo al enviar correo: {str(e)}"
                 
         elif method == 'whatsapp':
-            # Simulación o Integración con WhatsApp Business API / Twilio
-            # Para fines de este módulo, preparamos el mensaje y simulamos el envío exitoso
-            whatsapp_msg = (
+            whatsapp_msg = custom_message if custom_message else (
                 f"Hola, le escribimos de *{company_name}* para recordarle que la factura *{invoice_number}* "
                 f"tiene un balance pendiente de *RD$ {remaining_balance:,.2f}* con vencimiento el {due_date}. "
                 f"Puede ver el detalle y realizar su pago en línea a través del portal de autogestión: {portal_url}"
             )
-            
-            # Aquí se puede agregar la llamada requests a la API de WhatsApp, por ejemplo:
-            # requests.post(f"https://graph.facebook.com/v17.0/{phone_number_id}/messages", headers=headers, json=payload)
             
             print(f"📱 [WhatsApp API Simulación] Enviando a {recipient_contact}: {whatsapp_msg}")
             

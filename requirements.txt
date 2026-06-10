@@ -7,3 +7,4 @@ pdfkit==1.0.0
 pillow
 gunicorn==22.0.0
 weasyprint
+pypdf

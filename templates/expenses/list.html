@@ -53,6 +53,9 @@
                                 {% if exp.ncf %}
                                     <strong style="font-family: monospace; font-size: 0.85rem; color: var(--accent-purple); display: block;">{{ exp.ncf }}</strong>
                                     <span style="font-size: 0.72rem; color: var(--text-secondary); font-family: monospace;">RNC: {{ exp.rncEmisor or 'N/A' }}</span>
+                                    {% if exp.providerName %}
+                                    <span style="display: block; font-size: 0.72rem; color: var(--text-muted); font-weight: normal;">{{ exp.providerName }}</span>
+                                    {% endif %}
                                 {% else %}
                                     <span style="color: var(--text-muted); font-size: 0.82rem;">Sin comprobante fiscal</span>
                                 {% endif %}

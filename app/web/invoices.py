@@ -2221,6 +2221,7 @@ def new_expense_route():
             "amount": amount,
             "date": request.form['date'],
             "rncEmisor": request.form.get('rncEmisor', ''),
+            "providerName": request.form.get('providerName', ''),
             "ncf": request.form.get('ncf', ''),
             "isMinorExpense": "E43" in request.form.get('ncf', '') or "B13" in request.form.get('ncf', ''),
             "isSyncedWithDGII": False,
@@ -2338,6 +2339,7 @@ def edit_expense_route(expense_id):
             "amount": amount,
             "date": request.form['date'],
             "rncEmisor": request.form.get('rncEmisor', ''),
+            "providerName": request.form.get('providerName', ''),
             "ncf": request.form.get('ncf', ''),
             "isMinorExpense": "E43" in request.form.get('ncf', '') or "B13" in request.form.get('ncf', ''),
             "isSyncedWithDGII": expense.get('isSyncedWithDGII', False),
@@ -3451,6 +3453,7 @@ def send_invoice_cxc_reminder(invoice_id, method):
         
     data = request.get_json(silent=True) or {}
     recipient = data.get("recipient", "").strip()
+    custom_message = data.get("message", "").strip() or None
     
     if not recipient:
         if method == 'email':
@@ -3470,7 +3473,8 @@ def send_invoice_cxc_reminder(invoice_id, method):
         recipient_contact=recipient,
         method=method,
         sandbox=sandbox,
-        portal_url=portal_url
+        portal_url=portal_url,
+        custom_message=custom_message
     )
     
     if success:
@@ -3745,6 +3749,79 @@ def bi_dashboard():
     )
 
 
+@web_invoices_bp.route('/api/ai/receipt-ocr', methods=['POST'])
+def api_ai_receipt_ocr():
+    if 'user' not in session:
+        return jsonify({"success": False, "error": "No autorizado"}), 401
+    
+    file = request.files.get('file')
+    if not file:
+        return jsonify({"success": False, "error": "No se recibió ningún archivo"}), 400
+        
+    owner_uid = session['user']['ownerUID']
+    file_bytes = file.read()
+    mime_type = file.mimetype or "image/jpeg"
+    
+    from app.services.ai_service import AIService
+    res = AIService.analyze_receipt_ocr(owner_uid, file_bytes, mime_type)
+    return jsonify(res)
+
+
+@web_invoices_bp.route('/api/ai/classify-expense', methods=['POST', 'GET'])
+def api_ai_classify_expense():
+    if 'user' not in session:
+        return jsonify({"success": False, "error": "No autorizado"}), 401
+        
+    concept = request.values.get('concept', '').strip()
+    if not concept:
+        return jsonify({"success": False, "error": "El concepto es requerido"}), 400
+        
+    owner_uid = session['user']['ownerUID']
+    from app.services.ai_service import AIService
+    code = AIService.classify_dgii_expense(owner_uid, concept)
+    return jsonify({"success": True, "code": code})
+
+
+@web_invoices_bp.route('/api/ai/draft-collection', methods=['POST'])
+def api_ai_draft_collection():
+    if 'user' not in session:
+        return jsonify({"success": False, "error": "No autorizado"}), 401
+        
+    if request.is_json:
+        data = request.json
+    else:
+        data = request.form
+        
+    client_name = data.get('client_name', '').strip()
+    amount_str = data.get('amount', '0.00').strip()
+    due_date = data.get('due_date', '').strip()
+    status = data.get('status', '').strip()
+    tone = data.get('tone', 'formal').strip()
+    
+    try:
+        amount = float(amount_str.replace(',', ''))
+    except ValueError:
+        amount = 0.00
+        
+    owner_uid = session['user']['ownerUID']
+    from app.services.ai_service import AIService
+    message = AIService.draft_collection_message(owner_uid, client_name, amount, due_date, status, tone)
+    return jsonify({"success": True, "message": message})
+
+
+@web_invoices_bp.route('/api/dgii/rnc/<rnc>', methods=['GET'])
+def web_lookup_rnc(rnc):
+    if 'user' not in session:
+        return jsonify({"success": False, "error": "No autorizado"}), 401
+    try:
+        from app.services.dgii import DGIIService
+        res = DGIIService.validate_and_fetch_rnc(rnc)
+        return jsonify(res)
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 if __name__ == '__main__':
     app.run(debug=True, port=5001)
+
 
