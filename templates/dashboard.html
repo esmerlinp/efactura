@@ -14,6 +14,19 @@
             gap: 24px !important;
         }
     }
+
+    /* Resumen Financiero: montos compactos en pantallas medianas */
+    @media (max-width: 1280px) {
+        .kpi-amount-value {
+            font-size: 1.25rem !important;
+        }
+    }
+
+    @media (max-width: 900px) {
+        .kpi-amount-value {
+            font-size: 1.05rem !important;
+        }
+    }
 </style>
 
 <div class="page-title-container" style="margin-bottom: 24px; padding-left: 4px;">
@@ -153,14 +166,15 @@
 
 <!-- Tarjeta Única de KPIs -->
 <div class="card-table-wrapper"
-    style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 24px; padding: 24px; margin-bottom: 30px; box-shadow: none;">
+    style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 24px; padding: 24px; margin-bottom: 30px; box-shadow: none;">
 
     <!-- KPI 1: Ingresos -->
     <div style="display: flex; flex-direction: column; gap: 4px;">
         <span style="font-size: 0.8rem; color: var(--text-secondary);">Total Facturado (Ingresos)</span>
         <div
-            style="font-size: 1.6rem; color: var(--accent-emerald); font-weight: 400; font-family: var(--font-heading); display: flex; align-items: center; gap: 8px;">
-            <i class="fa-solid fa-square" style="font-size: 0.4rem; color: var(--accent-emerald);"></i>
+            class="kpi-amount-value"
+            style="font-size: 1.6rem; color: var(--accent-emerald); font-weight: 400; font-family: var(--font-heading); display: flex; align-items: center; gap: 8px; white-space: nowrap;">
+            <i class="fa-solid fa-square" style="font-size: 0.4rem; color: var(--accent-emerald); flex-shrink: 0;"></i>
             RD$ {{ "{:,.2f}".format(stats.total_invoiced) }}
         </div>
         <span style="font-size: 0.75rem; color: var(--text-muted);">Facturas emitidas{{ period_label }}</span>
@@ -170,8 +184,9 @@
     <div style="display: flex; flex-direction: column; gap: 4px;">
         <span style="font-size: 0.8rem; color: var(--text-secondary);">Egresos Registrados</span>
         <div
-            style="font-size: 1.6rem; color: var(--accent-red); font-weight: 400; font-family: var(--font-heading); display: flex; align-items: center; gap: 8px;">
-            <i class="fa-solid fa-square" style="font-size: 0.4rem; color: var(--accent-red);"></i>
+            class="kpi-amount-value"
+            style="font-size: 1.6rem; color: var(--accent-red); font-weight: 400; font-family: var(--font-heading); display: flex; align-items: center; gap: 8px; white-space: nowrap;">
+            <i class="fa-solid fa-square" style="font-size: 0.4rem; color: var(--accent-red); flex-shrink: 0;"></i>
             RD$ {{ "{:,.2f}".format(stats.total_expenses) }}
         </div>
         <span style="font-size: 0.75rem; color: var(--text-muted);">Gastos{{ period_label }}</span>
@@ -181,8 +196,9 @@
     <div style="display: flex; flex-direction: column; gap: 4px;">
         <span style="font-size: 0.8rem; color: var(--text-secondary);">Rentabilidad / Margen Neto</span>
         <div
-            style="font-size: 1.6rem; color: var(--accent-yellow); font-weight: 400; font-family: var(--font-heading); display: flex; align-items: center; gap: 8px;">
-            <i class="fa-solid fa-square" style="font-size: 0.4rem; color: var(--accent-yellow);"></i>
+            class="kpi-amount-value"
+            style="font-size: 1.6rem; color: var(--accent-yellow); font-weight: 400; font-family: var(--font-heading); display: flex; align-items: center; gap: 8px; white-space: nowrap;">
+            <i class="fa-solid fa-square" style="font-size: 0.4rem; color: var(--accent-yellow); flex-shrink: 0;"></i>
             {{ "{:.1f}%".format(stats.margin_net) }}
         </div>
         <span style="font-size: 0.75rem; color: var(--text-muted);">Margen neto{{ period_label }}</span>
@@ -192,8 +208,9 @@
     <div style="display: flex; flex-direction: column; gap: 4px;">
         <span style="font-size: 0.8rem; color: var(--text-secondary);">Cuentas por Cobrar (CxC)</span>
         <div
-            style="font-size: 1.6rem; color: var(--accent-purple); font-weight: 400; font-family: var(--font-heading); display: flex; align-items: center; gap: 8px;">
-            <i class="fa-solid fa-square" style="font-size: 0.4rem; color: var(--accent-purple);"></i>
+            class="kpi-amount-value"
+            style="font-size: 1.6rem; color: var(--accent-purple); font-weight: 400; font-family: var(--font-heading); display: flex; align-items: center; gap: 8px; white-space: nowrap;">
+            <i class="fa-solid fa-square" style="font-size: 0.4rem; color: var(--accent-purple); flex-shrink: 0;"></i>
             RD$ {{ "{:,.2f}".format(stats.total_cxc) }}
         </div>
         <span style="font-size: 0.75rem; color: var(--text-muted);">Saldo pendiente total</span>

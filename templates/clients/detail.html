@@ -117,25 +117,25 @@
                 Desempeño Comercial</h3>
 
             <div style="display: flex; flex-direction: column; gap: 16px;">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <span style="font-size: 0.88rem; color: var(--text-secondary);">Facturado Acumulado:</span>
-                    <strong style="color: var(--accent-emerald); font-size: 1rem;">RD$ {{
+                <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+                    <span style="font-size: 0.85rem; color: var(--text-secondary); min-width: 0; flex-shrink: 1;">Facturado Acumulado:</span>
+                    <strong style="color: var(--accent-emerald); font-size: 0.95rem; white-space: nowrap; flex-shrink: 0;">RD$ {{
                         "{:,.2f}".format(client.total_invoiced | default(0.0)) }}</strong>
                 </div>
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <span style="font-size: 0.88rem; color: var(--text-secondary);">Cuentas por Cobrar (CxC):</span>
+                <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+                    <span style="font-size: 0.85rem; color: var(--text-secondary); min-width: 0; flex-shrink: 1;">CxC Pendiente:</span>
                     <strong
-                        style="color: {% if client.total_cxc | default(0.0) > 0 %}var(--accent-red){% else %}var(--text-secondary){% endif %}; font-size: 1rem;">
+                        style="color: {% if client.total_cxc | default(0.0) > 0 %}var(--accent-red){% else %}var(--text-secondary){% endif %}; font-size: 0.95rem; white-space: nowrap; flex-shrink: 0;">
                         RD$ {{ "{:,.2f}".format(client.total_cxc | default(0.0)) }}
                     </strong>
                 </div>
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <span style="font-size: 0.88rem; color: var(--text-secondary);">Documentos Emitidos:</span>
-                    <strong style="font-size: 1rem; color: var(--text-primary);">{{ invoices | length }}</strong>
+                <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+                    <span style="font-size: 0.85rem; color: var(--text-secondary); min-width: 0; flex-shrink: 1;">Documentos Emitidos:</span>
+                    <strong style="font-size: 0.95rem; color: var(--text-primary); white-space: nowrap; flex-shrink: 0;">{{ invoices | length }}</strong>
                 </div>
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <span style="font-size: 0.88rem; color: var(--text-secondary);">Cotizaciones Activas:</span>
-                    <strong style="font-size: 1rem; color: var(--accent-purple);">{{ quotations | length }}</strong>
+                <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+                    <span style="font-size: 0.85rem; color: var(--text-secondary); min-width: 0; flex-shrink: 1;">Cotizaciones Activas:</span>
+                    <strong style="font-size: 0.95rem; color: var(--accent-purple); white-space: nowrap; flex-shrink: 0;">{{ quotations | length }}</strong>
                 </div>
             </div>
         </div>
