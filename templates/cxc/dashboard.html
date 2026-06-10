@@ -184,7 +184,7 @@
                                 <button onclick="sendReminder('{{ inv.id }}', 'whatsapp', '{{ inv.clientPhone }}')" class="action-btn btn-remind-wa" title="Enviar recordatorio por WhatsApp" {% if not inv.clientPhone %}disabled style="opacity:0.4;"{% endif %}>
                                     <i class="fa-solid fa-phone"></i>
                                 </button>
-                                <a href="http://localhost:5002/portal/cliente/{{ session.get('user', {}).get('ownerUID', 'W2n2BfR1G4eN3K7m7n8b9v0c1x2z') }}/{{ inv.clientId }}?sandbox={{ 'true' if session.get('is_sandbox_mode', True) else 'false' }}" target="_blank" class="action-btn" title="Ir al Portal de Cliente">
+                                <a href="{{ url_for('portal.client_portal', owner_uid=session.get('user', {}).get('ownerUID', 'W2n2BfR1G4eN3K7m7n8b9v0c1x2z'), client_id=inv.clientId, sandbox='true' if session.get('is_sandbox_mode', True) else 'false') }}" target="_blank" class="action-btn" title="Ir al Portal de Cliente">
                                     <i class="fa-solid fa-arrow-up-right-from-square"></i>
                                 </a>
                             </div>
