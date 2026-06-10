@@ -200,6 +200,34 @@
                     {% endfor %}
                 </tbody>
             </table>
+            
+            <!-- PAGINACIÓN -->
+            {% if invoices %}
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; border-top: 1px solid var(--border-color); background: rgba(0,0,0,0.01); flex-wrap: wrap; gap: 15px;">
+                <div style="display: flex; align-items: center; gap: 8px; font-size: 0.82rem; color: var(--text-secondary);">
+                    <span>Mostrar</span>
+                    <select id="cxc-page-size" onchange="changePageSize(this.value)" style="padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary); font-weight: 600; outline: none; cursor: pointer;">
+                        <option value="5" selected>5</option>
+                        <option value="10">10</option>
+                        <option value="20">20</option>
+                        <option value="50">50</option>
+                    </select>
+                    <span>registros por página</span>
+                </div>
+                
+                <div style="display: flex; align-items: center; gap: 5px;">
+                    <button onclick="prevCxcPage()" id="btn-prev-page" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 4px; height: 32px; border-radius: 4px; font-weight: 600;" disabled>
+                        <i class="fa-solid fa-chevron-left"></i> Anterior
+                    </button>
+                    <span id="cxc-page-info" style="font-size: 0.82rem; color: var(--text-secondary); margin: 0 10px; font-weight: 600;">
+                        Página 1 de 1
+                    </span>
+                    <button onclick="nextCxcPage()" id="btn-next-page" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 4px; height: 32px; border-radius: 4px; font-weight: 600;">
+                        Siguiente <i class="fa-solid fa-chevron-right"></i>
+                    </button>
+                </div>
+            </div>
+            {% endif %}
         </div>
     </div>
 
@@ -588,6 +616,74 @@
         .catch(err => {
             alert('Error de red al actualizar el estado de la promesa.');
         });
+    }
+
+    // --- LÓGICA DE PAGINACIÓN DE CARTERA DE CXC ---
+    let cxcCurrentPage = 1;
+    let cxcPageSize = 5;
+    let cxcRows = [];
+
+    document.addEventListener('DOMContentLoaded', () => {
+        cxcRows = Array.from(document.querySelectorAll('.cxc-row'));
+        updateCxcPagination();
+    });
+
+    function updateCxcPagination() {
+        const totalRows = cxcRows.length;
+        if (totalRows === 0) {
+            const pageInfo = document.getElementById('cxc-page-info');
+            if (pageInfo) pageInfo.textContent = 'Página 0 de 0';
+            const btnPrev = document.getElementById('btn-prev-page');
+            if (btnPrev) btnPrev.disabled = true;
+            const btnNext = document.getElementById('btn-next-page');
+            if (btnNext) btnNext.disabled = true;
+            return;
+        }
+
+        const totalPages = Math.ceil(totalRows / cxcPageSize);
+        if (cxcCurrentPage > totalPages) cxcCurrentPage = totalPages;
+        if (cxcCurrentPage < 1) cxcCurrentPage = 1;
+
+        const startIndex = (cxcCurrentPage - 1) * cxcPageSize;
+        const endIndex = startIndex + cxcPageSize;
+
+        cxcRows.forEach((row, index) => {
+            if (index >= startIndex && index < endIndex) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+
+        const pageInfo = document.getElementById('cxc-page-info');
+        if (pageInfo) pageInfo.textContent = `Página ${cxcCurrentPage} de ${totalPages}`;
+        
+        const btnPrev = document.getElementById('btn-prev-page');
+        if (btnPrev) btnPrev.disabled = (cxcCurrentPage === 1);
+        
+        const btnNext = document.getElementById('btn-next-page');
+        if (btnNext) btnNext.disabled = (cxcCurrentPage === totalPages);
+    }
+
+    function changePageSize(size) {
+        cxcPageSize = parseInt(size) || 10;
+        cxcCurrentPage = 1;
+        updateCxcPagination();
+    }
+
+    function prevCxcPage() {
+        if (cxcCurrentPage > 1) {
+            cxcCurrentPage--;
+            updateCxcPagination();
+        }
+    }
+
+    function nextCxcPage() {
+        const totalPages = Math.ceil(cxcRows.length / cxcPageSize);
+        if (cxcCurrentPage < totalPages) {
+            cxcCurrentPage++;
+            updateCxcPagination();
+        }
     }
 </script>
 {% endblock %}

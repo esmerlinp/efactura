@@ -430,23 +430,41 @@ function addToCart(productId) {
     focusBarcode();
 }
 
+function requestSupervisorApproval(actionName, onApproved) {
+    const pin = prompt(`Autorización Requerida: ${actionName}\nIngrese PIN de Supervisor (Demo: 1234):`);
+    if (pin === "1234") {
+        onApproved();
+    } else {
+        alert("Código de autorización PIN incorrecto. Operación cancelada.");
+    }
+}
+
 function updateQty(productId, delta) {
     const item = cart.find(i => i.id === productId);
     if (!item) return;
     
-    item.quantity += delta;
-    if (item.quantity <= 0) {
-        cart = cart.filter(i => i.id !== productId);
+    if (delta < 0) {
+        requestSupervisorApproval("Reducir cantidad de producto", () => {
+            item.quantity += delta;
+            if (item.quantity <= 0) {
+                cart = cart.filter(i => i.id !== productId);
+            }
+            renderCart();
+            saveCart();
+        });
+    } else {
+        item.quantity += delta;
+        renderCart();
+        saveCart();
     }
-    
-    renderCart();
-    saveCart();
 }
 
 function deleteCartItem(productId) {
-    cart = cart.filter(i => i.id !== productId);
-    renderCart();
-    saveCart();
+    requestSupervisorApproval("Eliminar producto del carrito", () => {
+        cart = cart.filter(i => i.id !== productId);
+        renderCart();
+        saveCart();
+    });
 }
 
 function renderCart() {

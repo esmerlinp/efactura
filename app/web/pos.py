@@ -133,15 +133,26 @@ def close_shift():
     except ValueError:
         declared_amount = 0.0
 
-    res = DatabaseService.close_cash_shift(owner_uid, open_shift['id'], declared_amount, sandbox=sandbox)
+    is_supervisor = (session['user'].get('role') == 'owner' or check_permission('canSupervisePOS'))
+    status = "CLOSED" if is_supervisor else "PENDING_AUDIT"
+
+    res = DatabaseService.close_cash_shift(
+        owner_uid, open_shift['id'], declared_amount, sandbox=sandbox,
+        status=status,
+        supervisor_uid=user_uid if is_supervisor else None,
+        supervisor_email=session['user']['email'] if is_supervisor else None
+    )
     if res:
-        diff = res["difference"]
-        if abs(diff) < 0.01:
-            flash('Caja cerrada exitosamente. ¡Cuadre perfecto!', 'success')
-        elif diff > 0:
-            flash(f'Caja cerrada con SOBRANTE de RD$ {diff:,.2f}.', 'warning')
+        if status == "CLOSED":
+            diff = res["difference"]
+            if abs(diff) < 0.01:
+                flash('Caja cerrada exitosamente. ¡Cuadre perfecto!', 'success')
+            elif diff > 0:
+                flash(f'Caja cerrada con SOBRANTE de RD$ {diff:,.2f}.', 'warning')
+            else:
+                flash(f'Caja cerrada con FALTANTE de RD$ {abs(diff):,.2f}.', 'error')
         else:
-            flash(f'Caja cerrada con FALTANTE de RD$ {abs(diff):,.2f}.', 'error')
+            flash('Turno finalizado y enviado a revisión. Pendiente de auditoría por un supervisor.', 'info')
     else:
         flash('Ocurrió un error al procesar el cierre de caja.', 'error')
 
@@ -635,8 +646,8 @@ def print_receipt(invoice_id):
 @web_pos_bp.route('/pos/register/new', methods=['POST'])
 @require_permission('canManagePOS', 'Punto de Venta')
 def create_cash_register():
-    if session['user'].get('role') != 'owner':
-        return render_template('auth/restricted.html', feature_name="Administración de Cajas", required_permission="Propietario")
+    if session['user'].get('role') != 'owner' and not check_permission('canSupervisePOS'):
+        return render_template('auth/restricted.html', feature_name="Administración de Cajas", required_permission="canSupervisePOS o Propietario")
         
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
@@ -661,8 +672,8 @@ def create_cash_register():
 @web_pos_bp.route('/pos/admin')
 @require_permission('canManagePOS', 'Administración de Caja')
 def pos_admin_dashboard():
-    if session['user'].get('role') != 'owner':
-        return render_template('auth/restricted.html', feature_name="Administración de Cajas", required_permission="Propietario")
+    if session['user'].get('role') != 'owner' and not check_permission('canSupervisePOS'):
+        return render_template('auth/restricted.html', feature_name="Administración de Cajas", required_permission="canSupervisePOS o Propietario")
         
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
@@ -686,8 +697,8 @@ def pos_admin_dashboard():
 @web_pos_bp.route('/pos/admin/shift/<shift_id>')
 @require_permission('canManagePOS', 'Administración de Caja')
 def pos_admin_shift_detail(shift_id):
-    if session['user'].get('role') != 'owner':
-        return render_template('auth/restricted.html', feature_name="Administración de Cajas", required_permission="Propietario")
+    if session['user'].get('role') != 'owner' and not check_permission('canSupervisePOS'):
+        return render_template('auth/restricted.html', feature_name="Administración de Cajas", required_permission="canSupervisePOS o Propietario")
 
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
@@ -712,12 +723,46 @@ def pos_admin_shift_detail(shift_id):
     )
 
 
+@web_pos_bp.route('/pos/admin/shift/<shift_id>/audit', methods=['POST'])
+@require_permission('canManagePOS', 'Administración de Caja')
+def audit_shift(shift_id):
+    if session['user'].get('role') != 'owner' and not check_permission('canSupervisePOS'):
+        return render_template('auth/restricted.html', feature_name="Auditoría de Caja", required_permission="canSupervisePOS o Propietario")
+
+    owner_uid = session['user']['ownerUID']
+    user_uid = session['user']['uid']
+    user_email = session['user']['email']
+    sandbox = session.get('is_sandbox_mode', True)
+
+    try:
+        audited_amount = float(request.form.get('auditedAmount', 0.0))
+    except ValueError:
+        audited_amount = 0.0
+    notes = request.form.get('notes', '')
+
+    res = DatabaseService.audit_cash_shift(
+        owner_uid, shift_id, audited_amount, user_uid, user_email, notes=notes, sandbox=sandbox
+    )
+    if res:
+        diff = res["difference"]
+        if abs(diff) < 0.01:
+            flash('Turno auditado y cerrado correctamente. ¡Cuadre perfecto!', 'success')
+        elif diff > 0:
+            flash(f'Turno auditado y cerrado con SOBRANTE de RD$ {diff:,.2f}.', 'warning')
+        else:
+            flash(f'Turno auditado y cerrado con FALTANTE de RD$ {abs(diff):,.2f}.', 'error')
+    else:
+        flash('Error al procesar la auditoría del turno.', 'error')
+
+    return redirect(url_for('web_pos.pos_admin_shift_detail', shift_id=shift_id))
+
+
 @web_pos_bp.route('/pos/register/<register_id>/toggle-consolidation', methods=['POST'])
 @require_permission('canManagePOS', 'Administración de Caja')
 def toggle_consolidation_mode(register_id):
     """Activa o desactiva el modo comprobante consolidado para una caja registradora."""
-    if session['user'].get('role') != 'owner':
-        return jsonify({"success": False, "error": "Solo el propietario puede cambiar esta configuración."}), 403
+    if session['user'].get('role') != 'owner' and not check_permission('canSupervisePOS'):
+        return jsonify({"success": False, "error": "Solo el propietario o supervisor puede cambiar esta configuración."}), 403
 
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)

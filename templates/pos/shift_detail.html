@@ -34,8 +34,8 @@
             </div>
             
             <div style="margin-top: 24px; padding-top: 16px; border-top: 1px dashed var(--border-color);">
-                <span class="badge {% if shift.status == 'OPEN' %}badge-success{% else %}badge-draft{% endif %}" style="font-size: 0.8rem; padding: 6px 12px; font-weight: bold; width: 100%; text-align: center;">
-                    {% if shift.status == 'OPEN' %}Turno Activo{% else %}Turno Cerrado{% endif %}
+                <span class="badge {% if shift.status == 'OPEN' %}badge-success{% elif shift.status == 'PENDING_AUDIT' %}badge-warning{% else %}badge-draft{% endif %}" style="font-size: 0.8rem; padding: 6px 12px; font-weight: bold; width: 100%; text-align: center; {% if shift.status == 'PENDING_AUDIT' %}background-color: #ff9800; color: white;{% endif %}">
+                    {% if shift.status == 'OPEN' %}Turno Activo{% elif shift.status == 'PENDING_AUDIT' %}Pendiente Auditoría{% else %}Turno Cerrado{% endif %}
                 </span>
             </div>
         </div>
@@ -55,7 +55,9 @@
                 <div style="display: flex; flex-direction: column; gap: 8px; color: var(--text-secondary);">
                     <div><strong>Fondo Inicial en Efectivo:</strong><br><span style="color: var(--text-primary); font-weight: 700;">RD$ {{ "{:,.2f}".format(shift.openingAmount) }}</span></div>
                     <div><strong>Estado Cuadre:</strong><br>
-                        {% if shift.difference is not none %}
+                        {% if shift.status == 'PENDING_AUDIT' %}
+                        <span class="badge" style="font-size: 0.75rem; background-color: #ff9800; color: white;">Por Auditar</span>
+                        {% elif shift.difference is not none %}
                             {% if shift.difference | abs < 0.01 %}
                             <span class="badge badge-success" style="font-size: 0.75rem;">Cuadrado (RD$ 0.00)</span>
                             {% elif shift.difference > 0 %}
@@ -86,6 +88,60 @@
                         {% if shift.difference > 0 %}+{% endif %}RD$ {{ "{:,.2f}".format(shift.difference) }}
                     </div>
                 </div>
+            </div>
+            
+            {% if shift.auditedByUserId %}
+            <div style="margin-top: 16px; padding: 12px; background: rgba(16,185,129,0.03); border: 1px solid rgba(16,185,129,0.15); border-radius: 6px; font-size: 0.85rem;">
+                <div style="color: var(--text-secondary); margin-bottom: 4px;">
+                    <i class="fa-solid fa-shield-halved" style="color: var(--accent-emerald);"></i>
+                    <strong>Turno Auditado:</strong> Por <span style="color: var(--text-primary); font-weight: 700;">{{ shift.auditedByUserEmail }}</span> el {{ shift.auditedAt[:10] }} {{ shift.auditedAt[11:16] }}
+                </div>
+                {% if shift.auditNotes %}
+                <div style="color: var(--text-muted); font-style: italic;">
+                    "{{ shift.auditNotes }}"
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
+            {% endif %}
+
+            {% if shift.status == 'PENDING_AUDIT' %}
+            <div style="margin-top: 20px; border-top: 1px dashed var(--border-color); padding-top: 20px;">
+                <h5 style="color: #ff9800; font-size: 1rem; font-family: var(--font-heading); margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                    <span>Formulario de Auditoría (Supervisor)</span>
+                </h5>
+                <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 15px;">
+                    Este turno fue finalizado por el cajero y está pendiente de verificación física de efectivo. Por favor, verifique el efectivo físico en caja y registre el valor auditado final.
+                </p>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+                    <div style="background: rgba(255,255,255,0.02); padding: 12px; border: 1px solid var(--border-color); border-radius: 6px; text-align: center;">
+                        <span style="font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase;">Efectivo Esperado (Sistema)</span>
+                        <div style="font-size: 1.15rem; font-weight: 800; color: var(--text-primary); margin-top: 4px;">RD$ {{ "{:,.2f}".format(shift.closingAmountExpected) }}</div>
+                    </div>
+                    <div style="background: rgba(255,255,255,0.02); padding: 12px; border: 1px solid var(--border-color); border-radius: 6px; text-align: center;">
+                        <span style="font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase;">Efectivo Declarado (Cajero)</span>
+                        <div style="font-size: 1.15rem; font-weight: 800; color: var(--text-primary); margin-top: 4px;">RD$ {{ "{:,.2f}".format(shift.closingAmountDeclared) }}</div>
+                    </div>
+                </div>
+                
+                <form action="{{ url_for('web_pos.audit_shift', shift_id=shift.id) }}" method="POST" style="display: flex; flex-direction: column; gap: 15px; background: rgba(255,152,0,0.05); padding: 15px; border-radius: var(--radius-sm); border: 1px solid rgba(255,152,0,0.2);">
+                    <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 15px; align-items: center;">
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label for="auditedAmount" style="font-weight: 700; color: var(--text-primary);">Monto Auditado (RD$):</label>
+                            <input type="number" step="0.01" min="0" name="auditedAmount" id="auditedAmount" value="{{ shift.closingAmountDeclared }}" class="form-input" style="width: 100%; border-color: rgba(255,152,0,0.5);" required>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label for="notes" style="font-weight: 700; color: var(--text-primary);">Notas de Auditoría:</label>
+                            <input type="text" name="notes" id="notes" placeholder="Notas opcionales (ej: diferencias, faltante de cambio...)" class="form-input" style="width: 100%;">
+                        </div>
+                    </div>
+                    <div style="display: flex; justify-content: flex-end;">
+                        <button type="submit" class="btn" style="background-color: #ff9800; color: white; font-weight: 700; border: none; padding: 10px 20px; border-radius: 4px; display: inline-flex; align-items: center; gap: 8px;">
+                            <i class="fa-solid fa-check-double"></i> Aprobar y Cerrar Turno
+                        </button>
+                    </div>
+                </form>
             </div>
             {% endif %}
         </div>
