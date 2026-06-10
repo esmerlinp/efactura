@@ -247,7 +247,7 @@ textarea {
     background-color: var(--bg-sidebar);
     backdrop-filter: blur(16px);
     border-right: 1px solid var(--border-color);
-    padding: 30px 24px;
+    padding: 16px 16px;
     display: flex;
     flex-direction: column;
     height: calc(100vh - var(--sandbox-banner-height));
@@ -262,8 +262,8 @@ textarea {
     display: flex;
     align-items: center;
     justify-content: flex-start;
-    gap: 12px;
-    margin-bottom: 40px;
+    gap: 10px;
+    margin-bottom: 20px;
     position: relative;
 }
 
@@ -274,7 +274,7 @@ body:not(.sidebar-collapsed) .sidebar-logo .logo-text-wrapper {
 }
 
 .sidebar-logo img {
-    height: 38px;
+    height: 32px;
     width: auto;
     object-fit: contain;
     flex-shrink: 0;
@@ -283,7 +283,7 @@ body:not(.sidebar-collapsed) .sidebar-logo .logo-text-wrapper {
 
 .sidebar-logo span {
     font-family: var(--font-heading);
-    font-size: 1.35rem;
+    font-size: 1.2rem;
     font-weight: 800;
     background: var(--brand-gradient);
     -webkit-background-clip: text;
@@ -291,11 +291,11 @@ body:not(.sidebar-collapsed) .sidebar-logo .logo-text-wrapper {
 }
 
 .sidebar-logo .sandbox-tag {
-    font-size: 0.65rem;
+    font-size: 0.6rem;
     font-weight: 700;
     background-color: var(--accent-purple);
     color: white;
-    padding: 2px 6px;
+    padding: 2px 5px;
     border-radius: 4px;
     text-transform: uppercase;
     letter-spacing: 0.05em;
@@ -306,24 +306,24 @@ body:not(.sidebar-collapsed) .sidebar-logo .logo-text-wrapper {
     list-style: none;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 4px;
     flex-grow: 1;
 }
 
 .nav-item a {
     display: flex;
     align-items: center;
-    gap: 16px;
-    padding: 14px 18px;
-    border-radius: var(--radius-md);
+    gap: 12px;
+    padding: 8px 12px;
+    border-radius: var(--radius-sm);
     color: var(--text-secondary);
     font-weight: 500;
-    font-size: 0.95rem;
+    font-size: 0.85rem;
     transition: all var(--transition-fast);
 }
 
 .nav-item a i {
-    font-size: 1.15rem;
+    font-size: 1rem;
 }
 
 .nav-item.active a,
@@ -333,24 +333,24 @@ body:not(.sidebar-collapsed) .sidebar-logo .logo-text-wrapper {
 }
 
 .nav-item.active a {
-    border-left: 4px solid var(--accent-emerald);
-    padding-left: 14px;
+    border-left: 3px solid var(--accent-emerald);
+    padding-left: 9px;
     background-color: var(--bg-brand-translucent);
     box-shadow: var(--shadow-brand-glow-subtle);
 }
 
 .sidebar-footer {
     border-top: 1px solid var(--border-color);
-    padding-top: 20px;
+    padding-top: 12px;
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 8px;
 }
 
 .user-badge {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
 }
 
 .user-avatar {

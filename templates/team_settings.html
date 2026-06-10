@@ -67,6 +67,11 @@
                             data-can-inventory="{{ 'true' if member.permissions.canManageInventory else 'false' }}"
                             data-can-pos="{{ 'true' if member.permissions.canManagePOS else 'false' }}"
                             data-can-dashboard="{{ 'true' if member.permissions.canViewDashboard else 'false' }}"
+                            data-can-cxc="{{ 'true' if member.permissions.canManageCXC else 'false' }}"
+                            data-can-cxp="{{ 'true' if member.permissions.canManageCXP else 'false' }}"
+                            data-can-contracts="{{ 'true' if member.permissions.canManageContracts else 'false' }}"
+                            data-can-commissions="{{ 'true' if member.permissions.canManageCommissions else 'false' }}"
+                            data-can-bi="{{ 'true' if member.permissions.canViewBI else 'false' }}"
                             title="Editar Permisos Granulares">
                             <i class="fa-solid fa-user-gear"></i>
                             <span>Permisos</span>
@@ -172,6 +177,36 @@
                                 style="width: 16px; height: 16px; accent-color: var(--accent-emerald);">
                             <span>Modificar Ajustes de la Empresa</span>
                         </label>
+                        <label
+                            style="display: flex; align-items: center; gap: 10px; font-size: 0.85rem; cursor: pointer;">
+                            <input type="checkbox" name="canManageCXC" checked
+                                style="width: 16px; height: 16px; accent-color: var(--accent-emerald);">
+                            <span>Gestión de Cuentas por Cobrar (CxC)</span>
+                        </label>
+                        <label
+                            style="display: flex; align-items: center; gap: 10px; font-size: 0.85rem; cursor: pointer;">
+                            <input type="checkbox" name="canManageCXP" checked
+                                style="width: 16px; height: 16px; accent-color: var(--accent-emerald);">
+                            <span>Gestión de Cuentas por Pagar (CxP)</span>
+                        </label>
+                        <label
+                            style="display: flex; align-items: center; gap: 10px; font-size: 0.85rem; cursor: pointer;">
+                            <input type="checkbox" name="canManageContracts" checked
+                                style="width: 16px; height: 16px; accent-color: var(--accent-emerald);">
+                            <span>Contratos y Facturación Recurrente</span>
+                        </label>
+                        <label
+                            style="display: flex; align-items: center; gap: 10px; font-size: 0.85rem; cursor: pointer;">
+                            <input type="checkbox" name="canManageCommissions" checked
+                                style="width: 16px; height: 16px; accent-color: var(--accent-emerald);">
+                            <span>Comisiones y Metas de Vendedores</span>
+                        </label>
+                        <label
+                            style="display: flex; align-items: center; gap: 10px; font-size: 0.85rem; cursor: pointer;">
+                            <input type="checkbox" name="canViewBI" checked
+                                style="width: 16px; height: 16px; accent-color: var(--accent-emerald);">
+                            <span>Inteligencia Financiera (Métricas y Smart Insights BI)</span>
+                        </label>
                     </div>
                 </div>
 
@@ -251,6 +286,36 @@
                                 style="width: 16px; height: 16px; accent-color: var(--accent-emerald);">
                             <span>Modificar Ajustes de la Empresa</span>
                         </label>
+                        <label
+                            style="display: flex; align-items: center; gap: 10px; font-size: 0.85rem; cursor: pointer;">
+                            <input type="checkbox" id="perms-can-cxc" name="canManageCXC"
+                                style="width: 16px; height: 16px; accent-color: var(--accent-emerald);">
+                            <span>Gestión de Cuentas por Cobrar (CxC)</span>
+                        </label>
+                        <label
+                            style="display: flex; align-items: center; gap: 10px; font-size: 0.85rem; cursor: pointer;">
+                            <input type="checkbox" id="perms-can-cxp" name="canManageCXP"
+                                style="width: 16px; height: 16px; accent-color: var(--accent-emerald);">
+                            <span>Gestión de Cuentas por Pagar (CxP)</span>
+                        </label>
+                        <label
+                            style="display: flex; align-items: center; gap: 10px; font-size: 0.85rem; cursor: pointer;">
+                            <input type="checkbox" id="perms-can-contracts" name="canManageContracts"
+                                style="width: 16px; height: 16px; accent-color: var(--accent-emerald);">
+                            <span>Contratos y Facturación Recurrente</span>
+                        </label>
+                        <label
+                            style="display: flex; align-items: center; gap: 10px; font-size: 0.85rem; cursor: pointer;">
+                            <input type="checkbox" id="perms-can-commissions" name="canManageCommissions"
+                                style="width: 16px; height: 16px; accent-color: var(--accent-emerald);">
+                            <span>Comisiones y Metas de Vendedores</span>
+                        </label>
+                        <label
+                            style="display: flex; align-items: center; gap: 10px; font-size: 0.85rem; cursor: pointer;">
+                            <input type="checkbox" id="perms-can-bi" name="canViewBI"
+                                style="width: 16px; height: 16px; accent-color: var(--accent-emerald);">
+                            <span>Inteligencia Financiera (Métricas y Smart Insights BI)</span>
+                        </label>
                     </div>
                 </div>
 
@@ -302,6 +367,11 @@
                 const canInventory = this.getAttribute('data-can-inventory') === 'true';
                 const canPOS = this.getAttribute('data-can-pos') === 'true';
                 const canDashboard = this.getAttribute('data-can-dashboard') === 'true';
+                const canCXC = this.getAttribute('data-can-cxc') === 'true';
+                const canCXP = this.getAttribute('data-can-cxp') === 'true';
+                const canContracts = this.getAttribute('data-can-contracts') === 'true';
+                const canCommissions = this.getAttribute('data-can-commissions') === 'true';
+                const canBI = this.getAttribute('data-can-bi') === 'true';
 
                 document.getElementById('perms-member-name').textContent = name;
                 document.getElementById('perms-member-email').textContent = email;
@@ -313,6 +383,11 @@
                 document.getElementById('perms-can-pos').checked = canPOS;
                 document.getElementById('perms-can-settings').checked = canSettings;
                 document.getElementById('perms-can-dashboard').checked = canDashboard;
+                document.getElementById('perms-can-cxc').checked = canCXC;
+                document.getElementById('perms-can-cxp').checked = canCXP;
+                document.getElementById('perms-can-contracts').checked = canContracts;
+                document.getElementById('perms-can-commissions').checked = canCommissions;
+                document.getElementById('perms-can-bi').checked = canBI;
 
                 editPermsForm.setAttribute('action', '/settings/team/' + uid + '/permissions');
 

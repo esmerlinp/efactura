@@ -2404,8 +2404,8 @@ def api_expenses_ocr_upload():
 @web_invoices_bp.route('/expenses/cxp')
 def list_cxp():
     if 'user' not in session: return redirect(url_for('login'))
-    if not check_permission('canExpenses'):
-        return render_template('auth/restricted.html', feature_name="Cuentas por Pagar (CxP)", required_permission="canExpenses")
+    if not check_permission('canManageCXP'):
+        return render_template('auth/restricted.html', feature_name="Cuentas por Pagar (CxP)", required_permission="canManageCXP")
         
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
@@ -2447,7 +2447,7 @@ def list_cxp():
 @web_invoices_bp.route('/expenses/cxp/<expense_id>/pay', methods=['POST'])
 def pay_cxp_route(expense_id):
     if 'user' not in session: return redirect(url_for('login'))
-    if not check_permission('canExpenses'):
+    if not check_permission('canManageCXP'):
         return jsonify({"success": False, "message": "No autorizado"}), 403
         
     owner_uid = session['user']['ownerUID']
@@ -2816,7 +2816,12 @@ def add_team_member():
         "canModifySettings": 'canModifySettings' in request.form,
         "canManageInventory": 'canManageInventory' in request.form,
         "canManagePOS": 'canManagePOS' in request.form,
-        "canViewDashboard": 'canViewDashboard' in request.form
+        "canViewDashboard": 'canViewDashboard' in request.form,
+        "canManageCXC": 'canManageCXC' in request.form,
+        "canManageCXP": 'canManageCXP' in request.form,
+        "canManageContracts": 'canManageContracts' in request.form,
+        "canManageCommissions": 'canManageCommissions' in request.form,
+        "canViewBI": 'canViewBI' in request.form
     }
     
     try:
@@ -2901,7 +2906,12 @@ def update_team_member_permissions(employee_uid):
         "canModifySettings": 'canModifySettings' in request.form,
         "canManageInventory": 'canManageInventory' in request.form,
         "canManagePOS": 'canManagePOS' in request.form,
-        "canViewDashboard": 'canViewDashboard' in request.form
+        "canViewDashboard": 'canViewDashboard' in request.form,
+        "canManageCXC": 'canManageCXC' in request.form,
+        "canManageCXP": 'canManageCXP' in request.form,
+        "canManageContracts": 'canManageContracts' in request.form,
+        "canManageCommissions": 'canManageCommissions' in request.form,
+        "canViewBI": 'canViewBI' in request.form
     }
     
     if DatabaseService.update_employee_permissions(employee_uid, permissions):
@@ -3279,8 +3289,8 @@ def client_subscription_page():
 @web_invoices_bp.route('/cxc')
 def cxc_dashboard():
     if 'user' not in session: return redirect(url_for('login'))
-    if not check_permission('canInvoice'):
-        return render_template('auth/restricted.html', feature_name="Dashboard CxC", required_permission="canInvoice")
+    if not check_permission('canManageCXC'):
+        return render_template('auth/restricted.html', feature_name="Dashboard CxC", required_permission="canManageCXC")
         
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
@@ -3337,7 +3347,7 @@ def cxc_dashboard():
 @web_invoices_bp.route('/cxc/promises/add', methods=['POST'])
 def add_payment_promise():
     if 'user' not in session: return redirect(url_for('login'))
-    if not check_permission('canInvoice'):
+    if not check_permission('canManageCXC'):
         flash("No tienes permiso para gestionar promesas de pago.", "error")
         return redirect(url_for('cxc_dashboard'))
         
@@ -3391,7 +3401,7 @@ def add_payment_promise():
 @web_invoices_bp.route('/cxc/promises/<promise_id>/update-status', methods=['POST'])
 def update_payment_promise_status(promise_id):
     if 'user' not in session: return redirect(url_for('login'))
-    if not check_permission('canInvoice'):
+    if not check_permission('canManageCXC'):
         return jsonify({"success": False, "message": "No autorizado"}), 403
         
     owner_uid = session['user']['ownerUID']
@@ -3474,8 +3484,8 @@ def send_invoice_cxc_reminder(invoice_id, method):
 def bi_dashboard():
     if 'user' not in session:
         return redirect(url_for('login'))
-    if not check_permission('canViewDashboard'):
-        return render_template('auth/restricted.html', feature_name="Inteligencia de Negocios (BI)", required_permission="canViewDashboard")
+    if not check_permission('canViewBI'):
+        return render_template('auth/restricted.html', feature_name="Inteligencia de Negocios (BI)", required_permission="canViewBI")
         
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)

@@ -57,16 +57,16 @@
     <!-- Estilos de Secciones del Sidebar -->
     <style>
         .sidebar-section {
-            margin-bottom: 8px;
+            margin-bottom: 4px;
             transition: all 0.3s ease;
         }
 
         .sidebar-section-header {
-            font-size: 0.75rem;
+            font-size: 0.7rem;
             font-weight: 500;
             color: var(--text-secondary);
-            margin: 16px 0 8px 0;
-            padding: 16px 16px 0 16px;
+            margin: 10px 0 6px 0;
+            padding: 10px 10px 0 10px;
             border-top: 1px solid var(--border-color);
             opacity: 1;
             transition: opacity 0.3s ease, margin 0.3s ease, height 0.3s ease, color 0.3s ease;
@@ -79,7 +79,7 @@
 
         .sidebar-section:first-child .sidebar-section-header {
             border-top: none;
-            margin-top: 8px;
+            margin-top: 4px;
             padding-top: 0;
         }
 
@@ -97,7 +97,7 @@
         }
 
         .sidebar-section-header .section-toggle-icon {
-            font-size: 0.65rem;
+            font-size: 0.6rem;
             transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
             opacity: 0.5;
             margin-right: 4px;
@@ -115,7 +115,7 @@
             list-style: none;
             display: flex;
             flex-direction: column;
-            gap: 8px;
+            gap: 4px;
             overflow: hidden;
             transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
         }
@@ -244,6 +244,9 @@
                                 <span>Cotizaciones</span>
                             </a>
                         </li>
+                        {% endif %}
+                        {% if session.get('user', {}).get('role') == 'owner' or session.get('user',
+                        {}).get('permissions', {}).get('canManageCXC', True) %}
                         <li class="nav-item {% if active_page == 'cxc' %}active{% endif %}"
                             data-tooltip="Control de CxC">
                             <a href="{{ url_for('cxc_dashboard') }}">
@@ -265,7 +268,7 @@
                         {% endif %}
 
                         {% if session.get('user', {}).get('role') == 'owner' or session.get('user',
-                        {}).get('permissions', {}).get('canInvoice', True) %}
+                        {}).get('permissions', {}).get('canManageContracts', True) %}
                         <li class="nav-item {% if active_page == 'contracts' %}active{% endif %}"
                             data-tooltip="Contratos y Recurrencia">
                             <a href="{{ url_for('web_operations.list_contracts') }}">
@@ -275,7 +278,8 @@
                         </li>
                         {% endif %}
 
-                        {% if session.get('user', {}).get('role') == 'owner' %}
+                        {% if session.get('user', {}).get('role') == 'owner' or session.get('user',
+                        {}).get('permissions', {}).get('canManageCommissions', True) %}
                         <li class="nav-item {% if active_page == 'commissions' %}active{% endif %}"
                             data-tooltip="Comisiones y Metas">
                             <a href="{{ url_for('web_operations.list_commissions') }}">
@@ -319,13 +323,14 @@
 
                 <!-- SECCIÓN: FINANZAS -->
                 {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions',
-                {}).get('canExpenses', True) %}
+                {}).get('canExpenses', True) or session.get('user', {}).get('permissions', {}).get('canManageCXP', True) or session.get('user', {}).get('permissions', {}).get('canViewBI', True) %}
                 <div class="sidebar-section collapsed" id="sidebar-section-finanzas">
                     <div class="sidebar-section-header">
                         <span>Finanzas</span>
                         <i class="fa-solid fa-chevron-down section-toggle-icon"></i>
                     </div>
                     <ul class="sidebar-section-content">
+                        {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canExpenses', True) %}
                         <li class="nav-item {% if active_page == 'expenses' %}active{% endif %}"
                             data-tooltip="Control de Gastos">
                             <a href="{{ url_for('list_expenses') }}">
@@ -333,6 +338,8 @@
                                 <span>Control de Gastos</span>
                             </a>
                         </li>
+                        {% endif %}
+                        {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canManageCXP', True) %}
                         <li class="nav-item {% if active_page == 'expenses_cxp' %}active{% endif %}"
                             data-tooltip="Cuentas por Pagar (CxP)">
                             <a href="{{ url_for('list_cxp') }}">
@@ -340,6 +347,8 @@
                                 <span>Cuentas por Pagar (CxP)</span>
                             </a>
                         </li>
+                        {% endif %}
+                        {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canViewBI', True) %}
                         <li class="nav-item {% if active_page == 'bi_dashboard' %}active{% endif %}"
                             data-tooltip="Inteligencia Financiera (BI)">
                             <a href="{{ url_for('bi_dashboard') }}">
@@ -347,6 +356,7 @@
                                 <span>Inteligencia Financiera (BI)</span>
                             </a>
                         </li>
+                        {% endif %}
                     </ul>
                 </div>
                 {% endif %}

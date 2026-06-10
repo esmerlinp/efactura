@@ -253,7 +253,7 @@ textarea {
     background-color: var(--bg-sidebar);
     /* Se elimina el backdrop-filter pesado para un diseño más limpio */
     border-right: 1px solid var(--border-color);
-    padding: 24px 0;
+    padding: 12px 0;
     /* Padding lateral 0 para que los items ocupen el ancho, los márgenes van en los items */
     display: flex;
     flex-direction: column;
@@ -271,13 +271,13 @@ textarea {
     justify-content: flex-start;
     /* Mantener icono y texto muy juntos */
     gap: 1px;
-    margin-bottom: 24px;
-    padding: 0 10px;
+    margin-bottom: 14px;
+    padding: 0 8px;
     position: relative;
 }
 
 .sidebar-logo .app-brand-logo {
-    height: 55px;
+    height: 42px;
     /* Aumentado a petición del usuario para mayor visibilidad */
     width: auto;
     object-fit: contain;
@@ -296,7 +296,7 @@ textarea {
 
 .sidebar-logo span.logo-title {
     font-family: 'Google Sans', var(--font-heading);
-    font-size: 1.4rem;
+    font-size: 1.2rem;
     font-weight: 500;
     color: var(--text-secondary);
     /* Color gris característico de Firebase */
@@ -305,11 +305,11 @@ textarea {
 }
 
 .sidebar-logo .sandbox-tag {
-    font-size: 0.65rem;
+    font-size: 0.6rem;
     font-weight: 700;
     background-color: var(--accent-purple);
     color: white;
-    padding: 2px 6px;
+    padding: 2px 5px;
     border-radius: 4px;
     text-transform: uppercase;
     letter-spacing: 0.05em;
@@ -330,16 +330,16 @@ textarea {
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 10px 16px;
+    padding: 7px 14px;
     border-radius: 24px;
     color: var(--text-secondary);
     font-weight: 500;
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     transition: all var(--transition-fast);
 }
 
 .nav-item a i {
-    font-size: 1.1rem;
+    font-size: 0.95rem;
     width: 24px;
     text-align: center;
 }
@@ -363,16 +363,16 @@ textarea {
 
 .sidebar-footer {
     border-top: 1px solid var(--border-color);
-    padding-top: 20px;
+    padding-top: 12px;
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 8px;
 }
 
 .user-badge {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
 }
 
 .user-avatar {
