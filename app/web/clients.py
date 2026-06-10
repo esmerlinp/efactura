@@ -37,7 +37,34 @@ def list_clients():
     if stage:
         clients = [c for c in clients if c.get('pipelineStage') == stage]
 
-    return render_template('clients/list.html', active_page='clients', clients=clients, q=q, stage=stage)
+    # Paginación
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 10, type=int)
+    
+    total_items = len(clients)
+    total_pages = max(1, (total_items + per_page - 1) // per_page)
+    
+    if page < 1:
+        page = 1
+    elif page > total_pages:
+        page = total_pages
+        
+    start_idx = (page - 1) * per_page
+    end_idx = start_idx + per_page
+    paginated_clients = clients[start_idx:end_idx]
+
+    return render_template(
+        'clients/list.html', 
+        active_page='clients', 
+        clients=clients, 
+        paginated_clients=paginated_clients,
+        q=q, 
+        stage=stage,
+        page=page,
+        per_page=per_page,
+        total_pages=total_pages,
+        total_items=total_items
+    )
 
 @web_clients_bp.route('/clients/new', methods=['GET', 'POST'])
 def new_client():

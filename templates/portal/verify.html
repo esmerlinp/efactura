@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verificación de Identidad - {{ company.companyName or 'e-Factura' }}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --font-main: 'Inter', sans-serif;
+            --primary: #1e3a8a;
+            --primary-hover: #172554;
+            --accent-emerald: #10b981;
+            --accent-red: #ef4444;
+            --bg-page: #f8fafc;
+            --border-color: #cbd5e1;
+            --text-primary: #0f172a;
+            --text-secondary: #475569;
+            --text-muted: #64748b;
+        }
+
+        body {
+            font-family: var(--font-main);
+            background-color: var(--bg-page);
+            color: var(--text-primary);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            line-height: 1.5;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .verify-card {
+            background: #ffffff;
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 40px 30px;
+            width: 100%;
+            max-width: 440px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.03);
+            text-align: center;
+            box-sizing: border-box;
+            margin: 20px;
+        }
+
+        .company-logo {
+            max-height: 70px;
+            max-width: 160px;
+            object-fit: contain;
+            margin-bottom: 20px;
+        }
+
+        .company-name {
+            font-size: 1.35rem;
+            font-weight: 800;
+            color: var(--primary);
+            margin: 0 0 10px 0;
+        }
+
+        .title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-top: 0;
+            margin-bottom: 12px;
+        }
+
+        .description {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-bottom: 24px;
+            line-height: 1.45;
+        }
+
+        .form-group {
+            text-align: left;
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 0.78rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .input-wrapper {
+            position: relative;
+        }
+
+        .input-icon {
+            position: absolute;
+            left: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        .form-input {
+            width: 100%;
+            height: 44px;
+            padding: 0 14px 0 40px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            background-color: #ffffff;
+            color: var(--text-primary);
+            font-size: 0.95rem;
+            font-family: monospace;
+            box-sizing: border-box;
+            outline: none;
+            transition: all 0.2s;
+        }
+
+        .form-input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.15);
+        }
+
+        .btn-verify {
+            width: 100%;
+            height: 44px;
+            background-color: var(--primary);
+            color: #ffffff;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: background-color 0.2s;
+        }
+
+        .btn-verify:hover {
+            background-color: var(--primary-hover);
+        }
+
+        .alert-error {
+            background-color: rgba(239, 68, 68, 0.08);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            color: var(--accent-red);
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            text-align: left;
+        }
+
+        @media (max-width: 480px) {
+            .verify-card {
+                padding: 30px 20px;
+                margin: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="verify-card">
+    {% if company.logoUrl %}
+        <img src="{{ company.logoUrl }}" alt="{{ company.companyName }}" class="company-logo">
+    {% endif %}
+    <h1 class="company-name">{{ company.companyName }}</h1>
+    
+    <div style="width: 40px; height: 3px; background: var(--primary); margin: 0 auto 20px auto; border-radius: 2px;"></div>
+
+    <h2 class="title">Verificación de Acceso</h2>
+    <p class="description">
+        Por motivos de seguridad y confidencialidad, por favor ingrese el RNC o Cédula asociado a su cuenta para ver sus facturas y cotizaciones.
+    </p>
+
+    {% if error %}
+        <div class="alert-error">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            <span>{{ error }}</span>
+        </div>
+    {% endif %}
+
+    <form method="POST" action="{{ url_for('portal.client_portal_verify', owner_uid=owner_uid, client_id=client_id, sandbox='true' if sandbox else 'false') }}">
+        <div class="form-group">
+            <label for="rnc_input" class="form-label">RNC o Cédula del Cliente</label>
+            <div class="input-wrapper">
+                <i class="fa-solid fa-id-card input-icon"></i>
+                <input type="text" id="rnc_input" name="rnc" placeholder="Ej: 101-01234-5 o 224012345" required class="form-input" autofocus autocomplete="off">
+            </div>
+        </div>
+
+        <button type="submit" class="btn-verify">
+            <i class="fa-solid fa-shield-halved"></i>
+            <span>Validar e Ingresar</span>
+        </button>
+    </form>
+</div>
+
+</body>
+</html>
