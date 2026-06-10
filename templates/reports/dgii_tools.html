@@ -29,10 +29,10 @@
 
                 <!-- Form Search -->
                 <div style="background-color: var(--bg-input); border: 1.5px solid var(--border-color); border-radius: var(--radius-md); padding: 18px; display: flex; flex-direction: column; gap: 12px; margin-bottom: 24px;">
-                    <label for="dir-rnc-input" style="font-size: 0.78rem; font-weight: 700; text-transform: uppercase; color: var(--text-secondary); letter-spacing: 0.02em;">RNC de la Empresa</label>
+                    <label for="dir-rnc-input" style="font-size: 0.78rem; font-weight: 500; text-transform: uppercase; color: var(--text-secondary); letter-spacing: 0.02em;">RNC de la Empresa</label>
                     <div style="display: flex; gap: 10px; width: 100%;">
                         <input type="text" id="dir-rnc-input" class="form-input" placeholder="Ej: 132109122" style="flex: 1; padding: 10px 12px; font-size: 0.95rem; height: 44px; font-family: monospace;" maxlength="11" minlength="9">
-                        <button type="button" id="btn-query-dir" onclick="queryDirectory()" class="btn btn-primary" style="height: 44px; padding: 0 20px; font-size: 0.85rem; font-weight: 700; cursor: pointer; border-radius: var(--radius-sm); border: none; background: linear-gradient(135deg, var(--accent-emerald), var(--accent-emerald-hover)); color: white; display: flex; align-items: center; gap: 8px;">
+                        <button type="button" id="btn-query-dir" onclick="queryDirectory()" class="btn btn-primary" style="height: 44px; padding: 0 20px; font-size: 0.85rem; font-weight: 500; cursor: pointer; border-radius: var(--radius-sm); border: none; background: linear-gradient(135deg, var(--accent-emerald), var(--accent-emerald-hover)); color: white; display: flex; align-items: center; gap: 8px;">
                             <i class="fa-solid fa-magnifying-glass"></i>
                             <span>Consultar</span>
                         </button>
@@ -46,7 +46,7 @@
             </div>
             
             <div style="font-size: 0.72rem; color: var(--text-muted); line-height: 1.4; border-top: 1px solid var(--border-color); padding-top: 16px; margin-top: 20px;">
-                <strong>💡 Nota:</strong> En el ambiente de pruebas (Sandbox), recibirás por defecto un listado demostrativo con las URLs correspondientes de la DGII. En producción, obtendrás el estado real en vivo.
+                <span style="font-weight: 500;">💡 Nota:</span> En el ambiente de pruebas (Sandbox), recibirás por defecto un listado demostrativo con las URLs correspondientes de la DGII. En producción, obtendrás el estado real en vivo.
             </div>
         </div>
 
@@ -73,7 +73,7 @@
                 <div id="dgii-health-banner" style="background: rgba(16, 185, 129, 0.06); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: var(--radius-sm); padding: 16px; display: flex; align-items: center; gap: 15px; margin-bottom: 24px; animation: pulse 3s infinite;">
                     <div style="width: 14px; height: 14px; border-radius: 50%; background-color: var(--accent-emerald); box-shadow: 0 0 10px var(--accent-emerald);"></div>
                     <div>
-                        <strong style="font-size: 0.95rem; color: var(--text-primary); display: block; margin-bottom: 2px;">Servicios Activos</strong>
+                        <span style="font-size: 0.95rem; color: var(--text-primary); display: block; margin-bottom: 2px; font-weight: 500;">Servicios Activos</span>
                         <span id="dgii-general-msg" style="font-size: 0.78rem; color: var(--text-secondary);">El portal de recepción y firma e-CF está disponible y operando con normalidad.</span>
                     </div>
                 </div>
@@ -83,7 +83,7 @@
                     <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background-color: var(--bg-input); border: 1px solid var(--border-color); border-radius: var(--radius-sm);">
                         <div style="display: flex; align-items: center; gap: 10px;">
                             <i class="fa-solid fa-cube" style="color: var(--text-muted); font-size: 0.9rem;"></i>
-                            <span style="font-size: 0.85rem; font-weight: 600;">Ambiente de Pre-Certificación</span>
+                            <span style="font-size: 0.85rem; font-weight: 500;">Ambiente de Pre-Certificación</span>
                         </div>
                         <span class="badge badge-success" style="font-size: 0.7rem; padding: 4px 10px; display: flex; align-items: center; gap: 4px;">
                             <span style="width: 6px; height: 6px; border-radius: 50%; background-color: white; display: inline-block;"></span>
@@ -94,7 +94,7 @@
                     <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background-color: var(--bg-input); border: 1px solid var(--border-color); border-radius: var(--radius-sm);">
                         <div style="display: flex; align-items: center; gap: 10px;">
                             <i class="fa-solid fa-cubes" style="color: var(--accent-purple); font-size: 0.9rem;"></i>
-                            <span style="font-size: 0.85rem; font-weight: 600;">Ambiente de Certificación</span>
+                            <span style="font-size: 0.85rem; font-weight: 500;">Ambiente de Certificación</span>
                         </div>
                         <span class="badge badge-success" style="font-size: 0.7rem; padding: 4px 10px; display: flex; align-items: center; gap: 4px;">
                             <span style="width: 6px; height: 6px; border-radius: 50%; background-color: white; display: inline-block;"></span>
@@ -105,7 +105,7 @@
                     <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background-color: var(--bg-input); border: 1px solid var(--border-color); border-radius: var(--radius-sm);">
                         <div style="display: flex; align-items: center; gap: 10px;">
                             <i class="fa-solid fa-circle-check" style="color: var(--accent-emerald); font-size: 0.9rem;"></i>
-                            <span style="font-size: 0.85rem; font-weight: 600;">Ambiente de Producción</span>
+                            <span style="font-size: 0.85rem; font-weight: 500;">Ambiente de Producción</span>
                         </div>
                         <span class="badge badge-success" style="font-size: 0.7rem; padding: 4px 10px; display: flex; align-items: center; gap: 4px;">
                             <span style="width: 6px; height: 6px; border-radius: 50%; background-color: white; display: inline-block;"></span>
@@ -119,7 +119,7 @@
             <div style="background-color: var(--bg-input); border-radius: var(--radius-sm); border: 1px dashed var(--border-color); padding: 14px 18px; font-size: 0.76rem; display: flex; align-items: flex-start; gap: 12px; margin-top: 24px;">
                 <i class="fa-solid fa-clock-rotate-left" style="color: var(--accent-purple); font-size: 1.1rem; margin-top: 2px;"></i>
                 <div>
-                    <strong style="color: var(--text-primary); display: block; margin-bottom: 3px;">Ventanas de Mantenimiento DGII:</strong>
+                    <span style="color: var(--text-primary); display: block; margin-bottom: 3px; font-weight: 500;">Ventanas de Mantenimiento DGII:</span>
                     <span id="maintenance-msg" style="color: var(--text-secondary); line-height: 1.4;">Actualmente no hay ventanas de mantenimiento programadas para los sistemas de facturación electrónica.</span>
                 </div>
             </div>
@@ -164,11 +164,11 @@
                 resultContainer.innerHTML = `
                     <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px; color: var(--accent-emerald);">
                         <i class="fa-solid fa-circle-check" style="font-size: 1.3rem;"></i>
-                        <strong style="font-size: 0.95rem;">Empresa Activa / Homologada</strong>
+                        <span style="font-size: 0.95rem; font-weight: 500;">Empresa Activa / Homologada</span>
                     </div>
                     <div style="font-size: 0.85rem; color: var(--text-secondary); display: flex; flex-direction: column; gap: 6px;">
-                        <span>RNC: <strong style="font-family: monospace; color: var(--text-primary);">${realData.rnc || rnc}</strong></span>
-                        <span>Razón Social: <strong style="color: var(--text-primary);">${realData.razonSocial || realData.companyName || 'Empresa Homologada Electrónica SRL'}</strong></span>
+                        <span>RNC: <span style="font-family: monospace; color: var(--text-primary); font-weight: 500;">\${realData.rnc || rnc}</span></span>
+                        <span>Razón Social: <span style="color: var(--text-primary); font-weight: 500;">\${realData.razonSocial || realData.companyName || 'Empresa Homologada Electrónica SRL'}</span></span>
                         <span style="font-size: 0.74rem; margin-top: 6px; color: var(--text-muted); border-top: 1px solid var(--border-color); padding-top: 6px; line-height: 1.35;">
                             Esta empresa cuenta con la autorización formal para emitir y recibir documentos de la serie E (comprobantes electrónicos) según Ley 32-23.
                         </span>
@@ -180,10 +180,10 @@
                 resultContainer.innerHTML = `
                     <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px; color: var(--accent-red);">
                         <i class="fa-solid fa-triangle-exclamation" style="font-size: 1.2rem;"></i>
-                        <strong style="font-size: 0.9rem;">No Homologado en Facturación Electrónica</strong>
+                        <span style="font-size: 0.9rem; font-weight: 500;">No Homologado en Facturación Electrónica</span>
                     </div>
                     <p style="font-size: 0.8rem; color: var(--text-secondary); line-height: 1.4; margin: 0;">
-                        El RNC ingresado (${rnc}) no se encuentra activo como emisor o receptor en el directorio de facturación electrónica. Emitir comprobantes de la serie B (físicos) en su lugar.
+                        El RNC ingresado (\${rnc}) no se encuentra activo como emisor o receptor en el directorio de facturación electrónica. Emitir comprobantes de la serie B (físicos) en su lugar.
                     </p>
                 `;
             }
@@ -195,8 +195,8 @@
             resultContainer.style.backgroundColor = 'rgba(239, 68, 68, 0.04)';
             resultContainer.style.borderColor = 'rgba(239, 68, 68, 0.25)';
             resultContainer.innerHTML = `
-                <div style="color: var(--accent-red); font-weight: 700; font-size: 0.85rem; margin-bottom: 4px;">Error de conexión</div>
-                <span style="font-size: 0.78rem; color: var(--text-secondary);">${err.message}</span>
+                <div style="color: var(--accent-red); font-weight: 500; font-size: 0.85rem; margin-bottom: 4px;">Error de conexión</div>
+                <span style="font-size: 0.78rem; color: var(--text-secondary);">\${err.message}</span>
             `;
         });
     }
