@@ -1,0 +1,53 @@
+codigo,tipo_bien_o_servicio,nombre,precio,unidad_medida,tasa_itbis
+PROD-001,Bien,Laptop Dell Latitude,45000.0,Unidad,0.18
+SERV-002,Servicio,Asesoría Legal por Hora,3500.0,Hora,0.0
+PROD-003,Bien,Monitor LG 24 Pulgadas,9500.0,Unidad,0.18
+PROD-004,Bien,Teclado Mecánico Logitech,4500.0,Unidad,0.18
+PROD-005,Bien,Mouse Inalámbrico Ergonómico,2200.0,Unidad,0.18
+PROD-006,Bien,Disco Duro Externo 1TB,3800.0,Unidad,0.18
+PROD-007,Bien,Memoria RAM DDR4 16GB,4200.0,Unidad,0.18
+PROD-008,Bien,Impresora Láser HP,14500.0,Unidad,0.18
+PROD-009,Bien,Toner HP Negro 85A,3200.0,Unidad,0.18
+PROD-010,Bien,Cable HDMI 2 Metros,450.0,Unidad,0.18
+PROD-011,Bien,Regleta de Protección 6 Tomas,850.0,Unidad,0.18
+PROD-012,Bien,Mochila para Laptop 15.6,2500.0,Unidad,0.18
+PROD-013,Bien,Caja de Papel Bond 8.5x11,2100.0,Caja,0.18
+PROD-014,Bien,Paquete de Lapiceros Azules (12 ud),180.0,Paquete,0.18
+PROD-015,Bien,Grapadora de Metal Ofic,450.0,Unidad,0.18
+PROD-016,Bien,Caja de Grapas standard,95.0,Caja,0.18
+PROD-017,Bien,Perforadora de 3 Hoyos,650.0,Unidad,0.18
+PROD-018,Bien,Folder Manila Carta (100 ud),550.0,Paquete,0.18
+PROD-019,Bien,Libreta de Apuntes A5,250.0,Unidad,0.18
+PROD-020,Bien,Resaltadores Variados (4 ud),220.0,Paquete,0.18
+PROD-021,Bien,Cinta Adhesiva Transparente,120.0,Unidad,0.18
+PROD-022,Bien,Organizador de Escritorio,850.0,Unidad,0.18
+PROD-023,Bien,Silla Ergonómica de Oficina,8500.0,Unidad,0.18
+PROD-024,Bien,Escritorio en L de Madera,12500.0,Unidad,0.18
+PROD-025,Bien,Archivero Metálico 3 Gavetas,7200.0,Unidad,0.18
+PROD-026,Bien,Café Santo Domingo 1lb,320.0,Unidad,0.0
+PROD-027,Bien,Azúcar Crema 2lb,90.0,Unidad,0.0
+PROD-028,Bien,Caja de Vasos Cónicos,450.0,Caja,0.18
+PROD-029,Bien,Galón de Desinfectante,350.0,Galón,0.18
+PROD-030,Bien,Paquete de Papel Toalla,280.0,Paquete,0.18
+SERV-031,Servicio,Soporte Técnico Remoto,1500.0,Hora,0.18
+SERV-032,Servicio,Mantenimiento de Aire Acondicionado,2500.0,Servicio,0.18
+SERV-033,Servicio,Desarrollo de Software a Medida,75000.0,Servicio,0.18
+SERV-034,Servicio,Consultoría en Ciberseguridad,5000.0,Hora,0.18
+SERV-035,Servicio,Capacitación de Personal (Excel),15000.0,Servicio,0.0
+SERV-036,Servicio,Servicio de Limpieza Mensual,22000.0,Mes,0.18
+SERV-037,Servicio,Asesoría Financiera,4500.0,Hora,0.18
+SERV-038,Servicio,Diseño de Logotipo y Branding,18000.0,Servicio,0.18
+SERV-039,Servicio,Gestión de Redes Sociales (Mensual),12000.0,Mes,0.18
+SERV-040,Servicio,Instalación de Redes y Cableado,8500.0,Servicio,0.18
+PROD-041,Bien,Router Wi-Fi TP-Link,3200.0,Unidad,0.18
+PROD-042,Bien,Switch de Red 8 Puertos,1800.0,Unidad,0.18
+PROD-043,Bien,Cámara Web Full HD,2900.0,Unidad,0.18
+PROD-044,Bien,Auriculares con Micrófono,1500.0,Unidad,0.18
+PROD-045,Bien,Batería para UPS 12V,1200.0,Unidad,0.18
+PROD-046,Bien,UPS Interactive 500VA,4500.0,Unidad,0.18
+PROD-047,Bien,Pizarra Blanca 120x90,3500.0,Unidad,0.18
+PROD-048,Bien,Marcadores de Pizarra (4 ud),280.0,Paquete,0.18
+PROD-049,Bien,Borrador de Pizarra,90.0,Unidad,0.18
+PROD-050,Bien,Extensión Eléctrica 5 metros,600.0,Unidad,0.18
+PROD-051,Bien,Ventilador de Torre,3800.0,Unidad,0.18
+PROD-052,Bien,Lámpara LED de Escritorio,1400.0,Unidad,0.18
