@@ -253,14 +253,38 @@
 
         @media (min-width: 769px) {
 
-            /* Permitir que el submenú flote fuera de la barra lateral sin ser recortado */
+            /* Sidebar mantiene overflow:visible para flyouts (gestionados via JS con position:fixed) */
             .sidebar {
                 overflow: visible !important;
             }
 
+            /* nav-menu con scroll en desktop cuando el contenido supera la pantalla */
+            /* Los flyouts ya usan position:fixed via JS, así que overflow:auto es seguro aquí */
             .nav-menu {
-                overflow: visible !important;
-                max-height: none !important;
+                overflow: auto !important;
+                max-height: calc(100vh - 140px) !important;
+                scrollbar-width: thin;
+                scrollbar-color: var(--border-color) transparent;
+            }
+
+            .nav-menu::-webkit-scrollbar {
+                width: 4px;
+            }
+
+            .nav-menu::-webkit-scrollbar-track {
+                background: transparent;
+            }
+
+            .nav-menu::-webkit-scrollbar-thumb {
+                background: var(--border-color);
+                border-radius: 4px;
+            }
+
+            /* Los flyouts usan position:fixed via JS — no se recortan aunque el nav-menu haga scroll */
+            .flyout-content.flyout-fixed {
+                position: fixed !important;
+                left: auto !important;
+                top: auto !important;
             }
 
             /* Secciones con menú flotante en Desktop */
@@ -2183,6 +2207,38 @@
                     }
                 });
             }
+
+            // ── Flyout positioning con position:fixed ──────────────────────────────────
+            // Permite que el nav-menu haga scroll sin recortar los flyouts
+            function repositionFlyouts() {
+                const flyoutSections = document.querySelectorAll('.sidebar-section-flyout');
+                flyoutSections.forEach(section => {
+                    const flyout = section.querySelector('.flyout-content');
+                    if (!flyout) return;
+
+                    section.addEventListener('mouseenter', function () {
+                        const rect = section.getBoundingClientRect();
+                        const sidebarRect = document.querySelector('.sidebar').getBoundingClientRect();
+
+                        flyout.style.position = 'fixed';
+                        flyout.style.left = (sidebarRect.right + 8) + 'px';
+                        flyout.style.top = rect.top + 'px';
+                        flyout.style.margin = '0';
+                        flyout.classList.add('flyout-fixed');
+                    });
+                });
+            }
+
+            if (window.innerWidth >= 769) {
+                repositionFlyouts();
+            }
+
+            window.addEventListener('resize', () => {
+                if (window.innerWidth >= 769) {
+                    repositionFlyouts();
+                }
+            });
+
         });
 
     </script>
