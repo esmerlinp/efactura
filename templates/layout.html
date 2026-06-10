@@ -242,6 +242,11 @@
             text-align: center;
         }
 
+        .nav-item a i {
+            width: 16px;
+            text-align: center;
+        }
+
         .sidebar-section-header:hover .header-left .section-icon {
             color: var(--accent-emerald);
         }
@@ -303,7 +308,7 @@
                 z-index: 999;
                 display: none;
                 flex-direction: column;
-                gap: 4px;
+                gap: 2px;
                 opacity: 0;
                 visibility: hidden;
                 transform: translateX(12px);
@@ -333,11 +338,16 @@
             .sidebar-collapsed .sidebar-section-flyout .sidebar-section-header {
                 display: flex !important;
                 opacity: 1 !important;
-                height: auto !important;
-                padding: 10px 0 !important;
+                width: 44px !important;
+                height: 44px !important;
+                border-radius: 50% !important;
+                padding: 0 !important;
                 justify-content: center !important;
-                margin: 4px 0 !important;
+                align-items: center !important;
+                margin: 4px auto !important;
                 overflow: visible !important;
+                border-top: none !important;
+                background: transparent;
             }
 
             .sidebar-collapsed .sidebar-section-flyout .sidebar-section-header span,
@@ -346,13 +356,17 @@
             }
 
             .sidebar-collapsed .sidebar-section-flyout .sidebar-section-header .header-left {
-                justify-content: center;
-                width: 100%;
+                justify-content: center !important;
+                align-items: center !important;
+                width: 100% !important;
+                display: flex !important;
+                gap: 0 !important;
             }
 
             .sidebar-collapsed .sidebar-section-flyout .sidebar-section-header .header-left .section-icon {
                 font-size: 1.15rem;
-                margin: 0;
+                margin: 0 !important;
+                width: auto !important;
             }
 
             /* Resaltado del item padre activo si el submenú contiene la página activa */
@@ -365,27 +379,37 @@
             }
 
             .sidebar-collapsed .sidebar-section-flyout.active-parent .sidebar-section-header {
-                border-left: 3px solid var(--accent-emerald);
+                border-left: none !important;
                 padding-left: 0 !important;
+                background-color: var(--bg-brand-translucent-heavy) !important;
+                box-shadow: var(--shadow-brand-glow) !important;
             }
 
             /* Estilos Premium para los items dentro del submenú flotante */
             .sidebar-section-flyout .flyout-content .nav-item {
-                width: 100%;
+                width: 100% !important;
+                display: block !important;
+                margin-bottom: 0 !important;
             }
 
             .sidebar-section-flyout .flyout-content .nav-item a {
                 display: flex;
                 align-items: center;
+                justify-content: flex-start !important;
                 gap: 12px;
-                padding: 10px 14px;
-                border-radius: var(--radius-sm);
+                padding: 6px 12px !important;
+                border-radius: var(--radius-sm) !important;
                 color: var(--text-primary);
                 font-weight: 500;
                 font-size: 0.85rem;
                 transition: all var(--transition-fast);
                 white-space: nowrap;
-                width: 100%;
+                width: 100% !important;
+                height: auto !important;
+            }
+
+            .sidebar-section-flyout .flyout-content .nav-item a span {
+                display: inline-block !important;
             }
 
             .sidebar-section-flyout .flyout-content .nav-item a:hover {
@@ -395,8 +419,8 @@
 
             .sidebar-section-flyout .flyout-content .nav-item.active a {
                 background-color: var(--bg-brand-translucent);
-                border-left: 3px solid var(--accent-emerald);
-                padding-left: 11px;
+                border-left: 3px solid var(--accent-emerald) !important;
+                padding-left: 11px !important;
                 color: var(--accent-emerald);
             }
         }
@@ -446,9 +470,9 @@
         }
 
         .utility-bar {
-            background-color: var(--bg-sidebar);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
+            background-color: rgba(255, 255, 255, 0.25) !important;
+            backdrop-filter: blur(25px) !important;
+            -webkit-backdrop-filter: blur(25px) !important;
             border-left: 1px solid var(--border-color);
             padding: 16px 0;
             display: flex;
@@ -461,6 +485,10 @@
             width: 64px;
             justify-content: space-between;
             box-sizing: border-box;
+        }
+
+        [data-theme="dark"] .utility-bar {
+            background-color: rgba(15, 23, 42, 0.45) !important;
         }
 
         .utility-bar-top,
@@ -495,8 +523,8 @@
         }
 
         .utility-avatar-wrapper {
-            width: 40px;
-            height: 40px;
+            width: 34px;
+            height: 34px;
             border-radius: 50%;
             display: flex;
             align-items: center;
@@ -509,7 +537,7 @@
             text-decoration: none;
             color: #ffffff;
             font-weight: 700;
-            font-size: 0.95rem;
+            font-size: 0.8rem;
         }
 
         .utility-avatar-wrapper img {
@@ -819,18 +847,13 @@
                     </ul>
                 </div>
 
-                <div class="sidebar-divider"></div>
-
                 <!-- SECCIÓN: LOGÍSTICA & INVENTARIO -->
-                <div class="sidebar-section sidebar-section-flyout collapsed" id="sidebar-section-logistica">
+                <div class="sidebar-section" id="sidebar-section-logistica">
                     <div class="sidebar-section-header">
-                        <div class="header-left">
-                            <i class="fa-solid fa-boxes-stacked section-icon"></i>
-                            <span>Logística & Inventario</span>
-                        </div>
-                        <i class="fa-solid fa-chevron-right section-toggle-icon"></i>
+                        <span>Logística &amp; Inventario</span>
+                        <i class="fa-solid fa-chevron-down section-toggle-icon"></i>
                     </div>
-                    <ul class="sidebar-section-content flyout-content">
+                    <ul class="sidebar-section-content">
                         {% if session.get('user', {}).get('role') == 'owner' or session.get('user',
                         {}).get('permissions', {}).get('canClients', True) %}
                         <li class="nav-item {% if active_page == 'items' %}active{% endif %}" data-tooltip="Catálogo">
@@ -858,15 +881,12 @@
                 {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions',
                 {}).get('canExpenses', True) or session.get('user', {}).get('permissions', {}).get('canManageCXP', True)
                 or session.get('user', {}).get('permissions', {}).get('canViewBI', True) %}
-                <div class="sidebar-section sidebar-section-flyout collapsed" id="sidebar-section-finanzas">
+                <div class="sidebar-section" id="sidebar-section-finanzas">
                     <div class="sidebar-section-header">
-                        <div class="header-left">
-                            <i class="fa-solid fa-coins section-icon"></i>
-                            <span>Finanzas</span>
-                        </div>
-                        <i class="fa-solid fa-chevron-right section-toggle-icon"></i>
+                        <span>Finanzas</span>
+                        <i class="fa-solid fa-chevron-down section-toggle-icon"></i>
                     </div>
-                    <ul class="sidebar-section-content flyout-content">
+                    <ul class="sidebar-section-content">
                         {% if session.get('user', {}).get('role') == 'owner' or session.get('user',
                         {}).get('permissions', {}).get('canExpenses', True) %}
                         <li class="nav-item {% if active_page == 'expenses' %}active{% endif %}"
@@ -1000,12 +1020,23 @@
                 </script>
             </nav>
 
-            <div class="sidebar-footer" style="flex-direction: column; gap: 12px;">
-                <!-- Botón Toggle tipo Firebase en el bottom -->
-                <button type="button" id="sidebar-toggle-btn" class="sidebar-toggle" title="Contraer / Expandir menú"
-                    style="margin: 0 auto;">
-                    <i class="fa-solid fa-chevron-left" id="toggle-icon"></i>
-                </button>
+            <div class="sidebar-footer" style="flex-direction: column; gap: 0; padding-top: 0;">
+                <!-- Plan Info Block -->
+                {% if global_plan_name %}
+                <div class="sidebar-plan-block">
+                    <div class="sidebar-plan-info">
+                        <span class="sidebar-plan-name">{{ global_plan_name }}</span>
+                        <span class="sidebar-plan-type">{{ global_plan_billing_type or 'Pago por uso' }}</span>
+                    </div>
+                    <a href="{{ url_for('client_subscription_page') }}" class="sidebar-plan-modify">Modificar</a>
+                </div>
+                {% endif %}
+                <!-- Botón Toggle limpio, sin borde ni fondo -->
+                <div class="sidebar-toggle-wrapper">
+                    <button type="button" id="sidebar-toggle-btn" class="sidebar-toggle" title="Contraer / Expandir menú">
+                        <i class="fa-solid fa-chevron-left" id="toggle-icon"></i>
+                    </button>
+                </div>
             </div>
         </aside>
 
@@ -1158,7 +1189,7 @@
 
                 <!-- Cerrar Sesión -->
                 <a href="{{ url_for('logout') }}" class="utility-item" style="color: var(--accent-red);"
-                    title="Cerrar Sesión">
+                    title="Cerrar Sesión" onclick="return confirm('¿Seguro que deseas cerrar la sesión?');">
                     <i class="fa-solid fa-right-from-bracket"></i>
                 </a>
             </div>

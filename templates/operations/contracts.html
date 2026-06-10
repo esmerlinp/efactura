@@ -5,54 +5,88 @@
 {% block page_header %}Gestión de Contratos y Facturación Recurrente{% endblock %}
 
 {% block content %}
-<!-- Estadísticas de Contratos -->
-<div
-    style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-bottom: 24px;">
+<style>
+    .contract-stats-panel {
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-md);
+        box-shadow: var(--shadow-sm);
+        display: flex;
+        margin-bottom: 24px;
+        overflow: hidden;
+        backdrop-filter: blur(20px);
+    }
+
+    .contract-stats-col {
+        flex: 1;
+        padding: 16px 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        border-right: 1px solid var(--border-color);
+    }
+
+    .contract-stats-col:last-child {
+        border-right: none;
+    }
+
+    @media (max-width: 992px) {
+        .contract-stats-panel {
+            flex-direction: column;
+        }
+
+        .contract-stats-col {
+            border-right: none;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .contract-stats-col:last-child {
+            border-bottom: none;
+        }
+    }
+</style>
+
+<!-- Estadísticas de Contratos (Estilo CxC / OpenAI) -->
+<div class="contract-stats-panel">
     <!-- Contratos Activos -->
-    <div class="card-table-wrapper"
-        style="padding: 24px; margin-bottom: 0; display: flex; align-items: center; justify-content: space-between; background: linear-gradient(135deg, rgba(16, 185, 129, 0.08), rgba(16, 185, 129, 0.02)); border-left: 4px solid var(--accent-emerald);">
-        <div>
-            <span
-                style="display: block; font-size: 0.85rem; font-weight: 500; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 6px;">Contratos
-                Activos</span>
-            <span
-                style="font-size: 2rem; font-weight: 800; color: var(--text-primary); font-family: var(--font-heading);">{{
-                total_active }}</span>
+    <div class="contract-stats-col">
+        <span style="font-size: 0.72rem; color: var(--text-secondary); font-weight: 500; display: flex; align-items: center; gap: 4px;">
+            Contratos Activos <i class="fa-solid fa-chevron-right" style="font-size: 0.6rem; color: var(--text-muted);"></i>
+        </span>
+        <div style="font-size: 1.4rem; font-weight: 700; color: var(--accent-emerald); font-family: var(--font-heading); line-height: 1.1;">
+            {{ total_active }}
         </div>
-        <div style="font-size: 2.2rem; color: var(--accent-emerald); opacity: 0.85;">
-            <i class="fa-solid fa-file-signature"></i>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: auto; font-size: 0.72rem; color: var(--text-muted); border-top: 1px dashed var(--border-color); padding-top: 6px;">
+            <span>En ejecución automática</span>
+            <i class="fa-solid fa-file-signature" style="color: var(--accent-emerald); font-size: 0.95rem;"></i>
         </div>
     </div>
 
     <!-- Estimado de Facturación Mensual -->
-    <div class="card-table-wrapper"
-        style="padding: 24px; margin-bottom: 0; display: flex; align-items: center; justify-content: space-between; background: linear-gradient(135deg, rgba(59, 130, 246, 0.08), rgba(59, 130, 246, 0.02)); border-left: 4px solid #3b82f6;">
-        <div>
-            <span
-                style="display: block; font-size: 0.85rem; font-weight: 500; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 6px;">Facturación
-                Mensual Est.</span>
-            <span
-                style="font-size: 1.8rem; font-weight: 800; color: var(--text-primary); font-family: var(--font-heading);">RD$
-                {{ "{:,.2f}".format(monthly_estimate) }}</span>
+    <div class="contract-stats-col">
+        <span style="font-size: 0.72rem; color: var(--text-secondary); font-weight: 500; display: flex; align-items: center; gap: 4px;">
+            Facturación Mensual Est. <i class="fa-solid fa-chevron-right" style="font-size: 0.6rem; color: var(--text-muted);"></i>
+        </span>
+        <div style="font-size: 1.4rem; font-weight: 700; color: var(--text-primary); font-family: var(--font-heading); line-height: 1.1;">
+            RD$ {{ "{:,.2f}".format(monthly_estimate) }}
         </div>
-        <div style="font-size: 2.2rem; color: #3b82f6; opacity: 0.85;">
-            <i class="fa-solid fa-calculator"></i>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: auto; font-size: 0.72rem; color: var(--text-muted); border-top: 1px dashed var(--border-color); padding-top: 6px;">
+            <span>Proyección recurrente</span>
+            <i class="fa-solid fa-calculator" style="color: #3b82f6; font-size: 0.95rem;"></i>
         </div>
     </div>
 
     <!-- Total Contratos -->
-    <div class="card-table-wrapper"
-        style="padding: 24px; margin-bottom: 0; display: flex; align-items: center; justify-content: space-between; background: linear-gradient(135deg, rgba(168, 85, 247, 0.08), rgba(168, 85, 247, 0.02)); border-left: 4px solid var(--accent-purple);">
-        <div>
-            <span
-                style="display: block; font-size: 0.85rem; font-weight: 500; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 6px;">Total
-                Contratos</span>
-            <span
-                style="font-size: 2rem; font-weight: 800; color: var(--text-primary); font-family: var(--font-heading);">{{
-                total_contracts }}</span>
+    <div class="contract-stats-col">
+        <span style="font-size: 0.72rem; color: var(--text-secondary); font-weight: 500; display: flex; align-items: center; gap: 4px;">
+            Total Contratos <i class="fa-solid fa-chevron-right" style="font-size: 0.6rem; color: var(--text-muted);"></i>
+        </span>
+        <div style="font-size: 1.4rem; font-weight: 700; color: var(--accent-purple); font-family: var(--font-heading); line-height: 1.1;">
+            {{ total_contracts }}
         </div>
-        <div style="font-size: 2.2rem; color: var(--accent-purple); opacity: 0.85;">
-            <i class="fa-solid fa-folder-closed"></i>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: auto; font-size: 0.72rem; color: var(--text-muted); border-top: 1px dashed var(--border-color); padding-top: 6px;">
+            <span>Historial de cartera</span>
+            <i class="fa-solid fa-folder-closed" style="color: var(--accent-purple); font-size: 0.95rem;"></i>
         </div>
     </div>
 </div>
