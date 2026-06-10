@@ -432,6 +432,9 @@
         <button class="help-tab-btn" data-category="tutorial">
             <i class="fa-solid fa-graduation-cap"></i> Flujo de Facturación
         </button>
+        <button class="help-tab-btn" data-category="operaciones">
+            <i class="fa-solid fa-cubes"></i> Módulos Avanzados
+        </button>
     </div>
 
     <!-- Preguntas Frecuentes / Acordeones -->
@@ -1085,6 +1088,131 @@
                     <ul>
                         <li><strong>Diagnóstico de IT-1 (`/reports/it1`):</strong> Visualiza en tiempo real tu borrador y simulación del formulario de liquidación del ITBIS. El sistema sumará de forma automatizada tus subtotales de ventas de facturas emitidas autorizadas (ingresos gravados e ITBIS facturado) y restará tus gastos operativos deducibles aprobados (adelantos de ITBIS).</li>
                         <li><strong>Consultas DGII (`/reports/dgii-tools`):</strong> Consulta el estado en vivo de los servidores de la DGII y realiza verificaciones del directorio de RNCs homologados para operar con facturas electrónicas.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- MÓDULOS AVANZADOS -->
+        <!-- POS & Cierre Supervisado -->
+        <div class="faq-item" data-category="operaciones">
+            <div class="faq-header">
+                <div class="faq-title-wrapper">
+                    <div class="faq-icon-box" style="background-color: rgba(16, 185, 129, 0.08); color: var(--accent-emerald);">
+                        <i class="fa-solid fa-cash-register"></i>
+                    </div>
+                    <span class="faq-title">Punto de Venta (POS) y Cierres Auditados por Supervisor</span>
+                </div>
+                <i class="fa-solid fa-chevron-down faq-chevron"></i>
+            </div>
+            <div class="faq-content">
+                <div class="faq-body">
+                    El módulo **Punto de Venta (POS)** (`/pos`) está diseñado para el cobro rápido en mostrador.
+                    <br><br>
+                    <strong>1. Operación de Caja Rápida:</strong>
+                    <ul>
+                        <li><strong>Apertura de Turno:</strong> Al iniciar el día, el cajero debe seleccionar su caja registradora e ingresar el fondo inicial de sencillo.</li>
+                        <li><strong>Terminal de Venta:</strong> Escanea productos por código de barras o agrégalos con un clic. Presiona <code>F10</code> para cobrar, ingresa el dinero recibido y calcula la devuelta automáticamente.</li>
+                        <li><strong>Modo Consolidado (Norma 02-2023):</strong> Si la empresa lo tiene activo, las ventas a Consumidor Final menores a RD$ 250,000 no emiten e-CF individuales, sino que se agrupan en un único comprobante global <strong>E32</strong> al finalizar el turno, ahorrando secuencias y costos de emisión.</li>
+                    </ul>
+                    <strong>2. Cierres Auditados (Blind Count / Conteo Ciego):</strong>
+                    <ul>
+                        <li>Cuando un cajero ordinario solicita el cierre de caja (`/pos/shift/close`), debe declarar el efectivo físico que posee en caja sin saber cuánto calcula el sistema que debería haber.</li>
+                        <li>El turno cambiará al estado <code>Por Auditar (PENDING_AUDIT)</code>. La caja registradora se bloquea y no permite nuevas ventas.</li>
+                        <li>Un usuario con rol <strong>Propietario</strong> o permiso <strong>canSupervisePOS</strong> debe acceder al panel de administración (`/pos/admin`), abrir el turno y realizar el conteo físico final para auditar diferencias y cerrar formalmente la caja.</li>
+                    </ul>
+                    <strong>3. PIN de Autorización de Supervisor en Terminal:</strong>
+                    <ul>
+                        <li>Para evitar fugas de efectivo o modificaciones malintencionadas de transacciones, cada vez que un cajero intente eliminar un artículo del carrito o disminuir su cantidad en la terminal de cobro, el sistema solicitará un <strong>PIN de Supervisor</strong> (Código de demostración: <code>1234</code>).</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- CxC/CxP con Cobranza IA -->
+        <div class="faq-item" data-category="operaciones">
+            <div class="faq-header">
+                <div class="faq-title-wrapper">
+                    <div class="faq-icon-box" style="background-color: rgba(59, 130, 246, 0.08); color: #3b82f6;">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i>
+                    </div>
+                    <span class="faq-title">Cuentas por Cobrar (CxC), Cuentas por Pagar (CxP) e Inteligencia Artificial</span>
+                </div>
+                <i class="fa-solid fa-chevron-down faq-chevron"></i>
+            </div>
+            <div class="faq-content">
+                <div class="faq-body">
+                    Mantén tu flujo de efectivo bajo control con las herramientas avanzadas de crédito y cobros:
+                    <br><br>
+                    <strong>1. Cartera de CxC y CxP (`/cxc` y `/expenses/cxp`):</strong>
+                    <ul>
+                        <li>El sistema cataloga de forma automática las facturas en estado <code>Emitida</code> o <code>Vencida</code> en tu Cartera de Crédito, calculando balances pendientes e identificando demoras de cobro.</li>
+                        <li>Puedes registrar promesas de pago acordadas con tus clientes, indicando fecha y monto. El sistema generará recordatorios visuales y te permitirá marcarlas como *Cumplidas* o *Incumplidas*.</li>
+                    </ul>
+                    <strong>2. Cobranza redactada por Inteligencia Artificial (IA):</strong>
+                    <ul>
+                        <li>Junto a cada cliente con facturas pendientes, verás botones de cobro para <strong>Email</strong> y <strong>WhatsApp</strong>.</li>
+                        <li>Al hacer clic, se abre un asistente inteligente con IA que redacta de forma automática un mensaje de cobro personalizado, detallando la factura, balance y vencimiento.</li>
+                        <li>Puedes ajustar el tono del recordatorio entre <code>Amigable</code>, <code>Profesional (Formal)</code>, o <code>Urgente</code>. El mensaje se genera en segundos y puedes copiarlo o enviarlo directamente con un clic.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- BI & Tax Dashboard -->
+        <div class="faq-item" data-category="operaciones">
+            <div class="faq-header">
+                <div class="faq-title-wrapper">
+                    <div class="faq-icon-box" style="background-color: rgba(139, 92, 246, 0.08); color: var(--accent-purple);">
+                        <i class="fa-solid fa-chart-line"></i>
+                    </div>
+                    <span class="faq-title">Business Intelligence (BI) y Proyecciones de Impuestos</span>
+                </div>
+                <i class="fa-solid fa-chevron-down faq-chevron"></i>
+            </div>
+            <div class="faq-content">
+                <div class="faq-body">
+                    El Dashboard de Inteligencia de Negocios y Salud Tributaria te ofrece analíticas de nivel corporativo para planificar el crecimiento de tu empresa:
+                    <br><br>
+                    <strong>1. Análisis de Rentabilidad Comercial:</strong>
+                    <ul>
+                        <li>Monitorea el margen de rentabilidad bruto, ganancias netas reales del ejercicio fiscal y proyecciones de flujo de caja para los próximos meses basados en facturas a crédito pendientes de cobro.</li>
+                        <li>Identifica cuáles son tus productos o servicios más vendidos y cuáles te generan el mayor margen neto de ganancia.</li>
+                    </ul>
+                    <strong>2. Módulo de Estimación de Impuestos:</strong>
+                    <ul>
+                        <li><strong>ITBIS:</strong> Monitorea en tiempo real el balance de ITBIS facturado (debito) contra el ITBIS deducible de compras (credito) para predecir tu liquidación del mes.</li>
+                        <li><strong>ISR y Anticipos:</strong> Calcula proyecciones del Impuesto sobre la Renta anual y te ayuda a estimar los anticipos fiscales mensuales del próximo período para evitar sorpresas de flujo de efectivo.</li>
+                        <li><strong>RST:</strong> Si perteneces al régimen RST, calcula de manera predictiva la tasa efectiva de pago al final de tu ciclo.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Comisiones & Gamificación -->
+        <div class="faq-item" data-category="operaciones">
+            <div class="faq-header">
+                <div class="faq-title-wrapper">
+                    <div class="faq-icon-box" style="background-color: rgba(236, 72, 153, 0.08); color: #ec4899;">
+                        <i class="fa-solid fa-trophy"></i>
+                    </div>
+                    <span class="faq-title">Configuración de Comisiones de Ventas y Cumplimiento de Metas</span>
+                </div>
+                <i class="fa-solid fa-chevron-down faq-chevron"></i>
+            </div>
+            <div class="faq-content">
+                <div class="faq-body">
+                    Motiva a tu equipo de ventas y automatiza el cálculo de compensaciones:
+                    <br><br>
+                    <strong>1. Reglas de Comisión Dinámicas:</strong>
+                    <ul>
+                        <li>Configura comisiones basadas en un porcentaje fijo sobre las ventas.</li>
+                        <li>Puedes definir si la comisión se devenga al momento de la venta (factura emitida) o si se calcula únicamente cuando la factura está cobrada (efectivo ingresado al banco), asegurando la salud financiera de tu empresa.</li>
+                    </ul>
+                    <strong>2. Dashboard de Gamificación y Rankings:</strong>
+                    <ul>
+                        <li>Establece una meta de ventas global para el mes y visualiza el porcentaje de avance en una barra premium.</li>
+                        <li>Consulta un listado en vivo con los vendedores destacados (ranking de ventas) y sus comisiones acumuladas, incentivando la competencia sana y el cumplimiento de objetivos del equipo.</li>
                     </ul>
                 </div>
             </div>
