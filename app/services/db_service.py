@@ -2527,7 +2527,11 @@ class DatabaseService:
                         "closingAmountExpected": float(data.get("closingAmountExpected", 0.0)) if data.get("closingAmountExpected") is not None else None,
                         "closingAmountDeclared": float(data.get("closingAmountDeclared", 0.0)) if data.get("closingAmountDeclared") is not None else None,
                         "difference": float(data.get("difference", 0.0)) if data.get("difference") is not None else None,
-                        "status": data.get("status", "CLOSED")
+                        "status": data.get("status", "CLOSED"),
+                        "auditedByUserId": data.get("auditedByUserId"),
+                        "auditedByUserEmail": data.get("auditedByUserEmail"),
+                        "auditedAt": serialize_field(data.get("auditedAt")),
+                        "auditNotes": data.get("auditNotes", "")
                     })
                 # Ordenar por fecha de apertura descendente
                 shifts.sort(key=lambda x: x["openingTime"] or "", reverse=True)
@@ -2584,7 +2588,7 @@ class DatabaseService:
         return shift_dict
 
     @classmethod
-    def close_cash_shift(cls, owner_uid, shift_id, declared_amount, sandbox=True):
+    def close_cash_shift(cls, owner_uid, shift_id, declared_amount, sandbox=True, status="CLOSED", supervisor_uid=None, supervisor_email=None):
         """Cierra el turno de caja especificado y calcula descuadres."""
         if not firebase_initialized:
             return None
@@ -2625,13 +2629,19 @@ class DatabaseService:
             difference = declared_amount - closing_expected
 
             # 3. Guardar cierre
-            shift_ref.update({
-                "status": "CLOSED",
+            update_data = {
+                "status": status,
                 "closingTime": datetime.utcnow().isoformat(),
                 "closingAmountExpected": closing_expected,
                 "closingAmountDeclared": declared_amount,
                 "difference": difference
-            })
+            }
+            if supervisor_uid:
+                update_data["auditedByUserId"] = supervisor_uid
+                update_data["auditedByUserEmail"] = supervisor_email
+                update_data["auditedAt"] = datetime.utcnow().isoformat()
+
+            shift_ref.update(update_data)
 
             # 4. Cambiar estado de la caja registradora física a CLOSED
             db_firestore.collection("users").document(owner_uid).collection(coll_regs).document(register_id).update({
@@ -2642,10 +2652,42 @@ class DatabaseService:
                 "id": shift_id,
                 "closingAmountExpected": closing_expected,
                 "closingAmountDeclared": declared_amount,
-                "difference": difference
+                "difference": difference,
+                "status": status
             }
         except Exception as e:
             print(f"⚠️ Error al cerrar turno de caja: {e}")
+            return None
+
+    @classmethod
+    def audit_cash_shift(cls, owner_uid, shift_id, audited_amount, supervisor_uid, supervisor_email, notes="", sandbox=True):
+        """Audita y finaliza un turno de caja que estaba en PENDING_AUDIT."""
+        if not firebase_initialized:
+            return None
+        try:
+            coll_shifts = "sandbox_cash_shifts" if sandbox else "cash_shifts"
+            shift_ref = db_firestore.collection("users").document(owner_uid).collection(coll_shifts).document(shift_id)
+            shift_doc = shift_ref.get()
+            if not shift_doc.exists:
+                return None
+            shift_data = shift_doc.to_dict()
+
+            closing_expected = float(shift_data.get("closingAmountExpected", 0.0))
+            difference = audited_amount - closing_expected
+
+            update_data = {
+                "status": "CLOSED",
+                "closingAmountDeclared": audited_amount,
+                "difference": difference,
+                "auditedByUserId": supervisor_uid,
+                "auditedByUserEmail": supervisor_email,
+                "auditedAt": datetime.utcnow().isoformat(),
+                "auditNotes": notes
+            }
+            shift_ref.update(update_data)
+            return update_data
+        except Exception as e:
+            print(f"⚠️ Error al auditar turno de caja: {e}")
             return None
 
     @classmethod
