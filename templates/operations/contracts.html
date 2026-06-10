@@ -70,10 +70,10 @@
                 {% if contracts %}
                     {% for contract in contracts %}
                         <tr id="contract-row-{{ contract.id }}">
-                            <td><strong style="font-family: monospace;">{{ contract.contractNumber }}</strong></td>
-                            <td><strong>{{ contract.clientName }}</strong></td>
+                            <td><span style="font-family: monospace;">{{ contract.contractNumber }}</span></td>
+                            <td>{{ contract.clientName }}</td>
                             <td><span style="font-family: monospace; font-size: 0.85rem;">{{ contract.clientRNC }}</span></td>
-                            <td><strong style="color: var(--accent-emerald);">RD$ {{ "{:,.2f}".format(contract.amount) }}</strong></td>
+                            <td><span style="color: var(--accent-emerald);">RD$ {{ "{:,.2f}".format(contract.amount) }}</span></td>
                             <td><span class="badge badge-secondary" style="font-weight: 600;">{{ contract.recurrenceInterval | capitalize }}</span></td>
                             <td><span style="font-size: 0.9rem; font-weight: 500; color: var(--text-secondary);"><i class="fa-solid fa-calendar-days" style="margin-right: 4px;"></i> {{ contract.nextBillingDate }}</span></td>
                             <td>

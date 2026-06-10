@@ -151,20 +151,20 @@
                     {% for inv in invoices %}
                     <tr style="border-bottom: 1px solid var(--border-color);" class="cxc-row" data-invoice-id="{{ inv.id }}">
                         <td style="padding: 14px 16px;">
-                            <a href="{{ url_for('invoice_detail', invoice_id=inv.id) }}" style="font-weight: 600; color: var(--text-primary); text-decoration: none; display: block; margin-bottom: 2px;">
+                            <a href="{{ url_for('invoice_detail', invoice_id=inv.id) }}" style="font-weight: normal; color: var(--text-primary); text-decoration: none; display: block; margin-bottom: 2px;">
                                 {{ inv.invoiceNumber }}
                             </a>
                             <span style="font-size: 0.78rem; color: var(--text-muted);">{{ inv.clientName }}</span>
                         </td>
                         <td style="padding: 14px 16px;">
-                            <span style="font-size: 0.82rem; {% if inv.status == 'Vencida' %}color: var(--accent-red); font-weight:600;{% endif %}">
+                            <span style="font-size: 0.82rem; {% if inv.status == 'Vencida' %}color: var(--accent-red); font-weight: normal;{% endif %}">
                                 {{ inv.dueDate }}
                             </span>
                         </td>
                         <td style="padding: 14px 16px; text-align: right; font-size: 0.85rem; color: var(--text-secondary);">
                             RD$ {{ "{:,.2f}".format(inv.netPayable) }}
                         </td>
-                        <td style="padding: 14px 16px; text-align: right; font-weight: 700; font-size: 0.85rem; color: var(--text-primary);">
+                        <td style="padding: 14px 16px; text-align: right; font-weight: normal; font-size: 0.85rem; color: var(--text-primary);">
                             RD$ {{ "{:,.2f}".format(inv.remainingBalance) }}
                         </td>
                         <td style="padding: 14px 16px;">
@@ -216,7 +216,7 @@
             <div style="border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 14px; background: rgba(255,255,255,0.01); display: flex; flex-direction: column; gap: 8px; position: relative;">
                 <div style="display: flex; justify-content: space-between; align-items: flex-start;">
                     <div>
-                        <strong style="font-size: 0.85rem; color: var(--text-primary);">{{ promise.clientName }}</strong>
+                        <span style="font-size: 0.85rem; color: var(--text-primary);">{{ promise.clientName }}</span>
                         <span style="font-size: 0.72rem; color: var(--text-muted); display: block;">
                             Factura: {{ promise.invoiceNumber }}
                         </span>
@@ -229,15 +229,15 @@
                 <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px dashed var(--border-color); padding-top: 8px; margin-top: 4px;">
                     <div>
                         <span style="font-size: 0.72rem; color: var(--text-muted); display: block;">Fecha Prometida</span>
-                        <strong style="font-size: 0.8rem; color: var(--text-primary);">
+                        <span style="font-size: 0.8rem; color: var(--text-primary); font-weight: normal;">
                             <i class="fa-regular fa-calendar-days" style="margin-right: 4px;"></i> {{ promise.fechaPromesa }}
-                        </strong>
+                        </span>
                     </div>
                     <div style="text-align: right;">
                         <span style="font-size: 0.72rem; color: var(--text-muted); display: block;">Monto Prometido</span>
-                        <strong style="font-size: 0.85rem; color: var(--text-primary);">
+                        <span style="font-size: 0.85rem; color: var(--text-primary); font-weight: normal;">
                             RD$ {{ "{:,.2f}".format(promise.montoPrometido) }}
-                        </strong>
+                        </span>
                     </div>
                 </div>
                 
