@@ -694,8 +694,8 @@ body.sandbox-mode .environment-indicator {
 }
 
 .form-group label {
-    font-size: 0.88rem;
-    font-weight: 600;
+    font-size: 0.78rem;
+    font-weight: 500;
     color: var(--text-secondary);
 }
 
@@ -706,8 +706,8 @@ body.sandbox-mode .environment-indicator {
     border: 1px solid #cbd5e1;
     color: var(--text-primary);
     border-radius: var(--radius-sm);
-    padding: 9px 14px;
-    font-size: 0.92rem;
+    padding: 7px 12px;
+    font-size: 0.85rem;
     transition: all var(--transition-fast);
     box-sizing: border-box;
     width: 100%;
@@ -722,13 +722,13 @@ body.sandbox-mode .environment-indicator {
 
 .form-input,
 .form-select {
-    height: 42px;
-    line-height: 20px;
+    height: 34px;
+    line-height: 18px;
 }
 
 .form-textarea {
     height: auto;
-    min-height: 100px;
+    min-height: 80px;
 }
 
 .form-input:focus,

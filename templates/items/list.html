@@ -86,7 +86,7 @@
                                     {% endif %}
                                 </td>
                                 <td>
-                                    <strong>{{ item.name }}</strong>
+                                    {{ item.name }}
                                     {% if item.codigoImpuesto %}
                                     <span style="display: block; font-size: 0.72rem; color: var(--accent-purple); font-weight: 700; margin-top: 4px; letter-spacing: 0.02em;">
                                         <i class="fa-solid fa-percent"></i> 
@@ -138,13 +138,13 @@
                                     <span style="font-size: 0.88rem; color: var(--text-secondary);">{{ item.unit or 'Unidad' }}</span>
                                 </td>
                                 <td>
-                                    <strong style="color: var(--accent-purple);">{{ "{:.0%}".format(item.itbisRate) }}</strong>
+                                    <span style="color: var(--accent-purple);">{{ "{:.0%}".format(item.itbisRate) }}</span>
                                 </td>
                                 <td>
                                     <span style="color: var(--text-secondary); font-size: 0.9rem;">RD$ {{ "{:,.2f}".format(item.costPrice or 0.0) }}</span>
                                 </td>
                                 <td>
-                                    <strong>RD$ {{ "{:,.2f}".format(item.price) }}</strong>
+                                    RD$ {{ "{:,.2f}".format(item.price) }}
                                 </td>
                                 <td style="text-align: right;">
                                     <div style="display: inline-flex; gap: 8px;">

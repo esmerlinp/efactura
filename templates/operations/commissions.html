@@ -96,13 +96,13 @@
                         {% for seller in ranking %}
                             <tr>
                                 <td>
-                                    <strong>{{ seller.name }}</strong>
+                                    {{ seller.name }}
                                     <span style="display: block; font-size: 0.72rem; color: var(--text-secondary);">{{ seller.email }}</span>
                                 </td>
                                 <td><span class="badge badge-secondary">{{ seller.invoice_count }}</span></td>
-                                <td><strong style="color: var(--text-primary);">RD$ {{ "{:,.2f}".format(seller.total_invoiced) }}</strong></td>
-                                <td><strong style="color: var(--text-secondary);">RD$ {{ "{:,.2f}".format(seller.total_collected) }}</strong></td>
-                                <td><strong style="color: var(--accent-purple);">RD$ {{ "{:,.2f}".format(seller.commission_earned) }}</strong></td>
+                                <td><span style="color: var(--text-primary);">RD$ {{ "{:,.2f}".format(seller.total_invoiced) }}</span></td>
+                                <td><span style="color: var(--text-secondary);">RD$ {{ "{:,.2f}".format(seller.total_collected) }}</span></td>
+                                <td><span style="color: var(--accent-purple);">RD$ {{ "{:,.2f}".format(seller.commission_earned) }}</span></td>
                             </tr>
                         {% endfor %}
                     </tbody>
