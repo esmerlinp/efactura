@@ -4,7 +4,7 @@ import smtplib
 import uuid
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from datetime import datetime
+from datetime import datetime, timedelta
 from flask import current_app
 from app.services.db_service import DatabaseService
 
@@ -166,3 +166,106 @@ class NotificationService:
             DatabaseService.save_client_interaction(owner_uid, client_id, interaction_id, interaction_dict, sandbox=sandbox)
         except Exception as e:
             print(f"⚠️ Error al guardar interacción del recordatorio: {e}")
+
+    @classmethod
+    def process_automatic_reminders(cls, owner_uid, sandbox=True):
+        """
+        Escanea y envía automáticamente recordatorios de pago para facturas pendientes y vencidas
+        según la configuración de la empresa y del cliente.
+        """
+        company = DatabaseService.get_company_profile(owner_uid) or {}
+        if not company.get("autoRemindersEnabled", False):
+            return 0
+
+        # Evitar doble ejecución el mismo día
+        today_str = datetime.utcnow().strftime("%Y-%m-%d")
+        if company.get("autoRemindersLastRun") == today_str:
+            return 0
+
+        # Obtener facturas reales
+        invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, quotations_only=False)
+        cxc_invoices = []
+        for inv in invoices:
+            status = inv.get("status")
+            if status in ["Emitida", "Parcialmente Cobrada", "Vencida"]:
+                client_name = inv.get("clientName", "")
+                client_id = inv.get("clientId", "")
+                if not client_id or "consumidor final" in client_name.lower():
+                    continue
+                cxc_invoices.append(inv)
+
+        if not cxc_invoices:
+            return 0
+
+        # Obtener todos los clientes para revisar si están silenciados
+        clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox)
+        muted_clients = {c["id"] for c in clients if c.get("disableAutoReminders")}
+
+        try:
+            days_offset = int(company.get("autoRemindersDays", 0))
+        except ValueError:
+            days_offset = 0
+
+        method = company.get("autoRemindersMethod", "email") # email o whatsapp
+        tone = company.get("autoRemindersTone", "formal")
+
+        # Calcular fecha objetivo: due_date = today - offset
+        target_date = (datetime.utcnow() - timedelta(days=days_offset)).strftime("%Y-%m-%d")
+
+        sent_count = 0
+        from app.services.ai_service import AIService
+        
+        for inv in cxc_invoices:
+            client_id = inv.get("clientId")
+            if client_id in muted_clients:
+                continue
+
+            inv_due = inv.get("dueDate", "")[:10]
+            if inv_due == target_date:
+                # Comprobar si ya se envió recordatorio para esta factura hoy
+                interactions = DatabaseService.get_client_interactions(owner_uid, client_id, sandbox=sandbox)
+                already_sent = False
+                for inter in interactions:
+                    inter_date = inter.get("createdAt", inter.get("date", ""))[:10]
+                    if inter_date == today_str and f"factura {inv.get('invoiceNumber')}" in inter.get("content", "").lower():
+                        already_sent = True
+                        break
+                
+                if already_sent:
+                    continue
+
+                # Generar mensaje con IA
+                client_name = inv.get("clientName", "Cliente")
+                remaining_balance = float(inv.get("remainingBalance", inv.get("netPayable", 0.0)))
+                custom_message = None
+                try:
+                    custom_message = AIService.draft_collection_message(
+                        owner_uid=owner_uid,
+                        client_name=client_name,
+                        amount=remaining_balance,
+                        due_date=inv.get("dueDate"),
+                        status=inv.get("status"),
+                        tone=tone
+                    )
+                except Exception as e:
+                    print(f"⚠️ Error al redactar mensaje con IA: {e}")
+
+                recipient = inv.get("clientEmail") if method == "email" else inv.get("clientPhone")
+                if not recipient:
+                    continue
+
+                success, msg = cls.send_cxc_reminder(
+                    owner_uid=owner_uid,
+                    invoice=inv,
+                    recipient_contact=recipient,
+                    method=method,
+                    sandbox=sandbox,
+                    custom_message=custom_message
+                )
+                if success:
+                    sent_count += 1
+
+        # Actualizar fecha de última ejecución
+        company["autoRemindersLastRun"] = today_str
+        DatabaseService.save_company_profile(owner_uid, company)
+        return sent_count

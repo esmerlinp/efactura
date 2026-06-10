@@ -57,6 +57,11 @@
                 <input type="date" id="next_contact_date" name="nextContactDate" class="form-input" value="{{ client.nextContactDate[:10] if client and client.nextContactDate else '' }}">
             </div>
             
+            <div class="form-group" style="grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+                <input type="checkbox" id="disableAutoReminders" name="disableAutoReminders" {% if client and client.disableAutoReminders %}checked{% endif %} style="width: 18px; height: 18px; cursor: pointer;">
+                <label for="disableAutoReminders" style="cursor: pointer; margin: 0; font-weight: 600; font-size: 0.88rem; color: var(--text-primary);">Pausar recordatorios automáticos de cobro para este cliente</label>
+            </div>
+            
             <div class="form-group" style="grid-column: 1 / -1;">
                 <label for="crm_notes">Acuerdos Comerciales / Notas de Seguimiento</label>
                 <textarea id="crm_notes" name="crmNotes" class="form-textarea" rows="4" placeholder="Registra cotizaciones discutidas, llamadas de seguimiento, etc.">{{ client.crmNotes if client else '' }}</textarea>
