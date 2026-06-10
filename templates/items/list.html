@@ -15,11 +15,15 @@
                 <p style="color: var(--text-secondary); font-size: 0.88rem;">Inventario de bienes y servicios para facturación expedita.</p>
             </div>
             <div style="display: flex; gap: 12px; align-items: center;">
-                <button class="btn btn-secondary" onclick="openImportModal()" style="height: 44px; display: inline-flex; align-items: center;">
+                <a href="{{ url_for('web_invoices.export_stock_report') }}" class="btn btn-secondary" style="height: 44px; display: inline-flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-file-invoice-dollar"></i>
+                    <span>Reporte Existencias</span>
+                </a>
+                <button class="btn btn-secondary" onclick="openImportModal()" style="height: 44px; display: inline-flex; align-items: center; gap: 8px;">
                     <i class="fa-solid fa-file-import"></i>
                     <span>Importar CSV</span>
                 </button>
-                <a href="{{ url_for('new_item') }}" class="btn btn-primary" style="height: 44px; display: inline-flex; align-items: center;">
+                <a href="{{ url_for('new_item') }}" class="btn btn-primary" style="height: 44px; display: inline-flex; align-items: center; gap: 8px;">
                     <i class="fa-solid fa-plus"></i>
                     <span>Nuevo Artículo</span>
                 </a>
@@ -28,22 +32,39 @@
         
         <!-- Filtros de Búsqueda Avanzada (Minimalista) -->
         <div style="display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; background-color: transparent; align-items: center; border-bottom: 1px solid rgba(0, 0, 0, 0.05); padding-bottom: 12px;">
-            <div style="position: relative; flex-grow: 1; min-width: 220px; max-width: 350px;">
+            <div style="position: relative; flex-grow: 1; min-width: 220px; max-width: 260px;">
                 <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.85rem;"></i>
                 <input type="text" id="search-input" placeholder="Buscar por código, nombre..." style="width: 100%; height: 34px; padding: 0 16px 0 38px; background-color: var(--bg-input); border: 1px solid transparent; border-radius: 20px; color: var(--text-primary); font-size: 0.85rem; transition: background-color var(--transition-fast);" onfocus="this.style.backgroundColor='#ffffff'; this.style.borderColor='var(--border-color)';" onblur="if(!this.value){this.style.backgroundColor='var(--bg-input)'; this.style.borderColor='transparent';}" oninput="applyFilters()">
             </div>
-            <div style="min-width: 140px;">
+            <div style="min-width: 110px;">
                 <select id="type-filter" style="width: 100%; height: 34px; padding: 0 10px; background-color: transparent; border: 1px solid transparent; border-bottom: 1px solid var(--border-color); color: var(--text-secondary); font-size: 0.85rem; cursor: pointer; outline: none;" onchange="applyFilters()">
-                    <option value="all">Todos los Tipos</option>
+                    <option value="all">Tipos</option>
                     <option value="Bien">Bienes</option>
                     <option value="Servicio">Servicios</option>
                 </select>
             </div>
-            <div style="min-width: 160px;">
+            <div style="min-width: 120px;">
                 <select id="stock-filter" style="width: 100%; height: 34px; padding: 0 10px; background-color: transparent; border: 1px solid transparent; border-bottom: 1px solid var(--border-color); color: var(--text-secondary); font-size: 0.85rem; cursor: pointer; outline: none;" onchange="applyFilters()">
-                    <option value="all">Todo el Inventario</option>
+                    <option value="all">Inventario</option>
                     <option value="low-stock">⚠️ Stock Bajo</option>
                     <option value="in-stock">Disponible</option>
+                </select>
+            </div>
+            <div style="min-width: 110px;">
+                <select id="active-filter" style="width: 100%; height: 34px; padding: 0 10px; background-color: transparent; border: 1px solid transparent; border-bottom: 1px solid var(--border-color); color: var(--text-secondary); font-size: 0.85rem; cursor: pointer; outline: none;" onchange="applyFilters()">
+                    <option value="all">Estado</option>
+                    <option value="true">Activos</option>
+                    <option value="false">Inactivos</option>
+                </select>
+            </div>
+            <div style="min-width: 120px;">
+                <select id="brand-filter" style="width: 100%; height: 34px; padding: 0 10px; background-color: transparent; border: 1px solid transparent; border-bottom: 1px solid var(--border-color); color: var(--text-secondary); font-size: 0.85rem; cursor: pointer; outline: none;" onchange="applyFilters()">
+                    <option value="all">Marcas</option>
+                </select>
+            </div>
+            <div style="min-width: 120px;">
+                <select id="supplier-filter" style="width: 100%; height: 34px; padding: 0 10px; background-color: transparent; border: 1px solid transparent; border-bottom: 1px solid var(--border-color); color: var(--text-secondary); font-size: 0.85rem; cursor: pointer; outline: none;" onchange="applyFilters()">
+                    <option value="all">Proveedores</option>
                 </select>
             </div>
         </div>
@@ -73,7 +94,10 @@
                                 data-category="{{ item.categoryId or 'general' }}" 
                                 data-name="{{ item.name or '' }}" 
                                 data-location="{{ item.rackLocation or '' }}" 
-                                data-type="{{ item.type or 'Bien' }}" 
+                                data-type="{{ item.type or 'Bien' }}"
+                                data-brand="{{ item.brand or '' }}"
+                                data-supplier="{{ item.supplierName or '' }}"
+                                data-active="{{ 'true' if item.isActive else 'false' }}"
                                 data-stock-low="{% if item.type == 'Bien' and item.totalStock <= item.minStock and item.minStock > 0 %}true{% else %}false{% endif %}">
                                 <td>
                                     <span style="font-family: monospace; font-size: 0.85rem; background-color: var(--bg-input); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-color); display: block; margin-bottom: 4px; text-align: center;">
@@ -86,7 +110,19 @@
                                     {% endif %}
                                 </td>
                                 <td>
-                                    {{ item.name }}
+                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                        {% if item.imageUrl %}
+                                            <div style="width: 32px; height: 32px; border-radius: 4px; overflow: hidden; border: 1px solid var(--border-color); background: rgba(0,0,0,0.05);">
+                                                <img src="{{ item.imageUrl }}" alt="" style="width: 100%; height: 100%; object-fit: cover;">
+                                            </div>
+                                        {% endif %}
+                                        <div>
+                                            {{ item.name }}
+                                            {% if not item.isActive %}
+                                                <span class="badge badge-danger" style="margin-left: 6px; font-size: 0.72rem; padding: 2px 6px;">Inactivo</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
                                     {% if item.codigoImpuesto %}
                                     <span style="display: block; font-size: 0.72rem; color: var(--accent-purple); font-weight: 700; margin-top: 4px; letter-spacing: 0.02em;">
                                         <i class="fa-solid fa-percent"></i> 
@@ -262,6 +298,9 @@ function applyFilters() {
     const searchVal = document.getElementById('search-input').value.toLowerCase().trim();
     const typeVal = document.getElementById('type-filter').value;
     const stockVal = document.getElementById('stock-filter').value;
+    const activeVal = document.getElementById('active-filter').value;
+    const brandVal = document.getElementById('brand-filter').value.toLowerCase();
+    const supplierVal = document.getElementById('supplier-filter').value.toLowerCase();
     
     const rows = getRowsArray();
     if (rows.length === 0) return;
@@ -287,8 +326,20 @@ function applyFilters() {
         } else if (stockVal === 'in-stock') {
             matchesStock = !isLowStock;
         }
+
+        // 4. Filtrado por estado (Activo/Inactivo)
+        const active = row.getAttribute('data-active');
+        const matchesActive = (activeVal === 'all' || active === activeVal);
+
+        // 5. Filtrado por Marca
+        const brand = (row.getAttribute('data-brand') || '').toLowerCase();
+        const matchesBrand = (brandVal === 'all' || brand === brandVal);
+
+        // 6. Filtrado por Proveedor
+        const supplier = (row.getAttribute('data-supplier') || '').toLowerCase();
+        const matchesSupplier = (supplierVal === 'all' || supplier === supplierVal);
         
-        return matchesSearch && matchesType && matchesStock;
+        return matchesSearch && matchesType && matchesStock && matchesActive && matchesBrand && matchesSupplier;
     });
 
     currentPage = 1;
@@ -431,6 +482,38 @@ document.addEventListener('DOMContentLoaded', function() {
             itemsPerPage = parseInt(this.value);
             currentPage = 1;
             renderTable();
+        });
+    }
+
+    // Autopoblar filtros de marca y proveedor dinámicamente
+    const rows = getRowsArray();
+    const brands = new Set();
+    const suppliers = new Set();
+    
+    rows.forEach(row => {
+        const brand = row.getAttribute('data-brand');
+        const supplier = row.getAttribute('data-supplier');
+        if (brand && brand.trim() !== '') brands.add(brand.trim());
+        if (supplier && supplier.trim() !== '') suppliers.add(supplier.trim());
+    });
+    
+    const brandSelect = document.getElementById('brand-filter');
+    if (brandSelect) {
+        Array.from(brands).sort().forEach(b => {
+            const opt = document.createElement('option');
+            opt.value = b;
+            opt.textContent = b;
+            brandSelect.appendChild(opt);
+        });
+    }
+    
+    const supplierSelect = document.getElementById('supplier-filter');
+    if (supplierSelect) {
+        Array.from(suppliers).sort().forEach(s => {
+            const opt = document.createElement('option');
+            opt.value = s;
+            opt.textContent = s;
+            supplierSelect.appendChild(opt);
         });
     }
 

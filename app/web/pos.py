@@ -299,8 +299,8 @@ def pos_terminal():
     # Obtener catálogo de productos para la venta rápida
     items = DatabaseService.get_items(owner_uid, sandbox=sandbox)
     
-    # Filtrar solo bienes físicos o servicios del catálogo
-    active_items = [it for it in items if it.get('price', 0.0) > 0]
+    # Filtrar solo bienes físicos o servicios del catálogo activos
+    active_items = [it for it in items if it.get('price', 0.0) > 0 and it.get('isActive', True)]
     
     return render_template(
         'pos/terminal.html',

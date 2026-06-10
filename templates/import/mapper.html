@@ -64,6 +64,11 @@
     }
     .selector-wrapper {
         min-width: 240px;
+        flex: 1;
+    }
+    .default-value-wrapper {
+        min-width: 240px;
+        flex: 1;
     }
     .preview-card {
         background: #ffffff;
@@ -116,6 +121,9 @@
                                 <option value="{{ loop.index0 }}">{{ header }}</option>
                             {% endfor %}
                         </select>
+                    </div>
+                    <div class="default-value-wrapper">
+                        <input type="text" name="default_{{ field.id }}" id="default_{{ field.id }}" class="form-control default-input" placeholder="Valor por defecto (si queda vacío)" style="width: 100%;">
                     </div>
                 </div>
                 {% endfor %}
@@ -201,18 +209,23 @@ document.addEventListener('DOMContentLoaded', function() {
         const activeMappings = [];
         targetFields.forEach(field => {
             const select = document.getElementById(`select_${field.id}`);
-            if (select && select.value !== "") {
+            const defaultInput = document.getElementById(`default_${field.id}`);
+            const selectValue = select ? select.value : "";
+            const defaultValue = defaultInput ? defaultInput.value.trim() : "";
+            
+            if (selectValue !== "" || defaultValue !== "") {
                 activeMappings.push({
                     id: field.id,
                     name: field.name,
-                    csvIndex: parseInt(select.value)
+                    csvIndex: selectValue !== "" ? parseInt(selectValue) : null,
+                    defaultValue: defaultValue
                 });
             }
         });
 
         if (activeMappings.length === 0) {
             thead.innerHTML = '<th>Ningún campo seleccionado</th>';
-            tbody.innerHTML = '<tr><td style="text-align: center; color: var(--text-muted); padding: 20px;">Por favor, asocia al menos una columna para ver la vista previa.</td></tr>';
+            tbody.innerHTML = '<tr><td style="text-align: center; color: var(--text-muted); padding: 20px;">Por favor, asocia al menos una columna o define un valor por defecto para ver la vista previa.</td></tr>';
             return;
         }
 
@@ -240,7 +253,14 @@ document.addEventListener('DOMContentLoaded', function() {
             const tr = document.createElement('tr');
             activeMappings.forEach(mapping => {
                 const td = document.createElement('td');
-                td.textContent = row[mapping.csvIndex] || '';
+                let val = "";
+                if (mapping.csvIndex !== null && mapping.csvIndex < row.length) {
+                    val = row[mapping.csvIndex].trim();
+                }
+                if (!val) {
+                    val = mapping.defaultValue;
+                }
+                td.textContent = val;
                 tr.appendChild(td);
             });
             tbody.appendChild(tr);
@@ -250,6 +270,11 @@ document.addEventListener('DOMContentLoaded', function() {
     // Escuchar cambios en los selectores para refrescar la vista previa
     document.querySelectorAll('.column-selector').forEach(select => {
         select.addEventListener('change', updatePreviewTable);
+    });
+    
+    // Escuchar cambios en los inputs de valor por defecto para refrescar la vista previa
+    document.querySelectorAll('.default-input').forEach(input => {
+        input.addEventListener('input', updatePreviewTable);
     });
 
     // Carga inicial

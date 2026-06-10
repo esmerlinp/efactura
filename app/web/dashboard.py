@@ -32,6 +32,13 @@ def dashboard():
     # Procesar automáticamente recurrencias programadas al abrir dashboard
     RecurrenceService.process_pending_recurrences(owner_uid, sandbox=sandbox)
     
+    # Procesar automáticamente recordatorios de cobro de CxC programados al abrir dashboard
+    try:
+        from app.services.notifications import NotificationService
+        NotificationService.process_automatic_reminders(owner_uid, sandbox=sandbox)
+    except Exception as e:
+        print(f"⚠️ Error al procesar recordatorios automáticos en el Dashboard: {e}")
+    
     # Obtener filtros de escala, fecha y KPI
     scale = request.args.get('scale', 'month')
     date_str = request.args.get('date', datetime.utcnow().strftime("%Y-%m-%d"))

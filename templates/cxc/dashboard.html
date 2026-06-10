@@ -134,6 +134,10 @@
                 Cartera de Clientes Pendientes / Vencidos
             </h2>
             <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                <!-- Botón de Configuración de Automatización -->
+                <button onclick="openAutoReminderConfigModal()" class="action-btn" title="Configurar Automatización de Recordatorios" style="color: var(--accent-emerald); border-color: rgba(16, 185, 129, 0.3);">
+                    <i class="fa-solid fa-robot" {% if company.autoRemindersEnabled %}style="color: var(--accent-emerald); animate: pulse 2s infinite;"{% endif %}></i>
+                </button>
                 <!-- Filtro de Búsqueda -->
                 <div style="position: relative; width: 180px;">
                     <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.78rem;"></i>
@@ -732,6 +736,94 @@
             cxcCurrentPage++;
             updateCxcPagination();
         }
+    }
+</script>
+
+<!-- MODAL CONFIGURACIÓN RECORDATORIOS AUTOMÁTICOS -->
+<div id="autoReminderConfigModal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 2000; align-items: center; justify-content: center;">
+    <div onclick="closeAutoReminderConfigModal()" style="position: absolute; width: 100%; height: 100%; background: rgba(0,0,0,0.4); backdrop-filter: blur(4px);"></div>
+    <div class="card-table-wrapper" style="max-width: 480px; width: 90%; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 24px; z-index: 2001; position: relative;">
+        <h3 style="font-size: 1.05rem; font-family: var(--font-heading); margin-bottom: 4px; display: flex; align-items: center; gap: 8px;">
+            <i class="fa-solid fa-robot" style="color: var(--accent-emerald);"></i>
+            <span>Automatización de Recordatorios</span>
+        </h3>
+        <p style="color: var(--text-secondary); font-size: 0.78rem; line-height: 1.4; margin-bottom: 18px;">
+            Configura el envío automático de notificaciones de cobro a clientes cuando sus facturas se venzan.
+        </p>
+        
+        <form id="autoReminderConfigForm" onsubmit="saveAutoReminderConfig(event)">
+            <div style="margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+                <input type="checkbox" id="autoEnabled" name="enabled" {% if company.autoRemindersEnabled %}checked{% endif %} style="width: 16px; height: 16px; cursor: pointer;">
+                <label for="autoEnabled" style="font-size: 0.85rem; color: var(--text-primary); font-weight: 600; cursor: pointer;">Habilitar envíos automáticos</label>
+            </div>
+            
+            <div style="margin-bottom: 14px;">
+                <label style="display: block; font-size: 0.78rem; color: var(--text-secondary); margin-bottom: 6px; font-weight: 600;">Canal de Envío</label>
+                <select id="autoMethod" name="method" class="form-control" style="width: 100%; padding: 8px; background: var(--bg-card); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: var(--radius-sm); outline: none;">
+                    <option value="email" {% if company.autoRemindersMethod == 'email' %}selected{% endif %}>Correo Electrónico (SMTP)</option>
+                    <option value="whatsapp" {% if company.autoRemindersMethod == 'whatsapp' %}selected{% endif %}>WhatsApp (API Simulación)</option>
+                </select>
+            </div>
+            
+            <div style="margin-bottom: 14px;">
+                <label style="display: block; font-size: 0.78rem; color: var(--text-secondary); margin-bottom: 6px; font-weight: 600;">Tono de Redacción (IA)</label>
+                <select id="autoTone" name="tone" class="form-control" style="width: 100%; padding: 8px; background: var(--bg-card); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: var(--radius-sm); outline: none;">
+                    <option value="friendly" {% if company.autoRemindersTone == 'friendly' %}selected{% endif %}>Amigable</option>
+                    <option value="formal" {% if company.autoRemindersTone == 'formal' or not company.autoRemindersTone %}selected{% endif %}>Profesional (Formal)</option>
+                    <option value="urgent" {% if company.autoRemindersTone == 'urgent' %}selected{% endif %}>Urgente</option>
+                </select>
+            </div>
+
+            <div style="margin-bottom: 18px;">
+                <label style="display: block; font-size: 0.78rem; color: var(--text-secondary); margin-bottom: 4px; font-weight: 600;">Días de margen para envío</label>
+                <input type="number" id="autoDays" name="days" value="{{ company.autoRemindersDays or 0 }}" class="form-control" min="-30" max="90" style="width: 100%; padding: 8px; background: var(--bg-card); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: var(--radius-sm); outline: none;">
+                <span style="font-size: 0.72rem; color: var(--text-muted); display: block; margin-top: 4px;">
+                    Usa 0 para el día exacto de vencimiento. Valores positivos (ej. 3) enviarán recordatorios X días después del vencimiento.
+                </span>
+            </div>
+            
+            <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                <button type="button" onclick="closeAutoReminderConfigModal()" class="btn btn-secondary" style="font-size: 0.8rem; padding: 8px 16px;">Cancelar</button>
+                <button type="submit" class="btn btn-primary" style="font-size: 0.8rem; padding: 8px 16px; background: var(--accent-emerald); border-color: var(--accent-emerald);">Guardar Configuración</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    function openAutoReminderConfigModal() {
+        document.getElementById('autoReminderConfigModal').style.display = 'flex';
+    }
+
+    function closeAutoReminderConfigModal() {
+        document.getElementById('autoReminderConfigModal').style.display = 'none';
+    }
+
+    function saveAutoReminderConfig(event) {
+        event.preventDefault();
+        const enabled = document.getElementById('autoEnabled').checked;
+        const method = document.getElementById('autoMethod').value;
+        const tone = document.getElementById('autoTone').value;
+        const days = document.getElementById('autoDays').value;
+
+        fetch('/cxc/settings/reminders', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ enabled, method, tone, days })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                closeAutoReminderConfigModal();
+                window.location.reload();
+            } else {
+                alert('Error al guardar: ' + data.message);
+            }
+        })
+        .catch(err => {
+            alert('Error de red al intentar guardar la configuración.');
+        });
     }
 </script>
 {% endblock %}

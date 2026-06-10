@@ -76,14 +76,21 @@ def new_item():
             "gradosAlcohol": float(request.form.get('gradosAlcohol') or 0.0),
             "cantidadReferencia": float(request.form.get('cantidadReferencia') or 0.0),
             "subcantidad": float(request.form.get('subcantidad') or 0.0),
-            "precioReferencia": float(request.form.get('precioReferencia') or 0.0)
+            "precioReferencia": float(request.form.get('precioReferencia') or 0.0),
+            "isActive": 'isActive' in request.form or request.form.get('isActive') == 'true',
+            "supplierName": request.form.get('supplierName', '').strip(),
+            "wholesalePrice": float(request.form.get('wholesalePrice') or 0.0),
+            "brand": request.form.get('brand', '').strip(),
+            "maxStock": float(request.form.get('maxStock') or 0.0),
+            "imageUrl": request.form.get('imageUrl', '').strip()
         }
         
         DatabaseService.save_item(owner_uid, item_id, item_dict, sandbox=sandbox)
         flash('Artículo añadido al catálogo de ventas.', 'success')
         return redirect(url_for('list_items'))
         
-    return render_template('items/form.html', active_page='items', item=None)
+    categories = DatabaseService.get_categories(owner_uid, sandbox=sandbox)
+    return render_template('items/form.html', active_page='items', item=None, categories=categories)
 
 @web_invoices_bp.route('/items/<item_id>/edit', methods=['GET', 'POST'])
 def edit_item(item_id):
@@ -120,13 +127,20 @@ def edit_item(item_id):
             "gradosAlcohol": float(request.form.get('gradosAlcohol') or 0.0),
             "cantidadReferencia": float(request.form.get('cantidadReferencia') or 0.0),
             "subcantidad": float(request.form.get('subcantidad') or 0.0),
-            "precioReferencia": float(request.form.get('precioReferencia') or 0.0)
+            "precioReferencia": float(request.form.get('precioReferencia') or 0.0),
+            "isActive": 'isActive' in request.form or request.form.get('isActive') == 'true',
+            "supplierName": request.form.get('supplierName', '').strip(),
+            "wholesalePrice": float(request.form.get('wholesalePrice') or 0.0),
+            "brand": request.form.get('brand', '').strip(),
+            "maxStock": float(request.form.get('maxStock') or 0.0),
+            "imageUrl": request.form.get('imageUrl', '').strip()
         }
         DatabaseService.save_item(owner_uid, item_id, item_dict, sandbox=sandbox)
         flash('Artículo del catálogo actualizado.', 'success')
         return redirect(url_for('list_items'))
         
-    return render_template('items/form.html', active_page='items', item=item)
+    categories = DatabaseService.get_categories(owner_uid, sandbox=sandbox)
+    return render_template('items/form.html', active_page='items', item=item, categories=categories)
 
 @web_invoices_bp.route('/items/<item_id>/delete', methods=['POST'])
 def delete_item_route(item_id):
@@ -199,9 +213,9 @@ def download_csv_template():
         return render_template('auth/restricted.html', feature_name="Descargar Plantilla CSV", required_permission="canClients")
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(["codigo", "tipo_bien_o_servicio", "nombre", "precio", "unidad_medida", "tasa_itbis"])
-    writer.writerow(["PROD-001", "Bien", "Laptop Dell Latitude", "45000.00", "Unidad", "0.18"])
-    writer.writerow(["SERV-002", "Servicio", "Asesoría Legal por Hora", "3500.00", "Hora", "0.0"])
+    writer.writerow(["codigo", "tipo_bien_o_servicio", "nombre", "precio", "unidad_medida", "tasa_itbis", "precio_costo", "categoria", "codigo_barra", "codigo_impuesto_selectivo", "tasa_impuesto_selectivo", "proveedor", "precio_mayorista", "marca", "stock_maximo", "imagen_url", "estado"])
+    writer.writerow(["PROD-001", "Bien", "Laptop Dell Latitude", "45000.00", "Unidad", "0.18", "35000.00", "Electrónica", "7460123456789", "", "0.0", "Dell SRL", "42000.00", "Dell", "50", "https://example.com/dell.jpg", "Activo"])
+    writer.writerow(["SERV-002", "Servicio", "Asesoría Legal por Hora", "3500.00", "Hora", "0.0", "1500.00", "Servicios", "", "", "0.0", "", "3500.00", "", "0", "", "Activo"])
     
     dest = io.BytesIO(output.getvalue().encode('utf-8'))
     return send_file(
@@ -210,6 +224,58 @@ def download_csv_template():
         as_attachment=True,
         download_name="plantilla_items_efactura.csv"
     )
+
+@web_invoices_bp.route('/inventory/export-stock')
+def export_stock_report():
+    if 'user' not in session: return redirect(url_for('login'))
+    if not check_permission('canClients'):
+        return render_template('auth/restricted.html', feature_name="Reporte de Existencia", required_permission="canClients")
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+    
+    products = DatabaseService.get_items(owner_uid, sandbox=sandbox)
+    goods = [p for p in products if p.get('type', 'Bien') == 'Bien']
+    
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow([
+        "Codigo SKU", "Nombre / Descripcion", "Categoria", "Marca", 
+        "Proveedor Principal", "Ubicacion Pasillo", "Existencia/Stock", 
+        "Costo Unitario", "Precio Venta", "Valor Total Inventario (Costo)", 
+        "Valor Total Inventario (Venta)", "Estado"
+    ])
+    
+    for p in goods:
+        qty = float(p.get("totalStock", 0.0))
+        cost = float(p.get("costPrice", 0.0))
+        price = float(p.get("price", 0.0))
+        val_cost = qty * cost
+        val_sale = qty * price
+        
+        writer.writerow([
+            p.get("code", "S/C"),
+            p.get("name", ""),
+            p.get("categoryId", "general"),
+            p.get("brand", ""),
+            p.get("supplierName", ""),
+            p.get("rackLocation", ""),
+            f"{qty:.2f}",
+            f"{cost:.2f}",
+            f"{price:.2f}",
+            f"{val_cost:.2f}",
+            f"{val_sale:.2f}",
+            "Activo" if p.get("isActive", True) else "Inactivo"
+        ])
+        
+    timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
+    dest = io.BytesIO(output.getvalue().encode('utf-8'))
+    return send_file(
+        dest,
+        mimetype="text/csv",
+        as_attachment=True,
+        download_name=f"reporte_existencias_{timestamp}.csv"
+    )
+
 
 # =========================================================================
 # GESTIÓN DE INVENTARIO Y ALMACENES
@@ -1031,7 +1097,7 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
 
     # Cargar catálogo de ítems, clientes y almacenes para alimentar form
     clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox)
-    catalog = DatabaseService.get_items(owner_uid, sandbox=sandbox)
+    catalog = [it for it in DatabaseService.get_items(owner_uid, sandbox=sandbox) if it.get('isActive', True)]
     warehouses = DatabaseService.get_warehouses(owner_uid, sandbox=sandbox)
     branches = DatabaseService.get_branches(owner_uid, sandbox=sandbox)
     catalog_json = json.dumps(catalog)
@@ -2980,7 +3046,7 @@ def export_company_data():
     def build_products_csv():
         output = io.StringIO()
         writer = csv.writer(output)
-        writer.writerow(["ID", "Codigo", "Tipo", "Nombre", "Precio", "Unidad", "Tasa ITBIS", "Stock Minimo", "Ubicacion Estanteria", "Stock Total", "Creado En"])
+        writer.writerow(["ID", "Codigo", "Tipo", "Nombre", "Precio", "Unidad", "Tasa ITBIS", "Stock Minimo", "Ubicacion Estanteria", "Stock Total", "Creado En", "Precio Costo", "Categoria", "Codigo de Barra", "Codigo Impuesto Selectivo", "Tasa Impuesto Selectivo", "Proveedor", "Precio Mayorista", "Marca", "Stock Maximo", "Imagen URL", "Estado"])
         products = DatabaseService.get_items(owner_uid, sandbox=sandbox)
         for p in products:
             writer.writerow([
@@ -2994,7 +3060,18 @@ def export_company_data():
                 f"{p.get('minStock', 0.0):.2f}",
                 p.get("rackLocation", ""),
                 f"{p.get('totalStock', 0.0):.2f}",
-                p.get("createdAt", "")
+                p.get("createdAt", ""),
+                f"{p.get('costPrice', 0.0):.2f}",
+                p.get("categoryId", "general"),
+                p.get("barcode", ""),
+                p.get("codigoImpuesto", ""),
+                f"{p.get('tasaImpuestoAdicional', 0.0):.2f}",
+                p.get("supplierName", ""),
+                f"{p.get('wholesalePrice', 0.0):.2f}",
+                p.get("brand", ""),
+                f"{p.get('maxStock', 0.0):.2f}",
+                p.get("imageUrl", ""),
+                "Activo" if p.get("isActive", True) else "Inactivo"
             ])
         return output.getvalue()
 
@@ -3297,6 +3374,13 @@ def cxc_dashboard():
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
     
+    # Procesar automáticamente recordatorios programados al abrir el módulo de CxC
+    try:
+        from app.services.notifications import NotificationService
+        NotificationService.process_automatic_reminders(owner_uid, sandbox=sandbox)
+    except Exception as e:
+        print(f"⚠️ Error al procesar recordatorios automáticos en CxC Dashboard: {e}")
+        
     # 1. Obtener todas las facturas
     invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, quotations_only=False)
     
@@ -3332,6 +3416,7 @@ def cxc_dashboard():
     
     # Obtener listado de clientes para el formulario de promesas/búsquedas si es necesario
     clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox)
+    company = DatabaseService.get_company_profile(owner_uid) or {}
     
     return render_template(
         'cxc/dashboard.html',
@@ -3343,8 +3428,30 @@ def cxc_dashboard():
         total_vencido=total_vencido,
         total_cobrado=total_cobrado_periodo,
         total_prometido=total_prometido,
-        active_promises_count=len(active_promises)
+        active_promises_count=len(active_promises),
+        company=company
     )
+
+@web_invoices_bp.route('/cxc/settings/reminders', methods=['POST'])
+def save_cxc_reminders_settings():
+    if 'user' not in session: return jsonify({"success": False, "message": "No autorizado"}), 401
+    if not check_permission('canManageCXC'):
+        return jsonify({"success": False, "message": "Permiso insuficiente"}), 403
+        
+    owner_uid = session['user']['ownerUID']
+    data = request.get_json(silent=True) or {}
+    
+    existing_profile = DatabaseService.get_company_profile(owner_uid) or {}
+    existing_profile['autoRemindersEnabled'] = data.get('enabled') is True or data.get('enabled') == 'true'
+    try:
+        existing_profile['autoRemindersDays'] = int(data.get('days', 0))
+    except ValueError:
+        existing_profile['autoRemindersDays'] = 0
+    existing_profile['autoRemindersMethod'] = data.get('method', 'email')
+    existing_profile['autoRemindersTone'] = data.get('tone', 'formal')
+    
+    DatabaseService.save_company_profile(owner_uid, existing_profile)
+    return jsonify({"success": True, "message": "Configuración de recordatorios actualizada correctamente."})
 
 @web_invoices_bp.route('/cxc/promises/add', methods=['POST'])
 def add_payment_promise():

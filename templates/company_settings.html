@@ -326,7 +326,12 @@
                         <div class="accordion-body">
                             <div class="form-grid" style="grid-template-columns: 1fr 1fr; gap: 20px; display: grid;">
                                 <div class="form-group" style="margin-bottom: 0;">
-                                    <label for="certificateFile">Certificado Digital (.p12 / .pfx)</label>
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                                        <label for="certificateFile" style="margin: 0;">Certificado Digital (.p12 / .pfx)</label>
+                                        <a href="https://digi.camarasantodomingo.do/Certificados-de-Firma-Digital.html" target="_blank" style="color: var(--accent-emerald); font-size: 0.75rem; text-decoration: none; font-weight: 500; transition: opacity 0.2s;" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">
+                                            ¿Cómo obtener mi certificado digital?
+                                        </a>
+                                    </div>
                                     <input type="file" id="certificateFile" name="certificateFile" class="form-input"
                                         accept=".p12,.pfx">
                                     {% if profile.certificateName %}
@@ -577,7 +582,12 @@
                 <div class="form-grid"
                     style="grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; display: grid;">
                     <div class="form-group">
-                        <label for="certificateFile">Certificado Digital (.p12 / .pfx)</label>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                            <label for="certificateFile" style="margin: 0;">Certificado Digital (.p12 / .pfx)</label>
+                            <a href="https://digi.camarasantodomingo.do/Certificados-de-Firma-Digital.html" target="_blank" style="color: var(--accent-emerald); font-size: 0.75rem; text-decoration: none; font-weight: 500; transition: opacity 0.2s;" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">
+                                ¿Cómo obtener mi certificado digital?
+                            </a>
+                        </div>
                         <input type="file" id="certificateFile" name="certificateFile" class="form-input"
                             accept=".p12,.pfx">
                         {% if profile.certificateName %}

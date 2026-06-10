@@ -83,7 +83,8 @@ def new_client():
             "telefono": request.form.get('telefono', ''),
             "direccion": request.form.get('direccion', ''),
             "crmNotes": request.form.get('crmNotes', ''),
-            "nextContactDate": request.form.get('nextContactDate', '')
+            "nextContactDate": request.form.get('nextContactDate', ''),
+            "disableAutoReminders": request.form.get('disableAutoReminders') == 'on' or request.form.get('disableAutoReminders') == 'true'
         }
         
         DatabaseService.save_client(owner_uid, client_id, client_dict, sandbox=sandbox)
@@ -161,7 +162,8 @@ def edit_client(client_id):
             "direccion": request.form.get('direccion', ''),
             "crmNotes": request.form.get('crmNotes', ''),
             "nextContactDate": request.form.get('nextContactDate', ''),
-            "createdAt": client["createdAt"]
+            "createdAt": client["createdAt"],
+            "disableAutoReminders": request.form.get('disableAutoReminders') == 'on' or request.form.get('disableAutoReminders') == 'true'
         }
         DatabaseService.save_client(owner_uid, client_id, client_dict, sandbox=sandbox)
         flash('Ficha CRM del cliente actualizada exitosamente.', 'success')
@@ -196,6 +198,28 @@ def update_client_pipeline(client_id):
     
     DatabaseService.update_client_pipeline(owner_uid, client_id, new_stage, sandbox=sandbox)
     return jsonify({'success': True})
+
+@web_clients_bp.route('/clients/<client_id>/toggle_reminders', methods=['POST'])
+def toggle_client_reminders(client_id):
+    if 'user' not in session:
+        return jsonify({"success": False, "error": "No autorizado."}), 401
+    if not check_permission('canClients'):
+        return jsonify({"success": False, "error": "Sin permisos."}), 403
+        
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+    
+    data = request.json or {}
+    disable_reminders = data.get('disableAutoReminders') is True
+    
+    clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox)
+    client = next((c for c in clients if c['id'] == client_id), None)
+    if not client:
+        return jsonify({"success": False, "error": "Cliente no encontrado."}), 404
+        
+    client['disableAutoReminders'] = disable_reminders
+    DatabaseService.save_client(owner_uid, client_id, client, sandbox=sandbox)
+    return jsonify({"success": True, "disableAutoReminders": disable_reminders})
 
 @web_clients_bp.route('/clients/<client_id>')
 def client_detail(client_id):

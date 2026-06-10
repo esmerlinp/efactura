@@ -111,7 +111,8 @@ def upload_file():
             {"id": "name", "name": "Nombre o Descripción", "required": True, "suggestions": ["nombre", "name", "producto", "servicio", "descripcion", "item"]},
             {"id": "price", "name": "Precio de Venta", "required": True, "suggestions": ["precio", "price", "venta", "monto"]},
             {"id": "itbisRate", "name": "Tasa de ITBIS (0.18, 0.16, 0.0)", "required": True, "suggestions": ["itbis", "tasa", "impuesto", "tax", "itbisrate"]},
-            {"id": "type", "name": "Tipo (Bien / Servicio)", "required": True, "suggestions": ["tipo", "type", "categoria"]},
+            {"id": "type", "name": "Tipo (Bien / Servicio)", "required": True, "suggestions": ["tipo", "type"]},
+            {"id": "categoryId", "name": "Categoría del Producto", "required": False, "suggestions": ["categoria", "category", "linea", "grupo"]},
             {"id": "code", "name": "Código SKU Local", "required": False, "suggestions": ["codigo", "code", "sku", "referencia"]},
             {"id": "barcode", "name": "Código de Barra", "required": False, "suggestions": ["barcode", "barra", "escaner"]},
             {"id": "unit", "name": "Unidad de Medida", "required": False, "suggestions": ["unidad", "unit", "medida"]},
@@ -119,7 +120,13 @@ def upload_file():
             {"id": "minStock", "name": "Stock Mínimo Alerta", "required": False, "suggestions": ["minimo", "min", "alerta"]},
             {"id": "rackLocation", "name": "Ubicación Pasillo/Góndola", "required": False, "suggestions": ["ubicacion", "location", "pasillo", "rack"]},
             {"id": "codigoImpuesto", "name": "Código ISC DGII (Selectivo)", "required": False, "suggestions": ["isc", "selectivo", "codigoimpuesto", "impuestoadicional"]},
-            {"id": "tasaImpuestoAdicional", "name": "Tasa/Monto ISC", "required": False, "suggestions": ["tasaisc", "montoisc", "tasaadicional"]}
+            {"id": "tasaImpuestoAdicional", "name": "Tasa/Monto ISC", "required": False, "suggestions": ["tasaisc", "montoisc", "tasaadicional"]},
+            {"id": "supplierName", "name": "Proveedor Principal", "required": False, "suggestions": ["proveedor", "supplier", "vendor"]},
+            {"id": "wholesalePrice", "name": "Precio al por Mayor", "required": False, "suggestions": ["mayorista", "wholesale", "precio_mayor"]},
+            {"id": "brand", "name": "Marca", "required": False, "suggestions": ["marca", "brand", "fabricante"]},
+            {"id": "maxStock", "name": "Stock Máximo", "required": False, "suggestions": ["maximo", "max", "stock_max"]},
+            {"id": "imageUrl", "name": "URL de Imagen", "required": False, "suggestions": ["imagen", "image", "foto", "url"]},
+            {"id": "isActive", "name": "Estado (Activo/Inactivo)", "required": False, "suggestions": ["estado", "status", "activo", "active"]}
         ]
     else: # Invoices
         target_fields = [
@@ -189,9 +196,14 @@ def process_import():
                 
                 # Helper local para extraer valores del CSV basados en el mapa
                 def get_val(field_id, default=""):
+                    val = ""
                     if field_id in mapping and len(row) > mapping[field_id]:
-                        return row[mapping[field_id]].strip()
-                    return default
+                        val = row[mapping[field_id]].strip()
+                    
+                    if not val:
+                        user_default = request.form.get(f'default_{field_id}', '').strip()
+                        return user_default if user_default != '' else default
+                    return val
                 
                 if import_type == 'clients':
                     rnc = get_val('rnc')
@@ -220,6 +232,15 @@ def process_import():
                     if not name:
                         continue
                         
+                    cat_name = get_val('categoryId')
+                    if cat_name:
+                        category_id = DatabaseService.get_or_create_category_by_name(owner_uid, cat_name, sandbox=sandbox)
+                    else:
+                        category_id = "general"
+
+                    active_str = get_val('isActive', 'true').strip().lower()
+                    is_active = active_str not in ['inactivo', 'false', '0', 'no', 'disabled']
+
                     item_id = str(uuid.uuid4())
                     item_dict = {
                         "code": get_val('code') or f"PROD-{uuid.uuid4().hex[:6].upper()}",
@@ -232,10 +253,17 @@ def process_import():
                         "costPrice": sanitize_float(get_val('costPrice')),
                         "minStock": sanitize_float(get_val('minStock')),
                         "rackLocation": get_val('rackLocation'),
+                        "categoryId": category_id,
                         "codigoImpuesto": get_val('codigoImpuesto'),
                         "tasaImpuestoAdicional": sanitize_float(get_val('tasaImpuestoAdicional')),
                         "totalStock": 0.0,
-                        "createdAt": datetime.utcnow().isoformat()
+                        "createdAt": datetime.utcnow().isoformat(),
+                        "isActive": is_active,
+                        "supplierName": get_val('supplierName'),
+                        "wholesalePrice": sanitize_float(get_val('wholesalePrice')),
+                        "brand": get_val('brand'),
+                        "maxStock": sanitize_float(get_val('maxStock')),
+                        "imageUrl": get_val('imageUrl')
                     }
                     DatabaseService.save_item(owner_uid, item_id, item_dict, sandbox=sandbox)
                     count += 1

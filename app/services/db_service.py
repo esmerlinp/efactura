@@ -758,7 +758,13 @@ class DatabaseService:
                         "gradosAlcohol": float(data.get("gradosAlcohol", 0.0)),
                         "cantidadReferencia": float(data.get("cantidadReferencia", 0.0)),
                         "subcantidad": float(data.get("subcantidad", 1.0)),
-                        "precioReferencia": float(data.get("precioReferencia", 0.0))
+                        "precioReferencia": float(data.get("precioReferencia", 0.0)),
+                        "isActive": bool(data.get("isActive", True)),
+                        "supplierName": data.get("supplierName", ""),
+                        "wholesalePrice": float(data.get("wholesalePrice", 0.0)),
+                        "brand": data.get("brand", ""),
+                        "maxStock": float(data.get("maxStock", 0.0)),
+                        "imageUrl": data.get("imageUrl", "")
                     })
                 items.sort(key=lambda x: x["name"].lower())
             except Exception as e:
@@ -782,6 +788,12 @@ class DatabaseService:
         item_dict["rackLocation"] = item_dict.get("rackLocation", "")
         item_dict["totalStock"] = float(item_dict.get("totalStock", 0.0))
         item_dict["createdAt"] = serialize_field(item_dict["createdAt"])
+        item_dict["isActive"] = bool(item_dict.get("isActive", True))
+        item_dict["supplierName"] = item_dict.get("supplierName", "")
+        item_dict["wholesalePrice"] = float(item_dict.get("wholesalePrice", 0.0))
+        item_dict["brand"] = item_dict.get("brand", "")
+        item_dict["maxStock"] = float(item_dict.get("maxStock", 0.0))
+        item_dict["imageUrl"] = item_dict.get("imageUrl", "")
 
         if firebase_initialized:
             try:
@@ -801,6 +813,97 @@ class DatabaseService:
                 db_firestore.collection("users").document(owner_uid).collection(coll_name).document(item_id).delete()
             except Exception as e:
                 print(f"⚠️ Fallo al borrar producto de Firestore: {e}")
+
+    # =========================================================================
+    # GESTIÓN DE CATEGORÍAS (CATEGORIES)
+    # =========================================================================
+    @classmethod
+    def get_categories(cls, owner_uid, sandbox=True):
+        """Retorna la lista de categorías del catálogo."""
+        categories = []
+        if firebase_initialized:
+            try:
+                coll_name = "sandbox_categories" if sandbox else "categories"
+                docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).get()
+                for doc in docs:
+                    data = doc.to_dict()
+                    categories.append({
+                        "id": doc.id,
+                        "name": data.get("name", ""),
+                        "createdAt": serialize_field(data.get("createdAt"))
+                    })
+                
+                # Sembrar categorías por defecto si está vacío
+                if not categories:
+                    defaults = [
+                        {"id": "general", "name": "General"},
+                        {"id": "alimentos", "name": "Alimentos y Bebidas"},
+                        {"id": "electronica", "name": "Electrónica"},
+                        {"id": "servicios", "name": "Servicios"},
+                        {"id": "ferreteria", "name": "Ferretería"},
+                        {"id": "otros", "name": "Otros"}
+                    ]
+                    for cat in defaults:
+                        cat["createdAt"] = datetime.utcnow().isoformat()
+                        cls.save_category(owner_uid, cat["id"], cat, sandbox=sandbox)
+                        categories.append(cat)
+                
+                categories.sort(key=lambda x: x["name"].lower())
+            except Exception as e:
+                print(f"⚠️ Error al obtener categorías desde Firestore: {e}")
+        return categories
+
+    @classmethod
+    def save_category(cls, owner_uid, category_id, category_dict, sandbox=True):
+        """Guarda o actualiza una categoría en Firestore."""
+        category_dict["id"] = category_id
+        category_dict["ownerUID"] = owner_uid
+        if "createdAt" not in category_dict or not category_dict["createdAt"]:
+            category_dict["createdAt"] = datetime.utcnow().isoformat()
+        category_dict["createdAt"] = serialize_field(category_dict["createdAt"])
+
+        if firebase_initialized:
+            try:
+                coll_name = "sandbox_categories" if sandbox else "categories"
+                db_firestore.collection("users").document(owner_uid).collection(coll_name).document(category_id).set(category_dict)
+            except Exception as e:
+                print(f"⚠️ Fallo al guardar categoría en Firestore: {e}")
+        return category_dict
+
+    @classmethod
+    def get_or_create_category_by_name(cls, owner_uid, name, sandbox=True):
+        """Busca una categoría por nombre (insensible a mayúsculas/minúsculas). Si no existe, la crea."""
+        name_clean = name.strip()
+        if not name_clean:
+            return "general"
+            
+        categories = cls.get_categories(owner_uid, sandbox=sandbox)
+        
+        # Buscar coincidencia exacta insensible a mayúsculas
+        for cat in categories:
+            if cat["name"].lower() == name_clean.lower():
+                return cat["id"]
+                
+        # Si no existe, crearla
+        import unicodedata
+        import re
+        slug = unicodedata.normalize('NFKD', name_clean).encode('ascii', 'ignore').decode('ascii')
+        slug = re.sub(r'[^\w\s-]', '', slug).strip().lower()
+        slug = re.sub(r'[-\s]+', '-', slug)
+        if not slug:
+            slug = str(uuid.uuid4())[:8]
+            
+        existing_ids = {cat["id"] for cat in categories}
+        if slug in existing_ids:
+            slug = f"{slug}-{uuid.uuid4().hex[:4]}"
+            
+        new_cat = {
+            "id": slug,
+            "name": name_clean,
+            "createdAt": datetime.utcnow().isoformat()
+        }
+        cls.save_category(owner_uid, slug, new_cat, sandbox=sandbox)
+        return slug
 
     # =========================================================================
     # GESTIÓN DE SECUENCIAS FISCALES

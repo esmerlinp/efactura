@@ -73,7 +73,13 @@
                 {% endif %}
             </div>
             
-            <div style="margin-top: 24px; border-top: 1px solid var(--border-color); padding-top: 20px;">
+            <!-- Pausar recordatorios automáticos de cobro -->
+            <div style="margin-top: 16px; display: flex; align-items: center; gap: 8px; padding: 10px; background: rgba(0,0,0,0.02); border: 1px solid var(--border-color); border-radius: var(--radius-sm); margin-bottom: 12px;">
+                <input type="checkbox" id="disableAutoReminders" {% if client.disableAutoReminders %}checked{% endif %} onchange="toggleAutoReminders('{{ client.id }}')" style="width: 16px; height: 16px; cursor: pointer;">
+                <label for="disableAutoReminders" style="font-size: 0.8rem; color: var(--text-primary); font-weight: 600; cursor: pointer; margin: 0;">Pausar recordatorios de cobro</label>
+            </div>
+            
+            <div style="margin-top: 12px; border-top: 1px solid var(--border-color); padding-top: 16px;">
                 <a href="{{ url_for('edit_client', client_id=client.id) }}" class="btn btn-secondary" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;">
                     <i class="fa-solid fa-user-pen"></i>
                     <span>Editar Ficha CRM</span>
@@ -511,5 +517,27 @@
 
     // Inicializar estado del campo
     toggleNextContactField(document.getElementById('type').value);
+
+    function toggleAutoReminders(clientId) {
+        const disableAutoReminders = document.getElementById('disableAutoReminders').checked;
+        fetch(`/clients/${clientId}/toggle_reminders`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ disableAutoReminders })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                console.log("Preferencia de recordatorios actualizada.");
+            } else {
+                alert("Error al actualizar la preferencia: " + data.error);
+                document.getElementById('disableAutoReminders').checked = !disableAutoReminders;
+            }
+        })
+        .catch(err => {
+            alert("Error de red al actualizar la preferencia.");
+            document.getElementById('disableAutoReminders').checked = !disableAutoReminders;
+        });
+    }
 </script>
 {% endblock %}
