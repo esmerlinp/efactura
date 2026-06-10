@@ -1152,29 +1152,84 @@ body.sandbox-mode .segment-header-icon.emerald {
    BARRA LATERAL COLAPSABLE Y ELEMENTOS ASOCIADOS
    ========================================================================= */
 
+.sidebar-plan-block {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    border-top: 1px solid var(--border-color);
+    gap: 8px;
+}
+
+.sidebar-plan-info {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-width: 0;
+}
+
+.sidebar-plan-name {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.2;
+}
+
+.sidebar-plan-type {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.3;
+}
+
+.sidebar-plan-modify {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--accent-emerald);
+    text-decoration: none;
+    white-space: nowrap;
+    flex-shrink: 0;
+    transition: color var(--transition-fast);
+    padding: 2px 0;
+}
+
+.sidebar-plan-modify:hover {
+    color: var(--text-primary);
+    text-decoration: underline;
+}
+
+.sidebar-toggle-wrapper {
+    display: flex;
+    justify-content: flex-end;
+    padding: 6px 10px 4px;
+}
+
 .sidebar-toggle {
-    background: none;
-    border: none;
-    color: var(--text-secondary);
+    background: none !important;
+    border: none !important;
+    box-shadow: none !important;
+    color: var(--text-muted);
     cursor: pointer;
-    font-size: 0.8rem;
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
+    font-size: 0.78rem;
+    width: 22px;
+    height: 22px;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all var(--transition-fast);
-    border: 1px solid var(--border-color);
-    background-color: var(--bg-input);
+    transition: color var(--transition-fast), transform var(--transition-fast);
     padding: 0;
-    margin-left: auto;
+    margin: 0;
+    outline: none;
 }
 
 .sidebar-toggle:hover {
     color: var(--text-primary);
-    border-color: var(--accent-emerald);
-    box-shadow: var(--shadow-glow);
 }
 
 /* Estado Colapsado (Estilo Firebase) */
@@ -1259,6 +1314,15 @@ body.sandbox-mode .segment-header-icon.emerald {
     padding-top: 16px;
     align-items: center;
     border-top: 1px solid var(--border-color);
+}
+
+.app-container.sidebar-collapsed .sidebar-plan-block {
+    display: none !important;
+}
+
+.app-container.sidebar-collapsed .sidebar-toggle-wrapper {
+    justify-content: center;
+    padding: 6px 0 4px;
 }
 
 .app-container.sidebar-collapsed .sidebar-footer .nav-item {

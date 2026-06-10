@@ -118,6 +118,30 @@ def create_app():
             return user.get('permissions', {}).get(permission_name, True)
         return dict(check_permission=check_permission)
 
+    @app.context_processor
+    def inject_plan_info():
+        """Inyecta el nombre y tipo de facturación del plan activo en todos los templates."""
+        from flask import has_request_context
+        plan_name_global = ''
+        plan_billing_type = ''
+        if has_request_context() and 'user' in session:
+            owner_uid = session['user'].get('ownerUID')
+            if owner_uid:
+                try:
+                    company = DatabaseService.get_company_profile(owner_uid)
+                    plan_id = company.get('planId')
+                    plan_billing_type = company.get('billingType', 'Pago por uso')
+                    if plan_id:
+                        from app.services.db_service import db_firestore
+                        plan_doc = db_firestore.collection('plans').document(plan_id).get()
+                        if plan_doc.exists:
+                            plan_name_global = plan_doc.to_dict().get('name', '')
+                    if not plan_name_global:
+                        plan_name_global = company.get('planName', 'Plan Activo')
+                except Exception:
+                    plan_name_global = 'Plan Activo'
+        return dict(global_plan_name=plan_name_global, global_plan_billing_type=plan_billing_type)
+
     # =========================================================================
     # INTERCEPTOR DE URL_FOR RETROCOMPATIBLE
     # =========================================================================
