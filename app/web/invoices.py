@@ -1290,9 +1290,9 @@ def send_receipt_email(invoice_id):
     .info-grid {{ display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }}
     .info-item {{ background: #f8fafc; border-radius: 8px; padding: 14px 16px; }}
     .info-item .label {{ font-size: 0.72rem; color: #64748b; margin-bottom: 3px; }}
-    .info-item .value {{ font-size: 0.92rem; font-weight: 600; color: #0f172a; }}
+    .info-item .value {{ font-size: 0.92rem; font-weight: 500; color: #0f172a; }}
     .amount-box {{ background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border: 2px solid #16a34a; border-radius: 10px; padding: 20px 24px; text-align: center; margin: 24px 0; }}
-    .amount-box .label {{ font-size: 0.78rem; color: #166534; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }}
+    .amount-box .label {{ font-size: 0.78rem; color: #166534; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }}
     .amount-box .amount {{ font-size: 2.1rem; font-weight: 800; color: #15803d; }}
     .footer-note {{ font-size: 0.78rem; color: #94a3b8; text-align: center; border-top: 1px solid #e2e8f0; padding-top: 20px; margin-top: 24px; line-height: 1.6; }}
   </style>
@@ -1515,11 +1515,11 @@ def send_invoice_email(owner_uid, invoice, recipient_email, sandbox=True, base_u
                 .greeting {{ font-size: 18px; margin-bottom: 20px; color: #2d3748; }}
                 .message {{ margin-bottom: 30px; font-size: 15px; color: #4a5568; }}
                 .summary-box {{ background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 20px; margin-bottom: 30px; }}
-                .summary-title {{ font-size: 16px; font-weight: 600; color: #2d3748; margin-bottom: 15px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; }}
+                .summary-title {{ font-size: 16px; font-weight: 500; color: #2d3748; margin-bottom: 15px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; }}
                 .summary-table {{ width: 100%; border-collapse: collapse; }}
                 .summary-table td {{ padding: 10px 0; border-bottom: 1px solid #edf2f7; font-size: 14px; }}
                 .summary-table td:first-child {{ color: #718096; font-weight: 500; width: 45%; }}
-                .summary-table td:last-child {{ color: #2d3748; font-weight: 600; text-align: right; }}
+                .summary-table td:last-child {{ color: #2d3748; font-weight: 500; text-align: right; }}
                 .summary-table tr:last-child td {{ border-bottom: none; }}
                 .footer {{ background-color: #edf2f7; padding: 20px; text-align: center; font-size: 13px; color: #718096; border-top: 1px solid #e2e8f0; }}
                 .verify-link {{ color: #3182ce; text-decoration: none; font-weight: 500; }}

@@ -42,12 +42,14 @@
         border-radius: var(--radius-md);
         padding: 30px 20px;
         text-align: center;
-        background: rgba(0,0,0,0.01);
+        background: rgba(0, 0, 0, 0.01);
         cursor: pointer;
         transition: all 0.25s ease;
         position: relative;
     }
-    .uploader-zone:hover, .uploader-zone.dragover {
+
+    .uploader-zone:hover,
+    .uploader-zone.dragover {
         border-color: var(--accent-emerald);
         background: rgba(16, 185, 129, 0.03);
     }
@@ -57,18 +59,27 @@
         border-color: var(--accent-emerald) !important;
         box-shadow: 0 0 8px rgba(16, 185, 129, 0.2) !important;
     }
+
     @keyframes highlightPulse {
-        0%, 100% { background-color: transparent; }
-        50% { background-color: rgba(16, 185, 129, 0.05); }
+
+        0%,
+        100% {
+            background-color: transparent;
+        }
+
+        50% {
+            background-color: rgba(16, 185, 129, 0.05);
+        }
     }
 
-    .recurrence-box, .credit-box {
+    .recurrence-box,
+    .credit-box {
         display: none;
         flex-direction: column;
         gap: 12px;
         margin-top: 14px;
         padding: 16px;
-        background: rgba(0,0,0,0.02);
+        background: rgba(0, 0, 0, 0.02);
         border: 1px solid var(--border-color);
         border-radius: var(--radius-sm);
     }
@@ -83,8 +94,9 @@
         border: 1px solid var(--border-color);
         padding: 12px;
         border-radius: var(--radius-sm);
-        background: rgba(0,0,0,0.02);
+        background: rgba(0, 0, 0, 0.02);
     }
+
     #camera-preview {
         width: 100%;
         max-width: 320px;
@@ -93,104 +105,141 @@
     }
 </style>
 
-<form action="{{ url_for('edit_expense_route', expense_id=expense.id) }}" method="POST" enctype="multipart/form-data" style="width: 100%;" id="expense-form">
+<form action="{{ url_for('edit_expense_route', expense_id=expense.id) }}" method="POST" enctype="multipart/form-data"
+    style="width: 100%;" id="expense-form">
     <div class="expense-layout-grid">
         <!-- Columna Izquierda: Datos del Egreso -->
         <div style="display:flex; flex-direction:column; gap:24px;">
             <div class="card-table-wrapper" style="margin-bottom: 0;">
-                <h3 style="font-size: 1.15rem; font-family: var(--font-heading); margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px; display: flex; align-items: center; gap: 10px;">
+                <h3
+                    style="font-size: 1.15rem; font-family: var(--font-heading); margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px; display: flex; align-items: center; gap: 10px;">
                     <i class="fa-solid fa-file-pen" style="color: var(--accent-blue);"></i>
                     <span>Modificar Datos de Comprobante / e-CF</span>
                 </h3>
-                
+
                 <div class="form-inner-grid">
                     <div class="form-group span-full">
                         <label for="concept">Concepto / Detalle del Gasto</label>
-                        <input type="text" id="concept" name="concept" class="form-input" value="{{ expense.concept }}" required style="width: 100%;">
+                        <input type="text" id="concept" name="concept" class="form-input" value="{{ expense.concept }}"
+                            required style="width: 100%;">
                     </div>
-                    
+
                     <div class="form-group">
                         <label for="category">Categoría del Gasto</label>
                         <select id="category" name="category" class="form-select" required style="width: 100%;">
-                            <option value="Comida y Restaurantes" {% if expense.category == 'Comida y Restaurantes' %}selected{% endif %}>Comida y Restaurantes</option>
-                            <option value="Transporte y Combustible" {% if expense.category == 'Transporte y Combustible' %}selected{% endif %}>Transporte y Combustible</option>
-                            <option value="Servicios Básicos" {% if expense.category == 'Servicios Básicos' %}selected{% endif %}>Servicios Básicos (Luz, Internet)</option>
-                            <option value="Software y Tecnología" {% if expense.category == 'Software y Tecnología' %}selected{% endif %}>Software y Tecnología</option>
-                            <option value="Materiales de Oficina" {% if expense.category == 'Materiales de Oficina' %}selected{% endif %}>Materiales de Oficina</option>
-                            <option value="Alquileres" {% if expense.category == 'Alquileres' %}selected{% endif %}>Alquileres</option>
-                            <option value="Impuestos y Tasas" {% if expense.category == 'Impuestos y Tasas' %}selected{% endif %}>Impuestos y Tasas</option>
-                            <option value="Otros Gastos" {% if expense.category == 'Otros Gastos' %}selected{% endif %}>Otros Gastos</option>
+                            <option value="Comida y Restaurantes" {% if expense.category=='Comida y Restaurantes'
+                                %}selected{% endif %}>Comida y Restaurantes</option>
+                            <option value="Transporte y Combustible" {% if expense.category=='Transporte y Combustible'
+                                %}selected{% endif %}>Transporte y Combustible</option>
+                            <option value="Servicios Básicos" {% if expense.category=='Servicios Básicos' %}selected{%
+                                endif %}>Servicios Básicos (Luz, Internet)</option>
+                            <option value="Software y Tecnología" {% if expense.category=='Software y Tecnología'
+                                %}selected{% endif %}>Software y Tecnología</option>
+                            <option value="Materiales de Oficina" {% if expense.category=='Materiales de Oficina'
+                                %}selected{% endif %}>Materiales de Oficina</option>
+                            <option value="Alquileres" {% if expense.category=='Alquileres' %}selected{% endif %}>
+                                Alquileres</option>
+                            <option value="Impuestos y Tasas" {% if expense.category=='Impuestos y Tasas' %}selected{%
+                                endif %}>Impuestos y Tasas</option>
+                            <option value="Otros Gastos" {% if expense.category=='Otros Gastos' %}selected{% endif %}>
+                                Otros Gastos</option>
                         </select>
                     </div>
 
                     <div class="form-group">
                         <label for="tipoGastoDGII">Tipo de Gasto Deducible (DGII 606)</label>
-                        <select id="tipoGastoDGII" name="tipoGastoDGII" class="form-select" required style="width: 100%;">
-                            <option value="01" {% if expense.tipoGastoDGII == '01' %}selected{% endif %}>01 - Gastos de Personal</option>
-                            <option value="02" {% if expense.tipoGastoDGII == '02' or not expense.tipoGastoDGII %}selected{% endif %}>02 - Gastos por Trabajos, Suministros y Servicios</option>
-                            <option value="03" {% if expense.tipoGastoDGII == '03' %}selected{% endif %}>03 - Arrendamientos</option>
-                            <option value="04" {% if expense.tipoGastoDGII == '04' %}selected{% endif %}>04 - Gastos de Activos Fijos</option>
-                            <option value="05" {% if expense.tipoGastoDGII == '05' %}selected{% endif %}>05 - Gastos de Representación</option>
-                            <option value="06" {% if expense.tipoGastoDGII == '06' %}selected{% endif %}>06 - Otras Deducciones Admitidas</option>
-                            <option value="07" {% if expense.tipoGastoDGII == '07' %}selected{% endif %}>07 - Gastos Financieros</option>
+                        <select id="tipoGastoDGII" name="tipoGastoDGII" class="form-select" required
+                            style="width: 100%;">
+                            <option value="01" {% if expense.tipoGastoDGII=='01' %}selected{% endif %}>01 - Gastos de
+                                Personal</option>
+                            <option value="02" {% if expense.tipoGastoDGII=='02' or not expense.tipoGastoDGII
+                                %}selected{% endif %}>02 - Gastos por Trabajos, Suministros y Servicios</option>
+                            <option value="03" {% if expense.tipoGastoDGII=='03' %}selected{% endif %}>03 -
+                                Arrendamientos</option>
+                            <option value="04" {% if expense.tipoGastoDGII=='04' %}selected{% endif %}>04 - Gastos de
+                                Activos Fijos</option>
+                            <option value="05" {% if expense.tipoGastoDGII=='05' %}selected{% endif %}>05 - Gastos de
+                                Representación</option>
+                            <option value="06" {% if expense.tipoGastoDGII=='06' %}selected{% endif %}>06 - Otras
+                                Deducciones Admitidas</option>
+                            <option value="07" {% if expense.tipoGastoDGII=='07' %}selected{% endif %}>07 - Gastos
+                                Financieros</option>
                         </select>
                     </div>
 
                     <div class="form-group">
                         <label for="ecfType">Tipo de Comprobante e-CF</label>
                         <select id="ecfType" name="ecfType" class="form-select" style="width: 100%;">
-                            <option value="E31" {% if expense.ecfType == 'E31' %}selected{% endif %}>E31 - Factura de Crédito Fiscal Electrónica</option>
-                            <option value="E32" {% if expense.ecfType == 'E32' %}selected{% endif %}>E32 - Factura de Consumo Electrónica</option>
-                            <option value="E41" {% if expense.ecfType == 'E41' %}selected{% endif %}>E41 - Nota de Débito Electrónica</option>
-                            <option value="E43" {% if expense.ecfType == 'E43' %}selected{% endif %}>E43 - Gastos Menores Electrónicos</option>
-                            <option value="E45" {% if expense.ecfType == 'E45' %}selected{% endif %}>E45 - Comprobante Gubernamental Electrónico</option>
+                            <option value="E31" {% if expense.ecfType=='E31' %}selected{% endif %}>E31 - Factura de
+                                Crédito Fiscal Electrónica</option>
+                            <option value="E32" {% if expense.ecfType=='E32' %}selected{% endif %}>E32 - Factura de
+                                Consumo Electrónica</option>
+                            <option value="E41" {% if expense.ecfType=='E41' %}selected{% endif %}>E41 - Nota de Débito
+                                Electrónica</option>
+                            <option value="E43" {% if expense.ecfType=='E43' %}selected{% endif %}>E43 - Gastos Menores
+                                Electrónicos</option>
+                            <option value="E45" {% if expense.ecfType=='E45' %}selected{% endif %}>E45 - Comprobante
+                                Gubernamental Electrónico</option>
                         </select>
                     </div>
-                    
+
                     <div class="form-group">
                         <label for="ncf">NCF Electrónico (e-CF)</label>
-                        <input type="text" id="ncf" name="ncf" class="form-input" value="{{ expense.ncf }}" required style="width: 100%; font-family: monospace;">
+                        <input type="text" id="ncf" name="ncf" class="form-input" value="{{ expense.ncf }}" required
+                            style="width: 100%; font-family: monospace;">
                     </div>
-                    
+
                     <div class="form-group">
                         <label for="rnc-emisor">RNC del Proveedor</label>
-                        <input type="text" id="rnc-emisor" name="rncEmisor" class="form-input" value="{{ expense.rncEmisor }}" required style="width: 100%; font-family: monospace;">
+                        <input type="text" id="rnc-emisor" name="rncEmisor" class="form-input"
+                            value="{{ expense.rncEmisor }}" required style="width: 100%; font-family: monospace;">
                     </div>
 
                     <div class="form-group">
                         <label for="cne">Código de Seguridad (CNE)</label>
-                        <input type="text" id="cne" name="cne" class="form-input" value="{{ expense.cne }}" style="width: 100%; font-family: monospace;">
+                        <input type="text" id="cne" name="cne" class="form-input" value="{{ expense.cne }}"
+                            style="width: 100%; font-family: monospace;">
                     </div>
-                    
+
                     <div class="form-group">
                         <label for="amount">Monto Total Facturado (RD$)</label>
-                        <input type="number" id="amount" name="amount" class="form-input" value="{{ expense.amount }}" step="0.01" required style="width: 100%; font-weight: bold;">
+                        <input type="number" id="amount" name="amount" class="form-input" value="{{ expense.amount }}"
+                            step="0.01" required style="width: 100%; font-weight: bold;">
                     </div>
-                    
+
                     <div class="form-group">
                         <label for="itbisAmount">ITBIS Adelantado / Deducible (RD$)</label>
-                        <input type="number" id="itbisAmount" name="itbisAmount" class="form-input" value="{{ expense.itbisAmount }}" step="0.01" style="width: 100%;">
+                        <input type="number" id="itbisAmount" name="itbisAmount" class="form-input"
+                            value="{{ expense.itbisAmount }}" step="0.01" style="width: 100%;">
                     </div>
-                    
+
                     <div class="form-group">
                         <label for="date">Fecha del Comprobante</label>
-                        <input type="date" id="date" name="date" class="form-input" required value="{{ expense.date[:10] }}" style="width: 100%;">
+                        <input type="date" id="date" name="date" class="form-input" required
+                            value="{{ expense.date[:10] }}" style="width: 100%;">
                     </div>
-                    
+
                     <div class="form-group">
                         <label for="associated-invoice">Imputar a Proyecto / Factura de Ingreso</label>
-                        <select id="associated-invoice" name="associatedInvoiceId" class="form-select" style="width: 100%;">
+                        <select id="associated-invoice" name="associatedInvoiceId" class="form-select"
+                            style="width: 100%;">
                             <option value="">-- Gasto General Operativo --</option>
                             {% for inv in invoices %}
-                                <option value="{{ inv.id }}" {% if expense.associatedInvoiceId == inv.id %}selected{% endif %}>Factura {{ inv.invoiceNumber }} (RD$ {{ "{:,.0f}".format(inv.total) }} - {{ inv.clientName }})</option>
+                            <option value="{{ inv.id }}" {% if expense.associatedInvoiceId==inv.id %}selected{% endif
+                                %}>Factura {{ inv.invoiceNumber }} (RD$ {{ "{:,.0f}".format(inv.total) }} - {{
+                                inv.clientName }})</option>
                             {% endfor %}
                         </select>
                     </div>
 
-                    <div class="form-group span-full" style="margin-top: 10px; border-top: 1px dashed var(--border-color); padding-top: 16px;">
-                        <label class="switch-container" style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
-                            <input type="checkbox" id="is-deductible-checkbox" name="isDeductible" value="true" {% if expense.isDeductible %}checked{% endif %} style="width: 18px; height: 18px; accent-color: var(--accent-red);">
-                            <span style="font-weight: 600;">¿Este gasto es para tu negocio (gasto deducible)?</span>
+                    <div class="form-group span-full"
+                        style="margin-top: 10px; border-top: 1px dashed var(--border-color); padding-top: 16px;">
+                        <label class="switch-container"
+                            style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                            <input type="checkbox" id="is-deductible-checkbox" name="isDeductible" value="true" {% if
+                                expense.isDeductible %}checked{% endif %}
+                                style="width: 18px; height: 18px; accent-color: var(--accent-red);">
+                            <span style="font-weight: 500;">¿Este gasto es para tu negocio (gasto deducible)?</span>
                         </label>
                     </div>
                 </div>
@@ -201,92 +250,122 @@
         <div style="display:flex; flex-direction:column; gap:24px;">
             <!-- CARD DE SOPORTE DIGITAL -->
             <div class="card-table-wrapper" style="margin-bottom: 0;">
-                <h3 style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 16px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; display: flex; align-items: center; gap: 10px;">
+                <h3
+                    style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 16px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; display: flex; align-items: center; gap: 10px;">
                     <i class="fa-solid fa-paperclip" style="color: var(--accent-emerald);"></i>
                     <span>Soporte Digital</span>
                 </h3>
-                
+
                 {% if expense.firebaseAttachmentURLs and expense.firebaseAttachmentURLs|length > 0 %}
-                <div style="margin-bottom:12px; padding:8px 12px; background:rgba(0,0,0,0.02); border:1px solid var(--border-color); border-radius:4px; display:flex; align-items:center; justify-content:space-between;">
-                    <span style="font-size:0.78rem; font-weight:600;"><i class="fa-solid fa-file-pdf" style="margin-right:6px; color:var(--accent-red);"></i> Archivo Cargado</span>
-                    <a href="{{ expense.firebaseAttachmentURLs[0] }}" target="_blank" class="btn btn-secondary btn-sm" style="padding:4px 8px; font-size:0.7rem;">Ver archivo</a>
+                <div
+                    style="margin-bottom:12px; padding:8px 12px; background:rgba(0,0,0,0.02); border:1px solid var(--border-color); border-radius:4px; display:flex; align-items:center; justify-content:space-between;">
+                    <span style="font-size:0.78rem; font-weight:600;"><i class="fa-solid fa-file-pdf"
+                            style="margin-right:6px; color:var(--accent-red);"></i> Archivo Cargado</span>
+                    <a href="{{ expense.firebaseAttachmentURLs[0] }}" target="_blank" class="btn btn-secondary btn-sm"
+                        style="padding:4px 8px; font-size:0.7rem;">Ver archivo</a>
                 </div>
                 {% endif %}
 
                 <div class="uploader-zone" id="drop-zone" onclick="document.getElementById('ocr-file').click()">
-                    <i class="fa-solid fa-cloud-arrow-up" style="font-size: 2rem; color: var(--text-muted); margin-bottom: 8px;"></i>
-                    <p style="font-size: 0.78rem; font-weight:600; margin: 0 0 4px 0; color: var(--text-primary);">Sube otro XML o Foto para Reemplazar</p>
+                    <i class="fa-solid fa-cloud-arrow-up"
+                        style="font-size: 2rem; color: var(--text-muted); margin-bottom: 8px;"></i>
+                    <p style="font-size: 0.78rem; font-weight:600; margin: 0 0 4px 0; color: var(--text-primary);">Sube
+                        otro XML o Foto para Reemplazar</p>
                     <span style="font-size: 0.68rem; color: var(--text-muted);">Arrastra o haz clic aquí</span>
-                    <input type="file" id="ocr-file" accept=".xml,image/*" style="display:none" onchange="uploadForOCR(this.files[0])">
+                    <input type="file" id="ocr-file" accept=".xml,image/*" style="display:none"
+                        onchange="uploadForOCR(this.files[0])">
                 </div>
 
-                <div id="ocr-status" style="margin-top: 12px; font-size: 0.78rem; text-align: center; color: var(--text-muted); display: none;">
-                    <i class="fa-solid fa-spinner fa-spin" style="margin-right: 6px;"></i><span>Leyendo nuevo comprobante e-CF...</span>
+                <div id="ocr-status"
+                    style="margin-top: 12px; font-size: 0.78rem; text-align: center; color: var(--text-muted); display: none;">
+                    <i class="fa-solid fa-spinner fa-spin" style="margin-right: 6px;"></i><span>Leyendo nuevo
+                        comprobante e-CF...</span>
                 </div>
             </div>
 
             <!-- CARD CONDICIONES DE PAGO & CXP -->
             <div class="card-table-wrapper" style="margin-bottom: 0;">
-                <h3 style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 16px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; display: flex; align-items: center; gap: 10px;">
+                <h3
+                    style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 16px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; display: flex; align-items: center; gap: 10px;">
                     <i class="fa-solid fa-credit-card" style="color: var(--accent-blue);"></i>
                     <span>Condiciones de Pago / CxP</span>
                 </h3>
-                
+
                 <div class="form-group" style="margin-bottom: 12px;">
                     <label for="paymentType">Tipo de Pago</label>
-                    <select id="paymentType" name="paymentType" class="form-select" onchange="toggleCxpFields(this.value)" style="width: 100%;">
-                        <option value="Contado" {% if expense.paymentType == 'Contado' %}selected{% endif %}>Contado (Pagado al instante)</option>
-                        <option value="Crédito" {% if expense.paymentType == 'Crédito' %}selected{% endif %}>Crédito (Cuenta por Pagar - CxP)</option>
+                    <select id="paymentType" name="paymentType" class="form-select"
+                        onchange="toggleCxpFields(this.value)" style="width: 100%;">
+                        <option value="Contado" {% if expense.paymentType=='Contado' %}selected{% endif %}>Contado
+                            (Pagado al instante)</option>
+                        <option value="Crédito" {% if expense.paymentType=='Crédito' %}selected{% endif %}>Crédito
+                            (Cuenta por Pagar - CxP)</option>
                     </select>
                 </div>
 
-                <div class="credit-box" id="cxp-fields" style="{% if expense.paymentType == 'Crédito' %}display:flex;{% endif %}">
+                <div class="credit-box" id="cxp-fields"
+                    style="{% if expense.paymentType == 'Crédito' %}display:flex;{% endif %}">
                     <div class="form-group" style="margin-bottom: 0;">
                         <label for="dueDate">Fecha de Vencimiento de Factura</label>
-                        <input type="date" id="dueDate" name="dueDate" class="form-input" value="{{ expense.dueDate[:10] if expense.dueDate else '' }}" style="width: 100%;">
+                        <input type="date" id="dueDate" name="dueDate" class="form-input"
+                            value="{{ expense.dueDate[:10] if expense.dueDate else '' }}" style="width: 100%;">
                     </div>
                 </div>
 
                 <div class="form-group" style="margin-top:14px; margin-bottom:0;">
                     <label for="approvalStatus">Estatus de Gasto Interno</label>
                     <select id="approvalStatus" name="approvalStatus" class="form-select" style="width: 100%;">
-                        <option value="Aprobado" {% if expense.approvalStatus == 'Aprobado' %}selected{% endif %}>Aprobado</option>
-                        <option value="Pendiente" {% if expense.approvalStatus == 'Pendiente' %}selected{% endif %}>Pendiente de Firma/Aprobación</option>
+                        <option value="Aprobado" {% if expense.approvalStatus=='Aprobado' %}selected{% endif %}>Aprobado
+                        </option>
+                        <option value="Pendiente" {% if expense.approvalStatus=='Pendiente' %}selected{% endif %}>
+                            Pendiente de Firma/Aprobación</option>
                     </select>
                 </div>
             </div>
 
             <!-- CARD DE AUTOMATIZACIÓN (GASTO RECURRENTE) -->
             <div class="card-table-wrapper" style="margin-bottom: 0;">
-                <h3 style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 16px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; display: flex; align-items: center; gap: 10px;">
+                <h3
+                    style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 16px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; display: flex; align-items: center; gap: 10px;">
                     <i class="fa-solid fa-arrows-spin" style="color: var(--accent-purple);"></i>
                     <span>Gasto Recurrente / Automatización</span>
                 </h3>
-                
+
                 <div class="form-group" style="margin-bottom: 12px;">
                     <label for="isRecurring">¿Es un Gasto Fijo Recurrente?</label>
-                    <select id="isRecurring" name="isRecurring" class="form-select" onchange="toggleRecurrenceFields(this.value)" style="width: 100%;">
-                        <option value="false" {% if not expense.isRecurring %}selected{% endif %}>No, egreso único</option>
-                        <option value="true" {% if expense.isRecurring %}selected{% endif %}>Sí, automatizar registro</option>
+                    <select id="isRecurring" name="isRecurring" class="form-select"
+                        onchange="toggleRecurrenceFields(this.value)" style="width: 100%;">
+                        <option value="false" {% if not expense.isRecurring %}selected{% endif %}>No, egreso único
+                        </option>
+                        <option value="true" {% if expense.isRecurring %}selected{% endif %}>Sí, automatizar registro
+                        </option>
                     </select>
                 </div>
 
-                <div class="recurrence-box" id="recurrence-fields" style="{% if expense.isRecurring %}display:flex;{% else %}display:none;{% endif %}">
+                <div class="recurrence-box" id="recurrence-fields"
+                    style="{% if expense.isRecurring %}display:flex;{% else %}display:none;{% endif %}">
                     <div class="form-group" style="margin-bottom: 12px;">
                         <label for="recurrenceInterval">Frecuencia del Gasto</label>
-                        <select id="recurrenceInterval" name="recurrenceInterval" class="form-select" style="width: 100%;">
-                            <option value="semanal" {% if expense.recurrenceInterval == 'semanal' %}selected{% endif %}>Semanal</option>
-                            <option value="quincenal" {% if expense.recurrenceInterval == 'quincenal' %}selected{% endif %}>Quincenal</option>
-                            <option value="mensual" {% if expense.recurrenceInterval == 'mensual' or not expense.recurrenceInterval %}selected{% endif %}>Mensual</option>
+                        <select id="recurrenceInterval" name="recurrenceInterval" class="form-select"
+                            style="width: 100%;">
+                            <option value="semanal" {% if expense.recurrenceInterval=='semanal' %}selected{% endif %}>
+                                Semanal</option>
+                            <option value="quincenal" {% if expense.recurrenceInterval=='quincenal' %}selected{% endif
+                                %}>Quincenal</option>
+                            <option value="mensual" {% if expense.recurrenceInterval=='mensual' or not
+                                expense.recurrenceInterval %}selected{% endif %}>Mensual</option>
                         </select>
                     </div>
                     <div class="form-group" style="margin-bottom: 12px;">
                         <label for="nextOccurrenceDate">Próxima Fecha de Registro</label>
-                        <input type="date" id="nextOccurrenceDate" name="nextOccurrenceDate" class="form-input" value="{{ expense.nextOccurrenceDate[:10] if expense.nextOccurrenceDate else '' }}" style="width: 100%;">
+                        <input type="date" id="nextOccurrenceDate" name="nextOccurrenceDate" class="form-input"
+                            value="{{ expense.nextOccurrenceDate[:10] if expense.nextOccurrenceDate else '' }}"
+                            style="width: 100%;">
                     </div>
                     <div class="form-group" style="margin-bottom: 0;">
                         <label for="recurrenceEndDate">Fecha de Finalización (Límite)</label>
-                        <input type="date" id="recurrenceEndDate" name="recurrenceEndDate" class="form-input" value="{{ expense.recurrenceEndDate[:10] if expense.recurrenceEndDate else '' }}" style="width: 100%;">
+                        <input type="date" id="recurrenceEndDate" name="recurrenceEndDate" class="form-input"
+                            value="{{ expense.recurrenceEndDate[:10] if expense.recurrenceEndDate else '' }}"
+                            style="width: 100%;">
                     </div>
                 </div>
             </div>
@@ -294,11 +373,13 @@
     </div>
 
     <!-- Botones de Acción -->
-    <div style="margin-top: 24px; display: flex; justify-content: flex-end; gap: 15px; border-top: 1px solid var(--border-color); padding-top: 24px;">
+    <div
+        style="margin-top: 24px; display: flex; justify-content: flex-end; gap: 15px; border-top: 1px solid var(--border-color); padding-top: 24px;">
         <a href="{{ url_for('list_expenses') }}" class="btn btn-secondary">
             <span>Cancelar</span>
         </a>
-        <button type="submit" class="btn btn-primary" style="padding: 14px 28px; background: var(--accent-blue) !important; background-image: none !important; border-color: var(--accent-blue) !important; color: white !important;">
+        <button type="submit" class="btn btn-primary"
+            style="padding: 14px 28px; background: var(--accent-blue) !important; background-image: none !important; border-color: var(--accent-blue) !important; color: white !important;">
             <i class="fa-solid fa-floppy-disk"></i>
             <span>Guardar Cambios</span>
         </button>
@@ -327,7 +408,7 @@
         }
     });
 
-    document.getElementById('amount').addEventListener('input', function() {
+    document.getElementById('amount').addEventListener('input', function () {
         const val = parseFloat(this.value);
         if (!isNaN(val)) {
             document.getElementById('itbisAmount').value = (val * 0.18 / 1.18).toFixed(2);
@@ -365,37 +446,37 @@
             method: 'POST',
             body: formData
         })
-        .then(res => res.json())
-        .then(data => {
-            statusDiv.style.display = 'none';
-            if (data.success) {
-                const fields = {
-                    'rnc-emisor': data.rncEmisor,
-                    'ncf': data.ncf,
-                    'amount': data.amount,
-                    'itbisAmount': data.itbisAmount,
-                    'date': data.date,
-                    'cne': data.cne,
-                    'ecfType': data.ecfType
-                };
+            .then(res => res.json())
+            .then(data => {
+                statusDiv.style.display = 'none';
+                if (data.success) {
+                    const fields = {
+                        'rnc-emisor': data.rncEmisor,
+                        'ncf': data.ncf,
+                        'amount': data.amount,
+                        'itbisAmount': data.itbisAmount,
+                        'date': data.date,
+                        'cne': data.cne,
+                        'ecfType': data.ecfType
+                    };
 
-                for (let key in fields) {
-                    const el = document.getElementById(key);
-                    if (el && fields[key]) {
-                        el.value = fields[key];
-                        el.classList.add('field-highlighted');
-                        setTimeout(() => el.classList.remove('field-highlighted'), 3000);
+                    for (let key in fields) {
+                        const el = document.getElementById(key);
+                        if (el && fields[key]) {
+                            el.value = fields[key];
+                            el.classList.add('field-highlighted');
+                            setTimeout(() => el.classList.remove('field-highlighted'), 3000);
+                        }
                     }
+                    alert(data.notes || 'Comprobante fiscal e-CF procesado exitosamente.');
+                } else {
+                    alert('No se pudieron extraer los datos fiscales: ' + data.error);
                 }
-                alert(data.notes || 'Comprobante fiscal e-CF procesado exitosamente.');
-            } else {
-                alert('No se pudieron extraer los datos fiscales: ' + data.error);
-            }
-        })
-        .catch(err => {
-            statusDiv.style.display = 'none';
-            alert('Error de red al procesar el OCR.');
-        });
+            })
+            .catch(err => {
+                statusDiv.style.display = 'none';
+                alert('Error de red al procesar el OCR.');
+            });
     }
 </script>
 {% endblock %}

@@ -6,69 +6,91 @@
 
 {% block content %}
 <div class="card-table-wrapper" style="max-width: 800px; margin: 0 auto;">
-    <h3 style="font-size: 1.25rem; font-family: var(--font-heading); margin-bottom: 24px; border-bottom: 1px solid var(--border-color); padding-bottom: 14px;">
+    <h3
+        style="font-size: 1.25rem; font-family: var(--font-heading); margin-bottom: 24px; border-bottom: 1px solid var(--border-color); padding-bottom: 14px;">
         <i class="fa-solid fa-address-card" style="color: var(--accent-emerald);"></i>
         <span>Información del Cliente</span>
     </h3>
-    
-    <form action="{% if client %}{{ url_for('edit_client', client_id=client.id) }}{% else %}{{ url_for('new_client') }}{% endif %}" method="POST">
+
+    <form
+        action="{% if client %}{{ url_for('edit_client', client_id=client.id) }}{% else %}{{ url_for('new_client') }}{% endif %}"
+        method="POST">
         <div class="form-grid">
             <!-- RNC con validador y autocompletado en tiempo real -->
             <div class="form-group" style="grid-column: 1 / -1;">
                 <label for="rnc-input">RNC o Cédula (Padrón DGII)</label>
                 <div style="position: relative; display: flex; gap: 10px;">
                     <div style="position: relative; flex-grow: 1;">
-                        <i id="lookup-icon" class="fa-solid fa-fingerprint" style="position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: var(--text-muted); transition: color var(--transition-fast);"></i>
-                        <input type="text" id="rnc-input" name="rnc" class="form-input" placeholder="Ingresa RNC (9 dígitos) o Cédula (11 dígitos)" required style="padding-left: 45px; width: 100%; font-family: monospace;" value="{{ client.rnc if client else '' }}">
+                        <i id="lookup-icon" class="fa-solid fa-fingerprint"
+                            style="position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: var(--text-muted); transition: color var(--transition-fast);"></i>
+                        <input type="text" id="rnc-input" name="rnc" class="form-input"
+                            placeholder="Ingresa RNC (9 dígitos) o Cédula (11 dígitos)" required
+                            style="padding-left: 45px; width: 100%; font-family: monospace;"
+                            value="{{ client.rnc if client else '' }}">
                     </div>
                 </div>
-                <small id="lookup-status" style="color: var(--text-muted); font-size: 0.75rem; margin-top: 4px;">Ingresa 9 dígitos para RNC o 11 dígitos para Cédula.</small>
+                <small id="lookup-status" style="color: var(--text-muted); font-size: 0.75rem; margin-top: 4px;">Ingresa
+                    9 dígitos para RNC o 11 dígitos para Cédula.</small>
             </div>
-            
+
             <div class="form-group" style="grid-column: 1 / -1;">
                 <label for="razon-social-input">Nombre o Razón Social</label>
-                <input type="text" id="razon-social-input" name="razonSocial" class="form-input" placeholder="Se completará automáticamente al buscar en DGII" required value="{{ client.razonSocial if client else '' }}">
+                <input type="text" id="razon-social-input" name="razonSocial" class="form-input"
+                    placeholder="Se completará automáticamente al buscar en DGII" required
+                    value="{{ client.razonSocial if client else '' }}">
             </div>
-            
+
             <div class="form-group">
                 <label for="email">Correo Electrónico</label>
-                <input type="email" id="email" name="email" class="form-input" placeholder="cliente@correo.com" value="{{ client.email if client else '' }}">
+                <input type="email" id="email" name="email" class="form-input" placeholder="cliente@correo.com"
+                    value="{{ client.email if client else '' }}">
             </div>
-            
+
             <div class="form-group">
                 <label for="telefono">Teléfono</label>
-                <input type="text" id="telefono" name="telefono" class="form-input" placeholder="809-555-0199" value="{{ client.telefono if client else '' }}">
+                <input type="text" id="telefono" name="telefono" class="form-input" placeholder="809-555-0199"
+                    value="{{ client.telefono if client else '' }}">
             </div>
-            
+
             <div class="form-group" style="grid-column: 1 / -1;">
                 <label for="direccion">Dirección Comercial</label>
-                <input type="text" id="direccion" name="direccion" class="form-input" placeholder="Calle, Número, Sector, Ciudad" value="{{ client.direccion if client else '' }}">
+                <input type="text" id="direccion" name="direccion" class="form-input"
+                    placeholder="Calle, Número, Sector, Ciudad" value="{{ client.direccion if client else '' }}">
             </div>
         </div>
 
-        <h3 style="font-size: 1.25rem; font-family: var(--font-heading); margin-top: 36px; margin-bottom: 24px; border-bottom: 1px solid var(--border-color); padding-bottom: 14px;">
+        <h3
+            style="font-size: 1.25rem; font-family: var(--font-heading); margin-top: 36px; margin-bottom: 24px; border-bottom: 1px solid var(--border-color); padding-bottom: 14px;">
             <i class="fa-solid fa-calendar-days" style="color: var(--accent-purple);"></i>
             <span>Seguimiento CRM y Agenda</span>
         </h3>
-        
+
         <div class="form-grid">
             <div class="form-group">
                 <label for="next_contact_date">Fecha de Próximo Contacto</label>
-                <input type="date" id="next_contact_date" name="nextContactDate" class="form-input" value="{{ client.nextContactDate[:10] if client and client.nextContactDate else '' }}">
+                <input type="date" id="next_contact_date" name="nextContactDate" class="form-input"
+                    value="{{ client.nextContactDate[:10] if client and client.nextContactDate else '' }}">
             </div>
-            
-            <div class="form-group" style="grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
-                <input type="checkbox" id="disableAutoReminders" name="disableAutoReminders" {% if client and client.disableAutoReminders %}checked{% endif %} style="width: 18px; height: 18px; cursor: pointer;">
-                <label for="disableAutoReminders" style="cursor: pointer; margin: 0; font-weight: 600; font-size: 0.88rem; color: var(--text-primary);">Pausar recordatorios automáticos de cobro para este cliente</label>
+
+            <div class="form-group"
+                style="grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+                <input type="checkbox" id="disableAutoReminders" name="disableAutoReminders" {% if client and
+                    client.disableAutoReminders %}checked{% endif %}
+                    style="width: 18px; height: 18px; cursor: pointer;">
+                <label for="disableAutoReminders"
+                    style="cursor: pointer; margin: 0; font-weight: 500; font-size: 0.88rem; color: var(--text-primary);">Pausar
+                    recordatorios automáticos de cobro para este cliente</label>
             </div>
-            
+
             <div class="form-group" style="grid-column: 1 / -1;">
                 <label for="crm_notes">Acuerdos Comerciales / Notas de Seguimiento</label>
-                <textarea id="crm_notes" name="crmNotes" class="form-textarea" rows="4" placeholder="Registra cotizaciones discutidas, llamadas de seguimiento, etc.">{{ client.crmNotes if client else '' }}</textarea>
+                <textarea id="crm_notes" name="crmNotes" class="form-textarea" rows="4"
+                    placeholder="Registra cotizaciones discutidas, llamadas de seguimiento, etc.">{{ client.crmNotes if client else '' }}</textarea>
             </div>
         </div>
 
-        <div style="margin-top: 36px; display: flex; justify-content: flex-end; gap: 15px; border-top: 1px solid var(--border-color); padding-top: 24px;">
+        <div
+            style="margin-top: 36px; display: flex; justify-content: flex-end; gap: 15px; border-top: 1px solid var(--border-color); padding-top: 24px;">
             <a href="{{ url_for('list_clients') }}" class="btn btn-secondary">
                 <span>Cancelar</span>
             </a>

@@ -99,7 +99,7 @@
         overflow: hidden;
         margin-bottom: 12px;
         position: relative;
-        box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
+        box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
     }
 
     [data-theme="dark"] .progress-bar-container {
@@ -111,7 +111,7 @@
         border-radius: 6px;
         background: linear-gradient(90deg, var(--accent-emerald), #60a5fa);
         transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-        box-shadow: 0 1px 2px rgba(0,0,0,0.15);
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
     }
 
     .progress-bar-fill.warning {
@@ -141,46 +141,58 @@
 
 {% block page_header %}
 <div style="display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px;">
-    <h1 style="font-size: 1.6rem; font-weight: 800; color: var(--text-primary); margin: 0; font-family: var(--font-heading); display: flex; align-items: center; gap: 10px;">
-        <i class="fa-solid fa-credit-card" style="background: var(--brand-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent;"></i>
+    <h1
+        style="font-size: 1.6rem; font-weight: 800; color: var(--text-primary); margin: 0; font-family: var(--font-heading); display: flex; align-items: center; gap: 10px;">
+        <i class="fa-solid fa-credit-card"
+            style="background: var(--brand-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent;"></i>
         Mi Plan y Consumo
     </h1>
-    <span style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500;">Controla tu consumo de facturación y consulta tus pagos en tiempo real</span>
+    <span style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500;">Controla tu consumo de facturación y
+        consulta tus pagos en tiempo real</span>
 </div>
 {% endblock %}
 
 {% block content %}
 <div class="subscription-container">
-    
+
     <div class="subscription-grid">
-        
+
         <!-- Columna Izquierda: Información de Plan & Cobro Proyectado -->
         <div style="display: flex; flex-direction: column; gap: 28px;">
-            
+
             <!-- Tarjeta de Plan Activo -->
             <div class="card-table-wrapper card-subscription-hero">
-                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 14px; margin-bottom: 18px;">
-                    <h3 style="margin: 0; font-size: 1.1rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
+                <div
+                    style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 14px; margin-bottom: 18px;">
+                    <h3
+                        style="margin: 0; font-size: 1.1rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
                         <i class="fa-solid fa-cube" style="color: var(--accent-emerald);"></i> Plan Habilitado
                     </h3>
                     <span class="badge badge-success">
                         {{ profile.status | default('Activo') }}
                     </span>
                 </div>
-                
-                <div style="text-align: center; padding: 15px 0; margin-bottom: 15px; border-bottom: 1px dashed var(--border-color);">
-                    <span style="font-size: 0.78rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700; letter-spacing: 0.08em; display: block; margin-bottom: 4px;">Suscripción Activa</span>
-                    <h2 style="font-size: 1.8rem; font-weight: 800; color: var(--text-primary); margin: 0; font-family: var(--font-heading);">{{ plan_name }}</h2>
+
+                <div
+                    style="text-align: center; padding: 15px 0; margin-bottom: 15px; border-bottom: 1px dashed var(--border-color);">
+                    <span
+                        style="font-size: 0.78rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700; letter-spacing: 0.08em; display: block; margin-bottom: 4px;">Suscripción
+                        Activa</span>
+                    <h2
+                        style="font-size: 1.8rem; font-weight: 800; color: var(--text-primary); margin: 0; font-family: var(--font-heading);">
+                        {{ plan_name }}</h2>
                 </div>
-                
+
                 <div class="premium-detail-list">
                     <div class="detail-row">
                         <span class="detail-label">Costo Mensual Fijo:</span>
-                        <span class="detail-value">RD$ {{ profile.monthlyPayment | default(0) | float | round(2) }}</span>
+                        <span class="detail-value">RD$ {{ profile.monthlyPayment | default(0) | float | round(2)
+                            }}</span>
                     </div>
                     <div class="detail-row">
                         <span class="detail-label">Costo por Doc. Adicional:</span>
-                        <span class="detail-value">RD$ {{ profile.additionalDocumentCost | default(0) | float | round(2) }}</span>
+                        <span class="detail-value">RD$ {{ profile.additionalDocumentCost | default(0) | float | round(2)
+                            }}</span>
                     </div>
                     <div class="detail-row">
                         <span class="detail-label">Límite de Documentos:</span>
@@ -190,9 +202,12 @@
                         <span class="detail-label">Límite Almacenamiento:</span>
                         <span class="detail-value">{{ profile.storageLimitMB | default('Ilimitado') }} MB</span>
                     </div>
-                    <div style="margin-top: 10px; padding: 12px 14px; background: rgba(59, 130, 246, 0.05); border-radius: var(--radius-sm); border: 1px solid rgba(59, 130, 246, 0.1); display: flex; justify-content: space-between; align-items: center;">
-                        <span style="font-size: 0.82rem; font-weight: 600; color: var(--text-secondary);">Día de Corte Mensual:</span>
-                        <strong style="font-size: 0.88rem; color: #2563EB; font-family: var(--font-heading);">Día {{ profile.billingDay | default(1) }}</strong>
+                    <div
+                        style="margin-top: 10px; padding: 12px 14px; background: rgba(59, 130, 246, 0.05); border-radius: var(--radius-sm); border: 1px solid rgba(59, 130, 246, 0.1); display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-size: 0.82rem; font-weight: 500; color: var(--text-secondary);">Día de Corte
+                            Mensual:</span>
+                        <strong style="font-size: 0.88rem; color: #2563EB; font-family: var(--font-heading);">Día {{
+                            profile.billingDay | default(1) }}</strong>
                     </div>
                 </div>
             </div>
@@ -200,11 +215,12 @@
             <!-- Cobro Proyectado al Vencimiento -->
             <div class="card-table-wrapper">
                 <div style="border-bottom: 1px solid var(--border-color); padding-bottom: 14px; margin-bottom: 18px;">
-                    <h3 style="margin: 0; font-size: 1.1rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
+                    <h3
+                        style="margin: 0; font-size: 1.1rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
                         <i class="fa-solid fa-calculator" style="color: #3b82f6;"></i> Proyección Próximo Pago
                     </h3>
                 </div>
-                
+
                 {% set limit = profile.documentLimit | default(0) | int %}
                 {% set current = stats.prod_current_cycle | default(0) | int %}
                 {% set excess = [0, current - limit]|max if limit > 0 else 0 %}
@@ -212,7 +228,7 @@
                 {% set extra_cost = profile.additionalDocumentCost | default(0) | float %}
                 {% set excess_total = excess * extra_cost %}
                 {% set total_bill = monthly + excess_total %}
-                
+
                 <div class="premium-detail-list">
                     <div class="detail-row">
                         <span class="detail-label">Cuota del Servicio:</span>
@@ -220,75 +236,94 @@
                     </div>
                     <div class="detail-row">
                         <span class="detail-label">Excedentes ({{ excess }} docs):</span>
-                        <span class="detail-value" style="color: {% if excess > 0 %}var(--accent-red){% else %}var(--text-primary){% endif %};">
+                        <span class="detail-value"
+                            style="color: {% if excess > 0 %}var(--accent-red){% else %}var(--text-primary){% endif %};">
                             RD$ {{ excess_total | round(2) }}
                         </span>
                     </div>
-                    <div style="padding: 4px 14px; font-size: 0.78rem; color: var(--text-muted); display: flex; align-items: center; gap: 6px;">
+                    <div
+                        style="padding: 4px 14px; font-size: 0.78rem; color: var(--text-muted); display: flex; align-items: center; gap: 6px;">
                         <i class="fa-solid fa-calendar-days"></i>
                         <span>Próximo cargo estimado el {{ stats.current_cycle_end }}</span>
                     </div>
                 </div>
-                
+
                 <div class="projection-total-banner">
-                    <span style="font-weight: 700; color: var(--text-primary); font-size: 0.95rem;">Total Proyectado:</span>
-                    <strong style="font-size: 1.4rem; color: #2563EB; font-family: var(--font-heading);">RD$ {{ total_bill | round(2) }}</strong>
+                    <span style="font-weight: 700; color: var(--text-primary); font-size: 0.95rem;">Total
+                        Proyectado:</span>
+                    <strong style="font-size: 1.4rem; color: #2563EB; font-family: var(--font-heading);">RD$ {{
+                        total_bill | round(2) }}</strong>
                 </div>
             </div>
-            
+
         </div>
 
         <!-- Columna Derecha: Medidor de Consumo -->
         <div style="display: flex; flex-direction: column; gap: 28px;">
-            
+
             <!-- Tarjeta de Consumo de Documentos -->
             <div class="card-table-wrapper">
-                <div style="border-bottom: 1px solid var(--border-color); padding-bottom: 14px; margin-bottom: 18px; display: flex; justify-content: space-between; align-items: center;">
-                    <h3 style="margin: 0; font-size: 1.1rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
+                <div
+                    style="border-bottom: 1px solid var(--border-color); padding-bottom: 14px; margin-bottom: 18px; display: flex; justify-content: space-between; align-items: center;">
+                    <h3
+                        style="margin: 0; font-size: 1.1rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
                         <i class="fa-solid fa-chart-line" style="color: #60a5fa;"></i> Consumo del Periodo Actual
                     </h3>
                     <span class="badge badge-secondary" style="font-size: 0.7rem; padding: 4px 8px;">
                         Ciclo: {{ stats.current_cycle_start }} al {{ stats.current_cycle_end }}
                     </span>
                 </div>
-                
+
                 <div style="display: flex; flex-direction: column; gap: 24px;">
                     <div>
-                        <h4 style="margin: 0 0 10px 0; font-size: 0.92rem; font-weight: 700; color: var(--text-secondary);">Comprobantes Emitidos (Producción)</h4>
-                        
-                        <div style="font-size: 1.8rem; font-weight: 800; color: var(--text-primary); margin-bottom: 12px; font-family: var(--font-heading);">
-                            {{ current }} <span style="font-size: 1rem; font-weight: 500; color: var(--text-muted);">/ {% if limit > 0 %}{{ limit }} e-CF{% else %}ilimitados{% endif %}</span>
+                        <h4
+                            style="margin: 0 0 10px 0; font-size: 0.92rem; font-weight: 700; color: var(--text-secondary);">
+                            Comprobantes Emitidos (Producción)</h4>
+
+                        <div
+                            style="font-size: 1.8rem; font-weight: 800; color: var(--text-primary); margin-bottom: 12px; font-family: var(--font-heading);">
+                            {{ current }} <span style="font-size: 1rem; font-weight: 500; color: var(--text-muted);">/
+                                {% if limit > 0 %}{{ limit }} e-CF{% else %}ilimitados{% endif %}</span>
                         </div>
-                        
+
                         {% if limit > 0 %}
-                            {% set pct = (current / limit * 100) | round | int %}
-                            {% set fill_class = '' %}
-                            {% if current > limit %}{% set fill_class = 'danger' %}{% elif pct >= 80 %}{% set fill_class = 'warning' %}{% endif %}
-                            
-                            <div class="progress-bar-container">
-                                <div class="progress-bar-fill {{ fill_class }}" style="width: {{ [pct, 100]|min }}%;"></div>
-                            </div>
-                            
-                            <div style="font-size: 0.8rem; color: var(--text-muted); display: flex; justify-content: space-between; font-weight: 500;">
-                                <span>{{ pct }}% del plan mensual consumido</span>
-                                {% if current > limit %}
-                                <span style="color: var(--accent-red); font-weight: 700;">+{{ current - limit }} excedentes</span>
-                                {% endif %}
-                            </div>
+                        {% set pct = (current / limit * 100) | round | int %}
+                        {% set fill_class = '' %}
+                        {% if current > limit %}{% set fill_class = 'danger' %}{% elif pct >= 80 %}{% set fill_class =
+                        'warning' %}{% endif %}
+
+                        <div class="progress-bar-container">
+                            <div class="progress-bar-fill {{ fill_class }}" style="width: {{ [pct, 100]|min }}%;"></div>
+                        </div>
+
+                        <div
+                            style="font-size: 0.8rem; color: var(--text-muted); display: flex; justify-content: space-between; font-weight: 500;">
+                            <span>{{ pct }}% del plan mensual consumido</span>
+                            {% if current > limit %}
+                            <span style="color: var(--accent-red); font-weight: 700;">+{{ current - limit }}
+                                excedentes</span>
+                            {% endif %}
+                        </div>
                         {% else %}
-                            <div class="progress-bar-container">
-                                <div class="progress-bar-fill" style="width: 100%;"></div>
-                            </div>
-                            <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500;">Operando con plan ilimitado sin cargos adicionales.</span>
+                        <div class="progress-bar-container">
+                            <div class="progress-bar-fill" style="width: 100%;"></div>
+                        </div>
+                        <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500;">Operando con plan
+                            ilimitado sin cargos adicionales.</span>
                         {% endif %}
                     </div>
-                    
+
                     <div class="sandbox-metric-box">
-                        <span style="font-size: 0.72rem; color: var(--accent-purple); text-transform: uppercase; font-weight: 800; letter-spacing: 0.08em; display: block; margin-bottom: 4px;">Ambiente Sandbox</span>
-                        <div style="font-size: 1.5rem; font-weight: 800; color: var(--accent-purple); font-family: var(--font-heading); margin-bottom: 4px;">
-                            {{ stats.sandbox_current_cycle }} <span style="font-size: 0.9rem; font-weight: 500; color: var(--text-secondary);">docs</span>
+                        <span
+                            style="font-size: 0.72rem; color: var(--accent-purple); text-transform: uppercase; font-weight: 800; letter-spacing: 0.08em; display: block; margin-bottom: 4px;">Ambiente
+                            Sandbox</span>
+                        <div
+                            style="font-size: 1.5rem; font-weight: 800; color: var(--accent-purple); font-family: var(--font-heading); margin-bottom: 4px;">
+                            {{ stats.sandbox_current_cycle }} <span
+                                style="font-size: 0.9rem; font-weight: 500; color: var(--text-secondary);">docs</span>
                         </div>
-                        <span style="font-size: 0.76rem; color: var(--text-muted); font-weight: 500;">Pruebas emitidas en el ciclo actual (total histórico: {{ stats.sandbox_total }})</span>
+                        <span style="font-size: 0.76rem; color: var(--text-muted); font-weight: 500;">Pruebas emitidas
+                            en el ciclo actual (total histórico: {{ stats.sandbox_total }})</span>
                     </div>
                 </div>
             </div>
@@ -296,11 +331,12 @@
             <!-- Historial de Facturas de Cobro y Pagos -->
             <div class="card-table-wrapper">
                 <div style="border-bottom: 1px solid var(--border-color); padding-bottom: 14px; margin-bottom: 18px;">
-                    <h3 style="margin: 0; font-size: 1.1rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
+                    <h3
+                        style="margin: 0; font-size: 1.1rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
                         <i class="fa-solid fa-receipt" style="color: #f59e0b;"></i> Registro de Transacciones y Recibos
                     </h3>
                 </div>
-                
+
                 {% if payments %}
                 <div class="table-responsive">
                     <table class="table-premium" style="width: 100%; border-collapse: collapse;">
@@ -318,9 +354,9 @@
                             <tr>
                                 <td>
                                     {% if pay.date and pay.date.strftime %}
-                                        {{ pay.date.strftime('%d/%m/%Y') }}
+                                    {{ pay.date.strftime('%d/%m/%Y') }}
                                     {% else %}
-                                        {{ pay.date[:10] if pay.date is string else pay.date }}
+                                    {{ pay.date[:10] if pay.date is string else pay.date }}
                                     {% endif %}
                                 </td>
                                 <td>
@@ -328,10 +364,12 @@
                                         {{ pay.method }}
                                     </span>
                                 </td>
-                                <td style="color: var(--text-secondary); max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{ pay.reference }}">
+                                <td style="color: var(--text-secondary); max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
+                                    title="{{ pay.reference }}">
                                     {{ pay.reference | default('—') }}
                                 </td>
-                                <td style="text-align: right; font-weight: 700; color: var(--text-primary); font-family: var(--font-heading);">
+                                <td
+                                    style="text-align: right; font-weight: 700; color: var(--text-primary); font-family: var(--font-heading);">
                                     RD$ {{ pay.amount | float | round(2) }}
                                 </td>
                                 <td style="text-align: center;">
@@ -347,23 +385,25 @@
                 {% else %}
                 <div style="text-align: center; padding: 40px 20px;">
                     <div style="font-size: 2.5rem; margin-bottom: 12px; filter: grayscale(1); opacity: 0.5;">📂</div>
-                    <p style="margin: 0; font-size: 0.88rem; color: var(--text-muted); font-weight: 500;">No hay facturas o pagos registrados en tu historial aún.</p>
+                    <p style="margin: 0; font-size: 0.88rem; color: var(--text-muted); font-weight: 500;">No hay
+                        facturas o pagos registrados en tu historial aún.</p>
                 </div>
                 {% endif %}
             </div>
 
         </div>
-        
+
     </div>
 
     <!-- Consumo de Meses Anteriores y Estados de Pago -->
     <div class="card-table-wrapper">
         <div style="border-bottom: 1px solid var(--border-color); padding-bottom: 14px; margin-bottom: 18px;">
-            <h3 style="margin: 0; font-size: 1.1rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
+            <h3
+                style="margin: 0; font-size: 1.1rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
                 <i class="fa-solid fa-clock-rotate-left" style="color: #8b5cf6;"></i> Consumo de Meses Anteriores
             </h3>
         </div>
-        
+
         {% if billing_history %}
         <div class="table-responsive">
             <table class="table-premium" style="width: 100%; border-collapse: collapse; font-size: 0.8rem;">
@@ -380,30 +420,38 @@
                 <tbody>
                     {% for cycle in billing_history %}
                     <tr style="border-bottom: 1px solid var(--border-color);">
-                        <td style="padding: 10px 8px; font-weight: 600;">{{ cycle.period_label }}</td>
-                        <td style="padding: 10px 8px; text-align: center; font-weight: 700;">{{ cycle.consumed_docs }} docs</td>
+                        <td style="padding: 10px 8px; font-weight: 500;">{{ cycle.period_label }}</td>
+                        <td style="padding: 10px 8px; text-align: center; font-weight: 700;">{{ cycle.consumed_docs }}
+                            docs</td>
                         <td style="padding: 10px 8px; text-align: center;">
                             {% if cycle.excess_docs > 0 %}
-                            <span class="badge badge-danger" style="font-size: 0.62rem; padding: 2px 6px;">+{{ cycle.excess_docs }} docs</span>
+                            <span class="badge badge-danger" style="font-size: 0.62rem; padding: 2px 6px;">+{{
+                                cycle.excess_docs }} docs</span>
                             {% else %}
-                            <span class="badge badge-success" style="font-size: 0.62rem; padding: 2px 6px;">Sin excedentes</span>
+                            <span class="badge badge-success" style="font-size: 0.62rem; padding: 2px 6px;">Sin
+                                excedentes</span>
                             {% endif %}
                         </td>
-                        <td style="padding: 10px 8px; text-align: right; font-weight: 700; color: var(--text-primary); font-family: var(--font-heading);">
+                        <td
+                            style="padding: 10px 8px; text-align: right; font-weight: 700; color: var(--text-primary); font-family: var(--font-heading);">
                             RD$ {{ cycle.total_charge | round(2) }}
                         </td>
                         <td style="padding: 10px 8px; text-align: center;">
                             {% if cycle.status == 'Saldado' %}
-                            <span class="badge badge-success" style="font-size: 0.62rem; padding: 2px 8px;" title="Pago registrado el {{ cycle.payment_date }}">
+                            <span class="badge badge-success" style="font-size: 0.62rem; padding: 2px 8px;"
+                                title="Pago registrado el {{ cycle.payment_date }}">
                                 Saldado
                             </span>
                             {% else %}
-                            <span class="badge badge-danger" style="font-size: 0.62rem; padding: 2px 8px; animation: pulse 2s infinite;" title="Pago pendiente de registrar">
+                            <span class="badge badge-danger"
+                                style="font-size: 0.62rem; padding: 2px 8px; animation: pulse 2s infinite;"
+                                title="Pago pendiente de registrar">
                                 Pendiente
                             </span>
                             {% endif %}
                         </td>
-                        <td style="padding: 10px 8px; color: var(--text-secondary); font-size: 0.78rem; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{ cycle.payment_ref }}">
+                        <td style="padding: 10px 8px; color: var(--text-secondary); font-size: 0.78rem; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"
+                            title="{{ cycle.payment_ref }}">
                             {{ cycle.payment_ref | default('—') }}
                         </td>
                     </tr>
@@ -414,10 +462,11 @@
         {% else %}
         <div style="text-align: center; padding: 40px 20px;">
             <div style="font-size: 2.5rem; margin-bottom: 12px; filter: grayscale(1); opacity: 0.5;">📊</div>
-            <p style="margin: 0; font-size: 0.88rem; color: var(--text-muted); font-weight: 500;">No hay historial de meses anteriores registrado aún.</p>
+            <p style="margin: 0; font-size: 0.88rem; color: var(--text-muted); font-weight: 500;">No hay historial de
+                meses anteriores registrado aún.</p>
         </div>
         {% endif %}
     </div>
-    
+
 </div>
 {% endblock %}

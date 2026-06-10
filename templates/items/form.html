@@ -47,7 +47,7 @@
     .accordion-title {
         font-size: 0.85rem;
         font-family: var(--font-heading);
-        font-weight: 600;
+        font-weight: 500;
         color: var(--text-main);
         display: flex;
         align-items: center;
@@ -83,7 +83,7 @@
         border-top: 1px solid var(--border-color);
         background: rgba(0, 0, 0, 0.02);
     }
-    
+
     /* Toggle switch style matching company_settings.html */
     .toggle-switch {
         position: relative;
@@ -91,11 +91,13 @@
         width: 48px;
         height: 24px;
     }
+
     .toggle-switch input {
         opacity: 0;
         width: 0;
         height: 0;
     }
+
     .toggle-slider {
         position: absolute;
         cursor: pointer;
@@ -108,6 +110,7 @@
         border-radius: 24px;
         border: 1px solid var(--border-color);
     }
+
     .toggle-slider:before {
         position: absolute;
         content: "";
@@ -119,14 +122,16 @@
         transition: .4s;
         border-radius: 50%;
     }
-    input:checked + .toggle-slider {
+
+    input:checked+.toggle-slider {
         background-color: var(--accent-emerald);
         border-color: var(--accent-emerald);
     }
-    input:checked + .toggle-slider:before {
+
+    input:checked+.toggle-slider:before {
         transform: translateX(24px);
     }
-    
+
     .image-preview-box {
         width: 80px;
         height: 80px;
@@ -138,6 +143,7 @@
         overflow: hidden;
         background: rgba(0, 0, 0, 0.05);
     }
+
     .image-preview-box img {
         width: 100%;
         height: 100%;
@@ -147,371 +153,450 @@
 
 <div style="max-width: 800px; margin: 0 auto 50px auto;">
     <div class="card-table-wrapper" style="margin-bottom: 0;">
-        <h3 style="font-size: 1.25rem; font-family: var(--font-heading); margin-bottom: 24px; border-bottom: 1px solid var(--border-color); padding-bottom: 14px; display: flex; align-items: center; gap: 10px;">
+        <h3
+            style="font-size: 1.25rem; font-family: var(--font-heading); margin-bottom: 24px; border-bottom: 1px solid var(--border-color); padding-bottom: 14px; display: flex; align-items: center; gap: 10px;">
             <i class="fa-solid fa-box-open" style="color: var(--accent-emerald);"></i>
             <span>Datos del Producto (Catálogo)</span>
         </h3>
-        <form action="{% if item %}{{ url_for('edit_item', item_id=item.id) }}{% else %}{{ url_for('new_item') }}{% endif %}" method="POST">
-        
-        <div class="settings-accordion">
-            
-            <!-- SECCIÓN 1: IDENTIFICACIÓN E INFO GENERAL -->
-            <div class="accordion-item active" id="sec-identificacion">
-                <button type="button" class="accordion-header" onclick="toggleAccordionSection(this)">
-                    <div class="accordion-title">
-                        <i class="fa-solid fa-box-open"></i>
-                        <span>1. Identificación e Info General</span>
-                    </div>
-                    <i class="fa-solid fa-chevron-down accordion-chevron"></i>
-                </button>
-                <div class="accordion-content">
-                    <div class="accordion-body">
-                        <!-- Fila 1: SKU, Código de Barra, Tipo de Elemento -->
-                        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-bottom: 20px;">
-                            <div class="form-group" style="margin-bottom: 0;">
-                                <label for="code">Código de Referencia (SKU)</label>
-                                <input type="text" id="code" name="code" class="form-input" placeholder="Ej: PROD-1025" value="{{ item.code if item else '' }}">
-                            </div>
-                            <div class="form-group" style="margin-bottom: 0;">
-                                <label for="barcode">Código de Barra (Escáner)</label>
-                                <input type="text" id="barcode" name="barcode" class="form-input" placeholder="Ej: 7460123456789" value="{{ item.barcode if item else '' }}">
-                            </div>
-                            <div class="form-group" style="margin-bottom: 0;">
-                                <label for="type">Tipo de Elemento</label>
-                                <select id="type" name="type" class="form-select" required>
-                                    <option value="Bien" {% if item and item.type == 'Bien' %}selected{% endif %}>Bien / Producto Físico</option>
-                                    <option value="Servicio" {% if item and item.type == 'Servicio' %}selected{% endif %}>Servicio / Asesoría / Consultas</option>
-                                </select>
-                            </div>
-                        </div>
+        <form
+            action="{% if item %}{{ url_for('edit_item', item_id=item.id) }}{% else %}{{ url_for('new_item') }}{% endif %}"
+            method="POST">
 
-                        <!-- Fila 2: Categoría y Nombre/Descripción -->
-                        <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 20px; margin-bottom: 20px;">
-                            <div class="form-group" style="margin-bottom: 0;">
-                                <label for="category_id">Categoría</label>
-                                <select id="category_id" name="categoryId" class="form-select">
-                                    {% if categories %}
+            <div class="settings-accordion">
+
+                <!-- SECCIÓN 1: IDENTIFICACIÓN E INFO GENERAL -->
+                <div class="accordion-item active" id="sec-identificacion">
+                    <button type="button" class="accordion-header" onclick="toggleAccordionSection(this)">
+                        <div class="accordion-title">
+                            <i class="fa-solid fa-box-open"></i>
+                            <span>1. Identificación e Info General</span>
+                        </div>
+                        <i class="fa-solid fa-chevron-down accordion-chevron"></i>
+                    </button>
+                    <div class="accordion-content">
+                        <div class="accordion-body">
+                            <!-- Fila 1: SKU, Código de Barra, Tipo de Elemento -->
+                            <div
+                                style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+                                <div class="form-group" style="margin-bottom: 0;">
+                                    <label for="code">Código de Referencia (SKU)</label>
+                                    <input type="text" id="code" name="code" class="form-input"
+                                        placeholder="Ej: PROD-1025" value="{{ item.code if item else '' }}">
+                                </div>
+                                <div class="form-group" style="margin-bottom: 0;">
+                                    <label for="barcode">Código de Barra (Escáner)</label>
+                                    <input type="text" id="barcode" name="barcode" class="form-input"
+                                        placeholder="Ej: 7460123456789" value="{{ item.barcode if item else '' }}">
+                                </div>
+                                <div class="form-group" style="margin-bottom: 0;">
+                                    <label for="type">Tipo de Elemento</label>
+                                    <select id="type" name="type" class="form-select" required>
+                                        <option value="Bien" {% if item and item.type=='Bien' %}selected{% endif %}>Bien
+                                            / Producto Físico</option>
+                                        <option value="Servicio" {% if item and item.type=='Servicio' %}selected{% endif
+                                            %}>Servicio / Asesoría / Consultas</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- Fila 2: Categoría y Nombre/Descripción -->
+                            <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 20px; margin-bottom: 20px;">
+                                <div class="form-group" style="margin-bottom: 0;">
+                                    <label for="category_id">Categoría</label>
+                                    <select id="category_id" name="categoryId" class="form-select">
+                                        {% if categories %}
                                         {% for cat in categories %}
-                                            <option value="{{ cat.id }}" {% if item and item.categoryId == cat.id %}selected{% elif not item and cat.id == 'general' %}selected{% endif %}>{{ cat.name }}</option>
+                                        <option value="{{ cat.id }}" {% if item and item.categoryId==cat.id %}selected{%
+                                            elif not item and cat.id=='general' %}selected{% endif %}>{{ cat.name }}
+                                        </option>
                                         {% endfor %}
-                                    {% else %}
-                                        <option value="general" {% if not item or item.categoryId == 'general' %}selected{% endif %}>General</option>
-                                        <option value="alimentos" {% if item and item.categoryId == 'alimentos' %}selected{% endif %}>Alimentos y Bebidas</option>
-                                        <option value="electronica" {% if item and item.categoryId == 'electronica' %}selected{% endif %}>Electrónica</option>
-                                        <option value="servicios" {% if item and item.categoryId == 'servicios' %}selected{% endif %}>Servicios</option>
-                                        <option value="ferreteria" {% if item and item.categoryId == 'ferreteria' %}selected{% endif %}>Ferretería</option>
-                                        <option value="otros" {% if item and item.categoryId == 'otros' %}selected{% endif %}>Otros</option>
-                                    {% endif %}
-                                </select>
-                            </div>
-                            <div class="form-group" style="margin-bottom: 0;">
-                                <label for="name">Nombre / Descripción del Artículo</label>
-                                <input type="text" id="name" name="name" class="form-input" placeholder="Ej: Escritorio Metálico 3 Gavetas" required value="{{ item.name if item else '' }}">
-                            </div>
-                        </div>
-
-                        <!-- Fila 3: Marca / Fabricante y Proveedor Principal -->
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
-                            <div class="form-group" style="margin-bottom: 0;">
-                                <label for="brand">Marca / Fabricante</label>
-                                <input type="text" id="brand" name="brand" class="form-input" placeholder="Ej: Dell, Samsung" value="{{ item.brand if item else '' }}">
-                            </div>
-                            <div class="form-group" style="margin-bottom: 0;">
-                                <label for="supplier_name">Proveedor Principal</label>
-                                <input type="text" id="supplier_name" name="supplierName" class="form-input" placeholder="Ej: Importadora Dominicana SRL" value="{{ item.supplierName if item else '' }}">
-                            </div>
-                        </div>
-
-                        <!-- Fila 4: Estado Activo e Imagen del Producto -->
-                        <div style="display: grid; grid-template-columns: 1.2fr 2fr; gap: 30px; align-items: center; border-top: 1px solid var(--border-color); padding-top: 20px;">
-                            <!-- Estado Activo -->
-                            <div style="display: flex; align-items: center; gap: 15px;">
-                                <label class="toggle-switch" style="flex-shrink: 0;">
-                                    <input type="checkbox" id="is_active" name="isActive" {% if not item or item.isActive %}checked{% endif %}>
-                                    <span class="toggle-slider"></span>
-                                </label>
-                                <div>
-                                    <span style="font-weight: 600; display: block; font-size: 0.88rem; color: var(--text-main);">Producto Activo</span>
-                                    <span style="font-size: 0.75rem; color: var(--text-muted); line-height: 1.3;">Permite seleccionar este artículo en facturación y punto de venta.</span>
+                                        {% else %}
+                                        <option value="general" {% if not item or item.categoryId=='general'
+                                            %}selected{% endif %}>General</option>
+                                        <option value="alimentos" {% if item and item.categoryId=='alimentos'
+                                            %}selected{% endif %}>Alimentos y Bebidas</option>
+                                        <option value="electronica" {% if item and item.categoryId=='electronica'
+                                            %}selected{% endif %}>Electrónica</option>
+                                        <option value="servicios" {% if item and item.categoryId=='servicios'
+                                            %}selected{% endif %}>Servicios</option>
+                                        <option value="ferreteria" {% if item and item.categoryId=='ferreteria'
+                                            %}selected{% endif %}>Ferretería</option>
+                                        <option value="otros" {% if item and item.categoryId=='otros' %}selected{% endif
+                                            %}>Otros</option>
+                                        {% endif %}
+                                    </select>
+                                </div>
+                                <div class="form-group" style="margin-bottom: 0;">
+                                    <label for="name">Nombre / Descripción del Artículo</label>
+                                    <input type="text" id="name" name="name" class="form-input"
+                                        placeholder="Ej: Escritorio Metálico 3 Gavetas" required
+                                        value="{{ item.name if item else '' }}">
                                 </div>
                             </div>
 
-                            <!-- URL e Imagen -->
-                            <div style="display: flex; gap: 15px; align-items: center;">
-                                <div class="image-preview-box" id="img-preview-container" style="flex-shrink: 0; width: 64px; height: 64px; border-radius: 8px;">
-                                    {% if item and item.imageUrl %}
+                            <!-- Fila 3: Marca / Fabricante y Proveedor Principal -->
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+                                <div class="form-group" style="margin-bottom: 0;">
+                                    <label for="brand">Marca / Fabricante</label>
+                                    <input type="text" id="brand" name="brand" class="form-input"
+                                        placeholder="Ej: Dell, Samsung" value="{{ item.brand if item else '' }}">
+                                </div>
+                                <div class="form-group" style="margin-bottom: 0;">
+                                    <label for="supplier_name">Proveedor Principal</label>
+                                    <input type="text" id="supplier_name" name="supplierName" class="form-input"
+                                        placeholder="Ej: Importadora Dominicana SRL"
+                                        value="{{ item.supplierName if item else '' }}">
+                                </div>
+                            </div>
+
+                            <!-- Fila 4: Estado Activo e Imagen del Producto -->
+                            <div
+                                style="display: grid; grid-template-columns: 1.2fr 2fr; gap: 30px; align-items: center; border-top: 1px solid var(--border-color); padding-top: 20px;">
+                                <!-- Estado Activo -->
+                                <div style="display: flex; align-items: center; gap: 15px;">
+                                    <label class="toggle-switch" style="flex-shrink: 0;">
+                                        <input type="checkbox" id="is_active" name="isActive" {% if not item or
+                                            item.isActive %}checked{% endif %}>
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                    <div>
+                                        <span
+                                            style="font-weight: 500; display: block; font-size: 0.88rem; color: var(--text-main);">Producto
+                                            Activo</span>
+                                        <span
+                                            style="font-size: 0.75rem; color: var(--text-muted); line-height: 1.3;">Permite
+                                            seleccionar este artículo en facturación y punto de venta.</span>
+                                    </div>
+                                </div>
+
+                                <!-- URL e Imagen -->
+                                <div style="display: flex; gap: 15px; align-items: center;">
+                                    <div class="image-preview-box" id="img-preview-container"
+                                        style="flex-shrink: 0; width: 64px; height: 64px; border-radius: 8px;">
+                                        {% if item and item.imageUrl %}
                                         <img src="{{ item.imageUrl }}" alt="Preview" id="img-preview-el">
-                                    {% else %}
-                                        <i class="fa-regular fa-image" style="font-size: 1.5rem; color: var(--text-muted);" id="img-preview-placeholder"></i>
-                                    {% endif %}
-                                </div>
-                                <div style="flex-grow: 1;">
-                                    <label for="image_url" style="font-size: 0.78rem; font-weight: 500; color: var(--text-secondary); display: block; margin-bottom: 4px;">URL de Imagen</label>
-                                    <input type="url" id="image_url" name="imageUrl" class="form-input" placeholder="https://example.com/imagen.jpg" value="{{ item.imageUrl if item else '' }}" oninput="previewImage()">
+                                        {% else %}
+                                        <i class="fa-regular fa-image"
+                                            style="font-size: 1.5rem; color: var(--text-muted);"
+                                            id="img-preview-placeholder"></i>
+                                        {% endif %}
+                                    </div>
+                                    <div style="flex-grow: 1;">
+                                        <label for="image_url"
+                                            style="font-size: 0.78rem; font-weight: 500; color: var(--text-secondary); display: block; margin-bottom: 4px;">URL
+                                            de Imagen</label>
+                                        <input type="url" id="image_url" name="imageUrl" class="form-input"
+                                            placeholder="https://example.com/imagen.jpg"
+                                            value="{{ item.imageUrl if item else '' }}" oninput="previewImage()">
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
-            </div>
-            
-            <!-- SECCIÓN 2: PRECIOS E IMPUESTOS -->
-            <div class="accordion-item" id="sec-precios">
-                <button type="button" class="accordion-header" onclick="toggleAccordionSection(this)">
-                    <div class="accordion-title">
-                        <i class="fa-solid fa-tags"></i>
-                        <span>2. Precios e Impuestos</span>
+
+                <!-- SECCIÓN 2: PRECIOS E IMPUESTOS -->
+                <div class="accordion-item" id="sec-precios">
+                    <button type="button" class="accordion-header" onclick="toggleAccordionSection(this)">
+                        <div class="accordion-title">
+                            <i class="fa-solid fa-tags"></i>
+                            <span>2. Precios e Impuestos</span>
+                        </div>
+                        <i class="fa-solid fa-chevron-down accordion-chevron"></i>
+                    </button>
+                    <div class="accordion-content">
+                        <div class="accordion-body">
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label for="price">Precio de Venta Público (RD$)</label>
+                                    <input type="number" id="price" name="price" class="form-input" placeholder="0.00"
+                                        step="0.01" required value="{{ item.price if item else '' }}">
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="cost_price">Precio de Costo Compra (RD$)</label>
+                                    <input type="number" id="cost_price" name="costPrice" class="form-input"
+                                        placeholder="0.00" step="0.01" value="{{ item.costPrice if item else '' }}">
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="wholesale_price">Precio al por Mayor (RD$)</label>
+                                    <input type="number" id="wholesale_price" name="wholesalePrice" class="form-input"
+                                        placeholder="0.00" step="0.01"
+                                        value="{{ item.wholesalePrice if item else '' }}">
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="itbis_rate">Tasa de ITBIS Aplicable</label>
+                                    <select id="itbis_rate" name="itbisRate" class="form-select" required>
+                                        <option value="0.18" {% if item and item.itbisRate==0.18 %}selected{% endif %}>
+                                            Gravado con ITBIS General (18%)</option>
+                                        <option value="0.16" {% if item and item.itbisRate==0.16 %}selected{% endif %}>
+                                            Gravado con ITBIS Reducido (16%)</option>
+                                        <option value="0.0" {% if item and item.itbisRate==0.0 %}selected{% endif %}>
+                                            Exento de ITBIS (0%)</option>
+                                    </select>
+                                </div>
+
+                                <!-- Sección de Impuestos Adicionales / Selectivos DGII -->
+                                <div class="form-group"
+                                    style="grid-column: 1 / -1; margin-top: 10px; padding: 24px; background: rgba(99, 102, 241, 0.04); border: 1px dashed rgba(99, 102, 241, 0.3); border-radius: 12px;">
+                                    <h4
+                                        style="font-size: 0.95rem; font-family: var(--font-heading); margin-bottom: 18px; color: var(--primary-color); display: flex; align-items: center; gap: 8px;">
+                                        <i class="fa-solid fa-calculator" style="color: var(--primary-color);"></i>
+                                        <span>Impuestos Adicionales y Selectivos (DGII)</span>
+                                    </h4>
+
+                                    <div
+                                        style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px;">
+                                        <div class="form-group">
+                                            <label for="codigo_impuesto">Tipo de Impuesto Adicional</label>
+                                            <select id="codigo_impuesto" name="codigoImpuesto" class="form-select"
+                                                onchange="toggleIscFields()">
+                                                <option value="" {% if not item or not item.codigoImpuesto %}selected{%
+                                                    endif %}>Ninguno</option>
+                                                <option value="001" {% if item and item.codigoImpuesto=='001'
+                                                    %}selected{% endif %}>Propina Legal (10%)</option>
+                                                <option value="002" {% if item and item.codigoImpuesto=='002'
+                                                    %}selected{% endif %}>CDT Telecomunicaciones (2%)</option>
+                                                <option value="003" {% if item and item.codigoImpuesto=='003'
+                                                    %}selected{% endif %}>ISC Seguros en general (16%)</option>
+                                                <option value="004" {% if item and item.codigoImpuesto=='004'
+                                                    %}selected{% endif %}>ISC Telecomunicaciones (10%)</option>
+                                                <option value="005" {% if item and item.codigoImpuesto=='005'
+                                                    %}selected{% endif %}>Primera Placa Vehículos (17%)</option>
+                                                <option value="006" {% if item and item.codigoImpuesto=='006'
+                                                    %}selected{% endif %}>ISC Específico - Cerveza</option>
+                                                <option value="007" {% if item and item.codigoImpuesto=='007'
+                                                    %}selected{% endif %}>ISC Específico - Vinos de uva</option>
+                                                <option value="014" {% if item and item.codigoImpuesto=='014'
+                                                    %}selected{% endif %}>ISC Específico - Ron y aguardientes</option>
+                                                <option value="023" {% if item and item.codigoImpuesto=='023'
+                                                    %}selected{% endif %}>ISC AdValorem - Cervezas</option>
+                                                <option value="024" {% if item and item.codigoImpuesto=='024'
+                                                    %}selected{% endif %}>ISC AdValorem - Vinos de uva</option>
+                                                <option value="030" {% if item and item.codigoImpuesto=='030'
+                                                    %}selected{% endif %}>ISC AdValorem - Ron y aguardientes</option>
+                                            </select>
+                                        </div>
+
+                                        <div class="form-group isc-field general-tasa">
+                                            <label for="tasa_impuesto_adicional">Tasa o Monto Unitario</label>
+                                            <input type="number" id="tasa_impuesto_adicional"
+                                                name="tasaImpuestoAdicional" class="form-input" placeholder="0.00"
+                                                step="0.0001"
+                                                value="{{ item.tasaImpuestoAdicional if item else '0.00' }}">
+                                        </div>
+
+                                        <div class="form-group isc-field alcohol-only" style="display: none;">
+                                            <label for="grados_alcohol">Grados de Alcohol (%)</label>
+                                            <input type="number" id="grados_alcohol" name="gradosAlcohol"
+                                                class="form-input" placeholder="Ej: 5.0" step="0.01"
+                                                value="{{ item.gradosAlcohol if item else '0.00' }}">
+                                        </div>
+
+                                        <div class="form-group isc-field alcohol-only" style="display: none;">
+                                            <label for="cantidad_referencia">Litros de Referencia</label>
+                                            <input type="number" id="cantidad_referencia" name="cantidadReferencia"
+                                                class="form-input" placeholder="Ej: 0.355" step="0.0001"
+                                                value="{{ item.cantidadReferencia if item else '0.00' }}">
+                                        </div>
+
+                                        <div class="form-group isc-field alcohol-only" style="display: none;">
+                                            <label for="subcantidad">Subcantidad</label>
+                                            <input type="number" id="subcantidad" name="subcantidad" class="form-input"
+                                                placeholder="1.0" step="0.01"
+                                                value="{{ item.subcantidad if item else '1.0' }}">
+                                        </div>
+
+                                        <div class="form-group isc-field advalorem-only" style="display: none;">
+                                            <label for="precio_referencia">Precio Referencia (PVP)</label>
+                                            <input type="number" id="precio_referencia" name="precioReferencia"
+                                                class="form-input" placeholder="0.00" step="0.01"
+                                                value="{{ item.precioReferencia if item else '0.00' }}">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <i class="fa-solid fa-chevron-down accordion-chevron"></i>
+                </div>
+
+                <!-- SECCIÓN 3: INVENTARIO Y LOGÍSTICA -->
+                <div class="accordion-item" id="sec-inventario">
+                    <button type="button" class="accordion-header" onclick="toggleAccordionSection(this)">
+                        <div class="accordion-title">
+                            <i class="fa-solid fa-warehouse"></i>
+                            <span>3. Inventario y Logística</span>
+                        </div>
+                        <i class="fa-solid fa-chevron-down accordion-chevron"></i>
+                    </button>
+                    <div class="accordion-content">
+                        <div class="accordion-body">
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label for="unit">Unidad de Medida</label>
+                                    <select id="unit" name="unit" class="form-select" required>
+                                        <option value="Unidad" {% if item and item.unit=='Unidad' %}selected{% endif %}>
+                                            Unidad (ud)</option>
+                                        <option value="Hora" {% if item and item.unit=='Hora' %}selected{% endif %}>Hora
+                                            (hr)</option>
+                                        <option value="Servicio" {% if item and item.unit=='Servicio' %}selected{% endif
+                                            %}>Servicio (srv)</option>
+                                        <option value="Caja" {% if item and item.unit=='Caja' %}selected{% endif %}>Caja
+                                            (cj)</option>
+                                        <option value="Mes" {% if item and item.unit=='Mes' %}selected{% endif %}>Mes
+                                            (mes)</option>
+                                        <option value="Otros" {% if item and item.unit=='Otros' %}selected{% endif %}>
+                                            Otros</option>
+                                    </select>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="min_stock">Stock Mínimo de Alerta</label>
+                                    <input type="number" id="min_stock" name="minStock" class="form-input"
+                                        placeholder="0.00" step="0.01" value="{{ item.minStock if item else '0.00' }}">
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="max_stock">Stock Máximo de Control</label>
+                                    <input type="number" id="max_stock" name="maxStock" class="form-input"
+                                        placeholder="0.00" step="0.01" value="{{ item.maxStock if item else '0.00' }}">
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="rack_location">Ubicación Física (Pasillo / Tramo)</label>
+                                    <input type="text" id="rack_location" name="rackLocation" class="form-input"
+                                        placeholder="Ej: Pasillo 3, Góndola A"
+                                        value="{{ item.rackLocation if item else '' }}">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <div
+                style="margin-top: 36px; display: flex; justify-content: flex-end; gap: 15px; border-top: 1px solid var(--border-color); padding-top: 24px;">
+                <a href="{{ url_for('list_items') }}" class="btn btn-secondary">
+                    <span>Cancelar</span>
+                </a>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fa-solid fa-floppy-disk"></i>
+                    <span>{% if item %}Guardar Cambios{% else %}Registrar Artículo{% endif %}</span>
                 </button>
-                <div class="accordion-content">
-                    <div class="accordion-body">
-                        <div class="form-grid">
-                            <div class="form-group">
-                                <label for="price">Precio de Venta Público (RD$)</label>
-                                <input type="number" id="price" name="price" class="form-input" placeholder="0.00" step="0.01" required value="{{ item.price if item else '' }}">
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="cost_price">Precio de Costo Compra (RD$)</label>
-                                <input type="number" id="cost_price" name="costPrice" class="form-input" placeholder="0.00" step="0.01" value="{{ item.costPrice if item else '' }}">
-                            </div>
-
-                            <div class="form-group">
-                                <label for="wholesale_price">Precio al por Mayor (RD$)</label>
-                                <input type="number" id="wholesale_price" name="wholesalePrice" class="form-input" placeholder="0.00" step="0.01" value="{{ item.wholesalePrice if item else '' }}">
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="itbis_rate">Tasa de ITBIS Aplicable</label>
-                                <select id="itbis_rate" name="itbisRate" class="form-select" required>
-                                    <option value="0.18" {% if item and item.itbisRate == 0.18 %}selected{% endif %}>Gravado con ITBIS General (18%)</option>
-                                    <option value="0.16" {% if item and item.itbisRate == 0.16 %}selected{% endif %}>Gravado con ITBIS Reducido (16%)</option>
-                                    <option value="0.0" {% if item and item.itbisRate == 0.0 %}selected{% endif %}>Exento de ITBIS (0%)</option>
-                                </select>
-                            </div>
-                            
-                            <!-- Sección de Impuestos Adicionales / Selectivos DGII -->
-                            <div class="form-group" style="grid-column: 1 / -1; margin-top: 10px; padding: 24px; background: rgba(99, 102, 241, 0.04); border: 1px dashed rgba(99, 102, 241, 0.3); border-radius: 12px;">
-                                <h4 style="font-size: 0.95rem; font-family: var(--font-heading); margin-bottom: 18px; color: var(--primary-color); display: flex; align-items: center; gap: 8px;">
-                                    <i class="fa-solid fa-calculator" style="color: var(--primary-color);"></i>
-                                    <span>Impuestos Adicionales y Selectivos (DGII)</span>
-                                </h4>
-                                
-                                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px;">
-                                    <div class="form-group">
-                                        <label for="codigo_impuesto">Tipo de Impuesto Adicional</label>
-                                        <select id="codigo_impuesto" name="codigoImpuesto" class="form-select" onchange="toggleIscFields()">
-                                            <option value="" {% if not item or not item.codigoImpuesto %}selected{% endif %}>Ninguno</option>
-                                            <option value="001" {% if item and item.codigoImpuesto == '001' %}selected{% endif %}>Propina Legal (10%)</option>
-                                            <option value="002" {% if item and item.codigoImpuesto == '002' %}selected{% endif %}>CDT Telecomunicaciones (2%)</option>
-                                            <option value="003" {% if item and item.codigoImpuesto == '003' %}selected{% endif %}>ISC Seguros en general (16%)</option>
-                                            <option value="004" {% if item and item.codigoImpuesto == '004' %}selected{% endif %}>ISC Telecomunicaciones (10%)</option>
-                                            <option value="005" {% if item and item.codigoImpuesto == '005' %}selected{% endif %}>Primera Placa Vehículos (17%)</option>
-                                            <option value="006" {% if item and item.codigoImpuesto == '006' %}selected{% endif %}>ISC Específico - Cerveza</option>
-                                            <option value="007" {% if item and item.codigoImpuesto == '007' %}selected{% endif %}>ISC Específico - Vinos de uva</option>
-                                            <option value="014" {% if item and item.codigoImpuesto == '014' %}selected{% endif %}>ISC Específico - Ron y aguardientes</option>
-                                            <option value="023" {% if item and item.codigoImpuesto == '023' %}selected{% endif %}>ISC AdValorem - Cervezas</option>
-                                            <option value="024" {% if item and item.codigoImpuesto == '024' %}selected{% endif %}>ISC AdValorem - Vinos de uva</option>
-                                            <option value="030" {% if item and item.codigoImpuesto == '030' %}selected{% endif %}>ISC AdValorem - Ron y aguardientes</option>
-                                        </select>
-                                    </div>
-                                    
-                                    <div class="form-group isc-field general-tasa">
-                                        <label for="tasa_impuesto_adicional">Tasa o Monto Unitario</label>
-                                        <input type="number" id="tasa_impuesto_adicional" name="tasaImpuestoAdicional" class="form-input" placeholder="0.00" step="0.0001" value="{{ item.tasaImpuestoAdicional if item else '0.00' }}">
-                                    </div>
-                                    
-                                    <div class="form-group isc-field alcohol-only" style="display: none;">
-                                        <label for="grados_alcohol">Grados de Alcohol (%)</label>
-                                        <input type="number" id="grados_alcohol" name="gradosAlcohol" class="form-input" placeholder="Ej: 5.0" step="0.01" value="{{ item.gradosAlcohol if item else '0.00' }}">
-                                    </div>
-                                    
-                                    <div class="form-group isc-field alcohol-only" style="display: none;">
-                                        <label for="cantidad_referencia">Litros de Referencia</label>
-                                        <input type="number" id="cantidad_referencia" name="cantidadReferencia" class="form-input" placeholder="Ej: 0.355" step="0.0001" value="{{ item.cantidadReferencia if item else '0.00' }}">
-                                    </div>
-                                    
-                                    <div class="form-group isc-field alcohol-only" style="display: none;">
-                                        <label for="subcantidad">Subcantidad</label>
-                                        <input type="number" id="subcantidad" name="subcantidad" class="form-input" placeholder="1.0" step="0.01" value="{{ item.subcantidad if item else '1.0' }}">
-                                    </div>
-                                    
-                                    <div class="form-group isc-field advalorem-only" style="display: none;">
-                                        <label for="precio_referencia">Precio Referencia (PVP)</label>
-                                        <input type="number" id="precio_referencia" name="precioReferencia" class="form-input" placeholder="0.00" step="0.01" value="{{ item.precioReferencia if item else '0.00' }}">
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
             </div>
-            
-            <!-- SECCIÓN 3: INVENTARIO Y LOGÍSTICA -->
-            <div class="accordion-item" id="sec-inventario">
-                <button type="button" class="accordion-header" onclick="toggleAccordionSection(this)">
-                    <div class="accordion-title">
-                        <i class="fa-solid fa-warehouse"></i>
-                        <span>3. Inventario y Logística</span>
-                    </div>
-                    <i class="fa-solid fa-chevron-down accordion-chevron"></i>
-                </button>
-                <div class="accordion-content">
-                    <div class="accordion-body">
-                        <div class="form-grid">
-                            <div class="form-group">
-                                <label for="unit">Unidad de Medida</label>
-                                <select id="unit" name="unit" class="form-select" required>
-                                    <option value="Unidad" {% if item and item.unit == 'Unidad' %}selected{% endif %}>Unidad (ud)</option>
-                                    <option value="Hora" {% if item and item.unit == 'Hora' %}selected{% endif %}>Hora (hr)</option>
-                                    <option value="Servicio" {% if item and item.unit == 'Servicio' %}selected{% endif %}>Servicio (srv)</option>
-                                    <option value="Caja" {% if item and item.unit == 'Caja' %}selected{% endif %}>Caja (cj)</option>
-                                    <option value="Mes" {% if item and item.unit == 'Mes' %}selected{% endif %}>Mes (mes)</option>
-                                    <option value="Otros" {% if item and item.unit == 'Otros' %}selected{% endif %}>Otros</option>
-                                </select>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="min_stock">Stock Mínimo de Alerta</label>
-                                <input type="number" id="min_stock" name="minStock" class="form-input" placeholder="0.00" step="0.01" value="{{ item.minStock if item else '0.00' }}">
-                            </div>
-
-                            <div class="form-group">
-                                <label for="max_stock">Stock Máximo de Control</label>
-                                <input type="number" id="max_stock" name="maxStock" class="form-input" placeholder="0.00" step="0.01" value="{{ item.maxStock if item else '0.00' }}">
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="rack_location">Ubicación Física (Pasillo / Tramo)</label>
-                                <input type="text" id="rack_location" name="rackLocation" class="form-input" placeholder="Ej: Pasillo 3, Góndola A" value="{{ item.rackLocation if item else '' }}">
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-        </div>
-
-        <div style="margin-top: 36px; display: flex; justify-content: flex-end; gap: 15px; border-top: 1px solid var(--border-color); padding-top: 24px;">
-            <a href="{{ url_for('list_items') }}" class="btn btn-secondary">
-                <span>Cancelar</span>
-            </a>
-            <button type="submit" class="btn btn-primary">
-                <i class="fa-solid fa-floppy-disk"></i>
-                <span>{% if item %}Guardar Cambios{% else %}Registrar Artículo{% endif %}</span>
-            </button>
-        </div>
-    </form>
+        </form>
     </div>
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Inicializar el acordeón para la sección activa por defecto
-    const activeItem = document.querySelector('.accordion-item.active');
-    if (activeItem) {
-        const content = activeItem.querySelector('.accordion-content');
-        if (content) {
+    document.addEventListener('DOMContentLoaded', function () {
+        // Inicializar el acordeón para la sección activa por defecto
+        const activeItem = document.querySelector('.accordion-item.active');
+        if (activeItem) {
+            const content = activeItem.querySelector('.accordion-content');
+            if (content) {
+                content.style.maxHeight = content.scrollHeight + 'px';
+            }
+        }
+
+        // Inicializar el toggle de impuestos
+        toggleIscFields();
+    });
+
+    // Comportamiento del Acordeón calcando company_settings.html
+    window.toggleAccordionSection = function (header) {
+        const item = header.parentElement;
+        const content = item.querySelector('.accordion-content');
+        const isActive = item.classList.contains('active');
+
+        // Cerrar todas las secciones primero
+        document.querySelectorAll('.accordion-item').forEach(el => {
+            el.classList.remove('active');
+            const c = el.querySelector('.accordion-content');
+            if (c) c.style.maxHeight = null;
+        });
+
+        // Abrir la seleccionada si no estaba activa
+        if (!isActive) {
+            item.classList.add('active');
             content.style.maxHeight = content.scrollHeight + 'px';
+        }
+    };
+
+    function previewImage() {
+        const url = document.getElementById('image_url').value.trim();
+        const container = document.getElementById('img-preview-container');
+
+        if (url) {
+            container.innerHTML = `<img src="${url}" alt="Preview" id="img-preview-el" onerror="handleImageError()">`;
+            // Actualizar el maxHeight si cambia la imagen para evitar desbordamientos
+            setTimeout(adjustActiveAccordionHeight, 150);
+        } else {
+            container.innerHTML = `<i class="fa-regular fa-image" style="font-size: 1.8rem; color: var(--text-muted);" id="img-preview-placeholder"></i>`;
+            setTimeout(adjustActiveAccordionHeight, 150);
         }
     }
 
-    // Inicializar el toggle de impuestos
-    toggleIscFields();
-});
-
-// Comportamiento del Acordeón calcando company_settings.html
-window.toggleAccordionSection = function (header) {
-    const item = header.parentElement;
-    const content = item.querySelector('.accordion-content');
-    const isActive = item.classList.contains('active');
-
-    // Cerrar todas las secciones primero
-    document.querySelectorAll('.accordion-item').forEach(el => {
-        el.classList.remove('active');
-        const c = el.querySelector('.accordion-content');
-        if (c) c.style.maxHeight = null;
-    });
-
-    // Abrir la seleccionada si no estaba activa
-    if (!isActive) {
-        item.classList.add('active');
-        content.style.maxHeight = content.scrollHeight + 'px';
-    }
-};
-
-function previewImage() {
-    const url = document.getElementById('image_url').value.trim();
-    const container = document.getElementById('img-preview-container');
-    
-    if (url) {
-        container.innerHTML = `<img src="${url}" alt="Preview" id="img-preview-el" onerror="handleImageError()">`;
-        // Actualizar el maxHeight si cambia la imagen para evitar desbordamientos
-        setTimeout(adjustActiveAccordionHeight, 150);
-    } else {
-        container.innerHTML = `<i class="fa-regular fa-image" style="font-size: 1.8rem; color: var(--text-muted);" id="img-preview-placeholder"></i>`;
+    function handleImageError() {
+        const container = document.getElementById('img-preview-container');
+        container.innerHTML = `<i class="fa-solid fa-triangle-exclamation" style="font-size: 1.8rem; color: var(--accent-red);" title="Error cargando URL"></i>`;
         setTimeout(adjustActiveAccordionHeight, 150);
     }
-}
 
-function handleImageError() {
-    const container = document.getElementById('img-preview-container');
-    container.innerHTML = `<i class="fa-solid fa-triangle-exclamation" style="font-size: 1.8rem; color: var(--accent-red);" title="Error cargando URL"></i>`;
-    setTimeout(adjustActiveAccordionHeight, 150);
-}
-
-function adjustActiveAccordionHeight() {
-    const activeItem = document.querySelector('.accordion-item.active');
-    if (activeItem) {
-        const content = activeItem.querySelector('.accordion-content');
-        if (content) {
-            content.style.maxHeight = content.scrollHeight + 'px';
+    function adjustActiveAccordionHeight() {
+        const activeItem = document.querySelector('.accordion-item.active');
+        if (activeItem) {
+            const content = activeItem.querySelector('.accordion-content');
+            if (content) {
+                content.style.maxHeight = content.scrollHeight + 'px';
+            }
         }
     }
-}
 
-function toggleIscFields() {
-    const cod = document.getElementById('codigo_impuesto').value;
-    const isAlcohol = (cod >= '006' && cod <= '018') || (cod >= '023' && cod <= '035');
-    const isAdValorem = (cod >= '023' && cod <= '039');
-    
-    const tasaInput = document.getElementById('tasa_impuesto_adicional');
-    if (cod === '001') {
-        tasaInput.value = '0.10';
-    } else if (cod === '002') {
-        tasaInput.value = '0.02';
-    } else if (cod === '003') {
-        tasaInput.value = '0.16';
-    } else if (cod === '004') {
-        tasaInput.value = '0.10';
-    } else if (cod === '005') {
-        tasaInput.value = '0.17';
-    } else if (cod >= '006' && cod <= '018') {
-        tasaInput.value = '632.58';
-    } else if (cod >= '023' && cod <= '035') {
-        tasaInput.value = '0.10';
-    } else {
-        tasaInput.value = '0.00';
-    }
-    
-    if (cod === '') {
-        tasaInput.readOnly = false;
-    } else {
-        tasaInput.readOnly = true;
-        tasaInput.style.backgroundColor = 'var(--bg-card-hover)';
-    }
-    
-    document.querySelectorAll('.alcohol-only').forEach(el => {
-        el.style.display = isAlcohol ? 'block' : 'none';
-    });
-    
-    document.querySelectorAll('.advalorem-only').forEach(el => {
-        el.style.display = isAdValorem ? 'block' : 'none';
-    });
+    function toggleIscFields() {
+        const cod = document.getElementById('codigo_impuesto').value;
+        const isAlcohol = (cod >= '006' && cod <= '018') || (cod >= '023' && cod <= '035');
+        const isAdValorem = (cod >= '023' && cod <= '039');
 
-    // Ajustar el alto del acordeón activo por si cambian de tamaño los campos
-    setTimeout(adjustActiveAccordionHeight, 150);
-}
+        const tasaInput = document.getElementById('tasa_impuesto_adicional');
+        if (cod === '001') {
+            tasaInput.value = '0.10';
+        } else if (cod === '002') {
+            tasaInput.value = '0.02';
+        } else if (cod === '003') {
+            tasaInput.value = '0.16';
+        } else if (cod === '004') {
+            tasaInput.value = '0.10';
+        } else if (cod === '005') {
+            tasaInput.value = '0.17';
+        } else if (cod >= '006' && cod <= '018') {
+            tasaInput.value = '632.58';
+        } else if (cod >= '023' && cod <= '035') {
+            tasaInput.value = '0.10';
+        } else {
+            tasaInput.value = '0.00';
+        }
+
+        if (cod === '') {
+            tasaInput.readOnly = false;
+        } else {
+            tasaInput.readOnly = true;
+            tasaInput.style.backgroundColor = 'var(--bg-card-hover)';
+        }
+
+        document.querySelectorAll('.alcohol-only').forEach(el => {
+            el.style.display = isAlcohol ? 'block' : 'none';
+        });
+
+        document.querySelectorAll('.advalorem-only').forEach(el => {
+            el.style.display = isAdValorem ? 'block' : 'none';
+        });
+
+        // Ajustar el alto del acordeón activo por si cambian de tamaño los campos
+        setTimeout(adjustActiveAccordionHeight, 150);
+    }
 </script>
 {% endblock %}

@@ -167,7 +167,7 @@ h4,
 h5,
 h6 {
     font-family: var(--font-heading);
-    font-weight: 600;
+    font-weight: 500;
     letter-spacing: -0.02em;
 }
 
@@ -376,7 +376,7 @@ body:not(.sidebar-collapsed) .sidebar-logo .logo-text-wrapper {
 }
 
 .user-name {
-    font-weight: 600;
+    font-weight: 500;
     font-size: 0.88rem;
     white-space: nowrap;
     text-overflow: ellipsis;
@@ -423,7 +423,7 @@ body:not(.sidebar-collapsed) .sidebar-logo .logo-text-wrapper {
 
 .page-title {
     font-size: 1.15rem;
-    font-weight: 600;
+    font-weight: 500;
     letter-spacing: -0.01em;
     font-family: var(--font-heading);
     color: var(--text-primary);
@@ -596,11 +596,11 @@ body.sandbox-mode .environment-indicator {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 10px;
-    padding: 12px 24px;
-    font-weight: 600;
+    gap: 8px;
+    padding: 6px 14px;
+    font-weight: 500;
     font-family: var(--font-heading);
-    font-size: 0.92rem;
+    font-size: 0.8rem;
     border-radius: var(--radius-sm);
     cursor: pointer;
     transition: all var(--transition-fast);
@@ -609,14 +609,14 @@ body.sandbox-mode .environment-indicator {
 .btn-primary {
     background: linear-gradient(90deg, var(--accent-emerald), var(--accent-emerald-hover));
     color: white;
-    box-shadow: var(--shadow-btn-glow);
+    box-shadow: var(--shadow-sm);
     border: none;
 }
 
 .btn-primary:hover {
     background: linear-gradient(90deg, var(--accent-emerald-hover), var(--accent-emerald));
     transform: translateY(-1px);
-    box-shadow: 0 6px 16px var(--shadow-btn-glow);
+    box-shadow: var(--shadow-md);
 }
 
 .btn:disabled,
@@ -1262,7 +1262,7 @@ body.sandbox-mode .segment-header-icon.emerald {
     color: #ffffff;
     padding: 8px 12px;
     font-size: 0.78rem;
-    font-weight: 600;
+    font-weight: 500;
     border-radius: var(--radius-sm);
     white-space: nowrap;
     opacity: 0;
@@ -1463,7 +1463,7 @@ body.sandbox-mode .segment-header-icon.emerald {
 .hero-title {
     font-family: var(--font-heading);
     font-size: 3.8rem;
-    font-weight: 600;
+    font-weight: 500;
     line-height: 1.15;
     letter-spacing: -0.03em;
     margin-bottom: 24px;
@@ -1678,7 +1678,7 @@ body.sandbox-mode .segment-header-icon.emerald {
 .section-title {
     font-family: var(--font-heading);
     font-size: 2.5rem;
-    font-weight: 600;
+    font-weight: 500;
     letter-spacing: -0.02em;
     margin-bottom: 16px;
 }
@@ -1748,7 +1748,7 @@ body.sandbox-mode .segment-header-icon.emerald {
 .feature-title {
     font-family: var(--font-heading);
     font-size: 1.3rem;
-    font-weight: 600;
+    font-weight: 500;
     margin-bottom: 12px;
 }
 
@@ -1808,7 +1808,7 @@ body.sandbox-mode .segment-header-icon.emerald {
 .slider-value-display {
     font-family: var(--font-heading);
     font-size: 2.2rem;
-    font-weight: 600;
+    font-weight: 500;
     color: var(--accent-emerald);
 }
 
@@ -1873,7 +1873,7 @@ body.sandbox-mode .segment-header-icon.emerald {
 .category-title {
     font-family: var(--font-heading);
     font-size: 1.6rem;
-    font-weight: 600;
+    font-weight: 500;
     margin-top: 10px;
 }
 
@@ -1921,7 +1921,7 @@ body.sandbox-mode .segment-header-icon.emerald {
 .contact-info h3 {
     font-family: var(--font-heading);
     font-size: 2.2rem;
-    font-weight: 600;
+    font-weight: 500;
     margin-bottom: 20px;
     line-height: 1.2;
 }
@@ -1980,7 +1980,7 @@ body.sandbox-mode .segment-header-icon.emerald {
 .form-success-title {
     font-family: var(--font-heading);
     font-size: 1.5rem;
-    font-weight: 600;
+    font-weight: 500;
     margin-bottom: 12px;
 }
 
@@ -2095,7 +2095,7 @@ body.sandbox-mode .segment-header-icon.emerald {
 .trust-number {
     font-family: var(--font-heading);
     font-size: 2.2rem;
-    font-weight: 600;
+    font-weight: 500;
     background: linear-gradient(135deg, var(--accent-emerald), #60a5fa);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;

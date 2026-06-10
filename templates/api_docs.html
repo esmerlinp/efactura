@@ -1,17 +1,21 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Documentación API REST - e-Factura</title>
-    
+
     <!-- Google Fonts & FontAwesome -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;800&display=swap"
+        rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
+
     <style>
         :root {
-            --primary: #1E3A8A; /* Azul Corporativo */
+            --primary: #1E3A8A;
+            /* Azul Corporativo */
             --primary-light: #eff6ff;
             --primary-hover: #2563EB;
             --text-main: #1e293b;
@@ -19,7 +23,7 @@
             --bg-main: #f8fafc;
             --bg-card: #ffffff;
             --border: #e2e8f0;
-            
+
             --success: #10b981;
             --success-light: #ecfdf5;
             --danger: #ef4444;
@@ -41,9 +45,12 @@
             line-height: 1.6;
         }
 
-        h1, h2, h3, h4 {
+        h1,
+        h2,
+        h3,
+        h4 {
             font-family: 'Outfit', sans-serif;
-            font-weight: 600;
+            font-weight: 500;
             color: var(--primary);
         }
 
@@ -58,7 +65,7 @@
             position: sticky;
             top: 0;
             z-index: 100;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
         }
 
         .logo {
@@ -112,7 +119,9 @@
             margin-top: 24px;
         }
 
-        .sidebar h4:first-child { margin-top: 0; }
+        .sidebar h4:first-child {
+            margin-top: 0;
+        }
 
         .nav-item {
             display: block;
@@ -137,7 +146,7 @@
             background-color: var(--primary-light);
             color: var(--primary);
             border-color: #bfdbfe;
-            font-weight: 600;
+            font-weight: 500;
         }
 
         /* CONTENT AREA */
@@ -170,7 +179,7 @@
             border: 1px solid var(--border);
             border-radius: 12px;
             padding: 32px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.02);
             margin-bottom: 40px;
             animation: fadeIn 0.3s ease-out;
         }
@@ -180,8 +189,15 @@
         }
 
         @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
         .endpoint-header {
@@ -201,15 +217,26 @@
             letter-spacing: 0.05em;
         }
 
-        .badge.post { background: var(--primary-light); color: var(--primary); }
-        .badge.get { background: var(--success-light); color: var(--success); }
-        .badge.delete { background: var(--danger-light); color: var(--danger); }
+        .badge.post {
+            background: var(--primary-light);
+            color: var(--primary);
+        }
+
+        .badge.get {
+            background: var(--success-light);
+            color: var(--success);
+        }
+
+        .badge.delete {
+            background: var(--danger-light);
+            color: var(--danger);
+        }
 
         .endpoint-url {
             font-family: monospace;
             font-size: 1.2rem;
             color: var(--text-main);
-            font-weight: 600;
+            font-weight: 500;
         }
 
         .description {
@@ -228,11 +255,12 @@
 
         /* CODE BLOCKS */
         .code-container {
-            background-color: #1e1e1e; /* Estilo editor oscuro por contraste */
+            background-color: #1e1e1e;
+            /* Estilo editor oscuro por contraste */
             border-radius: 10px;
             overflow: hidden;
             margin-bottom: 24px;
-            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
         }
 
         .code-header {
@@ -246,7 +274,7 @@
         .code-lang {
             color: #a3a3a3;
             font-size: 0.8rem;
-            font-weight: 600;
+            font-weight: 500;
             text-transform: uppercase;
             letter-spacing: 0.05em;
         }
@@ -261,10 +289,22 @@
             white-space: pre;
         }
 
-        .code-body .string { color: #a5b4fc; }
-        .code-body .number { color: #fcd34d; }
-        .code-body .keyword { color: #f472b6; }
-        .code-body .comment { color: #71717a; font-style: italic; }
+        .code-body .string {
+            color: #a5b4fc;
+        }
+
+        .code-body .number {
+            color: #fcd34d;
+        }
+
+        .code-body .keyword {
+            color: #f472b6;
+        }
+
+        .code-body .comment {
+            color: #71717a;
+            font-style: italic;
+        }
 
         /* TABLES */
         table {
@@ -274,7 +314,8 @@
             font-size: 0.95rem;
         }
 
-        th, td {
+        th,
+        td {
             padding: 14px 16px;
             text-align: left;
             border-bottom: 1px solid var(--border);
@@ -283,12 +324,12 @@
         th {
             background-color: var(--bg-main);
             color: var(--text-muted);
-            font-weight: 600;
+            font-weight: 500;
         }
 
         td.param-name {
             font-family: monospace;
-            font-weight: 600;
+            font-weight: 500;
             color: var(--primary);
         }
 
@@ -298,13 +339,28 @@
         }
 
         @media (max-width: 768px) {
-            .container { flex-direction: column; }
-            .sidebar { width: 100%; height: auto; position: static; padding: 20px; }
-            .content { padding: 20px; }
-            header { padding: 16px 20px; }
+            .container {
+                flex-direction: column;
+            }
+
+            .sidebar {
+                width: 100%;
+                height: auto;
+                position: static;
+                padding: 20px;
+            }
+
+            .content {
+                padding: 20px;
+            }
+
+            header {
+                padding: 16px 20px;
+            }
         }
     </style>
 </head>
+
 <body>
 
     <header>
@@ -322,7 +378,7 @@
             <h4>Introducción</h4>
             <a class="nav-item active" data-target="intro">Visión General</a>
             <a class="nav-item" data-target="auth">Autenticación</a>
-            
+
             <h4>Comprobantes (e-CF)</h4>
             <a class="nav-item" data-target="emit">Emitir Comprobante</a>
             <a class="nav-item" data-target="status">Consultar Estado</a>
@@ -332,7 +388,7 @@
             <a class="nav-item" data-target="docs">Documentos y Cotiz.</a>
             <a class="nav-item" data-target="clients">Clientes</a>
             <a class="nav-item" data-target="items">Productos</a>
-            
+
             <h4>Auditoría y DGII</h4>
             <a class="nav-item" data-target="sequences">Secuencias (NCF)</a>
             <a class="nav-item" data-target="audit">Auditoría DGII</a>
@@ -346,17 +402,21 @@
         <div class="content">
             <div class="page-header">
                 <h1>Documentación API REST</h1>
-                <p>Integra facturación electrónica directamente en tu ERP o aplicación. Nuestra API RESTful está diseñada para ser rápida, segura y completamente homologada por la DGII.</p>
+                <p>Integra facturación electrónica directamente en tu ERP o aplicación. Nuestra API RESTful está
+                    diseñada para ser rápida, segura y completamente homologada por la DGII.</p>
             </div>
 
             <!-- Intro Pane -->
             <div class="endpoint-pane active" id="pane-intro">
                 <h2>Bienvenido a la API de e-Factura</h2>
                 <p class="description" style="margin-top: 16px;">
-                    e-Factura proporciona un <strong>Backend as a Service (BaaS)</strong> robusto para la emisión y gestión de Comprobantes Fiscales Electrónicos (e-CF) en la República Dominicana (Ley 32-23).
+                    e-Factura proporciona un <strong>Backend as a Service (BaaS)</strong> robusto para la emisión y
+                    gestión de Comprobantes Fiscales Electrónicos (e-CF) en la República Dominicana (Ley 32-23).
                 </p>
                 <p class="description">
-                    Nuestra infraestructura se encarga de la firma digital, el encolamiento y la comunicación con la DGII. Tu sistema solo debe enviar un JSON con la estructura de la factura y nosotros nos encargamos del resto.
+                    Nuestra infraestructura se encarga de la firma digital, el encolamiento y la comunicación con la
+                    DGII. Tu sistema solo debe enviar un JSON con la estructura de la factura y nosotros nos encargamos
+                    del resto.
                 </p>
 
                 <h3>Base URL</h3>
@@ -365,7 +425,9 @@
                 </div>
 
                 <h3>Formatos</h3>
-                <p class="description">Todas las peticiones y respuestas utilizan el formato <code>application/json</code>. Asegúrate de incluir la cabecera <code>Content-Type: application/json</code> en todas tus llamadas.</p>
+                <p class="description">Todas las peticiones y respuestas utilizan el formato
+                    <code>application/json</code>. Asegúrate de incluir la cabecera
+                    <code>Content-Type: application/json</code> en todas tus llamadas.</p>
             </div>
 
             <!-- Auth Pane -->
@@ -374,12 +436,17 @@
                     <span class="badge post">POST</span>
                     <span class="endpoint-url">/auth/token</span>
                 </div>
-                <p class="description">Obtén un token Bearer temporal utilizando tus credenciales de API Key. Este token expira en 24 horas y es requerido para todas las operaciones posteriores.</p>
+                <p class="description">Obtén un token Bearer temporal utilizando tus credenciales de API Key. Este token
+                    expira en 24 horas y es requerido para todas las operaciones posteriores.</p>
 
                 <h3>Request Body</h3>
                 <table>
                     <thead>
-                        <tr><th>Parámetro</th><th>Tipo</th><th>Descripción</th></tr>
+                        <tr>
+                            <th>Parámetro</th>
+                            <th>Tipo</th>
+                            <th>Descripción</th>
+                        </tr>
                     </thead>
                     <tbody>
                         <tr>
@@ -394,8 +461,8 @@
                 <div class="code-container">
                     <div class="code-header"><span class="code-lang">BASH</span></div>
                     <div class="code-body">curl -X POST https://api.e-factura.do/v1/auth/token \
-  -H <span class="string">"Content-Type: application/json"</span> \
-  -d <span class="string">'{"api_key": "sk_test_123456789"}'</span></div>
+                        -H <span class="string">"Content-Type: application/json"</span> \
+                        -d <span class="string">'{"api_key": "sk_test_123456789"}'</span></div>
                 </div>
             </div>
 
@@ -405,7 +472,8 @@
                     <span class="badge post">POST</span>
                     <span class="endpoint-url">/invoices</span>
                 </div>
-                <p class="description">Envía los datos de la factura en formato JSON. El sistema validará la estructura, aplicará la firma criptográfica y encolará el documento para su envío a la DGII.</p>
+                <p class="description">Envía los datos de la factura en formato JSON. El sistema validará la estructura,
+                    aplicará la firma criptográfica y encolará el documento para su envío a la DGII.</p>
 
                 <h3>Cabeceras Requeridas</h3>
                 <table>
@@ -421,21 +489,24 @@
                 <div class="code-container">
                     <div class="code-header"><span class="code-lang">JSON</span></div>
                     <div class="code-body">{
-  <span class="string">"rncEmisor"</span>: <span class="string">"131689787"</span>,
-  <span class="string">"ncfTipo"</span>: <span class="string">"E31"</span>, <span class="comment">// Crédito Fiscal Electrónico</span>
-  <span class="string">"cliente"</span>: {
-    <span class="string">"rnc"</span>: <span class="string">"101565022"</span>,
-    <span class="string">"razonSocial"</span>: <span class="string">"EMPRESA DE EJEMPLO"</span>
-  },
-  <span class="string">"items"</span>: [
-    {
-      <span class="string">"descripcion"</span>: <span class="string">"Servicio de Consultoría"</span>,
-      <span class="string">"precio"</span>: <span class="number">1000.00</span>,
-      <span class="string">"cantidad"</span>: <span class="number">1</span>,
-      <span class="string">"itbis"</span>: <span class="number">180.00</span>
-    }
-  ]
-}</div>
+                        <span class="string">"rncEmisor"</span>: <span class="string">"131689787"</span>,
+                        <span class="string">"ncfTipo"</span>: <span class="string">"E31"</span>, <span
+                            class="comment">// Crédito Fiscal Electrónico</span>
+                        <span class="string">"cliente"</span>: {
+                        <span class="string">"rnc"</span>: <span class="string">"101565022"</span>,
+                        <span class="string">"razonSocial"</span>: <span class="string">"EMPRESA DE EJEMPLO"</span>
+                        },
+                        <span class="string">"items"</span>: [
+                        {
+                        <span class="string">"descripcion"</span>: <span class="string">"Servicio de
+                            Consultoría"</span>,
+                        <span class="string">"precio"</span>: <span class="number">1000.00</span>,
+                        <span class="string">"cantidad"</span>: <span class="number">1</span>,
+                        <span class="string">"itbis"</span>: <span class="number">180.00</span>
+                        }
+                        ]
+                        }
+                    </div>
                 </div>
             </div>
 
@@ -445,18 +516,22 @@
                     <span class="badge get">GET</span>
                     <span class="endpoint-url">/invoices/{trackId}</span>
                 </div>
-                <p class="description">Consulta el estado de procesamiento de un e-CF enviado previamente mediante el <code>trackId</code> retornado en la creación.</p>
+                <p class="description">Consulta el estado de procesamiento de un e-CF enviado previamente mediante el
+                    <code>trackId</code> retornado en la creación.</p>
 
                 <h3>Respuesta Exitosa</h3>
                 <div class="code-container">
                     <div class="code-header"><span class="code-lang">JSON</span></div>
                     <div class="code-body">{
-  <span class="string">"trackId"</span>: <span class="string">"cf6f2648-5544-48f8"</span>,
-  <span class="string">"status"</span>: <span class="string">"APROBADO_DGII"</span>,
-  <span class="string">"ecf"</span>: <span class="string">"E310000002001"</span>,
-  <span class="string">"qrURL"</span>: <span class="string">"https://dgii.gov.do/consultas/qr?id=..."</span>,
-  <span class="string">"xmlURL"</span>: <span class="string">"https://api.e-factura.do/v1/invoices/xml/cf6f2648"</span>
-}</div>
+                        <span class="string">"trackId"</span>: <span class="string">"cf6f2648-5544-48f8"</span>,
+                        <span class="string">"status"</span>: <span class="string">"APROBADO_DGII"</span>,
+                        <span class="string">"ecf"</span>: <span class="string">"E310000002001"</span>,
+                        <span class="string">"qrURL"</span>: <span
+                            class="string">"https://dgii.gov.do/consultas/qr?id=..."</span>,
+                        <span class="string">"xmlURL"</span>: <span
+                            class="string">"https://api.e-factura.do/v1/invoices/xml/cf6f2648"</span>
+                        }
+                    </div>
                 </div>
             </div>
 
@@ -466,19 +541,23 @@
                     <span class="badge delete">DELETE</span>
                     <span class="endpoint-url">/invoices/{ecf}</span>
                 </div>
-                <p class="description">Solicita la anulación de un e-CF. Deberás proveer el motivo de la anulación en el cuerpo de la petición. La DGII auditará este proceso.</p>
+                <p class="description">Solicita la anulación de un e-CF. Deberás proveer el motivo de la anulación en el
+                    cuerpo de la petición. La DGII auditará este proceso.</p>
 
                 <h3>Ejemplo Python</h3>
                 <div class="code-container">
                     <div class="code-header"><span class="code-lang">PYTHON</span></div>
                     <div class="code-body"><span class="keyword">import</span> requests
 
-url = <span class="string">"https://api.e-factura.do/v1/invoices/E310000002001"</span>
-headers = {<span class="string">"Authorization"</span>: <span class="string">"Bearer TU_TOKEN"</span>}
-payload = {<span class="string">"motivo"</span>: <span class="string">"Error en digitación de monto"</span>}
+                        url = <span class="string">"https://api.e-factura.do/v1/invoices/E310000002001"</span>
+                        headers = {<span class="string">"Authorization"</span>: <span class="string">"Bearer
+                            TU_TOKEN"</span>}
+                        payload = {<span class="string">"motivo"</span>: <span class="string">"Error en digitación de
+                            monto"</span>}
 
-response = requests.delete(url, headers=headers, json=payload)
-<span class="keyword">print</span>(response.json())</div>
+                        response = requests.delete(url, headers=headers, json=payload)
+                        <span class="keyword">print</span>(response.json())
+                    </div>
                 </div>
             </div>
 
@@ -504,21 +583,23 @@ response = requests.delete(url, headers=headers, json=payload)
                 </div>
                 <p class="description">Retorna el catálogo de artículos y servicios de la empresa.</p>
             </div>
-            
+
             <!-- Auditoría Pane -->
             <div class="endpoint-pane" id="pane-sequences">
                 <div class="endpoint-header">
                     <span class="badge get">GET</span>
                     <span class="endpoint-url">/dgii/sequences</span>
                 </div>
-                <p class="description">Consulta las secuencias (rangos) de comprobantes fiscales autorizadas y su estado de consumo (usadas vs disponibles).</p>
+                <p class="description">Consulta las secuencias (rangos) de comprobantes fiscales autorizadas y su estado
+                    de consumo (usadas vs disponibles).</p>
             </div>
             <div class="endpoint-pane" id="pane-audit">
                 <div class="endpoint-header">
                     <span class="badge get">GET</span>
                     <span class="endpoint-url">/dgii/audit</span>
                 </div>
-                <p class="description">Consulta los logs de auditoría de secuencias usadas, mostrando si la DGII las aceptó, los Track IDs y motivos de aceptación condicional.</p>
+                <p class="description">Consulta los logs de auditoría de secuencias usadas, mostrando si la DGII las
+                    aceptó, los Track IDs y motivos de aceptación condicional.</p>
             </div>
 
             <!-- Notificaciones Pane -->
@@ -527,13 +608,15 @@ response = requests.delete(url, headers=headers, json=payload)
                     <span class="badge post">POST</span>
                     <span class="endpoint-url">/invoices/{invoice_id}/send_email</span>
                 </div>
-                <p class="description">Envía un correo electrónico al cliente adjuntando su comprobante fiscal electrónico y enlaces al XML y PDF.</p>
+                <p class="description">Envía un correo electrónico al cliente adjuntando su comprobante fiscal
+                    electrónico y enlaces al XML y PDF.</p>
                 <h3>Payload de Ejemplo</h3>
                 <div class="code-container">
                     <div class="code-header"><span class="code-lang">JSON</span></div>
                     <div class="code-body">{
-  <span class="string">"email"</span>: <span class="string">"cliente@ejemplo.com"</span>
-}</div>
+                        <span class="string">"email"</span>: <span class="string">"cliente@ejemplo.com"</span>
+                        }
+                    </div>
                 </div>
             </div>
             <div class="endpoint-pane" id="pane-receipt">
@@ -541,15 +624,17 @@ response = requests.delete(url, headers=headers, json=payload)
                     <span class="badge post">POST</span>
                     <span class="endpoint-url">/invoices/{invoice_id}/send_receipt</span>
                 </div>
-                <p class="description">Envía un correo electrónico al cliente con el recibo de pago de una factura cobrada. Soporta SMTP interno configurado.</p>
+                <p class="description">Envía un correo electrónico al cliente con el recibo de pago de una factura
+                    cobrada. Soporta SMTP interno configurado.</p>
                 <h3>Payload de Ejemplo</h3>
                 <div class="code-container">
                     <div class="code-header"><span class="code-lang">JSON</span></div>
                     <div class="code-body">{
-  <span class="string">"email"</span>: <span class="string">"cliente@ejemplo.com"</span>,
-  <span class="string">"paymentMethod"</span>: <span class="string">"Efectivo"</span>,
-  <span class="string">"amount"</span>: <span class="number">2500.00</span>
-}</div>
+                        <span class="string">"email"</span>: <span class="string">"cliente@ejemplo.com"</span>,
+                        <span class="string">"paymentMethod"</span>: <span class="string">"Efectivo"</span>,
+                        <span class="string">"amount"</span>: <span class="number">2500.00</span>
+                        }
+                    </div>
                 </div>
             </div>
 
@@ -570,7 +655,7 @@ response = requests.delete(url, headers=headers, json=payload)
 
                     // Ocultar todos los paneles
                     panes.forEach(p => p.classList.remove('active'));
-                    
+
                     // Mostrar el panel correspondiente
                     const targetId = 'pane-' + item.getAttribute('data-target');
                     const targetPane = document.getElementById(targetId);
@@ -582,4 +667,5 @@ response = requests.delete(url, headers=headers, json=payload)
         });
     </script>
 </body>
+
 </html>

@@ -9,7 +9,8 @@
 
     <!-- Botón de regreso -->
     <div style="display: flex; justify-content: flex-start; margin-bottom: -10px;">
-        <a href="{{ url_for('web_pos.pos_dashboard') }}" class="btn btn-secondary" style="height: 38px; display: inline-flex; align-items: center; gap: 8px; font-weight: 600; font-size: 0.85rem; border-color: var(--border-color);">
+        <a href="{{ url_for('web_pos.pos_dashboard') }}" class="btn btn-secondary"
+            style="height: 38px; display: inline-flex; align-items: center; gap: 8px; font-weight: 500; font-size: 0.85rem; border-color: var(--border-color);">
             <i class="fa-solid fa-arrow-left"></i>
             <span>Volver a Caja / POS</span>
         </a>
@@ -17,13 +18,17 @@
 
     <!-- Sección 1: Cajas Registradoras Registradas -->
     <div class="card-table-wrapper">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 15px;">
+        <div
+            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 15px;">
             <div>
-                <h3 style="font-size: 1.25rem; font-family: var(--font-heading); margin-bottom: 4px;">Cajas Registradoras</h3>
-                <p style="color: var(--text-secondary); font-size: 0.88rem;">Puntos de cobro activos e inactivos configurados para la sucursal.</p>
+                <h3 style="font-size: 1.25rem; font-family: var(--font-heading); margin-bottom: 4px;">Cajas
+                    Registradoras</h3>
+                <p style="color: var(--text-secondary); font-size: 0.88rem;">Puntos de cobro activos e inactivos
+                    configurados para la sucursal.</p>
             </div>
-            
-            <button onclick="openAddRegisterModal()" class="btn btn-primary" style="height: 40px; display: inline-flex; align-items: center; gap: 8px; font-weight: 600; font-size: 0.88rem;">
+
+            <button onclick="openAddRegisterModal()" class="btn btn-primary"
+                style="height: 40px; display: inline-flex; align-items: center; gap: 8px; font-weight: 500; font-size: 0.88rem;">
                 <i class="fa-solid fa-plus"></i>
                 <span>Crear Nueva Caja</span>
             </button>
@@ -46,16 +51,20 @@
                         <td style="font-weight: 700;">{{ reg.name }}</td>
                         <td>
                             {% if reg.status == 'OPEN' %}
-                            <span class="badge badge-success" style="font-size: 0.72rem; padding: 4px 8px;">Abierta (En Turno)</span>
+                            <span class="badge badge-success" style="font-size: 0.72rem; padding: 4px 8px;">Abierta (En
+                                Turno)</span>
                             {% else %}
-                            <span class="badge badge-draft" style="font-size: 0.72rem; padding: 4px 8px;">Cerrada (Disponible)</span>
+                            <span class="badge badge-draft" style="font-size: 0.72rem; padding: 4px 8px;">Cerrada
+                                (Disponible)</span>
                             {% endif %}
                         </td>
                         <td>
                             <div style="display: flex; align-items: center; gap: 10px;">
-                                <label class="toggle-switch" style="position: relative; display: inline-block; width: 42px; height: 22px; cursor: pointer;" title="Agrupar ventas de Consumidor Final en un solo comprobante E32 al cierre del turno (DGII Norma 02-2023)">
-                                    <input type="checkbox" id="cons-toggle-{{ reg.id }}"
-                                        {{ 'checked' if reg.consolidationMode else '' }}
+                                <label class="toggle-switch"
+                                    style="position: relative; display: inline-block; width: 42px; height: 22px; cursor: pointer;"
+                                    title="Agrupar ventas de Consumidor Final en un solo comprobante E32 al cierre del turno (DGII Norma 02-2023)">
+                                    <input type="checkbox" id="cons-toggle-{{ reg.id }}" {{ 'checked' if
+                                        reg.consolidationMode else '' }}
                                         onchange="toggleConsolidationMode('{{ reg.id }}', this.checked)"
                                         style="opacity: 0; width: 0; height: 0;">
                                     <span class="slider" style="
@@ -70,13 +79,15 @@
                                         display: block;
                                     "></span>
                                 </label>
-                                <span style="font-size: 0.78rem; color: {% if reg.consolidationMode %}var(--accent-emerald){% else %}var(--text-muted){% endif %}; font-weight: 600;">
+                                <span
+                                    style="font-size: 0.78rem; color: {% if reg.consolidationMode %}var(--accent-emerald){% else %}var(--text-muted){% endif %}; font-weight: 500;">
                                     {{ 'Activo' if reg.consolidationMode else 'Inactivo' }}
                                 </span>
                             </div>
                         </td>
                         <td>{{ reg.createdAt[:10] }} {{ reg.createdAt[11:16] }}</td>
-                        <td style="font-family: monospace; font-size: 0.8rem; color: var(--text-muted);">{{ reg.id }}</td>
+                        <td style="font-family: monospace; font-size: 0.8rem; color: var(--text-muted);">{{ reg.id }}
+                        </td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -87,8 +98,10 @@
     <!-- Sección 2: Historial de Turnos y Arqueos -->
     <div class="card-table-wrapper">
         <div>
-            <h3 style="font-size: 1.25rem; font-family: var(--font-heading); margin-bottom: 4px;">Historial de Turnos de Caja (Arqueos)</h3>
-            <p style="color: var(--text-secondary); font-size: 0.88rem; margin-bottom: 20px;">Listado histórico de aperturas, cierres y conciliaciones de los cajeros.</p>
+            <h3 style="font-size: 1.25rem; font-family: var(--font-heading); margin-bottom: 4px;">Historial de Turnos de
+                Caja (Arqueos)</h3>
+            <p style="color: var(--text-secondary); font-size: 0.88rem; margin-bottom: 20px;">Listado histórico de
+                aperturas, cierres y conciliaciones de los cajeros.</p>
         </div>
 
         <div class="table-responsive">
@@ -108,70 +121,78 @@
                 </thead>
                 <tbody>
                     {% if shifts %}
-                        {% for shift in shifts %}
-                        <tr>
-                            <td style="font-weight: 700;">{{ shift.registerName }}</td>
-                            <td style="font-size: 0.85rem;">{{ shift.openedByUserEmail }}</td>
-                            <td style="font-size: 0.82rem;">{{ shift.openingTime[:10] }} {{ shift.openingTime[11:16] }}</td>
-                            <td style="font-size: 0.82rem;">
-                                {% if shift.status == 'PENDING_AUDIT' %}
-                                <span class="badge" style="font-size: 0.65rem; background-color: #ff9800; color: white; padding: 2px 6px; border-radius: 4px; font-weight: 700;">Por Auditar</span>
-                                {% elif shift.closingTime %}
-                                {{ shift.closingTime[:10] }} {{ shift.closingTime[11:16] }}
+                    {% for shift in shifts %}
+                    <tr>
+                        <td style="font-weight: 700;">{{ shift.registerName }}</td>
+                        <td style="font-size: 0.85rem;">{{ shift.openedByUserEmail }}</td>
+                        <td style="font-size: 0.82rem;">{{ shift.openingTime[:10] }} {{ shift.openingTime[11:16] }}</td>
+                        <td style="font-size: 0.82rem;">
+                            {% if shift.status == 'PENDING_AUDIT' %}
+                            <span class="badge"
+                                style="font-size: 0.65rem; background-color: #ff9800; color: white; padding: 2px 6px; border-radius: 4px; font-weight: 700;">Por
+                                Auditar</span>
+                            {% elif shift.closingTime %}
+                            {{ shift.closingTime[:10] }} {{ shift.closingTime[11:16] }}
+                            {% else %}
+                            <span class="badge badge-success" style="font-size: 0.65rem;">Activo</span>
+                            {% endif %}
+                        </td>
+                        <td style="text-align: right;">RD$ {{ "{:,.2f}".format(shift.openingAmount) }}</td>
+                        <td style="text-align: right;">
+                            {% if shift.closingAmountExpected is not none %}
+                            RD$ {{ "{:,.2f}".format(shift.closingAmountExpected) }}
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+                        <td style="text-align: right;">
+                            {% if shift.closingAmountDeclared is not none %}
+                            RD$ {{ "{:,.2f}".format(shift.closingAmountDeclared) }}
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+                        <td style="text-align: right; font-weight: 700;">
+                            {% if shift.status == 'PENDING_AUDIT' %}
+                            <span style="color: #ff9800; font-size: 0.85rem;">Pendiente Auditoría</span>
+                            {% elif shift.difference is not none %}
+                            {% if shift.difference | abs < 0.01 %} <span style="color: var(--accent-emerald);">RD$ 0.00
+                                (Cuadrado)</span>
+                                {% elif shift.difference > 0 %}
+                                <span style="color: var(--accent-blue);">+RD$ {{ "{:,.2f}".format(shift.difference) }}
+                                    (Sobrante)</span>
                                 {% else %}
-                                <span class="badge badge-success" style="font-size: 0.65rem;">Activo</span>
+                                <span style="color: var(--accent-red);">RD$ {{ "{:,.2f}".format(shift.difference) }}
+                                    (Faltante)</span>
                                 {% endif %}
-                            </td>
-                            <td style="text-align: right;">RD$ {{ "{:,.2f}".format(shift.openingAmount) }}</td>
-                            <td style="text-align: right;">
-                                {% if shift.closingAmountExpected is not none %}
-                                RD$ {{ "{:,.2f}".format(shift.closingAmountExpected) }}
                                 {% else %}
                                 -
                                 {% endif %}
-                            </td>
-                            <td style="text-align: right;">
-                                {% if shift.closingAmountDeclared is not none %}
-                                RD$ {{ "{:,.2f}".format(shift.closingAmountDeclared) }}
-                                {% else %}
-                                -
-                                {% endif %}
-                            </td>
-                            <td style="text-align: right; font-weight: 700;">
-                                {% if shift.status == 'PENDING_AUDIT' %}
-                                <span style="color: #ff9800; font-size: 0.85rem;">Pendiente Auditoría</span>
-                                {% elif shift.difference is not none %}
-                                    {% if shift.difference | abs < 0.01 %}
-                                    <span style="color: var(--accent-emerald);">RD$ 0.00 (Cuadrado)</span>
-                                    {% elif shift.difference > 0 %}
-                                    <span style="color: var(--accent-blue);">+RD$ {{ "{:,.2f}".format(shift.difference) }} (Sobrante)</span>
-                                    {% else %}
-                                    <span style="color: var(--accent-red);">RD$ {{ "{:,.2f}".format(shift.difference) }} (Faltante)</span>
-                                    {% endif %}
-                                {% else %}
-                                -
-                                {% endif %}
-                            </td>
-                            <td style="text-align: center;">
-                                {% if shift.status == 'PENDING_AUDIT' %}
-                                <a href="{{ url_for('web_pos.pos_admin_shift_detail', shift_id=shift.id) }}" class="btn" style="padding: 4px 10px; font-size: 0.78rem; font-weight: 700; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; background-color: #ff9800; color: white; border: none; border-radius: 4px;">
-                                    <i class="fa-solid fa-calculator"></i> Auditar
-                                </a>
-                                {% else %}
-                                <a href="{{ url_for('web_pos.pos_admin_shift_detail', shift_id=shift.id) }}" class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.78rem; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 4px;">
-                                    <i class="fa-solid fa-magnifying-glass"></i> Ver Detalle
-                                </a>
-                                {% endif %}
-                            </td>
-                        </tr>
-                        {% endfor %}
+                        </td>
+                        <td style="text-align: center;">
+                            {% if shift.status == 'PENDING_AUDIT' %}
+                            <a href="{{ url_for('web_pos.pos_admin_shift_detail', shift_id=shift.id) }}" class="btn"
+                                style="padding: 4px 10px; font-size: 0.78rem; font-weight: 700; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; background-color: #ff9800; color: white; border: none; border-radius: 4px;">
+                                <i class="fa-solid fa-calculator"></i> Auditar
+                            </a>
+                            {% else %}
+                            <a href="{{ url_for('web_pos.pos_admin_shift_detail', shift_id=shift.id) }}"
+                                class="btn btn-secondary"
+                                style="padding: 4px 10px; font-size: 0.78rem; font-weight: 500; text-decoration: none; display: inline-flex; align-items: center; gap: 4px;">
+                                <i class="fa-solid fa-magnifying-glass"></i> Ver Detalle
+                            </a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
                     {% else %}
-                        <tr>
-                            <td colspan="9" style="text-align: center; padding: 40px 0; color: var(--text-secondary);">
-                                <i class="fa-solid fa-receipt" style="font-size: 2.5rem; color: var(--text-muted); margin-bottom: 12px; opacity: 0.5; display: block;"></i>
-                                <span>No se han registrado turnos históricos aún.</span>
-                            </td>
-                        </tr>
+                    <tr>
+                        <td colspan="9" style="text-align: center; padding: 40px 0; color: var(--text-secondary);">
+                            <i class="fa-solid fa-receipt"
+                                style="font-size: 2.5rem; color: var(--text-muted); margin-bottom: 12px; opacity: 0.5; display: block;"></i>
+                            <span>No se han registrado turnos históricos aún.</span>
+                        </td>
+                    </tr>
                     {% endif %}
                 </tbody>
             </table>
@@ -179,11 +200,14 @@
     </div>
 
     <!-- MODAL: AGREGAR NUEVA CAJA -->
-    <div id="add-register-modal" class="search-modal" style="display: none; justify-content: center; align-items: center;">
+    <div id="add-register-modal" class="search-modal"
+        style="display: none; justify-content: center; align-items: center;">
         <div class="modal-backdrop" onclick="closeAddRegisterModal()"></div>
-        <div class="modal-content animate-fade-in" style="max-width: 400px; padding: 0; border-radius: var(--radius-md);">
+        <div class="modal-content animate-fade-in"
+            style="max-width: 400px; padding: 0; border-radius: var(--radius-md);">
             <div class="modal-header" style="border-bottom: 1px solid var(--border-color); padding: 20px 24px;">
-                <h3 style="margin: 0; font-size: 1.15rem; font-family: var(--font-heading); display: flex; align-items: center; gap: 10px;">
+                <h3
+                    style="margin: 0; font-size: 1.15rem; font-family: var(--font-heading); display: flex; align-items: center; gap: 10px;">
                     <i class="fa-solid fa-cash-register" style="color: var(--accent-emerald);"></i>
                     <span>Nueva Caja Registradora</span>
                 </h3>
@@ -192,12 +216,15 @@
                 </button>
             </div>
             <div class="modal-body" style="padding: 24px;">
-                <form action="{{ url_for('web_pos.create_cash_register') }}" method="POST" style="display: flex; flex-direction: column; gap: 18px;">
+                <form action="{{ url_for('web_pos.create_cash_register') }}" method="POST"
+                    style="display: flex; flex-direction: column; gap: 18px;">
                     <div class="form-group">
                         <label for="reg_name">Nombre de la Caja (Ej: Caja 02 - Pasillo A)</label>
-                        <input type="text" id="reg_name" name="name" class="form-input" placeholder="Nombre de la caja" required style="width: 100%;">
+                        <input type="text" id="reg_name" name="name" class="form-input" placeholder="Nombre de la caja"
+                            required style="width: 100%;">
                     </div>
-                    <button type="submit" class="btn btn-primary" style="width: 100%; height: 44px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                    <button type="submit" class="btn btn-primary"
+                        style="width: 100%; height: 44px; font-weight: 500; display: flex; align-items: center; justify-content: center; gap: 8px;">
                         <i class="fa-solid fa-plus"></i>
                         <span>Crear Caja Registradora</span>
                     </button>
@@ -209,49 +236,49 @@
 </div>
 
 <script>
-function openAddRegisterModal() {
-    const modal = document.getElementById('add-register-modal');
-    if (modal) {
-        modal.style.display = 'flex';
-        document.body.style.overflow = 'hidden';
-        setTimeout(() => document.getElementById('reg_name').focus(), 100);
-    }
-}
-
-function closeAddRegisterModal() {
-    const modal = document.getElementById('add-register-modal');
-    if (modal) {
-        modal.style.display = 'none';
-        document.body.style.overflow = 'auto';
-    }
-}
-
-async function toggleConsolidationMode(registerId, enabled) {
-    try {
-        const res = await fetch(`/pos/register/${registerId}/toggle-consolidation`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ enabled })
-        });
-        const data = await res.json();
-        if (data.success) {
-            // Visual feedback instantáneo
-            const label = document.querySelector(`#cons-toggle-${registerId}`);
-            const slider = label ? label.nextElementSibling : null;
-            const dot = slider ? slider.nextElementSibling : null;
-            const statusText = dot ? dot.parentElement.nextElementSibling : null;
-            if (slider) slider.style.backgroundColor = enabled ? 'var(--accent-emerald)' : 'var(--border-color)';
-            if (dot) dot.style.left = enabled ? '22px' : '3px';
-            if (statusText) {
-                statusText.textContent = enabled ? 'Activo' : 'Inactivo';
-                statusText.style.color = enabled ? 'var(--accent-emerald)' : 'var(--text-muted)';
-            }
-        } else {
-            alert('Error al cambiar el modo consolidado: ' + (data.error || 'Error desconocido'));
+    function openAddRegisterModal() {
+        const modal = document.getElementById('add-register-modal');
+        if (modal) {
+            modal.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+            setTimeout(() => document.getElementById('reg_name').focus(), 100);
         }
-    } catch(e) {
-        alert('Error de red al cambiar el modo consolidado.');
     }
-}
+
+    function closeAddRegisterModal() {
+        const modal = document.getElementById('add-register-modal');
+        if (modal) {
+            modal.style.display = 'none';
+            document.body.style.overflow = 'auto';
+        }
+    }
+
+    async function toggleConsolidationMode(registerId, enabled) {
+        try {
+            const res = await fetch(`/pos/register/${registerId}/toggle-consolidation`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ enabled })
+            });
+            const data = await res.json();
+            if (data.success) {
+                // Visual feedback instantáneo
+                const label = document.querySelector(`#cons-toggle-${registerId}`);
+                const slider = label ? label.nextElementSibling : null;
+                const dot = slider ? slider.nextElementSibling : null;
+                const statusText = dot ? dot.parentElement.nextElementSibling : null;
+                if (slider) slider.style.backgroundColor = enabled ? 'var(--accent-emerald)' : 'var(--border-color)';
+                if (dot) dot.style.left = enabled ? '22px' : '3px';
+                if (statusText) {
+                    statusText.textContent = enabled ? 'Activo' : 'Inactivo';
+                    statusText.style.color = enabled ? 'var(--accent-emerald)' : 'var(--text-muted)';
+                }
+            } else {
+                alert('Error al cambiar el modo consolidado: ' + (data.error || 'Error desconocido'));
+            }
+        } catch (e) {
+            alert('Error de red al cambiar el modo consolidado.');
+        }
+    }
 </script>
 {% endblock %}

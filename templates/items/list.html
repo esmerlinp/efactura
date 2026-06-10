@@ -9,66 +9,88 @@
 <div style="display: flex; flex-direction: column; gap: 30px; margin-bottom: 30px; width: 100%;">
     <!-- Listado Principal (Ancho Completo) -->
     <div class="card-table-wrapper" style="margin-bottom: 0;">
-        <div class="table-header-row" style="display: flex; justify-content: space-between; align-items: center; gap: 20px; flex-wrap: wrap; margin-bottom: 24px;">
+        <div class="table-header-row"
+            style="display: flex; justify-content: space-between; align-items: center; gap: 20px; flex-wrap: wrap; margin-bottom: 24px;">
             <div>
-                <h3 style="font-size: 1.25rem; font-family: var(--font-heading); margin-bottom: 6px;">Catálogo General</h3>
-                <p style="color: var(--text-secondary); font-size: 0.88rem;">Inventario de bienes y servicios para facturación expedita.</p>
+                <h3 style="font-size: 1.25rem; font-family: var(--font-heading); margin-bottom: 6px;">Catálogo General
+                </h3>
+                <p style="color: var(--text-secondary); font-size: 0.88rem;">Inventario de bienes y servicios para
+                    facturación expedita.</p>
             </div>
             <div style="display: flex; gap: 12px; align-items: center;">
-                <a href="{{ url_for('web_invoices.export_stock_report') }}" class="btn btn-secondary" style="height: 44px; display: inline-flex; align-items: center; gap: 8px;">
+                <a href="{{ url_for('web_invoices.export_stock_report') }}" class="btn btn-secondary"
+                    style="display: inline-flex; align-items: center; gap: 8px;">
                     <i class="fa-solid fa-file-invoice-dollar"></i>
                     <span>Reporte Existencias</span>
                 </a>
-                <button class="btn btn-secondary" onclick="openImportModal()" style="height: 44px; display: inline-flex; align-items: center; gap: 8px;">
+                <button class="btn btn-secondary" onclick="openImportModal()"
+                    style="display: inline-flex; align-items: center; gap: 8px;">
                     <i class="fa-solid fa-file-import"></i>
                     <span>Importar CSV</span>
                 </button>
-                <a href="{{ url_for('new_item') }}" class="btn btn-primary" style="height: 44px; display: inline-flex; align-items: center; gap: 8px;">
+                <a href="{{ url_for('new_item') }}" class="btn btn-primary"
+                    style="display: inline-flex; align-items: center; gap: 8px;">
                     <i class="fa-solid fa-plus"></i>
                     <span>Nuevo Artículo</span>
                 </a>
             </div>
         </div>
-        
+
         <!-- Filtros de Búsqueda Avanzada (Minimalista) -->
-        <div style="display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; background-color: transparent; align-items: center; border-bottom: 1px solid rgba(0, 0, 0, 0.05); padding-bottom: 12px;">
+        <div
+            style="display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; background-color: transparent; align-items: center; border-bottom: 1px solid rgba(0, 0, 0, 0.05); padding-bottom: 12px;">
             <div style="position: relative; flex-grow: 1; min-width: 220px; max-width: 260px;">
-                <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.85rem;"></i>
-                <input type="text" id="search-input" placeholder="Buscar por código, nombre..." style="width: 100%; height: 34px; padding: 0 16px 0 38px; background-color: var(--bg-input); border: 1px solid transparent; border-radius: 20px; color: var(--text-primary); font-size: 0.85rem; transition: background-color var(--transition-fast);" onfocus="this.style.backgroundColor='#ffffff'; this.style.borderColor='var(--border-color)';" onblur="if(!this.value){this.style.backgroundColor='var(--bg-input)'; this.style.borderColor='transparent';}" oninput="applyFilters()">
+                <i class="fa-solid fa-magnifying-glass"
+                    style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.85rem;"></i>
+                <input type="text" id="search-input" placeholder="Buscar por código, nombre..."
+                    style="width: 100%; height: 34px; padding: 0 16px 0 38px; background-color: var(--bg-input); border: 1px solid transparent; border-radius: 20px; color: var(--text-primary); font-size: 0.85rem; transition: background-color var(--transition-fast);"
+                    onfocus="this.style.backgroundColor='#ffffff'; this.style.borderColor='var(--border-color)';"
+                    onblur="if(!this.value){this.style.backgroundColor='var(--bg-input)'; this.style.borderColor='transparent';}"
+                    oninput="applyFilters()">
             </div>
             <div style="min-width: 110px;">
-                <select id="type-filter" style="width: 100%; height: 34px; padding: 0 10px; background-color: transparent; border: 1px solid transparent; border-bottom: 1px solid var(--border-color); color: var(--text-secondary); font-size: 0.85rem; cursor: pointer; outline: none;" onchange="applyFilters()">
+                <select id="type-filter"
+                    style="width: 100%; height: 34px; padding: 0 10px; background-color: transparent; border: 1px solid transparent; border-bottom: 1px solid var(--border-color); color: var(--text-secondary); font-size: 0.85rem; cursor: pointer; outline: none;"
+                    onchange="applyFilters()">
                     <option value="all">Tipos</option>
                     <option value="Bien">Bienes</option>
                     <option value="Servicio">Servicios</option>
                 </select>
             </div>
             <div style="min-width: 120px;">
-                <select id="stock-filter" style="width: 100%; height: 34px; padding: 0 10px; background-color: transparent; border: 1px solid transparent; border-bottom: 1px solid var(--border-color); color: var(--text-secondary); font-size: 0.85rem; cursor: pointer; outline: none;" onchange="applyFilters()">
+                <select id="stock-filter"
+                    style="width: 100%; height: 34px; padding: 0 10px; background-color: transparent; border: 1px solid transparent; border-bottom: 1px solid var(--border-color); color: var(--text-secondary); font-size: 0.85rem; cursor: pointer; outline: none;"
+                    onchange="applyFilters()">
                     <option value="all">Inventario</option>
                     <option value="low-stock">⚠️ Stock Bajo</option>
                     <option value="in-stock">Disponible</option>
                 </select>
             </div>
             <div style="min-width: 110px;">
-                <select id="active-filter" style="width: 100%; height: 34px; padding: 0 10px; background-color: transparent; border: 1px solid transparent; border-bottom: 1px solid var(--border-color); color: var(--text-secondary); font-size: 0.85rem; cursor: pointer; outline: none;" onchange="applyFilters()">
+                <select id="active-filter"
+                    style="width: 100%; height: 34px; padding: 0 10px; background-color: transparent; border: 1px solid transparent; border-bottom: 1px solid var(--border-color); color: var(--text-secondary); font-size: 0.85rem; cursor: pointer; outline: none;"
+                    onchange="applyFilters()">
                     <option value="all">Estado</option>
                     <option value="true">Activos</option>
                     <option value="false">Inactivos</option>
                 </select>
             </div>
             <div style="min-width: 120px;">
-                <select id="brand-filter" style="width: 100%; height: 34px; padding: 0 10px; background-color: transparent; border: 1px solid transparent; border-bottom: 1px solid var(--border-color); color: var(--text-secondary); font-size: 0.85rem; cursor: pointer; outline: none;" onchange="applyFilters()">
+                <select id="brand-filter"
+                    style="width: 100%; height: 34px; padding: 0 10px; background-color: transparent; border: 1px solid transparent; border-bottom: 1px solid var(--border-color); color: var(--text-secondary); font-size: 0.85rem; cursor: pointer; outline: none;"
+                    onchange="applyFilters()">
                     <option value="all">Marcas</option>
                 </select>
             </div>
             <div style="min-width: 120px;">
-                <select id="supplier-filter" style="width: 100%; height: 34px; padding: 0 10px; background-color: transparent; border: 1px solid transparent; border-bottom: 1px solid var(--border-color); color: var(--text-secondary); font-size: 0.85rem; cursor: pointer; outline: none;" onchange="applyFilters()">
+                <select id="supplier-filter"
+                    style="width: 100%; height: 34px; padding: 0 10px; background-color: transparent; border: 1px solid transparent; border-bottom: 1px solid var(--border-color); color: var(--text-secondary); font-size: 0.85rem; cursor: pointer; outline: none;"
+                    onchange="applyFilters()">
                     <option value="all">Proveedores</option>
                 </select>
             </div>
         </div>
-        
+
         <div class="table-responsive">
             <table class="table-premium" id="items-table">
                 <thead>
@@ -87,145 +109,169 @@
                 </thead>
                 <tbody>
                     {% if items %}
-                        {% for item in items %}
-                            <tr class="item-row" 
-                                data-code="{{ item.code or '' }}" 
-                                data-barcode="{{ item.barcode or '' }}" 
-                                data-category="{{ item.categoryId or 'general' }}" 
-                                data-name="{{ item.name or '' }}" 
-                                data-location="{{ item.rackLocation or '' }}" 
-                                data-type="{{ item.type or 'Bien' }}"
-                                data-brand="{{ item.brand or '' }}"
-                                data-supplier="{{ item.supplierName or '' }}"
-                                data-active="{{ 'true' if item.isActive else 'false' }}"
-                                data-stock-low="{% if item.type == 'Bien' and item.totalStock <= item.minStock and item.minStock > 0 %}true{% else %}false{% endif %}">
-                                <td>
-                                    <span style="font-family: monospace; font-size: 0.85rem; background-color: var(--bg-input); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-color); display: block; margin-bottom: 4px; text-align: center;">
-                                        {{ item.code or 'S/C' }}
-                                    </span>
-                                    {% if item.barcode %}
-                                    <span style="font-size: 0.75rem; color: var(--text-secondary); display: block; text-align: center;">
-                                        <i class="fa-solid fa-barcode"></i> {{ item.barcode }}
-                                    </span>
+                    {% for item in items %}
+                    <tr class="item-row" data-code="{{ item.code or '' }}" data-barcode="{{ item.barcode or '' }}"
+                        data-category="{{ item.categoryId or 'general' }}" data-name="{{ item.name or '' }}"
+                        data-location="{{ item.rackLocation or '' }}" data-type="{{ item.type or 'Bien' }}"
+                        data-brand="{{ item.brand or '' }}" data-supplier="{{ item.supplierName or '' }}"
+                        data-active="{{ 'true' if item.isActive else 'false' }}"
+                        data-stock-low="{% if item.type == 'Bien' and item.totalStock <= item.minStock and item.minStock > 0 %}true{% else %}false{% endif %}">
+                        <td>
+                            <span
+                                style="font-family: monospace; font-size: 0.85rem; background-color: var(--bg-input); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-color); display: block; margin-bottom: 4px; text-align: center;">
+                                {{ item.code or 'S/C' }}
+                            </span>
+                            {% if item.barcode %}
+                            <span
+                                style="font-size: 0.75rem; color: var(--text-secondary); display: block; text-align: center;">
+                                <i class="fa-solid fa-barcode"></i> {{ item.barcode }}
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                {% if item.imageUrl %}
+                                <div
+                                    style="width: 32px; height: 32px; border-radius: 4px; overflow: hidden; border: 1px solid var(--border-color); background: rgba(0,0,0,0.05);">
+                                    <img src="{{ item.imageUrl }}" alt=""
+                                        style="width: 100%; height: 100%; object-fit: cover;">
+                                </div>
+                                {% endif %}
+                                <div>
+                                    {{ item.name }}
+                                    {% if not item.isActive %}
+                                    <span class="badge badge-danger"
+                                        style="margin-left: 6px; font-size: 0.72rem; padding: 2px 6px;">Inactivo</span>
                                     {% endif %}
-                                </td>
-                                <td>
-                                    <div style="display: flex; align-items: center; gap: 8px;">
-                                        {% if item.imageUrl %}
-                                            <div style="width: 32px; height: 32px; border-radius: 4px; overflow: hidden; border: 1px solid var(--border-color); background: rgba(0,0,0,0.05);">
-                                                <img src="{{ item.imageUrl }}" alt="" style="width: 100%; height: 100%; object-fit: cover;">
-                                            </div>
-                                        {% endif %}
-                                        <div>
-                                            {{ item.name }}
-                                            {% if not item.isActive %}
-                                                <span class="badge badge-danger" style="margin-left: 6px; font-size: 0.72rem; padding: 2px 6px;">Inactivo</span>
-                                            {% endif %}
-                                        </div>
-                                    </div>
-                                    {% if item.codigoImpuesto %}
-                                    <span style="display: block; font-size: 0.72rem; color: var(--accent-purple); font-weight: 700; margin-top: 4px; letter-spacing: 0.02em;">
-                                        <i class="fa-solid fa-percent"></i> 
-                                        {% if item.codigoImpuesto == '001' %}Propina Legal 10%
-                                        {% elif item.codigoImpuesto == '002' %}CDT 2%
-                                        {% elif item.codigoImpuesto == '003' %}ISC Seguros 16%
-                                        {% elif item.codigoImpuesto == '004' %}CDT 10%
-                                        {% elif item.codigoImpuesto == '005' %}Primera Placa 17%
-                                        {% elif item.codigoImpuesto == '006' %}ISC Cerveza (Específico)
-                                        {% elif item.codigoImpuesto == '007' %}ISC Vinos (Específico)
-                                        {% elif item.codigoImpuesto == '014' %}ISC Ron/Aguardientes (Específico)
-                                        {% elif item.codigoImpuesto == '023' %}ISC Cervezas (AdValorem)
-                                        {% elif item.codigoImpuesto == '024' %}ISC Vinos (AdValorem)
-                                        {% elif item.codigoImpuesto == '030' %}ISC Ron/Aguardientes (AdValorem)
-                                        {% else %}Imp. Adicional ({{ item.codigoImpuesto }})
-                                        {% endif %}
-                                        {% if item.tasaImpuestoAdicional and item.tasaImpuestoAdicional > 0.0001 and item.codigoImpuesto not in ['001', '002', '003', '004', '005'] %}
-                                            ({{ "{:.1%}".format(item.tasaImpuestoAdicional) }})
-                                        {% endif %}
-                                    </span>
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    <span style="font-size: 0.88rem; color: var(--text-secondary); display: block; margin-bottom: 4px;">
-                                        {{ item.rackLocation or '—' }}
-                                    </span>
-                                    <span style="font-size: 0.75rem; background-color: rgba(99, 102, 241, 0.1); color: var(--accent-purple); padding: 2px 6px; border-radius: 20px; font-weight: 600; display: inline-block;">
-                                        {{ item.categoryId | capitalize if item.categoryId else 'General' }}
-                                    </span>
-                                </td>
-                                <td>
-                                    {% if item.type == 'Bien' %}
-                                        <span class="badge {% if item.totalStock <= item.minStock and item.minStock > 0 %}badge-danger{% else %}badge-success{% endif %}" style="font-weight: bold;">
-                                            {{ "{:,.2f}".format(item.totalStock or 0.0) }} {{ item.unit or 'ud' }}
-                                        </span>
-                                        {% if item.totalStock <= item.minStock and item.minStock > 0 %}
-                                            <i class="fa-solid fa-triangle-exclamation" style="color: var(--accent-red); margin-left: 4px;" title="¡Bajo stock de seguridad! (Mínimo: {{ item.minStock }})"></i>
-                                        {% endif %}
-                                    {% else %}
-                                        <span style="color: var(--text-muted); font-size: 0.85rem; font-style: italic;">N/A (Servicio)</span>
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    <span class="badge {% if item.type == 'Servicio' %}badge-primary{% else %}badge-success{% endif %}">
-                                        {{ item.type or 'Bien' }}
-                                    </span>
-                                </td>
-                                <td>
-                                    <span style="font-size: 0.88rem; color: var(--text-secondary);">{{ item.unit or 'Unidad' }}</span>
-                                </td>
-                                <td>
-                                    <span style="color: var(--accent-purple);">{{ "{:.0%}".format(item.itbisRate) }}</span>
-                                </td>
-                                <td>
-                                    <span style="color: var(--text-secondary); font-size: 0.9rem;">RD$ {{ "{:,.2f}".format(item.costPrice or 0.0) }}</span>
-                                </td>
-                                <td>
-                                    RD$ {{ "{:,.2f}".format(item.price) }}
-                                </td>
-                                <td style="text-align: right;">
-                                    <div style="display: inline-flex; gap: 8px;">
-                                        <a href="{{ url_for('edit_item', item_id=item.id) }}" class="btn btn-secondary" style="padding: 8px 12px; font-size: 0.8rem;" title="Editar Artículo">
-                                            <i class="fa-solid fa-pen-to-square"></i>
-                                        </a>
-                                        <form action="{{ url_for('delete_item_route', item_id=item.id) }}" method="POST" onsubmit="return confirm('¿Seguro que deseas eliminar este artículo?');" style="display: inline;">
-                                            <button type="submit" class="btn btn-danger" style="padding: 8px 12px; font-size: 0.8rem;" title="Eliminar Artículo">
-                                                <i class="fa-solid fa-trash-can"></i>
-                                            </button>
-                                        </form>
-                                    </div>
-                                </td>
-                            </tr>
-                        {% endfor %}
+                                </div>
+                            </div>
+                            {% if item.codigoImpuesto %}
+                            <span
+                                style="display: block; font-size: 0.72rem; color: var(--accent-purple); font-weight: 700; margin-top: 4px; letter-spacing: 0.02em;">
+                                <i class="fa-solid fa-percent"></i>
+                                {% if item.codigoImpuesto == '001' %}Propina Legal 10%
+                                {% elif item.codigoImpuesto == '002' %}CDT 2%
+                                {% elif item.codigoImpuesto == '003' %}ISC Seguros 16%
+                                {% elif item.codigoImpuesto == '004' %}CDT 10%
+                                {% elif item.codigoImpuesto == '005' %}Primera Placa 17%
+                                {% elif item.codigoImpuesto == '006' %}ISC Cerveza (Específico)
+                                {% elif item.codigoImpuesto == '007' %}ISC Vinos (Específico)
+                                {% elif item.codigoImpuesto == '014' %}ISC Ron/Aguardientes (Específico)
+                                {% elif item.codigoImpuesto == '023' %}ISC Cervezas (AdValorem)
+                                {% elif item.codigoImpuesto == '024' %}ISC Vinos (AdValorem)
+                                {% elif item.codigoImpuesto == '030' %}ISC Ron/Aguardientes (AdValorem)
+                                {% else %}Imp. Adicional ({{ item.codigoImpuesto }})
+                                {% endif %}
+                                {% if item.tasaImpuestoAdicional and item.tasaImpuestoAdicional > 0.0001 and
+                                item.codigoImpuesto not in ['001', '002', '003', '004', '005'] %}
+                                ({{ "{:.1%}".format(item.tasaImpuestoAdicional) }})
+                                {% endif %}
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span
+                                style="font-size: 0.88rem; color: var(--text-secondary); display: block; margin-bottom: 4px;">
+                                {{ item.rackLocation or '—' }}
+                            </span>
+                            <span
+                                style="font-size: 0.75rem; background-color: rgba(99, 102, 241, 0.1); color: var(--accent-purple); padding: 2px 6px; border-radius: 20px; font-weight: 500; display: inline-block;">
+                                {{ item.categoryId | capitalize if item.categoryId else 'General' }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if item.type == 'Bien' %}
+                            <span
+                                class="badge {% if item.totalStock <= item.minStock and item.minStock > 0 %}badge-danger{% else %}badge-success{% endif %}"
+                                style="font-weight: bold;">
+                                {{ "{:,.2f}".format(item.totalStock or 0.0) }} {{ item.unit or 'ud' }}
+                            </span>
+                            {% if item.totalStock <= item.minStock and item.minStock> 0 %}
+                                <i class="fa-solid fa-triangle-exclamation"
+                                    style="color: var(--accent-red); margin-left: 4px;"
+                                    title="¡Bajo stock de seguridad! (Mínimo: {{ item.minStock }})"></i>
+                                {% endif %}
+                                {% else %}
+                                <span style="color: var(--text-muted); font-size: 0.85rem; font-style: italic;">N/A
+                                    (Servicio)</span>
+                                {% endif %}
+                        </td>
+                        <td>
+                            <span
+                                class="badge {% if item.type == 'Servicio' %}badge-primary{% else %}badge-success{% endif %}">
+                                {{ item.type or 'Bien' }}
+                            </span>
+                        </td>
+                        <td>
+                            <span style="font-size: 0.88rem; color: var(--text-secondary);">{{ item.unit or 'Unidad'
+                                }}</span>
+                        </td>
+                        <td>
+                            <span style="color: var(--accent-purple);">{{ "{:.0%}".format(item.itbisRate) }}</span>
+                        </td>
+                        <td>
+                            <span style="color: var(--text-secondary); font-size: 0.9rem;">RD$ {{
+                                "{:,.2f}".format(item.costPrice or 0.0) }}</span>
+                        </td>
+                        <td>
+                            RD$ {{ "{:,.2f}".format(item.price) }}
+                        </td>
+                        <td style="text-align: right;">
+                            <div style="display: inline-flex; gap: 8px;">
+                                <a href="{{ url_for('edit_item', item_id=item.id) }}" class="btn btn-secondary"
+                                    style="padding: 8px 12px; font-size: 0.8rem;" title="Editar Artículo">
+                                    <i class="fa-solid fa-pen-to-square"></i>
+                                </a>
+                                <form action="{{ url_for('delete_item_route', item_id=item.id) }}" method="POST"
+                                    onsubmit="return confirm('¿Seguro que deseas eliminar este artículo?');"
+                                    style="display: inline;">
+                                    <button type="submit" class="btn btn-danger"
+                                        style="padding: 8px 12px; font-size: 0.8rem;" title="Eliminar Artículo">
+                                        <i class="fa-solid fa-trash-can"></i>
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
                     {% else %}
-                        <tr id="no-items-placeholder">
-                            <td colspan="10" style="text-align: center; padding: 60px 0; color: var(--text-secondary);">
-                                <i class="fa-solid fa-boxes-stacked" style="font-size: 3rem; color: var(--text-muted); margin-bottom: 16px; opacity: 0.5; display: block;"></i>
-                                <span>No hay productos registrados en el catálogo aún.</span>
-                                <a href="{{ url_for('new_item') }}" style="color: var(--accent-emerald); font-weight: 600; display: block; margin-top: 10px;">Crear primer artículo</a>
-                            </td>
-                        </tr>
+                    <tr id="no-items-placeholder">
+                        <td colspan="10" style="text-align: center; padding: 60px 0; color: var(--text-secondary);">
+                            <i class="fa-solid fa-boxes-stacked"
+                                style="font-size: 3rem; color: var(--text-muted); margin-bottom: 16px; opacity: 0.5; display: block;"></i>
+                            <span>No hay productos registrados en el catálogo aún.</span>
+                            <a href="{{ url_for('new_item') }}"
+                                style="color: var(--accent-emerald); font-weight: 500; display: block; margin-top: 10px;">Crear
+                                primer artículo</a>
+                        </td>
+                    </tr>
                     {% endif %}
-                    
+
                     <!-- Fila oculta de búsqueda sin resultados -->
                     <tr id="no-results-row" style="display: none;">
                         <td colspan="10" style="text-align: center; padding: 60px 0; color: var(--text-secondary);">
-                            <i class="fa-solid fa-magnifying-glass" style="font-size: 3rem; color: var(--text-muted); margin-bottom: 16px; opacity: 0.5; display: block;"></i>
-                            <span>No se encontraron artículos que coincidan con los filtros de búsqueda aplicados.</span>
+                            <i class="fa-solid fa-magnifying-glass"
+                                style="font-size: 3rem; color: var(--text-muted); margin-bottom: 16px; opacity: 0.5; display: block;"></i>
+                            <span>No se encontraron artículos que coincidan con los filtros de búsqueda
+                                aplicados.</span>
                         </td>
                     </tr>
                 </tbody>
             </table>
         </div>
-        
+
         <!-- Paginador General (Con selector de tamaño de página) -->
-        <div id="pagination-wrapper" style="display: flex; justify-content: space-between; align-items: center; margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--border-color); flex-wrap: wrap; gap: 15px;">
+        <div id="pagination-wrapper"
+            style="display: flex; justify-content: space-between; align-items: center; margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--border-color); flex-wrap: wrap; gap: 15px;">
             <div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
                 <span style="font-size: 0.88rem; color: var(--text-secondary);" id="pagination-info">
                     Mostrando 0-0 de 0 artículos
                 </span>
-                <span style="font-size: 0.88rem; color: var(--text-muted); display: inline-flex; align-items: center; gap: 8px;">
+                <span
+                    style="font-size: 0.88rem; color: var(--text-muted); display: inline-flex; align-items: center; gap: 8px;">
                     <span style="opacity: 0.5;">|</span> Mostrar:
-                    <select id="page-size-selector" style="height: 30px; padding: 0 8px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background-color: var(--bg-input); color: var(--text-primary); font-size: 0.82rem; font-weight: 600; cursor: pointer; transition: border-color var(--transition-fast);">
+                    <select id="page-size-selector"
+                        style="height: 30px; padding: 0 8px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background-color: var(--bg-input); color: var(--text-primary); font-size: 0.82rem; font-weight: 500; cursor: pointer; transition: border-color var(--transition-fast);">
                         <option value="5" selected>5</option>
                         <option value="10">10</option>
                         <option value="15">15</option>
@@ -246,7 +292,8 @@
     <div class="modal-backdrop" onclick="closeImportModal()"></div>
     <div class="modal-content animate-fade-in" style="max-width: 500px; padding: 0; border-radius: var(--radius-md);">
         <div class="modal-header" style="border-bottom: 1px solid var(--border-color); padding: 20px 24px;">
-            <h3 style="margin: 0; font-size: 1.15rem; font-family: var(--font-heading); display: flex; align-items: center; gap: 10px;">
+            <h3
+                style="margin: 0; font-size: 1.15rem; font-family: var(--font-heading); display: flex; align-items: center; gap: 10px;">
                 <i class="fa-solid fa-file-csv" style="color: var(--accent-emerald); font-size: 1.3rem;"></i>
                 <span>Importación Masiva CSV</span>
             </h3>
@@ -255,370 +302,378 @@
             </button>
         </div>
         <div class="modal-body" style="padding: 28px;">
-            <p style="color: var(--text-secondary); font-size: 0.85rem; line-height: 1.45; margin-bottom: 20px; margin-top: 0;">
-                Sube tu catálogo de forma masiva utilizando un archivo delimitado por comas (.csv). Al seleccionar o arrastrar el archivo, el sistema iniciará automáticamente el Asistente de Mapeo Inteligente.
+            <p
+                style="color: var(--text-secondary); font-size: 0.85rem; line-height: 1.45; margin-bottom: 20px; margin-top: 0;">
+                Sube tu catálogo de forma masiva utilizando un archivo delimitado por comas (.csv). Al seleccionar o
+                arrastrar el archivo, el sistema iniciará automáticamente el Asistente de Mapeo Inteligente.
             </p>
-            
-            <form action="{{ url_for('web_import_mapper.upload_file') }}" method="POST" enctype="multipart/form-data" style="display: flex; flex-direction: column; gap: 18px;">
+
+            <form action="{{ url_for('web_import_mapper.upload_file') }}" method="POST" enctype="multipart/form-data"
+                style="display: flex; flex-direction: column; gap: 18px;">
                 <input type="hidden" name="import_type" value="products">
-                <div id="dropzone" style="border: 2px dashed var(--border-color); border-radius: var(--radius-sm); padding: 40px 16px; text-align: center; cursor: pointer; transition: all var(--transition-fast) ease-in-out;">
-                    <i class="fa-solid fa-cloud-arrow-up" style="font-size: 2.5rem; color: var(--text-muted); margin-bottom: 12px; display: block; transition: transform var(--transition-fast);"></i>
-                    <span style="font-size: 0.88rem; font-weight: 600; color: var(--text-secondary);" id="file-label">Seleccionar archivo .csv</span>
-                    <p style="font-size: 0.78rem; color: var(--text-muted); margin-top: 6px; margin-bottom: 0;">o arrastra tu archivo aquí</p>
+                <div id="dropzone"
+                    style="border: 2px dashed var(--border-color); border-radius: var(--radius-sm); padding: 40px 16px; text-align: center; cursor: pointer; transition: all var(--transition-fast) ease-in-out;">
+                    <i class="fa-solid fa-cloud-arrow-up"
+                        style="font-size: 2.5rem; color: var(--text-muted); margin-bottom: 12px; display: block; transition: transform var(--transition-fast);"></i>
+                    <span style="font-size: 0.88rem; font-weight: 500; color: var(--text-secondary);"
+                        id="file-label">Seleccionar archivo .csv</span>
+                    <p style="font-size: 0.78rem; color: var(--text-muted); margin-top: 6px; margin-bottom: 0;">o
+                        arrastra tu archivo aquí</p>
                 </div>
                 <input type="file" id="csv-file" name="file" accept=".csv" style="display: none;">
-                
-                <button type="submit" id="upload-btn" class="btn btn-primary" style="width: 100%; display: none;" disabled></button>
+
+                <button type="submit" id="upload-btn" class="btn btn-primary" style="width: 100%; display: none;"
+                    disabled></button>
             </form>
         </div>
     </div>
 </div>
 
 <script>
-// ==========================================
-// Lógica de Paginación y Filtrado del Grid
-// ==========================================
-let itemsPerPage = 5; // Por defecto 5 items
-let currentPage = 1;
-let filteredRows = [];
+    // ==========================================
+    // Lógica de Paginación y Filtrado del Grid
+    // ==========================================
+    let itemsPerPage = 5; // Por defecto 5 items
+    let currentPage = 1;
+    let filteredRows = [];
 
-function getRowsArray() {
-    return Array.from(document.querySelectorAll('.item-row'));
-}
+    function getRowsArray() {
+        return Array.from(document.querySelectorAll('.item-row'));
+    }
 
-function applyFilters() {
-    const searchVal = document.getElementById('search-input').value.toLowerCase().trim();
-    const typeVal = document.getElementById('type-filter').value;
-    const stockVal = document.getElementById('stock-filter').value;
-    const activeVal = document.getElementById('active-filter').value;
-    const brandVal = document.getElementById('brand-filter').value.toLowerCase();
-    const supplierVal = document.getElementById('supplier-filter').value.toLowerCase();
-    
-    const rows = getRowsArray();
-    if (rows.length === 0) return;
+    function applyFilters() {
+        const searchVal = document.getElementById('search-input').value.toLowerCase().trim();
+        const typeVal = document.getElementById('type-filter').value;
+        const stockVal = document.getElementById('stock-filter').value;
+        const activeVal = document.getElementById('active-filter').value;
+        const brandVal = document.getElementById('brand-filter').value.toLowerCase();
+        const supplierVal = document.getElementById('supplier-filter').value.toLowerCase();
 
-    filteredRows = rows.filter(row => {
-        // 1. Filtrado por texto de búsqueda
-        const code = (row.getAttribute('data-code') || '').toLowerCase();
-        const barcode = (row.getAttribute('data-barcode') || '').toLowerCase();
-        const name = (row.getAttribute('data-name') || '').toLowerCase();
-        const location = (row.getAttribute('data-location') || '').toLowerCase();
-        const category = (row.getAttribute('data-category') || '').toLowerCase();
-        const matchesSearch = code.includes(searchVal) || barcode.includes(searchVal) || name.includes(searchVal) || location.includes(searchVal) || category.includes(searchVal);
-        
-        // 2. Filtrado por tipo (Bien/Servicio)
-        const type = row.getAttribute('data-type');
-        const matchesType = (typeVal === 'all' || type === typeVal);
-        
-        // 3. Filtrado por stock
-        const isLowStock = row.getAttribute('data-stock-low') === 'true';
-        let matchesStock = true;
-        if (stockVal === 'low-stock') {
-            matchesStock = isLowStock;
-        } else if (stockVal === 'in-stock') {
-            matchesStock = !isLowStock;
+        const rows = getRowsArray();
+        if (rows.length === 0) return;
+
+        filteredRows = rows.filter(row => {
+            // 1. Filtrado por texto de búsqueda
+            const code = (row.getAttribute('data-code') || '').toLowerCase();
+            const barcode = (row.getAttribute('data-barcode') || '').toLowerCase();
+            const name = (row.getAttribute('data-name') || '').toLowerCase();
+            const location = (row.getAttribute('data-location') || '').toLowerCase();
+            const category = (row.getAttribute('data-category') || '').toLowerCase();
+            const matchesSearch = code.includes(searchVal) || barcode.includes(searchVal) || name.includes(searchVal) || location.includes(searchVal) || category.includes(searchVal);
+
+            // 2. Filtrado por tipo (Bien/Servicio)
+            const type = row.getAttribute('data-type');
+            const matchesType = (typeVal === 'all' || type === typeVal);
+
+            // 3. Filtrado por stock
+            const isLowStock = row.getAttribute('data-stock-low') === 'true';
+            let matchesStock = true;
+            if (stockVal === 'low-stock') {
+                matchesStock = isLowStock;
+            } else if (stockVal === 'in-stock') {
+                matchesStock = !isLowStock;
+            }
+
+            // 4. Filtrado por estado (Activo/Inactivo)
+            const active = row.getAttribute('data-active');
+            const matchesActive = (activeVal === 'all' || active === activeVal);
+
+            // 5. Filtrado por Marca
+            const brand = (row.getAttribute('data-brand') || '').toLowerCase();
+            const matchesBrand = (brandVal === 'all' || brand === brandVal);
+
+            // 6. Filtrado por Proveedor
+            const supplier = (row.getAttribute('data-supplier') || '').toLowerCase();
+            const matchesSupplier = (supplierVal === 'all' || supplier === supplierVal);
+
+            return matchesSearch && matchesType && matchesStock && matchesActive && matchesBrand && matchesSupplier;
+        });
+
+        currentPage = 1;
+        renderTable();
+    }
+
+    function renderTable() {
+        const rows = getRowsArray();
+        const totalItems = filteredRows.length;
+        const noResultsRow = document.getElementById('no-results-row');
+        const paginationWrapper = document.getElementById('pagination-wrapper');
+
+        // Ocultar todos los registros inicialmente
+        rows.forEach(r => r.style.display = 'none');
+
+        if (totalItems === 0) {
+            if (noResultsRow) noResultsRow.style.display = 'table-row';
+            if (paginationWrapper) paginationWrapper.style.display = 'none';
+            return;
         }
 
-        // 4. Filtrado por estado (Activo/Inactivo)
-        const active = row.getAttribute('data-active');
-        const matchesActive = (activeVal === 'all' || active === activeVal);
+        if (noResultsRow) noResultsRow.style.display = 'none';
+        if (paginationWrapper) paginationWrapper.style.display = 'flex';
 
-        // 5. Filtrado por Marca
-        const brand = (row.getAttribute('data-brand') || '').toLowerCase();
-        const matchesBrand = (brandVal === 'all' || brand === brandVal);
+        const totalPages = Math.ceil(totalItems / itemsPerPage);
 
-        // 6. Filtrado por Proveedor
-        const supplier = (row.getAttribute('data-supplier') || '').toLowerCase();
-        const matchesSupplier = (supplierVal === 'all' || supplier === supplierVal);
-        
-        return matchesSearch && matchesType && matchesStock && matchesActive && matchesBrand && matchesSupplier;
-    });
+        // Ajustar límites de página actual
+        if (currentPage > totalPages) currentPage = totalPages;
+        if (currentPage < 1) currentPage = 1;
 
-    currentPage = 1;
-    renderTable();
-}
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        const endIndex = Math.min(startIndex + itemsPerPage, totalItems);
 
-function renderTable() {
-    const rows = getRowsArray();
-    const totalItems = filteredRows.length;
-    const noResultsRow = document.getElementById('no-results-row');
-    const paginationWrapper = document.getElementById('pagination-wrapper');
-
-    // Ocultar todos los registros inicialmente
-    rows.forEach(r => r.style.display = 'none');
-
-    if (totalItems === 0) {
-        if (noResultsRow) noResultsRow.style.display = 'table-row';
-        if (paginationWrapper) paginationWrapper.style.display = 'none';
-        return;
-    }
-
-    if (noResultsRow) noResultsRow.style.display = 'none';
-    if (paginationWrapper) paginationWrapper.style.display = 'flex';
-
-    const totalPages = Math.ceil(totalItems / itemsPerPage);
-    
-    // Ajustar límites de página actual
-    if (currentPage > totalPages) currentPage = totalPages;
-    if (currentPage < 1) currentPage = 1;
-
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    const endIndex = Math.min(startIndex + itemsPerPage, totalItems);
-
-    // Mostrar solo los elementos de la página actual
-    for (let i = startIndex; i < endIndex; i++) {
-        if (filteredRows[i]) filteredRows[i].style.display = 'table-row';
-    }
-
-    // Actualizar texto informativo de paginación
-    const infoSpan = document.getElementById('pagination-info');
-    if (infoSpan) {
-        infoSpan.textContent = `Mostrando ${startIndex + 1}-${endIndex} de ${totalItems} artículos`;
-    }
-
-    // Renderizar botones de paginación
-    renderPaginationButtons(totalPages);
-}
-
-function renderPaginationButtons(totalPages) {
-    const container = document.getElementById('pagination-buttons');
-    if (!container) return;
-    container.innerHTML = '';
-
-    if (totalPages <= 1) return;
-
-    // Botón Anterior
-    const prevBtn = document.createElement('button');
-    prevBtn.className = 'btn btn-secondary';
-    prevBtn.style.padding = '8px 12px';
-    prevBtn.style.fontSize = '0.82rem';
-    prevBtn.disabled = currentPage === 1;
-    prevBtn.innerHTML = '<i class="fa-solid fa-chevron-left"></i>';
-    prevBtn.addEventListener('click', () => {
-        currentPage--;
-        renderTable();
-    });
-    container.appendChild(prevBtn);
-
-    // Páginas Numeradas
-    for (let i = 1; i <= totalPages; i++) {
-        const pageBtn = document.createElement('button');
-        pageBtn.style.padding = '8px 14px';
-        pageBtn.style.fontSize = '0.82rem';
-        pageBtn.style.fontWeight = 'bold';
-        pageBtn.style.borderRadius = 'var(--radius-sm)';
-        pageBtn.style.cursor = 'pointer';
-        
-        if (i === currentPage) {
-            pageBtn.className = 'btn btn-primary';
-            pageBtn.style.boxShadow = 'none';
-        } else {
-            pageBtn.className = 'btn btn-secondary';
+        // Mostrar solo los elementos de la página actual
+        for (let i = startIndex; i < endIndex; i++) {
+            if (filteredRows[i]) filteredRows[i].style.display = 'table-row';
         }
-        
-        pageBtn.textContent = i;
-        pageBtn.addEventListener('click', () => {
-            currentPage = i;
-            renderTable();
-        });
-        container.appendChild(pageBtn);
+
+        // Actualizar texto informativo de paginación
+        const infoSpan = document.getElementById('pagination-info');
+        if (infoSpan) {
+            infoSpan.textContent = `Mostrando ${startIndex + 1}-${endIndex} de ${totalItems} artículos`;
+        }
+
+        // Renderizar botones de paginación
+        renderPaginationButtons(totalPages);
     }
 
-    // Botón Siguiente
-    const nextBtn = document.createElement('button');
-    nextBtn.className = 'btn btn-secondary';
-    nextBtn.style.padding = '8px 12px';
-    nextBtn.style.fontSize = '0.82rem';
-    nextBtn.disabled = currentPage === totalPages;
-    nextBtn.innerHTML = '<i class="fa-solid fa-chevron-right"></i>';
-    nextBtn.addEventListener('click', () => {
-        currentPage++;
+    function renderPaginationButtons(totalPages) {
+        const container = document.getElementById('pagination-buttons');
+        if (!container) return;
+        container.innerHTML = '';
+
+        if (totalPages <= 1) return;
+
+        // Botón Anterior
+        const prevBtn = document.createElement('button');
+        prevBtn.className = 'btn btn-secondary';
+        prevBtn.style.padding = '8px 12px';
+        prevBtn.style.fontSize = '0.82rem';
+        prevBtn.disabled = currentPage === 1;
+        prevBtn.innerHTML = '<i class="fa-solid fa-chevron-left"></i>';
+        prevBtn.addEventListener('click', () => {
+            currentPage--;
+            renderTable();
+        });
+        container.appendChild(prevBtn);
+
+        // Páginas Numeradas
+        for (let i = 1; i <= totalPages; i++) {
+            const pageBtn = document.createElement('button');
+            pageBtn.style.padding = '8px 14px';
+            pageBtn.style.fontSize = '0.82rem';
+            pageBtn.style.fontWeight = 'bold';
+            pageBtn.style.borderRadius = 'var(--radius-sm)';
+            pageBtn.style.cursor = 'pointer';
+
+            if (i === currentPage) {
+                pageBtn.className = 'btn btn-primary';
+                pageBtn.style.boxShadow = 'none';
+            } else {
+                pageBtn.className = 'btn btn-secondary';
+            }
+
+            pageBtn.textContent = i;
+            pageBtn.addEventListener('click', () => {
+                currentPage = i;
+                renderTable();
+            });
+            container.appendChild(pageBtn);
+        }
+
+        // Botón Siguiente
+        const nextBtn = document.createElement('button');
+        nextBtn.className = 'btn btn-secondary';
+        nextBtn.style.padding = '8px 12px';
+        nextBtn.style.fontSize = '0.82rem';
+        nextBtn.disabled = currentPage === totalPages;
+        nextBtn.innerHTML = '<i class="fa-solid fa-chevron-right"></i>';
+        nextBtn.addEventListener('click', () => {
+            currentPage++;
+            renderTable();
+        });
+        container.appendChild(nextBtn);
+    }
+
+
+    // ==========================================
+    // Lógica del Modal de Importación
+    // ==========================================
+    function openImportModal() {
+        const modal = document.getElementById('import-modal');
+        if (modal) {
+            modal.style.display = 'flex';
+            document.body.style.overflow = 'hidden'; // Evita scroll de fondo
+        }
+    }
+
+    function closeImportModal() {
+        const modal = document.getElementById('import-modal');
+        if (modal) {
+            modal.style.display = 'none';
+            document.body.style.overflow = 'auto'; // Restablece scroll
+        }
+    }
+
+
+    // ==========================================
+    // Carga Inicial del Documento
+    // ==========================================
+    document.addEventListener('DOMContentLoaded', function () {
+        // Inicializar filtrado del catálogo
+        filteredRows = getRowsArray();
         renderTable();
-    });
-    container.appendChild(nextBtn);
-}
 
-
-// ==========================================
-// Lógica del Modal de Importación
-// ==========================================
-function openImportModal() {
-    const modal = document.getElementById('import-modal');
-    if (modal) {
-        modal.style.display = 'flex';
-        document.body.style.overflow = 'hidden'; // Evita scroll de fondo
-    }
-}
-
-function closeImportModal() {
-    const modal = document.getElementById('import-modal');
-    if (modal) {
-        modal.style.display = 'none';
-        document.body.style.overflow = 'auto'; // Restablece scroll
-    }
-}
-
-
-// ==========================================
-// Carga Inicial del Documento
-// ==========================================
-document.addEventListener('DOMContentLoaded', function() {
-    // Inicializar filtrado del catálogo
-    filteredRows = getRowsArray();
-    renderTable();
-
-    // Event listener del selector de tamaño de página
-    const pageSizeSelector = document.getElementById('page-size-selector');
-    if (pageSizeSelector) {
-        pageSizeSelector.addEventListener('change', function() {
-            itemsPerPage = parseInt(this.value);
-            currentPage = 1;
-            renderTable();
-        });
-    }
-
-    // Autopoblar filtros de marca y proveedor dinámicamente
-    const rows = getRowsArray();
-    const brands = new Set();
-    const suppliers = new Set();
-    
-    rows.forEach(row => {
-        const brand = row.getAttribute('data-brand');
-        const supplier = row.getAttribute('data-supplier');
-        if (brand && brand.trim() !== '') brands.add(brand.trim());
-        if (supplier && supplier.trim() !== '') suppliers.add(supplier.trim());
-    });
-    
-    const brandSelect = document.getElementById('brand-filter');
-    if (brandSelect) {
-        Array.from(brands).sort().forEach(b => {
-            const opt = document.createElement('option');
-            opt.value = b;
-            opt.textContent = b;
-            brandSelect.appendChild(opt);
-        });
-    }
-    
-    const supplierSelect = document.getElementById('supplier-filter');
-    if (supplierSelect) {
-        Array.from(suppliers).sort().forEach(s => {
-            const opt = document.createElement('option');
-            opt.value = s;
-            opt.textContent = s;
-            supplierSelect.appendChild(opt);
-        });
-    }
-
-    // Lógica del Dropzone dentro del Modal
-    const dropzone = document.getElementById('dropzone');
-    const fileInput = document.getElementById('csv-file');
-    const fileLabel = document.getElementById('file-label');
-    const uploadBtn = document.getElementById('upload-btn');
-    const uploadIcon = dropzone ? dropzone.querySelector('.fa-cloud-arrow-up') : null;
-
-    if (dropzone && fileInput && uploadBtn) {
-        const form = dropzone.closest('form');
-
-        if (form) {
-            form.addEventListener('submit', function(e) {
-                if (!fileInput.files || fileInput.files.length === 0) {
-                    e.preventDefault();
-                    alert('Por favor, selecciona o arrastra un archivo .csv válido antes de cargar.');
-                }
+        // Event listener del selector de tamaño de página
+        const pageSizeSelector = document.getElementById('page-size-selector');
+        if (pageSizeSelector) {
+            pageSizeSelector.addEventListener('change', function () {
+                itemsPerPage = parseInt(this.value);
+                currentPage = 1;
+                renderTable();
             });
         }
 
-        dropzone.addEventListener('click', function() {
-            fileInput.click();
+        // Autopoblar filtros de marca y proveedor dinámicamente
+        const rows = getRowsArray();
+        const brands = new Set();
+        const suppliers = new Set();
+
+        rows.forEach(row => {
+            const brand = row.getAttribute('data-brand');
+            const supplier = row.getAttribute('data-supplier');
+            if (brand && brand.trim() !== '') brands.add(brand.trim());
+            if (supplier && supplier.trim() !== '') suppliers.add(supplier.trim());
         });
 
-        // Hover animado
-        dropzone.addEventListener('mouseenter', function() {
-            if (!fileInput.files.length) {
-                dropzone.style.borderColor = 'var(--accent-emerald)';
-                if (uploadIcon) uploadIcon.style.transform = 'translateY(-3px)';
+        const brandSelect = document.getElementById('brand-filter');
+        if (brandSelect) {
+            Array.from(brands).sort().forEach(b => {
+                const opt = document.createElement('option');
+                opt.value = b;
+                opt.textContent = b;
+                brandSelect.appendChild(opt);
+            });
+        }
+
+        const supplierSelect = document.getElementById('supplier-filter');
+        if (supplierSelect) {
+            Array.from(suppliers).sort().forEach(s => {
+                const opt = document.createElement('option');
+                opt.value = s;
+                opt.textContent = s;
+                supplierSelect.appendChild(opt);
+            });
+        }
+
+        // Lógica del Dropzone dentro del Modal
+        const dropzone = document.getElementById('dropzone');
+        const fileInput = document.getElementById('csv-file');
+        const fileLabel = document.getElementById('file-label');
+        const uploadBtn = document.getElementById('upload-btn');
+        const uploadIcon = dropzone ? dropzone.querySelector('.fa-cloud-arrow-up') : null;
+
+        if (dropzone && fileInput && uploadBtn) {
+            const form = dropzone.closest('form');
+
+            if (form) {
+                form.addEventListener('submit', function (e) {
+                    if (!fileInput.files || fileInput.files.length === 0) {
+                        e.preventDefault();
+                        alert('Por favor, selecciona o arrastra un archivo .csv válido antes de cargar.');
+                    }
+                });
             }
-        });
-        dropzone.addEventListener('mouseleave', function() {
-            if (!fileInput.files.length) {
-                dropzone.style.borderColor = 'var(--border-color)';
-                if (uploadIcon) uploadIcon.style.transform = 'none';
-            }
-        });
 
-        // Eventos de arrastre
-        ['dragenter', 'dragover'].forEach(eventName => {
-            dropzone.addEventListener(eventName, function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                dropzone.style.borderColor = 'var(--accent-emerald)';
-                dropzone.style.backgroundColor = 'rgba(16, 185, 129, 0.05)';
-                if (uploadIcon) uploadIcon.style.transform = 'scale(1.1) translateY(-3px)';
-            }, false);
-        });
+            dropzone.addEventListener('click', function () {
+                fileInput.click();
+            });
 
-        ['dragleave', 'drop'].forEach(eventName => {
-            dropzone.addEventListener(eventName, function(e) {
-                e.preventDefault();
-                e.stopPropagation();
-                dropzone.style.backgroundColor = 'transparent';
+            // Hover animado
+            dropzone.addEventListener('mouseenter', function () {
+                if (!fileInput.files.length) {
+                    dropzone.style.borderColor = 'var(--accent-emerald)';
+                    if (uploadIcon) uploadIcon.style.transform = 'translateY(-3px)';
+                }
+            });
+            dropzone.addEventListener('mouseleave', function () {
                 if (!fileInput.files.length) {
                     dropzone.style.borderColor = 'var(--border-color)';
                     if (uploadIcon) uploadIcon.style.transform = 'none';
-                } else {
+                }
+            });
+
+            // Eventos de arrastre
+            ['dragenter', 'dragover'].forEach(eventName => {
+                dropzone.addEventListener(eventName, function (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
                     dropzone.style.borderColor = 'var(--accent-emerald)';
-                    if (uploadIcon) uploadIcon.style.transform = 'scale(1.05)';
+                    dropzone.style.backgroundColor = 'rgba(16, 185, 129, 0.05)';
+                    if (uploadIcon) uploadIcon.style.transform = 'scale(1.1) translateY(-3px)';
+                }, false);
+            });
+
+            ['dragleave', 'drop'].forEach(eventName => {
+                dropzone.addEventListener(eventName, function (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    dropzone.style.backgroundColor = 'transparent';
+                    if (!fileInput.files.length) {
+                        dropzone.style.borderColor = 'var(--border-color)';
+                        if (uploadIcon) uploadIcon.style.transform = 'none';
+                    } else {
+                        dropzone.style.borderColor = 'var(--accent-emerald)';
+                        if (uploadIcon) uploadIcon.style.transform = 'scale(1.05)';
+                    }
+                }, false);
+            });
+
+            // Al soltar el archivo
+            dropzone.addEventListener('drop', function (e) {
+                const dt = e.dataTransfer;
+                const files = dt.files;
+
+                if (files && files.length > 0) {
+                    const file = files[0];
+                    if (file.name.endsWith('.csv')) {
+                        fileInput.files = files;
+                        fileInput.dispatchEvent(new Event('change'));
+                    } else {
+                        alert('Por favor, selecciona únicamente archivos con extensión .csv');
+                    }
                 }
             }, false);
-        });
 
-        // Al soltar el archivo
-        dropzone.addEventListener('drop', function(e) {
-            const dt = e.dataTransfer;
-            const files = dt.files;
+            // Cambio de archivo seleccionado
+            fileInput.addEventListener('change', function () {
+                if (fileInput.files && fileInput.files.length > 0) {
+                    fileLabel.textContent = "Cargando " + fileInput.files[0].name + "...";
+                    fileLabel.style.color = 'var(--accent-emerald)';
+                    dropzone.style.borderColor = 'var(--accent-emerald)';
+                    dropzone.style.backgroundColor = 'rgba(16, 185, 129, 0.05)';
+                    uploadBtn.disabled = false;
+                    if (uploadIcon) {
+                        uploadIcon.className = "fa-solid fa-circle-notch fa-spin";
+                        uploadIcon.style.color = 'var(--accent-emerald)';
+                    }
 
-            if (files && files.length > 0) {
-                const file = files[0];
-                if (file.name.endsWith('.csv')) {
-                    fileInput.files = files;
-                    fileInput.dispatchEvent(new Event('change'));
+                    // Submit immediately
+                    setTimeout(() => {
+                        form.submit();
+                    }, 400);
                 } else {
-                    alert('Por favor, selecciona únicamente archivos con extensión .csv');
+                    fileLabel.textContent = 'Seleccionar archivo .csv';
+                    fileLabel.style.color = 'var(--text-secondary)';
+                    dropzone.style.borderColor = 'var(--border-color)';
+                    dropzone.style.backgroundColor = 'transparent';
+                    uploadBtn.disabled = true;
+                    if (uploadIcon) {
+                        uploadIcon.className = "fa-solid fa-cloud-arrow-up";
+                        uploadIcon.style.color = 'var(--text-muted)';
+                        uploadIcon.style.transform = 'none';
+                    }
                 }
-            }
-        }, false);
-
-        // Cambio de archivo seleccionado
-        fileInput.addEventListener('change', function() {
-            if (fileInput.files && fileInput.files.length > 0) {
-                fileLabel.textContent = "Cargando " + fileInput.files[0].name + "...";
-                fileLabel.style.color = 'var(--accent-emerald)';
-                dropzone.style.borderColor = 'var(--accent-emerald)';
-                dropzone.style.backgroundColor = 'rgba(16, 185, 129, 0.05)';
-                uploadBtn.disabled = false;
-                if (uploadIcon) {
-                    uploadIcon.className = "fa-solid fa-circle-notch fa-spin";
-                    uploadIcon.style.color = 'var(--accent-emerald)';
-                }
-                
-                // Submit immediately
-                setTimeout(() => {
-                    form.submit();
-                }, 400);
-            } else {
-                fileLabel.textContent = 'Seleccionar archivo .csv';
-                fileLabel.style.color = 'var(--text-secondary)';
-                dropzone.style.borderColor = 'var(--border-color)';
-                dropzone.style.backgroundColor = 'transparent';
-                uploadBtn.disabled = true;
-                if (uploadIcon) {
-                    uploadIcon.className = "fa-solid fa-cloud-arrow-up";
-                    uploadIcon.style.color = 'var(--text-muted)';
-                    uploadIcon.style.transform = 'none';
-                }
-            }
-        });
-    }
-});
+            });
+        }
+    });
 </script>
 {% endblock %}

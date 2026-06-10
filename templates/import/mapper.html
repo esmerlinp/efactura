@@ -13,6 +13,7 @@
         flex-direction: column;
         gap: 30px;
     }
+
     .mapping-grid {
         display: grid;
         grid-template-columns: 1fr;
@@ -22,6 +23,7 @@
         padding: 24px;
         border-radius: var(--radius-md);
     }
+
     .mapping-row {
         display: flex;
         align-items: center;
@@ -31,45 +33,54 @@
         border-bottom: 1px solid rgba(0, 0, 0, 0.04);
         flex-wrap: wrap;
     }
+
     .mapping-row:last-child {
         border-bottom: none;
         padding-bottom: 0;
     }
+
     .field-info {
         flex: 1;
         min-width: 250px;
     }
+
     .field-name {
-        font-weight: 600;
+        font-weight: 500;
         font-size: 0.95rem;
         color: var(--text-primary);
         display: flex;
         align-items: center;
         gap: 8px;
     }
+
     .field-required {
         color: var(--accent-red);
         font-size: 0.8rem;
         font-weight: bold;
     }
+
     .field-optional {
         color: var(--text-muted);
         font-size: 0.75rem;
         font-style: italic;
     }
+
     .field-desc {
         font-size: 0.82rem;
         color: var(--text-secondary);
         margin-top: 4px;
     }
+
     .selector-wrapper {
         min-width: 240px;
         flex: 1;
     }
+
     .default-value-wrapper {
         min-width: 240px;
         flex: 1;
     }
+
     .preview-card {
         background: #ffffff;
         border: 1px solid var(--border-color);
@@ -81,13 +92,15 @@
 
 <div class="mapper-container">
     <!-- Header Informativo -->
-    <div class="preview-card" style="background: linear-gradient(135deg, rgba(99, 102, 241, 0.05), rgba(16, 185, 129, 0.02)); border-left: 5px solid var(--accent-emerald);">
+    <div class="preview-card"
+        style="background: linear-gradient(135deg, rgba(99, 102, 241, 0.05), rgba(16, 185, 129, 0.02)); border-left: 5px solid var(--accent-emerald);">
         <h3 style="margin: 0 0 8px 0; font-family: var(--font-heading); display: flex; align-items: center; gap: 10px;">
             <i class="fa-solid fa-wand-magic-sparkles" style="color: var(--accent-emerald);"></i>
             <span>Asistente de Mapeo Inteligente</span>
         </h3>
         <p style="margin: 0; color: var(--text-secondary); font-size: 0.9rem; line-height: 1.5;">
-            Relaciona cada campo del sistema con una columna de tu archivo subido. Hemos seleccionado automáticamente las columnas que parecen coincidir con los campos requeridos.
+            Relaciona cada campo del sistema con una columna de tu archivo subido. Hemos seleccionado automáticamente
+            las columnas que parecen coincidir con los campos requeridos.
         </p>
     </div>
 
@@ -97,22 +110,27 @@
         <input type="hidden" name="temp_filename" value="{{ temp_filename }}">
 
         <!-- Acciones del Formulario (Arriba) -->
-        <div style="margin-bottom: 25px; display: flex; justify-content: flex-end; gap: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 15px;">
+        <div
+            style="margin-bottom: 25px; display: flex; justify-content: flex-end; gap: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 15px;">
             {% if import_type == 'clients' %}
-                <a href="{{ url_for('web_clients.list_clients') }}" class="btn btn-secondary" style="height: 44px; display: inline-flex; align-items: center;">Cancelar</a>
+            <a href="{{ url_for('web_clients.list_clients') }}" class="btn btn-secondary"
+                style="display: inline-flex; align-items: center;">Cancelar</a>
             {% elif import_type == 'products' %}
-                <a href="{{ url_for('list_items') }}" class="btn btn-secondary" style="height: 44px; display: inline-flex; align-items: center;">Cancelar</a>
+            <a href="{{ url_for('list_items') }}" class="btn btn-secondary"
+                style="display: inline-flex; align-items: center;">Cancelar</a>
             {% else %}
-                <a href="{{ url_for('web_invoices.list_invoices') }}" class="btn btn-secondary" style="height: 44px; display: inline-flex; align-items: center;">Cancelar</a>
+            <a href="{{ url_for('web_invoices.list_invoices') }}" class="btn btn-secondary"
+                style="display: inline-flex; align-items: center;">Cancelar</a>
             {% endif %}
-            <button type="submit" class="btn btn-primary" style="height: 44px; display: inline-flex; align-items: center; gap: 8px;">
+            <button type="submit" class="btn btn-primary" style="display: inline-flex; align-items: center; gap: 8px;">
                 <i class="fa-solid fa-cloud-arrow-down"></i>
                 <span>Confirmar e Importar Ahora</span>
             </button>
         </div>
 
         <div class="preview-card">
-            <h3 style="margin-top: 0; margin-bottom: 20px; font-family: var(--font-heading); font-size: 1.1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">
+            <h3
+                style="margin-top: 0; margin-bottom: 20px; font-family: var(--font-heading); font-size: 1.1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">
                 Asociación de Columnas
             </h3>
             <div class="mapping-grid">
@@ -122,23 +140,27 @@
                         <span class="field-name">
                             {{ field.name }}
                             {% if field.required %}
-                                <span class="field-required">* Requerido</span>
+                            <span class="field-required">* Requerido</span>
                             {% else %}
-                                <span class="field-optional">(Opcional)</span>
+                            <span class="field-optional">(Opcional)</span>
                             {% endif %}
                         </span>
                         <div class="field-desc">Campo de destino en e-Factura.</div>
                     </div>
                     <div class="selector-wrapper">
-                        <select name="map_{{ field.id }}" id="select_{{ field.id }}" class="form-select column-selector" data-suggestions='{{ field.suggestions | tojson }}' style="width: 100%;" {% if field.required %}required{% endif %}>
+                        <select name="map_{{ field.id }}" id="select_{{ field.id }}" class="form-select column-selector"
+                            data-suggestions='{{ field.suggestions | tojson }}' style="width: 100%;" {% if
+                            field.required %}required{% endif %}>
                             <option value="">-- Ignorar este campo --</option>
                             {% for header in headers %}
-                                <option value="{{ loop.index0 }}">{{ header }}</option>
+                            <option value="{{ loop.index0 }}">{{ header }}</option>
                             {% endfor %}
                         </select>
                     </div>
                     <div class="default-value-wrapper">
-                        <input type="text" name="default_{{ field.id }}" id="default_{{ field.id }}" class="form-control default-input" placeholder="Valor por defecto (si queda vacío)" style="width: 100%;">
+                        <input type="text" name="default_{{ field.id }}" id="default_{{ field.id }}"
+                            class="form-control default-input" placeholder="Valor por defecto (si queda vacío)"
+                            style="width: 100%;">
                     </div>
                 </div>
                 {% endfor %}
@@ -150,7 +172,8 @@
             <h3 style="margin-top: 0; margin-bottom: 16px; font-family: var(--font-heading); font-size: 1.1rem;">
                 Vista Previa de los Datos (Primeras Filas)
             </h3>
-            <div class="table-responsive" style="border: 1px solid var(--border-color); border-radius: var(--radius-sm); overflow: hidden;">
+            <div class="table-responsive"
+                style="border: 1px solid var(--border-color); border-radius: var(--radius-sm); overflow: hidden;">
                 <table class="table-premium" style="margin: 0;">
                     <thead>
                         <tr id="preview-thead">
@@ -167,13 +190,16 @@
         <!-- Acciones del Formulario -->
         <div style="margin-top: 30px; display: flex; justify-content: flex-end; gap: 15px;">
             {% if import_type == 'clients' %}
-                <a href="{{ url_for('web_clients.list_clients') }}" class="btn btn-secondary" style="height: 44px; display: inline-flex; align-items: center;">Cancelar</a>
+            <a href="{{ url_for('web_clients.list_clients') }}" class="btn btn-secondary"
+                style="display: inline-flex; align-items: center;">Cancelar</a>
             {% elif import_type == 'products' %}
-                <a href="{{ url_for('list_items') }}" class="btn btn-secondary" style="height: 44px; display: inline-flex; align-items: center;">Cancelar</a>
+            <a href="{{ url_for('list_items') }}" class="btn btn-secondary"
+                style="display: inline-flex; align-items: center;">Cancelar</a>
             {% else %}
-                <a href="{{ url_for('web_invoices.list_invoices') }}" class="btn btn-secondary" style="height: 44px; display: inline-flex; align-items: center;">Cancelar</a>
+            <a href="{{ url_for('web_invoices.list_invoices') }}" class="btn btn-secondary"
+                style="display: inline-flex; align-items: center;">Cancelar</a>
             {% endif %}
-            <button type="submit" class="btn btn-primary" style="height: 44px; display: inline-flex; align-items: center; gap: 8px;">
+            <button type="submit" class="btn btn-primary" style="display: inline-flex; align-items: center; gap: 8px;">
                 <i class="fa-solid fa-cloud-arrow-down"></i>
                 <span>Confirmar e Importar Ahora</span>
             </button>
@@ -182,11 +208,12 @@
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', async function() {
-    const rawPreviewRows = {{ preview_rows | tojson }};
+    document.addEventListener('DOMContentLoaded', async function () {
+        const rawPreviewRows = {{ preview_rows | tojson
+    }};
     const targetFields = {{ target_fields | tojson }};
     const headers = {{ headers | tojson }};
-    
+
     // Crear banner o notificación de estado de IA
     const aiStatusBanner = document.createElement('div');
     aiStatusBanner.style.padding = '10px 15px';
@@ -199,9 +226,9 @@ document.addEventListener('DOMContentLoaded', async function() {
     aiStatusBanner.style.background = 'rgba(99, 102, 241, 0.05)';
     aiStatusBanner.style.border = '1px solid rgba(99, 102, 241, 0.2)';
     aiStatusBanner.style.color = 'var(--text-main)';
-    
+
     aiStatusBanner.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin" style="color: var(--primary-color);"></i> <span>Analizando columnas con Inteligencia Artificial (IA)...</span>`;
-    
+
     const formEl = document.getElementById('mapper-form');
     if (formEl) {
         formEl.insertBefore(aiStatusBanner, formEl.firstChild);
@@ -225,8 +252,8 @@ document.addEventListener('DOMContentLoaded', async function() {
             aiMatched = true;
             aiStatusBanner.style.background = 'rgba(16, 185, 129, 0.05)';
             aiStatusBanner.style.border = '1px solid rgba(16, 185, 129, 0.2)';
-            aiStatusBanner.innerHTML = `<i class="fa-solid fa-wand-magic-sparkles" style="color: var(--accent-emerald);"></i> <span style="color: var(--accent-emerald); font-weight: 600;">Mapeo asistido por IA aplicado con éxito como primera opción.</span>`;
-            
+            aiStatusBanner.innerHTML = `<i class="fa-solid fa-wand-magic-sparkles" style="color: var(--accent-emerald);"></i> <span style="color: var(--accent-emerald); font-weight: 500;">Mapeo asistido por IA aplicado con éxito como primera opción.</span>`;
+
             // Aplicar mapeo de la IA
             targetFields.forEach(field => {
                 const select = document.getElementById(`select_${field.id}`);
@@ -253,21 +280,21 @@ document.addEventListener('DOMContentLoaded', async function() {
         aiStatusBanner.style.background = 'rgba(245, 158, 11, 0.05)';
         aiStatusBanner.style.border = '1px solid rgba(245, 158, 11, 0.2)';
         aiStatusBanner.innerHTML = `<i class="fa-solid fa-circle-info" style="color: var(--accent-yellow);"></i> <span>IA no disponible (API Key de OpenAI no configurada). Usando mapeador heurístico.</span>`;
-        
+
         targetFields.forEach(field => {
             const select = document.getElementById(`select_${field.id}`);
             if (!select) return;
-            
+
             const suggestions = JSON.parse(select.getAttribute('data-suggestions') || '[]');
-            
+
             for (let i = 0; i < select.options.length; i++) {
                 const optionText = select.options[i].text.toLowerCase().trim();
                 const matched = suggestions.some(sugg => {
-                    return optionText === sugg.toLowerCase() || 
-                           optionText.includes(sugg.toLowerCase()) ||
-                           sugg.toLowerCase().includes(optionText);
+                    return optionText === sugg.toLowerCase() ||
+                        optionText.includes(sugg.toLowerCase()) ||
+                        sugg.toLowerCase().includes(optionText);
                 });
-                
+
                 if (matched) {
                     select.selectedIndex = i;
                     break;
@@ -292,7 +319,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             const defaultInput = document.getElementById(`default_${field.id}`);
             const selectValue = select ? select.value : "";
             const defaultValue = defaultInput ? defaultInput.value.trim() : "";
-            
+
             if (selectValue !== "" || defaultValue !== "") {
                 activeMappings.push({
                     id: field.id,
@@ -351,7 +378,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     document.querySelectorAll('.column-selector').forEach(select => {
         select.addEventListener('change', updatePreviewTable);
     });
-    
+
     // Escuchar cambios en los inputs de valor por defecto para refrescar la vista previa
     document.querySelectorAll('.default-input').forEach(input => {
         input.addEventListener('input', updatePreviewTable);

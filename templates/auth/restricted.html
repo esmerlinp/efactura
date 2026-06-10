@@ -1,10 +1,11 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <script>
         // Aplicar tema guardado antes de renderizar la página
-        (function() {
+        (function () {
             const savedTheme = localStorage.getItem('theme') || 'light';
             document.documentElement.setAttribute('data-theme', savedTheme);
         })();
@@ -25,8 +26,9 @@
             min-height: 100vh;
             padding: 20px;
             background: radial-gradient(circle at top right, rgba(124, 58, 237, 0.08), transparent 400px),
-                        radial-gradient(circle at bottom left, rgba(16, 185, 129, 0.05), transparent 400px);
+                radial-gradient(circle at bottom left, rgba(16, 185, 129, 0.05), transparent 400px);
         }
+
         .restricted-card {
             background: rgba(255, 255, 255, 0.01);
             backdrop-filter: blur(25px);
@@ -40,26 +42,31 @@
             box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
             animation: cardEntrance 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
+
         @keyframes cardEntrance {
             from {
                 opacity: 0;
                 transform: translateY(20px);
             }
+
             to {
                 opacity: 1;
                 transform: translateY(0);
             }
         }
+
         .restricted-icon-container {
             position: relative;
             display: inline-block;
             margin-bottom: 24px;
         }
+
         .restricted-icon {
             font-size: 4rem;
             color: var(--accent-red);
             filter: drop-shadow(0 0 15px rgba(239, 68, 68, 0.3));
         }
+
         .restricted-icon-bg {
             position: absolute;
             top: 50%;
@@ -70,6 +77,7 @@
             color: var(--accent-red);
             z-index: -1;
         }
+
         .restricted-title {
             font-size: 1.6rem;
             font-family: var(--font-heading);
@@ -77,12 +85,14 @@
             margin-bottom: 12px;
             font-weight: 700;
         }
+
         .restricted-message {
             font-size: 0.95rem;
             color: var(--text-secondary);
             line-height: 1.6;
             margin-bottom: 28px;
         }
+
         .restricted-details {
             background: rgba(255, 255, 255, 0.02);
             border: 1px solid var(--border-color);
@@ -92,22 +102,27 @@
             text-align: left;
             font-size: 0.85rem;
         }
+
         .restricted-details-row {
             display: flex;
             justify-content: space-between;
             margin-bottom: 8px;
         }
+
         .restricted-details-row:last-child {
             margin-bottom: 0;
         }
+
         .details-label {
             color: var(--text-muted);
             font-weight: 500;
         }
+
         .details-value {
             color: var(--text-primary);
-            font-weight: 600;
+            font-weight: 500;
         }
+
         .btn-restricted {
             display: inline-flex;
             align-items: center;
@@ -116,13 +131,14 @@
             width: 100%;
             padding: 14px;
             font-size: 0.95rem;
-            font-weight: 600;
+            font-weight: 500;
             border-radius: var(--radius-sm);
             text-decoration: none;
             transition: all 0.3s ease;
         }
     </style>
 </head>
+
 <body class="auth-container">
     <div class="restricted-wrapper">
         <div class="restricted-card">
@@ -130,12 +146,13 @@
                 <i class="fa-solid fa-shield-halved restricted-icon"></i>
                 <i class="fa-solid fa-lock restricted-icon-bg"></i>
             </div>
-            
+
             <h2 class="restricted-title">Acceso Denegado</h2>
             <p class="restricted-message">
-                Tu perfil de colaborador no cuenta con los permisos de acceso requeridos para interactuar con este módulo del sistema.
+                Tu perfil de colaborador no cuenta con los permisos de acceso requeridos para interactuar con este
+                módulo del sistema.
             </p>
-            
+
             <div class="restricted-details">
                 <div class="restricted-wrapper-rows">
                     <div class="restricted-details-row">
@@ -143,23 +160,28 @@
                         <span class="details-value">{{ feature_name }}</span>
                     </div>
                     <div class="restricted-details-row" style="margin-top: 8px;">
-                        <span class="details-label"><i class="fa-solid fa-circle-exclamation"></i> Permiso necesario:</span>
-                        <span class="details-value badge badge-danger" style="font-size: 0.72rem; text-transform: none;">{{ required_permission }}</span>
+                        <span class="details-label"><i class="fa-solid fa-circle-exclamation"></i> Permiso
+                            necesario:</span>
+                        <span class="details-value badge badge-danger"
+                            style="font-size: 0.72rem; text-transform: none;">{{ required_permission }}</span>
                     </div>
-                    <div class="restricted-details-row" style="margin-top: 8px; border-top: 1px solid var(--border-color); padding-top: 8px;">
+                    <div class="restricted-details-row"
+                        style="margin-top: 8px; border-top: 1px solid var(--border-color); padding-top: 8px;">
                         <span class="details-label"><i class="fa-solid fa-user-tie"></i> Administrador:</span>
-                        <span class="details-value" style="opacity: 0.95;">{{ session.get('user', {}).get('ownerUID') }}</span>
+                        <span class="details-value" style="opacity: 0.95;">{{ session.get('user', {}).get('ownerUID')
+                            }}</span>
                     </div>
                 </div>
             </div>
-            
+
             <a href="{{ url_for('dashboard') }}" class="btn btn-primary btn-restricted">
                 <i class="fa-solid fa-house"></i>
                 <span>Volver al Dashboard</span>
             </a>
         </div>
     </div>
-    
+
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 </body>
+
 </html>

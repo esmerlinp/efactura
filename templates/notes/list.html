@@ -5,6 +5,13 @@
 {% block page_header %}Gestor de Tareas y Notas{% endblock %}
 
 {% block content %}
+<div class="page-title-container" style="margin-bottom: 24px; padding-left: 4px;">
+    <h1 class="page-title"
+        style="font-size: 1.75rem; font-weight: 800; font-family: var(--font-heading); color: var(--text-primary); margin: 0;">
+        Gestor de Tareas y Notas
+    </h1>
+</div>
+
 <style>
     /* Kanban Layout */
     .kanban-board {
@@ -15,7 +22,7 @@
         padding-bottom: 20px;
         min-height: 500px;
     }
-    
+
     .kanban-column {
         flex: 1;
         min-width: 250px;
@@ -25,21 +32,21 @@
         display: flex;
         flex-direction: column;
     }
-    
+
     .kanban-header {
         padding: 10px 15px;
         border-bottom: 1px solid var(--border-color);
         font-family: var(--font-heading);
         font-size: 1rem;
-        font-weight: 600;
+        font-weight: 500;
         display: flex;
         align-items: center;
         gap: 8px;
-        background: rgba(0,0,0,0.1);
+        background: rgba(0, 0, 0, 0.1);
         border-top-left-radius: var(--radius-md);
         border-top-right-radius: var(--radius-md);
     }
-    
+
     .kanban-cards {
         padding: 10px;
         flex: 1;
@@ -57,31 +64,33 @@
         display: flex;
         flex-direction: column;
         transition: box-shadow var(--transition-fast), transform 0.2s ease;
-        border: 1px solid rgba(0,0,0,0.06);
+        border: 1px solid rgba(0, 0, 0, 0.06);
         cursor: pointer;
-        height: 140px; /* Exact same height for all notes */
+        height: 140px;
+        /* Exact same height for all notes */
         box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.04);
     }
-    
+
     .note-card:active {
         cursor: grabbing;
         transform: scale(0.98);
     }
-    
+
     .note-card:hover {
         box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
         transform: translateY(-2px);
     }
-    
+
     .note-done {
         filter: grayscale(80%);
         opacity: 0.6;
         transition: all 0.3s ease;
     }
+
     .note-done .note-title {
         text-decoration: line-through;
     }
-    
+
     .note-card .card-actions {
         position: absolute;
         top: 8px;
@@ -92,7 +101,7 @@
         transition: opacity var(--transition-fast);
         z-index: 2;
     }
-    
+
     .note-card:hover .card-actions {
         opacity: 1;
     }
@@ -115,7 +124,7 @@
     .btn-icon:hover {
         background: rgba(255, 255, 255, 0.8);
         color: var(--text-primary);
-        border-color: rgba(0,0,0,0.1);
+        border-color: rgba(0, 0, 0, 0.1);
         transform: scale(1.1);
     }
 
@@ -131,12 +140,13 @@
         color: var(--text-primary);
         font-family: var(--font-heading);
         margin-bottom: 6px;
-        padding-right: 28px; /* space for icon */
+        padding-right: 28px;
+        /* space for icon */
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
     }
-    
+
     .note-content {
         white-space: pre-wrap;
         font-size: 0.8rem;
@@ -147,9 +157,10 @@
         -webkit-line-clamp: 3;
         -webkit-box-orient: vertical;
         overflow: hidden;
-        flex: 1; /* Pushes the footer down */
+        flex: 1;
+        /* Pushes the footer down */
     }
-    
+
     .note-footer {
         font-size: 0.72rem;
         color: var(--text-muted);
@@ -158,7 +169,7 @@
         gap: 6px;
         margin-top: 8px;
         padding-top: 8px;
-        border-top: 1px solid rgba(0,0,0,0.05);
+        border-top: 1px solid rgba(0, 0, 0, 0.05);
     }
 
     /* Creator Box */
@@ -211,6 +222,7 @@
     .note-creator.expanded .creator-expanded-area {
         display: block;
     }
+
     .note-creator.expanded .creator-input-fake {
         display: none;
     }
@@ -222,12 +234,14 @@
         border: none;
         color: #f8fafc;
         font-size: 1.1rem;
-        font-weight: 600;
+        font-weight: 500;
         font-family: var(--font-heading);
         outline: none;
     }
-    
-    .creator-title::placeholder { color: #94a3b8; }
+
+    .creator-title::placeholder {
+        color: #94a3b8;
+    }
 
     .creator-content {
         width: 100%;
@@ -241,8 +255,10 @@
         resize: none;
         line-height: 1.5;
     }
-    
-    .creator-content::placeholder { color: #94a3b8; }
+
+    .creator-content::placeholder {
+        color: #94a3b8;
+    }
 
     .creator-footer {
         display: flex;
@@ -280,7 +296,7 @@
         opacity: 0;
         transition: opacity 0.3s ease;
     }
-    
+
     .creator-backdrop.active {
         display: block;
         opacity: 1;
@@ -294,13 +310,13 @@
         margin-bottom: 20px;
         align-items: flex-start;
     }
-    
+
     .search-wrapper {
         flex: 1;
         min-width: 250px;
         position: relative;
     }
-    
+
     .search-input {
         width: 100%;
         padding: 12px 20px 12px 45px;
@@ -312,12 +328,12 @@
         outline: none;
         transition: border-color var(--transition-fast);
     }
-    
+
     .search-input:focus {
         border-color: var(--accent-emerald);
         background: rgba(255, 255, 255, 0.05);
     }
-    
+
     .search-icon {
         position: absolute;
         left: 18px;
@@ -325,7 +341,6 @@
         transform: translateY(-50%);
         color: var(--text-muted);
     }
-
 </style>
 
 <!-- Creator Backdrop -->
@@ -345,11 +360,12 @@
                 <span>Añadir una nueva tarea o nota...</span>
                 <i class="fa-solid fa-pen-to-square" style="color: var(--text-muted);"></i>
             </div>
-            
+
             <div class="creator-expanded-area">
                 <input type="text" class="creator-title" id="new-note-title" placeholder="Título">
-                <textarea class="creator-content" id="new-note-content" placeholder="Describe la tarea o apunte..."></textarea>
-                
+                <textarea class="creator-content" id="new-note-content"
+                    placeholder="Describe la tarea o apunte..."></textarea>
+
                 <div class="creator-footer">
                     <div class="creator-tools">
                         <select class="tool-select" id="new-note-visibility" title="Privacidad">
@@ -358,14 +374,18 @@
                         </select>
                     </div>
                     <div>
-                        <button type="button" class="btn btn-secondary" style="background: transparent; border: none; padding: 6px 12px; font-size: 0.9rem;" id="btn-close-creator">Cerrar</button>
-                        <button type="button" class="btn btn-primary" style="padding: 6px 16px; font-size: 0.9rem; margin-left: 8px;" id="btn-save-note">Guardar</button>
+                        <button type="button" class="btn btn-secondary"
+                            style="background: transparent; border: none; padding: 6px 12px; font-size: 0.9rem;"
+                            id="btn-close-creator">Cerrar</button>
+                        <button type="button" class="btn btn-primary"
+                            style="padding: 6px 16px; font-size: 0.9rem; margin-left: 8px;"
+                            id="btn-save-note">Guardar</button>
                     </div>
                 </div>
             </div>
         </div>
     </div>
-    
+
     <!-- Configuración del Tablero Button -->
     <div style="flex-basis: 100%; display: flex; justify-content: flex-end;">
         <button type="button" class="btn btn-secondary" style="font-size: 0.85rem;" onclick="openBoardConfig()">
@@ -374,95 +394,111 @@
     </div>
 </div>
 
-    <!-- Kanban Board -->
-    {% set color_map = {
-        'default': 'rgba(30, 41, 59, 0.4)',
-        'yellow': 'rgba(250, 204, 21, 0.12)',
-        'blue': 'rgba(59, 130, 246, 0.12)',
-        'green': 'rgba(16, 185, 129, 0.12)',
-        'pink': 'rgba(236, 72, 153, 0.12)',
-        'purple': 'rgba(139, 92, 246, 0.12)',
-        'orange': 'rgba(249, 115, 22, 0.12)'
-    } %}
-    {% set border_map = {
-        'default': 'var(--border-color)',
-        'yellow': 'rgba(250, 204, 21, 0.3)',
-        'blue': 'rgba(59, 130, 246, 0.3)',
-        'green': 'rgba(16, 185, 129, 0.3)',
-        'pink': 'rgba(236, 72, 153, 0.3)',
-        'purple': 'rgba(139, 92, 246, 0.3)',
-        'orange': 'rgba(249, 115, 22, 0.3)'
-    } %}
+<!-- Kanban Board -->
+{% set color_map = {
+'default': 'rgba(30, 41, 59, 0.4)',
+'yellow': 'rgba(250, 204, 21, 0.12)',
+'blue': 'rgba(59, 130, 246, 0.12)',
+'green': 'rgba(16, 185, 129, 0.12)',
+'pink': 'rgba(236, 72, 153, 0.12)',
+'purple': 'rgba(139, 92, 246, 0.12)',
+'orange': 'rgba(249, 115, 22, 0.12)'
+} %}
+{% set border_map = {
+'default': 'var(--border-color)',
+'yellow': 'rgba(250, 204, 21, 0.3)',
+'blue': 'rgba(59, 130, 246, 0.3)',
+'green': 'rgba(16, 185, 129, 0.3)',
+'pink': 'rgba(236, 72, 153, 0.3)',
+'purple': 'rgba(139, 92, 246, 0.3)',
+'orange': 'rgba(249, 115, 22, 0.3)'
+} %}
 
-    {% macro render_note(note, status_color, user_uid) %}
-    <div class="note-card {% if note.status == 'done' %}note-done{% endif %}" id="note-{{ note.id }}" draggable="true" ondragstart="drag(event)" data-title="{{ note.title | lower }}" data-content="{{ note.content | lower }}" style="background-color: {{ color_map.get(status_color, color_map['default']) }}; border-color: {{ border_map.get(status_color, border_map['default']) }}; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);" onclick="editNote('{{ note.id }}')">
-        
-        <div class="note-title" title="{{ note.title }}">
-            {{ note.title }}
-        </div>
-        
-        <div class="note-content">{{ note.content }}</div>
-        
-        <div class="note-footer">
-            {% if note.visibility == 'private' %}
-                <i class="fa-solid fa-lock" title="Privada"></i>
-            {% else %}
-                <i class="fa-solid fa-users" title="Compartida"></i>
+{% macro render_note(note, status_color, user_uid) %}
+<div class="note-card {% if note.status == 'done' %}note-done{% endif %}" id="note-{{ note.id }}" draggable="true"
+    ondragstart="drag(event)" data-title="{{ note.title | lower }}" data-content="{{ note.content | lower }}"
+    style="background-color: {{ color_map.get(status_color, color_map['default']) }}; border-color: {{ border_map.get(status_color, border_map['default']) }}; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);"
+    onclick="editNote('{{ note.id }}')">
+
+    <div class="note-title" title="{{ note.title }}">
+        {{ note.title }}
+    </div>
+
+    <div class="note-content">{{ note.content }}</div>
+
+    <div class="note-footer">
+        {% if note.visibility == 'private' %}
+        <i class="fa-solid fa-lock" title="Privada"></i>
+        {% else %}
+        <i class="fa-solid fa-users" title="Compartida"></i>
+        {% endif %}
+        <span>{{ note.createdAt[:10] }}</span>
+    </div>
+
+    <div class="card-actions">
+        <button class="btn-icon delete" onclick="event.stopPropagation(); deleteNote('{{ note.id }}')"
+            title="Eliminar nota">
+            <i class="fa-solid fa-trash-can"></i>
+        </button>
+    </div>
+</div>
+{% endmacro %}
+
+<div class="kanban-board">
+    {% set status_ids = statuses | map(attribute='id') | list %}
+    {% set sorted_statuses = statuses|sort(attribute='order') %}
+    {% set first_status_id = (sorted_statuses|first).id if sorted_statuses else 'abierta' %}
+    {% for status in sorted_statuses %}
+    <div class="kanban-column" id="col-{{ status.id }}" ondrop="drop(event)" ondragover="allowDrop(event)">
+        <h4 class="kanban-header">
+            {{ status.name }}
+        </h4>
+        <div class="kanban-cards">
+            {% for note in notes %}
+            {% if note.status == status.id or (status.id == first_status_id and note.status not in status_ids) %}
+            {{ render_note(note, status.color, user_uid) }}
             {% endif %}
-            <span>{{ note.createdAt[:10] }}</span>
-        </div>
-
-        <div class="card-actions">
-            <button class="btn-icon delete" onclick="event.stopPropagation(); deleteNote('{{ note.id }}')" title="Eliminar nota">
-                <i class="fa-solid fa-trash-can"></i>
-            </button>
+            {% endfor %}
         </div>
     </div>
-    {% endmacro %}
-
-    <div class="kanban-board">
-        {% set status_ids = statuses | map(attribute='id') | list %}
-        {% set sorted_statuses = statuses|sort(attribute='order') %}
-        {% set first_status_id = (sorted_statuses|first).id if sorted_statuses else 'abierta' %}
-        {% for status in sorted_statuses %}
-        <div class="kanban-column" id="col-{{ status.id }}" ondrop="drop(event)" ondragover="allowDrop(event)">
-            <h4 class="kanban-header">
-                {{ status.name }}
-            </h4>
-            <div class="kanban-cards">
-                {% for note in notes %}
-                    {% if note.status == status.id or (status.id == first_status_id and note.status not in status_ids) %}
-                        {{ render_note(note, status.color, user_uid) }}
-                    {% endif %}
-                {% endfor %}
-            </div>
-        </div>
-        {% endfor %}
-    </div>
+    {% endfor %}
+</div>
 </div>
 
 <!-- Board Config Modal -->
-<div id="boardConfigModal" class="search-modal" style="display: none; justify-content: center; align-items: center; z-index: 9999;">
-  <div class="modal-backdrop" onclick="closeBoardConfig()"></div>
-  <div class="modal-content animate-fade-in" style="width: 100%; max-width: 600px; padding: 0; border-radius: var(--radius-md); background: var(--bg-card); border: 1px solid var(--border-color);">
-    <div class="modal-header" style="border-bottom: 1px solid var(--border-color); padding: 20px 24px; display: flex; justify-content: space-between; align-items: center;">
-      <h5 class="modal-title" style="font-family: var(--font-heading); color: var(--text-primary); margin: 0; font-size: 1.1rem;">Configurar Columnas</h5>
-      <button type="button" class="btn-close-modal" onclick="closeBoardConfig()" style="background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.2rem;"><i class="fa-solid fa-xmark"></i></button>
+<div id="boardConfigModal" class="search-modal"
+    style="display: none; justify-content: center; align-items: center; z-index: 9999;">
+    <div class="modal-backdrop" onclick="closeBoardConfig()"></div>
+    <div class="modal-content animate-fade-in"
+        style="width: 100%; max-width: 600px; padding: 0; border-radius: var(--radius-md); background: var(--bg-card); border: 1px solid var(--border-color);">
+        <div class="modal-header"
+            style="border-bottom: 1px solid var(--border-color); padding: 20px 24px; display: flex; justify-content: space-between; align-items: center;">
+            <h5 class="modal-title"
+                style="font-family: var(--font-heading); color: var(--text-primary); margin: 0; font-size: 1.1rem;">
+                Configurar Columnas</h5>
+            <button type="button" class="btn-close-modal" onclick="closeBoardConfig()"
+                style="background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.2rem;"><i
+                    class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body" style="padding: 24px;">
+            <p class="text-muted" style="font-size: 0.85rem; margin-bottom: 20px;">Arrastra para reordenar, cambia los
+                nombres o asigna colores. Si eliminas una columna, sus notas volverán al estado "Abierta".</p>
+            <div id="statusList" class="list-group mb-3" style="display: flex; flex-direction: column; gap: 10px;">
+                <!-- Rendered via JS -->
+            </div>
+            <button type="button" class="btn btn-secondary" onclick="addNewStatus()"
+                style="width: 100%; padding: 10px; margin-top: 15px;">
+                <i class="fa-solid fa-plus"></i> Añadir Columna
+            </button>
+        </div>
+        <div class="modal-footer"
+            style="border-top: 1px solid var(--border-color); padding: 20px 24px; display: flex; justify-content: flex-end; gap: 10px;">
+            <button type="button" class="btn"
+                style="background: transparent; border: 1px solid var(--border-color); color: var(--text-primary);"
+                onclick="closeBoardConfig()">Cancelar</button>
+            <button type="button" class="btn btn-primary" onclick="saveBoardConfig()">Guardar Cambios</button>
+        </div>
     </div>
-    <div class="modal-body" style="padding: 24px;">
-      <p class="text-muted" style="font-size: 0.85rem; margin-bottom: 20px;">Arrastra para reordenar, cambia los nombres o asigna colores. Si eliminas una columna, sus notas volverán al estado "Abierta".</p>
-      <div id="statusList" class="list-group mb-3" style="display: flex; flex-direction: column; gap: 10px;">
-          <!-- Rendered via JS -->
-      </div>
-      <button type="button" class="btn btn-secondary" onclick="addNewStatus()" style="width: 100%; padding: 10px; margin-top: 15px;">
-          <i class="fa-solid fa-plus"></i> Añadir Columna
-      </button>
-    </div>
-    <div class="modal-footer" style="border-top: 1px solid var(--border-color); padding: 20px 24px; display: flex; justify-content: flex-end; gap: 10px;">
-      <button type="button" class="btn" style="background: transparent; border: 1px solid var(--border-color); color: var(--text-primary);" onclick="closeBoardConfig()">Cancelar</button>
-      <button type="button" class="btn btn-primary" onclick="saveBoardConfig()">Guardar Cambios</button>
-    </div>
-  </div>
 </div>
 
 {% endblock %}
@@ -476,11 +512,11 @@
         const backdrop = document.getElementById('creator-backdrop');
         const btnClose = document.getElementById('btn-close-creator');
         const btnSave = document.getElementById('btn-save-note');
-        
+
         const inputTitle = document.getElementById('new-note-title');
         const inputContent = document.getElementById('new-note-content');
         const selectVis = document.getElementById('new-note-visibility');
-        
+
         let currentEditId = null;
 
         function expandCreator() {
@@ -511,7 +547,7 @@
         btnClose.addEventListener('click', () => {
             collapseCreator();
             // If empty, reset
-            if(!inputTitle.value && !inputContent.value) {
+            if (!inputTitle.value && !inputContent.value) {
                 resetCreator();
             }
         });
@@ -520,17 +556,17 @@
         });
 
         // Auto-resize textarea
-        inputContent.addEventListener('input', function() {
+        inputContent.addEventListener('input', function () {
             this.style.height = 'auto';
             this.style.height = (this.scrollHeight) + 'px';
         });
 
         // Save Note
-        btnSave.addEventListener('click', function() {
+        btnSave.addEventListener('click', function () {
             const title = inputTitle.value.trim() || 'Sin título';
             const content = inputContent.value.trim();
 
-            if(!content) {
+            if (!content) {
                 inputContent.focus();
                 return;
             }
@@ -548,64 +584,64 @@
                     visibility: selectVis.value
                 })
             })
-            .then(res => res.json())
-            .then(data => {
-                if(data.success) {
-                    window.location.reload();
-                } else {
-                    alert('Error: ' + (data.error || 'Desconocido'));
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        window.location.reload();
+                    } else {
+                        alert('Error: ' + (data.error || 'Desconocido'));
+                        btnSave.disabled = false;
+                        btnSave.innerHTML = 'Guardar';
+                    }
+                })
+                .catch(err => {
+                    console.error(err);
+                    alert('Error de conexión');
                     btnSave.disabled = false;
                     btnSave.innerHTML = 'Guardar';
-                }
-            })
-            .catch(err => {
-                console.error(err);
-                alert('Error de conexión');
-                btnSave.disabled = false;
-                btnSave.innerHTML = 'Guardar';
-            });
+                });
         });
 
         // --- Search Logic ---
         const searchInput = document.getElementById('search-notes');
         const noteCards = document.querySelectorAll('.note-card');
 
-        searchInput.addEventListener('input', function(e) {
+        searchInput.addEventListener('input', function (e) {
             const term = e.target.value.toLowerCase().trim();
             noteCards.forEach(card => {
                 const title = card.getAttribute('data-title') || '';
                 const content = card.getAttribute('data-content') || '';
-                if(title.includes(term) || content.includes(term)) {
+                if (title.includes(term) || content.includes(term)) {
                     card.style.display = 'flex';
                 } else {
                     card.style.display = 'none';
                 }
             });
         });
-        
+
         // Expose editNote to global scope
-        window.editNote = function(noteId) {
+        window.editNote = function (noteId) {
             const card = document.getElementById('note-' + noteId);
-            if(card) {
+            if (card) {
                 const titleText = card.querySelector('.note-title').innerText.trim();
                 const contentText = card.querySelector('.note-content').innerText.trim();
-                
+
                 const isShared = card.querySelector('.fa-users') !== null;
                 selectVis.value = isShared ? 'shared' : 'private';
-                
+
                 inputTitle.value = titleText;
                 inputContent.value = contentText;
                 currentEditId = noteId;
-                
+
                 // Expand and scroll to top
                 expandCreator();
-                
+
                 const creator = document.getElementById('note-creator');
                 if (creator) {
                     creator.style.backgroundColor = card.style.backgroundColor;
                     creator.style.borderColor = card.style.borderColor;
                 }
-                
+
                 window.scrollTo({ top: 0, behavior: 'smooth' });
                 inputContent.style.height = 'auto';
                 inputContent.style.height = (inputContent.scrollHeight) + 'px';
@@ -614,31 +650,31 @@
     });
 
     function deleteNote(noteId) {
-        if(confirm('¿Estás seguro de que deseas eliminar esta nota/tarea?')) {
+        if (confirm('¿Estás seguro de que deseas eliminar esta nota/tarea?')) {
             const card = document.getElementById('note-' + noteId);
-            if(card) card.style.opacity = '0.3';
-            
+            if (card) card.style.opacity = '0.3';
+
             fetch('{{ url_for("web_notes.list_notes") }}/delete/' + noteId, {
                 method: 'POST'
             })
-            .then(res => res.json())
-            .then(data => {
-                if(data.success) {
-                    if(card) {
-                        card.remove();
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        if (card) {
+                            card.remove();
+                        } else {
+                            window.location.reload();
+                        }
                     } else {
-                        window.location.reload();
+                        alert('Error al eliminar.');
+                        if (card) card.style.opacity = '1';
                     }
-                } else {
-                    alert('Error al eliminar.');
-                    if(card) card.style.opacity = '1';
-                }
-            })
-            .catch(err => {
-                console.error(err);
-                alert('Error de conexión');
-                if(card) card.style.opacity = '1';
-            });
+                })
+                .catch(err => {
+                    console.error(err);
+                    alert('Error de conexión');
+                    if (card) card.style.opacity = '1';
+                });
         }
     }
 
@@ -653,7 +689,7 @@
     }
 
     // Restore opacity if dropped outside
-    document.addEventListener("dragend", function(event) {
+    document.addEventListener("dragend", function (event) {
         if (event.target.classList && event.target.classList.contains('note-card')) {
             event.target.style.opacity = '1';
         }
@@ -663,17 +699,17 @@
         ev.preventDefault();
         var data = ev.dataTransfer.getData("text");
         if (!data) return;
-        
+
         var card = document.getElementById(data);
         if (!card) return;
-        
+
         var targetCol = ev.target.closest('.kanban-column');
-        
+
         if (targetCol && card) {
             var cardsContainer = targetCol.querySelector('.kanban-cards');
             cardsContainer.appendChild(card);
             card.style.opacity = '1';
-            
+
             // Update styling if it's "Done"
             const status = targetCol.id.replace('col-', '');
             if (status === 'done') {
@@ -681,7 +717,7 @@
             } else {
                 card.classList.remove('note-done');
             }
-            
+
             // Save to backend
             const noteId = data.replace('note-', '');
             fetch('{{ url_for("web_notes.list_notes") }}/update_status/' + noteId, {
@@ -689,36 +725,36 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ status: status })
             }).then(res => res.json())
-            .then(data => {
-                if(data.success) {
-                    window.location.reload();
-                }
-            })
-            .catch(err => console.error(err));
+                .then(data => {
+                    if (data.success) {
+                        window.location.reload();
+                    }
+                })
+                .catch(err => console.error(err));
         }
     }
-    
+
     // --- Board Configuration Logic ---
     let boardStatuses = {{ statuses | tojson | safe }};
-    
-    window.openBoardConfig = function() {
+
+    window.openBoardConfig = function () {
         renderStatusConfigList();
         const modal = document.getElementById('boardConfigModal');
-        if(modal) modal.style.display = 'flex';
+        if (modal) modal.style.display = 'flex';
     };
-    
-    window.closeBoardConfig = function() {
+
+    window.closeBoardConfig = function () {
         const modal = document.getElementById('boardConfigModal');
-        if(modal) modal.style.display = 'none';
+        if (modal) modal.style.display = 'none';
     };
-    
+
     function renderStatusConfigList() {
         const list = document.getElementById('statusList');
         list.innerHTML = '';
-        boardStatuses.sort((a,b) => a.order - b.order).forEach((status, index) => {
+        boardStatuses.sort((a, b) => a.order - b.order).forEach((status, index) => {
             const colors = ['default', 'yellow', 'blue', 'green', 'pink', 'purple', 'orange'];
             let colorOptions = colors.map(c => `<option value="${c}" ${status.color === c ? 'selected' : ''}>${c}</option>`).join('');
-            
+
             list.innerHTML += `
                 <div class="status-item" data-id="${status.id}" draggable="true" ondragstart="dragStatus(event)" ondragover="allowDropStatus(event)" ondrop="dropStatus(event)" style="display: flex; align-items: center; justify-content: space-between; gap: 12px; background: var(--bg-body); padding: 12px 16px; margin-bottom: 10px; border-radius: var(--radius-md); border: 1px solid var(--border-color); flex-wrap: nowrap; transition: transform 0.2s;">
                     
@@ -744,8 +780,8 @@
             `;
         });
     }
-    
-    window.addNewStatus = function() {
+
+    window.addNewStatus = function () {
         const newId = 'status_' + Math.random().toString(36).substr(2, 9);
         boardStatuses.push({
             id: newId,
@@ -755,19 +791,19 @@
         });
         renderStatusConfigList();
     };
-    
-    window.removeStatus = function(btn) {
-        if(confirm('¿Estás seguro? Las notas en esta columna regresarán al estado por defecto.')) {
+
+    window.removeStatus = function (btn) {
+        if (confirm('¿Estás seguro? Las notas en esta columna regresarán al estado por defecto.')) {
             btn.closest('.status-item').remove();
         }
     };
-    
+
     function syncDOMToBoardStatuses() {
         const items = document.querySelectorAll('#statusList .status-item');
         items.forEach((item, index) => {
             const id = item.getAttribute('data-id');
             const stat = boardStatuses.find(s => s.id === id);
-            if(stat) {
+            if (stat) {
                 stat.name = item.querySelector('.status-name').value.trim() || 'Sin Nombre';
                 stat.color = item.querySelector('.status-color').value;
                 stat.order = index + 1;
@@ -776,38 +812,38 @@
     }
 
     let draggedStatusId = null;
-    window.dragStatus = function(ev) {
+    window.dragStatus = function (ev) {
         draggedStatusId = ev.target.closest('.status-item').getAttribute('data-id');
         ev.dataTransfer.effectAllowed = 'move';
         ev.target.closest('.status-item').style.opacity = '0.5';
     };
-    
-    document.addEventListener("dragend", function(event) {
+
+    document.addEventListener("dragend", function (event) {
         if (event.target.classList && event.target.classList.contains('status-item')) {
             event.target.style.opacity = '1';
         }
     });
 
-    window.allowDropStatus = function(ev) {
+    window.allowDropStatus = function (ev) {
         ev.preventDefault();
         ev.dataTransfer.dropEffect = 'move';
     };
 
-    window.dropStatus = function(ev) {
+    window.dropStatus = function (ev) {
         ev.preventDefault();
-        if(!draggedStatusId) return;
-        
+        if (!draggedStatusId) return;
+
         const targetItem = ev.target.closest('.status-item');
-        if(!targetItem) return;
-        
+        if (!targetItem) return;
+
         const targetId = targetItem.getAttribute('data-id');
-        if(draggedStatusId === targetId) return;
-        
+        if (draggedStatusId === targetId) return;
+
         syncDOMToBoardStatuses();
-        
+
         const draggedIndex = boardStatuses.findIndex(s => s.id === draggedStatusId);
         const targetIndex = boardStatuses.findIndex(s => s.id === targetId);
-        
+
         if (draggedIndex > -1 && targetIndex > -1) {
             const [item] = boardStatuses.splice(draggedIndex, 1);
             boardStatuses.splice(targetIndex, 0, item);
@@ -815,10 +851,10 @@
         }
         draggedStatusId = null;
     };
-    
-    window.saveBoardConfig = function() {
+
+    window.saveBoardConfig = function () {
         syncDOMToBoardStatuses();
-        
+
         const newStatuses = boardStatuses.map((s, index) => {
             s.order = index + 1;
             return {
@@ -828,20 +864,20 @@
                 order: s.order
             };
         });
-        
+
         fetch('{{ url_for("web_notes.save_statuses") }}', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ statuses: newStatuses })
         })
-        .then(res => res.json())
-        .then(data => {
-            if(data.success) {
-                window.location.reload();
-            } else {
-                alert('Error al guardar configuración.');
-            }
-        });
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.reload();
+                } else {
+                    alert('Error al guardar configuración.');
+                }
+            });
     };
 </script>
 {% endblock %}

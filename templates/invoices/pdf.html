@@ -5,10 +5,11 @@
 {% set current_light_color = brand_color if apply_brand else '#E2E8F0' %}
 {% set has_additional_taxes = namespace(value=false) %}
 {% for item in invoice['items'] %}
-    {% set item_isc = (item.isc_especifico_amount or 0) + (item.isc_advalorem_amount or 0) + (item.otros_impuestos_amount or 0) %}
-    {% if item_isc > 0.01 %}
-        {% set has_additional_taxes.value = true %}
-    {% endif %}
+{% set item_isc = (item.isc_especifico_amount or 0) + (item.isc_advalorem_amount or 0) + (item.otros_impuestos_amount or
+0) %}
+{% if item_isc > 0.01 %}
+{% set has_additional_taxes.value = true %}
+{% endif %}
 {% endfor %}
 <!DOCTYPE html>
 <html lang="es">
@@ -49,7 +50,13 @@
             align-items: flex-start;
             padding: 32px 20px 24px;
 
-            border-bottom: 3px solid {{ company_color_marca or '#1E3A8A' }};
+            border-bottom: 3px solid {
+                    {
+                    company_color_marca or '#1E3A8A'
+                }
+            }
+
+            ;
             margin-bottom: 28px;
         }
 
@@ -57,7 +64,13 @@
             font-size: 22px;
             font-weight: 800;
 
-            color: {{ company_color_marca or '#1E3A8A' }};
+            color: {
+                    {
+                    company_color_marca or '#1E3A8A'
+                }
+            }
+
+            ;
             margin-bottom: 4px;
         }
 
@@ -75,7 +88,13 @@
             font-size: 20px;
             font-weight: 800;
 
-            color: {{ company_color_marca or '#1E3A8A' }};
+            color: {
+                    {
+                    company_color_marca or '#1E3A8A'
+                }
+            }
+
+            ;
             margin-bottom: 4px;
         }
 
@@ -119,7 +138,13 @@
             padding: 18px 20px;
             background: #f8fafc;
 
-            border-left: 4px solid {{ company_color_marca or '#1E3A8A' }};
+            border-left: 4px solid {
+                    {
+                    company_color_marca or '#1E3A8A'
+                }
+            }
+
+            ;
             border-radius: 4px;
         }
 
@@ -181,7 +206,14 @@
             text-align: left;
             color: #1e293b !important;
             border-top: 1px solid #e2e8f0 !important;
-            border-bottom: 2px solid {{ company_color_marca or '#1E3A8A' }} !important;
+
+            border-bottom: 2px solid {
+                    {
+                    company_color_marca or '#1E3A8A'
+                }
+            }
+
+            !important;
         }
 
         thead th.right {
@@ -251,7 +283,7 @@
         }
 
         .totals-row .value {
-            font-weight: 600;
+            font-weight: 500;
         }
 
         .totals-row.total-bold {
@@ -315,7 +347,13 @@
             font-size: 16px;
             font-weight: 800;
 
-            color: {{ company_color_marca or '#1E3A8A' }};
+            color: {
+                    {
+                    company_color_marca or '#1E3A8A'
+                }
+            }
+
+            ;
             letter-spacing: 0.05em;
         }
 
@@ -356,7 +394,13 @@
             right: 0;
             z-index: 999;
 
-            background: {{ company_color_marca or '#1E3A8A' }};
+            background: {
+                    {
+                    company_color_marca or '#1E3A8A'
+                }
+            }
+
+            ;
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -381,7 +425,13 @@
         .btn-print {
             background: white;
 
-            color: {{ company_color_marca or '#1E3A8A' }};
+            color: {
+                    {
+                    company_color_marca or '#1E3A8A'
+                }
+            }
+
+            ;
             border: none;
             padding: 7px 18px;
             border-radius: 6px;
@@ -413,7 +463,8 @@
             transform: translate(-50%, -50%) rotate(-30deg);
             font-size: 72px;
             font-weight: 800;
-            color: rgba(239, 68, 68, 0.14); /* Nice light red with opacity */
+            color: rgba(239, 68, 68, 0.14);
+            /* Nice light red with opacity */
             border: 8px solid rgba(239, 68, 68, 0.14);
             padding: 15px 30px;
             border-radius: 16px;
@@ -434,7 +485,7 @@
             body {
                 padding-top: 0 !important;
             }
-            
+
             /* Ensure the watermark prints properly in all browsers */
             .sandbox-watermark {
                 -webkit-print-color-adjust: exact !important;
@@ -453,7 +504,8 @@
     <div class="print-toolbar" id="printToolbar">
         <span class="toolbar-msg">
             {% if sandbox %}
-            ⚠️ <strong>Ambiente Sandbox (Pruebas)</strong> — Los comprobantes emitidos no tienen validez fiscal y llevan marca de agua.
+            ⚠️ <strong>Ambiente Sandbox (Pruebas)</strong> — Los comprobantes emitidos no tienen validez fiscal y llevan
+            marca de agua.
             {% else %}
             📄 <strong>Vista previa de impresión</strong> — Elige "Guardar como PDF" en el diálogo de impresión.
             {% endif %}
@@ -484,7 +536,8 @@
                 style="max-height: 80px; max-width: 180px; object-fit: contain; border-radius: 4px;">
         </div>
         {% endif %}
-        <div class="header" style="border-bottom: none; padding-top: {% if company.logoUrl %}16px{% else %}32px{% endif %}; padding-bottom: 0; margin-bottom: 16px;">
+        <div class="header"
+            style="border-bottom: none; padding-top: {% if company.logoUrl %}16px{% else %}32px{% endif %}; padding-bottom: 0; margin-bottom: 16px;">
             <div class="company-block">
                 <h1 style="color: {{ current_color }}; font-size: 18px; margin-bottom: 2px;">{{
                     company.tradeName or company.companyName }}</h1>
@@ -494,12 +547,12 @@
                 <p><strong>RNC:</strong> {{ company.companyRNC }}</p>
                 <p><strong>Dirección:</strong> {{ company.companyAddress }}</p>
                 <p><strong>Tel/Correo:</strong> {{ company.companyPhone }} &nbsp;|&nbsp; {{ company.companyEmail }}</p>
-                <p><strong>Fecha Emisión:</strong> {{ invoice.date[:10] }}{% if invoice.date|length > 10 %} {{ invoice.date[11:16] }}{% endif %}</p>
+                <p><strong>Fecha Emisión:</strong> {{ invoice.date[:10] }}{% if invoice.date|length > 10 %} {{
+                    invoice.date[11:16] }}{% endif %}</p>
             </div>
             <div class="document-block" style="text-align: right;">
                 {% if invoice.encf %}
-                <div
-                    style="font-size: 14px; font-weight: bold; color: {{ current_color }}; margin-bottom: 4px;">
+                <div style="font-size: 14px; font-weight: bold; color: {{ current_color }}; margin-bottom: 4px;">
                     {{ invoice.ecfType }}</div>
                 <div class="doc-number" style="font-size: 13px; font-weight: normal; color: #111827;">e-NCF: {{
                     invoice.encf }}</div>
@@ -514,8 +567,7 @@
                 </div>
                 {% endif %}
                 {% else %}
-                <div
-                    style="font-size: 14px; font-weight: bold; color: {{ current_color }}; margin-bottom: 4px;">
+                <div style="font-size: 14px; font-weight: bold; color: {{ current_color }}; margin-bottom: 4px;">
                     {% if invoice.isQuotation %}Cotización{% else %}Borrador de Factura{% endif %}</div>
                 <div class="doc-number" style="font-size: 13px; font-weight: normal; color: #111827;">Doc. Interno: {{
                     invoice.invoiceNumber }}</div>
@@ -582,7 +634,8 @@
                 {% for item in page_items %}
                 {% set item_subtotal = item.get('subtotal', item.price * item.quantity * (1 - item.discountRate)) %}
                 {% set item_itbis = item.get('itbis_amount', item_subtotal * item.itbisRate) %}
-                {% set item_isc = (item.isc_especifico_amount or 0) + (item.isc_advalorem_amount or 0) + (item.otros_impuestos_amount or 0) %}
+                {% set item_isc = (item.isc_especifico_amount or 0) + (item.isc_advalorem_amount or 0) +
+                (item.otros_impuestos_amount or 0) %}
                 {% set ns.subtotal = ns.subtotal + item_subtotal %}
                 {% set ns.itbis = ns.itbis + item_itbis %}
                 {% set ns.total = ns.total + item.total %}
@@ -606,7 +659,8 @@
                     <td class="center">{{ item.quantity }}</td>
                     <td class="right">{{ "{:.0%}".format(item.itbisRate) }}</td>
                     {% if has_additional_taxes.value %}
-                    <td class="right">{% if item_isc > 0.01 %}RD$ {{ "{:,.2f}".format(item_isc) }}{% else %}-{% endif %}</td>
+                    <td class="right">{% if item_isc > 0.01 %}RD$ {{ "{:,.2f}".format(item_isc) }}{% else %}-{% endif %}
+                    </td>
                     {% endif %}
                     <td class="right">{{ "{:.0%}".format(item.discountRate) }}</td>
                     <td class="right bold">RD$ {{ "{:,.2f}".format(item.total) }}</td>
@@ -730,7 +784,8 @@
             {% endif %}
             <div class="totals-row net-payable">
                 <span class="label">Neto a Pagar:</span>
-                <span class="value">RD$ {{ "{:,.2f}".format(invoice.netPayable | default(invoice.total | default(0))) }}</span>
+                <span class="value">RD$ {{ "{:,.2f}".format(invoice.netPayable | default(invoice.total | default(0)))
+                    }}</span>
             </div>
             {% endif %}
         </div>
