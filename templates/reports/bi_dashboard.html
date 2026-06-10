@@ -37,13 +37,13 @@
         font-size: 0.8rem;
         text-transform: uppercase;
         color: var(--text-secondary);
-        font-weight: 700;
+        font-weight: 500;
         letter-spacing: 0.05em;
     }
     .bi-card-value {
         font-size: 1.8rem;
         font-family: var(--font-heading);
-        font-weight: 800;
+        font-weight: 600;
         color: var(--text-primary);
     }
     .bi-card-trend {
@@ -51,7 +51,7 @@
         display: inline-flex;
         align-items: center;
         gap: 4px;
-        font-weight: 600;
+        font-weight: 500;
     }
     .trend-up { color: var(--accent-emerald); }
     .trend-down { color: var(--accent-red); }
@@ -69,7 +69,7 @@
         color: var(--text-secondary);
         padding: 12px 16px;
         font-size: 0.95rem;
-        font-weight: 600;
+        font-weight: 500;
         cursor: pointer;
         transition: all 0.2s ease;
         display: flex;
@@ -194,7 +194,7 @@
                             {% if products_by_profit %}
                                 {% for prod in products_by_profit %}
                                 <tr>
-                                    <td><strong>{{ prod.name }}</strong></td>
+                                    <td>{{ prod.name }}</td>
                                     <td style="text-align: right;">RD$ {{ "{:,.2f}".format(prod.revenue) }}</td>
                                     <td style="text-align: right;">
                                         <span class="badge {% if prod.margin >= 25 %}badge-success{% elif prod.margin >= 10 %}badge-warning{% else %}badge-danger{% endif %}">
@@ -231,9 +231,9 @@
                             {% if clients_by_profit %}
                                 {% for cl in clients_by_profit %}
                                 <tr>
-                                    <td><strong>{{ cl.name }}</strong></td>
+                                    <td>{{ cl.name }}</td>
                                     <td style="text-align: right;">RD$ {{ "{:,.2f}".format(cl.revenue) }}</td>
-                                    <td style="text-align: right; color: var(--accent-emerald); font-weight: 700;">RD$ {{ "{:,.2f}".format(cl.profit) }}</td>
+                                    <td style="text-align: right; color: var(--accent-emerald); font-weight: 500;">RD$ {{ "{:,.2f}".format(cl.profit) }}</td>
                                 </tr>
                                 {% endfor %}
                             {% else %}
@@ -274,13 +274,13 @@
                     <tbody>
                         {% for month in months_projection %}
                         <tr>
-                            <td><strong>{{ month.label }}</strong></td>
+                            <td>{{ month.label }}</td>
                             <td style="text-align: right; color: var(--accent-emerald);">RD$ {{ "{:,.2f}".format(month.inflow) }}</td>
                             <td style="text-align: right; color: var(--accent-red);">RD$ {{ "{:,.2f}".format(month.outflow) }}</td>
-                            <td style="text-align: right; font-weight: 700; color: {% if month.net >= 0 %}var(--accent-emerald){% else %}var(--accent-red){% endif %};">
+                            <td style="text-align: right; font-weight: 500; color: {% if month.net >= 0 %}var(--accent-emerald){% else %}var(--accent-red){% endif %};">
                                 RD$ {{ "{:,.2f}".format(month.net) }}
                             </td>
-                            <td style="text-align: right; font-weight: 800; background-color: rgba(255,255,255,0.01);">
+                            <td style="text-align: right; font-weight: 500; background-color: rgba(255,255,255,0.01);">
                                 RD$ {{ "{:,.2f}".format(month.cumulative) }}
                             </td>
                         </tr>
@@ -306,25 +306,25 @@
                 <div style="display: flex; flex-direction: column; gap: 12px; background: rgba(255,255,255,0.01); padding: 16px; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
                     <div style="display: flex; justify-content: space-between; font-size: 0.9rem;">
                         <span>Ventas del Periodo (Netas):</span>
-                        <strong>RD$ {{ "{:,.2f}".format(total_sales_net) }}</strong>
+                        <span>RD$ {{ "{:,.2f}".format(total_sales_net) }}</span>
                     </div>
                     <div style="display: flex; justify-content: space-between; font-size: 0.9rem;">
                         <span>Gastos del Periodo:</span>
-                        <strong style="color: var(--text-secondary);">- RD$ {{ "{:,.2f}".format(total_expenses_net) }}</strong>
+                        <span style="color: var(--text-secondary);">- RD$ {{ "{:,.2f}".format(total_expenses_net) }}</span>
                     </div>
                     <div style="display: flex; justify-content: space-between; font-size: 0.9rem; border-top: 1px dashed var(--border-color); padding-top: 8px;">
                         <span>Base Imponible Estimada:</span>
-                        <strong>RD$ {{ "{:,.2f}".format(total_sales_net - total_expenses_net if total_sales_net - total_expenses_net > 0 else 0.0) }}</strong>
+                        <span>RD$ {{ "{:,.2f}".format(total_sales_net - total_expenses_net if total_sales_net - total_expenses_net > 0 else 0.0) }}</span>
                     </div>
-                    <div style="display: flex; justify-content: space-between; font-size: 1.05rem; font-weight: 700; color: var(--accent-red); border-top: 1px solid var(--border-color); padding-top: 8px;">
+                    <div style="display: flex; justify-content: space-between; font-size: 1.05rem; font-weight: 600; color: var(--accent-red); border-top: 1px solid var(--border-color); padding-top: 8px;">
                         <span>ISR Estimado (27%):</span>
-                        <strong>RD$ {{ "{:,.2f}".format(isr_estimated) }}</strong>
+                        <span>RD$ {{ "{:,.2f}".format(isr_estimated) }}</span>
                     </div>
                 </div>
 
                 <div style="background: rgba(16, 185, 129, 0.05); padding: 14px; border-radius: var(--radius-sm); border: 1px solid rgba(16, 185, 129, 0.1); font-size: 0.8rem; line-height: 1.45;">
-                    <strong style="color: var(--accent-emerald); display: block; margin-bottom: 4px;"><i class="fa-solid fa-calendar-days"></i> Cálculo de Anticipos Mensuales (Próximo Año)</strong>
-                    Si este fuese el ISR liquidado final, tendrías que pagar 12 anticipos mensuales de aproximadamente: <strong>RD$ {{ "{:,.2f}".format(anticipos_estimated) }}</strong> cada uno.
+                    <span style="color: var(--accent-emerald); display: block; margin-bottom: 4px; font-weight: 500;"><i class="fa-solid fa-calendar-days"></i> Cálculo de Anticipos Mensuales (Próximo Año)</span>
+                    Si este fuese el ISR liquidado final, tendrías que pagar 12 anticipos mensuales de aproximadamente: <span style="font-weight: 500;">RD$ {{ "{:,.2f}".format(anticipos_estimated) }}</span> cada uno.
                 </div>
             </div>
 
@@ -340,7 +340,7 @@
                 <div style="display: flex; flex-direction: column; gap: 14px;">
                     <!-- RST Ingresos -->
                     <div style="border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 14px; background: rgba(139, 92, 246, 0.03);">
-                        <strong style="color: var(--accent-purple); font-size: 0.85rem; display: block; margin-bottom: 6px;">RST de Ingresos (Servicios y Profesionales)</strong>
+                        <span style="color: var(--accent-purple); font-size: 0.85rem; display: block; margin-bottom: 6px; font-weight: 500;">RST de Ingresos (Servicios y Profesionales)</span>
                         <div style="display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 4px; color: var(--text-secondary);">
                             <span>Deducción Automática (40%):</span>
                             <span>RD$ {{ "{:,.2f}".format(total_sales_net * 0.40) }}</span>
@@ -349,7 +349,7 @@
                             <span>Base Gravable (60%):</span>
                             <span>RD$ {{ "{:,.2f}".format(total_sales_net * 0.60) }}</span>
                         </div>
-                        <div style="display: flex; justify-content: space-between; font-size: 0.95rem; font-weight: 700;">
+                        <div style="display: flex; justify-content: space-between; font-size: 0.95rem; font-weight: 600;">
                             <span>ISR Estimado Simplificado:</span>
                             <span style="color: var(--accent-purple);">RD$ {{ "{:,.2f}".format(rst_isr_estimated) }}</span>
                         </div>
@@ -357,7 +357,7 @@
 
                     <!-- RST Compras -->
                     <div style="border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 14px; background: rgba(139, 92, 246, 0.03);">
-                        <strong style="color: var(--accent-purple); font-size: 0.85rem; display: block; margin-bottom: 6px;">RST de Compras (Comercio / Importación)</strong>
+                        <span style="color: var(--accent-purple); font-size: 0.85rem; display: block; margin-bottom: 6px; font-weight: 500;">RST de Compras (Comercio / Importación)</span>
                         <div style="display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 4px; color: var(--text-secondary);">
                             <span>Margen Bruto Estimado DGII:</span>
                             <span>26% Fijo</span>
@@ -366,7 +366,7 @@
                             <span>Ingresos Brutos Estimados:</span>
                             <span>RD$ {{ "{:,.2f}".format(total_expenses_net * 1.35) }}</span>
                         </div>
-                        <div style="display: flex; justify-content: space-between; font-size: 0.95rem; font-weight: 700;">
+                        <div style="display: flex; justify-content: space-between; font-size: 0.95rem; font-weight: 600;">
                             <span>ISR Estimado RST Compras:</span>
                             <span style="color: var(--accent-purple);">RD$ {{ "{:,.2f}".format(total_expenses_net * 0.26 * 0.27) }}</span>
                         </div>
@@ -375,9 +375,9 @@
 
                 <div style="background: rgba(239, 68, 68, 0.03); padding: 10px; border-radius: var(--radius-sm); border: 1px solid rgba(239, 68, 68, 0.1); font-size: 0.72rem; text-align: center; color: var(--text-secondary);">
                     {% if rst_isr_estimated < isr_estimated %}
-                        💡 <strong>Recomendación IA:</strong> Para este volumen de ingresos, el <strong>RST de Ingresos</strong> te ahorraría aproximadamente <strong>RD$ {{ "{:,.2f}".format(isr_estimated - rst_isr_estimated) }}</strong>.
+                        💡 <span style="font-weight: 500;">Recomendación IA:</span> Para este volumen de ingresos, el <span style="font-weight: 500;">RST de Ingresos</span> te ahorraría aproximadamente <span style="font-weight: 500;">RD$ {{ "{:,.2f}".format(isr_estimated - rst_isr_estimated) }}</span>.
                     {% else %}
-                        💡 <strong>Recomendación IA:</strong> El <strong>Régimen General</strong> te favorece actualmente debido a un alto nivel de egresos deducibles cargados.
+                        💡 <span style="font-weight: 500;">Recomendación IA:</span> El <span style="font-weight: 500;">Régimen General</span> te favorece actualmente debido a un alto nivel de egresos deducibles cargados.
                     {% endif %}
                 </div>
             </div>

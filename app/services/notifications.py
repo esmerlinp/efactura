@@ -15,7 +15,7 @@ class NotificationService:
         Envía un recordatorio de pago (vía email o WhatsApp) y registra la interacción en el historial del cliente.
         """
         company = DatabaseService.get_company_profile(owner_uid) or {}
-        company_name = company.get("companyName", "e-Factura Proveedor")
+        company_name = company.get("tradeName") or company.get("companyName") or "e-Factura Proveedor"
         
         client_id = invoice.get("clientId")
         if not client_id:
