@@ -551,6 +551,22 @@
                 grid-template-columns: 1fr !important;
             }
         }
+
+        /* Reducir espacio entre Dashboard y Configuración en barra izquierda */
+        #sidebar-section-general {
+            margin-bottom: 0px !important;
+        }
+        #sidebar-section-general .sidebar-section-header {
+            margin-bottom: 0px !important;
+        }
+        #sidebar-section-configuracion {
+            margin-top: 0px !important;
+        }
+        #sidebar-section-configuracion .sidebar-section-header {
+            margin-top: 0px !important;
+            padding-top: 6px !important;
+            padding-bottom: 6px !important;
+        }
     </style>
 
     {% block extra_head %}{% endblock %}
@@ -2114,7 +2130,30 @@
                     }
                 });
             });
+
+            // Lógica para el dropdown de notificaciones CRM
+            const crmTrigger = document.getElementById('crm-dropdown-trigger');
+            const crmMenu = document.getElementById('crm-dropdown-menu');
+
+            if (crmTrigger && crmMenu) {
+                const triggerBtn = crmTrigger.querySelector('.utility-item');
+                if (triggerBtn) {
+                    triggerBtn.addEventListener('click', function (e) {
+                        e.stopPropagation();
+                        const isVisible = crmMenu.style.display === 'flex';
+                        crmMenu.style.display = isVisible ? 'none' : 'flex';
+                    });
+                }
+
+                // Cerrar al hacer clic fuera
+                document.addEventListener('click', function (e) {
+                    if (!crmTrigger.contains(e.target)) {
+                        crmMenu.style.display = 'none';
+                    }
+                });
+            }
         });
+
     </script>
 
     {% block extra_scripts %}{% endblock %}
