@@ -1,0 +1,168 @@
+{% extends "layout.html" %}
+
+{% block title %}Comisiones y Metas{% endblock %}
+
+{% block page_header %}Panel de Comisiones y Desempeño (Gamificación){% endblock %}
+
+{% block content %}
+<!-- Layout Principal en Grid -->
+<div style="display: grid; grid-template-columns: 1fr 340px; gap: 30px; align-items: start;">
+    
+    <!-- Lado Izquierdo: Configuración, Metas y Ranking Principal -->
+    <div style="display: flex; flex-direction: column; gap: 24px;">
+        
+        <!-- Barra de Progreso de Ventas Generales (Meta Mensual) -->
+        <div class="card-table-wrapper" style="padding: 24px; margin-bottom: 0; background: linear-gradient(135deg, rgba(168, 85, 247, 0.05), rgba(59, 130, 246, 0.02)); border: 1px solid rgba(168, 85, 247, 0.15);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <h3 style="font-size: 1.05rem; font-family: var(--font-heading); font-weight: 700; margin: 0; color: var(--text-primary);">
+                    🎯 Meta de Ventas de la Empresa
+                </h3>
+                <span style="font-size: 0.88rem; font-weight: 600; color: var(--accent-purple);">
+                    RD$ {{ "{:,.2f}".format(total_sales_month) }} / RD$ {{ "{:,.2f}".format(goal_amount) }}
+                </span>
+            </div>
+            
+            <!-- Barra de Progreso -->
+            <div style="background-color: var(--border-color); height: 16px; border-radius: 8px; overflow: hidden; position: relative;">
+                <div style="background: linear-gradient(90deg, var(--accent-emerald), var(--accent-purple)); width: {{ goal_pct }}%; height: 100%; transition: width 0.6s ease; border-radius: 8px;"></div>
+            </div>
+            
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px; font-size: 0.82rem; color: var(--text-secondary);">
+                <span>Progreso: <strong>{{ "{:.1f}".format(goal_pct) }}%</strong></span>
+                <span>{% if goal_pct >= 100 %}🎉 ¡Meta superada!{% else %}Falta RD$ {{ "{:,.2f}".format(goal_amount - total_sales_month) }} para lograr el objetivo{% endif %}</span>
+            </div>
+        </div>
+
+        <!-- Leaderboard Gamificado de Vendedores -->
+        <div class="card-table-wrapper" style="padding: 24px; margin-bottom: 0;">
+            <h3 style="font-size: 1.1rem; font-family: var(--font-heading); font-weight: 700; margin-bottom: 18px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px;">
+                🏆 Ranking de Vendedores del Mes
+            </h3>
+            
+            <div style="display: flex; flex-direction: column; gap: 16px;">
+                {% for seller in ranking %}
+                    <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background-color: var(--bg-card); transition: all 0.2s ease;"
+                         onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='var(--shadow-sm)';"
+                         onmouseout="this.style.transform='none'; this.style.boxShadow='none';">
+                        
+                        <div style="display: flex; align-items: center; gap: 14px;">
+                            <!-- Trofeos / Posición -->
+                            <div style="width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.1rem;
+                                {% if loop.index == 1 %}background-color: #f59e0b; color: white;
+                                {% elif loop.index == 2 %}background-color: #94a3b8; color: white;
+                                {% elif loop.index == 3 %}background-color: #b45309; color: white;
+                                {% else %}background-color: var(--border-color); color: var(--text-secondary);{% endif %}">
+                                {% if loop.index == 1 %}🥇
+                                {% elif loop.index == 2 %}🥈
+                                {% elif loop.index == 3 %}🥉
+                                {% else %}{{ loop.index }}{% endif %}
+                            </div>
+                            
+                            <!-- Nombre -->
+                            <div>
+                                <span style="display: block; font-weight: 600; font-size: 0.95rem; color: var(--text-primary);">{{ seller.name }}</span>
+                                <span style="font-size: 0.78rem; color: var(--text-secondary);">{{ seller.email }}</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Ventas Totales -->
+                        <div style="text-align: right;">
+                            <span style="font-size: 0.78rem; color: var(--text-secondary); display: block;">Ventas Facturadas</span>
+                            <strong style="color: var(--accent-emerald); font-size: 1.05rem;">RD$ {{ "{:,.2f}".format(seller.total_invoiced) }}</strong>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Tabla detallada de Comisiones acumuladas -->
+        <div class="card-table-wrapper" style="padding: 24px; margin-bottom: 0;">
+            <h3 style="font-size: 1.1rem; font-family: var(--font-heading); font-weight: 700; margin-bottom: 18px;">
+                📊 Detalle de Comisiones y Recaudación
+            </h3>
+            
+            <div class="table-responsive">
+                <table class="table-premium">
+                    <thead>
+                        <tr>
+                            <th>Colaborador</th>
+                            <th>Facturas</th>
+                            <th>Total Facturado</th>
+                            <th>Total Cobrado</th>
+                            <th>Comisión</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for seller in ranking %}
+                            <tr>
+                                <td>
+                                    <strong>{{ seller.name }}</strong>
+                                    <span style="display: block; font-size: 0.72rem; color: var(--text-secondary);">{{ seller.email }}</span>
+                                </td>
+                                <td><span class="badge badge-secondary">{{ seller.invoice_count }}</span></td>
+                                <td><strong style="color: var(--text-primary);">RD$ {{ "{:,.2f}".format(seller.total_invoiced) }}</strong></td>
+                                <td><strong style="color: var(--text-secondary);">RD$ {{ "{:,.2f}".format(seller.total_collected) }}</strong></td>
+                                <td><strong style="color: var(--accent-purple);">RD$ {{ "{:,.2f}".format(seller.commission_earned) }}</strong></td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Lado Derecho: Paneles de Configuración de Comisión y Meta -->
+    <div style="display: flex; flex-direction: column; gap: 24px;">
+        
+        <!-- Configuración de Comisión global de la empresa -->
+        <div class="card-table-wrapper" style="padding: 24px; margin-bottom: 0;">
+            <h3 style="font-size: 1rem; font-family: var(--font-heading); margin-bottom: 16px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px;">
+                ⚙️ Reglas de Comisión
+            </h3>
+            
+            <form action="{{ url_for('web_operations.list_commissions') }}" method="POST" style="display: flex; flex-direction: column; gap: 16px;">
+                <!-- Porcentaje -->
+                <div>
+                    <label for="percentage" style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px; color: var(--text-secondary);">Porcentaje de Comisión (%)</label>
+                    <input type="number" step="0.1" min="0" max="100" id="percentage" name="percentage" value="{{ settings.percentage }}" class="form-control" style="width:100%; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background-color: var(--bg-input); color: var(--text-primary); padding: 10px;" required>
+                </div>
+                
+                <!-- Base de Cálculo -->
+                <div>
+                    <label for="payOn" style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px; color: var(--text-secondary);">Gatillo de Pago de Comisión</label>
+                    <select id="payOn" name="payOn" class="form-control" style="width:100%; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background-color: var(--bg-input); color: var(--text-primary); padding: 10px;" required>
+                        <option value="emitida" {% if settings.payOn == 'emitida' %}selected{% endif %}>📄 Por factura emitida</option>
+                        <option value="cobrada" {% if settings.payOn == 'cobrada' %}selected{% endif %}>💰 Por factura cobrada (recaudo)</option>
+                    </select>
+                </div>
+                
+                <button type="submit" class="btn btn-primary" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                    <i class="fa-solid fa-floppy-disk"></i>
+                    <span>Guardar Reglas</span>
+                </button>
+            </form>
+        </div>
+        
+        <!-- Establecer Meta General de Ventas -->
+        <div class="card-table-wrapper" style="padding: 24px; margin-bottom: 0;">
+            <h3 style="font-size: 1rem; font-family: var(--font-heading); margin-bottom: 16px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px;">
+                🎯 Configurar Meta de Ventas
+            </h3>
+            
+            <form action="{{ url_for('web_operations.list_commissions') }}" method="POST" style="display: flex; flex-direction: column; gap: 16px;">
+                <!-- Meta General -->
+                <div>
+                    <label for="monthlyGoal" style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px; color: var(--text-secondary);">Meta Mensual de Ventas (RD$)</label>
+                    <input type="number" step="1" id="monthlyGoal" name="monthlyGoal" value="{{ goals.monthlyGoal }}" class="form-control" style="width:100%; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background-color: var(--bg-input); color: var(--text-primary); padding: 10px;" required>
+                </div>
+                
+                <button type="submit" class="btn btn-primary" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; background-color: var(--accent-purple); border-color: var(--accent-purple);">
+                    <i class="fa-solid fa-bullseye"></i>
+                    <span>Establecer Meta</span>
+                </button>
+            </form>
+        </div>
+        
+    </div>
+</div>
+{% endblock %}

@@ -263,6 +263,27 @@
                             </a>
                         </li>
                         {% endif %}
+
+                        {% if session.get('user', {}).get('role') == 'owner' or session.get('user',
+                        {}).get('permissions', {}).get('canInvoice', True) %}
+                        <li class="nav-item {% if active_page == 'contracts' %}active{% endif %}"
+                            data-tooltip="Contratos y Recurrencia">
+                            <a href="{{ url_for('web_operations.list_contracts') }}">
+                                <i class="fa-solid fa-file-contract"></i>
+                                <span>Contratos y Recurrencia</span>
+                            </a>
+                        </li>
+                        {% endif %}
+
+                        {% if session.get('user', {}).get('role') == 'owner' %}
+                        <li class="nav-item {% if active_page == 'commissions' %}active{% endif %}"
+                            data-tooltip="Comisiones y Metas">
+                            <a href="{{ url_for('web_operations.list_commissions') }}">
+                                <i class="fa-solid fa-award"></i>
+                                <span>Comisiones y Metas</span>
+                            </a>
+                        </li>
+                        {% endif %}
                     </ul>
                 </div>
 

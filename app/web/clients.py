@@ -196,6 +196,7 @@ def client_detail(client_id):
     
     # Obtener interacciones
     interactions = DatabaseService.get_client_interactions(owner_uid, client_id, sandbox=sandbox)
+    documents = DatabaseService.get_client_documents(owner_uid, client_id, sandbox=sandbox)
     
     return render_template(
         'clients/detail.html',
@@ -203,7 +204,8 @@ def client_detail(client_id):
         client=client,
         invoices=client_invoices,
         quotations=client_quotations,
-        interactions=interactions
+        interactions=interactions,
+        documents=documents
     )
 
 @web_clients_bp.route('/clients/<client_id>/interactions/new', methods=['POST'])
