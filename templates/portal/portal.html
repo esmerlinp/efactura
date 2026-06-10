@@ -526,7 +526,6 @@
 
     // Submissions
     function submitSignature() {
-        // Validar si el pad está en blanco (opcional, trazo mínimo)
         const signatureImg = canvas.toDataURL();
         
         fetch(`/portal/cliente/${ownerUid}/{{ client.id }}/cotizacion/${activeInvoiceId}/firmar?sandbox=${sandbox}`, {

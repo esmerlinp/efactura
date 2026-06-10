@@ -9,7 +9,7 @@ def custom_url_for(endpoint, **values):
         return _original_url_for(endpoint, **values)
     except Exception:
         # Si falla el endpoint global, intentar con el prefijo de nuestros Blueprints web
-        for bp_name in ['web_auth', 'web_dashboard', 'web_clients', 'web_invoices', 'web_pos', 'web_operations']:
+        for bp_name in ['web_auth', 'web_dashboard', 'web_clients', 'web_invoices', 'web_pos', 'web_operations', 'portal']:
             try:
                 return _original_url_for(f"{bp_name}.{endpoint}", **values)
             except Exception:
@@ -42,6 +42,9 @@ def create_app():
     def load_fresh_user_profile():
         # Saltar carga para llamadas de archivos estáticos
         if request.endpoint == 'static':
+            return
+        # Permitir acceso al portal del cliente sin requerir login de usuario administrador
+        if request.blueprint == 'portal':
             return
         if 'user' in session:
             if 'is_sandbox_mode' not in session:
@@ -127,7 +130,7 @@ def create_app():
                 return flask_url_for(endpoint, **values)
             except Exception:
                 # Si falla, intentar buscar agregando el prefijo de nuestros Blueprints web
-                for bp_name in ['web_auth', 'web_dashboard', 'web_clients', 'web_invoices', 'web_pos', 'web_operations']:
+                for bp_name in ['web_auth', 'web_dashboard', 'web_clients', 'web_invoices', 'web_pos', 'web_operations', 'portal']:
                     try:
                         return flask_url_for(f"{bp_name}.{endpoint}", **values)
                     except Exception:
@@ -199,6 +202,7 @@ def create_app():
     from app.web.pos import web_pos_bp
     from app.web.import_mapper import web_import_mapper_bp
     from app.web.operations import web_operations_bp
+    from app.web.portal import portal_bp
 
     app.register_blueprint(web_auth_bp)
     app.register_blueprint(web_dashboard_bp)
@@ -208,5 +212,6 @@ def create_app():
     app.register_blueprint(web_pos_bp)
     app.register_blueprint(web_import_mapper_bp)
     app.register_blueprint(web_operations_bp)
+    app.register_blueprint(portal_bp)
 
     return app

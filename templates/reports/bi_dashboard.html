@@ -1,0 +1,530 @@
+{% extends "layout.html" %}
+
+{% block title %}Inteligencia de Negocio & Indicadores Tributarios{% endblock %}
+
+{% block page_header %}Inteligencia Financiera (BI) & Monitoreo DGII{% endblock %}
+
+{% block extra_head %}
+<style>
+    .bi-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+    }
+    .bi-summary-cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 20px;
+    }
+    .bi-card {
+        background: var(--bg-sidebar);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-md);
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        box-shadow: var(--shadow-sm);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .bi-card:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-md);
+    }
+    .bi-card-title {
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        color: var(--text-secondary);
+        font-weight: 700;
+        letter-spacing: 0.05em;
+    }
+    .bi-card-value {
+        font-size: 1.8rem;
+        font-family: var(--font-heading);
+        font-weight: 800;
+        color: var(--text-primary);
+    }
+    .bi-card-trend {
+        font-size: 0.75rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-weight: 600;
+    }
+    .trend-up { color: var(--accent-emerald); }
+    .trend-down { color: var(--accent-red); }
+    
+    /* Tabs System */
+    .bi-tabs {
+        display: flex;
+        border-bottom: 1px solid var(--border-color);
+        gap: 16px;
+    }
+    .bi-tab-btn {
+        background: transparent;
+        border: none;
+        border-bottom: 3px solid transparent;
+        color: var(--text-secondary);
+        padding: 12px 16px;
+        font-size: 0.95rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .bi-tab-btn:hover {
+        color: var(--text-primary);
+    }
+    .bi-tab-btn.active {
+        color: var(--accent-emerald);
+        border-bottom-color: var(--accent-emerald);
+    }
+    .bi-tab-content {
+        display: none;
+        animation: fadeIn 0.3s ease;
+    }
+    .bi-tab-content.active {
+        display: block;
+    }
+    
+    /* Insights styles */
+    .insight-card {
+        padding: 16px;
+        border-radius: var(--radius-md);
+        border-left: 5px solid;
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        font-size: 0.9rem;
+        line-height: 1.5;
+        background: rgba(255, 255, 255, 0.02);
+    }
+    .insight-warning { border-left-color: var(--accent-yellow); border-top: 1px solid var(--border-color); border-bottom: 1px solid var(--border-color); border-right: 1px solid var(--border-color); }
+    .insight-danger { border-left-color: var(--accent-red); border-top: 1px solid var(--border-color); border-bottom: 1px solid var(--border-color); border-right: 1px solid var(--border-color); }
+    .insight-info { border-left-color: var(--accent-purple); border-top: 1px solid var(--border-color); border-bottom: 1px solid var(--border-color); border-right: 1px solid var(--border-color); }
+    .insight-success { border-left-color: var(--accent-emerald); border-top: 1px solid var(--border-color); border-bottom: 1px solid var(--border-color); border-right: 1px solid var(--border-color); }
+    
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(4px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="bi-container">
+    <!-- Resumen Premium Superior -->
+    <div class="bi-summary-cards">
+        <div class="bi-card">
+            <span class="bi-card-title">Ganancia Neta Real</span>
+            <div class="bi-card-value" style="color: {% if net_profit_real >= 0 %}var(--accent-emerald){% else %}var(--accent-red){% endif %};">
+                RD$ {{ "{:,.2f}".format(net_profit_real) }}
+            </div>
+            <span class="bi-card-trend {% if net_profit_real >= 0 %}trend-up{% else %}trend-down{% endif %}">
+                <i class="fa-solid {% if net_profit_real >= 0 %}fa-arrow-trend-up{% else %}fa-arrow-trend-down{% endif %}"></i>
+                Margen de Beneficio: {{ "{:,.1f}".format(profit_margin) }}%
+            </span>
+        </div>
+        <div class="bi-card">
+            <span class="bi-card-title">Ventas Netas (Subtotal)</span>
+            <div class="bi-card-value">RD$ {{ "{:,.2f}".format(total_sales_net) }}</div>
+            <span class="bi-card-trend trend-up">
+                <i class="fa-solid fa-file-invoice-dollar"></i> Ingresos del Periodo
+            </span>
+        </div>
+        <div class="bi-card">
+            <span class="bi-card-title">Egresos & Compras Deducibles</span>
+            <div class="bi-card-value">RD$ {{ "{:,.2f}".format(total_expenses_net) }}</div>
+            <span class="bi-card-trend trend-down">
+                <i class="fa-solid fa-wallet"></i> Gastos del Periodo
+            </span>
+        </div>
+        <div class="bi-card">
+            <span class="bi-card-title">ITBIS Estimado a Pagar</span>
+            <div class="bi-card-value" style="color: {% if itbis_to_pay > 0 %}var(--accent-yellow){% else %}var(--accent-emerald){% endif %};">
+                RD$ {{ "{:,.2f}".format(itbis_to_pay | abs) }}
+            </div>
+            <span class="bi-card-trend">
+                <i class="fa-solid fa-scale-balanced"></i> {% if itbis_to_pay > 0 %}A Pagar a la DGII{% else %}Saldo a Favor{% endif %}
+            </span>
+        </div>
+    </div>
+
+    <!-- Navegación por Pestañas -->
+    <div class="bi-tabs">
+        <button class="bi-tab-btn active" onclick="switchTab(event, 'salud-negocio')">
+            <i class="fa-solid fa-square-poll-vertical"></i> Salud del Negocio
+        </button>
+        <button class="bi-tab-btn" onclick="switchTab(event, 'cash-flow')">
+            <i class="fa-solid fa-money-bill-transfer"></i> Cash Flow & Presupuestos
+        </button>
+        <button class="bi-tab-btn" onclick="switchTab(event, 'indicadores-tributarios')">
+            <i class="fa-solid fa-calculator"></i> Indicadores Tributarios (DGII)
+        </button>
+        <button class="bi-tab-btn" onclick="switchTab(event, 'smart-insights')">
+            <i class="fa-solid fa-brain"></i> Smart Insights
+            {% if insights|length > 0 and insights[0].type != 'success' %}
+            <span style="background: var(--accent-red); border-radius: 50%; width: 8px; height: 8px; display: inline-block;"></span>
+            {% endif %}
+        </button>
+    </div>
+
+    <!-- Pestaña 1: Salud del Negocio (Rentabilidad) -->
+    <div id="salud-negocio" class="bi-tab-content active">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 10px;">
+            <!-- Margen de Beneficio por Producto/Servicio -->
+            <div class="card-table-wrapper" style="padding: 24px;">
+                <h4 style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-cubes" style="color: var(--accent-emerald);"></i> Margen por Producto/Servicio
+                </h4>
+                <div style="overflow-x: auto;">
+                    <table class="data-table" style="width: 100%;">
+                        <thead>
+                            <tr>
+                                <th>Nombre</th>
+                                <th style="text-align: right;">Ingresos</th>
+                                <th style="text-align: right;">Margen %</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if products_by_profit %}
+                                {% for prod in products_by_profit %}
+                                <tr>
+                                    <td><strong>{{ prod.name }}</strong></td>
+                                    <td style="text-align: right;">RD$ {{ "{:,.2f}".format(prod.revenue) }}</td>
+                                    <td style="text-align: right;">
+                                        <span class="badge {% if prod.margin >= 25 %}badge-success{% elif prod.margin >= 10 %}badge-warning{% else %}badge-danger{% endif %}">
+                                            {{ "{:,.1f}".format(prod.margin) }}%
+                                        </span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr>
+                                    <td colspan="3" style="text-align: center; color: var(--text-muted); padding: 20px;">No hay datos de ventas con costos asociados.</td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Clientes Más Rentables -->
+            <div class="card-table-wrapper" style="padding: 24px;">
+                <h4 style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-users" style="color: var(--accent-emerald);"></i> Clientes Más Rentables
+                </h4>
+                <div style="overflow-x: auto;">
+                    <table class="data-table" style="width: 100%;">
+                        <thead>
+                            <tr>
+                                <th>Cliente</th>
+                                <th style="text-align: right;">Ventas Totales</th>
+                                <th style="text-align: right;">Ganancia Neta Est.</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if clients_by_profit %}
+                                {% for cl in clients_by_profit %}
+                                <tr>
+                                    <td><strong>{{ cl.name }}</strong></td>
+                                    <td style="text-align: right;">RD$ {{ "{:,.2f}".format(cl.revenue) }}</td>
+                                    <td style="text-align: right; color: var(--accent-emerald); font-weight: 700;">RD$ {{ "{:,.2f}".format(cl.profit) }}</td>
+                                </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr>
+                                    <td colspan="3" style="text-align: center; color: var(--text-muted); padding: 20px;">No hay datos de clientes registrados.</td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pestaña 2: Flujo de Caja y Proyecciones -->
+    <div id="cash-flow" class="bi-tab-content">
+        <div class="card-table-wrapper" style="padding: 24px; margin-top: 10px;">
+            <h4 style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between;">
+                <span><i class="fa-solid fa-chart-line" style="color: var(--accent-emerald);"></i> Proyección de Flujo de Caja (Próximos 4 Meses)</span>
+                <span style="font-size: 0.8rem; color: var(--text-secondary); font-weight: normal;">Basado en fechas de vencimiento de CxC y CxP corrientes</span>
+            </h4>
+            
+            <div style="height: 300px; margin-bottom: 30px; position: relative;">
+                <canvas id="cashFlowChart"></canvas>
+            </div>
+
+            <div style="overflow-x: auto;">
+                <table class="data-table" style="width: 100%;">
+                    <thead>
+                        <tr>
+                            <th>Periodo Proyectado</th>
+                            <th style="text-align: right;">Entradas (CxC por Cobrar)</th>
+                            <th style="text-align: right;">Salidas (CxP por Pagar)</th>
+                            <th style="text-align: right;">Flujo Neto del Mes</th>
+                            <th style="text-align: right;">Saldo Acumulado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for month in months_projection %}
+                        <tr>
+                            <td><strong>{{ month.label }}</strong></td>
+                            <td style="text-align: right; color: var(--accent-emerald);">RD$ {{ "{:,.2f}".format(month.inflow) }}</td>
+                            <td style="text-align: right; color: var(--accent-red);">RD$ {{ "{:,.2f}".format(month.outflow) }}</td>
+                            <td style="text-align: right; font-weight: 700; color: {% if month.net >= 0 %}var(--accent-emerald){% else %}var(--accent-red){% endif %};">
+                                RD$ {{ "{:,.2f}".format(month.net) }}
+                            </td>
+                            <td style="text-align: right; font-weight: 800; background-color: rgba(255,255,255,0.01);">
+                                RD$ {{ "{:,.2f}".format(month.cumulative) }}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pestaña 3: Indicadores Tributarios -->
+    <div id="indicadores-tributarios" class="bi-tab-content">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 10px;">
+            <!-- Estimador de ITBIS y ISR Ordinario -->
+            <div class="card-table-wrapper" style="padding: 24px; display: flex; flex-direction: column; gap: 16px;">
+                <h4 style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 4px; display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-receipt" style="color: var(--accent-emerald);"></i> Régimen General / Ordinario Est.
+                </h4>
+                <p style="color: var(--text-secondary); font-size: 0.8rem; line-height: 1.4; margin-bottom: 8px;">
+                    Cálculo proyectado del Impuesto Sobre la Renta (ISR) para sociedades en la República Dominicana (Tasa de 27% sobre la base imponible real).
+                </p>
+
+                <div style="display: flex; flex-direction: column; gap: 12px; background: rgba(255,255,255,0.01); padding: 16px; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
+                    <div style="display: flex; justify-content: space-between; font-size: 0.9rem;">
+                        <span>Ventas del Periodo (Netas):</span>
+                        <strong>RD$ {{ "{:,.2f}".format(total_sales_net) }}</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 0.9rem;">
+                        <span>Gastos del Periodo:</span>
+                        <strong style="color: var(--text-secondary);">- RD$ {{ "{:,.2f}".format(total_expenses_net) }}</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 0.9rem; border-top: 1px dashed var(--border-color); padding-top: 8px;">
+                        <span>Base Imponible Estimada:</span>
+                        <strong>RD$ {{ "{:,.2f}".format(total_sales_net - total_expenses_net if total_sales_net - total_expenses_net > 0 else 0.0) }}</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 1.05rem; font-weight: 700; color: var(--accent-red); border-top: 1px solid var(--border-color); padding-top: 8px;">
+                        <span>ISR Estimado (27%):</span>
+                        <strong>RD$ {{ "{:,.2f}".format(isr_estimated) }}</strong>
+                    </div>
+                </div>
+
+                <div style="background: rgba(16, 185, 129, 0.05); padding: 14px; border-radius: var(--radius-sm); border: 1px solid rgba(16, 185, 129, 0.1); font-size: 0.8rem; line-height: 1.45;">
+                    <strong style="color: var(--accent-emerald); display: block; margin-bottom: 4px;"><i class="fa-solid fa-calendar-days"></i> Cálculo de Anticipos Mensuales (Próximo Año)</strong>
+                    Si este fuese el ISR liquidado final, tendrías que pagar 12 anticipos mensuales de aproximadamente: <strong>RD$ {{ "{:,.2f}".format(anticipos_estimated) }}</strong> cada uno.
+                </div>
+            </div>
+
+            <!-- Simulador Comparativo RST (Régimen Simplificado de Tributación) -->
+            <div class="card-table-wrapper" style="padding: 24px; display: flex; flex-direction: column; gap: 16px;">
+                <h4 style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 4px; display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-code-compare" style="color: var(--accent-purple);"></i> Simulador Comparador: RST vs Ordinario
+                </h4>
+                <p style="color: var(--text-secondary); font-size: 0.8rem; line-height: 1.4; margin-bottom: 8px;">
+                    El RST exime de pagar anticipos e ITBIS en compras bajo ciertas condiciones, y calcula el impuesto de forma simplificada.
+                </p>
+
+                <div style="display: flex; flex-direction: column; gap: 14px;">
+                    <!-- RST Ingresos -->
+                    <div style="border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 14px; background: rgba(139, 92, 246, 0.03);">
+                        <strong style="color: var(--accent-purple); font-size: 0.85rem; display: block; margin-bottom: 6px;">RST de Ingresos (Servicios y Profesionales)</strong>
+                        <div style="display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 4px; color: var(--text-secondary);">
+                            <span>Deducción Automática (40%):</span>
+                            <span>RD$ {{ "{:,.2f}".format(total_sales_net * 0.40) }}</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 6px; color: var(--text-secondary);">
+                            <span>Base Gravable (60%):</span>
+                            <span>RD$ {{ "{:,.2f}".format(total_sales_net * 0.60) }}</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; font-size: 0.95rem; font-weight: 700;">
+                            <span>ISR Estimado Simplificado:</span>
+                            <span style="color: var(--accent-purple);">RD$ {{ "{:,.2f}".format(rst_isr_estimated) }}</span>
+                        </div>
+                    </div>
+
+                    <!-- RST Compras -->
+                    <div style="border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 14px; background: rgba(139, 92, 246, 0.03);">
+                        <strong style="color: var(--accent-purple); font-size: 0.85rem; display: block; margin-bottom: 6px;">RST de Compras (Comercio / Importación)</strong>
+                        <div style="display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 4px; color: var(--text-secondary);">
+                            <span>Margen Bruto Estimado DGII:</span>
+                            <span>26% Fijo</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 6px; color: var(--text-secondary);">
+                            <span>Ingresos Brutos Estimados:</span>
+                            <span>RD$ {{ "{:,.2f}".format(total_expenses_net * 1.35) }}</span>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; font-size: 0.95rem; font-weight: 700;">
+                            <span>ISR Estimado RST Compras:</span>
+                            <span style="color: var(--accent-purple);">RD$ {{ "{:,.2f}".format(total_expenses_net * 0.26 * 0.27) }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="background: rgba(239, 68, 68, 0.03); padding: 10px; border-radius: var(--radius-sm); border: 1px solid rgba(239, 68, 68, 0.1); font-size: 0.72rem; text-align: center; color: var(--text-secondary);">
+                    {% if rst_isr_estimated < isr_estimated %}
+                        💡 <strong>Recomendación IA:</strong> Para este volumen de ingresos, el <strong>RST de Ingresos</strong> te ahorraría aproximadamente <strong>RD$ {{ "{:,.2f}".format(isr_estimated - rst_isr_estimated) }}</strong>.
+                    {% else %}
+                        💡 <strong>Recomendación IA:</strong> El <strong>Régimen General</strong> te favorece actualmente debido a un alto nivel de egresos deducibles cargados.
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pestaña 4: Smart Insights -->
+    <div id="smart-insights" class="bi-tab-content">
+        <div class="card-table-wrapper" style="padding: 24px; margin-top: 10px; display: flex; flex-direction: column; gap: 16px;">
+            <h4 style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-lightbulb" style="color: var(--accent-yellow);"></i> Módulo de Smart Insights (Predictivo IA)
+            </h4>
+            <p style="color: var(--text-secondary); font-size: 0.85rem; line-height: 1.5; margin-bottom: 12px;">
+                Nuestro algoritmo financiero evalúa tendencias de consumo de tus clientes recurrentes y facturación de cuentas por cobrar para advertirte sobre oportunidades y riesgos.
+            </p>
+
+            <div style="display: flex; flex-direction: column; gap: 16px;">
+                {% for insight in insights %}
+                <div class="insight-card {% if insight.type == 'warning' %}insight-warning{% elif insight.type == 'danger' %}insight-danger{% elif insight.type == 'info' %}insight-info{% else %}insight-success{% endif %}">
+                    <div style="font-size: 1.3rem; margin-top: 2px;">
+                        {% if insight.type == 'warning' %}
+                            💡
+                        {% elif insight.type == 'danger' %}
+                            ⚠️
+                        {% elif insight.type == 'info' %}
+                            ℹ️
+                        {% else %}
+                            ✅
+                        {% endif %}
+                    </div>
+                    <div>
+                        {{ insight.text }}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function switchTab(evt, tabId) {
+        // Ocultar todos los contenidos de pestaña
+        const contents = document.getElementsByClassName("bi-tab-content");
+        for (let i = 0; i < contents.length; i++) {
+            contents[i].classList.remove("active");
+        }
+        
+        // Quitar la clase active de todos los botones
+        const buttons = document.getElementsByClassName("bi-tab-btn");
+        for (let i = 0; i < buttons.length; i++) {
+            buttons[i].classList.remove("active");
+        }
+        
+        // Mostrar la pestaña actual y marcar el botón como activo
+        document.getElementById(tabId).classList.add("active");
+        evt.currentTarget.classList.add("active");
+        
+        // Redibujar gráfico si es la pestaña de Cash Flow
+        if (tabId === 'cash-flow') {
+            setTimeout(initializeChart, 50);
+        }
+    }
+
+    let cashFlowChartInstance = null;
+
+    function initializeChart() {
+        const ctx = document.getElementById('cashFlowChart');
+        if (!ctx) return;
+
+        // Si ya existe instancia, destruirla primero
+        if (cashFlowChartInstance) {
+            cashFlowChartInstance.destroy();
+        }
+
+        const labels = [{% for m in months_projection %}"{{ m.label }}",{% endfor %}];
+        const inflows = [{% for m in months_projection %}{{ m.inflow }},{% endfor %}];
+        const outflows = [{% for m in months_projection %}{{ m.outflow }},{% endfor %}];
+        const cumulative = [{% for m in months_projection %}{{ m.cumulative }},{% endfor %}];
+
+        cashFlowChartInstance = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Entradas Proyectadas (RD$)',
+                        data: inflows,
+                        borderColor: '#10b981',
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        fill: false,
+                        tension: 0.3
+                    },
+                    {
+                        label: 'Salidas Proyectadas (RD$)',
+                        data: outflows,
+                        borderColor: '#ef4444',
+                        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                        fill: false,
+                        tension: 0.3
+                    },
+                    {
+                        label: 'Flujo Acumulado (RD$)',
+                        data: cumulative,
+                        borderColor: '#8b5cf6',
+                        backgroundColor: 'rgba(139, 92, 246, 0.15)',
+                        fill: true,
+                        tension: 0.3
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: {
+                            color: 'rgba(255, 255, 255, 0.05)'
+                        },
+                        ticks: {
+                            color: 'var(--text-secondary)'
+                        }
+                    },
+                    x: {
+                        grid: {
+                            color: 'rgba(255, 255, 255, 0.05)'
+                        },
+                        ticks: {
+                            color: 'var(--text-secondary)'
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        labels: {
+                            color: 'var(--text-primary)'
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    // Inicializar el gráfico al cargar en caso de que sea visible directamente
+    document.addEventListener("DOMContentLoaded", function() {
+        // Opcional
+    });
+</script>
+{% endblock %}
