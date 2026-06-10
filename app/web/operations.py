@@ -15,8 +15,8 @@ web_operations_bp = Blueprint('web_operations', __name__)
 @web_operations_bp.route('/operations/contracts', methods=['GET', 'POST'])
 def list_contracts():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
-    if not check_permission('canInvoice'):
-        return render_template('auth/restricted.html', feature_name="Contratos y Facturación Recurrente", required_permission="canInvoice")
+    if not check_permission('canManageContracts'):
+        return render_template('auth/restricted.html', feature_name="Contratos y Facturación Recurrente", required_permission="canManageContracts")
     
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
@@ -71,7 +71,7 @@ def list_contracts():
 @web_operations_bp.route('/operations/contracts/<contract_id>/toggle', methods=['POST'])
 def toggle_contract(contract_id):
     if 'user' not in session: return jsonify({"success": False, "error": "No autorizado"}), 401
-    if not check_permission('canInvoice'): return jsonify({"success": False, "error": "Sin permisos"}), 403
+    if not check_permission('canManageContracts'): return jsonify({"success": False, "error": "Sin permisos"}), 403
     
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
@@ -90,7 +90,7 @@ def toggle_contract(contract_id):
 @web_operations_bp.route('/operations/contracts/<contract_id>/delete', methods=['POST'])
 def delete_contract_route(contract_id):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
-    if not check_permission('canInvoice'): return jsonify({"success": False, "error": "Sin permisos"}), 403
+    if not check_permission('canManageContracts'): return jsonify({"success": False, "error": "Sin permisos"}), 403
     
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
@@ -102,8 +102,8 @@ def delete_contract_route(contract_id):
 @web_operations_bp.route('/operations/contracts/<contract_id>/trigger', methods=['POST'])
 def trigger_contract_billing(contract_id):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
-    if not check_permission('canInvoice'):
-        return render_template('auth/restricted.html', feature_name="Contratos y Facturación Recurrente", required_permission="canInvoice")
+    if not check_permission('canManageContracts'):
+        return render_template('auth/restricted.html', feature_name="Contratos y Facturación Recurrente", required_permission="canManageContracts")
         
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
@@ -194,9 +194,8 @@ def trigger_contract_billing(contract_id):
 @web_operations_bp.route('/operations/commissions', methods=['GET', 'POST'])
 def list_commissions():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
-    if session['user'].get('role') != 'owner':
-        flash("No autorizado. Solo el propietario puede administrar comisiones.", "error")
-        return redirect(url_for('web_dashboard.dashboard'))
+    if not check_permission('canManageCommissions'):
+        return render_template('auth/restricted.html', feature_name="Comisiones y Metas", required_permission="canManageCommissions")
         
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)

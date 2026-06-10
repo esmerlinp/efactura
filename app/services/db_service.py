@@ -159,7 +159,12 @@ class DatabaseService:
                 "canModifySettings": True,
                 "canManageInventory": True,
                 "canManagePOS": True,
-                "canViewDashboard": True
+                "canViewDashboard": True,
+                "canManageCXC": True,
+                "canManageCXP": True,
+                "canManageContracts": True,
+                "canManageCommissions": True,
+                "canViewBI": True
             },
             "createdAt": created_at
         }
@@ -230,7 +235,12 @@ class DatabaseService:
                         "canModifySettings": bool(perms.get("canModifySettings", True)),
                         "canManageInventory": bool(perms.get("canManageInventory", True)),
                         "canManagePOS": bool(perms.get("canManagePOS", True)),
-                        "canViewDashboard": bool(perms.get("canViewDashboard", True))
+                        "canViewDashboard": bool(perms.get("canViewDashboard", True)),
+                        "canManageCXC": bool(perms.get("canManageCXC", True)),
+                        "canManageCXP": bool(perms.get("canManageCXP", True)),
+                        "canManageContracts": bool(perms.get("canManageContracts", True)),
+                        "canManageCommissions": bool(perms.get("canManageCommissions", True)),
+                        "canViewBI": bool(perms.get("canViewBI", True))
                     },
                     "createdAt": created_at
                 }
@@ -251,7 +261,12 @@ class DatabaseService:
                         "canModifySettings": True,
                         "canManageInventory": True,
                         "canManagePOS": True,
-                        "canViewDashboard": True
+                        "canViewDashboard": True,
+                        "canManageCXC": True,
+                        "canManageCXP": True,
+                        "canManageContracts": True,
+                        "canManageCommissions": True,
+                        "canViewBI": True
                     },
                     "createdAt": datetime.utcnow().isoformat()
                 }
@@ -286,7 +301,12 @@ class DatabaseService:
                         "canModifySettings": bool(perms.get("canModifySettings", True)),
                         "canManageInventory": bool(perms.get("canManageInventory", True)),
                         "canManagePOS": bool(perms.get("canManagePOS", True)),
-                        "canViewDashboard": bool(perms.get("canViewDashboard", True))
+                        "canViewDashboard": bool(perms.get("canViewDashboard", True)),
+                        "canManageCXC": bool(perms.get("canManageCXC", True)),
+                        "canManageCXP": bool(perms.get("canManageCXP", True)),
+                        "canManageContracts": bool(perms.get("canManageContracts", True)),
+                        "canManageCommissions": bool(perms.get("canManageCommissions", True)),
+                        "canViewBI": bool(perms.get("canViewBI", True))
                     },
                     "createdAt": serialize_field(data.get("createdAt"))
                 }
@@ -333,7 +353,12 @@ class DatabaseService:
                                 "canModifySettings": bool(emp_data.get("permissions", {}).get("canModifySettings", True)),
                                 "canManageInventory": bool(emp_data.get("permissions", {}).get("canManageInventory", True)),
                                 "canManagePOS": bool(emp_data.get("permissions", {}).get("canManagePOS", True)),
-                                "canViewDashboard": bool(emp_data.get("permissions", {}).get("canViewDashboard", True))
+                                "canViewDashboard": bool(emp_data.get("permissions", {}).get("canViewDashboard", True)),
+                                "canManageCXC": bool(emp_data.get("permissions", {}).get("canManageCXC", True)),
+                                "canManageCXP": bool(emp_data.get("permissions", {}).get("canManageCXP", True)),
+                                "canManageContracts": bool(emp_data.get("permissions", {}).get("canManageContracts", True)),
+                                "canManageCommissions": bool(emp_data.get("permissions", {}).get("canManageCommissions", True)),
+                                "canViewBI": bool(emp_data.get("permissions", {}).get("canViewBI", True))
                             }
                         })
             except Exception as e:
