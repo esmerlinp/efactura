@@ -28,6 +28,7 @@
             margin: 0;
             padding: 0;
             line-height: 1.5;
+            -webkit-tap-highlight-color: transparent;
         }
 
         .container {
@@ -190,16 +191,19 @@
             align-items: center;
             z-index: 1000;
             backdrop-filter: blur(4px);
+            padding: 10px;
+            box-sizing: border-box;
         }
 
         .modal-content {
             background: white;
             border-radius: 12px;
             max-width: 500px;
-            width: 90%;
+            width: 100%;
             padding: 24px;
             box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1);
             position: relative;
+            box-sizing: border-box;
         }
 
         .modal-header {
@@ -230,6 +234,118 @@
             border-radius: 6px;
             background-color: #fafafa;
             cursor: crosshair;
+            max-width: 100%;
+            height: auto;
+            box-sizing: border-box;
+        }
+
+        /* Responsive Styles */
+        @media (max-width: 768px) {
+            .container {
+                margin: 15px auto;
+                padding: 0 12px;
+            }
+
+            .header-card {
+                padding: 15px;
+                flex-direction: column;
+                align-items: center;
+                text-align: center;
+                gap: 15px;
+            }
+
+            .company-info {
+                flex-direction: column;
+                gap: 10px;
+            }
+
+            .header-card > div:last-child {
+                text-align: center !important;
+                width: 100%;
+            }
+
+            .client-info-card {
+                padding: 15px;
+            }
+
+            .client-info-card div[style*="grid-template-columns"] {
+                grid-template-columns: 1fr !important;
+                gap: 12px !important;
+            }
+
+            .kpi-row {
+                grid-template-columns: 1fr;
+                gap: 12px;
+                margin-bottom: 20px;
+            }
+
+            .kpi-card {
+                padding: 15px;
+            }
+
+            .table-card {
+                padding: 15px;
+            }
+
+            /* Responsive Table (Cards) */
+            .table-responsive {
+                overflow-x: visible;
+            }
+
+            table, thead, tbody, th, td, tr {
+                display: block;
+            }
+
+            thead {
+                display: none;
+            }
+
+            tr {
+                border: 1px solid var(--border-color);
+                border-radius: 10px;
+                padding: 12px;
+                margin-bottom: 12px;
+                background: #ffffff;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+            }
+
+            td {
+                border-bottom: 1px solid #f1f5f9;
+                padding: 8px 0;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                text-align: right;
+                font-size: 0.85rem;
+            }
+
+            td:last-child {
+                border-bottom: none;
+                padding-top: 12px;
+                margin-top: 4px;
+                justify-content: center;
+            }
+
+            td::before {
+                content: attr(data-label);
+                font-weight: 700;
+                color: var(--text-muted);
+                text-transform: uppercase;
+                font-size: 0.72rem;
+                text-align: left;
+                padding-right: 10px;
+            }
+
+            td[style*="text-align: right"] {
+                text-align: center;
+            }
+
+            .btn {
+                width: auto;
+                justify-content: center;
+                padding: 8px 12px;
+                font-size: 0.75rem;
+            }
         }
     </style>
 </head>
@@ -310,23 +426,23 @@
                 <tbody>
                     {% for inv in invoices %}
                     <tr>
-                        <td>
+                        <td data-label="Número Documento">
                             <strong>{{ inv.invoiceNumber }}</strong>
                         </td>
-                        <td>
+                        <td data-label="Fecha Emisión">
                             <span style="font-family: monospace;">{{ inv.date[:10] }}</span>
                         </td>
-                        <td>
+                        <td data-label="Tipo / e-CF">
                             {% if inv.isQuotation %}
                                 <span class="badge badge-info">Cotización</span>
                             {% else %}
                                 <span style="font-size: 0.75rem; color: var(--text-muted); font-family: monospace;">{{ inv.encf or 'Consumo (E32)' }}</span>
                             {% endif %}
                         </td>
-                        <td>
+                        <td data-label="Total">
                             <strong>RD$ {{ "{:,.2f}".format(inv.total) }}</strong>
                         </td>
-                        <td>
+                        <td data-label="Saldo Pendiente">
                             {% if inv.isQuotation %}
                                 <span>-</span>
                             {% else %}
@@ -335,7 +451,7 @@
                                 </strong>
                             {% endif %}
                         </td>
-                        <td>
+                        <td data-label="Estado">
                             {% if inv.status == 'Cobrada' or inv.status == 'Aprobada' %}
                                 <span class="badge badge-success">{{ inv.status }}</span>
                             {% elif inv.status == 'Anulada' %}
@@ -480,8 +596,8 @@
     function startDrawing(e) {
         drawing = true;
         const rect = canvas.getBoundingClientRect();
-        const x = (e.clientX || e.x) - rect.left;
-        const y = (e.clientY || e.y) - rect.top;
+        const x = ((e.clientX || e.x) - rect.left) * (canvas.width / rect.width);
+        const y = ((e.clientY || e.y) - rect.top) * (canvas.height / rect.height);
         ctx.beginPath();
         ctx.moveTo(x, y);
     }
@@ -489,8 +605,8 @@
     function draw(e) {
         if (!drawing) return;
         const rect = canvas.getBoundingClientRect();
-        const x = (e.clientX || e.x) - rect.left;
-        const y = (e.clientY || e.y) - rect.top;
+        const x = ((e.clientX || e.x) - rect.left) * (canvas.width / rect.width);
+        const y = ((e.clientY || e.y) - rect.top) * (canvas.height / rect.height);
         ctx.lineTo(x, y);
         ctx.stroke();
     }
