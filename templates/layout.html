@@ -340,6 +340,13 @@
                                 <span>Cuentas por Pagar (CxP)</span>
                             </a>
                         </li>
+                        <li class="nav-item {% if active_page == 'bi_dashboard' %}active{% endif %}"
+                            data-tooltip="Inteligencia Financiera (BI)">
+                            <a href="{{ url_for('bi_dashboard') }}">
+                                <i class="fa-solid fa-chart-line"></i>
+                                <span>Inteligencia Financiera (BI)</span>
+                            </a>
+                        </li>
                     </ul>
                 </div>
                 {% endif %}

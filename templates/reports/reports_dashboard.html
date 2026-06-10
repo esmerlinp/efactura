@@ -10,7 +10,7 @@
         Bienvenido al módulo de reportería y cumplimiento tributario. Aquí podrás evaluar de forma predictiva y en tiempo real el comportamiento fiscal de tu empresa conforme a la Ley 32-23 de Facturación Electrónica.
     </p>
 
-    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; max-width: 700px; margin: 0 auto;">
+    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; max-width: 1000px; margin: 0 auto;">
         <!-- Card IT-1 -->
         <div class="card-table-wrapper" style="padding: 24px; display: flex; flex-direction: column; gap: 14px; transition: border-color var(--transition-fast);" onmouseover="this.style.borderColor='var(--accent-emerald)'" onmouseout="this.style.borderColor='var(--border-color)'">
             <h3 style="font-size: 1.25rem; font-family: var(--font-heading); display: flex; align-items: center; gap: 10px;">
@@ -25,6 +25,20 @@
             </a>
         </div>
 
+        <!-- Card BI & Proyecciones -->
+        <div class="card-table-wrapper" style="padding: 24px; display: flex; flex-direction: column; gap: 14px; transition: border-color var(--transition-fast); border-color: var(--border-color);" onmouseover="this.style.borderColor='var(--accent-emerald)'" onmouseout="this.style.borderColor='var(--border-color)'">
+            <h3 style="font-size: 1.25rem; font-family: var(--font-heading); display: flex; align-items: center; gap: 10px;">
+                <i class="fa-solid fa-chart-line" style="color: var(--accent-emerald); font-size: 1.45rem;"></i>
+                <span>BI & Proyecciones</span>
+            </h3>
+            <p style="color: var(--text-secondary); font-size: 0.82rem; line-height: 1.45; flex-grow: 1;">
+                Análisis de rentabilidad por producto/cliente, flujos de caja futuros y simulador comparativo interactivo de regímenes fiscales (RST vs Ordinario).
+            </p>
+            <a href="{{ url_for('bi_dashboard') }}" class="btn btn-primary" style="width: 100%; margin-top: 10px; background: linear-gradient(135deg, var(--accent-emerald), var(--accent-emerald-hover)); color: white; border: none;">
+                <span>Inteligencia de Negocio</span>
+            </a>
+        </div>
+
         <!-- Card Consultas DGII (Directorio & Estado) -->
         <div class="card-table-wrapper" style="padding: 24px; display: flex; flex-direction: column; gap: 14px; transition: border-color var(--transition-fast); border-color: var(--border-color);" onmouseover="this.style.borderColor='var(--accent-emerald)'" onmouseout="this.style.borderColor='var(--border-color)'">
             <h3 style="font-size: 1.25rem; font-family: var(--font-heading); display: flex; align-items: center; gap: 10px;">
@@ -34,7 +48,7 @@
             <p style="color: var(--text-secondary); font-size: 0.82rem; line-height: 1.45; flex-grow: 1;">
                 Verifica RNCs homologados en facturación electrónica y consulta el estado/mantenimiento en vivo de los servidores de la DGII.
             </p>
-            <a href="{{ url_for('dgii_tools') }}" class="btn btn-primary" style="width: 100%; margin-top: 10px; background: linear-gradient(135deg, var(--accent-emerald), var(--accent-emerald-hover)); color: white; border: none;">
+            <a href="{{ url_for('dgii_tools') }}" class="btn btn-primary" style="width: 100%; margin-top: 10px; background: transparent; border: 1px solid var(--border-color); color: var(--text-primary);">
                 <span>Herramientas DGII</span>
             </a>
         </div>
