@@ -631,15 +631,18 @@
 
             fileInput.addEventListener('change', function() {
                 if (fileInput.files && fileInput.files.length > 0) {
-                    fileLabel.textContent = fileInput.files[0].name;
+                    fileLabel.textContent = "Cargando " + fileInput.files[0].name + "...";
                     fileLabel.style.color = 'var(--accent-emerald)';
                     dropzone.style.borderColor = 'var(--accent-emerald)';
-                    dropzone.style.backgroundColor = 'rgba(16, 185, 129, 0.02)';
+                    dropzone.style.backgroundColor = 'rgba(16, 185, 129, 0.05)';
                     uploadBtn.disabled = false;
                     if (uploadIcon) {
+                        uploadIcon.className = "fa-solid fa-circle-notch fa-spin";
                         uploadIcon.style.color = 'var(--accent-emerald)';
-                        uploadIcon.style.transform = 'scale(1.05)';
                     }
+                    setTimeout(() => {
+                        form.submit();
+                    }, 400);
                 } else {
                     fileLabel.textContent = 'Seleccionar archivo .csv';
                     fileLabel.style.color = 'var(--text-secondary)';
@@ -647,6 +650,7 @@
                     dropzone.style.backgroundColor = 'transparent';
                     uploadBtn.disabled = true;
                     if (uploadIcon) {
+                        uploadIcon.className = "fa-solid fa-cloud-arrow-up";
                         uploadIcon.style.color = 'var(--text-muted)';
                         uploadIcon.style.transform = 'none';
                     }
@@ -671,22 +675,19 @@
         </div>
         <div class="modal-body" style="padding: 28px;">
             <p style="color: var(--text-secondary); font-size: 0.85rem; line-height: 1.45; margin-bottom: 20px; margin-top: 0;">
-                Sube tu listado de clientes en formato .csv. Podrás mapear tus columnas en el siguiente paso.
+                Sube tu listado de clientes en formato .csv. Al seleccionar o arrastrar el archivo, el sistema iniciará automáticamente el Asistente de Mapeo Inteligente.
             </p>
             
             <form action="{{ url_for('web_import_mapper.upload_file') }}" method="POST" enctype="multipart/form-data" style="display: flex; flex-direction: column; gap: 18px; margin: 0;">
                 <input type="hidden" name="import_type" value="clients">
-                <div id="dropzone" style="border: 2px dashed var(--border-color); border-radius: var(--radius-sm); padding: 30px 16px; text-align: center; cursor: pointer; transition: all var(--transition-fast) ease-in-out;">
+                <div id="dropzone" style="border: 2px dashed var(--border-color); border-radius: var(--radius-sm); padding: 40px 16px; text-align: center; cursor: pointer; transition: all var(--transition-fast) ease-in-out;">
                     <i class="fa-solid fa-cloud-arrow-up" style="font-size: 2.5rem; color: var(--text-muted); margin-bottom: 12px; display: block; transition: transform var(--transition-fast);"></i>
                     <span style="font-size: 0.88rem; font-weight: 600; color: var(--text-secondary);" id="file-label">Seleccionar archivo .csv</span>
                     <p style="font-size: 0.78rem; color: var(--text-muted); margin-top: 6px; margin-bottom: 0;">o arrastra tu archivo aquí</p>
                 </div>
                 <input type="file" id="csv-file" name="file" accept=".csv" style="display: none;">
                 
-                <button type="submit" id="upload-btn" class="btn btn-primary" style="width: 100%; transition: all var(--transition-fast) ease;" disabled>
-                    <i class="fa-solid fa-upload"></i>
-                    <span>Cargar y Configurar Mapeo</span>
-                </button>
+                <button type="submit" id="upload-btn" class="btn btn-primary" style="width: 100%; display: none;" disabled></button>
             </form>
         </div>
     </div>
