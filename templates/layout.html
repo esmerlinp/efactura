@@ -801,6 +801,7 @@
         </main>
     </div>
 
+    {% if false %}
     <!-- BOTÓN FLOTANTE (FAB) DEL CHATBOT IA -->
     <div id="chatbot-fab" title="Consultar a e-Factura IA (Asesor Fiscal)">
         <i class="fa-solid fa-comments"></i>
@@ -876,6 +877,7 @@
             </form>
         </div>
     </aside>
+    {% endif %}
 
     <!-- ESTILOS CSS DEL CHATBOT (GLASSMORPHISM PREMIUM) -->
     <style>
@@ -1319,6 +1321,7 @@
     <script>
         document.addEventListener('DOMContentLoaded', function () {
             const chatbotFab = document.getElementById('chatbot-fab');
+            if (!chatbotFab) return;
             const chatbotSidebar = document.getElementById('chatbot-sidebar');
             const chatbotCloseBtn = document.getElementById('chatbot-close-btn');
             const chatbotClearBtn = document.getElementById('chatbot-clear-btn');

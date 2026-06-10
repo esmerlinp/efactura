@@ -158,6 +158,11 @@
                     </div>
 
                     <div class="form-group">
+                        <label for="provider-name">Razón Social del Proveedor</label>
+                        <input type="text" id="provider-name" name="providerName" class="form-input" placeholder="Se autocompleta al validar RNC" style="width: 100%;">
+                    </div>
+
+                    <div class="form-group">
                         <label for="cne">Código de Seguridad (CNE)</label>
                         <input type="text" id="cne" name="cne" class="form-input" placeholder="Firma digital corta de DGII" style="width: 100%; font-family: monospace;">
                     </div>
@@ -208,14 +213,23 @@
                 
                 <div class="uploader-zone" id="drop-zone" onclick="document.getElementById('ocr-file').click()">
                     <i class="fa-solid fa-cloud-arrow-up" style="font-size: 2.2rem; color: var(--text-muted); margin-bottom: 8px;"></i>
-                    <p style="font-size: 0.8rem; font-weight:600; margin: 0 0 4px 0; color: var(--text-primary);">Arrastra XML de e-CF o Foto del Ticket</p>
+                    <p style="font-size: 0.8rem; font-weight:600; margin: 0 0 4px 0; color: var(--text-primary);">Arrastra XML de e-CF, PDF o Foto del Ticket</p>
                     <span style="font-size: 0.7rem; color: var(--text-muted);">También puedes hacer clic para subir</span>
-                    <input type="file" id="ocr-file" accept=".xml,image/*" style="display:none" onchange="uploadForOCR(this.files[0])">
+                    <input type="file" id="ocr-file" name="attachment" accept=".xml,.pdf,image/*,application/pdf" style="display:none" onchange="uploadForOCR(this.files[0])">
                 </div>
 
                 <div style="display: flex; gap: 10px; margin-top: 12px;">
                     <button type="button" class="btn btn-secondary" style="flex:1; justify-content:center;" onclick="toggleCamera()">
                         <i class="fa-solid fa-camera"></i> Tomar Foto
+                    </button>
+                </div>
+
+                <!-- Contenedor de Previsualización de Adjunto -->
+                <div id="preview-container" style="display: none; margin-top: 12px; padding: 12px; border: 1px dashed var(--border-color); border-radius: var(--radius-sm); background: rgba(0,0,0,0.01); text-align: center;">
+                    <p style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); margin: 0 0 8px 0;">Archivo Adjunto Precargado:</p>
+                    <div id="preview-content"></div>
+                    <button type="button" class="btn btn-secondary btn-sm" style="margin-top: 10px; font-size: 0.7rem; padding: 4px 8px; border-color: var(--accent-red); color: var(--accent-red); background: transparent;" onclick="clearAttachment()">
+                        <i class="fa-solid fa-trash"></i> Eliminar Adjunto
                     </button>
                 </div>
 
@@ -359,8 +373,118 @@
         }
     }
 
+    function classifyConcept(conceptVal) {
+        if (!conceptVal) return;
+        fetch('/api/ai/classify-expense?concept=' + encodeURIComponent(conceptVal))
+        .then(res => res.json())
+        .then(data => {
+            if (data.success && data.code) {
+                const el = document.getElementById('tipoGastoDGII');
+                if (el) {
+                    el.value = data.code;
+                    el.classList.add('field-highlighted');
+                    setTimeout(() => el.classList.remove('field-highlighted'), 3000);
+                }
+            }
+        })
+        .catch(err => console.error("Error al clasificar el concepto con IA:", err));
+    }
+
+    document.getElementById('concept').addEventListener('blur', function() {
+        classifyConcept(this.value);
+    });
+
+    function lookupRncInDgii(rncVal) {
+        if (!rncVal) return;
+        const cleanRnc = rncVal.replace(/[^0-9]/g, '');
+        if (cleanRnc.length !== 9 && cleanRnc.length !== 11) return;
+        
+        fetch(`/api/dgii/rnc/${cleanRnc}`)
+        .then(res => res.json())
+        .then(data => {
+            if (!data.error && data.razon_social) {
+                const el = document.getElementById('provider-name');
+                if (el) {
+                    el.value = data.razon_social;
+                    el.classList.add('field-highlighted');
+                    setTimeout(() => el.classList.remove('field-highlighted'), 3000);
+                }
+            }
+        })
+        .catch(err => console.error("Error al consultar RNC en DGII:", err));
+    }
+
+    document.getElementById('rnc-emisor').addEventListener('blur', function() {
+        lookupRncInDgii(this.value);
+    });
+
+    function setFormFile(file) {
+        const fileInput = document.getElementById('ocr-file');
+        const container = new DataTransfer();
+        container.items.add(file);
+        fileInput.files = container.files;
+        showPreview(file);
+    }
+
+    function showPreview(file) {
+        const previewContainer = document.getElementById('preview-container');
+        const previewContent = document.getElementById('preview-content');
+        previewContent.innerHTML = '';
+        
+        if (!file) {
+            previewContainer.style.display = 'none';
+            return;
+        }
+        
+        previewContainer.style.display = 'block';
+        
+        if (file.type.startsWith('image/')) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = document.createElement('img');
+                img.src = e.target.result;
+                img.style.maxWidth = '100%';
+                img.style.maxHeight = '200px';
+                img.style.borderRadius = 'var(--radius-xs)';
+                img.style.border = '1px solid var(--border-color)';
+                previewContent.appendChild(img);
+            }
+            reader.readAsDataURL(file);
+        } else if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
+            previewContent.innerHTML = `
+                <div style="display:flex; flex-direction:column; align-items:center; gap:6px; padding:10px;">
+                    <i class="fa-solid fa-file-pdf" style="font-size: 2.5rem; color: #ef4444;"></i>
+                    <span style="font-size: 0.78rem; font-weight:600; color: var(--text-primary); max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${file.name}</span>
+                </div>
+            `;
+        } else if (file.type === 'text/xml' || file.name.endsWith('.xml')) {
+            previewContent.innerHTML = `
+                <div style="display:flex; flex-direction:column; align-items:center; gap:6px; padding:10px;">
+                    <i class="fa-solid fa-file-code" style="font-size: 2.5rem; color: var(--accent-emerald);"></i>
+                    <span style="font-size: 0.78rem; font-weight:600; color: var(--text-primary); max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${file.name}</span>
+                </div>
+            `;
+        } else {
+            previewContent.innerHTML = `
+                <div style="display:flex; flex-direction:column; align-items:center; gap:6px; padding:10px;">
+                    <i class="fa-solid fa-file" style="font-size: 2.5rem; color: var(--text-secondary);"></i>
+                    <span style="font-size: 0.78rem; font-weight:600; color: var(--text-primary); max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${file.name}</span>
+                </div>
+            `;
+        }
+    }
+
+    function clearAttachment() {
+        const fileInput = document.getElementById('ocr-file');
+        fileInput.value = '';
+        showPreview(null);
+    }
+
     function uploadForOCR(file) {
         if (!file) return;
+
+        // Vincular archivo al formulario para que se suba con el POST
+        setFormFile(file);
 
         const statusDiv = document.getElementById('ocr-status');
         statusDiv.style.display = 'block';
@@ -368,23 +492,23 @@
         const formData = new FormData();
         formData.append('file', file);
 
-        fetch('/api/expenses/ocr-upload', {
+        fetch('/api/ai/receipt-ocr', {
             method: 'POST',
             body: formData
         })
         .then(res => res.json())
         .then(data => {
             statusDiv.style.display = 'none';
-            if (data.success) {
+            if (data.success && data.data) {
+                const extracted = data.data;
                 // Rellenar campos y dar feedback visual
                 const fields = {
-                    'rnc-emisor': data.rncEmisor,
-                    'ncf': data.ncf,
-                    'amount': data.amount,
-                    'itbisAmount': data.itbisAmount,
-                    'date': data.date,
-                    'cne': data.cne,
-                    'ecfType': data.ecfType
+                    'rnc-emisor': extracted.rncEmisor,
+                    'ncf': extracted.ncf,
+                    'amount': extracted.amount,
+                    'itbisAmount': extracted.itbisAmount,
+                    'date': extracted.date,
+                    'concept': extracted.concept
                 };
 
                 for (let key in fields) {
@@ -395,9 +519,18 @@
                         setTimeout(() => el.classList.remove('field-highlighted'), 3000);
                     }
                 }
-                alert(data.notes || 'Comprobante fiscal e-CF procesado exitosamente.');
+                
+                // Si se extrajo concepto, intentar clasificarlo
+                if (extracted.concept) {
+                    classifyConcept(extracted.concept);
+                }
+                
+                // Si se extrajo RNC, intentar validar y buscar en la DGII
+                if (extracted.rncEmisor) {
+                    lookupRncInDgii(extracted.rncEmisor);
+                }
             } else {
-                alert('No se pudieron extraer los datos fiscales: ' + data.error);
+                alert('No se pudieron extraer los datos fiscales: ' + (data.message || data.error));
             }
         })
         .catch(err => {

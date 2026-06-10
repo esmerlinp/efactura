@@ -178,10 +178,10 @@
                                 <button onclick="openPromiseModal('{{ inv.id }}', '{{ inv.invoiceNumber }}', '{{ inv.clientName }}', {{ inv.remainingBalance }})" class="action-btn btn-promise" title="Registrar Promesa de Pago">
                                     <i class="fa-solid fa-calendar-plus"></i>
                                 </button>
-                                <button onclick="sendReminder('{{ inv.id }}', 'email', '{{ inv.clientEmail }}')" class="action-btn btn-remind-email" title="Enviar recordatorio por Email" {% if not inv.clientEmail %}disabled style="opacity:0.4;"{% endif %}>
+                                <button onclick="openAiReminderModal('{{ inv.id }}', 'email', '{{ inv.clientEmail }}', '{{ inv.clientName }}', {{ inv.remainingBalance }}, '{{ inv.dueDate }}', '{{ inv.status }}')" class="action-btn btn-remind-email" title="Enviar recordatorio por Email con IA">
                                     <i class="fa-solid fa-envelope"></i>
                                 </button>
-                                <button onclick="sendReminder('{{ inv.id }}', 'whatsapp', '{{ inv.clientPhone }}')" class="action-btn btn-remind-wa" title="Enviar recordatorio por WhatsApp" {% if not inv.clientPhone %}disabled style="opacity:0.4;"{% endif %}>
+                                <button onclick="openAiReminderModal('{{ inv.id }}', 'whatsapp', '{{ inv.clientPhone }}', '{{ inv.clientName }}', {{ inv.remainingBalance }}, '{{ inv.dueDate }}', '{{ inv.status }}')" class="action-btn btn-remind-wa" title="Enviar recordatorio por WhatsApp con IA">
                                     <i class="fa-solid fa-phone"></i>
                                 </button>
                                 <a href="{{ url_for('portal.client_portal', owner_uid=session.get('user', {}).get('ownerUID', 'W2n2BfR1G4eN3K7m7n8b9v0c1x2z'), client_id=inv.clientId, sandbox='true' if session.get('is_sandbox_mode', True) else 'false') }}" target="_blank" class="action-btn" title="Ir al Portal de Cliente">
@@ -316,7 +316,200 @@
     </div>
 </div>
 
+<!-- MODAL RECORDATORIO INTELIGENTE CON IA -->
+<div id="aiReminderModal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 2000; align-items: center; justify-content: center;">
+    <div onclick="closeAiReminderModal()" style="position: absolute; width: 100%; height: 100%; background: rgba(0,0,0,0.4); backdrop-filter: blur(4px);"></div>
+    <div class="card-table-wrapper" style="max-width: 550px; width: 90%; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 24px; z-index: 2001; position: relative;">
+        <h3 style="font-size: 1.05rem; font-family: var(--font-heading); margin-bottom: 4px; display: flex; align-items: center; gap: 8px;">
+            <i class="fa-solid fa-wand-magic-sparkles" style="color: var(--accent-emerald);"></i>
+            <span>Redactar Recordatorio con IA</span>
+        </h3>
+        <p style="color: var(--text-secondary); font-size: 0.78rem; line-height: 1.4; margin-bottom: 18px;">
+            Genera un mensaje de cobro personalizado utilizando Inteligencia Artificial. Puedes ajustar el tono e interactuar/editar el mensaje antes de enviarlo.
+        </p>
+        
+        <div style="margin-bottom: 14px;">
+            <label style="display: block; font-size: 0.78rem; color: var(--text-secondary); margin-bottom: 6px; font-weight: 600;">Tono del Recordatorio</label>
+            <div style="display: flex; gap: 15px;">
+                <label style="display: flex; align-items: center; gap: 6px; font-size: 0.8rem; cursor: pointer;">
+                    <input type="radio" name="aiTone" value="friendly" onchange="generateAiMessage()"> Amigable
+                </label>
+                <label style="display: flex; align-items: center; gap: 6px; font-size: 0.8rem; cursor: pointer;">
+                    <input type="radio" name="aiTone" value="formal" checked onchange="generateAiMessage()"> Profesional (Formal)
+                </label>
+                <label style="display: flex; align-items: center; gap: 6px; font-size: 0.8rem; cursor: pointer;">
+                    <input type="radio" name="aiTone" value="urgent" onchange="generateAiMessage()"> Urgente (Cobro)
+                </label>
+            </div>
+        </div>
+
+        <div style="margin-bottom: 14px;" id="aiRecipientContainer">
+            <label id="lblAiRecipient" style="display: block; font-size: 0.78rem; color: var(--text-secondary); margin-bottom: 4px; font-weight: 600;">Destinatario</label>
+            <input type="text" id="aiRecipientInput" class="form-control" style="width: 100%; font-size: 0.85rem; padding: 6px 10px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary);">
+        </div>
+
+        <div style="margin-bottom: 18px; position: relative;">
+            <label style="display: block; font-size: 0.78rem; color: var(--text-secondary); margin-bottom: 4px; font-weight: 600;">Mensaje Redactado</label>
+            <textarea id="aiMessageText" class="form-control" rows="8" style="width:100%; font-size: 0.85rem; line-height: 1.5; padding: 10px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary); resize: vertical;"></textarea>
+            <div id="aiLoading" style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.7); backdrop-filter: blur(1px); align-items: center; justify-content: center; font-size: 0.8rem; color: var(--text-secondary);">
+                <i class="fa-solid fa-spinner fa-spin" style="margin-right: 6px; color: var(--accent-emerald);"></i> Escribiendo mensaje...
+            </div>
+        </div>
+
+        <div style="display: flex; gap: 10px; justify-content: space-between; align-items: center;">
+            <button type="button" onclick="copyAiMessage()" class="btn btn-secondary" style="font-size: 0.8rem; padding: 8px 16px;">
+                <i class="fa-regular fa-copy"></i> Copiar
+            </button>
+            <div style="display: flex; gap: 10px;">
+                <button type="button" onclick="closeAiReminderModal()" class="btn btn-secondary" style="font-size: 0.8rem; padding: 8px 16px;">Cancelar</button>
+                <button type="button" id="btnSendAi" onclick="sendAiMessage()" class="btn btn-primary" style="font-size: 0.8rem; padding: 8px 16px; background: var(--accent-emerald); border-color: var(--accent-emerald);">
+                    <i class="fa-solid fa-paper-plane"></i> Enviar Recordatorio
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
+    let currentReminderData = {
+        invoiceId: '',
+        method: '',
+        recipient: '',
+        clientName: '',
+        amount: 0,
+        dueDate: '',
+        status: ''
+    };
+
+    function openAiReminderModal(invoiceId, method, recipient, clientName, amount, dueDate, status) {
+        currentReminderData = { invoiceId, method, recipient, clientName, amount, dueDate, status };
+        
+        // Reset tone to formal
+        const toneRadios = document.getElementsByName('aiTone');
+        for (let r of toneRadios) {
+            if (r.value === 'formal') r.checked = true;
+        }
+
+        // Set recipient info in the input
+        document.getElementById('aiRecipientInput').value = recipient || '';
+        document.getElementById('lblAiRecipient').innerText = method === 'whatsapp' ? 'Número de WhatsApp Destino' : 'Correo Electrónico Destino';
+        document.getElementById('aiRecipientInput').placeholder = method === 'whatsapp' ? 'Ej: +18095551234' : 'Ej: cliente@correo.com';
+
+        // Set send button styling and text
+        const btnSend = document.getElementById('btnSendAi');
+        if (method === 'whatsapp') {
+            btnSend.innerHTML = '<i class="fa-brands fa-whatsapp"></i> Abrir WhatsApp';
+            btnSend.style.background = '#25d366';
+            btnSend.style.borderColor = '#25d366';
+        } else {
+            btnSend.innerHTML = '<i class="fa-solid fa-envelope"></i> Enviar Correo';
+            btnSend.style.background = '#3b82f6';
+            btnSend.style.borderColor = '#3b82f6';
+        }
+
+        document.getElementById('aiReminderModal').style.display = 'flex';
+        generateAiMessage();
+    }
+
+    function closeAiReminderModal() {
+        document.getElementById('aiReminderModal').style.display = 'none';
+    }
+
+    function generateAiMessage() {
+        const tone = document.querySelector('input[name="aiTone"]:checked').value;
+        const loadingDiv = document.getElementById('aiLoading');
+        loadingDiv.style.display = 'flex';
+
+        fetch('/api/ai/draft-collection', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                client_name: currentReminderData.clientName,
+                amount: currentReminderData.amount.toString(),
+                due_date: currentReminderData.dueDate,
+                status: currentReminderData.status,
+                tone: tone
+            })
+        })
+        .then(res => res.json())
+        .then(data => {
+            loadingDiv.style.display = 'none';
+            if (data.success && data.message) {
+                document.getElementById('aiMessageText').value = data.message;
+            } else {
+                document.getElementById('aiMessageText').value = 'Error al generar mensaje.';
+            }
+        })
+        .catch(err => {
+            loadingDiv.style.display = 'none';
+            document.getElementById('aiMessageText').value = 'Error de conexión.';
+        });
+    }
+
+    function copyAiMessage() {
+        const text = document.getElementById('aiMessageText').value;
+        navigator.clipboard.writeText(text).then(() => {
+            alert('Mensaje copiado al portapapeles.');
+        });
+    }
+
+    function sendAiMessage() {
+        const message = document.getElementById('aiMessageText').value;
+        const recipient = document.getElementById('aiRecipientInput').value.trim();
+        const { invoiceId, method } = currentReminderData;
+
+        if (!recipient) {
+            alert('Por favor, ingresa el dato de contacto del destinatario.');
+            return;
+        }
+
+        if (method === 'whatsapp') {
+            const encodedText = encodeURIComponent(message);
+            const cleanPhone = recipient.replace(/[^\d+]/g, '');
+            window.open(`https://wa.me/${cleanPhone}?text=${encodedText}`, '_blank');
+
+            // Registrar interacción de fondo
+            fetch(`/cxc/remind/${invoiceId}/whatsapp`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ recipient: recipient, message: message })
+            })
+            .then(res => res.json())
+            .then(data => {
+                closeAiReminderModal();
+                console.log("Interacción de WhatsApp guardada.");
+            });
+        } else {
+            const btn = document.getElementById('btnSendAi');
+            const originalHtml = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Enviando...';
+
+            fetch(`/cxc/remind/${invoiceId}/email`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ recipient: recipient, message: message })
+            })
+            .then(res => res.json())
+            .then(data => {
+                btn.disabled = false;
+                btn.innerHTML = originalHtml;
+                if (data.success) {
+                    alert(data.message);
+                    closeAiReminderModal();
+                    window.location.reload();
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            })
+            .catch(err => {
+                btn.disabled = false;
+                btn.innerHTML = originalHtml;
+                alert('Error de red al enviar el correo.');
+            });
+        }
+    }
+
     function openPromiseModal(invoiceId, invoiceNumber, clientName, remainingBalance) {
         document.getElementById('modal-invoice-id').value = invoiceId;
         document.getElementById('modal-invoice-number').value = invoiceNumber;
