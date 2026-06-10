@@ -7,7 +7,7 @@
 {% block content %}
 <style>
     .mapper-container {
-        max-width: 900px;
+        max-width: 100%;
         margin: 0 auto 40px auto;
         display: flex;
         flex-direction: column;
@@ -96,6 +96,21 @@
         <input type="hidden" name="import_type" value="{{ import_type }}">
         <input type="hidden" name="temp_filename" value="{{ temp_filename }}">
 
+        <!-- Acciones del Formulario (Arriba) -->
+        <div style="margin-bottom: 25px; display: flex; justify-content: flex-end; gap: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 15px;">
+            {% if import_type == 'clients' %}
+                <a href="{{ url_for('web_clients.list_clients') }}" class="btn btn-secondary" style="height: 44px; display: inline-flex; align-items: center;">Cancelar</a>
+            {% elif import_type == 'products' %}
+                <a href="{{ url_for('list_items') }}" class="btn btn-secondary" style="height: 44px; display: inline-flex; align-items: center;">Cancelar</a>
+            {% else %}
+                <a href="{{ url_for('web_invoices.list_invoices') }}" class="btn btn-secondary" style="height: 44px; display: inline-flex; align-items: center;">Cancelar</a>
+            {% endif %}
+            <button type="submit" class="btn btn-primary" style="height: 44px; display: inline-flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-cloud-arrow-down"></i>
+                <span>Confirmar e Importar Ahora</span>
+            </button>
+        </div>
+
         <div class="preview-card">
             <h3 style="margin-top: 0; margin-bottom: 20px; font-family: var(--font-heading); font-size: 1.1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">
                 Asociación de Columnas
@@ -167,34 +182,99 @@
 </div>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', async function() {
     const rawPreviewRows = {{ preview_rows | tojson }};
     const targetFields = {{ target_fields | tojson }};
+    const headers = {{ headers | tojson }};
     
-    // 1. Auto-mapeo basado en sugerencias
-    targetFields.forEach(field => {
-        const select = document.getElementById(`select_${field.id}`);
-        if (!select) return;
-        
-        const suggestions = JSON.parse(select.getAttribute('data-suggestions') || '[]');
-        
-        // Intentar encontrar coincidencia
-        for (let i = 0; i < select.options.length; i++) {
-            const optionText = select.options[i].text.toLowerCase().trim();
+    // Crear banner o notificación de estado de IA
+    const aiStatusBanner = document.createElement('div');
+    aiStatusBanner.style.padding = '10px 15px';
+    aiStatusBanner.style.borderRadius = '8px';
+    aiStatusBanner.style.marginBottom = '20px';
+    aiStatusBanner.style.fontSize = '0.85rem';
+    aiStatusBanner.style.display = 'flex';
+    aiStatusBanner.style.alignItems = 'center';
+    aiStatusBanner.style.gap = '10px';
+    aiStatusBanner.style.background = 'rgba(99, 102, 241, 0.05)';
+    aiStatusBanner.style.border = '1px solid rgba(99, 102, 241, 0.2)';
+    aiStatusBanner.style.color = 'var(--text-main)';
+    
+    aiStatusBanner.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin" style="color: var(--primary-color);"></i> <span>Analizando columnas con Inteligencia Artificial (IA)...</span>`;
+    
+    const formEl = document.getElementById('mapper-form');
+    if (formEl) {
+        formEl.insertBefore(aiStatusBanner, formEl.firstChild);
+    }
+
+    let aiMatched = false;
+
+    try {
+        const response = await fetch('/import/ai-suggest', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                headers: headers,
+                target_fields: targetFields
+            })
+        });
+        const resData = await response.json();
+        if (resData.success && resData.mapping) {
+            aiMatched = true;
+            aiStatusBanner.style.background = 'rgba(16, 185, 129, 0.05)';
+            aiStatusBanner.style.border = '1px solid rgba(16, 185, 129, 0.2)';
+            aiStatusBanner.innerHTML = `<i class="fa-solid fa-wand-magic-sparkles" style="color: var(--accent-emerald);"></i> <span style="color: var(--accent-emerald); font-weight: 600;">Mapeo asistido por IA aplicado con éxito como primera opción.</span>`;
             
-            // Comprobar coincidencia exacta o por sugerencias
-            const matched = suggestions.some(sugg => {
-                return optionText === sugg.toLowerCase() || 
-                       optionText.includes(sugg.toLowerCase()) ||
-                       sugg.toLowerCase().includes(optionText);
+            // Aplicar mapeo de la IA
+            targetFields.forEach(field => {
+                const select = document.getElementById(`select_${field.id}`);
+                if (!select) return;
+                const csvIndex = resData.mapping[field.id];
+                if (csvIndex !== undefined && csvIndex !== null) {
+                    for (let i = 0; i < select.options.length; i++) {
+                        if (select.options[i].value === csvIndex.toString()) {
+                            select.selectedIndex = i;
+                            break;
+                        }
+                    }
+                } else {
+                    select.selectedIndex = 0;
+                }
             });
-            
-            if (matched) {
-                select.selectedIndex = i;
-                break;
-            }
         }
-    });
+    } catch (err) {
+        console.error("Error al sugerir con IA:", err);
+    }
+
+    if (!aiMatched) {
+        // Fallback local basado en sugerencias estáticas
+        aiStatusBanner.style.background = 'rgba(245, 158, 11, 0.05)';
+        aiStatusBanner.style.border = '1px solid rgba(245, 158, 11, 0.2)';
+        aiStatusBanner.innerHTML = `<i class="fa-solid fa-circle-info" style="color: var(--accent-yellow);"></i> <span>IA no disponible (API Key de OpenAI no configurada). Usando mapeador heurístico.</span>`;
+        
+        targetFields.forEach(field => {
+            const select = document.getElementById(`select_${field.id}`);
+            if (!select) return;
+            
+            const suggestions = JSON.parse(select.getAttribute('data-suggestions') || '[]');
+            
+            for (let i = 0; i < select.options.length; i++) {
+                const optionText = select.options[i].text.toLowerCase().trim();
+                const matched = suggestions.some(sugg => {
+                    return optionText === sugg.toLowerCase() || 
+                           optionText.includes(sugg.toLowerCase()) ||
+                           sugg.toLowerCase().includes(optionText);
+                });
+                
+                if (matched) {
+                    select.selectedIndex = i;
+                    break;
+                }
+            }
+        });
+    }
 
     // 2. Renderizar tabla de vista previa basada en las asignaciones actuales
     function updatePreviewTable() {

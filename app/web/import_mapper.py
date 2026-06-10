@@ -6,6 +6,7 @@ import json
 from datetime import datetime
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify
 from app.services.db_service import DatabaseService
+from app.services.ai_service import AIService
 from app.utils.decorators import check_permission
 
 web_import_mapper_bp = Blueprint('web_import_mapper', __name__)
@@ -152,6 +153,22 @@ def upload_file():
         temp_filename=file_id,
         target_fields=target_fields
     )
+
+@web_import_mapper_bp.route('/import/ai-suggest', methods=['POST'])
+def ai_suggest_mapping():
+    if 'user' not in session:
+        return jsonify({"success": False, "message": "No autorizado"}), 401
+    
+    owner_uid = session['user']['ownerUID']
+    data = request.get_json() or {}
+    headers = data.get('headers', [])
+    target_fields = data.get('target_fields', [])
+    
+    if not headers or not target_fields:
+        return jsonify({"success": False, "message": "Datos faltantes."}), 400
+        
+    res = AIService.suggest_mapping(owner_uid, headers, target_fields)
+    return jsonify(res)
 
 @web_import_mapper_bp.route('/import/process', methods=['POST'])
 def process_import():

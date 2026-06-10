@@ -6,12 +6,17 @@ from app.services.db_service import DatabaseService
 
 class AIService:
     @staticmethod
-    def _get_api_key(owner_uid):
-        profile = DatabaseService.get_company_profile(owner_uid)
-        api_key = profile.get("openaiApiKey", "").strip()
-        if not api_key:
-            api_key = Config.OPENAI_API_KEY.strip()
-        return api_key
+    def _get_api_key(owner_uid=None):
+        # Priorizar la API Key configurada en el archivo .env del sistema
+        api_key = Config.OPENAI_API_KEY.strip()
+        if api_key and api_key != "YOUR_OPENAI_API_KEY_HERE" and api_key != "":
+            return api_key
+            
+        # Fallback a la API Key del perfil de la empresa si no está definida a nivel de sistema
+        if owner_uid:
+            profile = DatabaseService.get_company_profile(owner_uid)
+            return profile.get("openaiApiKey", "").strip()
+        return ""
 
     @classmethod
     def analyze_receipt_ocr(cls, owner_uid, file_bytes, mime_type):
@@ -236,3 +241,67 @@ Instrucciones:
                 return default_templates.get(tone, default_templates["formal"])
         except:
             return default_templates.get(tone, default_templates["formal"])
+
+    @classmethod
+    def suggest_mapping(cls, owner_uid, headers, target_fields):
+        """
+        Usa IA para emparejar campos del sistema con las columnas cabeceras del CSV.
+        Retorna un diccionario mapeando: { target_field_id: index_of_csv_header }
+        """
+        api_key = cls._get_api_key(owner_uid)
+        if not api_key or api_key == "YOUR_OPENAI_API_KEY_HERE":
+            return {"success": False, "message": "API Key de OpenAI no configurada."}
+
+        headers_str = ", ".join([f"[{i}]: '{h}'" for i, h in enumerate(headers)])
+        # Simplificar estructura para no saturar tokens
+        targets_simple = [{"id": t["id"], "name": t["name"]} for t in target_fields]
+        targets_str = json.dumps(targets_simple, ensure_ascii=False)
+
+        system_prompt = """Eres un asistente inteligente de integración de datos.
+Te daremos una lista de columnas de un archivo CSV con sus índices, y una lista de campos de destino del sistema.
+Tu tarea es emparejar de forma lógica cada campo de destino con el índice del CSV correspondiente que mejor encaje con su significado.
+
+Estructura de respuesta:
+Debes retornar únicamente un objeto JSON con las asignaciones, donde las claves sean los IDs de los campos de destino y los valores sean los índices numéricos enteros de la columna del CSV (o null si no hay ninguna coincidencia lógica aceptable).
+
+Ejemplo de salida JSON:
+{
+  "name": 1,
+  "price": 3,
+  "barcode": null
+}
+
+No agregues explicaciones, markdown ni texto extra."""
+
+        user_content = f"Columnas del CSV disponible:\n{headers_str}\n\nCampos de destino del sistema:\n{targets_str}"
+
+        payload = {
+            "model": "gpt-4o-mini",
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_content}
+            ],
+            "temperature": 0.1,
+            "max_tokens": 500
+        }
+
+        try:
+            api_headers = {
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {api_key}"
+            }
+            url = "https://api.openai.com/v1/chat/completions"
+            response = requests.post(url, headers=api_headers, json=payload, timeout=12)
+            if response.status_code == 200:
+                content = response.json()["choices"][0]["message"]["content"].strip()
+                if content.startswith("```json"):
+                    content = content[7:]
+                if content.endswith("```"):
+                    content = content[:-3]
+                content = content.strip()
+                mapping = json.loads(content)
+                return {"success": True, "mapping": mapping}
+            else:
+                return {"success": False, "message": f"Error API OpenAI: {response.text}"}
+        except Exception as e:
+            return {"success": False, "message": str(e)}
