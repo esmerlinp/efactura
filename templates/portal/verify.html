@@ -1,10 +1,12 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Verificación de Identidad - {{ company.tradeName or company.companyName or 'e-Factura' }}</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root {
@@ -132,7 +134,7 @@
             border: none;
             border-radius: 8px;
             font-size: 0.9rem;
-            font-weight: 600;
+            font-weight: 500;
             cursor: pointer;
             display: flex;
             align-items: center;
@@ -167,43 +169,50 @@
         }
     </style>
 </head>
+
 <body>
 
-<div class="verify-card">
-    {% if company.logoUrl %}
+    <div class="verify-card">
+        {% if company.logoUrl %}
         <img src="{{ company.logoUrl }}" alt="{{ company.tradeName or company.companyName }}" class="company-logo">
-    {% endif %}
-    <h1 class="company-name">{{ company.tradeName or company.companyName }}</h1>
-    
-    <div style="width: 40px; height: 3px; background: var(--primary); margin: 0 auto 20px auto; border-radius: 2px;"></div>
+        {% endif %}
+        <h1 class="company-name">{{ company.tradeName or company.companyName }}</h1>
 
-    <h2 class="title">Verificación de Acceso</h2>
-    <p class="description">
-        Por motivos de seguridad y confidencialidad, por favor ingrese el RNC o Cédula asociado a su cuenta para ver sus facturas y cotizaciones.
-    </p>
+        <div
+            style="width: 40px; height: 3px; background: var(--primary); margin: 0 auto 20px auto; border-radius: 2px;">
+        </div>
 
-    {% if error %}
+        <h2 class="title">Verificación de Acceso</h2>
+        <p class="description">
+            Por motivos de seguridad y confidencialidad, por favor ingrese el RNC o Cédula asociado a su cuenta para ver
+            sus facturas y cotizaciones.
+        </p>
+
+        {% if error %}
         <div class="alert-error">
             <i class="fa-solid fa-triangle-exclamation"></i>
             <span>{{ error }}</span>
         </div>
-    {% endif %}
+        {% endif %}
 
-    <form method="POST" action="{{ url_for('portal.client_portal_verify', owner_uid=owner_uid, client_id=client_id, sandbox='true' if sandbox else 'false') }}">
-        <div class="form-group">
-            <label for="rnc_input" class="form-label">RNC o Cédula del Cliente</label>
-            <div class="input-wrapper">
-                <i class="fa-solid fa-id-card input-icon"></i>
-                <input type="text" id="rnc_input" name="rnc" placeholder="Ej: 101-01234-5 o 224012345" required class="form-input" autofocus autocomplete="off">
+        <form method="POST"
+            action="{{ url_for('portal.client_portal_verify', owner_uid=owner_uid, client_id=client_id, sandbox='true' if sandbox else 'false') }}">
+            <div class="form-group">
+                <label for="rnc_input" class="form-label">RNC o Cédula del Cliente</label>
+                <div class="input-wrapper">
+                    <i class="fa-solid fa-id-card input-icon"></i>
+                    <input type="text" id="rnc_input" name="rnc" placeholder="Ej: 101-01234-5 o 224012345" required
+                        class="form-input" autofocus autocomplete="off">
+                </div>
             </div>
-        </div>
 
-        <button type="submit" class="btn-verify">
-            <i class="fa-solid fa-shield-halved"></i>
-            <span>Validar e Ingresar</span>
-        </button>
-    </form>
-</div>
+            <button type="submit" class="btn-verify">
+                <i class="fa-solid fa-shield-halved"></i>
+                <span>Validar e Ingresar</span>
+            </button>
+        </form>
+    </div>
 
 </body>
+
 </html>

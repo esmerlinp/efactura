@@ -1,10 +1,12 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Portal de Clientes - {{ company.tradeName or company.companyName or 'e-Factura' }}</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root {
@@ -76,7 +78,7 @@
             border-radius: 12px;
             padding: 24px;
             margin-bottom: 30px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
         }
 
         .kpi-row {
@@ -92,7 +94,7 @@
             border-radius: 10px;
             padding: 20px;
             text-align: center;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
         }
 
         .kpi-title {
@@ -151,14 +153,29 @@
             font-weight: 700;
         }
 
-        .badge-success { background: rgba(16, 185, 129, 0.1); color: var(--accent-emerald); }
-        .badge-danger { background: rgba(239, 68, 68, 0.1); color: var(--accent-red); }
-        .badge-warning { background: rgba(245, 158, 11, 0.1); color: var(--accent-yellow); }
-        .badge-info { background: rgba(59, 130, 246, 0.1); color: #3b82f6; }
+        .badge-success {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--accent-emerald);
+        }
+
+        .badge-danger {
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--accent-red);
+        }
+
+        .badge-warning {
+            background: rgba(245, 158, 11, 0.1);
+            color: var(--accent-yellow);
+        }
+
+        .badge-info {
+            background: rgba(59, 130, 246, 0.1);
+            color: #3b82f6;
+        }
 
         .btn {
             font-family: var(--font-main);
-            font-weight: 600;
+            font-weight: 500;
             font-size: 0.8rem;
             padding: 8px 14px;
             border-radius: 6px;
@@ -171,12 +188,33 @@
             transition: all 0.2s;
         }
 
-        .btn-primary { background-color: var(--primary); color: white; }
-        .btn-primary:hover { background-color: var(--primary-hover); }
-        .btn-secondary { background-color: white; border-color: var(--border-color); color: var(--text-primary); }
-        .btn-secondary:hover { background-color: #f1f5f9; }
-        .btn-success { background-color: var(--accent-emerald); color: white; }
-        .btn-success:hover { filter: brightness(0.9); }
+        .btn-primary {
+            background-color: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--primary-hover);
+        }
+
+        .btn-secondary {
+            background-color: white;
+            border-color: var(--border-color);
+            color: var(--text-primary);
+        }
+
+        .btn-secondary:hover {
+            background-color: #f1f5f9;
+        }
+
+        .btn-success {
+            background-color: var(--accent-emerald);
+            color: white;
+        }
+
+        .btn-success:hover {
+            filter: brightness(0.9);
+        }
 
         /* Modal Styles */
         .modal {
@@ -185,7 +223,7 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0,0,0,0.5);
+            background: rgba(0, 0, 0, 0.5);
             display: none;
             justify-content: center;
             align-items: center;
@@ -201,7 +239,7 @@
             max-width: 500px;
             width: 100%;
             padding: 24px;
-            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
             position: relative;
             box-sizing: border-box;
         }
@@ -259,7 +297,7 @@
                 gap: 10px;
             }
 
-            .header-card > div:last-child {
+            .header-card>div:last-child {
                 text-align: center !important;
                 width: 100%;
             }
@@ -292,7 +330,12 @@
                 overflow-x: visible;
             }
 
-            table, thead, tbody, th, td, tr {
+            table,
+            thead,
+            tbody,
+            th,
+            td,
+            tr {
                 display: block;
             }
 
@@ -306,7 +349,7 @@
                 padding: 12px;
                 margin-bottom: 12px;
                 background: #ffffff;
-                box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
             }
 
             td {
@@ -349,340 +392,370 @@
         }
     </style>
 </head>
+
 <body>
 
-<div class="container">
-    <!-- Encabezado de Empresa -->
-    <div class="header-card">
-        <div class="company-info">
-            {% if company.logoUrl %}
-                <img src="{{ company.logoUrl }}" alt="{{ company.tradeName or company.companyName }}" class="company-logo">
-            {% endif %}
-            <div>
-                <h1 class="company-name">{{ company.tradeName or company.companyName }}</h1>
-                <span style="font-size: 0.85rem; color: var(--text-muted); font-family: monospace;">RNC: {{ company.companyRNC }}</span>
+    <div class="container">
+        <!-- Encabezado de Empresa -->
+        <div class="header-card">
+            <div class="company-info">
+                {% if company.logoUrl %}
+                <img src="{{ company.logoUrl }}" alt="{{ company.tradeName or company.companyName }}"
+                    class="company-logo">
+                {% endif %}
+                <div>
+                    <h1 class="company-name">{{ company.tradeName or company.companyName }}</h1>
+                    <span style="font-size: 0.85rem; color: var(--text-muted); font-family: monospace;">RNC: {{
+                        company.companyRNC }}</span>
+                </div>
+            </div>
+            <div style="text-align: right;">
+                <span class="badge badge-info" style="font-size: 0.8rem; padding: 6px 12px;">Portal de
+                    Autoservicio</span>
             </div>
         </div>
-        <div style="text-align: right;">
-            <span class="badge badge-info" style="font-size: 0.8rem; padding: 6px 12px;">Portal de Autoservicio</span>
-        </div>
-    </div>
 
-    <!-- KPI de Balance -->
-    <div class="kpi-row">
-        <div class="kpi-card">
-            <div class="kpi-title">Total Facturado</div>
-            <div class="kpi-value" style="color: var(--text-primary);">RD$ {{ "{:,.2f}".format(total_invoiced) }}</div>
+        <!-- KPI de Balance -->
+        <div class="kpi-row">
+            <div class="kpi-card">
+                <div class="kpi-title">Total Facturado</div>
+                <div class="kpi-value" style="color: var(--text-primary);">RD$ {{ "{:,.2f}".format(total_invoiced) }}
+                </div>
+            </div>
+            <div class="kpi-card"
+                style="border-color: {% if total_cxc > 0 %}var(--accent-red){% else %}var(--accent-emerald){% endif %};">
+                <div class="kpi-title">Saldo Pendiente adeudado</div>
+                <div class="kpi-value"
+                    style="color: {% if total_cxc > 0 %}var(--accent-red){% else %}var(--accent-emerald){% endif %};">
+                    RD$ {{ "{:,.2f}".format(total_cxc) }}</div>
+            </div>
         </div>
-        <div class="kpi-card" style="border-color: {% if total_cxc > 0 %}var(--accent-red){% else %}var(--accent-emerald){% endif %};">
-            <div class="kpi-title">Saldo Pendiente adeudado</div>
-            <div class="kpi-value" style="color: {% if total_cxc > 0 %}var(--accent-red){% else %}var(--accent-emerald){% endif %};">RD$ {{ "{:,.2f}".format(total_cxc) }}</div>
-        </div>
-    </div>
 
-    <!-- Ficha del Cliente -->
-    <div class="client-info-card">
-        <h3 style="margin-top: 0; margin-bottom: 12px; font-size: 1.05rem; text-transform: uppercase; letter-spacing: 0.02em; color: var(--text-muted);">Información de Cliente</h3>
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
-            <div>
-                <span style="font-size: 0.75rem; color: var(--text-muted); display: block;">Razón Social</span>
-                <strong>{{ client.razonSocial }}</strong>
+        <!-- Ficha del Cliente -->
+        <div class="client-info-card">
+            <h3
+                style="margin-top: 0; margin-bottom: 12px; font-size: 1.05rem; text-transform: uppercase; letter-spacing: 0.02em; color: var(--text-muted);">
+                Información de Cliente</h3>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                <div>
+                    <span style="font-size: 0.75rem; color: var(--text-muted); display: block;">Razón Social</span>
+                    <strong>{{ client.razonSocial }}</strong>
+                </div>
+                <div>
+                    <span style="font-size: 0.75rem; color: var(--text-muted); display: block;">RNC / Cédula</span>
+                    <strong style="font-family: monospace;">{{ client.rnc }}</strong>
+                </div>
+                {% if client.telefono %}
+                <div>
+                    <span style="font-size: 0.75rem; color: var(--text-muted); display: block;">Teléfono</span>
+                    <strong>{{ client.telefono }}</strong>
+                </div>
+                {% endif %}
+                {% if client.email %}
+                <div>
+                    <span style="font-size: 0.75rem; color: var(--text-muted); display: block;">Correo de
+                        Contacto</span>
+                    <strong>{{ client.email }}</strong>
+                </div>
+                {% endif %}
             </div>
-            <div>
-                <span style="font-size: 0.75rem; color: var(--text-muted); display: block;">RNC / Cédula</span>
-                <strong style="font-family: monospace;">{{ client.rnc }}</strong>
-            </div>
-            {% if client.telefono %}
-            <div>
-                <span style="font-size: 0.75rem; color: var(--text-muted); display: block;">Teléfono</span>
-                <strong>{{ client.telefono }}</strong>
-            </div>
-            {% endif %}
-            {% if client.email %}
-            <div>
-                <span style="font-size: 0.75rem; color: var(--text-muted); display: block;">Correo de Contacto</span>
-                <strong>{{ client.email }}</strong>
-            </div>
-            {% endif %}
         </div>
-    </div>
 
-    <!-- Historial de Facturas y Cotizaciones -->
-    <div class="table-card">
-        <h3 style="margin-top: 0; margin-bottom: 20px; font-size: 1.15rem;">Documentos y Cotizaciones</h3>
-        <div class="table-responsive">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Número Documento</th>
-                        <th>Fecha Emisión</th>
-                        <th>Tipo / e-CF</th>
-                        <th>Total</th>
-                        <th>Saldo Pendiente</th>
-                        <th>Estado</th>
-                        <th style="text-align: right;">Acciones</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for inv in invoices %}
-                    <tr>
-                        <td data-label="Número Documento">
-                            <strong>{{ inv.invoiceNumber }}</strong>
-                        </td>
-                        <td data-label="Fecha Emisión">
-                            <span style="font-family: monospace;">{{ inv.date[:10] }}</span>
-                        </td>
-                        <td data-label="Tipo / e-CF">
-                            {% if inv.isQuotation %}
+        <!-- Historial de Facturas y Cotizaciones -->
+        <div class="table-card">
+            <h3 style="margin-top: 0; margin-bottom: 20px; font-size: 1.15rem;">Documentos y Cotizaciones</h3>
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Número Documento</th>
+                            <th>Fecha Emisión</th>
+                            <th>Tipo / e-CF</th>
+                            <th>Total</th>
+                            <th>Saldo Pendiente</th>
+                            <th>Estado</th>
+                            <th style="text-align: right;">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for inv in invoices %}
+                        <tr>
+                            <td data-label="Número Documento">
+                                <strong>{{ inv.invoiceNumber }}</strong>
+                            </td>
+                            <td data-label="Fecha Emisión">
+                                <span style="font-family: monospace;">{{ inv.date[:10] }}</span>
+                            </td>
+                            <td data-label="Tipo / e-CF">
+                                {% if inv.isQuotation %}
                                 <span class="badge badge-info">Cotización</span>
-                            {% else %}
-                                <span style="font-size: 0.75rem; color: var(--text-muted); font-family: monospace;">{{ inv.encf or 'Consumo (E32)' }}</span>
-                            {% endif %}
-                        </td>
-                        <td data-label="Total">
-                            <strong>RD$ {{ "{:,.2f}".format(inv.total) }}</strong>
-                        </td>
-                        <td data-label="Saldo Pendiente">
-                            {% if inv.isQuotation %}
+                                {% else %}
+                                <span style="font-size: 0.75rem; color: var(--text-muted); font-family: monospace;">{{
+                                    inv.encf or 'Consumo (E32)' }}</span>
+                                {% endif %}
+                            </td>
+                            <td data-label="Total">
+                                <strong>RD$ {{ "{:,.2f}".format(inv.total) }}</strong>
+                            </td>
+                            <td data-label="Saldo Pendiente">
+                                {% if inv.isQuotation %}
                                 <span>-</span>
-                            {% else %}
-                                <strong style="color: {% if inv.remainingBalance > 0.01 %}var(--accent-red){% else %}var(--accent-emerald){% endif %};">
+                                {% else %}
+                                <strong
+                                    style="color: {% if inv.remainingBalance > 0.01 %}var(--accent-red){% else %}var(--accent-emerald){% endif %};">
                                     RD$ {{ "{:,.2f}".format(inv.remainingBalance) }}
                                 </strong>
-                            {% endif %}
-                        </td>
-                        <td data-label="Estado">
-                            {% if inv.status == 'Cobrada' or inv.status == 'Aprobada' %}
+                                {% endif %}
+                            </td>
+                            <td data-label="Estado">
+                                {% if inv.status == 'Cobrada' or inv.status == 'Aprobada' %}
                                 <span class="badge badge-success">{{ inv.status }}</span>
-                            {% elif inv.status == 'Anulada' %}
-                                <span class="badge badge-danger" style="background: rgba(0,0,0,0.05); color: var(--text-muted);">{{ inv.status }}</span>
-                            {% elif inv.status == 'Vencida' %}
+                                {% elif inv.status == 'Anulada' %}
+                                <span class="badge badge-danger"
+                                    style="background: rgba(0,0,0,0.05); color: var(--text-muted);">{{ inv.status
+                                    }}</span>
+                                {% elif inv.status == 'Vencida' %}
                                 <span class="badge badge-danger">{{ inv.status }}</span>
-                            {% else %}
-                                <span class="badge badge-warning">{{ inv.status }}</span>
-                            {% endif %}
-                        </td>
-                        <td style="text-align: right;">
-                            <div style="display: inline-flex; gap: 8px;">
-                                {% if inv.isQuotation %}
-                                    {% if inv.status != 'Aprobada' %}
-                                        <button class="btn btn-primary" onclick="openSignatureModal('{{ inv.id }}')">
-                                            <i class="fa-solid fa-signature"></i>
-                                            <span>Firmar Aceptación</span>
-                                        </button>
-                                    {% else %}
-                                        <span class="badge badge-success"><i class="fa-solid fa-circle-check"></i> Aprobada</span>
-                                    {% endif %}
                                 {% else %}
+                                <span class="badge badge-warning">{{ inv.status }}</span>
+                                {% endif %}
+                            </td>
+                            <td style="text-align: right;">
+                                <div style="display: inline-flex; gap: 8px;">
+                                    {% if inv.isQuotation %}
+                                    {% if inv.status != 'Aprobada' %}
+                                    <button class="btn btn-primary" onclick="openSignatureModal('{{ inv.id }}')">
+                                        <i class="fa-solid fa-signature"></i>
+                                        <span>Firmar Aceptación</span>
+                                    </button>
+                                    {% else %}
+                                    <span class="badge badge-success"><i class="fa-solid fa-circle-check"></i>
+                                        Aprobada</span>
+                                    {% endif %}
+                                    {% else %}
                                     {% if inv.firebasePDFURL %}
-                                        <a href="{{ inv.firebasePDFURL }}" target="_blank" class="btn btn-secondary" title="Descargar PDF">
-                                            <i class="fa-solid fa-file-pdf" style="color: var(--accent-red);"></i>
-                                        </a>
+                                    <a href="{{ inv.firebasePDFURL }}" target="_blank" class="btn btn-secondary"
+                                        title="Descargar PDF">
+                                        <i class="fa-solid fa-file-pdf" style="color: var(--accent-red);"></i>
+                                    </a>
                                     {% endif %}
                                     {% if inv.firebaseXMLURL %}
-                                        <a href="{{ inv.firebaseXMLURL }}" target="_blank" class="btn btn-secondary" title="Descargar XML">
-                                            <i class="fa-solid fa-file-code" style="color: var(--accent-emerald);"></i>
-                                        </a>
+                                    <a href="{{ inv.firebaseXMLURL }}" target="_blank" class="btn btn-secondary"
+                                        title="Descargar XML">
+                                        <i class="fa-solid fa-file-code" style="color: var(--accent-emerald);"></i>
+                                    </a>
                                     {% endif %}
                                     {% if inv.remainingBalance > 0.01 and inv.status != 'Borrador' %}
-                                        <button class="btn btn-success" onclick="openPaymentModal('{{ inv.id }}', {{ inv.remainingBalance }})">
-                                            <i class="fa-solid fa-credit-card"></i>
-                                            <span>Pagar</span>
-                                        </button>
+                                    <button class="btn btn-success"
+                                        onclick="openPaymentModal('{{ inv.id }}', {{ inv.remainingBalance }})">
+                                        <i class="fa-solid fa-credit-card"></i>
+                                        <span>Pagar</span>
+                                    </button>
                                     {% endif %}
-                                {% endif %}
-                            </div>
-                        </td>
-                    </tr>
-                    {% else %}
-                    <tr>
-                        <td colspan="7" style="text-align: center; padding: 40px 0; color: var(--text-muted);">
-                            No hay facturas ni cotizaciones disponibles.
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
-</div>
-
-<!-- Modal de Firma Digital -->
-<div id="signature-modal" class="modal">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h3 class="modal-title"><i class="fa-solid fa-signature" style="color: var(--primary);"></i> Firmar Aceptación</h3>
-            <button class="modal-close" onclick="closeSignatureModal()">&times;</button>
-        </div>
-        <p style="font-size: 0.82rem; color: var(--text-secondary); margin-top: 0; margin-bottom: 16px;">
-            Firme dentro del cuadro delimitado usando su dedo, lápiz digital o mouse para aprobar el presupuesto.
-        </p>
-        <canvas id="signature-pad" width="450" height="200"></canvas>
-        <div style="display: flex; justify-content: space-between; margin-top: 16px;">
-            <button class="btn btn-secondary" onclick="clearSignaturePad()"><i class="fa-solid fa-eraser"></i> Limpiar</button>
-            <div style="display: flex; gap: 8px;">
-                <button class="btn btn-secondary" onclick="closeSignatureModal()">Cancelar</button>
-                <button class="btn btn-primary" onclick="submitSignature()"><i class="fa-solid fa-check"></i> Enviar Firma</button>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="7" style="text-align: center; padding: 40px 0; color: var(--text-muted);">
+                                No hay facturas ni cotizaciones disponibles.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
-</div>
 
-<!-- Modal de Pago Simulado -->
-<div id="payment-modal" class="modal">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h3 class="modal-title"><i class="fa-solid fa-credit-card" style="color: var(--accent-emerald);"></i> Pasarela de Pago</h3>
-            <button class="modal-close" onclick="closePaymentModal()">&times;</button>
+    <!-- Modal de Firma Digital -->
+    <div id="signature-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title"><i class="fa-solid fa-signature" style="color: var(--primary);"></i> Firmar
+                    Aceptación</h3>
+                <button class="modal-close" onclick="closeSignatureModal()">&times;</button>
+            </div>
+            <p style="font-size: 0.82rem; color: var(--text-secondary); margin-top: 0; margin-bottom: 16px;">
+                Firme dentro del cuadro delimitado usando su dedo, lápiz digital o mouse para aprobar el presupuesto.
+            </p>
+            <canvas id="signature-pad" width="450" height="200"></canvas>
+            <div style="display: flex; justify-content: space-between; margin-top: 16px;">
+                <button class="btn btn-secondary" onclick="clearSignaturePad()"><i class="fa-solid fa-eraser"></i>
+                    Limpiar</button>
+                <div style="display: flex; gap: 8px;">
+                    <button class="btn btn-secondary" onclick="closeSignatureModal()">Cancelar</button>
+                    <button class="btn btn-primary" onclick="submitSignature()"><i class="fa-solid fa-check"></i> Enviar
+                        Firma</button>
+                </div>
+            </div>
         </div>
-        <form id="payment-form" onsubmit="submitPayment(event)">
-            <input type="hidden" id="pay-invoice-id">
-            <div style="margin-bottom: 16px;">
-                <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px;">Monto a Pagar (RD$)</label>
-                <input type="number" id="pay-amount" class="btn btn-secondary" style="width: 100%; height: 40px; font-size: 1rem; padding: 0 12px; border: 1px solid var(--border-color); text-align: right;" step="0.01" required>
-            </div>
-            <div style="background-color: #f8fafc; border: 1px solid var(--border-color); border-radius: 6px; padding: 12px; font-size: 0.78rem; color: var(--text-muted); margin-bottom: 16px;">
-                <i class="fa-solid fa-info-circle"></i> Esto simula una transacción integrada con tarjeta de crédito/débito. Al procesarse, se aplicará el abono de forma automática en el sistema.
-            </div>
-            <div style="display: flex; justify-content: flex-end; gap: 8px;">
-                <button type="button" class="btn btn-secondary" onclick="closePaymentModal()">Cancelar</button>
-                <button type="submit" class="btn btn-success"><i class="fa-solid fa-lock"></i> Procesar Pago Seguro</button>
-            </div>
-        </form>
     </div>
-</div>
 
-<script>
-    let activeInvoiceId = '';
-    const ownerUid = '{{ owner_uid }}';
-    const sandbox = {{ 'true' if sandbox else 'false' }};
-    
-    // Canvas Signature Logic
-    const canvas = document.getElementById('signature-pad');
-    const ctx = canvas ? canvas.getContext('2d') : null;
-    let drawing = false;
+    <!-- Modal de Pago Simulado -->
+    <div id="payment-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title"><i class="fa-solid fa-credit-card" style="color: var(--accent-emerald);"></i>
+                    Pasarela de Pago</h3>
+                <button class="modal-close" onclick="closePaymentModal()">&times;</button>
+            </div>
+            <form id="payment-form" onsubmit="submitPayment(event)">
+                <input type="hidden" id="pay-invoice-id">
+                <div style="margin-bottom: 16px;">
+                    <label style="display: block; font-size: 0.85rem; font-weight: 500; margin-bottom: 6px;">Monto a
+                        Pagar (RD$)</label>
+                    <input type="number" id="pay-amount" class="btn btn-secondary"
+                        style="width: 100%; height: 40px; font-size: 1rem; padding: 0 12px; border: 1px solid var(--border-color); text-align: right;"
+                        step="0.01" required>
+                </div>
+                <div
+                    style="background-color: #f8fafc; border: 1px solid var(--border-color); border-radius: 6px; padding: 12px; font-size: 0.78rem; color: var(--text-muted); margin-bottom: 16px;">
+                    <i class="fa-solid fa-info-circle"></i> Esto simula una transacción integrada con tarjeta de
+                    crédito/débito. Al procesarse, se aplicará el abono de forma automática en el sistema.
+                </div>
+                <div style="display: flex; justify-content: flex-end; gap: 8px;">
+                    <button type="button" class="btn btn-secondary" onclick="closePaymentModal()">Cancelar</button>
+                    <button type="submit" class="btn btn-success"><i class="fa-solid fa-lock"></i> Procesar Pago
+                        Seguro</button>
+                </div>
+            </form>
+        </div>
+    </div>
 
-    if (canvas && ctx) {
-        ctx.strokeStyle = '#0f172a';
-        ctx.lineWidth = 3;
-        ctx.lineJoin = 'round';
-        ctx.lineCap = 'round';
+    <script>
+        let activeInvoiceId = '';
+        const ownerUid = '{{ owner_uid }}';
+        const sandbox = {{ 'true' if sandbox else 'false' }};
 
-        canvas.addEventListener('mousedown', startDrawing);
-        canvas.addEventListener('mousemove', draw);
-        canvas.addEventListener('mouseup', stopDrawing);
-        canvas.addEventListener('mouseout', stopDrawing);
+        // Canvas Signature Logic
+        const canvas = document.getElementById('signature-pad');
+        const ctx = canvas ? canvas.getContext('2d') : null;
+        let drawing = false;
 
-        canvas.addEventListener('touchstart', (e) => {
-            const touch = e.touches[0];
-            startDrawing(getTouchPos(touch));
-        });
-        canvas.addEventListener('touchmove', (e) => {
-            const touch = e.touches[0];
-            draw(getTouchPos(touch));
+        if (canvas && ctx) {
+            ctx.strokeStyle = '#0f172a';
+            ctx.lineWidth = 3;
+            ctx.lineJoin = 'round';
+            ctx.lineCap = 'round';
+
+            canvas.addEventListener('mousedown', startDrawing);
+            canvas.addEventListener('mousemove', draw);
+            canvas.addEventListener('mouseup', stopDrawing);
+            canvas.addEventListener('mouseout', stopDrawing);
+
+            canvas.addEventListener('touchstart', (e) => {
+                const touch = e.touches[0];
+                startDrawing(getTouchPos(touch));
+            });
+            canvas.addEventListener('touchmove', (e) => {
+                const touch = e.touches[0];
+                draw(getTouchPos(touch));
+                e.preventDefault();
+            });
+            canvas.addEventListener('touchend', stopDrawing);
+        }
+
+        function getTouchPos(touch) {
+            const rect = canvas.getBoundingClientRect();
+            return {
+                clientX: touch.clientX,
+                clientY: touch.clientY
+            };
+        }
+
+        function startDrawing(e) {
+            drawing = true;
+            const rect = canvas.getBoundingClientRect();
+            const x = ((e.clientX || e.x) - rect.left) * (canvas.width / rect.width);
+            const y = ((e.clientY || e.y) - rect.top) * (canvas.height / rect.height);
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+        }
+
+        function draw(e) {
+            if (!drawing) return;
+            const rect = canvas.getBoundingClientRect();
+            const x = ((e.clientX || e.x) - rect.left) * (canvas.width / rect.width);
+            const y = ((e.clientY || e.y) - rect.top) * (canvas.height / rect.height);
+            ctx.lineTo(x, y);
+            ctx.stroke();
+        }
+
+        function stopDrawing() {
+            drawing = false;
+        }
+
+        function clearSignaturePad() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+
+        // Modal Control
+        function openSignatureModal(invoiceId) {
+            activeInvoiceId = invoiceId;
+            document.getElementById('signature-modal').style.display = 'flex';
+            clearSignaturePad();
+        }
+
+        function closeSignatureModal() {
+            document.getElementById('signature-modal').style.display = 'none';
+        }
+
+        function openPaymentModal(invoiceId, balance) {
+            document.getElementById('pay-invoice-id').value = invoiceId;
+            document.getElementById('pay-amount').value = balance.toFixed(2);
+            document.getElementById('payment-modal').style.display = 'flex';
+        }
+
+        function closePaymentModal() {
+            document.getElementById('payment-modal').style.display = 'none';
+        }
+
+        // Submissions
+        function submitSignature() {
+            const signatureImg = canvas.toDataURL();
+
+            fetch(`/portal/cliente/${ownerUid}/{{ client.id }}/cotizacion/${activeInvoiceId}/firmar?sandbox=${sandbox}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ signature: signatureImg })
+            })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        alert(data.message);
+                        location.reload();
+                    } else {
+                        alert('Error: ' + data.error);
+                    }
+                })
+                .catch(err => console.error(err));
+        }
+
+        function submitPayment(e) {
             e.preventDefault();
-        });
-        canvas.addEventListener('touchend', stopDrawing);
-    }
+            const invoiceId = document.getElementById('pay-invoice-id').value;
+            const amount = parseFloat(document.getElementById('pay-amount').value);
 
-    function getTouchPos(touch) {
-        const rect = canvas.getBoundingClientRect();
-        return {
-            clientX: touch.clientX,
-            clientY: touch.clientY
-        };
-    }
-
-    function startDrawing(e) {
-        drawing = true;
-        const rect = canvas.getBoundingClientRect();
-        const x = ((e.clientX || e.x) - rect.left) * (canvas.width / rect.width);
-        const y = ((e.clientY || e.y) - rect.top) * (canvas.height / rect.height);
-        ctx.beginPath();
-        ctx.moveTo(x, y);
-    }
-
-    function draw(e) {
-        if (!drawing) return;
-        const rect = canvas.getBoundingClientRect();
-        const x = ((e.clientX || e.x) - rect.left) * (canvas.width / rect.width);
-        const y = ((e.clientY || e.y) - rect.top) * (canvas.height / rect.height);
-        ctx.lineTo(x, y);
-        ctx.stroke();
-    }
-
-    function stopDrawing() {
-        drawing = false;
-    }
-
-    function clearSignaturePad() {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-    }
-
-    // Modal Control
-    function openSignatureModal(invoiceId) {
-        activeInvoiceId = invoiceId;
-        document.getElementById('signature-modal').style.display = 'flex';
-        clearSignaturePad();
-    }
-
-    function closeSignatureModal() {
-        document.getElementById('signature-modal').style.display = 'none';
-    }
-
-    function openPaymentModal(invoiceId, balance) {
-        document.getElementById('pay-invoice-id').value = invoiceId;
-        document.getElementById('pay-amount').value = balance.toFixed(2);
-        document.getElementById('payment-modal').style.display = 'flex';
-    }
-
-    function closePaymentModal() {
-        document.getElementById('payment-modal').style.display = 'none';
-    }
-
-    // Submissions
-    function submitSignature() {
-        const signatureImg = canvas.toDataURL();
-        
-        fetch(`/portal/cliente/${ownerUid}/{{ client.id }}/cotizacion/${activeInvoiceId}/firmar?sandbox=${sandbox}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ signature: signatureImg })
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data.success) {
-                alert(data.message);
-                location.reload();
-            } else {
-                alert('Error: ' + data.error);
-            }
-        })
-        .catch(err => console.error(err));
-    }
-
-    function submitPayment(e) {
-        e.preventDefault();
-        const invoiceId = document.getElementById('pay-invoice-id').value;
-        const amount = parseFloat(document.getElementById('pay-amount').value);
-        
-        fetch(`/portal/cliente/${ownerUid}/{{ client.id }}/pago/${invoiceId}?sandbox=${sandbox}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ amount: amount })
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data.success) {
-                alert(data.message);
-                location.reload();
-            } else {
-                alert('Error: ' + data.error);
-            }
-        })
-        .catch(err => console.error(err));
-    }
-</script>
+            fetch(`/portal/cliente/${ownerUid}/{{ client.id }}/pago/${invoiceId}?sandbox=${sandbox}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ amount: amount })
+            })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        alert(data.message);
+                        location.reload();
+                    } else {
+                        alert('Error: ' + data.error);
+                    }
+                })
+                .catch(err => console.error(err));
+        }
+    </script>
 
 </body>
+
 </html>

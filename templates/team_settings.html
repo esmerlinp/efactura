@@ -26,7 +26,7 @@
         <div
             style="background-color: rgba(30, 58, 138, 0.05); border: 1px dashed var(--border-color); border-radius: var(--radius-sm); padding: 16px; margin-bottom: 24px; text-align: center;">
             <span
-                style="font-size: 0.85rem; color: var(--text-secondary); display: block; margin-bottom: 8px; font-weight: 600;">
+                style="font-size: 0.85rem; color: var(--text-secondary); display: block; margin-bottom: 8px; font-weight: 500;">
                 <i class="fa-solid fa-key"></i> Código de Invitación para Colaboradores:
             </span>
             <div style="font-family: monospace; font-size: 1.15rem; font-weight: 700; color: var(--accent-purple); display: flex; align-items: center; justify-content: center; gap: 10px; cursor: pointer;"
@@ -44,8 +44,7 @@
             style="display: flex; flex-direction: column; gap: 16px; max-height: 600px; overflow-y: auto; padding-right: 5px;">
             {% if team %}
             {% for member in team %}
-            <div
-                style="background-color: rgba(255, 255, 255, 0.01); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 16px 20px; display: flex; flex-direction: column; gap: 12px; transition: all 0.2s ease;"
+            <div style="background-color: rgba(255, 255, 255, 0.01); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 16px 20px; display: flex; flex-direction: column; gap: 12px; transition: all 0.2s ease;"
                 onmouseover="this.style.backgroundColor='rgba(255, 255, 255, 0.02)'"
                 onmouseout="this.style.backgroundColor='rgba(255, 255, 255, 0.01)'">
                 <div style="display: flex; justify-content: space-between; align-items: flex-start;">
@@ -58,8 +57,8 @@
                     </div>
                     <div style="display: flex; gap: 8px;">
                         <button type="button" class="btn btn-secondary btn-edit-perms"
-                            style="padding: 8px 12px; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 6px;" data-uid="{{ member.uid }}"
-                            data-name="{{ member.name }}" data-email="{{ member.email }}"
+                            style="padding: 8px 12px; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 6px;"
+                            data-uid="{{ member.uid }}" data-name="{{ member.name }}" data-email="{{ member.email }}"
                             data-can-invoice="{{ 'true' if member.permissions.canInvoice else 'false' }}"
                             data-can-expenses="{{ 'true' if member.permissions.canExpenses else 'false' }}"
                             data-can-clients="{{ 'true' if member.permissions.canClients else 'false' }}"
@@ -80,7 +79,8 @@
                             onsubmit="return confirm('¿Seguro que deseas desvincular a este colaborador? Ya no podrá facturar ni ver tus datos.');"
                             style="display: inline;">
                             <button type="submit" class="btn btn-danger"
-                                style="padding: 8px 12px; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 6px;" title="Desvincular Colaborador">
+                                style="padding: 8px 12px; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 6px;"
+                                title="Desvincular Colaborador">
                                 <i class="fa-solid fa-user-minus"></i>
                                 <span>Desvincular</span>
                             </button>
@@ -91,7 +91,8 @@
             {% endfor %}
             {% else %}
             <div style="text-align: center; color: var(--text-muted); font-size: 0.9rem; padding: 40px 0;">
-                <i class="fa-solid fa-user-group" style="font-size: 2rem; color: var(--text-muted); opacity: 0.5; margin-bottom: 12px; display: block;"></i>
+                <i class="fa-solid fa-user-group"
+                    style="font-size: 2rem; color: var(--text-muted); opacity: 0.5; margin-bottom: 12px; display: block;"></i>
                 No has enlazado colaboradores a tu equipo aún.
             </div>
             {% endif %}
@@ -131,7 +132,7 @@
 
                 <div style="border-top: 1px solid var(--border-color); padding-top: 15px; margin-top: 5px;">
                     <label
-                        style="font-size: 0.88rem; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 12px;">
+                        style="font-size: 0.88rem; font-weight: 500; color: var(--text-secondary); display: block; margin-bottom: 12px;">
                         Permisos de Acceso Granulares
                     </label>
                     <div style="display: flex; flex-direction: column; gap: 10px;">
@@ -224,7 +225,8 @@
     <div class="modal-backdrop" id="perms-modal-backdrop"></div>
     <div class="modal-content" style="max-width: 480px;">
         <div class="modal-header">
-            <h3><i class="fa-solid fa-user-gear" style="color: var(--accent-purple);"></i> Editar Permisos de Colaborador</h3>
+            <h3><i class="fa-solid fa-user-gear" style="color: var(--accent-purple);"></i> Editar Permisos de
+                Colaborador</h3>
             <button type="button" class="btn-close-modal" id="btn-close-perms-modal"><i
                     class="fa-solid fa-xmark"></i></button>
         </div>
@@ -240,7 +242,7 @@
 
                 <div>
                     <label
-                        style="font-size: 0.88rem; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 12px;">
+                        style="font-size: 0.88rem; font-weight: 500; color: var(--text-secondary); display: block; margin-bottom: 12px;">
                         Permisos de Acceso Granulares
                     </label>
                     <div style="display: flex; flex-direction: column; gap: 10px;">

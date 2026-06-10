@@ -13,34 +13,41 @@
         padding: 0;
         margin: 0;
     }
+
     .premium-details summary::-webkit-details-marker {
         display: none;
     }
+
     .premium-details summary {
         display: flex;
         align-items: center;
         gap: 6px;
         color: var(--accent-purple);
         font-size: 0.75rem;
-        font-weight: 600;
+        font-weight: 500;
         cursor: pointer;
         user-select: none;
         outline: none;
         padding: 4px 0;
         transition: color var(--transition-fast);
     }
+
     .premium-details summary:hover {
         color: var(--accent-emerald);
     }
+
     .premium-details .details-icon {
         transition: transform var(--transition-fast);
     }
+
     .premium-details[open] .details-icon {
         transform: rotate(90deg);
     }
+
     .btn-copy {
         transition: color var(--transition-fast), background-color var(--transition-fast);
     }
+
     .btn-copy:hover {
         color: var(--accent-emerald) !important;
         background-color: rgba(255, 255, 255, 0.05) !important;
@@ -48,13 +55,13 @@
     }
 </style>
 {% set tipo_desc_map = {
-    'E31': 'Factura de Crédito Fiscal',
-    'E32': 'Factura de Consumo',
-    'E33': 'Nota de Débito',
-    'E34': 'Nota de Crédito',
-    'E41': 'Comprobante de Compras',
-    'E43': 'Gastos Menores',
-    'E47': 'Pagos al Exterior'
+'E31': 'Factura de Crédito Fiscal',
+'E32': 'Factura de Consumo',
+'E33': 'Nota de Débito',
+'E34': 'Nota de Crédito',
+'E41': 'Comprobante de Compras',
+'E43': 'Gastos Menores',
+'E47': 'Pagos al Exterior'
 } %}
 <!-- Rangos Autorizados por la DGII (Ancho Completo para mejor distribución) -->
 <div style="margin-bottom: 40px;">
@@ -65,20 +72,23 @@
                 <i class="fa-solid fa-arrow-down-9-1" style="color: var(--accent-emerald);"></i>
                 <span>Rangos Autorizados por la DGII</span>
             </div>
-            
+
             <div style="display: flex; align-items: center; gap: 15px; margin-left: auto;">
                 <!-- Control de Filtro Premium (Segmented Control) -->
-                <div style="display: flex; background: var(--bg-input); padding: 4px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); align-items: center; gap: 4px;">
-                    <button type="button" id="filter-available" class="btn" style="background: var(--accent-emerald); color: white; border: none; padding: 6px 14px; font-size: 0.8rem; height: 32px; border-radius: var(--radius-sm); cursor: pointer; transition: all var(--transition-fast); display: flex; align-items: center; gap: 6px; box-shadow: var(--shadow-sm); font-weight: 600; margin: 0;">
+                <div
+                    style="display: flex; background: var(--bg-input); padding: 4px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); align-items: center; gap: 4px;">
+                    <button type="button" id="filter-available" class="btn"
+                        style="background: var(--accent-emerald); color: white; border: none; padding: 6px 14px; font-size: 0.8rem; height: 32px; border-radius: var(--radius-sm); cursor: pointer; transition: all var(--transition-fast); display: flex; align-items: center; gap: 6px; box-shadow: var(--shadow-sm); font-weight: 500; margin: 0;">
                         <i class="fa-solid fa-circle-check"></i>
                         <span>Disponibles</span>
                     </button>
-                    <button type="button" id="filter-all" class="btn" style="background: transparent; color: var(--text-muted); border: none; padding: 6px 14px; font-size: 0.8rem; height: 32px; border-radius: var(--radius-sm); cursor: pointer; transition: all var(--transition-fast); display: flex; align-items: center; gap: 6px; font-weight: 600; margin: 0;">
+                    <button type="button" id="filter-all" class="btn"
+                        style="background: transparent; color: var(--text-muted); border: none; padding: 6px 14px; font-size: 0.8rem; height: 32px; border-radius: var(--radius-sm); cursor: pointer; transition: all var(--transition-fast); display: flex; align-items: center; gap: 6px; font-weight: 500; margin: 0;">
                         <i class="fa-solid fa-list"></i>
                         <span>Todos</span>
                     </button>
                 </div>
-                
+
                 <button type="button" id="btn-open-sequence-modal" class="btn btn-primary"
                     style="padding: 8px 18px; font-size: 0.85rem; height: 40px; margin: 0; box-sizing: border-box; display: flex; align-items: center; gap: 6px;">
                     <i class="fa-solid fa-plus-circle"></i>
@@ -87,19 +97,23 @@
             </div>
         </h3>
 
-        <div id="sequences-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px;">
+        <div id="sequences-grid"
+            style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px;">
             {% if sequences %}
             {% for seq in sequences %}
-            <div class="sequence-card" data-available="{% if seq.cantidadDisponible > 0 %}true{% else %}false{% endif %}"
+            <div class="sequence-card"
+                data-available="{% if seq.cantidadDisponible > 0 %}true{% else %}false{% endif %}"
                 style="background-color: rgba(255, 255, 255, 0.01); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 20px; position: relative; display: flex; flex-direction: column; justify-content: space-between;">
                 <div>
                     <div
                         style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
                         <div>
-                            <strong style="font-size: 1.1rem; color: var(--text-primary);">{{ seq.tipoComprobante }}</strong>
+                            <strong style="font-size: 1.1rem; color: var(--text-primary);">{{ seq.tipoComprobante
+                                }}</strong>
                             <span
                                 style="display: block; font-size: 0.78rem; color: var(--text-muted); margin-top: 4px;">
-                                Prefijo: <strong>{{ seq.prefijo }}</strong> — {{ tipo_desc_map.get(seq.prefijo, 'Comprobante Electrónico') }}
+                                Prefijo: <strong>{{ seq.prefijo }}</strong> — {{ tipo_desc_map.get(seq.prefijo,
+                                'Comprobante Electrónico') }}
                             </span>
                         </div>
                         <div style="text-align: right;">
@@ -137,7 +151,8 @@
                 </div>
             </div>
             {% endfor %}
-            <div id="empty-state-grid" style="display: none; grid-column: 1 / -1; text-align: center; color: var(--text-secondary); padding: 40px 0; flex-direction: column; align-items: center; justify-content: center; gap: 10px;">
+            <div id="empty-state-grid"
+                style="display: none; grid-column: 1 / -1; text-align: center; color: var(--text-secondary); padding: 40px 0; flex-direction: column; align-items: center; justify-content: center; gap: 10px;">
                 <i class="fa-solid fa-barcode"
                     style="font-size: 2.5rem; opacity: 0.4; margin-bottom: 4px; display: block;"></i>
                 <span>No hay secuencias fiscales con folios disponibles en este momento.</span>
@@ -265,29 +280,44 @@
                             <i class="fa-solid fa-chevron-right details-icon"></i>
                             <span>Ver detalles de transmisión (Payload / API)</span>
                         </summary>
-                        <div style="margin-top: 8px; display: flex; flex-direction: column; gap: 10px; cursor: default;">
+                        <div
+                            style="margin-top: 8px; display: flex; flex-direction: column; gap: 10px; cursor: default;">
                             {% if log.xmlEnviado %}
                             <div>
-                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-                                    <span style="font-size: 0.7rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase;">Payload Enviado (Alanube)</span>
-                                    <button type="button" class="btn-copy" onclick="event.stopPropagation(); const pre = this.parentElement.nextElementSibling; navigator.clipboard.writeText(pre.innerText); const icon = this.querySelector('i'); const span = this.querySelector('span'); icon.className = 'fa-solid fa-check'; span.innerText = 'Copiado'; setTimeout(() => { icon.className = 'fa-regular fa-copy'; span.innerText = 'Copiar'; }, 1500);" style="background: transparent; border: none; padding: 2px 6px; font-size: 0.75rem; color: var(--text-muted); cursor: pointer; display: flex; align-items: center; gap: 4px;" title="Copiar Payload">
+                                <div
+                                    style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                                    <span
+                                        style="font-size: 0.7rem; font-weight: 500; color: var(--text-secondary); text-transform: uppercase;">Payload
+                                        Enviado (Alanube)</span>
+                                    <button type="button" class="btn-copy"
+                                        onclick="event.stopPropagation(); const pre = this.parentElement.nextElementSibling; navigator.clipboard.writeText(pre.innerText); const icon = this.querySelector('i'); const span = this.querySelector('span'); icon.className = 'fa-solid fa-check'; span.innerText = 'Copiado'; setTimeout(() => { icon.className = 'fa-regular fa-copy'; span.innerText = 'Copiar'; }, 1500);"
+                                        style="background: transparent; border: none; padding: 2px 6px; font-size: 0.75rem; color: var(--text-muted); cursor: pointer; display: flex; align-items: center; gap: 4px;"
+                                        title="Copiar Payload">
                                         <i class="fa-regular fa-copy"></i>
                                         <span style="font-size: 0.7rem;">Copiar</span>
                                     </button>
                                 </div>
-                                <pre style="background: rgba(0, 0, 0, 0.2); border: 1px solid var(--border-color); border-radius: var(--radius-xs); padding: 8px; font-family: monospace; font-size: 0.7rem; color: var(--text-primary); overflow-x: auto; white-space: pre-wrap; word-break: break-all; max-height: 150px; margin: 0;">{{ log.xmlEnviado }}</pre>
+                                <pre
+                                    style="background: rgba(0, 0, 0, 0.2); border: 1px solid var(--border-color); border-radius: var(--radius-xs); padding: 8px; font-family: monospace; font-size: 0.7rem; color: var(--text-primary); overflow-x: auto; white-space: pre-wrap; word-break: break-all; max-height: 150px; margin: 0;">{{ log.xmlEnviado }}</pre>
                             </div>
                             {% endif %}
                             {% if log.respuestaDGII %}
                             <div>
-                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-                                    <span style="font-size: 0.7rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase;">Respuesta de API</span>
-                                    <button type="button" class="btn-copy" onclick="event.stopPropagation(); const pre = this.parentElement.nextElementSibling; navigator.clipboard.writeText(pre.innerText); const icon = this.querySelector('i'); const span = this.querySelector('span'); icon.className = 'fa-solid fa-check'; span.innerText = 'Copiado'; setTimeout(() => { icon.className = 'fa-regular fa-copy'; span.innerText = 'Copiar'; }, 1500);" style="background: transparent; border: none; padding: 2px 6px; font-size: 0.75rem; color: var(--text-muted); cursor: pointer; display: flex; align-items: center; gap: 4px;" title="Copiar Respuesta">
+                                <div
+                                    style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                                    <span
+                                        style="font-size: 0.7rem; font-weight: 500; color: var(--text-secondary); text-transform: uppercase;">Respuesta
+                                        de API</span>
+                                    <button type="button" class="btn-copy"
+                                        onclick="event.stopPropagation(); const pre = this.parentElement.nextElementSibling; navigator.clipboard.writeText(pre.innerText); const icon = this.querySelector('i'); const span = this.querySelector('span'); icon.className = 'fa-solid fa-check'; span.innerText = 'Copiado'; setTimeout(() => { icon.className = 'fa-regular fa-copy'; span.innerText = 'Copiar'; }, 1500);"
+                                        style="background: transparent; border: none; padding: 2px 6px; font-size: 0.75rem; color: var(--text-muted); cursor: pointer; display: flex; align-items: center; gap: 4px;"
+                                        title="Copiar Respuesta">
                                         <i class="fa-regular fa-copy"></i>
                                         <span style="font-size: 0.7rem;">Copiar</span>
                                     </button>
                                 </div>
-                                <pre style="background: rgba(0, 0, 0, 0.2); border: 1px solid var(--border-color); border-radius: var(--radius-xs); padding: 8px; font-family: monospace; font-size: 0.7rem; color: var(--text-primary); overflow-x: auto; white-space: pre-wrap; word-break: break-all; max-height: 150px; margin: 0;">{{ log.respuestaDGII }}</pre>
+                                <pre
+                                    style="background: rgba(0, 0, 0, 0.2); border: 1px solid var(--border-color); border-radius: var(--radius-xs); padding: 8px; font-family: monospace; font-size: 0.7rem; color: var(--text-primary); overflow-x: auto; white-space: pre-wrap; word-break: break-all; max-height: 150px; margin: 0;">{{ log.respuestaDGII }}</pre>
                             </div>
                             {% endif %}
                         </div>
@@ -433,7 +463,7 @@
                 filterAvailableBtn.style.backgroundColor = 'var(--accent-emerald)';
                 filterAvailableBtn.style.color = 'white';
                 filterAvailableBtn.style.boxShadow = 'var(--shadow-sm)';
-                
+
                 filterAllBtn.style.backgroundColor = 'transparent';
                 filterAllBtn.style.color = 'var(--text-muted)';
                 filterAllBtn.style.boxShadow = 'none';
@@ -441,7 +471,7 @@
                 filterAllBtn.style.backgroundColor = 'var(--accent-emerald)';
                 filterAllBtn.style.color = 'white';
                 filterAllBtn.style.boxShadow = 'var(--shadow-sm)';
-                
+
                 filterAvailableBtn.style.backgroundColor = 'transparent';
                 filterAvailableBtn.style.color = 'var(--text-muted)';
                 filterAvailableBtn.style.boxShadow = 'none';
@@ -451,7 +481,7 @@
         if (filterAvailableBtn && filterAllBtn) {
             filterAvailableBtn.addEventListener('click', () => applySequenceFilter('available'));
             filterAllBtn.addEventListener('click', () => applySequenceFilter('all'));
-            
+
             // Set default view to available
             applySequenceFilter('available');
         }

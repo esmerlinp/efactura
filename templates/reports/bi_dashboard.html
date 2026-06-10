@@ -13,55 +13,87 @@
         flex-direction: column;
         gap: 24px;
     }
+
     .bi-summary-cards {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-        gap: 20px;
-    }
-    .bi-card {
-        background: var(--bg-sidebar);
+        background: var(--bg-card);
         border: 1px solid var(--border-color);
         border-radius: var(--radius-md);
-        padding: 20px;
+        box-shadow: var(--shadow-sm);
+        display: flex;
+        margin-bottom: 30px;
+        overflow: hidden;
+        backdrop-filter: blur(20px);
+    }
+
+    .bi-card {
+        flex: 1;
+        padding: 16px 20px;
         display: flex;
         flex-direction: column;
         gap: 8px;
-        box-shadow: var(--shadow-sm);
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        border-right: 1px solid var(--border-color);
     }
-    .bi-card:hover {
-        transform: translateY(-2px);
-        box-shadow: var(--shadow-md);
+
+    .bi-card:last-child {
+        border-right: none;
     }
+
+    @media (max-width: 992px) {
+        .bi-summary-cards {
+            flex-direction: column;
+        }
+
+        .bi-card {
+            border-right: none;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .bi-card:last-child {
+            border-bottom: none;
+        }
+    }
+
     .bi-card-title {
-        font-size: 0.8rem;
-        text-transform: uppercase;
+        font-size: 0.72rem;
         color: var(--text-secondary);
         font-weight: 500;
-        letter-spacing: 0.05em;
+        display: flex;
+        align-items: center;
+        gap: 4px;
     }
+
     .bi-card-value {
-        font-size: 1.8rem;
+        font-size: 1.4rem;
         font-family: var(--font-heading);
-        font-weight: 600;
+        font-weight: 700;
         color: var(--text-primary);
+        line-height: 1.1;
     }
+
     .bi-card-trend {
-        font-size: 0.75rem;
+        font-size: 0.68rem;
         display: inline-flex;
         align-items: center;
         gap: 4px;
         font-weight: 500;
+        color: var(--text-muted);
     }
-    .trend-up { color: var(--accent-emerald); }
-    .trend-down { color: var(--accent-red); }
-    
+
+    .trend-up {
+        color: var(--accent-emerald);
+    }
+
+    .trend-down {
+        color: var(--accent-red);
+    }
+
     /* Tabs System */
     .bi-tabs {
         display: flex;
         border-bottom: 1px solid var(--border-color);
         gap: 16px;
     }
+
     .bi-tab-btn {
         background: transparent;
         border: none;
@@ -76,21 +108,25 @@
         align-items: center;
         gap: 8px;
     }
+
     .bi-tab-btn:hover {
         color: var(--text-primary);
     }
+
     .bi-tab-btn.active {
         color: var(--accent-emerald);
         border-bottom-color: var(--accent-emerald);
     }
+
     .bi-tab-content {
         display: none;
         animation: fadeIn 0.3s ease;
     }
+
     .bi-tab-content.active {
         display: block;
     }
-    
+
     /* Insights styles */
     .insight-card {
         padding: 16px;
@@ -103,54 +139,150 @@
         line-height: 1.5;
         background: rgba(255, 255, 255, 0.02);
     }
-    .insight-warning { border-left-color: var(--accent-yellow); border-top: 1px solid var(--border-color); border-bottom: 1px solid var(--border-color); border-right: 1px solid var(--border-color); }
-    .insight-danger { border-left-color: var(--accent-red); border-top: 1px solid var(--border-color); border-bottom: 1px solid var(--border-color); border-right: 1px solid var(--border-color); }
-    .insight-info { border-left-color: var(--accent-purple); border-top: 1px solid var(--border-color); border-bottom: 1px solid var(--border-color); border-right: 1px solid var(--border-color); }
-    .insight-success { border-left-color: var(--accent-emerald); border-top: 1px solid var(--border-color); border-bottom: 1px solid var(--border-color); border-right: 1px solid var(--border-color); }
-    
+
+    .insight-warning {
+        border-left-color: var(--accent-yellow);
+        border-top: 1px solid var(--border-color);
+        border-bottom: 1px solid var(--border-color);
+        border-right: 1px solid var(--border-color);
+    }
+
+    .insight-danger {
+        border-left-color: var(--accent-red);
+        border-top: 1px solid var(--border-color);
+        border-bottom: 1px solid var(--border-color);
+        border-right: 1px solid var(--border-color);
+    }
+
+    .insight-info {
+        border-left-color: var(--accent-purple);
+        border-top: 1px solid var(--border-color);
+        border-bottom: 1px solid var(--border-color);
+        border-right: 1px solid var(--border-color);
+    }
+
+    .insight-success {
+        border-left-color: var(--accent-emerald);
+        border-top: 1px solid var(--border-color);
+        border-bottom: 1px solid var(--border-color);
+        border-right: 1px solid var(--border-color);
+    }
+
     @keyframes fadeIn {
-        from { opacity: 0; transform: translateY(4px); }
-        to { opacity: 1; transform: translateY(0); }
+        from {
+            opacity: 0;
+            transform: translateY(4px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
     }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="bi-container">
-    <!-- Resumen Premium Superior -->
+    <!-- Resumen Premium Superior (Estilo OpenAI Dashboard) -->
     <div class="bi-summary-cards">
+        <!-- Ganancia Neta Real -->
         <div class="bi-card">
-            <span class="bi-card-title">Ganancia Neta Real</span>
-            <div class="bi-card-value" style="color: {% if net_profit_real >= 0 %}var(--accent-emerald){% else %}var(--accent-red){% endif %};">
+            <span class="bi-card-title">
+                Ganancia Neta Real <i class="fa-solid fa-chevron-right"
+                    style="font-size: 0.6rem; color: var(--text-muted); margin-left: 4px;"></i>
+            </span>
+            <div class="bi-card-value"
+                style="color: {% if net_profit_real >= 0 %}var(--accent-emerald){% else %}var(--accent-red){% endif %};">
                 RD$ {{ "{:,.2f}".format(net_profit_real) }}
             </div>
-            <span class="bi-card-trend {% if net_profit_real >= 0 %}trend-up{% else %}trend-down{% endif %}">
-                <i class="fa-solid {% if net_profit_real >= 0 %}fa-arrow-trend-up{% else %}fa-arrow-trend-down{% endif %}"></i>
-                Margen de Beneficio: {{ "{:,.1f}".format(profit_margin) }}%
+            <span class="bi-card-trend {% if net_profit_real >= 0 %}trend-up{% else %}trend-down{% endif %}"
+                style="font-size: 0.65rem;">
+                <i
+                    class="fa-solid {% if net_profit_real >= 0 %}fa-arrow-trend-up{% else %}fa-arrow-trend-down{% endif %}"></i>
+                Margen: {{ "{:,.1f}".format(profit_margin) }}%
             </span>
+            <div style="margin-top: auto; padding-top: 4px;">
+                <svg viewBox="0 0 120 20" style="width: 100%; height: 20px; display: block;">
+                    <path d="M0 18 C 15 18, 25 14, 45 10 C 65 6, 75 16, 95 4 C 105 -1, 112 12, 120 6" fill="none"
+                        stroke="var(--accent-emerald)" stroke-width="1.8" stroke-linecap="round"></path>
+                </svg>
+            </div>
         </div>
+
+        <!-- Ventas Netas (Subtotal) -->
         <div class="bi-card">
-            <span class="bi-card-title">Ventas Netas (Subtotal)</span>
-            <div class="bi-card-value">RD$ {{ "{:,.2f}".format(total_sales_net) }}</div>
-            <span class="bi-card-trend trend-up">
-                <i class="fa-solid fa-file-invoice-dollar"></i> Ingresos del Periodo
+            <span class="bi-card-title">
+                Ventas Netas (Subtotal) <i class="fa-solid fa-chevron-right"
+                    style="font-size: 0.6rem; color: var(--text-muted); margin-left: 4px;"></i>
             </span>
-        </div>
-        <div class="bi-card">
-            <span class="bi-card-title">Egresos & Compras Deducibles</span>
-            <div class="bi-card-value">RD$ {{ "{:,.2f}".format(total_expenses_net) }}</div>
-            <span class="bi-card-trend trend-down">
-                <i class="fa-solid fa-wallet"></i> Gastos del Periodo
+            <div class="bi-card-value">
+                RD$ {{ "{:,.2f}".format(total_sales_net) }}
+            </div>
+            <span class="bi-card-trend trend-up" style="font-size: 0.65rem;">
+                <i class="fa-solid fa-file-invoice-dollar"></i> Ingresos acumulados
             </span>
+            <div style="margin-top: auto; padding-top: 4px;">
+                <svg viewBox="0 0 120 20" style="width: 100%; height: 20px; display: block;">
+                    <g fill="#3b82f6" opacity="0.85">
+                        <rect x="5" y="14" width="4" height="6" rx="1"></rect>
+                        <rect x="15" y="12" width="4" height="8" rx="1"></rect>
+                        <rect x="25" y="15" width="4" height="5" rx="1"></rect>
+                        <rect x="35" y="9" width="4" height="11" rx="1"></rect>
+                        <rect x="45" y="11" width="4" height="9" rx="1"></rect>
+                        <rect x="55" y="16" width="4" height="4" rx="1"></rect>
+                        <rect x="65" y="8" width="4" height="12" rx="1"></rect>
+                        <rect x="75" y="4" width="4" height="16" rx="1"></rect>
+                        <rect x="85" y="10" width="4" height="10" rx="1"></rect>
+                        <rect x="95" y="13" width="4" height="7" rx="1"></rect>
+                        <rect x="105" y="6" width="4" height="14" rx="1"></rect>
+                        <rect x="115" y="9" width="4" height="11" rx="1"></rect>
+                    </g>
+                </svg>
+            </div>
         </div>
+
+        <!-- Egresos & Compras Deducibles -->
         <div class="bi-card">
-            <span class="bi-card-title">ITBIS Estimado a Pagar</span>
-            <div class="bi-card-value" style="color: {% if itbis_to_pay > 0 %}var(--accent-yellow){% else %}var(--accent-emerald){% endif %};">
+            <span class="bi-card-title">
+                Egresos & Compras <i class="fa-solid fa-chevron-right"
+                    style="font-size: 0.6rem; color: var(--text-muted); margin-left: 4px;"></i>
+            </span>
+            <div class="bi-card-value">
+                RD$ {{ "{:,.2f}".format(total_expenses_net) }}
+            </div>
+            <span class="bi-card-trend trend-down" style="font-size: 0.65rem;">
+                <i class="fa-solid fa-wallet"></i> Egresos acumulados
+            </span>
+            <div style="margin-top: auto; padding-top: 4px;">
+                <svg viewBox="0 0 120 20" style="width: 100%; height: 20px; display: block;">
+                    <path d="M0 8 C 15 12, 30 5, 45 15 C 60 22, 75 10, 90 18 C 105 10, 112 16, 120 12" fill="none"
+                        stroke="var(--accent-red)" stroke-width="1.8" stroke-linecap="round"></path>
+                </svg>
+            </div>
+        </div>
+
+        <!-- ITBIS Estimado a Pagar / Monitoreo DGII -->
+        <div class="bi-card">
+            <span class="bi-card-title">
+                ITBIS Estimado a Pagar <i class="fa-solid fa-chevron-right"
+                    style="font-size: 0.6rem; color: var(--text-muted); margin-left: 4px;"></i>
+            </span>
+            <div class="bi-card-value"
+                style="color: {% if itbis_to_pay > 0 %}var(--accent-yellow){% else %}var(--accent-emerald){% endif %};">
                 RD$ {{ "{:,.2f}".format(itbis_to_pay | abs) }}
             </div>
-            <span class="bi-card-trend">
-                <i class="fa-solid fa-scale-balanced"></i> {% if itbis_to_pay > 0 %}A Pagar a la DGII{% else %}Saldo a Favor{% endif %}
+            <span class="bi-card-trend" style="font-size: 0.65rem;">
+                <i class="fa-solid fa-scale-balanced"></i> {% if itbis_to_pay > 0 %}A Pagar a la DGII{% else %}Saldo a
+                Favor{% endif %}
             </span>
+            <div style="margin-top: auto; padding-top: 4px;">
+                <a href="{{ url_for('it1_diagnostic') }}" class="btn"
+                    style="padding: 3px 8px; font-size: 0.68rem; display: inline-flex; align-items: center; gap: 4px; height: 24px; border-radius: 20px; border: 1px solid var(--border-color); background: #ffffff; color: var(--text-primary); cursor: pointer; font-weight: 500; box-shadow: var(--shadow-sm); text-decoration: none;">
+                    <i class="fa-solid fa-receipt" style="color: var(--accent-emerald); font-size: 0.7rem;"></i>
+                    Diagnóstico IT-1
+                </a>
+            </div>
         </div>
     </div>
 
@@ -168,7 +300,8 @@
         <button class="bi-tab-btn" onclick="switchTab(event, 'smart-insights')">
             <i class="fa-solid fa-brain"></i> Smart Insights
             {% if insights|length > 0 and insights[0].type != 'success' %}
-            <span style="background: var(--accent-red); border-radius: 50%; width: 8px; height: 8px; display: inline-block;"></span>
+            <span
+                style="background: var(--accent-red); border-radius: 50%; width: 8px; height: 8px; display: inline-block;"></span>
             {% endif %}
         </button>
     </div>
@@ -178,7 +311,8 @@
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 10px;">
             <!-- Margen de Beneficio por Producto/Servicio -->
             <div class="card-table-wrapper" style="padding: 24px;">
-                <h4 style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+                <h4
+                    style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
                     <i class="fa-solid fa-cubes" style="color: var(--accent-emerald);"></i> Margen por Producto/Servicio
                 </h4>
                 <div style="overflow-x: auto;">
@@ -192,21 +326,23 @@
                         </thead>
                         <tbody>
                             {% if products_by_profit %}
-                                {% for prod in products_by_profit %}
-                                <tr>
-                                    <td>{{ prod.name }}</td>
-                                    <td style="text-align: right;">RD$ {{ "{:,.2f}".format(prod.revenue) }}</td>
-                                    <td style="text-align: right;">
-                                        <span class="badge {% if prod.margin >= 25 %}badge-success{% elif prod.margin >= 10 %}badge-warning{% else %}badge-danger{% endif %}">
-                                            {{ "{:,.1f}".format(prod.margin) }}%
-                                        </span>
-                                    </td>
-                                </tr>
-                                {% endfor %}
+                            {% for prod in products_by_profit %}
+                            <tr>
+                                <td>{{ prod.name }}</td>
+                                <td style="text-align: right;">RD$ {{ "{:,.2f}".format(prod.revenue) }}</td>
+                                <td style="text-align: right;">
+                                    <span
+                                        class="badge {% if prod.margin >= 25 %}badge-success{% elif prod.margin >= 10 %}badge-warning{% else %}badge-danger{% endif %}">
+                                        {{ "{:,.1f}".format(prod.margin) }}%
+                                    </span>
+                                </td>
+                            </tr>
+                            {% endfor %}
                             {% else %}
-                                <tr>
-                                    <td colspan="3" style="text-align: center; color: var(--text-muted); padding: 20px;">No hay datos de ventas con costos asociados.</td>
-                                </tr>
+                            <tr>
+                                <td colspan="3" style="text-align: center; color: var(--text-muted); padding: 20px;">No
+                                    hay datos de ventas con costos asociados.</td>
+                            </tr>
                             {% endif %}
                         </tbody>
                     </table>
@@ -215,7 +351,8 @@
 
             <!-- Clientes Más Rentables -->
             <div class="card-table-wrapper" style="padding: 24px;">
-                <h4 style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+                <h4
+                    style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
                     <i class="fa-solid fa-users" style="color: var(--accent-emerald);"></i> Clientes Más Rentables
                 </h4>
                 <div style="overflow-x: auto;">
@@ -229,17 +366,19 @@
                         </thead>
                         <tbody>
                             {% if clients_by_profit %}
-                                {% for cl in clients_by_profit %}
-                                <tr>
-                                    <td>{{ cl.name }}</td>
-                                    <td style="text-align: right;">RD$ {{ "{:,.2f}".format(cl.revenue) }}</td>
-                                    <td style="text-align: right; color: var(--accent-emerald); font-weight: 500;">RD$ {{ "{:,.2f}".format(cl.profit) }}</td>
-                                </tr>
-                                {% endfor %}
+                            {% for cl in clients_by_profit %}
+                            <tr>
+                                <td>{{ cl.name }}</td>
+                                <td style="text-align: right;">RD$ {{ "{:,.2f}".format(cl.revenue) }}</td>
+                                <td style="text-align: right; color: var(--accent-emerald); font-weight: 500;">RD$ {{
+                                    "{:,.2f}".format(cl.profit) }}</td>
+                            </tr>
+                            {% endfor %}
                             {% else %}
-                                <tr>
-                                    <td colspan="3" style="text-align: center; color: var(--text-muted); padding: 20px;">No hay datos de clientes registrados.</td>
-                                </tr>
+                            <tr>
+                                <td colspan="3" style="text-align: center; color: var(--text-muted); padding: 20px;">No
+                                    hay datos de clientes registrados.</td>
+                            </tr>
                             {% endif %}
                         </tbody>
                     </table>
@@ -251,11 +390,14 @@
     <!-- Pestaña 2: Flujo de Caja y Proyecciones -->
     <div id="cash-flow" class="bi-tab-content">
         <div class="card-table-wrapper" style="padding: 24px; margin-top: 10px;">
-            <h4 style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between;">
-                <span><i class="fa-solid fa-chart-line" style="color: var(--accent-emerald);"></i> Proyección de Flujo de Caja (Próximos 4 Meses)</span>
-                <span style="font-size: 0.8rem; color: var(--text-secondary); font-weight: normal;">Basado en fechas de vencimiento de CxC y CxP corrientes</span>
+            <h4
+                style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between;">
+                <span><i class="fa-solid fa-chart-line" style="color: var(--accent-emerald);"></i> Proyección de Flujo
+                    de Caja (Próximos 4 Meses)</span>
+                <span style="font-size: 0.8rem; color: var(--text-secondary); font-weight: normal;">Basado en fechas de
+                    vencimiento de CxC y CxP corrientes</span>
             </h4>
-            
+
             <div style="height: 300px; margin-bottom: 30px; position: relative;">
                 <canvas id="cashFlowChart"></canvas>
             </div>
@@ -275,9 +417,12 @@
                         {% for month in months_projection %}
                         <tr>
                             <td>{{ month.label }}</td>
-                            <td style="text-align: right; color: var(--accent-emerald);">RD$ {{ "{:,.2f}".format(month.inflow) }}</td>
-                            <td style="text-align: right; color: var(--accent-red);">RD$ {{ "{:,.2f}".format(month.outflow) }}</td>
-                            <td style="text-align: right; font-weight: 500; color: {% if month.net >= 0 %}var(--accent-emerald){% else %}var(--accent-red){% endif %};">
+                            <td style="text-align: right; color: var(--accent-emerald);">RD$ {{
+                                "{:,.2f}".format(month.inflow) }}</td>
+                            <td style="text-align: right; color: var(--accent-red);">RD$ {{
+                                "{:,.2f}".format(month.outflow) }}</td>
+                            <td
+                                style="text-align: right; font-weight: 500; color: {% if month.net >= 0 %}var(--accent-emerald){% else %}var(--accent-red){% endif %};">
                                 RD$ {{ "{:,.2f}".format(month.net) }}
                             </td>
                             <td style="text-align: right; font-weight: 500; background-color: rgba(255,255,255,0.01);">
@@ -296,89 +441,122 @@
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 10px;">
             <!-- Estimador de ITBIS y ISR Ordinario -->
             <div class="card-table-wrapper" style="padding: 24px; display: flex; flex-direction: column; gap: 16px;">
-                <h4 style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 4px; display: flex; align-items: center; gap: 8px;">
-                    <i class="fa-solid fa-receipt" style="color: var(--accent-emerald);"></i> Régimen General / Ordinario Est.
+                <h4
+                    style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 4px; display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-receipt" style="color: var(--accent-emerald);"></i> Régimen General /
+                    Ordinario Est.
                 </h4>
                 <p style="color: var(--text-secondary); font-size: 0.8rem; line-height: 1.4; margin-bottom: 8px;">
-                    Cálculo proyectado del Impuesto Sobre la Renta (ISR) para sociedades en la República Dominicana (Tasa de 27% sobre la base imponible real).
+                    Cálculo proyectado del Impuesto Sobre la Renta (ISR) para sociedades en la República Dominicana
+                    (Tasa de 27% sobre la base imponible real).
                 </p>
 
-                <div style="display: flex; flex-direction: column; gap: 12px; background: rgba(255,255,255,0.01); padding: 16px; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
+                <div
+                    style="display: flex; flex-direction: column; gap: 12px; background: rgba(255,255,255,0.01); padding: 16px; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
                     <div style="display: flex; justify-content: space-between; font-size: 0.9rem;">
                         <span>Ventas del Periodo (Netas):</span>
                         <span>RD$ {{ "{:,.2f}".format(total_sales_net) }}</span>
                     </div>
                     <div style="display: flex; justify-content: space-between; font-size: 0.9rem;">
                         <span>Gastos del Periodo:</span>
-                        <span style="color: var(--text-secondary);">- RD$ {{ "{:,.2f}".format(total_expenses_net) }}</span>
+                        <span style="color: var(--text-secondary);">- RD$ {{ "{:,.2f}".format(total_expenses_net)
+                            }}</span>
                     </div>
-                    <div style="display: flex; justify-content: space-between; font-size: 0.9rem; border-top: 1px dashed var(--border-color); padding-top: 8px;">
+                    <div
+                        style="display: flex; justify-content: space-between; font-size: 0.9rem; border-top: 1px dashed var(--border-color); padding-top: 8px;">
                         <span>Base Imponible Estimada:</span>
-                        <span>RD$ {{ "{:,.2f}".format(total_sales_net - total_expenses_net if total_sales_net - total_expenses_net > 0 else 0.0) }}</span>
+                        <span>RD$ {{ "{:,.2f}".format(total_sales_net - total_expenses_net if total_sales_net -
+                            total_expenses_net > 0 else 0.0) }}</span>
                     </div>
-                    <div style="display: flex; justify-content: space-between; font-size: 1.05rem; font-weight: 600; color: var(--accent-red); border-top: 1px solid var(--border-color); padding-top: 8px;">
+                    <div
+                        style="display: flex; justify-content: space-between; font-size: 1.05rem; font-weight: 500; color: var(--accent-red); border-top: 1px solid var(--border-color); padding-top: 8px;">
                         <span>ISR Estimado (27%):</span>
                         <span>RD$ {{ "{:,.2f}".format(isr_estimated) }}</span>
                     </div>
                 </div>
 
-                <div style="background: rgba(16, 185, 129, 0.05); padding: 14px; border-radius: var(--radius-sm); border: 1px solid rgba(16, 185, 129, 0.1); font-size: 0.8rem; line-height: 1.45;">
-                    <span style="color: var(--accent-emerald); display: block; margin-bottom: 4px; font-weight: 500;"><i class="fa-solid fa-calendar-days"></i> Cálculo de Anticipos Mensuales (Próximo Año)</span>
-                    Si este fuese el ISR liquidado final, tendrías que pagar 12 anticipos mensuales de aproximadamente: <span style="font-weight: 500;">RD$ {{ "{:,.2f}".format(anticipos_estimated) }}</span> cada uno.
+                <div
+                    style="background: rgba(16, 185, 129, 0.05); padding: 14px; border-radius: var(--radius-sm); border: 1px solid rgba(16, 185, 129, 0.1); font-size: 0.8rem; line-height: 1.45;">
+                    <span style="color: var(--accent-emerald); display: block; margin-bottom: 4px; font-weight: 500;"><i
+                            class="fa-solid fa-calendar-days"></i> Cálculo de Anticipos Mensuales (Próximo Año)</span>
+                    Si este fuese el ISR liquidado final, tendrías que pagar 12 anticipos mensuales de aproximadamente:
+                    <span style="font-weight: 500;">RD$ {{ "{:,.2f}".format(anticipos_estimated) }}</span> cada uno.
                 </div>
             </div>
 
             <!-- Simulador Comparativo RST (Régimen Simplificado de Tributación) -->
             <div class="card-table-wrapper" style="padding: 24px; display: flex; flex-direction: column; gap: 16px;">
-                <h4 style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 4px; display: flex; align-items: center; gap: 8px;">
-                    <i class="fa-solid fa-code-compare" style="color: var(--accent-purple);"></i> Simulador Comparador: RST vs Ordinario
+                <h4
+                    style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 4px; display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-code-compare" style="color: var(--accent-purple);"></i> Simulador Comparador:
+                    RST vs Ordinario
                 </h4>
                 <p style="color: var(--text-secondary); font-size: 0.8rem; line-height: 1.4; margin-bottom: 8px;">
-                    El RST exime de pagar anticipos e ITBIS en compras bajo ciertas condiciones, y calcula el impuesto de forma simplificada.
+                    El RST exime de pagar anticipos e ITBIS en compras bajo ciertas condiciones, y calcula el impuesto
+                    de forma simplificada.
                 </p>
 
                 <div style="display: flex; flex-direction: column; gap: 14px;">
                     <!-- RST Ingresos -->
-                    <div style="border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 14px; background: rgba(139, 92, 246, 0.03);">
-                        <span style="color: var(--accent-purple); font-size: 0.85rem; display: block; margin-bottom: 6px; font-weight: 500;">RST de Ingresos (Servicios y Profesionales)</span>
-                        <div style="display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 4px; color: var(--text-secondary);">
+                    <div
+                        style="border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 14px; background: rgba(139, 92, 246, 0.03);">
+                        <span
+                            style="color: var(--accent-purple); font-size: 0.85rem; display: block; margin-bottom: 6px; font-weight: 500;">RST
+                            de Ingresos (Servicios y Profesionales)</span>
+                        <div
+                            style="display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 4px; color: var(--text-secondary);">
                             <span>Deducción Automática (40%):</span>
                             <span>RD$ {{ "{:,.2f}".format(total_sales_net * 0.40) }}</span>
                         </div>
-                        <div style="display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 6px; color: var(--text-secondary);">
+                        <div
+                            style="display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 6px; color: var(--text-secondary);">
                             <span>Base Gravable (60%):</span>
                             <span>RD$ {{ "{:,.2f}".format(total_sales_net * 0.60) }}</span>
                         </div>
-                        <div style="display: flex; justify-content: space-between; font-size: 0.95rem; font-weight: 600;">
+                        <div
+                            style="display: flex; justify-content: space-between; font-size: 0.95rem; font-weight: 500;">
                             <span>ISR Estimado Simplificado:</span>
-                            <span style="color: var(--accent-purple);">RD$ {{ "{:,.2f}".format(rst_isr_estimated) }}</span>
+                            <span style="color: var(--accent-purple);">RD$ {{ "{:,.2f}".format(rst_isr_estimated)
+                                }}</span>
                         </div>
                     </div>
 
                     <!-- RST Compras -->
-                    <div style="border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 14px; background: rgba(139, 92, 246, 0.03);">
-                        <span style="color: var(--accent-purple); font-size: 0.85rem; display: block; margin-bottom: 6px; font-weight: 500;">RST de Compras (Comercio / Importación)</span>
-                        <div style="display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 4px; color: var(--text-secondary);">
+                    <div
+                        style="border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 14px; background: rgba(139, 92, 246, 0.03);">
+                        <span
+                            style="color: var(--accent-purple); font-size: 0.85rem; display: block; margin-bottom: 6px; font-weight: 500;">RST
+                            de Compras (Comercio / Importación)</span>
+                        <div
+                            style="display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 4px; color: var(--text-secondary);">
                             <span>Margen Bruto Estimado DGII:</span>
                             <span>26% Fijo</span>
                         </div>
-                        <div style="display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 6px; color: var(--text-secondary);">
+                        <div
+                            style="display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 6px; color: var(--text-secondary);">
                             <span>Ingresos Brutos Estimados:</span>
                             <span>RD$ {{ "{:,.2f}".format(total_expenses_net * 1.35) }}</span>
                         </div>
-                        <div style="display: flex; justify-content: space-between; font-size: 0.95rem; font-weight: 600;">
+                        <div
+                            style="display: flex; justify-content: space-between; font-size: 0.95rem; font-weight: 500;">
                             <span>ISR Estimado RST Compras:</span>
-                            <span style="color: var(--accent-purple);">RD$ {{ "{:,.2f}".format(total_expenses_net * 0.26 * 0.27) }}</span>
+                            <span style="color: var(--accent-purple);">RD$ {{ "{:,.2f}".format(total_expenses_net * 0.26
+                                * 0.27) }}</span>
                         </div>
                     </div>
                 </div>
 
-                <div style="background: rgba(239, 68, 68, 0.03); padding: 10px; border-radius: var(--radius-sm); border: 1px solid rgba(239, 68, 68, 0.1); font-size: 0.72rem; text-align: center; color: var(--text-secondary);">
-                    {% if rst_isr_estimated < isr_estimated %}
-                        💡 <span style="font-weight: 500;">Recomendación IA:</span> Para este volumen de ingresos, el <span style="font-weight: 500;">RST de Ingresos</span> te ahorraría aproximadamente <span style="font-weight: 500;">RD$ {{ "{:,.2f}".format(isr_estimated - rst_isr_estimated) }}</span>.
-                    {% else %}
-                        💡 <span style="font-weight: 500;">Recomendación IA:</span> El <span style="font-weight: 500;">Régimen General</span> te favorece actualmente debido a un alto nivel de egresos deducibles cargados.
-                    {% endif %}
+                <div
+                    style="background: rgba(239, 68, 68, 0.03); padding: 10px; border-radius: var(--radius-sm); border: 1px solid rgba(239, 68, 68, 0.1); font-size: 0.72rem; text-align: center; color: var(--text-secondary);">
+                    {% if rst_isr_estimated < isr_estimated %} 💡 <span style="font-weight: 500;">Recomendación
+                        IA:</span> Para este volumen de ingresos, el <span style="font-weight: 500;">RST de
+                            Ingresos</span> te ahorraría aproximadamente <span style="font-weight: 500;">RD$ {{
+                            "{:,.2f}".format(isr_estimated - rst_isr_estimated) }}</span>.
+                        {% else %}
+                        💡 <span style="font-weight: 500;">Recomendación IA:</span> El <span
+                            style="font-weight: 500;">Régimen General</span> te favorece actualmente debido a un alto
+                        nivel de egresos deducibles cargados.
+                        {% endif %}
                 </div>
             </div>
         </div>
@@ -386,26 +564,31 @@
 
     <!-- Pestaña 4: Smart Insights -->
     <div id="smart-insights" class="bi-tab-content">
-        <div class="card-table-wrapper" style="padding: 24px; margin-top: 10px; display: flex; flex-direction: column; gap: 16px;">
-            <h4 style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
-                <i class="fa-solid fa-lightbulb" style="color: var(--accent-yellow);"></i> Módulo de Smart Insights (Predictivo IA)
+        <div class="card-table-wrapper"
+            style="padding: 24px; margin-top: 10px; display: flex; flex-direction: column; gap: 16px;">
+            <h4
+                style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-lightbulb" style="color: var(--accent-yellow);"></i> Módulo de Smart Insights
+                (Predictivo IA)
             </h4>
             <p style="color: var(--text-secondary); font-size: 0.85rem; line-height: 1.5; margin-bottom: 12px;">
-                Nuestro algoritmo financiero evalúa tendencias de consumo de tus clientes recurrentes y facturación de cuentas por cobrar para advertirte sobre oportunidades y riesgos.
+                Nuestro algoritmo financiero evalúa tendencias de consumo de tus clientes recurrentes y facturación de
+                cuentas por cobrar para advertirte sobre oportunidades y riesgos.
             </p>
 
             <div style="display: flex; flex-direction: column; gap: 16px;">
                 {% for insight in insights %}
-                <div class="insight-card {% if insight.type == 'warning' %}insight-warning{% elif insight.type == 'danger' %}insight-danger{% elif insight.type == 'info' %}insight-info{% else %}insight-success{% endif %}">
+                <div
+                    class="insight-card {% if insight.type == 'warning' %}insight-warning{% elif insight.type == 'danger' %}insight-danger{% elif insight.type == 'info' %}insight-info{% else %}insight-success{% endif %}">
                     <div style="font-size: 1.3rem; margin-top: 2px;">
                         {% if insight.type == 'warning' %}
-                            💡
+                        💡
                         {% elif insight.type == 'danger' %}
-                            ⚠️
+                        ⚠️
                         {% elif insight.type == 'info' %}
-                            ℹ️
+                        ℹ️
                         {% else %}
-                            ✅
+                        ✅
                         {% endif %}
                     </div>
                     <div>
@@ -425,17 +608,17 @@
         for (let i = 0; i < contents.length; i++) {
             contents[i].classList.remove("active");
         }
-        
+
         // Quitar la clase active de todos los botones
         const buttons = document.getElementsByClassName("bi-tab-btn");
         for (let i = 0; i < buttons.length; i++) {
             buttons[i].classList.remove("active");
         }
-        
+
         // Mostrar la pestaña actual y marcar el botón como activo
         document.getElementById(tabId).classList.add("active");
         evt.currentTarget.classList.add("active");
-        
+
         // Redibujar gráfico si es la pestaña de Cash Flow
         if (tabId === 'cash-flow') {
             setTimeout(initializeChart, 50);
@@ -453,77 +636,77 @@
             cashFlowChartInstance.destroy();
         }
 
-        const labels = [{% for m in months_projection %}"{{ m.label }}",{% endfor %}];
-        const inflows = [{% for m in months_projection %}{{ m.inflow }},{% endfor %}];
-        const outflows = [{% for m in months_projection %}{{ m.outflow }},{% endfor %}];
-        const cumulative = [{% for m in months_projection %}{{ m.cumulative }},{% endfor %}];
+        const labels = [{% for m in months_projection %} "{{ m.label }}", {% endfor %}];
+    const inflows = [{% for m in months_projection %}{ { m.inflow } }, {% endfor %}];
+    const outflows = [{% for m in months_projection %}{ { m.outflow } }, {% endfor %}];
+    const cumulative = [{% for m in months_projection %}{ { m.cumulative } }, {% endfor %}];
 
-        cashFlowChartInstance = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: labels,
-                datasets: [
-                    {
-                        label: 'Entradas Proyectadas (RD$)',
-                        data: inflows,
-                        borderColor: '#10b981',
-                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                        fill: false,
-                        tension: 0.3
+    cashFlowChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: 'Entradas Proyectadas (RD$)',
+                    data: inflows,
+                    borderColor: '#10b981',
+                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                    fill: false,
+                    tension: 0.3
+                },
+                {
+                    label: 'Salidas Proyectadas (RD$)',
+                    data: outflows,
+                    borderColor: '#ef4444',
+                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                    fill: false,
+                    tension: 0.3
+                },
+                {
+                    label: 'Flujo Acumulado (RD$)',
+                    data: cumulative,
+                    borderColor: '#8b5cf6',
+                    backgroundColor: 'rgba(139, 92, 246, 0.15)',
+                    fill: true,
+                    tension: 0.3
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: {
+                        color: 'rgba(255, 255, 255, 0.05)'
                     },
-                    {
-                        label: 'Salidas Proyectadas (RD$)',
-                        data: outflows,
-                        borderColor: '#ef4444',
-                        backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                        fill: false,
-                        tension: 0.3
-                    },
-                    {
-                        label: 'Flujo Acumulado (RD$)',
-                        data: cumulative,
-                        borderColor: '#8b5cf6',
-                        backgroundColor: 'rgba(139, 92, 246, 0.15)',
-                        fill: true,
-                        tension: 0.3
-                    }
-                ]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        grid: {
-                            color: 'rgba(255, 255, 255, 0.05)'
-                        },
-                        ticks: {
-                            color: 'var(--text-secondary)'
-                        }
-                    },
-                    x: {
-                        grid: {
-                            color: 'rgba(255, 255, 255, 0.05)'
-                        },
-                        ticks: {
-                            color: 'var(--text-secondary)'
-                        }
+                    ticks: {
+                        color: 'var(--text-secondary)'
                     }
                 },
-                plugins: {
-                    legend: {
-                        labels: {
-                            color: 'var(--text-primary)'
-                        }
+                x: {
+                    grid: {
+                        color: 'rgba(255, 255, 255, 0.05)'
+                    },
+                    ticks: {
+                        color: 'var(--text-secondary)'
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    labels: {
+                        color: 'var(--text-primary)'
                     }
                 }
             }
-        });
+        }
+    });
     }
 
     // Inicializar el gráfico al cargar en caso de que sea visible directamente
-    document.addEventListener("DOMContentLoaded", function() {
+    document.addEventListener("DOMContentLoaded", function () {
         // Opcional
     });
 </script>

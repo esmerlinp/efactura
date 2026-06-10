@@ -6,7 +6,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const itemsTableBody = document.getElementById('invoice-items-body');
     const btnAddItem = document.getElementById('btn-add-item');
     const ecfTypeSelect = document.getElementById('ecf-type-select');
-    
+
     // Elementos de resumen global
     const lblSubtotalRaw = document.getElementById('lbl-subtotal-raw');
     const lblDiscount = document.getElementById('lbl-discount');
@@ -21,7 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const discountGlobalInput = document.getElementById('discount-global');
     const isrRateSelect = document.getElementById('isr-rate-select');
     const itbisRateSelect = document.getElementById('itbis-rate-select');
-    
+
     const clientRncInput = document.getElementById('client-rnc-input');
     const clientWarning = document.getElementById('client-warning');
     const submitBtn = document.getElementById('submit-invoice-btn');
@@ -55,7 +55,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const renderClients = (filterText = '') => {
         const query = filterText.toLowerCase().trim();
-        const filtered = crmClients.filter(c => 
+        const filtered = crmClients.filter(c =>
             c.razonSocial.toLowerCase().includes(query) ||
             (c.rnc || '').toLowerCase().includes(query) ||
             (c.email || '').toLowerCase().includes(query) ||
@@ -65,7 +65,7 @@ document.addEventListener('DOMContentLoaded', () => {
         modalClientListBody.innerHTML = filtered.map(c => `
             <tr style="border-bottom: 1px solid var(--border-color);">
                 <td style="padding: 14px 16px; vertical-align: middle;">
-                    <div style="font-weight: 600; font-size: 0.95rem; color: var(--text-primary); line-height: 1.3; max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${c.razonSocial}">
+                    <div style="font-weight: 500; font-size: 0.95rem; color: var(--text-primary); line-height: 1.3; max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${c.razonSocial}">
                         ${c.razonSocial}
                     </div>
                     <div style="font-family: monospace; font-size: 0.78rem; color: var(--text-muted); margin-top: 4px; display: flex; align-items: center; gap: 6px;">
@@ -101,7 +101,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 clientIdHidden.value = id;
                 clientSearchInput.value = `${name} (${rnc || 'Consumidor Final'})`;
                 if (clientRncInput) clientRncInput.value = rnc;
-                
+
                 closeClientModal();
                 validateTaxConstraints();
             });
@@ -249,19 +249,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const renderProducts = (filterText = '') => {
         const query = filterText.toLowerCase().trim();
-        const filtered = catalogItems.filter(p => 
+        const filtered = catalogItems.filter(p =>
             p.name.toLowerCase().includes(query) ||
             (p.code || '').toLowerCase().includes(query)
         );
 
         modalProductListBody.innerHTML = filtered.map(p => `
             <tr>
-                <td style="font-family: monospace; font-weight: 600;">${p.code || 'N/A'}</td>
+                <td style="font-family: monospace; font-weight: 500;">${p.code || 'N/A'}</td>
                 <td>
-                    <div style="font-weight: 600;">${p.name}</div>
+                    <div style="font-weight: 500;">${p.name}</div>
                     <div style="font-size: 0.75rem; color: var(--text-muted);">${p.type === 'service' ? 'Servicio' : 'Producto'}</div>
                 </td>
-                <td style="text-align: right; font-weight: 600;">${formatCurrencyDOP(p.price)}</td>
+                <td style="text-align: right; font-weight: 500;">${formatCurrencyDOP(p.price)}</td>
                 <td>${parseFloat(p.itbisRate * 100)}%</td>
                 <td style="text-align: center;">
                     <button type="button" class="btn btn-primary modal-row-btn btn-select-product" data-id="${p.id}" data-name="${p.name}" data-price="${p.price}" data-itbis="${p.itbisRate}" data-code="${p.code}">
@@ -271,88 +271,88 @@ document.addEventListener('DOMContentLoaded', () => {
             </tr>
         `).join('');
 
-         modalProductListBody.querySelectorAll('.btn-select-product').forEach(btn => {
+        modalProductListBody.querySelectorAll('.btn-select-product').forEach(btn => {
             btn.addEventListener('click', () => {
                 if (activeProductRow) {
-                     const id = btn.getAttribute('data-id');
-                     const name = btn.getAttribute('data-name');
-                     const price = btn.getAttribute('data-price');
-                     const itbis = btn.getAttribute('data-itbis');
-                     const code = btn.getAttribute('data-code');
+                    const id = btn.getAttribute('data-id');
+                    const name = btn.getAttribute('data-name');
+                    const price = btn.getAttribute('data-price');
+                    const itbis = btn.getAttribute('data-itbis');
+                    const code = btn.getAttribute('data-code');
 
-                     // Check if product is already in another row
-                     let duplicateRow = null;
-                     const rows = itemsTableBody.querySelectorAll('.item-row');
-                     rows.forEach(row => {
-                         if (row !== activeProductRow) {
-                             const existingIdInput = row.querySelector('.item-catalog-id-hidden');
-                             if (existingIdInput && existingIdInput.value === id) {
-                                 duplicateRow = row;
-                             }
-                         }
-                     });
+                    // Check if product is already in another row
+                    let duplicateRow = null;
+                    const rows = itemsTableBody.querySelectorAll('.item-row');
+                    rows.forEach(row => {
+                        if (row !== activeProductRow) {
+                            const existingIdInput = row.querySelector('.item-catalog-id-hidden');
+                            if (existingIdInput && existingIdInput.value === id) {
+                                duplicateRow = row;
+                            }
+                        }
+                    });
 
-                     if (duplicateRow) {
-                          // Increment quantity of existing row
-                          const qtyInput = duplicateRow.querySelector('.item-qty-input');
-                          if (qtyInput) {
-                              qtyInput.value = parseInt(qtyInput.value || 0) + 1;
-                          }
-                          
-                          // Remove the empty active row since the product was merged into an existing row
-                          if (rows.length > 1) {
-                              activeProductRow.remove();
-                              realignRowIndexes();
-                          } else {
-                              // If it is the only row, just reset inputs so it is clean
-                              const searchInput = activeProductRow.querySelector('.item-catalog-search-input');
-                              const catalogIdHidden = activeProductRow.querySelector('.item-catalog-id-hidden');
-                              const nameInput = activeProductRow.querySelector('.item-name-input');
-                              const priceInput = activeProductRow.querySelector('.item-price-input');
-                              const itbisSelect = activeProductRow.querySelector('.item-itbis-select');
-                              
-                              if (catalogIdHidden) catalogIdHidden.value = '';
-                              if (searchInput) searchInput.value = '';
-                              if (nameInput) nameInput.value = '';
-                              if (priceInput) priceInput.value = '0.00';
-                              if (itbisSelect) itbisSelect.value = '0.18';
-                          }
-                          
-                          closeProductModal();
-                          recalculateTotals();
-                          return;
-                     }
+                    if (duplicateRow) {
+                        // Increment quantity of existing row
+                        const qtyInput = duplicateRow.querySelector('.item-qty-input');
+                        if (qtyInput) {
+                            qtyInput.value = parseInt(qtyInput.value || 0) + 1;
+                        }
 
-                     const searchInput = activeProductRow.querySelector('.item-catalog-search-input');
-                     const catalogIdHidden = activeProductRow.querySelector('.item-catalog-id-hidden');
-                     const nameInput = activeProductRow.querySelector('.item-name-input');
-                     const priceInput = activeProductRow.querySelector('.item-price-input');
-                     const itbisSelect = activeProductRow.querySelector('.item-itbis-select');
+                        // Remove the empty active row since the product was merged into an existing row
+                        if (rows.length > 1) {
+                            activeProductRow.remove();
+                            realignRowIndexes();
+                        } else {
+                            // If it is the only row, just reset inputs so it is clean
+                            const searchInput = activeProductRow.querySelector('.item-catalog-search-input');
+                            const catalogIdHidden = activeProductRow.querySelector('.item-catalog-id-hidden');
+                            const nameInput = activeProductRow.querySelector('.item-name-input');
+                            const priceInput = activeProductRow.querySelector('.item-price-input');
+                            const itbisSelect = activeProductRow.querySelector('.item-itbis-select');
 
-                     catalogIdHidden.value = id;
-                     searchInput.value = `${name} (${code || 'N/A'})`;
-                     nameInput.value = name;
-                     priceInput.value = parseFloat(price).toFixed(2);
-                     itbisSelect.value = itbis;
+                            if (catalogIdHidden) catalogIdHidden.value = '';
+                            if (searchInput) searchInput.value = '';
+                            if (nameInput) nameInput.value = '';
+                            if (priceInput) priceInput.value = '0.00';
+                            if (itbisSelect) itbisSelect.value = '0.18';
+                        }
 
-                     // Buscar el producto en catalogItems para asociar campos del Impuesto Selectivo (ISC)
-                     const product = catalogItems.find(p => p.id === id || p.code === code);
-                     if (product) {
-                         activeProductRow.dataset.codigoImpuesto = product.codigoImpuesto || "";
-                         activeProductRow.dataset.tasaImpuestoAdicional = product.tasaImpuestoAdicional || 0.0;
-                         activeProductRow.dataset.gradosAlcohol = product.gradosAlcohol || 0.0;
-                         activeProductRow.dataset.cantidadReferencia = product.cantidadReferencia || 0.0;
-                         activeProductRow.dataset.subcantidad = product.subcantidad || 0.0;
-                         activeProductRow.dataset.precioReferencia = product.precioReferencia || 0.0;
-                     } else {
-                         activeProductRow.dataset.codigoImpuesto = "";
-                     }
+                        closeProductModal();
+                        recalculateTotals();
+                        return;
+                    }
 
-                     closeProductModal();
-                     recalculateTotals();
+                    const searchInput = activeProductRow.querySelector('.item-catalog-search-input');
+                    const catalogIdHidden = activeProductRow.querySelector('.item-catalog-id-hidden');
+                    const nameInput = activeProductRow.querySelector('.item-name-input');
+                    const priceInput = activeProductRow.querySelector('.item-price-input');
+                    const itbisSelect = activeProductRow.querySelector('.item-itbis-select');
+
+                    catalogIdHidden.value = id;
+                    searchInput.value = `${name} (${code || 'N/A'})`;
+                    nameInput.value = name;
+                    priceInput.value = parseFloat(price).toFixed(2);
+                    itbisSelect.value = itbis;
+
+                    // Buscar el producto en catalogItems para asociar campos del Impuesto Selectivo (ISC)
+                    const product = catalogItems.find(p => p.id === id || p.code === code);
+                    if (product) {
+                        activeProductRow.dataset.codigoImpuesto = product.codigoImpuesto || "";
+                        activeProductRow.dataset.tasaImpuestoAdicional = product.tasaImpuestoAdicional || 0.0;
+                        activeProductRow.dataset.gradosAlcohol = product.gradosAlcohol || 0.0;
+                        activeProductRow.dataset.cantidadReferencia = product.cantidadReferencia || 0.0;
+                        activeProductRow.dataset.subcantidad = product.subcantidad || 0.0;
+                        activeProductRow.dataset.precioReferencia = product.precioReferencia || 0.0;
+                    } else {
+                        activeProductRow.dataset.codigoImpuesto = "";
+                    }
+
+                    closeProductModal();
+                    recalculateTotals();
                 }
             });
-         });
+        });
     };
 
     const openProductModal = () => {
@@ -379,7 +379,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const rowIndex = itemsTableBody.children.length;
             const newRow = document.createElement('tr');
             newRow.className = 'item-row animate-fade-in';
-            
+
             newRow.innerHTML = `
                 <td>
                     <div style="position: relative; display: flex; gap: 6px; width: 100%;">
@@ -416,7 +416,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <button type="button" class="btn btn-danger btn-remove-row" style="padding: 8px 12px;"><i class="fa-solid fa-trash-can"></i></button>
                 </td>
             `;
-            
+
             itemsTableBody.appendChild(newRow);
             bindRowEvents(newRow);
             recalculateTotals();
@@ -491,19 +491,19 @@ document.addEventListener('DOMContentLoaded', () => {
         let totalIscEspecifico = 0.0;
         let totalIscAdvalorem = 0.0;
         let totalItemsQty = 0;
-        
+
         const rows = itemsTableBody.querySelectorAll('.item-row');
-        
+
         rows.forEach(row => {
             const price = parseFloat(row.querySelector('.item-price-input').value) || 0.0;
             const qty = parseInt(row.querySelector('.item-qty-input').value) || 1;
             const itbisRate = parseFloat(row.querySelector('.item-itbis-select').value) || 0.0;
             const itemDiscRate = parseFloat(row.querySelector('.item-discount-input').value) || 0.0;
-            
+
             const rowSubtotalRaw = price * qty;
             const rowDiscount = rowSubtotalRaw * itemDiscRate;
             const rowSubtotal = rowSubtotalRaw - rowDiscount;
-            
+
             // Cálculos dinámicos de Impuesto Selectivo al Consumo (ISC) en el frontend
             let iscEspecifico = 0.0;
             let iscAdvalorem = 0.0;
@@ -513,15 +513,15 @@ document.addEventListener('DOMContentLoaded', () => {
             const cantRef = parseFloat(row.dataset.cantidadReferencia) || 0.0;
             const subcant = parseFloat(row.dataset.subcantidad) || 0.0;
             const precioRef = parseFloat(row.dataset.precioReferencia) || 0.0;
-            
+
             // Calcular ISC Específico e ISC AdValorem simultáneamente para Alcoholes y Tabacos
             const isAlcohol = (codImp >= '006' && codImp <= '018') || (codImp >= '023' && codImp <= '035');
             const isTabaco = (codImp >= '019' && codImp <= '022') || (codImp >= '036' && codImp <= '039');
-            
+
             if (isAlcohol) {
                 const tasaEsp = (codImp >= '006' && codImp <= '018') ? tasaImp : 632.58;
                 iscEspecifico = tasaEsp * (gradosAlc / 100.0) * cantRef * subcant * qty;
-                
+
                 if (precioRef > 0.0) {
                     const tasaAdv = (codImp >= '023' && codImp <= '035') ? tasaImp : 0.10;
                     if (row.querySelector('.item-unit-select')?.value === 'Granel') {
@@ -539,7 +539,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (isTabaco) {
                 const tasaEsp = (codImp >= '019' && codImp <= '022') ? tasaImp : 2.50;
                 iscEspecifico = qty * cantRef * tasaEsp;
-                
+
                 if (precioRef > 0.0) {
                     const tasaAdv = (codImp >= '036' && codImp <= '039') ? tasaImp : 0.20;
                     const precioSinItbis = precioRef / (1.0 + itbisRate);
@@ -556,11 +556,11 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (codImp === '003' || codImp === '004') { // Seguros / Telecomunicaciones
                 iscAdvalorem = rowSubtotal * tasaImp;
             }
-            
+
             const rowIsc = iscEspecifico + iscAdvalorem;
             const rowITBIS = (rowSubtotal + rowIsc) * itbisRate; // El ISC forma parte de la base imponible del ITBIS
             const rowTotal = rowSubtotal + rowIsc + rowITBIS;
-            
+
             subtotalRaw += rowSubtotalRaw;
             totalDiscount += rowDiscount;
             totalITBIS += rowITBIS;
@@ -568,7 +568,7 @@ document.addEventListener('DOMContentLoaded', () => {
             totalIscEspecifico += iscEspecifico;
             totalIscAdvalorem += iscAdvalorem;
             totalItemsQty += qty;
-            
+
             row.querySelector('.item-total-label').textContent = formatCurrencyDOP(rowTotal);
         });
 
@@ -600,7 +600,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (lblDiscount) lblDiscount.textContent = formatCurrencyDOP(totalDiscount);
         if (lblSubtotal) lblSubtotal.textContent = formatCurrencyDOP(subtotal);
         if (lblITBIS) lblITBIS.textContent = formatCurrencyDOP(totalITBIS);
-        
+
         // Elementos dinámicos desagregados (desglosados)
         const lblTotalPropina = document.getElementById('lbl-total-propina');
         const lblTotalCdt = document.getElementById('lbl-total-cdt');
@@ -615,7 +615,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (lblTotalIsc) lblTotalIsc.textContent = formatCurrencyDOP(totalIsc);
         if (lblTotalIscEspecifico) lblTotalIscEspecifico.textContent = formatCurrencyDOP(totalIscEspecifico);
         if (lblTotalIscAdvalorem) lblTotalIscAdvalorem.textContent = formatCurrencyDOP(totalIscAdvalorem);
-        
+
         const totalImpuestosSum = totalITBIS + totalIsc + totalPropina + totalCdt;
         if (lblTotalImpuestos) lblTotalImpuestos.textContent = formatCurrencyDOP(totalImpuestosSum);
         if (lblTotalItemsQty) lblTotalItemsQty.textContent = formatCurrencyDOP(subtotalRaw);
@@ -631,7 +631,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 lblIscContainer.style.display = 'none';
             }
         }
-        
+
         if (lblTotal) lblTotal.textContent = formatCurrencyDOP(total);
         if (lblRetainedISR) lblRetainedISR.textContent = formatCurrencyDOP(retainedISR);
         if (lblRetainedITBIS) lblRetainedITBIS.textContent = formatCurrencyDOP(retainedITBIS);
@@ -693,7 +693,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             clientWarning.style.display = 'block';
                             clientWarning.style.color = '#10b981'; // Success emerald
                             disableSubmitButtons(false);
-                            
+
                             // Autocompletar la razón social en el input de búsqueda del cliente si está vacío o es por defecto
                             const clientSearchInput = document.getElementById('client-search-input');
                             if (clientSearchInput && (!clientSearchInput.value || clientSearchInput.value.includes('Consumidor Final'))) {

@@ -353,7 +353,7 @@ textarea {
     /* Indicador minimalista (Mismo color que el fondo general) */
     background-color: var(--bg-main);
     color: var(--text-primary);
-    font-weight: 600;
+    font-weight: 500;
 }
 
 .nav-item.active a i {
@@ -396,7 +396,7 @@ textarea {
 }
 
 .user-name {
-    font-weight: 600;
+    font-weight: 500;
     font-size: 0.88rem;
     white-space: nowrap;
     text-overflow: ellipsis;
@@ -607,11 +607,11 @@ body.sandbox-mode .environment-indicator {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 10px;
-    padding: 10px 20px;
+    gap: 8px;
+    padding: 6px 14px;
     font-weight: 500;
     font-family: var(--font-heading);
-    font-size: 0.875rem;
+    font-size: 0.78rem;
     border-radius: 4px;
     /* Classic structured corners */
     cursor: pointer;
@@ -1299,7 +1299,7 @@ body.sandbox-mode .segment-header-icon.emerald {
     color: #ffffff;
     padding: 8px 12px;
     font-size: 0.78rem;
-    font-weight: 600;
+    font-weight: 500;
     border-radius: var(--radius-sm);
     white-space: nowrap;
     opacity: 0;
@@ -1417,7 +1417,7 @@ body.sandbox-mode .segment-header-icon.emerald {
 
 .landing-menu-link {
     font-size: 0.95rem;
-    font-weight: 600;
+    font-weight: 500;
     color: var(--text-secondary);
     transition: all var(--transition-fast);
     position: relative;
@@ -1591,7 +1591,7 @@ body.sandbox-mode .segment-header-icon.emerald {
 .mockup-tab-btn {
     padding: 8px 16px;
     font-size: 0.85rem;
-    font-weight: 600;
+    font-weight: 500;
     color: var(--text-secondary);
     border-radius: var(--radius-sm);
     cursor: pointer;
@@ -1967,7 +1967,7 @@ body.sandbox-mode .segment-header-icon.emerald {
     align-items: center;
     gap: 16px;
     margin-bottom: 16px;
-    font-weight: 600;
+    font-weight: 500;
     font-size: 0.95rem;
 }
 

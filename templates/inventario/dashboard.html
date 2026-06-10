@@ -6,12 +6,14 @@
 
 {% block content %}
 <!-- Tarjeta Única de KPIs (Estilo Resumen Financiero) -->
-<div class="card-table-wrapper" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 24px; padding: 24px; margin-bottom: 30px; box-shadow: none;">
+<div class="card-table-wrapper"
+    style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 24px; padding: 24px; margin-bottom: 30px; box-shadow: none;">
 
     <!-- KPI 1: Almacenes -->
     <div style="display: flex; flex-direction: column; gap: 4px;">
         <span style="font-size: 0.8rem; color: var(--text-secondary);">Almacenes Activos</span>
-        <div style="font-size: 1.6rem; color: var(--accent-emerald); font-weight: 400; font-family: var(--font-heading); display: flex; align-items: center; gap: 8px;">
+        <div
+            style="font-size: 1.6rem; color: var(--accent-emerald); font-weight: 400; font-family: var(--font-heading); display: flex; align-items: center; gap: 8px;">
             <i class="fa-solid fa-square" style="font-size: 0.4rem; color: var(--accent-emerald);"></i>
             {{ warehouses | length }}
         </div>
@@ -21,7 +23,8 @@
     <!-- KPI 2: Catálogo Físico -->
     <div style="display: flex; flex-direction: column; gap: 4px;">
         <span style="font-size: 0.8rem; color: var(--text-secondary);">Catálogo Físico</span>
-        <div style="font-size: 1.6rem; color: var(--accent-purple); font-weight: 400; font-family: var(--font-heading); display: flex; align-items: center; gap: 8px;">
+        <div
+            style="font-size: 1.6rem; color: var(--accent-purple); font-weight: 400; font-family: var(--font-heading); display: flex; align-items: center; gap: 8px;">
             <i class="fa-solid fa-square" style="font-size: 0.4rem; color: var(--accent-purple);"></i>
             {{ items | length }}
         </div>
@@ -31,11 +34,12 @@
     <!-- KPI 3: Existencia Total -->
     {% set ns = namespace(total_units=0.0) %}
     {% for it in items %}
-        {% set ns.total_units = ns.total_units + (it.totalStock or 0.0) %}
+    {% set ns.total_units = ns.total_units + (it.totalStock or 0.0) %}
     {% endfor %}
     <div style="display: flex; flex-direction: column; gap: 4px;">
         <span style="font-size: 0.8rem; color: var(--text-secondary);">Existencia Total</span>
-        <div style="font-size: 1.6rem; color: var(--accent-magenta); font-weight: 400; font-family: var(--font-heading); display: flex; align-items: center; gap: 8px;">
+        <div
+            style="font-size: 1.6rem; color: var(--accent-magenta); font-weight: 400; font-family: var(--font-heading); display: flex; align-items: center; gap: 8px;">
             <i class="fa-solid fa-square" style="font-size: 0.4rem; color: var(--accent-magenta);"></i>
             {{ "{:,.2f}".format(ns.total_units) }}
         </div>
@@ -45,8 +49,10 @@
     <!-- KPI 4: Alertas -->
     <div style="display: flex; flex-direction: column; gap: 4px;">
         <span style="font-size: 0.8rem; color: var(--text-secondary);">Alertas Críticas</span>
-        <div style="font-size: 1.6rem; color: {% if low_stock_alerts %}var(--accent-red){% else %}var(--text-primary){% endif %}; font-weight: 400; font-family: var(--font-heading); display: flex; align-items: center; gap: 8px;">
-            <i class="fa-solid fa-square" style="font-size: 0.4rem; color: {% if low_stock_alerts %}var(--accent-red){% else %}var(--text-muted){% endif %};"></i>
+        <div
+            style="font-size: 1.6rem; color: {% if low_stock_alerts %}var(--accent-red){% else %}var(--text-primary){% endif %}; font-weight: 400; font-family: var(--font-heading); display: flex; align-items: center; gap: 8px;">
+            <i class="fa-solid fa-square"
+                style="font-size: 0.4rem; color: {% if low_stock_alerts %}var(--accent-red){% else %}var(--text-muted){% endif %};"></i>
             {{ low_stock_alerts | length }}
         </div>
         <span style="font-size: 0.75rem; color: var(--text-muted);">Artículos por debajo del mínimo</span>
@@ -64,7 +70,8 @@
         <i class="fa-solid fa-list-check"></i>
         <span>Kárdex (Movimientos)</span>
     </a>
-    <a href="{{ url_for('new_inventory_transaction') }}" class="btn btn-primary" style="padding: 12px 24px; font-weight: 600;">
+    <a href="{{ url_for('new_inventory_transaction') }}" class="btn btn-primary"
+        style="padding: 12px 24px; font-weight: 500;">
         <i class="fa-solid fa-shuffle"></i>
         <span>Ajuste / Transacción Manual</span>
     </a>
@@ -72,25 +79,34 @@
 
 <!-- Alertas de Stock Crítico -->
 {% if low_stock_alerts %}
-<div class="card-table-wrapper" style="border: 1px solid rgba(239, 68, 68, 0.2); background: rgba(239, 68, 68, 0.02); margin-bottom: 30px;">
-    <h3 style="font-size: 1.1rem; color: var(--accent-red); font-family: var(--font-heading); margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+<div class="card-table-wrapper"
+    style="border: 1px solid rgba(239, 68, 68, 0.2); background: rgba(239, 68, 68, 0.02); margin-bottom: 30px;">
+    <h3
+        style="font-size: 1.1rem; color: var(--accent-red); font-family: var(--font-heading); margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
         <i class="fa-solid fa-triangle-exclamation"></i>
         <span>Alertas de Abastecimiento Requerido</span>
     </h3>
-    <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 20px;">Los siguientes artículos se encuentran en un nivel inferior o igual a su stock de seguridad configurado:</p>
-    
+    <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 20px;">Los siguientes artículos se
+        encuentran en un nivel inferior o igual a su stock de seguridad configurado:</p>
+
     <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;">
         {% for item in low_stock_alerts %}
-        <div style="background-color: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 16px; display: flex; align-items: center; gap: 12px;">
-            <div style="background-color: rgba(239, 68, 68, 0.1); color: var(--accent-red); width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 0.9rem;">
+        <div
+            style="background-color: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 16px; display: flex; align-items: center; gap: 12px;">
+            <div
+                style="background-color: rgba(239, 68, 68, 0.1); color: var(--accent-red); width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 0.9rem;">
                 <i class="fa-solid fa-box"></i>
             </div>
             <div style="flex-grow: 1; overflow: hidden;">
-                <strong style="display: block; font-size: 0.9rem; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">{{ item.name }}</strong>
-                <span style="font-size: 0.78rem; color: var(--text-secondary);">Mínimo: {{ item.minStock }} {{ item.unit }} | Ubicación: {{ item.rackLocation or '—' }}</span>
+                <strong
+                    style="display: block; font-size: 0.9rem; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">{{
+                    item.name }}</strong>
+                <span style="font-size: 0.78rem; color: var(--text-secondary);">Mínimo: {{ item.minStock }} {{ item.unit
+                    }} | Ubicación: {{ item.rackLocation or '—' }}</span>
             </div>
             <div style="text-align: right;">
-                <span style="font-size: 1rem; font-weight: 800; color: var(--accent-red);">{{ "{:,.2f}".format(item.totalStock or 0.0) }}</span>
+                <span style="font-size: 1rem; font-weight: 800; color: var(--accent-red);">{{
+                    "{:,.2f}".format(item.totalStock or 0.0) }}</span>
                 <span style="font-size: 0.7rem; display: block; color: var(--text-muted);">Restante</span>
             </div>
         </div>
@@ -101,21 +117,32 @@
 
 <!-- Tabla General de Existencias Cruzadas -->
 <div class="card-table-wrapper">
-    <div class="table-header-row" style="display: flex; justify-content: space-between; align-items: center; gap: 20px; flex-wrap: wrap; margin-bottom: 24px;">
+    <div class="table-header-row"
+        style="display: flex; justify-content: space-between; align-items: center; gap: 20px; flex-wrap: wrap; margin-bottom: 24px;">
         <div>
-            <h3 style="font-size: 1.25rem; font-family: var(--font-heading); margin-bottom: 4px;">Inventario por Almacén</h3>
-            <p style="color: var(--text-secondary); font-size: 0.88rem;">Detalle cruzado del stock de cada producto físico en tus sucursales o depósitos.</p>
+            <h3 style="font-size: 1.25rem; font-family: var(--font-heading); margin-bottom: 4px;">Inventario por Almacén
+            </h3>
+            <p style="color: var(--text-secondary); font-size: 0.88rem;">Detalle cruzado del stock de cada producto
+                físico en tus sucursales o depósitos.</p>
         </div>
     </div>
 
     <!-- Filtros de Búsqueda Avanzada (Más compactos) -->
-    <div style="display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; background-color: transparent; align-items: center; border-bottom: 1px solid rgba(0, 0, 0, 0.05); padding-bottom: 12px;">
+    <div
+        style="display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; background-color: transparent; align-items: center; border-bottom: 1px solid rgba(0, 0, 0, 0.05); padding-bottom: 12px;">
         <div style="position: relative; flex-grow: 1; min-width: 280px; max-width: 350px;">
-            <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.85rem;"></i>
-            <input type="text" id="inventory-search" placeholder="Buscar por código, descripción o ubicación..." style="width: 100%; height: 34px; padding: 0 16px 0 38px; background-color: var(--bg-input); border: 1px solid transparent; border-radius: 20px; color: var(--text-primary); font-size: 0.85rem; transition: background-color var(--transition-fast);" onfocus="this.style.backgroundColor='#ffffff'; this.style.borderColor='var(--border-color)';" onblur="if(!this.value){this.style.backgroundColor='var(--bg-input)'; this.style.borderColor='transparent';}" oninput="applyFilters()">
+            <i class="fa-solid fa-magnifying-glass"
+                style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.85rem;"></i>
+            <input type="text" id="inventory-search" placeholder="Buscar por código, descripción o ubicación..."
+                style="width: 100%; height: 34px; padding: 0 16px 0 38px; background-color: var(--bg-input); border: 1px solid transparent; border-radius: 20px; color: var(--text-primary); font-size: 0.85rem; transition: background-color var(--transition-fast);"
+                onfocus="this.style.backgroundColor='#ffffff'; this.style.borderColor='var(--border-color)';"
+                onblur="if(!this.value){this.style.backgroundColor='var(--bg-input)'; this.style.borderColor='transparent';}"
+                oninput="applyFilters()">
         </div>
         <div style="min-width: 200px;">
-            <select id="stock-filter" style="width: 100%; height: 34px; padding: 0 10px; background-color: transparent; border: 1px solid transparent; border-bottom: 1px solid var(--border-color); color: var(--text-secondary); font-size: 0.85rem; cursor: pointer; outline: none;" onchange="applyFilters()">
+            <select id="stock-filter"
+                style="width: 100%; height: 34px; padding: 0 10px; background-color: transparent; border: 1px solid transparent; border-bottom: 1px solid var(--border-color); color: var(--text-secondary); font-size: 0.85rem; cursor: pointer; outline: none;"
+                onchange="applyFilters()">
                 <option value="all">Todo el Inventario</option>
                 <option value="low-stock">⚠️ Stock Bajo / Alerta</option>
                 <option value="in-stock">Disponible</option>
@@ -139,64 +166,76 @@
             </thead>
             <tbody>
                 {% if items %}
-                    {% for item in items %}
-                    <tr class="inventory-row" 
-                        data-name="{{ item.name | lower }}" 
-                        data-code="{{ (item.code or '') | lower }}" 
-                        data-barcode="{{ (item.barcode or '') | lower }}" 
-                        data-rack="{{ (item.rackLocation or '') | lower }}"
-                        data-stock-low="{% if item.totalStock <= item.minStock and item.minStock > 0 %}true{% else %}false{% endif %}">
-                        <td>
-                            <span style="font-family: monospace; font-size: 0.85rem; background-color: var(--bg-input); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-color); display: block; margin-bottom: 4px; text-align: center;">
-                                {{ item.code or 'S/C' }}
-                            </span>
-                            {% if item.barcode %}
-                            <span style="font-size: 0.75rem; color: var(--text-secondary); display: block; text-align: center;">
-                                <i class="fa-solid fa-barcode"></i> {{ item.barcode }}
-                            </span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            <span style="display: block;">{{ item.name }}</span>
-                            <small style="color: var(--text-secondary); font-size: 0.75rem;">Categoría: {{ item.categoryId | capitalize if item.categoryId else 'General' }} | Unidad: {{ item.unit }}</small>
-                        </td>
-                        <td>
-                            <span style="font-size: 0.88rem; color: var(--text-secondary); font-weight: 500;">
-                                <i class="fa-solid fa-location-dot" style="font-size: 0.78rem; margin-right: 4px; color: var(--accent-purple);"></i>
-                                {{ item.rackLocation or '—' }}
-                            </span>
-                        </td>
-                        <!-- Stock por cada Almacén -->
-                        {% for wh in warehouses %}
-                        <td style="text-align: right;">
-                            {% set qty = item.warehouse_stocks.get(wh.id, 0.0) %}
-                            <span style="font-weight: 500; color: {% if qty < 0 %}var(--accent-red){% elif qty == 0 %}var(--text-muted){% else %}inherit{% endif %};">
-                                {{ "{:,.2f}".format(qty) }}
-                            </span>
-                        </td>
-                        {% endfor %}
-                        <td style="text-align: right;">
-                            <span class="badge {% if item.totalStock <= item.minStock and item.minStock > 0 %}badge-danger{% else %}badge-success{% endif %}" style="font-weight: 800; font-size: 0.88rem; padding: 6px 12px;">
-                                {{ "{:,.2f}".format(item.totalStock or 0.0) }} {{ item.unit }}
-                            </span>
-                        </td>
-                    </tr>
+                {% for item in items %}
+                <tr class="inventory-row" data-name="{{ item.name | lower }}"
+                    data-code="{{ (item.code or '') | lower }}" data-barcode="{{ (item.barcode or '') | lower }}"
+                    data-rack="{{ (item.rackLocation or '') | lower }}"
+                    data-stock-low="{% if item.totalStock <= item.minStock and item.minStock > 0 %}true{% else %}false{% endif %}">
+                    <td>
+                        <span
+                            style="font-family: monospace; font-size: 0.85rem; background-color: var(--bg-input); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-color); display: block; margin-bottom: 4px; text-align: center;">
+                            {{ item.code or 'S/C' }}
+                        </span>
+                        {% if item.barcode %}
+                        <span
+                            style="font-size: 0.75rem; color: var(--text-secondary); display: block; text-align: center;">
+                            <i class="fa-solid fa-barcode"></i> {{ item.barcode }}
+                        </span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <span style="display: block;">{{ item.name }}</span>
+                        <small style="color: var(--text-secondary); font-size: 0.75rem;">Categoría: {{ item.categoryId |
+                            capitalize if item.categoryId else 'General' }} | Unidad: {{ item.unit }}</small>
+                    </td>
+                    <td>
+                        <span style="font-size: 0.88rem; color: var(--text-secondary); font-weight: 500;">
+                            <i class="fa-solid fa-location-dot"
+                                style="font-size: 0.78rem; margin-right: 4px; color: var(--accent-purple);"></i>
+                            {{ item.rackLocation or '—' }}
+                        </span>
+                    </td>
+                    <!-- Stock por cada Almacén -->
+                    {% for wh in warehouses %}
+                    <td style="text-align: right;">
+                        {% set qty = item.warehouse_stocks.get(wh.id, 0.0) %}
+                        <span
+                            style="font-weight: 500; color: {% if qty < 0 %}var(--accent-red){% elif qty == 0 %}var(--text-muted){% else %}inherit{% endif %};">
+                            {{ "{:,.2f}".format(qty) }}
+                        </span>
+                    </td>
                     {% endfor %}
+                    <td style="text-align: right;">
+                        <span
+                            class="badge {% if item.totalStock <= item.minStock and item.minStock > 0 %}badge-danger{% else %}badge-success{% endif %}"
+                            style="font-weight: 800; font-size: 0.88rem; padding: 6px 12px;">
+                            {{ "{:,.2f}".format(item.totalStock or 0.0) }} {{ item.unit }}
+                        </span>
+                    </td>
+                </tr>
+                {% endfor %}
                 {% else %}
-                    <tr id="no-items-placeholder">
-                        <td colspan="{{ 4 + (warehouses | length) }}" style="text-align: center; padding: 60px 0; color: var(--text-secondary);">
-                            <i class="fa-solid fa-warehouse" style="font-size: 3rem; color: var(--text-muted); margin-bottom: 16px; opacity: 0.5; display: block;"></i>
-                            <span>No hay bienes físicos registrados en el catálogo.</span>
-                            <p style="font-size: 0.82rem; color: var(--text-muted); margin-top: 5px;">Solo los artículos marcados como **Bien / Producto Físico** tienen control de almacenes.</p>
-                            <a href="{{ url_for('new_item') }}" style="color: var(--accent-emerald); font-weight: 600; display: block; margin-top: 15px;">Ir a Catálogo a Crear Producto</a>
-                        </td>
-                    </tr>
+                <tr id="no-items-placeholder">
+                    <td colspan="{{ 4 + (warehouses | length) }}"
+                        style="text-align: center; padding: 60px 0; color: var(--text-secondary);">
+                        <i class="fa-solid fa-warehouse"
+                            style="font-size: 3rem; color: var(--text-muted); margin-bottom: 16px; opacity: 0.5; display: block;"></i>
+                        <span>No hay bienes físicos registrados en el catálogo.</span>
+                        <p style="font-size: 0.82rem; color: var(--text-muted); margin-top: 5px;">Solo los artículos
+                            marcados como **Bien / Producto Físico** tienen control de almacenes.</p>
+                        <a href="{{ url_for('new_item') }}"
+                            style="color: var(--accent-emerald); font-weight: 500; display: block; margin-top: 15px;">Ir
+                            a Catálogo a Crear Producto</a>
+                    </td>
+                </tr>
                 {% endif %}
-                
+
                 <!-- Fila oculta de búsqueda sin resultados -->
                 <tr id="no-results-row" style="display: none;">
-                    <td colspan="{{ 4 + (warehouses | length) }}" style="text-align: center; padding: 60px 0; color: var(--text-secondary);">
-                        <i class="fa-solid fa-magnifying-glass" style="font-size: 3rem; color: var(--text-muted); margin-bottom: 16px; opacity: 0.5; display: block;"></i>
+                    <td colspan="{{ 4 + (warehouses | length) }}"
+                        style="text-align: center; padding: 60px 0; color: var(--text-secondary);">
+                        <i class="fa-solid fa-magnifying-glass"
+                            style="font-size: 3rem; color: var(--text-muted); margin-bottom: 16px; opacity: 0.5; display: block;"></i>
                         <span>No se encontraron artículos en almacén que coincidan con la búsqueda.</span>
                     </td>
                 </tr>
@@ -205,14 +244,17 @@
     </div>
 
     <!-- Paginador General (Con selector de tamaño de página) -->
-    <div id="pagination-wrapper" style="display: flex; justify-content: space-between; align-items: center; margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--border-color); flex-wrap: wrap; gap: 15px;">
+    <div id="pagination-wrapper"
+        style="display: flex; justify-content: space-between; align-items: center; margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--border-color); flex-wrap: wrap; gap: 15px;">
         <div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
             <span style="font-size: 0.88rem; color: var(--text-secondary);" id="pagination-info">
                 Mostrando 0-0 de 0 artículos
             </span>
-            <span style="font-size: 0.88rem; color: var(--text-muted); display: inline-flex; align-items: center; gap: 8px;">
+            <span
+                style="font-size: 0.88rem; color: var(--text-muted); display: inline-flex; align-items: center; gap: 8px;">
                 <span style="opacity: 0.5;">|</span> Mostrar:
-                <select id="page-size-selector" style="height: 30px; padding: 0 8px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background-color: var(--bg-input); color: var(--text-primary); font-size: 0.82rem; font-weight: 600; cursor: pointer; transition: border-color var(--transition-fast);">
+                <select id="page-size-selector"
+                    style="height: 30px; padding: 0 8px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background-color: var(--bg-input); color: var(--text-primary); font-size: 0.82rem; font-weight: 500; cursor: pointer; transition: border-color var(--transition-fast);">
                     <option value="5" selected>5</option>
                     <option value="10">10</option>
                     <option value="15">15</option>
@@ -230,162 +272,162 @@
 
 {% block extra_scripts %}
 <script>
-// ==========================================
-// Lógica de Paginación y Filtrado del Grid
-// ==========================================
-let itemsPerPage = 5; // Por defecto 5 items
-let currentPage = 1;
-let filteredRows = [];
+    // ==========================================
+    // Lógica de Paginación y Filtrado del Grid
+    // ==========================================
+    let itemsPerPage = 5; // Por defecto 5 items
+    let currentPage = 1;
+    let filteredRows = [];
 
-function getRowsArray() {
-    return Array.from(document.querySelectorAll('.inventory-row'));
-}
-
-function applyFilters() {
-    const searchVal = document.getElementById('inventory-search').value.toLowerCase().trim();
-    const stockVal = document.getElementById('stock-filter').value;
-    
-    const rows = getRowsArray();
-    if (rows.length === 0) return;
-
-    filteredRows = rows.filter(row => {
-        // 1. Filtrado por texto de búsqueda
-        const code = (row.getAttribute('data-code') || '').toLowerCase();
-        const barcode = (row.getAttribute('data-barcode') || '').toLowerCase();
-        const name = (row.getAttribute('data-name') || '').toLowerCase();
-        const rack = (row.getAttribute('data-rack') || '').toLowerCase();
-        const matchesSearch = code.includes(searchVal) || barcode.includes(searchVal) || name.includes(searchVal) || rack.includes(searchVal);
-        
-        // 2. Filtrado por stock
-        const isLowStock = row.getAttribute('data-stock-low') === 'true';
-        let matchesStock = true;
-        if (stockVal === 'low-stock') {
-            matchesStock = isLowStock;
-        } else if (stockVal === 'in-stock') {
-            matchesStock = !isLowStock;
-        }
-        
-        return matchesSearch && matchesStock;
-    });
-
-    currentPage = 1;
-    renderTable();
-}
-
-function renderTable() {
-    const rows = getRowsArray();
-    const totalItems = filteredRows.length;
-    const noResultsRow = document.getElementById('no-results-row');
-    const paginationWrapper = document.getElementById('pagination-wrapper');
-
-    // Ocultar todos los registros inicialmente
-    rows.forEach(r => r.style.display = 'none');
-
-    if (totalItems === 0) {
-        if (noResultsRow) noResultsRow.style.display = 'table-row';
-        if (paginationWrapper) paginationWrapper.style.display = 'none';
-        return;
+    function getRowsArray() {
+        return Array.from(document.querySelectorAll('.inventory-row'));
     }
 
-    if (noResultsRow) noResultsRow.style.display = 'none';
-    if (paginationWrapper) paginationWrapper.style.display = 'flex';
+    function applyFilters() {
+        const searchVal = document.getElementById('inventory-search').value.toLowerCase().trim();
+        const stockVal = document.getElementById('stock-filter').value;
 
-    const totalPages = Math.ceil(totalItems / itemsPerPage);
-    
-    // Ajustar límites de página actual
-    if (currentPage > totalPages) currentPage = totalPages;
-    if (currentPage < 1) currentPage = 1;
+        const rows = getRowsArray();
+        if (rows.length === 0) return;
 
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    const endIndex = Math.min(startIndex + itemsPerPage, totalItems);
+        filteredRows = rows.filter(row => {
+            // 1. Filtrado por texto de búsqueda
+            const code = (row.getAttribute('data-code') || '').toLowerCase();
+            const barcode = (row.getAttribute('data-barcode') || '').toLowerCase();
+            const name = (row.getAttribute('data-name') || '').toLowerCase();
+            const rack = (row.getAttribute('data-rack') || '').toLowerCase();
+            const matchesSearch = code.includes(searchVal) || barcode.includes(searchVal) || name.includes(searchVal) || rack.includes(searchVal);
 
-    // Mostrar solo los elementos de la página actual
-    for (let i = startIndex; i < endIndex; i++) {
-        if (filteredRows[i]) filteredRows[i].style.display = 'table-row';
-    }
+            // 2. Filtrado por stock
+            const isLowStock = row.getAttribute('data-stock-low') === 'true';
+            let matchesStock = true;
+            if (stockVal === 'low-stock') {
+                matchesStock = isLowStock;
+            } else if (stockVal === 'in-stock') {
+                matchesStock = !isLowStock;
+            }
 
-    // Actualizar texto informativo de paginación
-    const infoSpan = document.getElementById('pagination-info');
-    if (infoSpan) {
-        infoSpan.textContent = `Mostrando ${startIndex + 1}-${endIndex} de ${totalItems} artículos`;
-    }
+            return matchesSearch && matchesStock;
+        });
 
-    // Renderizar botones de paginación
-    renderPaginationButtons(totalPages);
-}
-
-function renderPaginationButtons(totalPages) {
-    const container = document.getElementById('pagination-buttons');
-    if (!container) return;
-    container.innerHTML = '';
-
-    if (totalPages <= 1) return;
-
-    // Botón Anterior
-    const prevBtn = document.createElement('button');
-    prevBtn.className = 'btn btn-secondary';
-    prevBtn.style.padding = '8px 12px';
-    prevBtn.style.fontSize = '0.82rem';
-    prevBtn.disabled = currentPage === 1;
-    prevBtn.innerHTML = '<i class="fa-solid fa-chevron-left"></i>';
-    prevBtn.addEventListener('click', () => {
-        currentPage--;
+        currentPage = 1;
         renderTable();
-    });
-    container.appendChild(prevBtn);
+    }
 
-    // Páginas Numeradas
-    for (let i = 1; i <= totalPages; i++) {
-        const pageBtn = document.createElement('button');
-        pageBtn.style.padding = '8px 14px';
-        pageBtn.style.fontSize = '0.82rem';
-        pageBtn.style.fontWeight = 'bold';
-        pageBtn.style.borderRadius = 'var(--radius-sm)';
-        pageBtn.style.cursor = 'pointer';
-        
-        if (i === currentPage) {
-            pageBtn.className = 'btn btn-primary';
-            pageBtn.style.boxShadow = 'none';
-        } else {
-            pageBtn.className = 'btn btn-secondary';
+    function renderTable() {
+        const rows = getRowsArray();
+        const totalItems = filteredRows.length;
+        const noResultsRow = document.getElementById('no-results-row');
+        const paginationWrapper = document.getElementById('pagination-wrapper');
+
+        // Ocultar todos los registros inicialmente
+        rows.forEach(r => r.style.display = 'none');
+
+        if (totalItems === 0) {
+            if (noResultsRow) noResultsRow.style.display = 'table-row';
+            if (paginationWrapper) paginationWrapper.style.display = 'none';
+            return;
         }
-        
-        pageBtn.textContent = i;
-        pageBtn.addEventListener('click', () => {
-            currentPage = i;
+
+        if (noResultsRow) noResultsRow.style.display = 'none';
+        if (paginationWrapper) paginationWrapper.style.display = 'flex';
+
+        const totalPages = Math.ceil(totalItems / itemsPerPage);
+
+        // Ajustar límites de página actual
+        if (currentPage > totalPages) currentPage = totalPages;
+        if (currentPage < 1) currentPage = 1;
+
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        const endIndex = Math.min(startIndex + itemsPerPage, totalItems);
+
+        // Mostrar solo los elementos de la página actual
+        for (let i = startIndex; i < endIndex; i++) {
+            if (filteredRows[i]) filteredRows[i].style.display = 'table-row';
+        }
+
+        // Actualizar texto informativo de paginación
+        const infoSpan = document.getElementById('pagination-info');
+        if (infoSpan) {
+            infoSpan.textContent = `Mostrando ${startIndex + 1}-${endIndex} de ${totalItems} artículos`;
+        }
+
+        // Renderizar botones de paginación
+        renderPaginationButtons(totalPages);
+    }
+
+    function renderPaginationButtons(totalPages) {
+        const container = document.getElementById('pagination-buttons');
+        if (!container) return;
+        container.innerHTML = '';
+
+        if (totalPages <= 1) return;
+
+        // Botón Anterior
+        const prevBtn = document.createElement('button');
+        prevBtn.className = 'btn btn-secondary';
+        prevBtn.style.padding = '8px 12px';
+        prevBtn.style.fontSize = '0.82rem';
+        prevBtn.disabled = currentPage === 1;
+        prevBtn.innerHTML = '<i class="fa-solid fa-chevron-left"></i>';
+        prevBtn.addEventListener('click', () => {
+            currentPage--;
             renderTable();
         });
-        container.appendChild(pageBtn);
-    }
+        container.appendChild(prevBtn);
 
-    // Botón Siguiente
-    const nextBtn = document.createElement('button');
-    nextBtn.className = 'btn btn-secondary';
-    nextBtn.style.padding = '8px 12px';
-    nextBtn.style.fontSize = '0.82rem';
-    nextBtn.disabled = currentPage === totalPages;
-    nextBtn.innerHTML = '<i class="fa-solid fa-chevron-right"></i>';
-    nextBtn.addEventListener('click', () => {
-        currentPage++;
-        renderTable();
-    });
-    container.appendChild(nextBtn);
-}
+        // Páginas Numeradas
+        for (let i = 1; i <= totalPages; i++) {
+            const pageBtn = document.createElement('button');
+            pageBtn.style.padding = '8px 14px';
+            pageBtn.style.fontSize = '0.82rem';
+            pageBtn.style.fontWeight = 'bold';
+            pageBtn.style.borderRadius = 'var(--radius-sm)';
+            pageBtn.style.cursor = 'pointer';
 
-// Carga Inicial del Documento
-document.addEventListener('DOMContentLoaded', function() {
-    filteredRows = getRowsArray();
-    renderTable();
+            if (i === currentPage) {
+                pageBtn.className = 'btn btn-primary';
+                pageBtn.style.boxShadow = 'none';
+            } else {
+                pageBtn.className = 'btn btn-secondary';
+            }
 
-    // Event listener del selector de tamaño de página
-    const pageSizeSelector = document.getElementById('page-size-selector');
-    if (pageSizeSelector) {
-        pageSizeSelector.addEventListener('change', function() {
-            itemsPerPage = parseInt(this.value);
-            currentPage = 1;
+            pageBtn.textContent = i;
+            pageBtn.addEventListener('click', () => {
+                currentPage = i;
+                renderTable();
+            });
+            container.appendChild(pageBtn);
+        }
+
+        // Botón Siguiente
+        const nextBtn = document.createElement('button');
+        nextBtn.className = 'btn btn-secondary';
+        nextBtn.style.padding = '8px 12px';
+        nextBtn.style.fontSize = '0.82rem';
+        nextBtn.disabled = currentPage === totalPages;
+        nextBtn.innerHTML = '<i class="fa-solid fa-chevron-right"></i>';
+        nextBtn.addEventListener('click', () => {
+            currentPage++;
             renderTable();
         });
+        container.appendChild(nextBtn);
     }
-});
+
+    // Carga Inicial del Documento
+    document.addEventListener('DOMContentLoaded', function () {
+        filteredRows = getRowsArray();
+        renderTable();
+
+        // Event listener del selector de tamaño de página
+        const pageSizeSelector = document.getElementById('page-size-selector');
+        if (pageSizeSelector) {
+            pageSizeSelector.addEventListener('change', function () {
+                itemsPerPage = parseInt(this.value);
+                currentPage = 1;
+                renderTable();
+            });
+        }
+    });
 </script>
 {% endblock %}

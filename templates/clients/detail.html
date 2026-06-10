@@ -7,7 +7,9 @@
 {% block content %}
 <!-- Botón Volver -->
 <div style="margin-bottom: 24px;">
-    <a href="{{ url_for('list_clients') }}" style="display: inline-flex; align-items: center; gap: 8px; color: var(--text-secondary); text-decoration: none; font-size: 0.9rem; font-weight: 500; transition: color var(--transition-fast);" onmouseover="this.style.color='var(--accent-emerald)'" onmouseout="this.style.color='var(--text-secondary)'">
+    <a href="{{ url_for('list_clients') }}"
+        style="display: inline-flex; align-items: center; gap: 8px; color: var(--text-secondary); text-decoration: none; font-size: 0.9rem; font-weight: 500; transition: color var(--transition-fast);"
+        onmouseover="this.style.color='var(--accent-emerald)'" onmouseout="this.style.color='var(--text-secondary)'">
         <i class="fa-solid fa-arrow-left"></i>
         <span>Volver al Directorio CRM</span>
     </a>
@@ -15,47 +17,58 @@
 
 <!-- Layout Principal de Ficha de Cliente -->
 <div style="display: grid; grid-template-columns: 350px 1fr; gap: 30px; align-items: start;">
-    
+
     <!-- Sidebar Izquierdo: Tarjetas de Información -->
     <div style="display: flex; flex-direction: column; gap: 24px;">
-        
+
         <!-- Tarjeta de Perfil y Contacto -->
         <div class="card-table-wrapper" style="margin-bottom: 0; padding: 24px;">
-            <div style="text-align: center; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 20px;">
-                <div style="width: 70px; height: 70px; border-radius: 50%; background-color: var(--accent-emerald); color: white; display: flex; align-items: center; justify-content: center; font-size: 2rem; font-weight: bold; margin: 0 auto 12px auto; font-family: var(--font-heading);">
+            <div
+                style="text-align: center; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 20px;">
+                <div
+                    style="width: 70px; height: 70px; border-radius: 50%; background-color: var(--accent-emerald); color: white; display: flex; align-items: center; justify-content: center; font-size: 2rem; font-weight: bold; margin: 0 auto 12px auto; font-family: var(--font-heading);">
                     {{ client.razonSocial[:2].upper() }}
                 </div>
-                <h2 style="font-size: 1.25rem; font-family: var(--font-heading); margin-bottom: 6px; line-height: 1.3;">{{ client.razonSocial }}</h2>
-                <span class="badge badge-secondary" style="font-family: monospace; font-size: 0.85rem; padding: 4px 10px;">RNC: {{ client.rnc }}</span>
+                <h2 style="font-size: 1.25rem; font-family: var(--font-heading); margin-bottom: 6px; line-height: 1.3;">
+                    {{ client.razonSocial }}</h2>
+                <span class="badge badge-secondary"
+                    style="font-family: monospace; font-size: 0.85rem; padding: 4px 10px;">RNC: {{ client.rnc }}</span>
             </div>
-            
+
             <div style="display: flex; flex-direction: column; gap: 16px; font-size: 0.9rem;">
                 <div>
-                    <strong style="color: var(--text-secondary); display: block; font-size: 0.75rem; text-transform: uppercase; margin-bottom: 4px;">Teléfono</strong>
+                    <strong
+                        style="color: var(--text-secondary); display: block; font-size: 0.75rem; text-transform: uppercase; margin-bottom: 4px;">Teléfono</strong>
                     {% if client.telefono %}
-                        <a href="tel:{{ client.telefono }}" style="color: var(--text-primary); text-decoration: none; display: flex; align-items: center; gap: 8px;">
-                            <i class="fa-solid fa-phone" style="color: var(--text-muted);"></i>
-                            <span>{{ client.telefono }}</span>
-                        </a>
+                    <a href="tel:{{ client.telefono }}"
+                        style="color: var(--text-primary); text-decoration: none; display: flex; align-items: center; gap: 8px;">
+                        <i class="fa-solid fa-phone" style="color: var(--text-muted);"></i>
+                        <span>{{ client.telefono }}</span>
+                    </a>
                     {% else %}
-                        <span style="color: var(--text-muted); font-style: italic;">No registrado</span>
+                    <span style="color: var(--text-muted); font-style: italic;">No registrado</span>
                     {% endif %}
                 </div>
-                
+
                 <div>
-                    <strong style="color: var(--text-secondary); display: block; font-size: 0.75rem; text-transform: uppercase; margin-bottom: 4px;">Email Comercial</strong>
+                    <strong
+                        style="color: var(--text-secondary); display: block; font-size: 0.75rem; text-transform: uppercase; margin-bottom: 4px;">Email
+                        Comercial</strong>
                     {% if client.email %}
-                        <a href="mailto:{{ client.email }}" style="color: var(--text-primary); text-decoration: none; display: flex; align-items: center; gap: 8px;">
-                            <i class="fa-solid fa-envelope" style="color: var(--text-muted);"></i>
-                            <span style="word-break: break-all;">{{ client.email }}</span>
-                        </a>
+                    <a href="mailto:{{ client.email }}"
+                        style="color: var(--text-primary); text-decoration: none; display: flex; align-items: center; gap: 8px;">
+                        <i class="fa-solid fa-envelope" style="color: var(--text-muted);"></i>
+                        <span style="word-break: break-all;">{{ client.email }}</span>
+                    </a>
                     {% else %}
-                        <span style="color: var(--text-muted); font-style: italic;">No registrado</span>
+                    <span style="color: var(--text-muted); font-style: italic;">No registrado</span>
                     {% endif %}
                 </div>
-                
+
                 <div>
-                    <strong style="color: var(--text-secondary); display: block; font-size: 0.75rem; text-transform: uppercase; margin-bottom: 4px;">Dirección Física</strong>
+                    <strong
+                        style="color: var(--text-secondary); display: block; font-size: 0.75rem; text-transform: uppercase; margin-bottom: 4px;">Dirección
+                        Física</strong>
                     <div style="display: flex; align-items: flex-start; gap: 8px; color: var(--text-primary);">
                         <i class="fa-solid fa-map-location-dot" style="color: var(--text-muted); margin-top: 3px;"></i>
                         <span>{{ client.direccion or 'República Dominicana' }}</span>
@@ -63,42 +76,56 @@
                 </div>
 
                 {% if client.nextContactDate %}
-                <div style="margin-top: 10px; padding: 12px; background-color: rgba(168, 85, 247, 0.08); border: 1px solid rgba(168, 85, 247, 0.2); border-radius: var(--radius-sm);">
-                    <strong style="color: var(--accent-purple); display: block; font-size: 0.75rem; text-transform: uppercase; margin-bottom: 4px;">Próximo Seguimiento</strong>
-                    <div style="display: flex; align-items: center; gap: 8px; font-weight: 600; color: var(--accent-purple);">
+                <div
+                    style="margin-top: 10px; padding: 12px; background-color: rgba(168, 85, 247, 0.08); border: 1px solid rgba(168, 85, 247, 0.2); border-radius: var(--radius-sm);">
+                    <strong
+                        style="color: var(--accent-purple); display: block; font-size: 0.75rem; text-transform: uppercase; margin-bottom: 4px;">Próximo
+                        Seguimiento</strong>
+                    <div
+                        style="display: flex; align-items: center; gap: 8px; font-weight: 500; color: var(--accent-purple);">
                         <i class="fa-solid fa-calendar-day"></i>
                         <span>{{ client.nextContactDate[:10] }}</span>
                     </div>
                 </div>
                 {% endif %}
             </div>
-            
+
             <!-- Pausar recordatorios automáticos de cobro -->
-            <div style="margin-top: 16px; display: flex; align-items: center; gap: 8px; padding: 10px; background: rgba(0,0,0,0.02); border: 1px solid var(--border-color); border-radius: var(--radius-sm); margin-bottom: 12px;">
-                <input type="checkbox" id="disableAutoReminders" {% if client.disableAutoReminders %}checked{% endif %} onchange="toggleAutoReminders('{{ client.id }}')" style="width: 16px; height: 16px; cursor: pointer;">
-                <label for="disableAutoReminders" style="font-size: 0.8rem; color: var(--text-primary); font-weight: 600; cursor: pointer; margin: 0;">Pausar recordatorios de cobro</label>
+            <div
+                style="margin-top: 16px; display: flex; align-items: center; gap: 8px; padding: 10px; background: rgba(0,0,0,0.02); border: 1px solid var(--border-color); border-radius: var(--radius-sm); margin-bottom: 12px;">
+                <input type="checkbox" id="disableAutoReminders" {% if client.disableAutoReminders %}checked{% endif %}
+                    onchange="toggleAutoReminders('{{ client.id }}')"
+                    style="width: 16px; height: 16px; cursor: pointer;">
+                <label for="disableAutoReminders"
+                    style="font-size: 0.8rem; color: var(--text-primary); font-weight: 500; cursor: pointer; margin: 0;">Pausar
+                    recordatorios de cobro</label>
             </div>
-            
+
             <div style="margin-top: 12px; border-top: 1px solid var(--border-color); padding-top: 16px;">
-                <a href="{{ url_for('edit_client', client_id=client.id) }}" class="btn btn-secondary" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                <a href="{{ url_for('edit_client', client_id=client.id) }}" class="btn btn-secondary"
+                    style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;">
                     <i class="fa-solid fa-user-pen"></i>
                     <span>Editar Ficha CRM</span>
                 </a>
             </div>
         </div>
-        
+
         <!-- Resumen Financiero -->
         <div class="card-table-wrapper" style="margin-bottom: 0; padding: 24px;">
-            <h3 style="font-size: 1rem; font-family: var(--font-heading); margin-bottom: 18px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px;">Desempeño Comercial</h3>
-            
+            <h3
+                style="font-size: 1rem; font-family: var(--font-heading); margin-bottom: 18px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px;">
+                Desempeño Comercial</h3>
+
             <div style="display: flex; flex-direction: column; gap: 16px;">
                 <div style="display: flex; justify-content: space-between; align-items: center;">
                     <span style="font-size: 0.88rem; color: var(--text-secondary);">Facturado Acumulado:</span>
-                    <strong style="color: var(--accent-emerald); font-size: 1rem;">RD$ {{ "{:,.2f}".format(client.total_invoiced | default(0.0)) }}</strong>
+                    <strong style="color: var(--accent-emerald); font-size: 1rem;">RD$ {{
+                        "{:,.2f}".format(client.total_invoiced | default(0.0)) }}</strong>
                 </div>
                 <div style="display: flex; justify-content: space-between; align-items: center;">
                     <span style="font-size: 0.88rem; color: var(--text-secondary);">Cuentas por Cobrar (CxC):</span>
-                    <strong style="color: {% if client.total_cxc | default(0.0) > 0 %}var(--accent-red){% else %}var(--text-secondary){% endif %}; font-size: 1rem;">
+                    <strong
+                        style="color: {% if client.total_cxc | default(0.0) > 0 %}var(--accent-red){% else %}var(--text-secondary){% endif %}; font-size: 1rem;">
                         RD$ {{ "{:,.2f}".format(client.total_cxc | default(0.0)) }}
                     </strong>
                 </div>
@@ -113,42 +140,52 @@
             </div>
         </div>
     </div>
-    
+
     <!-- Panel Derecho: Timeline de Comentarios y Ventas -->
     <div style="display: flex; flex-direction: column; gap: 24px;">
-        
+
         <!-- Pestañas de Navegación del Workspace -->
         <div style="display: flex; border-bottom: 2px solid var(--border-color); margin-bottom: 6px; gap: 30px;">
-            <button onclick="changeTab('timeline-tab')" id="btn-timeline-tab" style="background: none; border: none; padding: 12px 6px; font-size: 1rem; font-family: var(--font-heading); font-weight: 600; color: var(--accent-emerald); border-bottom: 3px solid var(--accent-emerald); cursor: pointer; transition: all var(--transition-fast);">
+            <button onclick="changeTab('timeline-tab')" id="btn-timeline-tab"
+                style="background: none; border: none; padding: 12px 6px; font-size: 1rem; font-family: var(--font-heading); font-weight: 500; color: var(--accent-emerald); border-bottom: 3px solid var(--accent-emerald); cursor: pointer; transition: all var(--transition-fast);">
                 <i class="fa-solid fa-clock-rotate-left" style="margin-right: 6px;"></i>
                 Historial y Seguimiento
             </button>
-            <button onclick="changeTab('invoices-tab')" id="btn-invoices-tab" style="background: none; border: none; padding: 12px 6px; font-size: 1rem; font-family: var(--font-heading); font-weight: 600; color: var(--text-secondary); border-bottom: 3px solid transparent; cursor: pointer; transition: all var(--transition-fast);">
+            <button onclick="changeTab('invoices-tab')" id="btn-invoices-tab"
+                style="background: none; border: none; padding: 12px 6px; font-size: 1rem; font-family: var(--font-heading); font-weight: 500; color: var(--text-secondary); border-bottom: 3px solid transparent; cursor: pointer; transition: all var(--transition-fast);">
                 <i class="fa-solid fa-file-invoice-dollar" style="margin-right: 6px;"></i>
                 Historial de Ventas ({{ invoices | length }})
             </button>
-            <button onclick="changeTab('documents-tab')" id="btn-documents-tab" style="background: none; border: none; padding: 12px 6px; font-size: 1rem; font-family: var(--font-heading); font-weight: 600; color: var(--text-secondary); border-bottom: 3px solid transparent; cursor: pointer; transition: all var(--transition-fast);">
+            <button onclick="changeTab('documents-tab')" id="btn-documents-tab"
+                style="background: none; border: none; padding: 12px 6px; font-size: 1rem; font-family: var(--font-heading); font-weight: 500; color: var(--text-secondary); border-bottom: 3px solid transparent; cursor: pointer; transition: all var(--transition-fast);">
                 <i class="fa-solid fa-folder-open" style="margin-right: 6px;"></i>
                 Gestión Documental ({{ documents | length }})
             </button>
         </div>
-        
+
         <!-- SECCIÓN 1: Pestaña Historial y Seguimiento -->
         <div id="timeline-tab" style="display: flex; flex-direction: column; gap: 24px;">
-            
+
             <!-- Formulario de nueva interacción / comentario -->
             <div class="card-table-wrapper" style="margin-bottom: 0; padding: 24px;">
-                <h3 style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+                <h3
+                    style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
                     <i class="fa-solid fa-comment-medical" style="color: var(--accent-emerald);"></i>
                     <span>Registrar Nueva Interacción o Seguimiento</span>
                 </h3>
-                
-                <form action="{{ url_for('add_client_interaction', client_id=client.id) }}" method="POST" enctype="multipart/form-data" style="display: flex; flex-direction: column; gap: 16px;">
+
+                <form action="{{ url_for('add_client_interaction', client_id=client.id) }}" method="POST"
+                    enctype="multipart/form-data" style="display: flex; flex-direction: column; gap: 16px;">
                     <!-- Tipo y Fecha en fila -->
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
                         <div>
-                            <label for="type" style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px; color: var(--text-secondary);">Tipo de Interacción</label>
-                            <select id="type" name="type" onchange="toggleNextContactField(this.value)" class="form-control" style="width: 100%; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background-color: var(--bg-input); color: var(--text-primary); padding: 10px;" required>
+                            <label for="type"
+                                style="display: block; font-size: 0.85rem; font-weight: 500; margin-bottom: 6px; color: var(--text-secondary);">Tipo
+                                de Interacción</label>
+                            <select id="type" name="type" onchange="toggleNextContactField(this.value)"
+                                class="form-control"
+                                style="width: 100%; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background-color: var(--bg-input); color: var(--text-primary); padding: 10px;"
+                                required>
                                 <option value="Nota" selected>📝 Nota Interna / Comentario</option>
                                 <option value="Llamada">📞 Llamada Telefónica</option>
                                 <option value="Reunión">🤝 Reunión Presencial / Virtual</option>
@@ -156,50 +193,69 @@
                                 <option value="Seguimiento">⏰ Seguimiento / Tarea Programada</option>
                             </select>
                         </div>
-                        
+
                         <!-- Flatpickr / Fecha de Próximo Seguimiento (Se muestra dinámicamente) -->
                         <div id="next-contact-wrapper">
-                            <label for="nextContactDate" style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px; color: var(--text-secondary);">Programar Fecha de Próximo Seguimiento</label>
-                            <input type="date" id="nextContactDate" name="nextContactDate" class="form-control" style="width: 100%; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background-color: var(--bg-input); color: var(--text-primary); padding: 10px;">
+                            <label for="nextContactDate"
+                                style="display: block; font-size: 0.85rem; font-weight: 500; margin-bottom: 6px; color: var(--text-secondary);">Programar
+                                Fecha de Próximo Seguimiento</label>
+                            <input type="date" id="nextContactDate" name="nextContactDate" class="form-control"
+                                style="width: 100%; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background-color: var(--bg-input); color: var(--text-primary); padding: 10px;">
                         </div>
                     </div>
-                    
+
                     <!-- Comentario -->
                     <div>
-                        <label for="content" style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px; color: var(--text-secondary);">Notas del seguimiento / interacción</label>
-                        <textarea id="content" name="content" placeholder="Escribe aquí los acuerdos comerciales, resumen de la llamada o detalles del seguimiento..." rows="3" class="form-control" style="width: 100%; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background-color: var(--bg-input); color: var(--text-primary); padding: 12px; font-family: inherit; resize: vertical;" required></textarea>
+                        <label for="content"
+                            style="display: block; font-size: 0.85rem; font-weight: 500; margin-bottom: 6px; color: var(--text-secondary);">Notas
+                            del seguimiento / interacción</label>
+                        <textarea id="content" name="content"
+                            placeholder="Escribe aquí los acuerdos comerciales, resumen de la llamada o detalles del seguimiento..."
+                            rows="3" class="form-control"
+                            style="width: 100%; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background-color: var(--bg-input); color: var(--text-primary); padding: 12px; font-family: inherit; resize: vertical;"
+                            required></textarea>
                     </div>
-                    
+
                     <!-- Adjuntar archivo -->
                     <div>
-                        <label for="attachment" style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px; color: var(--text-secondary);">Adjuntar Documento / Archivo (PDF, XML, Imagen)</label>
-                        <div style="position: relative; border: 1px dashed var(--border-color); border-radius: var(--radius-sm); padding: 12px; display: flex; align-items: center; gap: 10px; background-color: var(--bg-input); cursor: pointer;" onclick="document.getElementById('attachment').click()">
+                        <label for="attachment"
+                            style="display: block; font-size: 0.85rem; font-weight: 500; margin-bottom: 6px; color: var(--text-secondary);">Adjuntar
+                            Documento / Archivo (PDF, XML, Imagen)</label>
+                        <div style="position: relative; border: 1px dashed var(--border-color); border-radius: var(--radius-sm); padding: 12px; display: flex; align-items: center; gap: 10px; background-color: var(--bg-input); cursor: pointer;"
+                            onclick="document.getElementById('attachment').click()">
                             <i class="fa-solid fa-paperclip" style="color: var(--text-muted); font-size: 1.1rem;"></i>
-                            <span id="attachment-label" style="font-size: 0.85rem; color: var(--text-secondary);">Seleccionar archivo adjunto (opcional)...</span>
-                            <input type="file" id="attachment" name="attachment" style="display: none;" onchange="document.getElementById('attachment-label').textContent=this.files[0].name; document.getElementById('attachment-label').style.color='var(--text-primary)';">
+                            <span id="attachment-label"
+                                style="font-size: 0.85rem; color: var(--text-secondary);">Seleccionar archivo adjunto
+                                (opcional)...</span>
+                            <input type="file" id="attachment" name="attachment" style="display: none;"
+                                onchange="document.getElementById('attachment-label').textContent=this.files[0].name; document.getElementById('attachment-label').style.color='var(--text-primary)';">
                         </div>
                     </div>
-                    
+
                     <!-- Botón Enviar -->
                     <div style="display: flex; justify-content: flex-end; margin-top: 8px;">
-                        <button type="submit" class="btn btn-primary" style="padding: 10px 24px; font-weight: 600; display: flex; align-items: center; gap: 8px;">
+                        <button type="submit" class="btn btn-primary"
+                            style="padding: 10px 24px; font-weight: 500; display: flex; align-items: center; gap: 8px;">
                             <i class="fa-solid fa-floppy-disk"></i>
                             <span>Registrar Interacción</span>
                         </button>
                     </div>
                 </form>
             </div>
-            
+
             <!-- Flujo Visual de la Línea de Tiempo (Timeline) -->
             <div class="card-table-wrapper" style="margin-bottom: 0; padding: 24px;">
-                <h3 style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 24px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px;">Historial del Cliente</h3>
-                
+                <h3
+                    style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 24px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px;">
+                    Historial del Cliente</h3>
+
                 {% if interactions %}
-                    <div style="position: relative; padding-left: 20px; border-left: 2px solid var(--border-color); margin-left: 10px; display: flex; flex-direction: column; gap: 24px;">
-                        {% for item in interactions %}
-                            <div style="position: relative;">
-                                <!-- Icono e indicación de estado del nodo -->
-                                <div style="position: absolute; left: -31px; top: 0; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.72rem; color: white;
+                <div
+                    style="position: relative; padding-left: 20px; border-left: 2px solid var(--border-color); margin-left: 10px; display: flex; flex-direction: column; gap: 24px;">
+                    {% for item in interactions %}
+                    <div style="position: relative;">
+                        <!-- Icono e indicación de estado del nodo -->
+                        <div style="position: absolute; left: -31px; top: 0; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.72rem; color: white;
                                     {% if item.type == 'Nota' %}background-color: var(--text-secondary);
                                     {% elif item.type == 'Llamada' %}background-color: var(--accent-emerald);
                                     {% elif item.type == 'Reunión' %}background-color: var(--accent-purple);
@@ -208,22 +264,24 @@
                                         {% if item.completed %}background-color: var(--text-muted);
                                         {% else %}background-color: var(--accent-red);{% endif %}
                                     {% endif %}">
-                                    {% if item.type == 'Nota' %}<i class="fa-solid fa-pen-nib"></i>
-                                    {% elif item.type == 'Llamada' %}<i class="fa-solid fa-phone"></i>
-                                    {% elif item.type == 'Reunión' %}<i class="fa-solid fa-users"></i>
-                                    {% elif item.type == 'Correo' %}<i class="fa-solid fa-envelope"></i>
-                                    {% elif item.type == 'Seguimiento' %}<i class="fa-solid fa-clock"></i>
-                                    {% endif %}
-                                </div>
-                                
-                                <!-- Tarjeta del nodo de timeline -->
-                                <div style="background-color: var(--bg-input); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 16px;">
-                                    
-                                    <!-- Encabezado de la interacción -->
-                                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
-                                        <div>
-                                            <!-- Badge de Categoría -->
-                                            <span class="badge" style="font-size: 0.75rem; font-weight: bold; margin-right: 6px;
+                            {% if item.type == 'Nota' %}<i class="fa-solid fa-pen-nib"></i>
+                            {% elif item.type == 'Llamada' %}<i class="fa-solid fa-phone"></i>
+                            {% elif item.type == 'Reunión' %}<i class="fa-solid fa-users"></i>
+                            {% elif item.type == 'Correo' %}<i class="fa-solid fa-envelope"></i>
+                            {% elif item.type == 'Seguimiento' %}<i class="fa-solid fa-clock"></i>
+                            {% endif %}
+                        </div>
+
+                        <!-- Tarjeta del nodo de timeline -->
+                        <div
+                            style="background-color: var(--bg-input); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 16px;">
+
+                            <!-- Encabezado de la interacción -->
+                            <div
+                                style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+                                <div>
+                                    <!-- Badge de Categoría -->
+                                    <span class="badge" style="font-size: 0.75rem; font-weight: bold; margin-right: 6px;
                                                 {% if item.type == 'Nota' %}background-color: rgba(100, 116, 139, 0.1); color: var(--text-primary);
                                                 {% elif item.type == 'Llamada' %}background-color: rgba(16, 185, 129, 0.1); color: var(--accent-emerald);
                                                 {% elif item.type == 'Reunión' %}background-color: rgba(168, 85, 247, 0.1); color: var(--accent-purple);
@@ -232,94 +290,120 @@
                                                     {% if item.completed %}background-color: rgba(156, 163, 175, 0.15); color: var(--text-muted);
                                                     {% else %}background-color: rgba(239, 68, 68, 0.1); color: var(--accent-red);{% endif %}
                                                 {% endif %}">
-                                                {{ item.type }}
-                                            </span>
-                                            
-                                            <!-- Creado Por -->
-                                            <span style="font-size: 0.8rem; color: var(--text-secondary); font-weight: 500;">
-                                                por {{ item.createdBy }}
-                                            </span>
-                                        </div>
-                                        
-                                        <!-- Fecha -->
-                                        <div style="display: flex; align-items: center; gap: 8px;">
-                                            <span style="font-size: 0.8rem; color: var(--text-secondary); white-space: nowrap;">
-                                                <i class="fa-solid fa-calendar-day" style="font-size: 0.75rem;"></i> {{ item.date }}
-                                            </span>
-                                            
-                                            <!-- Acciones de eliminar -->
-                                            <form action="{{ url_for('delete_client_interaction_route', client_id=client.id, interaction_id=item.id) }}" method="POST" onsubmit="return confirm('¿Seguro que deseas eliminar este comentario del historial?');" style="display: inline;">
-                                                <button type="submit" style="background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 2px 4px; font-size: 0.8rem; transition: color var(--transition-fast);" onmouseover="this.style.color='var(--accent-red)'" onmouseout="this.style.color='var(--text-muted)'" title="Eliminar Interacción">
-                                                    <i class="fa-solid fa-trash-can"></i>
-                                                </button>
-                                            </form>
-                                        </div>
-                                    </div>
-                                    
-                                    <!-- Contenido de la nota -->
-                                    <p style="font-size: 0.92rem; color: var(--text-primary); line-height: 1.5; margin-bottom: 12px; white-space: pre-line;">{{ item.content }}</p>
-                                    
-                                    <!-- Elemento Especial: Tarea de Seguimiento Programada -->
-                                    {% if item.type == 'Seguimiento' and item.nextContactDate %}
-                                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background-color: var(--bg-card); margin-bottom: 12px;">
-                                            <div style="display: flex; align-items: center; gap: 8px;">
-                                                <i class="fa-solid fa-circle-exclamation" style="color: {% if item.completed %}var(--text-muted){% else %}var(--accent-red){% endif %};"></i>
-                                                <span style="font-size: 0.85rem; font-weight: 500; color: var(--text-primary);">
-                                                    Llamar el: <strong style="color: {% if item.completed %}var(--text-muted){% else %}var(--accent-purple){% endif %};">{{ item.nextContactDate[:10] }}</strong>
-                                                </span>
-                                            </div>
-                                            
-                                            {% if not item.completed %}
-                                                <form action="{{ url_for('complete_client_interaction_task', client_id=client.id, interaction_id=item.id) }}" method="POST" style="margin: 0;">
-                                                    <button type="submit" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.78rem; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; border-color: var(--accent-emerald); color: var(--accent-emerald);">
-                                                        <i class="fa-solid fa-circle-check"></i>
-                                                        <span>Marcar Completado</span>
-                                                    </button>
-                                                </form>
-                                            {% else %}
-                                                <span style="font-size: 0.8rem; color: var(--accent-emerald); font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">
-                                                    <i class="fa-solid fa-circle-check"></i>
-                                                    <span>Completado</span>
-                                                </span>
-                                            {% endif %}
-                                        </div>
-                                    {% endif %}
-                                    
-                                    <!-- Adjunto -->
-                                    {% if item.attachmentUrl %}
-                                        <div style="border-top: 1px solid var(--border-color); padding-top: 10px; display: flex; align-items: center; justify-content: space-between;">
-                                            <div style="display: flex; align-items: center; gap: 8px; color: var(--text-secondary); font-size: 0.85rem;">
-                                                <i class="fa-solid fa-file-arrow-down" style="color: var(--accent-emerald);"></i>
-                                                <span style="max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                                                    {{ item.attachmentName or 'Archivo Adjunto' }}
-                                                </span>
-                                            </div>
-                                            
-                                            <a href="{{ item.attachmentUrl }}" target="_blank" class="btn btn-secondary" style="padding: 6px 14px; font-size: 0.78rem; display: flex; align-items: center; gap: 6px;">
-                                                <i class="fa-solid fa-arrow-up-right-from-square"></i>
-                                                <span>Ver Documento</span>
-                                            </a>
-                                        </div>
-                                    {% endif %}
-                                    
+                                        {{ item.type }}
+                                    </span>
+
+                                    <!-- Creado Por -->
+                                    <span style="font-size: 0.8rem; color: var(--text-secondary); font-weight: 500;">
+                                        por {{ item.createdBy }}
+                                    </span>
+                                </div>
+
+                                <!-- Fecha -->
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <span style="font-size: 0.8rem; color: var(--text-secondary); white-space: nowrap;">
+                                        <i class="fa-solid fa-calendar-day" style="font-size: 0.75rem;"></i> {{
+                                        item.date }}
+                                    </span>
+
+                                    <!-- Acciones de eliminar -->
+                                    <form
+                                        action="{{ url_for('delete_client_interaction_route', client_id=client.id, interaction_id=item.id) }}"
+                                        method="POST"
+                                        onsubmit="return confirm('¿Seguro que deseas eliminar este comentario del historial?');"
+                                        style="display: inline;">
+                                        <button type="submit"
+                                            style="background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 2px 4px; font-size: 0.8rem; transition: color var(--transition-fast);"
+                                            onmouseover="this.style.color='var(--accent-red)'"
+                                            onmouseout="this.style.color='var(--text-muted)'"
+                                            title="Eliminar Interacción">
+                                            <i class="fa-solid fa-trash-can"></i>
+                                        </button>
+                                    </form>
                                 </div>
                             </div>
-                        {% endfor %}
+
+                            <!-- Contenido de la nota -->
+                            <p
+                                style="font-size: 0.92rem; color: var(--text-primary); line-height: 1.5; margin-bottom: 12px; white-space: pre-line;">
+                                {{ item.content }}</p>
+
+                            <!-- Elemento Especial: Tarea de Seguimiento Programada -->
+                            {% if item.type == 'Seguimiento' and item.nextContactDate %}
+                            <div
+                                style="display: flex; justify-content: space-between; align-items: center; padding: 12px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background-color: var(--bg-card); margin-bottom: 12px;">
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <i class="fa-solid fa-circle-exclamation"
+                                        style="color: {% if item.completed %}var(--text-muted){% else %}var(--accent-red){% endif %};"></i>
+                                    <span style="font-size: 0.85rem; font-weight: 500; color: var(--text-primary);">
+                                        Llamar el: <strong
+                                            style="color: {% if item.completed %}var(--text-muted){% else %}var(--accent-purple){% endif %};">{{
+                                            item.nextContactDate[:10] }}</strong>
+                                    </span>
+                                </div>
+
+                                {% if not item.completed %}
+                                <form
+                                    action="{{ url_for('complete_client_interaction_task', client_id=client.id, interaction_id=item.id) }}"
+                                    method="POST" style="margin: 0;">
+                                    <button type="submit" class="btn btn-secondary"
+                                        style="padding: 6px 12px; font-size: 0.78rem; font-weight: 500; display: inline-flex; align-items: center; gap: 6px; border-color: var(--accent-emerald); color: var(--accent-emerald);">
+                                        <i class="fa-solid fa-circle-check"></i>
+                                        <span>Marcar Completado</span>
+                                    </button>
+                                </form>
+                                {% else %}
+                                <span
+                                    style="font-size: 0.8rem; color: var(--accent-emerald); font-weight: 500; display: inline-flex; align-items: center; gap: 4px;">
+                                    <i class="fa-solid fa-circle-check"></i>
+                                    <span>Completado</span>
+                                </span>
+                                {% endif %}
+                            </div>
+                            {% endif %}
+
+                            <!-- Adjunto -->
+                            {% if item.attachmentUrl %}
+                            <div
+                                style="border-top: 1px solid var(--border-color); padding-top: 10px; display: flex; align-items: center; justify-content: space-between;">
+                                <div
+                                    style="display: flex; align-items: center; gap: 8px; color: var(--text-secondary); font-size: 0.85rem;">
+                                    <i class="fa-solid fa-file-arrow-down" style="color: var(--accent-emerald);"></i>
+                                    <span
+                                        style="max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                        {{ item.attachmentName or 'Archivo Adjunto' }}
+                                    </span>
+                                </div>
+
+                                <a href="{{ item.attachmentUrl }}" target="_blank" class="btn btn-secondary"
+                                    style="padding: 6px 14px; font-size: 0.78rem; display: flex; align-items: center; gap: 6px;">
+                                    <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                                    <span>Ver Documento</span>
+                                </a>
+                            </div>
+                            {% endif %}
+
+                        </div>
                     </div>
+                    {% endfor %}
+                </div>
                 {% else %}
-                    <div style="text-align: center; padding: 40px 0; color: var(--text-secondary);">
-                        <i class="fa-solid fa-list-check" style="font-size: 2.2rem; color: var(--text-muted); opacity: 0.5; margin-bottom: 12px; display: block;"></i>
-                        <span>No hay comentarios ni tareas de seguimiento registradas para este cliente aún.</span>
-                    </div>
+                <div style="text-align: center; padding: 40px 0; color: var(--text-secondary);">
+                    <i class="fa-solid fa-list-check"
+                        style="font-size: 2.2rem; color: var(--text-muted); opacity: 0.5; margin-bottom: 12px; display: block;"></i>
+                    <span>No hay comentarios ni tareas de seguimiento registradas para este cliente aún.</span>
+                </div>
                 {% endif %}
             </div>
         </div>
-        
+
         <!-- SECCIÓN 2: Pestaña Historial de Ventas -->
         <div id="invoices-tab" style="display: none;">
             <div class="card-table-wrapper" style="margin-bottom: 0; padding: 24px;">
-                <h3 style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px;">Comprobantes Emitidos</h3>
-                
+                <h3
+                    style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px;">
+                    Comprobantes Emitidos</h3>
+
                 <div class="table-responsive">
                     <table class="table-premium">
                         <thead>
@@ -336,145 +420,190 @@
                         </thead>
                         <tbody>
                             {% if invoices %}
-                                {% for inv in invoices %}
-                                    <tr>
-                                        <td>
-                                            <span style="font-family: monospace; font-size: 0.88rem; background-color: var(--bg-input); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-color);">
-                                                {{ inv.invoiceNumber }}
-                                            </span>
-                                        </td>
-                                        <td>
-                                            <span style="font-size: 0.85rem; font-weight: 500;">{{ inv.ecfType.split('(')[0] }}</span>
-                                        </td>
-                                        <td>
-                                            <span style="font-size: 0.88rem; color: var(--text-secondary);">{{ inv.date }}</span>
-                                        </td>
-                                        <td>
-                                            <span style="font-size: 0.88rem; color: var(--text-secondary);">{{ inv.dueDate }}</span>
-                                        </td>
-                                        <td>
-                                            <span style="font-size: 0.88rem; font-weight: 600; color: var(--accent-purple);">RD$ {{ "{:,.2f}".format(inv.totalITBIS) }}</span>
-                                        </td>
-                                        <td>
-                                            <strong style="color: var(--accent-emerald);">RD$ {{ "{:,.2f}".format(inv.total) }}</strong>
-                                        </td>
-                                        <td>
-                                            <span class="badge {% if inv.status == 'Emitida' %}badge-success{% elif inv.status == 'Borrador' %}badge-secondary{% elif inv.status == 'Vencida' %}badge-danger{% else %}badge-primary{% endif %}">
-                                                {{ inv.status }}
-                                            </span>
-                                        </td>
-                                        <td style="text-align: right;">
-                                            <a href="{{ url_for('invoice_detail', invoice_id=inv.id) }}" class="btn btn-secondary" style="padding: 6px 10px; font-size: 0.78rem;" title="Ver Detalle de Factura">
-                                                <i class="fa-solid fa-eye"></i>
-                                            </a>
-                                        </td>
-                                    </tr>
-                                {% endfor %}
+                            {% for inv in invoices %}
+                            <tr>
+                                <td>
+                                    <span
+                                        style="font-family: monospace; font-size: 0.88rem; background-color: var(--bg-input); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-color);">
+                                        {{ inv.invoiceNumber }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <span style="font-size: 0.85rem; font-weight: 500;">{{ inv.ecfType.split('(')[0]
+                                        }}</span>
+                                </td>
+                                <td>
+                                    <span style="font-size: 0.88rem; color: var(--text-secondary);">{{ inv.date
+                                        }}</span>
+                                </td>
+                                <td>
+                                    <span style="font-size: 0.88rem; color: var(--text-secondary);">{{ inv.dueDate
+                                        }}</span>
+                                </td>
+                                <td>
+                                    <span style="font-size: 0.88rem; font-weight: 500; color: var(--accent-purple);">RD$
+                                        {{ "{:,.2f}".format(inv.totalITBIS) }}</span>
+                                </td>
+                                <td>
+                                    <strong style="color: var(--accent-emerald);">RD$ {{ "{:,.2f}".format(inv.total)
+                                        }}</strong>
+                                </td>
+                                <td>
+                                    <span
+                                        class="badge {% if inv.status == 'Emitida' %}badge-success{% elif inv.status == 'Borrador' %}badge-secondary{% elif inv.status == 'Vencida' %}badge-danger{% else %}badge-primary{% endif %}">
+                                        {{ inv.status }}
+                                    </span>
+                                </td>
+                                <td style="text-align: right;">
+                                    <a href="{{ url_for('invoice_detail', invoice_id=inv.id) }}"
+                                        class="btn btn-secondary" style="padding: 6px 10px; font-size: 0.78rem;"
+                                        title="Ver Detalle de Factura">
+                                        <i class="fa-solid fa-eye"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
                             {% else %}
-                                <tr>
-                                    <td colspan="8" style="text-align: center; padding: 40px 0; color: var(--text-secondary);">
-                                        <span>No se han emitido facturas reales a este cliente aún.</span>
-                                    </td>
-                                </tr>
+                            <tr>
+                                <td colspan="8"
+                                    style="text-align: center; padding: 40px 0; color: var(--text-secondary);">
+                                    <span>No se han emitido facturas reales a este cliente aún.</span>
+                                </td>
+                            </tr>
                             {% endif %}
                         </tbody>
                     </table>
                 </div>
             </div>
         </div>
-        
+
         <!-- SECCIÓN 3: Pestaña Gestión Documental Centralizada -->
         <div id="documents-tab" style="display: none; flex-direction: column; gap: 24px;">
             <!-- Formulario de carga de documento -->
             <div class="card-table-wrapper" style="margin-bottom: 0; padding: 24px;">
-                <h3 style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+                <h3
+                    style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
                     <i class="fa-solid fa-cloud-arrow-up" style="color: var(--accent-emerald);"></i>
                     <span>Archivar Nuevo Documento</span>
                 </h3>
-                
-                <form action="{{ url_for('web_operations.upload_client_document_route', client_id=client.id) }}" method="POST" enctype="multipart/form-data" style="display: flex; flex-direction: column; gap: 16px;">
+
+                <form action="{{ url_for('web_operations.upload_client_document_route', client_id=client.id) }}"
+                    method="POST" enctype="multipart/form-data"
+                    style="display: flex; flex-direction: column; gap: 16px;">
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
                         <div>
-                            <label for="documentType" style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px; color: var(--text-secondary);">Clasificación del Documento</label>
-                            <select id="documentType" name="documentType" class="form-control" style="width: 100%; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background-color: var(--bg-input); color: var(--text-primary); padding: 10px;" required>
+                            <label for="documentType"
+                                style="display: block; font-size: 0.85rem; font-weight: 500; margin-bottom: 6px; color: var(--text-secondary);">Clasificación
+                                del Documento</label>
+                            <select id="documentType" name="documentType" class="form-control"
+                                style="width: 100%; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background-color: var(--bg-input); color: var(--text-primary); padding: 10px;"
+                                required>
                                 <option value="Contrato Legal" selected>📜 Contrato Legal</option>
                                 <option value="Orden de Compra Firmada">✍️ Orden de Compra Firmada</option>
                                 <option value="Comprobante de Pago (Voucher)">💵 Comprobante de Pago (Voucher)</option>
                                 <option value="Otros">📁 Otros Documentos</option>
                             </select>
                         </div>
-                        
+
                         <div>
-                            <label for="doc-file" style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px; color: var(--text-secondary);">Seleccionar Archivo (PDF, Imagen, Word)</label>
-                            <div style="position: relative; border: 1px dashed var(--border-color); border-radius: var(--radius-sm); padding: 10px; display: flex; align-items: center; gap: 10px; background-color: var(--bg-input); cursor: pointer;" onclick="document.getElementById('doc-file').click()">
-                                <i class="fa-solid fa-paperclip" style="color: var(--text-muted); font-size: 1.1rem;"></i>
-                                <span id="doc-file-label" style="font-size: 0.85rem; color: var(--text-secondary);">Seleccionar archivo...</span>
-                                <input type="file" id="doc-file" name="file" style="display: none;" required onchange="document.getElementById('doc-file-label').textContent=this.files[0].name; document.getElementById('doc-file-label').style.color='var(--text-primary)';">
+                            <label for="doc-file"
+                                style="display: block; font-size: 0.85rem; font-weight: 500; margin-bottom: 6px; color: var(--text-secondary);">Seleccionar
+                                Archivo (PDF, Imagen, Word)</label>
+                            <div style="position: relative; border: 1px dashed var(--border-color); border-radius: var(--radius-sm); padding: 10px; display: flex; align-items: center; gap: 10px; background-color: var(--bg-input); cursor: pointer;"
+                                onclick="document.getElementById('doc-file').click()">
+                                <i class="fa-solid fa-paperclip"
+                                    style="color: var(--text-muted); font-size: 1.1rem;"></i>
+                                <span id="doc-file-label"
+                                    style="font-size: 0.85rem; color: var(--text-secondary);">Seleccionar
+                                    archivo...</span>
+                                <input type="file" id="doc-file" name="file" style="display: none;" required
+                                    onchange="document.getElementById('doc-file-label').textContent=this.files[0].name; document.getElementById('doc-file-label').style.color='var(--text-primary)';">
                             </div>
                         </div>
                     </div>
-                    
+
                     <div>
-                        <label for="doc-notes" style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px; color: var(--text-secondary);">Descripción / Notas</label>
-                        <input type="text" id="doc-notes" name="notes" placeholder="Ej: Firma del representante legal para iguala 2026..." class="form-control" style="width: 100%; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background-color: var(--bg-input); color: var(--text-primary); padding: 10px;">
+                        <label for="doc-notes"
+                            style="display: block; font-size: 0.85rem; font-weight: 500; margin-bottom: 6px; color: var(--text-secondary);">Descripción
+                            / Notas</label>
+                        <input type="text" id="doc-notes" name="notes"
+                            placeholder="Ej: Firma del representante legal para iguala 2026..." class="form-control"
+                            style="width: 100%; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background-color: var(--bg-input); color: var(--text-primary); padding: 10px;">
                     </div>
-                    
+
                     <div style="display: flex; justify-content: flex-end; margin-top: 8px;">
-                        <button type="submit" class="btn btn-primary" style="padding: 10px 24px; font-weight: 600; display: flex; align-items: center; gap: 8px;">
+                        <button type="submit" class="btn btn-primary"
+                            style="padding: 10px 24px; font-weight: 500; display: flex; align-items: center; gap: 8px;">
                             <i class="fa-solid fa-cloud-arrow-up"></i>
                             <span>Cargar al Expediente</span>
                         </button>
                     </div>
                 </form>
             </div>
-            
+
             <!-- Listado de documentos centralizados -->
             <div class="card-table-wrapper" style="margin-bottom: 0; padding: 24px;">
-                <h3 style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px;">Historial Documental Centralizado</h3>
-                
+                <h3
+                    style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px;">
+                    Historial Documental Centralizado</h3>
+
                 {% if documents %}
-                    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px;">
-                        {% for doc in documents %}
-                            <div style="border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 16px; background-color: var(--bg-input); display: flex; flex-direction: column; justify-content: space-between; gap: 12px; transition: transform 0.2s ease, box-shadow 0.2s ease;"
-                                 onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='var(--shadow-sm)';"
-                                 onmouseout="this.style.transform='none'; this.style.boxShadow='none';">
-                                <div>
-                                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
-                                        <span class="badge" style="font-size: 0.72rem; font-weight: bold; background-color: rgba(16, 185, 129, 0.1); color: var(--accent-emerald);">
-                                            {{ doc.documentType }}
-                                        </span>
-                                        <form action="{{ url_for('web_operations.delete_client_document_route', client_id=client.id, doc_id=doc.id) }}" method="POST" style="margin:0;" onsubmit="return confirm('¿Seguro que deseas eliminar este documento de los archivos del cliente?');">
-                                            <button type="submit" style="background:none; border:none; color:var(--text-muted); cursor:pointer; padding: 2px;" title="Eliminar Archivo">
-                                                <i class="fa-solid fa-trash-can" style="font-size: 0.82rem;" onmouseover="this.style.color='var(--accent-red)'" onmouseout="this.style.color='var(--text-muted)'"></i>
-                                            </button>
-                                        </form>
-                                    </div>
-                                    <h4 style="font-size: 0.92rem; font-weight: 700; margin: 0 0 6px 0; color: var(--text-primary); text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">
-                                        {{ doc.name }}
-                                    </h4>
-                                    <p style="font-size: 0.8rem; color: var(--text-secondary); margin: 0 0 8px 0; line-height: 1.4;">
-                                        {{ doc.notes or 'Sin notas adicionales.' }}
-                                    </p>
-                                </div>
-                                <div style="border-top: 1px solid var(--border-color); padding-top: 10px; display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; color: var(--text-muted);">
-                                    <span>Subido el {{ doc.createdAt[:10] }}</span>
-                                    <a href="{{ doc.url }}" target="_blank" class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.75rem; display: inline-flex; align-items: center; gap: 4px; border-color: var(--accent-emerald); color: var(--accent-emerald);">
-                                        <i class="fa-solid fa-download"></i>
-                                        <span>Descargar</span>
-                                    </a>
-                                </div>
+                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px;">
+                    {% for doc in documents %}
+                    <div style="border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 16px; background-color: var(--bg-input); display: flex; flex-direction: column; justify-content: space-between; gap: 12px; transition: transform 0.2s ease, box-shadow 0.2s ease;"
+                        onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='var(--shadow-sm)';"
+                        onmouseout="this.style.transform='none'; this.style.boxShadow='none';">
+                        <div>
+                            <div
+                                style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+                                <span class="badge"
+                                    style="font-size: 0.72rem; font-weight: bold; background-color: rgba(16, 185, 129, 0.1); color: var(--accent-emerald);">
+                                    {{ doc.documentType }}
+                                </span>
+                                <form
+                                    action="{{ url_for('web_operations.delete_client_document_route', client_id=client.id, doc_id=doc.id) }}"
+                                    method="POST" style="margin:0;"
+                                    onsubmit="return confirm('¿Seguro que deseas eliminar este documento de los archivos del cliente?');">
+                                    <button type="submit"
+                                        style="background:none; border:none; color:var(--text-muted); cursor:pointer; padding: 2px;"
+                                        title="Eliminar Archivo">
+                                        <i class="fa-solid fa-trash-can" style="font-size: 0.82rem;"
+                                            onmouseover="this.style.color='var(--accent-red)'"
+                                            onmouseout="this.style.color='var(--text-muted)'"></i>
+                                    </button>
+                                </form>
                             </div>
-                        {% endfor %}
+                            <h4
+                                style="font-size: 0.92rem; font-weight: 700; margin: 0 0 6px 0; color: var(--text-primary); text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">
+                                {{ doc.name }}
+                            </h4>
+                            <p
+                                style="font-size: 0.8rem; color: var(--text-secondary); margin: 0 0 8px 0; line-height: 1.4;">
+                                {{ doc.notes or 'Sin notas adicionales.' }}
+                            </p>
+                        </div>
+                        <div
+                            style="border-top: 1px solid var(--border-color); padding-top: 10px; display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; color: var(--text-muted);">
+                            <span>Subido el {{ doc.createdAt[:10] }}</span>
+                            <a href="{{ doc.url }}" target="_blank" class="btn btn-secondary"
+                                style="padding: 4px 10px; font-size: 0.75rem; display: inline-flex; align-items: center; gap: 4px; border-color: var(--accent-emerald); color: var(--accent-emerald);">
+                                <i class="fa-solid fa-download"></i>
+                                <span>Descargar</span>
+                            </a>
+                        </div>
                     </div>
+                    {% endfor %}
+                </div>
                 {% else %}
-                    <div style="text-align: center; padding: 40px 0; color: var(--text-secondary);">
-                        <i class="fa-solid fa-folder-open" style="font-size: 2.2rem; color: var(--text-muted); opacity: 0.5; margin-bottom: 12px; display: block;"></i>
-                        <span>No hay documentos adjuntos en el expediente del cliente todavía.</span>
-                    </div>
+                <div style="text-align: center; padding: 40px 0; color: var(--text-secondary);">
+                    <i class="fa-solid fa-folder-open"
+                        style="font-size: 2.2rem; color: var(--text-muted); opacity: 0.5; margin-bottom: 12px; display: block;"></i>
+                    <span>No hay documentos adjuntos en el expediente del cliente todavía.</span>
+                </div>
                 {% endif %}
             </div>
         </div>
-        
+
     </div>
 </div>
 
@@ -525,19 +654,19 @@
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ disableAutoReminders })
         })
-        .then(res => res.json())
-        .then(data => {
-            if (data.success) {
-                console.log("Preferencia de recordatorios actualizada.");
-            } else {
-                alert("Error al actualizar la preferencia: " + data.error);
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    console.log("Preferencia de recordatorios actualizada.");
+                } else {
+                    alert("Error al actualizar la preferencia: " + data.error);
+                    document.getElementById('disableAutoReminders').checked = !disableAutoReminders;
+                }
+            })
+            .catch(err => {
+                alert("Error de red al actualizar la preferencia.");
                 document.getElementById('disableAutoReminders').checked = !disableAutoReminders;
-            }
-        })
-        .catch(err => {
-            alert("Error de red al actualizar la preferencia.");
-            document.getElementById('disableAutoReminders').checked = !disableAutoReminders;
-        });
+            });
     }
 </script>
 {% endblock %}

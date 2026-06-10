@@ -23,30 +23,111 @@
 
     <!-- Estilos según Tema -->
     {% if company_theme == 'moderno' %}
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style_moderno.css') }}?v={{ range(1, 1000000) | random }}">
+    <link rel="stylesheet"
+        href="{{ url_for('static', filename='css/style_moderno.css') }}?v={{ range(1, 1000000) | random }}">
     {% else %}
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style_clasico.css') }}?v={{ range(1, 1000000) | random }}">
+    <link rel="stylesheet"
+        href="{{ url_for('static', filename='css/style_clasico.css') }}?v={{ range(1, 1000000) | random }}">
     {% endif %}
 
     {% if company_apply_color_marca_ui and company_color_marca %}
     <style id="dynamic-brand-styles">
-        :root, body.sandbox-mode, [data-theme="dark"] {
-            --accent-emerald: {{ company_color_marca }};
-            --accent-emerald-hover: {{ company_color_marca }};
-            --accent-purple: {{ company_color_marca }};
-            --accent-purple-hover: {{ company_color_marca }};
-            {% if company_gradient_enabled %}
-            --brand-gradient: linear-gradient(135deg, {{ company_color_marca }}, #60a5fa);
-            {% else %}
-            --brand-gradient: {{ company_color_marca }};
-            {% endif %}
+        :root,
+        body.sandbox-mode,
+        [data-theme="dark"] {
+            --accent-emerald: {
+                    {
+                    company_color_marca
+                }
+            }
+
+            ;
+
+            --accent-emerald-hover: {
+                    {
+                    company_color_marca
+                }
+            }
+
+            ;
+
+            --accent-purple: {
+                    {
+                    company_color_marca
+                }
+            }
+
+            ;
+
+            --accent-purple-hover: {
+                    {
+                    company_color_marca
+                }
+            }
+
+            ;
+
+                {
+                % if company_gradient_enabled %
+            }
+
+            --brand-gradient: linear-gradient(135deg, {
+                    {
+                    company_color_marca
+                }
+            }
+
+            , #60a5fa);
+
+            {
+            % else %
         }
+
+        --brand-gradient: {
+                {
+                company_color_marca
+            }
+        }
+
+        ;
+
+            {
+            % endif %
+        }
+        }
+
         .sandbox-banner {
-            {% if company_gradient_enabled %}
-            background: linear-gradient(90deg, {{ company_color_marca }}, #8b5cf6, {{ company_color_marca }});
-            {% else %}
-            background: {{ company_color_marca }};
-            {% endif %}
+                {
+                % if company_gradient_enabled %
+            }
+
+            background: linear-gradient(90deg, {
+                    {
+                    company_color_marca
+                }
+            }
+
+            , #8b5cf6, {
+                {
+                company_color_marca
+            }
+        });
+
+            {
+            % else %
+        }
+
+        background: {
+                {
+                company_color_marca
+            }
+        }
+
+        ;
+
+            {
+            % endif %
+        }
         }
     </style>
     {% endif %}
@@ -145,6 +226,331 @@
             background: rgba(0, 0, 0, 0.1);
             border-radius: 4px;
         }
+
+        /* --- Estilos de Submenú Desplegable (Flyout) estilo GCP/Firebase --- */
+        .sidebar-section-header .header-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .sidebar-section-header .header-left .section-icon {
+            font-size: 1rem;
+            color: var(--text-secondary);
+            transition: color 0.2s ease;
+            width: 16px;
+            text-align: center;
+        }
+
+        .sidebar-section-header:hover .header-left .section-icon {
+            color: var(--accent-emerald);
+        }
+
+        @media (min-width: 769px) {
+
+            /* Permitir que el submenú flote fuera de la barra lateral sin ser recortado */
+            .sidebar {
+                overflow: visible !important;
+            }
+
+            .nav-menu {
+                overflow: visible !important;
+                max-height: none !important;
+            }
+
+            /* Secciones con menú flotante en Desktop */
+            .sidebar-section-flyout {
+                position: relative;
+            }
+
+            .sidebar-section-flyout .sidebar-section-header {
+                font-size: 0.85rem;
+                font-weight: 500;
+                color: var(--text-secondary);
+                padding: 10px 12px;
+                margin: 4px 0;
+                border-top: none !important;
+                border-radius: var(--radius-sm);
+                transition: all var(--transition-fast);
+            }
+
+            .sidebar-section-flyout .sidebar-section-header:hover {
+                background-color: var(--bg-nav-hover);
+                color: var(--text-primary);
+            }
+
+            /* Flecha indicadora de menú lateral (Chevron derecho) */
+            .sidebar-section-flyout .sidebar-section-header .section-toggle-icon {
+                font-size: 0.7rem;
+                opacity: 0.6;
+                transform: none !important;
+                /* Evitar rotación del acordeón */
+            }
+
+            /* Contenedor del Submenú Flotante (Popup Card) */
+            .sidebar-section-flyout .flyout-content {
+                position: absolute;
+                left: 100%;
+                top: 0;
+                min-width: 240px;
+                background: var(--bg-sidebar);
+                backdrop-filter: blur(25px);
+                -webkit-backdrop-filter: blur(25px);
+                border: 1px solid var(--border-color);
+                border-radius: var(--radius-md);
+                box-shadow: var(--shadow-lg);
+                padding: 10px;
+                z-index: 999;
+                display: none;
+                flex-direction: column;
+                gap: 4px;
+                opacity: 0;
+                visibility: hidden;
+                transform: translateX(12px);
+                transition: opacity 0.2s cubic-bezier(0.4, 0, 0.2, 1), transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+                pointer-events: none;
+                margin-left: 8px;
+            }
+
+            /* Desactivar colapso vertical en acordeón para el flyout */
+            .sidebar-section-flyout.collapsed .flyout-content {
+                max-height: none !important;
+                opacity: 0;
+                pointer-events: none;
+            }
+
+            /* Mostrar el flyout al hacer hover sobre la sección */
+            .sidebar-section-flyout:hover .flyout-content,
+            .sidebar-section-flyout.collapsed:hover .flyout-content {
+                display: flex !important;
+                opacity: 1 !important;
+                visibility: visible !important;
+                transform: translateX(0);
+                pointer-events: auto !important;
+            }
+
+            /* Mantener cabeceras visibles como iconos cuando la barra lateral está contraída */
+            .sidebar-collapsed .sidebar-section-flyout .sidebar-section-header {
+                display: flex !important;
+                opacity: 1 !important;
+                height: auto !important;
+                padding: 10px 0 !important;
+                justify-content: center !important;
+                margin: 4px 0 !important;
+                overflow: visible !important;
+            }
+
+            .sidebar-collapsed .sidebar-section-flyout .sidebar-section-header span,
+            .sidebar-collapsed .sidebar-section-flyout .sidebar-section-header .section-toggle-icon {
+                display: none !important;
+            }
+
+            .sidebar-collapsed .sidebar-section-flyout .sidebar-section-header .header-left {
+                justify-content: center;
+                width: 100%;
+            }
+
+            .sidebar-collapsed .sidebar-section-flyout .sidebar-section-header .header-left .section-icon {
+                font-size: 1.15rem;
+                margin: 0;
+            }
+
+            /* Resaltado del item padre activo si el submenú contiene la página activa */
+            .sidebar-section-flyout.active-parent .sidebar-section-header {
+                color: var(--text-primary);
+                background-color: var(--bg-brand-translucent);
+                box-shadow: var(--shadow-brand-glow-subtle);
+                border-left: 3px solid var(--accent-emerald);
+                padding-left: 9px !important;
+            }
+
+            .sidebar-collapsed .sidebar-section-flyout.active-parent .sidebar-section-header {
+                border-left: 3px solid var(--accent-emerald);
+                padding-left: 0 !important;
+            }
+
+            /* Estilos Premium para los items dentro del submenú flotante */
+            .sidebar-section-flyout .flyout-content .nav-item {
+                width: 100%;
+            }
+
+            .sidebar-section-flyout .flyout-content .nav-item a {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                padding: 10px 14px;
+                border-radius: var(--radius-sm);
+                color: var(--text-primary);
+                font-weight: 500;
+                font-size: 0.85rem;
+                transition: all var(--transition-fast);
+                white-space: nowrap;
+                width: 100%;
+            }
+
+            .sidebar-section-flyout .flyout-content .nav-item a:hover {
+                background-color: var(--bg-nav-hover);
+                color: var(--accent-emerald);
+            }
+
+            .sidebar-section-flyout .flyout-content .nav-item.active a {
+                background-color: var(--bg-brand-translucent);
+                border-left: 3px solid var(--accent-emerald);
+                padding-left: 11px;
+                color: var(--accent-emerald);
+            }
+        }
+
+        .sidebar-divider {
+            height: 1px;
+            background-color: var(--border-color);
+            margin: 12px 10px;
+            opacity: 0.8;
+        }
+
+        /* Ocultar buscador cuando el sidebar está colapsado */
+        .sidebar-collapsed .sidebar-search-wrapper {
+            display: none !important;
+        }
+
+        /* Comportamiento del buscador activo en el sidebar (convierte flyouts en listas inline) */
+        .sidebar-searching .sidebar-section-flyout .flyout-content {
+            position: static !important;
+            display: flex !important;
+            opacity: 1 !important;
+            visibility: visible !important;
+            transform: none !important;
+            box-shadow: none !important;
+            border: none !important;
+            background: transparent !important;
+            padding: 0 0 0 16px !important;
+            margin: 0 !important;
+            pointer-events: auto !important;
+        }
+
+        .sidebar-searching .sidebar-section-flyout .sidebar-section-header .section-toggle-icon {
+            display: none !important;
+        }
+
+        /* --- Barra de Utilidades Derecha (Right Side Utility Bar) estilo GCP/Firebase --- */
+        @media (min-width: 769px) {
+            .app-container {
+                display: grid;
+                grid-template-columns: 280px 1fr 64px !important;
+                min-height: 100vh;
+            }
+
+            .app-container.sidebar-collapsed {
+                grid-template-columns: 80px 1fr 64px !important;
+            }
+        }
+
+        .utility-bar {
+            background-color: var(--bg-sidebar);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-left: 1px solid var(--border-color);
+            padding: 16px 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh;
+            position: sticky;
+            top: 0;
+            z-index: 90;
+            width: 64px;
+            justify-content: space-between;
+            box-sizing: border-box;
+        }
+
+        .utility-bar-top,
+        .utility-bar-bottom {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 16px;
+            width: 100%;
+        }
+
+        .utility-item {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            color: var(--text-secondary);
+            transition: all var(--transition-fast);
+            cursor: pointer;
+            font-size: 1.15rem;
+            position: relative;
+            background: transparent;
+            border: none;
+            text-decoration: none;
+        }
+
+        .utility-item:hover {
+            background-color: var(--bg-nav-hover);
+            color: var(--accent-emerald);
+        }
+
+        .utility-avatar-wrapper {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            background: linear-gradient(135deg, var(--accent-emerald), var(--accent-purple));
+            box-shadow: var(--shadow-sm);
+            cursor: pointer;
+            transition: transform var(--transition-fast);
+            text-decoration: none;
+            color: #ffffff;
+            font-weight: 700;
+            font-size: 0.95rem;
+        }
+
+        .utility-avatar-wrapper img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 50%;
+            border: 2px solid var(--accent-emerald);
+            box-sizing: border-box;
+        }
+
+        .utility-avatar-wrapper:hover {
+            transform: scale(1.05);
+        }
+
+        .utility-divider {
+            width: 24px;
+            height: 1px;
+            background-color: var(--border-color);
+            margin: 6px 0;
+            opacity: 0.6;
+        }
+
+        /* Posicionamiento flotante del dropdown de CRM en la barra derecha */
+        .utility-bar .crm-dropdown .dropdown-menu {
+            position: absolute;
+            right: calc(100% + 12px) !important;
+            top: 0 !important;
+            left: auto !important;
+        }
+
+        /* Ocultar en dispositivos móviles */
+        @media (max-width: 768px) {
+            .utility-bar {
+                display: none !important;
+            }
+
+            .app-container {
+                grid-template-columns: 1fr !important;
+            }
+        }
     </style>
 
     {% block extra_head %}{% endblock %}
@@ -192,6 +598,15 @@
             </div>
 
             <nav class="nav-menu">
+                <!-- Buscador del Sidebar -->
+                <div class="sidebar-search-wrapper" style="position: relative; margin: 10px 12px 6px 12px;">
+                    <i class="fa-solid fa-magnifying-glass"
+                        style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.85rem; pointer-events: none;"></i>
+                    <input type="text" id="sidebar-search-input" placeholder="Buscar en el menú..."
+                        style="width: 100%; height: 34px; padding: 0 12px 0 34px; background-color: transparent; border: none; font-size: 0.82rem; color: var(--text-primary); transition: all var(--transition-fast); box-sizing: border-box;"
+                        onfocus="this.style.boxShadow='none';" onblur="this.style.boxShadow='none';">
+                </div>
+
                 <!-- SECCIÓN: GENERAL -->
                 <div class="sidebar-section" id="sidebar-section-general">
                     <div class="sidebar-section-header">
@@ -199,7 +614,8 @@
                         <i class="fa-solid fa-chevron-down section-toggle-icon"></i>
                     </div>
                     <ul class="sidebar-section-content">
-                        {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canViewDashboard', True) %}
+                        {% if session.get('user', {}).get('role') == 'owner' or session.get('user',
+                        {}).get('permissions', {}).get('canViewDashboard', True) %}
                         <li class="nav-item {% if active_page == 'dashboard' %}active{% endif %}"
                             data-tooltip="Dashboard">
                             <a href="{{ url_for('dashboard') }}">
@@ -208,6 +624,103 @@
                             </a>
                         </li>
                         {% endif %}
+                    </ul>
+                </div>
+
+                <!-- SECCIÓN: CONFIGURACIÓN -->
+                <div class="sidebar-section sidebar-section-flyout collapsed" id="sidebar-section-configuracion">
+                    <div class="sidebar-section-header">
+                        <div class="header-left">
+                            <i class="fa-solid fa-sliders section-icon"></i>
+                            <span>Configuración</span>
+                        </div>
+                        <i class="fa-solid fa-chevron-right section-toggle-icon"></i>
+                    </div>
+                    <ul class="sidebar-section-content flyout-content">
+                        {% if session.get('user', {}).get('role') == 'owner' or session.get('user',
+                        {}).get('permissions', {}).get('canModifySettings', True) %}
+                        <li class="nav-item {% if active_page == 'company_settings' %}active{% endif %}"
+                            data-tooltip="Administrar Empresa">
+                            <a href="{{ url_for('company_settings') }}">
+                                <i class="fa-solid fa-gears"></i>
+                                <span>Administrar Empresa</span>
+                            </a>
+                        </li>
+                        {% endif %}
+
+                        {% if session.get('user', {}).get('role') == 'owner' %}
+                        <li class="nav-item {% if active_page == 'team_settings' %}active{% endif %}"
+                            data-tooltip="Usuarios y Permisos">
+                            <a href="{{ url_for('team_settings') }}">
+                                <i class="fa-solid fa-users-gear"></i>
+                                <span>Usuarios y Permisos</span>
+                            </a>
+                        </li>
+                        {% endif %}
+
+                        {% if session.get('user', {}).get('role') == 'owner' or session.get('user',
+                        {}).get('permissions', {}).get('canModifySettings', True) %}
+                        <li class="nav-item" data-tooltip="Exportar Datos (CSV)">
+                            <div id="btn-open-export-modal"
+                                style="display: flex; align-items: center; width: 100%; cursor: pointer;">
+                                <a href="javascript:void(0)" style="width: 100%;">
+                                    <i class="fa-solid fa-file-export"></i>
+                                    <span>Exportar Datos (CSV)</span>
+                                </a>
+                            </div>
+                        </li>
+                        {% endif %}
+
+                        {% if session.get('user', {}).get('role') == 'owner' or session.get('user',
+                        {}).get('permissions', {}).get('canModifySettings', True) %}
+                        <li class="nav-item {% if active_page == 'sequences' %}active{% endif %}"
+                            data-tooltip="Secuencias Fiscales">
+                            <a href="{{ url_for('list_sequences') }}">
+                                <i class="fa-solid fa-barcode"></i>
+                                <span>Secuencias Fiscales</span>
+                            </a>
+                        </li>
+                        {% endif %}
+
+                        {% if session.get('user', {}).get('role') == 'owner' or session.get('user',
+                        {}).get('permissions', {}).get('canInvoice', True) %}
+                        <li class="nav-item {% if active_page == 'reports' %}active{% endif %}"
+                            data-tooltip="Reportes DGII">
+                            <a href="{{ url_for('reports_dashboard') }}">
+                                <i class="fa-solid fa-file-shield"></i>
+                                <span>Reportes DGII</span>
+                            </a>
+                        </li>
+                        {% endif %}
+
+                        <li class="nav-item {% if active_page == 'subscription' %}active{% endif %}"
+                            data-tooltip="Mi Plan y Consumo">
+                            <a href="{{ url_for('client_subscription_page') }}">
+                                <i class="fa-solid fa-credit-card"></i>
+                                <span>Mi Plan y Consumo</span>
+                            </a>
+                        </li>
+
+                        <li class="nav-item {% if active_page == 'help' %}active{% endif %}"
+                            data-tooltip="Centro de Ayuda">
+                            <a href="{{ url_for('help_center') }}">
+                                <i class="fa-solid fa-circle-question"></i>
+                                <span>Centro de Ayuda</span>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- SECCIÓN: NOTAS -->
+                <div class="sidebar-section" id="sidebar-section-notas">
+                    <ul class="sidebar-section-content" style="overflow: visible;">
+                        <li class="nav-item {% if active_page == 'notes' %}active{% endif %}"
+                            data-tooltip="Gestor de Notas">
+                            <a href="{{ url_for('web_notes.list_notes') }}">
+                                <i class="fa-solid fa-clipboard-check"></i>
+                                <span>Gestor de Notas</span>
+                            </a>
+                        </li>
                     </ul>
                 </div>
 
@@ -220,8 +733,7 @@
                     <ul class="sidebar-section-content">
                         {% if session.get('user', {}).get('role') == 'owner' or session.get('user',
                         {}).get('permissions', {}).get('canManagePOS', True) %}
-                        <li class="nav-item {% if active_page == 'pos' %}active{% endif %}"
-                            data-tooltip="Caja / POS">
+                        <li class="nav-item {% if active_page == 'pos' %}active{% endif %}" data-tooltip="Caja / POS">
                             <a href="{{ url_for('pos_dashboard') }}">
                                 <i class="fa-solid fa-cash-register"></i>
                                 <span>Caja Registradora</span>
@@ -291,13 +803,18 @@
                     </ul>
                 </div>
 
+                <div class="sidebar-divider"></div>
+
                 <!-- SECCIÓN: LOGÍSTICA & INVENTARIO -->
-                <div class="sidebar-section collapsed" id="sidebar-section-logistica">
+                <div class="sidebar-section sidebar-section-flyout collapsed" id="sidebar-section-logistica">
                     <div class="sidebar-section-header">
-                        <span>Logística & Inventario</span>
-                        <i class="fa-solid fa-chevron-down section-toggle-icon"></i>
+                        <div class="header-left">
+                            <i class="fa-solid fa-boxes-stacked section-icon"></i>
+                            <span>Logística & Inventario</span>
+                        </div>
+                        <i class="fa-solid fa-chevron-right section-toggle-icon"></i>
                     </div>
-                    <ul class="sidebar-section-content">
+                    <ul class="sidebar-section-content flyout-content">
                         {% if session.get('user', {}).get('role') == 'owner' or session.get('user',
                         {}).get('permissions', {}).get('canClients', True) %}
                         <li class="nav-item {% if active_page == 'items' %}active{% endif %}" data-tooltip="Catálogo">
@@ -323,14 +840,19 @@
 
                 <!-- SECCIÓN: FINANZAS -->
                 {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions',
-                {}).get('canExpenses', True) or session.get('user', {}).get('permissions', {}).get('canManageCXP', True) or session.get('user', {}).get('permissions', {}).get('canViewBI', True) %}
-                <div class="sidebar-section collapsed" id="sidebar-section-finanzas">
+                {}).get('canExpenses', True) or session.get('user', {}).get('permissions', {}).get('canManageCXP', True)
+                or session.get('user', {}).get('permissions', {}).get('canViewBI', True) %}
+                <div class="sidebar-section sidebar-section-flyout collapsed" id="sidebar-section-finanzas">
                     <div class="sidebar-section-header">
-                        <span>Finanzas</span>
-                        <i class="fa-solid fa-chevron-down section-toggle-icon"></i>
+                        <div class="header-left">
+                            <i class="fa-solid fa-coins section-icon"></i>
+                            <span>Finanzas</span>
+                        </div>
+                        <i class="fa-solid fa-chevron-right section-toggle-icon"></i>
                     </div>
-                    <ul class="sidebar-section-content">
-                        {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canExpenses', True) %}
+                    <ul class="sidebar-section-content flyout-content">
+                        {% if session.get('user', {}).get('role') == 'owner' or session.get('user',
+                        {}).get('permissions', {}).get('canExpenses', True) %}
                         <li class="nav-item {% if active_page == 'expenses' %}active{% endif %}"
                             data-tooltip="Control de Gastos">
                             <a href="{{ url_for('list_expenses') }}">
@@ -339,7 +861,8 @@
                             </a>
                         </li>
                         {% endif %}
-                        {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canManageCXP', True) %}
+                        {% if session.get('user', {}).get('role') == 'owner' or session.get('user',
+                        {}).get('permissions', {}).get('canManageCXP', True) %}
                         <li class="nav-item {% if active_page == 'expenses_cxp' %}active{% endif %}"
                             data-tooltip="Cuentas por Pagar (CxP)">
                             <a href="{{ url_for('list_cxp') }}">
@@ -348,7 +871,8 @@
                             </a>
                         </li>
                         {% endif %}
-                        {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canViewBI', True) %}
+                        {% if session.get('user', {}).get('role') == 'owner' or session.get('user',
+                        {}).get('permissions', {}).get('canViewBI', True) %}
                         <li class="nav-item {% if active_page == 'bi_dashboard' %}active{% endif %}"
                             data-tooltip="Inteligencia Financiera (BI)">
                             <a href="{{ url_for('bi_dashboard') }}">
@@ -361,35 +885,7 @@
                 </div>
                 {% endif %}
 
-                <!-- SECCIÓN: CONFIGURACIÓN & DGII -->
-                <div class="sidebar-section collapsed" id="sidebar-section-configuracion">
-                    <div class="sidebar-section-header">
-                        <span>Configuración & DGII</span>
-                        <i class="fa-solid fa-chevron-down section-toggle-icon"></i>
-                    </div>
-                    <ul class="sidebar-section-content">
-                        {% if session.get('user', {}).get('role') == 'owner' or session.get('user',
-                        {}).get('permissions', {}).get('canModifySettings', True) %}
-                        <li class="nav-item {% if active_page == 'sequences' %}active{% endif %}"
-                            data-tooltip="Secuencias Fiscales">
-                            <a href="{{ url_for('list_sequences') }}">
-                                <i class="fa-solid fa-barcode"></i>
-                                <span>Secuencias Fiscales</span>
-                            </a>
-                        </li>
-                        {% endif %}
-                        {% if session.get('user', {}).get('role') == 'owner' or session.get('user',
-                        {}).get('permissions', {}).get('canInvoice', True) %}
-                        <li class="nav-item {% if active_page == 'reports' %}active{% endif %}"
-                            data-tooltip="Reportes DGII">
-                            <a href="{{ url_for('reports_dashboard') }}">
-                                <i class="fa-solid fa-file-shield"></i>
-                                <span>Reportes DGII</span>
-                            </a>
-                        </li>
-                        {% endif %}
-                    </ul>
-                </div>
+
 
                 <!-- Inicializar estado de secciones colapsables para evitar visual layout shift -->
                 <script>
@@ -399,22 +895,92 @@
                             const el = document.getElementById('sidebar-section-' + id);
                             if (!el) return;
 
-                            // Regla de Oro: Si contiene el ítem activo, forzar expandido
+                            // Regla de Oro: Si contiene el ítem activo, forzar expandido/resaltado
                             const hasActive = el.querySelector('.nav-item.active');
                             if (hasActive) {
-                                el.classList.remove('collapsed');
+                                if (el.classList.contains('sidebar-section-flyout')) {
+                                    el.classList.add('active-parent');
+                                } else {
+                                    el.classList.remove('collapsed');
+                                }
                                 return;
                             }
 
-                            // Cargar preferencia del localStorage
-                            const stored = localStorage.getItem('sidebar-collapsed-sidebar-section-' + id);
-                            if (stored === 'true') {
-                                el.classList.add('collapsed');
-                            } else if (stored === 'false') {
-                                el.classList.remove('collapsed');
+                            // Cargar preferencia del localStorage (solo para no-flyout)
+                            if (!el.classList.contains('sidebar-section-flyout')) {
+                                const stored = localStorage.getItem('sidebar-collapsed-sidebar-section-' + id);
+                                if (stored === 'true') {
+                                    el.classList.add('collapsed');
+                                } else if (stored === 'false') {
+                                    el.classList.remove('collapsed');
+                                }
                             }
                         });
                     })();
+
+                    // Funcionalidad de Filtro/Búsqueda de menú en la barra lateral
+                    document.addEventListener('DOMContentLoaded', function () {
+                        const searchInput = document.getElementById('sidebar-search-input');
+                        if (!searchInput) return;
+
+                        searchInput.addEventListener('input', function (e) {
+                            const query = e.target.value.toLowerCase().trim();
+                            const sidebar = document.querySelector('.sidebar');
+
+                            if (query.length > 0) {
+                                sidebar.classList.add('sidebar-searching');
+
+                                document.querySelectorAll('.sidebar-section').forEach(section => {
+                                    let sectionHasMatch = false;
+
+                                    section.querySelectorAll('.nav-item').forEach(item => {
+                                        const text = item.textContent.toLowerCase();
+                                        if (text.includes(query)) {
+                                            item.style.setProperty('display', 'block', 'important');
+                                            sectionHasMatch = true;
+                                        } else {
+                                            item.style.setProperty('display', 'none', 'important');
+                                        }
+                                    });
+
+                                    if (sectionHasMatch) {
+                                        section.style.setProperty('display', 'block', 'important');
+                                        section.classList.remove('collapsed');
+                                    } else {
+                                        section.style.setProperty('display', 'none', 'important');
+                                    }
+                                });
+                            } else {
+                                sidebar.classList.remove('sidebar-searching');
+
+                                document.querySelectorAll('.sidebar-section').forEach(section => {
+                                    section.style.removeProperty('display');
+                                    section.querySelectorAll('.nav-item').forEach(item => {
+                                        item.style.removeProperty('display');
+                                    });
+
+                                    // Restaurar estado collapsed/active
+                                    const hasActive = section.querySelector('.nav-item.active');
+                                    if (hasActive) {
+                                        if (section.classList.contains('sidebar-section-flyout')) {
+                                            section.classList.add('active-parent');
+                                        } else {
+                                            section.classList.remove('collapsed');
+                                        }
+                                    } else {
+                                        if (!section.classList.contains('sidebar-section-flyout')) {
+                                            const stored = localStorage.getItem('sidebar-collapsed-' + section.id);
+                                            if (stored === 'true') {
+                                                section.classList.add('collapsed');
+                                            } else {
+                                                section.classList.remove('collapsed');
+                                            }
+                                        }
+                                    }
+                                });
+                            }
+                        });
+                    });
                 </script>
             </nav>
 
@@ -424,360 +990,11 @@
                     style="margin: 0 auto;">
                     <i class="fa-solid fa-chevron-left" id="toggle-icon"></i>
                 </button>
-                <a href="{{ url_for('user_profile_page') }}" class="user-badge user-badge-link"
-                    title="Ver y editar mi perfil" style="text-decoration: none; display: flex; align-items: center; gap: 12px;
-                          padding: 10px 14px; border-radius: var(--radius-sm);
-                          transition: background-color 0.2s ease, transform 0.15s ease;
-                          cursor: pointer; position: relative;"
-                    onmouseover="this.style.backgroundColor='var(--bg-nav-hover)'; this.querySelector('.profile-hint-icon').style.opacity='1';"
-                    onmouseout="this.style.backgroundColor='transparent'; this.querySelector('.profile-hint-icon').style.opacity='0';">
-                    <div class="user-avatar" style="position: relative; flex-shrink: 0;">
-                        {% if company_logo_url %}
-                        <img src="{{ company_logo_url }}" alt="Logo"
-                            style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">
-                        {% else %}
-                        {{ session.get('user', {}).get('name', 'P')[0] | upper }}
-                        {% endif %}
-                    </div>
-                    <div class="user-info" style="overflow: hidden; flex: 1; min-width: 0;">
-                        <span class="user-name"
-                            style="display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{
-                            session.get('user', {}).get('name', 'Usuario') }}</span>
-                        <span class="user-role"
-                            style="display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{
-                            session.get('user', {}).get('role', 'owner') | capitalize }}</span>
-                    </div>
-                    <i class="fa-solid fa-pen-to-square profile-hint-icon"
-                        style="font-size: 0.75rem; color: var(--accent-emerald); opacity: 0; transition: opacity 0.2s ease; flex-shrink: 0;"></i>
-                </a>
             </div>
         </aside>
 
         <!-- 2. CONTENIDO PRINCIPAL -->
         <main class="main-content">
-            <header class="header">
-                <div class="page-title">
-                    {% block page_header %}{% endblock %}
-                </div>
-
-                <div class="header-actions">
-                    {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions',
-                    {}).get('canInvoice', True) %}
-                    <!-- Acceso directo: Nuevo Documento -->
-                    <a href="{{ url_for('new_invoice_route') }}" class="btn btn-primary"
-                        style="padding: 8px 16px; font-size: 0.85rem; text-decoration: none; display: inline-flex; align-items: center; gap: 8px;">
-                        <i class="fa-solid fa-file-circle-plus"></i>
-                        <span>Nuevo Documento</span>
-                    </a>
-                    {% endif %}
-
-                    <!-- Acceso a Notas -->
-                    <a href="{{ url_for('web_notes.list_notes') }}" 
-                        style="padding: 8px 12px; font-size: 1.1rem; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; border: none; background: transparent; cursor: pointer; border-radius: var(--radius-sm); transition: all 0.2s ease; color: var(--text-secondary);"
-                        onmouseover="this.style.backgroundColor='var(--bg-nav-hover)'; this.style.color='var(--accent-emerald)';"
-                        onmouseout="this.style.backgroundColor='transparent'; this.style.color='var(--text-secondary)';"
-                        title="Gestor de Tareas y Notas">
-                        <i class="fa-solid fa-clipboard-check"></i>
-                    </a>
-
-                    <!-- Icono CRM / Notificaciones -->
-                    <div class="crm-dropdown" id="crm-dropdown-trigger"
-                        style="position: relative; display: inline-block;">
-                        <button class="btn btn-secondary"
-                            style="padding: 8px 12px; font-size: 1rem; cursor: pointer; border: none; background: transparent;"
-                            title="Compromisos CRM para Hoy">
-                            <i class="fa-regular fa-bell"></i>
-                            {% if crm_contacts is defined and crm_contacts|length > 0 %}
-                            <span
-                                style="position: absolute; top: 2px; right: 2px; background-color: var(--accent-red); color: white; border-radius: 50%; width: 8px; height: 8px;"></span>
-                            {% endif %}
-                        </button>
-
-                        <!-- Menú Desplegable CRM -->
-                        <div class="dropdown-menu" id="crm-dropdown-menu" style="
-                            display: none;
-                            position: absolute;
-                            right: 0;
-                            top: calc(100% + 8px);
-                            background-color: var(--bg-sidebar);
-                            border: 1px solid var(--border-color);
-                            border-radius: var(--radius-md);
-                            width: 320px;
-                            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-                            padding: 0;
-                            z-index: 1000;
-                            flex-direction: column;
-                            box-sizing: border-box;
-                        ">
-                            <div
-                                style="padding: 12px 16px; border-bottom: 1px solid var(--border-color); font-weight: 500; font-size: 0.85rem;">
-                                Compromisos CRM para Hoy
-                            </div>
-                            <div style="max-height: 300px; overflow-y: auto; padding: 8px;">
-                                {% if crm_contacts is defined and crm_contacts %}
-                                {% for contact in crm_contacts %}
-                                <div class="crm-notification-item"
-                                    style="padding: 10px; border-bottom: 1px solid var(--border-color); font-size: 0.8rem;">
-                                    <div
-                                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-                                        <strong
-                                            style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 170px;">{{
-                                            contact.razonSocial }}</strong>
-                                        <span class="badge"
-                                            style="background-color: #e8f0fe; color: #1a73e8; border: none; font-size: 0.6rem; padding: 2px 6px;">CRM</span>
-                                    </div>
-                                    <p style="color: var(--text-secondary); margin: 0 0 6px 0; font-size: 0.75rem;">
-                                        {% if contact.crmNotes %}
-                                        {{ contact.crmNotes }}
-                                        {% elif contact.total_cxc and contact.total_cxc > 0 %}
-                                        <span style="color: var(--text-secondary);"><i
-                                                class="fa-solid fa-circle-info"></i> Cliente con saldo pendiente.</span>
-                                        {% else %}
-                                        Sin anotaciones.
-                                        {% endif %}
-                                    </p>
-                                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                                        <span style="color: var(--text-muted); font-size: 0.7rem;"><i
-                                                class="fa-solid fa-phone"></i> {{ contact.telefono or 'N/A' }}</span>
-                                        <a href="{{ url_for('client_detail', client_id=contact.id) }}"
-                                            style="color: var(--accent-emerald); font-weight: 500; text-decoration: none; font-size: 0.75rem;"><i
-                                                class="fa-solid fa-eye"></i> Ver</a>
-                                    </div>
-                                </div>
-                                {% endfor %}
-                                {% else %}
-                                <div
-                                    style="text-align: center; color: var(--text-muted); font-size: 0.8rem; padding: 20px 0;">
-                                    No tienes compromisos para hoy.
-                                </div>
-                                {% endif %}
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Dropdown de Configuración -->
-                    <div class="company-dropdown" id="company-dropdown-trigger"
-                        style="position: relative; display: inline-block;">
-                        <button class="btn btn-secondary"
-                            style="padding: 8px 16px; font-size: 0.85rem; display: flex; align-items: center; gap: 8px; cursor: pointer;"
-                            title="Menú de Configuración y Cuenta">
-                            <i class="fa-solid fa-gears"></i>
-                            <span>Configuración</span>
-                            <i class="fa-solid fa-chevron-down" style="font-size: 0.7rem; opacity: 0.7;"></i>
-                        </button>
-
-                        <!-- Menú Desplegable (Dropdown Menu) -->
-                        <div class="dropdown-menu" id="company-dropdown-menu" style="
-                            display: none;
-                            position: absolute;
-                            right: 0;
-                            top: calc(100% + 8px);
-                            background-color: var(--bg-sidebar);
-                            backdrop-filter: blur(20px);
-                            -webkit-backdrop-filter: blur(20px);
-                            border: 1px solid var(--border-color);
-                            border-radius: var(--radius-md);
-                            min-width: 240px;
-                            box-shadow: var(--shadow-lg);
-                            padding: 8px;
-                            z-index: 1000;
-                            flex-direction: column;
-                            gap: 4px;
-                            box-sizing: border-box;
-                        ">
-                            <!-- Opción 1: Administrar Empresa -->
-                            {% if session.get('user', {}).get('role') == 'owner' or session.get('user',
-                            {}).get('permissions', {}).get('canModifySettings', True) %}
-                            <a href="{{ url_for('company_settings') }}" style="
-                                display: flex;
-                                align-items: center;
-                                gap: 12px;
-                                padding: 10px 14px;
-                                font-size: 0.85rem;
-                                font-weight: 500;
-                                color: var(--text-primary);
-                                border-radius: var(--radius-sm);
-                                transition: background-color var(--transition-fast);
-                            " onmouseover="this.style.backgroundColor='var(--bg-nav-hover)'"
-                                onmouseout="this.style.backgroundColor='transparent'">
-                                <i class="fa-solid fa-gears"
-                                    style="color: var(--accent-emerald); width: 16px; font-size: 0.95rem;"></i>
-                                <span>Administrar Empresa</span>
-                            </a>
-
-                            <!-- Opción: Usuarios y Permisos -->
-                            {% if session.get('user', {}).get('role') == 'owner' %}
-                            <a href="{{ url_for('team_settings') }}" style="
-                                display: flex;
-                                align-items: center;
-                                gap: 12px;
-                                padding: 10px 14px;
-                                font-size: 0.85rem;
-                                font-weight: 500;
-                                color: var(--text-primary);
-                                border-radius: var(--radius-sm);
-                                transition: background-color var(--transition-fast);
-                            " onmouseover="this.style.backgroundColor='var(--bg-nav-hover)'"
-                                onmouseout="this.style.backgroundColor='transparent'">
-                                <i class="fa-solid fa-users-gear"
-                                    style="color: var(--accent-emerald); width: 16px; font-size: 0.95rem;"></i>
-                                <span>Usuarios y Permisos</span>
-                            </a>
-                            {% endif %}
-
-                            <!-- Opción: Exportar Datos (CSV) -->
-                            <div id="btn-open-export-modal" style="
-                                display: flex;
-                                align-items: center;
-                                gap: 12px;
-                                padding: 10px 14px;
-                                font-size: 0.85rem;
-                                font-weight: 500;
-                                color: var(--text-primary);
-                                border-radius: var(--radius-sm);
-                                cursor: pointer;
-                                transition: background-color var(--transition-fast);
-                            " onmouseover="this.style.backgroundColor='var(--bg-nav-hover)'"
-                                onmouseout="this.style.backgroundColor='transparent'">
-                                <i class="fa-solid fa-file-export"
-                                    style="color: var(--accent-emerald); width: 16px; font-size: 0.95rem;"></i>
-                                <span>Exportar Datos (CSV)</span>
-                            </div>
-                            {% endif %}
-
-                            <!-- Opción: Mi Plan y Consumo -->
-                            <a href="{{ url_for('client_subscription_page') }}" style="
-                                display: flex;
-                                align-items: center;
-                                gap: 12px;
-                                padding: 10px 14px;
-                                font-size: 0.85rem;
-                                font-weight: 500;
-                                color: var(--text-primary);
-                                border-radius: var(--radius-sm);
-                                transition: background-color var(--transition-fast);
-                            " onmouseover="this.style.backgroundColor='var(--bg-nav-hover)'"
-                                onmouseout="this.style.backgroundColor='transparent'">
-                                <i class="fa-solid fa-credit-card"
-                                    style="color: var(--accent-emerald); width: 16px; font-size: 0.95rem;"></i>
-                                <span>Mi Plan y Consumo</span>
-                            </a>
-
-                            <!-- Opción 2: Cambiar a modo pruebas (Sandbox Toggle) -->
-                            <div class="environment-toggle" id="sandbox-toggle" style="
-                                display: flex;
-                                align-items: center;
-                                gap: 12px;
-                                padding: 10px 14px;
-                                font-size: 0.85rem;
-                                font-weight: 500;
-                                color: var(--text-primary);
-                                border-radius: var(--radius-sm);
-                                cursor: pointer;
-                                transition: all var(--transition-fast);
-                                margin: 0;
-                                border: none;
-                                background-color: transparent;
-                                width: 100%;
-                                box-sizing: border-box;
-                            " onmouseover="this.style.backgroundColor='var(--bg-nav-hover)'"
-                                onmouseout="this.style.backgroundColor='transparent'">
-                                <span class="environment-indicator"
-                                    style="width: 8px; height: 8px; border-radius: 50%;
-                                    background-color: {% if session.get('is_sandbox_mode', False) %}var(--accent-purple){% else %}var(--accent-emerald){% endif %};
-                                    box-shadow: 0 0 8px {% if session.get('is_sandbox_mode', False) %}var(--accent-purple){% else %}var(--accent-emerald){% endif %};"></span>
-                                <span>Modo Pruebas (Sandbox)</span>
-                            </div>
-                            <!-- Opción 3: Centro de Ayuda -->
-                            <a href="{{ url_for('help_center') }}" style="
-                                display: flex;
-                                align-items: center;
-                                gap: 12px;
-                                padding: 10px 14px;
-                                font-size: 0.85rem;
-                                font-weight: 500;
-                                color: var(--text-primary);
-                                border-radius: var(--radius-sm);
-                                transition: background-color var(--transition-fast);
-                            " onmouseover="this.style.backgroundColor='var(--bg-nav-hover)'"
-                                onmouseout="this.style.backgroundColor='transparent'">
-                                <i class="fa-solid fa-circle-question"
-                                    style="color: var(--accent-emerald); width: 16px; font-size: 0.95rem;"></i>
-                                <span>Centro de Ayuda</span>
-                            </a>
-
-                            <!-- Opción: Modo Oscuro -->
-                            <div id="theme-toggle-dropdown-btn" style="
-                                display: flex;
-                                align-items: center;
-                                justify-content: space-between;
-                                padding: 10px 14px;
-                                font-size: 0.85rem;
-                                font-weight: 500;
-                                color: var(--text-primary);
-                                border-radius: var(--radius-sm);
-                                cursor: pointer;
-                                transition: background-color var(--transition-fast);
-                            " onmouseover="this.style.backgroundColor='var(--bg-nav-hover)'"
-                                onmouseout="this.style.backgroundColor='transparent'">
-                                <div style="display: flex; align-items: center; gap: 12px;">
-                                    <i class="fa-solid fa-moon" id="theme-icon-dropdown-dark"
-                                        style="color: var(--text-secondary); width: 16px; font-size: 0.95rem;"></i>
-                                    <i class="fa-solid fa-sun" id="theme-icon-dropdown-light"
-                                        style="display: none; color: #f59e0b; width: 16px; font-size: 0.95rem;"></i>
-                                    <span>Modo Oscuro</span>
-                                </div>
-                            </div>
-
-                            <div style="height: 1px; background-color: var(--border-color); margin: 4px 0;"></div>
-
-                            <!-- Opción 3: Cerrar Sesión -->
-                            <a href="{{ url_for('logout') }}" style="
-                                display: flex;
-                                align-items: center;
-                                gap: 12px;
-                                padding: 10px 14px;
-                                font-size: 0.85rem;
-                                font-weight: 600;
-                                color: var(--accent-red);
-                                border-radius: var(--radius-sm);
-                                transition: background-color var(--transition-fast);
-                            " onmouseover="this.style.backgroundColor='rgba(220, 38, 38, 0.08)'"
-                                onmouseout="this.style.backgroundColor='transparent'">
-                                <i class="fa-solid fa-right-from-bracket" style="width: 16px; font-size: 0.95rem;"></i>
-                                <span>Cerrar Sesión</span>
-                            </a>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Script de Dropdowns del Header -->
-                <script>
-                    document.addEventListener('DOMContentLoaded', function () {
-                        const setupDropdown = (triggerId, menuId) => {
-                            const trigger = document.getElementById(triggerId);
-                            const menu = document.getElementById(menuId);
-                            if (trigger && menu) {
-                                trigger.addEventListener('click', function (event) {
-                                    event.stopPropagation();
-                                    const isDisplayed = menu.style.display === 'flex';
-                                    // Cerrar otros dropdowns
-                                    document.querySelectorAll('.dropdown-menu').forEach(m => m.style.display = 'none');
-                                    menu.style.display = isDisplayed ? 'none' : 'flex';
-                                });
-                                window.addEventListener('click', function (event) {
-                                    if (!trigger.contains(event.target)) {
-                                        menu.style.display = 'none';
-                                    }
-                                });
-                            }
-                        };
-                        setupDropdown('company-dropdown-trigger', 'company-dropdown-menu');
-                        setupDropdown('crm-dropdown-trigger', 'crm-dropdown-menu');
-                    });
-                </script>
-            </header>
-
             <!-- Mensajes flash flotantes de Jinja2 -->
             {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
@@ -795,10 +1012,141 @@
             {% endif %}
             {% endwith %}
 
-            <div class="content-wrapper page-fade-in">
+            <div class="content-wrapper page-fade-in" style="padding-top: 32px;">
+
                 {% block content %}{% endblock %}
             </div>
         </main>
+
+        <!-- 3. BARRA DE UTILIADES DERECHA (UTILITY BAR) -->
+        <aside class="utility-bar">
+            <div class="utility-bar-top">
+                <!-- Avatar del usuario (sin nombre) -->
+                <a href="{{ url_for('user_profile_page') }}" class="utility-avatar-wrapper"
+                    title="Mi Perfil / Ajustes de Cuenta">
+                    {% if company_logo_url %}
+                    <img src="{{ company_logo_url }}" alt="Avatar">
+                    {% else %}
+                    {{ session.get('user', {}).get('name', 'P')[0] | upper }}
+                    {% endif %}
+                </a>
+
+                <!-- Notificaciones CRM -->
+                <div class="crm-dropdown" id="crm-dropdown-trigger" style="position: relative; display: inline-block;">
+                    <button class="utility-item" title="Compromisos CRM para Hoy">
+                        <i class="fa-solid fa-bell"></i>
+                        {% if crm_contacts is defined and crm_contacts|length > 0 %}
+                        <span
+                            style="position: absolute; top: 8px; right: 8px; background-color: var(--accent-red); color: white; border-radius: 50%; width: 8px; height: 8px;"></span>
+                        {% endif %}
+                    </button>
+
+                    <!-- Menú Desplegable CRM -->
+                    <div class="dropdown-menu" id="crm-dropdown-menu" style="
+                        display: none;
+                        position: absolute;
+                        background-color: var(--bg-sidebar);
+                        border: 1px solid var(--border-color);
+                        border-radius: var(--radius-md);
+                        width: 320px;
+                        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+                        padding: 0;
+                        z-index: 1000;
+                        flex-direction: column;
+                        box-sizing: border-box;
+                    ">
+                        <div
+                            style="padding: 12px 16px; border-bottom: 1px solid var(--border-color); font-weight: 500; font-size: 0.85rem; color: var(--text-primary);">
+                            Compromisos CRM para Hoy
+                        </div>
+                        <div style="max-height: 300px; overflow-y: auto; padding: 8px;">
+                            {% if crm_contacts is defined and crm_contacts %}
+                            {% for contact in crm_contacts %}
+                            <div class="crm-notification-item"
+                                style="padding: 10px; border-bottom: 1px solid var(--border-color); font-size: 0.8rem;">
+                                <div
+                                    style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                                    <strong
+                                        style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 170px; color: var(--text-primary);">{{
+                                        contact.razonSocial }}</strong>
+                                    <span class="badge"
+                                        style="background-color: #e8f0fe; color: #1a73e8; border: none; font-size: 0.6rem; padding: 2px 6px;">CRM</span>
+                                </div>
+                                <p style="color: var(--text-secondary); margin: 0 0 6px 0; font-size: 0.75rem;">
+                                    {% if contact.crmNotes %}
+                                    {{ contact.crmNotes }}
+                                    {% elif contact.total_cxc and contact.total_cxc > 0 %}
+                                    <span style="color: var(--text-secondary);"><i class="fa-solid fa-circle-info"></i>
+                                        Cliente con saldo pendiente.</span>
+                                    {% else %}
+                                    Sin anotaciones.
+                                    {% endif %}
+                                </p>
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <span style="color: var(--text-muted); font-size: 0.7rem;"><i
+                                            class="fa-solid fa-phone"></i> {{ contact.telefono or 'N/A' }}</span>
+                                    <a href="{{ url_for('client_detail', client_id=contact.id) }}"
+                                        style="color: var(--accent-emerald); font-weight: 500; text-decoration: none; font-size: 0.75rem;"><i
+                                            class="fa-solid fa-eye"></i> Ver</a>
+                                </div>
+                            </div>
+                            {% endfor %}
+                            {% else %}
+                            <div
+                                style="text-align: center; color: var(--text-muted); font-size: 0.8rem; padding: 20px 0;">
+                                No tienes compromisos para hoy.
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Chatbot IA (Sparkle) -->
+                <button class="utility-item" id="chatbot-toggle-btn-alt"
+                    title="Consultar a e-Factura IA (Asesor Fiscal)"
+                    onclick="const fab = document.getElementById('chatbot-fab'); if(fab) fab.click();">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i>
+                </button>
+
+                <!-- Centro de Ayuda -->
+                <a href="{{ url_for('help_center') }}" class="utility-item" title="Centro de Ayuda">
+                    <i class="fa-solid fa-circle-question"></i>
+                </a>
+
+                <div class="utility-divider"></div>
+
+                <!-- Botón: Nuevo Documento Rápido -->
+                {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions',
+                {}).get('canInvoice', True) %}
+                <a href="{{ url_for('new_invoice_route') }}" class="utility-item" title="Nuevo Documento (+)"
+                    style="color: var(--accent-emerald);">
+                    <i class="fa-solid fa-file-circle-plus" style="font-size: 1.25rem;"></i>
+                </a>
+                {% endif %}
+
+                <!-- Modo Pruebas (Sandbox) -->
+                <button id="sandbox-toggle" class="utility-item"
+                    style="color: {% if session.get('is_sandbox_mode', False) %}var(--accent-purple){% else %}var(--text-secondary){% endif %};"
+                    title="Alternar Modo Pruebas (Sandbox)">
+                    <i class="fa-solid fa-flask"></i>
+                </button>
+            </div>
+
+            <div class="utility-bar-bottom">
+                <!-- Modo Oscuro -->
+                <button id="theme-toggle-dropdown-btn" class="utility-item" title="Alternar Modo Oscuro">
+                    <i class="fa-solid fa-moon" id="theme-icon-dropdown-dark"></i>
+                    <i class="fa-solid fa-sun" id="theme-icon-dropdown-light"
+                        style="display: none; color: #f59e0b;"></i>
+                </button>
+
+                <!-- Cerrar Sesión -->
+                <a href="{{ url_for('logout') }}" class="utility-item" style="color: var(--accent-red);"
+                    title="Cerrar Sesión">
+                    <i class="fa-solid fa-right-from-bracket"></i>
+                </a>
+            </div>
+        </aside>
     </div>
 
     {% if false %}
@@ -826,7 +1174,7 @@
                         style="font-size: 0.95rem; font-weight: 800; margin: 0; color: var(--text-primary); font-family: var(--font-heading);">
                         Asistente e-Factura</h4>
                     <span
-                        style="font-size: 0.72rem; font-weight: 600; color: var(--accent-emerald); display: flex; align-items: center; gap: 4px;">
+                        style="font-size: 0.72rem; font-weight: 500; color: var(--accent-emerald); display: flex; align-items: center; gap: 4px;">
                         <span
                             style="width: 6px; height: 6px; border-radius: 50%; background-color: var(--accent-emerald); display: inline-block;"></span>
                         Experto Fiscal Activo
@@ -1111,7 +1459,7 @@
             cursor: pointer;
             transition: all 0.25s ease;
             text-align: left;
-            font-weight: 600;
+            font-weight: 500;
         }
 
         .chatbot-chip:hover {

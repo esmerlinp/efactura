@@ -15,7 +15,7 @@
         padding-bottom: 20px;
         min-height: 500px;
     }
-    
+
     .kanban-column {
         flex: 1;
         min-width: 250px;
@@ -26,21 +26,21 @@
         display: flex;
         flex-direction: column;
     }
-    
+
     .kanban-header {
         padding: 10px 15px;
         border-bottom: 1px solid var(--border-color);
         font-family: var(--font-heading);
         font-size: 1rem;
-        font-weight: 600;
+        font-weight: 500;
         display: flex;
         align-items: center;
         gap: 8px;
-        background: rgba(0,0,0,0.1);
+        background: rgba(0, 0, 0, 0.1);
         border-top-left-radius: var(--radius-md);
         border-top-right-radius: var(--radius-md);
     }
-    
+
     .kanban-cards {
         padding: 10px;
         flex: 1;
@@ -63,18 +63,18 @@
         cursor: grab;
         transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.2s ease;
     }
-    
+
     .client-card:active {
         cursor: grabbing;
         transform: scale(0.98);
     }
-    
+
     .client-card:hover {
         box-shadow: 0 12px 20px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
         border-color: rgba(16, 185, 129, 0.4);
         transform: translateY(-3px);
     }
-    
+
     .client-title {
         font-size: 0.9rem;
         font-weight: 700;
@@ -89,7 +89,7 @@
     .client-title:hover {
         color: var(--accent-emerald);
     }
-    
+
     .client-meta {
         font-size: 0.75rem;
         color: var(--text-secondary);
@@ -98,13 +98,13 @@
         flex-direction: column;
         gap: 3px;
     }
-    
+
     .client-meta span {
         display: flex;
         align-items: center;
         gap: 6px;
     }
-    
+
     .client-meta i {
         width: 12px;
         font-size: 0.7rem;
@@ -129,7 +129,7 @@
         gap: 6px;
         justify-content: flex-end;
         margin-top: auto;
-        border-top: 1px solid rgba(0,0,0,0.04);
+        border-top: 1px solid rgba(0, 0, 0, 0.04);
         padding-top: 8px;
     }
 
@@ -152,30 +152,61 @@
     .btn-icon:hover {
         background: #e2e8f0;
         color: var(--text-primary);
-        border-color: rgba(0,0,0,0.1);
+        border-color: rgba(0, 0, 0, 0.1);
         transform: scale(1.05);
     }
-    
-    .btn-icon.eye:hover { color: var(--accent-emerald); }
-    .btn-icon.edit:hover { color: var(--accent-blue); }
-    
+
+    .btn-icon.eye:hover {
+        color: var(--accent-emerald);
+    }
+
+    .btn-icon.edit:hover {
+        color: var(--accent-blue);
+    }
+
     /* Stage specific colors */
-    .kanban-column#col-prospecto .kanban-header { border-bottom-color: var(--accent-yellow); color: var(--accent-yellow); }
-    .kanban-column#col-contactado .kanban-header { border-bottom-color: var(--accent-blue); color: var(--accent-blue); }
-    .kanban-column#col-negociacion .kanban-header { border-bottom-color: var(--accent-purple); color: var(--accent-purple); }
-    .kanban-column#col-activo .kanban-header { border-bottom-color: var(--accent-emerald); color: var(--accent-emerald); }
+    .kanban-column#col-prospecto .kanban-header {
+        border-bottom-color: var(--accent-yellow);
+        color: var(--accent-yellow);
+    }
+
+    .kanban-column#col-contactado .kanban-header {
+        border-bottom-color: var(--accent-blue);
+        color: var(--accent-blue);
+    }
+
+    .kanban-column#col-negociacion .kanban-header {
+        border-bottom-color: var(--accent-purple);
+        color: var(--accent-purple);
+    }
+
+    .kanban-column#col-activo .kanban-header {
+        border-bottom-color: var(--accent-emerald);
+        color: var(--accent-emerald);
+    }
 </style>
 
+<div class="page-title-container" style="margin-bottom: 24px; padding-left: 4px;">
+    <h1 class="page-title"
+        style="font-size: 1.75rem; font-weight: 800; font-family: var(--font-heading); color: var(--text-primary); margin: 0;">
+        Pipeline de Ventas y CRM
+    </h1>
+</div>
+
 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+
     <div>
-        <p style="color: var(--text-secondary); font-size: 0.95rem; margin: 0;">Gestiona tus clientes arrastrándolos por el embudo de ventas.</p>
+        <p style="color: var(--text-secondary); font-size: 0.95rem; margin: 0;">Gestiona tus clientes arrastrándolos por
+            el embudo de ventas.</p>
     </div>
     <div style="display: flex; gap: 12px; align-items: center;">
-        <button class="btn btn-secondary" onclick="openImportModal()" style="height: 44px; display: inline-flex; align-items: center; font-size: 0.9rem;">
+        <button class="btn btn-secondary" onclick="openImportModal()"
+            style="display: inline-flex; align-items: center;">
             <i class="fa-solid fa-file-import"></i>
             <span>Importar CSV</span>
         </button>
-        <a href="{{ url_for('web_clients.new_client') }}" class="btn btn-primary" style="height: 44px; display: inline-flex; align-items: center; font-size: 0.9rem;">
+        <a href="{{ url_for('web_clients.new_client') }}" class="btn btn-primary"
+            style="display: inline-flex; align-items: center;">
             <i class="fa-solid fa-user-plus"></i>
             <span>Nuevo Lead</span>
         </a>
@@ -183,37 +214,55 @@
 </div>
 
 <!-- Filtros Minimalistas -->
-<div style="display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; background-color: transparent; align-items: center; border-bottom: 1px solid rgba(0, 0, 0, 0.05); padding-bottom: 12px;">
-    <form method="GET" action="{{ url_for('web_clients.list_clients') }}" id="filters-form" style="display: flex; gap: 12px; align-items: center; width: 100%; flex-wrap: wrap; margin: 0;">
+<div
+    style="display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; background-color: transparent; align-items: center; border-bottom: 1px solid rgba(0, 0, 0, 0.05); padding-bottom: 12px;">
+    <form method="GET" action="{{ url_for('web_clients.list_clients') }}" id="filters-form"
+        style="display: flex; gap: 12px; align-items: center; width: 100%; flex-wrap: wrap; margin: 0;">
         <input type="hidden" name="page" id="page-input" value="{{ page or 1 }}">
         <input type="hidden" name="per_page" id="per-page-input" value="{{ per_page or 10 }}">
-        
+
         <!-- Búsqueda -->
         <div style="position: relative; flex-grow: 1; min-width: 220px; max-width: 350px;">
-            <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.85rem;"></i>
-            <input type="text" name="q" id="q" value="{{ q or '' }}" placeholder="Buscar Razón Social, RNC, Tel..." style="width: 100%; height: 34px; padding: 0 16px 0 38px; background-color: var(--bg-input); border: 1px solid transparent; border-radius: 20px; color: var(--text-primary); font-size: 0.85rem; transition: background-color var(--transition-fast);" onfocus="this.style.backgroundColor='#ffffff'; this.style.borderColor='var(--border-color)';" onblur="if(!this.value){this.style.backgroundColor='var(--bg-input)'; this.style.borderColor='transparent';}">
+            <i class="fa-solid fa-magnifying-glass"
+                style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.85rem;"></i>
+            <input type="text" name="q" id="q" value="{{ q or '' }}" placeholder="Buscar Razón Social, RNC, Tel..."
+                style="width: 100%; height: 34px; padding: 0 16px 0 38px; background-color: var(--bg-input); border: 1px solid transparent; border-radius: 20px; color: var(--text-primary); font-size: 0.85rem; transition: background-color var(--transition-fast);"
+                onfocus="this.style.backgroundColor='#ffffff'; this.style.borderColor='var(--border-color)';"
+                onblur="if(!this.value){this.style.backgroundColor='var(--bg-input)'; this.style.borderColor='transparent';}">
         </div>
 
         <!-- Selector de Estado -->
         <div style="min-width: 130px;">
-            <select name="stage" id="stage" style="width: 100%; height: 34px; padding: 0 10px; background-color: transparent; border: 1px solid transparent; border-bottom: 1px solid var(--border-color); color: var(--text-secondary); font-size: 0.85rem; cursor: pointer; outline: none;">
+            <select name="stage" id="stage"
+                style="width: 100%; height: 34px; padding: 0 10px; background-color: transparent; border: 1px solid transparent; border-bottom: 1px solid var(--border-color); color: var(--text-secondary); font-size: 0.85rem; cursor: pointer; outline: none;">
                 <option value="">Todas las Etapas</option>
-                <option value="Prospecto" {% if stage == 'Prospecto' %}selected{% endif %}>Prospecto</option>
-                <option value="Contactado" {% if stage == 'Contactado' %}selected{% endif %}>Contactado</option>
-                <option value="En Negociación" {% if stage == 'En Negociación' %}selected{% endif %}>En Negociación</option>
-                <option value="Cliente Activo" {% if stage == 'Cliente Activo' %}selected{% endif %}>Cliente Activo</option>
+                <option value="Prospecto" {% if stage=='Prospecto' %}selected{% endif %}>Prospecto</option>
+                <option value="Contactado" {% if stage=='Contactado' %}selected{% endif %}>Contactado</option>
+                <option value="En Negociación" {% if stage=='En Negociación' %}selected{% endif %}>En Negociación
+                </option>
+                <option value="Cliente Activo" {% if stage=='Cliente Activo' %}selected{% endif %}>Cliente Activo
+                </option>
             </select>
         </div>
 
         <!-- Limpiar -->
-        <a href="{{ url_for('web_clients.list_clients') }}" style="color: var(--text-muted); font-size: 0.85rem; text-decoration: none; padding: 6px 10px; border-radius: var(--radius-sm); display: flex; align-items: center; gap: 4px;" title="Limpiar Filtros" onmouseover="this.style.backgroundColor='rgba(0,0,0,0.03)'; this.style.color='var(--text-primary)'" onmouseout="this.style.backgroundColor='transparent'; this.style.color='var(--text-muted)'">
+        <a href="{{ url_for('web_clients.list_clients') }}"
+            style="color: var(--text-muted); font-size: 0.85rem; text-decoration: none; padding: 6px 10px; border-radius: var(--radius-sm); display: flex; align-items: center; gap: 4px;"
+            title="Limpiar Filtros"
+            onmouseover="this.style.backgroundColor='rgba(0,0,0,0.03)'; this.style.color='var(--text-primary)'"
+            onmouseout="this.style.backgroundColor='transparent'; this.style.color='var(--text-muted)'">
             <i class="fa-solid fa-eraser"></i> Limpiar
         </a>
 
         <!-- Vista Toggle -->
-        <div style="display: flex; align-items: center; gap: 4px; margin-left: auto; background: rgba(0,0,0,0.05); padding: 4px; border-radius: var(--radius-md);">
-            <button type="button" id="btn-kanban" onclick="switchView('kanban')" style="border: none; background: #ffffff; padding: 6px 10px; border-radius: var(--radius-sm); cursor: pointer; color: var(--text-primary); font-size: 0.85rem; box-shadow: 0 1px 2px rgba(0,0,0,0.1);"><i class="fa-solid fa-table-columns"></i> Kanban</button>
-            <button type="button" id="btn-list" onclick="switchView('list')" style="border: none; background: transparent; padding: 6px 10px; border-radius: var(--radius-sm); cursor: pointer; color: var(--text-secondary); font-size: 0.85rem;"><i class="fa-solid fa-list"></i> Lista</button>
+        <div
+            style="display: flex; align-items: center; gap: 4px; margin-left: auto; background: rgba(0,0,0,0.05); padding: 4px; border-radius: var(--radius-md);">
+            <button type="button" id="btn-kanban" onclick="switchView('kanban')"
+                style="border: none; background: #ffffff; padding: 6px 10px; border-radius: var(--radius-sm); cursor: pointer; color: var(--text-primary); font-size: 0.85rem; box-shadow: 0 1px 2px rgba(0,0,0,0.1);"><i
+                    class="fa-solid fa-table-columns"></i> Kanban</button>
+            <button type="button" id="btn-list" onclick="switchView('list')"
+                style="border: none; background: transparent; padding: 6px 10px; border-radius: var(--radius-sm); cursor: pointer; color: var(--text-secondary); font-size: 0.85rem;"><i
+                    class="fa-solid fa-list"></i> Lista</button>
         </div>
     </form>
 </div>
@@ -223,26 +272,30 @@
     <a href="{{ url_for('web_clients.client_detail', client_id=client.id) }}" class="client-title">
         {{ client.razonSocial }}
     </a>
-    
+
     <div class="client-meta">
         <span><i class="fa-solid fa-id-card"></i> {{ client.rnc }}</span>
         <span><i class="fa-solid fa-phone"></i> {{ client.telefono or 'N/A' }}</span>
         {% if client.nextContactDate %}
-        <span style="color: var(--accent-purple); font-weight: 500;"><i class="fa-solid fa-clock"></i> Contacto: {{ client.nextContactDate[:10] }}</span>
+        <span style="color: var(--accent-purple); font-weight: 500;"><i class="fa-solid fa-clock"></i> Contacto: {{
+            client.nextContactDate[:10] }}</span>
         {% endif %}
     </div>
 
     {% if client.total_invoiced and client.total_invoiced > 0 %}
     <div class="client-finance">
-        <strong style="color: var(--accent-emerald); display: block;">Ventas: RD$ {{ "{:,.2f}".format(client.total_invoiced) }}</strong>
+        <strong style="color: var(--accent-emerald); display: block;">Ventas: RD$ {{
+            "{:,.2f}".format(client.total_invoiced) }}</strong>
         {% if client.total_cxc > 0 %}
-        <span style="color: var(--accent-red); font-weight: 500; font-size: 0.8rem;">CxC: RD$ {{ "{:,.2f}".format(client.total_cxc) }}</span>
+        <span style="color: var(--accent-red); font-weight: 500; font-size: 0.8rem;">CxC: RD$ {{
+            "{:,.2f}".format(client.total_cxc) }}</span>
         {% endif %}
     </div>
     {% endif %}
 
     <div class="card-actions">
-        <a href="{{ url_for('web_clients.client_detail', client_id=client.id) }}" class="btn-icon eye" title="Ver Ficha">
+        <a href="{{ url_for('web_clients.client_detail', client_id=client.id) }}" class="btn-icon eye"
+            title="Ver Ficha">
             <i class="fa-solid fa-eye"></i>
         </a>
         <a href="{{ url_for('web_clients.edit_client', client_id=client.id) }}" class="btn-icon edit" title="Editar">
@@ -258,17 +311,17 @@
         <h4 class="kanban-header"><i class="fa-solid fa-user-astronaut"></i> Prospecto</h4>
         <div class="kanban-cards">
             {% for client in clients if client.pipelineStage == 'Prospecto' %}
-                {{ render_client(client) }}
+            {{ render_client(client) }}
             {% endfor %}
         </div>
     </div>
-    
+
     <!-- Contactado -->
     <div class="kanban-column" id="col-Contactado" ondrop="drop(event)" ondragover="allowDrop(event)">
         <h4 class="kanban-header"><i class="fa-solid fa-phone-volume"></i> Contactado</h4>
         <div class="kanban-cards">
             {% for client in clients if client.pipelineStage == 'Contactado' %}
-                {{ render_client(client) }}
+            {{ render_client(client) }}
             {% endfor %}
         </div>
     </div>
@@ -278,7 +331,7 @@
         <h4 class="kanban-header"><i class="fa-solid fa-comments-dollar"></i> En Negociación</h4>
         <div class="kanban-cards">
             {% for client in clients if client.pipelineStage == 'En Negociación' %}
-                {{ render_client(client) }}
+            {{ render_client(client) }}
             {% endfor %}
         </div>
     </div>
@@ -288,7 +341,7 @@
         <h4 class="kanban-header"><i class="fa-solid fa-handshake"></i> Cliente Activo</h4>
         <div class="kanban-cards">
             {% for client in clients if client.pipelineStage == 'Cliente Activo' %}
-                {{ render_client(client) }}
+            {{ render_client(client) }}
             {% endfor %}
         </div>
     </div>
@@ -313,7 +366,8 @@
                 <tr>
                     <td>
                         <a href="{{ url_for('web_clients.client_detail', client_id=client.id) }}" class="client-link">
-                            <span style="font-size: 0.85rem; display: block; margin-bottom: 2px;">{{ client.razonSocial }}</span>
+                            <span style="font-size: 0.85rem; display: block; margin-bottom: 2px;">{{ client.razonSocial
+                                }}</span>
                         </a>
                     </td>
                     <td><span style="font-size: 0.85rem; font-family: monospace;">{{ client.rnc }}</span></td>
@@ -322,33 +376,42 @@
                         {% if client.pipelineStage == 'Prospecto' %}
                         <span class="badge badge-warning" style="font-size: 0.65rem;">{{ client.pipelineStage }}</span>
                         {% elif client.pipelineStage == 'Contactado' %}
-                        <span class="badge" style="background-color: rgba(59, 130, 246, 0.12); color: var(--accent-blue); font-size: 0.65rem;">{{ client.pipelineStage }}</span>
+                        <span class="badge"
+                            style="background-color: rgba(59, 130, 246, 0.12); color: var(--accent-blue); font-size: 0.65rem;">{{
+                            client.pipelineStage }}</span>
                         {% elif client.pipelineStage == 'En Negociación' %}
                         <span class="badge badge-primary" style="font-size: 0.65rem;">{{ client.pipelineStage }}</span>
                         {% elif client.pipelineStage == 'Cliente Activo' %}
                         <span class="badge badge-success" style="font-size: 0.65rem;">{{ client.pipelineStage }}</span>
                         {% else %}
-                        <span class="badge badge-secondary" style="font-size: 0.65rem;">{{ client.pipelineStage }}</span>
+                        <span class="badge badge-secondary" style="font-size: 0.65rem;">{{ client.pipelineStage
+                            }}</span>
                         {% endif %}
                     </td>
                     <td>
                         {% if client.nextContactDate %}
-                        <span style="color: var(--accent-purple); font-weight: 500; font-size: 0.75rem;"><i class="fa-solid fa-clock"></i> {{ client.nextContactDate[:10] }}</span>
+                        <span style="color: var(--accent-purple); font-weight: 500; font-size: 0.75rem;"><i
+                                class="fa-solid fa-clock"></i> {{ client.nextContactDate[:10] }}</span>
                         {% else %}
                         <span class="text-muted" style="font-size: 0.75rem;">N/A</span>
                         {% endif %}
                     </td>
                     <td style="text-align: right;">
                         <div style="display: inline-flex; gap: 8px;">
-                            <a href="{{ url_for('web_clients.client_detail', client_id=client.id) }}" class="btn btn-secondary" style="padding: 8px 12px; font-size: 0.8rem;" title="Ver Ficha"><i class="fa-solid fa-eye"></i></a>
-                            <a href="{{ url_for('web_clients.edit_client', client_id=client.id) }}" class="btn btn-secondary" style="padding: 8px 12px; font-size: 0.8rem;" title="Editar"><i class="fa-solid fa-pen"></i></a>
+                            <a href="{{ url_for('web_clients.client_detail', client_id=client.id) }}"
+                                class="btn btn-secondary" style="padding: 8px 12px; font-size: 0.8rem;"
+                                title="Ver Ficha"><i class="fa-solid fa-eye"></i></a>
+                            <a href="{{ url_for('web_clients.edit_client', client_id=client.id) }}"
+                                class="btn btn-secondary" style="padding: 8px 12px; font-size: 0.8rem;"
+                                title="Editar"><i class="fa-solid fa-pen"></i></a>
                         </div>
                     </td>
                 </tr>
                 {% else %}
                 <tr>
                     <td colspan="6" style="text-align: center; padding: 60px 0; color: var(--text-secondary);">
-                        <i class="fa-solid fa-users" style="font-size: 3rem; color: var(--text-muted); margin-bottom: 16px; opacity: 0.5; display: block;"></i>
+                        <i class="fa-solid fa-users"
+                            style="font-size: 3rem; color: var(--text-muted); margin-bottom: 16px; opacity: 0.5; display: block;"></i>
                         <span>No hay clientes registrados en el CRM.</span>
                     </td>
                 </tr>
@@ -358,42 +421,52 @@
     </div>
 
     <!-- Controles de Paginación -->
-    <div style="display: flex; justify-content: space-between; align-items: center; padding: 16px 24px; border-top: 1px solid var(--border-color); background: rgba(0,0,0,0.01); flex-wrap: wrap; gap: 16px;">
+    <div
+        style="display: flex; justify-content: space-between; align-items: center; padding: 16px 24px; border-top: 1px solid var(--border-color); background: rgba(0,0,0,0.01); flex-wrap: wrap; gap: 16px;">
         <div style="font-size: 0.85rem; color: var(--text-secondary);">
-            Mostrando <strong>{{ ((page - 1) * per_page) + 1 if total_items > 0 else 0 }}</strong> - <strong>{{ [page * per_page, total_items]|min }}</strong> de <strong>{{ total_items }}</strong> registros
+            Mostrando <strong>{{ ((page - 1) * per_page) + 1 if total_items > 0 else 0 }}</strong> - <strong>{{ [page *
+                per_page, total_items]|min }}</strong> de <strong>{{ total_items }}</strong> registros
         </div>
-        
+
         <div style="display: flex; align-items: center; gap: 20px; flex-wrap: wrap;">
             <!-- Selector de Cantidad por Página -->
-            <div style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--text-secondary);">
+            <div
+                style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--text-secondary);">
                 <span>Registros por página:</span>
-                <select onchange="updatePerPage(this.value)" style="height: 30px; padding: 0 8px; background: transparent; border: 1px solid var(--border-color); border-radius: var(--radius-sm); color: var(--text-primary); outline: none; cursor: pointer;">
-                    <option value="10" {% if per_page == 10 %}selected{% endif %}>10</option>
-                    <option value="25" {% if per_page == 25 %}selected{% endif %}>25</option>
-                    <option value="50" {% if per_page == 50 %}selected{% endif %}>50</option>
-                    <option value="100" {% if per_page == 100 %}selected{% endif %}>100</option>
+                <select onchange="updatePerPage(this.value)"
+                    style="height: 30px; padding: 0 8px; background: transparent; border: 1px solid var(--border-color); border-radius: var(--radius-sm); color: var(--text-primary); outline: none; cursor: pointer;">
+                    <option value="10" {% if per_page==10 %}selected{% endif %}>10</option>
+                    <option value="25" {% if per_page==25 %}selected{% endif %}>25</option>
+                    <option value="50" {% if per_page==50 %}selected{% endif %}>50</option>
+                    <option value="100" {% if per_page==100 %}selected{% endif %}>100</option>
                 </select>
             </div>
-            
+
             <!-- Botones de Página -->
             <div style="display: inline-flex; gap: 4px;">
-                <button type="button" onclick="goToPage(1)" {% if page == 1 %}disabled{% endif %} class="btn btn-secondary" style="padding: 6px 10px; font-size: 0.78rem;" title="Primera página">
+                <button type="button" onclick="goToPage(1)" {% if page==1 %}disabled{% endif %}
+                    class="btn btn-secondary" style="padding: 6px 10px; font-size: 0.78rem;" title="Primera página">
                     <i class="fa-solid fa-angles-left"></i>
                 </button>
-                <button type="button" onclick="goToPage({{ page - 1 }})" {% if page == 1 %}disabled{% endif %} class="btn btn-secondary" style="padding: 6px 10px; font-size: 0.78rem;" title="Anterior">
+                <button type="button" onclick="goToPage({{ page - 1 }})" {% if page==1 %}disabled{% endif %}
+                    class="btn btn-secondary" style="padding: 6px 10px; font-size: 0.78rem;" title="Anterior">
                     <i class="fa-solid fa-angle-left"></i>
                 </button>
-                
+
                 {% for p in range([1, page - 2]|max, [total_pages, page + 2]|min + 1) %}
-                <button type="button" onclick="goToPage({{ p }})" class="btn {% if page == p %}btn-primary{% else %}btn-secondary{% endif %}" style="padding: 6px 12px; font-size: 0.78rem; min-width: 32px; justify-content: center; {% if page == p %}background: var(--accent-emerald); border-color: var(--accent-emerald);{% endif %}">
+                <button type="button" onclick="goToPage({{ p }})"
+                    class="btn {% if page == p %}btn-primary{% else %}btn-secondary{% endif %}"
+                    style="padding: 6px 12px; font-size: 0.78rem; min-width: 32px; justify-content: center; {% if page == p %}background: var(--accent-emerald); border-color: var(--accent-emerald);{% endif %}">
                     {{ p }}
                 </button>
                 {% endfor %}
-                
-                <button type="button" onclick="goToPage({{ page + 1 }})" {% if page == total_pages %}disabled{% endif %} class="btn btn-secondary" style="padding: 6px 10px; font-size: 0.78rem;" title="Siguiente">
+
+                <button type="button" onclick="goToPage({{ page + 1 }})" {% if page==total_pages %}disabled{% endif %}
+                    class="btn btn-secondary" style="padding: 6px 10px; font-size: 0.78rem;" title="Siguiente">
                     <i class="fa-solid fa-angle-right"></i>
                 </button>
-                <button type="button" onclick="goToPage({{ total_pages }})" {% if page == total_pages %}disabled{% endif %} class="btn btn-secondary" style="padding: 6px 10px; font-size: 0.78rem;" title="Última página">
+                <button type="button" onclick="goToPage({{ total_pages }})" {% if page==total_pages %}disabled{% endif
+                    %} class="btn btn-secondary" style="padding: 6px 10px; font-size: 0.78rem;" title="Última página">
                     <i class="fa-solid fa-angles-right"></i>
                 </button>
             </div>
@@ -430,7 +503,7 @@
             btnKanban.style.background = '#ffffff';
             btnKanban.style.color = 'var(--text-primary)';
             btnKanban.style.boxShadow = '0 1px 2px rgba(0,0,0,0.1)';
-            
+
             btnList.style.background = 'transparent';
             btnList.style.color = 'var(--text-secondary)';
             btnList.style.boxShadow = 'none';
@@ -441,7 +514,7 @@
             btnList.style.background = '#ffffff';
             btnList.style.color = 'var(--text-primary)';
             btnList.style.boxShadow = '0 1px 2px rgba(0,0,0,0.1)';
-            
+
             btnKanban.style.background = 'transparent';
             btnKanban.style.color = 'var(--text-secondary)';
             btnKanban.style.boxShadow = 'none';
@@ -457,10 +530,10 @@
         const form = document.getElementById('filters-form');
         const searchInput = document.getElementById('q');
         const selectStage = document.getElementById('stage');
-        
+
         let debounceTimer;
         if (searchInput) {
-            searchInput.addEventListener('input', function() {
+            searchInput.addEventListener('input', function () {
                 clearTimeout(debounceTimer);
                 debounceTimer = setTimeout(() => {
                     document.getElementById('page-input').value = 1;
@@ -475,7 +548,7 @@
                 searchInput.value = val;
             }
         }
-        
+
         if (selectStage) {
             selectStage.addEventListener('change', () => {
                 document.getElementById('page-input').value = 1;
@@ -494,7 +567,7 @@
         ev.currentTarget.style.opacity = '0.5';
     }
 
-    document.addEventListener("dragend", function(event) {
+    document.addEventListener("dragend", function (event) {
         if (event.target.classList && event.target.classList.contains('client-card')) {
             event.target.style.opacity = '1';
         }
@@ -504,23 +577,23 @@
         ev.preventDefault();
         var data = ev.dataTransfer.getData("text");
         if (!data) return;
-        
+
         var card = document.getElementById(data);
         if (!card) return;
-        
+
         var targetCol = ev.target.closest('.kanban-column');
-        
+
         if (targetCol && card) {
             var cardsContainer = targetCol.querySelector('.kanban-cards');
             cardsContainer.appendChild(card);
             card.style.opacity = '1';
-            
+
             // Map column ID to stage name
             let status = 'Prospecto';
             if (targetCol.id === 'col-Contactado') status = 'Contactado';
             if (targetCol.id === 'col-Negociacion') status = 'En Negociación';
             if (targetCol.id === 'col-Activo') status = 'Cliente Activo';
-            
+
             // Save to backend
             const clientId = data.replace('client-', '');
             fetch('{{ url_for("web_clients.list_clients") }}/' + clientId + '/update_pipeline', {
@@ -528,7 +601,7 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ pipelineStage: status })
             }).then(res => res.json())
-            .catch(err => console.error(err));
+                .catch(err => console.error(err));
         }
     }
 
@@ -551,7 +624,7 @@
         }
     }
 
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', function () {
         const dropzone = document.getElementById('dropzone');
         const fileInput = document.getElementById('csv-file');
         const fileLabel = document.getElementById('file-label');
@@ -562,7 +635,7 @@
             const form = dropzone.closest('form');
 
             if (form) {
-                form.addEventListener('submit', function(e) {
+                form.addEventListener('submit', function (e) {
                     if (!fileInput.files || fileInput.files.length === 0) {
                         e.preventDefault();
                         alert('Por favor, selecciona o arrastra un archivo .csv antes de continuar.');
@@ -570,18 +643,18 @@
                 });
             }
 
-            dropzone.addEventListener('click', function() {
+            dropzone.addEventListener('click', function () {
                 fileInput.click();
             });
 
             // Hover effects
-            dropzone.addEventListener('mouseenter', function() {
+            dropzone.addEventListener('mouseenter', function () {
                 if (!fileInput.files.length) {
                     dropzone.style.borderColor = 'var(--accent-emerald)';
                     if (uploadIcon) uploadIcon.style.transform = 'translateY(-3px)';
                 }
             });
-            dropzone.addEventListener('mouseleave', function() {
+            dropzone.addEventListener('mouseleave', function () {
                 if (!fileInput.files.length) {
                     dropzone.style.borderColor = 'var(--border-color)';
                     if (uploadIcon) uploadIcon.style.transform = 'none';
@@ -590,7 +663,7 @@
 
             // Drag and drop events
             ['dragenter', 'dragover'].forEach(eventName => {
-                dropzone.addEventListener(eventName, function(e) {
+                dropzone.addEventListener(eventName, function (e) {
                     e.preventDefault();
                     e.stopPropagation();
                     dropzone.style.borderColor = 'var(--accent-emerald)';
@@ -600,7 +673,7 @@
             });
 
             ['dragleave', 'drop'].forEach(eventName => {
-                dropzone.addEventListener(eventName, function(e) {
+                dropzone.addEventListener(eventName, function (e) {
                     e.preventDefault();
                     e.stopPropagation();
                     dropzone.style.backgroundColor = 'transparent';
@@ -614,7 +687,7 @@
                 }, false);
             });
 
-            dropzone.addEventListener('drop', function(e) {
+            dropzone.addEventListener('drop', function (e) {
                 const dt = e.dataTransfer;
                 const files = dt.files;
 
@@ -629,7 +702,7 @@
                 }
             }, false);
 
-            fileInput.addEventListener('change', function() {
+            fileInput.addEventListener('change', function () {
                 if (fileInput.files && fileInput.files.length > 0) {
                     fileLabel.textContent = "Cargando " + fileInput.files[0].name + "...";
                     fileLabel.style.color = 'var(--accent-emerald)';
@@ -661,33 +734,48 @@
 </script>
 
 <!-- Modal de Importación Masiva CSV de Clientes -->
-<div id="import-modal" class="search-modal" style="display: none; justify-content: center; align-items: center; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 2000;">
-    <div class="modal-backdrop" onclick="closeImportModal()" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px);"></div>
-    <div class="modal-content animate-fade-in" style="max-width: 500px; padding: 0; border-radius: var(--radius-md); position: relative; z-index: 2001; background: #ffffff; box-shadow: var(--shadow-lg);">
-        <div class="modal-header" style="border-bottom: 1px solid var(--border-color); padding: 20px 24px; display: flex; justify-content: space-between; align-items: center;">
-            <h3 style="margin: 0; font-size: 1.15rem; font-family: var(--font-heading); display: flex; align-items: center; gap: 10px;">
+<div id="import-modal" class="search-modal"
+    style="display: none; justify-content: center; align-items: center; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 2000;">
+    <div class="modal-backdrop" onclick="closeImportModal()"
+        style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px);">
+    </div>
+    <div class="modal-content animate-fade-in"
+        style="max-width: 500px; padding: 0; border-radius: var(--radius-md); position: relative; z-index: 2001; background: #ffffff; box-shadow: var(--shadow-lg);">
+        <div class="modal-header"
+            style="border-bottom: 1px solid var(--border-color); padding: 20px 24px; display: flex; justify-content: space-between; align-items: center;">
+            <h3
+                style="margin: 0; font-size: 1.15rem; font-family: var(--font-heading); display: flex; align-items: center; gap: 10px;">
                 <i class="fa-solid fa-file-csv" style="color: var(--accent-emerald); font-size: 1.3rem;"></i>
                 <span>Importación de Clientes CRM</span>
             </h3>
-            <button class="btn-close-modal" onclick="closeImportModal()" style="background: transparent; border: none; font-size: 1.2rem; cursor: pointer; color: var(--text-muted);">
+            <button class="btn-close-modal" onclick="closeImportModal()"
+                style="background: transparent; border: none; font-size: 1.2rem; cursor: pointer; color: var(--text-muted);">
                 <i class="fa-solid fa-xmark"></i>
             </button>
         </div>
         <div class="modal-body" style="padding: 28px;">
-            <p style="color: var(--text-secondary); font-size: 0.85rem; line-height: 1.45; margin-bottom: 20px; margin-top: 0;">
-                Sube tu listado de clientes en formato .csv. Al seleccionar o arrastrar el archivo, el sistema iniciará automáticamente el Asistente de Mapeo Inteligente.
+            <p
+                style="color: var(--text-secondary); font-size: 0.85rem; line-height: 1.45; margin-bottom: 20px; margin-top: 0;">
+                Sube tu listado de clientes en formato .csv. Al seleccionar o arrastrar el archivo, el sistema iniciará
+                automáticamente el Asistente de Mapeo Inteligente.
             </p>
-            
-            <form action="{{ url_for('web_import_mapper.upload_file') }}" method="POST" enctype="multipart/form-data" style="display: flex; flex-direction: column; gap: 18px; margin: 0;">
+
+            <form action="{{ url_for('web_import_mapper.upload_file') }}" method="POST" enctype="multipart/form-data"
+                style="display: flex; flex-direction: column; gap: 18px; margin: 0;">
                 <input type="hidden" name="import_type" value="clients">
-                <div id="dropzone" style="border: 2px dashed var(--border-color); border-radius: var(--radius-sm); padding: 40px 16px; text-align: center; cursor: pointer; transition: all var(--transition-fast) ease-in-out;">
-                    <i class="fa-solid fa-cloud-arrow-up" style="font-size: 2.5rem; color: var(--text-muted); margin-bottom: 12px; display: block; transition: transform var(--transition-fast);"></i>
-                    <span style="font-size: 0.88rem; font-weight: 600; color: var(--text-secondary);" id="file-label">Seleccionar archivo .csv</span>
-                    <p style="font-size: 0.78rem; color: var(--text-muted); margin-top: 6px; margin-bottom: 0;">o arrastra tu archivo aquí</p>
+                <div id="dropzone"
+                    style="border: 2px dashed var(--border-color); border-radius: var(--radius-sm); padding: 40px 16px; text-align: center; cursor: pointer; transition: all var(--transition-fast) ease-in-out;">
+                    <i class="fa-solid fa-cloud-arrow-up"
+                        style="font-size: 2.5rem; color: var(--text-muted); margin-bottom: 12px; display: block; transition: transform var(--transition-fast);"></i>
+                    <span style="font-size: 0.88rem; font-weight: 500; color: var(--text-secondary);"
+                        id="file-label">Seleccionar archivo .csv</span>
+                    <p style="font-size: 0.78rem; color: var(--text-muted); margin-top: 6px; margin-bottom: 0;">o
+                        arrastra tu archivo aquí</p>
                 </div>
                 <input type="file" id="csv-file" name="file" accept=".csv" style="display: none;">
-                
-                <button type="submit" id="upload-btn" class="btn btn-primary" style="width: 100%; display: none;" disabled></button>
+
+                <button type="submit" id="upload-btn" class="btn btn-primary" style="width: 100%; display: none;"
+                    disabled></button>
             </form>
         </div>
     </div>

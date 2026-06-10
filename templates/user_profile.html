@@ -54,7 +54,7 @@
         font-family: var(--font-heading);
         flex-shrink: 0;
         box-shadow: 0 4px 20px rgba(16, 185, 129, 0.35);
-        border: 3px solid rgba(255,255,255,0.15);
+        border: 3px solid rgba(255, 255, 255, 0.15);
         position: relative;
     }
 
@@ -143,7 +143,7 @@
         display: flex;
         align-items: center;
         gap: 12px;
-        background: rgba(255,255,255,0.015);
+        background: rgba(255, 255, 255, 0.015);
     }
 
     .profile-section-icon {
@@ -213,7 +213,7 @@
 
     .profile-label {
         font-size: 0.8rem;
-        font-weight: 600;
+        font-weight: 500;
         color: var(--text-secondary);
         letter-spacing: 0.02em;
     }
@@ -339,8 +339,14 @@
         flex-shrink: 0;
     }
 
-    .perm-dot.on { background: var(--accent-emerald); box-shadow: 0 0 6px var(--accent-emerald); }
-    .perm-dot.off { background: var(--text-muted); }
+    .perm-dot.on {
+        background: var(--accent-emerald);
+        box-shadow: 0 0 6px var(--accent-emerald);
+    }
+
+    .perm-dot.off {
+        background: var(--text-muted);
+    }
 
     .perm-label {
         font-size: 0.82rem;
@@ -367,7 +373,7 @@
     .pwd-strength-text {
         font-size: 0.72rem;
         margin-top: 4px;
-        font-weight: 600;
+        font-weight: 500;
     }
 
     /* Password requirement checklist */
@@ -427,7 +433,7 @@
         border: 1px solid var(--border-color);
         border-radius: 20px;
         font-size: 0.68rem;
-        font-weight: 600;
+        font-weight: 500;
         color: var(--text-muted);
         text-transform: uppercase;
         letter-spacing: 0.05em;
@@ -460,25 +466,47 @@
     }
 
     @media (max-width: 700px) {
-        .profile-hero-card { flex-direction: column; text-align: center; }
-        .profile-hero-badges { justify-content: center; }
-        .profile-form-grid { grid-template-columns: 1fr; }
-        .profile-form-group.full-width { grid-column: span 1; }
-        .perm-grid { grid-template-columns: 1fr; }
+        .profile-hero-card {
+            flex-direction: column;
+            text-align: center;
+        }
+
+        .profile-hero-badges {
+            justify-content: center;
+        }
+
+        .profile-form-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .profile-form-group.full-width {
+            grid-column: span 1;
+        }
+
+        .perm-grid {
+            grid-template-columns: 1fr;
+        }
     }
 </style>
 {% endblock %}
 
 {% block content %}
+<div class="page-title-container" style="margin-bottom: 24px; padding-left: 4px;">
+    <h1 class="page-title"
+        style="font-size: 1.75rem; font-weight: 800; font-family: var(--font-heading); color: var(--text-primary); margin: 0;">
+        Mi Perfil de Usuario
+    </h1>
+</div>
+
 <div class="profile-container">
 
     <!-- ====== HERO CARD ====== -->
     <div class="profile-hero-card">
         <div class="profile-avatar-large">
             {% if company_logo_url %}
-                <img src="{{ company_logo_url }}" alt="Avatar">
+            <img src="{{ company_logo_url }}" alt="Avatar">
             {% else %}
-                {{ user.name[0] | upper if user.name else 'U' }}
+            {{ user.name[0] | upper if user.name else 'U' }}
             {% endif %}
         </div>
         <div class="profile-hero-info">
@@ -488,7 +516,8 @@
                 <span>{{ user.email }}</span>
             </div>
             <div class="profile-hero-badges">
-                <span class="profile-badge {{ 'profile-badge-owner' if user.role == 'owner' else 'profile-badge-employee' }}">
+                <span
+                    class="profile-badge {{ 'profile-badge-owner' if user.role == 'owner' else 'profile-badge-employee' }}">
                     <i class="fa-solid {{ 'fa-crown' if user.role == 'owner' else 'fa-user' }}"></i>
                     {{ 'Propietario' if user.role == 'owner' else 'Colaborador' }}
                 </span>
@@ -532,23 +561,21 @@
                 <div class="profile-form-grid">
                     <div class="profile-form-group">
                         <label class="profile-label" for="prof-name">Nombre Completo</label>
-                        <input type="text" id="prof-name" name="name" class="profile-input"
-                            placeholder="Ej: Juan Pérez" required
-                            value="{{ user.name or '' }}" maxlength="80">
+                        <input type="text" id="prof-name" name="name" class="profile-input" placeholder="Ej: Juan Pérez"
+                            required value="{{ user.name or '' }}" maxlength="80">
                     </div>
                     <div class="profile-form-group">
                         <label class="profile-label" for="prof-email">
                             Correo Electrónico
                             <span class="readonly-badge"><i class="fa-solid fa-lock"></i> Solo lectura</span>
                         </label>
-                        <input type="email" id="prof-email" class="profile-input"
-                            value="{{ user.email }}" readonly disabled>
+                        <input type="email" id="prof-email" class="profile-input" value="{{ user.email }}" readonly
+                            disabled>
                     </div>
                     <div class="profile-form-group">
                         <label class="profile-label" for="prof-phone">Teléfono</label>
                         <input type="tel" id="prof-phone" name="phone" class="profile-input"
-                            placeholder="Ej: 809-555-0100"
-                            value="{{ user.phone or '' }}" maxlength="20">
+                            placeholder="Ej: 809-555-0100" value="{{ user.phone or '' }}" maxlength="20">
                     </div>
                     <div class="profile-form-group">
                         <label class="profile-label" for="prof-role">
@@ -561,8 +588,8 @@
                     <div class="profile-form-group full-width">
                         <label class="profile-label" for="prof-address">Dirección Personal</label>
                         <input type="text" id="prof-address" name="address" class="profile-input"
-                            placeholder="Ej: Calle 5, Sector X, Santo Domingo"
-                            value="{{ user.address or '' }}" maxlength="120">
+                            placeholder="Ej: Calle 5, Sector X, Santo Domingo" value="{{ user.address or '' }}"
+                            maxlength="120">
                     </div>
                 </div>
 
@@ -584,7 +611,8 @@
             </div>
             <div>
                 <h2 class="profile-section-title">Seguridad de la Cuenta</h2>
-                <p class="profile-section-subtitle">Cambia tu contraseña de acceso. Se requiere verificar la contraseña actual.</p>
+                <p class="profile-section-subtitle">Cambia tu contraseña de acceso. Se requiere verificar la contraseña
+                    actual.</p>
             </div>
         </div>
         <div class="profile-section-body">
@@ -605,11 +633,13 @@
                 <div class="profile-form-grid">
                     <!-- Contraseña actual -->
                     <div class="profile-form-group full-width">
-                        <label class="profile-label" for="pwd-current">Contraseña Actual <span style="color: var(--accent-red);">*</span></label>
+                        <label class="profile-label" for="pwd-current">Contraseña Actual <span
+                                style="color: var(--accent-red);">*</span></label>
                         <div class="profile-input-wrapper">
                             <input type="password" id="pwd-current" name="current_password" class="profile-input"
                                 placeholder="••••••••" required autocomplete="current-password">
-                            <button type="button" class="profile-input-eye" onclick="togglePwd('pwd-current', this)" title="Mostrar/Ocultar">
+                            <button type="button" class="profile-input-eye" onclick="togglePwd('pwd-current', this)"
+                                title="Mostrar/Ocultar">
                                 <i class="fa-solid fa-eye"></i>
                             </button>
                         </div>
@@ -617,12 +647,14 @@
 
                     <!-- Nueva contraseña -->
                     <div class="profile-form-group">
-                        <label class="profile-label" for="pwd-new">Nueva Contraseña <span style="color: var(--accent-red);">*</span></label>
+                        <label class="profile-label" for="pwd-new">Nueva Contraseña <span
+                                style="color: var(--accent-red);">*</span></label>
                         <div class="profile-input-wrapper">
                             <input type="password" id="pwd-new" name="new_password" class="profile-input"
-                                placeholder="••••••••" required autocomplete="new-password"
-                                minlength="6" oninput="checkPasswordStrength(this.value)">
-                            <button type="button" class="profile-input-eye" onclick="togglePwd('pwd-new', this)" title="Mostrar/Ocultar">
+                                placeholder="••••••••" required autocomplete="new-password" minlength="6"
+                                oninput="checkPasswordStrength(this.value)">
+                            <button type="button" class="profile-input-eye" onclick="togglePwd('pwd-new', this)"
+                                title="Mostrar/Ocultar">
                                 <i class="fa-solid fa-eye"></i>
                             </button>
                         </div>
@@ -631,20 +663,25 @@
                         </div>
                         <span class="pwd-strength-text" id="pwd-strength-text" style="color: var(--text-muted);"></span>
                         <div class="pwd-requirements" id="pwd-requirements">
-                            <div class="pwd-req-item" id="req-len"><i class="fa-solid fa-circle"></i> Mínimo 6 caracteres</div>
-                            <div class="pwd-req-item" id="req-upper"><i class="fa-solid fa-circle"></i> Al menos una mayúscula</div>
-                            <div class="pwd-req-item" id="req-num"><i class="fa-solid fa-circle"></i> Al menos un número</div>
+                            <div class="pwd-req-item" id="req-len"><i class="fa-solid fa-circle"></i> Mínimo 6
+                                caracteres</div>
+                            <div class="pwd-req-item" id="req-upper"><i class="fa-solid fa-circle"></i> Al menos una
+                                mayúscula</div>
+                            <div class="pwd-req-item" id="req-num"><i class="fa-solid fa-circle"></i> Al menos un número
+                            </div>
                         </div>
                     </div>
 
                     <!-- Confirmar contraseña -->
                     <div class="profile-form-group">
-                        <label class="profile-label" for="pwd-confirm">Confirmar Nueva Contraseña <span style="color: var(--accent-red);">*</span></label>
+                        <label class="profile-label" for="pwd-confirm">Confirmar Nueva Contraseña <span
+                                style="color: var(--accent-red);">*</span></label>
                         <div class="profile-input-wrapper">
                             <input type="password" id="pwd-confirm" name="confirm_password" class="profile-input"
                                 placeholder="••••••••" required autocomplete="new-password"
                                 oninput="checkPasswordMatch()">
-                            <button type="button" class="profile-input-eye" onclick="togglePwd('pwd-confirm', this)" title="Mostrar/Ocultar">
+                            <button type="button" class="profile-input-eye" onclick="togglePwd('pwd-confirm', this)"
+                                title="Mostrar/Ocultar">
                                 <i class="fa-solid fa-eye"></i>
                             </button>
                         </div>
@@ -719,7 +756,8 @@
                     </div>
                 </div>
             </div>
-            <p style="font-size: 0.78rem; color: var(--text-muted); margin-top: 16px; display: flex; align-items: center; gap: 6px;">
+            <p
+                style="font-size: 0.78rem; color: var(--text-muted); margin-top: 16px; display: flex; align-items: center; gap: 6px;">
                 <i class="fa-solid fa-circle-info"></i>
                 Los permisos son asignados por el Propietario. Contacta a tu administrador para modificarlos.
             </p>
@@ -828,13 +866,13 @@
     }
 
     // ============ SAVE BUTTON LOADING STATE ============
-    document.getElementById('form-info').addEventListener('submit', function() {
+    document.getElementById('form-info').addEventListener('submit', function () {
         const btn = document.getElementById('btn-save-info');
         btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> <span>Guardando...</span>';
         btn.disabled = true;
     });
 
-    document.getElementById('form-password').addEventListener('submit', function(e) {
+    document.getElementById('form-password').addEventListener('submit', function (e) {
         if (!validatePasswordForm()) { e.preventDefault(); return; }
         const btn = document.getElementById('btn-save-pwd');
         btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> <span>Procesando...</span>';

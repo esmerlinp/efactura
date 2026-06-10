@@ -7,26 +7,31 @@ endblock %}
 
 {% block content %}
 <style>
-    .invoice-link, .client-link {
+    .invoice-link,
+    .client-link {
         text-decoration: none;
         transition: color 0.2s ease, text-decoration 0.2s ease;
     }
+
     .invoice-link {
         color: inherit;
     }
+
     .invoice-link:hover {
         color: var(--accent-purple) !important;
         text-decoration: underline;
     }
+
     .client-link {
         color: inherit;
         display: block;
     }
+
     .client-link:hover {
         color: var(--accent-emerald) !important;
         text-decoration: underline;
     }
-    
+
     /* Estilos Kanban Globales */
     .kanban-board {
         display: flex;
@@ -36,32 +41,34 @@ endblock %}
         padding-bottom: 20px;
         min-height: 500px;
     }
-    
+
     .kanban-column {
         flex: 1;
         min-width: 250px;
         max-width: 350px;
-        background: #f8fafc; /* Color de fondo muy claro para columnas */
+        background: #f8fafc;
+        /* Color de fondo muy claro para columnas */
         border: 1px solid var(--border-color);
         border-radius: var(--radius-md);
         display: flex;
         flex-direction: column;
     }
-    
+
     .kanban-header {
         padding: 10px 15px;
         border-bottom: 1px solid var(--border-color);
         font-family: var(--font-heading);
         font-size: 1rem;
-        font-weight: 600;
+        font-weight: 500;
         display: flex;
         align-items: center;
         gap: 8px;
-        background: #f1f5f9; /* Color de cabecera más claro */
+        background: #f1f5f9;
+        /* Color de cabecera más claro */
         border-top-left-radius: var(--radius-md);
         border-top-right-radius: var(--radius-md);
     }
-    
+
     .kanban-cards {
         padding: 10px;
         flex: 1;
@@ -83,50 +90,128 @@ endblock %}
         cursor: grab;
         transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.2s ease;
     }
-    
+
     .doc-card:active {
         cursor: grabbing;
         transform: scale(0.98);
     }
-    
+
     .doc-card:hover {
         box-shadow: 0 12px 20px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
         border-color: rgba(16, 185, 129, 0.4);
         transform: translateY(-3px);
     }
-    
+
     .doc-card.readonly {
         cursor: default;
     }
-    .doc-card.readonly:active { cursor: default; transform: none; }
+
+    .doc-card.readonly:active {
+        cursor: default;
+        transform: none;
+    }
+
     .doc-card.readonly:hover {
         transform: none;
         box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.04), 0 1px 2px -1px rgba(0, 0, 0, 0.02);
         border-color: rgba(0, 0, 0, 0.06);
     }
-    
-    .doc-title { font-size: 0.9rem; font-weight: 600; color: var(--text-primary); font-family: var(--font-heading); margin-bottom: 2px; text-decoration: none; line-height: 1.2; }
-    .doc-title:hover { color: var(--accent-emerald); }
-    .doc-meta { font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 8px; display: flex; flex-direction: column; gap: 3px; }
-    
-    .doc-finance { 
-        font-size: 0.8rem; 
+
+    .doc-title {
+        font-size: 0.9rem;
+        font-weight: 500;
+        color: var(--text-primary);
+        font-family: var(--font-heading);
+        margin-bottom: 2px;
+        text-decoration: none;
+        line-height: 1.2;
+    }
+
+    .doc-title:hover {
+        color: var(--accent-emerald);
+    }
+
+    .doc-meta {
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+        margin-bottom: 8px;
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+    }
+
+    .doc-finance {
+        font-size: 0.8rem;
         background: #f8fafc;
         border: 1px dashed var(--border-color);
-        padding: 6px 8px; 
-        border-radius: var(--radius-sm); 
-        margin-bottom: 8px; 
+        padding: 6px 8px;
+        border-radius: var(--radius-sm);
+        margin-bottom: 8px;
     }
-    
-    .card-actions { display: flex; gap: 6px; justify-content: flex-end; margin-top: auto; border-top: 1px solid rgba(0,0,0,0.04); padding-top: 8px; }
-    .btn-icon { background: #f1f5f9; border: 1px solid transparent; color: var(--text-secondary); border-radius: 50%; width: 26px; height: 26px; font-size: 0.75rem; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; text-decoration: none; }
-    .btn-icon:hover { background: #e2e8f0; color: var(--text-primary); border-color: rgba(0,0,0,0.1); transform: scale(1.05); }
-    
-    .kanban-column#col-Borrador .kanban-header, .kanban-column#col-Borradores .kanban-header { border-bottom-color: var(--text-muted); color: var(--text-muted); }
-    .kanban-column#col-Enviada .kanban-header, .kanban-column#col-PorCobrar .kanban-header { border-bottom-color: var(--accent-blue); color: var(--accent-blue); }
-    .kanban-column#col-Aprobada .kanban-header, .kanban-column#col-Cobradas .kanban-header { border-bottom-color: var(--accent-emerald); color: var(--accent-emerald); }
-    .kanban-column#col-Rechazada .kanban-header, .kanban-column#col-Anuladas .kanban-header { border-bottom-color: var(--accent-red); color: var(--accent-red); }
+
+    .card-actions {
+        display: flex;
+        gap: 6px;
+        justify-content: flex-end;
+        margin-top: auto;
+        border-top: 1px solid rgba(0, 0, 0, 0.04);
+        padding-top: 8px;
+    }
+
+    .btn-icon {
+        background: #f1f5f9;
+        border: 1px solid transparent;
+        color: var(--text-secondary);
+        border-radius: 50%;
+        width: 26px;
+        height: 26px;
+        font-size: 0.75rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.2s;
+        text-decoration: none;
+    }
+
+    .btn-icon:hover {
+        background: #e2e8f0;
+        color: var(--text-primary);
+        border-color: rgba(0, 0, 0, 0.1);
+        transform: scale(1.05);
+    }
+
+    .kanban-column#col-Borrador .kanban-header,
+    .kanban-column#col-Borradores .kanban-header {
+        border-bottom-color: var(--text-muted);
+        color: var(--text-muted);
+    }
+
+    .kanban-column#col-Enviada .kanban-header,
+    .kanban-column#col-PorCobrar .kanban-header {
+        border-bottom-color: var(--accent-blue);
+        color: var(--accent-blue);
+    }
+
+    .kanban-column#col-Aprobada .kanban-header,
+    .kanban-column#col-Cobradas .kanban-header {
+        border-bottom-color: var(--accent-emerald);
+        color: var(--accent-emerald);
+    }
+
+    .kanban-column#col-Rechazada .kanban-header,
+    .kanban-column#col-Anuladas .kanban-header {
+        border-bottom-color: var(--accent-red);
+        color: var(--accent-red);
+    }
 </style>
+
+<div class="page-title-container" style="margin-bottom: 24px; padding-left: 4px;">
+    <h1 class="page-title"
+        style="font-size: 1.75rem; font-weight: 800; font-family: var(--font-heading); color: var(--text-primary); margin: 0;">
+        {% if active_page == 'quotations' %}Cotizaciones y Presupuestos{% else %}Documentos{% endif %}
+    </h1>
+</div>
 
 <div class="card-table-wrapper">
     <div class="table-header-row">
@@ -149,71 +234,97 @@ endblock %}
         </a>
         {% else %}
         <div style="display: flex; gap: 12px; align-items: center;">
-            <button class="btn btn-secondary" onclick="openHistoricalImportModal()" style="height: 44px; display: inline-flex; align-items: center; font-size: 0.9rem;">
+            <button class="btn btn-secondary" onclick="openHistoricalImportModal()"
+                style="display: inline-flex; align-items: center;">
                 <i class="fa-solid fa-file-import"></i>
                 <span>Importar Histórico</span>
             </button>
-            <a href="/invoices/new" class="btn btn-primary" style="height: 44px; display: inline-flex; align-items: center; font-size: 0.9rem;">
+            <a href="/invoices/new" class="btn btn-primary" style="display: inline-flex; align-items: center;">
                 <i class="fa-solid fa-file-invoice"></i>
-                <span>Nuevo Documento</span>
+                <span>+ Documento</span>
             </a>
         </div>
         {% endif %}
     </div>
 
     <!-- Filtros Minimalistas en una sola línea -->
-    <div style="display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; background-color: transparent; align-items: center; border-bottom: 1px solid rgba(0, 0, 0, 0.05); padding-bottom: 12px;">
-        <form method="GET" action="{% if active_page == 'quotations' %}/quotations{% else %}/invoices{% endif %}" id="filters-form" style="display: flex; gap: 12px; align-items: center; width: 100%; flex-wrap: wrap; margin: 0;">
-            
+    <div
+        style="display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; background-color: transparent; align-items: center; border-bottom: 1px solid rgba(0, 0, 0, 0.05); padding-bottom: 12px;">
+        <form method="GET" action="{% if active_page == 'quotations' %}/quotations{% else %}/invoices{% endif %}"
+            id="filters-form"
+            style="display: flex; gap: 12px; align-items: center; width: 100%; flex-wrap: wrap; margin: 0;">
+
             <!-- Búsqueda -->
             <div style="position: relative; flex-grow: 1; min-width: 220px; max-width: 350px;">
-                <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.85rem;"></i>
-                <input type="text" name="q" id="q" value="{{ q or '' }}" placeholder="Buscar Factura #, Cliente, RNC..." style="width: 100%; height: 34px; padding: 0 16px 0 38px; background-color: var(--bg-input); border: 1px solid transparent; border-radius: 20px; color: var(--text-primary); font-size: 0.85rem; transition: background-color var(--transition-fast);" onfocus="this.style.backgroundColor='#ffffff'; this.style.borderColor='var(--border-color)';" onblur="if(!this.value){this.style.backgroundColor='var(--bg-input)'; this.style.borderColor='transparent';}">
+                <i class="fa-solid fa-magnifying-glass"
+                    style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.85rem;"></i>
+                <input type="text" name="q" id="q" value="{{ q or '' }}" placeholder="Buscar Factura #, Cliente, RNC..."
+                    style="width: 100%; height: 34px; padding: 0 16px 0 38px; background-color: var(--bg-input); border: 1px solid transparent; border-radius: 20px; color: var(--text-primary); font-size: 0.85rem; transition: background-color var(--transition-fast);"
+                    onfocus="this.style.backgroundColor='#ffffff'; this.style.borderColor='var(--border-color)';"
+                    onblur="if(!this.value){this.style.backgroundColor='var(--bg-input)'; this.style.borderColor='transparent';}">
             </div>
 
             <!-- Selector de Estado -->
             <div style="min-width: 130px;">
-                <select name="status" id="status" style="width: 100%; height: 34px; padding: 0 10px; background-color: transparent; border: 1px solid transparent; border-bottom: 1px solid var(--border-color); color: var(--text-secondary); font-size: 0.85rem; cursor: pointer; outline: none;">
+                <select name="status" id="status"
+                    style="width: 100%; height: 34px; padding: 0 10px; background-color: transparent; border: 1px solid transparent; border-bottom: 1px solid var(--border-color); color: var(--text-secondary); font-size: 0.85rem; cursor: pointer; outline: none;">
                     <option value="">Todos los Estados</option>
-                    <option value="Borrador" {% if status == 'Borrador' %}selected{% endif %}>Borrador</option>
-                    <option value="Emitida" {% if status == 'Emitida' %}selected{% endif %}>Emitida</option>
-                    <option value="Cobrada" {% if status == 'Cobrada' %}selected{% endif %}>Cobrada</option>
-                    <option value="Anulada" {% if status == 'Anulada' %}selected{% endif %}>Anulada</option>
+                    <option value="Borrador" {% if status=='Borrador' %}selected{% endif %}>Borrador</option>
+                    <option value="Emitida" {% if status=='Emitida' %}selected{% endif %}>Emitida</option>
+                    <option value="Cobrada" {% if status=='Cobrada' %}selected{% endif %}>Cobrada</option>
+                    <option value="Anulada" {% if status=='Anulada' %}selected{% endif %}>Anulada</option>
                     {% if active_page != 'quotations' %}
-                    <option value="Con Saldo Pendiente" {% if status == 'Con Saldo Pendiente' %}selected{% endif %}>💸 Con Saldo</option>
-                    <option value="Pendiente DGII" {% if status == 'Pendiente DGII' %}selected{% endif %}>⚠️ Pendiente DGII</option>
+                    <option value="Con Saldo Pendiente" {% if status=='Con Saldo Pendiente' %}selected{% endif %}>💸 Con
+                        Saldo</option>
+                    <option value="Pendiente DGII" {% if status=='Pendiente DGII' %}selected{% endif %}>⚠️ Pendiente
+                        DGII</option>
                     {% endif %}
                 </select>
             </div>
 
             <!-- Fechas -->
-            <div style="display: flex; align-items: center; gap: 6px; border-bottom: 1px solid var(--border-color); padding-bottom: 2px;">
+            <div
+                style="display: flex; align-items: center; gap: 6px; border-bottom: 1px solid var(--border-color); padding-bottom: 2px;">
                 <i class="fa-regular fa-calendar" style="color: var(--text-muted); font-size: 0.85rem;"></i>
-                <input type="date" name="start_date" id="start_date" value="{{ start_date or '' }}" style="height: 30px; background: transparent; border: none; color: var(--text-secondary); font-size: 0.85rem; outline: none; cursor: pointer;" title="Desde">
+                <input type="date" name="start_date" id="start_date" value="{{ start_date or '' }}"
+                    style="height: 30px; background: transparent; border: none; color: var(--text-secondary); font-size: 0.85rem; outline: none; cursor: pointer;"
+                    title="Desde">
                 <span style="color: var(--text-muted); font-size: 0.85rem;">-</span>
-                <input type="date" name="end_date" id="end_date" value="{{ end_date or '' }}" style="height: 30px; background: transparent; border: none; color: var(--text-secondary); font-size: 0.85rem; outline: none; cursor: pointer;" title="Hasta">
+                <input type="date" name="end_date" id="end_date" value="{{ end_date or '' }}"
+                    style="height: 30px; background: transparent; border: none; color: var(--text-secondary); font-size: 0.85rem; outline: none; cursor: pointer;"
+                    title="Hasta">
             </div>
 
             <!-- Limpiar -->
-            <a href="{% if active_page == 'quotations' %}/quotations{% else %}/invoices{% endif %}" style="color: var(--text-muted); font-size: 0.85rem; text-decoration: none; padding: 6px 10px; border-radius: var(--radius-sm); display: flex; align-items: center; gap: 4px;" title="Limpiar Filtros" onmouseover="this.style.backgroundColor='rgba(0,0,0,0.03)'; this.style.color='var(--text-primary)'" onmouseout="this.style.backgroundColor='transparent'; this.style.color='var(--text-muted)'">
+            <a href="{% if active_page == 'quotations' %}/quotations{% else %}/invoices{% endif %}"
+                style="color: var(--text-muted); font-size: 0.85rem; text-decoration: none; padding: 6px 10px; border-radius: var(--radius-sm); display: flex; align-items: center; gap: 4px;"
+                title="Limpiar Filtros"
+                onmouseover="this.style.backgroundColor='rgba(0,0,0,0.03)'; this.style.color='var(--text-primary)'"
+                onmouseout="this.style.backgroundColor='transparent'; this.style.color='var(--text-muted)'">
                 <i class="fa-solid fa-eraser"></i> Limpiar
             </a>
 
             <!-- Vista Toggle -->
-            <div style="display: flex; align-items: center; gap: 4px; margin-left: 10px; background: rgba(0,0,0,0.05); padding: 4px; border-radius: var(--radius-md);">
-                <button type="button" id="btn-view-kanban" onclick="setViewMode('kanban')" style="border: none; background: #ffffff; padding: 6px 10px; border-radius: var(--radius-sm); cursor: pointer; color: var(--text-primary); font-size: 0.85rem; box-shadow: 0 1px 2px rgba(0,0,0,0.1);"><i class="fa-solid fa-table-columns"></i> Kanban</button>
-                <button type="button" id="btn-view-table" onclick="setViewMode('table')" style="border: none; background: transparent; padding: 6px 10px; border-radius: var(--radius-sm); cursor: pointer; color: var(--text-secondary); font-size: 0.85rem;"><i class="fa-solid fa-list"></i> Lista</button>
+            <div
+                style="display: flex; align-items: center; gap: 4px; margin-left: 10px; background: rgba(0,0,0,0.05); padding: 4px; border-radius: var(--radius-md);">
+                <button type="button" id="btn-view-kanban" onclick="setViewMode('kanban')"
+                    style="border: none; background: #ffffff; padding: 6px 10px; border-radius: var(--radius-sm); cursor: pointer; color: var(--text-primary); font-size: 0.85rem; box-shadow: 0 1px 2px rgba(0,0,0,0.1);"><i
+                        class="fa-solid fa-table-columns"></i> Kanban</button>
+                <button type="button" id="btn-view-table" onclick="setViewMode('table')"
+                    style="border: none; background: transparent; padding: 6px 10px; border-radius: var(--radius-sm); cursor: pointer; color: var(--text-secondary); font-size: 0.85rem;"><i
+                        class="fa-solid fa-list"></i> Lista</button>
             </div>
 
             <!-- Mostrar N Registros (Alineado a la derecha) -->
             <div style="display: flex; align-items: center; gap: 6px; margin-left: auto;">
                 <span style="font-size: 0.75rem; color: var(--text-muted);">Filas:</span>
-                <select name="per_page" id="per_page" style="background: transparent; border: none; color: var(--text-secondary); font-size: 0.8rem; cursor: pointer; outline: none; font-weight: 500;">
-                    <option value="5" {% if per_page == '5' or not per_page %}selected{% endif %}>5</option>
-                    <option value="10" {% if per_page == '10' %}selected{% endif %}>10</option>
-                    <option value="15" {% if per_page == '15' %}selected{% endif %}>15</option>
-                    <option value="20" {% if per_page == '20' %}selected{% endif %}>20</option>
-                    <option value="all" {% if per_page == 'all' %}selected{% endif %}>Todas</option>
+                <select name="per_page" id="per_page"
+                    style="background: transparent; border: none; color: var(--text-secondary); font-size: 0.8rem; cursor: pointer; outline: none; font-weight: 500;">
+                    <option value="5" {% if per_page=='5' or not per_page %}selected{% endif %}>5</option>
+                    <option value="10" {% if per_page=='10' %}selected{% endif %}>10</option>
+                    <option value="15" {% if per_page=='15' %}selected{% endif %}>15</option>
+                    <option value="20" {% if per_page=='20' %}selected{% endif %}>20</option>
+                    <option value="all" {% if per_page=='all' %}selected{% endif %}>Todas</option>
                 </select>
             </div>
         </form>
@@ -228,22 +339,25 @@ endblock %}
         <a href="{{ url_for('web_invoices.invoice_detail', invoice_id=inv.id) }}" class="doc-title">
             {{ inv.invoiceNumber }}
         </a>
-        
+
         <div class="doc-meta">
             <span><i class="fa-solid fa-user"></i> {{ inv.clientName }}</span>
             <span><i class="fa-solid fa-calendar"></i> {{ inv.date[:10] }}</span>
         </div>
-    
+
         <div class="doc-finance">
-            <strong style="color: var(--accent-emerald); display: block;">Total: RD$ {{ "{:,.2f}".format(inv.total) }}</strong>
+            <strong style="color: var(--accent-emerald); display: block;">Total: RD$ {{ "{:,.2f}".format(inv.total)
+                }}</strong>
         </div>
-    
+
         <div class="card-actions">
-            <a href="{{ url_for('web_invoices.invoice_detail', invoice_id=inv.id) }}" class="btn-icon" title="Ver Detalle">
+            <a href="{{ url_for('web_invoices.invoice_detail', invoice_id=inv.id) }}" class="btn-icon"
+                title="Ver Detalle">
                 <i class="fa-solid fa-eye"></i>
             </a>
             {% if inv.status == 'Borrador' %}
-            <a href="{{ url_for('web_invoices.new_quotation_route', invoice_id=inv.id) }}" class="btn-icon" title="Editar">
+            <a href="{{ url_for('web_invoices.new_quotation_route', invoice_id=inv.id) }}" class="btn-icon"
+                title="Editar">
                 <i class="fa-solid fa-pen"></i>
             </a>
             {% endif %}
@@ -257,16 +371,16 @@ endblock %}
                 <h4 class="kanban-header"><i class="fa-solid fa-file"></i> Borrador</h4>
                 <div class="kanban-cards">
                     {% for inv in invoices if inv.status == 'Borrador' or not inv.status %}
-                        {{ render_doc(inv) }}
+                    {{ render_doc(inv) }}
                     {% endfor %}
                 </div>
             </div>
-            
+
             <div class="kanban-column" id="col-Enviada" ondrop="drop(event)" ondragover="allowDrop(event)">
                 <h4 class="kanban-header"><i class="fa-solid fa-paper-plane"></i> Enviada</h4>
                 <div class="kanban-cards">
                     {% for inv in invoices if inv.status == 'Enviada al Cliente' or inv.status == 'Emitida' %}
-                        {{ render_doc(inv) }}
+                    {{ render_doc(inv) }}
                     {% endfor %}
                 </div>
             </div>
@@ -275,7 +389,7 @@ endblock %}
                 <h4 class="kanban-header"><i class="fa-solid fa-check-circle"></i> Aprobada</h4>
                 <div class="kanban-cards">
                     {% for inv in invoices if inv.status == 'Aprobada' %}
-                        {{ render_doc(inv) }}
+                    {{ render_doc(inv) }}
                     {% endfor %}
                 </div>
             </div>
@@ -284,7 +398,7 @@ endblock %}
                 <h4 class="kanban-header"><i class="fa-solid fa-times-circle"></i> Rechazada</h4>
                 <div class="kanban-cards">
                     {% for inv in invoices if inv.status == 'Rechazada' %}
-                        {{ render_doc(inv) }}
+                    {{ render_doc(inv) }}
                     {% endfor %}
                 </div>
             </div>
@@ -294,7 +408,7 @@ endblock %}
     <script>
         function allowDrop(ev) { ev.preventDefault(); }
         function drag(ev) { ev.dataTransfer.setData("text", ev.currentTarget.id); ev.currentTarget.style.opacity = '0.5'; }
-        document.addEventListener("dragend", function(event) { if (event.target.classList && event.target.classList.contains('doc-card')) event.target.style.opacity = '1'; });
+        document.addEventListener("dragend", function (event) { if (event.target.classList && event.target.classList.contains('doc-card')) event.target.style.opacity = '1'; });
         function drop(ev) {
             ev.preventDefault();
             var data = ev.dataTransfer.getData("text");
@@ -309,7 +423,7 @@ endblock %}
                 if (targetCol.id === 'col-Enviada') status = 'Enviada al Cliente';
                 if (targetCol.id === 'col-Aprobada') status = 'Aprobada';
                 if (targetCol.id === 'col-Rechazada') status = 'Rechazada';
-                
+
                 const invId = data.replace('inv-', '');
                 fetch('{{ url_for("web_invoices.list_invoices") }}/' + invId + '/update_status', {
                     method: 'POST',
@@ -332,20 +446,25 @@ endblock %}
         </div>
         <div class="doc-finance">
             {% if inv.status == 'Anulada' %}
-                <strong style="color: var(--text-muted); text-decoration: line-through;">Total: RD$ {{ "{:,.2f}".format(inv.total) }}</strong>
+            <strong style="color: var(--text-muted); text-decoration: line-through;">Total: RD$ {{
+                "{:,.2f}".format(inv.total) }}</strong>
             {% elif inv.status == 'Cobrada' or inv.netPayable == 0 %}
-                <strong style="color: var(--accent-emerald);"><i class="fa-solid fa-check"></i> Pagado 100%</strong>
+            <strong style="color: var(--accent-emerald);"><i class="fa-solid fa-check"></i> Pagado 100%</strong>
             {% else %}
-                <strong style="color: var(--accent-red); display: block;">Pendiente: RD$ {{ "{:,.2f}".format(inv.netPayable) }}</strong>
-                <span style="font-size: 0.75rem; color: var(--text-secondary);">Total: RD$ {{ "{:,.2f}".format(inv.total) }}</span>
+            <strong style="color: var(--accent-red); display: block;">Pendiente: RD$ {{ "{:,.2f}".format(inv.netPayable)
+                }}</strong>
+            <span style="font-size: 0.75rem; color: var(--text-secondary);">Total: RD$ {{ "{:,.2f}".format(inv.total)
+                }}</span>
             {% endif %}
         </div>
         <div class="card-actions">
-            <a href="{{ url_for('web_invoices.invoice_detail', invoice_id=inv.id) }}" class="btn-icon" title="Ver Detalle">
+            <a href="{{ url_for('web_invoices.invoice_detail', invoice_id=inv.id) }}" class="btn-icon"
+                title="Ver Detalle">
                 <i class="fa-solid fa-eye"></i>
             </a>
             {% if inv.emisionMode == 'FALLBACK' and not inv.isSyncedWithDGII and inv.status != 'Anulada' %}
-            <form action="{{ url_for('web_invoices.sync_single_invoice_route', invoice_id=inv.id) }}" method="POST" style="display: inline;">
+            <form action="{{ url_for('web_invoices.sync_single_invoice_route', invoice_id=inv.id) }}" method="POST"
+                style="display: inline;">
                 <button type="submit" class="btn-icon" style="color: var(--accent-yellow);" title="Sincronizar">
                     <i class="fa-solid fa-rotate"></i>
                 </button>
@@ -362,17 +481,17 @@ endblock %}
                 <h4 class="kanban-header"><i class="fa-solid fa-file"></i> Borradores</h4>
                 <div class="kanban-cards">
                     {% for inv in invoices if inv.status == 'Borrador' %}
-                        {{ render_invoice(inv) }}
+                    {{ render_invoice(inv) }}
                     {% endfor %}
                 </div>
             </div>
-            
+
             <!-- Emitidas (Por Cobrar) -->
             <div class="kanban-column" id="col-PorCobrar">
                 <h4 class="kanban-header"><i class="fa-solid fa-file-invoice-dollar"></i> Por Cobrar</h4>
                 <div class="kanban-cards">
                     {% for inv in invoices if inv.status == 'Emitida' and inv.netPayable > 0 %}
-                        {{ render_invoice(inv) }}
+                    {{ render_invoice(inv) }}
                     {% endfor %}
                 </div>
             </div>
@@ -381,8 +500,9 @@ endblock %}
             <div class="kanban-column" id="col-Cobradas">
                 <h4 class="kanban-header"><i class="fa-solid fa-check-double"></i> Cobradas</h4>
                 <div class="kanban-cards">
-                    {% for inv in invoices if inv.status == 'Cobrada' or (inv.status == 'Emitida' and inv.netPayable == 0) %}
-                        {{ render_invoice(inv) }}
+                    {% for inv in invoices if inv.status == 'Cobrada' or (inv.status == 'Emitida' and inv.netPayable ==
+                    0) %}
+                    {{ render_invoice(inv) }}
                     {% endfor %}
                 </div>
             </div>
@@ -392,7 +512,7 @@ endblock %}
                 <h4 class="kanban-header"><i class="fa-solid fa-ban"></i> Anuladas</h4>
                 <div class="kanban-cards">
                     {% for inv in invoices if inv.status == 'Anulada' %}
-                        {{ render_invoice(inv) }}
+                    {{ render_invoice(inv) }}
                     {% endfor %}
                 </div>
             </div>
@@ -419,7 +539,8 @@ endblock %}
                 <tr>
                     <td>
                         <a href="{{ url_for('web_invoices.invoice_detail', invoice_id=inv.id) }}" class="invoice-link">
-                            <span style="font-size: 0.85rem; display: block; margin-bottom: 2px;">{{ inv.invoiceNumber }}</span>
+                            <span style="font-size: 0.85rem; display: block; margin-bottom: 2px;">{{ inv.invoiceNumber
+                                }}</span>
                         </a>
                         {% if active_page != 'quotations' %}
                         <span style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase;">
@@ -429,9 +550,12 @@ endblock %}
                     </td>
                     <td>
                         {% if inv.encf %}
-                        <span style="font-family: monospace; font-size: 0.85rem; color: var(--accent-purple);">{{ inv.encf }}</span>
+                        <span style="font-family: monospace; font-size: 0.85rem; color: var(--accent-purple);">{{
+                            inv.encf }}</span>
                         {% if inv.xmlSignature %}
-                        <span style="display: block; font-size: 0.65rem; color: var(--text-muted); font-family: monospace;">Firma: {{ inv.xmlSignature[:16] }}...</span>
+                        <span
+                            style="display: block; font-size: 0.65rem; color: var(--text-muted); font-family: monospace;">Firma:
+                            {{ inv.xmlSignature[:16] }}...</span>
                         {% endif %}
                         {% else %}
                         <span class="badge badge-secondary" style="font-size: 0.65rem;">Borrador</span>
@@ -441,53 +565,73 @@ endblock %}
                         <span style="display: block; font-size: 0.85rem;">
                             {{ inv.date[:10] }}
                             {% if inv.date|length > 10 %}
-                            <span style="font-size: 0.7rem; color: var(--text-muted); margin-left: 4px;"><i class="fa-regular fa-clock" style="font-size: 0.65rem; margin-right: 2px;"></i>{{ inv.date[11:16] }}</span>
+                            <span style="font-size: 0.7rem; color: var(--text-muted); margin-left: 4px;"><i
+                                    class="fa-regular fa-clock" style="font-size: 0.65rem; margin-right: 2px;"></i>{{
+                                inv.date[11:16] }}</span>
                             {% endif %}
                         </span>
                         <span style="font-size: 0.75rem; color: var(--text-muted);">Vence: {{ inv.dueDate[:10] }}</span>
                     </td>
                     <td>
                         {% if inv.clientId and inv.clientId != 'api_client_default' %}
-                        <a href="{{ url_for('web_clients.client_detail', client_id=inv.clientId) }}" class="client-link">
-                            <span style="font-size: 0.85rem; display: block; margin-bottom: 2px;">{{ inv.clientName }}</span>
+                        <a href="{{ url_for('web_clients.client_detail', client_id=inv.clientId) }}"
+                            class="client-link">
+                            <span style="font-size: 0.85rem; display: block; margin-bottom: 2px;">{{ inv.clientName
+                                }}</span>
                         </a>
                         {% else %}
-                        <span style="font-size: 0.85rem; display: block; margin-bottom: 2px;">{{ inv.clientName }}</span>
+                        <span style="font-size: 0.85rem; display: block; margin-bottom: 2px;">{{ inv.clientName
+                            }}</span>
                         {% endif %}
-                        <span style="font-size: 0.75rem; color: var(--text-secondary); font-family: monospace;">{{ inv.clientRNC or '999999999' }}</span>
+                        <span style="font-size: 0.75rem; color: var(--text-secondary); font-family: monospace;">{{
+                            inv.clientRNC or '999999999' }}</span>
                     </td>
                     <td>
                         {% if inv.status == 'Anulada' %}
-                        <span style="color: var(--text-muted); text-decoration: line-through; font-size: 0.85rem;">RD$ {{ "{:,.2f}".format(inv.netPayable) }}</span>
-                        <span style="display: block; font-size: 0.7rem; color: var(--text-muted);">Total: RD$ {{ "{:,.2f}".format(inv.total) }}</span>
+                        <span style="color: var(--text-muted); text-decoration: line-through; font-size: 0.85rem;">RD$
+                            {{ "{:,.2f}".format(inv.netPayable) }}</span>
+                        <span style="display: block; font-size: 0.7rem; color: var(--text-muted);">Total: RD$ {{
+                            "{:,.2f}".format(inv.total) }}</span>
                         {% elif inv.status == 'Cobrada' or inv.netPayable == 0 %}
                         <span style="color: var(--accent-emerald); font-size: 0.85rem;">RD$ 0.00</span>
-                        <span style="display: block; font-size: 0.7rem; color: var(--accent-emerald); font-weight: 500;">
+                        <span
+                            style="display: block; font-size: 0.7rem; color: var(--accent-emerald); font-weight: 500;">
                             <i class="fa-solid fa-circle-check"></i> Pagado 100%
                         </span>
-                        {% elif inv.netPayable < inv.total %}
-                        <span style="color: var(--accent-yellow); font-size: 0.85rem;">RD$ {{ "{:,.2f}".format(inv.netPayable) }}</span>
-                        <span style="display: block; font-size: 0.7rem; color: var(--accent-yellow); font-weight: 500;">
-                            <i class="fa-solid fa-circle-half-stroke"></i> Cobro Parcial
-                        </span>
-                        <span style="display: block; font-size: 0.65rem; color: var(--text-muted);">Total: RD$ {{ "{:,.2f}".format(inv.total) }}</span>
-                        {% else %}
-                        <span style="color: var(--accent-red); font-size: 0.85rem;">RD$ {{ "{:,.2f}".format(inv.netPayable) }}</span>
-                        <span style="display: block; font-size: 0.7rem; color: var(--accent-red); font-weight: 500;">
-                            <i class="fa-solid fa-clock"></i> Pendiente
-                        </span>
-                        <span style="display: block; font-size: 0.65rem; color: var(--text-muted);">Total: RD$ {{ "{:,.2f}".format(inv.total) }}</span>
-                        {% endif %}
+                        {% elif inv.netPayable < inv.total %} <span
+                            style="color: var(--accent-yellow); font-size: 0.85rem;">RD$ {{
+                            "{:,.2f}".format(inv.netPayable) }}</span>
+                            <span
+                                style="display: block; font-size: 0.7rem; color: var(--accent-yellow); font-weight: 500;">
+                                <i class="fa-solid fa-circle-half-stroke"></i> Cobro Parcial
+                            </span>
+                            <span style="display: block; font-size: 0.65rem; color: var(--text-muted);">Total: RD$ {{
+                                "{:,.2f}".format(inv.total) }}</span>
+                            {% else %}
+                            <span style="color: var(--accent-red); font-size: 0.85rem;">RD$ {{
+                                "{:,.2f}".format(inv.netPayable) }}</span>
+                            <span
+                                style="display: block; font-size: 0.7rem; color: var(--accent-red); font-weight: 500;">
+                                <i class="fa-solid fa-clock"></i> Pendiente
+                            </span>
+                            <span style="display: block; font-size: 0.65rem; color: var(--text-muted);">Total: RD$ {{
+                                "{:,.2f}".format(inv.total) }}</span>
+                            {% endif %}
                     </td>
                     <td style="text-align: right;">
                         <div style="display: inline-flex; gap: 8px;">
-                            <a href="{{ url_for('web_invoices.invoice_detail', invoice_id=inv.id) }}" class="btn btn-secondary"
-                                style="padding: 8px 12px; font-size: 0.8rem;" title="Ver Detalle y QR">
+                            <a href="{{ url_for('web_invoices.invoice_detail', invoice_id=inv.id) }}"
+                                class="btn btn-secondary" style="padding: 8px 12px; font-size: 0.8rem;"
+                                title="Ver Detalle y QR">
                                 <i class="fa-solid fa-eye"></i>
                             </a>
-                            {% if inv.emisionMode == 'FALLBACK' and not inv.isSyncedWithDGII and inv.status != 'Anulada' %}
-                            <form action="{{ url_for('web_invoices.sync_single_invoice_route', invoice_id=inv.id) }}" method="POST" style="display: inline;">
-                                <button type="submit" class="btn btn-primary" style="padding: 8px 12px; font-size: 0.8rem; background: linear-gradient(135deg, #f59e0b, #d97706); border: none;" title="Sincronizar con DGII">
+                            {% if inv.emisionMode == 'FALLBACK' and not inv.isSyncedWithDGII and inv.status != 'Anulada'
+                            %}
+                            <form action="{{ url_for('web_invoices.sync_single_invoice_route', invoice_id=inv.id) }}"
+                                method="POST" style="display: inline;">
+                                <button type="submit" class="btn btn-primary"
+                                    style="padding: 8px 12px; font-size: 0.8rem; background: linear-gradient(135deg, #f59e0b, #d97706); border: none;"
+                                    title="Sincronizar con DGII">
                                     <i class="fa-solid fa-rotate"></i>
                                 </button>
                             </form>
@@ -518,19 +662,25 @@ endblock %}
 
     <!-- Paginación Premium -->
     {% if total_pages and total_pages > 1 and per_page != 'all' %}
-    <div class="pagination-container" style="display: flex; justify-content: space-between; align-items: center; margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border-color); flex-wrap: wrap; gap: 16px;">
+    <div class="pagination-container"
+        style="display: flex; justify-content: space-between; align-items: center; margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border-color); flex-wrap: wrap; gap: 16px;">
         <div style="color: var(--text-secondary); font-size: 0.85rem;">
-            Mostrando <strong style="color: var(--text-primary);">{{ start_count }}</strong> a <strong style="color: var(--text-primary);">{{ end_count }}</strong> de <strong style="color: var(--text-primary);">{{ total_items }}</strong> registros
+            Mostrando <strong style="color: var(--text-primary);">{{ start_count }}</strong> a <strong
+                style="color: var(--text-primary);">{{ end_count }}</strong> de <strong
+                style="color: var(--text-primary);">{{ total_items }}</strong> registros
         </div>
         <div class="pagination-buttons" style="display: flex; gap: 6px;">
             <!-- Anterior -->
             {% if has_prev %}
-            <a href="?page={{ page - 1 }}&q={{ q or '' }}&status={{ status or '' }}&start_date={{ start_date or '' }}&end_date={{ end_date or '' }}&per_page={{ per_page or '10' }}" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.82rem; display: inline-flex; align-items: center; gap: 6px; border-radius: var(--radius-sm);">
+            <a href="?page={{ page - 1 }}&q={{ q or '' }}&status={{ status or '' }}&start_date={{ start_date or '' }}&end_date={{ end_date or '' }}&per_page={{ per_page or '10' }}"
+                class="btn btn-secondary"
+                style="padding: 6px 12px; font-size: 0.82rem; display: inline-flex; align-items: center; gap: 6px; border-radius: var(--radius-sm);">
                 <i class="fa-solid fa-chevron-left" style="font-size: 0.75rem;"></i>
                 <span>Anterior</span>
             </a>
             {% else %}
-            <button class="btn btn-secondary" disabled style="padding: 6px 12px; font-size: 0.82rem; display: inline-flex; align-items: center; gap: 6px; opacity: 0.5; cursor: not-allowed; border-radius: var(--radius-sm);">
+            <button class="btn btn-secondary" disabled
+                style="padding: 6px 12px; font-size: 0.82rem; display: inline-flex; align-items: center; gap: 6px; opacity: 0.5; cursor: not-allowed; border-radius: var(--radius-sm);">
                 <i class="fa-solid fa-chevron-left" style="font-size: 0.75rem;"></i>
                 <span>Anterior</span>
             </button>
@@ -538,21 +688,29 @@ endblock %}
 
             <!-- Números de Página -->
             {% for p in pages_range %}
-                {% if p == page %}
-                <button class="btn btn-primary" style="padding: 6px 12px; font-size: 0.82rem; min-width: 34px; text-align: center; border-radius: var(--radius-sm);">{{ p }}</button>
-                {% else %}
-                <a href="?page={{ p }}&q={{ q or '' }}&status={{ status or '' }}&start_date={{ start_date or '' }}&end_date={{ end_date or '' }}&per_page={{ per_page or '10' }}" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.82rem; min-width: 34px; text-align: center; border-radius: var(--radius-sm);">{{ p }}</a>
-                {% endif %}
+            {% if p == page %}
+            <button class="btn btn-primary"
+                style="padding: 6px 12px; font-size: 0.82rem; min-width: 34px; text-align: center; border-radius: var(--radius-sm);">{{
+                p }}</button>
+            {% else %}
+            <a href="?page={{ p }}&q={{ q or '' }}&status={{ status or '' }}&start_date={{ start_date or '' }}&end_date={{ end_date or '' }}&per_page={{ per_page or '10' }}"
+                class="btn btn-secondary"
+                style="padding: 6px 12px; font-size: 0.82rem; min-width: 34px; text-align: center; border-radius: var(--radius-sm);">{{
+                p }}</a>
+            {% endif %}
             {% endfor %}
 
             <!-- Siguiente -->
             {% if has_next %}
-            <a href="?page={{ page + 1 }}&q={{ q or '' }}&status={{ status or '' }}&start_date={{ start_date or '' }}&end_date={{ end_date or '' }}&per_page={{ per_page or '10' }}" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.82rem; display: inline-flex; align-items: center; gap: 6px; border-radius: var(--radius-sm);">
+            <a href="?page={{ page + 1 }}&q={{ q or '' }}&status={{ status or '' }}&start_date={{ start_date or '' }}&end_date={{ end_date or '' }}&per_page={{ per_page or '10' }}"
+                class="btn btn-secondary"
+                style="padding: 6px 12px; font-size: 0.82rem; display: inline-flex; align-items: center; gap: 6px; border-radius: var(--radius-sm);">
                 <span>Siguiente</span>
                 <i class="fa-solid fa-chevron-right" style="font-size: 0.75rem;"></i>
             </a>
             {% else %}
-            <button class="btn btn-secondary" disabled style="padding: 6px 12px; font-size: 0.82rem; display: inline-flex; align-items: center; gap: 6px; opacity: 0.5; cursor: not-allowed; border-radius: var(--radius-sm);">
+            <button class="btn btn-secondary" disabled
+                style="padding: 6px 12px; font-size: 0.82rem; display: inline-flex; align-items: center; gap: 6px; opacity: 0.5; cursor: not-allowed; border-radius: var(--radius-sm);">
                 <span>Siguiente</span>
                 <i class="fa-solid fa-chevron-right" style="font-size: 0.75rem;"></i>
             </button>
@@ -572,14 +730,14 @@ endblock %}
             const btnTable = document.getElementById('btn-view-table');
             const viewKanban = document.getElementById('view-kanban');
             const viewTable = document.getElementById('view-table');
-            
-            if(mode === 'kanban') {
+
+            if (mode === 'kanban') {
                 viewKanban.style.display = 'block';
                 viewTable.style.display = 'none';
                 btnKanban.style.background = '#ffffff';
                 btnKanban.style.color = 'var(--text-primary)';
                 btnKanban.style.boxShadow = '0 1px 2px rgba(0,0,0,0.1)';
-                
+
                 btnTable.style.background = 'transparent';
                 btnTable.style.color = 'var(--text-secondary)';
                 btnTable.style.boxShadow = 'none';
@@ -590,7 +748,7 @@ endblock %}
                 btnTable.style.background = '#ffffff';
                 btnTable.style.color = 'var(--text-primary)';
                 btnTable.style.boxShadow = '0 1px 2px rgba(0,0,0,0.1)';
-                
+
                 btnKanban.style.background = 'transparent';
                 btnKanban.style.color = 'var(--text-secondary)';
                 btnKanban.style.boxShadow = 'none';
@@ -598,7 +756,7 @@ endblock %}
             }
         }
 
-        document.addEventListener("DOMContentLoaded", function() {
+        document.addEventListener("DOMContentLoaded", function () {
             // Restore view mode
             const savedMode = localStorage.getItem('docViewMode') || 'table';
             setViewMode(savedMode);
@@ -609,16 +767,16 @@ endblock %}
             const selectPerPage = document.getElementById('per_page');
             const startDate = document.getElementById('start_date');
             const endDate = document.getElementById('end_date');
-            
+
             // Función de debounce para la búsqueda de texto
             let debounceTimer;
-            searchInput.addEventListener('input', function() {
+            searchInput.addEventListener('input', function () {
                 clearTimeout(debounceTimer);
                 debounceTimer = setTimeout(() => {
                     form.submit();
                 }, 500);
             });
-            
+
             // Envío automático al cambiar dropdowns y fechas
             [selectStatus, selectPerPage, startDate, endDate].forEach(elem => {
                 if (elem) {
@@ -627,7 +785,7 @@ endblock %}
                     });
                 }
             });
-            
+
             // Enfocar input de búsqueda al final del texto al recargar si tiene valor
             if (searchInput.value) {
                 searchInput.focus();
@@ -638,34 +796,53 @@ endblock %}
         });
     </script>
     <!-- Modal Anular Factura Custom -->
-    <div id="void-modal" class="search-modal" style="display: none; justify-content: center; align-items: center; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 2000;">
-        <div class="modal-backdrop" onclick="closeVoidModal()" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px);"></div>
-        <div class="modal-content animate-fade-in" style="max-width: 450px; width: 90%; padding: 0; border-radius: var(--radius-md); position: relative; z-index: 2001; background: #ffffff; box-shadow: var(--shadow-lg);">
-            <div class="modal-header" style="border-bottom: 1px solid var(--border-color); padding: 20px 24px; display: flex; justify-content: space-between; align-items: center;">
-                <h3 style="margin: 0; font-size: 1.15rem; font-family: var(--font-heading); display: flex; align-items: center; gap: 10px;">
-                    <i class="fa-solid fa-triangle-exclamation" style="color: var(--accent-red); font-size: 1.3rem;"></i>
+    <div id="void-modal" class="search-modal"
+        style="display: none; justify-content: center; align-items: center; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 2000;">
+        <div class="modal-backdrop" onclick="closeVoidModal()"
+            style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px);">
+        </div>
+        <div class="modal-content animate-fade-in"
+            style="max-width: 450px; width: 90%; padding: 0; border-radius: var(--radius-md); position: relative; z-index: 2001; background: #ffffff; box-shadow: var(--shadow-lg);">
+            <div class="modal-header"
+                style="border-bottom: 1px solid var(--border-color); padding: 20px 24px; display: flex; justify-content: space-between; align-items: center;">
+                <h3
+                    style="margin: 0; font-size: 1.15rem; font-family: var(--font-heading); display: flex; align-items: center; gap: 10px;">
+                    <i class="fa-solid fa-triangle-exclamation"
+                        style="color: var(--accent-red); font-size: 1.3rem;"></i>
                     <span>Confirmar Anulación</span>
                 </h3>
-                <button class="btn-close-modal" type="button" onclick="closeVoidModal()" style="background: transparent; border: none; font-size: 1.2rem; cursor: pointer; color: var(--text-muted);">
+                <button class="btn-close-modal" type="button" onclick="closeVoidModal()"
+                    style="background: transparent; border: none; font-size: 1.2rem; cursor: pointer; color: var(--text-muted);">
                     <i class="fa-solid fa-xmark"></i>
                 </button>
             </div>
             <div class="modal-body" style="padding: 24px;">
-                <p style="color: var(--text-secondary); font-size: 0.9rem; line-height: 1.5; margin-bottom: 20px; margin-top: 0;">
-                    Estás a punto de anular la factura <strong id="void-invoice-display" style="color: var(--text-primary);"></strong>. Esta acción emitirá la anulación a la secuencia correspondiente.
+                <p
+                    style="color: var(--text-secondary); font-size: 0.9rem; line-height: 1.5; margin-bottom: 20px; margin-top: 0;">
+                    Estás a punto de anular la factura <strong id="void-invoice-display"
+                        style="color: var(--text-primary);"></strong>. Esta acción emitirá la anulación a la secuencia
+                    correspondiente.
                 </p>
-                <form id="void-invoice-form" method="POST" action="" style="display: flex; flex-direction: column; gap: 16px; margin: 0;">
+                <form id="void-invoice-form" method="POST" action=""
+                    style="display: flex; flex-direction: column; gap: 16px; margin: 0;">
                     <div>
-                        <label for="void-invoice-input" style="display: block; font-size: 0.85rem; font-weight: 600; color: var(--text-primary); margin-bottom: 8px;">
+                        <label for="void-invoice-input"
+                            style="display: block; font-size: 0.85rem; font-weight: 500; color: var(--text-primary); margin-bottom: 8px;">
                             Para confirmar, escriba el número de la factura:
                         </label>
-                        <input type="text" id="void-invoice-input" name="void_invoice_input" class="form-control" autocomplete="off" placeholder="Ej. E310000000001" style="width: 100%; height: 40px; padding: 0 12px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background-color: var(--bg-input); color: var(--text-primary); font-family: monospace; font-size: 0.95rem;">
-                        <span id="void-error-msg" style="display: none; color: var(--accent-red); font-size: 0.8rem; margin-top: 6px;"><i class="fa-solid fa-circle-xmark"></i> El número no coincide.</span>
+                        <input type="text" id="void-invoice-input" name="void_invoice_input" class="form-control"
+                            autocomplete="off" placeholder="Ej. E310000000001"
+                            style="width: 100%; height: 40px; padding: 0 12px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background-color: var(--bg-input); color: var(--text-primary); font-family: monospace; font-size: 0.95rem;">
+                        <span id="void-error-msg"
+                            style="display: none; color: var(--accent-red); font-size: 0.8rem; margin-top: 6px;"><i
+                                class="fa-solid fa-circle-xmark"></i> El número no coincide.</span>
                     </div>
-                    
+
                     <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 10px;">
-                        <button type="button" class="btn btn-secondary" onclick="closeVoidModal()" style="padding: 10px 16px;">Cancelar</button>
-                        <button type="submit" id="void-submit-btn" class="btn btn-danger" style="padding: 10px 16px; opacity: 0.5; cursor: not-allowed;" disabled>
+                        <button type="button" class="btn btn-secondary" onclick="closeVoidModal()"
+                            style="padding: 10px 16px;">Cancelar</button>
+                        <button type="submit" id="void-submit-btn" class="btn btn-danger"
+                            style="padding: 10px 16px; opacity: 0.5; cursor: not-allowed;" disabled>
                             <i class="fa-solid fa-ban"></i> Anular Factura
                         </button>
                     </div>
@@ -684,17 +861,17 @@ endblock %}
             const input = document.getElementById('void-invoice-input');
             const submitBtn = document.getElementById('void-submit-btn');
             const errorMsg = document.getElementById('void-error-msg');
-            
+
             currentVoidInvoiceNumber = invoiceNumber;
             displaySpan.textContent = invoiceNumber;
             form.action = actionUrl;
-            
+
             input.value = '';
             errorMsg.style.display = 'none';
             submitBtn.disabled = true;
             submitBtn.style.opacity = '0.5';
             submitBtn.style.cursor = 'not-allowed';
-            
+
             if (modal) {
                 modal.style.display = 'flex';
                 document.body.style.overflow = 'hidden';
@@ -710,14 +887,14 @@ endblock %}
             }
         }
 
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             const voidInput = document.getElementById('void-invoice-input');
             const voidSubmitBtn = document.getElementById('void-submit-btn');
             const voidErrorMsg = document.getElementById('void-error-msg');
             const voidForm = document.getElementById('void-invoice-form');
-            
+
             if (voidInput && voidSubmitBtn && voidErrorMsg && voidForm) {
-                voidInput.addEventListener('input', function() {
+                voidInput.addEventListener('input', function () {
                     if (this.value.trim() === currentVoidInvoiceNumber) {
                         voidSubmitBtn.disabled = false;
                         voidSubmitBtn.style.opacity = '1';
@@ -729,8 +906,8 @@ endblock %}
                         voidSubmitBtn.style.cursor = 'not-allowed';
                     }
                 });
-                
-                voidForm.addEventListener('submit', function(e) {
+
+                voidForm.addEventListener('submit', function (e) {
                     if (voidInput.value.trim() !== currentVoidInvoiceNumber) {
                         e.preventDefault();
                         voidErrorMsg.style.display = 'block';
@@ -742,33 +919,48 @@ endblock %}
 </div>
 
 <!-- Modal de Importación Masiva CSV de Facturas Históricas -->
-<div id="historical-import-modal" class="search-modal" style="display: none; justify-content: center; align-items: center; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 2000;">
-    <div class="modal-backdrop" onclick="closeHistoricalImportModal()" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px);"></div>
-    <div class="modal-content animate-fade-in" style="max-width: 500px; width: 90%; padding: 0; border-radius: var(--radius-md); position: relative; z-index: 2001; background: #ffffff; box-shadow: var(--shadow-lg);">
-        <div class="modal-header" style="border-bottom: 1px solid var(--border-color); padding: 20px 24px; display: flex; justify-content: space-between; align-items: center;">
-            <h3 style="margin: 0; font-size: 1.15rem; font-family: var(--font-heading); display: flex; align-items: center; gap: 10px;">
+<div id="historical-import-modal" class="search-modal"
+    style="display: none; justify-content: center; align-items: center; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 2000;">
+    <div class="modal-backdrop" onclick="closeHistoricalImportModal()"
+        style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px);">
+    </div>
+    <div class="modal-content animate-fade-in"
+        style="max-width: 500px; width: 90%; padding: 0; border-radius: var(--radius-md); position: relative; z-index: 2001; background: #ffffff; box-shadow: var(--shadow-lg);">
+        <div class="modal-header"
+            style="border-bottom: 1px solid var(--border-color); padding: 20px 24px; display: flex; justify-content: space-between; align-items: center;">
+            <h3
+                style="margin: 0; font-size: 1.15rem; font-family: var(--font-heading); display: flex; align-items: center; gap: 10px;">
                 <i class="fa-solid fa-file-csv" style="color: var(--accent-emerald); font-size: 1.3rem;"></i>
                 <span>Importar Historial de Facturas</span>
             </h3>
-            <button class="btn-close-modal" type="button" onclick="closeHistoricalImportModal()" style="background: transparent; border: none; font-size: 1.2rem; cursor: pointer; color: var(--text-muted);">
+            <button class="btn-close-modal" type="button" onclick="closeHistoricalImportModal()"
+                style="background: transparent; border: none; font-size: 1.2rem; cursor: pointer; color: var(--text-muted);">
                 <i class="fa-solid fa-xmark"></i>
             </button>
         </div>
         <div class="modal-body" style="padding: 28px;">
-            <p style="color: var(--text-secondary); font-size: 0.85rem; line-height: 1.45; margin-bottom: 20px; margin-top: 0;">
-                Sube tu listado de facturas históricas en formato .csv. Al seleccionar o arrastrar el archivo, el sistema iniciará automáticamente el Asistente de Mapeo Inteligente.
+            <p
+                style="color: var(--text-secondary); font-size: 0.85rem; line-height: 1.45; margin-bottom: 20px; margin-top: 0;">
+                Sube tu listado de facturas históricas en formato .csv. Al seleccionar o arrastrar el archivo, el
+                sistema iniciará automáticamente el Asistente de Mapeo Inteligente.
             </p>
-            
-            <form action="{{ url_for('web_import_mapper.upload_file') }}" method="POST" enctype="multipart/form-data" style="display: flex; flex-direction: column; gap: 18px; margin: 0;">
+
+            <form action="{{ url_for('web_import_mapper.upload_file') }}" method="POST" enctype="multipart/form-data"
+                style="display: flex; flex-direction: column; gap: 18px; margin: 0;">
                 <input type="hidden" name="import_type" value="invoices">
-                <div id="historical-dropzone" style="border: 2px dashed var(--border-color); border-radius: var(--radius-sm); padding: 40px 16px; text-align: center; cursor: pointer; transition: all var(--transition-fast) ease-in-out;">
-                    <i class="fa-solid fa-cloud-arrow-up" style="font-size: 2.5rem; color: var(--text-muted); margin-bottom: 12px; display: block; transition: transform var(--transition-fast);"></i>
-                    <span style="font-size: 0.88rem; font-weight: 600; color: var(--text-secondary);" id="historical-file-label">Seleccionar archivo .csv</span>
-                    <p style="font-size: 0.78rem; color: var(--text-muted); margin-top: 6px; margin-bottom: 0;">o arrastra tu archivo aquí</p>
+                <div id="historical-dropzone"
+                    style="border: 2px dashed var(--border-color); border-radius: var(--radius-sm); padding: 40px 16px; text-align: center; cursor: pointer; transition: all var(--transition-fast) ease-in-out;">
+                    <i class="fa-solid fa-cloud-arrow-up"
+                        style="font-size: 2.5rem; color: var(--text-muted); margin-bottom: 12px; display: block; transition: transform var(--transition-fast);"></i>
+                    <span style="font-size: 0.88rem; font-weight: 500; color: var(--text-secondary);"
+                        id="historical-file-label">Seleccionar archivo .csv</span>
+                    <p style="font-size: 0.78rem; color: var(--text-muted); margin-top: 6px; margin-bottom: 0;">o
+                        arrastra tu archivo aquí</p>
                 </div>
                 <input type="file" id="historical-csv-file" name="file" accept=".csv" style="display: none;">
-                
-                <button type="submit" id="historical-upload-btn" class="btn btn-primary" style="width: 100%; display: none;" disabled></button>
+
+                <button type="submit" id="historical-upload-btn" class="btn btn-primary"
+                    style="width: 100%; display: none;" disabled></button>
             </form>
         </div>
     </div>
@@ -791,7 +983,7 @@ endblock %}
         }
     }
 
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', function () {
         const dropzone = document.getElementById('historical-dropzone');
         const fileInput = document.getElementById('historical-csv-file');
         const fileLabel = document.getElementById('historical-file-label');
@@ -802,7 +994,7 @@ endblock %}
             const form = dropzone.closest('form');
 
             if (form) {
-                form.addEventListener('submit', function(e) {
+                form.addEventListener('submit', function (e) {
                     if (!fileInput.files || fileInput.files.length === 0) {
                         e.preventDefault();
                         alert('Por favor, selecciona o arrastra un archivo .csv antes de continuar.');
@@ -810,17 +1002,17 @@ endblock %}
                 });
             }
 
-            dropzone.addEventListener('click', function() {
+            dropzone.addEventListener('click', function () {
                 fileInput.click();
             });
 
-            dropzone.addEventListener('mouseenter', function() {
+            dropzone.addEventListener('mouseenter', function () {
                 if (!fileInput.files.length) {
                     dropzone.style.borderColor = 'var(--accent-emerald)';
                     if (uploadIcon) uploadIcon.style.transform = 'translateY(-3px)';
                 }
             });
-            dropzone.addEventListener('mouseleave', function() {
+            dropzone.addEventListener('mouseleave', function () {
                 if (!fileInput.files.length) {
                     dropzone.style.borderColor = 'var(--border-color)';
                     if (uploadIcon) uploadIcon.style.transform = 'none';
@@ -828,7 +1020,7 @@ endblock %}
             });
 
             ['dragenter', 'dragover'].forEach(eventName => {
-                dropzone.addEventListener(eventName, function(e) {
+                dropzone.addEventListener(eventName, function (e) {
                     e.preventDefault();
                     e.stopPropagation();
                     dropzone.style.borderColor = 'var(--accent-emerald)';
@@ -838,7 +1030,7 @@ endblock %}
             });
 
             ['dragleave', 'drop'].forEach(eventName => {
-                dropzone.addEventListener(eventName, function(e) {
+                dropzone.addEventListener(eventName, function (e) {
                     e.preventDefault();
                     e.stopPropagation();
                     dropzone.style.backgroundColor = 'transparent';
@@ -852,7 +1044,7 @@ endblock %}
                 }, false);
             });
 
-            dropzone.addEventListener('drop', function(e) {
+            dropzone.addEventListener('drop', function (e) {
                 const dt = e.dataTransfer;
                 const files = dt.files;
 
@@ -867,7 +1059,7 @@ endblock %}
                 }
             }, false);
 
-            fileInput.addEventListener('change', function() {
+            fileInput.addEventListener('change', function () {
                 if (fileInput.files && fileInput.files.length > 0) {
                     fileLabel.textContent = "Cargando " + fileInput.files[0].name + "...";
                     fileLabel.style.color = 'var(--accent-emerald)';

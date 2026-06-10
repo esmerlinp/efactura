@@ -34,17 +34,20 @@ Documento Electrónico{% endif %}{% endblock %}
                 <div class="form-group">
                     <label for="ecf-type-select">Tipo de Documento <span
                             style="color: var(--accent-red); font-weight: bold; margin-left: 2px;">*</span></label>
-                    <select id="ecf-type-select" name="{% if is_referencing %}ecfTypeDisabled{% else %}ecfType{% endif %}" class="form-select" required {% if is_referencing %}disabled style="opacity: 0.85; cursor: not-allowed;"{% endif %}>
+                    <select id="ecf-type-select"
+                        name="{% if is_referencing %}ecfTypeDisabled{% else %}ecfType{% endif %}" class="form-select"
+                        required {% if is_referencing %}disabled style="opacity: 0.85; cursor: not-allowed;" {% endif
+                        %}>
                         <option value="Factura de Consumo (E32)" {% if invoice and
                             invoice.ecfType=='Factura de Consumo (E32)' %}selected{% endif %}>E32 - Factura de Consumo
                             (Público General)</option>
                         <option value="Factura de Crédito Fiscal (E31)" {% if invoice and
                             invoice.ecfType=='Factura de Crédito Fiscal (E31)' %}selected{% endif %}>E31 - Crédito
                             Fiscal (RNC Corporativo)</option>
-                        <option value="Nota de Débito (E33)" {% if invoice and
-                            invoice.ecfType=='Nota de Débito (E33)' %}selected{% endif %}>E33 - Nota de Débito</option>
-                        <option value="Nota de Crédito (E34)" {% if invoice and
-                            invoice.ecfType=='Nota de Crédito (E34)' %}selected{% endif %}>E34 - Nota de Crédito</option>
+                        <option value="Nota de Débito (E33)" {% if invoice and invoice.ecfType=='Nota de Débito (E33)'
+                            %}selected{% endif %}>E33 - Nota de Débito</option>
+                        <option value="Nota de Crédito (E34)" {% if invoice and invoice.ecfType=='Nota de Crédito (E34)'
+                            %}selected{% endif %}>E34 - Nota de Crédito</option>
                         <option value="Comprobante de Compras (E41)" {% if invoice and
                             invoice.ecfType=='Comprobante de Compras (E41)' %}selected{% endif %}>E41 - Comprobante de
                             Compras</option>
@@ -109,13 +112,15 @@ Documento Electrónico{% endif %}{% endblock %}
                 <!-- 3. Condiciones Financieras -->
                 <div class="form-group">
                     <label for="currency-select">Moneda</label>
-                    <select id="currency-select" name="{% if is_referencing %}currencyDisabled{% else %}currency{% endif %}" class="form-select" {% if is_referencing %}disabled style="opacity: 0.85; cursor: not-allowed;"{% endif %}>
+                    <select id="currency-select"
+                        name="{% if is_referencing %}currencyDisabled{% else %}currency{% endif %}" class="form-select"
+                        {% if is_referencing %}disabled style="opacity: 0.85; cursor: not-allowed;" {% endif %}>
                         <option value="DOP" {% if not invoice or invoice.currency=='DOP' %}selected{% endif %}>Pesos
                             Dominicanos (DOP)</option>
                         <option value="USD" {% if invoice and invoice.currency=='USD' %}selected{% endif %}>Dólares
                             Estadounidenses (USD)</option>
                         <option value="EUR" {% if invoice and invoice.currency=='EUR' %}selected{% endif %}>Euros (EUR)
-                            </option>
+                        </option>
                     </select>
                     {% if is_referencing %}
                     <input type="hidden" name="currency" value="{{ invoice.currency }}">
@@ -203,14 +208,17 @@ Documento Electrónico{% endif %}{% endblock %}
                 <!-- Información de Referencia para Notas de Crédito / Débito -->
                 <div id="reference-info-group"
                     style="display: none; grid-column: 1 / -1; background-color: rgba(255, 255, 255, 0.01); border: 1px dashed var(--border-color); border-radius: var(--radius-sm); padding: 16px; margin-top: 4px;">
-                    <h4 style="font-size: 0.88rem; font-family: var(--font-heading); margin-top: 0; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; color: var(--accent-purple);">
+                    <h4
+                        style="font-size: 0.88rem; font-family: var(--font-heading); margin-top: 0; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; color: var(--accent-purple);">
                         <i class="fa-solid fa-circle-info"></i>
                         <span>Información de Referencia (Documento Modificado)</span>
                     </h4>
 
                     <!-- Banner de Orientación / Propósito de Uso (Ley 32-23) -->
-                    <div id="note-helper-banner" style="display: none; border-left: 4px solid var(--accent-purple); padding: 12px 16px; border-radius: var(--radius-sm); margin-bottom: 16px; font-size: 0.82rem; line-height: 1.45; color: var(--text-primary);">
-                        <div style="font-weight: 800; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
+                    <div id="note-helper-banner"
+                        style="display: none; border-left: 4px solid var(--accent-purple); padding: 12px 16px; border-radius: var(--radius-sm); margin-bottom: 16px; font-size: 0.82rem; line-height: 1.45; color: var(--text-primary);">
+                        <div
+                            style="font-weight: 800; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
                             <i id="note-banner-icon" class="fa-solid fa-circle-question"></i>
                             <span id="note-banner-title">Guía de Comprobante</span>
                         </div>
@@ -218,35 +226,53 @@ Documento Electrónico{% endif %}{% endblock %}
                     </div>
 
                     {% if invoice and invoice.referencedInvoiceTotal %}
-                    <input type="hidden" name="referencedInvoiceTotal" id="referenced-invoice-total" value="{{ invoice.referencedInvoiceTotal }}">
+                    <input type="hidden" name="referencedInvoiceTotal" id="referenced-invoice-total"
+                        value="{{ invoice.referencedInvoiceTotal }}">
                     {% endif %}
 
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;">
                         <div class="form-group" style="margin-bottom: 0;">
-                            <label for="ref-ncf-modified">e-CF / NCF Modificado <span style="color: var(--accent-red); font-weight: bold;">*</span></label>
-                            <input type="text" id="ref-ncf-modified" name="refNcfModified" class="form-input" placeholder="Ej: E310000000001" style="font-family: monospace; {% if is_referencing %}cursor: not-allowed; opacity: 0.85;{% endif %}"
-                                   value="{% if invoice and invoice.informationReference %}{{ invoice.informationReference.ncfModified }}{% elif invoice %}{{ invoice.ncfModified or '' }}{% endif %}"
-                                   {% if is_referencing %}readonly{% endif %}>
+                            <label for="ref-ncf-modified">e-CF / NCF Modificado <span
+                                    style="color: var(--accent-red); font-weight: bold;">*</span></label>
+                            <input type="text" id="ref-ncf-modified" name="refNcfModified" class="form-input"
+                                placeholder="Ej: E310000000001"
+                                style="font-family: monospace; {% if is_referencing %}cursor: not-allowed; opacity: 0.85;{% endif %}"
+                                value="{% if invoice and invoice.informationReference %}{{ invoice.informationReference.ncfModified }}{% elif invoice %}{{ invoice.ncfModified or '' }}{% endif %}"
+                                {% if is_referencing %}readonly{% endif %}>
                         </div>
                         <div class="form-group" style="margin-bottom: 0;">
-                            <label for="ref-ncf-modified-date">Fecha de Emisión NCF <span style="color: var(--accent-red); font-weight: bold;">*</span></label>
-                            <input type="date" id="ref-ncf-modified-date" name="refNcfModifiedDate" class="form-input" style="{% if is_referencing %}cursor: not-allowed; opacity: 0.85;{% endif %}"
-                                   value="{% if invoice and invoice.informationReference %}{{ invoice.informationReference.ncfModifiedDate }}{% elif invoice %}{{ invoice.ncfModifiedDate or '' }}{% endif %}"
-                                   {% if is_referencing %}readonly{% endif %}>
+                            <label for="ref-ncf-modified-date">Fecha de Emisión NCF <span
+                                    style="color: var(--accent-red); font-weight: bold;">*</span></label>
+                            <input type="date" id="ref-ncf-modified-date" name="refNcfModifiedDate" class="form-input"
+                                style="{% if is_referencing %}cursor: not-allowed; opacity: 0.85;{% endif %}"
+                                value="{% if invoice and invoice.informationReference %}{{ invoice.informationReference.ncfModifiedDate }}{% elif invoice %}{{ invoice.ncfModifiedDate or '' }}{% endif %}"
+                                {% if is_referencing %}readonly{% endif %}>
                         </div>
                         <div class="form-group" style="margin-bottom: 0;">
-                            <label for="ref-modification-code">Código de Modificación <span style="color: var(--accent-red); font-weight: bold;">*</span></label>
+                            <label for="ref-modification-code">Código de Modificación <span
+                                    style="color: var(--accent-red); font-weight: bold;">*</span></label>
                             <select id="ref-modification-code" name="refModificationCode" class="form-select">
-                                <option value="1" {% if invoice and ((invoice.informationReference and invoice.informationReference.modificationCode == 1) or invoice.modificationCode == 1) %}selected{% endif %}>01 - Anulación de Documento</option>
-                                <option value="2" {% if invoice and ((invoice.informationReference and invoice.informationReference.modificationCode == 2) or invoice.modificationCode == 2) %}selected{% endif %}>02 - Corrección de Texto</option>
-                                <option value="3" {% if not invoice or ((invoice.informationReference and invoice.informationReference.modificationCode == 3) or invoice.modificationCode == 3 or not invoice.modificationCode) %}selected{% endif %}>03 - Devolución de Mercancías / Ajuste de importes</option>
-                                <option value="4" {% if invoice and ((invoice.informationReference and invoice.informationReference.modificationCode == 4) or invoice.modificationCode == 4) %}selected{% endif %}>04 - Reemplazo de e-CF Activo</option>
+                                <option value="1" {% if invoice and ((invoice.informationReference and
+                                    invoice.informationReference.modificationCode==1) or invoice.modificationCode==1)
+                                    %}selected{% endif %}>01 - Anulación de Documento</option>
+                                <option value="2" {% if invoice and ((invoice.informationReference and
+                                    invoice.informationReference.modificationCode==2) or invoice.modificationCode==2)
+                                    %}selected{% endif %}>02 - Corrección de Texto</option>
+                                <option value="3" {% if not invoice or ((invoice.informationReference and
+                                    invoice.informationReference.modificationCode==3) or invoice.modificationCode==3 or
+                                    not invoice.modificationCode) %}selected{% endif %}>03 - Devolución de Mercancías /
+                                    Ajuste de importes</option>
+                                <option value="4" {% if invoice and ((invoice.informationReference and
+                                    invoice.informationReference.modificationCode==4) or invoice.modificationCode==4)
+                                    %}selected{% endif %}>04 - Reemplazo de e-CF Activo</option>
                             </select>
                         </div>
                         <div class="form-group" style="margin-bottom: 0; grid-column: span 2;">
-                            <label for="ref-reason-modification">Motivo de Modificación <span style="color: var(--accent-red); font-weight: bold;">*</span></label>
-                            <input type="text" id="ref-reason-modification" name="refReasonForModification" class="form-input" placeholder="Ej: Devolución de mercancía dañada o error en precio"
-                                   value="{% if invoice and invoice.informationReference %}{{ invoice.informationReference.reasonForModification }}{% elif invoice and invoice.reasonForModification %}{{ invoice.reasonForModification }}{% else %}Corrección de importes{% endif %}">
+                            <label for="ref-reason-modification">Motivo de Modificación <span
+                                    style="color: var(--accent-red); font-weight: bold;">*</span></label>
+                            <input type="text" id="ref-reason-modification" name="refReasonForModification"
+                                class="form-input" placeholder="Ej: Devolución de mercancía dañada o error en precio"
+                                value="{% if invoice and invoice.informationReference %}{{ invoice.informationReference.reasonForModification }}{% elif invoice and invoice.reasonForModification %}{{ invoice.reasonForModification }}{% else %}Corrección de importes{% endif %}">
                         </div>
                     </div>
                 </div>
@@ -280,8 +306,8 @@ Documento Electrónico{% endif %}{% endblock %}
                         <input type="hidden" id="client-id-hidden" name="clientId"
                             value="{% if invoice %}{{ invoice.clientId or '' }}{% endif %}">
                         <button type="button" id="btn-open-client-modal" class="btn btn-secondary"
-                            style="padding: 8px 14px; white-space: nowrap; {% if is_referencing %}opacity: 0.65; cursor: not-allowed;{% endif %}" title="Buscar Cliente"
-                            {% if is_referencing %}disabled{% endif %}>
+                            style="padding: 8px 14px; white-space: nowrap; {% if is_referencing %}opacity: 0.65; cursor: not-allowed;{% endif %}"
+                            title="Buscar Cliente" {% if is_referencing %}disabled{% endif %}>
                             <i class="fa-solid fa-magnifying-glass"></i>
                         </button>
                     </div>
@@ -290,9 +316,10 @@ Documento Electrónico{% endif %}{% endblock %}
                 <div class="form-group" style="margin-bottom: 0;">
                     <label for="client-rnc-input">RNC / Cédula del Receptor</label>
                     <input type="text" id="client-rnc-input" name="clientRNC" class="form-input"
-                        placeholder="Ej: 101234567 (vacío = Consumidor Final)" style="font-family: monospace; {% if is_referencing %}cursor: not-allowed; opacity: 0.85;{% endif %}"
-                        value="{% if invoice %}{{ invoice.clientRNC or '' }}{% endif %}"
-                        {% if is_referencing %}readonly{% endif %}>
+                        placeholder="Ej: 101234567 (vacío = Consumidor Final)"
+                        style="font-family: monospace; {% if is_referencing %}cursor: not-allowed; opacity: 0.85;{% endif %}"
+                        value="{% if invoice %}{{ invoice.clientRNC or '' }}{% endif %}" {% if is_referencing
+                        %}readonly{% endif %}>
                     <small id="client-warning"
                         style="color: var(--accent-red); font-size: 0.75rem; margin-top: 2px; display: none;"></small>
                 </div>
@@ -508,33 +535,33 @@ Documento Electrónico{% endif %}{% endblock %}
                 <div
                     style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 6px;">
                     <span>Propina (10%):</span>
-                    <span id="lbl-total-propina" style="font-weight: 600; color: var(--text-primary);">RD$ 0.00</span>
+                    <span id="lbl-total-propina" style="font-weight: 500; color: var(--text-primary);">RD$ 0.00</span>
                 </div>
                 <div
                     style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 6px;">
                     <span>CDT (2%):</span>
-                    <span id="lbl-total-cdt" style="font-weight: 600; color: var(--text-primary);">RD$ 0.00</span>
+                    <span id="lbl-total-cdt" style="font-weight: 500; color: var(--text-primary);">RD$ 0.00</span>
                 </div>
                 <div
                     style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 6px;">
                     <span>ITBIS:</span>
-                    <span id="lbl-itbis" style="font-weight: 600; color: var(--text-primary);">RD$ 0.00</span>
+                    <span id="lbl-itbis" style="font-weight: 500; color: var(--text-primary);">RD$ 0.00</span>
                 </div>
                 <div
                     style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 6px;">
                     <span>ISC Total:</span>
-                    <span id="lbl-total-isc" style="font-weight: 600; color: var(--text-primary);">RD$ 0.00</span>
+                    <span id="lbl-total-isc" style="font-weight: 500; color: var(--text-primary);">RD$ 0.00</span>
                 </div>
                 <div
                     style="display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 4px; padding-left: 8px;">
                     <span style="color: var(--text-muted);">↳ Específico:</span>
-                    <span id="lbl-total-isc-especifico" style="font-weight: 600; color: var(--text-primary);">RD$
+                    <span id="lbl-total-isc-especifico" style="font-weight: 500; color: var(--text-primary);">RD$
                         0.00</span>
                 </div>
                 <div
                     style="display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 8px; padding-left: 8px;">
                     <span style="color: var(--text-muted);">↳ AdValorem:</span>
-                    <span id="lbl-total-isc-advalorem" style="font-weight: 600; color: var(--text-primary);">RD$
+                    <span id="lbl-total-isc-advalorem" style="font-weight: 500; color: var(--text-primary);">RD$
                         0.00</span>
                 </div>
                 <div
@@ -555,29 +582,29 @@ Documento Electrónico{% endif %}{% endblock %}
                     <div
                         style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 6px;">
                         <span>Subtotal Neto:</span>
-                        <span id="lbl-subtotal" style="font-weight: 600; color: var(--text-primary);">RD$ 0.00</span>
+                        <span id="lbl-subtotal" style="font-weight: 500; color: var(--text-primary);">RD$ 0.00</span>
                     </div>
                     <div
                         style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 6px;">
                         <span>Total Ítems:</span>
-                        <span id="lbl-total-items-qty" style="font-weight: 600; color: var(--text-primary);">0</span>
+                        <span id="lbl-total-items-qty" style="font-weight: 500; color: var(--text-primary);">0</span>
                     </div>
                     <div
                         style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 6px;">
                         <span>ITBIS Retenido:</span>
-                        <span id="lbl-retained-itbis" style="font-weight: 600; color: var(--text-primary);">RD$
+                        <span id="lbl-retained-itbis" style="font-weight: 500; color: var(--text-primary);">RD$
                             0.00</span>
                     </div>
                     <div
                         style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 6px;">
                         <span>ISR Retenido:</span>
-                        <span id="lbl-retained-isr" style="font-weight: 600; color: var(--text-primary);">RD$
+                        <span id="lbl-retained-isr" style="font-weight: 500; color: var(--text-primary);">RD$
                             0.00</span>
                     </div>
                     <div
                         style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 8px;">
                         <span>Descuentos:</span>
-                        <span id="lbl-discount" style="font-weight: 600; color: var(--accent-red);">RD$ 0.00</span>
+                        <span id="lbl-discount" style="font-weight: 500; color: var(--accent-red);">RD$ 0.00</span>
                     </div>
                 </div>
                 <div
@@ -821,7 +848,7 @@ Documento Electrónico{% endif %}{% endblock %}
 
             <!-- Tabla de partidas del borrador -->
             <h4
-                style="font-size: 0.95rem; font-family: var(--font-heading); margin-bottom: 12px; font-weight: 600; color: var(--text-primary);">
+                style="font-size: 0.95rem; font-family: var(--font-heading); margin-bottom: 12px; font-weight: 500; color: var(--text-primary);">
                 Detalle de Partidas</h4>
             <div class="table-responsive"
                 style="max-height: 200px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: var(--radius-sm); margin-bottom: 24px;">
@@ -885,7 +912,7 @@ Documento Electrónico{% endif %}{% endblock %}
                     <span>Seguir Editando</span>
                 </button>
                 <button type="button" class="btn btn-success" id="btn-final-emit"
-                    style="padding: 12px 28px; background: linear-gradient(135deg, #064e3b 0%, #059669 100%); border: none; color: white; display: flex; align-items: center; gap: 8px; font-weight: 600; cursor: pointer;">
+                    style="padding: 12px 28px; background: linear-gradient(135deg, #064e3b 0%, #059669 100%); border: none; color: white; display: flex; align-items: center; gap: 8px; font-weight: 500; cursor: pointer;">
                     <i class="fa-solid fa-circle-check"></i>
                     <span>Confirmar Emisión</span>
                 </button>
@@ -1031,13 +1058,13 @@ Documento Electrónico{% endif %}{% endblock %}
             if (!ecfTypeSelect || !referenceInfoGroup) return;
             const val = ecfTypeSelect.value;
             const isNote = val === 'Nota de Débito (E33)' || val === 'Nota de Crédito (E34)';
-            
+
             if (isNote) {
                 referenceInfoGroup.style.display = 'grid';
                 if (refNcfModified) refNcfModified.setAttribute('required', 'true');
                 if (refNcfModifiedDate) refNcfModifiedDate.setAttribute('required', 'true');
                 if (refReasonModification) refReasonModification.setAttribute('required', 'true');
-                
+
                 // Actualizar Banner de Ayuda / Orientación DGII
                 if (noteHelperBanner) {
                     noteHelperBanner.style.display = 'block';
@@ -1100,7 +1127,7 @@ Documento Electrónico{% endif %}{% endblock %}
                     const noteTotalText = document.getElementById('lbl-net-payable').innerText;
                     const noteTotal = parseFloat(noteTotalText.replace(/[^0-9.]/g, '')) || 0;
                     if (noteTotal > refTotal) {
-                        alert(`⚠️ Error de Validación Fiscal:\n\nEl monto de la Nota de Crédito (RD$ ${noteTotal.toLocaleString('es-DO', {minimumFractionDigits: 2})}) excede el total del comprobante modificado (RD$ ${refTotal.toLocaleString('es-DO', {minimumFractionDigits: 2})}).\n\nSi desea incrementar el valor del documento original, debe emitir una Nota de Débito (E33).`);
+                        alert(`⚠️ Error de Validación Fiscal:\n\nEl monto de la Nota de Crédito (RD$ ${noteTotal.toLocaleString('es-DO', { minimumFractionDigits: 2 })}) excede el total del comprobante modificado (RD$ ${refTotal.toLocaleString('es-DO', { minimumFractionDigits: 2 })}).\n\nSi desea incrementar el valor del documento original, debe emitir una Nota de Débito (E33).`);
                         return;
                     }
                 }

@@ -9,7 +9,8 @@
 
     {% if session['user']['role'] == 'owner' %}
     <div style="display: flex; justify-content: flex-end; margin-bottom: -15px;">
-        <a href="{{ url_for('web_pos.pos_admin_dashboard') }}" class="btn btn-secondary" style="height: 38px; display: inline-flex; align-items: center; gap: 8px; font-weight: 600; font-size: 0.85rem; border-color: var(--border-color);">
+        <a href="{{ url_for('web_pos.pos_admin_dashboard') }}" class="btn btn-secondary"
+            style="height: 38px; display: inline-flex; align-items: center; gap: 8px; font-weight: 500; font-size: 0.85rem; border-color: var(--border-color);">
             <i class="fa-solid fa-gears"></i>
             <span>Administración y Turnos Históricos</span>
         </a>
@@ -20,39 +21,47 @@
     <!-- VISTA: CAJA CERRADA (Apertura de Turno) -->
     <div class="card-table-wrapper" style="max-width: 600px; margin: 0 auto; padding: 32px;">
         <div style="text-align: center; margin-bottom: 24px;">
-            <i class="fa-solid fa-cash-register" style="font-size: 3.5rem; color: var(--text-muted); opacity: 0.7; margin-bottom: 16px;"></i>
-            <h3 style="font-size: 1.4rem; font-family: var(--font-heading); margin-bottom: 8px;">Apertura de Turno de Caja</h3>
-            <p style="color: var(--text-secondary); font-size: 0.9rem;">Para iniciar las operaciones del día y emitir facturas rápidas, por favor abra un turno.</p>
+            <i class="fa-solid fa-cash-register"
+                style="font-size: 3.5rem; color: var(--text-muted); opacity: 0.7; margin-bottom: 16px;"></i>
+            <h3 style="font-size: 1.4rem; font-family: var(--font-heading); margin-bottom: 8px;">Apertura de Turno de
+                Caja</h3>
+            <p style="color: var(--text-secondary); font-size: 0.9rem;">Para iniciar las operaciones del día y emitir
+                facturas rápidas, por favor abra un turno.</p>
         </div>
 
-        <form action="{{ url_for('web_pos.open_shift') }}" method="POST" style="display: flex; flex-direction: column; gap: 20px;">
+        <form action="{{ url_for('web_pos.open_shift') }}" method="POST"
+            style="display: flex; flex-direction: column; gap: 20px;">
             <div class="form-group">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
                     <label for="registerId" style="margin-bottom: 0;">Seleccionar Caja Registradora</label>
                     {% if session['user']['role'] == 'owner' %}
-                    <a href="javascript:void(0)" onclick="openAddRegisterModal()" style="font-size: 0.78rem; color: var(--accent-emerald); font-weight: 700; text-decoration: none; display: flex; align-items: center; gap: 4px;">
+                    <a href="javascript:void(0)" onclick="openAddRegisterModal()"
+                        style="font-size: 0.78rem; color: var(--accent-emerald); font-weight: 700; text-decoration: none; display: flex; align-items: center; gap: 4px;">
                         <i class="fa-solid fa-plus-circle"></i> Agregar Nueva Caja
                     </a>
                     {% endif %}
                 </div>
                 <select id="registerId" name="registerId" class="form-select" required style="width: 100%;">
                     {% for reg in registers %}
-                        {% if reg.status == 'CLOSED' %}
-                        <option value="{{ reg.id }}">{{ reg.name }} (Disponible)</option>
-                        {% else %}
-                        <option value="{{ reg.id }}" disabled>{{ reg.name }} (En uso por otro cajero)</option>
-                        {% endif %}
+                    {% if reg.status == 'CLOSED' %}
+                    <option value="{{ reg.id }}">{{ reg.name }} (Disponible)</option>
+                    {% else %}
+                    <option value="{{ reg.id }}" disabled>{{ reg.name }} (En uso por otro cajero)</option>
+                    {% endif %}
                     {% endfor %}
                 </select>
             </div>
 
             <div class="form-group">
                 <label for="openingAmount">Fondo de Caja Inicial (Menudo / Efectivo Base) (RD$)</label>
-                <input type="number" id="openingAmount" name="openingAmount" class="form-input" placeholder="0.00" step="0.01" min="0" required style="width: 100%;">
-                <small style="color: var(--text-muted); font-size: 0.75rem; margin-top: 4px; display: block;">Monto de efectivo con el que inicia el cajero para dar devueltas.</small>
+                <input type="number" id="openingAmount" name="openingAmount" class="form-input" placeholder="0.00"
+                    step="0.01" min="0" required style="width: 100%;">
+                <small style="color: var(--text-muted); font-size: 0.75rem; margin-top: 4px; display: block;">Monto de
+                    efectivo con el que inicia el cajero para dar devueltas.</small>
             </div>
 
-            <button type="submit" class="btn btn-primary" style="width: 100%; height: 46px; font-size: 0.95rem; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px;">
+            <button type="submit" class="btn btn-primary"
+                style="width: 100%; height: 46px; font-size: 0.95rem; font-weight: 500; display: flex; align-items: center; justify-content: center; gap: 8px;">
                 <i class="fa-solid fa-key"></i>
                 <span>Abrir Turno de Caja</span>
             </button>
@@ -61,41 +70,50 @@
 
     {% else %}
     <!-- VISTA: CAJA ABIERTA (Turno Activo) -->
-    
+
     <!-- Fila Superior: Datos de Turno y Acceso Directo -->
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px;">
-        
+
         <!-- Info del Turno -->
-        <div class="card-table-wrapper" style="padding: 24px; display: flex; flex-direction: column; justify-content: space-between;">
+        <div class="card-table-wrapper"
+            style="padding: 24px; display: flex; flex-direction: column; justify-content: space-between;">
             <div>
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
                     <span class="badge badge-success" style="font-weight: 800; font-size: 0.72rem; padding: 4px 10px;">
-                        <span style="width: 6px; height: 6px; border-radius: 50%; background-color: white; display: inline-block; margin-right: 4px; animation: pulse 1.5s infinite;"></span>
+                        <span
+                            style="width: 6px; height: 6px; border-radius: 50%; background-color: white; display: inline-block; margin-right: 4px; animation: pulse 1.5s infinite;"></span>
                         Turno Activo
                     </span>
-                    <span style="font-size: 0.82rem; color: var(--text-secondary);"><i class="fa-solid fa-desktop"></i> {{ current_register.name }}</span>
+                    <span style="font-size: 0.82rem; color: var(--text-secondary);"><i class="fa-solid fa-desktop"></i>
+                        {{ current_register.name }}</span>
                 </div>
-                
-                <h4 style="font-size: 1.15rem; font-family: var(--font-heading); margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+
+                <h4
+                    style="font-size: 1.15rem; font-family: var(--font-heading); margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
                     <i class="fa-solid fa-user-clock" style="color: var(--accent-emerald);"></i>
                     <span>Información de Operador</span>
                 </h4>
-                
-                <div style="display: flex; flex-direction: column; gap: 8px; font-size: 0.88rem; color: var(--text-secondary);">
-                    <div><strong>Apertura:</strong> {{ open_shift.openingTime[:10] }} {{ open_shift.openingTime[11:19] }}</div>
+
+                <div
+                    style="display: flex; flex-direction: column; gap: 8px; font-size: 0.88rem; color: var(--text-secondary);">
+                    <div><strong>Apertura:</strong> {{ open_shift.openingTime[:10] }} {{ open_shift.openingTime[11:19]
+                        }}</div>
                     <div><strong>Fondo Inicial:</strong> RD$ {{ "{:,.2f}".format(open_shift.openingAmount) }}</div>
                     {% if session['user']['role'] == 'owner' %}
-                    <div style="margin-top: 6px; border-top: 1px dashed var(--border-color); padding-top: 8px; display: flex; justify-content: flex-end;">
-                        <a href="javascript:void(0)" onclick="openAddRegisterModal()" style="font-size: 0.78rem; color: var(--accent-emerald); font-weight: 700; text-decoration: none; display: flex; align-items: center; gap: 4px;">
+                    <div
+                        style="margin-top: 6px; border-top: 1px dashed var(--border-color); padding-top: 8px; display: flex; justify-content: flex-end;">
+                        <a href="javascript:void(0)" onclick="openAddRegisterModal()"
+                            style="font-size: 0.78rem; color: var(--accent-emerald); font-weight: 700; text-decoration: none; display: flex; align-items: center; gap: 4px;">
                             <i class="fa-solid fa-plus-circle"></i> Crear Nueva Caja
                         </a>
                     </div>
                     {% endif %}
                 </div>
             </div>
-            
+
             <div style="margin-top: 24px;">
-                <a href="{{ url_for('web_pos.pos_terminal') }}" class="btn btn-primary" style="width: 100%; height: 50px; font-size: 1rem; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; gap: 10px; box-shadow: var(--shadow-md);">
+                <a href="{{ url_for('web_pos.pos_terminal') }}" class="btn btn-primary"
+                    style="width: 100%; height: 50px; font-size: 1rem; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; gap: 10px; box-shadow: var(--shadow-md);">
                     <i class="fa-solid fa-cash-register" style="font-size: 1.2rem;"></i>
                     <span>Abrir Terminal de Ventas POS</span>
                 </a>
@@ -104,12 +122,14 @@
 
         <!-- Acciones del Turno / Movimientos de Efectivo -->
         <div class="card-table-wrapper" style="padding: 24px;">
-            <h4 style="font-size: 1.15rem; font-family: var(--font-heading); margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+            <h4
+                style="font-size: 1.15rem; font-family: var(--font-heading); margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
                 <i class="fa-solid fa-money-bill-transfer" style="color: var(--accent-purple);"></i>
                 <span>Registrar Entrada / Salida Manual</span>
             </h4>
-            
-            <form action="{{ url_for('web_pos.add_manual_transaction') }}" method="POST" style="display: flex; flex-direction: column; gap: 14px;">
+
+            <form action="{{ url_for('web_pos.add_manual_transaction') }}" method="POST"
+                style="display: flex; flex-direction: column; gap: 14px;">
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
                     <div class="form-group">
                         <label for="tx_type">Tipo de Movimiento</label>
@@ -120,14 +140,17 @@
                     </div>
                     <div class="form-group">
                         <label for="tx_amount">Monto (RD$)</label>
-                        <input type="number" id="tx_amount" name="amount" class="form-input" placeholder="0.00" step="0.01" min="0.01" required>
+                        <input type="number" id="tx_amount" name="amount" class="form-input" placeholder="0.00"
+                            step="0.01" min="0.01" required>
                     </div>
                 </div>
                 <div class="form-group">
                     <label for="tx_notes">Motivo / Concepto del Movimiento</label>
-                    <input type="text" id="tx_notes" name="notes" class="form-input" placeholder="Ej: Retiro para sencillo / Compra de insumos" required>
+                    <input type="text" id="tx_notes" name="notes" class="form-input"
+                        placeholder="Ej: Retiro para sencillo / Compra de insumos" required>
                 </div>
-                <button type="submit" class="btn btn-secondary" style="height: 40px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                <button type="submit" class="btn btn-secondary"
+                    style="height: 40px; font-weight: 500; display: flex; align-items: center; justify-content: center; gap: 8px;">
                     <i class="fa-solid fa-save"></i>
                     <span>Registrar Movimiento</span>
                 </button>
@@ -137,17 +160,20 @@
     </div>
 
     {% if pending_consolidation_count > 0 %}
-    <div style="background: linear-gradient(135deg, rgba(234, 179, 8, 0.12), rgba(234, 179, 8, 0.05)); border: 1px solid rgba(234, 179, 8, 0.4); border-radius: var(--radius-md); padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;">
+    <div
+        style="background: linear-gradient(135deg, rgba(234, 179, 8, 0.12), rgba(234, 179, 8, 0.05)); border: 1px solid rgba(234, 179, 8, 0.4); border-radius: var(--radius-md); padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;">
         <div style="display: flex; align-items: center; gap: 12px;">
             <i class="fa-solid fa-layer-group" style="color: #ca8a04; font-size: 1.3rem;"></i>
             <div>
                 <div style="font-weight: 700; font-size: 0.9rem; color: #92400e;">Ventas Pendientes de Consolidar</div>
                 <div style="font-size: 0.81rem; color: #92400e; opacity: 0.85;">
-                    <strong>{{ pending_consolidation_count }}</strong> ventas de Consumidor Final están en cola. Se emitirá un único e-CF E32 al cerrar la caja.
+                    <strong>{{ pending_consolidation_count }}</strong> ventas de Consumidor Final están en cola. Se
+                    emitirá un único e-CF E32 al cerrar la caja.
                 </div>
             </div>
         </div>
-        <span class="badge" style="background: rgba(234,179,8,0.2); color: #92400e; border: 1px solid rgba(234,179,8,0.4); font-weight: 800; font-size: 0.8rem; padding: 5px 12px; border-radius: 20px;">
+        <span class="badge"
+            style="background: rgba(234,179,8,0.2); color: #92400e; border: 1px solid rgba(234,179,8,0.4); font-weight: 800; font-size: 0.8rem; padding: 5px 12px; border-radius: 20px;">
             <i class="fa-solid fa-clock"></i> Consolidado al Cierre
         </span>
     </div>
@@ -155,14 +181,18 @@
 
     <!-- Fila Central: Tabla de Transacciones del Turno y Botón de Cierre -->
     <div class="card-table-wrapper">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 15px;">
+        <div
+            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 15px;">
             <div>
-                <h3 style="font-size: 1.25rem; font-family: var(--font-heading); margin-bottom: 4px;">Transacciones del Turno</h3>
-                <p style="color: var(--text-secondary); font-size: 0.88rem;">Ventas y movimientos manuales registrados en la sesión actual.</p>
+                <h3 style="font-size: 1.25rem; font-family: var(--font-heading); margin-bottom: 4px;">Transacciones del
+                    Turno</h3>
+                <p style="color: var(--text-secondary); font-size: 0.88rem;">Ventas y movimientos manuales registrados
+                    en la sesión actual.</p>
             </div>
-            
+
             <!-- Botón de Cierre -->
-            <button onclick="openCloseModal()" class="btn btn-danger" style="height: 44px; display: inline-flex; align-items: center; gap: 8px; font-weight: 600;">
+            <button onclick="openCloseModal()" class="btn btn-danger"
+                style="height: 44px; display: inline-flex; align-items: center; gap: 8px; font-weight: 500;">
                 <i class="fa-solid fa-lock"></i>
                 <span>Cerrar Turno (Arqueo de Caja)</span>
             </button>
@@ -181,58 +211,71 @@
                 </thead>
                 <tbody>
                     {% if transactions %}
-                        {% for tx in transactions %}
-                        <tr {% if tx.status == 'VOIDED' %}style="opacity: 0.6;"{% endif %}>
-                            <td {% if tx.status == 'VOIDED' %}style="text-decoration: line-through;"{% endif %}>{{ tx.date[11:19] }}</td>
-                            <td>
+                    {% for tx in transactions %}
+                    <tr {% if tx.status=='VOIDED' %}style="opacity: 0.6;" {% endif %}>
+                        <td {% if tx.status=='VOIDED' %}style="text-decoration: line-through;" {% endif %}>{{
+                            tx.date[11:19] }}</td>
+                        <td>
                             {% if tx.status == 'VOIDED' %}
-                                <span class="badge badge-voided" style="background: #fee2e2; color: #991b1b; padding: 2px 6px; border-radius: 4px; font-size: 0.72rem; font-weight: bold;">Anulada</span>
+                            <span class="badge badge-voided"
+                                style="background: #fee2e2; color: #991b1b; padding: 2px 6px; border-radius: 4px; font-size: 0.72rem; font-weight: bold;">Anulada</span>
                             {% elif tx.status == 'PENDING_CONSOLIDATION' or '[CONSOLIDADO]' in (tx.notes or '') %}
-                                <span class="badge" style="background: rgba(234,179,8,0.15); color: #92400e; border: 1px solid rgba(234,179,8,0.4); padding: 2px 8px; border-radius: 4px; font-size: 0.72rem; font-weight: bold;">
-                                    <i class="fa-solid fa-layer-group"></i> Consolidado
-                                </span>
+                            <span class="badge"
+                                style="background: rgba(234,179,8,0.15); color: #92400e; border: 1px solid rgba(234,179,8,0.4); padding: 2px 8px; border-radius: 4px; font-size: 0.72rem; font-weight: bold;">
+                                <i class="fa-solid fa-layer-group"></i> Consolidado
+                            </span>
                             {% else %}
-                                <span class="badge {% if tx.type == 'SALE' %}badge-success{% elif tx.type == 'IN' %}badge-primary{% else %}badge-danger{% endif %}">
-                                    {% if tx.type == 'SALE' %}Venta POS
-                                    {% elif tx.type == 'IN' %}Entrada Manual
-                                    {% else %}Salida Manual
-                                    {% endif %}
-                                </span>
-                            {% endif %}
-                            </td>
-                            <td {% if tx.status == 'VOIDED' %}style="text-decoration: line-through; color: var(--text-muted);"{% endif %}>
-                                {{ tx.notes or 'Sin anotaciones' }}
-                                {% if tx.type == 'SALE' and tx.referenceId and tx.status != 'VOIDED' %}
-                                <a href="{{ url_for('web_pos.print_receipt', invoice_id=tx.referenceId) }}" target="_blank" style="margin-left: 10px; color: var(--accent-purple); font-weight: 600; text-decoration: none;">
-                                    <i class="fa-solid fa-print"></i> Re-imprimir Ticket
-                                </a>
+                            <span
+                                class="badge {% if tx.type == 'SALE' %}badge-success{% elif tx.type == 'IN' %}badge-primary{% else %}badge-danger{% endif %}">
+                                {% if tx.type == 'SALE' %}Venta POS
+                                {% elif tx.type == 'IN' %}Entrada Manual
+                                {% else %}Salida Manual
                                 {% endif %}
-                            </td>
-                            <td {% if tx.status == 'VOIDED' %}style="text-decoration: line-through;"{% endif %}>{{ tx.paymentMethod }}</td>
-                            <td style="text-align: right; font-weight: 700; {% if tx.status == 'VOIDED' %}text-decoration: line-through; color: var(--text-muted);{% else %}color: {% if tx.type == 'OUT' %}var(--accent-red){% else %}var(--accent-emerald){% endif %};{% endif %}">
-                                {% if tx.type == 'OUT' and tx.status != 'VOIDED' %}-{% endif %}RD$ {{ "{:,.2f}".format(tx.amount) }}
-                            </td>
-                        </tr>
-                        {% endfor %}
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td {% if tx.status=='VOIDED' %}style="text-decoration: line-through; color: var(--text-muted);"
+                            {% endif %}>
+                            {{ tx.notes or 'Sin anotaciones' }}
+                            {% if tx.type == 'SALE' and tx.referenceId and tx.status != 'VOIDED' %}
+                            <a href="{{ url_for('web_pos.print_receipt', invoice_id=tx.referenceId) }}" target="_blank"
+                                style="margin-left: 10px; color: var(--accent-purple); font-weight: 500; text-decoration: none;">
+                                <i class="fa-solid fa-print"></i> Re-imprimir Ticket
+                            </a>
+                            {% endif %}
+                        </td>
+                        <td {% if tx.status=='VOIDED' %}style="text-decoration: line-through;" {% endif %}>{{
+                            tx.paymentMethod }}</td>
+                        <td
+                            style="text-align: right; font-weight: 700; {% if tx.status == 'VOIDED' %}text-decoration: line-through; color: var(--text-muted);{% else %}color: {% if tx.type == 'OUT' %}var(--accent-red){% else %}var(--accent-emerald){% endif %};{% endif %}">
+                            {% if tx.type == 'OUT' and tx.status != 'VOIDED' %}-{% endif %}RD$ {{
+                            "{:,.2f}".format(tx.amount) }}
+                        </td>
+                    </tr>
+                    {% endfor %}
                     {% else %}
-                        <tr>
-                            <td colspan="5" style="text-align: center; padding: 40px 0; color: var(--text-secondary);">
-                                <i class="fa-solid fa-receipt" style="font-size: 2.5rem; color: var(--text-muted); margin-bottom: 12px; opacity: 0.5; display: block;"></i>
-                                <span>No se han registrado transacciones en este turno aún.</span>
-                            </td>
-                        </tr>
+                    <tr>
+                        <td colspan="5" style="text-align: center; padding: 40px 0; color: var(--text-secondary);">
+                            <i class="fa-solid fa-receipt"
+                                style="font-size: 2.5rem; color: var(--text-muted); margin-bottom: 12px; opacity: 0.5; display: block;"></i>
+                            <span>No se han registrado transacciones en este turno aún.</span>
+                        </td>
+                    </tr>
                     {% endif %}
                 </tbody>
             </table>
         </div>
     </div>
-    
+
     <!-- MODAL: CIERRE DE CAJA (ARQUEO CIEGO) -->
-    <div id="close-shift-modal" class="search-modal" style="display: none; justify-content: center; align-items: center;">
+    <div id="close-shift-modal" class="search-modal"
+        style="display: none; justify-content: center; align-items: center;">
         <div class="modal-backdrop" onclick="closeCloseModal()"></div>
-        <div class="modal-content animate-fade-in" style="max-width: 450px; padding: 0; border-radius: var(--radius-md);">
+        <div class="modal-content animate-fade-in"
+            style="max-width: 450px; padding: 0; border-radius: var(--radius-md);">
             <div class="modal-header" style="border-bottom: 1px solid var(--border-color); padding: 20px 24px;">
-                <h3 style="margin: 0; font-size: 1.15rem; font-family: var(--font-heading); display: flex; align-items: center; gap: 10px; color: var(--accent-red);">
+                <h3
+                    style="margin: 0; font-size: 1.15rem; font-family: var(--font-heading); display: flex; align-items: center; gap: 10px; color: var(--accent-red);">
                     <i class="fa-solid fa-lock" style="font-size: 1.2rem;"></i>
                     <span>Cerrar Turno y Arqueo de Caja</span>
                 </h3>
@@ -242,22 +285,33 @@
             </div>
             <div class="modal-body" style="padding: 24px;">
                 {% if pending_consolidation_count > 0 %}
-                <div style="background: rgba(234,179,8,0.1); border: 1px solid rgba(234,179,8,0.35); border-radius: var(--radius-sm); padding: 12px 14px; margin-bottom: 18px; font-size: 0.83rem; color: #92400e; display: flex; align-items: flex-start; gap: 10px;">
+                <div
+                    style="background: rgba(234,179,8,0.1); border: 1px solid rgba(234,179,8,0.35); border-radius: var(--radius-sm); padding: 12px 14px; margin-bottom: 18px; font-size: 0.83rem; color: #92400e; display: flex; align-items: flex-start; gap: 10px;">
                     <i class="fa-solid fa-triangle-exclamation" style="margin-top: 2px; color: #ca8a04;"></i>
-                    <span>Hay <strong>{{ pending_consolidation_count }} ventas</strong> en modo consolidado. Al cerrar la caja se emitirá automáticamente un único Comprobante Electrónico de Consumo (E32) que las agrupa.</span>
+                    <span>Hay <strong>{{ pending_consolidation_count }} ventas</strong> en modo consolidado. Al cerrar
+                        la caja se emitirá automáticamente un único Comprobante Electrónico de Consumo (E32) que las
+                        agrupa.</span>
                 </div>
                 {% endif %}
-                <p style="color: var(--text-secondary); font-size: 0.85rem; line-height: 1.45; margin-bottom: 20px; margin-top: 0;">
-                    Por favor, cuente todo el efectivo existente físicamente en la gaveta de la caja y digite el monto total. El sistema contrastará esta cantidad con los registros teóricos para detectar faltantes o sobrantes.
+                <p
+                    style="color: var(--text-secondary); font-size: 0.85rem; line-height: 1.45; margin-bottom: 20px; margin-top: 0;">
+                    Por favor, cuente todo el efectivo existente físicamente en la gaveta de la caja y digite el monto
+                    total. El sistema contrastará esta cantidad con los registros teóricos para detectar faltantes o
+                    sobrantes.
                 </p>
-                
-                <form action="{{ url_for('web_pos.close_shift') }}" method="POST" style="display: flex; flex-direction: column; gap: 18px;">
+
+                <form action="{{ url_for('web_pos.close_shift') }}" method="POST"
+                    style="display: flex; flex-direction: column; gap: 18px;">
                     <div class="form-group">
-                        <label for="declaredAmount" style="font-weight: 700;">Efectivo Declarado (RD$ Físico en Caja)</label>
-                        <input type="number" id="declaredAmount" name="declaredAmount" class="form-input" placeholder="0.00" step="0.01" min="0" required style="width: 100%; font-size: 1.2rem; height: 46px; text-align: center; font-weight: 700; border-color: var(--border-color);">
+                        <label for="declaredAmount" style="font-weight: 700;">Efectivo Declarado (RD$ Físico en
+                            Caja)</label>
+                        <input type="number" id="declaredAmount" name="declaredAmount" class="form-input"
+                            placeholder="0.00" step="0.01" min="0" required
+                            style="width: 100%; font-size: 1.2rem; height: 46px; text-align: center; font-weight: 700; border-color: var(--border-color);">
                     </div>
-                    
-                    <button type="submit" class="btn btn-danger" style="width: 100%; height: 44px; font-weight: 700; transition: all var(--transition-fast) ease;">
+
+                    <button type="submit" class="btn btn-danger"
+                        style="width: 100%; height: 44px; font-weight: 700; transition: all var(--transition-fast) ease;">
                         <i class="fa-solid fa-calculator-combined"></i>
                         <span>Confirmar Arqueo y Cerrar Caja</span>
                     </button>
@@ -269,11 +323,14 @@
     {% endif %}
 
     <!-- MODAL: AGREGAR NUEVA CAJA -->
-    <div id="add-register-modal" class="search-modal" style="display: none; justify-content: center; align-items: center;">
+    <div id="add-register-modal" class="search-modal"
+        style="display: none; justify-content: center; align-items: center;">
         <div class="modal-backdrop" onclick="closeAddRegisterModal()"></div>
-        <div class="modal-content animate-fade-in" style="max-width: 400px; padding: 0; border-radius: var(--radius-md);">
+        <div class="modal-content animate-fade-in"
+            style="max-width: 400px; padding: 0; border-radius: var(--radius-md);">
             <div class="modal-header" style="border-bottom: 1px solid var(--border-color); padding: 20px 24px;">
-                <h3 style="margin: 0; font-size: 1.15rem; font-family: var(--font-heading); display: flex; align-items: center; gap: 10px;">
+                <h3
+                    style="margin: 0; font-size: 1.15rem; font-family: var(--font-heading); display: flex; align-items: center; gap: 10px;">
                     <i class="fa-solid fa-cash-register" style="color: var(--accent-emerald);"></i>
                     <span>Nueva Caja Registradora</span>
                 </h3>
@@ -282,12 +339,15 @@
                 </button>
             </div>
             <div class="modal-body" style="padding: 24px;">
-                <form action="{{ url_for('web_pos.create_cash_register') }}" method="POST" style="display: flex; flex-direction: column; gap: 18px;">
+                <form action="{{ url_for('web_pos.create_cash_register') }}" method="POST"
+                    style="display: flex; flex-direction: column; gap: 18px;">
                     <div class="form-group">
                         <label for="reg_name">Nombre de la Caja (Ej: Caja 02 - Pasillo A)</label>
-                        <input type="text" id="reg_name" name="name" class="form-input" placeholder="Nombre de la caja" required style="width: 100%;">
+                        <input type="text" id="reg_name" name="name" class="form-input" placeholder="Nombre de la caja"
+                            required style="width: 100%;">
                     </div>
-                    <button type="submit" class="btn btn-primary" style="width: 100%; height: 44px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                    <button type="submit" class="btn btn-primary"
+                        style="width: 100%; height: 44px; font-weight: 500; display: flex; align-items: center; justify-content: center; gap: 8px;">
                         <i class="fa-solid fa-plus"></i>
                         <span>Crear Caja Registradora</span>
                     </button>
@@ -299,45 +359,53 @@
 </div>
 
 <script>
-function openCloseModal() {
-    const modal = document.getElementById('close-shift-modal');
-    if (modal) {
-        modal.style.display = 'flex';
-        document.body.style.overflow = 'hidden';
+    function openCloseModal() {
+        const modal = document.getElementById('close-shift-modal');
+        if (modal) {
+            modal.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+        }
     }
-}
 
-function closeCloseModal() {
-    const modal = document.getElementById('close-shift-modal');
-    if (modal) {
-        modal.style.display = 'none';
-        document.body.style.overflow = 'auto';
+    function closeCloseModal() {
+        const modal = document.getElementById('close-shift-modal');
+        if (modal) {
+            modal.style.display = 'none';
+            document.body.style.overflow = 'auto';
+        }
     }
-}
 
-function openAddRegisterModal() {
-    const modal = document.getElementById('add-register-modal');
-    if (modal) {
-        modal.style.display = 'flex';
-        document.body.style.overflow = 'hidden';
-        setTimeout(() => document.getElementById('reg_name').focus(), 100);
+    function openAddRegisterModal() {
+        const modal = document.getElementById('add-register-modal');
+        if (modal) {
+            modal.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+            setTimeout(() => document.getElementById('reg_name').focus(), 100);
+        }
     }
-}
 
-function closeAddRegisterModal() {
-    const modal = document.getElementById('add-register-modal');
-    if (modal) {
-        modal.style.display = 'none';
-        document.body.style.overflow = 'auto';
+    function closeAddRegisterModal() {
+        const modal = document.getElementById('add-register-modal');
+        if (modal) {
+            modal.style.display = 'none';
+            document.body.style.overflow = 'auto';
+        }
     }
-}
 </script>
 
 <style>
-@keyframes pulse {
-    0% { opacity: 0.4; }
-    50% { opacity: 1; }
-    100% { opacity: 0.4; }
-}
+    @keyframes pulse {
+        0% {
+            opacity: 0.4;
+        }
+
+        50% {
+            opacity: 1;
+        }
+
+        100% {
+            opacity: 0.4;
+        }
+    }
 </style>
 {% endblock %}

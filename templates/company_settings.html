@@ -59,7 +59,7 @@
     .accordion-title {
         font-size: 0.85rem;
         font-family: var(--font-heading);
-        font-weight: 600;
+        font-weight: 500;
         color: var(--text-main);
         display: flex;
         align-items: center;
@@ -96,6 +96,13 @@
         background: rgba(0, 0, 0, 0.02);
     }
 </style>
+
+<div class="page-title-container" style="margin-bottom: 24px; padding-left: 4px;">
+    <h1 class="page-title"
+        style="font-size: 1.75rem; font-weight: 800; font-family: var(--font-heading); color: var(--text-primary); margin: 0;">
+        Configuración de Empresa & Equipo
+    </h1>
+</div>
 
 {% if onboarding_success %}
 <!-- Pantalla de Celebración de Onboarding Completo -->
@@ -152,7 +159,7 @@
                 <div class="node-circle"
                     style="width: 36px; height: 36px; border-radius: 50%; background: var(--accent-emerald); color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; border: 3px solid var(--bg-card); transition: all 0.3s ease; box-shadow: 0 0 0 1px var(--accent-emerald);">
                     1</div>
-                <span style="font-size: 0.78rem; font-weight: 600; color: var(--text-main);">Fiscal</span>
+                <span style="font-size: 0.78rem; font-weight: 500; color: var(--text-main);">Fiscal</span>
             </div>
             <div class="wizard-step-node" data-step-indicator="2"
                 style="z-index: 2; display: flex; flex-direction: column; align-items: center; gap: 8px; cursor: pointer;">
@@ -169,7 +176,7 @@
             <div style="display: flex; align-items: center; gap: 12px;">
                 <i class="fa-solid fa-flask" style="color: var(--accent-emerald); font-size: 1.4rem;"></i>
                 <div>
-                    <h5 style="margin: 0 0 4px 0; font-size: 0.92rem; font-weight: 600; color: var(--text-main);">¿Solo
+                    <h5 style="margin: 0 0 4px 0; font-size: 0.92rem; font-weight: 500; color: var(--text-main);">¿Solo
                         deseas probar el sistema?</h5>
                     <p style="margin: 0; font-size: 0.78rem; color: var(--text-muted);">Puedes omitir la configuración
                         de datos reales y operar inmediatamente con un RNC de simulación en el Modo Pruebas.</p>
@@ -190,7 +197,7 @@
             {% if not show_wizard %}
             <!-- VISTA DE CONFIGURACIÓN CON ACORDEÓN (CONFIGURACIÓN YA COMPLETADA) -->
             <div class="settings-accordion">
-                
+
                 <!-- SECCIÓN 1: IDENTIDAD E INFORMACIÓN FISCAL -->
                 <div class="accordion-item active">
                     <button type="button" class="accordion-header" onclick="toggleAccordionSection(this)">
@@ -202,12 +209,14 @@
                     </button>
                     <div class="accordion-content">
                         <div class="accordion-body">
-                            <div class="form-grid" style="grid-template-columns: 1fr 2fr; gap: 20px; margin-bottom: 20px; display: grid;">
+                            <div class="form-grid"
+                                style="grid-template-columns: 1fr 2fr; gap: 20px; margin-bottom: 20px; display: grid;">
                                 <div class="form-group">
                                     <label for="companyRNC">RNC Comercial del Emisor</label>
                                     <input type="text" id="companyRNC" name="companyRNC" class="form-input"
                                         placeholder="Ej: 132109122" required value="{{ profile.companyRNC }}">
-                                    <small style="color: var(--text-muted); font-size: 0.72rem; margin-top: 4px;">RNC de contribuyente.</small>
+                                    <small style="color: var(--text-muted); font-size: 0.72rem; margin-top: 4px;">RNC de
+                                        contribuyente.</small>
                                 </div>
                                 <div class="form-group">
                                     <label for="companyName">Razón Social de la Empresa</label>
@@ -218,8 +227,10 @@
                             <div class="form-group" style="max-width: 50%; margin-bottom: 0;">
                                 <label for="regimenFiscal">Régimen Fiscal (DGII)</label>
                                 <select id="regimenFiscal" name="regimenFiscal" class="form-select">
-                                    <option value="General" {% if profile.regimenFiscal !='RST' %}selected{% endif %}>Régimen General (IT-1)</option>
-                                    <option value="RST" {% if profile.regimenFiscal=='RST' %}selected{% endif %}>Régimen Simplificado (RST - Ingresos)</option>
+                                    <option value="General" {% if profile.regimenFiscal !='RST' %}selected{% endif %}>
+                                        Régimen General (IT-1)</option>
+                                    <option value="RST" {% if profile.regimenFiscal=='RST' %}selected{% endif %}>Régimen
+                                        Simplificado (RST - Ingresos)</option>
                                 </select>
                             </div>
                         </div>
@@ -237,11 +248,13 @@
                     </button>
                     <div class="accordion-content">
                         <div class="accordion-body">
-                            <div class="form-grid" style="grid-template-columns: 1fr 1fr 1.5fr; gap: 20px; margin-bottom: 20px; display: grid;">
+                            <div class="form-grid"
+                                style="grid-template-columns: 1fr 1fr 1.5fr; gap: 20px; margin-bottom: 20px; display: grid;">
                                 <div class="form-group">
                                     <label for="tradeName">Nombre Comercial</label>
                                     <input type="text" id="tradeName" name="tradeName" class="form-input"
-                                        placeholder="Ej: Tienda Mi Empresa" required value="{{ profile.tradeName or '' }}">
+                                        placeholder="Ej: Tienda Mi Empresa" required
+                                        value="{{ profile.tradeName or '' }}">
                                 </div>
                                 <div class="form-group">
                                     <label for="companyPhone">Teléfono Comercial</label>
@@ -254,7 +267,8 @@
                                         placeholder="facturacion@empresa.com.do" value="{{ profile.companyEmail }}">
                                 </div>
                             </div>
-                            <div class="form-grid" style="grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; display: grid;">
+                            <div class="form-grid"
+                                style="grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; display: grid;">
                                 <div class="form-group">
                                     <label for="province">Provincia *</label>
                                     <input type="text" id="province" name="province" class="form-input"
@@ -265,8 +279,8 @@
                                 <div class="form-group">
                                     <label for="municipality">Municipio *</label>
                                     <input type="text" id="municipality" name="municipality" class="form-input"
-                                        placeholder="Buscar y seleccionar municipio..." required list="municipalities-list"
-                                        value="{{ profile.municipality or '' }}">
+                                        placeholder="Buscar y seleccionar municipio..." required
+                                        list="municipalities-list" value="{{ profile.municipality or '' }}">
                                     <datalist id="municipalities-list"></datalist>
                                 </div>
                             </div>
@@ -298,14 +312,18 @@
                                     <input type="text" id="alanubeCompanyIDSandbox" name="alanubeCompanyIDSandbox"
                                         class="form-input" placeholder="Ej: 01KT1RYA3PCW4317EE76TV4VMS"
                                         value="{{ profile.alanubeCompanyIDSandbox or '' }}">
-                                    <small style="color: var(--text-muted); font-size: 0.72rem; margin-top: 4px; display: block;">ID en entorno de pruebas.</small>
+                                    <small
+                                        style="color: var(--text-muted); font-size: 0.72rem; margin-top: 4px; display: block;">ID
+                                        en entorno de pruebas.</small>
                                 </div>
                                 <div class="form-group" style="margin-bottom: 0;">
                                     <label for="alanubeCompanyIDProduction">ID de Empresa Alanube (Producción)</label>
                                     <input type="text" id="alanubeCompanyIDProduction" name="alanubeCompanyIDProduction"
                                         class="form-input" placeholder="Ej: 01KT1RYA3PCW4317EE76TV4VMS"
                                         value="{{ profile.alanubeCompanyIDProduction or '' }}">
-                                    <small style="color: var(--text-muted); font-size: 0.72rem; margin-top: 4px; display: block;">ID en producción real.</small>
+                                    <small
+                                        style="color: var(--text-muted); font-size: 0.72rem; margin-top: 4px; display: block;">ID
+                                        en producción real.</small>
                                 </div>
                             </div>
                         </div>
@@ -326,31 +344,41 @@
                         <div class="accordion-body">
                             <div class="form-grid" style="grid-template-columns: 1fr 1fr; gap: 20px; display: grid;">
                                 <div class="form-group" style="margin-bottom: 0;">
-                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                                        <label for="certificateFile" style="margin: 0;">Certificado Digital (.p12 / .pfx)</label>
-                                        <a href="https://digi.camarasantodomingo.do/Certificados-de-Firma-Digital.html" target="_blank" style="color: var(--accent-emerald); font-size: 0.75rem; text-decoration: none; font-weight: 500; transition: opacity 0.2s;" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">
+                                    <div
+                                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                                        <label for="certificateFile" style="margin: 0;">Certificado Digital (.p12 /
+                                            .pfx)</label>
+                                        <a href="https://digi.camarasantodomingo.do/Certificados-de-Firma-Digital.html"
+                                            target="_blank"
+                                            style="color: var(--accent-emerald); font-size: 0.75rem; text-decoration: none; font-weight: 500; transition: opacity 0.2s;"
+                                            onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">
                                             ¿Cómo obtener mi certificado digital?
                                         </a>
                                     </div>
                                     <input type="file" id="certificateFile" name="certificateFile" class="form-input"
                                         accept=".p12,.pfx">
                                     {% if profile.certificateName %}
-                                    <small style="color: var(--accent-emerald); font-size: 0.72rem; margin-top: 4px; font-weight: bold; display: block;">
-                                        ✓ Certificado cargado: {{ profile.certificateName }}{{ profile.certificateExtension }}
+                                    <small
+                                        style="color: var(--accent-emerald); font-size: 0.72rem; margin-top: 4px; font-weight: bold; display: block;">
+                                        ✓ Certificado cargado: {{ profile.certificateName }}{{
+                                        profile.certificateExtension }}
                                     </small>
                                     {% else %}
-                                    <small style="color: var(--text-muted); font-size: 0.72rem; margin-top: 4px; display: block;">
+                                    <small
+                                        style="color: var(--text-muted); font-size: 0.72rem; margin-top: 4px; display: block;">
                                         Adjunta tu archivo de firma digital para autorizar las facturas.
                                     </small>
                                     {% endif %}
                                 </div>
                                 <div class="form-group" style="margin-bottom: 0;">
                                     <label for="certificatePassword">Contraseña del Certificado</label>
-                                    <input type="password" id="certificatePassword" name="certificatePassword" class="form-input"
-                                        placeholder="••••••••" value="">
+                                    <input type="password" id="certificatePassword" name="certificatePassword"
+                                        class="form-input" placeholder="••••••••" value="">
                                     {% if profile.certificatePassword %}
-                                    <small style="color: var(--accent-emerald); font-size: 0.72rem; margin-top: 4px; display: block;">
-                                        <i class="fa-solid fa-lock"></i> Contraseña guardada. Ingrese una nueva solo si desea cambiarla.
+                                    <small
+                                        style="color: var(--accent-emerald); font-size: 0.72rem; margin-top: 4px; display: block;">
+                                        <i class="fa-solid fa-lock"></i> Contraseña guardada. Ingrese una nueva solo si
+                                        desea cambiarla.
                                     </small>
                                     {% endif %}
                                 </div>
@@ -372,22 +400,30 @@
                         <div class="accordion-body">
                             <div class="form-grid" style="grid-template-columns: 1fr 1fr; gap: 20px; display: grid;">
                                 <div class="form-group" style="margin-bottom: 0;">
-                                    <label for="consolidationEnabled" style="display: flex; align-items: center; gap: 10px; cursor: pointer; margin-top: 8px; font-weight: 600; color: var(--text-main);">
-                                        <input type="checkbox" id="consolidationEnabled" name="consolidationEnabled" value="true"
+                                    <label for="consolidationEnabled"
+                                        style="display: flex; align-items: center; gap: 10px; cursor: pointer; margin-top: 8px; font-weight: 500; color: var(--text-main);">
+                                        <input type="checkbox" id="consolidationEnabled" name="consolidationEnabled"
+                                            value="true"
                                             style="width: 18px; height: 18px; accent-color: var(--accent-emerald); cursor: pointer;"
                                             {% if profile.consolidationEnabled %}checked{% endif %}>
                                         <span>Habilitar Consolidación de Facturas de Consumo (E32)</span>
                                     </label>
-                                    <small style="color: var(--text-muted); font-size: 0.72rem; margin-top: 6px; display: block; line-height: 1.4;">
-                                        Las ventas individuales del POS a Consumidor Final menores al monto umbral no emitirán comprobantes individuales, sino que se consolidarán al final del día/cierre del turno.
+                                    <small
+                                        style="color: var(--text-muted); font-size: 0.72rem; margin-top: 6px; display: block; line-height: 1.4;">
+                                        Las ventas individuales del POS a Consumidor Final menores al monto umbral no
+                                        emitirán comprobantes individuales, sino que se consolidarán al final del
+                                        día/cierre del turno.
                                     </small>
                                 </div>
                                 <div class="form-group" style="margin-bottom: 0;">
                                     <label for="consolidationThreshold">Monto Máximo de Consolidación (RD$)</label>
-                                    <input type="number" id="consolidationThreshold" name="consolidationThreshold" class="form-input"
-                                        placeholder="Ej: 250000" min="0" step="0.01" value="{{ profile.consolidationThreshold | default(250000.0) }}">
-                                    <small style="color: var(--text-muted); font-size: 0.72rem; margin-top: 6px; display: block; line-height: 1.4;">
-                                        Límite por transacción. La norma de la DGII establece un máximo de RD$ 250,000.00.
+                                    <input type="number" id="consolidationThreshold" name="consolidationThreshold"
+                                        class="form-input" placeholder="Ej: 250000" min="0" step="0.01"
+                                        value="{{ profile.consolidationThreshold | default(250000.0) }}">
+                                    <small
+                                        style="color: var(--text-muted); font-size: 0.72rem; margin-top: 6px; display: block; line-height: 1.4;">
+                                        Límite por transacción. La norma de la DGII establece un máximo de RD$
+                                        250,000.00.
                                     </small>
                                 </div>
                             </div>
@@ -406,18 +442,22 @@
                     </button>
                     <div class="accordion-content">
                         <div class="accordion-body">
-                            <p style="color: var(--text-secondary); font-size: 0.82rem; line-height: 1.4; margin-bottom: 18px;">
-                                Utiliza estas credenciales para integrar tus aplicaciones móviles o sistemas de terceros (ERPs) de forma segura.
+                            <p
+                                style="color: var(--text-secondary); font-size: 0.82rem; line-height: 1.4; margin-bottom: 18px;">
+                                Utiliza estas credenciales para integrar tus aplicaciones móviles o sistemas de terceros
+                                (ERPs) de forma segura.
                             </p>
                             <div style="display: flex; flex-direction: column; gap: 12px;">
                                 <div class="form-group" style="margin-bottom: 0;">
                                     <label style="font-size: 0.78rem;">Clave Secreta de API (X-API-Key)</label>
                                     <div style="display: flex; gap: 8px; align-items: center; position: relative;">
                                         <input type="password" id="api-key-input" class="form-input"
-                                            style="font-family: monospace; font-size: 0.9rem; padding-right: 70px;" readonly
-                                            value="{{ profile.apiKey or '' }}" placeholder="No se ha generado ninguna clave.">
+                                            style="font-family: monospace; font-size: 0.9rem; padding-right: 70px;"
+                                            readonly value="{{ profile.apiKey or '' }}"
+                                            placeholder="No se ha generado ninguna clave.">
 
-                                        <div style="position: absolute; right: 10px; display: flex; gap: 8px; align-items: center; justify-content: center;">
+                                        <div
+                                            style="position: absolute; right: 10px; display: flex; gap: 8px; align-items: center; justify-content: center;">
                                             <button type="button" onclick="toggleApiKeyVisibility()"
                                                 style="background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 1rem; padding: 0 4px;"
                                                 title="Mostrar / Ocultar">
@@ -432,17 +472,23 @@
                                     </div>
                                 </div>
 
-                                <button type="button" class="btn btn-secondary" style="width: 100%; border-color: var(--border-color); color: var(--text-primary); cursor: pointer; padding: 10px 0; margin-top: 8px;"
+                                <button type="button" class="btn btn-secondary"
+                                    style="width: 100%; border-color: var(--border-color); color: var(--text-primary); cursor: pointer; padding: 10px 0; margin-top: 8px;"
                                     onclick="if(confirm('¿Seguro que deseas generar una nueva API Key? Cualquier integración activa con la clave anterior dejará de funcionar inmediatamente.')) { document.getElementById('generateKeyForm').submit(); }">
                                     <i class="fa-solid fa-arrows-rotate"></i>
-                                    <span>{% if profile.apiKey %}Regenerar API Key{% else %}Generar API Key{% endif %}</span>
+                                    <span>{% if profile.apiKey %}Regenerar API Key{% else %}Generar API Key{% endif
+                                        %}</span>
                                 </button>
 
                                 <div class="form-group" style="margin-top: 16px; margin-bottom: 0;">
-                                    <label for="openaiApiKey" style="font-size: 0.78rem; font-weight: bold; color: var(--text-secondary);">Token de API OpenAI (Para Chatbot de IA)</label>
+                                    <label for="openaiApiKey"
+                                        style="font-size: 0.78rem; font-weight: bold; color: var(--text-secondary);">Token
+                                        de API OpenAI (Para Chatbot de IA)</label>
                                     <input type="password" id="openaiApiKey" name="openaiApiKey" class="form-input"
                                         placeholder="sk-proj-..." value="{{ profile.openaiApiKey or '' }}">
-                                    <small style="color: var(--text-muted); font-size: 0.72rem; margin-top: 4px; display: block;">Se guarda al hacer clic en el botón "Guardar Cambios".</small>
+                                    <small
+                                        style="color: var(--text-muted); font-size: 0.72rem; margin-top: 4px; display: block;">Se
+                                        guarda al hacer clic en el botón "Guardar Cambios".</small>
                                 </div>
                             </div>
                         </div>
@@ -455,7 +501,7 @@
             <!-- PASO 1: IDENTIDAD FISCAL -->
             <div class="wizard-step-section" data-step="1">
                 <h4
-                    style="font-size: 0.95rem; font-family: var(--font-heading); color: var(--accent-emerald); margin: 0 0 16px 0; display: flex; align-items: center; gap: 8px; border-bottom: 1px dashed var(--border-color); padding-bottom: 8px; font-weight: 600;">
+                    style="font-size: 0.95rem; font-family: var(--font-heading); color: var(--accent-emerald); margin: 0 0 16px 0; display: flex; align-items: center; gap: 8px; border-bottom: 1px dashed var(--border-color); padding-bottom: 8px; font-weight: 500;">
                     <i class="fa-solid fa-circle-info"></i>
                     <span>Información Fiscal de la Empresa</span>
                 </h4>
@@ -488,7 +534,7 @@
 
                 {% if e_cf_provider == 'alanube' %}
                 <h5
-                    style="font-size: 0.85rem; font-family: var(--font-heading); color: var(--text-main); margin: 24px 0 8px 0; font-weight: 600; display: flex; align-items: center; gap: 6px;">
+                    style="font-size: 0.85rem; font-family: var(--font-heading); color: var(--text-main); margin: 24px 0 8px 0; font-weight: 500; display: flex; align-items: center; gap: 6px;">
                     <i class="fa-solid fa-key" style="color: var(--accent-emerald);"></i>
                     <span>Identificadores de Empresa en Alanube (Requerido para API)</span>
                 </h5>
@@ -518,13 +564,13 @@
             <!-- PASO 2: CONTACTO, UBICACIÓN Y FIRMA -->
             <div class="wizard-step-section" data-step="2">
                 <h4
-                    style="font-size: 0.95rem; font-family: var(--font-heading); color: var(--accent-emerald); margin: 0 0 16px 0; display: flex; align-items: center; gap: 8px; border-bottom: 1px dashed var(--border-color); padding-bottom: 8px; font-weight: 600;">
+                    style="font-size: 0.95rem; font-family: var(--font-heading); color: var(--accent-emerald); margin: 0 0 16px 0; display: flex; align-items: center; gap: 8px; border-bottom: 1px dashed var(--border-color); padding-bottom: 8px; font-weight: 500;">
                     <i class="fa-solid fa-key"></i>
                     <span>Firma Digital, Contacto y Ubicación</span>
                 </h4>
 
                 <h5
-                    style="font-size: 0.85rem; font-family: var(--font-heading); color: var(--text-main); margin: 16px 0 8px 0; font-weight: 600;">
+                    style="font-size: 0.85rem; font-family: var(--font-heading); color: var(--text-main); margin: 16px 0 8px 0; font-weight: 500;">
                     Contacto y Sucursal Principal</h5>
                 <div class="form-grid"
                     style="grid-template-columns: 1fr 1fr 1.5fr; gap: 20px; margin-bottom: 20px; display: grid;">
@@ -548,7 +594,7 @@
                 </div>
 
                 <h5
-                    style="font-size: 0.85rem; font-family: var(--font-heading); color: var(--text-main); margin: 16px 0 8px 0; font-weight: 600;">
+                    style="font-size: 0.85rem; font-family: var(--font-heading); color: var(--text-main); margin: 16px 0 8px 0; font-weight: 500;">
                     Ubicación Geográfica</h5>
                 <div class="form-grid"
                     style="grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; display: grid;">
@@ -577,14 +623,18 @@
                 </div>
 
                 <h5
-                    style="font-size: 0.85rem; font-family: var(--font-heading); color: var(--text-main); margin: 20px 0 8px 0; font-weight: 600;">
+                    style="font-size: 0.85rem; font-family: var(--font-heading); color: var(--text-main); margin: 20px 0 8px 0; font-weight: 500;">
                     Certificado de Firma Digital</h5>
                 <div class="form-grid"
                     style="grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; display: grid;">
                     <div class="form-group">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                        <div
+                            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
                             <label for="certificateFile" style="margin: 0;">Certificado Digital (.p12 / .pfx)</label>
-                            <a href="https://digi.camarasantodomingo.do/Certificados-de-Firma-Digital.html" target="_blank" style="color: var(--accent-emerald); font-size: 0.75rem; text-decoration: none; font-weight: 500; transition: opacity 0.2s;" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">
+                            <a href="https://digi.camarasantodomingo.do/Certificados-de-Firma-Digital.html"
+                                target="_blank"
+                                style="color: var(--accent-emerald); font-size: 0.75rem; text-decoration: none; font-weight: 500; transition: opacity 0.2s;"
+                                onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">
                                 ¿Cómo obtener mi certificado digital?
                             </a>
                         </div>
@@ -617,29 +667,34 @@
                 </div>
 
                 <h5
-                    style="font-size: 0.85rem; font-family: var(--font-heading); color: var(--text-main); margin: 24px 0 8px 0; font-weight: 600; display: flex; align-items: center; gap: 8px;">
+                    style="font-size: 0.85rem; font-family: var(--font-heading); color: var(--text-main); margin: 24px 0 8px 0; font-weight: 500; display: flex; align-items: center; gap: 8px;">
                     <i class="fa-solid fa-compress" style="color: var(--accent-emerald);"></i>
                     <span>Consolidación de Comprobantes (Ley 32-23)</span>
                 </h5>
                 <div class="form-grid"
                     style="grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; display: grid;">
                     <div class="form-group">
-                        <label for="consolidationEnabled" style="display: flex; align-items: center; gap: 10px; cursor: pointer; margin-top: 8px; font-weight: 600; color: var(--text-main);">
+                        <label for="consolidationEnabled"
+                            style="display: flex; align-items: center; gap: 10px; cursor: pointer; margin-top: 8px; font-weight: 500; color: var(--text-main);">
                             <input type="checkbox" id="consolidationEnabled" name="consolidationEnabled" value="true"
                                 style="width: 18px; height: 18px; accent-color: var(--accent-emerald); cursor: pointer;"
                                 {% if profile.consolidationEnabled %}checked{% endif %}>
                             <span>Habilitar Consolidación de Facturas de Consumo (E32)</span>
                         </label>
-                        <small style="color: var(--text-muted); font-size: 0.72rem; margin-top: 6px; display: block; line-height: 1.4;">
-                            Las ventas individuales del POS a Consumidor Final menores al monto umbral no emitirán comprobantes individuales, sino que se consolidarán al final del día/cierre del turno.
+                        <small
+                            style="color: var(--text-muted); font-size: 0.72rem; margin-top: 6px; display: block; line-height: 1.4;">
+                            Las ventas individuales del POS a Consumidor Final menores al monto umbral no emitirán
+                            comprobantes individuales, sino que se consolidarán al final del día/cierre del turno.
                         </small>
                     </div>
 
                     <div class="form-group">
                         <label for="consolidationThreshold">Monto Máximo de Consolidación (RD$)</label>
-                        <input type="number" id="consolidationThreshold" name="consolidationThreshold" class="form-input"
-                            placeholder="Ej: 250000" min="0" step="0.01" value="{{ profile.consolidationThreshold | default(250000.0) }}">
-                        <small style="color: var(--text-muted); font-size: 0.72rem; margin-top: 6px; display: block; line-height: 1.4;">
+                        <input type="number" id="consolidationThreshold" name="consolidationThreshold"
+                            class="form-input" placeholder="Ej: 250000" min="0" step="0.01"
+                            value="{{ profile.consolidationThreshold | default(250000.0) }}">
+                        <small
+                            style="color: var(--text-muted); font-size: 0.72rem; margin-top: 6px; display: block; line-height: 1.4;">
                             Límite por transacción. La norma de la DGII establece un máximo de RD$ 250,000.00.
                         </small>
                     </div>
@@ -703,7 +758,7 @@
     <!-- Panel del Propietario & Multitenancy (Equipo) -->
     <div style="display: flex; flex-direction: column; gap: 24px;">
 
-                <!-- Diseño de la Marca -->
+        <!-- Diseño de la Marca -->
         <div class="card-table-wrapper" style="margin-bottom: 0; padding: 28px;">
             <h3
                 style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 18px; display: flex; align-items: center; gap: 8px;">
@@ -720,8 +775,8 @@
                     </label>
 
                     <input type="hidden" name="removeLogo" id="removeLogoField" value="false">
-                    <input type="file" id="logoFileInput" name="logoFile" accept="image/png,image/jpeg,image/webp,image/gif"
-                        style="display: none;">
+                    <input type="file" id="logoFileInput" name="logoFile"
+                        accept="image/png,image/jpeg,image/webp,image/gif" style="display: none;">
 
                     <!-- Zona Única de Carga / Drop / Preview (Alineación fila independiente) -->
                     <div id="logo-drop-zone"
@@ -757,8 +812,8 @@
                 <div class="form-group" style="margin-bottom: 0;">
                     <label for="companyTheme">Tema de la Aplicación</label>
                     <select id="companyTheme" name="theme" class="form-input" style="width: 100%; cursor: pointer;">
-                        <option value="moderno" {% if profile.theme=='moderno' or not profile.theme %}selected{%
-                            endif %}>Moderno</option>
+                        <option value="moderno" {% if profile.theme=='moderno' or not profile.theme %}selected{% endif
+                            %}>Moderno</option>
                         <option value="clasico" {% if profile.theme=='clasico' %}selected{% endif %}>Clásico
                         </option>
                     </select>
@@ -791,7 +846,7 @@
                                 style="position: absolute; top: 3px; {% if profile.gradientEnabled %}left: 23px;{% else %}left: 3px;{% endif %} width: 20px; height: 20px; border-radius: 50%; background: white; box-shadow: 0 1px 4px rgba(0,0,0,0.2); transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);"></span>
                         </button>
                         <span id="gradient-status-text"
-                            style="font-size: 0.82rem; font-weight: 600; color: var(--text-primary); display: none;"></span>
+                            style="font-size: 0.82rem; font-weight: 500; color: var(--text-primary); display: none;"></span>
                     </div>
                 </div>
             </div>
@@ -799,7 +854,8 @@
             <!-- Fila 4: Visualización del Color / Degradado -->
             <div style="display: grid; grid-template-columns: 1fr;">
                 <div class="form-group" style="margin-bottom: 0;">
-                    <label style="font-size: 0.78rem; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 6px;">
+                    <label
+                        style="font-size: 0.78rem; font-weight: 500; color: var(--text-secondary); display: block; margin-bottom: 6px;">
                         Visualización del Color / Degradado:
                     </label>
                     <div id="gradient-preview"
@@ -812,7 +868,7 @@
             <div
                 style="margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 10px;">
                 <span
-                    style="font-size: 0.82rem; font-weight: 600; color: var(--text-secondary); display: flex; align-items: center; gap: 6px;">
+                    style="font-size: 0.82rem; font-weight: 500; color: var(--text-secondary); display: flex; align-items: center; gap: 6px;">
                     <i class="fa-solid fa-sliders" style="color: var(--accent-purple);"></i>
                     Habilitar color de marca en:
                 </span>
@@ -826,8 +882,8 @@
                     </label>
                     <label
                         style="display: flex; align-items: center; gap: 8px; font-size: 0.82rem; cursor: pointer; color: var(--text-primary);">
-                        <input type="checkbox" id="applyColorMarcaReports" name="applyColorMarcaReports"
-                            value="true" {% if profile.applyColorMarcaReports %}checked{% endif %}
+                        <input type="checkbox" id="applyColorMarcaReports" name="applyColorMarcaReports" value="true" {%
+                            if profile.applyColorMarcaReports %}checked{% endif %}
                             style="cursor: pointer; width: 16px; height: 16px; accent-color: var(--accent-emerald);">
                         <span>Reportes / PDF</span>
                     </label>
@@ -900,633 +956,635 @@
         </div>
 
         <!-- Formulario oculto para regeneración de API Key (Evita formularios anidados en el acordeón) -->
-        <form id="generateKeyForm" action="{{ url_for('generate_company_api_key') }}" method="POST" style="display: none;"></form>
+        <form id="generateKeyForm" action="{{ url_for('generate_company_api_key') }}" method="POST"
+            style="display: none;"></form>
 
-<!-- Modal Añadir/Editar Sucursal -->
-<div class="search-modal" id="branch-modal" style="display: none;">
-    <div class="modal-backdrop" id="branch-modal-backdrop"></div>
-    <div class="modal-content" style="max-width: 450px;">
-        <div class="modal-header">
-            <h3><i class="fa-solid fa-building" style="color: var(--accent-emerald);"></i> <span
-                    id="branch-modal-title">Añadir Sucursal</span></h3>
-            <button type="button" class="btn-close-modal" id="btn-close-branch-modal"><i
-                    class="fa-solid fa-xmark"></i></button>
+        <!-- Modal Añadir/Editar Sucursal -->
+        <div class="search-modal" id="branch-modal" style="display: none;">
+            <div class="modal-backdrop" id="branch-modal-backdrop"></div>
+            <div class="modal-content" style="max-width: 450px;">
+                <div class="modal-header">
+                    <h3><i class="fa-solid fa-building" style="color: var(--accent-emerald);"></i> <span
+                            id="branch-modal-title">Añadir Sucursal</span></h3>
+                    <button type="button" class="btn-close-modal" id="btn-close-branch-modal"><i
+                            class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div class="modal-body">
+                    <form id="branch-form" action="/settings/branches/save" method="POST"
+                        style="display: flex; flex-direction: column; gap: 15px;">
+                        <input type="hidden" name="id" id="branch-id" value="">
+
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label for="branch-name">Nombre de la Sucursal</label>
+                            <input type="text" id="branch-name" name="name" class="form-input"
+                                placeholder="Ej: Sucursal Santiago" required>
+                        </div>
+
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label for="branch-code">Código (Emisión DGII)</label>
+                            <input type="text" id="branch-code" name="code" class="form-input" placeholder="Ej: 0002"
+                                required>
+                        </div>
+
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label for="branch-address">Dirección Física</label>
+                            <input type="text" id="branch-address" name="address" class="form-input"
+                                placeholder="Ej: Av. Estrella Sadhala #45, Santiago" required>
+                        </div>
+
+                        <label
+                            style="display: flex; align-items: center; gap: 10px; font-size: 0.9rem; cursor: pointer; margin-top: 5px;">
+                            <input type="checkbox" id="branch-isdefault" name="isDefault" value="true"
+                                style="width: 16px; height: 16px; accent-color: var(--accent-emerald);">
+                            <span>Marcar como Sucursal Principal (Predeterminada)</span>
+                        </label>
+
+                        <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 10px;">
+                            <i class="fa-solid fa-save"></i>
+                            <span>Guardar Sucursal</span>
+                        </button>
+                    </form>
+                </div>
+            </div>
         </div>
-        <div class="modal-body">
-            <form id="branch-form" action="/settings/branches/save" method="POST"
-                style="display: flex; flex-direction: column; gap: 15px;">
-                <input type="hidden" name="id" id="branch-id" value="">
+        {% endif %}
+        {% endblock %}
 
-                <div class="form-group" style="margin-bottom: 0;">
-                    <label for="branch-name">Nombre de la Sucursal</label>
-                    <input type="text" id="branch-name" name="name" class="form-input"
-                        placeholder="Ej: Sucursal Santiago" required>
-                </div>
+        {% block extra_scripts %}
+        <script>
+            window.toggleAccordionSection = function (header) {
+                const item = header.parentElement;
+                const content = item.querySelector('.accordion-content');
+                const isActive = item.classList.contains('active');
 
-                <div class="form-group" style="margin-bottom: 0;">
-                    <label for="branch-code">Código (Emisión DGII)</label>
-                    <input type="text" id="branch-code" name="code" class="form-input" placeholder="Ej: 0002" required>
-                </div>
-
-                <div class="form-group" style="margin-bottom: 0;">
-                    <label for="branch-address">Dirección Física</label>
-                    <input type="text" id="branch-address" name="address" class="form-input"
-                        placeholder="Ej: Av. Estrella Sadhala #45, Santiago" required>
-                </div>
-
-                <label
-                    style="display: flex; align-items: center; gap: 10px; font-size: 0.9rem; cursor: pointer; margin-top: 5px;">
-                    <input type="checkbox" id="branch-isdefault" name="isDefault" value="true"
-                        style="width: 16px; height: 16px; accent-color: var(--accent-emerald);">
-                    <span>Marcar como Sucursal Principal (Predeterminada)</span>
-                </label>
-
-                <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 10px;">
-                    <i class="fa-solid fa-save"></i>
-                    <span>Guardar Sucursal</span>
-                </button>
-            </form>
-        </div>
-    </div>
-</div>
-{% endif %}
-{% endblock %}
-
-{% block extra_scripts %}
-<script>
-    window.toggleAccordionSection = function (header) {
-        const item = header.parentElement;
-        const content = item.querySelector('.accordion-content');
-        const isActive = item.classList.contains('active');
-
-        // Collapse all items
-        document.querySelectorAll('.accordion-item').forEach(el => {
-            el.classList.remove('active');
-            const c = el.querySelector('.accordion-content');
-            if (c) c.style.maxHeight = null;
-        });
-
-        // If it wasn't active, activate it and set its maxHeight
-        if (!isActive) {
-            item.classList.add('active');
-            content.style.maxHeight = content.scrollHeight + 'px';
-        }
-    };
-
-    window.toggleApiKeyVisibility = function () {
-        const input = document.getElementById('api-key-input');
-        const icon = document.getElementById('api-key-eye-icon');
-        if (input.type === 'password') {
-            input.type = 'text';
-            icon.classList.remove('fa-eye');
-            icon.classList.add('fa-eye-slash');
-        } else {
-            input.type = 'password';
-            icon.classList.remove('fa-eye-slash');
-            icon.classList.add('fa-eye');
-        }
-    };
-
-    window.copyApiKey = function () {
-        const input = document.getElementById('api-key-input');
-        if (!input.value) {
-            alert('No hay ninguna API Key para copiar.');
-            return;
-        }
-        navigator.clipboard.writeText(input.value);
-        alert('¡API Key copiada al portapapeles!');
-    };
-
-    document.addEventListener('DOMContentLoaded', function () {
-        // Inicializar el acordeón activo con su altura
-        const activeAccordionItem = document.querySelector('.accordion-item.active');
-        if (activeAccordionItem) {
-            const content = activeAccordionItem.querySelector('.accordion-content');
-            if (content) {
-                content.style.maxHeight = content.scrollHeight + 'px';
-            }
-        }
-
-        // Datos geográficos oficiales de RD (Tabla III de la DGII)
-        const rdGeoData = {
-            "Distrito Nacional": [
-                "Santo Domingo de Guzmán"
-            ],
-            "Santo Domingo": [
-                "Santo Domingo Este",
-                "Santo Domingo Oeste",
-                "Santo Domingo Norte",
-                "Boca Chica",
-                "San Antonio de Guerra",
-                "Los Alcarrizos",
-                "Pedro Brand"
-            ],
-            "Santiago": [
-                "Santiago",
-                "Bisonó",
-                "Jánico",
-                "Licey al Medio",
-                "San José de las Matas",
-                "Tamboril",
-                "Villa González",
-                "Puñal",
-                "Sabana Iglesia",
-                "Baitoa"
-            ],
-            "La Altagracia": [
-                "Higüey",
-                "San Rafael del Yuma"
-            ],
-            "La Romana": [
-                "La Romana",
-                "Guaymate",
-                "Villa Hermosa"
-            ],
-            "Duarte": [
-                "San Francisco de Macorís",
-                "Arenoso",
-                "Castillo",
-                "Pimentel",
-                "Villa Riva",
-                "Las Guáranas",
-                "Eugenio María de Hostos"
-            ],
-            "San Cristóbal": [
-                "San Cristóbal",
-                "Sabana Grande de Palenque",
-                "Bajos de Haina",
-                "Cambita Garabitos",
-                "Villa Altagracia",
-                "Yaguate",
-                "San Gregorio de Nigua",
-                "Los Cacaos"
-            ],
-            "La Vega": [
-                "La Vega",
-                "Constanza",
-                "Jarabacoa",
-                "Jima Abajo"
-            ],
-            "San Pedro de Macorís": [
-                "San Pedro de Macorís",
-                "Los Llanos",
-                "Ramón Santana",
-                "Consuelo",
-                "Quisqueya",
-                "Guayacanes"
-            ],
-            "Espaillat": [
-                "Moca",
-                "Cayetano Germosén",
-                "Gaspar Hernández",
-                "Jamao al Norte"
-            ],
-            "Puerto Plata": [
-                "Puerto Plata",
-                "Altamira",
-                "Guananico",
-                "Imbert",
-                "Los Hidalgos",
-                "Luperón",
-                "Sosúa",
-                "Villa Isabela",
-                "Villa Montellano"
-            ],
-            "Peravia": [
-                "Baní",
-                "Nizao",
-                "Matanzas"
-            ],
-            "Monseñor Nouel": [
-                "Bonao",
-                "Maimón",
-                "Piedra Blanca"
-            ],
-            "Azua": [
-                "Azua",
-                "Las Charcas",
-                "Las Yayas de Viajama",
-                "Padre las Casas",
-                "Peralta",
-                "Sabana Yegua",
-                "Pueblo Viejo",
-                "Tábara Arriba",
-                "Guayabal",
-                "Estebanía"
-            ],
-            "Sánchez Ramírez": [
-                "Cotuí",
-                "Cevicos",
-                "Fantino",
-                "La Mata"
-            ],
-            "Monte Plata": [
-                "Monte Plata",
-                "Bayaguana",
-                "Sabana Grande de Boyá",
-                "Yamasá",
-                "Peralvillo"
-            ],
-            "Hato Mayor": [
-                "Hato Mayor",
-                "Sabana de la Mar",
-                "El Valle"
-            ],
-            "San José de Ocoa": [
-                "San José de Ocoa",
-                "Sabana Larga",
-                "Rancho Arriba"
-            ],
-            "Barahona": [
-                "Barahona",
-                "Cabral",
-                "Enriquillo",
-                "Paraíso",
-                "Vicente Noble",
-                "El Peñón",
-                "La Ciénaga",
-                "Fundación",
-                "Las Salinas",
-                "Polo",
-                "Jaquimeyes"
-            ],
-            "Bahoruco": [
-                "Neiba",
-                "Galván",
-                "Tamayo",
-                "Villa Jaragua",
-                "Los Ríos"
-            ],
-            "Dajabón": [
-                "Dajabón",
-                "Loma de Cabrera",
-                "Partido",
-                "Restauración",
-                "El Pino"
-            ],
-            "Elías Piña": [
-                "Comendador",
-                "Bánica",
-                "El Llano",
-                "Hondo Valle",
-                "Pedro Santana",
-                "Juan Santiago"
-            ],
-            "El Seibo": [
-                "El Seibo",
-                "Miches"
-            ],
-            "Independencia": [
-                "Jimaní",
-                "Duvergé",
-                "La Descubierta",
-                "Postrer Río",
-                "Cristóbal",
-                "Mella"
-            ],
-            "María Trinidad Sánchez": [
-                "Nagua",
-                "Cabrera",
-                "El Factor",
-                "Río San Juan"
-            ],
-            "Monte Cristi": [
-                "Monte Cristi",
-                "Castañuelas",
-                "Guayubín",
-                "Las Matas de Santa Cruz",
-                "Pepillo Salcedo",
-                "Villa Vásquez"
-            ],
-            "Pedernales": [
-                "Pedernales",
-                "Oviedo"
-            ],
-            "Hermanas Mirabal": [
-                "Salcedo",
-                "Tenares",
-                "Villa Tapia"
-            ],
-            "Samaná": [
-                "Samana",
-                "Sánchez",
-                "Las Terrenas"
-            ],
-            "San Juan": [
-                "San Juan",
-                "Bohechío",
-                "El Cercado",
-                "Juan de Herrera",
-                "Las Matas de Farfán",
-                "Vallejuelo"
-            ],
-            "Santiago Rodríguez": [
-                "San Ignacio de Sabaneta",
-                "Villa Los Almácigos",
-                "Monción"
-            ],
-            "Valverde": [
-                "Mao",
-                "Esperanza",
-                "Laguna Salada"
-            ]
-        };
-
-        const provinceInput = document.getElementById('province');
-        const provincesDatalist = document.getElementById('provinces-list');
-        const municipalityInput = document.getElementById('municipality');
-        const municipalitiesDatalist = document.getElementById('municipalities-list');
-
-        // Inicializar Datalist de Provincias
-        if (provincesDatalist) {
-            Object.keys(rdGeoData).forEach(prov => {
-                const opt = document.createElement('option');
-                opt.value = prov;
-                provincesDatalist.appendChild(opt);
-            });
-        }
-
-        // Función para actualizar Datalist de Municipios
-        function updateMunicipalities(provinceName) {
-            if (!municipalitiesDatalist) return;
-            municipalitiesDatalist.innerHTML = '';
-
-            const muns = rdGeoData[provinceName] || [];
-            muns.forEach(mun => {
-                const opt = document.createElement('option');
-                opt.value = mun;
-                municipalitiesDatalist.appendChild(opt);
-            });
-        }
-
-        // Escuchar cambios en el input de Provincia para filtrar Municipios correspondientes
-        if (provinceInput) {
-            provinceInput.addEventListener('input', function () {
-                updateMunicipalities(this.value);
-            });
-            // Ejecutar al cargar para inicializar si hay un valor pre-cargado
-            if (provinceInput.value) {
-                updateMunicipalities(provinceInput.value);
-            }
-        }
-        // Modal Añadir/Editar Sucursal
-        const branchModal = document.getElementById('branch-modal');
-        const openBranchBtn = document.getElementById('btn-open-branch-modal');
-        const closeBranchBtn = document.getElementById('btn-close-branch-modal');
-        const branchForm = document.getElementById('branch-form');
-        const branchTitle = document.getElementById('branch-modal-title');
-
-        if (openBranchBtn) {
-            openBranchBtn.addEventListener('click', () => {
-                branchTitle.textContent = "Añadir Sucursal";
-                branchForm.reset();
-                document.getElementById('branch-id').value = '';
-                branchModal.style.display = 'flex';
-            });
-        }
-
-        if (closeBranchBtn) {
-            closeBranchBtn.addEventListener('click', () => {
-                branchModal.style.display = 'none';
-            });
-        }
-
-        document.querySelectorAll('.btn-edit-branch').forEach(btn => {
-            btn.addEventListener('click', function () {
-                branchTitle.textContent = "Editar Sucursal";
-                document.getElementById('branch-id').value = this.dataset.id;
-                document.getElementById('branch-name').value = this.dataset.name;
-                document.getElementById('branch-code').value = this.dataset.code;
-                document.getElementById('branch-address').value = this.dataset.address;
-                document.getElementById('branch-isdefault').checked = this.dataset.isdefault === 'true';
-                branchModal.style.display = 'flex';
-            });
-        });
-
-        const branchBackdrop = document.getElementById('branch-modal-backdrop');
-
-        // Cerrar modal al hacer clic fuera (Sucursales)
-        if (branchBackdrop) {
-            branchBackdrop.addEventListener('click', function () {
-                branchModal.style.display = 'none';
-            });
-        }
-
-
-
-        // ═══════════════════════════════════════════════════
-        // LOGO DE EMPRESA: Preview, Drag & Drop, Remover (AJAX INMEDIATO)
-        // ═══════════════════════════════════════════════════
-        const logoFileInput = document.getElementById('logoFileInput');
-        const logoPreviewImg = document.getElementById('logo-preview-img');
-        const removeLogoBtn = document.getElementById('btn-remove-logo');
-        const removeLogoField = document.getElementById('removeLogoField');
-        const dropZone = document.getElementById('logo-drop-zone');
-        const logoEmptyState = document.getElementById('logo-empty-state');
-        const logoEmptyIcon = document.getElementById('logo-empty-icon');
-        const logoEmptyText1 = document.getElementById('logo-empty-text-1');
-        const logoEmptyText2 = document.getElementById('logo-empty-text-2');
-
-        function uploadLogoInstant(file) {
-            const formData = new FormData();
-            formData.append('logoFile', file);
-
-            fetch('/settings/company/brand', {
-                method: 'POST',
-                body: formData
-            })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.success && data.profile && data.profile.logoUrl) {
-                        logoPreviewImg.src = data.profile.logoUrl;
-                        logoPreviewImg.style.display = 'block';
-                        removeLogoBtn.style.display = 'flex';
-                        logoEmptyState.style.opacity = '0';
-                        logoEmptyState.style.background = 'rgba(0,0,0,0.6)';
-                        logoEmptyState.style.width = '100%';
-                        logoEmptyState.style.height = '100%';
-                        logoEmptyIcon.style.color = 'white';
-                        logoEmptyText1.style.color = 'white';
-                        if (logoEmptyText2) logoEmptyText2.style.color = 'rgba(255,255,255,0.7)';
-                    }
-                })
-                .catch(err => {
-                    console.error("Error al subir logo:", err);
+                // Collapse all items
+                document.querySelectorAll('.accordion-item').forEach(el => {
+                    el.classList.remove('active');
+                    const c = el.querySelector('.accordion-content');
+                    if (c) c.style.maxHeight = null;
                 });
-        }
 
-        function removeLogoInstant() {
-            const formData = new FormData();
-            formData.append('removeLogo', 'true');
+                // If it wasn't active, activate it and set its maxHeight
+                if (!isActive) {
+                    item.classList.add('active');
+                    content.style.maxHeight = content.scrollHeight + 'px';
+                }
+            };
 
-            fetch('/settings/company/brand', {
-                method: 'POST',
-                body: formData
-            })
-                .then(res => res.json())
-                .then(data => {
-                    console.log("Logo eliminado exitosamente");
-                })
-                .catch(err => {
-                    console.error("Error al eliminar logo:", err);
-                });
-        }
+            window.toggleApiKeyVisibility = function () {
+                const input = document.getElementById('api-key-input');
+                const icon = document.getElementById('api-key-eye-icon');
+                if (input.type === 'password') {
+                    input.type = 'text';
+                    icon.classList.remove('fa-eye');
+                    icon.classList.add('fa-eye-slash');
+                } else {
+                    input.type = 'password';
+                    icon.classList.remove('fa-eye-slash');
+                    icon.classList.add('fa-eye');
+                }
+            };
 
-        if (logoFileInput) {
-            logoFileInput.addEventListener('change', function (e) {
-                const file = e.target.files[0];
-                if (!file) return;
-
-                if (file.size > 2 * 1024 * 1024) {
-                    alert("La imagen excede el límite de 2 MB.");
-                    this.value = '';
+            window.copyApiKey = function () {
+                const input = document.getElementById('api-key-input');
+                if (!input.value) {
+                    alert('No hay ninguna API Key para copiar.');
                     return;
                 }
+                navigator.clipboard.writeText(input.value);
+                alert('¡API Key copiada al portapapeles!');
+            };
 
-                const reader = new FileReader();
-                reader.onload = function (e) {
-                    logoPreviewImg.src = e.target.result;
-                    logoPreviewImg.style.display = 'block';
-
-                    logoEmptyState.style.opacity = '0';
-                    logoEmptyState.style.background = 'rgba(0,0,0,0.6)';
-                    logoEmptyState.style.width = '100%';
-                    logoEmptyState.style.height = '100%';
-                    logoEmptyIcon.style.color = 'white';
-                    logoEmptyText1.style.color = 'white';
-                    if (logoEmptyText2) logoEmptyText2.style.color = 'rgba(255,255,255,0.7)';
-
-                    removeLogoBtn.style.display = 'flex';
-                    removeLogoField.value = 'false';
-                };
-                reader.readAsDataURL(file);
-
-                uploadLogoInstant(file);
-            });
-        }
-
-        // Botón remover logo
-        if (removeLogoBtn) {
-            removeLogoBtn.addEventListener('click', function (e) {
-                logoPreviewImg.src = '';
-                logoPreviewImg.style.display = 'none';
-                logoFileInput.value = '';
-                removeLogoField.value = 'true';
-
-                logoEmptyState.style.opacity = '1';
-                logoEmptyState.style.background = 'transparent';
-                logoEmptyIcon.style.color = 'var(--text-muted)';
-                logoEmptyText1.style.color = 'var(--text-secondary)';
-                if (logoEmptyText2) logoEmptyText2.style.color = 'var(--text-muted)';
-
-                this.style.display = 'none';
-
-                removeLogoInstant();
-                e.stopPropagation();
-            });
-        }
-
-        // Drag & Drop
-        if (dropZone) {
-            ['dragenter', 'dragover'].forEach(evtName => {
-                dropZone.addEventListener(evtName, function (e) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    this.style.borderColor = 'var(--accent-purple)';
-                    this.style.background = 'rgba(124, 58, 237, 0.05)';
-                    this.querySelector('i').style.color = 'var(--accent-purple)';
-                });
-            });
-
-            ['dragleave', 'drop'].forEach(evtName => {
-                dropZone.addEventListener(evtName, function (e) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    this.style.borderColor = 'var(--border-color)';
-                    this.style.background = 'var(--bg-input)';
-                    this.querySelector('i').style.color = 'var(--text-muted)';
-                });
-            });
-
-            dropZone.addEventListener('drop', function (e) {
-                const files = e.dataTransfer.files;
-                if (files.length > 0) {
-                    logoFileInput.files = files;
-                    logoFileInput.dispatchEvent(new Event('change'));
-                }
-            });
-        }
-
-        // ═══════════════════════════════════════════════════
-        // CONTROLADORES DE AUTO-GUARDADO Y RENDERING EN VIVO (AJAX + CSS INJECTION)
-        // ═══════════════════════════════════════════════════
-        const gradientToggleBtn = document.getElementById('gradient-toggle-btn');
-        const gradientToggleKnob = document.getElementById('gradient-toggle-knob');
-        const gradientEnabledField = document.getElementById('gradientEnabledField');
-        const gradientStatusText = document.getElementById('gradient-status-text');
-        const gradientPreview = document.getElementById('gradient-preview');
-        const colorMarcaInput = document.getElementById('colorMarca');
-        const colorMarcaHex = document.getElementById('colorMarcaHex');
-        const applyColorMarcaUI = document.getElementById('applyColorMarcaUI');
-        const applyColorMarcaReports = document.getElementById('applyColorMarcaReports');
-
-        function saveBrandSetting(key, value) {
-            const formData = new FormData();
-            formData.append(key, value);
-
-            fetch('/settings/company/brand', {
-                method: 'POST',
-                body: formData
-            })
-                .then(res => res.json())
-                .then(data => {
-                    console.log(`Ajuste de marca [${key}] guardado exitosamente`);
-                    if (key === 'theme') {
-                        // Recargar instantáneamente para aplicar el nuevo archivo CSS
-                        window.location.reload();
+            document.addEventListener('DOMContentLoaded', function () {
+                // Inicializar el acordeón activo con su altura
+                const activeAccordionItem = document.querySelector('.accordion-item.active');
+                if (activeAccordionItem) {
+                    const content = activeAccordionItem.querySelector('.accordion-content');
+                    if (content) {
+                        content.style.maxHeight = content.scrollHeight + 'px';
                     }
-                })
-                .catch(err => {
-                    console.error(`Error al guardar ajuste de marca [${key}]:`, err);
-                });
-        }
-
-        const companyThemeSelect = document.getElementById('companyTheme');
-        if (companyThemeSelect) {
-            companyThemeSelect.addEventListener('change', function () {
-                saveBrandSetting('theme', this.value);
-            });
-        }
-
-        function applyLiveBrandColors() {
-            const color = colorMarcaInput ? colorMarcaInput.value : '#10b981';
-            const gradientEnabled = gradientEnabledField.value === 'true';
-            const applyUI = applyColorMarcaUI ? applyColorMarcaUI.checked : true;
-
-            let styleTag = document.getElementById('dynamic-brand-styles');
-
-            if (!applyUI) {
-                if (styleTag) {
-                    styleTag.remove();
                 }
-                return;
-            }
 
-            if (!styleTag) {
-                styleTag = document.createElement('style');
-                styleTag.id = 'dynamic-brand-styles';
-                document.head.appendChild(styleTag);
-            }
+                // Datos geográficos oficiales de RD (Tabla III de la DGII)
+                const rdGeoData = {
+                    "Distrito Nacional": [
+                        "Santo Domingo de Guzmán"
+                    ],
+                    "Santo Domingo": [
+                        "Santo Domingo Este",
+                        "Santo Domingo Oeste",
+                        "Santo Domingo Norte",
+                        "Boca Chica",
+                        "San Antonio de Guerra",
+                        "Los Alcarrizos",
+                        "Pedro Brand"
+                    ],
+                    "Santiago": [
+                        "Santiago",
+                        "Bisonó",
+                        "Jánico",
+                        "Licey al Medio",
+                        "San José de las Matas",
+                        "Tamboril",
+                        "Villa González",
+                        "Puñal",
+                        "Sabana Iglesia",
+                        "Baitoa"
+                    ],
+                    "La Altagracia": [
+                        "Higüey",
+                        "San Rafael del Yuma"
+                    ],
+                    "La Romana": [
+                        "La Romana",
+                        "Guaymate",
+                        "Villa Hermosa"
+                    ],
+                    "Duarte": [
+                        "San Francisco de Macorís",
+                        "Arenoso",
+                        "Castillo",
+                        "Pimentel",
+                        "Villa Riva",
+                        "Las Guáranas",
+                        "Eugenio María de Hostos"
+                    ],
+                    "San Cristóbal": [
+                        "San Cristóbal",
+                        "Sabana Grande de Palenque",
+                        "Bajos de Haina",
+                        "Cambita Garabitos",
+                        "Villa Altagracia",
+                        "Yaguate",
+                        "San Gregorio de Nigua",
+                        "Los Cacaos"
+                    ],
+                    "La Vega": [
+                        "La Vega",
+                        "Constanza",
+                        "Jarabacoa",
+                        "Jima Abajo"
+                    ],
+                    "San Pedro de Macorís": [
+                        "San Pedro de Macorís",
+                        "Los Llanos",
+                        "Ramón Santana",
+                        "Consuelo",
+                        "Quisqueya",
+                        "Guayacanes"
+                    ],
+                    "Espaillat": [
+                        "Moca",
+                        "Cayetano Germosén",
+                        "Gaspar Hernández",
+                        "Jamao al Norte"
+                    ],
+                    "Puerto Plata": [
+                        "Puerto Plata",
+                        "Altamira",
+                        "Guananico",
+                        "Imbert",
+                        "Los Hidalgos",
+                        "Luperón",
+                        "Sosúa",
+                        "Villa Isabela",
+                        "Villa Montellano"
+                    ],
+                    "Peravia": [
+                        "Baní",
+                        "Nizao",
+                        "Matanzas"
+                    ],
+                    "Monseñor Nouel": [
+                        "Bonao",
+                        "Maimón",
+                        "Piedra Blanca"
+                    ],
+                    "Azua": [
+                        "Azua",
+                        "Las Charcas",
+                        "Las Yayas de Viajama",
+                        "Padre las Casas",
+                        "Peralta",
+                        "Sabana Yegua",
+                        "Pueblo Viejo",
+                        "Tábara Arriba",
+                        "Guayabal",
+                        "Estebanía"
+                    ],
+                    "Sánchez Ramírez": [
+                        "Cotuí",
+                        "Cevicos",
+                        "Fantino",
+                        "La Mata"
+                    ],
+                    "Monte Plata": [
+                        "Monte Plata",
+                        "Bayaguana",
+                        "Sabana Grande de Boyá",
+                        "Yamasá",
+                        "Peralvillo"
+                    ],
+                    "Hato Mayor": [
+                        "Hato Mayor",
+                        "Sabana de la Mar",
+                        "El Valle"
+                    ],
+                    "San José de Ocoa": [
+                        "San José de Ocoa",
+                        "Sabana Larga",
+                        "Rancho Arriba"
+                    ],
+                    "Barahona": [
+                        "Barahona",
+                        "Cabral",
+                        "Enriquillo",
+                        "Paraíso",
+                        "Vicente Noble",
+                        "El Peñón",
+                        "La Ciénaga",
+                        "Fundación",
+                        "Las Salinas",
+                        "Polo",
+                        "Jaquimeyes"
+                    ],
+                    "Bahoruco": [
+                        "Neiba",
+                        "Galván",
+                        "Tamayo",
+                        "Villa Jaragua",
+                        "Los Ríos"
+                    ],
+                    "Dajabón": [
+                        "Dajabón",
+                        "Loma de Cabrera",
+                        "Partido",
+                        "Restauración",
+                        "El Pino"
+                    ],
+                    "Elías Piña": [
+                        "Comendador",
+                        "Bánica",
+                        "El Llano",
+                        "Hondo Valle",
+                        "Pedro Santana",
+                        "Juan Santiago"
+                    ],
+                    "El Seibo": [
+                        "El Seibo",
+                        "Miches"
+                    ],
+                    "Independencia": [
+                        "Jimaní",
+                        "Duvergé",
+                        "La Descubierta",
+                        "Postrer Río",
+                        "Cristóbal",
+                        "Mella"
+                    ],
+                    "María Trinidad Sánchez": [
+                        "Nagua",
+                        "Cabrera",
+                        "El Factor",
+                        "Río San Juan"
+                    ],
+                    "Monte Cristi": [
+                        "Monte Cristi",
+                        "Castañuelas",
+                        "Guayubín",
+                        "Las Matas de Santa Cruz",
+                        "Pepillo Salcedo",
+                        "Villa Vásquez"
+                    ],
+                    "Pedernales": [
+                        "Pedernales",
+                        "Oviedo"
+                    ],
+                    "Hermanas Mirabal": [
+                        "Salcedo",
+                        "Tenares",
+                        "Villa Tapia"
+                    ],
+                    "Samaná": [
+                        "Samana",
+                        "Sánchez",
+                        "Las Terrenas"
+                    ],
+                    "San Juan": [
+                        "San Juan",
+                        "Bohechío",
+                        "El Cercado",
+                        "Juan de Herrera",
+                        "Las Matas de Farfán",
+                        "Vallejuelo"
+                    ],
+                    "Santiago Rodríguez": [
+                        "San Ignacio de Sabaneta",
+                        "Villa Los Almácigos",
+                        "Monción"
+                    ],
+                    "Valverde": [
+                        "Mao",
+                        "Esperanza",
+                        "Laguna Salada"
+                    ]
+                };
 
-            const gradientCSS = gradientEnabled
-                ? `linear-gradient(135deg, ${color}, #60a5fa)`
-                : color;
+                const provinceInput = document.getElementById('province');
+                const provincesDatalist = document.getElementById('provinces-list');
+                const municipalityInput = document.getElementById('municipality');
+                const municipalitiesDatalist = document.getElementById('municipalities-list');
 
-            const bannerCSS = gradientEnabled
-                ? `linear-gradient(90deg, ${color}, #8b5cf6, ${color})`
-                : color;
+                // Inicializar Datalist de Provincias
+                if (provincesDatalist) {
+                    Object.keys(rdGeoData).forEach(prov => {
+                        const opt = document.createElement('option');
+                        opt.value = prov;
+                        provincesDatalist.appendChild(opt);
+                    });
+                }
 
-            styleTag.innerHTML = `
+                // Función para actualizar Datalist de Municipios
+                function updateMunicipalities(provinceName) {
+                    if (!municipalitiesDatalist) return;
+                    municipalitiesDatalist.innerHTML = '';
+
+                    const muns = rdGeoData[provinceName] || [];
+                    muns.forEach(mun => {
+                        const opt = document.createElement('option');
+                        opt.value = mun;
+                        municipalitiesDatalist.appendChild(opt);
+                    });
+                }
+
+                // Escuchar cambios en el input de Provincia para filtrar Municipios correspondientes
+                if (provinceInput) {
+                    provinceInput.addEventListener('input', function () {
+                        updateMunicipalities(this.value);
+                    });
+                    // Ejecutar al cargar para inicializar si hay un valor pre-cargado
+                    if (provinceInput.value) {
+                        updateMunicipalities(provinceInput.value);
+                    }
+                }
+                // Modal Añadir/Editar Sucursal
+                const branchModal = document.getElementById('branch-modal');
+                const openBranchBtn = document.getElementById('btn-open-branch-modal');
+                const closeBranchBtn = document.getElementById('btn-close-branch-modal');
+                const branchForm = document.getElementById('branch-form');
+                const branchTitle = document.getElementById('branch-modal-title');
+
+                if (openBranchBtn) {
+                    openBranchBtn.addEventListener('click', () => {
+                        branchTitle.textContent = "Añadir Sucursal";
+                        branchForm.reset();
+                        document.getElementById('branch-id').value = '';
+                        branchModal.style.display = 'flex';
+                    });
+                }
+
+                if (closeBranchBtn) {
+                    closeBranchBtn.addEventListener('click', () => {
+                        branchModal.style.display = 'none';
+                    });
+                }
+
+                document.querySelectorAll('.btn-edit-branch').forEach(btn => {
+                    btn.addEventListener('click', function () {
+                        branchTitle.textContent = "Editar Sucursal";
+                        document.getElementById('branch-id').value = this.dataset.id;
+                        document.getElementById('branch-name').value = this.dataset.name;
+                        document.getElementById('branch-code').value = this.dataset.code;
+                        document.getElementById('branch-address').value = this.dataset.address;
+                        document.getElementById('branch-isdefault').checked = this.dataset.isdefault === 'true';
+                        branchModal.style.display = 'flex';
+                    });
+                });
+
+                const branchBackdrop = document.getElementById('branch-modal-backdrop');
+
+                // Cerrar modal al hacer clic fuera (Sucursales)
+                if (branchBackdrop) {
+                    branchBackdrop.addEventListener('click', function () {
+                        branchModal.style.display = 'none';
+                    });
+                }
+
+
+
+                // ═══════════════════════════════════════════════════
+                // LOGO DE EMPRESA: Preview, Drag & Drop, Remover (AJAX INMEDIATO)
+                // ═══════════════════════════════════════════════════
+                const logoFileInput = document.getElementById('logoFileInput');
+                const logoPreviewImg = document.getElementById('logo-preview-img');
+                const removeLogoBtn = document.getElementById('btn-remove-logo');
+                const removeLogoField = document.getElementById('removeLogoField');
+                const dropZone = document.getElementById('logo-drop-zone');
+                const logoEmptyState = document.getElementById('logo-empty-state');
+                const logoEmptyIcon = document.getElementById('logo-empty-icon');
+                const logoEmptyText1 = document.getElementById('logo-empty-text-1');
+                const logoEmptyText2 = document.getElementById('logo-empty-text-2');
+
+                function uploadLogoInstant(file) {
+                    const formData = new FormData();
+                    formData.append('logoFile', file);
+
+                    fetch('/settings/company/brand', {
+                        method: 'POST',
+                        body: formData
+                    })
+                        .then(res => res.json())
+                        .then(data => {
+                            if (data.success && data.profile && data.profile.logoUrl) {
+                                logoPreviewImg.src = data.profile.logoUrl;
+                                logoPreviewImg.style.display = 'block';
+                                removeLogoBtn.style.display = 'flex';
+                                logoEmptyState.style.opacity = '0';
+                                logoEmptyState.style.background = 'rgba(0,0,0,0.6)';
+                                logoEmptyState.style.width = '100%';
+                                logoEmptyState.style.height = '100%';
+                                logoEmptyIcon.style.color = 'white';
+                                logoEmptyText1.style.color = 'white';
+                                if (logoEmptyText2) logoEmptyText2.style.color = 'rgba(255,255,255,0.7)';
+                            }
+                        })
+                        .catch(err => {
+                            console.error("Error al subir logo:", err);
+                        });
+                }
+
+                function removeLogoInstant() {
+                    const formData = new FormData();
+                    formData.append('removeLogo', 'true');
+
+                    fetch('/settings/company/brand', {
+                        method: 'POST',
+                        body: formData
+                    })
+                        .then(res => res.json())
+                        .then(data => {
+                            console.log("Logo eliminado exitosamente");
+                        })
+                        .catch(err => {
+                            console.error("Error al eliminar logo:", err);
+                        });
+                }
+
+                if (logoFileInput) {
+                    logoFileInput.addEventListener('change', function (e) {
+                        const file = e.target.files[0];
+                        if (!file) return;
+
+                        if (file.size > 2 * 1024 * 1024) {
+                            alert("La imagen excede el límite de 2 MB.");
+                            this.value = '';
+                            return;
+                        }
+
+                        const reader = new FileReader();
+                        reader.onload = function (e) {
+                            logoPreviewImg.src = e.target.result;
+                            logoPreviewImg.style.display = 'block';
+
+                            logoEmptyState.style.opacity = '0';
+                            logoEmptyState.style.background = 'rgba(0,0,0,0.6)';
+                            logoEmptyState.style.width = '100%';
+                            logoEmptyState.style.height = '100%';
+                            logoEmptyIcon.style.color = 'white';
+                            logoEmptyText1.style.color = 'white';
+                            if (logoEmptyText2) logoEmptyText2.style.color = 'rgba(255,255,255,0.7)';
+
+                            removeLogoBtn.style.display = 'flex';
+                            removeLogoField.value = 'false';
+                        };
+                        reader.readAsDataURL(file);
+
+                        uploadLogoInstant(file);
+                    });
+                }
+
+                // Botón remover logo
+                if (removeLogoBtn) {
+                    removeLogoBtn.addEventListener('click', function (e) {
+                        logoPreviewImg.src = '';
+                        logoPreviewImg.style.display = 'none';
+                        logoFileInput.value = '';
+                        removeLogoField.value = 'true';
+
+                        logoEmptyState.style.opacity = '1';
+                        logoEmptyState.style.background = 'transparent';
+                        logoEmptyIcon.style.color = 'var(--text-muted)';
+                        logoEmptyText1.style.color = 'var(--text-secondary)';
+                        if (logoEmptyText2) logoEmptyText2.style.color = 'var(--text-muted)';
+
+                        this.style.display = 'none';
+
+                        removeLogoInstant();
+                        e.stopPropagation();
+                    });
+                }
+
+                // Drag & Drop
+                if (dropZone) {
+                    ['dragenter', 'dragover'].forEach(evtName => {
+                        dropZone.addEventListener(evtName, function (e) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            this.style.borderColor = 'var(--accent-purple)';
+                            this.style.background = 'rgba(124, 58, 237, 0.05)';
+                            this.querySelector('i').style.color = 'var(--accent-purple)';
+                        });
+                    });
+
+                    ['dragleave', 'drop'].forEach(evtName => {
+                        dropZone.addEventListener(evtName, function (e) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            this.style.borderColor = 'var(--border-color)';
+                            this.style.background = 'var(--bg-input)';
+                            this.querySelector('i').style.color = 'var(--text-muted)';
+                        });
+                    });
+
+                    dropZone.addEventListener('drop', function (e) {
+                        const files = e.dataTransfer.files;
+                        if (files.length > 0) {
+                            logoFileInput.files = files;
+                            logoFileInput.dispatchEvent(new Event('change'));
+                        }
+                    });
+                }
+
+                // ═══════════════════════════════════════════════════
+                // CONTROLADORES DE AUTO-GUARDADO Y RENDERING EN VIVO (AJAX + CSS INJECTION)
+                // ═══════════════════════════════════════════════════
+                const gradientToggleBtn = document.getElementById('gradient-toggle-btn');
+                const gradientToggleKnob = document.getElementById('gradient-toggle-knob');
+                const gradientEnabledField = document.getElementById('gradientEnabledField');
+                const gradientStatusText = document.getElementById('gradient-status-text');
+                const gradientPreview = document.getElementById('gradient-preview');
+                const colorMarcaInput = document.getElementById('colorMarca');
+                const colorMarcaHex = document.getElementById('colorMarcaHex');
+                const applyColorMarcaUI = document.getElementById('applyColorMarcaUI');
+                const applyColorMarcaReports = document.getElementById('applyColorMarcaReports');
+
+                function saveBrandSetting(key, value) {
+                    const formData = new FormData();
+                    formData.append(key, value);
+
+                    fetch('/settings/company/brand', {
+                        method: 'POST',
+                        body: formData
+                    })
+                        .then(res => res.json())
+                        .then(data => {
+                            console.log(`Ajuste de marca [${key}] guardado exitosamente`);
+                            if (key === 'theme') {
+                                // Recargar instantáneamente para aplicar el nuevo archivo CSS
+                                window.location.reload();
+                            }
+                        })
+                        .catch(err => {
+                            console.error(`Error al guardar ajuste de marca [${key}]:`, err);
+                        });
+                }
+
+                const companyThemeSelect = document.getElementById('companyTheme');
+                if (companyThemeSelect) {
+                    companyThemeSelect.addEventListener('change', function () {
+                        saveBrandSetting('theme', this.value);
+                    });
+                }
+
+                function applyLiveBrandColors() {
+                    const color = colorMarcaInput ? colorMarcaInput.value : '#10b981';
+                    const gradientEnabled = gradientEnabledField.value === 'true';
+                    const applyUI = applyColorMarcaUI ? applyColorMarcaUI.checked : true;
+
+                    let styleTag = document.getElementById('dynamic-brand-styles');
+
+                    if (!applyUI) {
+                        if (styleTag) {
+                            styleTag.remove();
+                        }
+                        return;
+                    }
+
+                    if (!styleTag) {
+                        styleTag = document.createElement('style');
+                        styleTag.id = 'dynamic-brand-styles';
+                        document.head.appendChild(styleTag);
+                    }
+
+                    const gradientCSS = gradientEnabled
+                        ? `linear-gradient(135deg, ${color}, #60a5fa)`
+                        : color;
+
+                    const bannerCSS = gradientEnabled
+                        ? `linear-gradient(90deg, ${color}, #8b5cf6, ${color})`
+                        : color;
+
+                    styleTag.innerHTML = `
                 :root, body.sandbox-mode, [data-theme="dark"] {
                     --accent-emerald: ${color};
                     --accent-emerald-hover: ${color};
@@ -1538,284 +1596,284 @@
                     background: ${bannerCSS};
                 }
             `;
-        }
-
-        function updateGradientUI(enabled) {
-            const color = colorMarcaInput ? colorMarcaInput.value : '#10b981';
-            if (enabled) {
-                gradientToggleKnob.style.left = '23px';
-                gradientToggleBtn.style.background = 'linear-gradient(90deg, ' + color + ', #60a5fa)';
-                gradientStatusText.textContent = 'Activado — se aplica degradado en secciones de UI';
-                gradientPreview.style.background = 'linear-gradient(90deg, ' + color + ', #60a5fa)';
-            } else {
-                gradientToggleKnob.style.left = '3px';
-                gradientToggleBtn.style.background = 'rgba(156, 163, 175, 0.35)';
-                gradientStatusText.textContent = 'Desactivado — se usa color sólido';
-                gradientPreview.style.background = color;
-            }
-        }
-
-        if (gradientToggleBtn) {
-            gradientToggleBtn.addEventListener('click', function () {
-                const current = gradientEnabledField.value === 'true';
-                const next = !current;
-                gradientEnabledField.value = next ? 'true' : 'false';
-                updateGradientUI(next);
-                applyLiveBrandColors();
-                saveBrandSetting('gradientEnabled', next ? 'true' : 'false');
-            });
-        }
-
-        if (colorMarcaInput) {
-            // Actualización visual ultra fluida en tiempo real
-            colorMarcaInput.addEventListener('input', function () {
-                if (colorMarcaHex) colorMarcaHex.textContent = this.value;
-                updateGradientUI(gradientEnabledField.value === 'true');
-                applyLiveBrandColors();
-            });
-
-            // Guardado instantáneo en base de datos solo al terminar la selección (change event)
-            colorMarcaInput.addEventListener('change', function () {
-                saveBrandSetting('colorMarca', this.value);
-            });
-        }
-
-        if (applyColorMarcaUI) {
-            applyColorMarcaUI.addEventListener('change', function () {
-                applyLiveBrandColors();
-                saveBrandSetting('applyColorMarcaUI', this.checked ? 'true' : 'false');
-            });
-        }
-
-        if (applyColorMarcaReports) {
-            applyColorMarcaReports.addEventListener('change', function () {
-                saveBrandSetting('applyColorMarcaReports', this.checked ? 'true' : 'false');
-            });
-        }
-
-        // ═══════════════════════════════════════════════════
-        // EXPORTACIÓN DE DATOS (CSV)
-        // ═══════════════════════════════════════════════════
-        const exportAllCheckbox = document.getElementById('export_all');
-        const exportCheckboxes = document.querySelectorAll('.export-checkbox');
-        const exportForm = document.getElementById('exportForm');
-
-        if (exportAllCheckbox) {
-            exportAllCheckbox.addEventListener('change', function () {
-                exportCheckboxes.forEach(cb => {
-                    cb.checked = this.checked;
-                });
-            });
-        }
-
-        exportCheckboxes.forEach(cb => {
-            cb.addEventListener('change', function () {
-                if (!this.checked) {
-                    exportAllCheckbox.checked = false;
-                } else {
-                    const allChecked = Array.from(exportCheckboxes).every(c => c.checked);
-                    exportAllCheckbox.checked = allChecked;
                 }
-            });
-        });
 
-        if (exportForm) {
-            exportForm.addEventListener('submit', function (e) {
-                const anyChecked = Array.from(exportCheckboxes).some(c => c.checked);
-                if (!anyChecked) {
-                    e.preventDefault();
-                    alert('Por favor, selecciona al menos una sección para exportar.');
-                }
-            });
-        }
-
-        // ═══════════════════════════════════════════════════
-        // CONTROL DEL WIZARD DE CONFIGURACIÓN
-        // ═══════════════════════════════════════════════════
-        const showWizard = {% if show_wizard %}true{% else %}false{% endif %};
-
-    if (showWizard) {
-        let currentStep = 1;
-        const totalSteps = 2;
-
-        const steps = document.querySelectorAll('.wizard-step-section');
-        const nodes = document.querySelectorAll('.wizard-step-node');
-        const activeLine = document.getElementById('wizardActiveLine');
-
-        const btnPrev = document.getElementById('btnWizardPrev');
-        const btnNext = document.getElementById('btnWizardNext');
-        const btnSubmit = document.getElementById('btnWizardSubmit');
-        const btnSkip = document.getElementById('btnSkipToSandbox');
-
-        function showStep(stepNum) {
-            // Ocultar todas las secciones
-            steps.forEach(step => {
-                step.style.display = 'none';
-            });
-
-            // Mostrar paso activo
-            const activeStep = document.querySelector(`.wizard-step-section[data-step="${stepNum}"]`);
-            if (activeStep) {
-                activeStep.style.display = 'block';
-                // Animación suave de aparición
-                activeStep.style.opacity = '0';
-                activeStep.style.transform = 'translateY(10px)';
-                activeStep.style.transition = 'all 0.4s ease';
-                setTimeout(() => {
-                    activeStep.style.opacity = '1';
-                    activeStep.style.transform = 'translateY(0)';
-                }, 50);
-            }
-
-            // Actualizar barra de progreso
-            nodes.forEach(node => {
-                const nodeStep = parseInt(node.getAttribute('data-step-indicator'));
-                const circle = node.querySelector('.node-circle');
-                const text = node.querySelector('span');
-
-                if (nodeStep < stepNum) {
-                    // Paso completado
-                    circle.style.background = 'var(--accent-emerald)';
-                    circle.style.borderColor = 'var(--bg-card)';
-                    circle.style.color = 'white';
-                    circle.style.boxShadow = '0 0 0 1px var(--accent-emerald)';
-                    circle.innerHTML = '✓';
-                    text.style.color = 'var(--accent-emerald)';
-                    text.style.fontWeight = '600';
-                } else if (nodeStep === stepNum) {
-                    // Paso actual
-                    circle.style.background = 'var(--accent-emerald)';
-                    circle.style.borderColor = 'var(--bg-card)';
-                    circle.style.color = 'white';
-                    circle.style.boxShadow = '0 0 0 4px rgba(16, 185, 129, 0.15)';
-                    circle.innerHTML = nodeStep;
-                    text.style.color = 'var(--text-main)';
-                    text.style.fontWeight = '600';
-                } else {
-                    // Paso futuro
-                    circle.style.background = 'var(--bg-body)';
-                    circle.style.borderColor = 'var(--border-color)';
-                    circle.style.color = 'var(--text-muted)';
-                    circle.style.boxShadow = 'none';
-                    circle.innerHTML = nodeStep;
-                    text.style.color = 'var(--text-muted)';
-                    text.style.fontWeight = '500';
-                }
-            });
-
-            // Calcular línea de progreso activa
-            const progressPercent = ((stepNum - 1) / (totalSteps - 1)) * 80;
-            if (activeLine) {
-                activeLine.style.width = `${progressPercent}%`;
-            }
-
-            // Mostrar/Ocultar botones del footer
-            if (stepNum === 1) {
-                btnPrev.style.display = 'none';
-            } else {
-                btnPrev.style.display = 'block';
-            }
-
-            if (stepNum === totalSteps) {
-                btnNext.style.display = 'none';
-                btnSubmit.style.display = 'block';
-            } else {
-                btnNext.style.display = 'block';
-                btnSubmit.style.display = 'none';
-            }
-        }
-
-        function validateStepFields(stepNum) {
-            const activeStep = document.querySelector(`.wizard-step-section[data-step="${stepNum}"]`);
-            if (!activeStep) return true;
-
-            const inputs = activeStep.querySelectorAll('input[required], textarea[required], select[required]');
-            let valid = true;
-
-            inputs.forEach(input => {
-                if (!input.value.trim()) {
-                    valid = false;
-                    input.style.borderColor = '#ef4444';
-                    input.addEventListener('input', function removeError() {
-                        input.style.borderColor = '';
-                        input.removeEventListener('input', removeError);
-                    });
-                }
-            });
-
-            if (!valid) {
-                alert('Por favor, rellene todos los campos requeridos para continuar.');
-            }
-            return valid;
-        }
-
-        // Eventos de botones
-        if (btnNext) {
-            btnNext.addEventListener('click', function () {
-                if (validateStepFields(currentStep)) {
-                    if (currentStep < totalSteps) {
-                        currentStep++;
-                        showStep(currentStep);
+                function updateGradientUI(enabled) {
+                    const color = colorMarcaInput ? colorMarcaInput.value : '#10b981';
+                    if (enabled) {
+                        gradientToggleKnob.style.left = '23px';
+                        gradientToggleBtn.style.background = 'linear-gradient(90deg, ' + color + ', #60a5fa)';
+                        gradientStatusText.textContent = 'Activado — se aplica degradado en secciones de UI';
+                        gradientPreview.style.background = 'linear-gradient(90deg, ' + color + ', #60a5fa)';
+                    } else {
+                        gradientToggleKnob.style.left = '3px';
+                        gradientToggleBtn.style.background = 'rgba(156, 163, 175, 0.35)';
+                        gradientStatusText.textContent = 'Desactivado — se usa color sólido';
+                        gradientPreview.style.background = color;
                     }
                 }
-            });
-        }
 
-        if (btnPrev) {
-            btnPrev.addEventListener('click', function () {
-                if (currentStep > 1) {
-                    currentStep--;
-                    showStep(currentStep);
-                }
-            });
-        }
-
-        // Navegación directa al hacer clic en nodos
-        nodes.forEach(node => {
-            node.addEventListener('click', function () {
-                const clickedStep = parseInt(this.getAttribute('data-step-indicator'));
-                if (clickedStep < currentStep || validateStepFields(currentStep)) {
-                    currentStep = clickedStep;
-                    showStep(currentStep);
-                }
-            });
-        });
-
-        // Inicializar al primer paso
-        showStep(1);
-
-        // Botón de omitir y entrar a sandbox
-        if (btnSkip) {
-            btnSkip.addEventListener('click', function () {
-                btnSkip.disabled = true;
-                btnSkip.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Entrando...';
-
-                fetch('/toggle-sandbox', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ sandbox: true })
-                })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.success) {
-                            window.location.href = '/dashboard';
-                        } else {
-                            btnSkip.disabled = false;
-                            btnSkip.innerHTML = '<i class="fa-solid fa-forward"></i> Omitir y entrar en Modo Pruebas';
-                            alert('No se pudo activar el modo pruebas. Por favor intente nuevamente.');
-                        }
-                    })
-                    .catch(err => {
-                        console.error(err);
-                        btnSkip.disabled = false;
-                        btnSkip.innerHTML = '<i class="fa-solid fa-forward"></i> Omitir y entrar en Modo Pruebas';
-                        alert('Error al establecer conexión con el servidor.');
+                if (gradientToggleBtn) {
+                    gradientToggleBtn.addEventListener('click', function () {
+                        const current = gradientEnabledField.value === 'true';
+                        const next = !current;
+                        gradientEnabledField.value = next ? 'true' : 'false';
+                        updateGradientUI(next);
+                        applyLiveBrandColors();
+                        saveBrandSetting('gradientEnabled', next ? 'true' : 'false');
                     });
-            });
-        }
-    }
+                }
+
+                if (colorMarcaInput) {
+                    // Actualización visual ultra fluida en tiempo real
+                    colorMarcaInput.addEventListener('input', function () {
+                        if (colorMarcaHex) colorMarcaHex.textContent = this.value;
+                        updateGradientUI(gradientEnabledField.value === 'true');
+                        applyLiveBrandColors();
+                    });
+
+                    // Guardado instantáneo en base de datos solo al terminar la selección (change event)
+                    colorMarcaInput.addEventListener('change', function () {
+                        saveBrandSetting('colorMarca', this.value);
+                    });
+                }
+
+                if (applyColorMarcaUI) {
+                    applyColorMarcaUI.addEventListener('change', function () {
+                        applyLiveBrandColors();
+                        saveBrandSetting('applyColorMarcaUI', this.checked ? 'true' : 'false');
+                    });
+                }
+
+                if (applyColorMarcaReports) {
+                    applyColorMarcaReports.addEventListener('change', function () {
+                        saveBrandSetting('applyColorMarcaReports', this.checked ? 'true' : 'false');
+                    });
+                }
+
+                // ═══════════════════════════════════════════════════
+                // EXPORTACIÓN DE DATOS (CSV)
+                // ═══════════════════════════════════════════════════
+                const exportAllCheckbox = document.getElementById('export_all');
+                const exportCheckboxes = document.querySelectorAll('.export-checkbox');
+                const exportForm = document.getElementById('exportForm');
+
+                if (exportAllCheckbox) {
+                    exportAllCheckbox.addEventListener('change', function () {
+                        exportCheckboxes.forEach(cb => {
+                            cb.checked = this.checked;
+                        });
+                    });
+                }
+
+                exportCheckboxes.forEach(cb => {
+                    cb.addEventListener('change', function () {
+                        if (!this.checked) {
+                            exportAllCheckbox.checked = false;
+                        } else {
+                            const allChecked = Array.from(exportCheckboxes).every(c => c.checked);
+                            exportAllCheckbox.checked = allChecked;
+                        }
+                    });
+                });
+
+                if (exportForm) {
+                    exportForm.addEventListener('submit', function (e) {
+                        const anyChecked = Array.from(exportCheckboxes).some(c => c.checked);
+                        if (!anyChecked) {
+                            e.preventDefault();
+                            alert('Por favor, selecciona al menos una sección para exportar.');
+                        }
+                    });
+                }
+
+                // ═══════════════════════════════════════════════════
+                // CONTROL DEL WIZARD DE CONFIGURACIÓN
+                // ═══════════════════════════════════════════════════
+                const showWizard = {% if show_wizard %}true{% else %}false{% endif %};
+
+            if (showWizard) {
+                let currentStep = 1;
+                const totalSteps = 2;
+
+                const steps = document.querySelectorAll('.wizard-step-section');
+                const nodes = document.querySelectorAll('.wizard-step-node');
+                const activeLine = document.getElementById('wizardActiveLine');
+
+                const btnPrev = document.getElementById('btnWizardPrev');
+                const btnNext = document.getElementById('btnWizardNext');
+                const btnSubmit = document.getElementById('btnWizardSubmit');
+                const btnSkip = document.getElementById('btnSkipToSandbox');
+
+                function showStep(stepNum) {
+                    // Ocultar todas las secciones
+                    steps.forEach(step => {
+                        step.style.display = 'none';
+                    });
+
+                    // Mostrar paso activo
+                    const activeStep = document.querySelector(`.wizard-step-section[data-step="${stepNum}"]`);
+                    if (activeStep) {
+                        activeStep.style.display = 'block';
+                        // Animación suave de aparición
+                        activeStep.style.opacity = '0';
+                        activeStep.style.transform = 'translateY(10px)';
+                        activeStep.style.transition = 'all 0.4s ease';
+                        setTimeout(() => {
+                            activeStep.style.opacity = '1';
+                            activeStep.style.transform = 'translateY(0)';
+                        }, 50);
+                    }
+
+                    // Actualizar barra de progreso
+                    nodes.forEach(node => {
+                        const nodeStep = parseInt(node.getAttribute('data-step-indicator'));
+                        const circle = node.querySelector('.node-circle');
+                        const text = node.querySelector('span');
+
+                        if (nodeStep < stepNum) {
+                            // Paso completado
+                            circle.style.background = 'var(--accent-emerald)';
+                            circle.style.borderColor = 'var(--bg-card)';
+                            circle.style.color = 'white';
+                            circle.style.boxShadow = '0 0 0 1px var(--accent-emerald)';
+                            circle.innerHTML = '✓';
+                            text.style.color = 'var(--accent-emerald)';
+                            text.style.fontWeight = '600';
+                        } else if (nodeStep === stepNum) {
+                            // Paso actual
+                            circle.style.background = 'var(--accent-emerald)';
+                            circle.style.borderColor = 'var(--bg-card)';
+                            circle.style.color = 'white';
+                            circle.style.boxShadow = '0 0 0 4px rgba(16, 185, 129, 0.15)';
+                            circle.innerHTML = nodeStep;
+                            text.style.color = 'var(--text-main)';
+                            text.style.fontWeight = '600';
+                        } else {
+                            // Paso futuro
+                            circle.style.background = 'var(--bg-body)';
+                            circle.style.borderColor = 'var(--border-color)';
+                            circle.style.color = 'var(--text-muted)';
+                            circle.style.boxShadow = 'none';
+                            circle.innerHTML = nodeStep;
+                            text.style.color = 'var(--text-muted)';
+                            text.style.fontWeight = '500';
+                        }
+                    });
+
+                    // Calcular línea de progreso activa
+                    const progressPercent = ((stepNum - 1) / (totalSteps - 1)) * 80;
+                    if (activeLine) {
+                        activeLine.style.width = `${progressPercent}%`;
+                    }
+
+                    // Mostrar/Ocultar botones del footer
+                    if (stepNum === 1) {
+                        btnPrev.style.display = 'none';
+                    } else {
+                        btnPrev.style.display = 'block';
+                    }
+
+                    if (stepNum === totalSteps) {
+                        btnNext.style.display = 'none';
+                        btnSubmit.style.display = 'block';
+                    } else {
+                        btnNext.style.display = 'block';
+                        btnSubmit.style.display = 'none';
+                    }
+                }
+
+                function validateStepFields(stepNum) {
+                    const activeStep = document.querySelector(`.wizard-step-section[data-step="${stepNum}"]`);
+                    if (!activeStep) return true;
+
+                    const inputs = activeStep.querySelectorAll('input[required], textarea[required], select[required]');
+                    let valid = true;
+
+                    inputs.forEach(input => {
+                        if (!input.value.trim()) {
+                            valid = false;
+                            input.style.borderColor = '#ef4444';
+                            input.addEventListener('input', function removeError() {
+                                input.style.borderColor = '';
+                                input.removeEventListener('input', removeError);
+                            });
+                        }
+                    });
+
+                    if (!valid) {
+                        alert('Por favor, rellene todos los campos requeridos para continuar.');
+                    }
+                    return valid;
+                }
+
+                // Eventos de botones
+                if (btnNext) {
+                    btnNext.addEventListener('click', function () {
+                        if (validateStepFields(currentStep)) {
+                            if (currentStep < totalSteps) {
+                                currentStep++;
+                                showStep(currentStep);
+                            }
+                        }
+                    });
+                }
+
+                if (btnPrev) {
+                    btnPrev.addEventListener('click', function () {
+                        if (currentStep > 1) {
+                            currentStep--;
+                            showStep(currentStep);
+                        }
+                    });
+                }
+
+                // Navegación directa al hacer clic en nodos
+                nodes.forEach(node => {
+                    node.addEventListener('click', function () {
+                        const clickedStep = parseInt(this.getAttribute('data-step-indicator'));
+                        if (clickedStep < currentStep || validateStepFields(currentStep)) {
+                            currentStep = clickedStep;
+                            showStep(currentStep);
+                        }
+                    });
+                });
+
+                // Inicializar al primer paso
+                showStep(1);
+
+                // Botón de omitir y entrar a sandbox
+                if (btnSkip) {
+                    btnSkip.addEventListener('click', function () {
+                        btnSkip.disabled = true;
+                        btnSkip.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Entrando...';
+
+                        fetch('/toggle-sandbox', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({ sandbox: true })
+                        })
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data.success) {
+                                    window.location.href = '/dashboard';
+                                } else {
+                                    btnSkip.disabled = false;
+                                    btnSkip.innerHTML = '<i class="fa-solid fa-forward"></i> Omitir y entrar en Modo Pruebas';
+                                    alert('No se pudo activar el modo pruebas. Por favor intente nuevamente.');
+                                }
+                            })
+                            .catch(err => {
+                                console.error(err);
+                                btnSkip.disabled = false;
+                                btnSkip.innerHTML = '<i class="fa-solid fa-forward"></i> Omitir y entrar en Modo Pruebas';
+                                alert('Error al establecer conexión con el servidor.');
+                            });
+                    });
+                }
+            }
     });
-</script>
-{% endblock %}
+        </script>
+        {% endblock %}

@@ -1,14 +1,17 @@
 <!DOCTYPE html>
 <html lang="es" data-theme="dark">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Preguntas Frecuentes - e-Factura</title>
-    
+
     <!-- Google Fonts & FontAwesome -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;800&display=swap"
+        rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
+
     <style>
         :root {
             --primary: #2563EB;
@@ -18,7 +21,7 @@
             --bg-main: #0f172a;
             --bg-card: #1e293b;
             --border: #334155;
-            
+
             --accent-emerald: #10b981;
             --accent-blue: #3b82f6;
             --accent-purple: #8b5cf6;
@@ -40,7 +43,10 @@
             flex-direction: column;
         }
 
-        h1, h2, h3, h4 {
+        h1,
+        h2,
+        h3,
+        h4 {
             font-family: 'Outfit', sans-serif;
         }
 
@@ -124,7 +130,7 @@
             color: var(--text-main);
             outline: none;
             transition: all 0.3s ease;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
 
         .search-input:focus {
@@ -155,7 +161,7 @@
 
         .category-title {
             font-size: 1.5rem;
-            font-weight: 600;
+            font-weight: 500;
             margin-bottom: 20px;
             color: #ffffff;
             display: flex;
@@ -189,7 +195,7 @@
         .faq-card:hover {
             border-color: #475569;
             transform: translateY(-2px);
-            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
         }
 
         .faq-question {
@@ -198,7 +204,7 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            font-weight: 600;
+            font-weight: 500;
             font-size: 1.1rem;
             color: #e2e8f0;
             user-select: none;
@@ -261,7 +267,7 @@
             padding: 12px 28px;
             border-radius: 8px;
             text-decoration: none;
-            font-weight: 600;
+            font-weight: 500;
             font-size: 1.1rem;
             transition: background 0.2s;
             margin-top: 20px;
@@ -283,12 +289,21 @@
         }
 
         @media (max-width: 768px) {
-            .faq-hero h1 { font-size: 2.2rem; }
-            header { padding: 16px 20px; }
-            .container { padding: 20px; }
+            .faq-hero h1 {
+                font-size: 2.2rem;
+            }
+
+            header {
+                padding: 16px 20px;
+            }
+
+            .container {
+                padding: 20px;
+            }
         }
     </style>
 </head>
+
 <body>
 
     <header>
@@ -302,11 +317,13 @@
 
     <div class="faq-hero">
         <h1>Centro de Ayuda</h1>
-        <p>Todo lo que necesitas saber sobre facturación electrónica, cumplimiento con la DGII y cómo funciona nuestra plataforma.</p>
-        
+        <p>Todo lo que necesitas saber sobre facturación electrónica, cumplimiento con la DGII y cómo funciona nuestra
+            plataforma.</p>
+
         <div class="search-container">
             <i class="fa-solid fa-magnifying-glass search-icon"></i>
-            <input type="text" class="search-input" id="faq-search" placeholder="Buscar preguntas (ej: contingencia, DGII, firma)...">
+            <input type="text" class="search-input" id="faq-search"
+                placeholder="Buscar preguntas (ej: contingencia, DGII, firma)...">
         </div>
     </div>
 
@@ -315,7 +332,7 @@
         <div class="faq-category">
             <h2 class="category-title"><i class="fa-solid fa-scale-balanced"></i> Normativa y DGII</h2>
             <div class="faq-grid">
-                
+
                 <div class="faq-card searchable">
                     <div class="faq-question">
                         ¿Qué necesito legalmente para empezar a facturar electrónicamente en RD?
@@ -323,11 +340,16 @@
                     </div>
                     <div class="faq-answer">
                         <div class="faq-answer-inner">
-                            Para poder emitir Comprobantes Fiscales Electrónicos (e-CF) válidos ante la DGII en la República Dominicana necesitas tres elementos básicos:
+                            Para poder emitir Comprobantes Fiscales Electrónicos (e-CF) válidos ante la DGII en la
+                            República Dominicana necesitas tres elementos básicos:
                             <ul>
-                                <li>Estar registrado como contribuyente activo en la DGII (ya sea Persona Física o Jurídica).</li>
-                                <li>Adquirir un <strong>Certificado Digital de Firma Electrónica</strong> de una entidad autorizada (como la Cámara de Comercio y Producción).</li>
-                                <li>Contar con un software de facturación homologado ante la DGII. Con <strong>e-Factura</strong> estás completamente cubierto, ya que somos un software de facturación certificado y homologado por la DGII.</li>
+                                <li>Estar registrado como contribuyente activo en la DGII (ya sea Persona Física o
+                                    Jurídica).</li>
+                                <li>Adquirir un <strong>Certificado Digital de Firma Electrónica</strong> de una entidad
+                                    autorizada (como la Cámara de Comercio y Producción).</li>
+                                <li>Contar con un software de facturación homologado ante la DGII. Con
+                                    <strong>e-Factura</strong> estás completamente cubierto, ya que somos un software de
+                                    facturación certificado y homologado por la DGII.</li>
                             </ul>
                         </div>
                     </div>
@@ -340,9 +362,16 @@
                     </div>
                     <div class="faq-answer">
                         <div class="faq-answer-inner">
-                            Si eres contribuyente del Régimen Simplificado (RST) basado en ingresos, tu mayor riesgo es facturar más del límite anual oficial establecido por inflación (que para el año <strong>2026</strong> es de <strong>RD$ 12,068,181.09</strong>). Superar este límite implica una exclusión automática hacia el régimen general, forzándote a pagar multas e impuestos retroactivos de forma compleja.
+                            Si eres contribuyente del Régimen Simplificado (RST) basado en ingresos, tu mayor riesgo es
+                            facturar más del límite anual oficial establecido por inflación (que para el año
+                            <strong>2026</strong> es de <strong>RD$ 12,068,181.09</strong>). Superar este límite implica
+                            una exclusión automática hacia el régimen general, forzándote a pagar multas e impuestos
+                            retroactivos de forma compleja.
                             <br><br>
-                            e-Factura incorpora un motor de lectura de ventas en tiempo real. En el Dashboard y alertas, te muestra de forma visual y con porcentaje preciso cuánto has facturado en el año fiscal en curso, alertándote preventivamente al 70% y de forma crítica al 90% para evitar exclusiones accidentales.
+                            e-Factura incorpora un motor de lectura de ventas en tiempo real. En el Dashboard y alertas,
+                            te muestra de forma visual y con porcentaje preciso cuánto has facturado en el año fiscal en
+                            curso, alertándote preventivamente al 70% y de forma crítica al 90% para evitar exclusiones
+                            accidentales.
                         </div>
                     </div>
                 </div>
@@ -354,7 +383,7 @@
         <div class="faq-category">
             <h2 class="category-title"><i class="fa-solid fa-laptop-code"></i> Uso de la Plataforma</h2>
             <div class="faq-grid">
-                
+
                 <div class="faq-card searchable">
                     <div class="faq-question">
                         ¿Cómo funciona exactamente el límite de las 72 horas en modo contingencia?
@@ -362,9 +391,15 @@
                     </div>
                     <div class="faq-answer">
                         <div class="faq-answer-inner">
-                            Si tu negocio se queda temporalmente sin conexión a internet, el sistema de e-Factura te permite seguir emitiendo comprobantes firmados localmente (modalidad offline). La normativa DGII (Ley 32-23) exige que estos comprobantes de contingencia sean remitidos a sus servidores en un plazo máximo de <strong>72 horas</strong> una vez que se restablezca la conexión.
+                            Si tu negocio se queda temporalmente sin conexión a internet, el sistema de e-Factura te
+                            permite seguir emitiendo comprobantes firmados localmente (modalidad offline). La normativa
+                            DGII (Ley 32-23) exige que estos comprobantes de contingencia sean remitidos a sus
+                            servidores en un plazo máximo de <strong>72 horas</strong> una vez que se restablezca la
+                            conexión.
                             <br><br>
-                            e-Factura monitorea de forma reactiva el estado de conexión del backend. En cuanto detecta señal estable con nuestros servidores, transmite en bloques automatizados y silenciosos las facturas pendientes de sincronizar sin interrumpir tu trabajo en pantalla.
+                            e-Factura monitorea de forma reactiva el estado de conexión del backend. En cuanto detecta
+                            señal estable con nuestros servidores, transmite en bloques automatizados y silenciosos las
+                            facturas pendientes de sincronizar sin interrumpir tu trabajo en pantalla.
                         </div>
                     </div>
                 </div>
@@ -376,7 +411,10 @@
                     </div>
                     <div class="faq-answer">
                         <div class="faq-answer-inner">
-                            ¡Sí, absolutamente! e-Factura cuenta con una potente API RESTful que permite a los desarrolladores conectar cualquier sistema (SAP, QuickBooks, e-commerce propio, etc.) directamente con nuestra infraestructura. Nosotros nos encargamos de encriptar, firmar y enviar el XML a la DGII, tú solo nos envías un JSON.
+                            ¡Sí, absolutamente! e-Factura cuenta con una potente API RESTful que permite a los
+                            desarrolladores conectar cualquier sistema (SAP, QuickBooks, e-commerce propio, etc.)
+                            directamente con nuestra infraestructura. Nosotros nos encargamos de encriptar, firmar y
+                            enviar el XML a la DGII, tú solo nos envías un JSON.
                         </div>
                     </div>
                 </div>
@@ -391,7 +429,8 @@
 
     <div class="cta-section">
         <h2 style="color: white; margin-bottom: 10px;">¿No encontraste lo que buscabas?</h2>
-        <p style="color: var(--text-muted);">Nuestro equipo de soporte técnico está listo para ayudarte con tus dudas fiscales o técnicas.</p>
+        <p style="color: var(--text-muted);">Nuestro equipo de soporte técnico está listo para ayudarte con tus dudas
+            fiscales o técnicas.</p>
         <a href="/#demo" class="cta-button"><i class="fa-solid fa-headset"></i> Contactar Soporte</a>
     </div>
 
@@ -399,20 +438,20 @@
         document.addEventListener('DOMContentLoaded', () => {
             // Lógica del Acordeón Moderno
             const faqCards = document.querySelectorAll('.faq-card');
-            
+
             faqCards.forEach(card => {
                 const question = card.querySelector('.faq-question');
                 const answer = card.querySelector('.faq-answer');
-                
+
                 question.addEventListener('click', () => {
                     const isActive = card.classList.contains('active');
-                    
+
                     // Cerrar todas
                     faqCards.forEach(c => {
                         c.classList.remove('active');
                         c.querySelector('.faq-answer').style.maxHeight = null;
                     });
-                    
+
                     // Si no estaba activa, abrirla
                     if (!isActive) {
                         card.classList.add('active');
@@ -461,4 +500,5 @@
         });
     </script>
 </body>
+
 </html>
