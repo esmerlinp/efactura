@@ -2771,3 +2771,169 @@ class DatabaseService:
             except Exception as e:
                 print(f"⚠️ Error al obtener promesas de pago: {e}")
         return promises
+
+    # =========================================================================
+    # GESTIÓN DE CONTRATOS (FACTURACIÓN RECURRENTE)
+    # =========================================================================
+
+    @classmethod
+    def get_contracts(cls, owner_uid, sandbox=True):
+        """Retorna todos los contratos registrados del owner."""
+        contracts = []
+        if firebase_initialized:
+            try:
+                coll_name = "sandbox_contracts" if sandbox else "contracts"
+                docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).get()
+                for doc in docs:
+                    data = doc.to_dict()
+                    contracts.append({
+                        "id": doc.id,
+                        "contractNumber": data.get("contractNumber", ""),
+                        "clientId": data.get("clientId", ""),
+                        "clientName": data.get("clientName", ""),
+                        "clientRNC": data.get("clientRNC", ""),
+                        "amount": float(data.get("amount", 0.0)),
+                        "recurrenceInterval": data.get("recurrenceInterval", "mensual"),
+                        "status": data.get("status", "Activo"),
+                        "startDate": data.get("startDate", ""),
+                        "endDate": data.get("endDate", ""),
+                        "nextBillingDate": data.get("nextBillingDate", ""),
+                        "notes": data.get("notes", ""),
+                        "createdAt": data.get("createdAt", ""),
+                        "updatedAt": data.get("updatedAt", "")
+                    })
+                contracts.sort(key=lambda x: x["contractNumber"] or "")
+            except Exception as e:
+                print(f"⚠️ Error al obtener contratos: {e}")
+        return contracts
+
+    @classmethod
+    def save_contract(cls, owner_uid, contract_id, contract_dict, sandbox=True):
+        """Guarda o actualiza un contrato en Firestore."""
+        contract_dict["id"] = contract_id
+        contract_dict["ownerUID"] = owner_uid
+        if "createdAt" not in contract_dict or not contract_dict["createdAt"]:
+            contract_dict["createdAt"] = datetime.utcnow().isoformat()
+        contract_dict["updatedAt"] = datetime.utcnow().isoformat()
+        
+        if firebase_initialized:
+            try:
+                coll_name = "sandbox_contracts" if sandbox else "contracts"
+                db_firestore.collection("users").document(owner_uid).collection(coll_name).document(contract_id).set(contract_dict)
+            except Exception as e:
+                print(f"⚠️ Fallo al guardar contrato: {e}")
+        return contract_dict
+
+    @classmethod
+    def delete_contract(cls, owner_uid, contract_id, sandbox=True):
+        """Elimina un contrato de Firestore."""
+        if firebase_initialized:
+            try:
+                coll_name = "sandbox_contracts" if sandbox else "contracts"
+                db_firestore.collection("users").document(owner_uid).collection(coll_name).document(contract_id).delete()
+            except Exception as e:
+                print(f"⚠️ Fallo al eliminar contrato: {e}")
+
+    # =========================================================================
+    # COMISIONES Y RENDIMIENTO
+    # =========================================================================
+
+    @classmethod
+    def get_commission_settings(cls, owner_uid):
+        """Retorna la configuración de comisiones de la empresa."""
+        settings = {"percentage": 5.0, "payOn": "cobrada"}
+        if firebase_initialized:
+            try:
+                doc = db_firestore.collection("users").document(owner_uid).collection("config").document("commission_settings").get()
+                if doc.exists:
+                    data = doc.to_dict()
+                    settings.update(data)
+            except Exception as e:
+                print(f"⚠️ Error al obtener configuración de comisiones: {e}")
+        return settings
+
+    @classmethod
+    def save_commission_settings(cls, owner_uid, settings_dict):
+        """Guarda la configuración de comisiones."""
+        if firebase_initialized:
+            try:
+                db_firestore.collection("users").document(owner_uid).collection("config").document("commission_settings").set(settings_dict)
+            except Exception as e:
+                print(f"⚠️ Error al guardar configuración de comisiones: {e}")
+        return settings_dict
+
+    @classmethod
+    def get_sales_goals(cls, owner_uid):
+        """Retorna las metas de venta mensuales de la empresa."""
+        goals = {"monthlyGoal": 500000.0}
+        if firebase_initialized:
+            try:
+                doc = db_firestore.collection("users").document(owner_uid).collection("config").document("sales_goals").get()
+                if doc.exists:
+                    goals.update(doc.to_dict())
+            except Exception as e:
+                print(f"⚠️ Error al obtener metas de venta: {e}")
+        return goals
+
+    @classmethod
+    def save_sales_goals(cls, owner_uid, goals_dict):
+        """Guarda las metas de venta de la empresa."""
+        if firebase_initialized:
+            try:
+                db_firestore.collection("users").document(owner_uid).collection("config").document("sales_goals").set(goals_dict)
+            except Exception as e:
+                print(f"⚠️ Error al guardar metas de venta: {e}")
+        return goals_dict
+
+    # =========================================================================
+    # GESTIÓN DOCUMENTAL CENTRALIZADA POR CLIENTE
+    # =========================================================================
+
+    @classmethod
+    def get_client_documents(cls, owner_uid, client_id, sandbox=True):
+        """Obtiene el historial documental de un cliente."""
+        docs_list = []
+        if firebase_initialized:
+            try:
+                coll_name = "sandbox_clients" if sandbox else "clients"
+                docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).document(client_id).collection("documents").get()
+                for doc in docs:
+                    data = doc.to_dict()
+                    docs_list.append({
+                        "id": doc.id,
+                        "documentType": data.get("documentType", "Contrato Legal"),
+                        "name": data.get("name", ""),
+                        "url": data.get("url", ""),
+                        "uploadedBy": data.get("uploadedBy", "Sistema"),
+                        "createdAt": data.get("createdAt", ""),
+                        "notes": data.get("notes", "")
+                    })
+                docs_list.sort(key=lambda x: x["createdAt"] or "", reverse=True)
+            except Exception as e:
+                print(f"⚠️ Error al obtener documentos del cliente: {e}")
+        return docs_list
+
+    @classmethod
+    def save_client_document(cls, owner_uid, client_id, doc_id, doc_dict, sandbox=True):
+        """Guarda un documento clasificado para un cliente."""
+        doc_dict["id"] = doc_id
+        if "createdAt" not in doc_dict or not doc_dict["createdAt"]:
+            doc_dict["createdAt"] = datetime.utcnow().isoformat()
+        
+        if firebase_initialized:
+            try:
+                coll_name = "sandbox_clients" if sandbox else "clients"
+                db_firestore.collection("users").document(owner_uid).collection(coll_name).document(client_id).collection("documents").document(doc_id).set(doc_dict)
+            except Exception as e:
+                print(f"⚠️ Fallo al respaldar documento de cliente: {e}")
+        return doc_dict
+
+    @classmethod
+    def delete_client_document(cls, owner_uid, client_id, doc_id, sandbox=True):
+        """Elimina un documento del cliente."""
+        if firebase_initialized:
+            try:
+                coll_name = "sandbox_clients" if sandbox else "clients"
+                db_firestore.collection("users").document(owner_uid).collection(coll_name).document(client_id).collection("documents").document(doc_id).delete()
+            except Exception as e:
+                print(f"⚠️ Fallo al borrar documento de cliente de Firestore: {e}")

@@ -113,13 +113,17 @@
         
         <!-- Pestañas de Navegación del Workspace -->
         <div style="display: flex; border-bottom: 2px solid var(--border-color); margin-bottom: 6px; gap: 30px;">
-            <button onclick="switchTab('timeline-tab', 'invoices-tab', this)" style="background: none; border: none; padding: 12px 6px; font-size: 1rem; font-family: var(--font-heading); font-weight: 600; color: var(--accent-emerald); border-bottom: 3px solid var(--accent-emerald); cursor: pointer; transition: all var(--transition-fast);">
+            <button onclick="changeTab('timeline-tab')" id="btn-timeline-tab" style="background: none; border: none; padding: 12px 6px; font-size: 1rem; font-family: var(--font-heading); font-weight: 600; color: var(--accent-emerald); border-bottom: 3px solid var(--accent-emerald); cursor: pointer; transition: all var(--transition-fast);">
                 <i class="fa-solid fa-clock-rotate-left" style="margin-right: 6px;"></i>
                 Historial y Seguimiento
             </button>
-            <button onclick="switchTab('invoices-tab', 'timeline-tab', this)" style="background: none; border: none; padding: 12px 6px; font-size: 1rem; font-family: var(--font-heading); font-weight: 600; color: var(--text-secondary); border-bottom: 3px solid transparent; cursor: pointer; transition: all var(--transition-fast);">
+            <button onclick="changeTab('invoices-tab')" id="btn-invoices-tab" style="background: none; border: none; padding: 12px 6px; font-size: 1rem; font-family: var(--font-heading); font-weight: 600; color: var(--text-secondary); border-bottom: 3px solid transparent; cursor: pointer; transition: all var(--transition-fast);">
                 <i class="fa-solid fa-file-invoice-dollar" style="margin-right: 6px;"></i>
                 Historial de Ventas ({{ invoices | length }})
+            </button>
+            <button onclick="changeTab('documents-tab')" id="btn-documents-tab" style="background: none; border: none; padding: 12px 6px; font-size: 1rem; font-family: var(--font-heading); font-weight: 600; color: var(--text-secondary); border-bottom: 3px solid transparent; cursor: pointer; transition: all var(--transition-fast);">
+                <i class="fa-solid fa-folder-open" style="margin-right: 6px;"></i>
+                Gestión Documental ({{ documents | length }})
             </button>
         </div>
         
@@ -373,22 +377,122 @@
             </div>
         </div>
         
+        <!-- SECCIÓN 3: Pestaña Gestión Documental Centralizada -->
+        <div id="documents-tab" style="display: none; flex-direction: column; gap: 24px;">
+            <!-- Formulario de carga de documento -->
+            <div class="card-table-wrapper" style="margin-bottom: 0; padding: 24px;">
+                <h3 style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-cloud-arrow-up" style="color: var(--accent-emerald);"></i>
+                    <span>Archivar Nuevo Documento</span>
+                </h3>
+                
+                <form action="{{ url_for('web_operations.upload_client_document_route', client_id=client.id) }}" method="POST" enctype="multipart/form-data" style="display: flex; flex-direction: column; gap: 16px;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                        <div>
+                            <label for="documentType" style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px; color: var(--text-secondary);">Clasificación del Documento</label>
+                            <select id="documentType" name="documentType" class="form-control" style="width: 100%; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background-color: var(--bg-input); color: var(--text-primary); padding: 10px;" required>
+                                <option value="Contrato Legal" selected>📜 Contrato Legal</option>
+                                <option value="Orden de Compra Firmada">✍️ Orden de Compra Firmada</option>
+                                <option value="Comprobante de Pago (Voucher)">💵 Comprobante de Pago (Voucher)</option>
+                                <option value="Otros">📁 Otros Documentos</option>
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label for="doc-file" style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px; color: var(--text-secondary);">Seleccionar Archivo (PDF, Imagen, Word)</label>
+                            <div style="position: relative; border: 1px dashed var(--border-color); border-radius: var(--radius-sm); padding: 10px; display: flex; align-items: center; gap: 10px; background-color: var(--bg-input); cursor: pointer;" onclick="document.getElementById('doc-file').click()">
+                                <i class="fa-solid fa-paperclip" style="color: var(--text-muted); font-size: 1.1rem;"></i>
+                                <span id="doc-file-label" style="font-size: 0.85rem; color: var(--text-secondary);">Seleccionar archivo...</span>
+                                <input type="file" id="doc-file" name="file" style="display: none;" required onchange="document.getElementById('doc-file-label').textContent=this.files[0].name; document.getElementById('doc-file-label').style.color='var(--text-primary)';">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label for="doc-notes" style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px; color: var(--text-secondary);">Descripción / Notas</label>
+                        <input type="text" id="doc-notes" name="notes" placeholder="Ej: Firma del representante legal para iguala 2026..." class="form-control" style="width: 100%; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background-color: var(--bg-input); color: var(--text-primary); padding: 10px;">
+                    </div>
+                    
+                    <div style="display: flex; justify-content: flex-end; margin-top: 8px;">
+                        <button type="submit" class="btn btn-primary" style="padding: 10px 24px; font-weight: 600; display: flex; align-items: center; gap: 8px;">
+                            <i class="fa-solid fa-cloud-arrow-up"></i>
+                            <span>Cargar al Expediente</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+            
+            <!-- Listado de documentos centralizados -->
+            <div class="card-table-wrapper" style="margin-bottom: 0; padding: 24px;">
+                <h3 style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px;">Historial Documental Centralizado</h3>
+                
+                {% if documents %}
+                    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px;">
+                        {% for doc in documents %}
+                            <div style="border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 16px; background-color: var(--bg-input); display: flex; flex-direction: column; justify-content: space-between; gap: 12px; transition: transform 0.2s ease, box-shadow 0.2s ease;"
+                                 onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='var(--shadow-sm)';"
+                                 onmouseout="this.style.transform='none'; this.style.boxShadow='none';">
+                                <div>
+                                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+                                        <span class="badge" style="font-size: 0.72rem; font-weight: bold; background-color: rgba(16, 185, 129, 0.1); color: var(--accent-emerald);">
+                                            {{ doc.documentType }}
+                                        </span>
+                                        <form action="{{ url_for('web_operations.delete_client_document_route', client_id=client.id, doc_id=doc.id) }}" method="POST" style="margin:0;" onsubmit="return confirm('¿Seguro que deseas eliminar este documento de los archivos del cliente?');">
+                                            <button type="submit" style="background:none; border:none; color:var(--text-muted); cursor:pointer; padding: 2px;" title="Eliminar Archivo">
+                                                <i class="fa-solid fa-trash-can" style="font-size: 0.82rem;" onmouseover="this.style.color='var(--accent-red)'" onmouseout="this.style.color='var(--text-muted)'"></i>
+                                            </button>
+                                        </form>
+                                    </div>
+                                    <h4 style="font-size: 0.92rem; font-weight: 700; margin: 0 0 6px 0; color: var(--text-primary); text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">
+                                        {{ doc.name }}
+                                    </h4>
+                                    <p style="font-size: 0.8rem; color: var(--text-secondary); margin: 0 0 8px 0; line-height: 1.4;">
+                                        {{ doc.notes or 'Sin notas adicionales.' }}
+                                    </p>
+                                </div>
+                                <div style="border-top: 1px solid var(--border-color); padding-top: 10px; display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; color: var(--text-muted);">
+                                    <span>Subido el {{ doc.createdAt[:10] }}</span>
+                                    <a href="{{ doc.url }}" target="_blank" class="btn btn-secondary" style="padding: 4px 10px; font-size: 0.75rem; display: inline-flex; align-items: center; gap: 4px; border-color: var(--accent-emerald); color: var(--accent-emerald);">
+                                        <i class="fa-solid fa-download"></i>
+                                        <span>Descargar</span>
+                                    </a>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div style="text-align: center; padding: 40px 0; color: var(--text-secondary);">
+                        <i class="fa-solid fa-folder-open" style="font-size: 2.2rem; color: var(--text-muted); opacity: 0.5; margin-bottom: 12px; display: block;"></i>
+                        <span>No hay documentos adjuntos en el expediente del cliente todavía.</span>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+        
     </div>
 </div>
 
 <script>
-    // Conmutador interactivo de pestañas del workspace CRM
-    function switchTab(showId, hideId, element) {
-        document.getElementById(showId).style.display = 'flex';
-        document.getElementById(hideId).style.display = 'none';
-        
-        // Estilos del menú
-        element.style.color = 'var(--accent-emerald)';
-        element.style.borderBottomColor = 'var(--accent-emerald)';
-        
-        const otherBtn = element.nextElementSibling || element.previousElementSibling;
-        otherBtn.style.color = 'var(--text-secondary)';
-        otherBtn.style.borderBottomColor = 'transparent';
+    // Conmutador interactivo de pestañas del workspace CRM (Soporta 3 pestañas)
+    function changeTab(tabId) {
+        const tabs = ['timeline-tab', 'invoices-tab', 'documents-tab'];
+        tabs.forEach(id => {
+            const el = document.getElementById(id);
+            const btn = document.getElementById('btn-' + id);
+            if (id === tabId) {
+                if (id === 'timeline-tab' || id === 'documents-tab') {
+                    el.style.display = 'flex';
+                } else {
+                    el.style.display = 'block';
+                }
+                btn.style.color = 'var(--accent-emerald)';
+                btn.style.borderBottomColor = 'var(--accent-emerald)';
+            } else {
+                el.style.display = 'none';
+                btn.style.color = 'var(--text-secondary)';
+                btn.style.borderBottomColor = 'transparent';
+            }
+        });
     }
 
     // Ocultar o mostrar el campo de fecha de seguimiento según el tipo
