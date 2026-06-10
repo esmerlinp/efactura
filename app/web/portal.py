@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash
+from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash, session
 from firebase_admin import firestore
 from app.services.db_service import db_firestore, DatabaseService
 
@@ -87,6 +87,11 @@ def client_portal_legacy(client_id):
     owner_uid = "W2n2BfR1G4eN3K7m7n8b9v0c1x2z" # ownerUID por defecto
     return redirect(url_for('portal.client_portal', owner_uid=owner_uid, client_id=client_id))
 
+def clean_rnc(rnc_str):
+    if not rnc_str:
+        return ""
+    return "".join(c for c in rnc_str if c.isalnum()).lower()
+
 @portal_bp.route('/portal/cliente/<owner_uid>/<client_id>')
 def client_portal(owner_uid, client_id):
     sandbox = request.args.get('sandbox', 'true').lower() == 'true'
@@ -95,6 +100,17 @@ def client_portal(owner_uid, client_id):
     client = PortalDbService.get_client_by_id(owner_uid, client_id, sandbox=sandbox)
     if not client:
         return "Cliente no encontrado en este ambiente.", 404
+        
+    # Verificar identidad mediante RNC/Cédula
+    session_key = f'verified_client_{client_id}'
+    if session.get(session_key) != True:
+        return render_template(
+            'portal/verify.html',
+            company=company,
+            owner_uid=owner_uid,
+            client_id=client_id,
+            sandbox=sandbox
+        )
         
     invoices = PortalDbService.get_client_invoices(owner_uid, client_id, sandbox=sandbox)
     
@@ -118,6 +134,30 @@ def client_portal(owner_uid, client_id):
         owner_uid=owner_uid,
         sandbox=sandbox
     )
+
+@portal_bp.route('/portal/cliente/<owner_uid>/<client_id>/verify', methods=['POST'])
+def client_portal_verify(owner_uid, client_id):
+    sandbox = request.args.get('sandbox', 'true').lower() == 'true'
+    input_rnc = request.form.get('rnc', '').strip()
+    
+    company = DatabaseService.get_company_profile(owner_uid)
+    client = PortalDbService.get_client_by_id(owner_uid, client_id, sandbox=sandbox)
+    if not client:
+        return "Cliente no encontrado en este ambiente.", 404
+        
+    if clean_rnc(input_rnc) == clean_rnc(client.get('rnc', '')):
+        session[f'verified_client_{client_id}'] = True
+        return redirect(url_for('portal.client_portal', owner_uid=owner_uid, client_id=client_id, sandbox='true' if sandbox else 'false'))
+    else:
+        error = "El RNC o Cédula ingresado es incorrecto. Por favor, intente de nuevo."
+        return render_template(
+            'portal/verify.html',
+            company=company,
+            owner_uid=owner_uid,
+            client_id=client_id,
+            sandbox=sandbox,
+            error=error
+        )
 
 @portal_bp.route('/portal/cliente/<owner_uid>/<client_id>/cotizacion/<invoice_id>/firmar', methods=['POST'])
 def sign_quotation(owner_uid, client_id, invoice_id):
