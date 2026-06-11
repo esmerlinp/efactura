@@ -484,12 +484,12 @@
         @media (min-width: 769px) {
             .app-container {
                 display: grid;
-                grid-template-columns: 280px 1fr 64px !important;
+                grid-template-columns: 280px minmax(0, 1fr) 64px !important;
                 min-height: 100vh;
             }
 
             .app-container.sidebar-collapsed {
-                grid-template-columns: 80px 1fr 64px !important;
+                grid-template-columns: 80px minmax(0, 1fr) 64px !important;
             }
         }
 
@@ -1183,6 +1183,12 @@
                 <a href="{{ url_for('help_center') }}" class="utility-item" title="Centro de Ayuda">
                     <i class="fa-solid fa-circle-question"></i>
                 </a>
+
+                {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canViewAuditLog', False) %}
+                <a href="{{ url_for('web_audit.audit_log') }}" class="utility-item {% if active_page == 'audit' %}active{% endif %}" title="Registro de Auditoría" id="utility-audit-log">
+                    <i class="fa-solid fa-shield-halved"></i>
+                </a>
+                {% endif %}
 
                 <div class="utility-divider"></div>
 

@@ -99,6 +99,17 @@ def open_shift():
     
     res = DatabaseService.open_cash_shift(owner_uid, shift_dict, sandbox=sandbox)
     if res:
+        from app.services.audit_service import AuditService, ACTION_CREATE, MODULE_POS
+        AuditService.log_from_request(
+            owner_uid=owner_uid,
+            action=ACTION_CREATE,
+            module=MODULE_POS,
+            entity_id=res,
+            entity_label=f"Apertura de turno de caja (Monto inicial: RD$ {opening_amount:.2f})",
+            user_session=session.get('user', {}),
+            after=shift_dict,
+            sandbox=sandbox
+        )
         flash('Caja abierta correctamente. ¡Buen turno!', 'success')
         return redirect(url_for('web_pos.pos_terminal'))
     else:
@@ -143,6 +154,18 @@ def close_shift():
         supervisor_email=session['user']['email'] if is_supervisor else None
     )
     if res:
+        from app.services.audit_service import AuditService, ACTION_UPDATE, MODULE_POS
+        AuditService.log_from_request(
+            owner_uid=owner_uid,
+            action=ACTION_UPDATE,
+            module=MODULE_POS,
+            entity_id=open_shift['id'],
+            entity_label=f"Cierre de turno de caja (Declarado: RD$ {declared_amount:.2f})",
+            user_session=session.get('user', {}),
+            before=open_shift,
+            after=res,
+            sandbox=sandbox
+        )
         if status == "CLOSED":
             diff = res["difference"]
             if abs(diff) < 0.01:
@@ -470,6 +493,17 @@ def create_pos_sale():
 
     # 3. Si aplica modo consolidado → no emitir e-CF individual, retornar con indicador
     if qualifies_for_consolidation:
+        from app.services.audit_service import AuditService, ACTION_CREATE, MODULE_POS
+        AuditService.log_from_request(
+            owner_uid=owner_uid,
+            action=ACTION_CREATE,
+            module=MODULE_POS,
+            entity_id=invoice_id,
+            entity_label=f"Venta POS {invoice_number} (Consolidadas - Monto: RD$ {calcs['total']:.2f})",
+            user_session=session.get('user', {}),
+            after=invoice_dict,
+            sandbox=sandbox
+        )
         return jsonify({
             "success": True,
             "invoiceId": invoice_id,
@@ -497,6 +531,18 @@ def create_pos_sale():
         invoice_dict["emisionMode"] = "FALLBACK"
         invoice_dict["isSyncedWithDGII"] = False
         DatabaseService.save_invoice(owner_uid, invoice_id, invoice_dict, sandbox=sandbox)
+
+    from app.services.audit_service import AuditService, ACTION_CREATE, MODULE_POS
+    AuditService.log_from_request(
+        owner_uid=owner_uid,
+        action=ACTION_CREATE,
+        module=MODULE_POS,
+        entity_id=invoice_id,
+        entity_label=f"Venta POS {invoice_number} (Monto: RD$ {calcs['total']:.2f})",
+        user_session=session.get('user', {}),
+        after=invoice_dict,
+        sandbox=sandbox
+    )
     # 4. Enviar factura y XML por correo SOLO si es Crédito Fiscal (E31) con cliente registrado.
     #    Las Facturas de Consumo (E32) son para consumidores finales y NO se envían por email.
     if ecf_type == 'Factura de Crédito Fiscal (E31)' and client_id and client_id != 'default':

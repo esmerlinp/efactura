@@ -1,0 +1,277 @@
+{% extends "layout.html" %}
+
+{% block title %}Detalle de Auditoría{% endblock %}
+
+{% block page_header %}Detalle del Evento{% endblock %}
+
+{% block content %}
+<style>
+    .detail-card {
+        background: #ffffff;
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-md);
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+        margin-bottom: 24px;
+        padding: 24px;
+    }
+
+    .badge-create {
+        background-color: rgba(16, 185, 129, 0.1);
+        color: #10b981;
+        font-weight: 600;
+        padding: 4px 8px;
+        border-radius: var(--radius-sm);
+        font-size: 0.75rem;
+    }
+    .badge-update {
+        background-color: rgba(59, 130, 246, 0.1);
+        color: #3b82f6;
+        font-weight: 600;
+        padding: 4px 8px;
+        border-radius: var(--radius-sm);
+        font-size: 0.75rem;
+    }
+    .badge-delete {
+        background-color: rgba(239, 68, 68, 0.1);
+        color: #ef4444;
+        font-weight: 600;
+        padding: 4px 8px;
+        border-radius: var(--radius-sm);
+        font-size: 0.75rem;
+    }
+    .badge-login {
+        background-color: rgba(139, 92, 246, 0.1);
+        color: #8b5cf6;
+        font-weight: 600;
+        padding: 4px 8px;
+        border-radius: var(--radius-sm);
+        font-size: 0.75rem;
+    }
+    .badge-logout {
+        background-color: rgba(107, 114, 128, 0.1);
+        color: #6b7280;
+        font-weight: 600;
+        padding: 4px 8px;
+        border-radius: var(--radius-sm);
+        font-size: 0.75rem;
+    }
+    .badge-view {
+        background-color: rgba(156, 163, 175, 0.1);
+        color: #4b5563;
+        font-weight: 600;
+        padding: 4px 8px;
+        border-radius: var(--radius-sm);
+        font-size: 0.75rem;
+    }
+    .badge-export {
+        background-color: rgba(245, 158, 11, 0.1);
+        color: #d97706;
+        font-weight: 600;
+        padding: 4px 8px;
+        border-radius: var(--radius-sm);
+        font-size: 0.75rem;
+    }
+
+    .diff-container {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+        margin-top: 20px;
+    }
+
+    @media (max-width: 992px) {
+        .diff-container {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    .state-panel {
+        border-radius: var(--radius-md);
+        border: 1px solid var(--border-color);
+        padding: 16px;
+        position: relative;
+    }
+
+    .state-before {
+        background-color: rgba(239, 68, 68, 0.02);
+        border-color: rgba(239, 68, 68, 0.15);
+    }
+
+    .state-after {
+        background-color: rgba(16, 185, 129, 0.02);
+        border-color: rgba(16, 185, 129, 0.15);
+    }
+
+    .panel-header {
+        font-size: 0.95rem;
+        font-family: var(--font-heading);
+        font-weight: 600;
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        border-bottom: 1px solid var(--border-color);
+        padding-bottom: 8px;
+    }
+
+    .json-code {
+        font-family: monospace;
+        font-size: 0.82rem;
+        color: var(--text-primary);
+        white-space: pre-wrap;
+        word-break: break-all;
+        margin: 0;
+        background-color: rgba(0, 0, 0, 0.03);
+        padding: 12px;
+        border-radius: var(--radius-sm);
+        max-height: 500px;
+        overflow-y: auto;
+    }
+
+    .meta-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 16px;
+        margin-bottom: 20px;
+        background-color: rgba(0, 0, 0, 0.01);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-sm);
+        padding: 16px;
+    }
+
+    .meta-item {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .meta-label {
+        font-size: 0.72rem;
+        font-weight: 600;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+    }
+
+    .meta-value {
+        font-size: 0.88rem;
+        font-weight: 500;
+        color: var(--text-primary);
+    }
+</style>
+
+<div class="page-title-container" style="margin-bottom: 20px; padding-left: 4px; display: flex; align-items: center; justify-content: space-between;">
+    <div style="display: flex; align-items: center; gap: 12px;">
+        <a href="{{ url_for('web_audit.audit_log') }}" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.85rem; border-radius: var(--radius-sm);">
+            <i class="fa-solid fa-arrow-left"></i> Volver al Log
+        </a>
+        <h1 class="page-title" style="font-size: 1.5rem; font-weight: 800; font-family: var(--font-heading); color: var(--text-primary); margin: 0;">
+            Log ID: <span style="font-family: monospace; font-size: 1.1rem; color: var(--text-secondary);">{{ log.id }}</span>
+        </h1>
+    </div>
+</div>
+
+<div class="detail-card">
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px;">
+        <div>
+            <h2 style="font-size: 1.35rem; font-family: var(--font-heading); margin-bottom: 6px; color: var(--text-primary);">
+                {{ log.entityLabel or 'Operación del sistema' }}
+            </h2>
+            <p style="color: var(--text-secondary); font-size: 0.88rem;">
+                Módulo: <strong>{{ log.module }}</strong> | Acción: 
+                {% if log.action == 'CREATE' %}
+                <span class="badge-create">CREATE</span>
+                {% elif log.action == 'UPDATE' %}
+                <span class="badge-update">UPDATE</span>
+                {% elif log.action == 'DELETE' %}
+                <span class="badge-delete">DELETE</span>
+                {% elif log.action == 'LOGIN' %}
+                <span class="badge-login">LOGIN</span>
+                {% elif log.action == 'LOGOUT' %}
+                <span class="badge-logout">LOGOUT</span>
+                {% elif log.action == 'VIEW' %}
+                <span class="badge-view">VIEW</span>
+                {% elif log.action == 'EXPORT' %}
+                <span class="badge-export">EXPORT</span>
+                {% else %}
+                <span class="badge badge-secondary">{{ log.action }}</span>
+                {% endif %}
+            </p>
+        </div>
+        
+        <div style="text-align: right;">
+            {% if log.isSandbox %}
+            <span class="badge badge-secondary" style="background-color: rgba(245, 158, 11, 0.15); color: #d97706; font-weight: 700; padding: 6px 12px; border-radius: var(--radius-md); font-size: 0.8rem;">
+                ENTORNO: SANDBOX
+            </span>
+            {% else %}
+            <span class="badge badge-success" style="background-color: rgba(16, 185, 129, 0.15); color: #10b981; font-weight: 700; padding: 6px 12px; border-radius: var(--radius-md); font-size: 0.8rem;">
+                ENTORNO: PRODUCCIÓN
+            </span>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Metadatos del Evento -->
+    <div class="meta-grid">
+        <div class="meta-item">
+            <span class="meta-label">Fecha y Hora</span>
+            <span class="meta-value">{{ log.timestamp.replace('T', ' ')[:19] }} UTC</span>
+        </div>
+        <div class="meta-item">
+            <span class="meta-label">Usuario</span>
+            <span class="meta-value">{{ log.performedBy }}</span>
+        </div>
+        <div class="meta-item">
+            <span class="meta-label">Correo Electrónico</span>
+            <span class="meta-value" style="font-family: monospace;">{{ log.performedByEmail or 'N/A' }}</span>
+        </div>
+        <div class="meta-item">
+            <span class="meta-label">IP Address</span>
+            <span class="meta-value" style="font-family: monospace;">{{ log.ipAddress or 'Desconocida' }}</span>
+        </div>
+        <div class="meta-item" style="grid-column: span 2;">
+            <span class="meta-label">User Agent</span>
+            <span class="meta-value" style="font-size: 0.78rem; font-family: monospace; color: var(--text-secondary);">{{ log.userAgent or 'No disponible' }}</span>
+        </div>
+    </div>
+
+    <h3 style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 12px; border-bottom: 2px solid var(--accent-purple); padding-bottom: 6px; display: inline-block;">
+        Comparación de Estado (Snapshot)
+    </h3>
+
+    <!-- Paneles de Comparación -->
+    <div class="diff-container">
+        <!-- Antes -->
+        <div class="state-panel state-before">
+            <div class="panel-header" style="color: #ef4444;">
+                <i class="fa-solid fa-clock-rotate-left"></i>
+                <span>Estado Anterior (Antes de la Operación)</span>
+            </div>
+            {% if log.before and log.before.keys() | length > 0 %}
+            <pre class="json-code">{{ log.before | tojson(indent=2) }}</pre>
+            {% else %}
+            <div style="padding: 24px; text-align: center; color: var(--text-muted); font-size: 0.88rem;">
+                <i class="fa-solid fa-ban" style="font-size: 1.5rem; display: block; margin-bottom: 8px; opacity: 0.5;"></i>
+                <span>No hay datos previos (Creación o evento de sesión)</span>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Después -->
+        <div class="state-panel state-after">
+            <div class="panel-header" style="color: #10b981;">
+                <i class="fa-solid fa-circle-check"></i>
+                <span>Estado Posterior (Después de la Operación)</span>
+            </div>
+            {% if log.after and log.after.keys() | length > 0 %}
+            <pre class="json-code">{{ log.after | tojson(indent=2) }}</pre>
+            {% else %}
+            <div style="padding: 24px; text-align: center; color: var(--text-muted); font-size: 0.88rem;">
+                <i class="fa-solid fa-ban" style="font-size: 1.5rem; display: block; margin-bottom: 8px; opacity: 0.5;"></i>
+                <span>No hay datos posteriores (Eliminación o salida de sesión)</span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

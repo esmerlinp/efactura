@@ -164,7 +164,8 @@ class DatabaseService:
                 "canManageCXP": True,
                 "canManageContracts": True,
                 "canManageCommissions": True,
-                "canViewBI": True
+                "canViewBI": True,
+                "canViewAuditLog": False
             },
             "createdAt": created_at
         }
@@ -240,7 +241,8 @@ class DatabaseService:
                         "canManageCXP": bool(perms.get("canManageCXP", True)),
                         "canManageContracts": bool(perms.get("canManageContracts", True)),
                         "canManageCommissions": bool(perms.get("canManageCommissions", True)),
-                        "canViewBI": bool(perms.get("canViewBI", True))
+                        "canViewBI": bool(perms.get("canViewBI", True)),
+                        "canViewAuditLog": bool(perms.get("canViewAuditLog", False))
                     },
                     "createdAt": created_at
                 }
@@ -266,7 +268,8 @@ class DatabaseService:
                         "canManageCXP": True,
                         "canManageContracts": True,
                         "canManageCommissions": True,
-                        "canViewBI": True
+                        "canViewBI": True,
+                        "canViewAuditLog": True
                     },
                     "createdAt": datetime.utcnow().isoformat()
                 }
@@ -306,7 +309,8 @@ class DatabaseService:
                         "canManageCXP": bool(perms.get("canManageCXP", True)),
                         "canManageContracts": bool(perms.get("canManageContracts", True)),
                         "canManageCommissions": bool(perms.get("canManageCommissions", True)),
-                        "canViewBI": bool(perms.get("canViewBI", True))
+                        "canViewBI": bool(perms.get("canViewBI", True)),
+                        "canViewAuditLog": bool(perms.get("canViewAuditLog", False))
                     },
                     "createdAt": serialize_field(data.get("createdAt"))
                 }
@@ -358,7 +362,8 @@ class DatabaseService:
                                 "canManageCXP": bool(emp_data.get("permissions", {}).get("canManageCXP", True)),
                                 "canManageContracts": bool(emp_data.get("permissions", {}).get("canManageContracts", True)),
                                 "canManageCommissions": bool(emp_data.get("permissions", {}).get("canManageCommissions", True)),
-                                "canViewBI": bool(emp_data.get("permissions", {}).get("canViewBI", True))
+                                "canViewBI": bool(emp_data.get("permissions", {}).get("canViewBI", True)),
+                                "canViewAuditLog": bool(emp_data.get("permissions", {}).get("canViewAuditLog", False))
                             }
                         })
             except Exception as e:

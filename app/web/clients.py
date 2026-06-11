@@ -88,6 +88,18 @@ def new_client():
         }
         
         DatabaseService.save_client(owner_uid, client_id, client_dict, sandbox=sandbox)
+        
+        from app.services.audit_service import AuditService, ACTION_CREATE, MODULE_CLIENTES
+        AuditService.log_from_request(
+            owner_uid=owner_uid,
+            action=ACTION_CREATE,
+            module=MODULE_CLIENTES,
+            entity_id=client_id,
+            entity_label=f"Cliente registrado: {client_dict['razonSocial']} (RNC: {client_dict['rnc']})",
+            user_session=session.get('user', {}),
+            after=client_dict,
+            sandbox=sandbox
+        )
         flash('Cliente registrado exitosamente en el directorio CRM.', 'success')
         return redirect(url_for('list_clients'))
         
@@ -125,6 +137,18 @@ def ajax_create_client():
     
     DatabaseService.save_client(owner_uid, client_id, client_dict, sandbox=sandbox)
     
+    from app.services.audit_service import AuditService, ACTION_CREATE, MODULE_CLIENTES
+    AuditService.log_from_request(
+        owner_uid=owner_uid,
+        action=ACTION_CREATE,
+        module=MODULE_CLIENTES,
+        entity_id=client_id,
+        entity_label=f"Cliente registrado (Rápido): {client_dict['razonSocial']} (RNC: {client_dict['rnc']})",
+        user_session=session.get('user', {}),
+        after=client_dict,
+        sandbox=sandbox
+    )
+    
     return jsonify({
         "success": True,
         "message": "Cliente registrado exitosamente.",
@@ -154,6 +178,7 @@ def edit_client(client_id):
         return redirect(url_for('list_clients'))
         
     if request.method == 'POST':
+        before_client = client.copy()
         client_dict = {
             "rnc": request.form['rnc'],
             "razonSocial": request.form['razonSocial'],
@@ -166,6 +191,19 @@ def edit_client(client_id):
             "disableAutoReminders": request.form.get('disableAutoReminders') == 'on' or request.form.get('disableAutoReminders') == 'true'
         }
         DatabaseService.save_client(owner_uid, client_id, client_dict, sandbox=sandbox)
+        
+        from app.services.audit_service import AuditService, ACTION_UPDATE, MODULE_CLIENTES
+        AuditService.log_from_request(
+            owner_uid=owner_uid,
+            action=ACTION_UPDATE,
+            module=MODULE_CLIENTES,
+            entity_id=client_id,
+            entity_label=f"Cliente modificado: {client_dict['razonSocial']} (RNC: {client_dict['rnc']})",
+            user_session=session.get('user', {}),
+            before=before_client,
+            after=client_dict,
+            sandbox=sandbox
+        )
         flash('Ficha CRM del cliente actualizada exitosamente.', 'success')
         return redirect(url_for('list_clients'))
         
@@ -179,7 +217,26 @@ def delete_client_route(client_id):
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
     
+    before_client = {}
+    try:
+        clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox)
+        before_client = next((c for c in clients if c['id'] == client_id), {})
+    except Exception:
+        pass
+        
     DatabaseService.delete_client(owner_uid, client_id, sandbox=sandbox)
+    
+    from app.services.audit_service import AuditService, ACTION_DELETE, MODULE_CLIENTES
+    AuditService.log_from_request(
+        owner_uid=owner_uid,
+        action=ACTION_DELETE,
+        module=MODULE_CLIENTES,
+        entity_id=client_id,
+        entity_label=f"Cliente eliminado: {before_client.get('razonSocial', 'N/A')} (RNC: {before_client.get('rnc', 'N/A')})",
+        user_session=session.get('user', {}),
+        before=before_client,
+        sandbox=sandbox
+    )
     flash('Cliente eliminado del directorio.', 'success')
     return redirect(url_for('list_clients'))
 
@@ -310,6 +367,18 @@ def add_client_interaction(client_id):
     
     DatabaseService.save_client_interaction(owner_uid, client_id, interaction_id, interaction_dict, sandbox=sandbox)
     
+    from app.services.audit_service import AuditService, ACTION_CREATE, MODULE_CRM
+    AuditService.log_from_request(
+        owner_uid=owner_uid,
+        action=ACTION_CREATE,
+        module=MODULE_CRM,
+        entity_id=interaction_id,
+        entity_label=f"Seguimiento CRM registrado para Cliente ID: {client_id} (Tipo: {interaction_type})",
+        user_session=session.get('user', {}),
+        after=interaction_dict,
+        sandbox=sandbox
+    )
+    
     # Si agregamos un seguimiento y tiene fecha de contacto próxima, actualizar también al cliente
     if next_contact_date:
         clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox)
@@ -331,6 +400,17 @@ def delete_client_interaction_route(client_id, interaction_id):
     sandbox = session.get('is_sandbox_mode', True)
     
     DatabaseService.delete_client_interaction(owner_uid, client_id, interaction_id, sandbox=sandbox)
+    
+    from app.services.audit_service import AuditService, ACTION_DELETE, MODULE_CRM
+    AuditService.log_from_request(
+        owner_uid=owner_uid,
+        action=ACTION_DELETE,
+        module=MODULE_CRM,
+        entity_id=interaction_id,
+        entity_label=f"Seguimiento CRM eliminado del Cliente ID: {client_id}",
+        user_session=session.get('user', {}),
+        sandbox=sandbox
+    )
     flash('Interacción eliminada correctamente de la línea de tiempo.', 'success')
     return redirect(url_for('client_detail', client_id=client_id))
 
