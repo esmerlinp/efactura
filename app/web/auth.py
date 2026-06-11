@@ -1,6 +1,11 @@
 # app/web/auth.py
 import os
 import requests as http_requests
+import pyotp
+import qrcode
+import io
+import base64
+import secrets
 from datetime import datetime
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify
 from config import Config
@@ -50,6 +55,13 @@ def login():
         
         user_profile = DatabaseService.authenticate_user(email, password)
         if user_profile:
+            # Si tiene MFA activo, guardar perfil temporal y redirigir
+            if user_profile.get("two_factor_enabled"):
+                session['mfa_pending_uid'] = user_profile['uid']
+                session['mfa_pending_email'] = user_profile['email']
+                session['mfa_pending_profile'] = user_profile
+                return redirect(url_for('web_auth.verify_2fa'))
+                
             session['user'] = user_profile
             session['is_sandbox_mode'] = False  # Producción por defecto al iniciar
             
@@ -71,7 +83,197 @@ def login():
             
     return render_template('auth/login.html')
 
+@web_auth_bp.route('/login/verify-2fa', methods=['GET', 'POST'])
+def verify_2fa():
+    if 'user' in session:
+        return redirect(url_for('web_dashboard.dashboard'))
+        
+    if 'mfa_pending_uid' not in session or 'mfa_pending_profile' not in session:
+        flash('Sesión expirada o inválida.', 'error')
+        return redirect(url_for('web_auth.login'))
+        
+    if request.method == 'POST':
+        code = request.form.get('code', '').strip()
+        user_profile = session['mfa_pending_profile']
+        secret = user_profile.get('two_factor_secret')
+        backup_codes = user_profile.get('backup_codes', [])
+        
+        is_valid = False
+        
+        # 1. Verificar TOTP
+        if secret:
+            totp = pyotp.TOTP(secret)
+            if totp.verify(code, valid_window=1):
+                is_valid = True
+                
+        # 2. Verificar códigos de respaldo
+        if not is_valid and code in backup_codes:
+            is_valid = True
+            backup_codes.remove(code)
+            DatabaseService.save_user_2fa_config(
+                uid=user_profile['uid'],
+                secret=secret,
+                enabled=True,
+                backup_codes=backup_codes
+            )
+            user_profile['backup_codes'] = backup_codes
+            
+        if is_valid:
+            session['user'] = user_profile
+            session['is_sandbox_mode'] = False
+            
+            # Limpiar estado temporal de MFA
+            session.pop('mfa_pending_uid', None)
+            session.pop('mfa_pending_email', None)
+            session.pop('mfa_pending_profile', None)
+            
+            from app.services.audit_service import AuditService, ACTION_LOGIN, MODULE_AUTH
+            AuditService.log_from_request(
+                owner_uid=user_profile['ownerUID'],
+                action=ACTION_LOGIN,
+                module=MODULE_AUTH,
+                entity_id=user_profile['uid'],
+                entity_label=f"Inicio de sesión exitoso con 2FA — {user_profile['email']}",
+                user_session=user_profile,
+                sandbox=False
+            )
+            
+            flash('¡Sesión iniciada exitosamente con 2FA!', 'success')
+            return redirect(url_for('web_dashboard.dashboard'))
+        else:
+            flash('Código incorrecto o inválido. Inténtalo de nuevo.', 'error')
+            
+    return render_template('auth/verify_2fa.html', email=session.get('mfa_pending_email'))
+
+@web_auth_bp.route('/profile/2fa/setup', methods=['POST'])
+def setup_2fa():
+    """Genera la clave secreta y el código QR para el usuario."""
+    if 'user' not in session:
+        return jsonify({"success": False, "error": "No autorizado"}), 401
+        
+    user = session['user']
+    email = user.get('email')
+    
+    secret = pyotp.random_base32()
+    totp = pyotp.TOTP(secret)
+    provisioning_uri = totp.provisioning_uri(name=email, issuer_name="e-Factura RD")
+    
+    qr = qrcode.QRCode(version=1, box_size=10, border=4)
+    qr.add_data(provisioning_uri)
+    qr.make(fit=True)
+    img = qr.make_image(fill_color="black", back_color="white")
+    
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    qr_base64 = base64.b64encode(buf.getvalue()).decode('utf-8')
+    
+    return jsonify({
+        "success": True,
+        "secret": secret,
+        "qr_code": f"data:image/png;base64,{qr_base64}"
+    })
+
+@web_auth_bp.route('/profile/2fa/enable', methods=['POST'])
+def enable_2fa():
+    """Verifica el primer token y activa 2FA."""
+    if 'user' not in session:
+        return jsonify({"success": False, "error": "No autorizado"}), 401
+        
+    data = request.get_json(silent=True) or {}
+    secret = data.get('secret')
+    code = data.get('code')
+    
+    if not secret or not code:
+        return jsonify({"success": False, "error": "Faltan parámetros requeridos."}), 400
+        
+    totp = pyotp.TOTP(secret)
+    if totp.verify(code, valid_window=1):
+        user = session['user']
+        uid = user['uid']
+        
+        backup_codes = [secrets.token_hex(4).upper() for _ in range(8)]
+        
+        success = DatabaseService.save_user_2fa_config(uid, secret, True, backup_codes)
+        if success:
+            session['user']['two_factor_enabled'] = True
+            session['user']['two_factor_secret'] = secret
+            session['user']['backup_codes'] = backup_codes
+            session.modified = True
+            
+            from app.services.audit_service import AuditService, ACTION_UPDATE, MODULE_AUTH
+            AuditService.log_from_request(
+                owner_uid=user['ownerUID'],
+                action=ACTION_UPDATE,
+                module=MODULE_AUTH,
+                entity_id=uid,
+                entity_label=f"Habilitó verificación en dos pasos (2FA) — {user['email']}",
+                user_session=user,
+                sandbox=session.get('is_sandbox_mode', False)
+            )
+            
+            return jsonify({
+                "success": True,
+                "message": "Autenticación de dos factores activada con éxito.",
+                "backup_codes": backup_codes
+            })
+        else:
+            return jsonify({"success": False, "error": "Error al guardar en base de datos."}), 500
+    else:
+        return jsonify({"success": False, "error": "El código ingresado es incorrecto o ha expirado."}), 400
+
+@web_auth_bp.route('/profile/2fa/disable', methods=['POST'])
+def disable_2fa():
+    """Desactiva 2FA para el usuario."""
+    if 'user' not in session:
+        return jsonify({"success": False, "error": "No autorizado"}), 401
+        
+    data = request.get_json(silent=True) or {}
+    password = data.get('password')
+    
+    if not password:
+        return jsonify({"success": False, "error": "Se requiere ingresar su contraseña actual."}), 400
+        
+    user = session['user']
+    email = user.get('email')
+    
+    if Config.FIREBASE_API_KEY:
+        try:
+            verify_url = f"https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key={Config.FIREBASE_API_KEY}"
+            verify_res = http_requests.post(verify_url, json={
+                "email": email,
+                "password": password,
+                "returnSecureToken": True
+            }, timeout=10)
+            if verify_res.status_code != 200:
+                return jsonify({"success": False, "error": "La contraseña ingresada es incorrecta."}), 400
+        except Exception as e:
+            return jsonify({"success": False, "error": f"Error al verificar contraseña: {e}"}), 500
+            
+    uid = user['uid']
+    success = DatabaseService.save_user_2fa_config(uid, None, False, [])
+    if success:
+        session['user']['two_factor_enabled'] = False
+        session['user']['two_factor_secret'] = None
+        session['user']['backup_codes'] = []
+        session.modified = True
+        
+        from app.services.audit_service import AuditService, ACTION_UPDATE, MODULE_AUTH
+        AuditService.log_from_request(
+            owner_uid=user['ownerUID'],
+            action=ACTION_UPDATE,
+            module=MODULE_AUTH,
+            entity_id=uid,
+            entity_label=f"Deshabilitó verificación en dos pasos (2FA) — {user['email']}",
+            user_session=user,
+            sandbox=session.get('is_sandbox_mode', False)
+        )
+        return jsonify({"success": True, "message": "Autenticación de dos factores desactivada con éxito."})
+    else:
+        return jsonify({"success": False, "error": "Error al guardar en base de datos."}), 500
+
+
 @web_auth_bp.route('/register', methods=['GET', 'POST'])
+
 def register():
     flash('El registro público de cuentas está deshabilitado. Comuníquese con ventas para crear su cuenta.', 'error')
     return redirect(url_for('web_auth.login'))

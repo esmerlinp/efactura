@@ -244,7 +244,10 @@ class DatabaseService:
                         "canViewBI": bool(perms.get("canViewBI", True)),
                         "canViewAuditLog": bool(perms.get("canViewAuditLog", False))
                     },
-                    "createdAt": created_at
+                    "createdAt": created_at,
+                    "two_factor_enabled": bool(data.get("two_factor_enabled", False)),
+                    "two_factor_secret": data.get("two_factor_secret"),
+                    "backup_codes": data.get("backup_codes", [])
                 }
                 return profile
             else:
@@ -271,7 +274,10 @@ class DatabaseService:
                         "canViewBI": True,
                         "canViewAuditLog": True
                     },
-                    "createdAt": datetime.utcnow().isoformat()
+                    "createdAt": datetime.utcnow().isoformat(),
+                    "two_factor_enabled": False,
+                    "two_factor_secret": None,
+                    "backup_codes": []
                 }
                 db_firestore.collection("users").document(firebase_uid).collection("config").document("user_profile").set(profile)
                 return profile
@@ -312,11 +318,32 @@ class DatabaseService:
                         "canViewBI": bool(perms.get("canViewBI", True)),
                         "canViewAuditLog": bool(perms.get("canViewAuditLog", False))
                     },
-                    "createdAt": serialize_field(data.get("createdAt"))
+                    "createdAt": serialize_field(data.get("createdAt")),
+                    "two_factor_enabled": bool(data.get("two_factor_enabled", False)),
+                    "two_factor_secret": data.get("two_factor_secret"),
+                    "backup_codes": data.get("backup_codes", [])
                 }
         except Exception as e:
             print(f"⚠️ Error al obtener perfil desde Firestore: {e}")
         return None
+
+    @classmethod
+    def save_user_2fa_config(cls, uid, secret, enabled, backup_codes=None):
+        """Actualiza la configuración de autenticación en dos pasos en Firestore."""
+        if not firebase_initialized:
+            return False
+        try:
+            data = {
+                "two_factor_enabled": bool(enabled),
+                "two_factor_secret": secret
+            }
+            if backup_codes is not None:
+                data["backup_codes"] = backup_codes
+            db_firestore.collection("users").document(uid).collection("config").document("user_profile").update(data)
+            return True
+        except Exception as e:
+            print(f"⚠️ Fallo al actualizar configuración 2FA en Firestore: {e}")
+            return False
 
     @classmethod
     def save_user_profile(cls, uid, profile_dict):

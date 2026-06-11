@@ -9,3 +9,4 @@ pillow-heif
 gunicorn==22.0.0
 weasyprint
 pypdf
+pyotp==2.9.0
