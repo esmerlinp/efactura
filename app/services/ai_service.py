@@ -27,6 +27,31 @@ class AIService:
         if not api_key or api_key == "YOUR_OPENAI_API_KEY_HERE":
             return {"success": False, "message": "API Key de OpenAI no configurada."}
 
+        # Convert HEIC/HEIF to JPEG
+        is_heic = "heic" in mime_type.lower() or "heif" in mime_type.lower()
+        if is_heic:
+            try:
+                from PIL import Image
+                import pillow_heif
+                import io
+                
+                heif_file = pillow_heif.read_heif(io.BytesIO(file_bytes))
+                image = Image.frombytes(
+                    heif_file.mode, 
+                    heif_file.size, 
+                    heif_file.data,
+                    "raw",
+                    heif_file.mode,
+                    heif_file.stride,
+                )
+                
+                out_buffer = io.BytesIO()
+                image.save(out_buffer, format="JPEG", quality=90)
+                file_bytes = out_buffer.getvalue()
+                mime_type = "image/jpeg"
+            except Exception as e:
+                return {"success": False, "message": f"Error al convertir imagen HEIC a JPEG: {str(e)}"}
+
         is_pdf = "pdf" in mime_type.lower()
         
         headers = {
@@ -105,6 +130,45 @@ Si no encuentras algún dato, usa string vacío "" o 0.0 para montos. No agregue
                     content = content[:-3]
                 content = content.strip()
                 data = json.loads(content)
+                
+                # Corregir si el OCR intercambió NCF y RNC o leyó el NCF en el RNC
+                rnc_val = "".join(filter(str.isalnum, str(data.get("rncEmisor", "")))).strip()
+                ncf_val = "".join(filter(str.isalnum, str(data.get("ncf", "")))).strip()
+                
+                # Limpiar residuos al final si es un e-CF numérico leído en el RNC (ej: 3200000466103fi -> 3200000466103)
+                if rnc_val.startswith(('31', '32', '41', '43', '45')) and len(rnc_val) > 12:
+                    digits_only = "".join(filter(str.isdigit, rnc_val))
+                    if len(digits_only) == 12:
+                        rnc_val = digits_only
+
+                is_rnc_actually_ncf = False
+                
+                # Caso A: Empieza con letras típicas de NCF/e-CF
+                if any(c.isalpha() for c in rnc_val) and rnc_val.upper().startswith(('B', 'E', 'A')):
+                    is_rnc_actually_ncf = True
+                # Caso B: Tiene 13 caracteres (ej: E320000466103)
+                elif len(rnc_val) == 13:
+                    is_rnc_actually_ncf = True
+                # Caso C: Tiene 12 dígitos y empieza con prefijos de e-CF sin la 'E' (31, 32, 41, 43, 45)
+                elif len(rnc_val) == 12 and rnc_val.startswith(('31', '32', '41', '43', '45')):
+                    is_rnc_actually_ncf = True
+                    rnc_val = "E" + rnc_val # Restaurar 'E' inicial
+                
+                if is_rnc_actually_ncf:
+                    ncf_digits = "".join(filter(str.isdigit, ncf_val))
+                    if len(ncf_digits) in [9, 11]:
+                        data["rncEmisor"] = ncf_digits
+                    else:
+                        data["rncEmisor"] = "" # Limpiar RNC incorrecto
+                    data["ncf"] = rnc_val
+                
+                # Sanear RNC (solo dígitos)
+                if data.get("rncEmisor"):
+                    data["rncEmisor"] = "".join(filter(str.isdigit, str(data["rncEmisor"])))
+                # Sanear NCF (alfanumérico y mayúsculas, sin espacios ni guiones)
+                if data.get("ncf"):
+                    data["ncf"] = "".join(filter(str.isalnum, str(data["ncf"]))).upper()
+                    
                 return {"success": True, "data": data}
             else:
                 return {"success": False, "message": f"Error API OpenAI: {response.text}"}

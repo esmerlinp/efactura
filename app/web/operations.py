@@ -52,6 +52,38 @@ def list_contracts():
 
     contracts = DatabaseService.get_contracts(owner_uid, sandbox=sandbox)
     clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox)
+
+    # Exportar a CSV si se solicita
+    if request.args.get('export') == 'csv':
+        import csv
+        import io
+        from flask import send_file
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(["Número de Contrato", "Cliente", "RNC", "Monto Fijo (RD$)", "Frecuencia", "Fecha Inicio", "Fecha Fin", "Próximo Cobro", "Estatus"])
+        for c in contracts:
+            writer.writerow([
+                c.get("contractNumber", ""),
+                c.get("clientName", ""),
+                c.get("clientRNC", ""),
+                f"{c.get('amount', 0.0):.2f}",
+                c.get("recurrenceInterval", ""),
+                c.get("startDate", ""),
+                c.get("endDate", ""),
+                c.get("nextBillingDate", ""),
+                c.get("status", "")
+            ])
+        dest = io.BytesIO()
+        dest.write(b'\xef\xbb\xbf')  # UTF-8 BOM
+        dest.write(output.getvalue().encode('utf-8'))
+        dest.seek(0)
+        filename = f"contratos_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.csv"
+        return send_file(
+            dest,
+            mimetype="text/csv",
+            as_attachment=True,
+            download_name=filename
+        )
     
     # Calcular estadísticas del panel de contratos
     total_active = sum(1 for c in contracts if c.get('status') == 'Activo')

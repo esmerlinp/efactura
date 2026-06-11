@@ -34,6 +34,8 @@ class Config:
     OPENAI_API_KEY = os.getenv('OPENAI_API_KEY', '')
 
     # Proveedor de Emisión de e-CF (alanube / dgii_direct)
-    E_CF_PROVIDER = os.getenv('E_CF_PROVIDER', 'alanube')
+    #E_CF_PROVIDER = os.getenv('E_CF_PROVIDER', 'alanube')
+    E_CF_PROVIDER = "alanube"
+
 
 

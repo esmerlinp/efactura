@@ -96,11 +96,18 @@
     <h2
         style="font-size: 1.25rem; font-family: var(--font-heading); font-weight: 700; margin: 0; color: var(--text-primary);">
         Listado de Contratos Recurrentes</h2>
-    <button onclick="openModal('new-contract-modal')" class="btn btn-primary"
-        style="display: inline-flex; align-items: center; gap: 8px;">
-        <i class="fa-solid fa-plus"></i>
-        <span>Registrar Nuevo Contrato</span>
-    </button>
+    <div style="display: flex; gap: 12px; align-items: center;">
+        <a href="?export=csv" class="btn btn-secondary"
+            style="display: inline-flex; align-items: center; gap: 8px;">
+            <i class="fa-solid fa-file-csv"></i>
+            <span>Exportar CSV</span>
+        </a>
+        <button onclick="openModal('new-contract-modal')" class="btn btn-primary"
+            style="display: inline-flex; align-items: center; gap: 8px;">
+            <i class="fa-solid fa-plus"></i>
+            <span>Registrar Nuevo Contrato</span>
+        </button>
+    </div>
 </div>
 
 <!-- Listado de Contratos -->

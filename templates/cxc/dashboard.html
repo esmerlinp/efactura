@@ -259,6 +259,12 @@
                 Cartera de Clientes Pendientes / Vencidos
             </h2>
             <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                <!-- Botón de Exportación CSV -->
+                <a href="?export=csv" class="action-btn"
+                    title="Exportar CxC a CSV"
+                    style="color: var(--accent-blue); border-color: rgba(59, 130, 246, 0.3);">
+                    <i class="fa-solid fa-file-csv"></i>
+                </a>
                 <!-- Botón de Configuración de Automatización -->
                 <button onclick="openAutoReminderConfigModal()" class="action-btn"
                     title="Configurar Automatización de Recordatorios"

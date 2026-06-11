@@ -39,11 +39,28 @@ def audit_log():
 
     owner_uid = session['user']['ownerUID']
 
-    # Leer parámetros de filtro desde URL
+    # Obtener lista de usuarios de la compañía (propietario + colaboradores)
+    from app.services.db_service import DatabaseService
+    company_users = []
+    owner_profile = DatabaseService.get_user_profile(owner_uid)
+    if owner_profile:
+        company_users.append({
+            "uid": owner_profile["uid"],
+            "name": owner_profile["name"] or owner_profile["email"].split('@')[0],
+            "email": owner_profile["email"]
+        })
+    for member in DatabaseService.get_team_members(owner_uid):
+        company_users.append({
+            "uid": member["uid"],
+            "name": member["name"] or member["email"].split('@')[0],
+            "email": member["email"]
+        })
+
+    # Leer parámetros de filtro desde URL (user es ahora una lista)
     page         = int(request.args.get('page', 1))
     module_f     = request.args.get('module', 'Todos')
     action_f     = request.args.get('action', 'Todos')
-    user_f       = request.args.get('user', '').strip()
+    user_f       = [u.strip() for u in request.args.getlist('user') if u.strip()]
     entity_f     = request.args.get('entity', '').strip()
     date_from    = request.args.get('date_from', '').strip()
     date_to      = request.args.get('date_to', '').strip()
@@ -55,7 +72,7 @@ def audit_log():
         per_page=25,
         module_filter=module_f,
         action_filter=action_f,
-        user_filter=user_f,
+        user_filter=user_f or None,
         date_from=date_from or None,
         date_to=date_to or None,
         entity_filter=entity_f or None,
@@ -79,12 +96,14 @@ def audit_log():
         total=result['total'],
         pages=result['pages'],
         current_page=result['current_page'],
+        is_limited=result.get('is_limited', False),
         modules=modules,
         actions=actions,
+        company_users=company_users,
         # Filtros activos (para re-poblar el formulario)
         f_module=module_f,
         f_action=action_f,
-        f_user=user_f,
+        f_users=user_f,
         f_entity=entity_f,
         f_date_from=date_from,
         f_date_to=date_to,
@@ -129,7 +148,7 @@ def audit_export():
     # Leer filtros del formulario POST
     module_f  = request.form.get('module', 'Todos')
     action_f  = request.form.get('action', 'Todos')
-    user_f    = request.form.get('user', '').strip()
+    user_f    = [u.strip() for u in request.form.getlist('user') if u.strip()]
     entity_f  = request.form.get('entity', '').strip()
     date_from = request.form.get('date_from', '').strip()
     date_to   = request.form.get('date_to', '').strip()

@@ -108,6 +108,14 @@
     }
 </style>
 
+<!-- Acceso Directo para Registrar Gasto -->
+<div style="display: flex; justify-content: flex-end; margin-bottom: 20px;">
+    <a href="{{ url_for('new_expense_route') }}" class="btn btn-primary" style="display: inline-flex; align-items: center; gap: 8px;">
+        <i class="fa-solid fa-file-circle-plus"></i>
+        <span>Registrar Nuevo Gasto</span>
+    </a>
+</div>
+
 <!-- KPIs SUPERIORES (Estilo OpenAI Dashboard) -->
 {% set total_cxp_pending_val = total_cxp_pending | float %}
 {% if total_cxp_pending_val > 0 %}
@@ -192,6 +200,49 @@
         </div>
     </div>
 </div>
+
+<!-- Sección de Filtros y Exportación CxP -->
+<form method="GET" action="{{ url_for('list_cxp') }}" style="margin-bottom: 24px; padding: 15px; background: rgba(0, 0, 0, 0.02); border: 1px solid var(--border-color); border-radius: 8px;">
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; align-items: flex-end;">
+        <div class="form-group" style="margin-bottom: 0;">
+            <label for="search" style="font-size: 0.72rem; margin-bottom: 4px; display: block; color: var(--text-secondary);">Buscar Documento</label>
+            <input type="text" id="search" name="search" class="form-input" placeholder="Proveedor, NCF, Concepto..." value="{{ search_query or '' }}" style="width: 100%; font-size: 0.78rem; height: 36px; padding: 6px 10px;">
+        </div>
+
+        <div class="form-group" style="margin-bottom: 0;">
+            <label for="status" style="font-size: 0.72rem; margin-bottom: 4px; display: block; color: var(--text-secondary);">Estatus CxP</label>
+            <select id="status" name="status" class="form-select" style="width: 100%; font-size: 0.78rem; height: 36px; padding: 6px 10px;">
+                <option value="">-- Todos --</option>
+                <option value="Pendiente" {% if status_filter == 'Pendiente' %}selected{% endif %}>Pendiente</option>
+                <option value="Abonado" {% if status_filter == 'Abonado' %}selected{% endif %}>Abonado</option>
+                <option value="Vencido" {% if status_filter == 'Vencido' %}selected{% endif %}>Vencido</option>
+                <option value="Pagado" {% if status_filter == 'Pagado' %}selected{% endif %}>Pagado</option>
+            </select>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 0;">
+            <label for="start_date" style="font-size: 0.72rem; margin-bottom: 4px; display: block; color: var(--text-secondary);">Vence Desde</label>
+            <input type="date" id="start_date" name="start_date" class="form-input" value="{{ start_date or '' }}" style="width: 100%; font-size: 0.78rem; height: 36px; padding: 6px 10px;">
+        </div>
+
+        <div class="form-group" style="margin-bottom: 0;">
+            <label for="end_date" style="font-size: 0.72rem; margin-bottom: 4px; display: block; color: var(--text-secondary);">Vence Hasta</label>
+            <input type="date" id="end_date" name="end_date" class="form-input" value="{{ end_date or '' }}" style="width: 100%; font-size: 0.78rem; height: 36px; padding: 6px 10px;">
+        </div>
+
+        <div style="display: flex; gap: 8px; justify-content: flex-end;">
+            <button type="submit" class="btn btn-secondary" style="flex: 1; justify-content: center; height: 36px; font-size: 0.78rem; padding: 0 12px; border-color: var(--accent-emerald); color: var(--accent-emerald);">
+                <i class="fa-solid fa-filter"></i> Filtrar
+            </button>
+            <a href="{{ url_for('list_cxp') }}" class="btn btn-secondary" style="justify-content: center; height: 36px; font-size: 0.78rem; padding: 0 10px; border-color: var(--border-color); color: var(--text-muted);" title="Limpiar Filtros">
+                <i class="fa-solid fa-filter-circle-xmark"></i>
+            </a>
+            <button type="button" class="btn btn-secondary" onclick="exportToCSV()" style="flex: 1; justify-content: center; height: 36px; font-size: 0.78rem; padding: 0 12px; border-color: var(--accent-blue); color: var(--accent-blue);" title="Exportar a CSV">
+                <i class="fa-solid fa-file-csv"></i> Exportar
+            </button>
+        </div>
+    </div>
+</form>
 
 <div class="card-table-wrapper" style="box-shadow: none; padding: 0; overflow: hidden; margin-bottom: 24px;">
     <table class="table-premium" style="width: 100%; border-collapse: collapse;">
@@ -373,7 +424,12 @@
             })
             .catch(err => {
                 alert('Error de red al procesar el abono a la cuenta por pagar.');
-            });
+    }
+
+    function exportToCSV() {
+        const urlParams = new URLSearchParams(window.location.search);
+        urlParams.set('export', 'csv');
+        window.location.href = window.location.pathname + '?' + urlParams.toString();
     }
 </script>
 {% endblock %}

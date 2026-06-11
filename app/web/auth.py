@@ -51,7 +51,7 @@ def login():
         user_profile = DatabaseService.authenticate_user(email, password)
         if user_profile:
             session['user'] = user_profile
-            session['is_sandbox_mode'] = True  # Sandbox por defecto al iniciar
+            session['is_sandbox_mode'] = False  # Producción por defecto al iniciar
             
             from app.services.audit_service import AuditService, ACTION_LOGIN, MODULE_AUTH
             AuditService.log_from_request(
@@ -61,7 +61,7 @@ def login():
                 entity_id=user_profile['uid'],
                 entity_label=f"Inicio de sesión exitoso — {user_profile['email']}",
                 user_session=user_profile,
-                sandbox=True
+                sandbox=False
             )
             
             flash('¡Sesión iniciada exitosamente!', 'success')
@@ -88,7 +88,7 @@ def logout():
             entity_id=user['uid'],
             entity_label=f"Cierre de sesión — {user['email']}",
             user_session=user,
-            sandbox=session.get('is_sandbox_mode', True)
+            sandbox=session.get('is_sandbox_mode', False)
         )
     session.pop('user', None)
     session.pop('is_sandbox_mode', None)
@@ -211,7 +211,7 @@ def update_user_profile():
             user_session=session['user'],
             before=before_profile,
             after=session['user'],
-            sandbox=session.get('is_sandbox_mode', True)
+            sandbox=session.get('is_sandbox_mode', False)
         )
 
         return redirect(url_for('web_auth.user_profile_page', info_success='¡Información personal actualizada con éxito!'))
@@ -281,7 +281,7 @@ def change_user_password():
                 entity_id=session['user']['uid'],
                 entity_label=f"Cambio de contraseña exitoso — {session['user']['email']}",
                 user_session=session['user'],
-                sandbox=session.get('is_sandbox_mode', True)
+                sandbox=session.get('is_sandbox_mode', False)
             )
             return redirect(url_for('web_auth.user_profile_page', pwd_success='¡Contraseña actualizada exitosamente! Tu nueva contraseña está activa.'))
         else:

@@ -6,25 +6,83 @@
 
 {% block content %}
 <style>
-    .expense-layout-grid {
-        display: grid;
-        grid-template-columns: 1.6fr 1fr;
-        gap: 24px;
-        align-items: start;
+    /* Accordion Styles matching templates/items/form.html */
+    .settings-accordion {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
         margin-bottom: 24px;
         width: 100%;
     }
 
-    .expense-layout-grid .card-table-wrapper {
-        background-color: rgba(255, 255, 255, 0.85);
-        backdrop-filter: blur(20px);
-        box-shadow: var(--shadow-md);
+    .accordion-item {
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        background: var(--bg-card);
+        overflow: hidden;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
-    [data-theme="dark"] .expense-layout-grid .card-table-wrapper {
-        background-color: rgba(15, 23, 42, 0.85);
-        backdrop-filter: blur(20px);
-        box-shadow: var(--shadow-md);
+    .accordion-item.active {
+        border-color: var(--accent-emerald);
+        box-shadow: 0 4px 20px rgba(16, 185, 129, 0.05);
+    }
+
+    .accordion-header {
+        width: 100%;
+        padding: 14px 18px;
+        background: rgba(255, 255, 255, 0.01);
+        border: none;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        cursor: pointer;
+        text-align: left;
+        transition: background 0.2s ease;
+    }
+
+    .accordion-header:hover {
+        background: rgba(255, 255, 255, 0.03);
+    }
+
+    .accordion-title {
+        font-size: 0.95rem;
+        font-family: var(--font-heading);
+        font-weight: 500;
+        color: var(--text-main);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .accordion-title i {
+        font-size: 1.05rem;
+        color: var(--accent-emerald);
+        width: 24px;
+        text-align: center;
+    }
+
+    .accordion-chevron {
+        color: var(--text-muted);
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        font-size: 0.85rem;
+    }
+
+    .accordion-item.active .accordion-chevron {
+        transform: rotate(180deg);
+        color: var(--accent-emerald);
+    }
+
+    .accordion-content {
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .accordion-body {
+        padding: 20px;
+        border-top: 1px solid var(--border-color);
+        background: rgba(0, 0, 0, 0.02);
     }
 
     .form-inner-grid {
@@ -40,7 +98,7 @@
     .uploader-zone {
         border: 2px dashed var(--border-color);
         border-radius: var(--radius-md);
-        padding: 30px 20px;
+        padding: 40px 20px;
         text-align: center;
         background: rgba(0, 0, 0, 0.01);
         cursor: pointer;
@@ -61,12 +119,9 @@
     }
 
     @keyframes highlightPulse {
-
-        0%,
-        100% {
+        0%, 100% {
             background-color: transparent;
         }
-
         50% {
             background-color: rgba(16, 185, 129, 0.05);
         }
@@ -84,7 +139,6 @@
         border-radius: var(--radius-sm);
     }
 
-    /* WebRTC Camera Widget */
     #camera-container {
         display: none;
         flex-direction: column;
@@ -102,279 +156,330 @@
         max-width: 320px;
         border-radius: var(--radius-xs);
         transform: scaleX(-1);
-        /* mirror */
     }
 </style>
 
-<form action="{{ url_for('new_expense_route') }}" method="POST" enctype="multipart/form-data" style="width: 100%;"
-    id="expense-form">
-    <div class="expense-layout-grid">
-        <!-- Columna Izquierda: Datos del Egreso -->
-        <div style="display:flex; flex-direction:column; gap:24px;">
-            <div class="card-table-wrapper" style="margin-bottom: 0;">
-                <h3
-                    style="font-size: 1.15rem; font-family: var(--font-heading); margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px; display: flex; align-items: center; gap: 10px;">
-                    <i class="fa-solid fa-file-invoice-dollar" style="color: var(--accent-red);"></i>
-                    <span>Datos del Comprobante Fiscal / e-CF</span>
-                </h3>
+<div style="max-width: 850px; margin: 0 auto 50px auto; width: 100%;">
+    <form action="{{ url_for('new_expense_route') }}" method="POST" enctype="multipart/form-data" style="width: 100%;" id="expense-form">
+        <div class="settings-accordion">
 
-                <div class="form-inner-grid">
-                    <div class="form-group span-full">
-                        <label for="concept">Concepto / Detalle del Gasto</label>
-                        <input type="text" id="concept" name="concept" class="form-input"
-                            placeholder="Ej: Pago de Servidor Mensual Google Cloud" required style="width: 100%;">
+            <!-- SECCIÓN 1: CARGA DE DOCUMENTO / SOPORTE DIGITAL -->
+            <div class="accordion-item active" id="sec-documento">
+                <button type="button" class="accordion-header" onclick="toggleAccordionSection(this)">
+                    <div class="accordion-title">
+                        <i class="fa-solid fa-wand-magic-sparkles" style="color: var(--accent-emerald);"></i>
+                        <span>1. Carga de Documento / Soporte Digital (Opcional - Llena Datos con IA)</span>
                     </div>
+                    <i class="fa-solid fa-chevron-down accordion-chevron"></i>
+                </button>
+                <div class="accordion-content" style="max-height: none;">
+                    <div class="accordion-body">
+                        <div class="uploader-zone" id="drop-zone" onclick="document.getElementById('ocr-file').click()">
+                            <i class="fa-solid fa-cloud-arrow-up" style="font-size: 2.5rem; color: var(--text-muted); margin-bottom: 12px;"></i>
+                            <p style="font-size: 0.9rem; font-weight: 600; margin: 0 0 6px 0; color: var(--text-primary);">
+                                Arrastra XML de e-CF, PDF o Foto del Ticket
+                            </p>
+                            <span style="font-size: 0.75rem; color: var(--text-muted);">También puedes hacer clic para subir</span>
+                            <input type="file" id="ocr-file" name="attachment" accept=".xml,.pdf,image/*,application/pdf" style="display:none" onchange="uploadForOCR(this.files[0])">
+                        </div>
 
-                    <div class="form-group">
-                        <label for="category">Categoría del Gasto</label>
-                        <select id="category" name="category" class="form-select" required style="width: 100%;">
-                            <option value="Comida y Restaurantes">Comida y Restaurantes</option>
-                            <option value="Transporte y Combustible">Transporte y Combustible</option>
-                            <option value="Servicios Básicos">Servicios Básicos (Luz, Internet)</option>
-                            <option value="Software y Tecnología" selected>Software y Tecnología</option>
-                            <option value="Materiales de Oficina">Materiales de Oficina</option>
-                            <option value="Alquileres">Alquileres</option>
-                            <option value="Impuestos y Tasas">Impuestos y Tasas</option>
-                            <option value="Otros Gastos">Otros Gastos</option>
-                        </select>
-                    </div>
+                        <div style="display: flex; gap: 10px; margin-top: 15px;">
+                            <button type="button" class="btn btn-secondary" style="flex:1; justify-content:center;" onclick="toggleCamera()">
+                                <i class="fa-solid fa-camera"></i> Tomar Foto con Cámara
+                            </button>
+                        </div>
 
-                    <div class="form-group">
-                        <label for="tipoGastoDGII">Tipo de Gasto Deducible (DGII 606)</label>
-                        <select id="tipoGastoDGII" name="tipoGastoDGII" class="form-select" required
-                            style="width: 100%;">
-                            <option value="01">01 - Gastos de Personal</option>
-                            <option value="02" selected>02 - Gastos por Trabajos, Suministros y Servicios</option>
-                            <option value="03">03 - Arrendamientos</option>
-                            <option value="04">04 - Gastos de Activos Fijos</option>
-                            <option value="05">05 - Gastos de Representación</option>
-                            <option value="06">06 - Otras Deducciones Admitidas</option>
-                            <option value="07">07 - Gastos Financieros</option>
-                        </select>
-                    </div>
+                        <!-- Previsualización de Adjunto -->
+                        <div id="preview-container" style="display: none; margin-top: 15px; padding: 15px; border: 1px dashed var(--border-color); border-radius: var(--radius-sm); background: rgba(0,0,0,0.01); text-align: center;">
+                            <p style="font-size: 0.8rem; font-weight: 500; color: var(--text-secondary); margin: 0 0 10px 0;">
+                                Archivo Adjunto Cargado:
+                            </p>
+                            <div id="preview-content"></div>
+                            <button type="button" class="btn btn-secondary btn-sm" style="margin-top: 10px; font-size: 0.75rem; padding: 6px 12px; border-color: var(--accent-red); color: var(--accent-red); background: transparent;" onclick="clearAttachment()">
+                                <i class="fa-solid fa-trash"></i> Eliminar Adjunto
+                            </button>
+                        </div>
 
-                    <div class="form-group">
-                        <label for="ecfType">Tipo de Comprobante e-CF</label>
-                        <select id="ecfType" name="ecfType" class="form-select" style="width: 100%;">
-                            <option value="E31" selected>E31 - Factura de Crédito Fiscal Electrónica</option>
-                            <option value="E32">E32 - Factura de Consumo Electrónica</option>
-                            <option value="E41">E41 - Nota de Débito Electrónica</option>
-                            <option value="E43">E43 - Gastos Menores Electrónicos</option>
-                            <option value="E45">E45 - Comprobante Gubernamental Electrónico</option>
-                        </select>
-                    </div>
+                        <!-- Cámara WebRTC Widget -->
+                        <div id="camera-container">
+                            <video id="camera-preview" autoplay playsinline></video>
+                            <button type="button" class="btn btn-success btn-sm" onclick="capturePhoto()">Capturar Foto</button>
+                        </div>
 
-                    <div class="form-group">
-                        <label for="ncf">NCF Electrónico (e-CF)</label>
-                        <input type="text" id="ncf" name="ncf" class="form-input" placeholder="Ej: E310120000452"
-                            required style="width: 100%; font-family: monospace;">
-                    </div>
-
-                    <div class="form-group">
-                        <label for="rnc-emisor">RNC del Proveedor</label>
-                        <input type="text" id="rnc-emisor" name="rncEmisor" class="form-input"
-                            placeholder="Ej: 101001011" required style="width: 100%; font-family: monospace;">
-                    </div>
-
-                    <div class="form-group">
-                        <label for="provider-name">Razón Social del Proveedor</label>
-                        <input type="text" id="provider-name" name="providerName" class="form-input"
-                            placeholder="Se autocompleta al validar RNC" style="width: 100%;">
-                    </div>
-
-                    <div class="form-group">
-                        <label for="cne">Código de Seguridad (CNE)</label>
-                        <input type="text" id="cne" name="cne" class="form-input"
-                            placeholder="Firma digital corta de DGII" style="width: 100%; font-family: monospace;">
-                    </div>
-
-                    <div class="form-group">
-                        <label for="amount">Monto Total Facturado (RD$)</label>
-                        <input type="number" id="amount" name="amount" class="form-input" placeholder="0.00" step="0.01"
-                            required style="width: 100%; font-weight: bold;">
-                    </div>
-
-                    <div class="form-group">
-                        <label for="itbisAmount">ITBIS Adelantado / Deducible (RD$)</label>
-                        <input type="number" id="itbisAmount" name="itbisAmount" class="form-input" placeholder="0.00"
-                            step="0.01" style="width: 100%;">
-                    </div>
-
-                    <div class="form-group">
-                        <label for="date">Fecha del Comprobante</label>
-                        <input type="date" id="date" name="date" class="form-input" required value="{{ today_str }}"
-                            style="width: 100%;">
-                    </div>
-
-                    <div class="form-group">
-                        <label for="associated-invoice">Imputar a Proyecto / Factura de Ingreso</label>
-                        <select id="associated-invoice" name="associatedInvoiceId" class="form-select"
-                            style="width: 100%;">
-                            <option value="">-- Gasto General Operativo --</option>
-                            {% for inv in invoices %}
-                            <option value="{{ inv.id }}">Factura {{ inv.invoiceNumber }} (RD$ {{
-                                "{:,.0f}".format(inv.total) }} - {{ inv.clientName }})</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-
-                    <div class="form-group span-full"
-                        style="margin-top: 10px; border-top: 1px dashed var(--border-color); padding-top: 16px;">
-                        <label class="switch-container"
-                            style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
-                            <input type="checkbox" id="is-deductible-checkbox" name="isDeductible" value="true" checked
-                                style="width: 18px; height: 18px; accent-color: var(--accent-red);">
-                            <span style="font-weight: 500;">¿Este gasto es para tu negocio (gasto deducible)?</span>
-                        </label>
+                        <div id="ocr-status" style="margin-top: 15px; font-size: 0.8rem; text-align: center; color: var(--text-muted); display: none;">
+                            <i class="fa-solid fa-spinner fa-spin" style="margin-right: 8px;"></i><span>Leyendo datos fiscales del e-CF con IA...</span>
+                        </div>
                     </div>
                 </div>
             </div>
+
+            <!-- SECCIÓN 2: INFORMACIÓN GENERAL DEL GASTO Y PROVEEDOR -->
+            <div class="accordion-item" id="sec-proveedor">
+                <button type="button" class="accordion-header" onclick="toggleAccordionSection(this)">
+                    <div class="accordion-title">
+                        <i class="fa-solid fa-file-invoice-dollar" style="color: var(--accent-red);"></i>
+                        <span>2. Información del Gasto y Proveedor</span>
+                    </div>
+                    <i class="fa-solid fa-chevron-down accordion-chevron"></i>
+                </button>
+                <div class="accordion-content">
+                    <div class="accordion-body">
+                        <div class="form-inner-grid">
+                            <div class="form-group span-full">
+                                <label for="concept">Concepto / Detalle del Gasto</label>
+                                <input type="text" id="concept" name="concept" class="form-input" placeholder="Ej: Pago de Servidor Mensual Google Cloud" required style="width: 100%;">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="category">Categoría del Gasto</label>
+                                <select id="category" name="category" class="form-select" required style="width: 100%;">
+                                    <option value="Comida y Restaurantes">Comida y Restaurantes</option>
+                                    <option value="Transporte y Combustible">Transporte y Combustible</option>
+                                    <option value="Servicios Básicos">Servicios Básicos (Luz, Internet)</option>
+                                    <option value="Software y Tecnología" selected>Software y Tecnología</option>
+                                    <option value="Materiales de Oficina">Materiales de Oficina</option>
+                                    <option value="Alquileres">Alquileres</option>
+                                    <option value="Impuestos y Tasas">Impuestos y Tasas</option>
+                                    <option value="Otros Gastos">Otros Gastos</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="tipoGastoDGII">Tipo de Gasto Deducible (DGII 606)</label>
+                                <select id="tipoGastoDGII" name="tipoGastoDGII" class="form-select" required style="width: 100%;">
+                                    <option value="01">01 - Gastos de Personal</option>
+                                    <option value="02" selected>02 - Gastos por Trabajos, Suministros y Servicios</option>
+                                    <option value="03">03 - Arrendamientos</option>
+                                    <option value="04">04 - Gastos de Activos Fijos</option>
+                                    <option value="05">05 - Gastos de Representación</option>
+                                    <option value="06">06 - Otras Deducciones Admitidas</option>
+                                    <option value="07">07 - Gastos Financieros</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="rnc-emisor">RNC del Proveedor</label>
+                                <input type="text" id="rnc-emisor" name="rncEmisor" class="form-input" placeholder="Ej: 101001011" required style="width: 100%; font-family: monospace;">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="provider-name">Razón Social del Proveedor</label>
+                                <input type="text" id="provider-name" name="providerName" class="form-input" placeholder="Se autocompleta al validar RNC" style="width: 100%;">
+                            </div>
+
+                            <div class="form-group span-full" style="position: relative;">
+                                <label for="associated-invoice-search">Imputar a Proyecto / Factura de Ingreso (Opcional)</label>
+                                <div style="display: flex; gap: 8px; width: 100%;">
+                                    <div style="position: relative; flex: 1;">
+                                        <input type="text" id="associated-invoice-search" class="form-input" placeholder="Escribe el número de factura o cliente para buscar..." style="width: 100%;">
+                                        <div id="invoice-search-results" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 8px; box-shadow: var(--shadow-lg); z-index: 999; max-height: 250px; overflow-y: auto; margin-top: 4px;"></div>
+                                    </div>
+                                    <button type="button" class="btn btn-secondary" id="clear-invoice-link" style="display: none; align-items: center; gap: 6px; padding: 0 16px;" onclick="clearInvoiceLink()">
+                                        <i class="fa-solid fa-xmark"></i> Desvincular
+                                    </button>
+                                </div>
+                                <span style="font-size: 0.72rem; color: var(--text-muted); margin-top: 5px; display: block; line-height: 1.35;">
+                                    <i class="fa-solid fa-circle-info" style="color: var(--accent-blue); margin-right: 4px;"></i>
+                                    Vincula este gasto a una factura de venta específica para calcular la rentabilidad real y margen de ganancia de ese proyecto o cliente.
+                                </span>
+                                <input type="hidden" id="associated-invoice" name="associatedInvoiceId" value="">
+                            </div>
+
+                            <div class="form-group span-full" style="margin-top: 10px; border-top: 1px dashed var(--border-color); padding-top: 16px;">
+                                <label class="switch-container" style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                                    <input type="checkbox" id="is-deductible-checkbox" name="isDeductible" value="true" checked style="width: 18px; height: 18px; accent-color: var(--accent-red);">
+                                    <span style="font-weight: 500;">¿Este gasto es para tu negocio (gasto deducible)?</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECCIÓN 3: COMPROBANTE FISCAL (e-CF / NCF) -->
+            <div class="accordion-item" id="sec-fiscal">
+                <button type="button" class="accordion-header" onclick="toggleAccordionSection(this)">
+                    <div class="accordion-title">
+                        <i class="fa-solid fa-stamp" style="color: var(--accent-blue);"></i>
+                        <span>3. Datos del Comprobante Fiscal (e-CF)</span>
+                    </div>
+                    <i class="fa-solid fa-chevron-down accordion-chevron"></i>
+                </button>
+                <div class="accordion-content">
+                    <div class="accordion-body">
+                        <div class="form-inner-grid">
+                            <div class="form-group">
+                                <label for="ecfType">Tipo de Comprobante e-CF</label>
+                                <select id="ecfType" name="ecfType" class="form-select" style="width: 100%;">
+                                    <option value="E31" selected>E31 - Factura de Crédito Fiscal Electrónica</option>
+                                    <option value="E32">E32 - Factura de Consumo Electrónica</option>
+                                    <option value="E41">E41 - Nota de Débito Electrónica</option>
+                                    <option value="E43">E43 - Gastos Menores Electrónicos</option>
+                                    <option value="E45">E45 - Comprobante Gubernamental Electrónico</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="ncf">NCF Electrónico (e-CF)</label>
+                                <input type="text" id="ncf" name="ncf" class="form-input" placeholder="Ej: E310120000452" required style="width: 100%; font-family: monospace;">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="cne">Código de Seguridad (CNE)</label>
+                                <input type="text" id="cne" name="cne" class="form-input" placeholder="Firma digital corta de DGII" style="width: 100%; font-family: monospace;">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="date">Fecha del Comprobante</label>
+                                <input type="date" id="date" name="date" class="form-input" required value="{{ today_str }}" style="width: 100%;">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECCIÓN 4: TOTALES E IMPUESTOS -->
+            <div class="accordion-item" id="sec-totales">
+                <button type="button" class="accordion-header" onclick="toggleAccordionSection(this)">
+                    <div class="accordion-title">
+                        <i class="fa-solid fa-calculator" style="color: var(--accent-emerald);"></i>
+                        <span>4. Importes e Impuestos</span>
+                    </div>
+                    <i class="fa-solid fa-chevron-down accordion-chevron"></i>
+                </button>
+                <div class="accordion-content">
+                    <div class="accordion-body">
+                        <div class="form-inner-grid">
+                            <div class="form-group">
+                                <label for="amount">Monto Total Facturado (RD$)</label>
+                                <input type="number" id="amount" name="amount" class="form-input" placeholder="0.00" step="0.01" required style="width: 100%; font-weight: bold;">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="itbisAmount">ITBIS Adelantado / Deducible (RD$)</label>
+                                <input type="number" id="itbisAmount" name="itbisAmount" class="form-input" placeholder="0.00" step="0.01" style="width: 100%;">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECCIÓN 5: CONDICIONES DE PAGO Y AUTOMATIZACIÓN -->
+            <div class="accordion-item" id="sec-pago">
+                <button type="button" class="accordion-header" onclick="toggleAccordionSection(this)">
+                    <div class="accordion-title">
+                        <i class="fa-solid fa-credit-card" style="color: var(--accent-purple);"></i>
+                        <span>5. Condiciones de Pago y Automatización</span>
+                    </div>
+                    <i class="fa-solid fa-chevron-down accordion-chevron"></i>
+                </button>
+                <div class="accordion-content">
+                    <div class="accordion-body">
+                        <div class="form-inner-grid">
+                            <div class="form-group span-full">
+                                <label for="paymentType">Tipo de Pago</label>
+                                <select id="paymentType" name="paymentType" class="form-select" onchange="toggleCxpFields(this.value)" style="width: 100%;">
+                                    <option value="Contado" selected>Contado (Pagado al instante)</option>
+                                    <option value="Crédito">Crédito (Cuenta por Pagar - CxP)</option>
+                                </select>
+                            </div>
+
+                            <div class="span-full">
+                                <div class="credit-box" id="cxp-fields">
+                                    <div class="form-group" style="margin-bottom: 0;">
+                                        <label for="dueDate">Fecha de Vencimiento de Factura</label>
+                                        <input type="date" id="dueDate" name="dueDate" class="form-input" style="width: 100%;">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="form-group span-full">
+                                <label for="approvalStatus">Estatus de Gasto Interno</label>
+                                <select id="approvalStatus" name="approvalStatus" class="form-select" style="width: 100%;">
+                                    <option value="Aprobado" selected>Aprobado automáticamente</option>
+                                    <option value="Pendiente">Pendiente de Firma/Aprobación</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group span-full" style="border-top: 1px dashed var(--border-color); padding-top: 15px; margin-top: 10px;">
+                                <label for="isRecurring">¿Es un Gasto Fijo Recurrente?</label>
+                                <select id="isRecurring" name="isRecurring" class="form-select" onchange="toggleRecurrenceFields(this.value)" style="width: 100%;">
+                                    <option value="false" selected>No, egreso único</option>
+                                    <option value="true">Sí, automatizar registro</option>
+                                </select>
+                            </div>
+
+                            <div class="span-full">
+                                <div class="recurrence-box" id="recurrence-fields">
+                                    <div class="form-group" style="margin-bottom: 12px;">
+                                        <label for="recurrenceInterval">Frecuencia del Gasto</label>
+                                        <select id="recurrenceInterval" name="recurrenceInterval" class="form-select" style="width: 100%;">
+                                            <option value="semanal">Semanal</option>
+                                            <option value="quincenal">Quincenal</option>
+                                            <option value="mensual" selected>Mensual</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group" style="margin-bottom: 12px;">
+                                        <label for="nextOccurrenceDate">Próxima Fecha de Registro</label>
+                                        <input type="date" id="nextOccurrenceDate" name="nextOccurrenceDate" class="form-input" style="width: 100%;">
+                                    </div>
+                                    <div class="form-group" style="margin-bottom: 0;">
+                                        <label for="recurrenceEndDate">Fecha de Finalización (Límite)</label>
+                                        <input type="date" id="recurrenceEndDate" name="recurrenceEndDate" class="form-input" style="width: 100%;">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
         </div>
 
-        <!-- Columna Derecha: Carga de e-CF & CxP -->
-        <div style="display:flex; flex-direction:column; gap:24px;">
-            <!-- CARD DE CARGA DUAL / OCR -->
-            <div class="card-table-wrapper" style="margin-bottom: 0;">
-                <h3
-                    style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 16px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; display: flex; align-items: center; gap: 10px;">
-                    <i class="fa-solid fa-wand-magic-sparkles" style="color: var(--accent-emerald);"></i>
-                    <span>Cargador Inteligente e-CF</span>
-                </h3>
-
-                <div class="uploader-zone" id="drop-zone" onclick="document.getElementById('ocr-file').click()">
-                    <i class="fa-solid fa-cloud-arrow-up"
-                        style="font-size: 2.2rem; color: var(--text-muted); margin-bottom: 8px;"></i>
-                    <p style="font-size: 0.8rem; font-weight:600; margin: 0 0 4px 0; color: var(--text-primary);">
-                        Arrastra XML de e-CF, PDF o Foto del Ticket</p>
-                    <span style="font-size: 0.7rem; color: var(--text-muted);">También puedes hacer clic para
-                        subir</span>
-                    <input type="file" id="ocr-file" name="attachment" accept=".xml,.pdf,image/*,application/pdf"
-                        style="display:none" onchange="uploadForOCR(this.files[0])">
-                </div>
-
-                <div style="display: flex; gap: 10px; margin-top: 12px;">
-                    <button type="button" class="btn btn-secondary" style="flex:1; justify-content:center;"
-                        onclick="toggleCamera()">
-                        <i class="fa-solid fa-camera"></i> Tomar Foto
-                    </button>
-                </div>
-
-                <!-- Contenedor de Previsualización de Adjunto -->
-                <div id="preview-container"
-                    style="display: none; margin-top: 12px; padding: 12px; border: 1px dashed var(--border-color); border-radius: var(--radius-sm); background: rgba(0,0,0,0.01); text-align: center;">
-                    <p style="font-size: 0.75rem; font-weight: 500; color: var(--text-secondary); margin: 0 0 8px 0;">
-                        Archivo Adjunto Precargado:</p>
-                    <div id="preview-content"></div>
-                    <button type="button" class="btn btn-secondary btn-sm"
-                        style="margin-top: 10px; font-size: 0.7rem; padding: 4px 8px; border-color: var(--accent-red); color: var(--accent-red); background: transparent;"
-                        onclick="clearAttachment()">
-                        <i class="fa-solid fa-trash"></i> Eliminar Adjunto
-                    </button>
-                </div>
-
-                <!-- Cámara WebRTC Widget -->
-                <div id="camera-container">
-                    <video id="camera-preview" autoplay playsinline></video>
-                    <button type="button" class="btn btn-success btn-sm" onclick="capturePhoto()">Capturar</button>
-                </div>
-
-                <div id="ocr-status"
-                    style="margin-top: 12px; font-size: 0.78rem; text-align: center; color: var(--text-muted); display: none;">
-                    <i class="fa-solid fa-spinner fa-spin" style="margin-right: 6px;"></i><span>Leyendo datos fiscales
-                        del e-CF...</span>
-                </div>
-            </div>
-
-            <!-- CARD CONDICIONES DE PAGO & CXP -->
-            <div class="card-table-wrapper" style="margin-bottom: 0;">
-                <h3
-                    style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 16px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; display: flex; align-items: center; gap: 10px;">
-                    <i class="fa-solid fa-credit-card" style="color: var(--accent-blue);"></i>
-                    <span>Condiciones de Pago / CxP</span>
-                </h3>
-
-                <div class="form-group" style="margin-bottom: 12px;">
-                    <label for="paymentType">Tipo de Pago</label>
-                    <select id="paymentType" name="paymentType" class="form-select"
-                        onchange="toggleCxpFields(this.value)" style="width: 100%;">
-                        <option value="Contado" selected>Contado (Pagado al instante)</option>
-                        <option value="Crédito">Crédito (Cuenta por Pagar - CxP)</option>
-                    </select>
-                </div>
-
-                <div class="credit-box" id="cxp-fields">
-                    <div class="form-group" style="margin-bottom: 0;">
-                        <label for="dueDate">Fecha de Vencimiento de Factura</label>
-                        <input type="date" id="dueDate" name="dueDate" class="form-input" style="width: 100%;">
-                    </div>
-                </div>
-
-                <div class="form-group" style="margin-top:14px; margin-bottom:0;">
-                    <label for="approvalStatus">Estatus de Gasto Interno</label>
-                    <select id="approvalStatus" name="approvalStatus" class="form-select" style="width: 100%;">
-                        <option value="Aprobado" selected>Aprobado automáticamente</option>
-                        <option value="Pendiente">Pendiente de Firma/Aprobación</option>
-                    </select>
-                </div>
-            </div>
-
-            <!-- CARD DE AUTOMATIZACIÓN (GASTO RECURRENTE) -->
-            <div class="card-table-wrapper" style="margin-bottom: 0;">
-                <h3
-                    style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 16px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; display: flex; align-items: center; gap: 10px;">
-                    <i class="fa-solid fa-arrows-spin" style="color: var(--accent-purple);"></i>
-                    <span>Gasto Recurrente / Automatización</span>
-                </h3>
-
-                <div class="form-group" style="margin-bottom: 12px;">
-                    <label for="isRecurring">¿Es un Gasto Fijo Recurrente?</label>
-                    <select id="isRecurring" name="isRecurring" class="form-select"
-                        onchange="toggleRecurrenceFields(this.value)" style="width: 100%;">
-                        <option value="false" selected>No, egreso único</option>
-                        <option value="true">Sí, automatizar registro</option>
-                    </select>
-                </div>
-
-                <div class="recurrence-box" id="recurrence-fields">
-                    <div class="form-group" style="margin-bottom: 12px;">
-                        <label for="recurrenceInterval">Frecuencia del Gasto</label>
-                        <select id="recurrenceInterval" name="recurrenceInterval" class="form-select"
-                            style="width: 100%;">
-                            <option value="semanal">Semanal</option>
-                            <option value="quincenal">Quincenal</option>
-                            <option value="mensual" selected>Mensual</option>
-                        </select>
-                    </div>
-                    <div class="form-group" style="margin-bottom: 12px;">
-                        <label for="nextOccurrenceDate">Próxima Fecha de Registro</label>
-                        <input type="date" id="nextOccurrenceDate" name="nextOccurrenceDate" class="form-input"
-                            style="width: 100%;">
-                    </div>
-                    <div class="form-group" style="margin-bottom: 0;">
-                        <label for="recurrenceEndDate">Fecha de Finalización (Límite)</label>
-                        <input type="date" id="recurrenceEndDate" name="recurrenceEndDate" class="form-input"
-                            style="width: 100%;">
-                    </div>
-                </div>
-            </div>
+        <!-- Botones de Acción -->
+        <div style="margin-top: 24px; display: flex; justify-content: flex-end; gap: 15px; border-top: 1px solid var(--border-color); padding-top: 24px;">
+            <a href="{{ url_for('list_expenses') }}" class="btn btn-secondary">
+                <span>Cancelar</span>
+            </a>
+            <button type="submit" class="btn btn-primary" style="padding: 14px 28px; background: var(--accent-emerald); border-color: var(--accent-emerald);">
+                <i class="fa-solid fa-floppy-disk"></i>
+                <span>Registrar Gasto e-CF</span>
+            </button>
         </div>
-    </div>
-
-    <!-- Botones de Acción -->
-    <div
-        style="margin-top: 24px; display: flex; justify-content: flex-end; gap: 15px; border-top: 1px solid var(--border-color); padding-top: 24px;">
-        <a href="{{ url_for('list_expenses') }}" class="btn btn-secondary">
-            <span>Cancelar</span>
-        </a>
-        <button type="submit" class="btn btn-primary"
-            style="padding: 14px 28px; background: var(--accent-emerald); border-color: var(--accent-emerald);">
-            <i class="fa-solid fa-floppy-disk"></i>
-            <span>Registrar Gasto e-CF</span>
-        </button>
-    </div>
-</form>
+    </form>
+</div>
 
 <script>
+    // Behavior of Accordion (matching items/form.html)
+    window.toggleAccordionSection = function (header) {
+        const item = header.parentElement;
+        const content = item.querySelector('.accordion-content');
+        const isActive = item.classList.contains('active');
+
+        // Close all sections first
+        document.querySelectorAll('.accordion-item').forEach(el => {
+            el.classList.remove('active');
+            const c = el.querySelector('.accordion-content');
+            if (c) c.style.maxHeight = null;
+        });
+
+        // Open target if it wasn't active
+        if (!isActive) {
+            item.classList.add('active');
+            content.style.maxHeight = content.scrollHeight + 'px';
+        }
+    };
+
+    function adjustActiveAccordionHeight() {
+        const activeItem = document.querySelector('.accordion-item.active');
+        if (activeItem) {
+            const content = activeItem.querySelector('.accordion-content');
+            if (content) {
+                content.style.maxHeight = content.scrollHeight + 'px';
+            }
+        }
+    }
+
     // Drag and Drop
     const dropZone = document.getElementById('drop-zone');
     ['dragenter', 'dragover'].forEach(eventName => {
@@ -414,6 +519,7 @@
             date.setDate(date.getDate() + 30);
             document.getElementById('dueDate').value = date.toISOString().split('T')[0];
         }
+        setTimeout(adjustActiveAccordionHeight, 150);
     }
 
     function toggleRecurrenceFields(val) {
@@ -421,6 +527,7 @@
         if (val === 'true' && !document.getElementById('nextOccurrenceDate').value) {
             document.getElementById('nextOccurrenceDate').value = document.getElementById('date').value;
         }
+        setTimeout(adjustActiveAccordionHeight, 150);
     }
 
     function classifyConcept(conceptVal) {
@@ -468,6 +575,29 @@
         lookupRncInDgii(this.value);
     });
 
+    function mapNcfToEcfType(ncf) {
+        if (!ncf) return;
+        const prefix = ncf.trim().toUpperCase().substring(0, 3);
+        const ecfSelect = document.getElementById('ecfType');
+        if (!ecfSelect) return;
+
+        if (prefix.startsWith('E31') || prefix.startsWith('B01')) {
+            ecfSelect.value = 'E31';
+        } else if (prefix.startsWith('E32') || prefix.startsWith('B02')) {
+            ecfSelect.value = 'E32';
+        } else if (prefix.startsWith('E41') || prefix.startsWith('B04')) {
+            ecfSelect.value = 'E41';
+        } else if (prefix.startsWith('E43') || prefix.startsWith('B13')) {
+            ecfSelect.value = 'E43';
+        } else if (prefix.startsWith('E45') || prefix.startsWith('B15')) {
+            ecfSelect.value = 'E45';
+        }
+    }
+
+    document.getElementById('ncf').addEventListener('input', function() {
+        mapNcfToEcfType(this.value);
+    });
+
     function setFormFile(file) {
         const fileInput = document.getElementById('ocr-file');
         const container = new DataTransfer();
@@ -483,12 +613,15 @@
 
         if (!file) {
             previewContainer.style.display = 'none';
+            setTimeout(adjustActiveAccordionHeight, 150);
             return;
         }
 
         previewContainer.style.display = 'block';
 
-        if (file.type.startsWith('image/')) {
+        const isHeic = file.name.toLowerCase().endsWith('.heic') || file.name.toLowerCase().endsWith('.heif') || file.type === 'image/heic';
+
+        if (file.type.startsWith('image/') && !isHeic) {
             const reader = new FileReader();
             reader.onload = function (e) {
                 const img = document.createElement('img');
@@ -498,8 +631,17 @@
                 img.style.borderRadius = 'var(--radius-xs)';
                 img.style.border = '1px solid var(--border-color)';
                 previewContent.appendChild(img);
+                setTimeout(adjustActiveAccordionHeight, 150);
             }
             reader.readAsDataURL(file);
+        } else if (isHeic) {
+            previewContent.innerHTML = `
+                <div style="display:flex; flex-direction:column; align-items:center; gap:6px; padding:10px;">
+                    <i class="fa-solid fa-file-image" style="font-size: 2.5rem; color: var(--accent-blue);"></i>
+                    <span style="font-size: 0.78rem; font-weight:600; color: var(--text-primary); max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${file.name}</span>
+                </div>
+            `;
+            setTimeout(adjustActiveAccordionHeight, 150);
         } else if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
             previewContent.innerHTML = `
                 <div style="display:flex; flex-direction:column; align-items:center; gap:6px; padding:10px;">
@@ -507,6 +649,7 @@
                     <span style="font-size: 0.78rem; font-weight:600; color: var(--text-primary); max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${file.name}</span>
                 </div>
             `;
+            setTimeout(adjustActiveAccordionHeight, 150);
         } else if (file.type === 'text/xml' || file.name.endsWith('.xml')) {
             previewContent.innerHTML = `
                 <div style="display:flex; flex-direction:column; align-items:center; gap:6px; padding:10px;">
@@ -514,6 +657,7 @@
                     <span style="font-size: 0.78rem; font-weight:600; color: var(--text-primary); max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${file.name}</span>
                 </div>
             `;
+            setTimeout(adjustActiveAccordionHeight, 150);
         } else {
             previewContent.innerHTML = `
                 <div style="display:flex; flex-direction:column; align-items:center; gap:6px; padding:10px;">
@@ -521,6 +665,7 @@
                     <span style="font-size: 0.78rem; font-weight:600; color: var(--text-primary); max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${file.name}</span>
                 </div>
             `;
+            setTimeout(adjustActiveAccordionHeight, 150);
         }
     }
 
@@ -533,11 +678,11 @@
     function uploadForOCR(file) {
         if (!file) return;
 
-        // Vincular archivo al formulario para que se suba con el POST
         setFormFile(file);
 
         const statusDiv = document.getElementById('ocr-status');
         statusDiv.style.display = 'block';
+        setTimeout(adjustActiveAccordionHeight, 150);
 
         const formData = new FormData();
         formData.append('file', file);
@@ -549,9 +694,9 @@
             .then(res => res.json())
             .then(data => {
                 statusDiv.style.display = 'none';
+                setTimeout(adjustActiveAccordionHeight, 150);
                 if (data.success && data.data) {
                     const extracted = data.data;
-                    // Rellenar campos y dar feedback visual
                     const fields = {
                         'rnc-emisor': extracted.rncEmisor,
                         'ncf': extracted.ncf,
@@ -570,14 +715,22 @@
                         }
                     }
 
-                    // Si se extrajo concepto, intentar clasificarlo
                     if (extracted.concept) {
                         classifyConcept(extracted.concept);
                     }
 
-                    // Si se extrajo RNC, intentar validar y buscar en la DGII
                     if (extracted.rncEmisor) {
                         lookupRncInDgii(extracted.rncEmisor);
+                    }
+
+                    if (extracted.ncf) {
+                        mapNcfToEcfType(extracted.ncf);
+                    }
+
+                    // Auto-expandir la Sección 2 (Información del Gasto y Proveedor)
+                    const secProveedorHeader = document.querySelector('#sec-proveedor .accordion-header');
+                    if (secProveedorHeader) {
+                        toggleAccordionSection(secProveedorHeader);
                     }
                 } else {
                     alert('No se pudieron extraer los datos fiscales: ' + (data.message || data.error));
@@ -585,6 +738,7 @@
             })
             .catch(err => {
                 statusDiv.style.display = 'none';
+                setTimeout(adjustActiveAccordionHeight, 150);
                 alert('Error de red al procesar el OCR.');
             });
     }
@@ -598,12 +752,14 @@
         if (container.style.display === 'flex') {
             stopCamera();
             container.style.display = 'none';
+            setTimeout(adjustActiveAccordionHeight, 150);
         } else {
             navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
                 .then(s => {
                     stream = s;
                     preview.srcObject = s;
                     container.style.display = 'flex';
+                    setTimeout(adjustActiveAccordionHeight, 150);
                 })
                 .catch(err => {
                     alert('No se pudo acceder a la cámara del dispositivo.');
@@ -626,14 +782,95 @@
 
         const ctx = canvas.getContext('2d');
         ctx.translate(canvas.width, 0);
-        ctx.scale(-1, 1); // mirror back
+        ctx.scale(-1, 1);
         ctx.drawImage(preview, 0, 0, canvas.width, canvas.height);
 
         canvas.toBlob(blob => {
             const file = new File([blob], "camera-capture.jpg", { type: "image/jpeg" });
             uploadForOCR(file);
-            toggleCamera(); // cerrar cámara
+            toggleCamera();
         }, 'image/jpeg');
     }
+
+    // Auto-complete para Facturas de Ingreso (Imputar a Proyecto)
+    const invSearchInput = document.getElementById('associated-invoice-search');
+    const invSearchResults = document.getElementById('invoice-search-results');
+    const invHiddenInput = document.getElementById('associated-invoice');
+    const clearInvBtn = document.getElementById('clear-invoice-link');
+    let searchTimeout = null;
+
+    if (invSearchInput) {
+        invSearchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            const query = this.value.trim();
+            if (!query) {
+                invSearchResults.style.display = 'none';
+                return;
+            }
+
+            searchTimeout = setTimeout(() => {
+                fetch(`/api/invoices/search?q=${encodeURIComponent(query)}`)
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.success && data.results && data.results.length > 0) {
+                            invSearchResults.innerHTML = '';
+                            data.results.forEach(inv => {
+                                const div = document.createElement('div');
+                                div.style.padding = '10px 14px';
+                                div.style.cursor = 'pointer';
+                                div.style.borderBottom = '1px solid var(--border-color)';
+                                div.style.fontSize = '0.85rem';
+                                div.style.transition = 'background 0.2s';
+                                div.innerHTML = `<strong>Factura ${inv.invoiceNumber}</strong> (RD$ ${inv.total.toLocaleString()} - ${inv.clientName})`;
+                                
+                                div.addEventListener('mouseover', () => {
+                                    div.style.background = 'rgba(255,255,255,0.05)';
+                                });
+                                div.addEventListener('mouseout', () => {
+                                    div.style.background = 'transparent';
+                                });
+                                
+                                div.addEventListener('click', () => {
+                                    invHiddenInput.value = inv.id;
+                                    invSearchInput.value = `Factura ${inv.invoiceNumber} (${inv.clientName})`;
+                                    invSearchInput.readOnly = true;
+                                    invSearchInput.style.backgroundColor = 'var(--bg-card-hover)';
+                                    clearInvBtn.style.display = 'flex';
+                                    invSearchResults.style.display = 'none';
+                                    adjustActiveAccordionHeight();
+                                });
+                                invSearchResults.appendChild(div);
+                            });
+                            invSearchResults.style.display = 'block';
+                            adjustActiveAccordionHeight();
+                        } else {
+                            invSearchResults.innerHTML = '<div style="padding: 10px 14px; font-size: 0.85rem; color: var(--text-muted);">No se encontraron facturas.</div>';
+                            invSearchResults.style.display = 'block';
+                            adjustActiveAccordionHeight();
+                        }
+                    })
+                    .catch(err => console.error("Error al buscar facturas:", err));
+            }, 300);
+        });
+
+        // Cerrar resultados al hacer click fuera
+        document.addEventListener('click', function(e) {
+            if (e.target !== invSearchInput && e.target !== invSearchResults) {
+                if (invSearchResults) invSearchResults.style.display = 'none';
+            }
+        });
+    }
+
+    window.clearInvoiceLink = function() {
+        if (invHiddenInput) invHiddenInput.value = '';
+        if (invSearchInput) {
+            invSearchInput.value = '';
+            invSearchInput.readOnly = false;
+            invSearchInput.style.backgroundColor = 'transparent';
+        }
+        if (clearInvBtn) clearInvBtn.style.display = 'none';
+        if (invSearchResults) invSearchResults.style.display = 'none';
+        adjustActiveAccordionHeight();
+    };
 </script>
 {% endblock %}

@@ -166,12 +166,21 @@ class AuditService:
                                 .collection("audit_logs") \
                                 .order_by("timestamp", direction="DESCENDING")
 
-            # Aplicar filtros directos de Firestore donde es posible
-            if module_filter and module_filter != "Todos":
-                query = query.where("module", "==", module_filter)
+            # Si no hay filtros activos, limitar a los últimos 100 registros para evitar sobrecarga en la primera carga
+            has_filters = bool(
+                (module_filter and module_filter != "Todos") or
+                (action_filter and action_filter != "Todos") or
+                user_filter or
+                (entity_filter and entity_filter.strip()) or
+                (date_from and date_from.strip()) or
+                (date_to and date_to.strip()) or
+                (sandbox_filter and sandbox_filter not in ("all", None))
+            )
 
-            if action_filter and action_filter != "Todos":
-                query = query.where("action", "==", action_filter)
+            is_limited = False
+            if not has_filters:
+                query = query.limit(100)
+                is_limited = True
 
             # Ejecutar query y obtener todos (paginación manual para filtros combinados)
             docs = query.get()
@@ -182,10 +191,15 @@ class AuditService:
 
                 # Filtros en Python para campos que no soportan índices compuestos
                 if user_filter:
-                    user_lower = user_filter.lower()
-                    name_match = user_lower in data.get("performedBy", "").lower()
-                    email_match = user_lower in data.get("performedByEmail", "").lower()
-                    if not (name_match or email_match):
+                    matched = False
+                    log_email = data.get("performedByEmail", "").lower()
+                    log_name = data.get("performedBy", "").lower()
+                    for u in user_filter:
+                        u_lower = u.lower()
+                        if u_lower in log_email or u_lower in log_name:
+                            matched = True
+                            break
+                    if not matched:
                         continue
 
                 if entity_filter:
@@ -241,12 +255,13 @@ class AuditService:
                 "total": total,
                 "pages": total_pages,
                 "current_page": page,
+                "is_limited": is_limited,
             }
 
         except Exception as e:
             print(f"⚠️ [AuditService] Error al obtener logs: {e}")
             traceback.print_exc()
-            return {"logs": [], "total": 0, "pages": 0, "current_page": page}
+            return {"logs": [], "total": 0, "pages": 0, "current_page": page, "is_limited": False}
 
     @classmethod
     def get_log_detail(cls, owner_uid: str, log_id: str) -> dict:

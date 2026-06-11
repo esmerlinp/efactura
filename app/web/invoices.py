@@ -46,6 +46,40 @@ def list_items():
     sandbox = session.get('is_sandbox_mode', True)
     
     items = DatabaseService.get_items(owner_uid, sandbox=sandbox)
+    
+    if request.args.get('export') == 'csv':
+        import io
+        from datetime import datetime
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(["Código SKU", "Código de Barra", "Nombre / Descripción", "Categoría", "Tipo", "Medida", "Ubicación Pasillo", "Tasa ITBIS", "Costo Unitario", "Precio Venta", "Existencia/Stock", "Estado"])
+        for item in items:
+            writer.writerow([
+                item.get("code", "S/C"),
+                item.get("barcode", ""),
+                item.get("name", ""),
+                item.get("categoryId", "general"),
+                item.get("type", "Bien"),
+                item.get("unit", "Unidad"),
+                item.get("rackLocation", ""),
+                f"{item.get('itbisRate', 0.18):.2%}",
+                f"{item.get('costPrice', 0.0):.2f}",
+                f"{item.get('price', 0.0):.2f}",
+                f"{item.get('totalStock', 0.0):.2f}" if item.get('type', 'Bien') == 'Bien' else "N/A",
+                "Activo" if item.get("isActive", True) else "Inactivo"
+            ])
+        dest = io.BytesIO()
+        dest.write(b'\xef\xbb\xbf')  # UTF-8 BOM
+        dest.write(output.getvalue().encode('utf-8'))
+        dest.seek(0)
+        filename = f"catalogo_general_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.csv"
+        return send_file(
+            dest,
+            mimetype="text/csv",
+            as_attachment=True,
+            download_name=filename
+        )
+
     return render_template('items/list.html', active_page='items', items=items)
 
 @web_invoices_bp.route('/items/new', methods=['GET', 'POST'])
@@ -228,22 +262,31 @@ def download_csv_template():
 @web_invoices_bp.route('/inventory/export-stock')
 def export_stock_report():
     if 'user' not in session: return redirect(url_for('login'))
-    if not check_permission('canClients'):
-        return render_template('auth/restricted.html', feature_name="Reporte de Existencia", required_permission="canClients")
+    if not check_permission('canManageInventory'):
+        return render_template('auth/restricted.html', feature_name="Reporte de Existencia", required_permission="canManageInventory")
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
     
-    products = DatabaseService.get_items(owner_uid, sandbox=sandbox)
-    goods = [p for p in products if p.get('type', 'Bien') == 'Bien']
+    # Obtener almacenes, productos y existencias
+    warehouses = DatabaseService.get_warehouses(owner_uid, sandbox=sandbox)
+    items = DatabaseService.get_items(owner_uid, sandbox=sandbox)
+    stocks = DatabaseService.get_inventory_stock(owner_uid, sandbox=sandbox)
+    
+    # Cruzar datos de existencias para cada item y almacén
+    stock_map = {}
+    for st in stocks:
+        stock_map[f"{st['itemId']}_{st['warehouseId']}"] = st['quantity']
+        
+    goods = [p for p in items if p.get('type', 'Bien') == 'Bien']
     
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow([
-        "Codigo SKU", "Nombre / Descripcion", "Categoria", "Marca", 
-        "Proveedor Principal", "Ubicacion Pasillo", "Existencia/Stock", 
-        "Costo Unitario", "Precio Venta", "Valor Total Inventario (Costo)", 
-        "Valor Total Inventario (Venta)", "Estado"
-    ])
+    
+    headers = ["Codigo SKU", "Nombre / Descripcion", "Categoria", "Marca", "Proveedor Principal", "Ubicacion Pasillo"]
+    for wh in warehouses:
+        headers.append(f"Stock ({wh.get('name')})")
+    headers.extend(["Existencia Total", "Costo Unitario", "Precio Venta", "Valor Total Inventario (Costo)", "Valor Total Inventario (Venta)", "Estado"])
+    writer.writerow(headers)
     
     for p in goods:
         qty = float(p.get("totalStock", 0.0))
@@ -252,13 +295,20 @@ def export_stock_report():
         val_cost = qty * cost
         val_sale = qty * price
         
-        writer.writerow([
+        row = [
             p.get("code", "S/C"),
             p.get("name", ""),
             p.get("categoryId", "general"),
             p.get("brand", ""),
             p.get("supplierName", ""),
             p.get("rackLocation", ""),
+        ]
+        # Stock de cada almacén
+        for wh in warehouses:
+            wh_qty = stock_map.get(f"{p['id']}_{wh['id']}", 0.0)
+            row.append(f"{wh_qty:.2f}")
+            
+        row.extend([
             f"{qty:.2f}",
             f"{cost:.2f}",
             f"{price:.2f}",
@@ -266,14 +316,18 @@ def export_stock_report():
             f"{val_sale:.2f}",
             "Activo" if p.get("isActive", True) else "Inactivo"
         ])
+        writer.writerow(row)
         
     timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
-    dest = io.BytesIO(output.getvalue().encode('utf-8'))
+    dest = io.BytesIO()
+    dest.write(b'\xef\xbb\xbf')  # UTF-8 BOM
+    dest.write(output.getvalue().encode('utf-8'))
+    dest.seek(0)
     return send_file(
         dest,
         mimetype="text/csv",
         as_attachment=True,
-        download_name=f"reporte_existencias_{timestamp}.csv"
+        download_name=f"inventario_almacen_{timestamp}.csv"
     )
 
 
@@ -529,6 +583,39 @@ def list_invoices():
         if end_date and inv_date > end_date:
             continue
         filtered.append(inv)
+
+    # Exportar a CSV si se solicita
+    if request.args.get('export') == 'csv':
+        import io
+        from datetime import datetime
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(["Número de Factura", "Cliente", "RNC", "Fecha", "Fecha Vencimiento", "Subtotal (RD$)", "Total (RD$)", "Pendiente (RD$)", "Estatus", "NCF / e-CF", "Tipo e-CF"])
+        for inv in filtered:
+            writer.writerow([
+                inv.get("invoiceNumber", ""),
+                inv.get("clientName", ""),
+                inv.get("clientRNC", ""),
+                inv.get("date", "")[:10],
+                inv.get("dueDate", "")[:10],
+                f"{inv.get('subtotal', 0.0):.2f}",
+                f"{inv.get('total', 0.0):.2f}",
+                f"{inv.get('remainingBalance', inv.get('netPayable', 0.0)):.2f}",
+                inv.get("status", ""),
+                inv.get("encf", ""),
+                inv.get("ecfType", "")
+            ])
+        dest = io.BytesIO()
+        dest.write(b'\xef\xbb\xbf')  # UTF-8 BOM
+        dest.write(output.getvalue().encode('utf-8'))
+        dest.seek(0)
+        filename = f"documentos_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.csv"
+        return send_file(
+            dest,
+            mimetype="text/csv",
+            as_attachment=True,
+            download_name=filename
+        )
         
     total_items = len(filtered)
     if per_page == 'all':
@@ -610,6 +697,35 @@ def list_quotations():
         if end_date and inv_date > end_date:
             continue
         filtered.append(inv)
+
+    # Exportar a CSV si se solicita
+    if request.args.get('export') == 'csv':
+        import io
+        from datetime import datetime
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(["Número de Cotización", "Cliente", "RNC", "Fecha", "Subtotal (RD$)", "Total (RD$)", "Estatus"])
+        for inv in filtered:
+            writer.writerow([
+                inv.get("invoiceNumber", ""),
+                inv.get("clientName", ""),
+                inv.get("clientRNC", ""),
+                inv.get("date", "")[:10],
+                f"{inv.get('subtotal', 0.0):.2f}",
+                f"{inv.get('total', 0.0):.2f}",
+                inv.get("status", "")
+            ])
+        dest = io.BytesIO()
+        dest.write(b'\xef\xbb\xbf')  # UTF-8 BOM
+        dest.write(output.getvalue().encode('utf-8'))
+        dest.seek(0)
+        filename = f"cotizaciones_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.csv"
+        return send_file(
+            dest,
+            mimetype="text/csv",
+            as_attachment=True,
+            download_name=filename
+        )
         
     total_items = len(filtered)
     if per_page == 'all':
@@ -2307,8 +2423,74 @@ def list_expenses():
                     exp["margin_pct"] = ((inv["total"] - exp["amount"]) / inv["total"]) * 100
                 else:
                     exp["margin_pct"] = 0.0
+
+    # Filtros
+    category_filter = request.args.get('category', '').strip()
+    start_date = request.args.get('start_date', '').strip()
+    end_date = request.args.get('end_date', '').strip()
+    search_query = request.args.get('search', '').strip().lower()
+    
+    filtered_expenses = []
+    for exp in expenses:
+        if category_filter and exp.get('category') != category_filter:
+            continue
+        if start_date and exp.get('date', '')[:10] < start_date:
+            continue
+        if end_date and exp.get('date', '')[:10] > end_date:
+            continue
+        if search_query:
+            concept = exp.get('concept', '').lower()
+            ncf = exp.get('ncf', '').lower()
+            rnc = exp.get('rncEmisor', '').lower()
+            provider = exp.get('providerName', '').lower()
+            if search_query not in concept and search_query not in ncf and search_query not in rnc and search_query not in provider:
+                continue
+        filtered_expenses.append(exp)
+
+    # Exportar a CSV si se solicita
+    if request.args.get('export') == 'csv':
+        import csv
+        import io
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(["Fecha", "Concepto", "Categoría", "NCF", "RNC Emisor", "Proveedor", "Monto Total (RD$)", "ITBIS (RD$)", "Factura Imputada", "Recurrente", "Estatus Aprobación"])
+        for exp in filtered_expenses:
+            writer.writerow([
+                exp.get("date", "")[:10],
+                exp.get("concept", ""),
+                exp.get("category", ""),
+                exp.get("ncf", ""),
+                exp.get("rncEmisor", ""),
+                exp.get("providerName", ""),
+                f"{exp.get('amount', 0.0):.2f}",
+                f"{exp.get('itbisAmount', 0.0):.2f}",
+                exp.get("invoice_number", ""),
+                "Sí" if exp.get("isRecurring") else "No",
+                exp.get("approvalStatus", "")
+            ])
+            
+        dest = io.BytesIO()
+        dest.write(b'\xef\xbb\xbf')  # UTF-8 BOM
+        dest.write(output.getvalue().encode('utf-8'))
+        dest.seek(0)
+        
+        filename = f"reporte_gastos_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.csv"
+        return send_file(
+            dest,
+            mimetype="text/csv",
+            as_attachment=True,
+            download_name=filename
+        )
                     
-    return render_template('expenses/list.html', active_page='expenses', expenses=expenses)
+    return render_template(
+        'expenses/list.html', 
+        active_page='expenses', 
+        expenses=filtered_expenses,
+        category_filter=category_filter,
+        start_date=start_date,
+        end_date=end_date,
+        search_query=search_query
+    )
 
 @web_invoices_bp.route('/expenses/new', methods=['GET', 'POST'])
 def new_expense_route():
@@ -2399,13 +2581,12 @@ def new_expense_route():
         flash('Gasto operativo registrado exitosamente.', 'success')
         return redirect(url_for('list_expenses'))
         
-    invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox)
     today_str = datetime.utcnow().strftime("%Y-%m-%d")
     
     return render_template(
         'expenses/new.html',
         active_page='expenses',
-        invoices=invoices,
+        invoices=[],
         today_str=today_str
     )
 
@@ -2613,14 +2794,80 @@ def list_cxp():
                 total_cxp_pending += rem_bal
                 if status == 'Vencido' or (due_date and due_date < today_str):
                     total_cxp_vencido += rem_bal
+
+    # Aplicar Filtros
+    status_filter = request.args.get('status', '').strip()
+    search_query = request.args.get('search', '').strip().lower()
+    start_date = request.args.get('start_date', '').strip()
+    end_date = request.args.get('end_date', '').strip()
+
+    filtered_cxp = []
+    for exp in cxp_list:
+        status = exp.get('cxpStatus', 'Pendiente')
+        due_date = exp.get('dueDate', '')
+        
+        if status_filter and status != status_filter:
+            continue
+            
+        if search_query:
+            concept = exp.get('concept', '').lower()
+            ncf = exp.get('ncf', '').lower()
+            rnc = exp.get('rncEmisor', '').lower()
+            provider = exp.get('providerName', '').lower()
+            if search_query not in concept and search_query not in ncf and search_query not in rnc and search_query not in provider:
+                continue
+                
+        if start_date and due_date < start_date:
+            continue
+        if end_date and due_date > end_date:
+            continue
+            
+        filtered_cxp.append(exp)
+
+    # Exportar a CSV si se solicita
+    if request.args.get('export') == 'csv':
+        import csv
+        import io
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(["Proveedor", "RNC Proveedor", "NCF", "Concepto", "Fecha Emisión", "Fecha Vencimiento", "Estatus", "Monto Total (RD$)", "Balance Pendiente (RD$)"])
+        for exp in filtered_cxp:
+            writer.writerow([
+                exp.get("providerName", "N/A"),
+                exp.get("rncEmisor", ""),
+                exp.get("ncf", ""),
+                exp.get("concept", ""),
+                exp.get("date", "")[:10],
+                exp.get("dueDate", ""),
+                exp.get("cxpStatus", "Pendiente"),
+                f"{exp.get('amount', 0.0):.2f}",
+                f"{exp.get('cxpRemainingBalance', exp.get('amount', 0.0)):.2f}"
+            ])
+            
+        dest = io.BytesIO()
+        dest.write(b'\xef\xbb\xbf')  # UTF-8 BOM
+        dest.write(output.getvalue().encode('utf-8'))
+        dest.seek(0)
+        
+        filename = f"cuentas_por_pagar_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.csv"
+        return send_file(
+            dest,
+            mimetype="text/csv",
+            as_attachment=True,
+            download_name=filename
+        )
                     
     return render_template(
         'expenses/cxp.html',
         active_page='expenses_cxp',
-        cxp_list=cxp_list,
+        cxp_list=filtered_cxp,
         total_cxp_pending=total_cxp_pending,
         total_cxp_vencido=total_cxp_vencido,
-        today_str=today_str
+        today_str=today_str,
+        status_filter=status_filter,
+        search_query=search_query,
+        start_date=start_date,
+        end_date=end_date
     )
 
 @web_invoices_bp.route('/expenses/cxp/<expense_id>/pay', methods=['POST'])
@@ -3576,6 +3823,35 @@ def cxc_dashboard():
     clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox)
     company = DatabaseService.get_company_profile(owner_uid) or {}
     
+    # Exportar a CSV si se solicita
+    if request.args.get('export') == 'csv':
+        import io
+        from datetime import datetime
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(["Factura #", "Cliente", "Fecha Emisión", "Fecha Vencimiento", "Total Facturado (RD$)", "Balance Pendiente (RD$)", "Estatus"])
+        for inv in cxc_invoices:
+            writer.writerow([
+                inv.get("invoiceNumber", ""),
+                inv.get("clientName", ""),
+                inv.get("date", "")[:10],
+                inv.get("dueDate", "")[:10],
+                f"{inv.get('total', 0.0):.2f}",
+                f"{inv.get('remainingBalance', inv.get('netPayable', 0.0)):.2f}",
+                inv.get("status", "")
+            ])
+        dest = io.BytesIO()
+        dest.write(b'\xef\xbb\xbf')  # UTF-8 BOM
+        dest.write(output.getvalue().encode('utf-8'))
+        dest.seek(0)
+        filename = f"cxc_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.csv"
+        return send_file(
+            dest,
+            mimetype="text/csv",
+            as_attachment=True,
+            download_name=filename
+        )
+
     return render_template(
         'cxc/dashboard.html',
         active_page='cxc',
@@ -4025,8 +4301,12 @@ def api_ai_receipt_ocr():
         
     owner_uid = session['user']['ownerUID']
     file_bytes = file.read()
-    mime_type = file.mimetype or "image/jpeg"
     
+    mime_type = file.mimetype or "image/jpeg"
+    filename = file.filename or ""
+    if filename.lower().endswith(('.heic', '.heif')):
+        mime_type = "image/heic"
+        
     from app.services.ai_service import AIService
     res = AIService.analyze_receipt_ocr(owner_uid, file_bytes, mime_type)
     return jsonify(res)
@@ -4073,6 +4353,21 @@ def api_ai_draft_collection():
     message = AIService.draft_collection_message(owner_uid, client_name, amount, due_date, status, tone)
     return jsonify({"success": True, "message": message})
 
+
+@web_invoices_bp.route('/api/invoices/search', methods=['GET'])
+def api_search_invoices():
+    if 'user' not in session:
+        return jsonify({"success": False, "error": "No autorizado"}), 401
+    
+    q = request.args.get('q', '').strip()
+    if not q:
+        return jsonify({"success": True, "results": []})
+        
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+    
+    results = DatabaseService.search_invoices_by_number(owner_uid, q, sandbox=sandbox)
+    return jsonify({"success": True, "results": results})
 
 @web_invoices_bp.route('/api/dgii/rnc/<rnc>', methods=['GET'])
 def web_lookup_rnc(rnc):

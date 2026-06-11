@@ -125,6 +125,13 @@
             <p style="color: var(--text-secondary); font-size: 0.88rem;">Detalle cruzado del stock de cada producto
                 físico en tus sucursales o depósitos.</p>
         </div>
+        <div style="display: flex; gap: 12px; align-items: center;">
+            <a href="{{ url_for('web_invoices.export_stock_report') }}" class="btn btn-secondary"
+                style="display: inline-flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-file-csv"></i>
+                <span>Exportar CSV</span>
+            </a>
+        </div>
     </div>
 
     <!-- Filtros de Búsqueda Avanzada (Más compactos) -->

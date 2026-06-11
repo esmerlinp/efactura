@@ -445,8 +445,7 @@ textarea {
 
 .page-title {
     font-size: 1.35rem;
-    font-weight: 400;
-    /* Reducido de 600 */
+    font-weight: 600 !important;
     font-family: var(--font-heading);
     color: var(--text-primary);
 }

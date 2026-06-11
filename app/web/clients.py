@@ -29,13 +29,51 @@ def list_clients():
     # Aplicar filtros
     q = request.args.get('q', '').strip()
     q_lower = q.lower()
-    stage = request.args.get('stage', '').strip()
+    
+    stage = request.args.get('stage')
+    # Por defecto, mostrar 'Cliente Activo' si no se provee filtro
+    if stage is None:
+        stage = 'Cliente Activo'
+    else:
+        stage = stage.strip()
     
     if q_lower:
         clients = [c for c in clients if q_lower in c.get('razonSocial', '').lower() or q_lower in c.get('rnc', '').lower() or q_lower in c.get('telefono', '').lower()]
         
-    if stage:
+    if stage and stage != 'Todos':
         clients = [c for c in clients if c.get('pipelineStage') == stage]
+
+    # Exportar a CSV si se solicita
+    if request.args.get('export') == 'csv':
+        import csv
+        import io
+        from flask import send_file
+        from datetime import datetime
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(["RNC / Cédula", "Razón Social", "Email", "Teléfono", "Dirección", "Etapa Pipeline", "Total Facturado (RD$)", "Pendiente CxC (RD$)"])
+        for c in clients:
+            writer.writerow([
+                c.get("rnc", ""),
+                c.get("razonSocial", ""),
+                c.get("email", ""),
+                c.get("telefono", ""),
+                c.get("direccion", ""),
+                c.get("pipelineStage", "Prospecto"),
+                f"{c.get('total_invoiced', 0.0):.2f}",
+                f"{c.get('total_cxc', 0.0):.2f}"
+            ])
+        dest = io.BytesIO()
+        dest.write(b'\xef\xbb\xbf')  # UTF-8 BOM
+        dest.write(output.getvalue().encode('utf-8'))
+        dest.seek(0)
+        filename = f"clientes_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.csv"
+        return send_file(
+            dest,
+            mimetype="text/csv",
+            as_attachment=True,
+            download_name=filename
+        )
 
     # Paginación
     page = request.args.get('page', 1, type=int)

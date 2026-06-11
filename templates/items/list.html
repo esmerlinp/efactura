@@ -18,6 +18,11 @@
                     facturación expedita.</p>
             </div>
             <div style="display: flex; gap: 12px; align-items: center;">
+                <button type="button" class="btn btn-secondary" onclick="exportToCSV()"
+                    style="display: inline-flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-file-csv"></i>
+                    <span>Exportar CSV</span>
+                </button>
                 <a href="{{ url_for('web_invoices.export_stock_report') }}" class="btn btn-secondary"
                     style="display: inline-flex; align-items: center; gap: 8px;">
                     <i class="fa-solid fa-file-invoice-dollar"></i>
@@ -675,5 +680,11 @@
             });
         }
     });
+
+    function exportToCSV() {
+        const urlParams = new URLSearchParams(window.location.search);
+        urlParams.set('export', 'csv');
+        window.location.href = window.location.pathname + '?' + urlParams.toString();
+    }
 </script>
 {% endblock %}

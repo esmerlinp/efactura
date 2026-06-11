@@ -304,6 +304,15 @@ endblock %}
                 <i class="fa-solid fa-eraser"></i> Limpiar
             </a>
 
+            <!-- Exportar -->
+            <button type="button" onclick="exportToCSV()"
+                style="color: var(--accent-blue); font-size: 0.85rem; background: transparent; border: none; padding: 6px 10px; border-radius: var(--radius-sm); display: flex; align-items: center; gap: 4px; cursor: pointer;"
+                title="Exportar a CSV"
+                onmouseover="this.style.backgroundColor='rgba(0,0,0,0.03)'"
+                onmouseout="this.style.backgroundColor='transparent'">
+                <i class="fa-solid fa-file-csv"></i> Exportar
+            </button>
+
             <!-- Vista Toggle -->
             <div
                 style="display: flex; align-items: center; gap: 4px; margin-left: 10px; background: rgba(0,0,0,0.05); padding: 4px; border-radius: var(--radius-md);">
@@ -794,6 +803,14 @@ endblock %}
                 searchInput.value = val;
             }
         });
+
+        function exportToCSV() {
+            const form = document.getElementById('filters-form');
+            const formData = new FormData(form);
+            const params = new URLSearchParams(formData);
+            params.set('export', 'csv');
+            window.location.href = form.action + '?' + params.toString();
+        }
     </script>
     <!-- Modal Anular Factura Custom -->
     <div id="void-modal" class="search-modal"
