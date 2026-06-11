@@ -22,7 +22,7 @@ flask.url_for = custom_url_for
 
 flask_url_for = _original_url_for
 
-from flask import Flask, request, session, jsonify, flash, redirect
+from flask import Flask, request, session, jsonify, flash, redirect, render_template
 from config import Config
 from app.extensions import init_extensions
 from app.services.db_service import DatabaseService
@@ -65,7 +65,85 @@ def create_app():
                 company_profile = DatabaseService.get_company_profile(owner_uid)
                 if company_profile:
                     session['company_profile_pos_enabled'] = company_profile.get('posEnabled', True)
+                    session['company_production_enabled'] = company_profile.get('productionEnabled', True)
+                    session['company_sandbox_enabled'] = company_profile.get('sandboxEnabled', True)
+                    session['company_sandbox_indefinite'] = company_profile.get('sandboxIndefinite', True)
+                    session['company_sandbox_start_date'] = company_profile.get('sandboxStartDate', '')
+                    session['company_sandbox_end_date'] = company_profile.get('sandboxEndDate', '')
+                    session['company_plan_id'] = company_profile.get('planId', '')
                 
+                # Lista de páginas permitidas para evitar bucles de redirección
+                allowed_endpoints = [
+                    'web_auth.logout', 
+                    'web_auth.toggle_sandbox', 
+                    'static', 
+                    'web_auth.user_profile_page', 
+                    'web_auth.update_user_profile', 
+                    'web_auth.change_user_password',
+                    None
+                ]
+
+                # 1. Validaciones por Entorno
+                is_sandbox = session.get('is_sandbox_mode', False)
+                prod_enabled = session.get('company_production_enabled', True)
+                sandbox_enabled = session.get('company_sandbox_enabled', True)
+
+                # Validar si sandbox está expirado
+                sandbox_expired = False
+                if not session.get('company_sandbox_indefinite', True):
+                    from datetime import datetime, timedelta
+                    now_utc = datetime.utcnow()
+                    now_sd = now_utc - timedelta(hours=4)
+                    today_str = now_sd.strftime("%Y-%m-%d")
+                    start_date = session.get('company_sandbox_start_date', '')
+                    end_date = session.get('company_sandbox_end_date', '')
+                    if (start_date and today_str < start_date) or (end_date and today_str > end_date):
+                        sandbox_expired = True
+
+                if not prod_enabled and not is_sandbox:
+                    # El usuario está en producción pero producción está deshabilitado
+                    if sandbox_enabled and not sandbox_expired:
+                        # Si sandbox está activo, cambiar automáticamente a sandbox y redirigir
+                        session['is_sandbox_mode'] = True
+                        flash("El entorno de producción está desactivado. Has sido redirigido al entorno Sandbox.", "warning")
+                        return redirect(flask_url_for('web_dashboard.dashboard'))
+                    else:
+                        # Ambos deshabilitados / expirados
+                        if request.endpoint not in allowed_endpoints:
+                            return render_template('auth/restricted.html', feature_name="Acceso Completo", required_permission="productionAndSandboxDisabled", custom_message="Tu cuenta no cuenta con ningún entorno habilitado en el sistema (Producción y Sandbox están desactivados o su período de prueba ha concluido).", force_logout=True)
+
+                if is_sandbox:
+                    # Entorno Sandbox
+                    if not sandbox_enabled:
+                        if request.endpoint not in allowed_endpoints:
+                            return render_template('auth/restricted.html', feature_name="Entorno Sandbox", required_permission="sandboxEnabled", custom_message="El entorno sandbox de pruebas para esta cuenta está desactivado. Por favor, comunícate con el administrador de e-Factura.", force_logout=True)
+                    
+                    if sandbox_expired:
+                        if request.endpoint not in allowed_endpoints:
+                            return render_template('auth/restricted.html', feature_name="Prueba Sandbox", required_permission="sandboxTrialDate", custom_message="El período de prueba en el entorno Sandbox ha concluido. Si desea solicitar una extensión de su período de prueba, comuníquese con el personal de e-Factura.", force_logout=True)
+                else:
+                    # Entorno de Producción
+                    if not prod_enabled:
+                        if request.endpoint not in allowed_endpoints:
+                            return render_template('auth/restricted.html', feature_name="Entorno de Producción", required_permission="productionEnabled", custom_message="El entorno de producción para esta cuenta está desactivado. Comuníquese con soporte si desea activarlo.", force_logout=True)
+                    
+                    # Validación: Falta de Plan en producción (bloquear operaciones de escritura)
+                    if not session.get('company_plan_id'):
+                        # Rutas de operaciones de escritura (invoices, cotizaciones, gastos, pos, clientes, etc.)
+                        restricted_ops = [
+                            'web_invoices.new_invoice_route', 'web_invoices.new_quotation_route',
+                            'web_invoices.new_expense_route', 'web_clients.ajax_create_client',
+                            'web_invoices.delete_expense_route', 'web_pos.pos_dashboard',
+                            'web_pos.create_pos_invoice', 'web_import_mapper.process_import',
+                            'web_operations.register_payment_route', 'web_notes.create_credit_note_route',
+                            'web_notes.create_debit_note_route'
+                        ]
+                        if request.endpoint in restricted_ops:
+                            if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.is_json:
+                                return jsonify({"success": False, "error": "No puedes realizar operaciones hasta que no se te asigne un plan."}), 403
+                            flash("No puedes realizar operaciones en producción hasta que no se te asigne un plan en el sistema.", "error")
+                            return redirect(flask_url_for('web_dashboard.dashboard'))
+
                 # Bloqueo por Suspensión de Cuenta (Módulo Portal Administrativo)
                 if company_profile.get('status') == 'Suspendido':
                     restricted_endpoints = ['web_invoices.new_invoice_route', 'web_invoices.new_quotation_route', 'web_invoices.new_expense_route', 'web_clients.ajax_create_client', 'web_invoices.delete_expense_route']
@@ -90,7 +168,8 @@ def create_app():
                         'web_import_mapper.process_import',
                         None
                     ]
-                    if request.endpoint not in allowed:
+                    # Incluir endpoints de validación de entornos también para no interferir
+                    if request.endpoint not in allowed and request.endpoint not in allowed_endpoints:
                         flash("Para poder operar en la plataforma, debes primero configurar los datos requeridos de tu empresa.", "warning")
                         return redirect(flask_url_for('web_invoices.onboarding_wizard'))
 

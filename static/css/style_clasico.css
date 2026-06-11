@@ -304,6 +304,10 @@ textarea {
     line-height: 1;
 }
 
+body.sandbox-mode .sidebar-logo span.logo-title {
+    color: var(--text-primary);
+}
+
 .sidebar-logo .sandbox-tag {
     font-size: 0.6rem;
     font-weight: 700;

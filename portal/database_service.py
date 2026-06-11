@@ -75,6 +75,11 @@ class DatabaseService:
                             'additionalDocumentCost': company_data.get('additionalDocumentCost', 0),
                             'billingDay': company_data.get('billingDay', 1),
                             'posEnabled': bool(company_data.get('posEnabled', True)),
+                            'productionEnabled': bool(company_data.get('productionEnabled', True)),
+                            'sandboxEnabled': bool(company_data.get('sandboxEnabled', True)),
+                            'sandboxIndefinite': bool(company_data.get('sandboxIndefinite', True)),
+                            'sandboxStartDate': company_data.get('sandboxStartDate', ''),
+                            'sandboxEndDate': company_data.get('sandboxEndDate', ''),
                         }
                         # Cargar estadísticas de consumo
                         company['stats'] = cls.get_invoice_stats(owner_uid, company['billingDay'])
@@ -122,6 +127,11 @@ class DatabaseService:
                 'additionalDocumentCost': company_data.get('additionalDocumentCost', 0),
                 'billingDay': company_data.get('billingDay', 1),
                 'posEnabled': bool(company_data.get('posEnabled', True)),
+                'productionEnabled': bool(company_data.get('productionEnabled', True)),
+                'sandboxEnabled': bool(company_data.get('sandboxEnabled', True)),
+                'sandboxIndefinite': bool(company_data.get('sandboxIndefinite', True)),
+                'sandboxStartDate': company_data.get('sandboxStartDate', ''),
+                'sandboxEndDate': company_data.get('sandboxEndDate', ''),
                 'companyName': company_data.get('companyName', ''),
                 'companyRNC': company_data.get('companyRNC', ''),
                 'companyAddress': company_data.get('companyAddress', ''),

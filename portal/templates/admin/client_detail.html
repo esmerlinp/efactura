@@ -308,6 +308,49 @@
                                 </div>
                             </div>
 
+                            <div class="form-divider"></div>
+
+                            <div class="form-section">
+                                <h3 class="form-section-title">Control de Entornos (Producción / Sandbox)</h3>
+                                <div class="form-grid-2" style="margin-bottom: 15px;">
+                                    <div class="form-group" style="display: flex; align-items: center; gap: 8px;">
+                                        <input type="checkbox" name="productionEnabled" id="productionEnabled" value="1" {% if company.productionEnabled | default(True) %}checked{% endif %} style="width: 18px; height: 18px; cursor: pointer;">
+                                        <label class="form-label" for="productionEnabled" style="margin-bottom: 0; cursor: pointer; font-weight: 600;">Habilitar Entorno de Producción</label>
+                                    </div>
+                                    <div class="form-group" style="display: flex; align-items: center; gap: 8px;">
+                                        <input type="checkbox" name="sandboxEnabled" id="sandboxEnabled" value="1" {% if company.sandboxEnabled | default(True) %}checked{% endif %} style="width: 18px; height: 18px; cursor: pointer;">
+                                        <label class="form-label" for="sandboxEnabled" style="margin-bottom: 0; cursor: pointer; font-weight: 600;">Habilitar Entorno Sandbox (Pruebas)</label>
+                                    </div>
+                                </div>
+                                <div class="form-divider"></div>
+                                <div class="form-group" style="margin-bottom: 15px; display: flex; align-items: center; gap: 8px;">
+                                    <input type="checkbox" name="sandboxIndefinite" id="sandboxIndefinite" value="1" {% if company.sandboxIndefinite | default(True) %}checked{% endif %} style="width: 18px; height: 18px; cursor: pointer;" onchange="toggleSandboxDates()">
+                                    <label class="form-label" for="sandboxIndefinite" style="margin-bottom: 0; cursor: pointer; font-weight: 600;">Sandbox Habilitado de forma Indefinida (Sin Vencimiento)</label>
+                                </div>
+                                <div class="form-grid-2" id="sandbox-dates-group" style="display: {% if company.sandboxIndefinite | default(True) %}none{% else %}grid{% endif %};">
+                                    <div class="form-group">
+                                        <label class="form-label">Fecha de Inicio de Pruebas</label>
+                                        <input type="date" name="sandboxStartDate" id="sandboxStartDate" class="form-input" value="{{ company.sandboxStartDate | default('') }}">
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Fecha de Fin de Pruebas</label>
+                                        <input type="date" name="sandboxEndDate" id="sandboxEndDate" class="form-input" value="{{ company.sandboxEndDate | default('') }}">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <script>
+                                function toggleSandboxDates() {
+                                    const indefCheckbox = document.getElementById('sandboxIndefinite');
+                                    const datesGroup = document.getElementById('sandbox-dates-group');
+                                    if (indefCheckbox.checked) {
+                                        datesGroup.style.display = 'none';
+                                    } else {
+                                        datesGroup.style.display = 'grid';
+                                    }
+                                }
+                            </script>
+
                             <div class="form-section" style="margin-top: 24px;">
                                 <div class="form-actions">
                                     <a href="{{ url_for('clientes') }}" class="btn btn-ghost">Cancelar</a>

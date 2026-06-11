@@ -102,7 +102,7 @@ def client_detail(company_id):
         update_data = {}
         
         # Formulario 1: Ajustes de cuenta/Plan (si vienen campos del plan)
-        if 'planId' in request.form or 'status' in request.form:
+        if 'planId' in request.form or 'status' in request.form or 'productionEnabled' in request.form or 'sandboxEnabled' in request.form:
             status = request.form.get('status')
             plan_id = request.form.get('planId')
             document_limit = request.form.get('documentLimit')
@@ -112,6 +112,12 @@ def client_detail(company_id):
             billing_day = request.form.get('billingDay')
             
             pos_enabled = 'posEnabled' in request.form
+            production_enabled = 'productionEnabled' in request.form
+            sandbox_enabled = 'sandboxEnabled' in request.form
+            sandbox_indefinite = 'sandboxIndefinite' in request.form
+            sandbox_start_date = request.form.get('sandboxStartDate', '')
+            sandbox_end_date = request.form.get('sandboxEndDate', '')
+
             update_data.update({
                 'status': status,
                 'planId': plan_id,
@@ -120,9 +126,14 @@ def client_detail(company_id):
                 'monthlyPayment': float(monthly_payment) if monthly_payment else 0.0,
                 'additionalDocumentCost': float(additional_doc_cost) if additional_doc_cost else 0.0,
                 'billingDay': int(billing_day) if billing_day else 1,
-                'posEnabled': pos_enabled
+                'posEnabled': pos_enabled,
+                'productionEnabled': production_enabled,
+                'sandboxEnabled': sandbox_enabled,
+                'sandboxIndefinite': sandbox_indefinite,
+                'sandboxStartDate': sandbox_start_date,
+                'sandboxEndDate': sandbox_end_date
             })
-            flash('Configuración de cuenta y plan actualizada.', 'success')
+            flash('Configuración de cuenta, plan y entornos actualizada.', 'success')
 
         # Formulario 2: Identidad fiscal y certificado (si vienen campos fiscales)
         elif 'companyName' in request.form or 'companyRNC' in request.form:
