@@ -35,9 +35,85 @@ def api_solicitar_demo():
         phone = data.get('phone')
         rnc = data.get('rnc', '')
         volumen = data.get('volumen_facturas', '100')
+        transactions_qty = data.get('transactions_qty', 'No especificado')
+        comments = data.get('comments', '')
         
         # Registrar solicitud de demo y cotización en consola
-        print(f"INFO [Landing Lead]: Nueva solicitud de demo/cotización recibida. Nombre: {name}, Email: {email}, Teléfono: {phone}, RNC: {rnc}, Volumen: {volumen} e-CF/mes", flush=True)
+        print(f"INFO [Landing Lead]: Nueva solicitud de demo/cotización recibida. Nombre: {name}, Email: {email}, Teléfono: {phone}, RNC: {rnc}, Volumen: {volumen} e-CF/mes, Transacciones: {transactions_qty}, Comentarios: {comments}", flush=True)
+        
+        # Enviar email internamente con la solicitud a dev.esmerlin@gmail.com
+        from flask import current_app
+        smtp_server = current_app.config.get("SMTP_SERVER", "smtp.gmail.com")
+        smtp_port = int(current_app.config.get("SMTP_PORT", 587))
+        smtp_user = current_app.config.get("SMTP_USER", "")
+        smtp_password = current_app.config.get("SMTP_PASSWORD", "")
+
+        if smtp_user and smtp_password:
+            import smtplib
+            from email.mime.multipart import MIMEMultipart
+            from email.mime.text import MIMEText
+            
+            try:
+                msg = MIMEMultipart('alternative')
+                msg["Subject"] = f"🔔 Nueva Solicitud de Demo: {name}"
+                msg["From"] = f"e-Factura Landing <{smtp_user}>"
+                msg["To"] = "dev.esmerlin@gmail.com"
+                
+                html_body = f"""
+                <html>
+                <body style="font-family: Arial, sans-serif; color: #333; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px;">
+                    <div style="text-align: center; margin-bottom: 20px; border-bottom: 2px solid #10b981; padding-bottom: 10px;">
+                        <h2 style="color: #10b981; margin: 0;">Nueva Solicitud de Demo / Cotización</h2>
+                    </div>
+                    <p>Se ha recibido un nuevo lead desde la página de aterrizaje (Landing Page):</p>
+                    <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+                        <tr>
+                            <td style="padding: 8px; border-bottom: 1px solid #eee; font-weight: bold; width: 35%;">Nombre:</td>
+                            <td style="padding: 8px; border-bottom: 1px solid #eee;">{name}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 8px; border-bottom: 1px solid #eee; font-weight: bold;">Correo:</td>
+                            <td style="padding: 8px; border-bottom: 1px solid #eee;"><a href="mailto:{email}">{email}</a></td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 8px; border-bottom: 1px solid #eee; font-weight: bold;">Teléfono:</td>
+                            <td style="padding: 8px; border-bottom: 1px solid #eee;">{phone}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 8px; border-bottom: 1px solid #eee; font-weight: bold;">RNC Comercial:</td>
+                            <td style="padding: 8px; border-bottom: 1px solid #eee;">{rnc if rnc else 'No provisto'}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 8px; border-bottom: 1px solid #eee; font-weight: bold;">Volumen e-CF/mes:</td>
+                            <td style="padding: 8px; border-bottom: 1px solid #eee;">{volumen}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 8px; border-bottom: 1px solid #eee; font-weight: bold;">Transacciones/mes:</td>
+                            <td style="padding: 8px; border-bottom: 1px solid #eee;">{transactions_qty}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 8px; border-bottom: 1px solid #eee; font-weight: bold;">Comentarios:</td>
+                            <td style="padding: 8px; border-bottom: 1px solid #eee;">{comments if comments else 'Sin comentarios'}</td>
+                        </tr>
+                    </table>
+                    <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
+                    <div style="font-size: 0.8rem; color: #999; text-align: center;">
+                        Notificación automática del sistema de Landing Page de e-Factura.
+                    </div>
+                </body>
+                </html>
+                """
+                msg.attach(MIMEText(html_body, 'html'))
+                
+                with smtplib.SMTP(smtp_server, smtp_port) as server:
+                    server.starttls()
+                    server.login(smtp_user, smtp_password)
+                    server.sendmail(smtp_user, "dev.esmerlin@gmail.com", msg.as_string())
+                    print("INFO [Landing Lead]: Email enviado exitosamente a dev.esmerlin@gmail.com", flush=True)
+            except Exception as mail_err:
+                print(f"WARNING [Landing Lead]: Fallo al enviar email a dev.esmerlin@gmail.com: {mail_err}", flush=True)
+        else:
+            print("WARNING [Landing Lead]: SMTP no configurado. No se envió el correo interno.", flush=True)
         
         return jsonify({"success": True, "message": "¡Solicitud registrada con éxito!"})
     except Exception as e:
