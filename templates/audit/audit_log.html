@@ -1,0 +1,354 @@
+{% extends "layout.html" %}
+
+{% block title %}Registro de Auditoría{% endblock %}
+
+{% block page_header %}Registro de Auditoría{% endblock %}
+
+{% block content %}
+<style>
+    .badge-create {
+        background-color: rgba(16, 185, 129, 0.1);
+        color: #10b981;
+        font-weight: 600;
+        padding: 4px 8px;
+        border-radius: var(--radius-sm);
+        font-size: 0.75rem;
+    }
+    .badge-update {
+        background-color: rgba(59, 130, 246, 0.1);
+        color: #3b82f6;
+        font-weight: 600;
+        padding: 4px 8px;
+        border-radius: var(--radius-sm);
+        font-size: 0.75rem;
+    }
+    .badge-delete {
+        background-color: rgba(239, 68, 68, 0.1);
+        color: #ef4444;
+        font-weight: 600;
+        padding: 4px 8px;
+        border-radius: var(--radius-sm);
+        font-size: 0.75rem;
+    }
+    .badge-login {
+        background-color: rgba(139, 92, 246, 0.1);
+        color: #8b5cf6;
+        font-weight: 600;
+        padding: 4px 8px;
+        border-radius: var(--radius-sm);
+        font-size: 0.75rem;
+    }
+    .badge-logout {
+        background-color: rgba(107, 114, 128, 0.1);
+        color: #6b7280;
+        font-weight: 600;
+        padding: 4px 8px;
+        border-radius: var(--radius-sm);
+        font-size: 0.75rem;
+    }
+    .badge-view {
+        background-color: rgba(156, 163, 175, 0.1);
+        color: #4b5563;
+        font-weight: 600;
+        padding: 4px 8px;
+        border-radius: var(--radius-sm);
+        font-size: 0.75rem;
+    }
+    .badge-export {
+        background-color: rgba(245, 158, 11, 0.1);
+        color: #d97706;
+        font-weight: 600;
+        padding: 4px 8px;
+        border-radius: var(--radius-sm);
+        font-size: 0.75rem;
+    }
+    
+    .filter-input {
+        height: 34px;
+        padding: 0 10px;
+        background-color: var(--bg-input, #f1f5f9);
+        border: 1px solid var(--border-color, rgba(0,0,0,0.1));
+        border-radius: var(--radius-sm);
+        color: var(--text-primary);
+        font-size: 0.85rem;
+        outline: none;
+        transition: all 0.2s ease;
+    }
+
+    .filter-input:focus {
+        background-color: #ffffff;
+        border-color: var(--accent-purple, #8b5cf6);
+        box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.1);
+    }
+</style>
+
+<div class="page-title-container" style="margin-bottom: 24px; padding-left: 4px;">
+    <h1 class="page-title" style="font-size: 1.75rem; font-weight: 800; font-family: var(--font-heading); color: var(--text-primary); margin: 0; display: flex; align-items: center; gap: 12px;">
+        <i class="fa-solid fa-shield-halved" style="color: var(--accent-purple);"></i>
+        <span>Bitácora de Auditoría</span>
+    </h1>
+</div>
+
+<div class="card-table-wrapper">
+    <div class="table-header-row" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <div>
+            <h3 style="font-size: 1.25rem; font-family: var(--font-heading); margin-bottom: 6px;">Historial de Transacciones</h3>
+            <p style="color: var(--text-secondary); font-size: 0.88rem;">
+                Monitoreo continuo de operaciones y eventos de seguridad del sistema.
+            </p>
+        </div>
+        {% if session.get('user', {}).get('role') == 'owner' %}
+        <form action="{{ url_for('web_audit.audit_export') }}" method="POST" style="margin: 0;">
+            <input type="hidden" name="module" value="{{ f_module }}">
+            <input type="hidden" name="action" value="{{ f_action }}">
+            <input type="hidden" name="user" value="{{ f_user }}">
+            <input type="hidden" name="entity" value="{{ f_entity }}">
+            <input type="hidden" name="date_from" value="{{ f_date_from }}">
+            <input type="hidden" name="date_to" value="{{ f_date_to }}">
+            <input type="hidden" name="env" value="{{ f_env }}">
+            <button type="submit" class="btn btn-secondary" style="display: inline-flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-file-csv" style="font-size: 1.1rem;"></i>
+                <span>Exportar CSV</span>
+            </button>
+        </form>
+        {% endif %}
+    </div>
+
+    <!-- Filtros Avanzados -->
+    <div style="background-color: rgba(0, 0, 0, 0.02); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 16px; margin-bottom: 20px;">
+        <form method="GET" action="{{ url_for('web_audit.audit_log') }}" id="audit-filters-form" style="margin: 0;">
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px; margin-bottom: 12px;">
+                <!-- Filtro de Módulo -->
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                    <label style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary);">Módulo</label>
+                    <select name="module" id="filter-module" class="filter-input">
+                        {% for mod in modules %}
+                        <option value="{{ mod }}" {% if f_module == mod %}selected{% endif %}>{{ mod }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Filtro de Acción -->
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                    <label style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary);">Acción</label>
+                    <select name="action" id="filter-action" class="filter-input">
+                        {% for act in actions %}
+                        <option value="{{ act }}" {% if f_action == act %}selected{% endif %}>{{ act }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Filtro de Entorno (Sandbox vs Producción) -->
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                    <label style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary);">Entorno</label>
+                    <select name="env" id="filter-env" class="filter-input">
+                        <option value="all" {% if f_env == 'all' %}selected{% endif %}>Todos (Pruebas y Prod)</option>
+                        <option value="sandbox" {% if f_env == 'sandbox' %}selected{% endif %}>Sandbox (Pruebas)</option>
+                        <option value="production" {% if f_env == 'production' %}selected{% endif %}>Producción (Real)</option>
+                    </select>
+                </div>
+
+                <!-- Filtro de Usuario -->
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                    <label style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary);">Usuario o Email</label>
+                    <input type="text" name="user" id="filter-user" value="{{ f_user }}" placeholder="Buscar usuario..." class="filter-input">
+                </div>
+
+                <!-- Filtro de Entidad -->
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                    <label style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary);">Registro / ID</label>
+                    <input type="text" name="entity" id="filter-entity" value="{{ f_entity }}" placeholder="ID, número, etc..." class="filter-input">
+                </div>
+
+                <!-- Rango de Fechas -->
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                    <label style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary);">Desde</label>
+                    <input type="date" name="date_from" id="filter-date-from" value="{{ f_date_from }}" class="filter-input">
+                </div>
+
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                    <label style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary);">Hasta</label>
+                    <input type="date" name="date_to" id="filter-date-to" value="{{ f_date_to }}" class="filter-input">
+                </div>
+            </div>
+
+            <!-- Botones de Acción -->
+            <div style="display: flex; justify-content: flex-end; gap: 10px; align-items: center;">
+                <a href="{{ url_for('web_audit.audit_log') }}" class="btn btn-secondary" style="padding: 6px 16px; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 6px;">
+                    <i class="fa-solid fa-eraser"></i> Limpiar
+                </a>
+                <button type="submit" class="btn btn-primary" style="padding: 6px 16px; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 6px;">
+                    <i class="fa-solid fa-filter"></i> Filtrar
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Tabla de Logs -->
+    <div class="table-responsive">
+        <table class="table-premium">
+            <thead>
+                <tr>
+                    <th style="width: 160px;">Fecha / Hora</th>
+                    <th style="width: 150px;">Módulo</th>
+                    <th style="width: 100px;">Acción</th>
+                    <th>Descripción de la Operación</th>
+                    <th style="width: 220px;">Realizado por</th>
+                    <th style="width: 120px;">IP Address</th>
+                    <th style="width: 70px; text-align: center;">Acción</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if logs %}
+                {% for log in logs %}
+                <tr>
+                    <td>
+                        <span style="font-size: 0.85rem; display: block; font-weight: 500;">
+                            {{ log.timestamp[:10] }}
+                        </span>
+                        <span style="font-size: 0.75rem; color: var(--text-muted);">
+                            <i class="fa-regular fa-clock" style="margin-right: 3px;"></i>{{ log.timestamp[11:19] }}
+                        </span>
+                    </td>
+                    <td>
+                        <span style="font-size: 0.85rem; font-weight: 500; color: var(--text-primary);">{{ log.module }}</span>
+                        {% if log.isSandbox %}
+                        <span style="display: block; font-size: 0.65rem; color: var(--accent-yellow); font-weight: 600; text-transform: uppercase;">
+                            Sandbox
+                        </span>
+                        {% else %}
+                        <span style="display: block; font-size: 0.65rem; color: var(--accent-emerald); font-weight: 600; text-transform: uppercase;">
+                            Producción
+                        </span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if log.action == 'CREATE' %}
+                        <span class="badge-create">CREATE</span>
+                        {% elif log.action == 'UPDATE' %}
+                        <span class="badge-update">UPDATE</span>
+                        {% elif log.action == 'DELETE' %}
+                        <span class="badge-delete">DELETE</span>
+                        {% elif log.action == 'LOGIN' %}
+                        <span class="badge-login">LOGIN</span>
+                        {% elif log.action == 'LOGOUT' %}
+                        <span class="badge-logout">LOGOUT</span>
+                        {% elif log.action == 'VIEW' %}
+                        <span class="badge-view">VIEW</span>
+                        {% elif log.action == 'EXPORT' %}
+                        <span class="badge-export">EXPORT</span>
+                        {% else %}
+                        <span class="badge badge-secondary">{{ log.action }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <span style="font-size: 0.85rem; font-weight: 500; display: block; max-width: 400px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{ log.entityLabel }}">
+                            {{ log.entityLabel or 'Operación del sistema' }}
+                        </span>
+                        {% if log.entityId %}
+                        <span style="font-size: 0.7rem; color: var(--text-muted); font-family: monospace;">ID: {{ log.entityId }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <span style="font-size: 0.85rem; font-weight: 500; display: block;">{{ log.performedBy }}</span>
+                        <span style="font-size: 0.75rem; color: var(--text-muted); display: block;">{{ log.performedByEmail or 'sistema@e-factura.com.do' }}</span>
+                    </td>
+                    <td>
+                        <span style="font-family: monospace; font-size: 0.8rem; color: var(--text-secondary);">{{ log.ipAddress or 'N/A' }}</span>
+                    </td>
+                    <td style="text-align: center;">
+                        <a href="{{ url_for('web_audit.audit_detail', log_id=log.id) }}" class="btn-icon" title="Ver Detalles de Auditoría">
+                            <i class="fa-solid fa-arrow-right"></i>
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+                {% else %}
+                <tr>
+                    <td colspan="7" style="text-align: center; padding: 60px 0; color: var(--text-secondary);">
+                        <i class="fa-solid fa-shield-halved" style="font-size: 3rem; color: var(--text-muted); margin-bottom: 16px; opacity: 0.3; display: block;"></i>
+                        <span>No se encontraron registros de auditoría en la consulta actual.</span>
+                    </td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Paginación -->
+    {% if pages and pages > 1 %}
+    <div class="pagination-container" style="display: flex; justify-content: space-between; align-items: center; margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border-color); flex-wrap: wrap; gap: 16px;">
+        <div style="color: var(--text-secondary); font-size: 0.85rem;">
+            Mostrando registros de auditoría del sistema (Total: <strong>{{ total }}</strong>)
+        </div>
+        <div class="pagination-buttons" style="display: flex; gap: 6px;">
+            {% if current_page > 1 %}
+            <a href="?page={{ current_page - 1 }}&module={{ f_module }}&action={{ f_action }}&user={{ f_user }}&entity={{ f_entity }}&date_from={{ f_date_from }}&date_to={{ f_date_to }}&env={{ f_env }}" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.82rem; border-radius: var(--radius-sm);">
+                <i class="fa-solid fa-chevron-left"></i> Anterior
+            </a>
+            {% endif %}
+
+            {% for p in range(1, pages + 1) %}
+                {% if p == current_page %}
+                <button class="btn btn-primary" style="padding: 6px 12px; font-size: 0.82rem; min-width: 34px; border-radius: var(--radius-sm);">{{ p }}</button>
+                {% elif p <= 3 or p >= pages - 2 or (p >= current_page - 1 and p <= current_page + 1) %}
+                <a href="?page={{ p }}&module={{ f_module }}&action={{ f_action }}&user={{ f_user }}&entity={{ f_entity }}&date_from={{ f_date_from }}&date_to={{ f_date_to }}&env={{ f_env }}" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.82rem; min-width: 34px; border-radius: var(--radius-sm);">{{ p }}</a>
+                {% elif p == 4 or p == pages - 3 %}
+                <span style="color: var(--text-muted); align-self: center; padding: 0 4px;">...</span>
+                {% endif %}
+            {% endfor %}
+
+            {% if current_page < pages %}
+            <a href="?page={{ current_page + 1 }}&module={{ f_module }}&action={{ f_action }}&user={{ f_user }}&entity={{ f_entity }}&date_from={{ f_date_from }}&date_to={{ f_date_to }}&env={{ f_env }}" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.82rem; border-radius: var(--radius-sm);">
+                Siguiente <i class="fa-solid fa-chevron-right"></i>
+            </a>
+            {% endif %}
+        </div>
+    </div>
+    {% else %}
+    <div style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 16px; text-align: right;">
+        Mostrando <strong style="color: var(--text-primary);">{{ total }}</strong> registros en total.
+    </div>
+    {% endif %}
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const form = document.getElementById("audit-filters-form");
+        const inputs = [
+            document.getElementById("filter-module"),
+            document.getElementById("filter-action"),
+            document.getElementById("filter-env"),
+            document.getElementById("filter-date-from"),
+            document.getElementById("filter-date-to")
+        ];
+
+        // Envío automático en selectores y fechas
+        inputs.forEach(input => {
+            if (input) {
+                input.addEventListener("change", function() {
+                    form.submit();
+                });
+            }
+        });
+
+        // Búsqueda con debounce en Inputs de texto
+        let searchDebounce;
+        const textInputs = [
+            document.getElementById("filter-user"),
+            document.getElementById("filter-entity")
+        ];
+        
+        textInputs.forEach(input => {
+            if (input) {
+                input.addEventListener("input", function() {
+                    clearTimeout(searchDebounce);
+                    searchDebounce = setTimeout(() => {
+                        form.submit();
+                    }, 600);
+                });
+            }
+        });
+    });
+</script>
+{% endblock %}

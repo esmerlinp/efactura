@@ -52,6 +52,18 @@ def login():
         if user_profile:
             session['user'] = user_profile
             session['is_sandbox_mode'] = True  # Sandbox por defecto al iniciar
+            
+            from app.services.audit_service import AuditService, ACTION_LOGIN, MODULE_AUTH
+            AuditService.log_from_request(
+                owner_uid=user_profile['ownerUID'],
+                action=ACTION_LOGIN,
+                module=MODULE_AUTH,
+                entity_id=user_profile['uid'],
+                entity_label=f"Inicio de sesión exitoso — {user_profile['email']}",
+                user_session=user_profile,
+                sandbox=True
+            )
+            
             flash('¡Sesión iniciada exitosamente!', 'success')
             return redirect(url_for('web_dashboard.dashboard'))
         else:
@@ -66,6 +78,18 @@ def register():
 
 @web_auth_bp.route('/logout')
 def logout():
+    user = session.get('user')
+    if user:
+        from app.services.audit_service import AuditService, ACTION_LOGOUT, MODULE_AUTH
+        AuditService.log_from_request(
+            owner_uid=user['ownerUID'],
+            action=ACTION_LOGOUT,
+            module=MODULE_AUTH,
+            entity_id=user['uid'],
+            entity_label=f"Cierre de sesión — {user['email']}",
+            user_session=user,
+            sandbox=session.get('is_sandbox_mode', True)
+        )
     session.pop('user', None)
     session.pop('is_sandbox_mode', None)
     flash('Sesión cerrada correctamente.', 'success')
@@ -162,6 +186,7 @@ def update_user_profile():
         return redirect(url_for('web_auth.user_profile_page', info_error='El nombre no puede estar vacío.'))
 
     try:
+        before_profile = session['user'].copy()
         updated_profile = {
             "name": name,
             "phone": phone,
@@ -175,6 +200,19 @@ def update_user_profile():
         session['user']['phone'] = phone
         session['user']['address'] = address
         session.modified = True
+
+        from app.services.audit_service import AuditService, ACTION_UPDATE, MODULE_AUTH
+        AuditService.log_from_request(
+            owner_uid=session['user']['ownerUID'],
+            action=ACTION_UPDATE,
+            module=MODULE_AUTH,
+            entity_id=uid,
+            entity_label=f"Actualización de perfil de usuario — {session['user']['email']}",
+            user_session=session['user'],
+            before=before_profile,
+            after=session['user'],
+            sandbox=session.get('is_sandbox_mode', True)
+        )
 
         return redirect(url_for('web_auth.user_profile_page', info_success='¡Información personal actualizada con éxito!'))
     except Exception as e:
@@ -235,6 +273,16 @@ def change_user_password():
         }, timeout=10)
 
         if update_res.status_code == 200:
+            from app.services.audit_service import AuditService, ACTION_UPDATE, MODULE_AUTH
+            AuditService.log_from_request(
+                owner_uid=session['user']['ownerUID'],
+                action=ACTION_UPDATE,
+                module=MODULE_AUTH,
+                entity_id=session['user']['uid'],
+                entity_label=f"Cambio de contraseña exitoso — {session['user']['email']}",
+                user_session=session['user'],
+                sandbox=session.get('is_sandbox_mode', True)
+            )
             return redirect(url_for('web_auth.user_profile_page', pwd_success='¡Contraseña actualizada exitosamente! Tu nueva contraseña está activa.'))
         else:
             error_detail = update_res.json().get('error', {}).get('message', 'Error desconocido.')

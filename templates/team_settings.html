@@ -71,6 +71,7 @@
                             data-can-contracts="{{ 'true' if member.permissions.canManageContracts else 'false' }}"
                             data-can-commissions="{{ 'true' if member.permissions.canManageCommissions else 'false' }}"
                             data-can-bi="{{ 'true' if member.permissions.canViewBI else 'false' }}"
+                            data-can-audit="{{ 'true' if member.permissions.canViewAuditLog else 'false' }}"
                             title="Editar Permisos Granulares">
                             <i class="fa-solid fa-user-gear"></i>
                             <span>Permisos</span>
@@ -208,6 +209,12 @@
                                 style="width: 16px; height: 16px; accent-color: var(--accent-emerald);">
                             <span>Inteligencia Financiera (Métricas y Smart Insights BI)</span>
                         </label>
+                        <label
+                            style="display: flex; align-items: center; gap: 10px; font-size: 0.85rem; cursor: pointer;">
+                            <input type="checkbox" name="canViewAuditLog"
+                                style="width: 16px; height: 16px; accent-color: var(--accent-emerald);">
+                            <span>Ver Registro de Auditoría (Trazabilidad y Bitácora)</span>
+                        </label>
                     </div>
                 </div>
 
@@ -318,6 +325,12 @@
                                 style="width: 16px; height: 16px; accent-color: var(--accent-emerald);">
                             <span>Inteligencia Financiera (Métricas y Smart Insights BI)</span>
                         </label>
+                        <label
+                            style="display: flex; align-items: center; gap: 10px; font-size: 0.85rem; cursor: pointer;">
+                            <input type="checkbox" id="perms-can-audit" name="canViewAuditLog"
+                                style="width: 16px; height: 16px; accent-color: var(--accent-emerald);">
+                            <span>Ver Registro de Auditoría (Trazabilidad y Bitácora)</span>
+                        </label>
                     </div>
                 </div>
 
@@ -374,6 +387,7 @@
                 const canContracts = this.getAttribute('data-can-contracts') === 'true';
                 const canCommissions = this.getAttribute('data-can-commissions') === 'true';
                 const canBI = this.getAttribute('data-can-bi') === 'true';
+                const canAudit = this.getAttribute('data-can-audit') === 'true';
 
                 document.getElementById('perms-member-name').textContent = name;
                 document.getElementById('perms-member-email').textContent = email;
@@ -390,6 +404,7 @@
                 document.getElementById('perms-can-contracts').checked = canContracts;
                 document.getElementById('perms-can-commissions').checked = canCommissions;
                 document.getElementById('perms-can-bi').checked = canBI;
+                document.getElementById('perms-can-audit').checked = canAudit;
 
                 editPermsForm.setAttribute('action', '/settings/team/' + uid + '/permissions');
 

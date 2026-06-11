@@ -53,6 +53,18 @@ def create_note():
     
     DatabaseService.save_note(owner_uid, note_id, note_dict, sandbox=sandbox)
     
+    from app.services.audit_service import AuditService, ACTION_CREATE, MODULE_NOTAS
+    AuditService.log_from_request(
+        owner_uid=owner_uid,
+        action=ACTION_CREATE,
+        module=MODULE_NOTAS,
+        entity_id=note_id,
+        entity_label=f"Nota creada: {title}",
+        user_session=session.get('user', {}),
+        after=note_dict,
+        sandbox=sandbox
+    )
+    
     return jsonify({'success': True, 'note_id': note_id})
 
 @web_notes_bp.route('/notes/update_status/<note_id>', methods=['POST'])
@@ -78,7 +90,30 @@ def delete_note(note_id):
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
     
+    # Obtener info básica para log antes de eliminar
+    note_details = {}
+    try:
+        notes = DatabaseService.get_notes(owner_uid, session['user']['uid'], sandbox=sandbox)
+        for n in notes:
+            if n.get('id') == note_id:
+                note_details = n
+                break
+    except Exception:
+        pass
+        
     DatabaseService.delete_note(owner_uid, note_id, sandbox=sandbox)
+    
+    from app.services.audit_service import AuditService, ACTION_DELETE, MODULE_NOTAS
+    AuditService.log_from_request(
+        owner_uid=owner_uid,
+        action=ACTION_DELETE,
+        module=MODULE_NOTAS,
+        entity_id=note_id,
+        entity_label=f"Nota eliminada: {note_details.get('title', 'Sin título')}",
+        user_session=session.get('user', {}),
+        before=note_details,
+        sandbox=sandbox
+    )
     
     return jsonify({'success': True})
 

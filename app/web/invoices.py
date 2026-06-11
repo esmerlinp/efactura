@@ -1013,6 +1013,22 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
 
         DatabaseService.save_invoice(owner_uid, target_invoice_id, invoice_dict, sandbox=sandbox)
         
+        from app.services.audit_service import AuditService, ACTION_CREATE, ACTION_UPDATE, MODULE_FACTURAS, MODULE_COTIZACIONES
+        audit_action = ACTION_UPDATE if existing_invoice else ACTION_CREATE
+        audit_module = MODULE_COTIZACIONES if is_quotation else MODULE_FACTURAS
+        label_prefix = "Cotización" if is_quotation else f"Documento ({invoice_dict.get('ecfType') or 'Factura'})"
+        AuditService.log_from_request(
+            owner_uid=owner_uid,
+            action=audit_action,
+            module=audit_module,
+            entity_id=target_invoice_id,
+            entity_label=f"{label_prefix} {invoice_dict['invoiceNumber']} — Cliente: {client_name} (Total: RD$ {calcs['total']:.2f})",
+            user_session=session.get('user', {}),
+            before=existing_invoice if existing_invoice else None,
+            after=invoice_dict,
+            sandbox=sandbox
+        )
+        
         action = request.form.get('action')
         
         if is_quotation:
@@ -1903,8 +1919,19 @@ def invoice_pdf_download(invoice_id):
     if not invoice:
         return "Factura no encontrada", 404
 
-    invoice = _enrich_invoice_totals(invoice)
+    from app.services.audit_service import AuditService, ACTION_EXPORT, MODULE_FACTURAS, MODULE_COTIZACIONES
+    audit_module = MODULE_COTIZACIONES if invoice.get('isQuotation') else MODULE_FACTURAS
+    AuditService.log_from_request(
+        owner_uid=owner_uid,
+        action=ACTION_EXPORT,
+        module=audit_module,
+        entity_id=invoice_id,
+        entity_label=f"PDF Descargado: {invoice.get('invoiceNumber', '')}",
+        user_session=session.get('user', {}),
+        sandbox=sandbox
+    )
 
+    invoice = _enrich_invoice_totals(invoice)
     company = DatabaseService.get_company_profile(owner_uid)
     inv_num = invoice.get('invoiceNumber', invoice_id).replace('/', '-').replace(' ', '_')
 
@@ -2010,6 +2037,17 @@ def invoice_xml_download(invoice_id):
     if not invoice:
         return "Factura no encontrada", 404
 
+    from app.services.audit_service import AuditService, ACTION_EXPORT, MODULE_FACTURAS
+    AuditService.log_from_request(
+        owner_uid=owner_uid,
+        action=ACTION_EXPORT,
+        module=MODULE_FACTURAS,
+        entity_id=invoice_id,
+        entity_label=f"XML Descargado: {invoice.get('invoiceNumber', '')}",
+        user_session=session.get('user', {}),
+        sandbox=sandbox
+    )
+
     xml_content = invoice.get('xmlContent') or ''
     
     # Si no tiene el contenido del XML guardado, lo construimos y firmamos dinámicamente 
@@ -2067,8 +2105,22 @@ def void_invoice_route(invoice_id):
         }
         res = EcfEmissionService.emit_cancellation(company, canc_dict, sandbox=sandbox)
         if res.get("success"):
+            before_invoice = invoice.copy()
             invoice["status"] = "Anulada"
             DatabaseService.save_invoice(owner_uid, invoice_id, invoice, sandbox=sandbox)
+            
+            from app.services.audit_service import AuditService, ACTION_UPDATE, MODULE_FACTURAS
+            AuditService.log_from_request(
+                owner_uid=owner_uid,
+                action=ACTION_UPDATE,
+                module=MODULE_FACTURAS,
+                entity_id=invoice_id,
+                entity_label=f"Comprobante anulado y reportado a DGII: {invoice['invoiceNumber']}",
+                user_session=session.get('user', {}),
+                before=before_invoice,
+                after=invoice,
+                sandbox=sandbox
+            )
             
             # Registrar anulación local
             cancellation_code = res.get("cancellationCode", f"CAN-{uuid.uuid4().hex[:8].upper()}")
@@ -2086,8 +2138,22 @@ def void_invoice_route(invoice_id):
         else:
             flash(f"Fallo al anular comprobante en la API: {res.get('message')}", "error")
     else:
+        before_invoice = invoice.copy()
         invoice["status"] = "Anulada"
         DatabaseService.save_invoice(owner_uid, invoice_id, invoice, sandbox=sandbox)
+        
+        from app.services.audit_service import AuditService, ACTION_UPDATE, MODULE_FACTURAS
+        AuditService.log_from_request(
+            owner_uid=owner_uid,
+            action=ACTION_UPDATE,
+            module=MODULE_FACTURAS,
+            entity_id=invoice_id,
+            entity_label=f"Borrador de factura anulado: {invoice['invoiceNumber']}",
+            user_session=session.get('user', {}),
+            before=before_invoice,
+            after=invoice,
+            sandbox=sandbox
+        )
         flash('Borrador de factura anulado correctamente.', 'success')
         
     return redirect(url_for('list_invoices'))
@@ -2318,6 +2384,18 @@ def new_expense_route():
         }
         
         DatabaseService.save_expense(owner_uid, expense_id, expense_dict, sandbox=sandbox)
+        
+        from app.services.audit_service import AuditService, ACTION_CREATE, MODULE_GASTOS
+        AuditService.log_from_request(
+            owner_uid=owner_uid,
+            action=ACTION_CREATE,
+            module=MODULE_GASTOS,
+            entity_id=expense_id,
+            entity_label=f"Gasto registrado: {expense_dict['concept']} (Monto: RD$ {amount:.2f})",
+            user_session=session.get('user', {}),
+            after=expense_dict,
+            sandbox=sandbox
+        )
         flash('Gasto operativo registrado exitosamente.', 'success')
         return redirect(url_for('list_expenses'))
         
@@ -2339,7 +2417,27 @@ def delete_expense_route(expense_id):
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
     
+    # Obtener el gasto antes de eliminarlo
+    before_expense = {}
+    try:
+        expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox)
+        before_expense = next((e for e in expenses if e['id'] == expense_id), {})
+    except Exception:
+        pass
+
     DatabaseService.delete_expense(owner_uid, expense_id, sandbox=sandbox)
+    
+    from app.services.audit_service import AuditService, ACTION_DELETE, MODULE_GASTOS
+    AuditService.log_from_request(
+        owner_uid=owner_uid,
+        action=ACTION_DELETE,
+        module=MODULE_GASTOS,
+        entity_id=expense_id,
+        entity_label=f"Gasto eliminado: {before_expense.get('concept', 'N/A')} (Monto: RD$ {before_expense.get('amount', 0.0):.2f})",
+        user_session=session.get('user', {}),
+        before=before_expense,
+        sandbox=sandbox
+    )
     flash('Gasto eliminado.', 'success')
     return redirect(url_for('list_expenses'))
 
@@ -2436,6 +2534,19 @@ def edit_expense_route(expense_id):
         }
         
         DatabaseService.save_expense(owner_uid, expense_id, expense_dict, sandbox=sandbox)
+        
+        from app.services.audit_service import AuditService, ACTION_UPDATE, MODULE_GASTOS
+        AuditService.log_from_request(
+            owner_uid=owner_uid,
+            action=ACTION_UPDATE,
+            module=MODULE_GASTOS,
+            entity_id=expense_id,
+            entity_label=f"Gasto modificado: {expense_dict['concept']} (Monto: RD$ {amount:.2f})",
+            user_session=session.get('user', {}),
+            before=expense,
+            after=expense_dict,
+            sandbox=sandbox
+        )
         flash('Gasto operativo actualizado exitosamente.', 'success')
         return redirect(url_for('list_expenses'))
         
@@ -2852,6 +2963,18 @@ def save_company_brand_settings():
         existing_profile['logoBase64'] = ''
         
     DatabaseService.save_company_profile(owner_uid, existing_profile)
+    
+    from app.services.audit_service import AuditService, ACTION_UPDATE, MODULE_EMPRESA
+    AuditService.log_from_request(
+        owner_uid=owner_uid,
+        action=ACTION_UPDATE,
+        module=MODULE_EMPRESA,
+        entity_id=owner_uid,
+        entity_label="Configuración de apariencia y marca de empresa actualizada",
+        user_session=session.get('user', {}),
+        after=existing_profile,
+        sandbox=True
+    )
     return jsonify({"success": True, "profile": existing_profile})
 
 @web_invoices_bp.route('/settings/team', methods=['GET'])
@@ -2889,7 +3012,8 @@ def add_team_member():
         "canManageCXP": 'canManageCXP' in request.form,
         "canManageContracts": 'canManageContracts' in request.form,
         "canManageCommissions": 'canManageCommissions' in request.form,
-        "canViewBI": 'canViewBI' in request.form
+        "canViewBI": 'canViewBI' in request.form,
+        "canViewAuditLog": 'canViewAuditLog' in request.form
     }
     
     try:
@@ -2903,6 +3027,18 @@ def add_team_member():
         )
         # Actualizar permisos a los configurados
         DatabaseService.update_employee_permissions(profile['uid'], permissions)
+        
+        from app.services.audit_service import AuditService, ACTION_CREATE, MODULE_USUARIOS
+        AuditService.log_from_request(
+            owner_uid=owner_uid,
+            action=ACTION_CREATE,
+            module=MODULE_USUARIOS,
+            entity_id=profile['uid'],
+            entity_label=f"Nuevo colaborador registrado: {name} ({email})",
+            user_session=session.get('user', {}),
+            after={"uid": profile['uid'], "name": name, "email": email, "permissions": permissions},
+            sandbox=True
+        )
         flash(f'Colaborador {name} registrado y vinculado exitosamente.', 'success')
     except Exception as e:
         flash(f'Error al registrar colaborador: {str(e)}', 'error')
@@ -2979,10 +3115,22 @@ def update_team_member_permissions(employee_uid):
         "canManageCXP": 'canManageCXP' in request.form,
         "canManageContracts": 'canManageContracts' in request.form,
         "canManageCommissions": 'canManageCommissions' in request.form,
-        "canViewBI": 'canViewBI' in request.form
+        "canViewBI": 'canViewBI' in request.form,
+        "canViewAuditLog": 'canViewAuditLog' in request.form
     }
     
     if DatabaseService.update_employee_permissions(employee_uid, permissions):
+        from app.services.audit_service import AuditService, ACTION_UPDATE, MODULE_USUARIOS
+        AuditService.log_from_request(
+            owner_uid=session['user']['ownerUID'],
+            action=ACTION_UPDATE,
+            module=MODULE_USUARIOS,
+            entity_id=employee_uid,
+            entity_label=f"Permisos de colaborador actualizados (ID: {employee_uid})",
+            user_session=session.get('user', {}),
+            after=permissions,
+            sandbox=True
+        )
         flash('Permisos del colaborador actualizados con éxito.', 'success')
     else:
         flash('Error al actualizar permisos.', 'error')
@@ -2999,6 +3147,16 @@ def delete_team_member_route(employee_uid):
     owner_uid = session['user']['ownerUID']
     
     if DatabaseService.delete_team_member(owner_uid, employee_uid):
+        from app.services.audit_service import AuditService, ACTION_DELETE, MODULE_USUARIOS
+        AuditService.log_from_request(
+            owner_uid=owner_uid,
+            action=ACTION_DELETE,
+            module=MODULE_USUARIOS,
+            entity_id=employee_uid,
+            entity_label=f"Colaborador desvinculado (ID: {employee_uid})",
+            user_session=session.get('user', {}),
+            sandbox=True
+        )
         flash('Colaborador desvinculado de tu equipo.', 'success')
     else:
         flash('Error al desvincular colaborador.', 'error')
