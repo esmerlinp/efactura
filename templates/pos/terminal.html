@@ -324,18 +324,17 @@
 </div>
 
 <script>
-    // Catálogo de Productos cargado dinámicamente desde Jinja2
     const productCatalog = [
         {% for item in items %}
     {
-        id: { { item.id | tojson } },
-        code: { { (item.code or '') | tojson } },
-        barcode: { { (item.barcode or '') | tojson } },
-        categoryId: { { (item.categoryId or 'general') | tojson } },
-        name: { { item.name | tojson } },
-        price: { { item.price | tojson } },
-        type: { { (item.type or 'Bien') | tojson } },
-        itbisRate: { { (item.itbisRate or 0.18) | tojson } }
+        id: {{ item.id | tojson }},
+        code: {{ (item.code or '') | tojson }},
+        barcode: {{ (item.barcode or '') | tojson }},
+        categoryId: {{ (item.categoryId or 'general') | tojson }},
+        name: {{ item.name | tojson }},
+        price: {{ item.price | tojson }},
+        type: {{ (item.type or 'Bien') | tojson }},
+        itbisRate: {{ (item.itbisRate or 0.18) | tojson }}
     } {% if not loop.last %}, {% endif %}
     {% endfor %}
 ];
