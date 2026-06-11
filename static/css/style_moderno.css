@@ -283,13 +283,20 @@ body:not(.sidebar-collapsed) .sidebar-logo .logo-text-wrapper {
     border-radius: 8px;
 }
 
-.sidebar-logo span {
+.sidebar-logo span.logo-title {
     font-family: var(--font-heading);
     font-size: 1.2rem;
     font-weight: 800;
     background: var(--brand-gradient);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
+}
+
+body.sandbox-mode .sidebar-logo span.logo-title {
+    background: none;
+    -webkit-background-clip: unset;
+    -webkit-text-fill-color: var(--text-primary);
+    color: var(--text-primary);
 }
 
 .sidebar-logo .sandbox-tag {

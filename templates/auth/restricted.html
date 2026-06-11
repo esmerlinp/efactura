@@ -149,8 +149,11 @@
 
             <h2 class="restricted-title">Acceso Denegado</h2>
             <p class="restricted-message">
-                Tu perfil de colaborador no cuenta con los permisos de acceso requeridos para interactuar con este
-                módulo del sistema.
+                {% if custom_message %}
+                    {{ custom_message }}
+                {% else %}
+                    Tu perfil de colaborador no cuenta con los permisos de acceso requeridos para interactuar con este módulo del sistema.
+                {% endif %}
             </p>
 
             <div class="restricted-details">
@@ -174,10 +177,17 @@
                 </div>
             </div>
 
+            {% if force_logout %}
+            <a href="{{ url_for('web_auth.logout') }}" class="btn btn-primary btn-restricted" style="background-color: var(--accent-red); border-color: var(--accent-red);">
+                <i class="fa-solid fa-right-from-bracket"></i>
+                <span>Cerrar Sesión</span>
+            </a>
+            {% else %}
             <a href="{{ url_for('dashboard') }}" class="btn btn-primary btn-restricted">
                 <i class="fa-solid fa-house"></i>
                 <span>Volver al Dashboard</span>
             </a>
+            {% endif %}
         </div>
     </div>
 
