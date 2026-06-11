@@ -144,6 +144,11 @@ def create_app():
                             flash("No puedes realizar operaciones en producción hasta que no se te asigne un plan en el sistema.", "error")
                             return redirect(flask_url_for('web_dashboard.dashboard'))
 
+                # Bloqueo por Cuenta Cancelada (Módulo Portal Administrativo)
+                if company_profile.get('status') == 'Cancelado':
+                    if request.endpoint not in allowed_endpoints:
+                        return render_template('auth/restricted.html', feature_name="Cuenta Cancelada", required_permission="statusCancelado", custom_message="Esta cuenta ha sido cancelada en el sistema. Comuníquese con soporte si considera que es un error.", force_logout=True)
+
                 # Bloqueo por Suspensión de Cuenta (Módulo Portal Administrativo)
                 if company_profile.get('status') == 'Suspendido':
                     restricted_endpoints = ['web_invoices.new_invoice_route', 'web_invoices.new_quotation_route', 'web_invoices.new_expense_route', 'web_clients.ajax_create_client', 'web_invoices.delete_expense_route']

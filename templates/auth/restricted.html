@@ -168,12 +168,6 @@
                         <span class="details-value badge badge-danger"
                             style="font-size: 0.72rem; text-transform: none;">{{ required_permission }}</span>
                     </div>
-                    <div class="restricted-details-row"
-                        style="margin-top: 8px; border-top: 1px solid var(--border-color); padding-top: 8px;">
-                        <span class="details-label"><i class="fa-solid fa-user-tie"></i> Administrador:</span>
-                        <span class="details-value" style="opacity: 0.95;">{{ session.get('user', {}).get('ownerUID')
-                            }}</span>
-                    </div>
                 </div>
             </div>
 
