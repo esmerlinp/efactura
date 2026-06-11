@@ -39,15 +39,20 @@ def sanitize_float(val, default=0.0):
 
 @web_import_mapper_bp.route('/import/upload', methods=['POST'])
 def upload_file():
-    if 'user' not in session: return redirect(url_for('login'))
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.is_json
+    if 'user' not in session:
+        if is_ajax: return jsonify({"success": False, "error": "No autorizado"}), 401
+        return redirect(url_for('login'))
     
     import_type = request.form.get('import_type')
     if import_type not in ['clients', 'products', 'invoices']:
+        if is_ajax: return jsonify({"success": False, "error": "Tipo de importación no válido."}), 400
         flash('Tipo de importación no válido.', 'error')
         return redirect(url_for('web_dashboard.dashboard'))
         
     file = request.files.get('file')
     if not file or not file.filename.endswith('.csv'):
+        if is_ajax: return jsonify({"success": False, "error": "Por favor sube un archivo CSV válido (.csv)."}), 400
         flash('Por favor sube un archivo CSV válido (.csv).', 'error')
         if import_type == 'clients':
             return redirect(url_for('web_clients.list_clients'))
@@ -86,6 +91,8 @@ def upload_file():
     except Exception as e:
         if os.path.exists(temp_path):
             os.remove(temp_path)
+        if is_ajax:
+            return jsonify({"success": False, "error": f"Error al analizar el archivo: {str(e)}"}), 400
         flash(f'Error al analizar el archivo: {str(e)}', 'error')
         if import_type == 'clients':
             return redirect(url_for('web_clients.list_clients'))
@@ -145,6 +152,16 @@ def upload_file():
             {"id": "concept", "name": "Concepto / Descripción Única", "required": False, "suggestions": ["concepto", "descripcion", "detalle", "nota"]}
         ]
         
+    if is_ajax:
+        return jsonify({
+            "success": True,
+            "import_type": import_type,
+            "headers": headers,
+            "preview_rows": preview_rows,
+            "temp_filename": file_id,
+            "target_fields": target_fields
+        })
+
     return render_template(
         'import/mapper.html',
         import_type=import_type,
@@ -172,7 +189,10 @@ def ai_suggest_mapping():
 
 @web_import_mapper_bp.route('/import/process', methods=['POST'])
 def process_import():
-    if 'user' not in session: return redirect(url_for('login'))
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.is_json
+    if 'user' not in session:
+        if is_ajax: return jsonify({"success": False, "error": "No autorizado"}), 401
+        return redirect(url_for('login'))
     
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
@@ -181,6 +201,7 @@ def process_import():
     temp_filename = request.form.get('temp_filename')
     
     if not temp_filename or not import_type:
+        if is_ajax: return jsonify({"success": False, "error": "Información de importación incompleta."}), 400
         flash('Información de importación incompleta.', 'error')
         return redirect(url_for('web_dashboard.dashboard'))
         
@@ -346,8 +367,12 @@ def process_import():
                     DatabaseService.save_invoice(owner_uid, invoice_id, inv_dict, sandbox=sandbox)
                     count += 1
                     
+        if is_ajax:
+            return jsonify({"success": True, "message": f"¡Éxito! Se importaron {count} registros correctamente."})
         flash(f'¡Éxito! Se importaron {count} registros correctamente.', 'success')
     except Exception as e:
+        if is_ajax:
+            return jsonify({"success": False, "error": f"Error al procesar la importación: {str(e)}"}), 500
         flash(f'Error al procesar la importación: {str(e)}', 'error')
     finally:
         if os.path.exists(temp_path):
