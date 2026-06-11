@@ -457,23 +457,40 @@
                             <input type="hidden" name="volumen_facturas" id="form-hidden-volume" value="100">
                             
                             <div class="form-group">
-                                <label for="form-name">Nombre Completo</label>
+                                <label for="form-name">Nombre Completo *</label>
                                 <input type="text" id="form-name" name="name" class="form-input" placeholder="Ingresa tu nombre y apellido" required>
                             </div>
                             
                             <div class="form-group">
-                                <label for="form-email">Correo Electrónico Corporativo</label>
+                                <label for="form-email">Correo Electrónico Corporativo *</label>
                                 <input type="email" id="form-email" name="email" class="form-input" placeholder="ejemplo@empresa.com" required>
                             </div>
                             
                             <div class="form-group">
-                                <label for="form-phone">Teléfono de Contacto</label>
+                                <label for="form-phone">Teléfono de Contacto *</label>
                                 <input type="tel" id="form-phone" name="phone" class="form-input" placeholder="809-555-0199" required>
                             </div>
                             
                             <div class="form-group">
                                 <label for="form-rnc">RNC de la Empresa (Opcional)</label>
                                 <input type="text" id="form-rnc" name="rnc" class="form-input" placeholder="131689787">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="form-transactions">¿Cuántas transacciones emite mensualmente aproximadamente? *</label>
+                                <select id="form-transactions" name="transactions_qty" class="form-select" required style="height: 38px;">
+                                    <option value="" disabled selected>Seleccione un rango...</option>
+                                    <option value="Menos de 50">Menos de 50</option>
+                                    <option value="50 a 200">50 a 200</option>
+                                    <option value="200 a 500">200 a 500</option>
+                                    <option value="500 a 1,500">500 a 1,500</option>
+                                    <option value="Más de 1,500">Más de 1,500</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="form-comments">Comentarios / Requerimientos Adicionales</label>
+                                <textarea id="form-comments" name="comments" class="form-textarea" placeholder="Cuéntanos más sobre tus necesidades..." rows="3" style="resize: vertical; padding: 10px;"></textarea>
                             </div>
                             
                             <button type="submit" class="btn btn-primary" style="width:100%; padding:14px; margin-top:10px;">
@@ -611,7 +628,14 @@
                 });
             });
 
-            // E. Envío asíncrono (AJAX) del Formulario de Leads
+            // Formateador de Teléfono (XXX-XXX-XXXX)
+            const phoneInput = document.getElementById('form-phone');
+            if (phoneInput) {
+                phoneInput.addEventListener('input', function(e) {
+                    let x = e.target.value.replace(/\D/g, '').match(/(\d{0,3})(\d{0,3})(\d{0,4})/);
+                    e.target.value = !x[2] ? x[1] : x[1] + '-' + x[2] + (x[3] ? '-' + x[3] : '');
+                });
+            }
             const leadForm = document.getElementById('landing-lead-form');
             const successCard = document.getElementById('form-success-card');
             const successVolumeLabel = document.getElementById('success-volume-label');
