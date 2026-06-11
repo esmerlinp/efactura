@@ -637,9 +637,9 @@
         }
 
         const labels = [{% for m in months_projection %} "{{ m.label }}", {% endfor %}];
-    const inflows = [{% for m in months_projection %}{ { m.inflow } }, {% endfor %}];
-    const outflows = [{% for m in months_projection %}{ { m.outflow } }, {% endfor %}];
-    const cumulative = [{% for m in months_projection %}{ { m.cumulative } }, {% endfor %}];
+        const inflows = [{% for m in months_projection %}{{ m.inflow }}, {% endfor %}];
+        const outflows = [{% for m in months_projection %}{{ m.outflow }}, {% endfor %}];
+        const cumulative = [{% for m in months_projection %}{{ m.cumulative }}, {% endfor %}];
 
     cashFlowChartInstance = new Chart(ctx, {
         type: 'line',
