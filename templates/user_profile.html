@@ -465,6 +465,123 @@
         color: var(--accent-red);
     }
 
+    .profile-section-icon.blue {
+        background: rgba(37, 99, 235, 0.1);
+        color: #2563eb;
+    }
+    
+    /* 2FA Modal Styles */
+    .mfa-modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.6);
+        backdrop-filter: blur(4px);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+        opacity: 0;
+        transition: opacity 0.2s ease-in-out;
+    }
+    .mfa-modal-overlay.show {
+        display: flex;
+        opacity: 1;
+    }
+    .mfa-modal {
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: 16px;
+        width: 90%;
+        max-width: 480px;
+        padding: 28px;
+        box-shadow: var(--shadow-lg);
+        position: relative;
+        transform: translateY(-20px);
+        transition: transform 0.2s ease-in-out;
+    }
+    .mfa-modal-overlay.show .mfa-modal {
+        transform: translateY(0);
+    }
+    .mfa-modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+    }
+    .mfa-modal-title {
+        font-family: var(--font-heading);
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin: 0;
+    }
+    .mfa-modal-close {
+        background: none;
+        border: none;
+        color: var(--text-muted);
+        cursor: pointer;
+        font-size: 1.1rem;
+    }
+    .mfa-modal-close:hover {
+        color: var(--text-primary);
+    }
+    .mfa-qr-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 20px;
+        padding: 16px;
+        background: rgba(0, 0, 0, 0.02);
+        border-radius: 12px;
+        border: 1px dashed var(--border-color);
+    }
+    .mfa-qr-image {
+        width: 180px;
+        height: 180px;
+        background: white;
+        padding: 8px;
+        border-radius: 8px;
+    }
+    .mfa-secret-key {
+        font-family: monospace;
+        font-size: 0.95rem;
+        background: rgba(0,0,0,0.05);
+        padding: 6px 12px;
+        border-radius: 6px;
+        color: var(--text-primary);
+        letter-spacing: 0.05em;
+        text-align: center;
+        word-break: break-all;
+    }
+    .backup-codes-container {
+        margin-top: 16px;
+        padding: 16px;
+        background: rgba(16, 185, 129, 0.05);
+        border: 1px solid rgba(16, 185, 129, 0.2);
+        border-radius: 10px;
+    }
+    .backup-codes-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        margin: 12px 0;
+    }
+    .backup-code-item {
+        font-family: monospace;
+        font-size: 0.95rem;
+        font-weight: 600;
+        text-align: center;
+        padding: 4px;
+        background: var(--bg-input);
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+        color: var(--text-primary);
+    }
+
     @media (max-width: 700px) {
         .profile-hero-card {
             flex-direction: column;
@@ -700,6 +817,173 @@
         </div>
     </div>
 
+    <!-- ====== AUTENTICACIÓN DE DOS FACTORES (2FA) ====== -->
+    <div class="profile-section-card">
+        <div class="profile-section-header">
+            <div class="profile-section-icon blue">
+                <i class="fa-solid fa-shield-halved"></i>
+            </div>
+            <div>
+                <h2 class="profile-section-title">Doble Factor de Autenticación (2FA)</h2>
+                <p class="profile-section-subtitle">Añade una capa extra de seguridad verificando tu identidad a través de un código de 6 dígitos.</p>
+            </div>
+        </div>
+        <div class="profile-section-body">
+            <div id="mfa-status-container">
+                {% if user.get('two_factor_enabled') %}
+                <div class="profile-alert profile-alert-success" style="margin-bottom: 20px;">
+                    <i class="fa-solid fa-circle-check"></i>
+                    <span>La autenticación de dos factores (2FA) está actualmente <strong>activada</strong> en tu cuenta.</span>
+                </div>
+                <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 20px;">
+                    Cada vez que inicies sesión, se te solicitará un código generado por tu aplicación de autenticación (Google Authenticator, Authy, etc.).
+                </p>
+                
+                <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                    <button type="button" class="profile-save-btn danger" style="width: auto; min-width: 180px;" onclick="showDisableMfaModal()">
+                        <i class="fa-solid fa-shield-xmark"></i>
+                        <span>Desactivar 2FA</span>
+                    </button>
+                    <button type="button" class="profile-save-btn" style="width: auto; min-width: 180px; background: var(--bg-nav-hover); color: var(--text-primary); border: 1px solid var(--border-color); box-shadow: none;" onclick="showBackupCodesAlert()">
+                        <i class="fa-solid fa-receipt"></i>
+                        <span>Ver Códigos de Respaldo</span>
+                    </button>
+                </div>
+                {% else %}
+                <div class="profile-alert" style="background: rgba(59, 130, 246, 0.05); border: 1px solid rgba(59, 130, 246, 0.2); color: #2563eb; margin-bottom: 20px;">
+                    <i class="fa-solid fa-circle-info"></i>
+                    <span>La autenticación de dos factores (2FA) está actualmente <strong>desactivada</strong>.</span>
+                </div>
+                <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 20px;">
+                    Te recomendamos encarecidamente activar la verificación en dos pasos para proteger tu cuenta contra accesos no autorizados.
+                </p>
+                <button type="button" class="profile-save-btn" style="width: auto; min-width: 180px;" onclick="startMfaSetup()">
+                    <i class="fa-solid fa-shield-check"></i>
+                    <span>Configurar 2FA</span>
+                </button>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Setup 2FA -->
+    <div id="mfa-setup-modal" class="mfa-modal-overlay">
+        <div class="mfa-modal">
+            <div class="mfa-modal-header">
+                <h3 class="mfa-modal-title">Configurar Verificación en Dos Pasos</h3>
+                <button type="button" class="mfa-modal-close" onclick="closeMfaSetupModal()">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            
+            <!-- Step 1: Scan QR -->
+            <div id="mfa-setup-step-scan">
+                <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 16px;">
+                    1. Escanea este código QR con tu aplicación de autenticación (como Google Authenticator o Authy):
+                </p>
+                <div class="mfa-qr-container">
+                    <img id="mfa-qr-img" class="mfa-qr-image" src="" alt="Código QR de Configuración">
+                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">¿No puedes escanear el código? Configura manualmente con esta clave:</div>
+                    <div id="mfa-secret-text" class="mfa-secret-key">Cargando...</div>
+                </div>
+                
+                <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 8px;">
+                    2. Introduce el código de 6 dígitos que se muestra en tu aplicación para confirmar:
+                </p>
+                <div style="margin-bottom: 20px;">
+                    <input type="text" id="mfa-confirm-code" class="profile-input" style="text-align: center; font-size: 1.25rem; letter-spacing: 0.3em; padding: 12px;" placeholder="000000" maxlength="6" autocomplete="off">
+                    <div id="mfa-setup-error" style="color: var(--accent-red); font-size: 0.8rem; margin-top: 6px; display: none;"></div>
+                </div>
+                
+                <div style="display: flex; justify-content: flex-end; gap: 12px;">
+                    <button type="button" class="profile-save-btn" style="width: auto; background: var(--bg-nav-hover); color: var(--text-primary); border: 1px solid var(--border-color); box-shadow: none;" onclick="closeMfaSetupModal()">Cancelar</button>
+                    <button type="button" id="mfa-btn-confirm" class="profile-save-btn" style="width: auto; min-width: 120px;" onclick="confirmMfaSetup()">Verificar y Activar</button>
+                </div>
+            </div>
+            
+            <!-- Step 2: Show Backup Codes -->
+            <div id="mfa-setup-step-backup" style="display: none;">
+                <div class="profile-alert profile-alert-success">
+                    <i class="fa-solid fa-circle-check"></i>
+                    <span>¡Autenticación en dos pasos activada!</span>
+                </div>
+                <p style="font-size: 0.85rem; color: var(--text-secondary);">
+                    Guarda estos códigos de recuperación en un lugar seguro. Podrás usarlos para iniciar sesión si pierdes acceso a tu dispositivo. Cada código es de un solo uso.
+                </p>
+                
+                <div class="backup-codes-container">
+                    <div class="backup-codes-grid" id="mfa-backup-codes-list">
+                        <!-- Inserted dynamically -->
+                    </div>
+                </div>
+                
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 20px;">
+                    <button type="button" class="profile-save-btn" style="width: auto; background: var(--bg-nav-hover); color: var(--text-primary); border: 1px solid var(--border-color); box-shadow: none;" onclick="copyBackupCodes()"><i class="fa-solid fa-copy"></i> Copiar</button>
+                    <button type="button" class="profile-save-btn" style="width: auto;" onclick="finishMfaSetup()">Entendido</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal Disable 2FA -->
+    <div id="mfa-disable-modal" class="mfa-modal-overlay">
+        <div class="mfa-modal">
+            <div class="mfa-modal-header">
+                <h3 class="mfa-modal-title">Desactivar Autenticación de Dos Factores</h3>
+                <button type="button" class="mfa-modal-close" onclick="closeMfaDisableModal()">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            
+            <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 16px;">
+                Por razones de seguridad, confirma tu contraseña para desactivar el doble factor de autenticación:
+            </p>
+            
+            <div style="margin-bottom: 20px;">
+                <label class="profile-label" for="mfa-disable-pwd" style="margin-bottom: 6px;">Contraseña Actual</label>
+                <div class="profile-input-wrapper">
+                    <input type="password" id="mfa-disable-pwd" class="profile-input" placeholder="••••••••" required>
+                </div>
+                <div id="mfa-disable-error" style="color: var(--accent-red); font-size: 0.8rem; margin-top: 6px; display: none;"></div>
+            </div>
+            
+            <div style="display: flex; justify-content: flex-end; gap: 12px;">
+                <button type="button" class="profile-save-btn" style="width: auto; background: var(--bg-nav-hover); color: var(--text-primary); border: 1px solid var(--border-color); box-shadow: none;" onclick="closeMfaDisableModal()">Cancelar</button>
+                <button type="button" id="mfa-btn-disable-confirm" class="profile-save-btn danger" style="width: auto; min-width: 140px;" onclick="confirmMfaDisable()">Desactivar 2FA</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal View Backup Codes (Existing MFA) -->
+    <div id="mfa-backup-modal" class="mfa-modal-overlay">
+        <div class="mfa-modal">
+            <div class="mfa-modal-header">
+                <h3 class="mfa-modal-title">Códigos de Recuperación</h3>
+                <button type="button" class="mfa-modal-close" onclick="closeMfaBackupModal()">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            
+            <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 16px;">
+                Estos son tus códigos de recuperación activos. Cada uno puede usarse una única vez:
+            </p>
+            
+            <div class="backup-codes-container">
+                <div class="backup-codes-grid">
+                    {% for code in user.get('backup_codes', []) %}
+                    <div class="backup-code-item">{{ code }}</div>
+                    {% else %}
+                    <div style="grid-column: span 2; text-align: center; font-size: 0.85rem; color: var(--text-muted); padding: 8px;">No hay códigos de respaldo generados.</div>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <div style="display: flex; justify-content: flex-end; margin-top: 20px;">
+                <button type="button" class="profile-save-btn" style="width: auto;" onclick="closeMfaBackupModal()">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
     <!-- ====== PERMISOS ACTUALES ====== -->
     <div class="profile-section-card">
         <div class="profile-section-header">
@@ -878,5 +1162,175 @@
         btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> <span>Procesando...</span>';
         btn.disabled = true;
     });
+
+    // ============ AUTENTICACIÓN 2FA SCRIPTS ============
+    let mfaTempSecret = null;
+    let mfaBackupCodes = [];
+
+    function startMfaSetup() {
+        const secretText = document.getElementById('mfa-secret-text');
+        const qrImg = document.getElementById('mfa-qr-img');
+        const setupError = document.getElementById('mfa-setup-error');
+        const confirmCodeInput = document.getElementById('mfa-confirm-code');
+        
+        secretText.textContent = "Cargando...";
+        qrImg.src = "";
+        setupError.style.display = "none";
+        confirmCodeInput.value = "";
+        
+        // Mostrar Paso 1, ocultar Paso 2
+        document.getElementById('mfa-setup-step-scan').style.display = 'block';
+        document.getElementById('mfa-setup-step-backup').style.display = 'none';
+        
+        document.getElementById('mfa-setup-modal').classList.add('show');
+        
+        fetch('/profile/2fa/setup', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                mfaTempSecret = data.secret;
+                secretText.textContent = data.secret;
+                qrImg.src = data.qr_code;
+            } else {
+                alert('Error al iniciar configuración 2FA: ' + (data.error || 'Intenta de nuevo'));
+                closeMfaSetupModal();
+            }
+        })
+        .catch(err => {
+            alert('Error de red al iniciar configuración 2FA.');
+            closeMfaSetupModal();
+        });
+    }
+
+    function closeMfaSetupModal() {
+        document.getElementById('mfa-setup-modal').classList.remove('show');
+    }
+
+    function confirmMfaSetup() {
+        const code = document.getElementById('mfa-confirm-code').value.trim();
+        const setupError = document.getElementById('mfa-setup-error');
+        const btn = document.getElementById('mfa-btn-confirm');
+        
+        if (code.length !== 6 || isNaN(code)) {
+            setupError.textContent = "El código debe tener exactamente 6 dígitos numéricos.";
+            setupError.style.display = "block";
+            return;
+        }
+        
+        setupError.style.display = "none";
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Verificando...';
+        
+        fetch('/profile/2fa/enable', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ secret: mfaTempSecret, code: code })
+        })
+        .then(res => res.json())
+        .then(data => {
+            btn.disabled = false;
+            btn.innerHTML = 'Verificar y Activar';
+            
+            if (data.success) {
+                mfaBackupCodes = data.backup_codes;
+                
+                const backupList = document.getElementById('mfa-backup-codes-list');
+                backupList.innerHTML = '';
+                mfaBackupCodes.forEach(code => {
+                    const div = document.createElement('div');
+                    div.className = 'backup-code-item';
+                    div.textContent = code;
+                    backupList.appendChild(div);
+                });
+                
+                // Mostrar Paso 2
+                document.getElementById('mfa-setup-step-scan').style.display = 'none';
+                document.getElementById('mfa-setup-step-backup').style.display = 'block';
+            } else {
+                setupError.textContent = data.error || "Código incorrecto. Intenta de nuevo.";
+                setupError.style.display = "block";
+            }
+        })
+        .catch(err => {
+            btn.disabled = false;
+            btn.innerHTML = 'Verificar y Activar';
+            setupError.textContent = "Error de red al verificar el código.";
+            setupError.style.display = "block";
+        });
+    }
+
+    function copyBackupCodes() {
+        const codesStr = mfaBackupCodes.join('\n');
+        navigator.clipboard.writeText(codesStr)
+            .then(() => alert('Códigos copiados al portapapeles.'))
+            .catch(err => alert('No se pudo copiar automáticamente: \n' + codesStr));
+    }
+
+    function finishMfaSetup() {
+        location.reload();
+    }
+
+    // Disable 2FA
+    function showDisableMfaModal() {
+        document.getElementById('mfa-disable-pwd').value = "";
+        document.getElementById('mfa-disable-error').style.display = "none";
+        document.getElementById('mfa-disable-modal').classList.add('show');
+    }
+
+    function closeMfaDisableModal() {
+        document.getElementById('mfa-disable-modal').classList.remove('show');
+    }
+
+    function confirmMfaDisable() {
+        const pwd = document.getElementById('mfa-disable-pwd').value;
+        const disableError = document.getElementById('mfa-disable-error');
+        const btn = document.getElementById('mfa-btn-disable-confirm');
+        
+        if (!pwd) {
+            disableError.textContent = "Por favor ingresa tu contraseña.";
+            disableError.style.display = "block";
+            return;
+        }
+        
+        disableError.style.display = "none";
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Desactivando...';
+        
+        fetch('/profile/2fa/disable', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password: pwd })
+        })
+        .then(res => res.json())
+        .then(data => {
+            btn.disabled = false;
+            btn.innerHTML = 'Desactivar 2FA';
+            
+            if (data.success) {
+                location.reload();
+            } else {
+                disableError.textContent = data.error || "Contraseña incorrecta.";
+                disableError.style.display = "block";
+            }
+        })
+        .catch(err => {
+            btn.disabled = false;
+            btn.innerHTML = 'Desactivar 2FA';
+            disableError.textContent = "Error de red al desactivar 2FA.";
+            disableError.style.display = "block";
+        });
+    }
+
+    // View backup codes
+    function showBackupCodesAlert() {
+        document.getElementById('mfa-backup-modal').classList.add('show');
+    }
+
+    function closeMfaBackupModal() {
+        document.getElementById('mfa-backup-modal').classList.remove('show');
+    }
 </script>
 {% endblock %}
