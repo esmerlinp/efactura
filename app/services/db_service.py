@@ -507,7 +507,7 @@ class DatabaseService:
                         "isDefault": True,
                         "createdAt": datetime.utcnow().isoformat()
                     }
-                    cls.save_branch(owner_uid, default_id, default_branch, sandbox=sandbox)
+                    cls.save_branch(owner_uid, default_id, default_branch, sandbox=sandbox, update_defaults=False)
                     branches.append(default_branch)
                 else:
                     branches.sort(key=lambda x: x["name"].lower())
@@ -516,7 +516,7 @@ class DatabaseService:
         return branches
 
     @classmethod
-    def save_branch(cls, owner_uid, branch_id, branch_dict, sandbox=True):
+    def save_branch(cls, owner_uid, branch_id, branch_dict, sandbox=True, update_defaults=True):
         """Guarda o actualiza una sucursal en Firestore."""
         branch_dict["id"] = branch_id
         branch_dict["ownerUID"] = owner_uid
@@ -525,7 +525,7 @@ class DatabaseService:
         branch_dict["createdAt"] = serialize_field(branch_dict["createdAt"])
 
         # Si se establece como default, desmarcar las demas
-        if branch_dict.get("isDefault"):
+        if branch_dict.get("isDefault") and update_defaults:
             branches = cls.get_branches(owner_uid, sandbox=sandbox)
             for b in branches:
                 if b["id"] != branch_id and b.get("isDefault"):

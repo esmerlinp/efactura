@@ -54,27 +54,38 @@ def create_app():
             if fresh_profile:
                 session['user'] = fresh_profile
             
-            # En modo producción, obligar al propietario a configurar el perfil si no lo ha hecho
-            if not session.get('is_sandbox_mode', False):
-                owner_uid = session['user'].get('ownerUID')
-                if owner_uid:
-                    company_profile = DatabaseService.get_company_profile(owner_uid)
-                    
-                    # Bloqueo por Suspensión de Cuenta (Módulo Portal Administrativo)
-                    if company_profile.get('status') == 'Suspendido':
-                        restricted_endpoints = ['web_invoices.new_invoice_route', 'web_invoices.new_quotation_route', 'web_invoices.new_expense_route', 'web_clients.ajax_create_client', 'web_invoices.delete_expense_route']
-                        if request.endpoint in restricted_endpoints:
-                            if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.is_json:
-                                return jsonify({"success": False, "error": "Tu cuenta está suspendida por falta de pago."}), 403
-                            flash("Tu cuenta está suspendida por falta de pago. No puedes emitir nuevas facturas, cotizaciones ni registrar gastos.", "error")
-                            return redirect(flask_url_for('web_dashboard.dashboard'))
+            # Obligar al propietario a configurar el perfil si no lo ha hecho (incluso en sandbox)
+            owner_uid = session['user'].get('ownerUID')
+            if owner_uid:
+                company_profile = DatabaseService.get_company_profile(owner_uid)
+                
+                # Bloqueo por Suspensión de Cuenta (Módulo Portal Administrativo)
+                if company_profile.get('status') == 'Suspendido':
+                    restricted_endpoints = ['web_invoices.new_invoice_route', 'web_invoices.new_quotation_route', 'web_invoices.new_expense_route', 'web_clients.ajax_create_client', 'web_invoices.delete_expense_route']
+                    if request.endpoint in restricted_endpoints:
+                        if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.is_json:
+                            return jsonify({"success": False, "error": "Tu cuenta está suspendida por falta de pago."}), 403
+                        flash("Tu cuenta está suspendida por falta de pago. No puedes emitir nuevas facturas, cotizaciones ni registrar gastos.", "error")
+                        return redirect(flask_url_for('web_dashboard.dashboard'))
 
-                    if not company_profile.get('configured', False):
-                        # Evitar bucle de redirección en páginas esenciales
-                        allowed = ['web_invoices.company_settings', 'web_auth.logout', 'web_auth.toggle_sandbox', 'static', 'web_auth.user_profile_page', 'web_auth.update_user_profile', 'web_auth.change_user_password', None]
-                        if request.endpoint not in allowed:
-                            flash("Para poder operar en Modo de Producción, debes primero configurar y guardar los datos reales de tu empresa.", "warning")
-                            return redirect(flask_url_for('web_invoices.company_settings'))
+                if not company_profile.get('configured', False):
+                    # Evitar bucle de redirección en páginas esenciales
+                    allowed = [
+                        'web_invoices.onboarding_wizard', 
+                        'web_auth.logout', 
+                        'web_auth.toggle_sandbox', 
+                        'static', 
+                        'web_auth.user_profile_page', 
+                        'web_auth.update_user_profile', 
+                        'web_auth.change_user_password',
+                        'web_import_mapper.upload_file',
+                        'web_import_mapper.ai_suggest_mapping',
+                        'web_import_mapper.process_import',
+                        None
+                    ]
+                    if request.endpoint not in allowed:
+                        flash("Para poder operar en la plataforma, debes primero configurar los datos requeridos de tu empresa.", "warning")
+                        return redirect(flask_url_for('web_invoices.onboarding_wizard'))
 
     @app.context_processor
     def inject_company_brand():
@@ -86,6 +97,7 @@ def create_app():
         apply_ui = True
         apply_reports = True
         theme = 'moderno'
+        is_configured = True
         if has_request_context() and 'user' in session:
             owner_uid = session['user'].get('ownerUID')
             if owner_uid:
@@ -96,13 +108,15 @@ def create_app():
                 apply_ui = company.get('applyColorMarcaUI', True)
                 apply_reports = company.get('applyColorMarcaReports', True)
                 theme = company.get('theme', 'moderno')
+                is_configured = company.get('configured', False)
         return dict(
             company_logo_url=logo_url, 
             company_color_marca=color_marca, 
             company_gradient_enabled=gradient_enabled, 
             company_apply_color_marca_ui=apply_ui, 
             company_apply_color_marca_reports=apply_reports,
-            company_theme=theme
+            company_theme=theme,
+            is_company_configured=is_configured
         )
 
     @app.context_processor

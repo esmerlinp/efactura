@@ -359,11 +359,11 @@ body:not(.sidebar-collapsed) .sidebar-logo .logo-text-wrapper {
     width: 38px;
     height: 38px;
     border-radius: 50%;
-    background: linear-gradient(135deg, var(--accent-emerald), var(--accent-purple));
+    background: linear-gradient(135deg, #f59e0b, #ea580c);
     display: flex;
     align-items: center;
     justify-content: center;
-    color: white;
+    color: #ffffff !important;
     font-weight: 700;
     font-size: 0.95rem;
     box-shadow: var(--shadow-sm);

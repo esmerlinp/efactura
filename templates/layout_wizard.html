@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="es" {% if session.get('is_sandbox_mode', False) %}class="sandbox-mode"{% endif %}>
+
+<head>
+    <meta charset="UTF-8">
+    <script>
+        // Aplicar tema guardado antes de renderizar la página para evitar destellos (flash)
+        (function () {
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+        })();
+    </script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}{% endblock %} - e-Factura Onboarding</title>
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/efactura_logo.png') }}">
+    <meta name="description" content="Configuración inicial de e-Factura.">
+
+    <!-- FontAwesome para Iconos Modernos -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Estilos según Tema -->
+    {% if company_theme == 'moderno' %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style_moderno.css') }}?v={{ range(1, 1000000) | random }}">
+    {% else %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style_clasico.css') }}?v={{ range(1, 1000000) | random }}">
+    {% endif %}
+
+    <style>
+        .wizard-layout-container {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            background-color: var(--bg-body);
+        }
+
+        .wizard-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 40px;
+            background: var(--bg-card);
+            border-bottom: 1px solid var(--border-color);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .wizard-brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .wizard-brand img {
+            height: 32px;
+            object-fit: contain;
+        }
+
+        .wizard-brand-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            font-family: var(--font-heading);
+        }
+
+        .wizard-header-actions {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .wizard-main-content {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            padding: 40px 20px;
+            overflow-y: auto;
+        }
+
+        .wizard-content-card {
+            width: 100%;
+            max-width: 1300px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: 40px;
+            box-shadow: var(--shadow-md);
+            height: fit-content;
+        }
+
+        /* Estilo para los mensajes flotantes */
+        .flashes-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1050;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-width: 380px;
+            width: 100%;
+        }
+
+        .alert-banner {
+            padding: 16px 20px;
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-lg);
+            font-size: 0.88rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-weight: 500;
+            backdrop-filter: blur(20px);
+        }
+        
+        .theme-toggle-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 1.15rem;
+            color: var(--text-secondary);
+            padding: 8px;
+            border-radius: 50%;
+            transition: background 0.2s;
+        }
+
+        .theme-toggle-btn:hover {
+            background: var(--bg-nav-hover);
+            color: var(--text-primary);
+        }
+    </style>
+    {% block extra_head %}{% endblock %}
+</head>
+
+<body>
+    <div class="wizard-layout-container">
+        <!-- HEADER -->
+        <header class="wizard-header">
+            <div class="wizard-brand">
+                <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Logo">
+                <span class="wizard-brand-title">e-Factura</span>
+            </div>
+            
+            <div class="wizard-header-actions">
+                <!-- Botón de cambio de tema -->
+                <button type="button" class="theme-toggle-btn" id="theme-toggle-wizard" title="Cambiar Tema">
+                    <i class="fa-solid fa-moon"></i>
+                </button>
+                
+                <!-- Cerrar Sesión -->
+                <a href="{{ url_for('web_auth.logout') }}" class="btn btn-secondary" style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; padding: 8px 16px;">
+                    <i class="fa-solid fa-right-from-bracket"></i>
+                    <span>Cerrar sesión</span>
+                </a>
+            </div>
+        </header>
+
+        <!-- MAIN -->
+        <main class="wizard-main-content">
+            <!-- Mensajes flash -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+            <div class="flashes-container">
+                {% for category, message in messages %}
+                <div class="alert-banner badge {% if category == 'error' %}badge-danger{% else %}badge-success{% endif %}">
+                    <span>{{ message }}</span>
+                    <i class="fa-solid fa-times" style="margin-left: 15px; cursor: pointer;" onclick="this.parentElement.remove()"></i>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+            {% endwith %}
+
+            <div class="wizard-content-card">
+                {% block content %}{% endblock %}
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // Funcionalidad de cambiar tema en el wizard
+        document.getElementById('theme-toggle-wizard').addEventListener('click', function () {
+            const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            
+            const icon = this.querySelector('i');
+            if (newTheme === 'dark') {
+                icon.className = 'fa-solid fa-sun';
+            } else {
+                icon.className = 'fa-solid fa-moon';
+            }
+        });
+
+        // Configurar icono de tema correcto en carga inicial
+        (function() {
+            const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
+            const icon = document.querySelector('#theme-toggle-wizard i');
+            if (icon) {
+                if (currentTheme === 'dark') {
+                    icon.className = 'fa-solid fa-sun';
+                } else {
+                    icon.className = 'fa-solid fa-moon';
+                }
+            }
+        })();
+    </script>
+    {% block extra_scripts %}{% endblock %}
+</body>
+</html>

@@ -3159,8 +3159,57 @@ def company_settings():
     branches = DatabaseService.get_branches(owner_uid, sandbox=session.get('is_sandbox_mode', True))
 
     onboarding_success = request.args.get('onboarding_success') == 'true'
-    show_wizard = not profile.get('configured', False)
+    show_wizard = False
     return render_template('company_settings.html', active_page='settings', profile=profile, branches=branches, show_wizard=show_wizard, onboarding_success=onboarding_success, e_cf_provider=Config.E_CF_PROVIDER.lower())
+
+@web_invoices_bp.route('/onboarding', methods=['GET', 'POST'])
+def onboarding_wizard():
+    if 'user' not in session: return redirect(url_for('login'))
+    owner_uid = session['user']['ownerUID']
+    
+    if request.method == 'POST':
+        cert_file = request.files.get('certificateFile')
+        cert_name = ""
+        cert_ext = ""
+        cert_content = ""
+        
+        if cert_file and cert_file.filename:
+            import base64
+            file_data = cert_file.read()
+            filename = cert_file.filename
+            ext = filename.rsplit('.', 1)[-1].lower() if '.' in filename else 'p12'
+            cert_name = filename.rsplit('.', 1)[0]
+            cert_ext = f".{ext}"
+            cert_content = base64.b64encode(file_data).decode('utf-8')
+
+        cert_password = request.form.get('certificatePassword', '').strip()
+
+        profile_dict = {
+            "companyName": request.form['companyName'],
+            "companyRNC": request.form['companyRNC'],
+            "companyAddress": request.form.get('companyAddress', ''),
+            "companyPhone": request.form.get('companyPhone', ''),
+            "companyEmail": request.form.get('companyEmail', ''),
+            "tradeName": request.form.get('tradeName', ''),
+            "companyType": "associated",
+            "province": request.form.get('province', ''),
+            "municipality": request.form.get('municipality', ''),
+            "certificateName": cert_name,
+            "certificateExtension": cert_ext,
+            "certificateContent": cert_content,
+            "certificatePassword": cert_password,
+            "regimenFiscal": request.form.get('regimenFiscal', 'General'),
+            "consolidationEnabled": request.form.get('consolidationEnabled') == 'true',
+            "consolidationThreshold": float(request.form.get('consolidationThreshold') or 250000.0),
+            "configured": True
+        }
+        
+        DatabaseService.save_company_profile(owner_uid, profile_dict)
+        flash('¡Onboarding completado con éxito!', 'success')
+        return redirect(url_for('web_dashboard.dashboard'))
+
+    profile = DatabaseService.get_company_profile(owner_uid)
+    return render_template('onboarding_wizard.html', profile=profile)
 
 @web_invoices_bp.route('/settings/company/generate-api-key', methods=['POST'])
 def generate_company_api_key():
