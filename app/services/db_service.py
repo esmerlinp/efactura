@@ -190,6 +190,7 @@ class DatabaseService:
             raise RuntimeError("El SDK de Firebase Admin no está inicializado.")
 
         firebase_uid = None
+        user_record = None
         
         # 1. Intentar verificar credenciales con Firebase Auth REST API si está activo
         if Config.FIREBASE_API_KEY:
@@ -197,21 +198,39 @@ class DatabaseService:
             if res:
                 firebase_uid = res["localId"]
                 print(f"✅ Autenticado exitosamente en Firebase Auth. UID: {firebase_uid}")
+                try:
+                    user_record = auth.get_user(firebase_uid)
+                except Exception as e:
+                    print(f"⚠️ Error al obtener UserRecord de Firebase: {e}")
         
         if not firebase_uid:
-            # Fallback seguro para desarrollo/pruebas locales si no hay API Key de Firebase Auth completa:
-            # Buscamos en Firebase Auth por el email. Si coincide la contraseña demo y no hay API Key, dejamos entrar.
-            try:
-                user_record = auth.get_user_by_email(email)
-                firebase_uid = user_record.uid
-                if not Config.FIREBASE_API_KEY:
-                    print("⚠️ FIREBASE_API_KEY no configurado en .env. Saltando verificación de contraseña en Auth.")
-            except Exception as e:
-                print(f"⚠️ Error buscando usuario por email: {e}")
+            # Si FIREBASE_API_KEY está configurado y la REST API falló, no permitir fallback.
+            # Pero antes, verificar si el usuario está inhabilitado para dar el mensaje de error adecuado.
+            if Config.FIREBASE_API_KEY:
+                try:
+                    user_record = auth.get_user_by_email(email)
+                    if user_record.disabled:
+                        raise ValueError("Tu cuenta está inhabilitada.")
+                except ValueError:
+                    raise
+                except Exception:
+                    pass
                 return None
+            else:
+                # Fallback seguro para desarrollo/pruebas locales si no hay API Key de Firebase Auth completa:
+                # Buscamos en Firebase Auth por el email. Si coincide la contraseña demo y no hay API Key, dejamos entrar.
+                try:
+                    user_record = auth.get_user_by_email(email)
+                    firebase_uid = user_record.uid
+                    print("⚠️ FIREBASE_API_KEY no configurado en .env. Saltando verificación de contraseña en Auth.")
+                except Exception as e:
+                    print(f"⚠️ Error buscando usuario por email: {e}")
+                    return None
 
-        if not firebase_uid:
-            return None
+        # Verificar si la cuenta de Firebase está deshabilitada/inhabilitada
+        if user_record and user_record.disabled:
+            print(f"🚫 Acceso denegado: El usuario '{email}' está inhabilitado en Firebase Authentication.")
+            raise ValueError("Tu cuenta está inhabilitada.")
 
         # 2. Descargar el perfil del usuario desde Firestore
         try:
@@ -291,6 +310,16 @@ class DatabaseService:
         if not firebase_initialized:
             return None
         try:
+            # Verificar en Firebase Auth si el usuario está inhabilitado
+            try:
+                user_record = auth.get_user(uid)
+                if user_record.disabled:
+                    print(f"🚫 get_user_profile: El usuario con UID '{uid}' está inhabilitado en Firebase Auth.")
+                    return None
+            except Exception as e:
+                print(f"⚠️ get_user_profile: Error al obtener registro de Firebase Auth para UID '{uid}': {e}")
+                return None
+
             doc = db_firestore.collection("users").document(uid).collection("config").document("user_profile").get()
             if doc.exists:
                 data = doc.to_dict()

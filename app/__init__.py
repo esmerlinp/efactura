@@ -53,6 +53,11 @@ def create_app():
             fresh_profile = DatabaseService.get_user_profile(session['user']['uid'])
             if fresh_profile:
                 session['user'] = fresh_profile
+            else:
+                session.pop('user', None)
+                session.pop('is_sandbox_mode', None)
+                flash("Tu cuenta está inhabilitada.", "error")
+                return redirect(flask_url_for('web_auth.login'))
             
             # Obligar al propietario a configurar el perfil si no lo ha hecho (incluso en sandbox)
             owner_uid = session['user'].get('ownerUID')
