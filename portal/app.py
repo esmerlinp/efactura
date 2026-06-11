@@ -57,6 +57,37 @@ def clientes():
     companies = DatabaseService.get_all_companies()
     return render_template('admin/clientes.html', companies=companies, active_page='clientes')
 
+@app.route('/clientes/new', methods=['GET', 'POST'])
+@portal_required
+def new_company():
+    plans = DatabaseService.get_all_plans()
+    if request.method == 'POST':
+        name = request.form.get('name')
+        email = request.form.get('email')
+        password = request.form.get('password')
+        plan_id = request.form.get('planId')
+        pos_enabled = 'posEnabled' in request.form
+
+        if not name or not email or not password or not plan_id:
+            flash('Todos los campos obligatorios (*) son requeridos.', 'error')
+            return render_template('admin/new_company.html', plans=plans, active_page='clientes')
+
+        success, msg_or_uid = DatabaseService.create_company(
+            email=email,
+            password=password,
+            name=name,
+            plan_id=plan_id,
+            pos_enabled=pos_enabled
+        )
+
+        if success:
+            flash(f'Usuario propietario "{name}" registrado exitosamente. La configuración de la empresa iniciará cuando acceda por primera vez.', 'success')
+            return redirect(url_for('clientes'))
+        else:
+            flash(f'Error al registrar el propietario: {msg_or_uid}', 'error')
+
+    return render_template('admin/new_company.html', plans=plans, active_page='clientes')
+
 @app.route('/clientes/<company_id>', methods=['GET', 'POST'])
 @portal_required
 def client_detail(company_id):
@@ -80,6 +111,7 @@ def client_detail(company_id):
             additional_doc_cost = request.form.get('additionalDocumentCost')
             billing_day = request.form.get('billingDay')
             
+            pos_enabled = 'posEnabled' in request.form
             update_data.update({
                 'status': status,
                 'planId': plan_id,
@@ -87,7 +119,8 @@ def client_detail(company_id):
                 'storageLimitMB': int(storage_limit) if storage_limit else '',
                 'monthlyPayment': float(monthly_payment) if monthly_payment else 0.0,
                 'additionalDocumentCost': float(additional_doc_cost) if additional_doc_cost else 0.0,
-                'billingDay': int(billing_day) if billing_day else 1
+                'billingDay': int(billing_day) if billing_day else 1,
+                'posEnabled': pos_enabled
             })
             flash('Configuración de cuenta y plan actualizada.', 'success')
 

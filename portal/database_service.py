@@ -74,6 +74,7 @@ class DatabaseService:
                             'monthlyPayment': company_data.get('monthlyPayment', 0),
                             'additionalDocumentCost': company_data.get('additionalDocumentCost', 0),
                             'billingDay': company_data.get('billingDay', 1),
+                            'posEnabled': bool(company_data.get('posEnabled', True)),
                         }
                         # Cargar estadísticas de consumo
                         company['stats'] = cls.get_invoice_stats(owner_uid, company['billingDay'])
@@ -120,6 +121,7 @@ class DatabaseService:
                 'monthlyPayment': company_data.get('monthlyPayment', 0),
                 'additionalDocumentCost': company_data.get('additionalDocumentCost', 0),
                 'billingDay': company_data.get('billingDay', 1),
+                'posEnabled': bool(company_data.get('posEnabled', True)),
                 'companyName': company_data.get('companyName', ''),
                 'companyRNC': company_data.get('companyRNC', ''),
                 'companyAddress': company_data.get('companyAddress', ''),
@@ -302,3 +304,91 @@ class DatabaseService:
             print(f"⚠️ Error counting sandbox invoices for {owner_uid}: {e}")
             
         return stats
+
+    @classmethod
+    def create_company(cls, email, password, name, plan_id, pos_enabled):
+        """Registra un nuevo usuario owner en Firebase Auth y crea sus perfiles en Firestore."""
+        db = cls.get_db()
+        from firebase_admin import auth
+        import datetime
+
+        try:
+            # 1. Registrar usuario en Firebase Auth
+            user_record = auth.create_user(
+                email=email,
+                password=password,
+                display_name=name
+            )
+            uid = user_record.uid
+
+            # 2. Cargar límites por defecto del plan
+            plan_data = {}
+            if plan_id:
+                try:
+                    plan_doc = db.collection('plans').document(plan_id).get()
+                    if plan_doc.exists:
+                        plan_data = plan_doc.to_dict()
+                except Exception as e:
+                    print(f"⚠️ Error cargando plan {plan_id}: {e}")
+
+            # 3. Crear user_profile en Firestore
+            user_profile_data = {
+                "uid": uid,
+                "ownerUID": uid,
+                "role": "owner",
+                "name": name,
+                "email": email,
+                "phone": "",
+                "address": "",
+                "permissions": {
+                    "canInvoice": True,
+                    "canExpenses": True,
+                    "canClients": True,
+                    "canModifySettings": True,
+                    "canManageInventory": True,
+                    "canManagePOS": True,
+                    "canViewDashboard": True,
+                    "canManageCXC": True,
+                    "canManageCXP": True,
+                    "canManageContracts": True,
+                    "canManageCommissions": True,
+                    "canViewBI": True,
+                    "canViewAuditLog": False
+                },
+                "createdAt": datetime.datetime.utcnow().isoformat()
+            }
+            db.collection('users').document(uid).collection('config').document('user_profile').set(user_profile_data)
+
+            # 4. Crear profile de la empresa en Firestore
+            company_profile_data = {
+                "ownerUID": uid,
+                "companyName": "Mi Empresa",
+                "tradeName": "Mi Empresa",
+                "companyRNC": "",
+                "companyType": "associated",
+                "companyAddress": "",
+                "province": "",
+                "municipality": "",
+                "companyPhone": "",
+                "companyEmail": email,
+                "colorMarca": "#10b981",
+                "gradientEnabled": True,
+                "logoUrl": "",
+                "logoBase64": "",
+                "regimenFiscal": "General",
+                "status": "Activo",
+                "planId": plan_id,
+                "documentLimit": plan_data.get('documentLimit', 100),
+                "storageLimitMB": plan_data.get('storageLimitMB', 512),
+                "monthlyPayment": plan_data.get('monthlyPrice', 0.0),
+                "additionalDocumentCost": plan_data.get('additionalDocumentCost', 0.0),
+                "billingDay": 1,
+                "posEnabled": pos_enabled,
+                "configured": False
+            }
+            db.collection('users').document(uid).collection('config').document('profile').set(company_profile_data)
+
+            return True, uid
+        except Exception as e:
+            print(f"❌ Error en create_company: {e}")
+            return False, str(e)

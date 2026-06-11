@@ -11,13 +11,20 @@
         </svg>
         <input type="text" id="search-input" placeholder="Buscar empresa por nombre o RNC..." oninput="filterTable()">
     </div>
-    <div class="toolbar-filters">
+    <div class="toolbar-filters" style="display: flex; gap: 10px; align-items: center;">
         <select id="status-filter" class="filter-select" onchange="filterTable()">
             <option value="">Todos los estados</option>
             <option value="Activo">Activo</option>
             <option value="Suspendido">Suspendido</option>
             <option value="Cancelado">Cancelado</option>
         </select>
+        <a href="{{ url_for('new_company') }}" class="btn btn-primary" style="display: inline-flex; align-items: center; gap: 8px;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+            Nueva Empresa
+        </a>
     </div>
 </div>
 
@@ -118,6 +125,68 @@
             </tbody>
         </table>
     </div>
+    
+    <!-- Mobile specific view: Cards list -->
+    <div class="mobile-companies-grid" style="display: none;">
+        {% for company in companies %}
+        <div class="mobile-company-card" data-name="{{ company.razonSocial | default('') | lower }}" data-rnc="{{ company.rnc | default('') }}" data-status="{{ company.status | default('Activo') }}">
+            <div class="card-header-mobile">
+                <div class="cell-company">
+                    <div class="company-avatar">{{ (company.razonSocial or 'E')[0] | upper }}</div>
+                    <div>
+                        <div class="company-name">{{ company.razonSocial | default('Sin nombre') }}</div>
+                        <div class="company-rnc">{{ company.rnc | default('RNC no registrado') }}</div>
+                    </div>
+                </div>
+                {% set status = company.status | default('Activo') %}
+                <span class="status-badge status-{{ status | lower | replace(' ', '-') }}">
+                    {{ status }}
+                </span>
+            </div>
+            
+            <div class="card-body-mobile">
+                <div class="mobile-info-row">
+                    <span class="mobile-info-label">Plan:</span>
+                    <span class="plan-badge">{{ company.planId | default('Sin plan') }}</span>
+                </div>
+                <div class="mobile-info-row">
+                    <span class="mobile-info-label">Límite de Docs:</span>
+                    <span class="doc-limit">{{ company.documentLimit | default('∞') }} / mes</span>
+                </div>
+                <div class="mobile-info-row">
+                    <span class="mobile-info-label">Consumo Ciclo:</span>
+                    {% set limit = company.documentLimit | default(0) | int %}
+                    {% set current = company.stats.prod_current_cycle | default(0) | int %}
+                    {% if limit > 0 %}
+                        {% if current > limit %}
+                            <span class="status-badge" style="background: rgba(239, 68, 68, 0.15); color: #ef4444;">{{ current }} / {{ limit }} (+{{ current - limit }})</span>
+                        {% elif current >= limit * 0.8 %}
+                            <span class="status-badge" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b;">{{ current }} / {{ limit }}</span>
+                        {% else %}
+                            <span class="status-badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981;">{{ current }} / {{ limit }}</span>
+                        {% endif %}
+                    {% else %}
+                        <span class="status-badge" style="background: rgba(59, 130, 246, 0.15); color: #3b82f6;">{{ current }} / ∞</span>
+                    {% endif %}
+                </div>
+                <div class="mobile-info-row">
+                    <span class="mobile-info-label">Configurada:</span>
+                    {% if company.configured %}
+                    <span class="check-icon">✓ Configurada</span>
+                    {% else %}
+                    <span class="cross-icon">✗ Pendiente</span>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <div class="card-footer-mobile">
+                <a href="{{ url_for('client_detail', company_id=company.id) }}" class="btn btn-primary" style="justify-content: center; width: 100%;">
+                    Gestionar Cuenta
+                </a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
 </div>
 {% endblock %}
 
@@ -126,6 +195,8 @@
 function filterTable() {
     const search = document.getElementById('search-input').value.toLowerCase();
     const statusFilter = document.getElementById('status-filter').value;
+    
+    // Filter Desktop rows
     const rows = document.querySelectorAll('#companies-table tbody .table-row');
     rows.forEach(row => {
         const name = row.dataset.name || '';
@@ -134,6 +205,17 @@ function filterTable() {
         const matchesSearch = name.includes(search) || rnc.includes(search);
         const matchesStatus = !statusFilter || status === statusFilter;
         row.style.display = matchesSearch && matchesStatus ? '' : 'none';
+    });
+
+    // Filter Mobile cards
+    const cards = document.querySelectorAll('.mobile-companies-grid .mobile-company-card');
+    cards.forEach(card => {
+        const name = card.dataset.name || '';
+        const rnc = card.dataset.rnc || '';
+        const status = card.dataset.status || '';
+        const matchesSearch = name.includes(search) || rnc.includes(search);
+        const matchesStatus = !statusFilter || status === statusFilter;
+        card.style.display = matchesSearch && matchesStatus ? '' : 'none';
     });
 }
 </script>

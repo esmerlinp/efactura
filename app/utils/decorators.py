@@ -5,6 +5,8 @@ def check_permission(permission_name):
     """Retorna True si el usuario tiene el rol de propietario o cuenta con el permiso granular solicitado."""
     if 'user' not in session:
         return False
+    if permission_name == 'canManagePOS' and not session.get('company_profile_pos_enabled', True):
+        return False
     user = session['user']
     if user.get('role') == 'owner':
         return True

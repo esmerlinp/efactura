@@ -63,6 +63,8 @@ def create_app():
             owner_uid = session['user'].get('ownerUID')
             if owner_uid:
                 company_profile = DatabaseService.get_company_profile(owner_uid)
+                if company_profile:
+                    session['company_profile_pos_enabled'] = company_profile.get('posEnabled', True)
                 
                 # Bloqueo por Suspensión de Cuenta (Módulo Portal Administrativo)
                 if company_profile.get('status') == 'Suspendido':
@@ -160,6 +162,8 @@ def create_app():
         def check_permission(permission_name):
             from flask import has_request_context
             if not has_request_context() or 'user' not in session:
+                return False
+            if permission_name == 'canManagePOS' and not session.get('company_profile_pos_enabled', True):
                 return False
             user = session['user']
             if user.get('role') == 'owner':
