@@ -53,33 +53,36 @@ def login():
         email = request.form['email']
         password = request.form['password']
         
-        user_profile = DatabaseService.authenticate_user(email, password)
-        if user_profile:
-            # Si tiene MFA activo, guardar perfil temporal y redirigir
-            if user_profile.get("two_factor_enabled"):
-                session['mfa_pending_uid'] = user_profile['uid']
-                session['mfa_pending_email'] = user_profile['email']
-                session['mfa_pending_profile'] = user_profile
-                return redirect(url_for('web_auth.verify_2fa'))
+        try:
+            user_profile = DatabaseService.authenticate_user(email, password)
+            if user_profile:
+                # Si tiene MFA activo, guardar perfil temporal y redirigir
+                if user_profile.get("two_factor_enabled"):
+                    session['mfa_pending_uid'] = user_profile['uid']
+                    session['mfa_pending_email'] = user_profile['email']
+                    session['mfa_pending_profile'] = user_profile
+                    return redirect(url_for('web_auth.verify_2fa'))
+                    
+                session['user'] = user_profile
+                session['is_sandbox_mode'] = False  # Producción por defecto al iniciar
                 
-            session['user'] = user_profile
-            session['is_sandbox_mode'] = False  # Producción por defecto al iniciar
-            
-            from app.services.audit_service import AuditService, ACTION_LOGIN, MODULE_AUTH
-            AuditService.log_from_request(
-                owner_uid=user_profile['ownerUID'],
-                action=ACTION_LOGIN,
-                module=MODULE_AUTH,
-                entity_id=user_profile['uid'],
-                entity_label=f"Inicio de sesión exitoso — {user_profile['email']}",
-                user_session=user_profile,
-                sandbox=False
-            )
-            
-            flash('¡Sesión iniciada exitosamente!', 'success')
-            return redirect(url_for('web_dashboard.dashboard'))
-        else:
-            flash('Credenciales incorrectas. Inténtalo de nuevo.', 'error')
+                from app.services.audit_service import AuditService, ACTION_LOGIN, MODULE_AUTH
+                AuditService.log_from_request(
+                    owner_uid=user_profile['ownerUID'],
+                    action=ACTION_LOGIN,
+                    module=MODULE_AUTH,
+                    entity_id=user_profile['uid'],
+                    entity_label=f"Inicio de sesión exitoso — {user_profile['email']}",
+                    user_session=user_profile,
+                    sandbox=False
+                )
+                
+                flash('¡Sesión iniciada exitosamente!', 'success')
+                return redirect(url_for('web_dashboard.dashboard'))
+            else:
+                flash('Credenciales incorrectas. Inténtalo de nuevo.', 'error')
+        except ValueError as e:
+            flash(str(e), 'error')
             
     return render_template('auth/login.html')
 
