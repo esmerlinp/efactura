@@ -5,6 +5,7 @@ requests==2.31.0
 qrcode==7.4.2
 pdfkit==1.0.0
 pillow
+pillow-heif
 gunicorn==22.0.0
 weasyprint
 pypdf

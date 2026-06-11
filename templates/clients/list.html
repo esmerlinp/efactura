@@ -200,6 +200,11 @@
             el embudo de ventas.</p>
     </div>
     <div style="display: flex; gap: 12px; align-items: center;">
+        <button type="button" class="btn btn-secondary" onclick="exportToCSV()"
+            style="display: inline-flex; align-items: center; gap: 8px;">
+            <i class="fa-solid fa-file-csv"></i>
+            <span>Exportar CSV</span>
+        </button>
         <button class="btn btn-secondary" onclick="openImportModal()"
             style="display: inline-flex; align-items: center;">
             <i class="fa-solid fa-file-import"></i>
@@ -231,18 +236,16 @@
                 onblur="if(!this.value){this.style.backgroundColor='var(--bg-input)'; this.style.borderColor='transparent';}">
         </div>
 
-        <!-- Selector de Estado -->
-        <div style="min-width: 130px;">
-            <select name="stage" id="stage"
-                style="width: 100%; height: 34px; padding: 0 10px; background-color: transparent; border: 1px solid transparent; border-bottom: 1px solid var(--border-color); color: var(--text-secondary); font-size: 0.85rem; cursor: pointer; outline: none;">
-                <option value="">Todas las Etapas</option>
-                <option value="Prospecto" {% if stage=='Prospecto' %}selected{% endif %}>Prospecto</option>
-                <option value="Contactado" {% if stage=='Contactado' %}selected{% endif %}>Contactado</option>
-                <option value="En Negociación" {% if stage=='En Negociación' %}selected{% endif %}>En Negociación
-                </option>
-                <option value="Cliente Activo" {% if stage=='Cliente Activo' %}selected{% endif %}>Cliente Activo
-                </option>
-            </select>
+        <!-- Selector de Estado Oculto -->
+        <input type="hidden" name="stage" id="stage-input-field" value="{{ stage }}">
+
+        <!-- Botones de Filtro Rápido -->
+        <div style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center;" id="quick-filters-container">
+            <button type="button" class="btn {% if stage == 'Todos' %}btn-primary{% else %}btn-secondary{% endif %}" data-stage="Todos" style="padding: 6px 14px; font-size: 0.82rem; border-radius: 20px; font-weight: 500; height: 34px;">Todos</button>
+            <button type="button" class="btn {% if stage == 'Prospecto' %}btn-primary{% else %}btn-secondary{% endif %}" data-stage="Prospecto" style="padding: 6px 14px; font-size: 0.82rem; border-radius: 20px; font-weight: 500; height: 34px;">Prospectos</button>
+            <button type="button" class="btn {% if stage == 'Contactado' %}btn-primary{% else %}btn-secondary{% endif %}" data-stage="Contactado" style="padding: 6px 14px; font-size: 0.82rem; border-radius: 20px; font-weight: 500; height: 34px;">Contactados</button>
+            <button type="button" class="btn {% if stage == 'En Negociación' %}btn-primary{% else %}btn-secondary{% endif %}" data-stage="En Negociación" style="padding: 6px 14px; font-size: 0.82rem; border-radius: 20px; font-weight: 500; height: 34px;">En Negociación</button>
+            <button type="button" class="btn {% if stage == 'Cliente Activo' %}btn-primary{% else %}btn-secondary{% endif %}" data-stage="Cliente Activo" style="padding: 6px 14px; font-size: 0.82rem; border-radius: 20px; font-weight: 500; height: 34px;">Clientes Activos</button>
         </div>
 
         <!-- Limpiar -->
@@ -258,10 +261,10 @@
         <div
             style="display: flex; align-items: center; gap: 4px; margin-left: auto; background: rgba(0,0,0,0.05); padding: 4px; border-radius: var(--radius-md);">
             <button type="button" id="btn-kanban" onclick="switchView('kanban')"
-                style="border: none; background: #ffffff; padding: 6px 10px; border-radius: var(--radius-sm); cursor: pointer; color: var(--text-primary); font-size: 0.85rem; box-shadow: 0 1px 2px rgba(0,0,0,0.1);"><i
+                style="border: none; background: transparent; padding: 6px 10px; border-radius: var(--radius-sm); cursor: pointer; color: var(--text-secondary); font-size: 0.85rem;"><i
                     class="fa-solid fa-table-columns"></i> Kanban</button>
             <button type="button" id="btn-list" onclick="switchView('list')"
-                style="border: none; background: transparent; padding: 6px 10px; border-radius: var(--radius-sm); cursor: pointer; color: var(--text-secondary); font-size: 0.85rem;"><i
+                style="border: none; background: #ffffff; padding: 6px 10px; border-radius: var(--radius-sm); cursor: pointer; color: var(--text-primary); font-size: 0.85rem; box-shadow: 0 1px 2px rgba(0,0,0,0.1);"><i
                     class="fa-solid fa-list"></i> Lista</button>
         </div>
     </form>
@@ -305,7 +308,7 @@
 </div>
 {% endmacro %}
 
-<div class="kanban-board">
+<div class="kanban-board" style="display: none;">
     <!-- Prospecto -->
     <div class="kanban-column" id="col-Prospecto" ondrop="drop(event)" ondragover="allowDrop(event)">
         <h4 class="kanban-header"><i class="fa-solid fa-user-astronaut"></i> Prospecto</h4>
@@ -348,7 +351,7 @@
 </div>
 
 <!-- List View -->
-<div id="list-view" class="card-table-wrapper" style="display: none; padding: 0;">
+<div id="list-view" class="card-table-wrapper" style="display: block; padding: 0;">
     <div class="table-responsive">
         <table class="table-premium">
             <thead>
@@ -474,6 +477,28 @@
     </div>
 </div>
 
+<script>
+    (function() {
+        const savedView = localStorage.getItem('crmView') || 'list';
+        if (savedView === 'kanban') {
+            const kanban = document.querySelector('.kanban-board');
+            const listView = document.getElementById('list-view');
+            const btnKanban = document.getElementById('btn-kanban');
+            const btnList = document.getElementById('btn-list');
+            if (kanban && listView && btnKanban && btnList) {
+                kanban.style.display = 'flex';
+                listView.style.display = 'none';
+                btnKanban.style.background = '#ffffff';
+                btnKanban.style.color = 'var(--text-primary)';
+                btnKanban.style.boxShadow = '0 1px 2px rgba(0,0,0,0.1)';
+                btnList.style.background = 'transparent';
+                btnList.style.color = 'var(--text-secondary)';
+                btnList.style.boxShadow = 'none';
+            }
+        }
+    })();
+</script>
+
 {% endblock %}
 
 {% block extra_scripts %}
@@ -549,10 +574,16 @@
             }
         }
 
-        if (selectStage) {
-            selectStage.addEventListener('change', () => {
-                document.getElementById('page-input').value = 1;
-                form.submit();
+        // Lógica de botones de filtro rápido
+        const quickFilterBtns = document.querySelectorAll('#quick-filters-container button');
+        const stageInputField = document.getElementById('stage-input-field');
+        if (quickFilterBtns && stageInputField) {
+            quickFilterBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    stageInputField.value = btn.getAttribute('data-stage');
+                    document.getElementById('page-input').value = 1;
+                    form.submit();
+                });
             });
         }
     });
@@ -731,6 +762,14 @@
             });
         }
     });
+
+    function exportToCSV() {
+        const form = document.getElementById('filters-form');
+        const formData = new FormData(form);
+        const params = new URLSearchParams(formData);
+        params.set('export', 'csv');
+        window.location.href = form.action + '?' + params.toString();
+    }
 </script>
 
 <!-- Modal de Importación Masiva CSV de Clientes -->

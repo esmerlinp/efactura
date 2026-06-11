@@ -1427,7 +1427,42 @@ class DatabaseService:
                     }
             except Exception as e:
                 print(f"⚠️ Error al obtener factura por ID desde Firestore: {e}")
-        return None
+    @classmethod
+    def search_invoices_by_number(cls, owner_uid, search_term, sandbox=True, limit=15):
+        """Busca facturas específicas por prefijo de número de factura o cliente sin requerir índices complejos."""
+        results = []
+        if firebase_initialized:
+            try:
+                coll_name = "sandbox_invoices" if sandbox else "invoices"
+                coll_ref = db_firestore.collection("users").document(owner_uid).collection(coll_name)
+                
+                search_term = search_term.strip()
+                if search_term:
+                    docs = coll_ref.order_by("invoiceNumber").start_at({"invoiceNumber": search_term}).end_at({"invoiceNumber": search_term + "\uf8ff"}).limit(limit).get()
+                    for doc in docs:
+                        data = doc.to_dict()
+                        if not data.get("isQuotation"):
+                            results.append({
+                                "id": doc.id,
+                                "invoiceNumber": data.get("invoiceNumber", ""),
+                                "clientName": data.get("clientName", ""),
+                                "total": float(data.get("total", 0.0))
+                            })
+                            
+                    if len(results) < limit:
+                        docs2 = coll_ref.order_by("clientName").start_at({"clientName": search_term}).end_at({"clientName": search_term + "\uf8ff"}).limit(limit - len(results)).get()
+                        for doc in docs2:
+                            data = doc.to_dict()
+                            if not data.get("isQuotation") and doc.id not in [r["id"] for r in results]:
+                                results.append({
+                                    "id": doc.id,
+                                    "invoiceNumber": data.get("invoiceNumber", ""),
+                                    "clientName": data.get("clientName", ""),
+                                    "total": float(data.get("total", 0.0))
+                                })
+            except Exception as e:
+                print(f"⚠️ Error al buscar facturas por número en Firestore: {e}")
+        return results
 
     @classmethod
     def update_invoice_status_simple(cls, owner_uid, invoice_id, new_status, sandbox=True):
@@ -1560,6 +1595,18 @@ class DatabaseService:
                         })
                 except Exception as e:
                     print(f"⚠️ Error al marcar como anulada la transacción de caja asociada: {e}")
+
+        if not is_quotation and status in ["Emitida", "Cobrada", "Pagada", "Vencida"]:
+            client_id = inv_dict.get("clientId")
+            if client_id:
+                try:
+                    client = cls.get_client(owner_uid, client_id, sandbox=sandbox)
+                    if client:
+                        current_stage = client.get("pipelineStage", "Prospecto")
+                        if current_stage.lower() in ["prospecto", "en negociación", "en negociacion"]:
+                            cls.update_client_pipeline(owner_uid, client_id, "Cliente Activo", sandbox=sandbox)
+                except Exception as e:
+                    print(f"⚠️ Error al actualizar automáticamente el pipelineStage del cliente {client_id}: {e}")
 
         if firebase_initialized:
             try:

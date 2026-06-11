@@ -80,6 +80,142 @@
         border-color: var(--accent-purple, #8b5cf6);
         box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.1);
     }
+
+    /* Streamlit-like Multiselect CSS */
+    .st-multiselect-container {
+        position: relative;
+        width: 100%;
+    }
+    
+    .st-multiselect-input-container {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px;
+        min-height: 34px;
+        padding: 4px 10px;
+        background-color: var(--bg-input, #f1f5f9);
+        border: 1px solid var(--border-color, rgba(0,0,0,0.1));
+        border-radius: var(--radius-sm, 4px);
+        cursor: text;
+        position: relative;
+        transition: border-color 0.2s, box-shadow 0.2s, background-color 0.2s;
+    }
+    
+    .st-multiselect-input-container:focus-within {
+        border-color: var(--accent-purple, #8b5cf6);
+        box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.1);
+        background-color: #ffffff;
+    }
+    
+    .st-multiselect-pills {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+    
+    .st-multiselect-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        background-color: rgba(30, 58, 138, 0.08);
+        color: var(--accent-emerald, #1E3A8A);
+        font-size: 0.8rem;
+        font-weight: 600;
+        padding: 2px 8px;
+        border-radius: 4px;
+        border: 1px solid rgba(30, 58, 138, 0.15);
+    }
+    
+    .st-multiselect-pill-remove {
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        color: var(--text-secondary);
+        font-size: 0.75rem;
+        transition: background-color 0.2s, color 0.2s;
+    }
+    
+    .st-multiselect-pill-remove:hover {
+        background-color: rgba(0,0,0,0.1);
+        color: var(--text-primary);
+    }
+    
+    .st-multiselect-search {
+        border: none !important;
+        outline: none !important;
+        background: transparent !important;
+        box-shadow: none !important;
+        flex-grow: 1;
+        min-width: 60px;
+        height: 26px;
+        font-size: 0.85rem;
+        color: var(--text-primary);
+        padding: 0 !important;
+    }
+    
+    .st-multiselect-arrow {
+        position: absolute;
+        right: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        font-size: 0.8rem;
+        color: var(--text-muted);
+        pointer-events: none;
+        transition: transform 0.2s;
+    }
+    
+    .st-multiselect-input-container:focus-within .st-multiselect-arrow {
+        transform: translateY(-50%) rotate(180deg);
+    }
+    
+    .st-multiselect-dropdown {
+        position: absolute;
+        top: calc(100% + 4px);
+        left: 0;
+        right: 0;
+        background-color: #ffffff;
+        border: 1px solid var(--border-color, rgba(0,0,0,0.15));
+        border-radius: var(--radius-sm, 6px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        max-height: 200px;
+        overflow-y: auto;
+        z-index: 1000;
+        display: none;
+    }
+    
+    .st-multiselect-dropdown.show {
+        display: block;
+    }
+    
+    .st-multiselect-option {
+        padding: 8px 12px;
+        font-size: 0.85rem;
+        color: var(--text-primary);
+        cursor: pointer;
+        transition: background-color 0.2s;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .st-multiselect-option:hover {
+        background-color: rgba(30, 58, 138, 0.05);
+    }
+    
+    .st-multiselect-option.selected {
+        background-color: rgba(30, 58, 138, 0.08);
+        color: var(--accent-emerald);
+        font-weight: 600;
+    }
+    
+    .st-multiselect-option.hidden {
+        display: none;
+    }
 </style>
 
 <div class="page-title-container" style="margin-bottom: 24px; padding-left: 4px;">
@@ -101,7 +237,9 @@
         <form action="{{ url_for('web_audit.audit_export') }}" method="POST" style="margin: 0;">
             <input type="hidden" name="module" value="{{ f_module }}">
             <input type="hidden" name="action" value="{{ f_action }}">
-            <input type="hidden" name="user" value="{{ f_user }}">
+            {% for u in f_users %}
+            <input type="hidden" name="user" value="{{ u }}">
+            {% endfor %}
             <input type="hidden" name="entity" value="{{ f_entity }}">
             <input type="hidden" name="date_from" value="{{ f_date_from }}">
             <input type="hidden" name="date_to" value="{{ f_date_to }}">
@@ -148,12 +286,6 @@
                     </select>
                 </div>
 
-                <!-- Filtro de Usuario -->
-                <div style="display: flex; flex-direction: column; gap: 4px;">
-                    <label style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary);">Usuario o Email</label>
-                    <input type="text" name="user" id="filter-user" value="{{ f_user }}" placeholder="Buscar usuario..." class="filter-input">
-                </div>
-
                 <!-- Filtro de Entidad -->
                 <div style="display: flex; flex-direction: column; gap: 4px;">
                     <label style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary);">Registro / ID</label>
@@ -172,14 +304,40 @@
                 </div>
             </div>
 
-            <!-- Botones de Acción -->
-            <div style="display: flex; justify-content: flex-end; gap: 10px; align-items: center;">
-                <a href="{{ url_for('web_audit.audit_log') }}" class="btn btn-secondary" style="padding: 6px 16px; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 6px;">
-                    <i class="fa-solid fa-eraser"></i> Limpiar
-                </a>
-                <button type="submit" class="btn btn-primary" style="padding: 6px 16px; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 6px;">
-                    <i class="fa-solid fa-filter"></i> Filtrar
-                </button>
+            <!-- Fila Inferior: Usuarios (Multiselect) + Botones de Acción -->
+            <div style="display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; margin-top: 16px; border-top: 1px solid rgba(0,0,0,0.05); padding-top: 12px; flex-wrap: wrap;">
+                <!-- Filtro de Usuario -->
+                <div style="display: flex; flex-direction: column; gap: 4px; flex-grow: 1; min-width: 280px; max-width: 70%;">
+                    <label style="font-size: 0.75rem; font-weight: 600; color: var(--text-secondary);">Usuarios</label>
+                    <div class="st-multiselect-container">
+                        <!-- Hidden select representing the actual form input -->
+                        <select name="user" id="filter-user" multiple style="display: none;">
+                            {% for u in company_users %}
+                            <option value="{{ u.email }}" {% if u.email in f_users %}selected{% endif %}>{{ u.name }}</option>
+                            {% endfor %}
+                        </select>
+                        
+                        <!-- Streamlit-style multiselect interface -->
+                        <div class="st-multiselect-input-container" id="st-multiselect-input-container">
+                            <div class="st-multiselect-pills" id="st-multiselect-pills"></div>
+                            <input type="text" class="st-multiselect-search" id="st-multiselect-search" placeholder="Seleccionar usuarios..." autocomplete="off">
+                            <i class="fa-solid fa-chevron-down st-multiselect-arrow"></i>
+                        </div>
+                        
+                        <!-- Dropdown list -->
+                        <div class="st-multiselect-dropdown" id="st-multiselect-dropdown"></div>
+                    </div>
+                </div>
+
+                <!-- Botones de Acción -->
+                <div style="display: flex; gap: 10px; align-items: center; padding-bottom: 2px;">
+                    <a href="{{ url_for('web_audit.audit_log') }}" class="btn btn-secondary" style="padding: 7px 16px; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 6px;">
+                        <i class="fa-solid fa-eraser"></i> Limpiar
+                    </a>
+                    <button type="submit" class="btn btn-primary" style="padding: 7px 16px; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 6px;">
+                        <i class="fa-solid fa-filter"></i> Filtrar
+                    </button>
+                </div>
             </div>
         </form>
     </div>
@@ -279,11 +437,15 @@
     {% if pages and pages > 1 %}
     <div class="pagination-container" style="display: flex; justify-content: space-between; align-items: center; margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border-color); flex-wrap: wrap; gap: 16px;">
         <div style="color: var(--text-secondary); font-size: 0.85rem;">
-            Mostrando registros de auditoría del sistema (Total: <strong>{{ total }}</strong>)
+            {% if is_limited %}
+            Mostrando los últimos 100 registros recientes. <strong style="color: var(--accent-emerald);">Use los filtros para ver historial específico.</strong>
+            {% else %}
+            Mostrando registros de auditoría filtrados (Total: <strong>{{ total }}</strong>)
+            {% endif %}
         </div>
         <div class="pagination-buttons" style="display: flex; gap: 6px;">
             {% if current_page > 1 %}
-            <a href="?page={{ current_page - 1 }}&module={{ f_module }}&action={{ f_action }}&user={{ f_user }}&entity={{ f_entity }}&date_from={{ f_date_from }}&date_to={{ f_date_to }}&env={{ f_env }}" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.82rem; border-radius: var(--radius-sm);">
+            <a href="?page={{ current_page - 1 }}&module={{ f_module }}&action={{ f_action }}{% for u in f_users %}&user={{ u }}{% endfor %}&entity={{ f_entity }}&date_from={{ f_date_from }}&date_to={{ f_date_to }}&env={{ f_env }}" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.82rem; border-radius: var(--radius-sm);">
                 <i class="fa-solid fa-chevron-left"></i> Anterior
             </a>
             {% endif %}
@@ -292,14 +454,14 @@
                 {% if p == current_page %}
                 <button class="btn btn-primary" style="padding: 6px 12px; font-size: 0.82rem; min-width: 34px; border-radius: var(--radius-sm);">{{ p }}</button>
                 {% elif p <= 3 or p >= pages - 2 or (p >= current_page - 1 and p <= current_page + 1) %}
-                <a href="?page={{ p }}&module={{ f_module }}&action={{ f_action }}&user={{ f_user }}&entity={{ f_entity }}&date_from={{ f_date_from }}&date_to={{ f_date_to }}&env={{ f_env }}" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.82rem; min-width: 34px; border-radius: var(--radius-sm);">{{ p }}</a>
+                <a href="?page={{ p }}&module={{ f_module }}&action={{ f_action }}{% for u in f_users %}&user={{ u }}{% endfor %}&entity={{ f_entity }}&date_from={{ f_date_from }}&date_to={{ f_date_to }}&env={{ f_env }}" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.82rem; min-width: 34px; border-radius: var(--radius-sm);">{{ p }}</a>
                 {% elif p == 4 or p == pages - 3 %}
                 <span style="color: var(--text-muted); align-self: center; padding: 0 4px;">...</span>
                 {% endif %}
             {% endfor %}
 
             {% if current_page < pages %}
-            <a href="?page={{ current_page + 1 }}&module={{ f_module }}&action={{ f_action }}&user={{ f_user }}&entity={{ f_entity }}&date_from={{ f_date_from }}&date_to={{ f_date_to }}&env={{ f_env }}" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.82rem; border-radius: var(--radius-sm);">
+            <a href="?page={{ current_page + 1 }}&module={{ f_module }}&action={{ f_action }}{% for u in f_users %}&user={{ u }}{% endfor %}&entity={{ f_entity }}&date_from={{ f_date_from }}&date_to={{ f_date_to }}&env={{ f_env }}" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.82rem; border-radius: var(--radius-sm);">
                 Siguiente <i class="fa-solid fa-chevron-right"></i>
             </a>
             {% endif %}
@@ -307,7 +469,11 @@
     </div>
     {% else %}
     <div style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 16px; text-align: right;">
+        {% if is_limited %}
+        Mostrando los últimos 100 registros recientes. <strong style="color: var(--accent-emerald);">Use los filtros para buscar transacciones históricas específicas.</strong>
+        {% else %}
         Mostrando <strong style="color: var(--text-primary);">{{ total }}</strong> registros en total.
+        {% endif %}
     </div>
     {% endif %}
 </div>
@@ -335,7 +501,6 @@
         // Búsqueda con debounce en Inputs de texto
         let searchDebounce;
         const textInputs = [
-            document.getElementById("filter-user"),
             document.getElementById("filter-entity")
         ];
         
@@ -349,6 +514,126 @@
                 });
             }
         });
+
+        // Streamlit-like Multiselect JavaScript
+        const selectEl = document.getElementById("filter-user");
+        const msContainer = document.getElementById("st-multiselect-input-container");
+        const pillsContainer = document.getElementById("st-multiselect-pills");
+        const searchInput = document.getElementById("st-multiselect-search");
+        const dropdown = document.getElementById("st-multiselect-dropdown");
+        
+        if (selectEl && msContainer && pillsContainer && searchInput && dropdown) {
+            const optionsData = [];
+            Array.from(selectEl.options).forEach(opt => {
+                optionsData.push({
+                    value: opt.value,
+                    text: opt.text,
+                    selected: opt.selected
+                });
+            });
+            
+            function render() {
+                // Render pills
+                pillsContainer.innerHTML = "";
+                const selectedOptions = optionsData.filter(o => o.selected);
+                selectedOptions.forEach(opt => {
+                    const pill = document.createElement("div");
+                    pill.className = "st-multiselect-pill";
+                    pill.innerHTML = `
+                        <span>${opt.text}</span>
+                        <span class="st-multiselect-pill-remove" data-value="${opt.value}">&times;</span>
+                    `;
+                    pillsContainer.appendChild(pill);
+                });
+                
+                // Render dropdown options
+                dropdown.innerHTML = "";
+                optionsData.forEach(opt => {
+                    const item = document.createElement("div");
+                    item.className = "st-multiselect-option" + (opt.selected ? " selected" : "");
+                    item.innerHTML = `
+                        <span>${opt.text}</span>
+                        ${opt.selected ? '<i class="fa-solid fa-check" style="font-size: 0.8rem; color: var(--accent-emerald);"></i>' : ''}
+                    `;
+                    item.addEventListener("click", function(e) {
+                        e.stopPropagation();
+                        opt.selected = !opt.selected;
+                        
+                        // Sync with hidden select
+                        const matchingOpt = Array.from(selectEl.options).find(o => o.value === opt.value);
+                        if (matchingOpt) {
+                            matchingOpt.selected = opt.selected;
+                            // Trigger change event to submit or update state
+                            selectEl.dispatchEvent(new Event('change'));
+                        }
+                        
+                        render();
+                        searchInput.value = "";
+                        filterOptions("");
+                        searchInput.focus();
+                    });
+                    dropdown.appendChild(item);
+                });
+                
+                // Adjust placeholder
+                if (selectedOptions.length > 0) {
+                    searchInput.placeholder = "";
+                } else {
+                    searchInput.placeholder = "Seleccionar usuarios...";
+                }
+            }
+            
+            function filterOptions(query) {
+                const items = dropdown.querySelectorAll(".st-multiselect-option");
+                optionsData.forEach((opt, idx) => {
+                    const matches = opt.text.toLowerCase().includes(query.toLowerCase());
+                    if (matches) {
+                        items[idx].classList.remove("hidden");
+                    } else {
+                        items[idx].classList.add("hidden");
+                    }
+                });
+            }
+            
+            // Remove pill handler
+            pillsContainer.addEventListener("click", function(e) {
+                if (e.target.classList.contains("st-multiselect-pill-remove")) {
+                    e.stopPropagation();
+                    const val = e.target.getAttribute("data-value");
+                    const opt = optionsData.find(o => o.value === val);
+                    if (opt) opt.selected = false;
+                    const matchingOpt = Array.from(selectEl.options).find(o => o.value === val);
+                    if (matchingOpt) {
+                        matchingOpt.selected = false;
+                        selectEl.dispatchEvent(new Event('change'));
+                    }
+                    render();
+                }
+            });
+            
+            // Toggle dropdown on container click
+            msContainer.addEventListener("click", function(e) {
+                dropdown.classList.add("show");
+                searchInput.focus();
+            });
+            
+            // Close dropdown when clicking outside
+            document.addEventListener("click", function(e) {
+                if (!msContainer.contains(e.target) && !dropdown.contains(e.target)) {
+                    dropdown.classList.remove("remove"); // safety
+                    dropdown.classList.remove("show");
+                }
+            });
+            
+            // Search input handler
+            searchInput.addEventListener("input", function() {
+                dropdown.classList.add("show");
+                filterOptions(searchInput.value);
+            });
+            
+            // Initialize
+            render();
+        }
     });
 </script>
 {% endblock %}

@@ -48,14 +48,14 @@ def create_app():
             return
         if 'user' in session:
             if 'is_sandbox_mode' not in session:
-                session['is_sandbox_mode'] = True
+                session['is_sandbox_mode'] = False
             # Cargar perfil fresco en tiempo real de Firestore para sincronización reactiva
             fresh_profile = DatabaseService.get_user_profile(session['user']['uid'])
             if fresh_profile:
                 session['user'] = fresh_profile
             
             # En modo producción, obligar al propietario a configurar el perfil si no lo ha hecho
-            if not session.get('is_sandbox_mode', True):
+            if not session.get('is_sandbox_mode', False):
                 owner_uid = session['user'].get('ownerUID')
                 if owner_uid:
                     company_profile = DatabaseService.get_company_profile(owner_uid)
@@ -104,6 +104,36 @@ def create_app():
             company_apply_color_marca_reports=apply_reports,
             company_theme=theme
         )
+
+    @app.context_processor
+    def inject_crm_commitments():
+        """Inyecta los compromisos CRM agendados para hoy para todos los templates."""
+        from flask import has_request_context
+        crm_contacts = []
+        if has_request_context() and 'user' in session:
+            owner_uid = session['user'].get('ownerUID')
+            if owner_uid:
+                try:
+                    from datetime import datetime
+                    from app.services.db_service import DatabaseService
+                    sandbox = session.get('is_sandbox_mode', False)
+                    today_str = datetime.utcnow().strftime("%Y-%m-%d")
+                    clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox)
+                    invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox)
+                    real_invoices = [inv for inv in invoices if not inv.get('isQuotation') and inv.get('status') not in ['Anulada', 'Borrador']]
+                    
+                    for c in clients:
+                        c_id = c['id']
+                        c_sales = [inv for inv in real_invoices if inv['clientId'] == c_id]
+                        c['total_cxc'] = sum(inv['netPayable'] for inv in c_sales if inv['status'] in ['Emitida', 'Vencida'])
+
+                    crm_contacts = [
+                        c for c in clients 
+                        if (c.get('nextContactDate') and c['nextContactDate'][:10] == today_str) or c.get('total_cxc', 0.0) > 0.0
+                    ]
+                except Exception as e:
+                    print(f"⚠️ Error al inyectar compromisos CRM en el contexto global: {e}")
+        return dict(crm_contacts=crm_contacts)
 
     # Inyectar helper de verificación de permisos globales
     @app.context_processor

@@ -26,6 +26,53 @@
         </a>
     </div>
 
+    <!-- Sección de Filtros y Exportación -->
+    <form method="GET" action="{{ url_for('list_expenses') }}" style="margin-bottom: 24px; padding: 15px; background: rgba(0, 0, 0, 0.02); border: 1px solid var(--border-color); border-radius: 8px; margin-left: 20px; margin-right: 20px;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; align-items: flex-end;">
+            <div class="form-group" style="margin-bottom: 0;">
+                <label for="search" style="font-size: 0.72rem; margin-bottom: 4px; display: block; color: var(--text-secondary);">Buscar Gasto</label>
+                <input type="text" id="search" name="search" class="form-input" placeholder="Concepto, RNC, NCF..." value="{{ search_query or '' }}" style="width: 100%; font-size: 0.78rem; height: 36px; padding: 6px 10px;">
+            </div>
+
+            <div class="form-group" style="margin-bottom: 0;">
+                <label for="category" style="font-size: 0.72rem; margin-bottom: 4px; display: block; color: var(--text-secondary);">Categoría</label>
+                <select id="category" name="category" class="form-select" style="width: 100%; font-size: 0.78rem; height: 36px; padding: 6px 10px;">
+                    <option value="">-- Todas --</option>
+                    <option value="Comida y Restaurantes" {% if category_filter == 'Comida y Restaurantes' %}selected{% endif %}>Comida y Restaurantes</option>
+                    <option value="Transporte y Combustible" {% if category_filter == 'Transporte y Combustible' %}selected{% endif %}>Transporte y Combustible</option>
+                    <option value="Servicios Básicos" {% if category_filter == 'Servicios Básicos' %}selected{% endif %}>Servicios Básicos (Luz, Internet)</option>
+                    <option value="Software y Tecnología" {% if category_filter == 'Software y Tecnología' %}selected{% endif %}>Software y Tecnología</option>
+                    <option value="Materiales de Oficina" {% if category_filter == 'Materiales de Oficina' %}selected{% endif %}>Materiales de Oficina</option>
+                    <option value="Alquileres" {% if category_filter == 'Alquileres' %}selected{% endif %}>Alquileres</option>
+                    <option value="Impuestos y Tasas" {% if category_filter == 'Impuestos y Tasas' %}selected{% endif %}>Impuestos y Tasas</option>
+                    <option value="Otros Gastos" {% if category_filter == 'Otros Gastos' %}selected{% endif %}>Otros Gastos</option>
+                </select>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 0;">
+                <label for="start_date" style="font-size: 0.72rem; margin-bottom: 4px; display: block; color: var(--text-secondary);">Desde</label>
+                <input type="date" id="start_date" name="start_date" class="form-input" value="{{ start_date or '' }}" style="width: 100%; font-size: 0.78rem; height: 36px; padding: 6px 10px;">
+            </div>
+
+            <div class="form-group" style="margin-bottom: 0;">
+                <label for="end_date" style="font-size: 0.72rem; margin-bottom: 4px; display: block; color: var(--text-secondary);">Hasta</label>
+                <input type="date" id="end_date" name="end_date" class="form-input" value="{{ end_date or '' }}" style="width: 100%; font-size: 0.78rem; height: 36px; padding: 6px 10px;">
+            </div>
+
+            <div style="display: flex; gap: 8px; justify-content: flex-end;">
+                <button type="submit" class="btn btn-secondary" style="flex: 1; justify-content: center; height: 36px; font-size: 0.78rem; padding: 0 12px; border-color: var(--accent-emerald); color: var(--accent-emerald);">
+                    <i class="fa-solid fa-filter"></i> Filtrar
+                </button>
+                <a href="{{ url_for('list_expenses') }}" class="btn btn-secondary" style="justify-content: center; height: 36px; font-size: 0.78rem; padding: 0 10px; border-color: var(--border-color); color: var(--text-muted);" title="Limpiar Filtros">
+                    <i class="fa-solid fa-filter-circle-xmark"></i>
+                </a>
+                <button type="button" class="btn btn-secondary" onclick="exportToCSV()" style="flex: 1; justify-content: center; height: 36px; font-size: 0.78rem; padding: 0 12px; border-color: var(--accent-blue); color: var(--accent-blue);" title="Exportar a CSV">
+                    <i class="fa-solid fa-file-csv"></i> Exportar
+                </button>
+            </div>
+        </div>
+    </form>
+
     <div class="table-responsive">
         <table class="table-premium">
             <thead>
@@ -44,87 +91,79 @@
                 {% for exp in expenses %}
                 <tr>
                     <td>
-                        <strong style="font-size: 0.95rem; display: block; margin-bottom: 2px;">{{ exp.concept
-                            }}</strong>
+                        <span style="font-size: 0.85rem; font-weight: 500; display: block; margin-bottom: 2px; color: var(--text-primary);">{{ exp.concept }}</span>
                         {% if exp.notes %}
-                        <span style="font-size: 0.78rem; color: var(--text-muted);">{{ exp.notes }}</span>
+                        <span style="font-size: 0.72rem; color: var(--text-muted); display: block;">{{ exp.notes }}</span>
                         {% endif %}
                     </td>
                     <td>
-                        <span class="badge badge-secondary">{{ exp.category }}</span>
+                        <span class="badge badge-secondary" style="font-size: 0.7rem; padding: 4px 8px; font-weight: normal;">{{ exp.category }}</span>
                         {% if exp.isRecurring %}
-                        <span class="badge badge-primary" style="font-size: 0.6rem;"><i
-                                class="fa-solid fa-arrows-spin"></i> Recurrente</span>
+                        <span class="badge badge-primary" style="font-size: 0.58rem; padding: 2px 6px; font-weight: normal; margin-top: 4px; display: inline-block;">
+                            <i class="fa-solid fa-arrows-spin"></i> Recurrente
+                        </span>
                         {% endif %}
                     </td>
                     <td>
-                        <span style="font-size: 0.88rem;">{{ exp.date[:10] }}</span>
+                        <span style="font-size: 0.8rem; color: var(--text-secondary);">{{ exp.date[:10] }}</span>
                     </td>
                     <td>
                         {% if exp.ncf %}
-                        <strong
-                            style="font-family: monospace; font-size: 0.85rem; color: var(--accent-purple); display: block;">{{
-                            exp.ncf }}</strong>
-                        <span style="font-size: 0.72rem; color: var(--text-secondary); font-family: monospace;">RNC: {{
-                            exp.rncEmisor or 'N/A' }}</span>
+                        <span style="font-family: monospace; font-size: 0.78rem; color: var(--accent-purple); display: block; font-weight: 500;">{{ exp.ncf }}</span>
+                        <span style="font-size: 0.7rem; color: var(--text-secondary); font-family: monospace; display: block;">RNC: {{ exp.rncEmisor or 'N/A' }}</span>
                         {% if exp.providerName %}
-                        <span
-                            style="display: block; font-size: 0.72rem; color: var(--text-muted); font-weight: normal;">{{
-                            exp.providerName }}</span>
+                        <span style="display: block; font-size: 0.7rem; color: var(--text-muted); font-weight: normal; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 180px;">{{ exp.providerName }}</span>
                         {% endif %}
                         {% else %}
-                        <span style="color: var(--text-muted); font-size: 0.82rem;">Sin comprobante fiscal</span>
+                        <span style="color: var(--text-muted); font-size: 0.75rem;">Sin comprobante fiscal</span>
                         {% endif %}
                     </td>
                     <td>
-                        <strong style="color: var(--accent-red);">RD$ {{ "{:,.2f}".format(exp.amount) }}</strong>
-                        <span style="display: block; font-size: 0.75rem; color: var(--text-muted);">ITBIS: RD$ {{
-                            "{:,.2f}".format(exp.itbisAmount | default(0.0)) }}</span>
+                        <span style="color: var(--accent-red); font-size: 0.85rem; font-weight: 500; display: block;">RD$ {{ "{:,.2f}".format(exp.amount) }}</span>
+                        <span style="display: block; font-size: 0.7rem; color: var(--text-muted);">ITBIS: RD$ {{ "{:,.2f}".format(exp.itbisAmount | default(0.0)) }}</span>
                     </td>
                     <td>
                         {% if exp.associatedInvoiceId and exp.invoice_number %}
-                        <!-- Tarjeta de Rentabilidad por Factura (Margen Neto) -->
-                        <div
-                            style="background-color: rgba(255, 255, 255, 0.02); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 8px 12px; display: inline-flex; flex-direction: column; gap: 4px; min-width: 180px;">
-                            <div style="display: flex; justify-content: space-between; font-size: 0.72rem;">
-                                <span style="color: var(--text-secondary);">Factura: <strong>{{ exp.invoice_number
-                                        }}</strong></span>
-                                <span style="color: var(--accent-emerald);">RD$ {{ "{:,.0f}".format(exp.invoice_total)
-                                    }}</span>
+                        <div style="background-color: rgba(255, 255, 255, 0.01); border: 1px dashed var(--border-color); border-radius: 6px; padding: 6px 10px; display: inline-flex; flex-direction: column; gap: 2px; min-width: 160px;">
+                            <div style="display: flex; justify-content: space-between; font-size: 0.68rem; color: var(--text-muted);">
+                                <span>Factura: <span style="font-family: monospace;">{{ exp.invoice_number }}</span></span>
+                                <span style="color: var(--accent-emerald);">RD$ {{ "{:,.0f}".format(exp.invoice_total) }}</span>
                             </div>
-
-                            <!-- Barra de Margen de la Factura -->
-                            <div
-                                style="display: flex; justify-content: space-between; font-size: 0.78rem; font-weight: 700; margin-top: 4px; border-top: 1px solid var(--border-color); padding-top: 4px;">
-                                <span>Margen Neto:</span>
-                                <span
-                                    style="color: {% if exp.margin_pct > 30 %}var(--accent-emerald){% elif exp.margin_pct > 10 %}var(--accent-yellow){% else %}var(--accent-red){% endif %};">
+                            <div style="display: flex; justify-content: space-between; font-size: 0.72rem; margin-top: 2px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 2px;">
+                                <span style="color: var(--text-secondary);">Margen Neto:</span>
+                                <span style="font-weight: 500; color: {% if exp.margin_pct > 30 %}var(--accent-emerald){% elif exp.margin_pct > 10 %}var(--accent-yellow){% else %}var(--accent-red){% endif %};">
                                     {{ "{:.1f}%".format(exp.margin_pct) }}
                                 </span>
                             </div>
                         </div>
                         {% else %}
-                        <span style="color: var(--text-muted); font-size: 0.85rem;">Gasto General Operativo</span>
+                        <span style="color: var(--text-muted); font-size: 0.78rem;">Gasto General Operativo</span>
                         {% endif %}
                     </td>
                     <td style="text-align: right;">
-                        <div style="display: inline-flex; gap: 8px;">
+                        <div style="display: inline-flex; gap: 6px;">
                             <a href="{{ url_for('edit_expense_route', expense_id=exp.id) }}" class="btn btn-secondary"
-                                style="padding: 8px 12px; font-size: 0.8rem; border-color: var(--accent-blue); color: var(--accent-blue);"
+                                style="padding: 8px 12px; font-size: 0.75rem; border-color: var(--accent-blue); color: var(--accent-blue);"
                                 title="Ver Detalle y Editar">
                                 <i class="fa-solid fa-pen-to-square"></i>
                             </a>
-                            {% if exp.firebaseAttachmentURLs %}
+                            {% if exp.firebaseAttachmentURLs and exp.firebaseAttachmentURLs[0] %}
                             <a href="{{ exp.firebaseAttachmentURLs[0] }}" target="_blank" class="btn btn-secondary"
-                                style="padding: 8px 12px; font-size: 0.8rem;" title="Ver Soporte / Ticket">
+                                style="padding: 8px 12px; font-size: 0.75rem;" title="Ver Soporte / Ticket">
                                 <i class="fa-solid fa-paperclip"></i>
                             </a>
+                            {% else %}
+                            <button type="button" class="btn btn-secondary"
+                                style="padding: 8px 12px; font-size: 0.75rem; opacity: 0.35; cursor: not-allowed; border-color: var(--border-color); color: var(--text-muted);"
+                                disabled title="Sin Soporte Adjunto">
+                                <i class="fa-solid fa-paperclip"></i>
+                            </button>
                             {% endif %}
                             <form action="{{ url_for('delete_expense_route', expense_id=exp.id) }}" method="POST"
                                 onsubmit="return confirm('¿Seguro que deseas eliminar este gasto?');"
                                 style="display: inline;">
                                 <button type="submit" class="btn btn-danger"
-                                    style="padding: 8px 12px; font-size: 0.8rem;" title="Eliminar Gasto">
+                                    style="padding: 8px 12px; font-size: 0.75rem;" title="Eliminar Gasto">
                                     <i class="fa-solid fa-trash-can"></i>
                                 </button>
                             </form>
@@ -147,5 +186,12 @@
             </tbody>
         </table>
     </div>
-</div>
+
+<script>
+    function exportToCSV() {
+        const urlParams = new URLSearchParams(window.location.search);
+        urlParams.set('export', 'csv');
+        window.location.href = window.location.pathname + '?' + urlParams.toString();
+    }
+</script>
 {% endblock %}

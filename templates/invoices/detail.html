@@ -1477,7 +1477,7 @@
 
         // Pre-fill with client email if available
         const emailInput = document.getElementById('email-receipt-input');
-        emailInput.value = {{ client_email | tojson }
+        emailInput.value = {{ client_email | tojson }};
     };
 
     // Reset status
@@ -1550,7 +1550,7 @@
     function openNotifyEmailModal() {
         const emailInput = document.getElementById('notify-email-input');
         // Pre-rellenar con el email del cliente
-        emailInput.value = {{ client_email | tojson }
+        emailInput.value = {{ client_email | tojson }};
     };
 
     // Resetear estado del modal
