@@ -687,6 +687,11 @@ def create_expense():
             return jsonify({"success": False, "error": "El concepto del gasto es requerido."}), 400
             
         expense_id = data.get('id') or str(uuid.uuid4())
+        
+        payment_type = data.get('paymentType', data.get('payment_type', 'Contado'))
+        cxp_status = data.get('cxpStatus', data.get('cxp_status', 'Pagado' if payment_type == 'Contado' else 'Pendiente'))
+        cxp_balance = float(data.get('cxpRemainingBalance', data.get('cxp_remaining_balance', 0.0 if payment_type == 'Contado' else amount)))
+        
         expense_dict = {
             "concept": concept,
             "category": data.get('category', 'Otros'),
@@ -706,7 +711,20 @@ def create_expense():
             "itbisAmount": float(data.get('itbis_amount', data.get('itbisAmount', 0.0))),
             "isITBISDeductible": bool(data.get('is_itbis_deductible', data.get('isITBISDeductible', True))),
             "isDeductible": bool(data.get('is_deductible', data.get('isDeductible', True))),
-            "firebaseAttachmentURLs": data.get('firebase_attachment_urls', data.get('firebaseAttachmentURLs', []))
+            "firebaseAttachmentURLs": data.get('firebase_attachment_urls', data.get('firebaseAttachmentURLs', [])),
+            
+            # Nuevos campos homologados
+            "providerName": data.get('providerName', data.get('provider_name', '')),
+            "ecfType": data.get('ecfType', data.get('ecf_type', 'E31')),
+            "cne": data.get('cne', ''),
+            "tipoGastoDGII": data.get('tipoGastoDGII', data.get('tipo_gasto_dgii', '02')),
+            "paymentType": payment_type,
+            "cxpStatus": cxp_status,
+            "cxpRemainingBalance": cxp_balance,
+            "approvalStatus": data.get('approvalStatus', data.get('approval_status', 'Aprobado')),
+            "requestedBy": data.get('requestedBy', data.get('requested_by', 'Usuario')),
+            "approvedBy": data.get('approvedBy', data.get('approved_by', 'Usuario' if data.get('approvalStatus', data.get('approval_status', 'Aprobado')) == 'Aprobado' else '')),
+            "dueDate": data.get('dueDate', data.get('due_date', ''))
         }
         
         DatabaseService.save_expense(g.owner_uid, expense_id, expense_dict, sandbox=g.sandbox_mode)
@@ -755,7 +773,20 @@ def update_expense(expense_id):
             "itbisAmount": float(data.get('itbis_amount', data.get('itbisAmount', expense.get('itbisAmount')))),
             "isITBISDeductible": bool(data.get('is_itbis_deductible', data.get('isITBISDeductible', expense.get('isITBISDeductible')))),
             "isDeductible": bool(data.get('is_deductible', data.get('isDeductible', expense.get('isDeductible')))),
-            "firebaseAttachmentURLs": data.get('firebase_attachment_urls', data.get('firebaseAttachmentURLs', expense.get('firebaseAttachmentURLs')))
+            "firebaseAttachmentURLs": data.get('firebase_attachment_urls', data.get('firebaseAttachmentURLs', expense.get('firebaseAttachmentURLs'))),
+            
+            # Nuevos campos homologados
+            "providerName": data.get('providerName', data.get('provider_name', expense.get('providerName', ''))),
+            "ecfType": data.get('ecfType', data.get('ecf_type', expense.get('ecfType', 'E31'))),
+            "cne": data.get('cne', expense.get('cne', '')),
+            "tipoGastoDGII": data.get('tipoGastoDGII', data.get('tipo_gasto_dgii', expense.get('tipoGastoDGII', '02'))),
+            "paymentType": data.get('paymentType', data.get('payment_type', expense.get('paymentType', 'Contado'))),
+            "dueDate": data.get('dueDate', data.get('due_date', expense.get('dueDate', ''))),
+            "cxpStatus": data.get('cxpStatus', data.get('cxp_status', expense.get('cxpStatus', 'Pagado'))),
+            "cxpRemainingBalance": float(data.get('cxpRemainingBalance', data.get('cxp_remaining_balance', expense.get('cxpRemainingBalance', 0.0)))),
+            "approvalStatus": data.get('approvalStatus', data.get('approval_status', expense.get('approvalStatus', 'Aprobado'))),
+            "requestedBy": data.get('requestedBy', data.get('requested_by', expense.get('requestedBy', ''))),
+            "approvedBy": data.get('approvedBy', data.get('approved_by', expense.get('approvedBy', ''))),
         }
         
         DatabaseService.save_expense(g.owner_uid, expense_id, expense_dict, sandbox=g.sandbox_mode)
@@ -767,6 +798,46 @@ def update_expense(expense_id):
         })
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
+
+
+@api_invoices_bp.route('/ai/receipt-ocr', methods=['POST'])
+@require_api_key
+def api_v1_ai_receipt_ocr():
+    """
+    POST /api/v1/ai/receipt-ocr
+    Procesa un recibo/factura con GPT-4o-mini usando una API Key autorizada.
+    """
+    file = request.files.get('file')
+    if not file:
+        return jsonify({"success": False, "error": "No se recibió ningún archivo"}), 400
+        
+    file_bytes = file.read()
+    mime_type = file.mimetype or "image/jpeg"
+    filename = file.filename or ""
+    if filename.lower().endswith(('.heic', '.heif')):
+        mime_type = "image/heic"
+        
+    from app.services.ai_service import AIService
+    res = AIService.analyze_receipt_ocr(g.owner_uid, file_bytes, mime_type)
+    return jsonify(res)
+
+
+@api_invoices_bp.route('/ai/classify-expense', methods=['POST', 'GET'])
+@require_api_key
+def api_v1_ai_classify_expense():
+    """
+    POST /api/v1/ai/classify-expense
+    Clasifica un concepto de gasto según DGII.
+    """
+    concept = request.values.get('concept', '').strip()
+    if not concept and request.json:
+        concept = request.json.get('concept', '').strip()
+    if not concept:
+        return jsonify({"success": False, "error": "El concepto es requerido"}), 400
+        
+    from app.services.ai_service import AIService
+    code = AIService.classify_dgii_expense(g.owner_uid, concept)
+    return jsonify({"success": True, "code": code})
 
 
 @api_invoices_bp.route('/expenses/<expense_id>', methods=['DELETE'])
