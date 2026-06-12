@@ -1551,18 +1551,17 @@
         const emailInput = document.getElementById('notify-email-input');
         // Pre-rellenar con el email del cliente
         emailInput.value = {{ client_email | tojson }};
-    };
 
-    // Resetear estado del modal
-    const status = document.getElementById('notify-email-status');
-    status.style.display = 'none';
-    status.textContent = '';
+        // Resetear estado del modal
+        const status = document.getElementById('notify-email-status');
+        status.style.display = 'none';
+        status.textContent = '';
 
-    const btn = document.getElementById('send-notify-btn');
-    btn.disabled = false;
-    btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i><span> Enviar Notificación</span>';
+        const btn = document.getElementById('send-notify-btn');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i><span> Enviar Notificación</span>';
 
-    document.getElementById('notify-email-modal').style.display = 'flex';
+        document.getElementById('notify-email-modal').style.display = 'flex';
     }
 
     function closeNotifyEmailModal() {
