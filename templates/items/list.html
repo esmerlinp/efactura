@@ -100,7 +100,7 @@
             <table class="table-premium" id="items-table">
                 <thead>
                     <tr>
-                        <th>Código / SKU</th>
+                        <th>Cód / SKU</th>
                         <th>Nombre / Descripción</th>
                         <th>Ubicación / Cat.</th>
                         <th>Existencia</th>
@@ -123,7 +123,7 @@
                         data-stock-low="{% if item.type == 'Bien' and item.totalStock <= item.minStock and item.minStock > 0 %}true{% else %}false{% endif %}">
                         <td>
                             <span
-                                style="font-family: monospace; font-size: 0.85rem; background-color: var(--bg-input); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-color); display: block; margin-bottom: 4px; text-align: center;">
+                                style="font-family: monospace; font-size: 0.75rem; display: block; text-align: center; margin-bottom: 4px;">
                                 {{ item.code or 'S/C' }}
                             </span>
                             {% if item.barcode %}
@@ -152,7 +152,7 @@
                             </div>
                             {% if item.codigoImpuesto %}
                             <span
-                                style="display: block; font-size: 0.72rem; color: var(--accent-purple); font-weight: 700; margin-top: 4px; letter-spacing: 0.02em;">
+                                style="display: block; font-size: 0.72rem; color: var(--accent-purple); font-weight: 500; margin-top: 4px; letter-spacing: 0.02em;">
                                 <i class="fa-solid fa-percent"></i>
                                 {% if item.codigoImpuesto == '001' %}Propina Legal 10%
                                 {% elif item.codigoImpuesto == '002' %}CDT 2%
@@ -176,40 +176,39 @@
                         </td>
                         <td>
                             <span
-                                style="font-size: 0.88rem; color: var(--text-secondary); display: block; margin-bottom: 4px;">
+                                style="font-size: 0.78rem; color: var(--text-secondary); display: block; margin-bottom: 4px;">
                                 {{ item.rackLocation or '—' }}
                             </span>
                             <span
-                                style="font-size: 0.75rem; background-color: rgba(99, 102, 241, 0.1); color: var(--accent-purple); padding: 2px 6px; border-radius: 20px; font-weight: 500; display: inline-block;">
+                                style="font-size: 0.75rem; color: var(--accent-purple); font-weight: 400; display: inline-block;">
                                 {{ item.categoryId | capitalize if item.categoryId else 'General' }}
                             </span>
                         </td>
                         <td>
                             {% if item.type == 'Bien' %}
-                            <span
-                                class="badge {% if item.totalStock <= item.minStock and item.minStock > 0 %}badge-danger{% else %}badge-success{% endif %}"
-                                style="font-weight: bold;">
-                                {{ "{:,.2f}".format(item.totalStock or 0.0) }} {{ item.unit or 'ud' }}
-                            </span>
-                            {% if item.totalStock <= item.minStock and item.minStock> 0 %}
+                                {% if item.totalStock <= item.minStock and item.minStock > 0 %}
+                                <span class="badge badge-danger" style="font-weight: 500; font-size: 0.75rem; padding: 2px 6px;">
+                                    {{ "{:,.2f}".format(item.totalStock or 0.0) }} {{ item.unit or 'ud' }}
+                                </span>
                                 <i class="fa-solid fa-triangle-exclamation"
                                     style="color: var(--accent-red); margin-left: 4px;"
                                     title="¡Bajo stock de seguridad! (Mínimo: {{ item.minStock }})"></i>
-                                {% endif %}
                                 {% else %}
-                                <span style="color: var(--text-muted); font-size: 0.85rem; font-style: italic;">N/A
-                                    (Servicio)</span>
+                                <span style="font-size: 0.78rem; color: var(--text-primary);">
+                                    {{ "{:,.2f}".format(item.totalStock or 0.0) }} {{ item.unit or 'ud' }}
+                                </span>
                                 {% endif %}
+                            {% else %}
+                                <span style="color: var(--text-muted); font-size: 0.75rem; font-style: italic;">N/A (Servicio)</span>
+                            {% endif %}
                         </td>
                         <td>
-                            <span
-                                class="badge {% if item.type == 'Servicio' %}badge-primary{% else %}badge-success{% endif %}">
+                            <span style="font-size: 0.78rem; color: var(--text-secondary);">
                                 {{ item.type or 'Bien' }}
                             </span>
                         </td>
                         <td>
-                            <span style="font-size: 0.88rem; color: var(--text-secondary);">{{ item.unit or 'Unidad'
-                                }}</span>
+                            <span style="font-size: 0.78rem; color: var(--text-secondary);">{{ item.unit or 'Unidad' }}</span>
                         </td>
                         <td>
                             <span style="color: var(--accent-purple);">{{ "{:.0%}".format(item.itbisRate) }}</span>
