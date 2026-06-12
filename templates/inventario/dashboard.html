@@ -180,7 +180,7 @@
                     data-stock-low="{% if item.totalStock <= item.minStock and item.minStock > 0 %}true{% else %}false{% endif %}">
                     <td>
                         <span
-                            style="font-family: monospace; font-size: 0.85rem; background-color: var(--bg-input); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-color); display: block; margin-bottom: 4px; text-align: center;">
+                            style="font-family: monospace; font-size: 0.85rem; display: block; text-align: center; margin-bottom: 4px;">
                             {{ item.code or 'S/C' }}
                         </span>
                         {% if item.barcode %}
@@ -207,17 +207,21 @@
                     <td style="text-align: right;">
                         {% set qty = item.warehouse_stocks.get(wh.id, 0.0) %}
                         <span
-                            style="font-weight: 500; color: {% if qty < 0 %}var(--accent-red){% elif qty == 0 %}var(--text-muted){% else %}inherit{% endif %};">
+                            style="font-weight: 400; color: {% if qty < 0 %}var(--accent-red){% elif qty == 0 %}var(--text-muted){% else %}inherit{% endif %};">
                             {{ "{:,.2f}".format(qty) }}
                         </span>
                     </td>
                     {% endfor %}
                     <td style="text-align: right;">
-                        <span
-                            class="badge {% if item.totalStock <= item.minStock and item.minStock > 0 %}badge-danger{% else %}badge-success{% endif %}"
-                            style="font-weight: 800; font-size: 0.88rem; padding: 6px 12px;">
+                        {% if item.totalStock <= item.minStock and item.minStock > 0 %}
+                        <span class="badge badge-danger" style="font-weight: 500; font-size: 0.75rem; padding: 2px 6px;">
                             {{ "{:,.2f}".format(item.totalStock or 0.0) }} {{ item.unit }}
                         </span>
+                        {% else %}
+                        <span style="font-size: 0.78rem; color: var(--text-primary); font-weight: 400;">
+                            {{ "{:,.2f}".format(item.totalStock or 0.0) }} {{ item.unit }}
+                        </span>
+                        {% endif %}
                     </td>
                 </tr>
                 {% endfor %}
