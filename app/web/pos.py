@@ -698,6 +698,15 @@ def create_cash_register():
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
     
+    # Validar límite de cajas en el plan de la empresa
+    profile = DatabaseService.get_company_profile(owner_uid)
+    box_limit = int(profile.get('boxLimit', 0)) if profile else 0
+    registers = DatabaseService.get_cash_registers(owner_uid, sandbox=sandbox)
+    
+    if len(registers) >= box_limit:
+        flash(f'Límite de cajas registradoras alcanzado ({box_limit} cajas en tu plan). Por favor, contacta a soporte o actualiza tu plan.', 'error')
+        return redirect(url_for('web_pos.pos_admin_dashboard'))
+        
     name = request.form.get('name', '').strip()
     if not name:
         flash('El nombre de la caja es obligatorio.', 'error')

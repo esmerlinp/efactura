@@ -48,7 +48,7 @@
                 <div class="form-divider"></div>
                 
                 <div class="form-section">
-                    <h3 class="form-section-title">Límites de Uso</h3>
+                    <h3 class="form-section-title">Límites de Uso y Colaboradores</h3>
                     <div class="form-grid-2">
                         <div class="form-group">
                             <label class="form-label" for="documentLimit">Límite de Documentos / mes *</label>
@@ -61,6 +61,49 @@
                             <input type="number" id="storageLimitMB" name="storageLimitMB" class="form-input" 
                                 value="{{ plan.storageLimitMB if plan else '' }}" placeholder="Ej: 5120" min="0" required>
                             <p class="form-hint">Espacio en Firestore Storage asignado al cliente.</p>
+                        </div>
+                    </div>
+                    <div class="form-grid-2" style="margin-top: 16px;">
+                        <div class="form-group">
+                            <label class="form-label" for="userLimit">Límite de Usuarios Colaboradores *</label>
+                            <input type="number" id="userLimit" name="userLimit" class="form-input" 
+                                value="{{ plan.userLimit if plan else '2' }}" placeholder="Ej: 5" min="1" required>
+                            <p class="form-hint">Usuarios que pueden pertenecer al equipo.</p>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="additionalUserCost">Costo por Usuario Adicional (RD$)</label>
+                            <div class="input-currency">
+                                <span class="currency-symbol">RD$</span>
+                                <input type="number" id="additionalUserCost" name="additionalUserCost" class="form-input form-input-currency" 
+                                    value="{{ plan.additionalUserCost if plan else '0.00' }}" placeholder="0.00" step="0.01" min="0">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-divider"></div>
+
+                <div class="form-section">
+                    <h3 class="form-section-title">Módulo Punto de Venta (POS)</h3>
+                    <div class="form-group" style="display: flex; align-items: center; gap: 8px; margin-bottom: 16px;">
+                        <input type="checkbox" id="posEnabled" name="posEnabled" value="1" 
+                            {% if plan and plan.posEnabled %}checked{% endif %} style="width: 18px; height: 18px; cursor: pointer;">
+                        <label for="posEnabled" style="font-weight: 600; cursor: pointer;">Habilitar Módulo POS / Cajas para este plan</label>
+                    </div>
+                    <div class="form-grid-2">
+                        <div class="form-group">
+                            <label class="form-label" for="boxLimit">Límite de Cajas Registradoras Incluidas</label>
+                            <input type="number" id="boxLimit" name="boxLimit" class="form-input" 
+                                value="{{ plan.boxLimit if plan else '0' }}" placeholder="Ej: 1" min="0">
+                            <p class="form-hint">Cantidad de cajas permitidas en este plan.</p>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="additionalBoxCost">Costo por Caja Adicional (RD$)</label>
+                            <div class="input-currency">
+                                <span class="currency-symbol">RD$</span>
+                                <input type="number" id="additionalBoxCost" name="additionalBoxCost" class="form-input form-input-currency" 
+                                    value="{{ plan.additionalBoxCost if plan else '0.00' }}" placeholder="0.00" step="0.01" min="0">
+                            </div>
                         </div>
                     </div>
                 </div>

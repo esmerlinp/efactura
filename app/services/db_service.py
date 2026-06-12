@@ -1974,8 +1974,48 @@ class DatabaseService:
     # =========================================================================
 
     @classmethod
+    def get_storage_usage_mb(cls, owner_uid):
+        """Calcula el espacio consumido por la empresa en Firebase Storage en MB."""
+        if not firebase_initialized or not firebase_storage_bucket:
+            # Simulación local o cálculo de static/uploads
+            return 15.4 # Valor simulado por defecto para desarrollo local
+        
+        try:
+            total_bytes = 0
+            # Listar todos los blobs con el prefijo users/{owner_uid}/
+            blobs = firebase_storage_bucket.list_blobs(prefix=f"users/{owner_uid}/")
+            for blob in blobs:
+                total_bytes += blob.size or 0
+            return round(total_bytes / (1024 * 1024), 2)
+        except Exception as e:
+            print(f"⚠️ Error al calcular uso de almacenamiento para {owner_uid}: {e}")
+            return 0.0
+
+    @classmethod
     def upload_file_to_storage(cls, file_data, destination_path, mime_type="application/octet-stream"):
         """Sube un archivo (PDF, XML, Ticket) a Firebase Storage y retorna su URL pública."""
+        # Validar límite de almacenamiento
+        owner_uid = None
+        parts = destination_path.split('/')
+        if len(parts) > 1 and parts[0] == 'users':
+            owner_uid = parts[1]
+            
+        if owner_uid:
+            try:
+                profile = cls.get_company_profile(owner_uid)
+                if profile:
+                    storage_limit = profile.get('storageLimitMB')
+                    if storage_limit:
+                        current_usage = cls.get_storage_usage_mb(owner_uid)
+                        new_file_mb = len(file_data) / (1024 * 1024)
+                        if (current_usage + new_file_mb) > float(storage_limit):
+                            raise ValueError(f"Límite de almacenamiento excedido. Límite: {storage_limit} MB. Consumo actual: {current_usage:.2f} MB.")
+            except ValueError as ve:
+                print(f"❌ {ve}")
+                raise ve
+            except Exception as ex:
+                print(f"⚠️ Error validando límite de almacenamiento: {ex}")
+
         if not firebase_initialized or not firebase_storage_bucket:
             # En modo local, simulamos una ruta local en uploads
             uploads_dir = os.path.join("static", "uploads")
