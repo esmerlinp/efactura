@@ -3,6 +3,7 @@ from datetime import datetime
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash, session
 from firebase_admin import firestore
 from app.services.db_service import db_firestore, DatabaseService
+from app.services.azul_service import AzulService
 
 portal_bp = Blueprint('portal', __name__, template_folder='templates')
 
@@ -228,3 +229,119 @@ def pay_invoice(owner_uid, client_id, invoice_id):
     
     PortalDbService.save_invoice(owner_uid, invoice_id, invoice, sandbox=sandbox)
     return jsonify({"success": True, "message": "Pago simulado y procesado correctamente."})
+
+@portal_bp.route('/portal/cliente/<owner_uid>/<client_id>/pago/<invoice_id>/azul', methods=['GET', 'POST'])
+def pay_invoice_azul(owner_uid, client_id, invoice_id):
+    sandbox = request.args.get('sandbox', 'true').lower() == 'true'
+    company = DatabaseService.get_company_profile(owner_uid)
+    invoice = PortalDbService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+    if not invoice:
+        return "Factura no encontrada.", 404
+        
+    # El return_url es donde Azul redirigirá al cliente. 
+    return_url = url_for('portal.azul_callback', client_id=client_id, sandbox='true' if sandbox else 'false', _external=True)
+    
+    amount = float(invoice.get('remainingBalance', invoice.get('netPayable', 0.0)))
+    
+    payment_data = AzulService.prepare_payment_request(company, invoice, return_url, sandbox=sandbox)
+    
+    return render_template(
+        'portal/azul_redirect.html',
+        payment=payment_data,
+        company=company,
+        client_id=client_id,
+        invoice=invoice,
+        sandbox=sandbox
+    )
+
+@portal_bp.route('/portal/azul/callback', methods=['GET', 'POST'])
+def azul_callback():
+    client_id = request.args.get('client_id')
+    sandbox = request.args.get('sandbox', 'true').lower() == 'true'
+    
+    response_data = request.values.to_dict()
+    owner_uid = response_data.get('CustomField1')
+    invoice_id = response_data.get('CustomField2')
+    
+    if not owner_uid or not invoice_id:
+        return "Respuesta de pago incompleta.", 400
+        
+    company = DatabaseService.get_company_profile(owner_uid)
+    result = AzulService.verify_payment_response(company, response_data)
+    
+    if result.get('success'):
+        _process_azul_payment_record(result)
+        flash("¡Tu pago a través de la pasarela Azul ha sido procesado con éxito!", "success")
+        return render_template('portal/payment_success.html', result=result, company=company, client_id=client_id, sandbox=sandbox)
+    else:
+        flash(f"El pago no pudo ser procesado: {result.get('error') or 'Error desconocido'}", "error")
+        return render_template('portal/payment_failed.html', result=result, company=company, client_id=client_id, sandbox=sandbox)
+
+@portal_bp.route('/portal/azul/webhook', methods=['POST'])
+def azul_webhook():
+    response_data = request.form.to_dict()
+    owner_uid = response_data.get('CustomField1')
+    
+    if not owner_uid:
+        return jsonify({"success": False, "error": "owner_uid no provisto"}), 400
+        
+    company = DatabaseService.get_company_profile(owner_uid)
+    result = AzulService.verify_payment_response(company, response_data)
+    
+    if result.get('success'):
+        _process_azul_payment_record(result)
+        return jsonify({"success": True, "message": "Webhook procesado correctamente."})
+    else:
+        return jsonify({"success": False, "error": result.get('error') or "Error de verificación"}), 400
+
+def _process_azul_payment_record(result):
+    owner_uid = result['owner_uid']
+    invoice_id = result['invoice_id']
+    sandbox = result['is_sandbox']
+    amount = result['amount']
+    payment_id = result['reference']
+    
+    coll_inv = "sandbox_invoices" if sandbox else "invoices"
+    
+    invoice = PortalDbService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+    if not invoice:
+        return False
+        
+    payment_doc = db_firestore.collection("users").document(owner_uid).collection(coll_inv).document(invoice_id).collection("payments").document(payment_id).get()
+    if payment_doc.exists:
+        return True
+        
+    net_payable = float(invoice.get('netPayable', 0.0))
+    current_status = invoice.get('status')
+    current_total_paid = float(invoice.get('totalPaid', net_payable if current_status == "Cobrada" else 0.0))
+    
+    new_total_paid = current_total_paid + amount
+    new_remaining_balance = max(0.0, net_payable - new_total_paid)
+    
+    if new_remaining_balance <= 0.01:
+        new_status = "Cobrada"
+        new_remaining_balance = 0.0
+    else:
+        new_status = "Parcialmente Cobrada"
+        
+    payment_dict = {
+        "id": payment_id,
+        "amount": amount,
+        "paymentMethod": "Tarjeta en Línea (Azul)",
+        "bank": "Pasarela Azul",
+        "referenceNumber": payment_id,
+        "paymentDate": datetime.utcnow().isoformat(),
+        "registeredBy": "Cliente (Pasarela Azul)"
+    }
+    
+    db_firestore.collection("users").document(owner_uid).collection(coll_inv).document(invoice_id).collection("payments").document(payment_id).set(payment_dict)
+    
+    invoice['status'] = new_status
+    invoice['totalPaid'] = new_total_paid
+    invoice['remainingBalance'] = new_remaining_balance
+    invoice['paymentMethod'] = "Tarjeta en Línea (Azul)"
+    invoice['paymentDate'] = payment_dict['paymentDate']
+    
+    PortalDbService.save_invoice(owner_uid, invoice_id, invoice, sandbox=sandbox)
+    return True
+

@@ -344,6 +344,16 @@ def client_detail(client_id):
     interactions = DatabaseService.get_client_interactions(owner_uid, client_id, sandbox=sandbox)
     documents = DatabaseService.get_client_documents(owner_uid, client_id, sandbox=sandbox)
     
+    # Obtener todos los abonos/pagos de las facturas del cliente
+    client_payments = []
+    for inv in client_invoices:
+        inv_payments = DatabaseService.get_invoice_payments(owner_uid, inv['id'], sandbox=sandbox)
+        for pay in inv_payments:
+            pay['invoiceNumber'] = inv.get('invoiceNumber', '')
+            pay['invoiceId'] = inv['id']
+            client_payments.append(pay)
+    client_payments.sort(key=lambda x: x.get('paymentDate') or '', reverse=True)
+    
     return render_template(
         'clients/detail.html',
         active_page='clients',
@@ -351,7 +361,8 @@ def client_detail(client_id):
         invoices=client_invoices,
         quotations=client_quotations,
         interactions=interactions,
-        documents=documents
+        documents=documents,
+        payments=client_payments
     )
 
 @web_clients_bp.route('/clients/<client_id>/interactions/new', methods=['POST'])
