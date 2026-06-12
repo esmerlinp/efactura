@@ -38,13 +38,25 @@
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
                     <polyline points="20 6 9 17 4 12"/>
                 </svg>
-                <span>{{ plan.storageLimitMB }} MB de almacenamiento</span>
+                <span>RD$ {{ plan.additionalDocumentCost }} por doc. adicional</span>
             </div>
             <div class="plan-feature">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
                     <polyline points="20 6 9 17 4 12"/>
                 </svg>
-                <span>RD$ {{ plan.additionalDocumentCost }} por doc. adicional</span>
+                <span>{{ plan.userLimit }} usuarios incluidos (Extra: RD$ {{ plan.additionalUserCost }})</span>
+            </div>
+            <div class="plan-feature">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                    <polyline points="20 6 9 17 4 12"/>
+                </svg>
+                <span>Módulo POS: {% if plan.posEnabled %}Habilitado ({{ plan.boxLimit }} cajas, Extra: RD$ {{ plan.additionalBoxCost }}){% else %}Desactivado{% endif %}</span>
+            </div>
+            <div class="plan-feature">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                    <polyline points="20 6 9 17 4 12"/>
+                </svg>
+                <span>{{ plan.storageLimitMB }} MB de almacenamiento</span>
             </div>
         </div>
         <div class="plan-card-actions">

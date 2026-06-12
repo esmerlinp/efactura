@@ -238,7 +238,12 @@
                                             <option value="{{ plan.id }}" data-limit="{{ plan.documentLimit }}"
                                                 data-storage="{{ plan.storageLimitMB }}"
                                                 data-price="{{ plan.monthlyPrice }}"
-                                                data-extra="{{ plan.additionalDocumentCost }}" {% if
+                                                data-extra="{{ plan.additionalDocumentCost }}"
+                                                data-users="{{ plan.userLimit }}"
+                                                data-user-extra="{{ plan.additionalUserCost }}"
+                                                data-pos="{% if plan.posEnabled %}1{% else %}0{% endif %}"
+                                                data-boxes="{{ plan.boxLimit }}"
+                                                data-box-extra="{{ plan.additionalBoxCost }}" {% if
                                                 company.planId==plan.id %}selected{% endif %}>
                                                 {{ plan.name }} — RD$ {{ plan.monthlyPrice | round(2) }}
                                             </option>
@@ -270,6 +275,20 @@
                                             class="form-input" value="{{ company.storageLimitMB | default('') }}"
                                             placeholder="Ej: 5120" min="0">
                                         <p class="form-hint">Deja vacío para ilimitado.</p>
+                                    </div>
+                                </div>
+                                <div class="form-grid-2" style="margin-top: 16px;">
+                                    <div class="form-group">
+                                        <label class="form-label">Límite de Colaboradores (Usuarios)</label>
+                                        <input type="number" name="userLimit" id="userLimit" class="form-input"
+                                            value="{{ company.userLimit | default('2') }}" placeholder="Ej: 5"
+                                            min="1">
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Límite de Cajas Registradoras (POS)</label>
+                                        <input type="number" name="boxLimit" id="boxLimit" class="form-input"
+                                            value="{{ company.boxLimit | default('0') }}" placeholder="Ej: 2"
+                                            min="0">
                                     </div>
                                 </div>
                             </div>
@@ -304,6 +323,28 @@
                                         <input type="number" name="billingDay" class="form-input"
                                             value="{{ company.billingDay | default(1) }}" min="1" max="28">
                                         <p class="form-hint">Día del mes de vencimiento.</p>
+                                    </div>
+                                </div>
+                                <div class="form-grid-2" style="margin-top: 16px;">
+                                    <div class="form-group">
+                                        <label class="form-label">Costo Usuario Adicional (RD$)</label>
+                                        <div class="input-currency">
+                                            <span class="currency-symbol">RD$</span>
+                                            <input type="number" name="additionalUserCost" id="additionalUserCost"
+                                                class="form-input form-input-currency"
+                                                value="{{ company.additionalUserCost | default('0.00') }}" placeholder="0.00"
+                                                step="0.01" min="0">
+                                        </div>
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Costo Caja Adicional (RD$)</label>
+                                        <div class="input-currency">
+                                            <span class="currency-symbol">RD$</span>
+                                            <input type="number" name="additionalBoxCost" id="additionalBoxCost"
+                                                class="form-input form-input-currency"
+                                                value="{{ company.additionalBoxCost | default('0.00') }}" placeholder="0.00"
+                                                step="0.01" min="0">
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -657,11 +698,21 @@
         const storage = opt.dataset.storage;
         const price = opt.dataset.price;
         const extra = opt.dataset.extra;
+        const users = opt.dataset.users;
+        const userExtra = opt.dataset.userExtra;
+        const pos = opt.dataset.pos;
+        const boxes = opt.dataset.boxes;
+        const boxExtra = opt.dataset.boxExtra;
 
         if (limit) document.getElementById('documentLimit').value = limit;
         if (storage) document.getElementById('storageLimitMB').value = storage;
         if (price) document.getElementById('monthlyPayment').value = price;
         if (extra) document.getElementById('additionalDocumentCost').value = extra;
+        if (users) document.getElementById('userLimit').value = users;
+        if (userExtra) document.getElementById('additionalUserCost').value = userExtra;
+        if (pos) document.getElementById('posEnabled').checked = (pos === "1");
+        if (boxes) document.getElementById('boxLimit').value = boxes;
+        if (boxExtra) document.getElementById('additionalBoxCost').value = boxExtra;
     }
 
     function payWithAzul() {

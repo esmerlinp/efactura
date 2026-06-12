@@ -29,6 +29,40 @@ from app.utils.decorators import check_permission, require_permission
 from flask import Blueprint
 web_invoices_bp = Blueprint('web_invoices', __name__)
 
+def check_document_limit_exceeded(owner_uid, sandbox=True):
+    """
+    Verifica si la empresa ha excedido su límite de documentos emitidos.
+    Retorna (excedido, mensaje_advertencia_o_error).
+    """
+    if sandbox:
+        return False, ""
+        
+    profile = DatabaseService.get_company_profile(owner_uid)
+    if not profile:
+        return False, ""
+        
+    document_limit = profile.get('documentLimit')
+    if not document_limit:
+        return False, ""
+        
+    try:
+        document_limit = int(document_limit)
+    except ValueError:
+        return False, ""
+        
+    billing_day = profile.get('billingDay', 1)
+    stats = DatabaseService.get_invoice_stats(owner_uid, billing_day)
+    docs_used = stats['prod_current_cycle']
+    
+    if docs_used >= document_limit:
+        additional_cost = float(profile.get('additionalDocumentCost', 0.0))
+        if additional_cost > 0:
+            return False, f"Advertencia: Has alcanzado el límite de {document_limit} documentos. Este y los siguientes documentos tendrán un costo adicional de RD$ {additional_cost:.2f}."
+        else:
+            return True, f"Límite de documentos excedido ({document_limit} documentos en tu plan). Por favor, contacta al administrador del portal para actualizar tu plan."
+            
+    return False, ""
+
 
 
 # =========================================================================
@@ -1151,6 +1185,13 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
             flash('Cotización creada exitosamente como borrador.', 'success')
             return redirect(url_for('list_quotations'))
         elif action in ['emitir_cobrar', 'emitir_credito']:
+            exceeded, limit_msg = check_document_limit_exceeded(owner_uid, sandbox=sandbox)
+            if exceeded:
+                flash(limit_msg, 'error')
+                return redirect(url_for('list_invoices'))
+            elif limit_msg:
+                flash(limit_msg, 'warning')
+                
             company = DatabaseService.get_company_profile(owner_uid)
             try:
                 if not invoice_dict.get("encf"):
@@ -1861,6 +1902,13 @@ def sign_invoice_route(invoice_id):
     if not invoice:
         flash('Factura no encontrada.', 'error')
         return redirect(url_for('list_invoices'))
+        
+    exceeded, limit_msg = check_document_limit_exceeded(owner_uid, sandbox=sandbox)
+    if exceeded:
+        flash(limit_msg, 'error')
+        return redirect(url_for('invoice_detail', invoice_id=invoice_id))
+    elif limit_msg:
+        flash(limit_msg, 'warning')
         
     company = DatabaseService.get_company_profile(owner_uid)
     
@@ -3292,6 +3340,13 @@ def add_team_member():
     
     owner_uid = session['user']['ownerUID']
     
+    profile = DatabaseService.get_company_profile(owner_uid)
+    user_limit = int(profile.get('userLimit', 2)) if profile else 2
+    team = DatabaseService.get_team_members(owner_uid)
+    if (len(team) + 1) >= user_limit:
+        flash(f'Límite de usuarios alcanzado ({user_limit} usuarios en tu plan). Por favor, actualiza tu plan para registrar nuevos colaboradores.', 'error')
+        return redirect(url_for('team_settings'))
+    
     name = request.form['name']
     email = request.form['email']
     password = request.form['password']
@@ -3804,6 +3859,10 @@ def client_subscription_page():
         created_at=created_at
     )
     
+    # 6. Calcular uso de almacenamiento
+    storage_used = DatabaseService.get_storage_usage_mb(owner_uid)
+    storage_limit = profile.get('storageLimitMB', 512) or 512
+
     return render_template(
         'subscription.html', 
         active_page='subscription',
@@ -3811,7 +3870,9 @@ def client_subscription_page():
         plan_name=plan_name,
         stats=stats,
         payments=payments,
-        billing_history=billing_history
+        billing_history=billing_history,
+        storage_used=storage_used,
+        storage_limit=storage_limit
     )
 
 

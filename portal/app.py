@@ -117,6 +117,11 @@ def client_detail(company_id):
             sandbox_indefinite = 'sandboxIndefinite' in request.form
             sandbox_start_date = request.form.get('sandboxStartDate', '')
             sandbox_end_date = request.form.get('sandboxEndDate', '')
+            
+            user_limit = request.form.get('userLimit')
+            additional_user_cost = request.form.get('additionalUserCost')
+            box_limit = request.form.get('boxLimit')
+            additional_box_cost = request.form.get('additionalBoxCost')
 
             update_data.update({
                 'status': status,
@@ -125,6 +130,10 @@ def client_detail(company_id):
                 'storageLimitMB': int(storage_limit) if storage_limit else '',
                 'monthlyPayment': float(monthly_payment) if monthly_payment else 0.0,
                 'additionalDocumentCost': float(additional_doc_cost) if additional_doc_cost else 0.0,
+                'userLimit': int(user_limit) if user_limit else 2,
+                'additionalUserCost': float(additional_user_cost) if additional_user_cost else 0.0,
+                'boxLimit': int(box_limit) if box_limit else 0,
+                'additionalBoxCost': float(additional_box_cost) if additional_box_cost else 0.0,
                 'billingDay': int(billing_day) if billing_day else 1,
                 'posEnabled': pos_enabled,
                 'productionEnabled': production_enabled,
@@ -265,7 +274,12 @@ def new_plan():
             'monthlyPrice': float(request.form.get('monthlyPrice', 0)),
             'documentLimit': int(request.form.get('documentLimit', 0)),
             'additionalDocumentCost': float(request.form.get('additionalDocumentCost', 0)),
-            'storageLimitMB': int(request.form.get('storageLimitMB', 0))
+            'storageLimitMB': int(request.form.get('storageLimitMB', 0)),
+            'userLimit': int(request.form.get('userLimit', 2)),
+            'additionalUserCost': float(request.form.get('additionalUserCost', 0.0)),
+            'posEnabled': 'posEnabled' in request.form,
+            'boxLimit': int(request.form.get('boxLimit', 0)),
+            'additionalBoxCost': float(request.form.get('additionalBoxCost', 0.0))
         }
         DatabaseService.save_plan(plan_id, plan_data)
         flash('Plan creado exitosamente.', 'success')
@@ -287,7 +301,12 @@ def edit_plan(plan_id):
             'monthlyPrice': float(request.form.get('monthlyPrice', 0)),
             'documentLimit': int(request.form.get('documentLimit', 0)),
             'additionalDocumentCost': float(request.form.get('additionalDocumentCost', 0)),
-            'storageLimitMB': int(request.form.get('storageLimitMB', 0))
+            'storageLimitMB': int(request.form.get('storageLimitMB', 0)),
+            'userLimit': int(request.form.get('userLimit', 2)),
+            'additionalUserCost': float(request.form.get('additionalUserCost', 0.0)),
+            'posEnabled': 'posEnabled' in request.form,
+            'boxLimit': int(request.form.get('boxLimit', 0)),
+            'additionalBoxCost': float(request.form.get('additionalBoxCost', 0.0))
         }
         DatabaseService.save_plan(plan_id, plan_data)
         flash('Plan actualizado exitosamente.', 'success')
