@@ -161,6 +161,11 @@
                 <i class="fa-solid fa-folder-open" style="margin-right: 6px;"></i>
                 Gestión Documental ({{ documents | length }})
             </button>
+            <button onclick="changeTab('payments-tab')" id="btn-payments-tab"
+                style="background: none; border: none; padding: 12px 6px; font-size: 1rem; font-family: var(--font-heading); font-weight: 500; color: var(--text-secondary); border-bottom: 3px solid transparent; cursor: pointer; transition: all var(--transition-fast);">
+                <i class="fa-solid fa-receipt" style="margin-right: 6px;"></i>
+                Historial de Pagos ({{ payments | length }})
+            </button>
         </div>
 
         <!-- SECCIÓN 1: Pestaña Historial y Seguimiento -->
@@ -604,13 +609,75 @@
             </div>
         </div>
 
+        <!-- SECCIÓN 4: Pestaña Historial de Pagos -->
+        <div id="payments-tab" style="display: none;">
+            <div class="card-table-wrapper" style="margin-bottom: 0; padding: 24px;">
+                <h3 style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px;">
+                    Historial de Abonos y Pagos</h3>
+
+                <div class="table-responsive">
+                    <table class="table-premium">
+                        <thead>
+                            <tr>
+                                <th>Fecha Pago</th>
+                                <th>Nro. Factura</th>
+                                <th>Método de Pago</th>
+                                <th>Banco / Pasarela</th>
+                                <th>Referencia</th>
+                                <th>Monto Recibido</th>
+                                <th>Registrado Por</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if payments %}
+                            {% for pay in payments %}
+                            <tr>
+                                <td>
+                                    <span style="font-family: monospace; font-size: 0.88rem;">{{ pay.paymentDate[:10] if pay.paymentDate else 'N/A' }}</span>
+                                </td>
+                                <td>
+                                    <a href="{{ url_for('invoice_detail', invoice_id=pay.invoiceId) }}"
+                                       style="font-family: monospace; font-size: 0.88rem; background-color: var(--bg-input); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-color); color: var(--accent-emerald); text-decoration: none; font-weight: 600;">
+                                        {{ pay.invoiceNumber }}
+                                    </a>
+                                </td>
+                                <td>
+                                    <span style="font-size: 0.85rem; font-weight: 500;">{{ pay.paymentMethod }}</span>
+                                </td>
+                                <td>
+                                    <span style="font-size: 0.85rem; color: var(--text-secondary);">{{ pay.bank or '—' }}</span>
+                                </td>
+                                <td>
+                                    <span style="font-family: monospace; font-size: 0.82rem; color: var(--text-muted);">{{ pay.referenceNumber or '—' }}</span>
+                                </td>
+                                <td>
+                                    <strong style="color: var(--accent-emerald);">RD$ {{ "{:,.2f}".format(pay.amount) }}</strong>
+                                </td>
+                                <td>
+                                    <span style="font-size: 0.82rem; color: var(--text-secondary);">{{ pay.registeredBy or 'N/A' }}</span>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                            {% else %}
+                            <tr>
+                                <td colspan="7" style="text-align: center; padding: 40px 0; color: var(--text-secondary);">
+                                    <span>No se han registrado pagos o abonos para este cliente todavía.</span>
+                                </td>
+                            </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
     </div>
 </div>
 
 <script>
-    // Conmutador interactivo de pestañas del workspace CRM (Soporta 3 pestañas)
+    // Conmutador interactivo de pestañas del workspace CRM (Soporta 4 pestañas)
     function changeTab(tabId) {
-        const tabs = ['timeline-tab', 'invoices-tab', 'documents-tab'];
+        const tabs = ['timeline-tab', 'invoices-tab', 'documents-tab', 'payments-tab'];
         tabs.forEach(id => {
             const el = document.getElementById(id);
             const btn = document.getElementById('btn-' + id);

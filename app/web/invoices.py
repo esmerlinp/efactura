@@ -3088,6 +3088,9 @@ def company_settings():
             "alanubeCompanyIDSandbox": request.form.get('alanubeCompanyIDSandbox', '').strip(),
             "alanubeCompanyIDProduction": request.form.get('alanubeCompanyIDProduction', '').strip(),
             "theme": request.form.get('theme', existing_profile.get('theme', 'moderno')),
+            "azulMerchantId": request.form.get('azulMerchantId', '').strip(),
+            "azulAuth1": request.form.get('azulAuth1', '').strip(),
+            "azulAuth2": request.form.get('azulAuth2', '').strip(),
             "consolidationEnabled": request.form.get('consolidationEnabled') == 'true',
             "consolidationThreshold": float(request.form.get('consolidationThreshold') or 250000.0),
             "configured": True

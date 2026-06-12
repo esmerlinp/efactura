@@ -495,6 +495,50 @@
                     </div>
                 </div>
 
+                <!-- SECCIÓN 7: PASARELA DE PAGOS AZUL -->
+                <div class="accordion-item">
+                    <button type="button" class="accordion-header" onclick="toggleAccordionSection(this)">
+                        <div class="accordion-title">
+                            <i class="fa-solid fa-credit-card"></i>
+                            <span>Integración Pasarela de Pagos Azul</span>
+                        </div>
+                        <i class="fa-solid fa-chevron-down accordion-chevron"></i>
+                    </button>
+                    <div class="accordion-content">
+                        <div class="accordion-body">
+                            <p style="color: var(--text-secondary); font-size: 0.82rem; line-height: 1.4; margin-bottom: 18px;">
+                                Configura tus credenciales de afiliado de Azul para permitir que tus clientes paguen sus facturas en línea con tarjeta de crédito o débito de forma directa.
+                            </p>
+                            <div class="form-grid" style="grid-template-columns: 1fr 1fr; gap: 20px; display: grid;">
+                                <div class="form-group" style="grid-column: span 2;">
+                                    <label for="azulMerchantId">Merchant ID (Código de Afiliado Azul)</label>
+                                    <input type="text" id="azulMerchantId" name="azulMerchantId" class="form-input"
+                                        placeholder="Ej: 39038200029" value="{{ profile.azulMerchantId or '' }}">
+                                    <small style="color: var(--text-muted); font-size: 0.72rem; margin-top: 4px; display: block;">
+                                        Código único provisto por Azul para identificar tu comercio. Dejar en blanco para simulación/pruebas.
+                                    </small>
+                                </div>
+                                <div class="form-group">
+                                    <label for="azulAuth1">AuthKey 1 (Firma de Peticiones)</label>
+                                    <input type="password" id="azulAuth1" name="azulAuth1" class="form-input"
+                                        placeholder="AuthKey 1" value="{{ profile.azulAuth1 or '' }}">
+                                    <small style="color: var(--text-muted); font-size: 0.72rem; margin-top: 4px; display: block;">
+                                        Clave secreta utilizada para firmar las solicitudes de cobro enviadas a Azul.
+                                    </small>
+                                </div>
+                                <div class="form-group">
+                                    <label for="azulAuth2">AuthKey 2 (Validación de Webhooks/Respuestas)</label>
+                                    <input type="password" id="azulAuth2" name="azulAuth2" class="form-input"
+                                        placeholder="AuthKey 2" value="{{ profile.azulAuth2 or '' }}">
+                                    <small style="color: var(--text-muted); font-size: 0.72rem; margin-top: 4px; display: block;">
+                                        Clave secreta utilizada para validar las respuestas del postback/webhook de Azul.
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
             </div>
             {% else %}
             <!-- VISTA DE ASISTENTE PASO A PASO (WIZARD DE ONBOARDING) -->
