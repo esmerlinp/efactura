@@ -978,3 +978,47 @@ def send_invoice_email_endpoint(invoice_id):
         return jsonify({"success": True, "message": f"Factura enviada exitosamente por correo a {recipient_email}."})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
+
+
+@api_invoices_bp.route('/company/plan-consumption', methods=['GET'])
+@require_api_key
+def get_company_plan_consumption():
+    """
+    GET /api/v1/company/plan-consumption
+    Retorna la información del plan activo y el consumo actual de comprobantes de la empresa.
+    """
+    try:
+        owner_uid = g.owner_uid
+        sandbox = g.sandbox_mode
+        company = g.company
+        
+        billing_day = company.get('billingDay', 1)
+        plan_stats = DatabaseService.get_invoice_stats(owner_uid, billing_day)
+        
+        docs_used = plan_stats['sandbox_current_cycle'] if sandbox else plan_stats['prod_current_cycle']
+        docs_limit = int(company.get('documentLimit', 100)) if company.get('documentLimit') else 100
+        plan_pct = min(100.0, (docs_used / docs_limit) * 100.0) if docs_limit > 0 else 0.0
+        
+        plan_name = "Plan Personalizado"
+        try:
+            plan_id = company.get('planId')
+            if plan_id:
+                from app.services.db_service import db_firestore
+                plan_doc = db_firestore.collection('plans').document(plan_id).get()
+                if plan_doc.exists:
+                    plan_name = plan_doc.to_dict().get('name', 'Plan Activo')
+        except Exception:
+            pass
+            
+        return jsonify({
+            "success": True,
+            "plan_name": plan_name,
+            "billing_type": company.get('billingType', 'Pago por uso'),
+            "document_limit": docs_limit,
+            "documents_used": docs_used,
+            "consumption_percentage": plan_pct,
+            "sandbox_mode": sandbox
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
