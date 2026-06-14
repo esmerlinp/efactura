@@ -222,6 +222,31 @@ def delete_item_route(item_id):
     flash('Artículo eliminado del catálogo.', 'success')
     return redirect(url_for('list_items'))
 
+@web_invoices_bp.route('/items/upload-image', methods=['POST'])
+def upload_item_image():
+    if 'user' not in session: return jsonify({"success": False, "error": "No autorizado"}), 401
+    
+    owner_uid = session['user']['ownerUID']
+    file = request.files.get('file')
+    if not file or not file.filename:
+        return jsonify({"success": False, "error": "Archivo no válido"}), 400
+        
+    try:
+        file_data = file.read()
+        mime_type = file.mimetype or "image/jpeg"
+        filename = f"img_{str(uuid.uuid4())[:8]}_{file.filename}"
+        destination_path = f"users/{owner_uid}/item_images/{filename}"
+        
+        # Guardar en Firebase Storage
+        url = DatabaseService.upload_file_to_storage(
+            file_data=file_data,
+            destination_path=destination_path,
+            mime_type=mime_type
+        )
+        return jsonify({"success": True, "url": url})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
 @web_invoices_bp.route('/items/import-csv', methods=['POST'])
 def import_items_csv():
     if 'user' not in session: return redirect(url_for('login'))

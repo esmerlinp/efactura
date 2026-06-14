@@ -586,7 +586,8 @@
         }
 
         /* Posicionamiento flotante del dropdown de CRM en la barra derecha */
-        .utility-bar .crm-dropdown .dropdown-menu {
+        .utility-bar .crm-dropdown .dropdown-menu,
+        .utility-bar .config-dropdown .dropdown-menu {
             position: absolute;
             right: calc(100% + 12px) !important;
             top: 0 !important;
@@ -604,20 +605,12 @@
             }
         }
 
-        /* Reducir espacio entre Dashboard y Configuración en barra izquierda */
+        /* Reducir espacio entre Dashboard en barra izquierda */
         #sidebar-section-general {
             margin-bottom: 0px !important;
         }
         #sidebar-section-general .sidebar-section-header {
             margin-bottom: 0px !important;
-        }
-        #sidebar-section-configuracion {
-            margin-top: 0px !important;
-        }
-        #sidebar-section-configuracion .sidebar-section-header {
-            margin-top: 0px !important;
-            padding-top: 6px !important;
-            padding-bottom: 6px !important;
         }
     </style>
 
@@ -659,8 +652,8 @@
                 }
             })();
         </script>
-        <!-- 1. BARRA LATERAL (SIDEBAR) -->
-        <aside class="sidebar">
+        <!-- 1. BARRA DE MENÚ (BARRA LATERAL IZQUIERDA / MENU BAR) -->
+        <aside class="menu-bar sidebar">
             <div class="sidebar-logo">
                 <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Logo" class="app-brand-logo">
                 <div class="logo-text-wrapper"
@@ -695,89 +688,7 @@
                     </ul>
                 </div>
 
-                <!-- SECCIÓN: CONFIGURACIÓN -->
-                <div class="sidebar-section sidebar-section-flyout collapsed" id="sidebar-section-configuracion">
-                    <div class="sidebar-section-header">
-                        <div class="header-left">
-                            <i class="fa-solid fa-sliders section-icon"></i>
-                            <span>Configuración</span>
-                        </div>
-                        <i class="fa-solid fa-chevron-right section-toggle-icon"></i>
-                    </div>
-                    <ul class="sidebar-section-content flyout-content">
-                        {% if session.get('user', {}).get('role') == 'owner' or session.get('user',
-                        {}).get('permissions', {}).get('canModifySettings', True) %}
-                        <li class="nav-item {% if active_page == 'company_settings' %}active{% endif %}"
-                            data-tooltip="Administrar Empresa">
-                            <a href="{{ url_for('company_settings') }}">
-                                <i class="fa-solid fa-gears"></i>
-                                <span>Administrar Empresa</span>
-                            </a>
-                        </li>
-                        {% endif %}
 
-                        {% if session.get('user', {}).get('role') == 'owner' %}
-                        <li class="nav-item {% if active_page == 'team_settings' %}active{% endif %}"
-                            data-tooltip="Usuarios y Permisos">
-                            <a href="{{ url_for('team_settings') }}">
-                                <i class="fa-solid fa-users-gear"></i>
-                                <span>Usuarios y Permisos</span>
-                            </a>
-                        </li>
-                        {% endif %}
-
-                        {% if session.get('user', {}).get('role') == 'owner' or session.get('user',
-                        {}).get('permissions', {}).get('canModifySettings', True) %}
-                        <li class="nav-item" data-tooltip="Exportar Datos (CSV)">
-                            <div id="btn-open-export-modal"
-                                style="display: flex; align-items: center; width: 100%; cursor: pointer;">
-                                <a href="javascript:void(0)" style="width: 100%;">
-                                    <i class="fa-solid fa-file-export"></i>
-                                    <span>Exportar Datos (CSV)</span>
-                                </a>
-                            </div>
-                        </li>
-                        {% endif %}
-
-                        {% if session.get('user', {}).get('role') == 'owner' or session.get('user',
-                        {}).get('permissions', {}).get('canModifySettings', True) %}
-                        <li class="nav-item {% if active_page == 'sequences' %}active{% endif %}"
-                            data-tooltip="Secuencias Fiscales">
-                            <a href="{{ url_for('list_sequences') }}">
-                                <i class="fa-solid fa-barcode"></i>
-                                <span>Secuencias Fiscales</span>
-                            </a>
-                        </li>
-                        {% endif %}
-
-                        {% if session.get('user', {}).get('role') == 'owner' or session.get('user',
-                        {}).get('permissions', {}).get('canInvoice', True) %}
-                        <li class="nav-item {% if active_page == 'reports' %}active{% endif %}"
-                            data-tooltip="Reportes DGII">
-                            <a href="{{ url_for('reports_dashboard') }}">
-                                <i class="fa-solid fa-file-shield"></i>
-                                <span>Reportes DGII</span>
-                            </a>
-                        </li>
-                        {% endif %}
-
-                        <li class="nav-item {% if active_page == 'subscription' %}active{% endif %}"
-                            data-tooltip="Mi Plan y Consumo">
-                            <a href="{{ url_for('client_subscription_page') }}">
-                                <i class="fa-solid fa-credit-card"></i>
-                                <span>Mi Plan y Consumo</span>
-                            </a>
-                        </li>
-
-                        <li class="nav-item {% if active_page == 'help' %}active{% endif %}"
-                            data-tooltip="Centro de Ayuda">
-                            <a href="{{ url_for('help_center') }}">
-                                <i class="fa-solid fa-circle-question"></i>
-                                <span>Centro de Ayuda</span>
-                            </a>
-                        </li>
-                    </ul>
-                </div>
 
                 <!-- SECCIÓN: NOTAS -->
                 <div class="sidebar-section" id="sidebar-section-notas">
@@ -1045,9 +956,15 @@
             </nav>
 
             <div class="sidebar-footer" style="flex-direction: column; gap: 0; padding-top: 0;">
+                <!-- Active Company Name -->
+                {% if active_company_name %}
+                <div style="font-size: 0.78rem; font-weight: 500; color: var(--text-secondary); padding: 8px 14px; border-top: 1px solid var(--border-color); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; border-bottom: 1px solid var(--border-color);">
+                    <i class="fa-solid fa-building" style="margin-right: 6px; color: var(--accent-emerald);"></i>{{ active_company_name }}
+                </div>
+                {% endif %}
                 <!-- Plan Info Block -->
                 {% if global_plan_name %}
-                <div class="sidebar-plan-block">
+                <div class="sidebar-plan-block" style="border-top: none;">
                     <div class="sidebar-plan-info">
                         <span class="sidebar-plan-name">{{ global_plan_name }}</span>
                         <span class="sidebar-plan-type">{{ global_plan_billing_type or 'Pago por uso' }}</span>
@@ -1089,9 +1006,11 @@
             </div>
         </main>
 
-        <!-- 3. BARRA DE UTILIADES DERECHA (UTILITY BAR) -->
-        <aside class="utility-bar">
+        <!-- 3. BARRA DE HERRAMIENTAS (BARRA LATERAL DERECHA / TOOL BAR) -->
+        <aside class="tool-bar utility-bar">
             <div class="utility-bar-top">
+
+
                 <!-- Avatar del usuario (sin nombre) -->
                 <a href="{{ url_for('user_profile_page') }}" class="utility-avatar-wrapper"
                     title="Mi Perfil / Ajustes de Cuenta">
@@ -1172,6 +1091,72 @@
                     </div>
                 </div>
 
+                <!-- Configuración Dropdown / Herramienta -->
+                <div class="config-dropdown" id="config-dropdown-trigger" style="position: relative; display: inline-block;">
+                    <button class="utility-item" title="Configuración y Ajustes">
+                        <i class="fa-solid fa-gear"></i>
+                    </button>
+                    <!-- Menú Desplegable de Configuración -->
+                    <div class="dropdown-menu" id="config-dropdown-menu" style="
+                        display: none;
+                        position: absolute;
+                        background-color: var(--bg-sidebar);
+                        border: 1px solid var(--border-color);
+                        border-radius: var(--radius-md);
+                        width: 240px;
+                        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+                        padding: 8px;
+                        z-index: 1000;
+                        flex-direction: column;
+                        box-sizing: border-box;
+                    ">
+                        {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canModifySettings', True) %}
+                        <a href="{{ url_for('company_settings') }}" style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--radius-sm); color: var(--text-primary); text-decoration: none; font-size: 0.85rem; transition: background-color var(--transition-fast);" onmouseover="this.style.backgroundColor='var(--bg-nav-hover)'" onmouseout="this.style.backgroundColor='transparent'">
+                            <i class="fa-solid fa-gears" style="width: 16px; text-align: center;"></i>
+                            <span>Administrar Empresa</span>
+                        </a>
+                        {% endif %}
+
+                        {% if session.get('user', {}).get('role') == 'owner' %}
+                        <a href="{{ url_for('team_settings') }}" style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--radius-sm); color: var(--text-primary); text-decoration: none; font-size: 0.85rem; transition: background-color var(--transition-fast);" onmouseover="this.style.backgroundColor='var(--bg-nav-hover)'" onmouseout="this.style.backgroundColor='transparent'">
+                            <i class="fa-solid fa-users-gear" style="width: 16px; text-align: center;"></i>
+                            <span>Usuarios y Permisos</span>
+                        </a>
+                        {% endif %}
+
+                        {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canModifySettings', True) %}
+                        <a href="javascript:void(0)" onclick="const btn = document.getElementById('btn-open-export-modal'); if (btn) btn.click();" style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--radius-sm); color: var(--text-primary); text-decoration: none; font-size: 0.85rem; transition: background-color var(--transition-fast);" onmouseover="this.style.backgroundColor='var(--bg-nav-hover)'" onmouseout="this.style.backgroundColor='transparent'">
+                            <i class="fa-solid fa-file-export" style="width: 16px; text-align: center;"></i>
+                            <span>Exportar Datos (CSV)</span>
+                        </a>
+                        {% endif %}
+
+                        {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canModifySettings', True) %}
+                        <a href="{{ url_for('list_sequences') }}" style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--radius-sm); color: var(--text-primary); text-decoration: none; font-size: 0.85rem; transition: background-color var(--transition-fast);" onmouseover="this.style.backgroundColor='var(--bg-nav-hover)'" onmouseout="this.style.backgroundColor='transparent'">
+                            <i class="fa-solid fa-barcode" style="width: 16px; text-align: center;"></i>
+                            <span>Secuencias Fiscales</span>
+                        </a>
+                        {% endif %}
+
+                        {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canInvoice', True) %}
+                        <a href="{{ url_for('reports_dashboard') }}" style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--radius-sm); color: var(--text-primary); text-decoration: none; font-size: 0.85rem; transition: background-color var(--transition-fast);" onmouseover="this.style.backgroundColor='var(--bg-nav-hover)'" onmouseout="this.style.backgroundColor='transparent'">
+                            <i class="fa-solid fa-file-shield" style="width: 16px; text-align: center;"></i>
+                            <span>Reportes DGII</span>
+                        </a>
+                        {% endif %}
+
+                        <a href="{{ url_for('client_subscription_page') }}" style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--radius-sm); color: var(--text-primary); text-decoration: none; font-size: 0.85rem; transition: background-color var(--transition-fast);" onmouseover="this.style.backgroundColor='var(--bg-nav-hover)'" onmouseout="this.style.backgroundColor='transparent'">
+                            <i class="fa-solid fa-credit-card" style="width: 16px; text-align: center;"></i>
+                            <span>Mi Plan y Consumo</span>
+                        </a>
+
+                        <a href="{{ url_for('help_center') }}" style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--radius-sm); color: var(--text-primary); text-decoration: none; font-size: 0.85rem; transition: background-color var(--transition-fast);" onmouseover="this.style.backgroundColor='var(--bg-nav-hover)'" onmouseout="this.style.backgroundColor='transparent'">
+                            <i class="fa-solid fa-circle-question" style="width: 16px; text-align: center;"></i>
+                            <span>Centro de Ayuda</span>
+                        </a>
+                    </div>
+                </div>
+
                 <!-- Chatbot IA (Sparkle) -->
                 <button class="utility-item" id="chatbot-toggle-btn-alt"
                     title="Consultar a e-Factura IA (Asesor Fiscal)"
@@ -1207,6 +1192,12 @@
                     title="Alternar Modo Pruebas (Sandbox)">
                     <i class="fa-solid fa-flask"></i>
                 </button>
+
+                {% if user_has_multiple_companies %}
+                <a href="{{ url_for('web_auth.select_company') }}" class="utility-item" title="Cambiar de Empresa / Compañía">
+                    <i class="fa-solid fa-building-circle-arrow-right"></i>
+                </a>
+                {% endif %}
             </div>
 
             <div class="utility-bar-bottom">
@@ -2213,6 +2204,42 @@
                     }
                 });
             }
+
+            // Lógica para el dropdown de configuración
+            const configTrigger = document.getElementById('config-dropdown-trigger');
+            const configMenu = document.getElementById('config-dropdown-menu');
+
+            if (configTrigger && configMenu) {
+                const triggerBtn = configTrigger.querySelector('.utility-item');
+                if (triggerBtn) {
+                    triggerBtn.addEventListener('click', function (e) {
+                        e.stopPropagation();
+                        // Cerrar otros dropdowns de la barra de herramientas
+                        if (crmMenu) crmMenu.style.display = 'none';
+                        
+                        const isVisible = configMenu.style.display === 'flex';
+                        configMenu.style.display = isVisible ? 'none' : 'flex';
+                    });
+                }
+
+                document.addEventListener('click', function (e) {
+                    if (!configTrigger.contains(e.target)) {
+                        configMenu.style.display = 'none';
+                    }
+                });
+            }
+
+            // Al abrir el dropdown de CRM, cerrar el de configuración
+            if (crmTrigger && crmMenu && configMenu) {
+                const crmBtn = crmTrigger.querySelector('.utility-item');
+                if (crmBtn) {
+                    crmBtn.addEventListener('click', function () {
+                        configMenu.style.display = 'none';
+                    });
+                }
+            }
+
+
 
             // ── Flyout positioning con position:fixed ──────────────────────────────────
             // Permite que el nav-menu haga scroll sin recortar los flyouts

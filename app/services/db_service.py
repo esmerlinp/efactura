@@ -116,71 +116,155 @@ class DatabaseService:
         if not firebase_initialized:
             raise RuntimeError("El SDK de Firebase Admin no está inicializado. No se puede registrar el usuario.")
 
-        # 1. Registrar en Firebase Auth
+        # 1. Registrar o recuperar en Firebase Auth
+        existing_auth_user = None
         try:
-            if Config.FIREBASE_API_KEY:
-                res = cls.firebase_rest_auth(email, password, signup=True)
-                if res:
-                    uid = res["localId"]
-                    resolved_owner_uid = owner_uid if owner_uid else uid
-            else:
-                user_record = auth.create_user(
-                    email=email,
-                    password=password,
-                    display_name=name,
-                    uid=uid
-                )
-                uid = user_record.uid
-                resolved_owner_uid = owner_uid if owner_uid else uid
+            existing_auth_user = auth.get_user_by_email(email)
+            uid = existing_auth_user.uid
+            resolved_owner_uid = owner_uid if owner_uid else uid
+            print(f"ℹ️ El usuario con email '{email}' ya existe en Firebase Auth con UID '{uid}'. Se asociará esta cuenta.")
+        except auth.UserNotFoundError:
+            pass
         except Exception as e:
-            if "EMAIL_EXISTS" in str(e) or "already in use" in str(e):
-                try:
-                    user_record = auth.get_user_by_email(email)
+            print(f"⚠️ Error al buscar usuario por email en Firebase Auth: {e}")
+
+        if not existing_auth_user:
+            try:
+                if Config.FIREBASE_API_KEY:
+                    res = cls.firebase_rest_auth(email, password, signup=True)
+                    if res:
+                        uid = res["localId"]
+                        resolved_owner_uid = owner_uid if owner_uid else uid
+                    else:
+                        # Si falló la API REST, podría ser por email duplicado. Intentar buscarlo de todos modos.
+                        try:
+                            existing_auth_user = auth.get_user_by_email(email)
+                            uid = existing_auth_user.uid
+                            resolved_owner_uid = owner_uid if owner_uid else uid
+                        except Exception:
+                            raise ValueError("No se pudo registrar el usuario a través de la API REST de Firebase y tampoco se encontró por email.")
+                else:
+                    user_record = auth.create_user(
+                        email=email,
+                        password=password,
+                        display_name=name,
+                        uid=uid
+                    )
                     uid = user_record.uid
                     resolved_owner_uid = owner_uid if owner_uid else uid
-                except Exception:
+            except Exception as e:
+                if "EMAIL_EXISTS" in str(e) or "already in use" in str(e):
+                    try:
+                        user_record = auth.get_user_by_email(email)
+                        uid = user_record.uid
+                        resolved_owner_uid = owner_uid if owner_uid else uid
+                    except Exception:
+                        raise e
+                else:
                     raise e
-            else:
-                raise e
 
-        # 2. Guardar perfil del usuario en Firestore
-        profile_data = {
-            "uid": uid,
-            "ownerUID": resolved_owner_uid,
-            "role": role,
-            "name": name,
-            "email": email,
-            "phone": "",
-            "address": "",
-            "permissions": {
-                "canInvoice": True,
-                "canExpenses": True,
-                "canClients": True,
-                "canModifySettings": True,
-                "canManageInventory": True,
-                "canManagePOS": True,
-                "canViewDashboard": True,
-                "canManageCXC": True,
-                "canManageCXP": True,
-                "canManageContracts": True,
-                "canManageCommissions": True,
-                "canViewBI": True,
-                "canViewAuditLog": False
-            },
-            "createdAt": created_at
-        }
 
-        db_firestore.collection("users").document(uid).collection("config").document("user_profile").set(profile_data)
+        # 2. Guardar/Actualizar perfil del usuario en Firestore sin sobrescribir si ya existe
+        doc_ref = db_firestore.collection("users").document(uid).collection("config").document("user_profile")
+        doc_snap = doc_ref.get()
+        
+        if doc_snap.exists:
+            existing_data = doc_snap.to_dict()
+            # Conservar ownerUID y rol original
+            resolved_owner_uid = existing_data.get("ownerUID", uid)
+            role = existing_data.get("role", "owner")
+            
+            # Obtener nombre de la empresa invitadora
+            inviting_comp_name = "Empresa Invitadora"
+            if owner_uid:
+                comp_prof = cls.get_company_profile(owner_uid)
+                inviting_comp_name = comp_prof.get("companyName", "Empresa Invitadora")
+                
+            associated_companies = existing_data.get("associated_companies", [])
+            
+            # Asegurar que su propia empresa esté en la lista de asociadas
+            if not any(c.get("ownerUID") == resolved_owner_uid for c in associated_companies):
+                own_comp = cls.get_company_profile(resolved_owner_uid)
+                associated_companies.insert(0, {
+                    "ownerUID": resolved_owner_uid,
+                    "companyName": own_comp.get("companyName", "Mi Empresa"),
+                    "role": role
+                })
+                
+            # Agregar la nueva empresa invitadora a la lista si no está ya
+            if owner_uid and not any(c.get("ownerUID") == owner_uid for c in associated_companies):
+                associated_companies.append({
+                    "ownerUID": owner_uid,
+                    "companyName": inviting_comp_name,
+                    "role": "employee"
+                })
+                
+            doc_ref.update({
+                "associated_companies": associated_companies
+            })
+            
+            profile_data = existing_data
+            profile_data["uid"] = uid
+            profile_data["associated_companies"] = associated_companies
+        else:
+            # Crear perfil nuevo para nuevo usuario
+            profile_data = {
+                "uid": uid,
+                "ownerUID": resolved_owner_uid,
+                "role": role,
+                "name": name,
+                "email": email,
+                "phone": "",
+                "address": "",
+                "permissions": {
+                    "canInvoice": True,
+                    "canExpenses": True,
+                    "canClients": True,
+                    "canModifySettings": True,
+                    "canManageInventory": True,
+                    "canManagePOS": True,
+                    "canViewDashboard": True,
+                    "canManageCXC": True,
+                    "canManageCXP": True,
+                    "canManageContracts": True,
+                    "canManageCommissions": True,
+                    "canViewBI": True,
+                    "canViewAuditLog": False
+                },
+                "createdAt": created_at,
+                "associated_companies": []
+            }
+            
+            # Inicializar su propia empresa
+            own_comp = cls.get_company_profile(resolved_owner_uid)
+            profile_data["associated_companies"].append({
+                "ownerUID": resolved_owner_uid,
+                "companyName": own_comp.get("companyName", "Mi Empresa"),
+                "role": role
+            })
+            
+            # Si fue invitado, agregar también la empresa invitadora
+            if owner_uid and owner_uid != resolved_owner_uid:
+                inv_comp = cls.get_company_profile(owner_uid)
+                profile_data["associated_companies"].append({
+                    "ownerUID": owner_uid,
+                    "companyName": inv_comp.get("companyName", "Empresa Invitadora"),
+                    "role": "employee"
+                })
+                
+            doc_ref.set(profile_data)
         
         # Guardar en team si es colaborador (alineado con la estructura iOS)
-        if role == "employee" and owner_uid:
+        if owner_uid:
             db_firestore.collection("users").document(owner_uid).collection("team").document(uid).set({
                 "uid": uid,
                 "name": name,
                 "email": email,
-                "createdAt": firestore.SERVER_TIMESTAMP
+                "role": "employee",
+                "permissions": profile_data.get("permissions", {}),
+                "createdAt": created_at
             })
-
+            
         return profile_data
 
     @classmethod
@@ -3255,3 +3339,64 @@ class DatabaseService:
                 db_firestore.collection("users").document(owner_uid).collection(coll_name).document(client_id).collection("documents").document(doc_id).delete()
             except Exception as e:
                 print(f"⚠️ Fallo al borrar documento de cliente de Firestore: {e}")
+
+    @classmethod
+    def get_associated_companies(cls, uid):
+        """Retorna una lista de todas las empresas asociadas al usuario (UID)."""
+        companies = []
+        if not firebase_initialized:
+            return companies
+
+        try:
+            # 1. Obtener la propia empresa del usuario si es propietario
+            profile = cls.get_user_profile(uid)
+            if profile:
+                own_owner_uid = profile.get("uid")
+                # Intentar obtener el nombre de su propia empresa
+                own_company = cls.get_company_profile(own_owner_uid)
+                companies.append({
+                    "ownerUID": own_owner_uid,
+                    "companyName": own_company.get("companyName", "Mi Empresa"),
+                    "role": profile.get("role", "owner")
+                })
+        except Exception as e:
+            print(f"⚠️ Error al obtener propia empresa: {e}")
+
+        try:
+            # 2. Obtener empresas desde la lista explícita associated_companies en el perfil de usuario
+            doc = db_firestore.collection("users").document(uid).collection("config").document("user_profile").get()
+            if doc.exists:
+                data = doc.to_dict()
+                assoc = data.get("associated_companies", [])
+                for item in assoc:
+                    owner_uid = item.get("ownerUID") if isinstance(item, dict) else item
+                    if owner_uid and not any(c["ownerUID"] == owner_uid for c in companies):
+                        comp_prof = cls.get_company_profile(owner_uid)
+                        role = item.get("role", "employee") if isinstance(item, dict) else "employee"
+                        companies.append({
+                            "ownerUID": owner_uid,
+                            "companyName": comp_prof.get("companyName", "Empresa Asociada"),
+                            "role": role
+                        })
+        except Exception as e:
+            print(f"⚠️ Error al leer associated_companies de Firestore: {e}")
+
+        try:
+            # 3. Descubrimiento automático buscando en las colecciones 'team'
+            # Consulta de grupo de colecciones 'team' donde el miembro es el UID especificado
+            team_docs = db_firestore.collection_group("team").where(filter=firestore.FieldFilter("uid", "==", uid)).get()
+            for doc in team_docs:
+                parent_ref = doc.reference.parent.parent
+                if parent_ref:
+                    owner_uid = parent_ref.id
+                    if not any(c["ownerUID"] == owner_uid for c in companies):
+                        comp_prof = cls.get_company_profile(owner_uid)
+                        companies.append({
+                            "ownerUID": owner_uid,
+                            "companyName": comp_prof.get("companyName", "Empresa Colaboradora"),
+                            "role": "employee"
+                        })
+        except Exception as e:
+            print(f"⚠️ Error en consulta de grupo de colección team: {e}")
+
+        return companies

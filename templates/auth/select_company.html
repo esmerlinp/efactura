@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <script>
+        // Aplicar tema guardado antes de renderizar la página para evitar destellos (flash)
+        (function () {
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+        })();
+    </script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Seleccionar Empresa - e-Factura</title>
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/efactura_logo.png') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    {% if company_theme == 'moderno' %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style_moderno.css') }}">
+    {% else %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style_clasico.css') }}">
+    {% endif %}
+    <style>
+        .company-card-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-top: 24px;
+            max-height: 280px;
+            overflow-y: auto;
+            padding-right: 6px;
+        }
+
+        .company-card-grid::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .company-card-grid::-webkit-scrollbar-thumb {
+            background: var(--border-color);
+            border-radius: 4px;
+        }
+
+        .company-card {
+            background: var(--bg-input);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 16px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+            transition: all var(--transition-smooth);
+            text-align: left;
+        }
+
+        .company-card:hover {
+            transform: translateY(-2px);
+            border-color: var(--accent-emerald);
+            background: var(--bg-card);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .company-info {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .company-icon {
+            width: 42px;
+            height: 42px;
+            border-radius: 10px;
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--accent-emerald);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+        }
+
+        .company-details h4 {
+            margin: 0 0 2px 0;
+            font-size: 0.92rem;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .company-details span {
+            font-size: 0.76rem;
+            color: var(--text-secondary);
+            text-transform: capitalize;
+        }
+
+        .select-arrow {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            transition: transform var(--transition-fast);
+        }
+
+        .company-card:hover .select-arrow {
+            color: var(--accent-emerald);
+            transform: translateX(4px);
+        }
+    </style>
+</head>
+
+<body class="auth-container">
+    <div class="auth-card" style="max-width: 520px; width: 100%;">
+        <div class="auth-header">
+            <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Logo e-Factura"
+                style="height: 80px; margin-bottom: 5px; display: inline-block; filter: drop-shadow(0 4px 12px rgba(0,0,0,0.15));">
+            <h2>Seleccionar Empresa</h2>
+            <p>Elige la compañía/cliente con el que deseas trabajar hoy.</p>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        {% for category, message in messages %}
+        <div class="badge {% if category == 'error' %}badge-danger{% else %}badge-success{% endif %}"
+            style="width: 100%; padding: 12px; margin-bottom: 20px; border-radius: var(--radius-sm); font-size: 0.85rem; text-transform: none; font-weight: 500; text-align: center;">
+            {{ message }}
+        </div>
+        {% endfor %}
+        {% endif %}
+        {% endwith %}
+
+        <form action="{{ url_for('web_auth.select_company') }}" method="POST" id="select-company-form">
+            <input type="hidden" name="owner_uid" id="selected-owner-uid">
+            
+            <div class="company-card-grid">
+                {% for comp in associated_companies %}
+                <div class="company-card" onclick="selectCompany('{{ comp.ownerUID }}')">
+                    <div class="company-info">
+                        <div class="company-icon">
+                            <i class="fa-solid fa-building"></i>
+                        </div>
+                        <div class="company-details">
+                            <h4>{{ comp.companyName }}</h4>
+                            <span>Rol: {{ 'Propietario' if comp.role == 'owner' else 'Colaborador / Contador' }}</span>
+                        </div>
+                    </div>
+                    <div class="select-arrow">
+                        <i class="fa-solid fa-arrow-right"></i>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            
+            <a href="{{ url_for('web_auth.logout') }}" class="btn btn-secondary"
+                style="width: 100%; padding: 12px; font-size: 0.88rem; border-radius: var(--radius-sm); margin-top: 24px; text-decoration: none;">
+                <i class="fa-solid fa-arrow-right-from-bracket"></i> Cerrar Sesión
+            </a>
+        </form>
+    </div>
+
+    <script>
+        function selectCompany(ownerUID) {
+            document.getElementById('selected-owner-uid').value = ownerUID;
+            document.getElementById('select-company-form').submit();
+        }
+    </script>
+</body>
+
+</html>

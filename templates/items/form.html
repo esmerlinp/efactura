@@ -283,11 +283,17 @@
                                     </div>
                                     <div style="flex-grow: 1;">
                                         <label for="image_url"
-                                            style="font-size: 0.78rem; font-weight: 500; color: var(--text-secondary); display: block; margin-bottom: 4px;">URL
-                                            de Imagen</label>
-                                        <input type="url" id="image_url" name="imageUrl" class="form-input"
-                                            placeholder="https://example.com/imagen.jpg"
-                                            value="{{ item.imageUrl if item else '' }}" oninput="previewImage()">
+                                            style="font-size: 0.78rem; font-weight: 500; color: var(--text-secondary); display: block; margin-bottom: 4px;">Imagen del Producto</label>
+                                        <div style="display: flex; gap: 8px; align-items: center;">
+                                            <input type="url" id="image_url" name="imageUrl" class="form-input"
+                                                placeholder="https://example.com/imagen.jpg o sube un archivo..."
+                                                value="{{ item.imageUrl if item else '' }}" oninput="previewImage()" style="flex-grow: 1;">
+                                            <label class="btn btn-secondary" style="height: 38px; display: inline-flex; align-items: center; justify-content: center; padding: 0 12px; cursor: pointer; margin-bottom: 0; font-size: 0.8rem; gap: 6px; flex-shrink: 0;">
+                                                <i class="fa-solid fa-cloud-arrow-up"></i>
+                                                <span class="upload-btn-text">Subir</span>
+                                                <input type="file" id="image-file-upload" accept="image/*" style="display: none;" onchange="uploadItemImageFile(this)">
+                                            </label>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -597,6 +603,53 @@
 
         // Ajustar el alto del acordeón activo por si cambian de tamaño los campos
         setTimeout(adjustActiveAccordionHeight, 150);
+    }
+
+    function uploadItemImageFile(input) {
+        const file = input.files[0];
+        if (!file) return;
+
+        // Validar tamaño (< 2MB)
+        if (file.size > 2 * 1024 * 1024) {
+            alert("La imagen excede el límite de 2 MB.");
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const label = input.parentElement;
+        const textSpan = label.querySelector('.upload-btn-text');
+        const icon = label.querySelector('i');
+        
+        label.style.pointerEvents = 'none';
+        icon.className = 'fa-solid fa-spinner fa-spin';
+        textSpan.textContent = 'Subiendo...';
+
+        fetch('/items/upload-image', {
+            method: 'POST',
+            body: formData
+        })
+        .then(res => res.json())
+        .then(data => {
+            label.style.pointerEvents = 'auto';
+            icon.className = 'fa-solid fa-cloud-arrow-up';
+            textSpan.textContent = 'Subir';
+            
+            if (data.success) {
+                document.getElementById('image_url').value = data.url;
+                previewImage();
+            } else {
+                alert("Error al subir imagen: " + data.error);
+            }
+        })
+        .catch(err => {
+            label.style.pointerEvents = 'auto';
+            icon.className = 'fa-solid fa-cloud-arrow-up';
+            textSpan.textContent = 'Subir';
+            console.error(err);
+            alert("Error al conectar con el servidor.");
+        });
     }
 </script>
 {% endblock %}

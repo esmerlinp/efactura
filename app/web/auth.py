@@ -142,9 +142,19 @@ def login():
                 session['user'] = user_profile
                 session['is_sandbox_mode'] = False  # Producción por defecto al iniciar
                 
+                # Cargar empresas asociadas
+                associated = DatabaseService.get_associated_companies(user_profile['uid'])
+                session['associated_companies'] = associated
+                session['user_has_multiple_companies'] = len(associated) > 1
+                
+                if len(associated) > 1:
+                    session.pop('selected_owner_uid', None)
+                else:
+                    session['selected_owner_uid'] = associated[0]['ownerUID'] if len(associated) == 1 else user_profile.get('ownerUID')
+                
                 from app.services.audit_service import AuditService, ACTION_LOGIN, MODULE_AUTH
                 AuditService.log_from_request(
-                    owner_uid=user_profile['ownerUID'],
+                    owner_uid=session.get('selected_owner_uid') or user_profile.get('ownerUID'),
                     action=ACTION_LOGIN,
                     module=MODULE_AUTH,
                     entity_id=user_profile['uid'],
@@ -154,6 +164,8 @@ def login():
                 )
                 
                 flash('¡Sesión iniciada exitosamente!', 'success')
+                if session.get('user_has_multiple_companies'):
+                    return redirect(url_for('web_auth.select_company'))
                 return redirect(url_for('web_dashboard.dashboard'))
             else:
                 flash('Credenciales incorrectas. Inténtalo de nuevo.', 'error')
@@ -201,6 +213,16 @@ def verify_2fa():
             session['user'] = user_profile
             session['is_sandbox_mode'] = False
             
+            # Cargar empresas asociadas
+            associated = DatabaseService.get_associated_companies(user_profile['uid'])
+            session['associated_companies'] = associated
+            session['user_has_multiple_companies'] = len(associated) > 1
+            
+            if len(associated) > 1:
+                session.pop('selected_owner_uid', None)
+            else:
+                session['selected_owner_uid'] = associated[0]['ownerUID'] if len(associated) == 1 else user_profile.get('ownerUID')
+            
             # Limpiar estado temporal de MFA
             session.pop('mfa_pending_uid', None)
             session.pop('mfa_pending_email', None)
@@ -208,7 +230,7 @@ def verify_2fa():
             
             from app.services.audit_service import AuditService, ACTION_LOGIN, MODULE_AUTH
             AuditService.log_from_request(
-                owner_uid=user_profile['ownerUID'],
+                owner_uid=session.get('selected_owner_uid') or user_profile.get('ownerUID'),
                 action=ACTION_LOGIN,
                 module=MODULE_AUTH,
                 entity_id=user_profile['uid'],
@@ -218,6 +240,8 @@ def verify_2fa():
             )
             
             flash('¡Sesión iniciada exitosamente con 2FA!', 'success')
+            if session.get('user_has_multiple_companies'):
+                return redirect(url_for('web_auth.select_company'))
             return redirect(url_for('web_dashboard.dashboard'))
         else:
             flash('Código incorrecto o inválido. Inténtalo de nuevo.', 'error')
@@ -373,8 +397,55 @@ def logout():
         )
     session.pop('user', None)
     session.pop('is_sandbox_mode', None)
+    session.pop('selected_owner_uid', None)
+    session.pop('associated_companies', None)
+    session.pop('user_has_multiple_companies', None)
     flash('Sesión cerrada correctamente.', 'success')
     return redirect(url_for('web_auth.login'))
+
+@web_auth_bp.route('/select-company', methods=['GET', 'POST'])
+def select_company():
+    if 'user' not in session:
+        return redirect(url_for('web_auth.login'))
+        
+    if 'associated_companies' not in session:
+        associated = DatabaseService.get_associated_companies(session['user']['uid'])
+        session['associated_companies'] = associated
+        session['user_has_multiple_companies'] = len(associated) > 1
+
+    associated_companies = session.get('associated_companies', [])
+    
+    if len(associated_companies) <= 1:
+        if len(associated_companies) == 1:
+            session['selected_owner_uid'] = associated_companies[0]['ownerUID']
+        else:
+            session['selected_owner_uid'] = session['user'].get('uid')
+        return redirect(url_for('web_dashboard.dashboard'))
+        
+    if request.method == 'POST':
+        selected_uid = request.form.get('owner_uid')
+        if any(c['ownerUID'] == selected_uid for c in associated_companies):
+            session['selected_owner_uid'] = selected_uid
+            session['user']['ownerUID'] = selected_uid
+            
+            # Registrar cambio de empresa en auditoría
+            from app.services.audit_service import AuditService, ACTION_UPDATE, MODULE_AUTH
+            AuditService.log_from_request(
+                owner_uid=selected_uid,
+                action=ACTION_UPDATE,
+                module=MODULE_AUTH,
+                entity_id=session['user']['uid'],
+                entity_label=f"Colaborador cambió de empresa activa a {selected_uid}",
+                user_session=session['user'],
+                sandbox=session.get('is_sandbox_mode', False)
+            )
+            
+            flash('Empresa seleccionada con éxito.', 'success')
+            return redirect(url_for('web_dashboard.dashboard'))
+        else:
+            flash('Selección de empresa inválida o no autorizada.', 'error')
+            
+    return render_template('auth/select_company.html', associated_companies=associated_companies)
 
 
 @web_auth_bp.route('/forgot-password', methods=['POST'])
