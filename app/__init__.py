@@ -52,12 +52,42 @@ def create_app():
             # Cargar perfil fresco en tiempo real de Firestore para sincronización reactiva
             fresh_profile = DatabaseService.get_user_profile(session['user']['uid'])
             if fresh_profile:
+                # Inicializar o refrescar datos de empresas asociadas si es necesario
+                if 'associated_companies' not in session or 'user_has_multiple_companies' not in session:
+                    associated = DatabaseService.get_associated_companies(session['user']['uid'])
+                    session['associated_companies'] = associated
+                    session['user_has_multiple_companies'] = len(associated) > 1
+
+                # Asignar o sobreescribir ownerUID según la selección de la sesión
+                if 'selected_owner_uid' in session:
+                    fresh_profile['ownerUID'] = session['selected_owner_uid']
+                else:
+                    associated = session.get('associated_companies', [])
+                    if len(associated) == 1:
+                        session['selected_owner_uid'] = associated[0]['ownerUID']
+                        fresh_profile['ownerUID'] = session['selected_owner_uid']
+                    elif len(associated) == 0:
+                        session['selected_owner_uid'] = fresh_profile.get('ownerUID')
+                
                 session['user'] = fresh_profile
             else:
                 session.pop('user', None)
                 session.pop('is_sandbox_mode', None)
+                session.pop('selected_owner_uid', None)
+                session.pop('associated_companies', None)
+                session.pop('user_has_multiple_companies', None)
                 flash("Tu cuenta está inhabilitada.", "error")
                 return redirect(flask_url_for('web_auth.login'))
+            
+            # Si tiene múltiples empresas asociadas y aún no ha seleccionado una, obligar a seleccionar
+            if 'selected_owner_uid' not in session and session.get('user_has_multiple_companies'):
+                allowed_auth_endpoints = [
+                    'web_auth.select_company',
+                    'web_auth.logout',
+                    'static'
+                ]
+                if request.endpoint not in allowed_auth_endpoints:
+                    return redirect(flask_url_for('web_auth.select_company'))
             
             # Obligar al propietario a configurar el perfil si no lo ha hecho (incluso en sandbox)
             owner_uid = session['user'].get('ownerUID')
@@ -278,6 +308,27 @@ def create_app():
                 except Exception:
                     plan_name_global = 'Plan Activo'
         return dict(global_plan_name=plan_name_global, global_plan_billing_type=plan_billing_type)
+
+    @app.context_processor
+    def inject_companies_info():
+        """Inyecta información de las empresas asociadas al usuario actual."""
+        from flask import has_request_context
+        companies = []
+        has_mult = False
+        act_name = "Mi Empresa"
+        if has_request_context() and 'user' in session:
+            companies = session.get('associated_companies', [])
+            has_mult = session.get('user_has_multiple_companies', False)
+            active_owner_uid = session['user'].get('ownerUID')
+            for c in companies:
+                if c.get('ownerUID') == active_owner_uid:
+                    act_name = c.get('companyName', 'Mi Empresa')
+                    break
+        return dict(
+            associated_companies=companies,
+            user_has_multiple_companies=has_mult,
+            active_company_name=act_name
+        )
 
     # =========================================================================
     # INTERCEPTOR DE URL_FOR RETROCOMPATIBLE
