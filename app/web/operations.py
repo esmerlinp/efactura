@@ -406,3 +406,257 @@ def delete_client_document_route(client_id, doc_id):
     DatabaseService.delete_client_document(owner_uid, client_id, doc_id, sandbox=sandbox)
     flash("Documento eliminado del archivo centralizado del cliente.", "success")
     return redirect(url_for('web_clients.client_detail', client_id=client_id))
+
+
+def _get_taggable_users(owner_uid):
+    taggable_users = []
+    owner_prof = DatabaseService.get_user_profile(owner_uid)
+    if owner_prof:
+        taggable_users.append({
+            "uid": owner_uid,
+            "name": owner_prof.get("name", "Propietario"),
+            "email": owner_prof.get("email", ""),
+            "role": "owner"
+        })
+    team = DatabaseService.get_team_members(owner_uid) or []
+    for member in team:
+        taggable_users.append({
+            "uid": member.get("uid"),
+            "name": member.get("name", ""),
+            "email": member.get("email", ""),
+            "role": member.get("role", "collaborator")
+        })
+    return taggable_users
+
+
+def process_resource_comment_mentions(owner_uid, content, resource_type, resource_id, resource_label, sandbox):
+    taggable_users = _get_taggable_users(owner_uid)
+    for u in taggable_users:
+        name = u.get("name", "")
+        email = u.get("email", "")
+        uid = u.get("uid")
+        if not uid or not email:
+            continue
+            
+        if 'user' in session and session['user'].get('uid') == uid:
+            continue
+            
+        import re
+        escaped_name = re.escape(name)
+        escaped_email = re.escape(email)
+        pattern = rf"@({escaped_name}|{escaped_email})\b"
+        if re.search(pattern, content, re.IGNORECASE):
+            notif_id = str(uuid.uuid4())
+            
+            if resource_type == "contracts":
+                link = f"/contracts/{resource_id}?sandbox={'true' if sandbox else 'false'}"
+                msg = f"{session['user'].get('name', session['user']['email'])} te mencionó en un comentario del contrato: {resource_label}."
+            else:
+                link = f"/operations/contracts?sandbox={'true' if sandbox else 'false'}"
+                msg = f"{session['user'].get('name', session['user']['email'])} te mencionó en un comentario del contrato: {resource_label}."
+                
+            notif_dict = {
+                "id": notif_id,
+                "title": "Nueva mención en un comentario",
+                "message": msg,
+                "documentId": resource_id,
+                "documentNumber": resource_label,
+                "link": link,
+                "createdAt": datetime.utcnow().isoformat(),
+                "read": False,
+                "type": "mention"
+            }
+            DatabaseService.create_user_notification(uid, notif_dict)
+            
+            from flask import request
+            import os
+            try:
+                base_url = request.host_url.rstrip('/')
+            except Exception:
+                base_url = os.environ.get("PORTAL_BASE_URL", "http://localhost:5001").rstrip('/')
+            doc_url = f"{base_url}{link}"
+            
+            from app.services.notifications import NotificationService
+            NotificationService.send_mention_notification(
+                recipient_email=email,
+                recipient_name=name,
+                commenter_name=session['user'].get('name', session['user']['email']),
+                comment_snippet=content[:150] + ("..." if len(content) > 150 else ""),
+                doc_number=resource_label,
+                doc_url=doc_url,
+                sandbox=sandbox
+            )
+
+
+def format_mentions(content, users):
+    if not content:
+        return ""
+    from markupsafe import Markup
+    import re
+    import html
+    escaped_content = html.escape(content)
+    sorted_users = sorted(users, key=lambda x: len(x.get("name", "")), reverse=True)
+    for u in sorted_users:
+        name = u.get("name", "")
+        email = u.get("email", "")
+        if not name:
+            continue
+        escaped_name = re.escape(html.escape(name))
+        escaped_email = re.escape(html.escape(email))
+        pattern = rf"@({escaped_name}|{escaped_email})\b"
+        replacement = r'<span class="mention-tag" style="background-color: rgba(124, 58, 237, 0.15); color: var(--accent-purple); font-weight: 600; padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(124, 58, 237, 0.25);">@\1</span>'
+        escaped_content = re.sub(pattern, replacement, escaped_content, flags=re.IGNORECASE)
+    return Markup(escaped_content)
+
+
+@web_operations_bp.route('/contracts/<contract_id>')
+def contract_detail(contract_id):
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
+    if not check_permission('canManageContracts'):
+        return render_template('auth/restricted.html', feature_name="Detalle de Contrato", required_permission="canManageContracts")
+        
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+    
+    contract = DatabaseService.get_contract(owner_uid, contract_id, sandbox=sandbox)
+    if not contract:
+        flash('Contrato no encontrado.', 'error')
+        return redirect(url_for('web_operations.list_contracts'))
+        
+    comments = DatabaseService.get_resource_comments(owner_uid, "contracts", contract_id, sandbox=sandbox)
+    taggable_users = _get_taggable_users(owner_uid)
+    
+    return render_template(
+        'contracts/detail.html',
+        active_page='contracts',
+        contract=contract,
+        comments=comments,
+        taggable_users=taggable_users,
+        format_mentions=format_mentions
+    )
+
+
+@web_operations_bp.route('/contracts/<contract_id>/comments/new', methods=['POST'])
+def add_contract_comment(contract_id):
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+    
+    content = request.form.get('content', '').strip()
+    if not content:
+        flash('El comentario no puede estar vacío.', 'error')
+        return redirect(url_for('web_operations.contract_detail', contract_id=contract_id))
+        
+    attachment_url = ""
+    attachment_name = ""
+    file = request.files.get('attachment')
+    if file and file.filename:
+        try:
+            file_data = file.read()
+            mime_type = file.mimetype or "application/octet-stream"
+            filename = f"comment_contract_{contract_id}_{str(uuid.uuid4())[:8]}_{file.filename}"
+            destination_path = f"users/{owner_uid}/comments/{filename}"
+            attachment_url = DatabaseService.upload_file_to_storage(file_data, destination_path, mime_type)
+            attachment_name = file.filename
+        except Exception as e:
+            flash(f"Advertencia: No se pudo cargar el archivo adjunto: {str(e)}", 'warning')
+            
+    comment_id = str(uuid.uuid4())
+    comment_dict = {
+        "content": content,
+        "createdBy": session['user']['email'],
+        "createdByName": session['user'].get('name', session['user']['email']),
+        "createdByUid": session['user']['uid'],
+        "createdAt": datetime.utcnow().isoformat(),
+        "attachmentUrl": attachment_url,
+        "attachmentName": attachment_name,
+        "edited": False
+    }
+    
+    DatabaseService.save_resource_comment(owner_uid, "contracts", contract_id, comment_id, comment_dict, sandbox=sandbox)
+    
+    try:
+        contract = DatabaseService.get_contract(owner_uid, contract_id, sandbox=sandbox) or {}
+        num = contract.get('contractNumber', 'Contrato')
+        process_resource_comment_mentions(owner_uid, content, "contracts", contract_id, num, sandbox)
+    except Exception as ex:
+        print(f"⚠️ Error al procesar menciones en add_contract_comment: {ex}")
+        
+    flash('Comentario agregado exitosamente.', 'success')
+    return redirect(url_for('web_operations.contract_detail', contract_id=contract_id))
+
+
+@web_operations_bp.route('/contracts/<contract_id>/comments/<comment_id>/edit', methods=['POST'])
+def edit_contract_comment(contract_id, comment_id):
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+    
+    comments = DatabaseService.get_resource_comments(owner_uid, "contracts", contract_id, sandbox=sandbox)
+    comment = next((c for c in comments if c['id'] == comment_id), None)
+    if not comment:
+        flash('Comentario no encontrado.', 'error')
+        return redirect(url_for('web_operations.contract_detail', contract_id=contract_id))
+        
+    is_owner = session['user'].get('role') == 'owner'
+    is_author = session['user']['uid'] == comment.get('createdByUid')
+    if not (is_owner or is_author):
+        flash('No tienes permiso para editar este comentario.', 'error')
+        return redirect(url_for('web_operations.contract_detail', contract_id=contract_id))
+        
+    content = request.form.get('content', '').strip()
+    if not content:
+        flash('El comentario no puede estar vacío.', 'error')
+        return redirect(url_for('web_operations.contract_detail', contract_id=contract_id))
+        
+    comment['content'] = content
+    comment['edited'] = True
+    comment['editedAt'] = datetime.utcnow().isoformat()
+    
+    file = request.files.get('attachment')
+    if file and file.filename:
+        try:
+            file_data = file.read()
+            mime_type = file.mimetype or "application/octet-stream"
+            filename = f"comment_contract_{contract_id}_{str(uuid.uuid4())[:8]}_{file.filename}"
+            destination_path = f"users/{owner_uid}/comments/{filename}"
+            attachment_url = DatabaseService.upload_file_to_storage(file_data, destination_path, mime_type)
+            comment['attachmentUrl'] = attachment_url
+            comment['attachmentName'] = file.filename
+        except Exception as e:
+            flash(f"Advertencia: No se pudo cargar el archivo adjunto: {str(e)}", 'warning')
+            
+    DatabaseService.save_resource_comment(owner_uid, "contracts", contract_id, comment_id, comment, sandbox=sandbox)
+    
+    try:
+        contract = DatabaseService.get_contract(owner_uid, contract_id, sandbox=sandbox) or {}
+        num = contract.get('contractNumber', 'Contrato')
+        process_resource_comment_mentions(owner_uid, content, "contracts", contract_id, num, sandbox)
+    except Exception as ex:
+        print(f"⚠️ Error al procesar menciones en edit_contract_comment: {ex}")
+        
+    flash('Comentario modificado.', 'success')
+    return redirect(url_for('web_operations.contract_detail', contract_id=contract_id))
+
+
+@web_operations_bp.route('/contracts/<contract_id>/comments/<comment_id>/delete', methods=['POST'])
+def delete_contract_comment(contract_id, comment_id):
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+    
+    comments = DatabaseService.get_resource_comments(owner_uid, "contracts", contract_id, sandbox=sandbox)
+    comment = next((c for c in comments if c['id'] == comment_id), None)
+    if not comment:
+        flash('Comentario no encontrado.', 'error')
+        return redirect(url_for('web_operations.contract_detail', contract_id=contract_id))
+        
+    is_owner = session['user'].get('role') == 'owner'
+    is_author = session['user']['uid'] == comment.get('createdByUid')
+    if not (is_owner or is_author):
+        flash('No tienes permiso para eliminar este comentario.', 'error')
+        return redirect(url_for('web_operations.contract_detail', contract_id=contract_id))
+        
+    DatabaseService.delete_resource_comment(owner_uid, "contracts", contract_id, comment_id, sandbox=sandbox)
+    flash('Comentario eliminado.', 'success')
+    return redirect(url_for('web_operations.contract_detail', contract_id=contract_id))

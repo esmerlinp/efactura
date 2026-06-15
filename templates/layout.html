@@ -1036,17 +1036,25 @@
                     {% endif %}
                 </a>
 
-                <!-- Notificaciones CRM -->
+                <!-- Notificaciones CRM / Menciones -->
                 <div class="crm-dropdown" id="crm-dropdown-trigger" style="position: relative; display: inline-block;">
-                    <button class="utility-item" title="Compromisos CRM para Hoy">
+                    <button class="utility-item" title="Notificaciones e Historial">
                         <i class="fa-solid fa-bell"></i>
-                        {% if crm_contacts is defined and crm_contacts|length > 0 %}
-                        <span
+                        {% set has_unread = false %}
+                        {% if user_notifications %}
+                            {% for n in user_notifications %}
+                                {% if not n.read %}
+                                    {% set has_unread = true %}
+                                {% endif %}
+                            {% endfor %}
+                        {% endif %}
+                        {% if (crm_contacts is defined and crm_contacts|length > 0) or has_unread %}
+                        <span id="bell-badge"
                             style="position: absolute; top: 8px; right: 8px; background-color: var(--accent-red); color: white; border-radius: 50%; width: 8px; height: 8px;"></span>
                         {% endif %}
                     </button>
 
-                    <!-- Menú Desplegable CRM -->
+                    <!-- Menú Desplegable de Notificaciones / CRM -->
                     <div class="dropdown-menu" id="crm-dropdown-menu" style="
                         display: none;
                         position: absolute;
@@ -1060,11 +1068,40 @@
                         flex-direction: column;
                         box-sizing: border-box;
                     ">
-                        <div
-                            style="padding: 12px 16px; border-bottom: 1px solid var(--border-color); font-weight: 500; font-size: 0.85rem; color: var(--text-primary);">
-                            Compromisos CRM para Hoy
+                        <!-- Header Selector de Tabs -->
+                        <div style="display: flex; border-bottom: 1px solid var(--border-color); background: rgba(0,0,0,0.05); border-top-left-radius: var(--radius-md); border-top-right-radius: var(--radius-md);">
+                            <button type="button" onclick="switchBellTab('menciones-tab', event)" class="bell-tab-btn active" style="flex: 1; padding: 12px; border: none; background: transparent; font-weight: 600; font-size: 0.8rem; color: var(--text-primary); cursor: pointer; border-bottom: 2px solid var(--accent-purple); outline: none;">
+                                Menciones
+                            </button>
+                            <button type="button" onclick="switchBellTab('crm-tab', event)" class="bell-tab-btn" style="flex: 1; padding: 12px; border: none; background: transparent; font-weight: 500; font-size: 0.8rem; color: var(--text-muted); cursor: pointer; border-bottom: 2px solid transparent; outline: none;">
+                                Compromisos
+                            </button>
                         </div>
-                        <div style="max-height: 300px; overflow-y: auto; padding: 8px;">
+
+                        <!-- Contenedor Menciones -->
+                        <div id="menciones-tab-content" class="bell-tab-content" style="max-height: 300px; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 4px;">
+                            {% if user_notifications %}
+                                {% for n in user_notifications %}
+                                <a href="{{ n.link }}" class="notification-item" style="display: block; text-decoration: none; padding: 10px; border-bottom: 1px solid var(--border-color); font-size: 0.8rem; border-radius: var(--radius-sm); transition: background 0.2s; background: {% if not n.read %}rgba(124, 58, 237, 0.05){% else %}transparent{% endif %};">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                                        <strong style="color: var(--text-primary); font-weight: 600;">{{ n.title }}</strong>
+                                        <span style="color: var(--text-muted); font-size: 0.65rem;">{{ n.createdAt[11:16] if n.createdAt else '' }}</span>
+                                    </div>
+                                    <p style="color: var(--text-secondary); margin: 0 0 6px 0; font-size: 0.75rem; line-height: 1.4;">
+                                        {{ n.message }}
+                                    </p>
+                                    <span style="font-size: 0.7rem; color: var(--accent-purple); font-weight: 500;"><i class="fa-solid fa-file-invoice"></i> {{ n.documentNumber }}</span>
+                                </a>
+                                {% endfor %}
+                            {% else %}
+                                <div style="text-align: center; color: var(--text-muted); font-size: 0.8rem; padding: 20px 0;">
+                                    No tienes menciones.
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Contenedor CRM -->
+                        <div id="crm-tab-content" class="bell-tab-content" style="max-height: 300px; overflow-y: auto; padding: 8px; display: none; flex-direction: column; gap: 4px;">
                             {% if crm_contacts is defined and crm_contacts %}
                             {% for contact in crm_contacts %}
                             <div class="crm-notification-item"
@@ -2201,8 +2238,32 @@
                     }
                 });
             });
+            // Tab switching logic for notification bell
+            window.switchBellTab = function(tabId, event) {
+                event.stopPropagation();
+                document.querySelectorAll('.bell-tab-content').forEach(el => el.style.display = 'none');
+                document.querySelectorAll('.bell-tab-btn').forEach(el => {
+                    el.classList.remove('active');
+                    el.style.color = 'var(--text-muted)';
+                    el.style.borderBottomColor = 'transparent';
+                    el.style.fontWeight = '500';
+                });
+                
+                const activeContent = document.getElementById(tabId + '-content');
+                if (activeContent) {
+                    activeContent.style.display = 'flex';
+                }
+                
+                const activeBtn = event.currentTarget;
+                if (activeBtn) {
+                    activeBtn.classList.add('active');
+                    activeBtn.style.color = 'var(--text-primary)';
+                    activeBtn.style.borderBottomColor = 'var(--accent-purple)';
+                    activeBtn.style.fontWeight = '600';
+                }
+            };
 
-            // Lógica para el dropdown de notificaciones CRM
+            // Lógica para el dropdown de notificaciones / CRM
             const crmTrigger = document.getElementById('crm-dropdown-trigger');
             const crmMenu = document.getElementById('crm-dropdown-menu');
 
@@ -2211,8 +2272,34 @@
                 if (triggerBtn) {
                     triggerBtn.addEventListener('click', function (e) {
                         e.stopPropagation();
+                        // Cerrar otros dropdowns
+                        if (configMenu) configMenu.style.display = 'none';
+
                         const isVisible = crmMenu.style.display === 'flex';
                         crmMenu.style.display = isVisible ? 'none' : 'flex';
+
+                        if (!isVisible) {
+                            // Marcar notificaciones como leídas
+                            fetch('/notifications/mark-read', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                }
+                            }).then(response => response.json())
+                              .then(data => {
+                                  if (data.success) {
+                                      // Clear badge
+                                      const badge = document.getElementById('bell-badge');
+                                      if (badge) {
+                                          badge.remove();
+                                      }
+                                      // Clear unread background on notification items
+                                      document.querySelectorAll('.notification-item').forEach(el => {
+                                          el.style.background = 'transparent';
+                                      });
+                                  }
+                              }).catch(err => console.error(err));
+                        }
                     });
                 }
 
@@ -2224,7 +2311,6 @@
                 });
             }
 
-            // Lógica para el dropdown de configuración
             const configTrigger = document.getElementById('config-dropdown-trigger');
             const configMenu = document.getElementById('config-dropdown-menu');
 

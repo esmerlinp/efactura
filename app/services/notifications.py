@@ -269,3 +269,69 @@ class NotificationService:
         company["autoRemindersLastRun"] = today_str
         DatabaseService.save_company_profile(owner_uid, company)
         return sent_count
+
+    @classmethod
+    def send_mention_notification(cls, recipient_email, recipient_name, commenter_name, comment_snippet, doc_number, doc_url, issuer_company_name="e-Factura", sandbox=True):
+        """Envía un correo electrónico de notificación cuando un usuario es tagueado en un comentario."""
+        smtp_server = current_app.config.get("SMTP_SERVER", "smtp.gmail.com")
+        smtp_port = int(current_app.config.get("SMTP_PORT", 587))
+        smtp_user = current_app.config.get("SMTP_USER", "")
+        smtp_password = current_app.config.get("SMTP_PASSWORD", "")
+        
+        if not smtp_user or not smtp_password:
+            # Si no está configurado, simulamos el envío en sandbox para no bloquear el flujo de desarrollo
+            if sandbox:
+                print(f"⚠️ [SMTP no configurado] Simulando email de mención a {recipient_email} ({recipient_name}): {commenter_name} te mencionó en {doc_number} ({issuer_company_name})")
+                return True, f"Simulado: Notificación de mención enviada a {recipient_email}."
+            return False, "Servidor de correo SMTP no configurado en los ajustes de la aplicación."
+            
+        try:
+            # Construir el correo HTML
+            msg = MIMEMultipart('alternative')
+            msg["Subject"] = f"💬 Te mencionaron en un comentario — {doc_number}"
+            msg["From"] = f"e-Factura <{smtp_user}>"
+            msg["To"] = recipient_email
+            
+            html_body = f"""
+            <html>
+            <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #333; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
+                <div style="text-align: center; margin-bottom: 24px; padding-bottom: 12px; border-bottom: 2px solid #7c3aed;">
+                    <h2 style="color: #7c3aed; margin: 0;">Nueva Mención</h2>
+                    <p style="color: #666; margin: 4px 0 0 0;">Plataforma e-Factura · <strong>{issuer_company_name}</strong></p>
+                </div>
+                
+                <p>Hola <strong>{recipient_name}</strong>,</p>
+                
+                <p><strong>{commenter_name}</strong> te ha mencionado en un comentario en el documento <strong>{doc_number}</strong>:</p>
+                
+                <div style="background-color: #f3f4f6; border-left: 4px solid #7c3aed; border-radius: 4px; padding: 16px; margin: 20px 0; font-style: italic; color: #4b5563;">
+                    "{comment_snippet}"
+                </div>
+                
+                <p style="text-align: center; margin: 28px 0;">
+                    <a href="{doc_url}" style="background: linear-gradient(135deg, #7c3aed, #6d28d9); color: white; text-decoration: none; padding: 12px 30px; border-radius: 6px; font-weight: bold; display: inline-block; box-shadow: 0 4px 10px rgba(124, 58, 237, 0.2);">
+                        Ver Comentario y Documento
+                    </a>
+                </p>
+                
+                <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 24px 0;">
+                
+                <div style="font-size: 0.8rem; color: #9ca3af; text-align: center;">
+                    Enviado de forma automática por la plataforma e-Factura.
+                </div>
+            </body>
+            </html>
+            """
+            
+            msg.attach(MIMEText(html_body, 'html'))
+            
+            with smtplib.SMTP(smtp_server, smtp_port) as server:
+                server.starttls()
+                server.login(smtp_user, smtp_password)
+                server.sendmail(smtp_user, recipient_email, msg.as_string())
+                
+            return True, "Correo enviado correctamente."
+        except Exception as e:
+            print(f"⚠️ Error al enviar email de mención: {e}")
+            return False, str(e)
+

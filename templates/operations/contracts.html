@@ -149,6 +149,13 @@
                     </td>
                     <td style="text-align: right;">
                         <div style="display: inline-flex; gap: 8px; justify-content: flex-end; align-items: center;">
+                            <!-- Ver Detalle y Comentarios -->
+                            <a href="{{ url_for('web_operations.contract_detail', contract_id=contract.id) }}" class="btn btn-secondary"
+                                style="padding: 6px 10px; font-size: 0.78rem; border-color: var(--accent-purple); color: var(--accent-purple);"
+                                title="Ver Detalle y Comentarios">
+                                <i class="fa-solid fa-eye"></i>
+                            </a>
+
                             <!-- Toggle Estado -->
                             <button onclick="toggleContract('{{ contract.id }}')" class="btn btn-secondary"
                                 style="padding: 6px 10px; font-size: 0.78rem;" title="Cambiar Estado">

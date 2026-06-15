@@ -310,6 +310,10 @@
                 </td>
                 <td style="padding: 14px 16px; align-items: center;">
                     <div class="action-btn-group">
+                        <a href="{{ url_for('expense_detail', expense_id=cxp.id) }}" class="action-btn"
+                            title="Ver Detalle y Comentarios" style="color: var(--accent-purple); border-color: rgba(124, 58, 237, 0.3);">
+                            <i class="fa-solid fa-eye"></i>
+                        </a>
                         {% if cxp.cxpStatus != 'Pagado' %}
                         <button
                             onclick="openPayModal('{{ cxp.id }}', '{{ cxp.concept }}', {{ cxp.cxpRemainingBalance }})"
