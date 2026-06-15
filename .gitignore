@@ -1,0 +1,34 @@
+# Entornos virtuales
+venv/
+env/
+.venv/
+ENV/
+
+# Archivos de configuración y secretos sensibles
+.env
+firebase-adminsdk.json
+*.log
+*.sqlite
+local_efactura.db
+
+# Caché de Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+
+# IDEs y editores de texto
+.vscode/
+.idea/
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+
+# Dependencias instaladas
+node_modules/
+dist/
+build/
