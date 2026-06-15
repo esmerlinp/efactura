@@ -50,7 +50,7 @@ Variables esperadas:
             </div>
 
             <button type="submit" class="btn btn-primary"
-                style="padding: 10px 24px; font-size: 0.88rem; {% if company.get('gradientEnabled', True) %}background: linear-gradient(135deg, var(--accent-purple), var(--accent-purple-hover));{% else %}background: var(--accent-purple);{% endif %} border: none; color: white;">
+                style="padding: 10px 24px; font-size: 0.88rem; {% if company is defined and company.get('gradientEnabled', True) %}background: linear-gradient(135deg, var(--accent-purple), var(--accent-purple-hover));{% else %}background: var(--accent-purple);{% endif %} border: none; color: white;">
                 <i class="fa-solid fa-paper-plane"></i>
                 <span>Enviar Comentario</span>
             </button>
