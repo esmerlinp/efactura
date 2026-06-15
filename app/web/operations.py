@@ -477,6 +477,11 @@ def process_resource_comment_mentions(owner_uid, content, resource_type, resourc
             doc_url = f"{base_url}{link}"
             
             from app.services.notifications import NotificationService
+            
+            # Obtener el nombre comercial de la empresa
+            company = DatabaseService.get_company(owner_uid) or {}
+            issuer_company_name = company.get("tradeName") or company.get("companyName") or "e-Factura"
+            
             NotificationService.send_mention_notification(
                 recipient_email=email,
                 recipient_name=name,
@@ -484,6 +489,7 @@ def process_resource_comment_mentions(owner_uid, content, resource_type, resourc
                 comment_snippet=content[:150] + ("..." if len(content) > 150 else ""),
                 doc_number=resource_label,
                 doc_url=doc_url,
+                issuer_company_name=issuer_company_name,
                 sandbox=sandbox
             )
 

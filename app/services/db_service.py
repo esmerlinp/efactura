@@ -2948,7 +2948,7 @@ class DatabaseService:
                 coll_name = "sandbox_cash_shifts" if sandbox else "cash_shifts"
                 docs = db_firestore.collection("users").document(owner_uid).collection(coll_name)\
                     .where(filter=firestore.FieldFilter("openedByUserId", "==", user_uid))\
-                    .where(filter=firestore.FieldFilter("status", "==", "OPEN")).limit(1).get()
+                    .where(filter=firestore.FieldFilter("status", "in", ["OPEN", "CLOSING", "REOPENED"])).limit(1).get()
                 for doc in docs:
                     data = doc.to_dict()
                     return {
@@ -2957,7 +2957,7 @@ class DatabaseService:
                         "openedByUserId": data.get("openedByUserId", ""),
                         "openingTime": serialize_field(data.get("openingTime")),
                         "openingAmount": float(data.get("openingAmount", 0.0)),
-                        "status": "OPEN"
+                        "status": data.get("status", "OPEN")
                     }
             except Exception as e:
                 print(f"⚠️ Error al obtener turno abierto: {e}")
@@ -3185,6 +3185,215 @@ class DatabaseService:
         except Exception as e:
             print(f"⚠️ Error al auditar turno de caja: {e}")
             return None
+
+    @classmethod
+    def initiate_close_cash_shift(cls, owner_uid, shift_id, sandbox=True):
+        """Cambia el estado de un turno a CLOSING mientras se realiza el arqueo."""
+        if not firebase_initialized: return False
+        try:
+            coll_shifts = "sandbox_cash_shifts" if sandbox else "cash_shifts"
+            shift_ref = db_firestore.collection("users").document(owner_uid).collection(coll_shifts).document(shift_id)
+            shift_ref.update({"status": "CLOSING"})
+            return True
+        except Exception as e:
+            print(f"⚠️ Error al iniciar cierre de caja: {e}")
+            return False
+
+    @classmethod
+    def take_control_shift(cls, owner_uid, shift_id, supervisor_uid, supervisor_name, reason, comments, sandbox=True):
+        """Transfiere el control del turno al supervisor bloqueando al cajero actual."""
+        if not firebase_initialized: return False
+        try:
+            coll_shifts = "sandbox_cash_shifts" if sandbox else "cash_shifts"
+            shift_ref = db_firestore.collection("users").document(owner_uid).collection(coll_shifts).document(shift_id)
+            doc = shift_ref.get()
+            if not doc.exists: return False
+            shift_data = doc.to_dict()
+            
+            # Guardamos el cajero original si no existía el campo
+            original_user = shift_data.get("originalOpenedByUserId", shift_data.get("openedByUserId"))
+            
+            update_data = {
+                "openedByUserId": supervisor_uid,
+                "openedByUserEmail": supervisor_name, # Guardamos el nombre o email en el mismo campo para mantener compatibilidad
+                "originalOpenedByUserId": original_user,
+                "takenOverBySupervisor": True,
+                "takenOverReason": reason,
+                "takenOverComments": comments,
+                "takenOverAt": datetime.utcnow().isoformat()
+            }
+            shift_ref.update(update_data)
+            return True
+        except Exception as e:
+            print(f"⚠️ Error al tomar control de turno: {e}")
+            return False
+
+    @classmethod
+    def force_close_shift(cls, owner_uid, shift_id, supervisor_uid, supervisor_name, reason, comments, sandbox=True):
+        """Cierra administrativamente un turno (ej. fallo eléctrico)."""
+        if not firebase_initialized: return False
+        try:
+            coll_shifts = "sandbox_cash_shifts" if sandbox else "cash_shifts"
+            coll_regs = "sandbox_cash_registers" if sandbox else "cash_registers"
+            shift_ref = db_firestore.collection("users").document(owner_uid).collection(coll_shifts).document(shift_id)
+            doc = shift_ref.get()
+            if not doc.exists: return False
+            shift_data = doc.to_dict()
+            
+            update_data = {
+                "status": "FORCED_CLOSED",
+                "closingTime": datetime.utcnow().isoformat(),
+                "forcedClosedBy": supervisor_uid,
+                "forcedClosedReason": reason,
+                "forcedClosedComments": comments
+            }
+            shift_ref.update(update_data)
+            
+            # Liberar la caja
+            register_id = shift_data.get("registerId")
+            db_firestore.collection("users").document(owner_uid).collection(coll_regs).document(register_id).update({
+                "status": "CLOSED"
+            })
+            return True
+        except Exception as e:
+            print(f"⚠️ Error al forzar cierre de turno: {e}")
+            return False
+
+    @classmethod
+    def close_shift_under_review(cls, owner_uid, shift_id, supervisor_uid, supervisor_name, reason, comments, declared_amount=0.0, sandbox=True):
+        """Cierra el turno bajo investigación (diferencias graves)."""
+        # Aprovechamos el close_cash_shift normal pero le forzamos el estado a CLOSED_UNDER_REVIEW
+        res = cls.close_cash_shift(owner_uid, shift_id, declared_amount, sandbox=sandbox, status="CLOSED_UNDER_REVIEW", supervisor_uid=supervisor_uid, supervisor_email=supervisor_name)
+        if res:
+            try:
+                coll_shifts = "sandbox_cash_shifts" if sandbox else "cash_shifts"
+                shift_ref = db_firestore.collection("users").document(owner_uid).collection(coll_shifts).document(shift_id)
+                shift_ref.update({
+                    "underReviewReason": reason,
+                    "underReviewComments": comments
+                })
+            except Exception:
+                pass
+        return res
+
+    @classmethod
+    def reopen_shift(cls, owner_uid, shift_id, supervisor_uid, supervisor_name, reason, comments, sandbox=True):
+        """Reabre un turno (solo del mismo día y no auditado)."""
+        if not firebase_initialized: return False
+        try:
+            coll_shifts = "sandbox_cash_shifts" if sandbox else "cash_shifts"
+            coll_regs = "sandbox_cash_registers" if sandbox else "cash_registers"
+            shift_ref = db_firestore.collection("users").document(owner_uid).collection(coll_shifts).document(shift_id)
+            doc = shift_ref.get()
+            if not doc.exists: return False
+            shift_data = doc.to_dict()
+            
+            # Validar mismo día
+            closing_time_str = shift_data.get("closingTime")
+            if not closing_time_str:
+                return False
+                
+            closing_date = datetime.fromisoformat(closing_time_str.replace("Z", "+00:00")).date()
+            if closing_date != datetime.utcnow().date():
+                return False
+                
+            # Validar si ya fue auditado
+            if shift_data.get("auditedAt"):
+                return False
+
+            update_data = {
+                "status": "REOPENED", # Lo trataremos igual que OPEN en get_open_shift y otros
+                "reopenedBy": supervisor_uid,
+                "reopenedReason": reason,
+                "reopenedComments": comments,
+                "reopenedAt": datetime.utcnow().isoformat()
+            }
+            
+            # Quitar datos de cierre
+            shift_ref.update(update_data)
+            
+            # Ocupar la caja
+            register_id = shift_data.get("registerId")
+            db_firestore.collection("users").document(owner_uid).collection(coll_regs).document(register_id).update({
+                "status": "OPEN"
+            })
+            
+            return True
+        except Exception as e:
+            print(f"⚠️ Error al reabrir turno: {e}")
+            return False
+
+    @classmethod
+    def transfer_shift(cls, owner_uid, shift_id, supervisor_uid, supervisor_name, new_cashier_uid, new_cashier_email, reason, comments, sandbox=True):
+        """Transfiere un turno de un cajero a otro."""
+        if not firebase_initialized: return False
+        try:
+            coll_shifts = "sandbox_cash_shifts" if sandbox else "cash_shifts"
+            shift_ref = db_firestore.collection("users").document(owner_uid).collection(coll_shifts).document(shift_id)
+            doc = shift_ref.get()
+            if not doc.exists: return False
+            shift_data = doc.to_dict()
+            
+            original_user = shift_data.get("originalOpenedByUserId", shift_data.get("openedByUserId"))
+            
+            update_data = {
+                "openedByUserId": new_cashier_uid,
+                "openedByUserEmail": new_cashier_email,
+                "originalOpenedByUserId": original_user,
+                "transferredBySupervisor": supervisor_uid,
+                "transferredReason": reason,
+                "transferredComments": comments,
+                "transferredAt": datetime.utcnow().isoformat()
+            }
+            shift_ref.update(update_data)
+            return True
+        except Exception as e:
+            print(f"⚠️ Error al transferir turno: {e}")
+            return False
+
+    @classmethod
+    def log_shift_incident(cls, owner_uid, shift_id, supervisor_uid, supervisor_name, reason, comments, sandbox=True):
+        """Registra una incidencia en el turno sin cerrarlo."""
+        if not firebase_initialized: return False
+        try:
+            coll_shifts = "sandbox_cash_shifts" if sandbox else "cash_shifts"
+            shift_ref = db_firestore.collection("users").document(owner_uid).collection(coll_shifts).document(shift_id)
+            
+            # Podemos agregarlo como un arreglo de incidencias
+            incident = {
+                "supervisorId": supervisor_uid,
+                "supervisorName": supervisor_name,
+                "reason": reason,
+                "comments": comments,
+                "date": datetime.utcnow().isoformat()
+            }
+            shift_ref.update({
+                "incidents": firestore.ArrayUnion([incident])
+            })
+            return True
+        except Exception as e:
+            print(f"⚠️ Error al registrar incidencia: {e}")
+            return False
+
+    @classmethod
+    def authorize_shift_extension(cls, owner_uid, shift_id, supervisor_uid, supervisor_name, reason, comments, sandbox=True):
+        """Autoriza extender un turno de caja."""
+        if not firebase_initialized: return False
+        try:
+            coll_shifts = "sandbox_cash_shifts" if sandbox else "cash_shifts"
+            shift_ref = db_firestore.collection("users").document(owner_uid).collection(coll_shifts).document(shift_id)
+            
+            update_data = {
+                "extensionAuthorizedBy": supervisor_uid,
+                "extensionReason": reason,
+                "extensionComments": comments,
+                "extensionAuthorizedAt": datetime.utcnow().isoformat()
+            }
+            shift_ref.update(update_data)
+            return True
+        except Exception as e:
+            print(f"⚠️ Error al autorizar extensión: {e}")
+            return False
 
     @classmethod
     def get_cash_transactions(cls, owner_uid, shift_id, sandbox=True):
@@ -3739,7 +3948,8 @@ class DatabaseService:
                         "attachmentUrl": data.get("attachmentUrl", ""),
                         "attachmentName": data.get("attachmentName", ""),
                         "edited": bool(data.get("edited", False)),
-                        "editedAt": serialize_field(data.get("editedAt"))
+                        "editedAt": serialize_field(data.get("editedAt")),
+                        "reactions": data.get("reactions", {})
                     })
                 comments.sort(key=lambda x: x["createdAt"] or "", reverse=True)
             except Exception as e:
@@ -3771,6 +3981,45 @@ class DatabaseService:
             except Exception as e:
                 print(f"⚠️ Fallo al guardar comentario de {resource_type} en Firestore: {e}")
         return comment_dict
+
+    @classmethod
+    def toggle_comment_reaction(cls, owner_uid, resource_type, resource_id, comment_id, user_uid, emoji, sandbox=True):
+        """Alterna una reacción en un comentario."""
+        if firebase_initialized:
+            try:
+                coll_map = {
+                    "invoices": "sandbox_invoices" if sandbox else "invoices",
+                    "shifts": "sandbox_cash_shifts" if sandbox else "cash_shifts",
+                    "expenses": "sandbox_expenses" if sandbox else "expenses",
+                    "contracts": "sandbox_contracts" if sandbox else "contracts"
+                }
+                coll_name = coll_map.get(resource_type)
+                if coll_name:
+                    doc_ref = db_firestore.collection("users").document(owner_uid).collection(coll_name).document(resource_id).collection("comments").document(comment_id)
+                    
+                    # Usar una transacción simple de lectura y escritura ya que arrayRemove y arrayUnion para diccionarios
+                    # anidados puede ser verboso si no sabemos si el campo existe.
+                    # Primero leemos:
+                    doc = doc_ref.get()
+                    if doc.exists:
+                        data = doc.to_dict()
+                        reactions = data.get("reactions", {})
+                        if emoji not in reactions:
+                            reactions[emoji] = []
+                            
+                        # Alternar el usuario
+                        if user_uid in reactions[emoji]:
+                            reactions[emoji].remove(user_uid)
+                            # Si queda vacío, podríamos eliminar la llave, pero lo dejamos por consistencia
+                        else:
+                            reactions[emoji].append(user_uid)
+                            
+                        # Guardar de vuelta
+                        doc_ref.update({"reactions": reactions})
+                        return {"success": True, "reactions": reactions}
+            except Exception as e:
+                print(f"⚠️ Fallo al actualizar reacción de {resource_type} en Firestore: {e}")
+        return {"success": False}
 
     @classmethod
     def delete_resource_comment(cls, owner_uid, resource_type, resource_id, comment_id, sandbox=True):
