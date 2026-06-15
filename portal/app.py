@@ -200,6 +200,17 @@ def client_detail(company_id):
     payments = DatabaseService.get_payments(company_id)
     return render_template('admin/client_detail.html', company=company, plans=plans, payments=payments, active_page='clientes')
 
+@app.route('/clientes/<company_id>/delete', methods=['POST'])
+@portal_required
+def delete_company(company_id):
+    success, message = DatabaseService.delete_company(company_id)
+    if success:
+        flash(message, 'success')
+        return redirect(url_for('clientes'))
+    else:
+        flash(message, 'error')
+        return redirect(url_for('client_detail', company_id=company_id))
+
 @app.route('/clientes/<company_id>/pagos', methods=['POST'])
 @portal_required
 def record_payment(company_id):

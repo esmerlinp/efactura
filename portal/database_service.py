@@ -452,3 +452,59 @@ class DatabaseService:
         except Exception as e:
             print(f"❌ Error en create_company: {e}")
             return False, str(e)
+
+    @classmethod
+    def delete_company(cls, company_id):
+        """
+        Elimina recursivamente una empresa de Firestore y Firebase Auth,
+        incluyendo todos sus miembros del equipo (colaboradores).
+        """
+        db = cls.get_db()
+        from firebase_admin import auth
+        
+        # Helper para eliminar un documento de Firestore recursivamente
+        def delete_doc_recursive(doc_ref):
+            for subcoll in doc_ref.collections():
+                for doc in subcoll.stream():
+                    delete_doc_recursive(doc.reference)
+            doc_ref.delete()
+
+        # 1. Obtener y eliminar todos los colaboradores (team)
+        try:
+            team_docs = db.collection('users').document(company_id).collection('team').stream()
+            for t_doc in team_docs:
+                emp_id = t_doc.id
+                # Eliminar del Auth
+                try:
+                    auth.delete_user(emp_id)
+                    print(f"🗑️ Colaborador {emp_id} eliminado de Firebase Auth")
+                except Exception as e:
+                    print(f"⚠️ Error al eliminar colaborador {emp_id} de Auth: {e}")
+                
+                # Eliminar de Firestore recursivamente
+                try:
+                    emp_ref = db.collection('users').document(emp_id)
+                    delete_doc_recursive(emp_ref)
+                    print(f"🗑️ Datos de colaborador {emp_id} eliminados recursivamente")
+                except Exception as e:
+                    print(f"⚠️ Error al eliminar datos de colaborador {emp_id}: {e}")
+        except Exception as e:
+            print(f"⚠️ Error al obtener team de la empresa {company_id}: {e}")
+
+        # 2. Eliminar la empresa (owner) de Firebase Auth
+        try:
+            auth.delete_user(company_id)
+            print(f"🗑️ Empresa/Owner {company_id} eliminado de Firebase Auth")
+        except Exception as e:
+            print(f"⚠️ Error al eliminar owner {company_id} de Auth: {e}")
+
+        # 3. Eliminar la empresa (owner) de Firestore recursivamente
+        try:
+            owner_ref = db.collection('users').document(company_id)
+            delete_doc_recursive(owner_ref)
+            print(f"🗑️ Datos de empresa {company_id} eliminados recursivamente")
+            return True, "Empresa y todo su contenido eliminados exitosamente."
+        except Exception as e:
+            print(f"❌ Error al eliminar datos de empresa {company_id}: {e}")
+            return False, f"Error al eliminar la empresa de Firestore: {str(e)}"
+
