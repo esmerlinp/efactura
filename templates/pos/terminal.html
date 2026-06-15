@@ -76,6 +76,10 @@
                 <span style="font-size: 0.85rem; font-weight: 700;">TOTAL GENERAL:</span>
                 <span id="total-val" style="font-size: 1.4rem; font-weight: 800; color: var(--accent-emerald); font-family: monospace;">RD$ 0.00</span>
             </div>
+            <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 4px;">
+                <span style="font-size: 0.78rem; color: var(--text-secondary); font-weight: 600;">Equivalente USD (BPD):</span>
+                <span id="total-val-usd" style="font-size: 1rem; font-weight: 750; color: #8b5cf6; font-family: monospace;">$ 0.00</span>
+            </div>
         </div>
 
         <!-- Acciones Rápidas del Footer Izquierdo -->
@@ -83,7 +87,7 @@
             <button onclick="clearCartWithConfirm()" class="btn btn-secondary" style="height: 38px; font-weight: 600; border-color: rgba(239,68,68,0.4); color: var(--accent-red); background: rgba(239,68,68,0.05);">
                 <i class="fa-solid fa-ban"></i> Cancelar Venta
             </button>
-            <a href="/pos/dashboard" class="btn btn-secondary" style="height: 38px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; font-weight: 600;">
+            <a href="/pos" class="btn btn-secondary" style="height: 38px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; font-weight: 600;">
                 <i class="fa-solid fa-chart-line"></i> Dashboard POS
             </a>
         </div>
@@ -200,6 +204,9 @@
                     </div>
                     <button onclick="processDirectCheckout('Transferencia')" class="btn btn-secondary" style="height: 36px; font-weight: 600; width: 100%;">
                         <i class="fa-solid fa-building-columns"></i> Transferencia Bancaria
+                    </button>
+                    <button onclick="processDirectCheckout('Efectivo USD')" class="btn btn-secondary" style="height: 36px; font-weight: 600; width: 100%; border-color: rgba(139, 92, 246, 0.4); color: #8b5cf6; background: rgba(139, 92, 246, 0.05); margin-top: 4px;">
+                        <i class="fa-solid fa-dollar-sign"></i> Cobrar en USD (Dólares)
                     </button>
                 </div>
 
@@ -364,6 +371,46 @@
     </div>
 </div>
 
+<!-- MODAL: AUTORIZACIÓN DE SUPERVISOR (SELECCIONAR USUARIO Y DIGITAR PIN) -->
+<div id="supervisor-auth-modal" class="search-modal" style="display: none; justify-content: center; align-items: center; z-index: 1100;">
+    <div class="modal-backdrop" onclick="closeSupervisorAuthModal()"></div>
+    <div class="modal-content animate-fade-in" style="max-width: 400px; padding: 0; border-radius: var(--radius-md); background-color: var(--card-bg, #fff); color: var(--text-primary, #000);">
+        <div class="modal-header" style="border-bottom: 1px solid var(--border-color); padding: 20px 24px; display: flex; justify-content: space-between; align-items: center;">
+            <h3 style="margin: 0; font-size: 1.1rem; font-family: var(--font-heading); display: flex; align-items: center; gap: 10px;">
+                <i class="fa-solid fa-shield-halved" style="color: #eab308;"></i>
+                <span id="supervisor-auth-title">Autorización Requerida</span>
+            </h3>
+            <button class="btn-close-modal" onclick="closeSupervisorAuthModal()" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 1.2rem;">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="modal-body" style="padding: 24px; display: flex; flex-direction: column; gap: 16px;">
+            <p id="supervisor-auth-desc" style="margin: 0; font-size: 0.9rem; color: var(--text-secondary);"></p>
+            
+            <div class="form-group" style="display: flex; flex-direction: column; gap: 6px;">
+                <label for="supervisor-select" style="font-weight: 600; font-size: 0.85rem;">Seleccione Supervisor</label>
+                <select id="supervisor-select" class="form-input" style="width: 100%; height: 40px; font-size: 0.95rem; padding: 8px 12px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background-color: var(--bg-primary);">
+                    {% for supervisor in supervisors %}
+                    <option value="{{ supervisor.uid }}">{{ supervisor.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group" style="display: flex; flex-direction: column; gap: 6px;">
+                <label for="supervisor-pin-input" style="font-weight: 600; font-size: 0.85rem;">PIN de Supervisor</label>
+                <input type="password" id="supervisor-pin-input" class="form-input" placeholder="••••" maxlength="8"
+                    style="font-size: 1.5rem; height: 46px; text-align: center; font-weight: 700; width: 100%; letter-spacing: 6px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background-color: var(--bg-primary);">
+            </div>
+        </div>
+        <div class="modal-footer" style="border-top: 1px solid var(--border-color); padding: 16px 24px; display: flex; justify-content: flex-end; gap: 12px; background: rgba(0, 0, 0, 0.02);">
+            <button class="btn btn-secondary" onclick="closeSupervisorAuthModal()">Cancelar</button>
+            <button class="btn btn-primary" onclick="submitSupervisorAuth()" id="btn-submit-supervisor-auth" style="background-color: #eab308; border-color: #eab308; color: #000; font-weight: 600;">
+                <i class="fa-solid fa-check"></i> Autorizar
+            </button>
+        </div>
+    </div>
+</div>
+
 <script>
     const productCatalog = [
         {% for item in items %}
@@ -387,6 +434,7 @@
     let currentClientRNC = '999999999';
     let currentEcfType = 'Factura de Consumo (E32)';
     let successInvoiceId = null;
+    let usdExchangeRate = 58.50;
 
     function saveCart() {
         localStorage.setItem('pos_cart', JSON.stringify(cart));
@@ -395,6 +443,18 @@
     // Inicialización
     document.addEventListener('DOMContentLoaded', () => {
         filterCatalog('all');
+
+        // Obtener tasa USD
+        fetch('/pos/usd-rate')
+            .then(r => r.json())
+            .then(data => {
+                if (data.success && data.rate) {
+                    usdExchangeRate = parseFloat(data.rate);
+                    console.log("USD Rate loaded (BPD):", usdExchangeRate);
+                    renderCart();
+                }
+            })
+            .catch(err => console.error("Error al cargar tasa USD:", err));
 
         // Cargar carrito desde caché (localStorage)
         const savedCart = localStorage.getItem('pos_cart');
@@ -571,13 +631,72 @@
         saveCart();
     }
 
+    let supervisorApprovalCallback = null;
+    let currentApprovalAction = "";
+
     function requestSupervisorApproval(actionName, onApproved) {
-        const pin = prompt(`Autorización Requerida: ${actionName}\nIngrese PIN de Supervisor (Demo: 1234):`);
-        if (pin === "1234") {
-            onApproved();
-        } else {
-            alert("Código de autorización PIN incorrecto. Operación cancelada.");
+        supervisorApprovalCallback = onApproved;
+        currentApprovalAction = actionName;
+        
+        document.getElementById('supervisor-auth-desc').innerText = `Esta operación requiere autorización de un supervisor: ${actionName}`;
+        document.getElementById('supervisor-pin-input').value = "";
+        document.getElementById('supervisor-auth-modal').style.display = 'flex';
+        document.getElementById('supervisor-pin-input').focus();
+    }
+
+    function closeSupervisorAuthModal() {
+        document.getElementById('supervisor-auth-modal').style.display = 'none';
+        supervisorApprovalCallback = null;
+        currentApprovalAction = "";
+    }
+
+    function submitSupervisorAuth() {
+        const select = document.getElementById('supervisor-select');
+        const supervisorUid = select.value;
+        const pin = document.getElementById('supervisor-pin-input').value.trim();
+        
+        if (!supervisorUid) {
+            alert("Por favor, seleccione un supervisor.");
+            return;
         }
+        if (!pin) {
+            alert("Por favor, ingrese el PIN de supervisor.");
+            return;
+        }
+        
+        const btn = document.getElementById('btn-submit-supervisor-auth');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Validando...';
+
+        fetch('/pos/supervisor/authorize', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                pin: pin, 
+                action: currentApprovalAction,
+                supervisorUid: supervisorUid
+            })
+        })
+        .then(r => r.json())
+        .then(data => {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-check"></i> Autorizar';
+            if (data.success) {
+                const callback = supervisorApprovalCallback;
+                closeSupervisorAuthModal();
+                if (callback) {
+                    callback();
+                }
+            } else {
+                alert(data.error || "PIN de supervisor incorrecto.");
+            }
+        })
+        .catch(err => {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-check"></i> Autorizar';
+            console.error(err);
+            alert("Error de conexión al validar PIN del supervisor.");
+        });
     }
 
     function updateQty(productId, delta) {
@@ -609,12 +728,37 @@
     }
 
     function clearCartWithConfirm() {
-        if (cart.length === 0) return;
-        if (confirm("¿Está seguro que desea cancelar la venta actual?")) {
+        const hasCartItems = cart.length > 0;
+        const hasCustomClient = currentClientId !== 'default';
+        const receivedInput = document.getElementById('received-amount');
+        const hasReceivedAmount = receivedInput && receivedInput.value.trim().length > 0;
+
+        if (!hasCartItems && !hasCustomClient && !hasReceivedAmount) {
+            return;
+        }
+
+        if (hasCartItems) {
+            requestSupervisorApproval("Cancelar venta con artículos", () => {
+                cart = [];
+                saveCart();
+                renderCart();
+                clearPOSClient();
+                if (receivedInput) {
+                    receivedInput.value = '';
+                }
+                calculateChange();
+                focusBarcode();
+            });
+        } else {
             cart = [];
             saveCart();
             renderCart();
             clearPOSClient();
+            if (receivedInput) {
+                receivedInput.value = '';
+            }
+            calculateChange();
+            focusBarcode();
         }
     }
 
@@ -678,6 +822,9 @@
         document.getElementById('subtotal-val').textContent = `RD$ ${sub.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
         document.getElementById('itbis-val').textContent = `RD$ ${itbis.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
         document.getElementById('total-val').textContent = `RD$ ${total.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+        
+        const totalUsd = total / usdExchangeRate;
+        document.getElementById('total-val-usd').textContent = `$ ${totalUsd.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
         
         // Sincronizar teclado y cambio
         calculateChange();
@@ -965,8 +1112,21 @@
 
         const total = getCartTotalAmount();
         const received = parseFloat(document.getElementById('received-amount').value) || 0;
+        let usdAmount = 0;
+        let usdRate = 1;
 
-        if (method === 'Efectivo' && received < total) {
+        if (method === 'Efectivo USD') {
+            const usdTotal = total / usdExchangeRate;
+            const receivedUsd = parseFloat(prompt(`Total en USD: $ ${usdTotal.toFixed(2)} (Tasa BPD: ${usdExchangeRate})\nIngrese dólares recibidos (USD):`)) || 0;
+            if (receivedUsd < usdTotal) {
+                alert(`Monto recibido ($ ${receivedUsd.toFixed(2)}) es menor al total ($ ${usdTotal.toFixed(2)}). Pago incompleto.`);
+                return;
+            }
+            const changeDop = (receivedUsd * usdExchangeRate) - total;
+            alert(`Pago recibido en dólares. Entregar devuelta en pesos: RD$ ${changeDop.toFixed(2)}`);
+            usdAmount = receivedUsd;
+            usdRate = usdExchangeRate;
+        } else if (method === 'Efectivo' && received < total) {
             if (confirm(`El monto recibido (RD$ ${received.toFixed(2)}) es menor al total (RD$ ${total.toFixed(2)}). ¿Desea registrar el pago como monto exacto?`)) {
                 quickCash('exact');
             } else {
@@ -981,6 +1141,8 @@
             clientRNC: currentClientRNC,
             paymentMethod: method,
             ecfType: currentEcfType,
+            usdAmount: usdAmount,
+            usdExchangeRate: usdRate,
             items: cart.map(item => ({
                 id: item.id,
                 name: item.name,

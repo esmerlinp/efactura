@@ -72,6 +72,10 @@
                             data-can-commissions="{{ 'true' if member.permissions.canManageCommissions else 'false' }}"
                             data-can-bi="{{ 'true' if member.permissions.canViewBI else 'false' }}"
                             data-can-audit="{{ 'true' if member.permissions.canViewAuditLog else 'false' }}"
+                            data-is-supervisor="{{ 'true' if member.permissions.isPosSupervisor else 'false' }}"
+                            data-can-subscription="{{ 'true' if member.permissions.canViewSubscription else 'false' }}"
+                            data-can-sandbox="{{ 'true' if member.permissions.canToggleSandbox else 'false' }}"
+                            data-can-notes="{{ 'true' if member.permissions.canManageNotes else 'false' }}"
                             title="Editar Permisos Granulares">
                             <i class="fa-solid fa-user-gear"></i>
                             <span>Permisos</span>
@@ -215,6 +219,30 @@
                                 style="width: 16px; height: 16px; accent-color: var(--accent-emerald);">
                             <span>Ver Registro de Auditoría (Trazabilidad y Bitácora)</span>
                         </label>
+                        <label
+                            style="display: flex; align-items: center; gap: 10px; font-size: 0.85rem; cursor: pointer; color: var(--accent-purple); font-weight: 600;">
+                            <input type="checkbox" name="isPosSupervisor"
+                                style="width: 16px; height: 16px; accent-color: var(--accent-purple);">
+                            <span><i class="fa-solid fa-user-shield"></i> Supervisor de Caja (para autorizar operaciones en POS)</span>
+                        </label>
+                        <label
+                            style="display: flex; align-items: center; gap: 10px; font-size: 0.85rem; cursor: pointer;">
+                            <input type="checkbox" name="canViewSubscription" checked
+                                style="width: 16px; height: 16px; accent-color: var(--accent-emerald);">
+                            <span>Acceso a la sección de Plan y Consumo</span>
+                        </label>
+                        <label
+                            style="display: flex; align-items: center; gap: 10px; font-size: 0.85rem; cursor: pointer;">
+                            <input type="checkbox" name="canToggleSandbox" checked
+                                style="width: 16px; height: 16px; accent-color: var(--accent-emerald);">
+                            <span>Acceso para alternar Modo Sandbox</span>
+                        </label>
+                        <label
+                            style="display: flex; align-items: center; gap: 10px; font-size: 0.85rem; cursor: pointer;">
+                            <input type="checkbox" name="canManageNotes" checked
+                                style="width: 16px; height: 16px; accent-color: var(--accent-emerald);">
+                            <span>Acceso al Gestor de Notas</span>
+                        </label>
                     </div>
                 </div>
 
@@ -331,6 +359,30 @@
                                 style="width: 16px; height: 16px; accent-color: var(--accent-emerald);">
                             <span>Ver Registro de Auditoría (Trazabilidad y Bitácora)</span>
                         </label>
+                        <label
+                            style="display: flex; align-items: center; gap: 10px; font-size: 0.85rem; cursor: pointer; color: var(--accent-purple); font-weight: 600;">
+                            <input type="checkbox" id="perms-is-supervisor" name="isPosSupervisor"
+                                style="width: 16px; height: 16px; accent-color: var(--accent-purple);">
+                            <span><i class="fa-solid fa-user-shield"></i> Supervisor de Caja (para autorizar operaciones en POS)</span>
+                        </label>
+                        <label
+                            style="display: flex; align-items: center; gap: 10px; font-size: 0.85rem; cursor: pointer;">
+                            <input type="checkbox" id="perms-can-subscription" name="canViewSubscription"
+                                style="width: 16px; height: 16px; accent-color: var(--accent-emerald);">
+                            <span>Acceso a la sección de Plan y Consumo</span>
+                        </label>
+                        <label
+                            style="display: flex; align-items: center; gap: 10px; font-size: 0.85rem; cursor: pointer;">
+                            <input type="checkbox" id="perms-can-sandbox" name="canToggleSandbox"
+                                style="width: 16px; height: 16px; accent-color: var(--accent-emerald);">
+                            <span>Acceso para alternar Modo Sandbox</span>
+                        </label>
+                        <label
+                            style="display: flex; align-items: center; gap: 10px; font-size: 0.85rem; cursor: pointer;">
+                            <input type="checkbox" id="perms-can-notes" name="canManageNotes"
+                                style="width: 16px; height: 16px; accent-color: var(--accent-emerald);">
+                            <span>Acceso al Gestor de Notas</span>
+                        </label>
                     </div>
                 </div>
 
@@ -388,6 +440,10 @@
                 const canCommissions = this.getAttribute('data-can-commissions') === 'true';
                 const canBI = this.getAttribute('data-can-bi') === 'true';
                 const canAudit = this.getAttribute('data-can-audit') === 'true';
+                const isSupervisor = this.getAttribute('data-is-supervisor') === 'true';
+                const canSubscription = this.getAttribute('data-can-subscription') === 'true';
+                const canSandbox = this.getAttribute('data-can-sandbox') === 'true';
+                const canNotes = this.getAttribute('data-can-notes') === 'true';
 
                 document.getElementById('perms-member-name').textContent = name;
                 document.getElementById('perms-member-email').textContent = email;
@@ -405,6 +461,10 @@
                 document.getElementById('perms-can-commissions').checked = canCommissions;
                 document.getElementById('perms-can-bi').checked = canBI;
                 document.getElementById('perms-can-audit').checked = canAudit;
+                document.getElementById('perms-is-supervisor').checked = isSupervisor;
+                document.getElementById('perms-can-subscription').checked = canSubscription;
+                document.getElementById('perms-can-sandbox').checked = canSandbox;
+                document.getElementById('perms-can-notes').checked = canNotes;
 
                 editPermsForm.setAttribute('action', '/settings/team/' + uid + '/permissions');
 

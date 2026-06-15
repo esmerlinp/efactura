@@ -1,0 +1,685 @@
+{% extends "layout.html" %}
+
+{% block title %}Reportes y Auditoría de Caja{% endblock %}
+
+{% block page_header %}Reportes y Auditoría de Caja{% endblock %}
+
+{% block content %}
+<div style="display: flex; flex-direction: column; gap: 24px; width: 100%;">
+
+    <!-- Botón de regreso -->
+    <div style="display: flex; justify-content: flex-start; margin-bottom: -10px;">
+        <a href="{{ url_for('web_pos.pos_dashboard') }}" class="btn btn-secondary"
+            style="height: 38px; display: inline-flex; align-items: center; gap: 8px; font-weight: 500; font-size: 0.85rem; border-color: var(--border-color);">
+            <i class="fa-solid fa-arrow-left"></i>
+            <span>Volver a Caja / POS</span>
+        </a>
+    </div>
+
+    <!-- Tabs de Navegación de Administración -->
+    <div style="display: flex; gap: 15px; border-bottom: 1px solid var(--border-color); margin-bottom: 5px; padding-bottom: 2px;">
+        <a href="{{ url_for('web_pos.pos_admin_dashboard') }}" class="tab-link" 
+           style="padding: 10px 20px; font-weight: 500; color: var(--text-secondary); text-decoration: none; font-size: 0.95rem; display: flex; align-items: center; gap: 8px; transition: color var(--transition-fast);"
+           onmouseover="this.style.color='var(--text-primary)'" onmouseout="this.style.color='var(--text-secondary)'">
+            <i class="fa-solid fa-cash-register"></i> Control de Cajas
+        </a>
+        <a href="{{ url_for('web_pos.pos_admin_reports_dashboard') }}" class="tab-link active" 
+           style="padding: 10px 20px; font-weight: 700; color: var(--accent-purple); text-decoration: none; border-bottom: 3px solid var(--accent-purple); font-size: 0.95rem; display: flex; align-items: center; gap: 8px;">
+            <i class="fa-solid fa-chart-line"></i> Reportes y Auditoría de Caja
+        </a>
+    </div>
+
+    <!-- PANEL DE FILTROS -->
+    <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 20px; box-shadow: var(--shadow-sm);">
+        <h4 style="margin: 0 0 15px 0; font-size: 1rem; font-family: var(--font-heading); font-weight: 700; display: flex; align-items: center; gap: 8px;">
+            <i class="fa-solid fa-filter" style="color: var(--accent-purple);"></i>
+            <span>Filtros de Auditoría y Consolidación</span>
+        </h4>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)) 150px; gap: 15px; align-items: flex-end;">
+            <div class="form-group" style="margin-bottom: 0;">
+                <label for="filter-start-date" style="font-weight: 600; font-size: 0.8rem; margin-bottom: 6px;">Fecha Inicio</label>
+                <input type="date" id="filter-start-date" class="form-input" style="width: 100%; height: 38px;">
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+                <label for="filter-end-date" style="font-weight: 600; font-size: 0.8rem; margin-bottom: 6px;">Fecha Fin</label>
+                <input type="date" id="filter-end-date" class="form-input" style="width: 100%; height: 38px;">
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+                <label for="filter-register" style="font-weight: 600; font-size: 0.8rem; margin-bottom: 6px;">Caja Registradora</label>
+                <select id="filter-register" class="form-select" style="width: 100%; height: 38px;">
+                    <option value="">Todas las cajas</option>
+                    {% for reg in registers %}
+                    <option value="{{ reg.id }}">{{ reg.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+                <label for="filter-cashier" style="font-weight: 600; font-size: 0.8rem; margin-bottom: 6px;">Cajero / Operador</label>
+                <select id="filter-cashier" class="form-select" style="width: 100%; height: 38px;">
+                    <option value="">Todos los cajeros</option>
+                    {% for c in cashiers %}
+                    <option value="{{ c }}">{{ c }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button onclick="fetchReportData()" class="btn btn-primary" style="height: 38px; width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                <i class="fa-solid fa-magnifying-glass"></i> Consultar
+            </button>
+        </div>
+    </div>
+
+    <!-- TARJETAS DE MÉTRICAS KPI -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px;">
+        <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 18px; position: relative; overflow: hidden; box-shadow: var(--shadow-sm);">
+            <span style="font-size: 0.72rem; color: var(--text-secondary); text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px;">Efectivo Esperado</span>
+            <div id="kpi-expected" style="font-size: 1.4rem; font-weight: 800; color: var(--text-primary); margin-top: 6px; font-family: monospace;">RD$ 0.00</div>
+            <i class="fa-solid fa-calculator" style="position: absolute; right: 15px; bottom: 15px; font-size: 2.2rem; opacity: 0.04; color: var(--text-primary);"></i>
+        </div>
+        <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 18px; position: relative; overflow: hidden; box-shadow: var(--shadow-sm);">
+            <span style="font-size: 0.72rem; color: var(--text-secondary); text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px;">Efectivo Contado/Declarado</span>
+            <div id="kpi-declared" style="font-size: 1.4rem; font-weight: 800; color: var(--text-primary); margin-top: 6px; font-family: monospace;">RD$ 0.00</div>
+            <i class="fa-solid fa-coins" style="position: absolute; right: 15px; bottom: 15px; font-size: 2.2rem; opacity: 0.04; color: var(--text-primary);"></i>
+        </div>
+        <div id="kpi-diff-card" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 18px; position: relative; overflow: hidden; box-shadow: var(--shadow-sm);">
+            <span style="font-size: 0.72rem; color: var(--text-secondary); text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px;">Diferencia Neta Acumulada</span>
+            <div id="kpi-difference" style="font-size: 1.4rem; font-weight: 800; color: var(--text-primary); margin-top: 6px; font-family: monospace;">RD$ 0.00</div>
+            <i class="fa-solid fa-scale-unbalanced" style="position: absolute; right: 15px; bottom: 15px; font-size: 2.2rem; opacity: 0.04; color: var(--text-primary);"></i>
+        </div>
+        <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 18px; position: relative; overflow: hidden; box-shadow: var(--shadow-sm);">
+            <span style="font-size: 0.72rem; color: var(--text-secondary); text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px;">Turnos Auditados / Consolidados</span>
+            <div id="kpi-shifts" style="font-size: 1.4rem; font-weight: 800; color: var(--text-primary); margin-top: 6px;">0 Turnos</div>
+            <i class="fa-solid fa-clock-history" style="position: absolute; right: 15px; bottom: 15px; font-size: 2.2rem; opacity: 0.04; color: var(--text-primary);"></i>
+        </div>
+    </div>
+
+    <!-- SECCIÓN DE GRÁFICOS Y ANÁLISIS DE PAGOS -->
+    <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 24px; min-height: 320px; align-items: stretch;">
+        
+        <!-- Métodos de pago gráfico -->
+        <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 20px; box-shadow: var(--shadow-sm); display: flex; flex-direction: column;">
+            <h4 style="margin: 0 0 15px 0; font-size: 0.95rem; font-family: var(--font-heading); font-weight: 700;">
+                <i class="fa-solid fa-pie-chart" style="color: var(--accent-emerald);"></i> Distribución por Forma de Pago
+            </h4>
+            <div style="flex-grow: 1; position: relative; display: flex; align-items: center; justify-content: center; height: 220px;">
+                <canvas id="paymentMethodsChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Resumen de canales montos -->
+        <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 20px; box-shadow: var(--shadow-sm); display: flex; flex-direction: column;">
+            <h4 style="margin: 0 0 15px 0; font-size: 0.95rem; font-family: var(--font-heading); font-weight: 700;">
+                <i class="fa-solid fa-receipt" style="color: var(--accent-purple);"></i> Resumen de Facturación POS por Canal
+            </h4>
+            <div class="table-responsive" style="flex-grow: 1;">
+                <table class="table-premium" style="font-size: 0.85rem; width: 100%;">
+                    <thead>
+                        <tr>
+                            <th>Método de Pago / Canal</th>
+                            <th style="text-align: right;">Total Recaudado (Equivalente DOP)</th>
+                            <th style="text-align: right;">Porcentaje</th>
+                        </tr>
+                    </thead>
+                    <tbody id="channels-table-body">
+                        <!-- Carga dinámica -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- SECCIÓN DE REPORTES TABULARES CON TABS INTERNAS -->
+    <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 20px; box-shadow: var(--shadow-sm);">
+        
+        <!-- Pestañas internas -->
+        <div style="display: flex; gap: 10px; border-bottom: 1px solid var(--border-color); margin-bottom: 20px; overflow-x: auto; padding-bottom: 6px;">
+            <button onclick="switchReportTab('tab-shifts', this)" class="report-tab-btn active-btn" style="padding: 8px 16px; border: none; border-radius: 4px; font-weight: 700; font-size: 0.82rem; cursor: pointer; display: flex; align-items: center; gap: 6px; background-color: var(--accent-purple); color: white;">
+                <i class="fa-solid fa-history"></i> Aperturas y Cierres
+            </button>
+            <button onclick="switchReportTab('tab-discrepancies', this)" class="report-tab-btn" style="padding: 8px 16px; border: none; border-radius: 4px; font-weight: 500; font-size: 0.82rem; cursor: pointer; display: flex; align-items: center; gap: 6px; background-color: rgba(255,255,255,0.02); border: 1px solid var(--border-color); color: var(--text-secondary);">
+                <i class="fa-solid fa-scale-unbalanced"></i> Control de Diferencias
+            </button>
+            <button onclick="switchReportTab('tab-movements', this)" class="report-tab-btn" style="padding: 8px 16px; border: none; border-radius: 4px; font-weight: 500; font-size: 0.82rem; cursor: pointer; display: flex; align-items: center; gap: 6px; background-color: rgba(255,255,255,0.02); border: 1px solid var(--border-color); color: var(--text-secondary);">
+                <i class="fa-solid fa-exchange-alt"></i> Entradas / Salidas
+            </button>
+            <button onclick="switchReportTab('tab-voids', this)" class="report-tab-btn" style="padding: 8px 16px; border: none; border-radius: 4px; font-weight: 500; font-size: 0.82rem; cursor: pointer; display: flex; align-items: center; gap: 6px; background-color: rgba(255,255,255,0.02); border: 1px solid var(--border-color); color: var(--text-secondary);">
+                <i class="fa-solid fa-ban"></i> Anulaciones / Fraude
+            </button>
+            <button onclick="switchReportTab('tab-lotes', this)" class="report-tab-btn" style="padding: 8px 16px; border: none; border-radius: 4px; font-weight: 500; font-size: 0.82rem; cursor: pointer; display: flex; align-items: center; gap: 6px; background-color: rgba(255,255,255,0.02); border: 1px solid var(--border-color); color: var(--text-secondary);">
+                <i class="fa-solid fa-credit-card"></i> Lotes Tarjetas (AZUL/CardNet)
+            </button>
+        </div>
+
+        <!-- CONTENIDO DE LAS TABS -->
+        
+        <!-- Tab 1: Aperturas y Cierres -->
+        <div id="tab-shifts" class="report-tab-content">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <h4 style="margin: 0; font-size: 0.9rem; font-weight: 700;">Bitácora de Sesiones de Caja</h4>
+                <button onclick="exportTableToCSV('table-shifts-data', 'aperturas_cierres.csv')" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.78rem; display: inline-flex; align-items: center; gap: 6px;">
+                    <i class="fa-solid fa-file-csv"></i> Exportar CSV
+                </button>
+            </div>
+            <div class="table-responsive">
+                <table id="table-shifts-data" class="table-premium" style="font-size: 0.82rem; width: 100%;">
+                    <thead>
+                        <tr>
+                            <th>Caja</th>
+                            <th>Cajero</th>
+                            <th>Apertura</th>
+                            <th>Cierre</th>
+                            <th style="text-align: right;">Fondo Inicial</th>
+                            <th style="text-align: right;">Esperado</th>
+                            <th style="text-align: right;">Contado</th>
+                            <th style="text-align: right;">Diferencia</th>
+                            <th>Estado</th>
+                            <th>Resolución</th>
+                        </tr>
+                    </thead>
+                    <tbody id="shifts-tbody">
+                        <!-- Dinámico -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Tab 2: Control de Diferencias -->
+        <div id="tab-discrepancies" class="report-tab-content" style="display: none;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <h4 style="margin: 0; font-size: 0.9rem; font-weight: 700;">Detalle de Incidencias / Desviaciones de Caja</h4>
+                <button onclick="exportTableToCSV('table-discrepancies-data', 'diferencias_caja.csv')" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.78rem; display: inline-flex; align-items: center; gap: 6px;">
+                    <i class="fa-solid fa-file-csv"></i> Exportar CSV
+                </button>
+            </div>
+            <div class="table-responsive">
+                <table id="table-discrepancies-data" class="table-premium" style="font-size: 0.82rem; width: 100%;">
+                    <thead>
+                        <tr>
+                            <th>Caja</th>
+                            <th>Cajero</th>
+                            <th>Fecha Cierre</th>
+                            <th style="text-align: right;">Diferencia Total</th>
+                            <th style="text-align: right;">Gaveta (DOP)</th>
+                            <th style="text-align: right;">Efectivo USD</th>
+                            <th style="text-align: right;">Tarjeta (DOP)</th>
+                            <th>Auditor</th>
+                            <th>Resolución Administrativa</th>
+                        </tr>
+                    </thead>
+                    <tbody id="discrepancies-tbody">
+                        <!-- Dinámico -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Tab 3: Entradas / Salidas -->
+        <div id="tab-movements" class="report-tab-content" style="display: none;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <h4 style="margin: 0; font-size: 0.9rem; font-weight: 700;">Detalle de Movimientos de Efectivo (Gocitos, Inyecciones, Egresos)</h4>
+                <button onclick="exportTableToCSV('table-movements-data', 'entradas_salidas.csv')" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.78rem; display: inline-flex; align-items: center; gap: 6px;">
+                    <i class="fa-solid fa-file-csv"></i> Exportar CSV
+                </button>
+            </div>
+            <div class="table-responsive">
+                <table id="table-movements-data" class="table-premium" style="font-size: 0.82rem; width: 100%;">
+                    <thead>
+                        <tr>
+                            <th>Fecha/Hora</th>
+                            <th>Caja</th>
+                            <th>Cajero</th>
+                            <th>Tipo</th>
+                            <th>Método/Moneda</th>
+                            <th style="text-align: right;">Monto</th>
+                            <th>Concepto / Motivo</th>
+                        </tr>
+                    </thead>
+                    <tbody id="movements-tbody">
+                        <!-- Dinámico -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Tab 4: Anulaciones / Cancelaciones -->
+        <div id="tab-voids" class="report-tab-content" style="display: none;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <h4 style="margin: 0; font-size: 0.9rem; font-weight: 700;">Historial de Transacciones Anuladas (Control de Fraude)</h4>
+                <button onclick="exportTableToCSV('table-voids-data', 'anulaciones_facturas.csv')" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.78rem; display: inline-flex; align-items: center; gap: 6px;">
+                    <i class="fa-solid fa-file-csv"></i> Exportar CSV
+                </button>
+            </div>
+            <div class="table-responsive">
+                <table id="table-voids-data" class="table-premium" style="font-size: 0.82rem; width: 100%;">
+                    <thead>
+                        <tr>
+                            <th>Fecha/Hora</th>
+                            <th>Caja</th>
+                            <th>Cajero</th>
+                            <th>Tipo de Transacción</th>
+                            <th>Moneda/Pago</th>
+                            <th style="text-align: right;">Monto Afectado</th>
+                            <th>Justificación de Anulación</th>
+                        </tr>
+                    </thead>
+                    <tbody id="voids-tbody">
+                        <!-- Dinámico -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Tab 5: Lotes Tarjetas -->
+        <div id="tab-lotes" class="report-tab-content" style="display: none;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <h4 style="margin: 0; font-size: 0.9rem; font-weight: 700;">Conciliación de Vouchers Financieros por Lote Verifone</h4>
+                <button onclick="exportTableToCSV('table-lotes-data', 'conciliacion_lotes.csv')" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.78rem; display: inline-flex; align-items: center; gap: 6px;">
+                    <i class="fa-solid fa-file-csv"></i> Exportar CSV
+                </button>
+            </div>
+            <div class="table-responsive">
+                <table id="table-lotes-data" class="table-premium" style="font-size: 0.82rem; width: 100%;">
+                    <thead>
+                        <tr>
+                            <th>Caja</th>
+                            <th>Cajero</th>
+                            <th>Fecha Cierre</th>
+                            <th>Lote de Verifone</th>
+                            <th style="text-align: right;">Lote Esperado</th>
+                            <th style="text-align: right;">Lote Declarado</th>
+                            <th style="text-align: right;">Diferencia</th>
+                            <th>Estado Turno</th>
+                        </tr>
+                    </thead>
+                    <tbody id="lotes-tbody">
+                        <!-- Dinámico -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+</div>
+
+<!-- Carga de Chart.js desde CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+    let myChart = null;
+
+    document.addEventListener("DOMContentLoaded", function() {
+        // Set dates default range (30 days ago to today)
+        const endInput = document.getElementById("filter-end-date");
+        const startInput = document.getElementById("filter-start-date");
+        
+        const today = new Date();
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(today.getDate() - 30);
+        
+        endInput.value = today.toISOString().split('T')[0];
+        startInput.value = thirtyDaysAgo.toISOString().split('T')[0];
+        
+        // Fetch initially
+        fetchReportData();
+    });
+
+    function switchReportTab(tabId, btnEl) {
+        // Hide all tab contents
+        document.querySelectorAll(".report-tab-content").forEach(el => {
+            el.style.display = "none";
+        });
+        
+        // Remove active-btn classes
+        document.querySelectorAll(".report-tab-btn").forEach(el => {
+            el.className = "report-tab-btn";
+            el.style.backgroundColor = "rgba(255,255,255,0.02)";
+            el.style.color = "var(--text-secondary)";
+            el.style.fontWeight = "500";
+        });
+        
+        // Show target content
+        document.getElementById(tabId).style.display = "block";
+        
+        // Mark button active
+        btnEl.className = "report-tab-btn active-btn";
+        btnEl.style.backgroundColor = "var(--accent-purple)";
+        btnEl.style.color = "white";
+        btnEl.style.fontWeight = "700";
+    }
+
+    async function fetchReportData() {
+        const startDate = document.getElementById("filter-start-date").value;
+        const endDate = document.getElementById("filter-end-date").value;
+        const registerId = document.getElementById("filter-register").value;
+        const cashier = document.getElementById("filter-cashier").value;
+        
+        let url = `/pos/admin/reports/data?startDate=${startDate}&endDate=${endDate}`;
+        if (registerId) url += `&registerId=${registerId}`;
+        if (cashier) url += `&cashier=${cashier}`;
+        
+        try {
+            const res = await fetch(url);
+            const data = await res.json();
+            if (data.success) {
+                renderDashboard(data);
+            } else {
+                alert("Error al cargar datos del reporte: " + data.error);
+            }
+        } catch (e) {
+            console.error(e);
+            alert("Error de red al consultar los reportes.");
+        }
+    }
+
+    function renderDashboard(data) {
+        // 1. KPI Cards
+        document.getElementById("kpi-expected").textContent = "RD$ " + formatMoney(data.metrics.totalExpected);
+        document.getElementById("kpi-declared").textContent = "RD$ " + formatMoney(data.metrics.totalDeclared);
+        
+        const diffEl = document.getElementById("kpi-difference");
+        const diffCard = document.getElementById("kpi-diff-card");
+        const diffVal = data.metrics.totalDifference;
+        diffEl.textContent = (diffVal >= 0 ? "+" : "") + "RD$ " + formatMoney(diffVal);
+        
+        if (Math.abs(diffVal) < 0.01) {
+            diffEl.style.color = "var(--accent-emerald)";
+            diffCard.style.border = "1px solid var(--border-color)";
+        } else if (diffVal > 0) {
+            diffEl.style.color = "var(--accent-blue)";
+            diffCard.style.border = "1px solid rgba(59,130,246,0.3)";
+        } else {
+            diffEl.style.color = "var(--accent-red)";
+            diffCard.style.border = "1px solid rgba(239,68,68,0.3)";
+        }
+        
+        document.getElementById("kpi-shifts").textContent = data.metrics.shiftCount + " Turno" + (data.metrics.shiftCount !== 1 ? "s" : "");
+
+        // 2. Gráfico Distribución por Forma de Pago
+        renderChart(data.paymentsDistribution);
+
+        // 3. Tabla de Distribución por Canales
+        renderChannelsTable(data.paymentsDistribution);
+
+        // 4. Tablas Dinámicas
+        renderShiftsTable(data.shifts);
+        renderDiscrepanciesTable(data.discrepancies);
+        renderMovementsTable(data.cashMovements);
+        renderVoidsTable(data.voidedTransactions);
+        renderLotesTable(data.cardLotes);
+    }
+
+    function renderChart(distribution) {
+        const labels = Object.keys(distribution);
+        const values = Object.values(distribution).map(v => Math.max(0, v));
+        
+        const ctx = document.getElementById('paymentMethodsChart').getContext('2d');
+        
+        if (myChart) {
+            myChart.destroy();
+        }
+
+        const hasData = values.some(v => v > 0);
+        if (!hasData) {
+            // Draw empty state on canvas
+            ctx.clearRect(0, 0, 400, 400);
+            ctx.fillStyle = "var(--text-muted)";
+            ctx.font = "14px sans-serif";
+            ctx.textAlign = "center";
+            ctx.fillText("Sin transacciones registradas", 150, 110);
+            return;
+        }
+
+        myChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: values,
+                    backgroundColor: [
+                        '#10b981', // Efectivo DOP
+                        '#a78bfa', // Efectivo USD
+                        '#3b82f6', // Tarjetas
+                        '#ff9800'  // Transferencias
+                    ],
+                    borderWidth: 1,
+                    borderColor: 'rgba(255,255,255,0.05)'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            color: 'var(--text-secondary)',
+                            font: { size: 11 }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    function renderChannelsTable(distribution) {
+        const tbody = document.getElementById("channels-table-body");
+        tbody.innerHTML = "";
+        
+        const total = Object.values(distribution).reduce((a, b) => Math.max(0, a) + Math.max(0, b), 0);
+        
+        for (const [channel, value] of Object.entries(distribution)) {
+            const val = Math.max(0, value);
+            const pct = total > 0 ? ((val / total) * 100).toFixed(1) : "0.0";
+            
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+                <td style="font-weight: 600;">${channel}</td>
+                <td style="text-align: right; font-family: monospace; font-weight: 700;">RD$ ${formatMoney(val)}</td>
+                <td style="text-align: right; color: var(--text-secondary);">${pct}%</td>
+            `;
+            tbody.appendChild(tr);
+        }
+    }
+
+    function renderShiftsTable(shifts) {
+        const tbody = document.getElementById("shifts-tbody");
+        tbody.innerHTML = "";
+        
+        if (shifts.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="10" style="text-align: center; color: var(--text-muted); padding: 30px;">No hay registros de turnos de caja para los filtros seleccionados.</td></tr>`;
+            return;
+        }
+
+        shifts.forEach(s => {
+            const tr = document.createElement("tr");
+            
+            let statusBadge = "";
+            if (s.status === 'PENDING_AUDIT') {
+                statusBadge = `<span class="badge" style="background: #ff9800; color: white; font-size: 0.68rem; padding: 2px 6px;">Por Auditar</span>`;
+            } else if (s.status === 'CLOSED') {
+                statusBadge = `<span class="badge badge-draft" style="font-size: 0.68rem; padding: 2px 6px;">Auditada</span>`;
+            } else {
+                statusBadge = `<span class="badge badge-success" style="font-size: 0.68rem; padding: 2px 6px;">Abierta</span>`;
+            }
+
+            let diffColor = "var(--text-primary)";
+            const diff = s.difference || 0.0;
+            if (s.status !== 'OPEN') {
+                if (Math.abs(diff) < 0.01) diffColor = "var(--accent-emerald)";
+                else if (diff > 0) diffColor = "var(--accent-blue)";
+                else diffColor = "var(--accent-red)";
+            }
+
+            tr.innerHTML = `
+                <td style="font-weight: 700;">${s.registerName}</td>
+                <td>${s.openedByUserEmail}</td>
+                <td>${s.openingTime ? s.openingTime.substring(0,16).replace('T', ' ') : '-'}</td>
+                <td>${s.closingTime ? s.closingTime.substring(0,16).replace('T', ' ') : '-'}</td>
+                <td style="text-align: right; font-family: monospace;">RD$ ${formatMoney(s.openingAmount)}</td>
+                <td style="text-align: right; font-family: monospace;">${s.closingAmountExpected !== null ? "RD$ " + formatMoney(s.closingAmountExpected) : "-"}</td>
+                <td style="text-align: right; font-family: monospace;">${s.closingAmountDeclared !== null ? "RD$ " + formatMoney(s.closingAmountDeclared) : "-"}</td>
+                <td style="text-align: right; font-family: monospace; font-weight: 700; color: ${diffColor};">${s.status !== 'OPEN' && s.difference !== null ? (diff >= 0 ? "+" : "") + "RD$ " + formatMoney(s.difference) : "-"}</td>
+                <td>${statusBadge}</td>
+                <td>
+                    <span class="badge" style="font-size: 0.68rem; background: rgba(139, 92, 246, 0.1); color: var(--accent-purple); text-transform: none;">
+                        ${s.auditResolutionType ? s.auditResolutionType.replace('_', ' ') : (s.status === 'CLOSED' ? 'Manual' : '-')}
+                    </span>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function renderDiscrepanciesTable(discrepancies) {
+        const tbody = document.getElementById("discrepancies-tbody");
+        tbody.innerHTML = "";
+
+        if (discrepancies.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; color: var(--text-muted); padding: 30px;">No se encontraron diferencias de arqueo críticas en el rango seleccionado.</td></tr>`;
+            return;
+        }
+
+        discrepancies.forEach(d => {
+            const tr = document.createElement("tr");
+            const diffColor = d.difference < 0 ? "var(--accent-red)" : "var(--accent-blue)";
+            
+            tr.innerHTML = `
+                <td style="font-weight: 700;">${d.registerName}</td>
+                <td>${d.openedByUserEmail}</td>
+                <td>${d.closingTime ? d.closingTime.substring(0,16).replace('T', ' ') : '-'}</td>
+                <td style="text-align: right; font-family: monospace; font-weight: 700; color: ${diffColor};">${d.difference >= 0 ? "+" : ""}RD$ ${formatMoney(d.difference)}</td>
+                <td style="text-align: right; font-family: monospace; color: ${d.differenceCash < 0 ? 'var(--accent-red)' : 'var(--text-primary)'}">RD$ ${formatMoney(d.differenceCash)}</td>
+                <td style="text-align: right; font-family: monospace; color: ${d.differenceUSD < 0 ? 'var(--accent-red)' : 'var(--text-primary)'}">USD ${formatMoney(d.differenceUSD)}</td>
+                <td style="text-align: right; font-family: monospace; color: ${d.differenceCard < 0 ? 'var(--accent-red)' : 'var(--text-primary)'}">RD$ ${formatMoney(d.differenceCard)}</td>
+                <td>${d.auditedByUserEmail || 'Pendiente'}</td>
+                <td>
+                    <span class="badge" style="font-size: 0.68rem; background: rgba(239, 68, 68, 0.1); color: var(--accent-red); font-weight: bold; text-transform: none;">
+                        ${d.auditResolutionType ? d.auditResolutionType.replace('_', ' ') : 'PENDIENTE AUDITORÍA'}
+                    </span>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function renderMovementsTable(movements) {
+        const tbody = document.getElementById("movements-tbody");
+        tbody.innerHTML = "";
+
+        if (movements.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 30px;">No hay movimientos de entradas o salidas extraordinarias registrados.</td></tr>`;
+            return;
+        }
+
+        movements.forEach(m => {
+            const tr = document.createElement("tr");
+            const isOut = m.type === 'OUT';
+            const typeColor = isOut ? "var(--accent-red)" : "var(--accent-blue)";
+            
+            tr.innerHTML = `
+                <td>${m.date ? m.date.substring(0,19).replace('T', ' ') : '-'}</td>
+                <td style="font-weight: 600;">${m.registerName}</td>
+                <td>${m.openedByUserEmail}</td>
+                <td>
+                    <span class="badge" style="background: ${isOut ? 'rgba(239,68,68,0.1)' : 'rgba(59,130,246,0.1)'}; color: ${typeColor}; font-size: 0.68rem; padding: 2px 6px; font-weight: bold;">
+                        ${isOut ? 'Retiro / Gocito' : 'Entrada'}
+                    </span>
+                </td>
+                <td>${m.paymentMethod}</td>
+                <td style="text-align: right; font-family: monospace; font-weight: 700; color: ${typeColor};">${isOut ? "-" : "+"}RD$ ${formatMoney(m.amount)} ${m.usdAmount > 0 ? '<br><span style="font-size: 0.72rem; font-weight: normal; color: var(--text-secondary);">(' + (isOut ? "-" : "+") + 'USD ' + formatMoney(m.usdAmount) + ')</span>' : ''}</td>
+                <td style="color: var(--text-secondary); max-width: 250px; white-space: normal;">${m.notes || 'Sin concepto'}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function renderVoidsTable(voids) {
+        const tbody = document.getElementById("voids-tbody");
+        tbody.innerHTML = "";
+
+        if (voids.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 30px;">No se registraron transacciones anuladas en el periodo.</td></tr>`;
+            return;
+        }
+
+        voids.forEach(v => {
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+                <td>${v.date ? v.date.substring(0,19).replace('T', ' ') : '-'}</td>
+                <td style="font-weight: 600;">${v.registerName}</td>
+                <td>${v.openedByUserEmail}</td>
+                <td><span class="badge" style="background: rgba(239,68,68,0.15); color: var(--accent-red); font-size: 0.68rem; padding: 2px 6px; font-weight: bold;">ANULADA</span></td>
+                <td>${v.paymentMethod}</td>
+                <td style="text-align: right; font-family: monospace; font-weight: 700; color: var(--accent-red);">RD$ ${formatMoney(v.amount)}</td>
+                <td style="color: var(--text-secondary); font-style: italic; max-width: 250px; white-space: normal;">"${v.notes || 'Sin justificación registrada'}"</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function renderLotesTable(lotes) {
+        const tbody = document.getElementById("lotes-tbody");
+        tbody.innerHTML = "";
+
+        if (lotes.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 30px;">No hay movimientos de tarjetas de crédito/débito para conciliar.</td></tr>`;
+            return;
+        }
+
+        lotes.forEach(l => {
+            const tr = document.createElement("tr");
+            const diffColor = l.differenceCard < 0 ? "var(--accent-red)" : (l.differenceCard > 0 ? "var(--accent-blue)" : "var(--accent-emerald)");
+            
+            tr.innerHTML = `
+                <td style="font-weight: 700;">${l.registerName}</td>
+                <td>${l.openedByUserEmail}</td>
+                <td>${l.closingTime ? l.closingTime.substring(0,16).replace('T', ' ') : '-'}</td>
+                <td style="font-family: monospace; font-weight: 700;"># ${l.loteNumber}</td>
+                <td style="text-align: right; font-family: monospace;">RD$ ${formatMoney(l.expectedCard)}</td>
+                <td style="text-align: right; font-family: monospace;">RD$ ${formatMoney(l.declaredCard)}</td>
+                <td style="text-align: right; font-family: monospace; font-weight: 700; color: ${diffColor};">${l.differenceCard >= 0 ? "+" : ""}RD$ ${formatMoney(l.differenceCard)}</td>
+                <td>
+                    <span class="badge ${l.status === 'CLOSED' ? 'badge-draft' : 'badge-success'}" style="font-size: 0.68rem; padding: 2px 6px;">
+                        ${l.status === 'CLOSED' ? 'Auditado' : 'Abierto'}
+                    </span>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function formatMoney(amount) {
+        return parseFloat(amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function exportTableToCSV(tableId, filename) {
+        const table = document.getElementById(tableId);
+        if (!table) return;
+        
+        let csv = [];
+        const rows = table.querySelectorAll("tr");
+        
+        for (let i = 0; i < rows.length; i++) {
+            const row = [], cols = rows[i].querySelectorAll("td, th");
+            
+            for (let j = 0; j < cols.length; j++) {
+                // Limpiar texto de comas, saltos y espacios raros
+                let data = cols[j].innerText.replace(/(\r\n|\n|\r)/gm, " ").trim();
+                data = data.replace(/"/g, '""'); // Escapar comillas dobles
+                row.push('"' + data + '"');
+            }
+            csv.push(row.join(","));
+        }
+        
+        // Descargar el archivo CSV
+        const csvFile = new Blob([csv.join("\n")], { type: "text/csv;charset=utf-8;" });
+        const downloadLink = document.createElement("a");
+        downloadLink.download = filename;
+        downloadLink.href = window.URL.createObjectURL(csvFile);
+        downloadLink.style.display = "none";
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+        document.body.removeChild(downloadLink);
+    }
+</script>
+{% endblock %}

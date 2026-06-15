@@ -817,6 +817,59 @@
         </div>
     </div>
 
+    <!-- ====== CLAVE DE SUPERVISOR DE CAJA (POS) ====== -->
+    {% if user.role == 'owner' or user.get('permissions', {}).get('isPosSupervisor', False) %}
+    <div class="profile-section-card">
+        <div class="profile-section-header">
+            <div class="profile-section-icon purple">
+                <i class="fa-solid fa-key"></i>
+            </div>
+            <div>
+                <h2 class="profile-section-title">Clave de Supervisor de Caja (POS)</h2>
+                <p class="profile-section-subtitle">Registra o cambia tu PIN numérico (4 a 6 dígitos) para autorizar operaciones protegidas en la caja.</p>
+            </div>
+        </div>
+        <div class="profile-section-body">
+            {% if pin_error %}
+            <div class="profile-alert profile-alert-error">
+                <i class="fa-solid fa-circle-exclamation"></i>
+                {{ pin_error }}
+            </div>
+            {% endif %}
+            {% if pin_success %}
+            <div class="profile-alert profile-alert-success">
+                <i class="fa-solid fa-circle-check"></i>
+                {{ pin_success }}
+            </div>
+            {% endif %}
+
+            <form method="POST" action="{{ url_for('update_supervisor_pin') }}" id="form-supervisor-pin" novalidate>
+                <div class="profile-form-grid">
+                    <div class="profile-form-group full-width">
+                        <label class="profile-label" for="pin-val">Clave / PIN de Autorización (Numérico, 4-6 dígitos) <span style="color: var(--accent-red);">*</span></label>
+                        <div class="profile-input-wrapper">
+                            <input type="password" id="pin-val" name="supervisor_pin" class="profile-input" 
+                                placeholder="Ej: 1234" required pattern="[0-9]{4,6}" inputmode="numeric" maxlength="6"
+                                value="{{ user.posSupervisorPin or '' }}">
+                            <button type="button" class="profile-input-eye" onclick="togglePwd('pin-val', this)" title="Mostrar/Ocultar">
+                                <i class="fa-solid fa-eye"></i>
+                            </button>
+                        </div>
+                        <span style="font-size: 0.72rem; color: var(--text-muted); margin-top: 4px;">Este PIN se solicitará en la terminal para realizar operaciones restrictivas como reducción de cantidades o eliminación de artículos del carrito.</span>
+                    </div>
+                </div>
+
+                <div class="profile-form-footer">
+                    <button type="submit" class="profile-save-btn" style="background: linear-gradient(135deg, var(--accent-purple), #7c3aed); box-shadow: 0 2px 12px rgba(139,92,246,0.3);" id="btn-save-pin">
+                        <i class="fa-solid fa-floppy-disk"></i>
+                        <span>Guardar PIN de Supervisor</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+
     <!-- ====== AUTENTICACIÓN DE DOS FACTORES (2FA) ====== -->
     <div class="profile-section-card">
         <div class="profile-section-header">
@@ -1155,6 +1208,17 @@
         btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> <span>Guardando...</span>';
         btn.disabled = true;
     });
+
+    const formPin = document.getElementById('form-supervisor-pin');
+    if (formPin) {
+        formPin.addEventListener('submit', function () {
+            const btn = document.getElementById('btn-save-pin');
+            if (btn) {
+                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> <span>Guardando...</span>';
+                btn.disabled = true;
+            }
+        });
+    }
 
     document.getElementById('form-password').addEventListener('submit', function (e) {
         if (!validatePasswordForm()) { e.preventDefault(); return; }

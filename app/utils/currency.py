@@ -61,9 +61,34 @@ class CurrencyService:
         """Devuelve la tasa de conversión para DOP de la moneda dada."""
         currency = str(currency).upper()
         if currency == "USD":
-            cls.fetch_rates()
-            return cls._usd_to_dop
+            return cls.get_bpd_rate()
         elif currency == "EUR":
             cls.fetch_rates()
             return cls._eur_to_dop
         return 1.0  # DOP u otras
+
+    @classmethod
+    def get_bpd_rate(cls):
+        """Obtiene la tasa de venta del USD desde Banco Popular Dominicano o fallback."""
+        url = "https://popularenlinea.com/personas/Paginas/tasa-de-cambio.aspx"
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+        }
+        try:
+            response = requests.get(url, headers=headers, timeout=5)
+            if response.status_code == 200:
+                html = response.text
+                import re
+                candidates = re.findall(r'\b(5[6-9]\.\d{2,4})\b', html)
+                if candidates:
+                    rates = sorted(list(set([float(c) for c in candidates if 56.5 <= float(c) <= 61.5])))
+                    if len(rates) >= 2:
+                        # Venta es mayor que Compra
+                        venta = rates[1]
+                        print(f"✅ CurrencyService BPD: Scraped USD Venta: {venta:.2f}")
+                        return venta
+        except Exception as e:
+            print(f"⚠️ Error al raspar tasas del BPD: {e}")
+        
+        cls.fetch_rates()
+        return cls._usd_to_dop

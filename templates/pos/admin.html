@@ -16,6 +16,19 @@
         </a>
     </div>
 
+    <!-- Tabs de Navegación de Administración -->
+    <div style="display: flex; gap: 15px; border-bottom: 1px solid var(--border-color); margin-bottom: 5px; padding-bottom: 2px;">
+        <a href="{{ url_for('web_pos.pos_admin_dashboard') }}" class="tab-link active" 
+           style="padding: 10px 20px; font-weight: 700; color: var(--accent-purple); text-decoration: none; border-bottom: 3px solid var(--accent-purple); font-size: 0.95rem; display: flex; align-items: center; gap: 8px;">
+            <i class="fa-solid fa-cash-register"></i> Control de Cajas
+        </a>
+        <a href="{{ url_for('web_pos.pos_admin_reports_dashboard') }}" class="tab-link" 
+           style="padding: 10px 20px; font-weight: 500; color: var(--text-secondary); text-decoration: none; font-size: 0.95rem; display: flex; align-items: center; gap: 8px; transition: color var(--transition-fast);"
+           onmouseover="this.style.color='var(--text-primary)'" onmouseout="this.style.color='var(--text-secondary)'">
+            <i class="fa-solid fa-chart-line"></i> Reportes y Auditoría de Caja
+        </a>
+    </div>
+
     <!-- Sección 1: Cajas Registradoras Registradas -->
     <div class="card-table-wrapper">
         <div
@@ -112,6 +125,7 @@
                         <th>Cajero / Operador</th>
                         <th>Apertura</th>
                         <th>Cierre</th>
+                        <th>Estado</th>
                         <th style="text-align: right;">Fondo Inicial</th>
                         <th style="text-align: right;">Esperado</th>
                         <th style="text-align: right;">Declarado</th>
@@ -127,14 +141,19 @@
                         <td style="font-size: 0.85rem;">{{ shift.openedByUserEmail }}</td>
                         <td style="font-size: 0.82rem;">{{ shift.openingTime[:10] }} {{ shift.openingTime[11:16] }}</td>
                         <td style="font-size: 0.82rem;">
-                            {% if shift.status == 'PENDING_AUDIT' %}
-                            <span class="badge"
-                                style="font-size: 0.65rem; background-color: #ff9800; color: white; padding: 2px 6px; border-radius: 4px; font-weight: 700;">Por
-                                Auditar</span>
-                            {% elif shift.closingTime %}
+                            {% if shift.closingTime %}
                             {{ shift.closingTime[:10] }} {{ shift.closingTime[11:16] }}
                             {% else %}
-                            <span class="badge badge-success" style="font-size: 0.65rem;">Activo</span>
+                            -
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if shift.status == 'PENDING_AUDIT' %}
+                            <span class="badge" style="font-size: 0.72rem; padding: 4px 8px; background-color: #ff9800; color: white; font-weight: 700;">Por Auditar</span>
+                            {% elif shift.status == 'CLOSED' %}
+                            <span class="badge badge-draft" style="font-size: 0.72rem; padding: 4px 8px;">Auditada</span>
+                            {% else %}
+                            <span class="badge badge-success" style="font-size: 0.72rem; padding: 4px 8px;">Abierta</span>
                             {% endif %}
                         </td>
                         <td style="text-align: right;">RD$ {{ "{:,.2f}".format(shift.openingAmount) }}</td>

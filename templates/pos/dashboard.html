@@ -264,60 +264,160 @@
                     {% endif %}
                 </tbody>
             </table>
-        </div>
-    </div>
+        </div> <!-- Closes table-responsive -->
+    </div> <!-- Closes card-table-wrapper -->
 
-    <!-- MODAL: CIERRE DE CAJA (ARQUEO CIEGO) -->
+    <!-- MODAL: CIERRE DE CAJA (WIZARD DE ARQUEO DETALLADO) -->
     <div id="close-shift-modal" class="search-modal"
-        style="display: none; justify-content: center; align-items: center;">
+        style="display: none; justify-content: center; align-items: center; z-index: 1090;">
         <div class="modal-backdrop" onclick="closeCloseModal()"></div>
         <div class="modal-content animate-fade-in"
-            style="max-width: 450px; padding: 0; border-radius: var(--radius-md);">
-            <div class="modal-header" style="border-bottom: 1px solid var(--border-color); padding: 20px 24px;">
+            style="max-width: 620px; padding: 0; border-radius: var(--radius-md); background-color: #ffffff !important; color: #000000 !important; border: 1px solid var(--border-color); box-shadow: var(--shadow-lg);">
+            <div class="modal-header" style="border-bottom: 1px solid var(--border-color); padding: 20px 24px; display: flex; justify-content: space-between; align-items: center;">
                 <h3
                     style="margin: 0; font-size: 1.15rem; font-family: var(--font-heading); display: flex; align-items: center; gap: 10px; color: var(--accent-red);">
                     <i class="fa-solid fa-lock" style="font-size: 1.2rem;"></i>
-                    <span>Cerrar Turno y Arqueo de Caja</span>
+                    <span>Cierre de Caja y Arqueo Detallado</span>
                 </h3>
-                <button class="btn-close-modal" onclick="closeCloseModal()">
+                <button class="btn-close-modal" onclick="closeCloseModal()" style="background: none; border: none; cursor: pointer; font-size: 1.2rem; color: var(--text-secondary);">
                     <i class="fa-solid fa-xmark"></i>
                 </button>
             </div>
-            <div class="modal-body" style="padding: 24px;">
+            
+            <!-- STEP 1: ARQUEO DE EFECTIVO -->
+            <div id="close-step-1" class="close-step-pane" style="padding: 24px;">
                 {% if pending_consolidation_count > 0 %}
                 <div
                     style="background: rgba(234,179,8,0.1); border: 1px solid rgba(234,179,8,0.35); border-radius: var(--radius-sm); padding: 12px 14px; margin-bottom: 18px; font-size: 0.83rem; color: #92400e; display: flex; align-items: flex-start; gap: 10px;">
                     <i class="fa-solid fa-triangle-exclamation" style="margin-top: 2px; color: #ca8a04;"></i>
-                    <span>Hay <strong>{{ pending_consolidation_count }} ventas</strong> en modo consolidado. Al cerrar
-                        la caja se emitirá automáticamente un único Comprobante Electrónico de Consumo (E32) que las
-                        agrupa.</span>
+                    <span>Hay <span style="font-weight: 500;">{{ pending_consolidation_count }} ventas</span> en modo consolidado. Al cerrar la caja se emitirá automáticamente un único Comprobante Electrónico de Consumo (E32).</span>
                 </div>
                 {% endif %}
-                <p
-                    style="color: var(--text-secondary); font-size: 0.85rem; line-height: 1.45; margin-bottom: 20px; margin-top: 0;">
-                    Por favor, cuente todo el efectivo existente físicamente en la gaveta de la caja y digite el monto
-                    total. El sistema contrastará esta cantidad con los registros teóricos para detectar faltantes o
-                    sobrantes.
-                </p>
-
-                <form action="{{ url_for('web_pos.close_shift') }}" method="POST"
-                    style="display: flex; flex-direction: column; gap: 18px;">
-                    <div class="form-group">
-                        <label for="declaredAmount" style="font-weight: 700;">Efectivo Declarado (RD$ Físico en
-                            Caja)</label>
-                        <input type="number" id="declaredAmount" name="declaredAmount" class="form-input"
-                            placeholder="0.00" step="0.01" min="0" required
-                            style="width: 100%; font-size: 1.2rem; height: 46px; text-align: center; font-weight: 700; border-color: var(--border-color);">
+                
+                <h4 style="margin: 0 0 16px 0; font-size: 0.95rem; font-family: var(--font-heading); font-weight: 500;">Paso 1 de 3: Conteo Físico de Efectivo</h4>
+                
+                <div style="display: flex; gap: 16px; margin-bottom: 16px;">
+                    <!-- Pesos (DOP) Column -->
+                    <div style="flex: 1;">
+                        <h5 style="margin: 0 0 10px 0; font-size: 0.85rem; font-weight: 500; color: var(--accent-emerald);">Pesos (DOP)</h5>
+                        <div style="display: flex; flex-direction: column; gap: 8px; max-height: 240px; overflow-y: auto; padding-right: 4px;">
+                            {% for denom in [2000, 1000, 500, 200, 100, 50, 25, 10, 5, 1] %}
+                            <div style="display: flex; align-items: center; justify-content: space-between; background: rgba(0,0,0,0.02); padding: 4px 8px; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
+                                <span style="font-weight: normal; font-size: 0.8rem; font-family: monospace;">RD$ {{ denom }}</span>
+                                <input type="number" class="denom-input form-input" data-denom="{{ denom }}" value="0" min="0" oninput="calcCashTotal()" style="width: 65px; height: 28px; text-align: center; font-weight: normal; padding: 2px; font-size: 0.85rem;">
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    
+                    <!-- Dólares (USD) Column -->
+                    <div style="flex: 1;">
+                        <h5 style="margin: 0 0 10px 0; font-size: 0.85rem; font-weight: 500; color: var(--accent-purple);">Dólares (USD)</h5>
+                        <div style="display: flex; flex-direction: column; gap: 8px; max-height: 240px; overflow-y: auto; padding-right: 4px;">
+                            {% for denom in [100, 50, 20, 10, 5, 2, 1] %}
+                            <div style="display: flex; align-items: center; justify-content: space-between; background: rgba(0,0,0,0.02); padding: 4px 8px; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
+                                <span style="font-weight: normal; font-size: 0.8rem; font-family: monospace;">US$ {{ denom }}</span>
+                                <input type="number" class="denom-usd-input form-input" data-denom-usd="{{ denom }}" value="0" min="0" oninput="calcCashTotal()" style="width: 65px; height: 28px; text-align: center; font-weight: normal; padding: 2px; font-size: 0.85rem;">
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; border-top: 1px dashed var(--border-color); padding-top: 12px; margin-top: 12px;">
+                    <div>
+                        <span style="font-weight: normal; font-size: 0.8rem; color: var(--text-secondary);">Total DOP Contado:</span><br>
+                        <span id="cash-total-display" style="font-size: 1.1rem; font-weight: normal; color: var(--accent-emerald); font-family: monospace;">RD$ 0.00</span>
+                    </div>
+                    <div>
+                        <span style="font-weight: normal; font-size: 0.8rem; color: var(--text-secondary);">Total USD Contado:</span><br>
+                        <span id="usd-total-display" style="font-size: 1.1rem; font-weight: normal; color: var(--accent-purple); font-family: monospace;">US$ 0.00</span>
+                    </div>
+                </div>
+                
+                <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px; border-top: 1px solid var(--border-color); padding-top: 16px;">
+                    <button class="btn btn-secondary" onclick="closeCloseModal()">Cancelar</button>
+                    <button class="btn btn-primary" onclick="goToStep(2)">Siguiente <i class="fa-solid fa-arrow-right"></i></button>
+                </div>
+            </div>
+            
+            <!-- STEP 2: TARJETAS Y TRANSFERENCIAS -->
+            <div id="close-step-2" class="close-step-pane" style="padding: 24px; display: none;">
+                <h4 style="margin: 0 0 16px 0; font-size: 0.95rem; font-family: var(--font-heading); font-weight: 500;">Paso 2 de 3: Tarjetas y Transferencias</h4>
+                
+                <div style="display: flex; flex-direction: column; gap: 16px;">
+                    <div class="form-group" style="display: flex; flex-direction: column; gap: 6px;">
+                        <label for="declaredCard" style="font-weight: 500; font-size: 0.85rem;">Total Cobros Tarjetas (Vouchers Bancarios)</label>
+                        <input type="number" id="declaredCard" class="form-input" placeholder="0.00" step="0.01" min="0" style="width: 100%; font-size: 1.1rem; height: 40px; text-align: right; font-weight: normal;">
+                    </div>
+                    
+                    <div class="form-group" style="display: flex; flex-direction: column; gap: 6px;">
+                        <label for="cardLoteNumber" style="font-weight: 500; font-size: 0.85rem;">No. de Lote (Cierre Verifone/POS)</label>
+                        <input type="text" id="cardLoteNumber" class="form-input" placeholder="Ej: 000124" style="width: 100%; height: 40px;">
+                    </div>
+                    
+                    <div class="form-group" style="display: flex; flex-direction: column; gap: 6px;">
+                        <label for="declaredTransfer" style="font-weight: 500; font-size: 0.85rem;">Total Transferencias / Cheques</label>
+                        <input type="number" id="declaredTransfer" class="form-input" placeholder="0.00" step="0.01" min="0" style="width: 100%; font-size: 1.1rem; height: 40px; text-align: right; font-weight: normal;">
                     </div>
 
-                    <button type="submit" class="btn btn-danger"
-                        style="width: 100%; height: 44px; font-weight: 700; transition: all var(--transition-fast) ease;">
-                        <i class="fa-solid fa-calculator-combined"></i>
-                        <span>Confirmar Arqueo y Cerrar Caja</span>
+                    <div class="form-group" style="display: flex; flex-direction: column; gap: 6px;">
+                        <label for="declaredUSD" style="font-weight: 500; font-size: 0.85rem;">
+                            Efectivo en Dólares (USD) - Detallado en Paso 1
+                            <span id="usd-rate-badge" style="font-size: 0.75rem; color: var(--text-secondary); background: rgba(0,0,0,0.05); padding: 2px 6px; border-radius: var(--radius-sm); font-weight: normal; margin-left: 6px;">Tasa BPD: RD$ ...</span>
+                        </label>
+                        <input type="number" id="declaredUSD" class="form-input" placeholder="0.00" step="0.01" min="0" readonly style="width: 100%; font-size: 1.1rem; height: 40px; text-align: right; font-weight: normal; background-color: var(--bg-secondary, #eee); cursor: not-allowed;">
+                        <div id="usd-dop-equivalent" style="font-size: 0.8rem; text-align: right; color: var(--text-secondary); margin-top: 2px;">Equivalente: RD$ 0.00</div>
+                    </div>
+                </div>
+                
+                <div style="display: flex; justify-content: space-between; gap: 12px; margin-top: 24px; border-top: 1px solid var(--border-color); padding-top: 16px;">
+                    <button class="btn btn-secondary" onclick="goToStep(1)"><i class="fa-solid fa-arrow-left"></i> Atrás</button>
+                    <button class="btn btn-primary" onclick="goToStep(3)">Siguiente <i class="fa-solid fa-arrow-right"></i></button>
+                </div>
+            </div>
+            
+            <!-- STEP 3: CONCILIACIÓN PREVIA Y ENVÍO -->
+            <div id="close-step-3" class="close-step-pane" style="padding: 24px; display: none;">
+                <h4 style="margin: 0 0 16px 0; font-size: 0.95rem; font-family: var(--font-heading); font-weight: 500;">Paso 3 de 3: Resumen y Cierre de Caja</h4>
+                
+                <div style="background: rgba(0,0,0,0.02); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 16px; display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px; font-size: 0.88rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="color: var(--text-secondary);">Efectivo Contado (DOP):</span>
+                        <span id="summary-cash" style="font-family: monospace;">RD$ 0.00</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="color: var(--text-secondary);">Efectivo Contado (USD):</span>
+                        <span id="summary-usd" style="font-family: monospace;">USD 0.00 (RD$ 0.00)</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="color: var(--text-secondary);">Tarjetas Declaradas:</span>
+                        <span id="summary-card" style="font-family: monospace;">RD$ 0.00</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px dashed var(--border-color); padding-bottom: 8px;">
+                        <span style="color: var(--text-secondary);">Transf. Declaradas:</span>
+                        <span id="summary-transfer" style="font-family: monospace;">RD$ 0.00</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span>Total Declarado:</span>
+                        <span id="summary-total" style="font-size: 1.1rem; color: var(--accent-purple); font-family: monospace;">RD$ 0.00</span>
+                    </div>
+                </div>
+                
+                <div class="form-group" style="margin-bottom: 20px; display: flex; flex-direction: column; gap: 6px;">
+                    <label for="closeNotes" style="font-weight: 500; font-size: 0.85rem;">Notas u Observaciones del Cierre</label>
+                    <textarea id="closeNotes" class="form-input" placeholder="Comente cualquier descuadre, novedad o detalle relevante aquí..." style="width: 100%; height: 60px; font-size: 0.85rem; padding: 8px; resize: none; border: 1px solid var(--border-color); border-radius: var(--radius-sm); background-color: var(--bg-primary);"></textarea>
+                </div>
+                
+                <div style="display: flex; justify-content: space-between; gap: 12px; margin-top: 24px; border-top: 1px solid var(--border-color); padding-top: 16px;">
+                    <button class="btn btn-secondary" onclick="goToStep(2)"><i class="fa-solid fa-arrow-left"></i> Atrás</button>
+                    <button class="btn btn-danger" onclick="submitDetailedClose()" id="btn-submit-close-detailed" style="font-weight: 500;">
+                        <i class="fa-solid fa-lock"></i> Cerrar Turno
                     </button>
-                </form>
+                </div>
             </div>
         </div>
+    </div>    </div>
     </div>
 
     {% endif %}
@@ -359,11 +459,100 @@
 </div>
 
 <script>
+    let cashTotal = 0;
+    let usdCashTotal = 0;
+    let usdExchangeRate = 58.50;
+
+    function fetchUSDRate() {
+        fetch('/pos/usd-rate')
+            .then(r => r.json())
+            .then(data => {
+                if (data.rate) {
+                    usdExchangeRate = data.rate;
+                    const badge = document.getElementById('usd-rate-badge');
+                    if (badge) {
+                        badge.textContent = `Tasa BPD: RD$ ${usdExchangeRate.toFixed(2)}`;
+                    }
+                    updateSummaryTotal();
+                }
+            })
+            .catch(err => console.error("Error fetching USD rate:", err));
+    }
+
+    function calcCashTotal() {
+        cashTotal = 0;
+        const inputs = document.querySelectorAll('.denom-input');
+        inputs.forEach(input => {
+            const denom = parseFloat(input.getAttribute('data-denom')) || 0;
+            const qty = parseInt(input.value) || 0;
+            cashTotal += denom * qty;
+        });
+
+        usdCashTotal = 0;
+        const usdInputs = document.querySelectorAll('.denom-usd-input');
+        usdInputs.forEach(input => {
+            const denom = parseFloat(input.getAttribute('data-denom-usd')) || 0;
+            const qty = parseInt(input.value) || 0;
+            usdCashTotal += denom * qty;
+        });
+
+        document.getElementById('cash-total-display').textContent = `RD$ ${cashTotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+        document.getElementById('usd-total-display').textContent = `US$ ${usdCashTotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+        document.getElementById('summary-cash').textContent = `RD$ ${cashTotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+        
+        const usdInput = document.getElementById('declaredUSD');
+        if (usdInput) {
+            usdInput.value = usdCashTotal.toFixed(2);
+        }
+        
+        updateSummaryTotal();
+    }
+
+    function updateSummaryTotal() {
+        const cardVal = parseFloat(document.getElementById('declaredCard').value) || 0;
+        const transferVal = parseFloat(document.getElementById('declaredTransfer').value) || 0;
+        const usdVal = usdCashTotal;
+        
+        const usdDopEq = usdVal * usdExchangeRate;
+        const eqDiv = document.getElementById('usd-dop-equivalent');
+        if (eqDiv) {
+            eqDiv.textContent = `Equivalente: RD$ ${usdDopEq.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+        }
+        
+        document.getElementById('summary-card').textContent = `RD$ ${cardVal.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+        document.getElementById('summary-transfer').textContent = `RD$ ${transferVal.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+        
+        const summaryUSD = document.getElementById('summary-usd');
+        if (summaryUSD) {
+            summaryUSD.textContent = `USD ${usdVal.toLocaleString('en-US', { minimumFractionDigits: 2 })} (RD$ ${usdDopEq.toLocaleString('en-US', { minimumFractionDigits: 2 })})`;
+        }
+        
+        const total = cashTotal + cardVal + transferVal + usdDopEq;
+        document.getElementById('summary-total').textContent = `RD$ ${total.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const cardInput = document.getElementById('declaredCard');
+        const transferInput = document.getElementById('declaredTransfer');
+        if (cardInput) cardInput.addEventListener('input', updateSummaryTotal);
+        if (transferInput) transferInput.addEventListener('input', updateSummaryTotal);
+        fetchUSDRate();
+    });
+
+    function goToStep(stepNum) {
+        document.querySelectorAll('.close-step-pane').forEach(el => {
+            el.style.display = 'none';
+        });
+        document.getElementById(`close-step-${stepNum}`).style.display = 'block';
+    }
+
     function openCloseModal() {
         const modal = document.getElementById('close-shift-modal');
         if (modal) {
             modal.style.display = 'flex';
             document.body.style.overflow = 'hidden';
+            fetchUSDRate();
+            goToStep(1);
         }
     }
 
@@ -373,6 +562,68 @@
             modal.style.display = 'none';
             document.body.style.overflow = 'auto';
         }
+    }
+
+    function submitDetailedClose() {
+        const cardVal = parseFloat(document.getElementById('declaredCard').value) || 0;
+        const transferVal = parseFloat(document.getElementById('declaredTransfer').value) || 0;
+        const usdVal = usdCashTotal;
+        const cardLote = document.getElementById('cardLoteNumber').value.trim();
+        const notes = document.getElementById('closeNotes').value.trim();
+        const totalDeclared = cashTotal + cardVal + transferVal + (usdVal * usdExchangeRate);
+
+        const denominations = {};
+        document.querySelectorAll('.denom-input').forEach(input => {
+            const denom = input.getAttribute('data-denom');
+            const qty = parseInt(input.value) || 0;
+            denominations[denom] = qty;
+        });
+
+        const usdDenominations = {};
+        document.querySelectorAll('.denom-usd-input').forEach(input => {
+            const denom = input.getAttribute('data-denom-usd');
+            const qty = parseInt(input.value) || 0;
+            usdDenominations[denom] = qty;
+        });
+
+        const btn = document.getElementById('btn-submit-close-detailed');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Procesando...';
+
+        fetch("{{ url_for('web_pos.close_shift') }}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                declaredAmount: totalDeclared,
+                declaredCash: cashTotal,
+                declaredCard: cardVal,
+                declaredTransfer: transferVal,
+                declaredUSD: usdVal,
+                usdExchangeRate: usdExchangeRate,
+                cashDenominations: denominations,
+                usdDenominations: usdDenominations,
+                cardLoteNumber: cardLote,
+                notes: notes
+            })
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                window.location.reload();
+            } else {
+                alert(data.error || "Ocurrió un error al procesar el cierre de caja.");
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-lock"></i> Cerrar Turno';
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            alert("Error de red al procesar el cierre.");
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-lock"></i> Cerrar Turno';
+        });
     }
 
     function openAddRegisterModal() {

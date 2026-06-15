@@ -67,6 +67,7 @@ def new_company():
         password = request.form.get('password')
         plan_id = request.form.get('planId')
         pos_enabled = 'posEnabled' in request.form
+        can_manage_own_company = 'canManageOwnCompany' in request.form
 
         if not name or not email or not password or not plan_id:
             flash('Todos los campos obligatorios (*) son requeridos.', 'error')
@@ -77,7 +78,8 @@ def new_company():
             password=password,
             name=name,
             plan_id=plan_id,
-            pos_enabled=pos_enabled
+            pos_enabled=pos_enabled,
+            can_manage_own_company=can_manage_own_company
         )
 
         if success:
@@ -122,6 +124,9 @@ def client_detail(company_id):
             additional_user_cost = request.form.get('additionalUserCost')
             box_limit = request.form.get('boxLimit')
             additional_box_cost = request.form.get('additionalBoxCost')
+
+            can_manage_own_company = 'canManageOwnCompany' in request.form
+            DatabaseService.update_user_profile(company_id, {'canManageOwnCompany': can_manage_own_company})
 
             update_data.update({
                 'status': status,

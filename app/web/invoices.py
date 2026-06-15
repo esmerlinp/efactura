@@ -3089,7 +3089,8 @@ def company_settings():
         if not cert_password:
             cert_password = existing_profile.get('certificatePassword', '')
 
-        profile_dict = {
+        profile_dict = dict(existing_profile or {})
+        profile_dict.update({
             "companyName": request.form['companyName'],
             "companyRNC": request.form['companyRNC'],
             "companyAddress": request.form.get('companyAddress', ''),
@@ -3118,8 +3119,10 @@ def company_settings():
             "azulAuth2": request.form.get('azulAuth2', '').strip(),
             "consolidationEnabled": request.form.get('consolidationEnabled') == 'true',
             "consolidationThreshold": float(request.form.get('consolidationThreshold') or 250000.0),
+            "posToleranceDOP": float(request.form.get('posToleranceDOP') or 0.0),
+            "posToleranceUSD": float(request.form.get('posToleranceUSD') or 0.0),
             "configured": True
-        }
+        })
         DatabaseService.save_company_profile(owner_uid, profile_dict)
 
         # Si se presionó el botón de registrar en Alanube o importar desde Alanube
@@ -3392,7 +3395,11 @@ def add_team_member():
         "canManageContracts": 'canManageContracts' in request.form,
         "canManageCommissions": 'canManageCommissions' in request.form,
         "canViewBI": 'canViewBI' in request.form,
-        "canViewAuditLog": 'canViewAuditLog' in request.form
+        "canViewAuditLog": 'canViewAuditLog' in request.form,
+        "isPosSupervisor": 'isPosSupervisor' in request.form,
+        "canViewSubscription": 'canViewSubscription' in request.form,
+        "canToggleSandbox": 'canToggleSandbox' in request.form,
+        "canManageNotes": 'canManageNotes' in request.form
     }
     
     try:
@@ -3495,7 +3502,11 @@ def update_team_member_permissions(employee_uid):
         "canManageContracts": 'canManageContracts' in request.form,
         "canManageCommissions": 'canManageCommissions' in request.form,
         "canViewBI": 'canViewBI' in request.form,
-        "canViewAuditLog": 'canViewAuditLog' in request.form
+        "canViewAuditLog": 'canViewAuditLog' in request.form,
+        "isPosSupervisor": 'isPosSupervisor' in request.form,
+        "canViewSubscription": 'canViewSubscription' in request.form,
+        "canToggleSandbox": 'canToggleSandbox' in request.form,
+        "canManageNotes": 'canManageNotes' in request.form
     }
     
     if DatabaseService.update_employee_permissions(employee_uid, permissions):
@@ -3844,6 +3855,7 @@ def chatbot_api():
     return jsonify(result)
 
 @web_invoices_bp.route('/suscripcion')
+@require_permission('canViewSubscription', 'Suscripción y Consumo')
 def client_subscription_page():
     if 'user' not in session: return redirect(url_for('login'))
     owner_uid = session['user']['ownerUID']
