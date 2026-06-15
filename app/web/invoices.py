@@ -3247,10 +3247,12 @@ def onboarding_wizard():
     owner_uid = session['user']['ownerUID']
     
     if request.method == 'POST':
+        existing_profile = DatabaseService.get_company_profile(owner_uid) or {}
+        
         cert_file = request.files.get('certificateFile')
-        cert_name = ""
-        cert_ext = ""
-        cert_content = ""
+        cert_name = existing_profile.get('certificateName', '')
+        cert_ext = existing_profile.get('certificateExtension', '')
+        cert_content = existing_profile.get('certificateContent', '')
         
         if cert_file and cert_file.filename:
             import base64
@@ -3262,8 +3264,11 @@ def onboarding_wizard():
             cert_content = base64.b64encode(file_data).decode('utf-8')
 
         cert_password = request.form.get('certificatePassword', '').strip()
+        if not cert_password:
+            cert_password = existing_profile.get('certificatePassword', '')
 
-        profile_dict = {
+        profile_dict = dict(existing_profile)
+        profile_dict.update({
             "companyName": request.form['companyName'],
             "companyRNC": request.form['companyRNC'],
             "companyAddress": request.form.get('companyAddress', ''),
@@ -3281,7 +3286,7 @@ def onboarding_wizard():
             "consolidationEnabled": request.form.get('consolidationEnabled') == 'true',
             "consolidationThreshold": float(request.form.get('consolidationThreshold') or 250000.0),
             "configured": True
-        }
+        })
         
         DatabaseService.save_company_profile(owner_uid, profile_dict)
         flash('¡Onboarding completado con éxito!', 'success')

@@ -79,6 +79,14 @@
                     </svg>
                     <span>Control de Pagos</span>
                 </button>
+                <button class="tab-btn" onclick="switchTab(event, 'tab-danger')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" style="color: #ef4444;">
+                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                        <line x1="12" y1="9" x2="12" y2="13"/>
+                        <line x1="12" y1="17" x2="12.01" y2="17"/>
+                    </svg>
+                    <span style="color: #ef4444;">Zona de Peligro</span>
+                </button>
             </div>
 
             <!-- Tab 1: Plan y Límites -->
@@ -647,6 +655,53 @@
                     </div>
                 </div>
             </div><!-- #tab-payments -->
+
+            <!-- Tab 4: Zona de Peligro -->
+            <div id="tab-danger" class="tab-content">
+                <div class="card" style="border: 1px solid rgba(239, 68, 68, 0.3); background: rgba(239, 68, 68, 0.02);">
+                    <div class="card-header" style="border-bottom: 1px solid rgba(239, 68, 68, 0.15); padding-bottom: 14px;">
+                        <h2 class="card-title" style="display: flex; align-items: center; gap: 8px; margin: 0; font-size: 1.1rem; font-weight: 700; color: #ef4444;">
+                            ⚠️ Acciones Peligrosas / Eliminación de Empresa
+                        </h2>
+                    </div>
+                    <div class="card-body" style="padding-top: 20px;">
+                        <p style="color: var(--text-primary); font-size: 0.95rem; margin-bottom: 16px;">
+                            Al eliminar esta empresa, se borrarán de forma <strong>permanente e irreversible</strong> los siguientes datos:
+                        </p>
+                        <ul style="color: var(--text-secondary); font-size: 0.9rem; margin-left: 20px; margin-bottom: 24px; line-height: 1.6;">
+                            <li>Perfil de la empresa e identidad fiscal.</li>
+                            <li>Toda la facturación histórica (Facturas, Cotizaciones, Notas de Crédito, tanto en Sandbox como en Producción).</li>
+                            <li>Listados de clientes, productos, inventario, sucursales y cajas registradoras.</li>
+                            <li>Historial de pagos registrados.</li>
+                            <li><strong>Cuentas de usuario de colaboradores/empleados asociados a la empresa</strong>.</li>
+                            <li>El usuario propietario (owner) y su acceso a Firebase Authentication.</li>
+                        </ul>
+                        
+                        <div style="background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: var(--radius-md); padding: 16px; margin-bottom: 24px;">
+                            <p style="color: #ef4444; font-weight: 700; margin: 0; font-size: 0.9rem;">
+                                ⚠️ ¡ATENCIÓN! Esta acción no se puede deshacer. Por favor, confirme escribiendo el nombre de la empresa a continuación para proceder.
+                            </p>
+                        </div>
+                        
+                        <form method="POST" action="{{ url_for('delete_company', company_id=company.id) }}" onsubmit="return confirmDeleteCompany(event, '{{ company.razonSocial | escape }}')">
+                            <div class="form-group" style="margin-bottom: 20px;">
+                                <label class="form-label" style="font-weight: 600;">Escriba <strong>{{ company.razonSocial }}</strong> para confirmar:</label>
+                                <input type="text" id="confirm-name-input" class="form-input" placeholder="Nombre exacto de la empresa" autocomplete="off" required>
+                            </div>
+                            
+                            <div class="form-actions" style="justify-content: flex-start; gap: 12px;">
+                                <button type="submit" class="btn" style="background: #ef4444; color: white; border: 1px solid #ef4444; display: inline-flex; align-items: center; gap: 8px;">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                                        <polyline points="3 6 5 6 21 6"/>
+                                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                                    </svg>
+                                    Eliminar Empresa y Todo su Contenido
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div><!-- #tab-danger -->
         </div><!-- .tabs-container -->
     </div>
 </div>
@@ -780,5 +835,15 @@
         });
     }
 });
+
+function confirmDeleteCompany(event, expectedName) {
+    const inputVal = document.getElementById('confirm-name-input').value.trim();
+    if (inputVal !== expectedName) {
+        alert('El nombre ingresado no coincide con el nombre de la empresa.');
+        event.preventDefault();
+        return false;
+    }
+    return confirm('¿Está absolutamente seguro de que desea eliminar permanentemente esta empresa y todo su contenido? Esta acción no se puede deshacer.');
+}
 </script>
 {% endblock %}
