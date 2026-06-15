@@ -409,12 +409,12 @@ def select_company():
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
         
-    if 'associated_companies' not in session:
-        associated = DatabaseService.get_associated_companies(session['user']['uid'])
-        session['associated_companies'] = associated
-        session['user_has_multiple_companies'] = len(associated) > 1
+    # Siempre obtener de la base de datos para asegurar que los logos y nombres estén actualizados
+    associated = DatabaseService.get_associated_companies(session['user']['uid'])
+    session['associated_companies'] = associated
+    session['user_has_multiple_companies'] = len(associated) > 1
 
-    associated_companies = session.get('associated_companies', [])
+    associated_companies = associated
     
     if len(associated_companies) <= 1:
         if len(associated_companies) == 1:

@@ -3493,7 +3493,9 @@ class DatabaseService:
                 companies.append({
                     "ownerUID": own_owner_uid,
                     "companyName": own_company.get("tradeName") or own_company.get("companyName", "Mi Empresa"),
-                    "role": profile.get("role", "owner")
+                    "role": profile.get("role", "owner"),
+                    "logoUrl": own_company.get("logoUrl"),
+                    "logoBase64": own_company.get("logoBase64")
                 })
         except Exception as e:
             print(f"⚠️ Error al obtener propia empresa: {e}")
@@ -3512,7 +3514,9 @@ class DatabaseService:
                         companies.append({
                             "ownerUID": owner_uid,
                             "companyName": comp_prof.get("tradeName") or comp_prof.get("companyName", "Empresa Asociada"),
-                            "role": role
+                            "role": role,
+                            "logoUrl": comp_prof.get("logoUrl"),
+                            "logoBase64": comp_prof.get("logoBase64")
                         })
         except Exception as e:
             print(f"⚠️ Error al leer associated_companies de Firestore: {e}")
@@ -3530,9 +3534,33 @@ class DatabaseService:
                         companies.append({
                             "ownerUID": owner_uid,
                             "companyName": comp_prof.get("tradeName") or comp_prof.get("companyName", "Empresa Colaboradora"),
-                            "role": "employee"
+                            "role": "employee",
+                            "logoUrl": comp_prof.get("logoUrl"),
+                            "logoBase64": comp_prof.get("logoBase64")
                         })
         except Exception as e:
-            print(f"⚠️ Error en consulta de grupo de colección team: {e}")
+            print(f"⚠️ Error en consulta de grupo de colección team: {e}. Iniciando búsqueda de contingencia sin índices...")
+            try:
+                # Búsqueda de contingencia sin índices usando el grupo de colecciones 'config'
+                config_docs = db_firestore.collection_group("config").get()
+                for doc in config_docs:
+                    if doc.id == "user_profile":
+                        parent_ref = doc.reference.parent.parent
+                        if parent_ref:
+                            owner_uid = parent_ref.id
+                            # Evitar redundancia si ya fue agregada
+                            if not any(c["ownerUID"] == owner_uid for c in companies):
+                                team_doc = db_firestore.collection("users").document(owner_uid).collection("team").document(uid).get()
+                                if team_doc.exists:
+                                    comp_prof = cls.get_company_profile(owner_uid)
+                                    companies.append({
+                                        "ownerUID": owner_uid,
+                                        "companyName": comp_prof.get("tradeName") or comp_prof.get("companyName", "Empresa Colaboradora"),
+                                        "role": "employee",
+                                        "logoUrl": comp_prof.get("logoUrl"),
+                                        "logoBase64": comp_prof.get("logoBase64")
+                                    })
+            except Exception as ex:
+                print(f"⚠️ Fallo crítico en búsqueda de contingencia de empresas: {ex}")
 
         return companies
