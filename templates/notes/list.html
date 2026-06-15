@@ -181,26 +181,25 @@
     }
 
     .note-creator {
-        background: rgba(30, 41, 59, 0.7);
-        backdrop-filter: blur(12px);
-        -webkit-backdrop-filter: blur(12px);
-        border: 1px solid var(--border-color);
-        border-radius: var(--radius-md);
-        box-shadow: var(--shadow-lg);
+        background: #ffffff; /* iOS paper color */
+        border: 1px solid rgba(0, 0, 0, 0.08);
+        border-radius: 16px; /* iOS softer corners */
+        box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06); /* Diffuse soft shadow */
         overflow: hidden;
-        transition: all 0.3s ease;
+        transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
     }
 
     .note-creator.expanded {
-        border-color: rgba(16, 185, 129, 0.4);
+        border-color: rgba(234, 179, 8, 0.4); /* iOS Yellow accent */
+        box-shadow: 0 8px 32px rgba(234, 179, 8, 0.08);
     }
 
     .creator-input-fake {
         width: 100%;
-        padding: 12px 20px;
+        padding: 14px 20px;
         background: transparent;
         border: none;
-        color: #f8fafc;
+        color: var(--text-primary);
         font-size: 0.95rem;
         font-family: var(--font-main);
         outline: none;
@@ -211,7 +210,7 @@
     }
 
     .creator-input-fake span {
-        color: #94a3b8;
+        color: #8e8e93; /* iOS placeholder color */
     }
 
     .creator-expanded-area {
@@ -229,18 +228,19 @@
 
     .creator-title {
         width: 100%;
-        padding: 15px 0 10px 0;
+        padding: 16px 0 8px 0;
         background: transparent;
         border: none;
-        color: #f8fafc;
-        font-size: 1.1rem;
-        font-weight: 500;
+        color: var(--text-primary);
+        font-size: 1.15rem;
+        font-weight: 600;
         font-family: var(--font-heading);
         outline: none;
     }
 
     .creator-title::placeholder {
-        color: #94a3b8;
+        color: #8e8e93;
+        font-weight: 500;
     }
 
     .creator-content {
@@ -248,7 +248,7 @@
         min-height: 100px;
         background: transparent;
         border: none;
-        color: #f8fafc;
+        color: var(--text-secondary);
         font-size: 0.95rem;
         font-family: var(--font-main);
         outline: none;
@@ -257,7 +257,7 @@
     }
 
     .creator-content::placeholder {
-        color: #94a3b8;
+        color: #8e8e93;
     }
 
     .creator-footer {
@@ -273,14 +273,19 @@
     }
 
     .tool-select {
-        background: rgba(0, 0, 0, 0.2);
-        border: 1px solid var(--border-color);
-        color: var(--text-secondary);
+        background: rgba(0, 0, 0, 0.04);
+        border: 1px solid rgba(0, 0, 0, 0.06);
+        color: var(--text-primary);
         border-radius: var(--radius-sm);
         padding: 6px 10px;
         font-size: 0.85rem;
         outline: none;
         cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .tool-select:hover {
+        background: rgba(0, 0, 0, 0.08);
     }
 
     /* Backdrop */
@@ -358,7 +363,7 @@
         <div class="note-creator" id="note-creator">
             <div class="creator-input-fake" id="creator-trigger">
                 <span>Añadir una nueva tarea o nota...</span>
-                <i class="fa-solid fa-pen-to-square" style="color: var(--text-muted);"></i>
+                <i class="fa-solid fa-pen-to-square" style="color: #eab308; font-size: 1.1rem;"></i>
             </div>
 
             <div class="creator-expanded-area">
@@ -375,10 +380,10 @@
                     </div>
                     <div>
                         <button type="button" class="btn btn-secondary"
-                            style="background: transparent; border: none; padding: 6px 12px; font-size: 0.9rem;"
+                            style="background: transparent; border: none; padding: 6px 12px; font-size: 0.9rem; color: var(--text-muted);"
                             id="btn-close-creator">Cerrar</button>
                         <button type="button" class="btn btn-primary"
-                            style="padding: 6px 16px; font-size: 0.9rem; margin-left: 8px;"
+                            style="padding: 6px 16px; font-size: 0.9rem; margin-left: 8px; background: #eab308; border-color: #eab308; color: white; font-weight: 500;"
                             id="btn-save-note">Guardar</button>
                     </div>
                 </div>
@@ -396,21 +401,21 @@
 
 <!-- Kanban Board -->
 {% set color_map = {
-'default': 'rgba(30, 41, 59, 0.4)',
-'yellow': 'rgba(250, 204, 21, 0.12)',
-'blue': 'rgba(59, 130, 246, 0.12)',
-'green': 'rgba(16, 185, 129, 0.12)',
-'pink': 'rgba(236, 72, 153, 0.12)',
-'purple': 'rgba(139, 92, 246, 0.12)',
-'orange': 'rgba(249, 115, 22, 0.12)'
+'default': 'rgba(255, 255, 255, 0.85)',
+'yellow': 'rgba(254, 240, 138, 0.85)',
+'blue': 'rgba(219, 234, 254, 0.85)',
+'green': 'rgba(209, 250, 229, 0.85)',
+'pink': 'rgba(252, 231, 243, 0.85)',
+'purple': 'rgba(243, 232, 255, 0.85)',
+'orange': 'rgba(255, 237, 213, 0.85)'
 } %}
 {% set border_map = {
-'default': 'var(--border-color)',
-'yellow': 'rgba(250, 204, 21, 0.3)',
+'default': 'rgba(0, 0, 0, 0.08)',
+'yellow': 'rgba(234, 179, 8, 0.3)',
 'blue': 'rgba(59, 130, 246, 0.3)',
 'green': 'rgba(16, 185, 129, 0.3)',
 'pink': 'rgba(236, 72, 153, 0.3)',
-'purple': 'rgba(139, 92, 246, 0.3)',
+'purple': 'rgba(168, 85, 247, 0.3)',
 'orange': 'rgba(249, 115, 22, 0.3)'
 } %}
 

@@ -2792,6 +2792,7 @@ def list_expenses():
     start_date = request.args.get('start_date', '').strip()
     end_date = request.args.get('end_date', '').strip()
     search_query = request.args.get('search', '').strip().lower()
+    tab = request.args.get('tab', 'all').strip()
     
     filtered_expenses = []
     for exp in expenses:
@@ -2808,6 +2809,8 @@ def list_expenses():
             provider = exp.get('providerName', '').lower()
             if search_query not in concept and search_query not in ncf and search_query not in rnc and search_query not in provider:
                 continue
+        if tab == 'recurring' and not exp.get('isRecurring'):
+            continue
         filtered_expenses.append(exp)
 
     # Exportar a CSV si se solicita
@@ -2852,7 +2855,8 @@ def list_expenses():
         category_filter=category_filter,
         start_date=start_date,
         end_date=end_date,
-        search_query=search_query
+        search_query=search_query,
+        tab=tab
     )
 
 @web_invoices_bp.route('/expenses/new', methods=['GET', 'POST'])

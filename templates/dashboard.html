@@ -120,8 +120,14 @@
             " onmouseover="this.style.backgroundColor='#d97706'" onmouseout="this.style.backgroundColor='#f59e0b'">
                 <i class="fa-solid fa-rotate" id="sync-icon"></i> Sincronizar con la DGII
             </button>
-            <span style="font-size: 0.75rem; color: var(--text-muted);">
-                La sincronización también se intentará automáticamente.
+            <span style="font-size: 0.75rem; color: var(--text-muted); display: flex; align-items: center; gap: 8px;">
+                La sincronización también se intentará automáticamente en:
+                <div style="display: inline-flex; gap: 6px;" id="auto-sync-buttons">
+                    <button class="btn-auto-sync" onclick="setAutoSync(15, this)" style="background: transparent; border: 1px solid var(--border-color); color: var(--text-secondary); padding: 2px 8px; border-radius: 4px; font-size: 0.7rem; cursor: pointer;">15m</button>
+                    <button class="btn-auto-sync" onclick="setAutoSync(30, this)" style="background: transparent; border: 1px solid var(--border-color); color: var(--text-secondary); padding: 2px 8px; border-radius: 4px; font-size: 0.7rem; cursor: pointer;">30m</button>
+                    <button class="btn-auto-sync" onclick="setAutoSync(60, this)" style="background: transparent; border: 1px solid var(--border-color); color: var(--text-secondary); padding: 2px 8px; border-radius: 4px; font-size: 0.7rem; cursor: pointer;">1h</button>
+                </div>
+                <span id="auto-sync-countdown" style="display: none; color: #f59e0b; font-weight: bold; margin-left: 5px;"></span>
             </span>
         </div>
     </div>
@@ -517,8 +523,85 @@
                 btn.innerHTML = '<i class="fa-solid fa-rotate"></i> Error de red. Reintenta';
             });
     }
+    // ── Lógica de Reintento Automático en el Dashboard ──
+    let autoSyncCountdown = null;
+
+    function setAutoSync(minutes, btnElement) {
+        const targetTime = Date.now() + (minutes * 60000);
+        localStorage.setItem('autoSyncTargetTime', targetTime);
+        localStorage.setItem('autoSyncMinutes', minutes);
+        startAutoSyncCountdown(targetTime, minutes);
+    }
+
+    function startAutoSyncCountdown(targetTime, minutes) {
+        if (autoSyncCountdown) clearInterval(autoSyncCountdown);
+
+        // Actualizar UI de botones
+        const buttons = document.querySelectorAll('.btn-auto-sync');
+        buttons.forEach(b => {
+            b.style.backgroundColor = 'transparent';
+            b.style.color = 'var(--text-secondary)';
+            b.style.borderColor = 'var(--border-color)';
+        });
+        
+        // Buscar el botón correspondiente
+        let targetBtn = null;
+        if (minutes === 15) targetBtn = buttons[0];
+        if (minutes === 30) targetBtn = buttons[1];
+        if (minutes === 60) targetBtn = buttons[2];
+        
+        if (targetBtn) {
+            targetBtn.style.backgroundColor = 'rgba(245, 158, 11, 0.15)';
+            targetBtn.style.color = '#f59e0b';
+            targetBtn.style.borderColor = '#f59e0b';
+        }
+
+        const countdownSpan = document.getElementById('auto-sync-countdown');
+        if (!countdownSpan) return; // Si no hay facturas pendientes, no existe el span
+        countdownSpan.style.display = 'inline';
+
+        const updateCountdownUI = () => {
+            const now = Date.now();
+            let remaining = Math.floor((targetTime - now) / 1000);
+            
+            if (remaining <= 0) {
+                clearInterval(autoSyncCountdown);
+                countdownSpan.innerText = "(Sincronizando...)";
+                localStorage.removeItem('autoSyncTargetTime');
+                localStorage.removeItem('autoSyncMinutes');
+                syncContingencyInvoices();
+            } else {
+                const m = Math.floor(remaining / 60);
+                const s = remaining % 60;
+                countdownSpan.innerText = `(en ${m}:${s.toString().padStart(2, '0')})`;
+            }
+        };
+        
+        updateCountdownUI();
+        autoSyncCountdown = setInterval(updateCountdownUI, 1000);
+    }
 
     document.addEventListener('DOMContentLoaded', () => {
+        // Restaurar estado del timer si existe
+        const targetTimeStr = localStorage.getItem('autoSyncTargetTime');
+        const contingencyBanner = document.getElementById('contingency-alert-banner');
+        
+        if (targetTimeStr && contingencyBanner && contingencyBanner.style.display !== 'none') {
+            const targetTime = parseInt(targetTimeStr);
+            if (targetTime > Date.now()) {
+                const minutes = parseInt(localStorage.getItem('autoSyncMinutes'));
+                startAutoSyncCountdown(targetTime, minutes);
+            } else {
+                // El tiempo pasó mientras estaba fuera, sincronizar ahora
+                localStorage.removeItem('autoSyncTargetTime');
+                localStorage.removeItem('autoSyncMinutes');
+                syncContingencyInvoices();
+            }
+        } else if (!contingencyBanner) {
+            // Ya no hay facturas pendientes, limpiar localStorage
+            localStorage.removeItem('autoSyncTargetTime');
+            localStorage.removeItem('autoSyncMinutes');
+        }
         // Datos Inyectados desde Python para Flujo de Caja (Ingresos vs Egresos)
         const flowData = {{ chart_data | tojson
     }};
