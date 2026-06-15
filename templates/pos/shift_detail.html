@@ -7,13 +7,20 @@
 {% block content %}
 <div style="display: flex; flex-direction: column; gap: 30px; width: 100%;">
 
-    <!-- Botón de regreso -->
-    <div style="display: flex; justify-content: flex-start; margin-bottom: -10px;">
+    <!-- Botones de navegación y acción -->
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: -10px; flex-wrap: wrap; gap: 10px;">
         <a href="{{ url_for('web_pos.pos_admin_dashboard') }}" class="btn btn-secondary"
             style="height: 38px; display: inline-flex; align-items: center; gap: 8px; font-weight: 500; font-size: 0.85rem; border-color: var(--border-color);">
             <i class="fa-solid fa-arrow-left"></i>
             <span>Volver a Administración</span>
         </a>
+        {% if shift.status != 'OPEN' %}
+        <a href="{{ url_for('web_pos.print_z_report', shift_id=shift.id) }}" target="_blank" class="btn btn-secondary"
+            style="height: 38px; display: inline-flex; align-items: center; gap: 8px; font-weight: 500; font-size: 0.85rem; border-color: var(--border-color);">
+            <i class="fa-solid fa-print"></i>
+            <span>Imprimir Reporte Z</span>
+        </a>
+        {% endif %}
     </div>
 
     <!-- Fila Superior: Resumen Financiero del Turno -->
@@ -122,6 +129,43 @@
                 </div>
             </div>
 
+            {% if shift.status != 'OPEN' %}
+            {% set toleranceDOP = (company.posToleranceDOP or 0.0) | float %}
+            {% set toleranceUSD = (company.posToleranceUSD or 0.0) | float %}
+            {% set diffDOP = (shift.differenceCash or 0.0) | abs %}
+            {% set diffUSD = (shift.differenceUSD or 0.0) | abs %}
+            {% set exceedsDOP = diffDOP > toleranceDOP %}
+            {% set exceedsUSD = diffUSD > toleranceUSD %}
+            
+            {% if exceedsDOP or exceedsUSD %}
+            <div style="margin-top: 16px; padding: 16px; background: rgba(239,68,68,0.04); border: 1px solid rgba(239,68,68,0.2); border-radius: 8px; font-size: 0.85rem;">
+                <div style="color: var(--accent-red); font-weight: 700; margin-bottom: 6px; display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-triangle-exclamation" style="font-size: 1rem;"></i>
+                    <span style="font-size: 0.9rem;">Diferencia de Arqueo Excede la Tolerancia Permitida</span>
+                </div>
+                <div style="color: var(--text-secondary); line-height: 1.5; font-size: 0.82rem;">
+                    {% if exceedsDOP %}
+                    • La diferencia de efectivo en pesos (<strong>RD$ {{ "{:,.2f}".format(shift.differenceCash or 0.0) }}</strong>) excede la tolerancia permitida de <strong>RD$ {{ "{:,.2f}".format(toleranceDOP) }}</strong>.<br>
+                    {% endif %}
+                    {% if exceedsUSD %}
+                    • La diferencia de efectivo en dólares (<strong>USD {{ "{:,.2f}".format(shift.differenceUSD or 0.0) }}</strong>) excede la tolerancia permitida de <strong>USD {{ "{:,.2f}".format(toleranceUSD) }}</strong>.<br>
+                    {% endif %}
+                    <span style="display: block; margin-top: 6px; font-weight: 500; color: var(--text-primary);">Esta discrepancia requiere una justificación y resolución contable por parte de un supervisor.</span>
+                </div>
+            </div>
+            {% else %}
+            <div style="margin-top: 16px; padding: 16px; background: rgba(16,185,129,0.04); border: 1px solid rgba(16,185,129,0.2); border-radius: 8px; font-size: 0.85rem;">
+                <div style="color: var(--accent-emerald); font-weight: 700; margin-bottom: 6px; display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-circle-check" style="font-size: 1rem;"></i>
+                    <span style="font-size: 0.9rem;">Diferencia de Arqueo Dentro de Tolerancia</span>
+                </div>
+                <div style="color: var(--text-secondary); line-height: 1.5; font-size: 0.82rem;">
+                    Las discrepancias de efectivo en caja se encuentran dentro del rango de tolerancia establecido por la administración (Tolerancia DOP: RD$ {{ "{:,.2f}".format(toleranceDOP) }} | USD: USD {{ "{:,.2f}".format(toleranceUSD) }}).
+                </div>
+            </div>
+            {% endif %}
+            {% endif %}
+
             {% if shift.auditedByUserId %}
             <div
                 style="margin-top: 16px; padding: 12px; background: rgba(16,185,129,0.03); border: 1px solid rgba(16,185,129,0.15); border-radius: 6px; font-size: 0.85rem;">
@@ -130,6 +174,19 @@
                     <strong>Turno Auditado:</strong> Por <span style="color: var(--text-primary); font-weight: 700;">{{
                         shift.auditedByUserEmail }}</span> el {{ shift.auditedAt[:10] }} {{ shift.auditedAt[11:16] }}
                 </div>
+                {% if shift.auditResolutionType %}
+                <div style="margin-bottom: 4px; color: var(--text-secondary);">
+                    <strong>Resolución de Diferencia:</strong>
+                    <span class="badge" style="font-size: 0.72rem; padding: 2px 8px; background-color: rgba(139, 92, 246, 0.1); color: var(--accent-purple); border-radius: 4px; font-weight: bold; text-transform: none;">
+                        {% if shift.auditResolutionType == 'ASUMIDA_EMPRESA' %}Asumida por la Empresa
+                        {% elif shift.auditResolutionType == 'REPUESTA_CAJERO' %}Repuesta por el Cajero
+                        {% elif shift.auditResolutionType == 'CUENTA_POR_COBRAR' %}Cuenta por Cobrar (Empleado)
+                        {% elif shift.auditResolutionType == 'INVESTIGANDO' %}En Investigación / Pendiente
+                        {% else %}{{ shift.auditResolutionType }}
+                        {% endif %}
+                    </span>
+                </div>
+                {% endif %}
                 {% if shift.auditNotes %}
                 <div style="color: var(--text-muted); font-style: italic;">
                     "{{ shift.auditNotes }}"
@@ -139,7 +196,158 @@
             {% endif %}
             {% endif %}
 
-            {% if shift.status == 'PENDING_AUDIT' %}
+            {% if shift.status != 'OPEN' %}
+            <div class="table-responsive" style="margin-top: 24px; border-top: 1px dashed var(--border-color); padding-top: 20px;">
+                <h5 style="font-size: 0.95rem; font-family: var(--font-heading); margin-bottom: 12px; font-weight: 700; display: flex; align-items: center; gap: 6px;">
+                    <i class="fa-solid fa-list-check" style="color: var(--accent-purple);"></i>
+                    <span>Desglose Conciliación por Método de Pago</span>
+                </h5>
+                <table class="table-premium" style="font-size: 0.85rem; width: 100%;">
+                     <thead>
+                         <tr>
+                             <th>Método de Pago</th>
+                             <th style="text-align: right;">Esperado</th>
+                             <th style="text-align: right;">Declarado</th>
+                             <th style="text-align: right;">Diferencia</th>
+                         </tr>
+                     </thead>
+                     <tbody>
+                         <tr>
+                             <td><strong>Efectivo (Gaveta DOP)</strong></td>
+                             <td style="text-align: right; font-family: monospace;">RD$ {{ "{:,.2f}".format(shift.expectedCash or 0.0) }}</td>
+                             <td style="text-align: right; font-family: monospace;">RD$ {{ "{:,.2f}".format(shift.declaredCash or 0.0) }}</td>
+                             <td style="text-align: right; font-weight: 700; font-family: monospace; color: {% if (shift.differenceCash or 0.0) < -0.001 %}var(--accent-red){% else %}var(--accent-emerald){% endif %};">
+                                 RD$ {{ "{:,.2f}".format(shift.differenceCash or 0.0) }}
+                             </td>
+                         </tr>
+                         <tr>
+                             <td>
+                                 <strong>Efectivo en Dólares (USD)</strong><br>
+                                 <span style="font-size: 0.75rem; color: var(--text-secondary);">Tasa: RD$ {{ "{:,.2f}".format(shift.usdExchangeRate or 58.50) }}</span>
+                             </td>
+                             <td style="text-align: right; font-family: monospace;">
+                                 USD {{ "{:,.2f}".format(shift.expectedUSD or 0.0) }}<br>
+                                 <span style="font-size: 0.75rem; color: var(--text-secondary);">RD$ {{ "{:,.2f}".format((shift.expectedUSD or 0.0) * (shift.usdExchangeRate or 58.50)) }}</span>
+                             </td>
+                             <td style="text-align: right; font-family: monospace;">
+                                 USD {{ "{:,.2f}".format(shift.declaredUSD or 0.0) }}<br>
+                                 <span style="font-size: 0.75rem; color: var(--text-secondary);">RD$ {{ "{:,.2f}".format((shift.declaredUSD or 0.0) * (shift.usdExchangeRate or 58.50)) }}</span>
+                             </td>
+                             <td style="text-align: right; font-weight: 700; font-family: monospace; color: {% if (shift.differenceUSD or 0.0) < -0.001 %}var(--accent-red){% else %}var(--accent-emerald){% endif %};">
+                                 USD {{ "{:,.2f}".format(shift.differenceUSD or 0.0) }}<br>
+                                 <span style="font-size: 0.75rem; color: var(--text-secondary);">RD$ {{ "{:,.2f}".format((shift.differenceUSD or 0.0) * (shift.usdExchangeRate or 58.50)) }}</span>
+                             </td>
+                         </tr>
+                         <tr>
+                             <td><strong>Tarjeta (Lote: {{ shift.cardLoteNumber or 'N/A' }})</strong></td>
+                             <td style="text-align: right; font-family: monospace;">RD$ {{ "{:,.2f}".format(shift.expectedCard or 0.0) }}</td>
+                             <td style="text-align: right; font-family: monospace;">RD$ {{ "{:,.2f}".format(shift.declaredCard or 0.0) }}</td>
+                             <td style="text-align: right; font-weight: 700; font-family: monospace; color: {% if (shift.differenceCard or 0.0) < -0.001 %}var(--accent-red){% else %}var(--accent-emerald){% endif %};">
+                                 RD$ {{ "{:,.2f}".format(shift.differenceCard or 0.0) }}
+                             </td>
+                         </tr>
+                         <tr>
+                             <td><strong>Transferencia / Cheque</strong></td>
+                             <td style="text-align: right; font-family: monospace;">RD$ {{ "{:,.2f}".format(shift.expectedTransfer or 0.0) }}</td>
+                             <td style="text-align: right; font-family: monospace;">RD$ {{ "{:,.2f}".format(shift.declaredTransfer or 0.0) }}</td>
+                             <td style="text-align: right; font-weight: 700; font-family: monospace; color: {% if (shift.differenceTransfer or 0.0) < -0.001 %}var(--accent-red){% else %}var(--accent-emerald){% endif %};">
+                                 RD$ {{ "{:,.2f}".format(shift.differenceTransfer or 0.0) }}
+                             </td>
+                         </tr>
+                     </tbody>
+                </table>
+            </div>
+
+            {% if shift.fiscalSummary %}
+            <div class="table-responsive" style="margin-top: 24px; border-top: 1px dashed var(--border-color); padding-top: 20px;">
+                <h5 style="font-size: 0.95rem; font-family: var(--font-heading); margin-bottom: 12px; font-weight: 700; display: flex; align-items: center; gap: 6px;">
+                    <i class="fa-solid fa-file-invoice-dollar" style="color: var(--accent-emerald);"></i>
+                    <span>Resumen Impositivo Fiscal (e-CF)</span>
+                </h5>
+                <table class="table-premium" style="font-size: 0.85rem; width: 100%;">
+                     <thead>
+                         <tr>
+                             <th>Tipo de Comprobante</th>
+                             <th style="text-align: center;">Cantidad Emitidos</th>
+                             <th style="text-align: right;">ITBIS Recaudado</th>
+                             <th style="text-align: right;">Monto Total Ventas</th>
+                         </tr>
+                     </thead>
+                     <tbody>
+                         <tr>
+                             <td><strong>E31 - Factura de Crédito Fiscal</strong></td>
+                             <td style="text-align: center;">{{ shift.fiscalSummary.E31.count }}</td>
+                             <td style="text-align: right; font-family: monospace;">RD$ {{ "{:,.2f}".format(shift.fiscalSummary.E31.itbis) }}</td>
+                             <td style="text-align: right; font-family: monospace;">RD$ {{ "{:,.2f}".format(shift.fiscalSummary.E31.total) }}</td>
+                         </tr>
+                         <tr>
+                             <td><strong>E32 - Factura de Consumo</strong></td>
+                             <td style="text-align: center;">{{ shift.fiscalSummary.E32.count }}</td>
+                             <td style="text-align: right; font-family: monospace;">RD$ {{ "{:,.2f}".format(shift.fiscalSummary.E32.itbis) }}</td>
+                             <td style="text-align: right; font-family: monospace;">RD$ {{ "{:,.2f}".format(shift.fiscalSummary.E32.total) }}</td>
+                         </tr>
+                         {% if shift.fiscalSummary.Otros.count > 0 %}
+                         <tr>
+                             <td><strong>Otros Comprobantes</strong></td>
+                             <td style="text-align: center;">{{ shift.fiscalSummary.Otros.count }}</td>
+                             <td style="text-align: right; font-family: monospace;">RD$ {{ "{:,.2f}".format(shift.fiscalSummary.Otros.itbis) }}</td>
+                             <td style="text-align: right; font-family: monospace;">RD$ {{ "{:,.2f}".format(shift.fiscalSummary.Otros.total) }}</td>
+                         </tr>
+                         {% endif %}
+                         <tr>
+                             <td><strong style="color: var(--accent-red);">e-CF Anulados o Devoluciones</strong></td>
+                             <td style="text-align: center; color: var(--accent-red);">{{ shift.fiscalSummary.Anulados.count }}</td>
+                             <td style="text-align: right; color: var(--accent-red);">-</td>
+                             <td style="text-align: right; font-family: monospace; color: var(--accent-red);">RD$ {{ "{:,.2f}".format(shift.fiscalSummary.Anulados.total) }}</td>
+                         </tr>
+                     </tbody>
+                </table>
+            </div>
+            {% endif %}
+
+            {% if shift.cashDenominations or shift.usdDenominations %}
+            <div style="margin-top: 24px; border-top: 1px dashed var(--border-color); padding-top: 20px;">
+                <h5 style="font-size: 0.95rem; font-family: var(--font-heading); margin-bottom: 12px; font-weight: 700; display: flex; align-items: center; gap: 6px;">
+                    <i class="fa-solid fa-coins" style="color: var(--accent-amber);"></i>
+                    <span>Desglose Físico de Billetes y Monedas</span>
+                </h5>
+                
+                {% if shift.cashDenominations %}
+                <div style="margin-bottom: 14px;">
+                    <h6 style="font-size: 0.8rem; font-weight: 700; color: var(--accent-emerald); margin: 0 0 8px 0;">Pesos Dominicanos (DOP)</h6>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px;">
+                        {% for bill, qty in shift.cashDenominations.items() | sort(attribute='0', reverse=True) %}
+                        {% if qty | int > 0 %}
+                        <div style="background: rgba(0,0,0,0.02); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 8px 12px; display: flex; flex-direction: column; align-items: center; gap: 4px;">
+                            <span style="font-size: 0.72rem; color: var(--text-secondary);">RD$ {{ bill }} x {{ qty }}</span>
+                            <strong style="font-family: monospace; font-size: 0.9rem;">RD$ {{ "{:,.2f}".format(bill | int * qty | int) }}</strong>
+                        </div>
+                        {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+
+                {% if shift.usdDenominations %}
+                <div style="margin-top: 14px; margin-bottom: 14px;">
+                    <h6 style="font-size: 0.8rem; font-weight: 700; color: var(--accent-purple); margin: 0 0 8px 0;">Dólares (USD)</h6>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px;">
+                        {% for bill, qty in shift.usdDenominations.items() | sort(attribute='0', reverse=True) %}
+                        {% if qty | int > 0 %}
+                        <div style="background: rgba(0,0,0,0.02); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 8px 12px; display: flex; flex-direction: column; align-items: center; gap: 4px;">
+                            <span style="font-size: 0.72rem; color: var(--text-secondary);">US$ {{ bill }} x {{ qty }}</span>
+                            <strong style="font-family: monospace; font-size: 0.9rem;">USD {{ "{:,.2f}".format(bill | int * qty | int) }}</strong>
+                        </div>
+                        {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
+            {% endif %}
+
+            {% if shift.status == 'PENDING_AUDIT' or (shift.status == 'CLOSED' and (shift.difference | abs > 0.01) and not shift.auditResolutionType) %}
             <div style="margin-top: 20px; border-top: 1px dashed var(--border-color); padding-top: 20px;">
                 <h5
                     style="color: #ff9800; font-size: 1rem; font-family: var(--font-heading); margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
@@ -147,8 +355,11 @@
                     <span>Formulario de Auditoría (Supervisor)</span>
                 </h5>
                 <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 15px;">
-                    Este turno fue finalizado por el cajero y está pendiente de verificación física de efectivo. Por
-                    favor, verifique el efectivo físico en caja y registre el valor auditado final.
+                    {% if shift.status == 'CLOSED' %}
+                    Este turno fue cerrado directamente por el supervisor o administrador presentando diferencias. Por favor, registre la resolución contable/administrativa para esta discrepancia de caja.
+                    {% else %}
+                    Este turno fue finalizado por el cajero y está pendiente de verificación física de efectivo. Por favor, verifique el efectivo físico en caja y registre el valor auditado final.
+                    {% endif %}
                 </p>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
                     <div
@@ -163,7 +374,7 @@
                         style="background: rgba(255,255,255,0.02); padding: 12px; border: 1px solid var(--border-color); border-radius: 6px; text-align: center;">
                         <span
                             style="font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase;">Efectivo
-                            Declarado (Cajero)</span>
+                            Declarado</span>
                         <div style="font-size: 1.15rem; font-weight: 800; color: var(--text-primary); margin-top: 4px;">
                             RD$ {{ "{:,.2f}".format(shift.closingAmountDeclared) }}</div>
                     </div>
@@ -171,17 +382,24 @@
 
                 <form action="{{ url_for('web_pos.audit_shift', shift_id=shift.id) }}" method="POST"
                     style="display: flex; flex-direction: column; gap: 15px; background: rgba(255,152,0,0.05); padding: 15px; border-radius: var(--radius-sm); border: 1px solid rgba(255,152,0,0.2);">
-                    <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 15px; align-items: center;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 2fr; gap: 15px; align-items: center;">
                         <div class="form-group" style="margin-bottom: 0;">
-                            <label for="auditedAmount" style="font-weight: 700; color: var(--text-primary);">Monto
-                                Auditado (RD$):</label>
+                            <label for="auditedAmount" style="font-weight: 700; color: var(--text-primary);">Monto Auditado (RD$):</label>
                             <input type="number" step="0.01" min="0" name="auditedAmount" id="auditedAmount"
                                 value="{{ shift.closingAmountDeclared }}" class="form-input"
                                 style="width: 100%; border-color: rgba(255,152,0,0.5);" required>
                         </div>
                         <div class="form-group" style="margin-bottom: 0;">
-                            <label for="notes" style="font-weight: 700; color: var(--text-primary);">Notas de
-                                Auditoría:</label>
+                            <label for="resolutionType" style="font-weight: 700; color: var(--text-primary);">Resolución de Diferencia:</label>
+                            <select name="resolutionType" id="resolutionType" class="form-select" style="width: 100%; height: 34px; border-color: rgba(255,152,0,0.5);">
+                                <option value="ASUMIDA_EMPRESA">Asumida por la Empresa</option>
+                                <option value="REPUESTA_CAJERO">Repuesta por el Cajero</option>
+                                <option value="CUENTA_POR_COBRAR">Cuenta por Cobrar Empleado</option>
+                                <option value="INVESTIGANDO">En Investigación / Pendiente</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label for="notes" style="font-weight: 700; color: var(--text-primary);">Notas de Auditoría:</label>
                             <input type="text" name="notes" id="notes"
                                 placeholder="Notas opcionales (ej: diferencias, faltante de cambio...)"
                                 class="form-input" style="width: 100%;">
@@ -190,7 +408,7 @@
                     <div style="display: flex; justify-content: flex-end;">
                         <button type="submit" class="btn"
                             style="background-color: #ff9800; color: white; font-weight: 700; border: none; padding: 10px 20px; border-radius: 4px; display: inline-flex; align-items: center; gap: 8px;">
-                            <i class="fa-solid fa-check-double"></i> Aprobar y Cerrar Turno
+                            <i class="fa-solid fa-check-double"></i> {% if shift.status == 'CLOSED' %}Guardar Resolución{% else %}Aprobar y Cerrar Turno{% endif %}
                         </button>
                     </div>
                 </form>
@@ -251,12 +469,18 @@
                             </a>
                             {% endif %}
                         </td>
-                        <td {% if tx.status=='VOIDED' %}style="text-decoration: line-through;" {% endif %}>{{
-                            tx.paymentMethod }}</td>
+                        <td {% if tx.status=='VOIDED' %}style="text-decoration: line-through;" {% endif %}>
+                            {{ tx.paymentMethod }}
+                            {% if tx.usdAmount %}
+                            <br><span style="font-size: 0.75rem; color: var(--text-secondary);">Tasa: RD$ {{ "{:,.2f}".format(tx.usdExchangeRate or 58.50) }}</span>
+                            {% endif %}
+                        </td>
                         <td
                             style="text-align: right; font-weight: 700; {% if tx.status == 'VOIDED' %}text-decoration: line-through; color: var(--text-muted);{% else %}color: {% if tx.type == 'OUT' %}var(--accent-red){% else %}var(--accent-emerald){% endif %};{% endif %}">
-                            {% if tx.type == 'OUT' and tx.status != 'VOIDED' %}-{% endif %}RD$ {{
-                            "{:,.2f}".format(tx.amount) }}
+                            {% if tx.type == 'OUT' and tx.status != 'VOIDED' %}-{% endif %}RD$ {{ "{:,.2f}".format(tx.amount) }}
+                            {% if tx.usdAmount %}
+                            <br><span style="font-size: 0.75rem; font-weight: normal; color: var(--text-secondary);">({% if tx.type == 'OUT' %}-{% endif %}USD {{ "{:,.2f}".format(tx.usdAmount) }})</span>
+                            {% endif %}
                         </td>
                     </tr>
                     {% endfor %}

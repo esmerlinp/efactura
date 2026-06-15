@@ -627,12 +627,14 @@
             <i class="fa-solid fa-flask"></i>
             <span>ENTORNO DE PRUEBAS ACTIVO - CERTIFICACIÓN / SANDBOX</span>
         </div>
+        {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canToggleSandbox', True) %}
         <button type="button" id="sandbox-banner-toggle"
             style="background: rgba(255, 255, 255, 0.2); border: 1px solid rgba(255, 255, 255, 0.4); color: white; padding: 4px 12px; font-size: 0.75rem; font-weight: 700; border-radius: var(--radius-sm); cursor: pointer; transition: all var(--transition-fast); text-transform: uppercase;"
             onmouseover="this.style.background='rgba(255, 255, 255, 0.35)'"
             onmouseout="this.style.background='rgba(255, 255, 255, 0.2)'">
             <i class="fa-solid fa-toggle-on"></i> Cambiar a Producción
         </button>
+        {% endif %}
     </div>
     {% elif not session.get('company_plan_id') %}
     <!-- Banner superior de Advertencia de Plan Faltante en Producción -->
@@ -691,6 +693,7 @@
 
 
                 <!-- SECCIÓN: NOTAS -->
+                {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canManageNotes', True) %}
                 <div class="sidebar-section" id="sidebar-section-notas">
                     <ul class="sidebar-section-content" style="overflow: visible;">
                         <li class="nav-item {% if active_page == 'notes' %}active{% endif %}"
@@ -702,6 +705,7 @@
                         </li>
                     </ul>
                 </div>
+                {% endif %}
 
                 <!-- SECCIÓN: OPERACIONES & VENTAS -->
                 <div class="sidebar-section" id="sidebar-section-ventas">
@@ -716,6 +720,15 @@
                             <a href="{{ url_for('pos_dashboard') }}">
                                 <i class="fa-solid fa-cash-register"></i>
                                 <span>Caja Registradora</span>
+                            </a>
+                        </li>
+                        {% endif %}
+                        {% if (session.get('user', {}).get('role') == 'owner' or session.get('user',
+                        {}).get('permissions', {}).get('isPosSupervisor', False)) and session.get('company_profile_pos_enabled', True) %}
+                        <li class="nav-item {% if active_page == 'pos_admin' %}active{% endif %}" data-tooltip="Admin Cajas">
+                            <a href="{{ url_for('web_pos.pos_admin_dashboard') }}">
+                                <i class="fa-solid fa-shield-halved"></i>
+                                <span>Administración de Cajas</span>
                             </a>
                         </li>
                         {% endif %}
@@ -969,7 +982,9 @@
                         <span class="sidebar-plan-name">{{ global_plan_name }}</span>
                         <span class="sidebar-plan-type">{{ global_plan_billing_type or 'Pago por uso' }}</span>
                     </div>
+                    {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canViewSubscription', True) %}
                     <a href="{{ url_for('client_subscription_page') }}" class="sidebar-plan-modify">Modificar</a>
+                    {% endif %}
                 </div>
                 {% endif %}
                 <!-- Botón Toggle limpio, sin borde ni fondo -->
@@ -1145,10 +1160,12 @@
                         </a>
                         {% endif %}
 
+                        {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canViewSubscription', True) %}
                         <a href="{{ url_for('client_subscription_page') }}" style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--radius-sm); color: var(--text-primary); text-decoration: none; font-size: 0.85rem; transition: background-color var(--transition-fast);" onmouseover="this.style.backgroundColor='var(--bg-nav-hover)'" onmouseout="this.style.backgroundColor='transparent'">
                             <i class="fa-solid fa-credit-card" style="width: 16px; text-align: center;"></i>
                             <span>Mi Plan y Consumo</span>
                         </a>
+                        {% endif %}
 
                         <a href="{{ url_for('help_center') }}" style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--radius-sm); color: var(--text-primary); text-decoration: none; font-size: 0.85rem; transition: background-color var(--transition-fast);" onmouseover="this.style.backgroundColor='var(--bg-nav-hover)'" onmouseout="this.style.backgroundColor='transparent'">
                             <i class="fa-solid fa-circle-question" style="width: 16px; text-align: center;"></i>
@@ -1186,12 +1203,14 @@
                 </a>
                 {% endif %}
 
+                {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canToggleSandbox', True) %}
                 <!-- Modo Pruebas (Sandbox) -->
                 <button id="sandbox-toggle" class="utility-item"
                     style="color: {% if session.get('is_sandbox_mode', False) %}var(--accent-purple){% else %}var(--text-secondary){% endif %};"
                     title="Alternar Modo Pruebas (Sandbox)">
                     <i class="fa-solid fa-flask"></i>
                 </button>
+                {% endif %}
 
                 {% if user_has_multiple_companies %}
                 <a href="{{ url_for('web_auth.select_company') }}" class="utility-item" title="Cambiar de Empresa / Compañía">

@@ -431,6 +431,44 @@
                     </div>
                 </div>
 
+                <!-- SECCIÓN 5B: TOLERANCIA DE ARQUEO DE CAJAS -->
+                <div class="accordion-item">
+                    <button type="button" class="accordion-header" onclick="toggleAccordionSection(this)">
+                        <div class="accordion-title">
+                            <i class="fa-solid fa-calculator"></i>
+                            <span>Tolerancia de Arqueo de Cajas (POS)</span>
+                        </div>
+                        <i class="fa-solid fa-chevron-down accordion-chevron"></i>
+                    </button>
+                    <div class="accordion-content">
+                        <div class="accordion-body">
+                            <p style="color: var(--text-secondary); font-size: 0.82rem; line-height: 1.4; margin-bottom: 18px;">
+                                Define la diferencia máxima tolerable (sobrante o faltante) en el arqueo físico de caja antes de que el sistema requiera auditorías críticas o muestre alertas destacadas.
+                            </p>
+                            <div class="form-grid" style="grid-template-columns: 1fr 1fr; gap: 20px; display: grid;">
+                                <div class="form-group" style="margin-bottom: 0;">
+                                    <label for="posToleranceDOP">Tolerancia Permitida DOP (RD$)</label>
+                                    <input type="number" id="posToleranceDOP" name="posToleranceDOP"
+                                        class="form-input" placeholder="Ej: 100.00" min="0" step="0.01"
+                                        value="{{ profile.posToleranceDOP | default(0.0) }}">
+                                    <small style="color: var(--text-muted); font-size: 0.72rem; margin-top: 6px; display: block; line-height: 1.4;">
+                                        Diferencia máxima permitida en pesos dominicanos.
+                                    </small>
+                                </div>
+                                <div class="form-group" style="margin-bottom: 0;">
+                                    <label for="posToleranceUSD">Tolerancia Permitida USD ($)</label>
+                                    <input type="number" id="posToleranceUSD" name="posToleranceUSD"
+                                        class="form-input" placeholder="Ej: 2.00" min="0" step="0.01"
+                                        value="{{ profile.posToleranceUSD | default(0.0) }}">
+                                    <small style="color: var(--text-muted); font-size: 0.72rem; margin-top: 6px; display: block; line-height: 1.4;">
+                                        Diferencia máxima permitida en dólares estadounidenses.
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- SECCIÓN 6: CREDENCIALES DE API (e-CF) & CHATBOT -->
                 <div class="accordion-item">
                     <button type="button" class="accordion-header" onclick="toggleAccordionSection(this)">
@@ -740,6 +778,36 @@
                         <small
                             style="color: var(--text-muted); font-size: 0.72rem; margin-top: 6px; display: block; line-height: 1.4;">
                             Límite por transacción. La norma de la DGII establece un máximo de RD$ 250,000.00.
+                        </small>
+                    </div>
+                </div>
+
+                <h5
+                    style="font-size: 0.85rem; font-family: var(--font-heading); color: var(--text-main); margin: 24px 0 8px 0; font-weight: 500; display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-calculator" style="color: var(--accent-emerald);"></i>
+                    <span>Tolerancia de Arqueo de Cajas (POS)</span>
+                </h5>
+                <div class="form-grid"
+                    style="grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; display: grid;">
+                    <div class="form-group">
+                        <label for="posToleranceDOP">Tolerancia Permitida DOP (RD$)</label>
+                        <input type="number" id="posToleranceDOP" name="posToleranceDOP"
+                            class="form-input" placeholder="Ej: 100.00" min="0" step="0.01"
+                            value="{{ profile.posToleranceDOP | default(0.0) }}">
+                        <small
+                            style="color: var(--text-muted); font-size: 0.72rem; margin-top: 6px; display: block; line-height: 1.4;">
+                            Diferencia máxima permitida en pesos dominicanos.
+                        </small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="posToleranceUSD">Tolerancia Permitida USD ($)</label>
+                        <input type="number" id="posToleranceUSD" name="posToleranceUSD"
+                            class="form-input" placeholder="Ej: 2.00" min="0" step="0.01"
+                            value="{{ profile.posToleranceUSD | default(0.0) }}">
+                        <small
+                            style="color: var(--text-muted); font-size: 0.72rem; margin-top: 6px; display: block; line-height: 1.4;">
+                            Diferencia máxima permitida en dólares estadounidenses.
                         </small>
                     </div>
                 </div>

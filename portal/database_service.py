@@ -151,6 +151,7 @@ class DatabaseService:
                 'certificateName': company_data.get('certificateName', ''),
                 'certificateExtension': company_data.get('certificateExtension', ''),
                 'certificatePassword': company_data.get('certificatePassword', ''),
+                'canManageOwnCompany': bool(profile_data.get('canManageOwnCompany', False)),
             }
             company_obj['stats'] = cls.get_invoice_stats(company_id, company_obj['billingDay'])
             return company_obj
@@ -167,6 +168,35 @@ class DatabaseService:
                 .collection('config').document('profile').set(data, merge=True)
         except Exception as e:
             print(f"❌ Error en update_company({company_id}): {e}")
+
+    @classmethod
+    def update_user_profile(cls, company_id, data):
+        """Actualiza campos del perfil de usuario (users/{id}/config/user_profile)."""
+        db = cls.get_db()
+        try:
+            db.collection('users').document(company_id)\
+                .collection('config').document('user_profile').set(data, merge=True)
+            
+            # Sincronizar associated_companies según canManageOwnCompany
+            if 'canManageOwnCompany' in data:
+                can_manage = data['canManageOwnCompany']
+                doc_ref = db.collection('users').document(company_id).collection('config').document('user_profile')
+                doc_snap = doc_ref.get()
+                if doc_snap.exists:
+                    p_data = doc_snap.to_dict()
+                    assoc = p_data.get('associated_companies', [])
+                    if can_manage:
+                        if not any(c.get('ownerUID') == company_id for c in assoc):
+                            assoc.insert(0, {
+                                'ownerUID': company_id,
+                                'companyName': "Mi Empresa",
+                                'role': p_data.get('role', 'owner')
+                            })
+                    else:
+                        assoc = [c for c in assoc if c.get('ownerUID') != company_id]
+                    doc_ref.update({'associated_companies': assoc})
+        except Exception as e:
+            print(f"❌ Error en update_user_profile({company_id}): {e}")
 
     @classmethod
     def get_all_plans(cls):
@@ -324,7 +354,7 @@ class DatabaseService:
         return stats
 
     @classmethod
-    def create_company(cls, email, password, name, plan_id, pos_enabled):
+    def create_company(cls, email, password, name, plan_id, pos_enabled, can_manage_own_company=False):
         """Registra un nuevo usuario owner en Firebase Auth y crea sus perfiles en Firestore."""
         db = cls.get_db()
         from firebase_admin import auth
@@ -358,6 +388,14 @@ class DatabaseService:
                 "email": email,
                 "phone": "",
                 "address": "",
+                "canManageOwnCompany": can_manage_own_company,
+                "associated_companies": [
+                    {
+                        "ownerUID": uid,
+                        "companyName": "Mi Empresa",
+                        "role": "owner"
+                    }
+                ] if can_manage_own_company else [],
                 "permissions": {
                     "canInvoice": True,
                     "canExpenses": True,

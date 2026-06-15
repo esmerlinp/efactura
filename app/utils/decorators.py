@@ -10,7 +10,9 @@ def check_permission(permission_name):
     user = session['user']
     if user.get('role') == 'owner':
         return True
-    return user.get('permissions', {}).get(permission_name, True)
+    # Por seguridad, ciertos permisos de administrador/supervisor de caja deben ser False por defecto
+    default_val = False if permission_name in ('isPosSupervisor', 'canSupervisePOS') else True
+    return user.get('permissions', {}).get(permission_name, default_val)
 
 def require_permission(permission_name, feature_name="esta sección"):
     """Decorador para obligar a tener un permiso granular en vistas web Flask."""

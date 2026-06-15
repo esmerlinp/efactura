@@ -107,11 +107,14 @@ class DatabaseService:
         return None
 
     @classmethod
-    def register_user(cls, email, password, name, role="owner", owner_uid=None):
+    def register_user(cls, email, password, name, role="owner", owner_uid=None, can_manage_own_company=None):
         """Registra un nuevo usuario en Firebase Auth y Firestore."""
         uid = str(uuid.uuid4())
         created_at = datetime.utcnow().isoformat()
         resolved_owner_uid = owner_uid if owner_uid else uid
+
+        if can_manage_own_company is None:
+            can_manage_own_company = True if role == "owner" else False
 
         if not firebase_initialized:
             raise RuntimeError("El SDK de Firebase Admin no está inicializado. No se puede registrar el usuario.")
@@ -182,14 +185,21 @@ class DatabaseService:
                 
             associated_companies = existing_data.get("associated_companies", [])
             
-            # Asegurar que su propia empresa esté en la lista de asociadas
-            if not any(c.get("ownerUID") == resolved_owner_uid for c in associated_companies):
-                own_comp = cls.get_company_profile(resolved_owner_uid)
-                associated_companies.insert(0, {
-                    "ownerUID": resolved_owner_uid,
-                    "companyName": own_comp.get("companyName", "Mi Empresa"),
-                    "role": role
-                })
+            # Obtener can_manage_own_company actual o nuevo
+            current_can_manage = existing_data.get("canManageOwnCompany", can_manage_own_company)
+            
+            # Si se le permite administrar su propia empresa, asegurar que esté en la lista
+            if current_can_manage:
+                if not any(c.get("ownerUID") == resolved_owner_uid for c in associated_companies):
+                    own_comp = cls.get_company_profile(resolved_owner_uid)
+                    associated_companies.insert(0, {
+                        "ownerUID": resolved_owner_uid,
+                        "companyName": own_comp.get("companyName", "Mi Empresa"),
+                        "role": role
+                    })
+            else:
+                # Si no está permitido, remover su propia empresa de la lista si está
+                associated_companies = [c for c in associated_companies if c.get("ownerUID") != resolved_owner_uid]
                 
             # Agregar la nueva empresa invitadora a la lista si no está ya
             if owner_uid and not any(c.get("ownerUID") == owner_uid for c in associated_companies):
@@ -200,12 +210,14 @@ class DatabaseService:
                 })
                 
             doc_ref.update({
-                "associated_companies": associated_companies
+                "associated_companies": associated_companies,
+                "canManageOwnCompany": current_can_manage
             })
             
             profile_data = existing_data
             profile_data["uid"] = uid
             profile_data["associated_companies"] = associated_companies
+            profile_data["canManageOwnCompany"] = current_can_manage
         else:
             # Crear perfil nuevo para nuevo usuario
             profile_data = {
@@ -216,6 +228,7 @@ class DatabaseService:
                 "email": email,
                 "phone": "",
                 "address": "",
+                "canManageOwnCompany": can_manage_own_company,
                 "permissions": {
                     "canInvoice": True,
                     "canExpenses": True,
@@ -229,19 +242,25 @@ class DatabaseService:
                     "canManageContracts": True,
                     "canManageCommissions": True,
                     "canViewBI": True,
-                    "canViewAuditLog": False
+                    "canViewAuditLog": False,
+                    "isPosSupervisor": False,
+                    "canViewSubscription": True,
+                    "canToggleSandbox": True,
+                    "canManageNotes": True
                 },
                 "createdAt": created_at,
-                "associated_companies": []
+                "associated_companies": [],
+                "posSupervisorPin": ""
             }
             
             # Inicializar su propia empresa
-            own_comp = cls.get_company_profile(resolved_owner_uid)
-            profile_data["associated_companies"].append({
-                "ownerUID": resolved_owner_uid,
-                "companyName": own_comp.get("companyName", "Mi Empresa"),
-                "role": role
-            })
+            if can_manage_own_company:
+                own_comp = cls.get_company_profile(resolved_owner_uid)
+                profile_data["associated_companies"].append({
+                    "ownerUID": resolved_owner_uid,
+                    "companyName": own_comp.get("companyName", "Mi Empresa"),
+                    "role": role
+                })
             
             # Si fue invitado, agregar también la empresa invitadora
             if owner_uid and owner_uid != resolved_owner_uid:
@@ -345,12 +364,17 @@ class DatabaseService:
                         "canManageContracts": bool(perms.get("canManageContracts", True)),
                         "canManageCommissions": bool(perms.get("canManageCommissions", True)),
                         "canViewBI": bool(perms.get("canViewBI", True)),
-                        "canViewAuditLog": bool(perms.get("canViewAuditLog", False))
+                        "canViewAuditLog": bool(perms.get("canViewAuditLog", False)),
+                        "isPosSupervisor": bool(perms.get("isPosSupervisor", False)),
+                        "canViewSubscription": bool(perms.get("canViewSubscription", True)),
+                        "canToggleSandbox": bool(perms.get("canToggleSandbox", True)),
+                        "canManageNotes": bool(perms.get("canManageNotes", True))
                     },
                     "createdAt": created_at,
                     "two_factor_enabled": bool(data.get("two_factor_enabled", False)),
                     "two_factor_secret": data.get("two_factor_secret"),
-                    "backup_codes": data.get("backup_codes", [])
+                    "backup_codes": data.get("backup_codes", []),
+                    "posSupervisorPin": data.get("posSupervisorPin", "")
                 }
                 return profile
             else:
@@ -375,12 +399,17 @@ class DatabaseService:
                         "canManageContracts": True,
                         "canManageCommissions": True,
                         "canViewBI": True,
-                        "canViewAuditLog": True
+                        "canViewAuditLog": True,
+                        "isPosSupervisor": False,
+                        "canViewSubscription": True,
+                        "canToggleSandbox": True,
+                        "canManageNotes": True
                     },
                     "createdAt": datetime.utcnow().isoformat(),
                     "two_factor_enabled": False,
                     "two_factor_secret": None,
-                    "backup_codes": []
+                    "backup_codes": [],
+                    "posSupervisorPin": ""
                 }
                 db_firestore.collection("users").document(firebase_uid).collection("config").document("user_profile").set(profile)
                 return profile
@@ -429,12 +458,17 @@ class DatabaseService:
                         "canManageContracts": bool(perms.get("canManageContracts", True)),
                         "canManageCommissions": bool(perms.get("canManageCommissions", True)),
                         "canViewBI": bool(perms.get("canViewBI", True)),
-                        "canViewAuditLog": bool(perms.get("canViewAuditLog", False))
+                        "canViewAuditLog": bool(perms.get("canViewAuditLog", False)),
+                        "isPosSupervisor": bool(perms.get("isPosSupervisor", False)),
+                        "canViewSubscription": bool(perms.get("canViewSubscription", True)),
+                        "canToggleSandbox": bool(perms.get("canToggleSandbox", True)),
+                        "canManageNotes": bool(perms.get("canManageNotes", True))
                     },
                     "createdAt": serialize_field(data.get("createdAt")),
                     "two_factor_enabled": bool(data.get("two_factor_enabled", False)),
                     "two_factor_secret": data.get("two_factor_secret"),
-                    "backup_codes": data.get("backup_codes", [])
+                    "backup_codes": data.get("backup_codes", []),
+                    "posSupervisorPin": data.get("posSupervisorPin", "")
                 }
         except Exception as e:
             print(f"⚠️ Error al obtener perfil desde Firestore: {e}")
@@ -503,7 +537,11 @@ class DatabaseService:
                                 "canManageContracts": bool(emp_data.get("permissions", {}).get("canManageContracts", True)),
                                 "canManageCommissions": bool(emp_data.get("permissions", {}).get("canManageCommissions", True)),
                                 "canViewBI": bool(emp_data.get("permissions", {}).get("canViewBI", True)),
-                                "canViewAuditLog": bool(emp_data.get("permissions", {}).get("canViewAuditLog", False))
+                                "canViewAuditLog": bool(emp_data.get("permissions", {}).get("canViewAuditLog", False)),
+                                "isPosSupervisor": bool(emp_data.get("permissions", {}).get("isPosSupervisor", False)),
+                                "canViewSubscription": bool(emp_data.get("permissions", {}).get("canViewSubscription", True)),
+                                "canToggleSandbox": bool(emp_data.get("permissions", {}).get("canToggleSandbox", True)),
+                                "canManageNotes": bool(emp_data.get("permissions", {}).get("canManageNotes", True))
                             }
                         })
             except Exception as e:
@@ -2851,7 +2889,7 @@ class DatabaseService:
                 docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).get()
                 for doc in docs:
                     data = doc.to_dict()
-                    shifts.append({
+                    shift_item = {
                         "id": doc.id,
                         "registerId": data.get("registerId"),
                         "openedByUserId": data.get("openedByUserId"),
@@ -2867,7 +2905,10 @@ class DatabaseService:
                         "auditedByUserEmail": data.get("auditedByUserEmail"),
                         "auditedAt": serialize_field(data.get("auditedAt")),
                         "auditNotes": data.get("auditNotes", "")
-                    })
+                    }
+                    # Incluir todos los demás campos personalizados (desgloses, diferencias por moneda, resoluciones, etc.)
+                    shift_item.update({k: v for k, v in data.items() if k not in shift_item})
+                    shifts.append(shift_item)
                 # Ordenar por fecha de apertura descendente
                 shifts.sort(key=lambda x: x["openingTime"] or "", reverse=True)
             except Exception as e:
@@ -2923,7 +2964,7 @@ class DatabaseService:
         return shift_dict
 
     @classmethod
-    def close_cash_shift(cls, owner_uid, shift_id, declared_amount, sandbox=True, status="CLOSED", supervisor_uid=None, supervisor_email=None):
+    def close_cash_shift(cls, owner_uid, shift_id, declared_amount, sandbox=True, status="CLOSED", supervisor_uid=None, supervisor_email=None, declared_data=None):
         """Cierra el turno de caja especificado y calcula descuadres."""
         if not firebase_initialized:
             return None
@@ -2931,6 +2972,7 @@ class DatabaseService:
             coll_shifts = "sandbox_cash_shifts" if sandbox else "cash_shifts"
             coll_regs = "sandbox_cash_registers" if sandbox else "cash_registers"
             coll_txs = "sandbox_cash_transactions" if sandbox else "cash_transactions"
+            coll_invoices = "sandbox_invoices" if sandbox else "invoices"
 
             # 1. Obtener datos del turno actual
             shift_ref = db_firestore.collection("users").document(owner_uid).collection(coll_shifts).document(shift_id)
@@ -2942,12 +2984,14 @@ class DatabaseService:
             opening_amount = float(shift_data.get("openingAmount", 0.0))
             register_id = shift_data.get("registerId")
 
-            # 2. Calcular monto esperado en caja sumando transacciones asociadas a este turno
+            # 2. Calcular esperado por método de pago
             tx_docs = db_firestore.collection("users").document(owner_uid).collection(coll_txs)\
                 .where(filter=firestore.FieldFilter("shiftId", "==", shift_id)).get()
             
-            incomes_total = 0.0
-            expenses_total = 0.0
+            expected_cash = opening_amount
+            expected_card = 0.0
+            expected_transfer = 0.0
+            expected_usd = 0.0
 
             for doc in tx_docs:
                 t_data = doc.to_dict()
@@ -2955,47 +2999,138 @@ class DatabaseService:
                     continue
                 t_amount = float(t_data.get("amount", 0.0))
                 t_type = t_data.get("type", "SALE")
-                if t_type == "SALE" or t_type == "IN":
-                    incomes_total += t_amount
-                elif t_type == "OUT":
-                    expenses_total += t_amount
+                pm = t_data.get("paymentMethod", "Efectivo")
 
-            closing_expected = opening_amount + incomes_total - expenses_total
+                if t_type == "SALE":
+                    if "Efectivo USD" in pm:
+                        expected_usd += float(t_data.get("usdAmount", 0.0))
+                    elif "Efectivo" in pm:
+                        expected_cash += t_amount
+                    elif "Tarjeta" in pm:
+                        expected_card += t_amount
+                    else:
+                        expected_transfer += t_amount
+                elif t_type == "IN":
+                    expected_cash += t_amount
+                elif t_type == "OUT":
+                    expected_cash -= t_amount
+
+            # Fallback si no viene declared_data
+            if declared_data is None:
+                declared_data = {
+                    "declaredCash": declared_amount,
+                    "declaredCard": 0.0,
+                    "declaredTransfer": 0.0,
+                    "declaredUSD": 0.0,
+                    "usdExchangeRate": 58.50,
+                    "cashDenominations": {},
+                    "cardLoteNumber": ""
+                }
+
+            usd_rate = float(declared_data.get("usdExchangeRate") or 58.50)
+            closing_expected = expected_cash + expected_card + expected_transfer + (expected_usd * usd_rate)
             difference = declared_amount - closing_expected
 
-            # 3. Guardar cierre
+            # Diferencias por canal
+            diff_cash = float(declared_data.get("declaredCash", 0.0)) - expected_cash
+            diff_card = float(declared_data.get("declaredCard", 0.0)) - expected_card
+            diff_transfer = float(declared_data.get("declaredTransfer", 0.0)) - expected_transfer
+            diff_usd = float(declared_data.get("declaredUSD", 0.0)) - expected_usd
+
+            # 3. Consultar facturas para generar resumen fiscal (e-CF)
+            inv_docs = db_firestore.collection("users").document(owner_uid).collection(coll_invoices)\
+                .where(filter=firestore.FieldFilter("posShiftId", "==", shift_id)).get()
+            
+            fiscal_summary = {
+                "E31": {"count": 0, "total": 0.0, "itbis": 0.0},
+                "E32": {"count": 0, "total": 0.0, "itbis": 0.0},
+                "Otros": {"count": 0, "total": 0.0, "itbis": 0.0},
+                "Anulados": {"count": 0, "total": 0.0}
+            }
+            
+            for doc in inv_docs:
+                inv_data = doc.to_dict()
+                ecf_type = inv_data.get("ecfType", "")
+                total = float(inv_data.get("total", 0.0))
+                itbis = float(inv_data.get("totalITBIS", 0.0))
+                status = inv_data.get("status", "")
+                
+                if status == "ANULADA" or status == "VOIDED":
+                    fiscal_summary["Anulados"]["count"] += 1
+                    fiscal_summary["Anulados"]["total"] += total
+                    continue
+                
+                if "E31" in ecf_type or "Crédito Fiscal" in ecf_type:
+                    fiscal_summary["E31"]["count"] += 1
+                    fiscal_summary["E31"]["total"] += total
+                    fiscal_summary["E31"]["itbis"] += itbis
+                elif "E32" in ecf_type or "Consumo" in ecf_type:
+                    fiscal_summary["E32"]["count"] += 1
+                    fiscal_summary["E32"]["total"] += total
+                    fiscal_summary["E32"]["itbis"] += itbis
+                else:
+                    fiscal_summary["Otros"]["count"] += 1
+                    fiscal_summary["Otros"]["total"] += total
+                    fiscal_summary["Otros"]["itbis"] += itbis
+
+            # 4. Guardar cierre
+            # Si hay descuadre de caja (diferencia), el estado del turno debe quedar como PENDING_AUDIT
+            # para obligar a registrar la resolución de auditoría, sin importar quién cierre el turno.
+            final_status = status
+            if abs(difference) > 0.01:
+                final_status = "PENDING_AUDIT"
+
             update_data = {
-                "status": status,
+                "status": final_status,
                 "closingTime": datetime.utcnow().isoformat(),
                 "closingAmountExpected": closing_expected,
                 "closingAmountDeclared": declared_amount,
-                "difference": difference
+                "difference": difference,
+                
+                # Detalle de arqueo
+                "declaredCash": float(declared_data.get("declaredCash", 0.0)),
+                "declaredCard": float(declared_data.get("declaredCard", 0.0)),
+                "declaredTransfer": float(declared_data.get("declaredTransfer", 0.0)),
+                "declaredUSD": float(declared_data.get("declaredUSD", 0.0)),
+                "usdExchangeRate": usd_rate,
+                "expectedCash": expected_cash,
+                "expectedCard": expected_card,
+                "expectedTransfer": expected_transfer,
+                "expectedUSD": expected_usd,
+                "differenceCash": diff_cash,
+                "differenceCard": diff_card,
+                "differenceTransfer": diff_transfer,
+                "differenceUSD": diff_usd,
+                "cashDenominations": declared_data.get("cashDenominations", {}),
+                "usdDenominations": declared_data.get("usdDenominations", {}),
+                "cardLoteNumber": declared_data.get("cardLoteNumber", ""),
+                
+                # Resumen fiscal
+                "fiscalSummary": fiscal_summary
             }
-            if supervisor_uid:
+
+            if supervisor_uid and final_status == "CLOSED":
                 update_data["auditedByUserId"] = supervisor_uid
                 update_data["auditedByUserEmail"] = supervisor_email
                 update_data["auditedAt"] = datetime.utcnow().isoformat()
 
             shift_ref.update(update_data)
 
-            # 4. Cambiar estado de la caja registradora física a CLOSED
+            # 5. Cambiar estado de la caja registradora física a CLOSED
             db_firestore.collection("users").document(owner_uid).collection(coll_regs).document(register_id).update({
                 "status": "CLOSED"
             })
 
-            return {
-                "id": shift_id,
-                "closingAmountExpected": closing_expected,
-                "closingAmountDeclared": declared_amount,
-                "difference": difference,
-                "status": status
-            }
+            # Retornar objeto completo actualizado
+            result = shift_data.copy()
+            result.update(update_data)
+            return result
         except Exception as e:
             print(f"⚠️ Error al cerrar turno de caja: {e}")
             return None
 
     @classmethod
-    def audit_cash_shift(cls, owner_uid, shift_id, audited_amount, supervisor_uid, supervisor_email, notes="", sandbox=True):
+    def audit_cash_shift(cls, owner_uid, shift_id, audited_amount, supervisor_uid, supervisor_email, notes="", resolution_type=None, sandbox=True):
         """Audita y finaliza un turno de caja que estaba en PENDING_AUDIT."""
         if not firebase_initialized:
             return None
@@ -3017,7 +3152,8 @@ class DatabaseService:
                 "auditedByUserId": supervisor_uid,
                 "auditedByUserEmail": supervisor_email,
                 "auditedAt": datetime.utcnow().isoformat(),
-                "auditNotes": notes
+                "auditNotes": notes,
+                "auditResolutionType": resolution_type
             }
             shift_ref.update(update_data)
             return update_data
@@ -3348,15 +3484,15 @@ class DatabaseService:
             return companies
 
         try:
-            # 1. Obtener la propia empresa del usuario si es propietario
+            # 1. Obtener la propia empresa del usuario si es propietario e-Factura y lo tiene permitido
             profile = cls.get_user_profile(uid)
-            if profile:
+            if profile and profile.get("canManageOwnCompany", False):
                 own_owner_uid = profile.get("uid")
                 # Intentar obtener el nombre de su propia empresa
                 own_company = cls.get_company_profile(own_owner_uid)
                 companies.append({
                     "ownerUID": own_owner_uid,
-                    "companyName": own_company.get("companyName", "Mi Empresa"),
+                    "companyName": own_company.get("tradeName") or own_company.get("companyName", "Mi Empresa"),
                     "role": profile.get("role", "owner")
                 })
         except Exception as e:
@@ -3375,7 +3511,7 @@ class DatabaseService:
                         role = item.get("role", "employee") if isinstance(item, dict) else "employee"
                         companies.append({
                             "ownerUID": owner_uid,
-                            "companyName": comp_prof.get("companyName", "Empresa Asociada"),
+                            "companyName": comp_prof.get("tradeName") or comp_prof.get("companyName", "Empresa Asociada"),
                             "role": role
                         })
         except Exception as e:
@@ -3393,7 +3529,7 @@ class DatabaseService:
                         comp_prof = cls.get_company_profile(owner_uid)
                         companies.append({
                             "ownerUID": owner_uid,
-                            "companyName": comp_prof.get("companyName", "Empresa Colaboradora"),
+                            "companyName": comp_prof.get("tradeName") or comp_prof.get("companyName", "Empresa Colaboradora"),
                             "role": "employee"
                         })
         except Exception as e:

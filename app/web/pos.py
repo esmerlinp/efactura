@@ -9,6 +9,13 @@ from app.utils.decorators import require_permission, check_permission
 
 web_pos_bp = Blueprint('web_pos', __name__)
 
+@web_pos_bp.after_request
+def add_header(response):
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
+
 def require_open_shift(f):
     """Decorador para asegurar que el cajero tiene una caja abierta antes de vender."""
     from functools import wraps
@@ -126,6 +133,8 @@ def close_shift():
 
     open_shift = DatabaseService.get_open_shift(owner_uid, user_uid, sandbox=sandbox)
     if not open_shift:
+        if request.is_json:
+            return jsonify({"success": False, "error": "No tiene ningún turno de caja activo para cerrar."}), 400
         flash('No tiene ningún turno de caja activo para cerrar.', 'error')
         return redirect(url_for('web_pos.pos_dashboard'))
 
@@ -136,22 +145,37 @@ def close_shift():
             _emit_consolidated_ecf(owner_uid, open_shift['id'], pending, sandbox)
         except Exception as cons_err:
             print(f"⚠️ Error al emitir comprobante consolidado al cierre: {cons_err}")
-            flash(f'Advertencia: No se pudo emitir el comprobante consolidado ({len(pending)} ventas pendientes). Revise el log.', 'warning')
     # -----------------------------------------
 
-    try:
-        declared_amount = float(request.form.get('declaredAmount', 0.0))
-    except ValueError:
-        declared_amount = 0.0
+    declared_data = None
+    if request.is_json:
+        data = request.json or {}
+        declared_amount = float(data.get('declaredAmount', 0.0))
+        declared_data = {
+            "declaredCash": float(data.get('declaredCash', 0.0)),
+            "declaredCard": float(data.get('declaredCard', 0.0)),
+            "declaredTransfer": float(data.get('declaredTransfer', 0.0)),
+            "declaredUSD": float(data.get('declaredUSD', 0.0)),
+            "usdExchangeRate": float(data.get('usdExchangeRate', 58.50)),
+            "cashDenominations": data.get('cashDenominations', {}),
+            "usdDenominations": data.get('usdDenominations', {}),
+            "cardLoteNumber": str(data.get('cardLoteNumber', '')).strip()
+        }
+    else:
+        try:
+            declared_amount = float(request.form.get('declaredAmount', 0.0))
+        except ValueError:
+            declared_amount = 0.0
 
-    is_supervisor = (session['user'].get('role') == 'owner' or check_permission('canSupervisePOS'))
+    is_supervisor = (session['user'].get('role') == 'owner' or check_permission('isPosSupervisor'))
     status = "CLOSED" if is_supervisor else "PENDING_AUDIT"
 
     res = DatabaseService.close_cash_shift(
         owner_uid, open_shift['id'], declared_amount, sandbox=sandbox,
         status=status,
         supervisor_uid=user_uid if is_supervisor else None,
-        supervisor_email=session['user']['email'] if is_supervisor else None
+        supervisor_email=session['user']['email'] if is_supervisor else None,
+        declared_data=declared_data
     )
     if res:
         from app.services.audit_service import AuditService, ACTION_UPDATE, MODULE_POS
@@ -166,6 +190,15 @@ def close_shift():
             after=res,
             sandbox=sandbox
         )
+        
+        if request.is_json:
+            return jsonify({
+                "success": True,
+                "shiftId": open_shift['id'],
+                "status": status,
+                "difference": res["difference"]
+            })
+            
         if status == "CLOSED":
             diff = res["difference"]
             if abs(diff) < 0.01:
@@ -177,6 +210,8 @@ def close_shift():
         else:
             flash('Turno finalizado y enviado a revisión. Pendiente de auditoría por un supervisor.', 'info')
     else:
+        if request.is_json:
+            return jsonify({"success": False, "error": "Ocurrió un error al procesar el cierre de caja."}), 500
         flash('Ocurrió un error al procesar el cierre de caja.', 'error')
 
     return redirect(url_for('web_pos.pos_dashboard'))
@@ -325,10 +360,27 @@ def pos_terminal():
     # Filtrar solo bienes físicos o servicios del catálogo activos
     active_items = [it for it in items if it.get('price', 0.0) > 0 and it.get('isActive', True)]
     
+    # Obtener supervisores (propietario + colaboradores con permiso)
+    supervisors = []
+    owner_profile = DatabaseService.get_user_profile(owner_uid)
+    if owner_profile:
+        supervisors.append({
+            "uid": owner_uid,
+            "name": f"{owner_profile.get('name', 'Propietario')} (Propietario)"
+        })
+    team = DatabaseService.get_team_members(owner_uid)
+    for member in team:
+        if member.get('permissions', {}).get('isPosSupervisor', False):
+            supervisors.append({
+                "uid": member['uid'],
+                "name": member.get('name', 'Supervisor')
+            })
+            
     return render_template(
         'pos/terminal.html',
         active_page='pos',
-        items=active_items
+        items=active_items,
+        supervisors=supervisors
     )
 
 
@@ -452,6 +504,10 @@ def create_pos_sale():
     # -------------------------------------------
 
 
+    # --- Cobro en USD ---
+    usd_amount = float(data.get('usdAmount', 0.0))
+    usd_rate = float(data.get('usdExchangeRate', 1.0))
+
     invoice_dict = {
         "invoiceNumber": invoice_number,
         "date": datetime.utcnow().isoformat(),
@@ -476,6 +532,10 @@ def create_pos_sale():
         "posShiftId": open_shift['id'],  # Necesario para consultas de consolidación
         "isSyncedWithDGII": False
     }
+    
+    if usd_amount > 0:
+        invoice_dict["usdAmount"] = usd_amount
+        invoice_dict["usdExchangeRate"] = usd_rate
 
     # 1. Guardar factura en base de datos
     DatabaseService.save_invoice(owner_uid, invoice_id, invoice_dict, sandbox=sandbox)
@@ -489,6 +549,10 @@ def create_pos_sale():
         "referenceId": invoice_id,
         "notes": f"{'[CONSOLIDADO] ' if qualifies_for_consolidation else ''}Venta POS: {invoice_number}"
     }
+    if usd_amount > 0:
+        tx_dict["usdAmount"] = usd_amount
+        tx_dict["usdExchangeRate"] = usd_rate
+        
     DatabaseService.register_cash_transaction(owner_uid, tx_dict, sandbox=sandbox)
 
     # 3. Si aplica modo consolidado → no emitir e-CF individual, retornar con indicador
@@ -689,11 +753,39 @@ def print_receipt(invoice_id):
     )
 
 
+@web_pos_bp.route('/pos/shift/<shift_id>/print-z')
+@require_permission('canManagePOS', 'Impresión POS')
+def print_z_report(shift_id):
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+    
+    # Obtener el turno de caja
+    shifts = DatabaseService.get_cash_shifts(owner_uid, sandbox=sandbox)
+    shift = next((s for s in shifts if s['id'] == shift_id), None)
+    if not shift:
+        return "Turno no encontrado.", 404
+        
+    company = DatabaseService.get_company_profile(owner_uid)
+    
+    # Obtener nombre de la caja
+    registers = DatabaseService.get_cash_registers(owner_uid, sandbox=sandbox)
+    register = next((r for r in registers if r['id'] == shift['registerId']), None)
+    register_name = register['name'] if register else 'Caja Desconocida'
+    
+    return render_template(
+        'pos/receipt_z.html',
+        shift=shift,
+        company=company,
+        register_name=register_name,
+        sandbox=sandbox
+    )
+
+
 @web_pos_bp.route('/pos/register/new', methods=['POST'])
 @require_permission('canManagePOS', 'Punto de Venta')
 def create_cash_register():
-    if session['user'].get('role') != 'owner' and not check_permission('canSupervisePOS'):
-        return render_template('auth/restricted.html', feature_name="Administración de Cajas", required_permission="canSupervisePOS o Propietario")
+    if session['user'].get('role') != 'owner' and not check_permission('isPosSupervisor'):
+        return render_template('auth/restricted.html', feature_name="Administración de Cajas", required_permission="isPosSupervisor o Propietario")
         
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
@@ -727,8 +819,8 @@ def create_cash_register():
 @web_pos_bp.route('/pos/admin')
 @require_permission('canManagePOS', 'Administración de Caja')
 def pos_admin_dashboard():
-    if session['user'].get('role') != 'owner' and not check_permission('canSupervisePOS'):
-        return render_template('auth/restricted.html', feature_name="Administración de Cajas", required_permission="canSupervisePOS o Propietario")
+    if session['user'].get('role') != 'owner' and not check_permission('isPosSupervisor'):
+        return render_template('auth/restricted.html', feature_name="Administración de Cajas", required_permission="isPosSupervisor o Propietario")
         
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
@@ -743,7 +835,7 @@ def pos_admin_dashboard():
         
     return render_template(
         'pos/admin.html',
-        active_page='pos',
+        active_page='pos_admin',
         registers=registers,
         shifts=shifts
     )
@@ -752,8 +844,8 @@ def pos_admin_dashboard():
 @web_pos_bp.route('/pos/admin/shift/<shift_id>')
 @require_permission('canManagePOS', 'Administración de Caja')
 def pos_admin_shift_detail(shift_id):
-    if session['user'].get('role') != 'owner' and not check_permission('canSupervisePOS'):
-        return render_template('auth/restricted.html', feature_name="Administración de Cajas", required_permission="canSupervisePOS o Propietario")
+    if session['user'].get('role') != 'owner' and not check_permission('isPosSupervisor'):
+        return render_template('auth/restricted.html', feature_name="Administración de Cajas", required_permission="isPosSupervisor o Propietario")
 
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
@@ -769,20 +861,22 @@ def pos_admin_shift_detail(shift_id):
     shift['registerName'] = register['name'] if register else 'Caja Desconocida'
 
     transactions = DatabaseService.get_cash_transactions(owner_uid, shift_id, sandbox=sandbox)
+    company = DatabaseService.get_company_profile(owner_uid)
 
     return render_template(
         'pos/shift_detail.html',
-        active_page='pos',
+        active_page='pos_admin',
         shift=shift,
-        transactions=transactions
+        transactions=transactions,
+        company=company
     )
 
 
 @web_pos_bp.route('/pos/admin/shift/<shift_id>/audit', methods=['POST'])
 @require_permission('canManagePOS', 'Administración de Caja')
 def audit_shift(shift_id):
-    if session['user'].get('role') != 'owner' and not check_permission('canSupervisePOS'):
-        return render_template('auth/restricted.html', feature_name="Auditoría de Caja", required_permission="canSupervisePOS o Propietario")
+    if session['user'].get('role') != 'owner' and not check_permission('isPosSupervisor'):
+        return render_template('auth/restricted.html', feature_name="Auditoría de Caja", required_permission="isPosSupervisor o Propietario")
 
     owner_uid = session['user']['ownerUID']
     user_uid = session['user']['uid']
@@ -794,9 +888,10 @@ def audit_shift(shift_id):
     except ValueError:
         audited_amount = 0.0
     notes = request.form.get('notes', '')
+    resolution_type = request.form.get('resolutionType')
 
     res = DatabaseService.audit_cash_shift(
-        owner_uid, shift_id, audited_amount, user_uid, user_email, notes=notes, sandbox=sandbox
+        owner_uid, shift_id, audited_amount, user_uid, user_email, notes=notes, resolution_type=resolution_type, sandbox=sandbox
     )
     if res:
         diff = res["difference"]
@@ -816,7 +911,7 @@ def audit_shift(shift_id):
 @require_permission('canManagePOS', 'Administración de Caja')
 def toggle_consolidation_mode(register_id):
     """Activa o desactiva el modo comprobante consolidado para una caja registradora."""
-    if session['user'].get('role') != 'owner' and not check_permission('canSupervisePOS'):
+    if session['user'].get('role') != 'owner' and not check_permission('isPosSupervisor'):
         return jsonify({"success": False, "error": "Solo el propietario o supervisor puede cambiar esta configuración."}), 403
 
     owner_uid = session['user']['ownerUID']
@@ -830,3 +925,276 @@ def toggle_consolidation_mode(register_id):
     )
     mode_str = "activado" if enabled else "desactivado"
     return jsonify({"success": True, "consolidationMode": enabled, "message": f"Modo consolidado {mode_str}."})
+
+
+@web_pos_bp.route('/pos/supervisor/authorize', methods=['POST'])
+def authorize_supervisor_operation():
+    """Valida si un PIN es válido para un supervisor o propietario de la empresa."""
+    if 'user' not in session:
+        return jsonify({"success": False, "error": "No autenticado"}), 401
+        
+    owner_uid = session['user']['ownerUID']
+    data = request.json or {}
+    pin = (data.get('pin') or '').strip()
+    action_name = (data.get('action') or 'Operación POS').strip()
+    supervisor_uid = data.get('supervisorUid')
+    
+    if not pin:
+        return jsonify({"success": False, "error": "El PIN es requerido."}), 400
+    if not supervisor_uid:
+        return jsonify({"success": False, "error": "El supervisor es requerido."}), 400
+        
+    try:
+        from app.services.audit_service import AuditService, ACTION_UPDATE, MODULE_POS
+        sandbox = session.get('is_sandbox_mode', True)
+
+        # 1. Si es el propietario (owner) de la cuenta
+        if supervisor_uid == owner_uid:
+            owner_user = DatabaseService.get_user_profile(owner_uid)
+            if owner_user and owner_user.get('posSupervisorPin') == pin:
+                supervisor_name = owner_user.get('name', 'Propietario')
+                supervisor_email = owner_user.get('email', '')
+                
+                AuditService.log_from_request(
+                    owner_uid=owner_uid,
+                    action=ACTION_UPDATE,
+                    module=MODULE_POS,
+                    entity_id=owner_user.get('uid', owner_uid),
+                    entity_label=f"Operación POS '{action_name}' autorizada por Propietario: {supervisor_name} ({supervisor_email})",
+                    user_session=session.get('user', {}),
+                    sandbox=sandbox
+                )
+                return jsonify({"success": True, "supervisorName": supervisor_name})
+            else:
+                return jsonify({"success": False, "error": "PIN incorrecto para el Propietario."}), 403
+
+        # 2. Si es un colaborador con rol de supervisor
+        team = DatabaseService.get_team_members(owner_uid)
+        member = next((m for m in team if m['uid'] == supervisor_uid), None)
+        if member and member.get('permissions', {}).get('isPosSupervisor', False):
+            member_profile = DatabaseService.get_user_profile(supervisor_uid)
+            if member_profile and member_profile.get('posSupervisorPin') == pin:
+                supervisor_name = member_profile.get('name', 'Supervisor')
+                supervisor_email = member_profile.get('email', '')
+                
+                AuditService.log_from_request(
+                    owner_uid=owner_uid,
+                    action=ACTION_UPDATE,
+                    module=MODULE_POS,
+                    entity_id=member_profile.get('uid', ''),
+                    entity_label=f"Operación POS '{action_name}' autorizada por Supervisor: {supervisor_name} ({supervisor_email})",
+                    user_session=session.get('user', {}),
+                    sandbox=sandbox
+                )
+                return jsonify({"success": True, "supervisorName": supervisor_name})
+            else:
+                return jsonify({"success": False, "error": "PIN incorrecto para el Supervisor."}), 403
+        
+        return jsonify({"success": False, "error": "El usuario seleccionado no tiene permisos de supervisor de caja."}), 403
+                    
+    except Exception as e:
+        print(f"⚠️ Error al validar PIN de supervisor: {e}")
+        return jsonify({"success": False, "error": "Error interno al validar PIN"}), 500
+
+
+@web_pos_bp.route('/pos/usd-rate')
+def get_usd_rate():
+    """Retorna la tasa de cambio USD a DOP del día (Banco Popular)."""
+    from app.utils.currency import CurrencyService
+    try:
+        rate = CurrencyService.get_bpd_rate()
+        return jsonify({"success": True, "rate": rate})
+    except Exception as e:
+        print(f"⚠️ Error al obtener tasa USD: {e}")
+        return jsonify({"success": False, "rate": 58.50})
+
+
+@web_pos_bp.route('/pos/admin/reports')
+@require_permission('canManagePOS', 'Administración de Caja')
+def pos_admin_reports_dashboard():
+    if session['user'].get('role') != 'owner' and not check_permission('isPosSupervisor'):
+        return render_template('auth/restricted.html', feature_name="Administración de Cajas", required_permission="isPosSupervisor o Propietario")
+
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+
+    registers = DatabaseService.get_cash_registers(owner_uid, sandbox=sandbox)
+    shifts = DatabaseService.get_cash_shifts(owner_uid, sandbox=sandbox)
+    
+    # Get distinct list of cashiers
+    cashiers = sorted(list(set(s['openedByUserEmail'] for s in shifts if s.get('openedByUserEmail'))))
+
+    return render_template(
+        'pos/reports_dashboard.html',
+        active_page='pos_admin',
+        registers=registers,
+        cashiers=cashiers
+    )
+
+
+@web_pos_bp.route('/pos/admin/reports/data')
+@require_permission('canManagePOS', 'Administración de Caja')
+def pos_admin_reports_data():
+    if session['user'].get('role') != 'owner' and not check_permission('isPosSupervisor'):
+        return jsonify({"success": False, "error": "No autorizado"}), 403
+
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+
+    start_date = request.args.get('startDate')
+    end_date = request.args.get('endDate')
+    register_id = request.args.get('registerId')
+    cashier = request.args.get('cashier')
+
+    shifts = DatabaseService.get_cash_shifts(owner_uid, sandbox=sandbox)
+
+    # Filter shifts
+    filtered_shifts = []
+    for s in shifts:
+        s_date = s.get('openingTime', '')[:10]
+        if start_date and s_date < start_date:
+            continue
+        if end_date and s_date > end_date:
+            continue
+        if register_id and s.get('registerId') != register_id:
+            continue
+        if cashier and s.get('openedByUserEmail') != cashier:
+            continue
+        filtered_shifts.append(s)
+
+    # Calculate metrics
+    total_expected = 0.0
+    total_declared = 0.0
+    total_difference = 0.0
+    total_opening = 0.0
+
+    # Sales by payment method
+    pm_totals = {
+        "Efectivo DOP": 0.0,
+        "Efectivo USD": 0.0,
+        "Tarjeta": 0.0,
+        "Transferencia": 0.0
+    }
+
+    all_txs = []
+    for s in filtered_shifts:
+        total_expected += float(s.get('closingAmountExpected') or 0.0)
+        total_declared += float(s.get('closingAmountDeclared') or 0.0)
+        total_difference += float(s.get('difference') or 0.0)
+        total_opening += float(s.get('openingAmount') or 0.0)
+
+        # Sum payment channels
+        pm_totals["Efectivo DOP"] += float(s.get('expectedCash', 0.0)) - float(s.get('openingAmount', 0.0))
+        pm_totals["Efectivo USD"] += float(s.get('expectedUSD', 0.0))
+        pm_totals["Tarjeta"] += float(s.get('expectedCard', 0.0))
+        pm_totals["Transferencia"] += float(s.get('expectedTransfer', 0.0))
+
+        # Query cash transactions for details
+        txs = DatabaseService.get_cash_transactions(owner_uid, s['id'], sandbox=sandbox)
+        for t in txs:
+            t['registerName'] = s.get('registerName', 'Caja')
+            t['openedByUserEmail'] = s.get('openedByUserEmail', '')
+            t['shiftId'] = s.get('id')
+            all_txs.append(t)
+
+    # 1. Aperturas y cierres
+    reports_shifts = []
+    for s in filtered_shifts:
+        reports_shifts.append({
+            "id": s.get('id'),
+            "registerName": s.get('registerName'),
+            "openedByUserEmail": s.get('openedByUserEmail'),
+            "openingTime": s.get('openingTime'),
+            "closingTime": s.get('closingTime'),
+            "openingAmount": s.get('openingAmount'),
+            "closingAmountExpected": s.get('closingAmountExpected'),
+            "closingAmountDeclared": s.get('closingAmountDeclared'),
+            "difference": s.get('difference'),
+            "status": s.get('status'),
+            "auditResolutionType": s.get('auditResolutionType'),
+            "auditedByUserEmail": s.get('auditedByUserEmail')
+        })
+
+    # 2. Entradas y salidas de efectivo
+    cash_movements = []
+    for t in all_txs:
+        if t.get('type') in ['IN', 'OUT'] and t.get('status') != 'VOIDED':
+            cash_movements.append({
+                "date": t.get('date'),
+                "type": t.get('type'),
+                "paymentMethod": t.get('paymentMethod'),
+                "amount": t.get('amount'),
+                "usdAmount": t.get('usdAmount', 0.0),
+                "notes": t.get('notes'),
+                "registerName": t.get('registerName'),
+                "openedByUserEmail": t.get('openedByUserEmail')
+            })
+
+    # 3. Anulaciones y cancelaciones
+    voided_transactions = []
+    for t in all_txs:
+        if t.get('status') == 'VOIDED':
+            voided_transactions.append({
+                "date": t.get('date'),
+                "type": t.get('type'),
+                "paymentMethod": t.get('paymentMethod'),
+                "amount": t.get('amount'),
+                "usdAmount": t.get('usdAmount', 0.0),
+                "notes": t.get('notes'),
+                "registerName": t.get('registerName'),
+                "openedByUserEmail": t.get('openedByUserEmail')
+            })
+
+    # 4. Diferencias de caja
+    discrepancies = []
+    for s in filtered_shifts:
+        diff_val = s.get('difference') or 0.0
+        if abs(diff_val) > 0.01:
+            discrepancies.append({
+                "id": s.get('id'),
+                "registerName": s.get('registerName'),
+                "openedByUserEmail": s.get('openedByUserEmail'),
+                "closingTime": s.get('closingTime'),
+                "difference": diff_val,
+                "differenceCash": s.get('differenceCash', 0.0),
+                "differenceUSD": s.get('differenceUSD', 0.0),
+                "differenceCard": s.get('differenceCard', 0.0),
+                "differenceTransfer": s.get('differenceTransfer', 0.0),
+                "status": s.get('status'),
+                "auditResolutionType": s.get('auditResolutionType'),
+                "auditedByUserEmail": s.get('auditedByUserEmail')
+            })
+
+    # 5. Conciliación bancaria (lotes de tarjetas)
+    card_lotes = []
+    for s in filtered_shifts:
+        if s.get('expectedCard', 0.0) > 0.0 or s.get('declaredCard', 0.0) > 0.0:
+            card_lotes.append({
+                "id": s.get('id'),
+                "registerName": s.get('registerName'),
+                "openedByUserEmail": s.get('openedByUserEmail'),
+                "closingTime": s.get('closingTime'),
+                "loteNumber": s.get('cardLoteNumber') or 'N/A',
+                "expectedCard": s.get('expectedCard', 0.0),
+                "declaredCard": s.get('declaredCard', 0.0),
+                "differenceCard": s.get('differenceCard', 0.0),
+                "status": s.get('status')
+            })
+
+    return jsonify({
+        "success": True,
+        "metrics": {
+            "totalExpected": total_expected,
+            "totalDeclared": total_declared,
+            "totalDifference": total_difference,
+            "totalOpening": total_opening,
+            "shiftCount": len(filtered_shifts),
+            "discrepancyCount": len(discrepancies)
+        },
+        "paymentsDistribution": pm_totals,
+        "shifts": reports_shifts,
+        "cashMovements": cash_movements,
+        "voidedTransactions": voided_transactions,
+        "discrepancies": discrepancies,
+        "cardLotes": card_lotes
+    })

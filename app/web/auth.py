@@ -10,6 +10,7 @@ from datetime import datetime
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify
 from config import Config
 from app.services.db_service import DatabaseService
+from app.utils.decorators import check_permission
 
 web_auth_bp = Blueprint('web_auth', __name__)
 
@@ -489,6 +490,8 @@ def forgot_password():
 def toggle_sandbox():
     if 'user' not in session:
         return jsonify({"error": "No autorizado"}), 401
+    if not check_permission('canToggleSandbox'):
+        return jsonify({"success": False, "error": "No tienes permisos para alternar el modo Sandbox"}), 403
     
     data = request.get_json(silent=True) or {}
     if 'sandbox' in data:
@@ -511,6 +514,8 @@ def user_profile_page():
     info_error = request.args.get('info_error')
     pwd_success = request.args.get('pwd_success')
     pwd_error = request.args.get('pwd_error')
+    pin_success = request.args.get('pin_success')
+    pin_error = request.args.get('pin_error')
 
     return render_template(
         'user_profile.html',
@@ -520,7 +525,50 @@ def user_profile_page():
         info_error=info_error,
         pwd_success=pwd_success,
         pwd_error=pwd_error,
+        pin_success=pin_success,
+        pin_error=pin_error,
     )
+
+
+@web_auth_bp.route('/profile/update-pin', methods=['POST'])
+def update_supervisor_pin():
+    """Procesa el registro o actualización del PIN de supervisor de caja del usuario."""
+    if 'user' not in session:
+        return redirect(url_for('web_auth.login'))
+        
+    user = session['user']
+    is_owner = user.get('role') == 'owner'
+    is_supervisor = user.get('permissions', {}).get('isPosSupervisor', False)
+    
+    if not is_owner and not is_supervisor:
+        return redirect(url_for('web_auth.user_profile_page', pin_error='No tienes permisos de supervisor o propietario.'))
+        
+    pin = request.form.get('supervisor_pin', '').strip()
+    if not pin.isdigit() or len(pin) < 4 or len(pin) > 6:
+        return redirect(url_for('web_auth.user_profile_page', pin_error='El PIN de supervisor debe ser numérico y tener entre 4 y 6 dígitos.'))
+        
+    uid = user['uid']
+    try:
+        from app.services.db_service import db_firestore
+        db_firestore.collection("users").document(uid).collection("config").document("user_profile").update({
+            "posSupervisorPin": pin
+        })
+        session['user']['posSupervisorPin'] = pin
+        session.modified = True
+        
+        from app.services.audit_service import AuditService, ACTION_UPDATE, MODULE_AUTH
+        AuditService.log_from_request(
+            owner_uid=user['ownerUID'],
+            action=ACTION_UPDATE,
+            module=MODULE_AUTH,
+            entity_id=uid,
+            entity_label=f"Actualizó PIN de supervisor POS — {user['email']}",
+            user_session=user,
+            sandbox=session.get('is_sandbox_mode', False)
+        )
+        return redirect(url_for('web_auth.user_profile_page', pin_success='¡PIN de supervisor de caja actualizado exitosamente!'))
+    except Exception as e:
+        return redirect(url_for('web_auth.user_profile_page', pin_error=f'Error al guardar PIN: {str(e)}'))
 
 
 @web_auth_bp.route('/profile/update', methods=['POST'])

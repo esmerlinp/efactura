@@ -1,10 +1,12 @@
 from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for
 from app.services.db_service import DatabaseService
+from app.utils.decorators import require_permission, check_permission
 import uuid
 
 web_notes_bp = Blueprint('web_notes', __name__)
 
 @web_notes_bp.route('/notes')
+@require_permission('canManageNotes', 'Gestor de Notas')
 def list_notes():
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
@@ -28,6 +30,8 @@ def list_notes():
 def create_note():
     if 'user' not in session:
         return jsonify({'success': False, 'error': 'No autorizado'}), 401
+    if not check_permission('canManageNotes'):
+        return jsonify({'success': False, 'error': 'No tienes permisos para gestionar notas'}), 403
         
     owner_uid = session['user']['ownerUID']
     user_uid = session['user']['uid']
@@ -71,6 +75,8 @@ def create_note():
 def update_note_status(note_id):
     if 'user' not in session:
         return jsonify({'success': False, 'error': 'No autorizado'}), 401
+    if not check_permission('canManageNotes'):
+        return jsonify({'success': False, 'error': 'No tienes permisos para gestionar notas'}), 403
         
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
@@ -86,6 +92,8 @@ def update_note_status(note_id):
 def delete_note(note_id):
     if 'user' not in session:
         return jsonify({'success': False, 'error': 'No autorizado'}), 401
+    if not check_permission('canManageNotes'):
+        return jsonify({'success': False, 'error': 'No tienes permisos para gestionar notas'}), 403
         
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
@@ -121,6 +129,8 @@ def delete_note(note_id):
 def save_statuses():
     if 'user' not in session:
         return jsonify({'success': False, 'error': 'No autorizado'}), 401
+    if not check_permission('canManageNotes'):
+        return jsonify({'success': False, 'error': 'No tienes permisos para gestionar notas'}), 403
         
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
