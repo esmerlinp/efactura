@@ -32,8 +32,13 @@ def require_open_shift(f):
         
         open_shift = DatabaseService.get_open_shift(owner_uid, user_uid, sandbox=sandbox)
         if not open_shift:
-            flash('Debe abrir un turno de caja para operar el Punto de Venta.', 'warning')
+            flash('Debe abrir un turno de caja para operar el Punto de Venta. Si estaba operando, es posible que un supervisor haya tomado el control.', 'warning')
             return redirect(url_for('web_pos.pos_dashboard'))
+        
+        if open_shift.get('status') == 'CLOSING':
+            flash('Su caja está en proceso de cierre (Arqueo en curso). No puede realizar ventas.', 'warning')
+            return redirect(url_for('web_pos.pos_dashboard'))
+            
         return f(*args, **kwargs)
     return decorated_function
 
@@ -122,6 +127,26 @@ def open_shift():
     else:
         flash('Error al abrir la caja registradora.', 'error')
         return redirect(url_for('web_pos.pos_dashboard'))
+
+
+@web_pos_bp.route('/pos/shift/initiate_close', methods=['POST'])
+@require_permission('canManagePOS', 'Punto de Venta')
+def initiate_close_shift():
+    owner_uid = session['user']['ownerUID']
+    user_uid = session['user']['uid']
+    sandbox = session.get('is_sandbox_mode', True)
+
+    open_shift = DatabaseService.get_open_shift(owner_uid, user_uid, sandbox=sandbox)
+    if not open_shift:
+        return jsonify({"success": False, "error": "No tiene ningún turno de caja activo."}), 400
+
+    if open_shift.get('status') == 'CLOSING':
+        return jsonify({"success": True, "message": "Ya estaba en proceso de cierre."})
+
+    res = DatabaseService.initiate_close_cash_shift(owner_uid, open_shift['id'], sandbox=sandbox)
+    if res:
+        return jsonify({"success": True})
+    return jsonify({"success": False, "error": "No se pudo iniciar el proceso de cierre."}), 500
 
 
 @web_pos_bp.route('/pos/shift/close', methods=['POST'])
@@ -346,6 +371,194 @@ def add_manual_transaction():
     else:
         flash('Fallo al registrar el movimiento de caja.', 'error')
         return redirect(url_for('web_pos.pos_dashboard'))
+
+# =========================================================================
+# ACCIONES DE SUPERVISIÓN
+# =========================================================================
+
+def _get_supervisor_data():
+    return session['user']['uid'], session['user']['name']
+
+@web_pos_bp.route('/pos/shift/<shift_id>/supervisor/take_control', methods=['POST'])
+@require_permission('canManagePOS', 'Punto de Venta')
+def sup_take_control(shift_id):
+    if not (session['user'].get('role') == 'owner' or check_permission('isPosSupervisor')):
+        return jsonify({"success": False, "error": "No tienes permisos de supervisor."}), 403
+        
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+    data = request.json or {}
+    reason = data.get('reason', '')
+    comments = data.get('comments', '')
+    
+    sup_uid, sup_name = _get_supervisor_data()
+    
+    res = DatabaseService.take_control_shift(owner_uid, shift_id, sup_uid, sup_name, reason, comments, sandbox)
+    if res:
+        from app.services.audit_service import AuditService, ACTION_UPDATE, MODULE_POS
+        AuditService.log_from_request(
+            owner_uid=owner_uid, action=ACTION_UPDATE, module=MODULE_POS, entity_id=shift_id,
+            entity_label=f"Supervisor tomó control de caja (Motivo: {reason})",
+            user_session=session.get('user', {}), after={"reason": reason, "comments": comments}, sandbox=sandbox
+        )
+        return jsonify({"success": True})
+    return jsonify({"success": False, "error": "No se pudo tomar control del turno."})
+
+@web_pos_bp.route('/pos/shift/<shift_id>/supervisor/force_close', methods=['POST'])
+@require_permission('canManagePOS', 'Punto de Venta')
+def sup_force_close(shift_id):
+    if not (session['user'].get('role') == 'owner' or check_permission('isPosSupervisor')):
+        return jsonify({"success": False, "error": "No tienes permisos de supervisor."}), 403
+        
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+    data = request.json or {}
+    reason = data.get('reason', '')
+    comments = data.get('comments', '')
+    
+    sup_uid, sup_name = _get_supervisor_data()
+    
+    res = DatabaseService.force_close_shift(owner_uid, shift_id, sup_uid, sup_name, reason, comments, sandbox)
+    if res:
+        from app.services.audit_service import AuditService, ACTION_UPDATE, MODULE_POS
+        AuditService.log_from_request(
+            owner_uid=owner_uid, action=ACTION_UPDATE, module=MODULE_POS, entity_id=shift_id,
+            entity_label=f"Cierre forzado de caja (Motivo: {reason})",
+            user_session=session.get('user', {}), after={"reason": reason, "comments": comments, "status": "FORCED_CLOSED"}, sandbox=sandbox
+        )
+        return jsonify({"success": True})
+    return jsonify({"success": False, "error": "No se pudo forzar el cierre del turno."})
+
+@web_pos_bp.route('/pos/shift/<shift_id>/supervisor/close_under_review', methods=['POST'])
+@require_permission('canManagePOS', 'Punto de Venta')
+def sup_close_under_review(shift_id):
+    if not (session['user'].get('role') == 'owner' or check_permission('isPosSupervisor')):
+        return jsonify({"success": False, "error": "No tienes permisos de supervisor."}), 403
+        
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+    data = request.json or {}
+    reason = data.get('reason', '')
+    comments = data.get('comments', '')
+    declared_amount = float(data.get('declaredAmount', 0.0))
+    
+    sup_uid, sup_name = _get_supervisor_data()
+    
+    res = DatabaseService.close_shift_under_review(owner_uid, shift_id, sup_uid, sup_name, reason, comments, declared_amount, sandbox)
+    if res:
+        from app.services.audit_service import AuditService, ACTION_UPDATE, MODULE_POS
+        AuditService.log_from_request(
+            owner_uid=owner_uid, action=ACTION_UPDATE, module=MODULE_POS, entity_id=shift_id,
+            entity_label=f"Cierre de caja bajo investigación (Motivo: {reason})",
+            user_session=session.get('user', {}), after={"reason": reason, "comments": comments, "status": "CLOSED_UNDER_REVIEW"}, sandbox=sandbox
+        )
+        return jsonify({"success": True})
+    return jsonify({"success": False, "error": "No se pudo cerrar el turno bajo investigación."})
+
+@web_pos_bp.route('/pos/shift/<shift_id>/supervisor/reopen', methods=['POST'])
+@require_permission('canManagePOS', 'Punto de Venta')
+def sup_reopen(shift_id):
+    if not (session['user'].get('role') == 'owner' or check_permission('isPosSupervisor')):
+        return jsonify({"success": False, "error": "No tienes permisos de supervisor."}), 403
+        
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+    data = request.json or {}
+    reason = data.get('reason', '')
+    comments = data.get('comments', '')
+    
+    sup_uid, sup_name = _get_supervisor_data()
+    
+    res = DatabaseService.reopen_shift(owner_uid, shift_id, sup_uid, sup_name, reason, comments, sandbox)
+    if res:
+        from app.services.audit_service import AuditService, ACTION_UPDATE, MODULE_POS
+        AuditService.log_from_request(
+            owner_uid=owner_uid, action=ACTION_UPDATE, module=MODULE_POS, entity_id=shift_id,
+            entity_label=f"Reapertura de turno (Motivo: {reason})",
+            user_session=session.get('user', {}), after={"reason": reason, "comments": comments, "status": "REOPENED"}, sandbox=sandbox
+        )
+        return jsonify({"success": True})
+    return jsonify({"success": False, "error": "Solo se pueden reabrir turnos cerrados en el día de hoy y que no hayan sido auditados."})
+
+@web_pos_bp.route('/pos/shift/<shift_id>/supervisor/transfer', methods=['POST'])
+@require_permission('canManagePOS', 'Punto de Venta')
+def sup_transfer(shift_id):
+    if not (session['user'].get('role') == 'owner' or check_permission('isPosSupervisor')):
+        return jsonify({"success": False, "error": "No tienes permisos de supervisor."}), 403
+        
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+    data = request.json or {}
+    reason = data.get('reason', '')
+    comments = data.get('comments', '')
+    new_cashier_uid = data.get('newCashierUid')
+    new_cashier_email = data.get('newCashierEmail')
+    
+    if not new_cashier_uid:
+         return jsonify({"success": False, "error": "Cajero destino requerido."}), 400
+    
+    sup_uid, sup_name = _get_supervisor_data()
+    
+    res = DatabaseService.transfer_shift(owner_uid, shift_id, sup_uid, sup_name, new_cashier_uid, new_cashier_email, reason, comments, sandbox)
+    if res:
+        from app.services.audit_service import AuditService, ACTION_UPDATE, MODULE_POS
+        AuditService.log_from_request(
+            owner_uid=owner_uid, action=ACTION_UPDATE, module=MODULE_POS, entity_id=shift_id,
+            entity_label=f"Transferencia de turno a {new_cashier_email} (Motivo: {reason})",
+            user_session=session.get('user', {}), after={"reason": reason, "comments": comments}, sandbox=sandbox
+        )
+        return jsonify({"success": True})
+    return jsonify({"success": False, "error": "No se pudo transferir el turno."})
+
+@web_pos_bp.route('/pos/shift/<shift_id>/supervisor/log_incident', methods=['POST'])
+@require_permission('canManagePOS', 'Punto de Venta')
+def sup_log_incident(shift_id):
+    if not (session['user'].get('role') == 'owner' or check_permission('isPosSupervisor')):
+        return jsonify({"success": False, "error": "No tienes permisos de supervisor."}), 403
+        
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+    data = request.json or {}
+    reason = data.get('reason', '')
+    comments = data.get('comments', '')
+    
+    sup_uid, sup_name = _get_supervisor_data()
+    
+    res = DatabaseService.log_shift_incident(owner_uid, shift_id, sup_uid, sup_name, reason, comments, sandbox)
+    if res:
+        from app.services.audit_service import AuditService, ACTION_UPDATE, MODULE_POS
+        AuditService.log_from_request(
+            owner_uid=owner_uid, action=ACTION_UPDATE, module=MODULE_POS, entity_id=shift_id,
+            entity_label=f"Incidencia registrada en turno (Motivo: {reason})",
+            user_session=session.get('user', {}), after={"reason": reason, "comments": comments}, sandbox=sandbox
+        )
+        return jsonify({"success": True})
+    return jsonify({"success": False, "error": "No se pudo registrar la incidencia."})
+
+@web_pos_bp.route('/pos/shift/<shift_id>/supervisor/extend', methods=['POST'])
+@require_permission('canManagePOS', 'Punto de Venta')
+def sup_extend(shift_id):
+    if not (session['user'].get('role') == 'owner' or check_permission('isPosSupervisor')):
+        return jsonify({"success": False, "error": "No tienes permisos de supervisor."}), 403
+        
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+    data = request.json or {}
+    reason = data.get('reason', '')
+    comments = data.get('comments', '')
+    
+    sup_uid, sup_name = _get_supervisor_data()
+    
+    res = DatabaseService.authorize_shift_extension(owner_uid, shift_id, sup_uid, sup_name, reason, comments, sandbox)
+    if res:
+        from app.services.audit_service import AuditService, ACTION_UPDATE, MODULE_POS
+        AuditService.log_from_request(
+            owner_uid=owner_uid, action=ACTION_UPDATE, module=MODULE_POS, entity_id=shift_id,
+            entity_label=f"Extensión de turno autorizada (Motivo: {reason})",
+            user_session=session.get('user', {}), after={"reason": reason, "comments": comments}, sandbox=sandbox
+        )
+        return jsonify({"success": True})
+    return jsonify({"success": False, "error": "No se pudo autorizar la extensión."})
 
 
 @web_pos_bp.route('/pos/terminal')
@@ -900,6 +1113,11 @@ def process_shift_comment_mentions(owner_uid, content, shift_id, shift_label, sa
             doc_url = f"{base_url}/pos/admin/shift/{shift_id}"
             
             from app.services.notifications import NotificationService
+            
+            # Obtener el nombre comercial de la empresa
+            company = DatabaseService.get_company(owner_uid) or {}
+            issuer_company_name = company.get("tradeName") or company.get("companyName") or "e-Factura"
+            
             NotificationService.send_mention_notification(
                 recipient_email=email,
                 recipient_name=name,
@@ -907,6 +1125,7 @@ def process_shift_comment_mentions(owner_uid, content, shift_id, shift_label, sa
                 comment_snippet=content[:150] + ("..." if len(content) > 150 else ""),
                 doc_number=shift_label,
                 doc_url=doc_url,
+                issuer_company_name=issuer_company_name,
                 sandbox=sandbox
             )
 

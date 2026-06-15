@@ -1386,7 +1386,7 @@ def format_mentions(content, users):
         escaped_content = re.sub(pattern, replacement, escaped_content, flags=re.IGNORECASE)
     return Markup(escaped_content)
 
-def process_comment_mentions(owner_uid, content, invoice_id, invoice_number, sandbox):
+def process_comment_mentions(owner_uid, content, entity_id, entity_name, entity_type, entity_url_path, sandbox):
     taggable_users = []
     owner_prof = DatabaseService.get_user_profile(owner_uid)
     if owner_prof:
@@ -1420,13 +1420,22 @@ def process_comment_mentions(owner_uid, content, invoice_id, invoice_number, san
         pattern = rf"@({escaped_name}|{escaped_email})\b"
         if re.search(pattern, content, re.IGNORECASE):
             notif_id = str(uuid.uuid4())
+            
+            # Map entity types to display names
+            entity_type_display = {
+                "invoice": "del documento",
+                "expense": "del gasto",
+                "contract": "del contrato",
+                "shift": "del turno de caja"
+            }.get(entity_type, "del documento")
+
             notif_dict = {
                 "id": notif_id,
                 "title": "Nueva mención en un comentario",
-                "message": f"{session['user'].get('name', session['user']['email'])} te mencionó en un comentario del documento {invoice_number}.",
-                "documentId": invoice_id,
-                "documentNumber": invoice_number,
-                "link": f"/invoices/{invoice_id}?sandbox={'true' if sandbox else 'false'}",
+                "message": f"{session['user'].get('name', session['user']['email'])} te mencionó en un comentario {entity_type_display} {entity_name}.",
+                "documentId": entity_id,
+                "documentNumber": entity_name,
+                "link": f"{entity_url_path}",
                 "createdAt": datetime.utcnow().isoformat(),
                 "read": False,
                 "type": "mention"
@@ -1438,7 +1447,7 @@ def process_comment_mentions(owner_uid, content, invoice_id, invoice_number, san
                 base_url = request.host_url.rstrip('/')
             except Exception:
                 base_url = os.environ.get("PORTAL_BASE_URL", "http://localhost:5001").rstrip('/')
-            doc_url = f"{base_url}/invoices/{invoice_id}?sandbox={'true' if sandbox else 'false'}"
+            doc_url = f"{base_url}{entity_url_path}"
             
             from app.services.notifications import NotificationService
             
@@ -1451,7 +1460,7 @@ def process_comment_mentions(owner_uid, content, invoice_id, invoice_number, san
                 recipient_name=name,
                 commenter_name=session['user'].get('name', session['user']['email']),
                 comment_snippet=content[:150] + ("..." if len(content) > 150 else ""),
-                doc_number=invoice_number,
+                doc_number=entity_name,
                 doc_url=doc_url,
                 issuer_company_name=issuer_company_name,
                 sandbox=sandbox
@@ -1597,7 +1606,8 @@ def add_invoice_comment(invoice_id):
     try:
         invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox) or {}
         invoice_number = invoice.get('invoiceNumber', invoice_id)
-        process_comment_mentions(owner_uid, content, invoice_id, invoice_number, sandbox)
+        entity_url = f"/invoices/{invoice_id}?sandbox={'true' if sandbox else 'false'}"
+        process_comment_mentions(owner_uid, content, invoice_id, invoice_number, "invoice", entity_url, sandbox)
     except Exception as ex:
         print(f"⚠️ Error al procesar menciones en add_invoice_comment: {ex}")
         
@@ -1656,7 +1666,8 @@ def edit_invoice_comment(invoice_id, comment_id):
     try:
         invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox) or {}
         invoice_number = invoice.get('invoiceNumber', invoice_id)
-        process_comment_mentions(owner_uid, content, invoice_id, invoice_number, sandbox)
+        entity_url = f"/invoices/{invoice_id}?sandbox={'true' if sandbox else 'false'}"
+        process_comment_mentions(owner_uid, content, invoice_id, invoice_number, "invoice", entity_url, sandbox)
     except Exception as ex:
         print(f"⚠️ Error al procesar menciones en edit_invoice_comment: {ex}")
         
@@ -4890,6 +4901,11 @@ def process_resource_comment_mentions(owner_uid, content, resource_type, resourc
             doc_url = f"{base_url}{link}"
             
             from app.services.notifications import NotificationService
+            
+            # Obtener el nombre comercial de la empresa
+            company = DatabaseService.get_company(owner_uid) or {}
+            issuer_company_name = company.get("tradeName") or company.get("companyName") or "e-Factura"
+            
             NotificationService.send_mention_notification(
                 recipient_email=email,
                 recipient_name=name,
@@ -4897,6 +4913,7 @@ def process_resource_comment_mentions(owner_uid, content, resource_type, resourc
                 comment_snippet=content[:150] + ("..." if len(content) > 150 else ""),
                 doc_number=resource_label,
                 doc_url=doc_url,
+                issuer_company_name=issuer_company_name,
                 sandbox=sandbox
             )
 
@@ -5060,6 +5077,23 @@ def delete_expense_comment(expense_id, comment_id):
     flash('Comentario eliminado.', 'success')
     return redirect(url_for('expense_detail', expense_id=expense_id))
 
+
+@web_invoices_bp.route('/api/v1/comments/<resource_type>/<resource_id>/<comment_id>/react', methods=['POST'])
+def api_toggle_comment_reaction(resource_type, resource_id, comment_id):
+    if 'user' not in session: return jsonify({"success": False, "error": "No autorizado"}), 401
+    
+    owner_uid = session['user']['ownerUID']
+    user_uid = session['user']['uid']
+    sandbox = session.get('is_sandbox_mode', True)
+    
+    data = request.json or {}
+    emoji = data.get('emoji', '👍')
+    
+    res = DatabaseService.toggle_comment_reaction(owner_uid, resource_type, resource_id, comment_id, user_uid, emoji, sandbox=sandbox)
+    if res and res.get("success"):
+        return jsonify(res)
+    
+    return jsonify({"success": False, "error": "Error al actualizar reacción"}), 500
 
 if __name__ == '__main__':
     app.run(debug=True, port=5001)

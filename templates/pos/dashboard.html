@@ -549,6 +549,12 @@
     function openCloseModal() {
         const modal = document.getElementById('close-shift-modal');
         if (modal) {
+            // Indicar al servidor que el arqueo ha comenzado (estado CLOSING)
+            fetch("{{ url_for('web_pos.initiate_close_shift') }}", {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            }).catch(e => console.error("Error al iniciar cierre:", e));
+
             modal.style.display = 'flex';
             document.body.style.overflow = 'hidden';
             fetchUSDRate();
