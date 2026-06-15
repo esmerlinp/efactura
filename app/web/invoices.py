@@ -1365,6 +1365,106 @@ def _enrich_invoice_totals(invoice):
     
     return invoice
 
+import html
+from markupsafe import Markup
+import re
+
+def format_mentions(content, users):
+    if not content:
+        return ""
+    escaped_content = html.escape(content)
+    sorted_users = sorted(users, key=lambda x: len(x.get("name", "")), reverse=True)
+    for u in sorted_users:
+        name = u.get("name", "")
+        email = u.get("email", "")
+        if not name:
+            continue
+        escaped_name = re.escape(html.escape(name))
+        escaped_email = re.escape(html.escape(email))
+        pattern = rf"@({escaped_name}|{escaped_email})\b"
+        replacement = r'<span class="mention-tag" style="background-color: rgba(124, 58, 237, 0.15); color: var(--accent-purple); font-weight: 600; padding: 2px 6px; border-radius: 4px; border: 1px solid rgba(124, 58, 237, 0.25);">@\1</span>'
+        escaped_content = re.sub(pattern, replacement, escaped_content, flags=re.IGNORECASE)
+    return Markup(escaped_content)
+
+def process_comment_mentions(owner_uid, content, invoice_id, invoice_number, sandbox):
+    taggable_users = []
+    owner_prof = DatabaseService.get_user_profile(owner_uid)
+    if owner_prof:
+        taggable_users.append({
+            "uid": owner_uid,
+            "name": owner_prof.get("name", "Propietario"),
+            "email": owner_prof.get("email", ""),
+            "role": "owner"
+        })
+    team = DatabaseService.get_team_members(owner_uid) or []
+    for member in team:
+        taggable_users.append({
+            "uid": member.get("uid"),
+            "name": member.get("name", ""),
+            "email": member.get("email", ""),
+            "role": member.get("role", "collaborator")
+        })
+        
+    for u in taggable_users:
+        name = u.get("name", "")
+        email = u.get("email", "")
+        uid = u.get("uid")
+        if not uid or not email:
+            continue
+            
+        if 'user' in session and session['user'].get('uid') == uid:
+            continue
+            
+        escaped_name = re.escape(name)
+        escaped_email = re.escape(email)
+        pattern = rf"@({escaped_name}|{escaped_email})\b"
+        if re.search(pattern, content, re.IGNORECASE):
+            notif_id = str(uuid.uuid4())
+            notif_dict = {
+                "id": notif_id,
+                "title": "Nueva mención en un comentario",
+                "message": f"{session['user'].get('name', session['user']['email'])} te mencionó en un comentario del documento {invoice_number}.",
+                "documentId": invoice_id,
+                "documentNumber": invoice_number,
+                "link": f"/invoices/{invoice_id}?sandbox={'true' if sandbox else 'false'}",
+                "createdAt": datetime.utcnow().isoformat(),
+                "read": False,
+                "type": "mention"
+            }
+            DatabaseService.create_user_notification(uid, notif_dict)
+            
+            from flask import request
+            try:
+                base_url = request.host_url.rstrip('/')
+            except Exception:
+                base_url = os.environ.get("PORTAL_BASE_URL", "http://localhost:5001").rstrip('/')
+            doc_url = f"{base_url}/invoices/{invoice_id}?sandbox={'true' if sandbox else 'false'}"
+            
+            from app.services.notifications import NotificationService
+            
+            # Obtener el nombre comercial de la empresa
+            company = DatabaseService.get_company(owner_uid) or {}
+            issuer_company_name = company.get("tradeName") or company.get("companyName") or "e-Factura"
+            
+            NotificationService.send_mention_notification(
+                recipient_email=email,
+                recipient_name=name,
+                commenter_name=session['user'].get('name', session['user']['email']),
+                comment_snippet=content[:150] + ("..." if len(content) > 150 else ""),
+                doc_number=invoice_number,
+                doc_url=doc_url,
+                issuer_company_name=issuer_company_name,
+                sandbox=sandbox
+            )
+
+@web_invoices_bp.route('/notifications/mark-read', methods=['POST'])
+def mark_notifications_read():
+    if 'user' not in session:
+        return jsonify({"success": False, "message": "No autenticado"}), 401
+    user_uid = session['user']['uid']
+    success = DatabaseService.mark_user_notifications_read(user_uid)
+    return jsonify({"success": success})
+
 @web_invoices_bp.route('/invoices/<invoice_id>')
 def invoice_detail(invoice_id):
     if 'user' not in session: return redirect(url_for('login'))
@@ -1424,8 +1524,187 @@ def invoice_detail(invoice_id):
     invoice["installments"] = installments_with_mora
     invoice["totalMora"] = round(total_mora, 2)
     invoice["overdue"] = (total_mora > 0.0)
+    
+    comments = DatabaseService.get_invoice_comments(owner_uid, invoice_id, sandbox=sandbox)
+    
+    # Load taggable users
+    taggable_users = []
+    owner_prof = DatabaseService.get_user_profile(owner_uid)
+    if owner_prof:
+        taggable_users.append({
+            "uid": owner_uid,
+            "name": owner_prof.get("name", "Propietario"),
+            "email": owner_prof.get("email", ""),
+            "role": "owner"
+        })
+    team = DatabaseService.get_team_members(owner_uid) or []
+    for member in team:
+        taggable_users.append({
+            "uid": member.get("uid"),
+            "name": member.get("name", ""),
+            "email": member.get("email", ""),
+            "role": member.get("role", "collaborator")
+        })
         
-    return render_template('invoices/detail.html', active_page='invoices', invoice=invoice, company=company, branch=branch, payments=payments, client_email=_get_client_email(owner_uid, invoice, sandbox))
+    return render_template('invoices/detail.html', active_page='invoices', invoice=invoice, company=company, branch=branch, payments=payments, client_email=_get_client_email(owner_uid, invoice, sandbox), comments=comments, taggable_users=taggable_users, format_mentions=format_mentions)
+
+@web_invoices_bp.route('/invoices/<invoice_id>/comments/new', methods=['POST'])
+def add_invoice_comment(invoice_id):
+    if 'user' not in session: return redirect(url_for('login'))
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+    
+    content = request.form.get('content', '').strip()
+    if not content:
+        flash('El comentario no puede estar vacío.', 'error')
+        return redirect(url_for('invoice_detail', invoice_id=invoice_id))
+        
+    attachment_url = ""
+    attachment_name = ""
+    
+    file = request.files.get('attachment')
+    if file and file.filename:
+        try:
+            file_data = file.read()
+            mime_type = file.mimetype or "application/octet-stream"
+            filename = f"comment_{invoice_id}_{str(uuid.uuid4())[:8]}_{file.filename}"
+            destination_path = f"users/{owner_uid}/comments/{filename}"
+            
+            attachment_url = DatabaseService.upload_file_to_storage(
+                file_data=file_data,
+                destination_path=destination_path,
+                mime_type=mime_type
+            )
+            attachment_name = file.filename
+        except Exception as e:
+            flash(f"Advertencia: No se pudo cargar el archivo adjunto: {str(e)}", 'warning')
+            
+    comment_id = str(uuid.uuid4())
+    comment_dict = {
+        "content": content,
+        "createdBy": session['user']['email'],
+        "createdByName": session['user'].get('name', session['user']['email']),
+        "createdByUid": session['user']['uid'],
+        "createdAt": datetime.utcnow().isoformat(),
+        "attachmentUrl": attachment_url,
+        "attachmentName": attachment_name,
+        "edited": False
+    }
+    
+    DatabaseService.save_invoice_comment(owner_uid, invoice_id, comment_id, comment_dict, sandbox=sandbox)
+    
+    # Process mentions
+    try:
+        invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox) or {}
+        invoice_number = invoice.get('invoiceNumber', invoice_id)
+        process_comment_mentions(owner_uid, content, invoice_id, invoice_number, sandbox)
+    except Exception as ex:
+        print(f"⚠️ Error al procesar menciones en add_invoice_comment: {ex}")
+        
+    flash('Comentario agregado exitosamente.', 'success')
+    return redirect(url_for('invoice_detail', invoice_id=invoice_id))
+
+@web_invoices_bp.route('/invoices/<invoice_id>/comments/<comment_id>/edit', methods=['POST'])
+def edit_invoice_comment(invoice_id, comment_id):
+    if 'user' not in session: return redirect(url_for('login'))
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+    
+    comments = DatabaseService.get_invoice_comments(owner_uid, invoice_id, sandbox=sandbox)
+    comment = next((c for c in comments if c['id'] == comment_id), None)
+    if not comment:
+        flash('Comentario no encontrado.', 'error')
+        return redirect(url_for('invoice_detail', invoice_id=invoice_id))
+        
+    # Validar permisos
+    is_owner = session['user'].get('role') == 'owner'
+    is_author = session['user']['uid'] == comment.get('createdByUid')
+    if not (is_owner or is_author):
+        flash('No tienes permiso para editar este comentario.', 'error')
+        return redirect(url_for('invoice_detail', invoice_id=invoice_id))
+        
+    content = request.form.get('content', '').strip()
+    if not content:
+        flash('El comentario no puede estar vacío.', 'error')
+        return redirect(url_for('invoice_detail', invoice_id=invoice_id))
+        
+    comment['content'] = content
+    comment['edited'] = True
+    comment['editedAt'] = datetime.utcnow().isoformat()
+    
+    file = request.files.get('attachment')
+    if file and file.filename:
+        try:
+            file_data = file.read()
+            mime_type = file.mimetype or "application/octet-stream"
+            filename = f"comment_{invoice_id}_{str(uuid.uuid4())[:8]}_{file.filename}"
+            destination_path = f"users/{owner_uid}/comments/{filename}"
+            
+            attachment_url = DatabaseService.upload_file_to_storage(
+                file_data=file_data,
+                destination_path=destination_path,
+                mime_type=mime_type
+            )
+            comment['attachmentUrl'] = attachment_url
+            comment['attachmentName'] = file.filename
+        except Exception as e:
+            flash(f"Advertencia: No se pudo cargar el archivo adjunto: {str(e)}", 'warning')
+            
+    DatabaseService.save_invoice_comment(owner_uid, invoice_id, comment_id, comment, sandbox=sandbox)
+    
+    # Process mentions
+    try:
+        invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox) or {}
+        invoice_number = invoice.get('invoiceNumber', invoice_id)
+        process_comment_mentions(owner_uid, content, invoice_id, invoice_number, sandbox)
+    except Exception as ex:
+        print(f"⚠️ Error al procesar menciones en edit_invoice_comment: {ex}")
+        
+    flash('Comentario editado exitosamente.', 'success')
+    return redirect(url_for('invoice_detail', invoice_id=invoice_id))
+
+
+@web_invoices_bp.route('/invoices/<invoice_id>/comments/<comment_id>/delete', methods=['POST'])
+def delete_invoice_comment(invoice_id, comment_id):
+    if 'user' not in session: return redirect(url_for('login'))
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+    
+    comments = DatabaseService.get_invoice_comments(owner_uid, invoice_id, sandbox=sandbox)
+    comment = next((c for c in comments if c['id'] == comment_id), None)
+    if not comment:
+        flash('Comentario no encontrado.', 'error')
+        return redirect(url_for('invoice_detail', invoice_id=invoice_id))
+        
+    # Validar permisos
+    is_owner = session['user'].get('role') == 'owner'
+    is_author = session['user']['uid'] == comment.get('createdByUid')
+    if not (is_owner or is_author):
+        flash('No tienes permiso para eliminar este comentario.', 'error')
+        return redirect(url_for('invoice_detail', invoice_id=invoice_id))
+        
+    DatabaseService.delete_invoice_comment(owner_uid, invoice_id, comment_id, sandbox=sandbox)
+    flash('Comentario eliminado exitosamente.', 'success')
+    return redirect(url_for('invoice_detail', invoice_id=invoice_id))
+
+@web_invoices_bp.route('/invoices/comments/ai-polish', methods=['POST'])
+def ai_polish_comment():
+    if 'user' not in session:
+        return jsonify({"success": False, "message": "No autenticado"}), 401
+    owner_uid = session['user']['ownerUID']
+    data = request.get_json() or {}
+    content = data.get("content", "").strip()
+    if not content:
+        return jsonify({"success": False, "message": "Contenido vacío"}), 400
+        
+    from app.services.ai_service import AIService
+    res = AIService.polish_comment(owner_uid, content)
+    if res.get("success"):
+        return jsonify({"success": True, "text": res["text"]})
+    else:
+        return jsonify({"success": False, "message": res.get("message", "Error al procesar con IA")})
+
+
 
 @web_invoices_bp.route('/invoices/<invoice_id>/send-receipt', methods=['POST'])
 def send_receipt_email(invoice_id):
@@ -4534,6 +4813,252 @@ def web_lookup_rnc(rnc):
         return jsonify(res)
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
+
+
+def _get_taggable_users(owner_uid):
+    taggable_users = []
+    owner_prof = DatabaseService.get_user_profile(owner_uid)
+    if owner_prof:
+        taggable_users.append({
+            "uid": owner_uid,
+            "name": owner_prof.get("name", "Propietario"),
+            "email": owner_prof.get("email", ""),
+            "role": "owner"
+        })
+    team = DatabaseService.get_team_members(owner_uid) or []
+    for member in team:
+        taggable_users.append({
+            "uid": member.get("uid"),
+            "name": member.get("name", ""),
+            "email": member.get("email", ""),
+            "role": member.get("role", "collaborator")
+        })
+    return taggable_users
+
+
+def process_resource_comment_mentions(owner_uid, content, resource_type, resource_id, resource_label, sandbox):
+    taggable_users = _get_taggable_users(owner_uid)
+    for u in taggable_users:
+        name = u.get("name", "")
+        email = u.get("email", "")
+        uid = u.get("uid")
+        if not uid or not email:
+            continue
+            
+        if 'user' in session and session['user'].get('uid') == uid:
+            continue
+            
+        import re
+        import html
+        escaped_name = re.escape(name)
+        escaped_email = re.escape(email)
+        pattern = rf"@({escaped_name}|{escaped_email})\b"
+        if re.search(pattern, content, re.IGNORECASE):
+            notif_id = str(uuid.uuid4())
+            
+            if resource_type == "expenses":
+                link = f"/expenses/{resource_id}?sandbox={'true' if sandbox else 'false'}"
+                msg = f"{session['user'].get('name', session['user']['email'])} te mencionó en un comentario del gasto: {resource_label}."
+            elif resource_type == "contracts":
+                link = f"/contracts/{resource_id}?sandbox={'true' if sandbox else 'false'}"
+                msg = f"{session['user'].get('name', session['user']['email'])} te mencionó en un comentario del contrato: {resource_label}."
+            elif resource_type == "shifts":
+                link = f"/pos/admin/shift/{resource_id}?sandbox={'true' if sandbox else 'false'}"
+                msg = f"{session['user'].get('name', session['user']['email'])} te mencionó en un comentario del turno de caja: {resource_label}."
+            else:
+                link = f"/invoices/{resource_id}?sandbox={'true' if sandbox else 'false'}"
+                msg = f"{session['user'].get('name', session['user']['email'])} te mencionó en un comentario del documento {resource_label}."
+                
+            notif_dict = {
+                "id": notif_id,
+                "title": "Nueva mención en un comentario",
+                "message": msg,
+                "documentId": resource_id,
+                "documentNumber": resource_label,
+                "link": link,
+                "createdAt": datetime.utcnow().isoformat(),
+                "read": False,
+                "type": "mention"
+            }
+            DatabaseService.create_user_notification(uid, notif_dict)
+            
+            from flask import request
+            try:
+                base_url = request.host_url.rstrip('/')
+            except Exception:
+                base_url = os.environ.get("PORTAL_BASE_URL", "http://localhost:5001").rstrip('/')
+            doc_url = f"{base_url}{link}"
+            
+            from app.services.notifications import NotificationService
+            NotificationService.send_mention_notification(
+                recipient_email=email,
+                recipient_name=name,
+                commenter_name=session['user'].get('name', session['user']['email']),
+                comment_snippet=content[:150] + ("..." if len(content) > 150 else ""),
+                doc_number=resource_label,
+                doc_url=doc_url,
+                sandbox=sandbox
+            )
+
+
+@web_invoices_bp.route('/expenses/<expense_id>')
+def expense_detail(expense_id):
+    if 'user' not in session: return redirect(url_for('login'))
+    if not check_permission('canExpenses'):
+        return render_template('auth/restricted.html', feature_name="Detalle de Gasto", required_permission="canExpenses")
+        
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+    
+    expense = DatabaseService.get_expense(owner_uid, expense_id, sandbox=sandbox)
+    if not expense:
+        flash('Gasto no encontrado.', 'error')
+        return redirect(url_for('list_expenses'))
+        
+    comments = DatabaseService.get_resource_comments(owner_uid, "expenses", expense_id, sandbox=sandbox)
+    taggable_users = _get_taggable_users(owner_uid)
+    
+    is_cxp = expense.get('paymentType') == 'Crédito'
+    cxp_payments = []
+    if is_cxp:
+        cxp_payments = DatabaseService.get_cxp_payments(owner_uid, expense_id, sandbox=sandbox)
+        
+    return render_template(
+        'expenses/detail.html',
+        active_page='expenses',
+        expense=expense,
+        comments=comments,
+        taggable_users=taggable_users,
+        is_cxp=is_cxp,
+        cxp_payments=cxp_payments,
+        format_mentions=format_mentions
+    )
+
+
+@web_invoices_bp.route('/expenses/<expense_id>/comments/new', methods=['POST'])
+def add_expense_comment(expense_id):
+    if 'user' not in session: return redirect(url_for('login'))
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+    
+    content = request.form.get('content', '').strip()
+    if not content:
+        flash('El comentario no puede estar vacío.', 'error')
+        return redirect(url_for('expense_detail', expense_id=expense_id))
+        
+    attachment_url = ""
+    attachment_name = ""
+    file = request.files.get('attachment')
+    if file and file.filename:
+        try:
+            file_data = file.read()
+            mime_type = file.mimetype or "application/octet-stream"
+            filename = f"comment_expense_{expense_id}_{str(uuid.uuid4())[:8]}_{file.filename}"
+            destination_path = f"users/{owner_uid}/comments/{filename}"
+            attachment_url = DatabaseService.upload_file_to_storage(file_data, destination_path, mime_type)
+            attachment_name = file.filename
+        except Exception as e:
+            flash(f"Advertencia: No se pudo cargar el archivo adjunto: {str(e)}", 'warning')
+            
+    comment_id = str(uuid.uuid4())
+    comment_dict = {
+        "content": content,
+        "createdBy": session['user']['email'],
+        "createdByName": session['user'].get('name', session['user']['email']),
+        "createdByUid": session['user']['uid'],
+        "createdAt": datetime.utcnow().isoformat(),
+        "attachmentUrl": attachment_url,
+        "attachmentName": attachment_name,
+        "edited": False
+    }
+    
+    DatabaseService.save_resource_comment(owner_uid, "expenses", expense_id, comment_id, comment_dict, sandbox=sandbox)
+    
+    try:
+        expense = DatabaseService.get_expense(owner_uid, expense_id, sandbox=sandbox) or {}
+        concept = expense.get('concept', 'Gasto')
+        process_resource_comment_mentions(owner_uid, content, "expenses", expense_id, concept, sandbox)
+    except Exception as ex:
+        print(f"⚠️ Error al procesar menciones en add_expense_comment: {ex}")
+        
+    flash('Comentario agregado exitosamente.', 'success')
+    return redirect(url_for('expense_detail', expense_id=expense_id))
+
+
+@web_invoices_bp.route('/expenses/<expense_id>/comments/<comment_id>/edit', methods=['POST'])
+def edit_expense_comment(expense_id, comment_id):
+    if 'user' not in session: return redirect(url_for('login'))
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+    
+    comments = DatabaseService.get_resource_comments(owner_uid, "expenses", expense_id, sandbox=sandbox)
+    comment = next((c for c in comments if c['id'] == comment_id), None)
+    if not comment:
+        flash('Comentario no encontrado.', 'error')
+        return redirect(url_for('expense_detail', expense_id=expense_id))
+        
+    is_owner = session['user'].get('role') == 'owner'
+    is_author = session['user']['uid'] == comment.get('createdByUid')
+    if not (is_owner or is_author):
+        flash('No tienes permiso para editar este comentario.', 'error')
+        return redirect(url_for('expense_detail', expense_id=expense_id))
+        
+    content = request.form.get('content', '').strip()
+    if not content:
+        flash('El comentario no puede estar vacío.', 'error')
+        return redirect(url_for('expense_detail', expense_id=expense_id))
+        
+    comment['content'] = content
+    comment['edited'] = True
+    comment['editedAt'] = datetime.utcnow().isoformat()
+    
+    file = request.files.get('attachment')
+    if file and file.filename:
+        try:
+            file_data = file.read()
+            mime_type = file.mimetype or "application/octet-stream"
+            filename = f"comment_expense_{expense_id}_{str(uuid.uuid4())[:8]}_{file.filename}"
+            destination_path = f"users/{owner_uid}/comments/{filename}"
+            attachment_url = DatabaseService.upload_file_to_storage(file_data, destination_path, mime_type)
+            comment['attachmentUrl'] = attachment_url
+            comment['attachmentName'] = file.filename
+        except Exception as e:
+            flash(f"Advertencia: No se pudo cargar el archivo adjunto: {str(e)}", 'warning')
+            
+    DatabaseService.save_resource_comment(owner_uid, "expenses", expense_id, comment_id, comment, sandbox=sandbox)
+    
+    try:
+        expense = DatabaseService.get_expense(owner_uid, expense_id, sandbox=sandbox) or {}
+        concept = expense.get('concept', 'Gasto')
+        process_resource_comment_mentions(owner_uid, content, "expenses", expense_id, concept, sandbox)
+    except Exception as ex:
+        print(f"⚠️ Error al procesar menciones en edit_expense_comment: {ex}")
+        
+    flash('Comentario modificado.', 'success')
+    return redirect(url_for('expense_detail', expense_id=expense_id))
+
+
+@web_invoices_bp.route('/expenses/<expense_id>/comments/<comment_id>/delete', methods=['POST'])
+def delete_expense_comment(expense_id, comment_id):
+    if 'user' not in session: return redirect(url_for('login'))
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+    
+    comments = DatabaseService.get_resource_comments(owner_uid, "expenses", expense_id, sandbox=sandbox)
+    comment = next((c for c in comments if c['id'] == comment_id), None)
+    if not comment:
+        flash('Comentario no encontrado.', 'error')
+        return redirect(url_for('expense_detail', expense_id=expense_id))
+        
+    is_owner = session['user'].get('role') == 'owner'
+    is_author = session['user']['uid'] == comment.get('createdByUid')
+    if not (is_owner or is_author):
+        flash('No tienes permiso para eliminar este comentario.', 'error')
+        return redirect(url_for('expense_detail', expense_id=expense_id))
+        
+    DatabaseService.delete_resource_comment(owner_uid, "expenses", expense_id, comment_id, sandbox=sandbox)
+    flash('Comentario eliminado.', 'success')
+    return redirect(url_for('expense_detail', expense_id=expense_id))
 
 
 if __name__ == '__main__':

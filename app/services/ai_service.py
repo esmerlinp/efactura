@@ -369,3 +369,45 @@ No agregues explicaciones, markdown ni texto extra."""
                 return {"success": False, "message": f"Error API OpenAI: {response.text}"}
         except Exception as e:
             return {"success": False, "message": str(e)}
+
+    @classmethod
+    def polish_comment(cls, owner_uid, content):
+        """
+        Mejora la ortografía y redacción de un comentario utilizando GPT-4o-mini.
+        """
+        api_key = cls._get_api_key(owner_uid)
+        if not api_key or api_key == "YOUR_OPENAI_API_KEY_HERE":
+            return {"success": False, "message": "API Key de OpenAI no configurada."}
+
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {api_key}"
+        }
+
+        system_prompt = """Eres un asistente inteligente para el sistema e-Factura. Tu tarea es corregir la ortografía y mejorar la redacción de los comentarios y notas internas del usuario sobre documentos de forma profesional, fluida y coherente.
+Importante:
+- Corrige errores gramaticales u ortográficos.
+- Mantén el significado original intacto.
+- Retorna ÚNICAMENTE el texto mejorado y corregido, sin explicaciones ni rodeos ni comillas."""
+
+        payload = {
+            "model": "gpt-4o-mini",
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": content}
+            ],
+            "temperature": 0.3,
+            "max_tokens": 800
+        }
+
+        try:
+            url = "https://api.openai.com/v1/chat/completions"
+            response = requests.post(url, headers=headers, json=payload, timeout=15)
+            if response.status_code == 200:
+                polished_text = response.json()["choices"][0]["message"]["content"].strip()
+                return {"success": True, "text": polished_text}
+            else:
+                return {"success": False, "message": f"Error API OpenAI: {response.text}"}
+        except Exception as e:
+            return {"success": False, "message": str(e)}
+

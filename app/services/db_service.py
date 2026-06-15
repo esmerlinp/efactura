@@ -1930,6 +1930,29 @@ class DatabaseService:
     # =========================================================================
 
     @classmethod
+    def get_expense(cls, owner_uid, expense_id, sandbox=True):
+        """Retorna un gasto específico por ID."""
+        if firebase_initialized:
+            try:
+                coll_name = "sandbox_expenses" if sandbox else "expenses"
+                doc = db_firestore.collection("users").document(owner_uid).collection(coll_name).document(expense_id).get()
+                if doc.exists:
+                    data = doc.to_dict()
+                    data["id"] = doc.id
+                    data["amount"] = float(data.get("amount", 0.0))
+                    data["itbisAmount"] = float(data.get("itbisAmount", 0.0))
+                    data["date"] = serialize_field(data.get("date"))
+                    data["nextOccurrenceDate"] = serialize_field(data.get("nextOccurrenceDate"))
+                    data["recurrenceEndDate"] = serialize_field(data.get("recurrenceEndDate"))
+                    data["createdAt"] = serialize_field(data.get("createdAt"))
+                    data["dueDate"] = serialize_field(data.get("dueDate", ""))
+                    data["cxpRemainingBalance"] = float(data.get("cxpRemainingBalance", 0.0))
+                    return data
+            except Exception as e:
+                print(f"⚠️ Error al obtener gasto {expense_id} desde Firestore: {e}")
+        return None
+
+    @classmethod
     def get_expenses(cls, owner_uid, sandbox=True):
         """Retorna la lista de gastos desde Firestore."""
         expenses = []
@@ -3317,6 +3340,22 @@ class DatabaseService:
     # =========================================================================
 
     @classmethod
+    def get_contract(cls, owner_uid, contract_id, sandbox=True):
+        """Retorna un contrato específico por ID."""
+        if firebase_initialized:
+            try:
+                coll_name = "sandbox_contracts" if sandbox else "contracts"
+                doc = db_firestore.collection("users").document(owner_uid).collection(coll_name).document(contract_id).get()
+                if doc.exists:
+                    data = doc.to_dict()
+                    data["id"] = doc.id
+                    data["amount"] = float(data.get("amount", 0.0))
+                    return data
+            except Exception as e:
+                print(f"⚠️ Error al obtener contrato {contract_id}: {e}")
+        return None
+
+    @classmethod
     def get_contracts(cls, owner_uid, sandbox=True):
         """Retorna todos los contratos registrados del owner."""
         contracts = []
@@ -3566,3 +3605,189 @@ class DatabaseService:
                 print(f"⚠️ Fallo crítico en búsqueda de contingencia de empresas: {ex}")
 
         return companies
+
+    @classmethod
+    def get_invoice_comments(cls, owner_uid, invoice_id, sandbox=True):
+        """Retorna la lista de comentarios de una factura, ordenados por fecha de creación descendente."""
+        comments = []
+        if firebase_initialized:
+            try:
+                coll_name = "sandbox_invoices" if sandbox else "invoices"
+                docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).document(invoice_id).collection("comments").get()
+                for doc in docs:
+                    data = doc.to_dict()
+                    comments.append({
+                        "id": doc.id,
+                        "content": data.get("content", ""),
+                        "createdBy": data.get("createdBy", ""),
+                        "createdByName": data.get("createdByName", ""),
+                        "createdByUid": data.get("createdByUid", ""),
+                        "createdAt": serialize_field(data.get("createdAt")),
+                        "attachmentUrl": data.get("attachmentUrl", ""),
+                        "attachmentName": data.get("attachmentName", ""),
+                        "edited": bool(data.get("edited", False)),
+                        "editedAt": serialize_field(data.get("editedAt"))
+                    })
+                comments.sort(key=lambda x: x["createdAt"] or "", reverse=True)
+            except Exception as e:
+                print(f"⚠️ Error al obtener comentarios de factura desde Firestore: {e}")
+        return comments
+
+    @classmethod
+    def save_invoice_comment(cls, owner_uid, invoice_id, comment_id, comment_dict, sandbox=True):
+        """Guarda o actualiza un comentario de factura en Firestore."""
+        comment_dict["id"] = comment_id
+        if "createdAt" not in comment_dict or not comment_dict["createdAt"]:
+            comment_dict["createdAt"] = datetime.utcnow().isoformat()
+        
+        comment_dict["createdAt"] = serialize_field(comment_dict.get("createdAt"))
+        if comment_dict.get("editedAt"):
+            comment_dict["editedAt"] = serialize_field(comment_dict.get("editedAt"))
+
+        if firebase_initialized:
+            try:
+                coll_name = "sandbox_invoices" if sandbox else "invoices"
+                db_firestore.collection("users").document(owner_uid).collection(coll_name).document(invoice_id).collection("comments").document(comment_id).set(comment_dict)
+            except Exception as e:
+                print(f"⚠️ Fallo al guardar comentario de factura en Firestore: {e}")
+        return comment_dict
+
+    @classmethod
+    def delete_invoice_comment(cls, owner_uid, invoice_id, comment_id, sandbox=True):
+        """Elimina un comentario de factura en Firestore."""
+        if firebase_initialized:
+            try:
+                coll_name = "sandbox_invoices" if sandbox else "invoices"
+                db_firestore.collection("users").document(owner_uid).collection(coll_name).document(invoice_id).collection("comments").document(comment_id).delete()
+            except Exception as e:
+                print(f"⚠️ Fallo al borrar comentario de factura de Firestore: {e}")
+
+    @classmethod
+    def create_user_notification(cls, user_uid, notification_dict):
+        """Crea una notificación para un usuario en Firestore."""
+        if firebase_initialized:
+            try:
+                notif_id = notification_dict.get("id") or str(uuid.uuid4())
+                notification_dict["id"] = notif_id
+                if "createdAt" not in notification_dict:
+                    notification_dict["createdAt"] = datetime.utcnow().isoformat()
+                notification_dict["read"] = False
+                
+                db_firestore.collection("users").document(user_uid).collection("notifications").document(notif_id).set(notification_dict)
+                return True
+            except Exception as e:
+                print(f"⚠️ Fallo al guardar notificación de usuario en Firestore: {e}")
+        return False
+
+    @classmethod
+    def get_user_notifications(cls, user_uid, limit=10):
+        """Obtiene las últimas notificaciones del usuario de Firestore."""
+        notifications = []
+        if firebase_initialized:
+            try:
+                docs = db_firestore.collection("users").document(user_uid).collection("notifications").order_by("createdAt", direction="DESCENDING").limit(limit).get()
+                for doc in docs:
+                    data = doc.to_dict()
+                    data["id"] = doc.id
+                    notifications.append(data)
+            except Exception as e:
+                print(f"⚠️ Fallo al obtener notificaciones de usuario de Firestore: {e}")
+        return notifications
+
+    @classmethod
+    def mark_user_notifications_read(cls, user_uid):
+        """Marca todas las notificaciones pendientes del usuario como leídas."""
+        if firebase_initialized:
+            try:
+                # Obtener notificaciones unread
+                docs = db_firestore.collection("users").document(user_uid).collection("notifications").where("read", "==", False).get()
+                batch = db_firestore.batch()
+                for doc in docs:
+                    batch.update(doc.reference, {"read": True})
+                batch.commit()
+                return True
+            except Exception as e:
+                print(f"⚠️ Fallo al marcar notificaciones como leídas en Firestore: {e}")
+        return False
+
+    @classmethod
+    def get_resource_comments(cls, owner_uid, resource_type, resource_id, sandbox=True):
+        """Retorna la lista de comentarios de cualquier recurso, ordenados por fecha descendente."""
+        comments = []
+        if firebase_initialized:
+            try:
+                coll_map = {
+                    "invoices": "sandbox_invoices" if sandbox else "invoices",
+                    "shifts": "sandbox_cash_shifts" if sandbox else "cash_shifts",
+                    "expenses": "sandbox_expenses" if sandbox else "expenses",
+                    "contracts": "sandbox_contracts" if sandbox else "contracts"
+                }
+                coll_name = coll_map.get(resource_type)
+                if not coll_name:
+                    return []
+                    
+                docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).document(resource_id).collection("comments").get()
+                for doc in docs:
+                    data = doc.to_dict()
+                    comments.append({
+                        "id": doc.id,
+                        "content": data.get("content", ""),
+                        "createdBy": data.get("createdBy", ""),
+                        "createdByName": data.get("createdByName", ""),
+                        "createdByUid": data.get("createdByUid", ""),
+                        "createdAt": serialize_field(data.get("createdAt")),
+                        "attachmentUrl": data.get("attachmentUrl", ""),
+                        "attachmentName": data.get("attachmentName", ""),
+                        "edited": bool(data.get("edited", False)),
+                        "editedAt": serialize_field(data.get("editedAt"))
+                    })
+                comments.sort(key=lambda x: x["createdAt"] or "", reverse=True)
+            except Exception as e:
+                print(f"⚠️ Error al obtener comentarios de {resource_type} desde Firestore: {e}")
+        return comments
+
+    @classmethod
+    def save_resource_comment(cls, owner_uid, resource_type, resource_id, comment_id, comment_dict, sandbox=True):
+        """Guarda o actualiza un comentario de cualquier recurso en Firestore."""
+        comment_dict["id"] = comment_id
+        if "createdAt" not in comment_dict or not comment_dict["createdAt"]:
+            comment_dict["createdAt"] = datetime.utcnow().isoformat()
+        
+        comment_dict["createdAt"] = serialize_field(comment_dict.get("createdAt"))
+        if comment_dict.get("editedAt"):
+            comment_dict["editedAt"] = serialize_field(comment_dict.get("editedAt"))
+
+        if firebase_initialized:
+            try:
+                coll_map = {
+                    "invoices": "sandbox_invoices" if sandbox else "invoices",
+                    "shifts": "sandbox_cash_shifts" if sandbox else "cash_shifts",
+                    "expenses": "sandbox_expenses" if sandbox else "expenses",
+                    "contracts": "sandbox_contracts" if sandbox else "contracts"
+                }
+                coll_name = coll_map.get(resource_type)
+                if coll_name:
+                    db_firestore.collection("users").document(owner_uid).collection(coll_name).document(resource_id).collection("comments").document(comment_id).set(comment_dict)
+            except Exception as e:
+                print(f"⚠️ Fallo al guardar comentario de {resource_type} en Firestore: {e}")
+        return comment_dict
+
+    @classmethod
+    def delete_resource_comment(cls, owner_uid, resource_type, resource_id, comment_id, sandbox=True):
+        """Elimina un comentario de cualquier recurso en Firestore."""
+        if firebase_initialized:
+            try:
+                coll_map = {
+                    "invoices": "sandbox_invoices" if sandbox else "invoices",
+                    "shifts": "sandbox_cash_shifts" if sandbox else "cash_shifts",
+                    "expenses": "sandbox_expenses" if sandbox else "expenses",
+                    "contracts": "sandbox_contracts" if sandbox else "contracts"
+                }
+                coll_name = coll_map.get(resource_type)
+                if coll_name:
+                    db_firestore.collection("users").document(owner_uid).collection(coll_name).document(resource_id).collection("comments").document(comment_id).delete()
+            except Exception as e:
+                print(f"⚠️ Fallo al borrar comentario de {resource_type} de Firestore: {e}")
+
+
+

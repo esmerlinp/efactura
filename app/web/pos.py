@@ -841,6 +841,75 @@ def pos_admin_dashboard():
     )
 
 
+import re
+from app.web.invoices import format_mentions
+
+def process_shift_comment_mentions(owner_uid, content, shift_id, shift_label, sandbox):
+    taggable_users = []
+    owner_prof = DatabaseService.get_user_profile(owner_uid)
+    if owner_prof:
+        taggable_users.append({
+            "uid": owner_uid,
+            "name": owner_prof.get("name", "Propietario"),
+            "email": owner_prof.get("email", ""),
+            "role": "owner"
+        })
+    team = DatabaseService.get_team_members(owner_uid) or []
+    for member in team:
+        taggable_users.append({
+            "uid": member.get("uid"),
+            "name": member.get("name", ""),
+            "email": member.get("email", ""),
+            "role": member.get("role", "collaborator")
+        })
+        
+    for u in taggable_users:
+        name = u.get("name", "")
+        email = u.get("email", "")
+        uid = u.get("uid")
+        if not uid or not email:
+            continue
+            
+        if 'user' in session and session['user'].get('uid') == uid:
+            continue
+            
+        escaped_name = re.escape(name)
+        escaped_email = re.escape(email)
+        pattern = rf"@({escaped_name}|{escaped_email})\b"
+        if re.search(pattern, content, re.IGNORECASE):
+            notif_id = str(uuid.uuid4())
+            notif_dict = {
+                "id": notif_id,
+                "title": "Nueva mención en un turno de caja",
+                "message": f"{session['user'].get('name', session['user']['email'])} te mencionó en un comentario del {shift_label}.",
+                "documentId": shift_id,
+                "documentNumber": shift_label,
+                "link": f"/pos/admin/shift/{shift_id}",
+                "createdAt": datetime.utcnow().isoformat(),
+                "read": False,
+                "type": "mention"
+            }
+            DatabaseService.create_user_notification(uid, notif_dict)
+            
+            from flask import request
+            try:
+                base_url = request.host_url.rstrip('/')
+            except Exception:
+                import os
+                base_url = os.environ.get("PORTAL_BASE_URL", "http://localhost:5001").rstrip('/')
+            doc_url = f"{base_url}/pos/admin/shift/{shift_id}"
+            
+            from app.services.notifications import NotificationService
+            NotificationService.send_mention_notification(
+                recipient_email=email,
+                recipient_name=name,
+                commenter_name=session['user'].get('name', session['user']['email']),
+                comment_snippet=content[:150] + ("..." if len(content) > 150 else ""),
+                doc_number=shift_label,
+                doc_url=doc_url,
+                sandbox=sandbox
+            )
+
 @web_pos_bp.route('/pos/admin/shift/<shift_id>')
 @require_permission('canManagePOS', 'Administración de Caja')
 def pos_admin_shift_detail(shift_id):
@@ -862,14 +931,171 @@ def pos_admin_shift_detail(shift_id):
 
     transactions = DatabaseService.get_cash_transactions(owner_uid, shift_id, sandbox=sandbox)
     company = DatabaseService.get_company_profile(owner_uid)
+    comments = DatabaseService.get_resource_comments(owner_uid, "shifts", shift_id, sandbox=sandbox)
+
+    # Load taggable users
+    taggable_users = []
+    owner_prof = DatabaseService.get_user_profile(owner_uid)
+    if owner_prof:
+        taggable_users.append({
+            "uid": owner_uid,
+            "name": owner_prof.get("name", "Propietario"),
+            "email": owner_prof.get("email", ""),
+            "role": "owner"
+        })
+    team = DatabaseService.get_team_members(owner_uid) or []
+    for member in team:
+        taggable_users.append({
+            "uid": member.get("uid"),
+            "name": member.get("name", ""),
+            "email": member.get("email", ""),
+            "role": member.get("role", "collaborator")
+        })
 
     return render_template(
         'pos/shift_detail.html',
         active_page='pos_admin',
         shift=shift,
         transactions=transactions,
-        company=company
+        company=company,
+        comments=comments,
+        taggable_users=taggable_users,
+        format_mentions=format_mentions
     )
+
+@web_pos_bp.route('/pos/admin/shift/<shift_id>/comments/new', methods=['POST'])
+def add_shift_comment(shift_id):
+    if 'user' not in session: return redirect(url_for('login'))
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+    
+    content = request.form.get('content', '').strip()
+    if not content:
+        flash('El comentario no puede estar vacío.', 'error')
+        return redirect(url_for('web_pos.pos_admin_shift_detail', shift_id=shift_id))
+        
+    attachment_url = ""
+    attachment_name = ""
+    
+    file = request.files.get('attachment')
+    if file and file.filename:
+        try:
+            file_data = file.read()
+            mime_type = file.mimetype or "application/octet-stream"
+            filename = f"comment_shift_{shift_id}_{str(uuid.uuid4())[:8]}_{file.filename}"
+            destination_path = f"users/{owner_uid}/comments/{filename}"
+            
+            attachment_url = DatabaseService.upload_file_to_storage(
+                file_data=file_data,
+                destination_path=destination_path,
+                mime_type=mime_type
+            )
+            attachment_name = file.filename
+        except Exception as e:
+            flash(f"Advertencia: No se pudo cargar el archivo adjunto: {str(e)}", 'warning')
+            
+    comment_id = str(uuid.uuid4())
+    comment_dict = {
+        "content": content,
+        "createdBy": session['user']['email'],
+        "createdByName": session['user'].get('name', session['user']['email']),
+        "createdByUid": session['user']['uid'],
+        "createdAt": datetime.utcnow().isoformat(),
+        "attachmentUrl": attachment_url,
+        "attachmentName": attachment_name,
+        "edited": False
+    }
+    
+    DatabaseService.save_resource_comment(owner_uid, "shifts", shift_id, comment_id, comment_dict, sandbox=sandbox)
+    
+    # Process mentions
+    try:
+        shift_label = f"Turno de Caja ({shift_id[:8]})"
+        process_shift_comment_mentions(owner_uid, content, shift_id, shift_label, sandbox)
+    except Exception as ex:
+        print(f"⚠️ Error al procesar menciones en add_shift_comment: {ex}")
+        
+    flash('Comentario agregado exitosamente.', 'success')
+    return redirect(url_for('web_pos.pos_admin_shift_detail', shift_id=shift_id))
+
+@web_pos_bp.route('/pos/admin/shift/<shift_id>/comments/<comment_id>/edit', methods=['POST'])
+def edit_shift_comment(shift_id, comment_id):
+    if 'user' not in session: return redirect(url_for('login'))
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+    
+    comments = DatabaseService.get_resource_comments(owner_uid, "shifts", shift_id, sandbox=sandbox)
+    comment = next((c for c in comments if c['id'] == comment_id), None)
+    if not comment:
+        flash('Comentario no encontrado.', 'error')
+        return redirect(url_for('web_pos.pos_admin_shift_detail', shift_id=shift_id))
+        
+    is_owner = session['user'].get('role') == 'owner'
+    is_author = session['user']['uid'] == comment.get('createdByUid')
+    if not (is_owner or is_author):
+        flash('No tienes permiso para editar este comentario.', 'error')
+        return redirect(url_for('web_pos.pos_admin_shift_detail', shift_id=shift_id))
+        
+    content = request.form.get('content', '').strip()
+    if not content:
+        flash('El comentario no puede estar vacío.', 'error')
+        return redirect(url_for('web_pos.pos_admin_shift_detail', shift_id=shift_id))
+        
+    comment['content'] = content
+    comment['edited'] = True
+    comment['editedAt'] = datetime.utcnow().isoformat()
+    
+    file = request.files.get('attachment')
+    if file and file.filename:
+        try:
+            file_data = file.read()
+            mime_type = file.mimetype or "application/octet-stream"
+            filename = f"comment_shift_{shift_id}_{str(uuid.uuid4())[:8]}_{file.filename}"
+            destination_path = f"users/{owner_uid}/comments/{filename}"
+            
+            attachment_url = DatabaseService.upload_file_to_storage(
+                file_data=file_data,
+                destination_path=destination_path,
+                mime_type=mime_type
+            )
+            comment['attachmentUrl'] = attachment_url
+            comment['attachmentName'] = file.filename
+        except Exception as e:
+            flash(f"Advertencia: No se pudo cargar el archivo adjunto: {str(e)}", 'warning')
+            
+    DatabaseService.save_resource_comment(owner_uid, "shifts", shift_id, comment_id, comment, sandbox=sandbox)
+    
+    try:
+        shift_label = f"Turno de Caja ({shift_id[:8]})"
+        process_shift_comment_mentions(owner_uid, content, shift_id, shift_label, sandbox)
+    except Exception as ex:
+        print(f"⚠️ Error al procesar menciones en edit_shift_comment: {ex}")
+        
+    flash('Comentario editado exitosamente.', 'success')
+    return redirect(url_for('web_pos.pos_admin_shift_detail', shift_id=shift_id))
+
+@web_pos_bp.route('/pos/admin/shift/<shift_id>/comments/<comment_id>/delete', methods=['POST'])
+def delete_shift_comment(shift_id, comment_id):
+    if 'user' not in session: return redirect(url_for('login'))
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+    
+    comments = DatabaseService.get_resource_comments(owner_uid, "shifts", shift_id, sandbox=sandbox)
+    comment = next((c for c in comments if c['id'] == comment_id), None)
+    if not comment:
+        flash('Comentario no encontrado.', 'error')
+        return redirect(url_for('web_pos.pos_admin_shift_detail', shift_id=shift_id))
+        
+    is_owner = session['user'].get('role') == 'owner'
+    is_author = session['user']['uid'] == comment.get('createdByUid')
+    if not (is_owner or is_author):
+        flash('No tienes permiso para eliminar este comentario.', 'error')
+        return redirect(url_for('web_pos.pos_admin_shift_detail', shift_id=shift_id))
+        
+    DatabaseService.delete_resource_comment(owner_uid, "shifts", shift_id, comment_id, sandbox=sandbox)
+    flash('Comentario eliminado exitosamente.', 'success')
+    return redirect(url_for('web_pos.pos_admin_shift_detail', shift_id=shift_id))
+
 
 
 @web_pos_bp.route('/pos/admin/shift/<shift_id>/audit', methods=['POST'])

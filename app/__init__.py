@@ -243,16 +243,23 @@ def create_app():
 
     @app.context_processor
     def inject_crm_commitments():
-        """Inyecta los compromisos CRM agendados para hoy para todos los templates."""
+        """Inyecta los compromisos CRM agendados para hoy y las notificaciones del usuario para todos los templates."""
         from flask import has_request_context
         crm_contacts = []
+        user_notifications = []
         if has_request_context() and 'user' in session:
             owner_uid = session['user'].get('ownerUID')
+            user_uid = session['user'].get('uid')
             if owner_uid:
                 try:
                     from datetime import datetime
                     from app.services.db_service import DatabaseService
                     sandbox = session.get('is_sandbox_mode', False)
+                    
+                    # Cargar notificaciones del usuario
+                    if user_uid:
+                        user_notifications = DatabaseService.get_user_notifications(user_uid, limit=10)
+                        
                     today_str = datetime.utcnow().strftime("%Y-%m-%d")
                     clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox)
                     invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox)
@@ -268,8 +275,8 @@ def create_app():
                         if (c.get('nextContactDate') and c['nextContactDate'][:10] == today_str) or c.get('total_cxc', 0.0) > 0.0
                     ]
                 except Exception as e:
-                    print(f"⚠️ Error al inyectar compromisos CRM en el contexto global: {e}")
-        return dict(crm_contacts=crm_contacts)
+                    print(f"⚠️ Error al inyectar compromisos CRM o notificaciones en el contexto global: {e}")
+        return dict(crm_contacts=crm_contacts, user_notifications=user_notifications)
 
     # Inyectar helper de verificación de permisos globales
     @app.context_processor

@@ -8,7 +8,12 @@ class Config:
     SECRET_KEY = os.getenv('SECRET_KEY', 'efacturard_web_secret_session_key_2026')
     
     # Configuración de Firebase
-    FIREBASE_SERVICE_ACCOUNT_JSON = os.getenv('FIREBASE_SERVICE_ACCOUNT_JSON', 'firebase-adminsdk.json')
+    _firebase_json = os.getenv('FIREBASE_SERVICE_ACCOUNT_JSON', 'firebase-adminsdk.json')
+    if not os.path.isabs(_firebase_json) and not os.path.exists(_firebase_json):
+        _parent_json = os.path.join('..', _firebase_json)
+        if os.path.exists(_parent_json):
+            _firebase_json = _parent_json
+    FIREBASE_SERVICE_ACCOUNT_JSON = _firebase_json
     FIREBASE_STORAGE_BUCKET = os.getenv('FIREBASE_STORAGE_BUCKET', 'e-factura-c2b78.firebasestorage.app')
     FIREBASE_API_KEY = os.getenv('FIREBASE_API_KEY', 'AIzaSyDUhGH7Pa2DP5kNUJxiwEbxrfRGvpKANTc')
     FIREBASE_PROJECT_ID = os.getenv('FIREBASE_PROJECT_ID', 'e-factura-c2b78')
