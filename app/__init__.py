@@ -88,6 +88,7 @@ def create_app():
                 ]
                 if request.endpoint not in allowed_auth_endpoints:
                     return redirect(flask_url_for('web_auth.select_company'))
+                return
             
             # Obligar al propietario a configurar el perfil si no lo ha hecho (incluso en sandbox)
             owner_uid = session['user'].get('ownerUID')
