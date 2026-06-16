@@ -48,12 +48,21 @@
                 onmouseover="this.style.backgroundColor='rgba(255, 255, 255, 0.02)'"
                 onmouseout="this.style.backgroundColor='rgba(255, 255, 255, 0.01)'">
                 <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                    <div>
-                        <strong style="font-size: 0.95rem; display: block; color: var(--text-primary);">{{
-                            member.name }}</strong>
-                        <span
-                            style="font-size: 0.82rem; color: var(--text-secondary); display: block; margin-top: 4px;">{{
-                            member.email }}</span>
+                    <div style="display: flex; gap: 12px; align-items: center;">
+                        {% if member.profileImageUrl %}
+                        <img src="{{ member.profileImageUrl }}" alt="Avatar" style="width: 42px; height: 42px; border-radius: 50%; object-fit: cover;">
+                        {% else %}
+                        <div style="width: 42px; height: 42px; border-radius: 50%; background: linear-gradient(135deg, var(--accent-emerald), #059669); color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.2rem; flex-shrink: 0;">
+                            {{ member.name[0] | upper if member.name else 'U' }}
+                        </div>
+                        {% endif %}
+                        <div>
+                            <strong style="font-size: 0.95rem; display: block; color: var(--text-primary);">{{
+                                member.name }}</strong>
+                            <span
+                                style="font-size: 0.82rem; color: var(--text-secondary); display: block; margin-top: 4px;">{{
+                                member.email }}</span>
+                        </div>
                     </div>
                     <div style="display: flex; gap: 8px;">
                         <button type="button" class="btn btn-secondary btn-edit-perms"
@@ -76,6 +85,7 @@
                             data-can-subscription="{{ 'true' if member.permissions.canViewSubscription else 'false' }}"
                             data-can-sandbox="{{ 'true' if member.permissions.canToggleSandbox else 'false' }}"
                             data-can-notes="{{ 'true' if member.permissions.canManageNotes else 'false' }}"
+                            data-avatar-url="{{ member.profileImageUrl or '' }}"
                             title="Editar Permisos Granulares">
                             <i class="fa-solid fa-user-gear"></i>
                             <span>Permisos</span>
@@ -266,13 +276,22 @@
                     class="fa-solid fa-xmark"></i></button>
         </div>
         <div class="modal-body">
-            <form id="edit-perms-form" action="" method="POST"
+            <form id="edit-perms-form" action="" method="POST" enctype="multipart/form-data"
                 style="display: flex; flex-direction: column; gap: 15px;">
-                <div
-                    style="background-color: var(--bg-input); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 12px 14px; margin-bottom: 5px;">
-                    <strong id="perms-member-name"
-                        style="font-size: 0.95rem; display: block; color: var(--text-primary);"></strong>
-                    <span id="perms-member-email" style="font-size: 0.8rem; color: var(--text-secondary);"></span>
+                <div style="display: flex; gap: 12px; align-items: center; background-color: var(--bg-input); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 12px 14px; margin-bottom: 5px;">
+                    <div style="position: relative; width: 48px; height: 48px; flex-shrink: 0; cursor: pointer; border-radius: 50%; overflow: hidden;" onclick="document.getElementById('perms-avatar-input').click();">
+                        <img id="perms-member-avatar-img" src="" style="width: 100%; height: 100%; object-fit: cover; display: none;">
+                        <div id="perms-member-avatar-text" style="width: 100%; height: 100%; background: linear-gradient(135deg, var(--accent-emerald), #059669); color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.4rem;"></div>
+                        <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; color: white; opacity: 0; transition: opacity 0.2s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0">
+                            <i class="fa-solid fa-camera" style="font-size: 0.9rem;"></i>
+                        </div>
+                    </div>
+                    <input type="file" id="perms-avatar-input" name="avatar" accept="image/*" style="position: absolute; opacity: 0; width: 0.1px; height: 0.1px; overflow: hidden; z-index: -1;" onchange="previewPermsAvatar(this)">
+                    <div>
+                        <strong id="perms-member-name"
+                            style="font-size: 0.95rem; display: block; color: var(--text-primary);"></strong>
+                        <span id="perms-member-email" style="font-size: 0.8rem; color: var(--text-secondary);"></span>
+                    </div>
                 </div>
 
                 <div>
@@ -444,9 +463,23 @@
                 const canSubscription = this.getAttribute('data-can-subscription') === 'true';
                 const canSandbox = this.getAttribute('data-can-sandbox') === 'true';
                 const canNotes = this.getAttribute('data-can-notes') === 'true';
+                const avatarUrl = this.getAttribute('data-avatar-url');
 
                 document.getElementById('perms-member-name').textContent = name;
                 document.getElementById('perms-member-email').textContent = email;
+
+                const imgEl = document.getElementById('perms-member-avatar-img');
+                const txtEl = document.getElementById('perms-member-avatar-text');
+                if (avatarUrl) {
+                    imgEl.src = avatarUrl;
+                    imgEl.style.display = 'block';
+                    txtEl.style.display = 'none';
+                } else {
+                    imgEl.src = '';
+                    imgEl.style.display = 'none';
+                    txtEl.textContent = name ? name.charAt(0).toUpperCase() : 'U';
+                    txtEl.style.display = 'flex';
+                }
 
                 document.getElementById('perms-can-invoice').checked = canInvoice;
                 document.getElementById('perms-can-expenses').checked = canExpenses;
@@ -478,5 +511,23 @@
         if (closePermsBtn) closePermsBtn.addEventListener('click', closePerms);
         if (permsBackdrop) permsBackdrop.addEventListener('click', closePerms);
     });
+
+    function previewPermsAvatar(input) {
+        if (input.files && input.files[0]) {
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                var img = document.getElementById('perms-member-avatar-img');
+                var text = document.getElementById('perms-member-avatar-text');
+                if (img) {
+                    img.src = e.target.result;
+                    img.style.display = 'block';
+                }
+                if (text) {
+                    text.style.display = 'none';
+                }
+            }
+            reader.readAsDataURL(input.files[0]);
+        }
+    }
 </script>
 {% endblock %}

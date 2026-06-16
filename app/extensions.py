@@ -8,6 +8,17 @@ def formatted_filter(value):
     except (ValueError, TypeError):
         return value
 
+def format_date_filter(value):
+    if not value or not isinstance(value, str):
+        return value
+    try:
+        parts = value[:10].split('-')
+        if len(parts) == 3:
+            return f"{parts[2]}/{parts[1]}/{parts[0]}"
+    except Exception:
+        pass
+    return value
+
 def init_extensions(app):
     """Inicializa base de datos local y registra filtros globales de Jinja2."""
     # Inicializar Base de Datos SQLite local y tablas de Firebase Auth
@@ -15,6 +26,7 @@ def init_extensions(app):
 
     # Registrar filtros personalizados
     app.template_filter('formatted')(formatted_filter)
+    app.template_filter('format_date')(format_date_filter)
     
     # Registrar funciones matemáticas útiles en Jinja2
     app.jinja_env.globals.update(min=min, max=max)

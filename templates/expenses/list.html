@@ -106,10 +106,19 @@
         </div>
     </form>
 
-    <div class="table-responsive">
+    <form id="multiple-delete-form" method="POST" action="{{ url_for('delete_multiple_expenses_route') }}">
+        <div style="display: flex; justify-content: flex-start; margin-bottom: 12px; padding: 0 20px;">
+            <button type="submit" id="btn-delete-selected" class="btn btn-danger" style="display: none; height: 36px; font-size: 0.78rem; padding: 0 16px; align-items: center;" onclick="return confirm('¿Estás seguro de que deseas eliminar los gastos seleccionados?');">
+                <i class="fa-solid fa-trash-can" style="margin-right: 6px;"></i> Eliminar Seleccionados (<span id="selected-count">0</span>)
+            </button>
+        </div>
+        <div class="table-responsive">
         <table class="table-premium">
             <thead>
                 <tr>
+                    <th style="width: 40px; text-align: center;">
+                        <input type="checkbox" id="select-all" onclick="toggleAllCheckboxes(this)" style="cursor: pointer;">
+                    </th>
                     <th>Concepto / Descripción</th>
                     <th>Categoría</th>
                     <th>Fecha</th>
@@ -123,6 +132,9 @@
                 {% if expenses %}
                 {% for exp in expenses %}
                 <tr>
+                    <td style="text-align: center;">
+                        <input type="checkbox" name="expense_ids" value="{{ exp.id }}" class="expense-checkbox" onclick="updateDeleteButton()" style="cursor: pointer;">
+                    </td>
                     <td>
                         <span style="font-size: 0.85rem; font-weight: 500; display: block; margin-bottom: 2px; color: var(--text-primary);">{{ exp.concept }}</span>
                         {% if exp.notes %}
@@ -137,13 +149,13 @@
                         </span>
                         {% if exp.nextOccurrenceDate %}
                         <span style="display: block; font-size: 0.7rem; color: var(--accent-emerald); margin-top: 4px; font-weight: 500;">
-                            Próx: {{ exp.nextOccurrenceDate[:10] }}
+                            Próx: {{ exp.nextOccurrenceDate | format_date }}
                         </span>
                         {% endif %}
                         {% endif %}
                     </td>
                     <td>
-                        <span style="font-size: 0.8rem; color: var(--text-secondary);">{{ exp.date[:10] }}</span>
+                        <span style="font-size: 0.8rem; color: var(--text-secondary);">{{ exp.date | format_date }}</span>
                     </td>
                     <td>
                         {% if exp.ncf %}
@@ -219,7 +231,7 @@
                 {% endfor %}
                 {% else %}
                 <tr>
-                    <td colspan="7" style="text-align: center; padding: 60px 0; color: var(--text-secondary);">
+                    <td colspan="8" style="text-align: center; padding: 60px 0; color: var(--text-secondary);">
                         <i class="fa-solid fa-receipt"
                             style="font-size: 3rem; color: var(--text-muted); margin-bottom: 16px; opacity: 0.5; display: block;"></i>
                         <span>No hay gastos operativos registrados aún.</span>
@@ -231,9 +243,29 @@
                 {% endif %}
             </tbody>
         </table>
-    </div>
+        </div>
+    </form>
 
 <script>
+    function toggleAllCheckboxes(source) {
+        const checkboxes = document.querySelectorAll('.expense-checkbox');
+        checkboxes.forEach(cb => cb.checked = source.checked);
+        updateDeleteButton();
+    }
+
+    function updateDeleteButton() {
+        const checkboxes = document.querySelectorAll('.expense-checkbox:checked');
+        const btn = document.getElementById('btn-delete-selected');
+        const countSpan = document.getElementById('selected-count');
+        
+        if (checkboxes.length > 0) {
+            btn.style.display = 'inline-flex';
+            countSpan.textContent = checkboxes.length;
+        } else {
+            btn.style.display = 'none';
+        }
+    }
+
     function exportToCSV() {
         const urlParams = new URLSearchParams(window.location.search);
         urlParams.set('export', 'csv');

@@ -614,6 +614,8 @@
         }
     </style>
 
+    <!-- Flatpickr (Selector de Fechas Estandarizado) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     {% block extra_head %}{% endblock %}
 </head>
 
@@ -1026,10 +1028,11 @@
             <div class="utility-bar-top">
 
 
-                <!-- Avatar del usuario (sin nombre) -->
-                <a href="{{ url_for('user_profile_page') }}" class="utility-avatar-wrapper"
+                <a href="{{ url_for('web_auth.user_profile_page') }}" class="utility-avatar-wrapper"
                     title="Mi Perfil / Ajustes de Cuenta">
-                    {% if company_logo_url %}
+                    {% if session.get('user', {}).get('profileImageUrl') %}
+                    <img src="{{ session.get('user').get('profileImageUrl') }}" alt="Avatar" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">
+                    {% elif company_logo_url %}
                     <img src="{{ company_logo_url }}" alt="Avatar">
                     {% else %}
                     {{ session.get('user', {}).get('name', 'P')[0] | upper }}
@@ -2382,6 +2385,21 @@
     </script>
 
     {% block extra_scripts %}{% endblock %}
+    <!-- Flatpickr JS e Idioma Español -->
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://npmcdn.com/flatpickr/dist/l10n/es.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            // Inicializar globalmente para inputs de fecha, convirtiéndolos visualmente a DD/MM/YYYY
+            flatpickr('input[type="date"]', {
+                locale: "es",
+                dateFormat: "Y-m-d", // El valor real enviado en el form será YYYY-MM-DD
+                altInput: true,      // Crea un campo alternativo visual
+                altFormat: "d/m/Y",  // El formato que ve el usuario será DD/MM/YYYY
+                allowInput: true
+            });
+        });
+    </script>
 </body>
 
 </html>

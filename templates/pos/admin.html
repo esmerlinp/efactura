@@ -98,7 +98,7 @@
                                 </span>
                             </div>
                         </td>
-                        <td>{{ reg.createdAt[:10] }} {{ reg.createdAt[11:16] }}</td>
+                        <td>{{ reg.createdAt | format_date }} {{ reg.createdAt[11:16] }}</td>
                         <td style="font-family: monospace; font-size: 0.8rem; color: var(--text-muted);">{{ reg.id }}
                         </td>
                     </tr>

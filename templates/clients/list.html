@@ -281,7 +281,7 @@
         <span><i class="fa-solid fa-phone"></i> {{ client.telefono or 'N/A' }}</span>
         {% if client.nextContactDate %}
         <span style="color: var(--accent-purple); font-weight: 500;"><i class="fa-solid fa-clock"></i> Contacto: {{
-            client.nextContactDate[:10] }}</span>
+            client.nextContactDate | format_date }}</span>
         {% endif %}
     </div>
 
@@ -394,7 +394,7 @@
                     <td>
                         {% if client.nextContactDate %}
                         <span style="color: var(--accent-purple); font-weight: 500; font-size: 0.75rem;"><i
-                                class="fa-solid fa-clock"></i> {{ client.nextContactDate[:10] }}</span>
+                                class="fa-solid fa-clock"></i> {{ client.nextContactDate | format_date }}</span>
                         {% else %}
                         <span class="text-muted" style="font-size: 0.75rem;">N/A</span>
                         {% endif %}
