@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block page_title %}Empresas{% endblock %}
+{% block page_title %}Clientes{% endblock %}
 {% block page_subtitle %}Gestión de cuentas de clientes e-Factura{% endblock %}
 
 {% block content %}
@@ -9,7 +9,7 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
         </svg>
-        <input type="text" id="search-input" placeholder="Buscar empresa por nombre o RNC..." oninput="filterTable()">
+        <input type="text" id="search-input" placeholder="Buscar cliente por nombre o RNC..." oninput="filterTable()">
     </div>
     <div class="toolbar-filters" style="display: flex; gap: 10px; align-items: center;">
         <select id="status-filter" class="filter-select" onchange="filterTable()">
@@ -23,7 +23,7 @@
                 <line x1="12" y1="5" x2="12" y2="19"></line>
                 <line x1="5" y1="12" x2="19" y2="12"></line>
             </svg>
-            Nueva Empresa
+            Nuevo Cliente
         </a>
     </div>
 </div>
@@ -36,7 +36,7 @@
         <table class="data-table" id="companies-table">
             <thead>
                 <tr>
-                    <th>Empresa / RNC</th>
+                    <th>Cliente / Empresa</th>
                     <th>Plan</th>
                     <th>Límite Docs</th>
                     <th>Consumo Ciclo</th>
@@ -50,10 +50,16 @@
                 <tr class="table-row" data-name="{{ company.razonSocial | default('') | lower }}" data-rnc="{{ company.rnc | default('') }}" data-status="{{ company.status | default('Activo') }}">
                     <td>
                         <div class="cell-company">
-                            <div class="company-avatar">{{ (company.razonSocial or 'E')[0] | upper }}</div>
+                            <div class="company-avatar">{{ (company.ownerName or company.razonSocial or 'C')[0] | upper }}</div>
                             <div>
-                                <div class="company-name">{{ company.razonSocial | default('Sin nombre') }}</div>
-                                <div class="company-rnc">{{ company.rnc | default('RNC no registrado') }}</div>
+                                <div class="company-name">{{ company.ownerName | default(company.razonSocial) }}</div>
+                                <div class="company-rnc" style="color: var(--text-muted); font-size: 0.75rem;">
+                                    {% if company.razonSocial and company.razonSocial != 'Mi Empresa' %}
+                                        {{ company.razonSocial }} <br> RNC: {{ company.rnc | default('N/A') }}
+                                    {% else %}
+                                        Empresa no configurada
+                                    {% endif %}
+                                </div>
                             </div>
                         </div>
                     </td>
@@ -117,7 +123,7 @@
                                 <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
                                 <circle cx="9" cy="7" r="4"/>
                             </svg>
-                            <p>No hay empresas registradas aún.</p>
+                            <p>No hay clientes registrados aún.</p>
                         </div>
                     </td>
                 </tr>
@@ -132,10 +138,16 @@
         <div class="mobile-company-card" data-name="{{ company.razonSocial | default('') | lower }}" data-rnc="{{ company.rnc | default('') }}" data-status="{{ company.status | default('Activo') }}">
             <div class="card-header-mobile">
                 <div class="cell-company">
-                    <div class="company-avatar">{{ (company.razonSocial or 'E')[0] | upper }}</div>
+                    <div class="company-avatar">{{ (company.ownerName or company.razonSocial or 'C')[0] | upper }}</div>
                     <div>
-                        <div class="company-name">{{ company.razonSocial | default('Sin nombre') }}</div>
-                        <div class="company-rnc">{{ company.rnc | default('RNC no registrado') }}</div>
+                        <div class="company-name">{{ company.ownerName | default(company.razonSocial) }}</div>
+                        <div class="company-rnc" style="color: var(--text-muted); font-size: 0.75rem;">
+                            {% if company.razonSocial and company.razonSocial != 'Mi Empresa' %}
+                                {{ company.razonSocial }} <br> RNC: {{ company.rnc | default('N/A') }}
+                            {% else %}
+                                Empresa no configurada
+                            {% endif %}
+                        </div>
                     </div>
                 </div>
                 {% set status = company.status | default('Activo') %}

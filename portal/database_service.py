@@ -63,6 +63,7 @@ class DatabaseService:
                             'id': owner_uid,
                             'ownerUID': owner_uid,
                             'razonSocial': company_data.get('companyName', profile_data.get('name', user.display_name or 'Sin nombre')),
+                            'ownerName': profile_data.get('name', user.display_name or 'Sin nombre'),
                             'rnc': company_data.get('companyRNC', ''),
                             'email': company_data.get('companyEmail', profile_data.get('email', user.email or '')),
                             'phone': company_data.get('companyPhone', ''),
