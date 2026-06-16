@@ -943,9 +943,12 @@ def send_receipt_endpoint(invoice_id):
 
         company_name    = company.get("tradeName") or company.get("companyName", "e-Factura")
         brand_color     = company.get("colorMarca", "#10b981")
+        logo_url        = company.get("logoUrl", "")
+        logo_html       = f'<img src="{logo_url}" alt="Logo" style="max-height: 50px; margin-bottom: 15px;"><br>' if logo_url else ''
 
         html_body = f"""
         <html><body>
+        {logo_html}
         <h2 style="color: {brand_color};">Recibo de Ingreso - {company_name}</h2>
         <p>No. Recibo: {receipt_no}</p>
         <p>Fecha de Pago: {payment_date}</p>
@@ -1025,9 +1028,12 @@ def send_invoice_email_endpoint(invoice_id):
         msg["To"] = recipient_email
         
         brand_color = company.get("colorMarca", "#10b981")
+        logo_url    = company.get("logoUrl", "")
+        logo_html   = f'<img src="{logo_url}" alt="Logo" style="max-height: 60px; margin-bottom: 15px;"><br>' if logo_url else ''
 
         html_body = f"""
         <html><body>
+        {logo_html}
         <h2 style="color: {brand_color};">{company_name}</h2>
         <p>Estimado cliente,</p>
         <p>Adjunto a este correo encontrará su comprobante electrónico ({ecf_type}) con e-NCF {encf}.</p>

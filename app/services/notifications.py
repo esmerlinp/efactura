@@ -54,6 +54,8 @@ class NotificationService:
                 
             try:
                 brand_color = company.get('colorMarca', '#10b981')
+                logo_url = company.get('logoUrl', '')
+                logo_html = f'<img src="{logo_url}" alt="Logo" style="max-height: 60px; margin-bottom: 15px;"><br>' if logo_url else ''
                 # Construir el correo HTML
                 msg = MIMEMultipart('alternative')
                 msg["Subject"] = f"⚠️ Recordatorio de Pago - Factura {invoice_number} - {company_name}"
@@ -66,6 +68,7 @@ class NotificationService:
                 <html>
                 <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #333; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
                     <div style="text-align: center; margin-bottom: 24px; padding-bottom: 12px; border-bottom: 2px solid {brand_color};">
+                        {logo_html}
                         <h2 style="color: {brand_color}; margin: 0;">Recordatorio de Pago Pendiente</h2>
                         <p style="color: #666; margin: 4px 0 0 0;">{company_name}</p>
                     </div>
@@ -272,7 +275,7 @@ class NotificationService:
         return sent_count
 
     @classmethod
-    def send_mention_notification(cls, recipient_email, recipient_name, commenter_name, comment_snippet, doc_number, doc_url, issuer_company_name="e-Factura", sandbox=True, brand_color="#10b981"):
+    def send_mention_notification(cls, recipient_email, recipient_name, commenter_name, comment_snippet, doc_number, doc_url, issuer_company_name="e-Factura", sandbox=True, brand_color="#10b981", logo_url=""):
         """Envía un correo electrónico de notificación cuando un usuario es tagueado en un comentario."""
         smtp_server = current_app.config.get("SMTP_SERVER", "smtp.gmail.com")
         smtp_port = int(current_app.config.get("SMTP_PORT", 587))
@@ -293,10 +296,13 @@ class NotificationService:
             msg["From"] = f"e-Factura <{smtp_user}>"
             msg["To"] = recipient_email
             
+            logo_html = f'<img src="{logo_url}" alt="Logo" style="max-height: 50px; margin-bottom: 15px;"><br>' if logo_url else ''
+            
             html_body = f"""
             <html>
             <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #333; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
                 <div style="text-align: center; margin-bottom: 24px; padding-bottom: 12px; border-bottom: 2px solid {brand_color};">
+                    {logo_html}
                     <h2 style="color: {brand_color}; margin: 0;">Nueva Mención</h2>
                     <p style="color: #666; margin: 4px 0 0 0;">Plataforma e-Factura · <strong>{issuer_company_name}</strong></p>
                 </div>
