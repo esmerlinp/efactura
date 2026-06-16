@@ -337,11 +337,17 @@
                             <i class="fa-solid fa-eye"></i>
                         </a>
                         {% if cxp.cxpStatus != 'Pagado' %}
-                        <button
-                            onclick="openPayModal('{{ cxp.id }}', '{{ cxp.concept }}', {{ cxp.cxpRemainingBalance }})"
-                            class="action-btn btn-pay" title="Registrar Pago/Abono">
-                            <i class="fa-solid fa-hand-holding-dollar"></i>
-                        </button>
+                            {% if cxp.approvalStatus == 'Pendiente' %}
+                            <button type="button" class="action-btn" title="Gasto Pendiente de Aprobación" style="opacity: 0.4; cursor: not-allowed; color: var(--accent-red); border-color: rgba(239, 68, 68, 0.3);">
+                                <i class="fa-solid fa-lock"></i>
+                            </button>
+                            {% else %}
+                            <button
+                                onclick="openPayModal('{{ cxp.id }}', '{{ cxp.concept }}', {{ cxp.cxpRemainingBalance }})"
+                                class="action-btn btn-pay" title="Registrar Pago/Abono">
+                                <i class="fa-solid fa-hand-holding-dollar"></i>
+                            </button>
+                            {% endif %}
                         {% endif %}
                         {% if cxp.firebaseAttachmentURLs and cxp.firebaseAttachmentURLs|length > 0 %}
                         <a href="{{ cxp.firebaseAttachmentURLs[0] }}" target="_blank" class="action-btn"
@@ -450,6 +456,7 @@
             })
             .catch(err => {
                 alert('Error de red al procesar el abono a la cuenta por pagar.');
+            });
     }
 
     function exportToCSV() {

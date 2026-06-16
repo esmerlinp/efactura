@@ -154,25 +154,23 @@ class RecurrenceService:
                 
                 new_id = str(uuid.uuid4())
                 
-                # Para el nuevo gasto de CxP, si es crédito, el estatus es Pendiente y se debe calcular el dueDate a partir del offset original
-                payment_type = original.get("paymentType", "Contado")
-                cxp_status = "Pagado"
-                due_date = ""
-                if payment_type == "Crédito":
-                    cxp_status = "Pendiente"
-                    orig_date_str = original.get("date", "")[:10]
-                    orig_due_str = original.get("dueDate", "")[:10]
-                    if orig_date_str and orig_due_str:
-                        try:
-                            orig_date = datetime.strptime(orig_date_str, "%Y-%m-%d")
-                            orig_due = datetime.strptime(orig_due_str, "%Y-%m-%d")
-                            days_offset = (orig_due - orig_date).days
-                            occurrence_date = datetime.strptime(next_date_str, "%Y-%m-%d")
-                            due_date = (occurrence_date + timedelta(days=days_offset)).strftime("%Y-%m-%d")
-                        except Exception:
-                            due_date = next_date_str
-                    else:
-                        due_date = next_date_str
+                # Por solicitud del usuario: Todos los gastos recurrentes deben crearse como No Pagados (Crédito/Pendiente)
+                # para obligar al usuario a marcarlos manualmente.
+                payment_type = "Crédito"
+                cxp_status = "Pendiente"
+                
+                orig_date_str = original.get("date", "")[:10]
+                orig_due_str = original.get("dueDate", "")[:10]
+                due_date = next_date_str
+                if orig_date_str and orig_due_str:
+                    try:
+                        orig_date = datetime.strptime(orig_date_str, "%Y-%m-%d")
+                        orig_due = datetime.strptime(orig_due_str, "%Y-%m-%d")
+                        days_offset = (orig_due - orig_date).days
+                        occurrence_date = datetime.strptime(next_date_str, "%Y-%m-%d")
+                        due_date = (occurrence_date + timedelta(days=days_offset)).strftime("%Y-%m-%d")
+                    except Exception:
+                        pass
 
                 new_expense = {
                     "id": new_id,

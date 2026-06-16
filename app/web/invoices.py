@@ -2901,6 +2901,44 @@ def new_expense_route():
         payment_type = request.form.get('paymentType', 'Contado')
         due_date = request.form.get('dueDate', '')
         
+
+        assigned_approver_id = request.form.get('assignedApproverId', '')
+        assigned_approver_name = ""
+        assigned_approver_email = ""
+        if assigned_approver_id:
+            team_members = DatabaseService.get_team_members(owner_uid)
+            owner_profile = DatabaseService.get_user_profile(owner_uid)
+            if owner_profile and not any(m.get('uid') == owner_uid for m in team_members):
+                team_members.insert(0, {
+                    "uid": owner_profile.get("uid"),
+                    "name": f"{owner_profile.get('name', 'Usuario Principal')} (Tú)",
+                    "email": owner_profile.get("email", "")
+                })
+            for m in team_members:
+                if m.get('uid') == assigned_approver_id:
+                    assigned_approver_name = m.get('name', '')
+                    assigned_approver_email = m.get('email', '')
+                    break
+        
+
+        assigned_approver_id = request.form.get('assignedApproverId', '')
+        assigned_approver_name = ""
+        assigned_approver_email = ""
+        if assigned_approver_id:
+            team_members = DatabaseService.get_team_members(owner_uid)
+            owner_profile = DatabaseService.get_user_profile(owner_uid)
+            if owner_profile and not any(m.get('uid') == owner_uid for m in team_members):
+                team_members.insert(0, {
+                    "uid": owner_profile.get("uid"),
+                    "name": f"{owner_profile.get('name', 'Usuario Principal')} (Tú)",
+                    "email": owner_profile.get("email", "")
+                })
+            for m in team_members:
+                if m.get('uid') == assigned_approver_id:
+                    assigned_approver_name = m.get('name', '')
+                    assigned_approver_email = m.get('email', '')
+                    break
+        
         # CxP Status
         cxp_status = 'Pagado'
         if payment_type == 'Crédito':
@@ -2932,8 +2970,14 @@ def new_expense_route():
             "itbisAmount": itbis_amount_original * exchange_rate,
             "isITBISDeductible": is_deductible,
             "isDeductible": is_deductible,
+            "assignedApproverId": assigned_approver_id,
+            "assignedApproverName": assigned_approver_name,
+            "assignedApproverEmail": assigned_approver_email,
             "firebaseAttachmentURLs": attachment_urls,
             # Nuevos campos e-CF y CxP:
+            "assignedApproverId": assigned_approver_id,
+            "assignedApproverName": assigned_approver_name,
+            "assignedApproverEmail": assigned_approver_email,
             "ecfType": request.form.get('ecfType', 'E31'),
             "ecfNumber": request.form.get('ncf', ''),
             "cne": request.form.get('cne', ''),
@@ -2961,13 +3005,74 @@ def new_expense_route():
             sandbox=sandbox
         )
         flash('Gasto operativo registrado exitosamente.', 'success')
+
+        if success and request.form.get('approvalStatus', 'Aprobado') == 'Pendiente' and assigned_approver_id:
+            try:
+                from app.services.notifications import NotificationService
+                notif_data = {
+                    "title": "Gasto Asignado para Aprobación",
+                    "message": f"Se te ha asignado el gasto '{expense_dict.get('concept', '')}' por RD$ {expense_dict.get('amount', 0.0):,.2f} para tu revisión.",
+                    "type": "info",
+                    "link": f"/expenses"
+                }
+                DatabaseService.create_user_notification(assigned_approver_id, notif_data)
+                
+                if assigned_approver_email:
+                    NotificationService.send_expense_assignment_notification(
+                        recipient_email=assigned_approver_email, 
+                        recipient_name=assigned_approver_name, 
+                        expense=expense_dict,
+                        owner_uid=owner_uid,
+                        sandbox=sandbox
+                    )
+            except Exception as e:
+                print("Error enviando notificacion de gasto: ", e)
+                
+
+        # Notificamos solo si se le asignó a alguien nuevo y está pendiente, o si recién se pone en pendiente.
+        # Para simplificar y no hacer un diff complicado, enviaremos la notif si el aprobador no es el mismo que estaba antes (o si no tenía).
+        is_new_approver = assigned_approver_id and assigned_approver_id != before_expense.get('assignedApproverId')
+        
+        if success and request.form.get('approvalStatus', 'Aprobado') == 'Pendiente' and is_new_approver:
+            try:
+                from app.services.notifications import NotificationService
+                notif_data = {
+                    "title": "Gasto Asignado para Aprobación",
+                    "message": f"Se te ha re-asignado el gasto '{expense_dict.get('concept', '')}' por RD$ {expense_dict.get('amount', 0.0):,.2f} para tu revisión.",
+                    "type": "info",
+                    "link": f"/expenses"
+                }
+                DatabaseService.create_user_notification(assigned_approver_id, notif_data)
+                
+                if assigned_approver_email:
+                    NotificationService.send_expense_assignment_notification(
+                        recipient_email=assigned_approver_email, 
+                        recipient_name=assigned_approver_name, 
+                        expense=expense_dict,
+                        owner_uid=owner_uid,
+                        sandbox=sandbox
+                    )
+            except Exception as e:
+                print("Error enviando notificacion de gasto (edit): ", e)
+                
         return redirect(url_for('list_expenses'))
+
+
         
     today_str = datetime.utcnow().strftime("%Y-%m-%d")
     
+    team_members = DatabaseService.get_team_members(owner_uid)
+    owner_profile = DatabaseService.get_user_profile(owner_uid)
+    if owner_profile and not any(m.get('uid') == owner_uid for m in team_members):
+        team_members.insert(0, {
+            "uid": owner_profile.get("uid"),
+            "name": f"{owner_profile.get('name', 'Usuario Principal')} (Tú)",
+            "email": owner_profile.get("email", "")
+        })
     return render_template(
         'expenses/new.html',
         active_page='expenses',
+        team_members=team_members,
         invoices=[],
         today_str=today_str
     )
@@ -3087,7 +3192,7 @@ def edit_expense_route(expense_id):
         elif payment_type == 'Contado':
             cxp_status = 'Pagado'
             
-        current_rem = float(expense.get('cxpRemainingBalance', 0.0))
+        current_rem = float(expense.get('cxpRemainingBalance', expense.get('amount', 0.0)))
         if payment_type == 'Contado':
             rem_bal = 0.0
         else:
@@ -3151,9 +3256,18 @@ def edit_expense_route(expense_id):
         
     invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox)
     
+    team_members = DatabaseService.get_team_members(owner_uid)
+    owner_profile = DatabaseService.get_user_profile(owner_uid)
+    if owner_profile and not any(m.get('uid') == owner_uid for m in team_members):
+        team_members.insert(0, {
+            "uid": owner_profile.get("uid"),
+            "name": f"{owner_profile.get('name', 'Usuario Principal')} (Tú)",
+            "email": owner_profile.get("email", "")
+        })
     return render_template(
         'expenses/edit.html',
         active_page='expenses',
+        team_members=team_members,
         expense=expense,
         invoices=invoices
     )
@@ -3179,6 +3293,35 @@ def api_expenses_ocr_upload():
         
     return jsonify(res)
 
+
+@web_invoices_bp.route('/expenses/<expense_id>/approve', methods=['POST'])
+def approve_expense_route(expense_id):
+    if 'user' not in session: return jsonify({'success': False, 'message': 'No autenticado'}), 401
+    # Asume que si puede ver/gestionar gastos puede aprobar, ideal sería un permiso específico
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+    
+    expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox)
+    expense = next((e for e in expenses if e['id'] == expense_id), None)
+    
+    if not expense:
+        return jsonify({'success': False, 'message': 'Gasto no encontrado'})
+        
+    expense['approvalStatus'] = 'Aprobado'
+    expense['approvedBy'] = session['user'].get('name', 'Usuario')
+    
+    DatabaseService.save_expense(owner_uid, expense_id, expense, sandbox=sandbox)
+    if True:
+        from app.services.audit_service import AuditService, ACTION_UPDATE, MODULE_GASTOS
+        AuditService.log_from_request(
+            owner_uid=owner_uid,
+            action=ACTION_UPDATE,
+            module=MODULE_GASTOS,
+            description=f"Se aprobó rápidamente el gasto {expense.get('concept', '')}"
+        )
+        return jsonify({'success': True, 'message': 'Gasto aprobado correctamente'})
+    return jsonify({'success': False, 'message': msg})
+
 @web_invoices_bp.route('/expenses/cxp')
 def list_cxp():
     if 'user' not in session: return redirect(url_for('login'))
@@ -3197,10 +3340,14 @@ def list_cxp():
     today_str = datetime.utcnow().strftime("%Y-%m-%d")
     
     for exp in expenses:
+        if exp.get('approvalStatus') == 'Pendiente':
+            continue
+            
         if exp.get('paymentType') == 'Crédito':
             due_date = exp.get('dueDate', '')
             status = exp.get('cxpStatus', 'Pendiente')
             rem_bal = float(exp.get('cxpRemainingBalance', exp.get('amount', 0.0)))
+            exp['cxpRemainingBalance'] = rem_bal
             
             if status in ['Pendiente', 'Abonado'] and due_date and due_date < today_str:
                 status = 'Vencido'

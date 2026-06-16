@@ -416,10 +416,10 @@
                     <div class="accordion-body">
                         <div class="form-inner-grid">
                             <div class="form-group span-full">
-                                <label for="paymentType">Tipo de Pago</label>
+                                <label for="paymentType">Estado del Pago (¿Ya fue pagado?)</label>
                                 <select id="paymentType" name="paymentType" class="form-select" onchange="toggleCxpFields(this.value)" style="width: 100%;">
-                                    <option value="Contado" selected>Contado (Pagado al instante)</option>
-                                    <option value="Crédito">Crédito (Cuenta por Pagar - CxP)</option>
+                                    <option value="Contado" selected>Sí, ya está pagado (Contado)</option>
+                                    <option value="Crédito">No, pendiente de pago (Crédito / CxP)</option>
                                 </select>
                             </div>
 
@@ -439,6 +439,16 @@
                                     <option value="Pendiente">Pendiente de Firma/Aprobación</option>
                                 </select>
                             </div>
+                                <div class="form-group" style="margin-top:14px;">
+                                    <label for="assignedApproverId">Asignar Aprobador</label>
+                                    <select id="assignedApproverId" name="assignedApproverId" class="form-select" style="width: 100%;">
+                                        <option value="">-- Sin Asignar --</option>
+                                        {% for member in team_members %}
+                                        <option value="{{ member.uid }}">{{ member.name }} ({{ member.email }})</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+
 
                             <div class="form-group span-full" style="border-top: 1px dashed var(--border-color); padding-top: 15px; margin-top: 10px;">
                                 <label for="isRecurring">¿Es un Gasto Fijo Recurrente?</label>
