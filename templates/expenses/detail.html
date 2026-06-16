@@ -43,6 +43,11 @@
                     <div style="font-size: 1.8rem; font-weight: 800; color: var(--accent-red); margin-bottom: 8px; font-family: var(--font-heading);">
                         RD$ {{ "{:,.2f}".format(expense.amount) }}
                     </div>
+                    {% if expense.currency and expense.currency != 'DOP' %}
+                    <div style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 8px;">
+                        Orig: <strong>{{ expense.currency }} {{ "{:,.2f}".format(expense.amountOriginal) }}</strong> (Tasa: {{ "{:,.2f}".format(expense.exchangeRate) }})
+                    </div>
+                    {% endif %}
                     <div style="font-size: 0.85rem; color: var(--text-secondary);">
                         ITBIS Impuesto: <strong>RD$ {{ "{:,.2f}".format(expense.itbisAmount) }}</strong>
                     </div>

@@ -2885,7 +2885,13 @@ def new_expense_route():
             public_url = DatabaseService.upload_file_to_storage(file_data, dest_path, mime_type)
             attachment_urls.append(public_url)
             
-        amount = float(request.form['amount'])
+        currency = request.form.get('currency', 'DOP')
+        exchange_rate = float(request.form.get('exchangeRate', 1.0)) if currency != 'DOP' else 1.0
+        amount_original = float(request.form['amount'])
+        amount = amount_original * exchange_rate
+        
+        raw_itbis = request.form.get('itbisAmount', '').strip()
+        itbis_amount_original = float(raw_itbis) if raw_itbis else 0.0
         is_recurring = request.form.get('isRecurring') == 'true'
         is_deductible = request.form.get('isDeductible') == 'true'
         recurrence_interval = request.form.get('recurrenceInterval', 'mensual')
@@ -2901,8 +2907,12 @@ def new_expense_route():
             cxp_status = 'Pendiente'
 
         expense_dict = {
+            "supplierType": request.form.get('supplierType', 'formal'),
             "concept": request.form['concept'],
             "category": request.form['category'],
+            "currency": currency,
+            "exchangeRate": exchange_rate,
+            "amountOriginal": amount_original,
             "amount": amount,
             "date": request.form['date'],
             "rncEmisor": request.form.get('rncEmisor', ''),
@@ -2918,7 +2928,8 @@ def new_expense_route():
             "nextOccurrenceDate": next_occurrence if is_recurring else None,
             "recurrenceEndDate": recurrence_end_date if is_recurring else None,
             "associatedInvoiceId": request.form.get('associatedInvoiceId', ''),
-            "itbisAmount": float(request.form.get('itbisAmount', amount * 0.18 / 1.18)),
+            "itbisAmountOriginal": itbis_amount_original,
+            "itbisAmount": itbis_amount_original * exchange_rate,
             "isITBISDeductible": is_deductible,
             "isDeductible": is_deductible,
             "firebaseAttachmentURLs": attachment_urls,
@@ -5108,3 +5119,11 @@ if __name__ == '__main__':
     app.run(debug=True, port=5001)
 
 
+@web_invoices_bp.route('/api/currency/rate/<currency>', methods=['GET'])
+def get_currency_rate_api(currency):
+    try:
+        from app.utils.currency import CurrencyService
+        rate = CurrencyService.get_rate(currency)
+        return jsonify({"success": True, "currency": currency, "rate": rate})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
