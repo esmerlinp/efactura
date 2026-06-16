@@ -942,10 +942,11 @@ def send_receipt_endpoint(invoice_id):
             return jsonify({"success": False, "error": "El servidor de correo no está configurado en el backend."}), 503
 
         company_name    = company.get("tradeName") or company.get("companyName", "e-Factura")
+        brand_color     = company.get("colorMarca", "#10b981")
 
         html_body = f"""
         <html><body>
-        <h2>Recibo de Ingreso - {company_name}</h2>
+        <h2 style="color: {brand_color};">Recibo de Ingreso - {company_name}</h2>
         <p>No. Recibo: {receipt_no}</p>
         <p>Fecha de Pago: {payment_date}</p>
         <p>Factura de Referencia: {invoice.get('invoiceNumber','')}</p>
@@ -1022,10 +1023,12 @@ def send_invoice_email_endpoint(invoice_id):
         msg["Subject"] = f"{ecf_type} No. [{encf}] - [{company_name}]"
         msg["From"] = f"{company_name} <{smtp_user}>"
         msg["To"] = recipient_email
+        
+        brand_color = company.get("colorMarca", "#10b981")
 
         html_body = f"""
         <html><body>
-        <h2>{company_name}</h2>
+        <h2 style="color: {brand_color};">{company_name}</h2>
         <p>Estimado cliente,</p>
         <p>Adjunto a este correo encontrará su comprobante electrónico ({ecf_type}) con e-NCF {encf}.</p>
         <p>Puede visualizar el PDF de su factura en el siguiente enlace: <a href="{pdf_url}">Ver Factura (PDF)</a></p>

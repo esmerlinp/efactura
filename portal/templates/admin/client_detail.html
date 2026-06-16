@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block page_title %}{{ company.razonSocial | default('Empresa') }}{% endblock %}
+{% block page_title %}{{ company.ownerName | default('Cliente') }}{% endblock %}
 {% block page_subtitle %}Gestión de cuenta y plan asignado{% endblock %}
 
 {% block content %}
@@ -47,7 +47,7 @@
         </div>
 
         <a href="{{ url_for('clientes') }}" class="btn btn-ghost btn-full" style="margin-top: 12px;">
-            ← Volver a Empresas
+            ← Volver a Clientes
         </a>
     </div>
 
@@ -78,6 +78,14 @@
                         <line x1="2" y1="10" x2="22" y2="10" />
                     </svg>
                     <span>Control de Pagos</span>
+                </button>
+                <button class="tab-btn" onclick="switchTab(event, 'tab-stats')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                        <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                        <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                        <line x1="12" y1="22.08" x2="12" y2="12"></line>
+                    </svg>
+                    <span>Uso de Recursos</span>
                 </button>
                 <button class="tab-btn" onclick="switchTab(event, 'tab-danger')">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" style="color: #ef4444;">
@@ -270,7 +278,7 @@
                                     </div>
                                     <div class="form-group" style="margin-top: 16px; display: flex; align-items: center; gap: 8px;">
                                         <input type="checkbox" name="canManageOwnCompany" id="canManageOwnCompany" value="1" {% if company.canManageOwnCompany | default(False) %}checked{% endif %} style="width: 18px; height: 18px; cursor: pointer;">
-                                        <label class="form-label" for="canManageOwnCompany" style="margin-bottom: 0; cursor: pointer; font-weight: 600;">Permitir al usuario administrar ajustes de su propia empresa</label>
+                                        <label class="form-label" for="canManageOwnCompany" style="margin-bottom: 0; cursor: pointer; font-weight: 600;">Permitir al usuario administrar ajustes de su propia cuenta</label>
                                     </div>
                                 </div>
                             </details>
@@ -643,37 +651,70 @@
                 </div>
             </div><!-- #tab-payments -->
 
+            <!-- Tab: Uso de Recursos -->
+            <div id="tab-stats" class="tab-content">
+                <div class="card" style="margin-bottom: 24px;">
+                    <div class="card-header" style="border-bottom: 1px solid var(--border-color); padding-bottom: 14px;">
+                        <h2 class="card-title" style="display: flex; align-items: center; gap: 8px; margin: 0; font-size: 1.1rem; font-weight: 700;">
+                            📊 Volumen de Base de Datos (Firestore)
+                        </h2>
+                    </div>
+                    <div class="card-body" style="padding-top: 20px;">
+                        <p style="color: var(--text-secondary); font-size: 0.95rem; margin-bottom: 24px;">
+                            Resumen de las entidades principales registradas por el cliente en su base de datos.
+                        </p>
+                        <div class="form-grid-3">
+                            <div style="background: var(--bg-card); border: 1px solid var(--border-color); padding: 16px; border-radius: var(--radius-md); text-align: center; box-shadow: var(--shadow-sm);">
+                                <div style="font-size: 2rem; margin-bottom: 8px;">👥</div>
+                                <h3 style="font-size: 0.9rem; color: var(--text-secondary); margin: 0 0 8px 0;">Clientes / Contactos</h3>
+                                <div style="font-size: 1.5rem; font-weight: 700; color: var(--text-primary);">{{ company.stats.db_clients | default(0) }}</div>
+                            </div>
+                            <div style="background: var(--bg-card); border: 1px solid var(--border-color); padding: 16px; border-radius: var(--radius-md); text-align: center; box-shadow: var(--shadow-sm);">
+                                <div style="font-size: 2rem; margin-bottom: 8px;">📦</div>
+                                <h3 style="font-size: 0.9rem; color: var(--text-secondary); margin: 0 0 8px 0;">Productos / Servicios</h3>
+                                <div style="font-size: 1.5rem; font-weight: 700; color: var(--text-primary);">{{ company.stats.db_products | default(0) }}</div>
+                            </div>
+                            <div style="background: var(--bg-card); border: 1px solid var(--border-color); padding: 16px; border-radius: var(--radius-md); text-align: center; box-shadow: var(--shadow-sm);">
+                                <div style="font-size: 2rem; margin-bottom: 8px;">🧑‍💻</div>
+                                <h3 style="font-size: 0.9rem; color: var(--text-secondary); margin: 0 0 8px 0;">Colaboradores (Equipo)</h3>
+                                <div style="font-size: 1.5rem; font-weight: 700; color: var(--text-primary);">{{ company.stats.db_team | default(0) }}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div><!-- #tab-stats -->
+
             <!-- Tab 4: Zona de Peligro -->
             <div id="tab-danger" class="tab-content">
                 <div class="card" style="border: 1px solid rgba(239, 68, 68, 0.3); background: rgba(239, 68, 68, 0.02);">
                     <div class="card-header" style="border-bottom: 1px solid rgba(239, 68, 68, 0.15); padding-bottom: 14px;">
                         <h2 class="card-title" style="display: flex; align-items: center; gap: 8px; margin: 0; font-size: 1.1rem; font-weight: 700; color: #ef4444;">
-                            ⚠️ Acciones Peligrosas / Eliminación de Empresa
+                            ⚠️ Acciones Peligrosas / Eliminación de Cliente
                         </h2>
                     </div>
                     <div class="card-body" style="padding-top: 20px;">
                         <p style="color: var(--text-primary); font-size: 0.95rem; margin-bottom: 16px;">
-                            Al eliminar esta empresa, se borrarán de forma <strong>permanente e irreversible</strong> los siguientes datos:
+                            Al eliminar este cliente, se borrarán de forma <strong>permanente e irreversible</strong> los siguientes datos:
                         </p>
                         <ul style="color: var(--text-secondary); font-size: 0.9rem; margin-left: 20px; margin-bottom: 24px; line-height: 1.6;">
-                            <li>Perfil de la empresa e identidad fiscal.</li>
+                            <li>Perfil del cliente e identidades fiscales.</li>
                             <li>Toda la facturación histórica (Facturas, Cotizaciones, Notas de Crédito, tanto en Sandbox como en Producción).</li>
                             <li>Listados de clientes, productos, inventario, sucursales y cajas registradoras.</li>
                             <li>Historial de pagos registrados.</li>
-                            <li><strong>Cuentas de usuario de colaboradores/empleados asociados a la empresa</strong>.</li>
+                            <li><strong>Cuentas de usuario de colaboradores/empleados asociados a la cuenta del cliente</strong>.</li>
                             <li>El usuario propietario (owner) y su acceso a Firebase Authentication.</li>
                         </ul>
                         
                         <div style="background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: var(--radius-md); padding: 16px; margin-bottom: 24px;">
                             <p style="color: #ef4444; font-weight: 700; margin: 0; font-size: 0.9rem;">
-                                ⚠️ ¡ATENCIÓN! Esta acción no se puede deshacer. Por favor, confirme escribiendo el nombre de la empresa a continuación para proceder.
+                                ⚠️ ¡ATENCIÓN! Esta acción no se puede deshacer. Por favor, confirme escribiendo el nombre del cliente a continuación para proceder.
                             </p>
                         </div>
                         
-                        <form method="POST" action="{{ url_for('delete_company', company_id=company.id) }}" onsubmit="return confirmDeleteCompany(event, '{{ company.razonSocial | escape }}')">
+                        <form method="POST" action="{{ url_for('delete_company', company_id=company.id) }}" onsubmit="return confirmDeleteCompany(event, '{{ company.ownerName | default(company.razonSocial) | escape }}')">
                             <div class="form-group" style="margin-bottom: 20px;">
-                                <label class="form-label" style="font-weight: 600;">Escriba <strong>{{ company.razonSocial }}</strong> para confirmar:</label>
-                                <input type="text" id="confirm-name-input" class="form-input" placeholder="Nombre exacto de la empresa" autocomplete="off" required>
+                                <label class="form-label" style="font-weight: 600;">Escriba <strong>{{ company.ownerName | default(company.razonSocial) }}</strong> para confirmar:</label>
+                                <input type="text" id="confirm-name-input" class="form-input" placeholder="Nombre exacto del cliente" autocomplete="off" required>
                             </div>
                             
                             <div class="form-actions" style="justify-content: flex-start; gap: 12px;">
@@ -682,7 +723,7 @@
                                         <polyline points="3 6 5 6 21 6"/>
                                         <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
                                     </svg>
-                                    Eliminar Empresa y Todo su Contenido
+                                    Eliminar Cliente y Todo su Contenido
                                 </button>
                             </div>
                         </form>
@@ -826,11 +867,11 @@
 function confirmDeleteCompany(event, expectedName) {
     const inputVal = document.getElementById('confirm-name-input').value.trim();
     if (inputVal !== expectedName) {
-        alert('El nombre ingresado no coincide con el nombre de la empresa.');
+        alert('El nombre ingresado no coincide con el nombre del cliente.');
         event.preventDefault();
         return false;
     }
-    return confirm('¿Está absolutamente seguro de que desea eliminar permanentemente esta empresa y todo su contenido? Esta acción no se puede deshacer.');
+    return confirm('¿Está absolutamente seguro de que desea eliminar permanentemente este cliente y todo su contenido? Esta acción no se puede deshacer.');
 }
 </script>
 {% endblock %}

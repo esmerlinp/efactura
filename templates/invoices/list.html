@@ -213,6 +213,39 @@ endblock %}
     </h1>
 </div>
 
+<div id="guide-invoices" style="background: rgba(168, 85, 247, 0.05); border: 1px solid rgba(168, 85, 247, 0.2); border-radius: 8px; padding: 16px; margin-bottom: 24px; display: flex; gap: 16px; align-items: flex-start; position: relative;">
+    <button onclick="closeGuide('guide-invoices')" style="position: absolute; top: 12px; right: 12px; background: transparent; border: none; color: var(--text-muted); cursor: pointer; padding: 4px; border-radius: 50%; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; transition: background 0.2s, color 0.2s;" onmouseover="this.style.background='rgba(0,0,0,0.05)'; this.style.color='var(--text-primary)';" onmouseout="this.style.background='transparent'; this.style.color='var(--text-muted)';" title="Cerrar guía"><i class="fa-solid fa-xmark"></i></button>
+    <div style="background: rgba(168, 85, 247, 0.1); width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+        <i class="fa-solid fa-lightbulb" style="color: var(--accent-purple); font-size: 1.2rem;"></i>
+    </div>
+    <div>
+        {% if active_page == 'quotations' %}
+        <h4 style="margin: 0 0 8px 0; color: var(--text-primary); font-family: var(--font-heading); font-size: 1rem;">Guía de Uso: Cotizaciones y Presupuestos</h4>
+        <p style="margin: 0 0 8px 0; color: var(--text-secondary); font-size: 0.85rem; line-height: 1.5;">
+            Esta sección te permite emitir presupuestos o proformas comerciales a tus clientes.
+        </p>
+        <ul style="margin: 0; padding-left: 20px; color: var(--text-secondary); font-size: 0.85rem; line-height: 1.5;">
+            <li><strong>Vista Kanban:</strong> Puedes mover tus cotizaciones entre diferentes etapas (Borrador, Enviada, Aprobada, Rechazada) arrastrando y soltando las tarjetas.</li>
+            <li><strong>Facturación Rápida:</strong> Una cotización aprobada puede convertirse en factura con un solo clic desde la vista de detalle.</li>
+        </ul>
+        {% else %}
+        <h4 style="margin: 0 0 8px 0; color: var(--text-primary); font-family: var(--font-heading); font-size: 1rem;">Guía de Uso: Documentos Emitidos</h4>
+        <p style="margin: 0 0 8px 0; color: var(--text-secondary); font-size: 0.85rem; line-height: 1.5;">
+            Aquí administras todas tus facturas electrónicas y comprobantes fiscales (e-CF) enviados a la DGII o en estado borrador.
+        </p>
+        <ul style="margin: 0; padding-left: 20px; color: var(--text-secondary); font-size: 0.85rem; line-height: 1.5;">
+            <li><strong>Estado de Cobro:</strong> Visualiza rápidamente qué facturas han sido pagadas, cuáles tienen abonos parciales y cuáles están pendientes.</li>
+            <li><strong>Gestión:</strong> Puedes anular documentos, ver detalles, revisar las firmas XML y re-sincronizar fallos temporales de conexión con DGII.</li>
+            <li><strong>Vistas Dinámicas:</strong> Intercambia entre vista de <em>Tabla</em> para detalles completos o vista <em>Kanban</em> para un seguimiento de estados.</li>
+        </ul>
+        {% endif %}
+    </div>
+</div>
+<script>
+    if (!window.closeGuide) { window.closeGuide = function(id) { document.getElementById(id).style.display = 'none'; sessionStorage.setItem('closed_' + id, 'true'); }; }
+    if (sessionStorage.getItem('closed_guide-invoices')) { document.getElementById('guide-invoices').style.display = 'none'; }
+</script>
+
 <div class="card-table-wrapper">
     <div class="table-header-row">
         <div>

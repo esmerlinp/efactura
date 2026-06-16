@@ -248,18 +248,24 @@ Retorna ÚNICAMENTE las dos cifras del código correspondiente (ej: 02 o 05). Si
             return "02"
 
     @classmethod
-    def draft_collection_message(cls, owner_uid, client_name, amount, due_date, status, tone="formal"):
+    def draft_collection_message(cls, owner_uid, client_name, amount, due_date, status, tone="formal", sender_name=None):
         """
         Redacta un recordatorio de cobranza por WhatsApp/Email.
         """
         api_key = cls._get_api_key(owner_uid)
         
+        from app.services.db_service import DatabaseService
+        profile = DatabaseService.get_company_profile(owner_uid)
+        brand_name = profile.get("tradeName") or profile.get("companyName", "Nuestra Empresa")
+        company_rnc = profile.get("companyRNC", "")
+        final_sender_name = sender_name or "Departamento de Cobranzas"
+        
         # Fallback local
         days_status = "vencida" if status == "Vencida" else "pendiente de pago"
         default_templates = {
-            "friendly": f"Hola {client_name}, espero que estés bien. Te escribimos para recordarte que tienes un balance de RD$ {amount:,.2f} {days_status} con fecha límite al {due_date}. Agradecemos tu apoyo con el saldo. ¡Feliz día!",
-            "formal": f"Estimado/a {client_name},\n\nLe saludamos cordialmente. A través de la presente le recordamos que su factura con balance de RD$ {amount:,.2f} se encuentra actualmente {days_status} (vence/venció el {due_date}).\n\nLe solicitamos realizar el pago correspondiente a la brevedad. Quedamos a su disposición para cualquier duda.",
-            "urgent": f"AVISO DE COBRO URGENTE - {client_name}\n\nLe notificamos que presenta un balance vencido de RD$ {amount:,.2f} desde la fecha {due_date}. Rogamos proceder con el pago inmediato para evitar la suspensión de servicios y cargos adicionales."
+            "friendly": f"Hola {client_name}, espero que estés bien. Te escribimos para recordarte que tienes un balance de RD$ {amount:,.2f} {days_status} con fecha límite al {due_date}. Agradecemos tu apoyo con el saldo. ¡Feliz día!\n\nAtentamente,\n{final_sender_name}\nDepartamento de Cobranzas\n{brand_name}",
+            "formal": f"Estimado/a {client_name},\n\nLe saludamos cordialmente. A través de la presente le recordamos que su factura con balance de RD$ {amount:,.2f} se encuentra actualmente {days_status} (vence/venció el {due_date}).\n\nLe solicitamos realizar el pago correspondiente a la brevedad. Quedamos a su disposición para cualquier duda.\n\nAtentamente,\n{final_sender_name}\nDepartamento de Cobranzas\n{brand_name}",
+            "urgent": f"AVISO DE COBRO URGENTE - {client_name}\n\nLe notificamos que presenta un balance vencido de RD$ {amount:,.2f} desde la fecha {due_date}. Rogamos proceder con el pago inmediato para evitar la suspensión de servicios y cargos adicionales.\n\nAtentamente,\n{final_sender_name}\nDepartamento de Cobranzas\n{brand_name}"
         }
 
         if not api_key or api_key == "YOUR_OPENAI_API_KEY_HERE":
@@ -270,8 +276,8 @@ Retorna ÚNICAMENTE las dos cifras del código correspondiente (ej: 02 o 05). Si
             "Authorization": f"Bearer {api_key}"
         }
 
-        system_prompt = f"""Eres el encargado de cobranzas del sistema de facturación e-Factura de República Dominicana.
-Tu tarea es redactar un mensaje corto y directo de recordatorio de pago para el cliente.
+        system_prompt = f"""Eres el encargado de cobranzas de {brand_name} (RNC: {company_rnc}).
+Tu tarea es redactar un mensaje corto, directo y altamente personalizado de recordatorio de pago dirigido específicamente a {client_name}.
 El tono del mensaje debe ser: {tone} (las opciones son: friendly/amigable, formal, urgent/urgente).
 Datos de la deuda:
 - Cliente: {client_name}
@@ -280,10 +286,19 @@ Datos de la deuda:
 - Estado actual: {status}
 
 Instrucciones:
+- NO uses saludos genéricos como "Estimado cliente" ni inventes nombres. Saluda directamente usando el nombre proporcionado: {client_name}.
 - Si el tono es friendly: Sé cercano, educado y agradecido.
 - Si el tono es formal: Sé profesional, pulcro y respetuoso.
 - Si el tono es urgent: Sé imperativo, directo y advierte sobre recargos o suspensión, sin perder la educación.
 - El mensaje debe ser apto para enviarse por correo electrónico o WhatsApp.
+- Al final del mensaje, DEBES firmar exactamente con el siguiente bloque:
+
+Atentamente,
+{final_sender_name}
+Departamento de Cobranzas
+{brand_name}
+
+- NO menciones "e-Factura" en ninguna parte del texto, ya que la empresa que emite el cobro es {brand_name}.
 - Retorna ÚNICAMENTE el texto redactado del mensaje. Sin introducciones ni saludos explicativos."""
 
         payload = {
