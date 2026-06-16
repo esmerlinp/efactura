@@ -221,176 +221,163 @@
                         <form method="POST" action="{{ url_for('client_detail', company_id=company.id) }}"
                             class="edit-form">
 
-                            <div class="form-section">
-                                <h3 class="form-section-title">Estado de la Cuenta</h3>
-                                <div class="form-grid-2">
-                                    <div class="form-group">
-                                        <label class="form-label">Estado Actual *</label>
-                                        <select name="status" id="status" class="form-select">
-                                            <option value="Activo" {% if company.status=='Activo' or not company.status
-                                                %}selected{% endif %}>✅ Activo</option>
-                                            <option value="Suspendido" {% if company.status=='Suspendido' %}selected{%
-                                                endif %}>⛔ Suspendido por pago</option>
-                                            <option value="Cancelado" {% if company.status=='Cancelado' %}selected{%
-                                                endif %}>🚫 Cancelado</option>
-                                        </select>
-                                        <p class="form-hint">Suspender impide emitir facturas, cotizaciones y gastos.
-                                        </p>
+                            <details class="form-accordion" open>
+                                <summary class="form-accordion-header">
+                                    <div class="accordion-title">
+                                        <span>⚙️ Estado y Plan de la Cuenta</span>
                                     </div>
-                                    <div class="form-group">
-                                        <label class="form-label">Plan Asignado</label>
-                                        <select name="planId" id="planId" class="form-select"
-                                            onchange="applyPlanDefaults(this)">
-                                            <option value="">— Sin plan definido —</option>
-                                            {% for plan in plans %}
-                                            <option value="{{ plan.id }}" data-limit="{{ plan.documentLimit }}"
-                                                data-storage="{{ plan.storageLimitMB }}"
-                                                data-price="{{ plan.monthlyPrice }}"
-                                                data-extra="{{ plan.additionalDocumentCost }}"
-                                                data-users="{{ plan.userLimit }}"
-                                                data-user-extra="{{ plan.additionalUserCost }}"
-                                                data-pos="{% if plan.posEnabled %}1{% else %}0{% endif %}"
-                                                data-boxes="{{ plan.boxLimit }}"
-                                                data-box-extra="{{ plan.additionalBoxCost }}" {% if
-                                                company.planId==plan.id %}selected{% endif %}>
-                                                {{ plan.name }} — RD$ {{ plan.monthlyPrice | round(2) }}
-                                            </option>
-                                            {% endfor %}
-                                        </select>
-                                    </div>
-                                </div>
-                                <div class="form-group" style="margin-top: 15px; display: flex; align-items: center; gap: 8px;">
-                                    <input type="checkbox" name="posEnabled" id="posEnabled" value="1" {% if company.posEnabled | default(True) %}checked{% endif %} style="width: 18px; height: 18px; cursor: pointer;">
-                                    <label class="form-label" for="posEnabled" style="margin-bottom: 0; cursor: pointer; font-weight: 600;">Habilitar Módulo de Caja (POS / Punto de Venta)</label>
-                                </div>
-                                <div class="form-group" style="margin-top: 15px; display: flex; align-items: center; gap: 8px;">
-                                    <input type="checkbox" name="canManageOwnCompany" id="canManageOwnCompany" value="1" {% if company.canManageOwnCompany | default(False) %}checked{% endif %} style="width: 18px; height: 18px; cursor: pointer;">
-                                    <label class="form-label" for="canManageOwnCompany" style="margin-bottom: 0; cursor: pointer; font-weight: 600;">Permitir administrar su propia empresa</label>
-                                </div>
-                            </div>
-
-                            <div class="form-divider"></div>
-
-                            <div class="form-section">
-                                <h3 class="form-section-title">Límites Operativos</h3>
-                                <div class="form-grid-2">
-                                    <div class="form-group">
-                                        <label class="form-label">Límite de Documentos (e-CF) / mes</label>
-                                        <input type="number" name="documentLimit" id="documentLimit" class="form-input"
-                                            value="{{ company.documentLimit | default('') }}" placeholder="Ej: 500"
-                                            min="0">
-                                        <p class="form-hint">Deja vacío para ilimitado.</p>
-                                    </div>
-                                    <div class="form-group">
-                                        <label class="form-label">Límite de Almacenamiento (MB)</label>
-                                        <input type="number" name="storageLimitMB" id="storageLimitMB"
-                                            class="form-input" value="{{ company.storageLimitMB | default('') }}"
-                                            placeholder="Ej: 5120" min="0">
-                                        <p class="form-hint">Deja vacío para ilimitado.</p>
-                                    </div>
-                                </div>
-                                <div class="form-grid-2" style="margin-top: 16px;">
-                                    <div class="form-group">
-                                        <label class="form-label">Límite de Colaboradores (Usuarios)</label>
-                                        <input type="number" name="userLimit" id="userLimit" class="form-input"
-                                            value="{{ company.userLimit | default('2') }}" placeholder="Ej: 5"
-                                            min="1">
-                                    </div>
-                                    <div class="form-group">
-                                        <label class="form-label">Límite de Cajas Registradoras (POS)</label>
-                                        <input type="number" name="boxLimit" id="boxLimit" class="form-input"
-                                            value="{{ company.boxLimit | default('0') }}" placeholder="Ej: 2"
-                                            min="0">
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="form-divider"></div>
-
-                            <div class="form-section">
-                                <h3 class="form-section-title">Facturación y Cobro</h3>
-                                <div class="form-grid-3">
-                                    <div class="form-group">
-                                        <label class="form-label">Pago Mensual (RD$)</label>
-                                        <div class="input-currency">
-                                            <span class="currency-symbol">RD$</span>
-                                            <input type="number" name="monthlyPayment" id="monthlyPayment"
-                                                class="form-input form-input-currency"
-                                                value="{{ company.monthlyPayment | default('') }}" placeholder="0.00"
-                                                step="0.01" min="0">
+                                    <svg class="accordion-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><polyline points="6 9 12 15 18 9"/></svg>
+                                </summary>
+                                <div class="form-accordion-content">
+                                    <div class="form-grid-2">
+                                        <div class="form-group">
+                                            <label class="form-label">Estado Actual *</label>
+                                            <select name="status" id="status" class="form-select">
+                                                <option value="Activo" {% if company.status=='Activo' or not company.status %}selected{% endif %}>✅ Activo</option>
+                                                <option value="Suspendido" {% if company.status=='Suspendido' %}selected{% endif %}>⛔ Suspendido por pago</option>
+                                                <option value="Cancelado" {% if company.status=='Cancelado' %}selected{% endif %}>🚫 Cancelado</option>
+                                            </select>
+                                        </div>
+                                        <div class="form-group">
+                                            <label class="form-label">Plan Asignado</label>
+                                            <select name="planId" id="planId" class="form-select" onchange="applyPlanDefaults(this)">
+                                                <option value="">— Sin plan definido —</option>
+                                                {% for plan in plans %}
+                                                <option value="{{ plan.id }}" data-limit="{{ plan.documentLimit }}"
+                                                    data-storage="{{ plan.storageLimitMB }}" data-price="{{ plan.monthlyPrice }}"
+                                                    data-extra="{{ plan.additionalDocumentCost }}" data-users="{{ plan.userLimit }}"
+                                                    data-user-extra="{{ plan.additionalUserCost }}" data-pos="{% if plan.posEnabled %}1{% else %}0{% endif %}"
+                                                    data-boxes="{{ plan.boxLimit }}" data-box-extra="{{ plan.additionalBoxCost }}"
+                                                    {% if company.planId==plan.id %}selected{% endif %}>
+                                                    {{ plan.name }} — RD$ {{ plan.monthlyPrice | round(2) }}
+                                                </option>
+                                                {% endfor %}
+                                            </select>
                                         </div>
                                     </div>
-                                    <div class="form-group">
-                                        <label class="form-label">Costo Doc. Adicional (RD$)</label>
-                                        <div class="input-currency">
-                                            <span class="currency-symbol">RD$</span>
-                                            <input type="number" name="additionalDocumentCost"
-                                                id="additionalDocumentCost" class="form-input form-input-currency"
-                                                value="{{ company.additionalDocumentCost | default('') }}"
-                                                placeholder="0.00" step="0.01" min="0">
+                                    <div class="form-grid-2" style="margin-top: 16px;">
+                                        <div class="form-group">
+                                            <label class="form-label">Pago Mensual Base (RD$)</label>
+                                            <div class="input-currency">
+                                                <span class="currency-symbol">RD$</span>
+                                                <input type="number" name="monthlyPayment" id="monthlyPayment" class="form-input form-input-currency" value="{{ company.monthlyPayment | default('') }}" placeholder="0.00" step="0.01" min="0">
+                                            </div>
+                                        </div>
+                                        <div class="form-group">
+                                            <label class="form-label">Día de Corte Mensual</label>
+                                            <input type="number" name="billingDay" class="form-input" value="{{ company.billingDay | default(1) }}" min="1" max="28">
                                         </div>
                                     </div>
-                                    <div class="form-group">
-                                        <label class="form-label">Día de Corte Mensual</label>
-                                        <input type="number" name="billingDay" class="form-input"
-                                            value="{{ company.billingDay | default(1) }}" min="1" max="28">
-                                        <p class="form-hint">Día del mes de vencimiento.</p>
+                                    <div class="form-group" style="margin-top: 16px; display: flex; align-items: center; gap: 8px;">
+                                        <input type="checkbox" name="canManageOwnCompany" id="canManageOwnCompany" value="1" {% if company.canManageOwnCompany | default(False) %}checked{% endif %} style="width: 18px; height: 18px; cursor: pointer;">
+                                        <label class="form-label" for="canManageOwnCompany" style="margin-bottom: 0; cursor: pointer; font-weight: 600;">Permitir al usuario administrar ajustes de su propia empresa</label>
                                     </div>
                                 </div>
-                                <div class="form-grid-2" style="margin-top: 16px;">
-                                    <div class="form-group">
-                                        <label class="form-label">Costo Usuario Adicional (RD$)</label>
-                                        <div class="input-currency">
-                                            <span class="currency-symbol">RD$</span>
-                                            <input type="number" name="additionalUserCost" id="additionalUserCost"
-                                                class="form-input form-input-currency"
-                                                value="{{ company.additionalUserCost | default('0.00') }}" placeholder="0.00"
-                                                step="0.01" min="0">
-                                        </div>
+                            </details>
+
+                            <details class="form-accordion">
+                                <summary class="form-accordion-header">
+                                    <div class="accordion-title">
+                                        <span>📄 Límites de Emisión (Documentos)</span>
                                     </div>
-                                    <div class="form-group">
-                                        <label class="form-label">Costo Caja Adicional (RD$)</label>
-                                        <div class="input-currency">
-                                            <span class="currency-symbol">RD$</span>
-                                            <input type="number" name="additionalBoxCost" id="additionalBoxCost"
-                                                class="form-input form-input-currency"
-                                                value="{{ company.additionalBoxCost | default('0.00') }}" placeholder="0.00"
-                                                step="0.01" min="0">
+                                    <svg class="accordion-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><polyline points="6 9 12 15 18 9"/></svg>
+                                </summary>
+                                <div class="form-accordion-content">
+                                    <div class="form-grid-3">
+                                        <div class="form-group">
+                                            <label class="form-label">Límite e-CF / mes</label>
+                                            <input type="number" name="documentLimit" id="documentLimit" class="form-input" value="{{ company.documentLimit | default('') }}" placeholder="Ej: 500" min="0">
+                                        </div>
+                                        <div class="form-group">
+                                            <label class="form-label">Costo Doc. Adicional (RD$)</label>
+                                            <div class="input-currency">
+                                                <span class="currency-symbol">RD$</span>
+                                                <input type="number" name="additionalDocumentCost" id="additionalDocumentCost" class="form-input form-input-currency" value="{{ company.additionalDocumentCost | default('') }}" placeholder="0.00" step="0.01" min="0">
+                                            </div>
+                                        </div>
+                                        <div class="form-group">
+                                            <label class="form-label">Almacenamiento (MB)</label>
+                                            <input type="number" name="storageLimitMB" id="storageLimitMB" class="form-input" value="{{ company.storageLimitMB | default('') }}" placeholder="Ej: 5120" min="0">
                                         </div>
                                     </div>
                                 </div>
-                            </div>
+                            </details>
 
-                            <div class="form-divider"></div>
+                            <details class="form-accordion">
+                                <summary class="form-accordion-header">
+                                    <div class="accordion-title">
+                                        <span>👥 Equipo y Puntos de Venta (POS)</span>
+                                    </div>
+                                    <svg class="accordion-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><polyline points="6 9 12 15 18 9"/></svg>
+                                </summary>
+                                <div class="form-accordion-content">
+                                    <div class="form-group" style="margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+                                        <input type="checkbox" name="posEnabled" id="posEnabled" value="1" {% if company.posEnabled | default(True) %}checked{% endif %} style="width: 18px; height: 18px; cursor: pointer;">
+                                        <label class="form-label" for="posEnabled" style="margin-bottom: 0; cursor: pointer; font-weight: 600;">Habilitar Módulo de Caja (POS / Punto de Venta)</label>
+                                    </div>
+                                    <div class="form-grid-2">
+                                        <div class="form-group">
+                                            <label class="form-label">Límite de Colaboradores</label>
+                                            <input type="number" name="userLimit" id="userLimit" class="form-input" value="{{ company.userLimit | default('2') }}" placeholder="Ej: 5" min="1">
+                                        </div>
+                                        <div class="form-group">
+                                            <label class="form-label">Costo Usuario Adicional (RD$)</label>
+                                            <div class="input-currency">
+                                                <span class="currency-symbol">RD$</span>
+                                                <input type="number" name="additionalUserCost" id="additionalUserCost" class="form-input form-input-currency" value="{{ company.additionalUserCost | default('0.00') }}" placeholder="0.00" step="0.01" min="0">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="form-grid-2" style="margin-top: 16px;">
+                                        <div class="form-group">
+                                            <label class="form-label">Límite de Cajas (POS)</label>
+                                            <input type="number" name="boxLimit" id="boxLimit" class="form-input" value="{{ company.boxLimit | default('0') }}" placeholder="Ej: 2" min="0">
+                                        </div>
+                                        <div class="form-group">
+                                            <label class="form-label">Costo Caja Adicional (RD$)</label>
+                                            <div class="input-currency">
+                                                <span class="currency-symbol">RD$</span>
+                                                <input type="number" name="additionalBoxCost" id="additionalBoxCost" class="form-input form-input-currency" value="{{ company.additionalBoxCost | default('0.00') }}" placeholder="0.00" step="0.01" min="0">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </details>
 
-                            <div class="form-section">
-                                <h3 class="form-section-title">Control de Entornos (Producción / Sandbox)</h3>
-                                <div class="form-grid-2" style="margin-bottom: 15px;">
-                                    <div class="form-group" style="display: flex; align-items: center; gap: 8px;">
-                                        <input type="checkbox" name="productionEnabled" id="productionEnabled" value="1" {% if company.productionEnabled | default(True) %}checked{% endif %} style="width: 18px; height: 18px; cursor: pointer;">
-                                        <label class="form-label" for="productionEnabled" style="margin-bottom: 0; cursor: pointer; font-weight: 600;">Habilitar Entorno de Producción</label>
+                            <details class="form-accordion">
+                                <summary class="form-accordion-header">
+                                    <div class="accordion-title">
+                                        <span>🛠️ Control de Entornos</span>
                                     </div>
-                                    <div class="form-group" style="display: flex; align-items: center; gap: 8px;">
-                                        <input type="checkbox" name="sandboxEnabled" id="sandboxEnabled" value="1" {% if company.sandboxEnabled | default(True) %}checked{% endif %} style="width: 18px; height: 18px; cursor: pointer;">
-                                        <label class="form-label" for="sandboxEnabled" style="margin-bottom: 0; cursor: pointer; font-weight: 600;">Habilitar Entorno Sandbox (Pruebas)</label>
+                                    <svg class="accordion-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><polyline points="6 9 12 15 18 9"/></svg>
+                                </summary>
+                                <div class="form-accordion-content">
+                                    <div class="form-grid-2" style="margin-bottom: 15px;">
+                                        <div class="form-group" style="display: flex; align-items: center; gap: 8px;">
+                                            <input type="checkbox" name="productionEnabled" id="productionEnabled" value="1" {% if company.productionEnabled | default(True) %}checked{% endif %} style="width: 18px; height: 18px; cursor: pointer;">
+                                            <label class="form-label" for="productionEnabled" style="margin-bottom: 0; cursor: pointer; font-weight: 600;">Habilitar Entorno de Producción</label>
+                                        </div>
+                                        <div class="form-group" style="display: flex; align-items: center; gap: 8px;">
+                                            <input type="checkbox" name="sandboxEnabled" id="sandboxEnabled" value="1" {% if company.sandboxEnabled | default(True) %}checked{% endif %} style="width: 18px; height: 18px; cursor: pointer;">
+                                            <label class="form-label" for="sandboxEnabled" style="margin-bottom: 0; cursor: pointer; font-weight: 600;">Habilitar Entorno Sandbox (Pruebas)</label>
+                                        </div>
+                                    </div>
+                                    <div class="form-group" style="margin-bottom: 15px; display: flex; align-items: center; gap: 8px;">
+                                        <input type="checkbox" name="sandboxIndefinite" id="sandboxIndefinite" value="1" {% if company.sandboxIndefinite | default(True) %}checked{% endif %} style="width: 18px; height: 18px; cursor: pointer;" onchange="toggleSandboxDates()">
+                                        <label class="form-label" for="sandboxIndefinite" style="margin-bottom: 0; cursor: pointer; font-weight: 600;">Sandbox Habilitado de forma Indefinida</label>
+                                    </div>
+                                    <div class="form-grid-2" id="sandbox-dates-group" style="display: {% if company.sandboxIndefinite | default(True) %}none{% else %}grid{% endif %};">
+                                        <div class="form-group">
+                                            <label class="form-label">Fecha de Inicio de Pruebas</label>
+                                            <input type="date" name="sandboxStartDate" id="sandboxStartDate" class="form-input" value="{{ company.sandboxStartDate | default('') }}">
+                                        </div>
+                                        <div class="form-group">
+                                            <label class="form-label">Fecha de Fin de Pruebas</label>
+                                            <input type="date" name="sandboxEndDate" id="sandboxEndDate" class="form-input" value="{{ company.sandboxEndDate | default('') }}">
+                                        </div>
                                     </div>
                                 </div>
-                                <div class="form-divider"></div>
-                                <div class="form-group" style="margin-bottom: 15px; display: flex; align-items: center; gap: 8px;">
-                                    <input type="checkbox" name="sandboxIndefinite" id="sandboxIndefinite" value="1" {% if company.sandboxIndefinite | default(True) %}checked{% endif %} style="width: 18px; height: 18px; cursor: pointer;" onchange="toggleSandboxDates()">
-                                    <label class="form-label" for="sandboxIndefinite" style="margin-bottom: 0; cursor: pointer; font-weight: 600;">Sandbox Habilitado de forma Indefinida (Sin Vencimiento)</label>
-                                </div>
-                                <div class="form-grid-2" id="sandbox-dates-group" style="display: {% if company.sandboxIndefinite | default(True) %}none{% else %}grid{% endif %};">
-                                    <div class="form-group">
-                                        <label class="form-label">Fecha de Inicio de Pruebas</label>
-                                        <input type="date" name="sandboxStartDate" id="sandboxStartDate" class="form-input" value="{{ company.sandboxStartDate | default('') }}">
-                                    </div>
-                                    <div class="form-group">
-                                        <label class="form-label">Fecha de Fin de Pruebas</label>
-                                        <input type="date" name="sandboxEndDate" id="sandboxEndDate" class="form-input" value="{{ company.sandboxEndDate | default('') }}">
-                                    </div>
-                                </div>
-                            </div>
+                            </details>
 
                             <script>
                                 function toggleSandboxDates() {
