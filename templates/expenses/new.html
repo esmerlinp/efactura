@@ -157,10 +157,17 @@
         border-radius: var(--radius-xs);
         transform: scaleX(-1);
     }
+    
+    .form-group:has(:required) label::after {
+        content: " *";
+        color: var(--accent-red);
+        font-weight: bold;
+        font-size: 1.1em;
+    }
 </style>
 
 <div style="max-width: 850px; margin: 0 auto 50px auto; width: 100%;">
-    <form action="{{ url_for('new_expense_route') }}" method="POST" enctype="multipart/form-data" style="width: 100%;" id="expense-form">
+    <form action="{{ url_for('new_expense_route') }}" method="POST" enctype="multipart/form-data" style="width: 100%;" id="expense-form" novalidate>
         <div class="settings-accordion">
 
             <!-- SECCIÓN 1: CARGA DE DOCUMENTO / SOPORTE DIGITAL -->
@@ -257,8 +264,18 @@
                                 </select>
                             </div>
 
-                            <div class="form-group">
-                                <label for="rnc-emisor">RNC del Proveedor</label>
+                            <div class="form-group span-full" style="margin-bottom: 15px;">
+                                <label for="supplierType">Tipo de Proveedor / Gasto</label>
+                                <select id="supplierType" name="supplierType" class="form-select" style="width: 100%;" onchange="handleSupplierTypeChange()">
+                                    <option value="formal" selected>Proveedor Formal (RNC / Cédula Registrada)</option>
+                                    <option value="informal">Proveedor Informal (Persona Física No Registrada)</option>
+                                    <option value="internacional">Proveedor Internacional (Pagos al Exterior)</option>
+                                    <option value="interno">Gasto Interno / Sin Comprobante Fiscal</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group" id="rnc-group">
+                                <label for="rnc-emisor" id="rnc-label">RNC del Proveedor</label>
                                 <input type="text" id="rnc-emisor" name="rncEmisor" class="form-input" placeholder="Ej: 101001011" required style="width: 100%; font-family: monospace;">
                             </div>
 
@@ -313,14 +330,15 @@
                                 <select id="ecfType" name="ecfType" class="form-select" style="width: 100%;">
                                     <option value="E31" selected>E31 - Factura de Crédito Fiscal Electrónica</option>
                                     <option value="E32">E32 - Factura de Consumo Electrónica</option>
-                                    <option value="E41">E41 - Nota de Débito Electrónica</option>
+                                    <option value="E41">E41 - Comprobante de Compras Electrónico</option>
                                     <option value="E43">E43 - Gastos Menores Electrónicos</option>
                                     <option value="E45">E45 - Comprobante Gubernamental Electrónico</option>
+                                    <option value="E47">E47 - Comprobante para Pagos al Exterior Electrónico</option>
                                 </select>
                             </div>
 
-                            <div class="form-group">
-                                <label for="ncf">NCF Electrónico (e-CF)</label>
+                            <div class="form-group" id="ncf-group">
+                                <label for="ncf">NCF / e-CF del Gasto</label>
                                 <input type="text" id="ncf" name="ncf" class="form-input" placeholder="Ej: E310120000452" required style="width: 100%; font-family: monospace;">
                             </div>
 
@@ -351,12 +369,33 @@
                     <div class="accordion-body">
                         <div class="form-inner-grid">
                             <div class="form-group">
-                                <label for="amount">Monto Total Facturado (RD$)</label>
+                                <label for="currency">Moneda del Comprobante</label>
+                                <select id="currency" name="currency" class="form-select" style="width: 100%;" onchange="handleCurrencyChange()">
+                                    <option value="DOP" selected>DOP - Peso Dominicano</option>
+                                    <option value="USD">USD - Dólar Estadounidense</option>
+                                    <option value="EUR">EUR - Euro</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group" id="exchange-rate-container" style="display: none;">
+                                <label for="exchangeRate">Tasa de Cambio (Venta)</label>
+                                <div style="position: relative;">
+                                    <input type="number" id="exchangeRate" name="exchangeRate" class="form-input" placeholder="0.00" step="0.01" style="width: 100%;">
+                                    <div id="rate-loading" style="display: none; position: absolute; right: 10px; top: 8px;">
+                                        <i class="fa-solid fa-spinner fa-spin" style="color: var(--accent-emerald);"></i>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="form-group span-full" style="border-top: 1px dashed var(--border-color); padding-top: 15px; margin-top: 5px;"></div>
+
+                            <div class="form-group">
+                                <label for="amount">Monto Total Facturado <span id="currency-label">(DOP)</span></label>
                                 <input type="number" id="amount" name="amount" class="form-input" placeholder="0.00" step="0.01" required style="width: 100%; font-weight: bold;">
                             </div>
 
                             <div class="form-group">
-                                <label for="itbisAmount">ITBIS Adelantado / Deducible (RD$)</label>
+                                <label for="itbisAmount">ITBIS Adelantado / Deducible <span id="itbis-currency-label">(DOP)</span></label>
                                 <input type="number" id="itbisAmount" name="itbisAmount" class="form-input" placeholder="0.00" step="0.01" style="width: 100%;">
                             </div>
                         </div>
@@ -872,5 +911,152 @@
         if (invSearchResults) invSearchResults.style.display = 'none';
         adjustActiveAccordionHeight();
     };
+
+    function handleCurrencyChange() {
+        const currency = document.getElementById('currency').value;
+        const rateContainer = document.getElementById('exchange-rate-container');
+        const rateInput = document.getElementById('exchangeRate');
+        const currencyLabel = document.getElementById('currency-label');
+        const itbisCurrencyLabel = document.getElementById('itbis-currency-label');
+        const loadingIcon = document.getElementById('rate-loading');
+
+        currencyLabel.textContent = `(${currency})`;
+        itbisCurrencyLabel.textContent = `(${currency})`;
+
+        if (currency === 'DOP') {
+            rateContainer.style.display = 'none';
+            rateInput.value = 1.0;
+            setTimeout(adjustActiveAccordionHeight, 150);
+        } else {
+            rateContainer.style.display = 'block';
+            setTimeout(adjustActiveAccordionHeight, 150);
+            
+            // Auto-fetch exchange rate
+            loadingIcon.style.display = 'block';
+            fetch(`/api/currency/rate/${currency}`)
+                .then(res => res.json())
+                .then(data => {
+                    loadingIcon.style.display = 'none';
+                    if (data.success && data.rate) {
+                        rateInput.value = data.rate.toFixed(2);
+                        rateInput.classList.add('field-highlighted');
+                        setTimeout(() => rateInput.classList.remove('field-highlighted'), 3000);
+                    }
+                })
+                .catch(err => {
+                    loadingIcon.style.display = 'none';
+                    console.error("Error fetching currency rate", err);
+                });
+        }
+    }
+
+    function handleSupplierTypeChange() {
+        const type = document.getElementById('supplierType').value;
+        const rncLabel = document.getElementById('rnc-label');
+        const rncInput = document.getElementById('rnc-emisor');
+        const rncGroup = document.getElementById('rnc-group');
+        
+        const ncfGroup = document.getElementById('ncf-group');
+        const ncfInput = document.getElementById('ncf');
+        const ecfTypeSelect = document.getElementById('ecfType');
+        
+        const isDeductibleCheckbox = document.getElementById('is-deductible-checkbox');
+
+        // Reset display
+        rncGroup.style.display = 'block';
+        ncfGroup.style.display = 'block';
+
+        if (type === 'formal') {
+            rncLabel.textContent = 'RNC / Cédula del Proveedor';
+            rncInput.placeholder = 'Ej: 101001011';
+            rncInput.required = true;
+            ncfInput.required = true;
+            ncfInput.placeholder = 'Ej: E310120000452';
+            document.querySelector('label[for="ncf"]').textContent = 'NCF / e-CF del Gasto';
+            ecfTypeSelect.value = 'E31'; // Default Crédito Fiscal
+            isDeductibleCheckbox.checked = true;
+        } 
+        else if (type === 'informal') {
+            rncLabel.textContent = 'Cédula del Proveedor (No Registrado)';
+            rncInput.placeholder = 'Ej: 40200000001';
+            rncInput.required = true;
+            ncfInput.required = false;
+            ncfInput.placeholder = 'Opcional si no lo has generado';
+            document.querySelector('label[for="ncf"]').textContent = 'e-CF de Compras (Opcional)';
+            ecfTypeSelect.value = 'E41'; // Comprobante de Compras
+            isDeductibleCheckbox.checked = true;
+        }
+        else if (type === 'internacional') {
+            rncLabel.textContent = 'Tax ID / Identificación Extranjera (Opcional)';
+            rncInput.placeholder = 'Opcional';
+            rncInput.required = false;
+            ncfInput.required = false;
+            ncfInput.placeholder = 'Opcional si no lo has generado';
+            document.querySelector('label[for="ncf"]').textContent = 'e-CF de Pagos al Exterior (Opcional)';
+            ecfTypeSelect.value = 'E47'; // Pagos al Exterior
+            isDeductibleCheckbox.checked = false; // Usually international is handled differently, but let's let user decide. Actually user said if it's not deductible.
+        }
+        else if (type === 'interno') {
+            rncGroup.style.display = 'none';
+            rncInput.required = false;
+            rncInput.value = '';
+            
+            ncfGroup.style.display = 'none';
+            ncfInput.required = false;
+            ncfInput.value = '';
+            
+            isDeductibleCheckbox.checked = false; // Sin comprobante no es deducible
+        }
+        
+        
+        setTimeout(adjustActiveAccordionHeight, 150);
+    }
+
+    // Custom Validation
+    document.getElementById('expense-form').addEventListener('submit', function(e) {
+        if (!this.checkValidity()) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const invalidElements = this.querySelectorAll(':invalid');
+            
+            if (invalidElements.length > 0) {
+                const firstInvalid = invalidElements[0];
+                
+                // Open accordion if needed
+                const accordionItem = firstInvalid.closest('.accordion-item');
+                if (accordionItem && !accordionItem.classList.contains('active')) {
+                    const header = accordionItem.querySelector('.accordion-header');
+                    if (header) {
+                        toggleAccordionSection(header);
+                    }
+                }
+                
+                // Highlight fields
+                invalidElements.forEach(el => {
+                    el.style.border = '2px solid var(--accent-red)';
+                    el.style.backgroundColor = 'rgba(239, 68, 68, 0.05)';
+                    
+                    el.addEventListener('input', function() {
+                        this.style.border = '';
+                        this.style.backgroundColor = '';
+                    }, { once: true });
+                });
+                
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Faltan campos obligatorios',
+                    text: 'Por favor, completa todos los campos marcados con un asterisco rojo (*).',
+                    confirmButtonColor: 'var(--accent-red)',
+                    confirmButtonText: 'Entendido'
+                }).then(() => {
+                    setTimeout(() => {
+                        firstInvalid.focus();
+                        firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }, 300);
+                });
+            }
+        }
+    });
 </script>
 {% endblock %}
