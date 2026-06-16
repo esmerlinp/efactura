@@ -33,8 +33,8 @@
                     <i class="fa-solid fa-file-import"></i>
                     <span>Importar CSV</span>
                 </button>
-                <a href="{{ url_for('new_item') }}" class="btn btn-primary"
-                    style="display: inline-flex; align-items: center; gap: 8px;">
+                <a href="{{ url_for('web_invoices.new_item') }}" class="btn btn-primary"
+                    style="display: inline-flex; align-items: center; gap: 8px; color: #000000;">
                     <i class="fa-solid fa-plus"></i>
                     <span>Nuevo Artículo</span>
                 </a>
@@ -244,8 +244,8 @@
                             <i class="fa-solid fa-boxes-stacked"
                                 style="font-size: 3rem; color: var(--text-muted); margin-bottom: 16px; opacity: 0.5; display: block;"></i>
                             <span>No hay productos registrados en el catálogo aún.</span>
-                            <a href="{{ url_for('new_item') }}"
-                                style="color: var(--accent-emerald); font-weight: 500; display: block; margin-top: 10px;">Crear
+                            <a href="{{ url_for('web_invoices.new_item') }}" class="btn btn-primary"
+                                style="display: inline-block; margin-top: 16px; padding: 10px 20px; color: #000000;">Crear
                                 primer artículo</a>
                         </td>
                     </tr>

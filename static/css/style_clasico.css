@@ -624,7 +624,7 @@ body.sandbox-mode .environment-indicator {
 .btn-primary {
     background: var(--accent-emerald);
     /* Solid background */
-    color: white;
+    color: #000000;
     border: 1px solid var(--accent-emerald-hover);
     /* Defined border */
     box-shadow: none;

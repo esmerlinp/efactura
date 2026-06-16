@@ -615,7 +615,7 @@ body.sandbox-mode .environment-indicator {
 
 .btn-primary {
     background: linear-gradient(90deg, var(--accent-emerald), var(--accent-emerald-hover));
-    color: white;
+    color: #000000;
     box-shadow: var(--shadow-sm);
     border: none;
 }
