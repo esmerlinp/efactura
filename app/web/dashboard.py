@@ -341,6 +341,22 @@ def dashboard():
     months_full = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
     current_month_name = months_full[selected_month - 1]
 
+    # 4. Onboarding y Configuración Inicial
+    items = DatabaseService.get_items(owner_uid, sandbox=sandbox)
+    has_company_configured = bool(profile.get('companyRNC')) and profile.get('companyRNC') != "132109122" # Default dummy RNC
+    has_products = len(items) > 0
+    has_clients = len(clients) > 0
+    has_invoices = len(real_invoices) > 0
+    
+    onboarding_state = {
+        "has_company_configured": has_company_configured,
+        "has_products": has_products,
+        "has_clients": has_clients,
+        "has_invoices": has_invoices,
+        "is_complete": has_company_configured and has_products and has_clients and has_invoices,
+        "progress_pct": sum([has_company_configured, has_products, has_clients, has_invoices]) * 25
+    }
+
     return render_template(
         'dashboard.html',
         active_page='dashboard',
@@ -362,5 +378,6 @@ def dashboard():
         plan_name=plan_name,
         docs_used=docs_used,
         docs_limit=docs_limit,
-        plan_pct=plan_pct
+        plan_pct=plan_pct,
+        onboarding_state=onboarding_state
     )

@@ -381,6 +381,9 @@
                 <i class="fa-solid fa-arrow-left"></i> Anterior
             </button>
             <div style="flex-grow: 1;"></div>
+            <button type="button" id="btnWizardSkipStep" class="btn btn-secondary" style="padding: 12px 24px; cursor: pointer; display: none; margin-right: 12px; background-color: transparent; color: var(--text-muted); border-color: transparent;">
+                Omitir paso <i class="fa-solid fa-forward" style="margin-left: 6px;"></i>
+            </button>
             <button type="button" id="btnWizardNext" class="btn btn-primary" style="padding: 12px 28px; cursor: pointer;">
                 Siguiente <i class="fa-solid fa-arrow-right"></i>
             </button>
@@ -477,6 +480,7 @@
         const btnNext = document.getElementById('btnWizardNext');
         const btnSubmit = document.getElementById('btnWizardSubmit');
         const btnSkip = document.getElementById('btnSkipToSandbox');
+        const btnSkipStep = document.getElementById('btnWizardSkipStep');
 
         function showStep(stepNum) {
             console.log("showStep called for step:", stepNum);
@@ -545,6 +549,19 @@
                 btnSubmit.style.display = 'none';
             }
 
+            if (btnSkipStep) {
+                if (stepNum > 2 && stepNum < totalSteps) {
+                    btnSkipStep.style.display = 'inline-block';
+                    btnNext.innerHTML = 'Continuar <i class="fa-solid fa-arrow-right"></i>';
+                } else if (stepNum === totalSteps) {
+                    btnSkipStep.style.display = 'inline-block';
+                    btnSkipStep.innerHTML = 'Omitir y Finalizar <i class="fa-solid fa-forward" style="margin-left: 6px;"></i>';
+                } else {
+                    btnSkipStep.style.display = 'none';
+                    btnNext.innerHTML = 'Siguiente <i class="fa-solid fa-arrow-right"></i>';
+                }
+            }
+
             updateNavButtonsState();
         }
 
@@ -594,6 +611,18 @@
             btnPrev.addEventListener('click', function () {
                 currentStep--;
                 showStep(currentStep);
+            });
+        }
+
+        if (btnSkipStep) {
+            btnSkipStep.addEventListener('click', function () {
+                if (currentStep === totalSteps) {
+                    // Si está en el último paso y presiona omitir, se envía el formulario
+                    if (btnSubmit) btnSubmit.click();
+                } else {
+                    currentStep++;
+                    showStep(currentStep);
+                }
             });
         }
 

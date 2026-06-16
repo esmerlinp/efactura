@@ -135,6 +135,122 @@
 {% endif %}
 <!-- FIN ALERTA DE CONTINGENCIA -->
 
+{% if onboarding_state and not onboarding_state.is_complete %}
+<!-- ONBOARDING CHECKLIST WIDGET -->
+<div style="background-color: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 24px; margin-bottom: 30px; box-shadow: var(--shadow-sm);">
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px;">
+        <div>
+            <h3 style="font-family: var(--font-heading); font-size: 1.15rem; color: var(--text-primary); margin: 0 0 4px 0;">Configuración Inicial</h3>
+            <p style="color: var(--text-secondary); font-size: 0.85rem; margin: 0;">Completa estos pasos básicos para empezar a facturar como todo un profesional.</p>
+        </div>
+        <div style="text-align: right;">
+            <span style="font-size: 0.9rem; font-weight: bold; color: var(--accent-emerald);">{{ "{:.0f}".format(onboarding_state.progress_pct) }}%</span>
+            <div style="width: 120px; height: 8px; background: var(--bg-input); border-radius: 4px; margin-top: 4px; overflow: hidden;">
+                <div style="width: {{ onboarding_state.progress_pct }}%; height: 100%; background: var(--accent-emerald); border-radius: 4px; transition: width 0.5s ease;"></div>
+            </div>
+        </div>
+    </div>
+    
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px;">
+        <!-- Paso 1 -->
+        <a href="{{ url_for('web_invoices.company_settings') }}" style="display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: var(--radius-sm); border: 1px solid {% if onboarding_state.has_company_configured %}var(--border-color){% else %}var(--accent-blue){% endif %}; text-decoration: none; background: {% if onboarding_state.has_company_configured %}rgba(16, 185, 129, 0.04){% else %}var(--bg-input){% endif %};">
+            {% if onboarding_state.has_company_configured %}
+            <i class="fa-solid fa-circle-check" style="color: var(--accent-emerald); font-size: 1.2rem;"></i>
+            {% else %}
+            <div style="width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--accent-blue); display: flex; align-items: center; justify-content: center;"><div style="width: 8px; height: 8px; background: var(--accent-blue); border-radius: 50%;"></div></div>
+            {% endif %}
+            <span style="color: var(--text-primary); font-size: 0.85rem; font-weight: 500;">Perfil de Empresa</span>
+        </a>
+        
+        <!-- Paso 2 -->
+        <a href="{{ url_for('web_invoices.inventory_dashboard') }}" style="display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: var(--radius-sm); border: 1px solid {% if onboarding_state.has_products %}var(--border-color){% else %}var(--accent-blue){% endif %}; text-decoration: none; background: {% if onboarding_state.has_products %}rgba(16, 185, 129, 0.04){% else %}var(--bg-input){% endif %};">
+            {% if onboarding_state.has_products %}
+            <i class="fa-solid fa-circle-check" style="color: var(--accent-emerald); font-size: 1.2rem;"></i>
+            {% else %}
+            <div style="width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--accent-blue); display: flex; align-items: center; justify-content: center;"><div style="width: 8px; height: 8px; background: var(--accent-blue); border-radius: 50%;"></div></div>
+            {% endif %}
+            <span style="color: var(--text-primary); font-size: 0.85rem; font-weight: 500;">Crear tu primer producto</span>
+        </a>
+
+        <!-- Paso 3 -->
+        <a href="{{ url_for('web_clients.list_clients') }}" style="display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: var(--radius-sm); border: 1px solid {% if onboarding_state.has_clients %}var(--border-color){% else %}var(--accent-blue){% endif %}; text-decoration: none; background: {% if onboarding_state.has_clients %}rgba(16, 185, 129, 0.04){% else %}var(--bg-input){% endif %};">
+            {% if onboarding_state.has_clients %}
+            <i class="fa-solid fa-circle-check" style="color: var(--accent-emerald); font-size: 1.2rem;"></i>
+            {% else %}
+            <div style="width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--text-muted);"></div>
+            {% endif %}
+            <span style="color: var(--text-primary); font-size: 0.85rem; font-weight: 500;">Registrar un cliente</span>
+        </a>
+
+        <!-- Paso 4 -->
+        <a href="{{ url_for('web_invoices.new_invoice_route') }}" style="display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: var(--radius-sm); border: 1px solid {% if onboarding_state.has_invoices %}var(--border-color){% else %}var(--accent-blue){% endif %}; text-decoration: none; background: {% if onboarding_state.has_invoices %}rgba(16, 185, 129, 0.04){% else %}var(--bg-input){% endif %};">
+            {% if onboarding_state.has_invoices %}
+            <i class="fa-solid fa-circle-check" style="color: var(--accent-emerald); font-size: 1.2rem;"></i>
+            {% else %}
+            <div style="width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--text-muted);"></div>
+            {% endif %}
+            <span style="color: var(--text-primary); font-size: 0.85rem; font-weight: 500;">Emitir primera factura</span>
+        </a>
+    </div>
+</div>
+{% endif %}
+
+{% if onboarding_state and onboarding_state.has_company_configured and not onboarding_state.has_products %}
+<!-- ONBOARDING MODAL PRIMER PRODUCTO -->
+<div id="product-onboarding-modal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 9999; align-items: center; justify-content: center; backdrop-filter: blur(4px);">
+    <div style="background: #ffffff; width: 90%; max-width: 480px; border-radius: 16px; padding: 32px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); position: relative; text-align: center; animation: modalPop 0.3s ease-out forwards;">
+        <button onclick="dismissProductModal()" style="position: absolute; top: 16px; right: 16px; background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.2rem; padding: 4px;"><i class="fa-solid fa-xmark"></i></button>
+        
+        <div style="width: 80px; height: 80px; background: rgba(16, 185, 129, 0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px auto;">
+            <i class="fa-solid fa-box-open" style="font-size: 2.5rem; color: var(--accent-emerald);"></i>
+        </div>
+        
+        <h2 style="font-family: var(--font-heading); font-size: 1.5rem; color: var(--text-primary); margin: 0 0 12px 0;">¡Estás a un paso de empezar!</h2>
+        <p style="color: var(--text-secondary); font-size: 0.95rem; line-height: 1.5; margin: 0 0 24px 0;">
+            Tu empresa ya está configurada. Para poder utilizar el Punto de Venta (POS) y empezar a facturar, necesitas crear tu primer producto o servicio.
+        </p>
+        
+        <a href="{{ url_for('web_invoices.inventory_dashboard') }}" style="display: block; width: 100%; background: var(--accent-emerald); color: #000000; border: none; padding: 14px; border-radius: var(--radius-md); font-weight: 600; font-size: 1rem; text-decoration: none; margin-bottom: 16px; box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.2); transition: transform 0.2s, box-shadow 0.2s;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 8px -1px rgba(16, 185, 129, 0.3)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 6px -1px rgba(16, 185, 129, 0.2)'">
+            <i class="fa-solid fa-plus" style="margin-right: 8px;"></i> Crear mi primer producto
+        </a>
+        
+        <button onclick="dontShowProductModalAgain()" style="background: transparent; border: none; color: var(--text-muted); font-size: 0.85rem; cursor: pointer; text-decoration: underline;">No volver a mostrar</button>
+    </div>
+</div>
+
+<style>
+@keyframes modalPop {
+    0% { opacity: 0; transform: scale(0.95) translateY(10px); }
+    100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+</style>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const hideModal = localStorage.getItem('hideProductOnboarding');
+        if (!hideModal) {
+            const modal = document.getElementById('product-onboarding-modal');
+            if (modal) {
+                // Pequeño delay para que no sea tan brusco
+                setTimeout(() => {
+                    modal.style.display = 'flex';
+                }, 500);
+            }
+        }
+    });
+
+    function dismissProductModal() {
+        const modal = document.getElementById('product-onboarding-modal');
+        if(modal) modal.style.display = 'none';
+    }
+
+    function dontShowProductModalAgain() {
+        localStorage.setItem('hideProductOnboarding', 'true');
+        dismissProductModal();
+    }
+</script>
+{% endif %}
+
 <!-- Título y Filtros fuera de la tarjeta (Estilo Firebase Firestore) -->
 <div
     style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 12px; margin-top: 10px;">
