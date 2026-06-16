@@ -661,7 +661,7 @@
             <div class="sidebar-logo">
                 <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Logo" class="app-brand-logo">
                 <div class="logo-text-wrapper"
-                    style="display: flex; align-items: center; gap: 8px; overflow: hidden; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); width: auto; margin-left: -28px;">
+                    style="display: flex; align-items: center; gap: 8px; overflow: hidden; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); width: auto;">
                     <span class="logo-title">e-Factura</span>
                     {% if session.get('is_sandbox_mode', False) %}
                     <span class="sandbox-tag">Sandbox</span>
