@@ -292,12 +292,12 @@
                 </h3>
 
                 <div class="form-group" style="margin-bottom: 12px;">
-                    <label for="paymentType">Tipo de Pago</label>
+                    <label for="paymentType">Estado del Pago (¿Ya fue pagado?)</label>
                     <select id="paymentType" name="paymentType" class="form-select"
                         onchange="toggleCxpFields(this.value)" style="width: 100%;">
-                        <option value="Contado" {% if expense.paymentType=='Contado' %}selected{% endif %}>Contado
+                        <option value="Contado" {% if expense.paymentType=='Contado' %}selected{% endif %}>Sí, ya está pagado (Contado)
                             (Pagado al instante)</option>
-                        <option value="Crédito" {% if expense.paymentType=='Crédito' %}selected{% endif %}>Crédito
+                        <option value="Crédito" {% if expense.paymentType=='Crédito' %}selected{% endif %}>No, pendiente de pago (Crédito / CxP)
                             (Cuenta por Pagar - CxP)</option>
                     </select>
                 </div>
@@ -320,6 +320,16 @@
                             Pendiente de Firma/Aprobación</option>
                     </select>
                 </div>
+                <div class="form-group" style="margin-top:14px;">
+                    <label for="assignedApproverId">Asignar Aprobador</label>
+                    <select id="assignedApproverId" name="assignedApproverId" class="form-select" style="width: 100%;">
+                        <option value="">-- Sin Asignar --</option>
+                        {% for member in team_members %}
+                        <option value="{{ member.uid }}" {% if expense.assignedApproverId == member.id %}selected{% endif %}>{{ member.name }} ({{ member.email }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
             </div>
 
             <!-- CARD DE AUTOMATIZACIÓN (GASTO RECURRENTE) -->

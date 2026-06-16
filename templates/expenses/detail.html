@@ -303,6 +303,13 @@
                             Pendiente de Firma/Aprobación</option>
                     </select>
                 </div>
+                {% if expense.assignedApproverName %}
+                <div class="form-group" style="margin-top:14px;">
+                    <label>Aprobador Asignado</label>
+                    <input type="text" class="form-input" value="{{ expense.assignedApproverName }}" style="width: 100%;" disabled>
+                </div>
+                {% endif %}
+
             </div>
 
             {% if is_cxp %}

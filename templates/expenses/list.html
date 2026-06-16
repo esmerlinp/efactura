@@ -32,6 +32,26 @@
 <script>
     if (!window.closeGuide) { window.closeGuide = function(id) { document.getElementById(id).style.display = 'none'; sessionStorage.setItem('closed_' + id, 'true'); }; }
     if (sessionStorage.getItem('closed_guide-expenses')) { document.getElementById('guide-expenses').style.display = 'none'; }
+
+    async function approveExpense(expenseId) {
+        if (!confirm('¿Estás seguro de que deseas aprobar este gasto internamente?')) return;
+        
+        try {
+            const response = await fetch(`/expenses/${expenseId}/approve`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            const data = await response.json();
+            if (data.success) {
+                window.location.reload();
+            } else {
+                alert(data.message || 'Error al aprobar el gasto');
+            }
+        } catch (error) {
+            console.error(error);
+            alert('Error de conexión al aprobar el gasto');
+        }
+    }
 </script>
 
 <div class="card-table-wrapper" style="margin-bottom: 30px;">
@@ -121,6 +141,7 @@
                     </th>
                     <th>Concepto / Descripción</th>
                     <th>Categoría</th>
+                    <th>Estado / Aprobador</th>
                     <th>Fecha</th>
                     <th>NCF / RNC Emisor</th>
                     <th>Costo Gasto</th>
@@ -140,6 +161,7 @@
                         {% if exp.notes %}
                         <span style="font-size: 0.72rem; color: var(--text-muted); display: block;">{{ exp.notes }}</span>
                         {% endif %}
+                        
                     </td>
                     <td>
                         <span class="badge badge-secondary" style="font-size: 0.7rem; padding: 4px 8px; font-weight: normal;">{{ exp.category }}</span>
@@ -153,6 +175,25 @@
                         </span>
                         {% endif %}
                         {% endif %}
+                    </td>
+                    <td>
+                        <div style="margin-top: 6px; display: flex; flex-direction: column; gap: 4px;">
+                            {% if exp.approvalStatus == 'Pendiente' %}
+                            <span style="font-size: 0.65rem; padding: 2px 6px; border-radius: 4px; display: inline-block; width: max-content; background: rgba(234, 179, 8, 0.1); color: #eab308; border: 1px solid rgba(234, 179, 8, 0.2);">
+                                <i class="fa-solid fa-clock"></i> Pendiente Aprobación
+                            </span>
+                            {% else %}
+                            <span style="font-size: 0.65rem; padding: 2px 6px; border-radius: 4px; display: inline-block; width: max-content; background: rgba(16, 185, 129, 0.1); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.2);">
+                                <i class="fa-solid fa-check-circle"></i> Aprobado
+                            </span>
+                            {% endif %}
+                            
+                            {% if exp.assignedApproverName %}
+                            <span style="font-size: 0.68rem; color: var(--text-secondary);">
+                                <i class="fa-solid fa-user-check" style="color: var(--accent-blue);"></i> {{ exp.assignedApproverName }}
+                            </span>
+                            {% endif %}
+                        </div>
                     </td>
                     <td>
                         <span style="font-size: 0.8rem; color: var(--text-secondary);">{{ exp.date | format_date }}</span>
@@ -200,6 +241,14 @@
                                 title="Ver Detalle y Comentarios">
                                 <i class="fa-solid fa-eye"></i>
                             </a>
+                            {% if exp.approvalStatus == 'Pendiente' %}
+                            <button type="button" class="btn btn-secondary"
+                                style="padding: 8px 12px; font-size: 0.75rem; border-color: var(--accent-emerald); color: var(--accent-emerald);"
+                                title="Aprobar Gasto"
+                                onclick="approveExpense('{{ exp.id }}')">
+                                <i class="fa-solid fa-check-double"></i>
+                            </button>
+                            {% endif %}
                             <a href="{{ url_for('edit_expense_route', expense_id=exp.id) }}" class="btn btn-secondary"
                                 style="padding: 8px 12px; font-size: 0.75rem; border-color: var(--accent-blue); color: var(--accent-blue);"
                                 title="Ver Detalle y Editar">
@@ -217,21 +266,19 @@
                                 <i class="fa-solid fa-paperclip"></i>
                             </button>
                             {% endif %}
-                            <form action="{{ url_for('delete_expense_route', expense_id=exp.id) }}" method="POST"
-                                onsubmit="return confirm('¿Seguro que deseas eliminar este gasto?');"
-                                style="display: inline;">
-                                <button type="submit" class="btn btn-danger"
-                                    style="padding: 8px 12px; font-size: 0.75rem;" title="Eliminar Gasto">
-                                    <i class="fa-solid fa-trash-can"></i>
-                                </button>
-                            </form>
+                            <button type="submit" class="btn btn-danger"
+                                formaction="{{ url_for('delete_expense_route', expense_id=exp.id) }}"
+                                onclick="return confirm('¿Seguro que deseas eliminar este gasto?');"
+                                style="padding: 8px 12px; font-size: 0.75rem;" title="Eliminar Gasto">
+                                <i class="fa-solid fa-trash-can"></i>
+                            </button>
                         </div>
                     </td>
                 </tr>
                 {% endfor %}
                 {% else %}
                 <tr>
-                    <td colspan="8" style="text-align: center; padding: 60px 0; color: var(--text-secondary);">
+                    <td colspan="9" style="text-align: center; padding: 60px 0; color: var(--text-secondary);">
                         <i class="fa-solid fa-receipt"
                             style="font-size: 3rem; color: var(--text-muted); margin-bottom: 16px; opacity: 0.5; display: block;"></i>
                         <span>No hay gastos operativos registrados aún.</span>
@@ -270,6 +317,26 @@
         const urlParams = new URLSearchParams(window.location.search);
         urlParams.set('export', 'csv');
         window.location.href = window.location.pathname + '?' + urlParams.toString();
+    }
+
+    async function approveExpense(expenseId) {
+        if (!confirm('¿Estás seguro de que deseas aprobar este gasto internamente?')) return;
+        
+        try {
+            const response = await fetch(`/expenses/${expenseId}/approve`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            const data = await response.json();
+            if (data.success) {
+                window.location.reload();
+            } else {
+                alert(data.message || 'Error al aprobar el gasto');
+            }
+        } catch (error) {
+            console.error(error);
+            alert('Error de conexión al aprobar el gasto');
+        }
     }
 </script>
 {% endblock %}

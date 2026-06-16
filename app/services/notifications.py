@@ -342,3 +342,104 @@ class NotificationService:
             print(f"⚠️ Error al enviar email de mención: {e}")
             return False, str(e)
 
+
+
+    @classmethod
+    def send_expense_assignment_notification(cls, recipient_email, recipient_name, expense, owner_uid, sandbox=True):
+        """Envía un correo electrónico notificando a un usuario que se le ha asignado un gasto para revisión/aprobación."""
+        company = DatabaseService.get_company_profile(owner_uid) or {}
+        company_name = company.get("tradeName") or company.get("companyName") or "e-Factura Proveedor"
+        brand_color = company.get('colorMarca', '#10b981')
+        logo_url = company.get('logoUrl', '')
+        
+        smtp_server = current_app.config.get("SMTP_SERVER", "smtp.gmail.com")
+        smtp_port = int(current_app.config.get("SMTP_PORT", 587))
+        smtp_user = current_app.config.get("SMTP_USER", "")
+        smtp_password = current_app.config.get("SMTP_PASSWORD", "")
+        
+        if not smtp_user or not smtp_password:
+            if sandbox:
+                print(f"⚠️ [SMTP no configurado] Simulando email de asignación de gasto a {recipient_email} ({recipient_name})")
+                return True, f"Simulado: Notificación enviada a {recipient_email}."
+            return False, "Servidor de correo SMTP no configurado."
+            
+        try:
+            from email.mime.multipart import MIMEMultipart
+            from email.mime.text import MIMEText
+            
+            msg = MIMEMultipart('alternative')
+            msg["Subject"] = f"📋 Gasto Pendiente de Aprobación: {expense.get('concept', 'Gasto Interno')}"
+            msg["From"] = f"{company_name} <{smtp_user}>"
+            msg["To"] = recipient_email
+            
+            logo_html = f'<img src="{logo_url}" alt="Logo" style="max-height: 50px; margin-bottom: 15px;"><br>' if logo_url else ''
+            
+            from flask import request
+            try:
+                base_url = request.host_url.rstrip('/')
+            except Exception:
+                base_url = os.environ.get("PORTAL_BASE_URL", "http://localhost:5001").rstrip('/')
+                
+            expense_url = f"{base_url}/expenses"
+            
+            html_body = f"""
+            <html>
+            <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #333; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
+                <div style="text-align: center; margin-bottom: 24px; padding-bottom: 12px; border-bottom: 2px solid {brand_color};">
+                    {logo_html}
+                    <h2 style="color: {brand_color}; margin: 0;">Asignación de Aprobación</h2>
+                    <p style="color: #666; margin: 4px 0 0 0;">Plataforma e-Factura · <strong>{company_name}</strong></p>
+                </div>
+                
+                <p>Hola <strong>{recipient_name}</strong>,</p>
+                
+                <p>Se te ha asignado un nuevo gasto interno para tu revisión y aprobación en el sistema:</p>
+                
+                <div style="background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; padding: 16px; margin: 20px 0;">
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <tr>
+                            <td style="padding: 6px 0; color: #6b7280; font-size: 0.9rem;">Concepto:</td>
+                            <td style="padding: 6px 0; font-weight: bold; text-align: right;">{expense.get('concept', '')}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 6px 0; color: #6b7280; font-size: 0.9rem;">Proveedor:</td>
+                            <td style="padding: 6px 0; text-align: right;">{expense.get('providerName', 'No especificado')}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 6px 0; color: #6b7280; font-size: 0.9rem;">Fecha de Comprobante:</td>
+                            <td style="padding: 6px 0; text-align: right;">{expense.get('date', '')}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 12px 0 6px 0; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 0.9rem;">Monto Total:</td>
+                            <td style="padding: 12px 0 6px 0; border-top: 1px solid #e5e7eb; font-weight: bold; font-size: 1.1rem; color: {brand_color}; text-align: right;">RD$ {float(expense.get('amount', 0.0)):,.2f}</td>
+                        </tr>
+                    </table>
+                </div>
+                
+                <p style="text-align: center; margin: 28px 0;">
+                    <a href="{expense_url}" style="background: {brand_color}; color: white; text-decoration: none; padding: 12px 30px; border-radius: 6px; font-weight: bold; display: inline-block; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);">
+                        Ver y Aprobar Gasto
+                    </a>
+                </p>
+                
+                <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 24px 0;">
+                
+                <div style="font-size: 0.8rem; color: #9ca3af; text-align: center;">
+                    Enviado de forma automática por la plataforma e-Factura.
+                </div>
+            </body>
+            </html>
+            """
+            
+            msg.attach(MIMEText(html_body, 'html'))
+            
+            import smtplib
+            with smtplib.SMTP(smtp_server, smtp_port) as server:
+                server.starttls()
+                server.login(smtp_user, smtp_password)
+                server.sendmail(smtp_user, recipient_email, msg.as_string())
+                
+            return True, "Correo enviado correctamente."
+        except Exception as e:
+            print(f"⚠️ Error al enviar email de asignación: {e}")
+            return False, str(e)
