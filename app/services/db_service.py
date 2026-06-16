@@ -374,7 +374,8 @@ class DatabaseService:
                     "two_factor_enabled": bool(data.get("two_factor_enabled", False)),
                     "two_factor_secret": data.get("two_factor_secret"),
                     "backup_codes": data.get("backup_codes", []),
-                    "posSupervisorPin": data.get("posSupervisorPin", "")
+                    "posSupervisorPin": data.get("posSupervisorPin", ""),
+                    "profileImageUrl": data.get("profileImageUrl", "")
                 }
                 return profile
             else:
@@ -468,7 +469,8 @@ class DatabaseService:
                     "two_factor_enabled": bool(data.get("two_factor_enabled", False)),
                     "two_factor_secret": data.get("two_factor_secret"),
                     "backup_codes": data.get("backup_codes", []),
-                    "posSupervisorPin": data.get("posSupervisorPin", "")
+                    "posSupervisorPin": data.get("posSupervisorPin", ""),
+                    "profileImageUrl": data.get("profileImageUrl")
                 }
         except Exception as e:
             print(f"⚠️ Error al obtener perfil desde Firestore: {e}")
@@ -499,12 +501,16 @@ class DatabaseService:
             return
         try:
             perms = profile_dict.get("permissions", {})
-            db_firestore.collection("users").document(uid).collection("config").document("user_profile").update({
+            update_data = {
                 "name": profile_dict.get("name", ""),
                 "phone": profile_dict.get("phone", ""),
                 "address": profile_dict.get("address", ""),
                 "permissions": perms
-            })
+            }
+            if "profileImageUrl" in profile_dict:
+                update_data["profileImageUrl"] = profile_dict["profileImageUrl"]
+            
+            db_firestore.collection("users").document(uid).collection("config").document("user_profile").update(update_data)
         except Exception as e:
             print(f"⚠️ Fallo al guardar perfil en Firestore: {e}")
 
@@ -524,6 +530,7 @@ class DatabaseService:
                             "uid": emp_uid,
                             "name": emp_data.get("name", ""),
                             "email": emp_data.get("email", ""),
+                            "profileImageUrl": emp_data.get("profileImageUrl", ""),
                             "permissions": {
                                 "canInvoice": bool(emp_data.get("permissions", {}).get("canInvoice", True)),
                                 "canExpenses": bool(emp_data.get("permissions", {}).get("canExpenses", True)),

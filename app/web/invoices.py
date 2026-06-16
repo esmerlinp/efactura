@@ -3004,6 +3004,42 @@ def delete_expense_route(expense_id):
     flash('Gasto eliminado.', 'success')
     return redirect(url_for('list_expenses'))
 
+@web_invoices_bp.route('/expenses/delete-multiple', methods=['POST'])
+def delete_multiple_expenses_route():
+    if 'user' not in session: return redirect(url_for('login'))
+    if not check_permission('canExpenses'):
+        return render_template('auth/restricted.html', feature_name="Eliminar Gasto", required_permission="canExpenses")
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+    
+    expense_ids = request.form.getlist('expense_ids')
+    if not expense_ids:
+        flash('No se seleccionó ningún gasto para eliminar.', 'warning')
+        return redirect(url_for('list_expenses'))
+
+    from app.services.audit_service import AuditService, ACTION_DELETE, MODULE_GASTOS
+    expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox)
+    deleted_count = 0
+
+    for expense_id in expense_ids:
+        before_expense = next((e for e in expenses if e['id'] == expense_id), {})
+        if before_expense:
+            DatabaseService.delete_expense(owner_uid, expense_id, sandbox=sandbox)
+            AuditService.log_from_request(
+                owner_uid=owner_uid,
+                action=ACTION_DELETE,
+                module=MODULE_GASTOS,
+                entity_id=expense_id,
+                entity_label=f"Gasto eliminado (Lote): {before_expense.get('concept', 'N/A')} (Monto: RD$ {before_expense.get('amount', 0.0):.2f})",
+                user_session=session.get('user', {}),
+                before=before_expense,
+                sandbox=sandbox
+            )
+            deleted_count += 1
+            
+    flash(f'{deleted_count} gasto(s) eliminado(s) correctamente.', 'success')
+    return redirect(url_for('list_expenses'))
+
 @web_invoices_bp.route('/expenses/<expense_id>/edit', methods=['GET', 'POST'])
 def edit_expense_route(expense_id):
     if 'user' not in session: return redirect(url_for('login'))
@@ -3822,6 +3858,32 @@ def update_team_member_permissions(employee_uid):
         "canToggleSandbox": 'canToggleSandbox' in request.form,
         "canManageNotes": 'canManageNotes' in request.form
     }
+    
+    avatar_file = request.files.get('avatar')
+    if avatar_file and avatar_file.filename:
+        from werkzeug.utils import secure_filename
+        import uuid
+        
+        filename = secure_filename(avatar_file.filename)
+        unique_filename = f"{uuid.uuid4().hex}_{filename}"
+        owner_uid = session['user'].get('ownerUID', session['user']['uid'])
+        destination_path = f"users/{owner_uid}/avatars/{unique_filename}"
+        
+        avatar_file.seek(0)
+        file_bytes = avatar_file.read()
+        content_type = avatar_file.content_type
+        
+        try:
+            profile_image_url = DatabaseService.upload_file_to_storage(
+                file_bytes, destination_path, content_type
+            )
+            # Actualizamos también la URL de la imagen de perfil en el documento
+            from app.services.db_service import db_firestore
+            db_firestore.collection("users").document(employee_uid).collection("config").document("user_profile").update({
+                "profileImageUrl": profile_image_url
+            })
+        except Exception as e:
+            flash(f"Error al subir avatar: {str(e)}", "error")
     
     if DatabaseService.update_employee_permissions(employee_uid, permissions):
         from app.services.audit_service import AuditService, ACTION_UPDATE, MODULE_USUARIOS

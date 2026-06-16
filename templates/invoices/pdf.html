@@ -547,7 +547,7 @@
                 <p><strong>RNC:</strong> {{ company.companyRNC }}</p>
                 <p><strong>Dirección:</strong> {{ company.companyAddress }}</p>
                 <p><strong>Tel/Correo:</strong> {{ company.companyPhone }} &nbsp;|&nbsp; {{ company.companyEmail }}</p>
-                <p><strong>Fecha Emisión:</strong> {{ invoice.date[:10] }}{% if invoice.date|length > 10 %} {{
+                <p><strong>Fecha Emisión:</strong> {{ invoice.date | format_date }}{% if invoice.date|length > 10 %} {{
                     invoice.date[11:16] }}{% endif %}</p>
             </div>
             <div class="document-block" style="text-align: right;">
@@ -575,7 +575,7 @@
 
                 {% if invoice.ecfType and 'Nota de' not in invoice.ecfType and 'Consumo' not in invoice.ecfType %}
                 <div style="font-size: 11px; color: #111827; margin-top: 4px;">
-                    <strong>Fecha Vencimiento:</strong> {{ invoice.dueDate[:10] }}
+                    <strong>Fecha Vencimiento:</strong> {{ invoice.dueDate | format_date }}
                 </div>
                 {% endif %}
                 {% if invoice.status != 'Emitida' %}

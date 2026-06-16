@@ -8,6 +8,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style_minimalista.css') }}">
     {% block head %}{% endblock %}
+    <!-- Flatpickr (Selector de Fechas Estandarizado) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
 </head>
 <body>
     <div class="app-layout">
@@ -149,5 +151,20 @@
     </nav>
     <script src="{{ url_for('static', filename='js/portal.js') }}"></script>
     {% block scripts %}{% endblock %}
+    <!-- Flatpickr JS e Idioma Español -->
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://npmcdn.com/flatpickr/dist/l10n/es.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            // Inicializar globalmente para inputs de fecha, convirtiéndolos visualmente a DD/MM/YYYY
+            flatpickr('input[type="date"]', {
+                locale: "es",
+                dateFormat: "Y-m-d", // El valor real enviado en el form será YYYY-MM-DD
+                altInput: true,      // Crea un campo alternativo visual
+                altFormat: "d/m/Y",  // El formato que ve el usuario será DD/MM/YYYY
+                allowInput: true
+            });
+        });
+    </script>
 </body>
 </html>

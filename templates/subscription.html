@@ -402,7 +402,7 @@
                                     {% if pay.date and pay.date.strftime %}
                                     {{ pay.date.strftime('%d/%m/%Y') }}
                                     {% else %}
-                                    {{ pay.date[:10] if pay.date is string else pay.date }}
+                                    {{ pay.date | format_date if pay.date is string else pay.date }}
                                     {% endif %}
                                 </td>
                                 <td>

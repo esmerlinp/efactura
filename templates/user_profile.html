@@ -41,21 +41,23 @@
     }
 
     .profile-avatar-large {
-        width: 92px;
-        height: 92px;
+        width: 120px;
+        height: 120px;
         border-radius: 50%;
-        background: linear-gradient(135deg, #f59e0b, #ea580c);
-        color: #ffffff !important;
+        background: linear-gradient(135deg, var(--accent-emerald), #059669);
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 2.5rem;
-        font-weight: 800;
+        color: white;
+        font-size: 3rem;
+        font-weight: 700;
         font-family: var(--font-heading);
+        box-shadow: 0 8px 24px rgba(16, 185, 129, 0.2);
+        border: 4px solid var(--bg-card);
         flex-shrink: 0;
-        box-shadow: 0 4px 20px rgba(16, 185, 129, 0.35);
-        border: 3px solid rgba(255, 255, 255, 0.15);
         position: relative;
+        overflow: hidden;
+        cursor: pointer;
     }
 
     .profile-avatar-large img {
@@ -63,6 +65,26 @@
         height: 100%;
         object-fit: cover;
         border-radius: 50%;
+    }
+
+    .profile-avatar-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        opacity: 0;
+        transition: opacity 0.2s ease;
+        border-radius: 50%;
+    }
+
+    .profile-avatar-large:hover .profile-avatar-overlay {
+        opacity: 1;
     }
 
     .profile-hero-info {
@@ -619,12 +641,18 @@
 
     <!-- ====== HERO CARD ====== -->
     <div class="profile-hero-card">
-        <div class="profile-avatar-large">
-            {% if company_logo_url %}
-            <img src="{{ company_logo_url }}" alt="Avatar">
+        <div class="profile-avatar-large" onclick="document.getElementById('avatar-input').click();" title="Cambiar foto de perfil">
+            {% if user.profileImageUrl %}
+            <img id="avatar-preview-img" src="{{ user.profileImageUrl }}" alt="Avatar">
+            {% elif company_logo_url %}
+            <img id="avatar-preview-img" src="{{ company_logo_url }}" alt="Avatar">
             {% else %}
-            {{ user.name[0] | upper if user.name else 'U' }}
+            <span id="avatar-preview-text">{{ user.name[0] | upper if user.name else 'U' }}</span>
+            <img id="avatar-preview-img" src="" alt="Avatar" style="display: none;">
             {% endif %}
+            <div class="profile-avatar-overlay">
+                <i class="fa-solid fa-camera"></i>
+            </div>
         </div>
         <div class="profile-hero-info">
             <h1 class="profile-hero-name">{{ user.name or 'Sin nombre' }}</h1>
@@ -641,7 +669,7 @@
                 {% if user.createdAt %}
                 <span class="profile-badge profile-badge-member-since">
                     <i class="fa-solid fa-calendar-check"></i>
-                    Desde {{ user.createdAt[:10] }}
+                    Desde {{ user.createdAt | format_date }}
                 </span>
                 {% endif %}
             </div>
@@ -673,7 +701,8 @@
             </div>
             {% endif %}
 
-            <form method="POST" action="{{ url_for('update_user_profile') }}" id="form-info" novalidate>
+            <form method="POST" action="{{ url_for('web_auth.update_user_profile') }}" id="form-info" enctype="multipart/form-data" novalidate>
+                <input type="file" id="avatar-input" name="avatar" accept="image/*" style="position: absolute; opacity: 0; width: 0.1px; height: 0.1px; overflow: hidden; z-index: -1;" onchange="previewAvatar(this)">
                 <input type="hidden" name="action" value="update_info">
                 <div class="profile-form-grid">
                     <div class="profile-form-group">
@@ -1205,8 +1234,10 @@
     // ============ SAVE BUTTON LOADING STATE ============
     document.getElementById('form-info').addEventListener('submit', function () {
         const btn = document.getElementById('btn-save-info');
-        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> <span>Guardando...</span>';
-        btn.disabled = true;
+        setTimeout(() => {
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> <span>Guardando...</span>';
+            btn.disabled = true;
+        }, 10);
     });
 
     const formPin = document.getElementById('form-supervisor-pin');
@@ -1395,6 +1426,25 @@
 
     function closeMfaBackupModal() {
         document.getElementById('mfa-backup-modal').classList.remove('show');
+    }
+</script>
+<script>
+    function previewAvatar(input) {
+        if (input.files && input.files[0]) {
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                var img = document.getElementById('avatar-preview-img');
+                var text = document.getElementById('avatar-preview-text');
+                if (img) {
+                    img.src = e.target.result;
+                    img.style.display = 'block';
+                }
+                if (text) {
+                    text.style.display = 'none';
+                }
+            }
+            reader.readAsDataURL(input.files[0]);
+        }
     }
 </script>
 {% endblock %}

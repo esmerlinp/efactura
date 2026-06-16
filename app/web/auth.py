@@ -586,6 +586,36 @@ def update_user_profile():
         return redirect(url_for('web_auth.user_profile_page', info_error='El nombre no puede estar vacío.'))
 
     try:
+        profile_image_url = session['user'].get('profileImageUrl')
+        avatar_file = request.files.get('avatar')
+        
+        print(f"DEBUG PROFILE UPDATE: name={name}, avatar_file_present={bool(avatar_file)}")
+        if avatar_file:
+            print(f"DEBUG PROFILE UPDATE: avatar_filename='{avatar_file.filename}'")
+        else:
+            print("DEBUG PROFILE UPDATE: no avatar file attached")
+            
+        if avatar_file and avatar_file.filename:
+            print("DEBUG PROFILE UPDATE: File attached, starting upload...")
+            from werkzeug.utils import secure_filename
+            import uuid
+            
+            filename = secure_filename(avatar_file.filename)
+            unique_filename = f"{uuid.uuid4().hex}_{filename}"
+            owner_uid = session['user'].get('ownerUID', uid)
+            destination_path = f"users/{owner_uid}/avatars/{unique_filename}"
+            
+            avatar_file.seek(0)
+            file_bytes = avatar_file.read()
+            content_type = avatar_file.content_type
+            
+            print(f"DEBUG PROFILE UPDATE: uploading {len(file_bytes)} bytes to {destination_path}")
+
+            
+            profile_image_url = DatabaseService.upload_file_to_storage(
+                file_bytes, destination_path, content_type
+            )
+            
         before_profile = session['user'].copy()
         updated_profile = {
             "name": name,
@@ -593,12 +623,18 @@ def update_user_profile():
             "address": address,
             "permissions": session['user'].get('permissions', {})
         }
+        
+        if profile_image_url:
+            updated_profile["profileImageUrl"] = profile_image_url
+
         DatabaseService.save_user_profile(uid, updated_profile)
 
         # Actualizar la sesión activa para reflejar los cambios de inmediato
         session['user']['name'] = name
         session['user']['phone'] = phone
         session['user']['address'] = address
+        if profile_image_url:
+            session['user']['profileImageUrl'] = profile_image_url
         session.modified = True
 
         from app.services.audit_service import AuditService, ACTION_UPDATE, MODULE_AUTH

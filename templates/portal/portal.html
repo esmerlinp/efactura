@@ -484,7 +484,7 @@
                                 <strong>{{ inv.invoiceNumber }}</strong>
                             </td>
                             <td data-label="Fecha Emisión">
-                                <span style="font-family: monospace;">{{ inv.date[:10] }}</span>
+                                <span style="font-family: monospace;">{{ inv.date | format_date }}</span>
                             </td>
                             <td data-label="Tipo / e-CF">
                                 {% if inv.isQuotation %}

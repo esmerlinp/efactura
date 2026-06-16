@@ -59,10 +59,10 @@
                     <span class="badge badge-success" style="margin-bottom: 10px;">{{ invoice.status }}</span>
                     {% endif %}
                     <div style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 4px;">Fecha: <strong>{{
-                            invoice.date[:10] }}{% if invoice.date|length > 10 %} {{ invoice.date[11:16] }}{% endif
+                            invoice.date | format_date }}{% if invoice.date|length > 10 %} {{ invoice.date[11:16] }}{% endif
                             %}</strong></div>
                     <div style="font-size: 0.85rem; color: var(--text-secondary);">Vence: <strong>{{
-                            invoice.dueDate[:10] }}</strong></div>
+                            invoice.dueDate | format_date }}</strong></div>
                 </div>
             </div>
 
@@ -457,7 +457,7 @@
                                 #{{ inst.installmentNumber }}
                             </td>
                             <td style="border-bottom: 1px solid #e2e8f0; padding: 14px 16px;">
-                                <span style="font-family: monospace; color: #334155;">{{ inst.dueDate[:10] }}</span>
+                                <span style="font-family: monospace; color: #334155;">{{ inst.dueDate | format_date }}</span>
                             </td>
                             <td
                                 style="text-align: right; font-weight: 500; color: #0f172a; border-bottom: 1px solid #e2e8f0; padding: 14px 16px;">
@@ -712,7 +712,7 @@
                             <strong style="color: var(--text-primary); display: block; margin-bottom: 2px;">{{
                                 p.paymentMethod }}</strong>
                             <span style="font-size: 0.74rem; color: var(--text-muted); display: block;">Fecha: {{
-                                p.paymentDate[:10] }}</span>
+                                p.paymentDate | format_date }}</span>
                             {% if p.bank and p.bank != 'Caja Efectivo' %}
                             <span
                                 style="font-size: 0.72rem; color: var(--text-secondary); display: block; margin-top: 3px;">{{
@@ -746,14 +746,14 @@
                                 {{ "{:,.2f}".format(p.amount) }}</strong>
                             <div style="display: flex; gap: 6px; justify-content: flex-end;" class="no-print">
                                 <button type="button"
-                                    onclick="printReceipt('{{ p.id }}', '{{ p.paymentDate[:10] }}', '{{ p.paymentMethod }}', '{{ p.bank or '' }}', '{{ p.referenceNumber or '' }}', {{ p.amount }})"
+                                    onclick="printReceipt('{{ p.id }}', '{{ p.paymentDate | format_date }}', '{{ p.paymentMethod }}', '{{ p.bank or '' }}', '{{ p.referenceNumber or '' }}', {{ p.amount }})"
                                     class="btn btn-secondary" title="Imprimir Recibo de Ingreso"
                                     style="font-size: 0.7rem; padding: 4px 10px; height: 28px; display: inline-flex; align-items: center; gap: 4px; border-color: #1e3a8a; color: #1e3a8a;">
                                     <i class="fa-solid fa-print"></i>
                                     <span>Recibo</span>
                                 </button>
                                 <button type="button"
-                                    onclick="openEmailReceiptModal('{{ p.id }}', '{{ p.paymentDate[:10] }}', '{{ p.paymentMethod }}', '{{ p.bank or '' }}', '{{ p.referenceNumber or '' }}', {{ p.amount }})"
+                                    onclick="openEmailReceiptModal('{{ p.id }}', '{{ p.paymentDate | format_date }}', '{{ p.paymentMethod }}', '{{ p.bank or '' }}', '{{ p.referenceNumber or '' }}', {{ p.amount }})"
                                     class="btn btn-secondary" title="Enviar Recibo por Email al Cliente"
                                     style="font-size: 0.7rem; padding: 4px 10px; height: 28px; display: inline-flex; align-items: center; gap: 4px; border-color: var(--accent-purple); color: var(--accent-purple);">
                                     <i class="fa-solid fa-paper-plane"></i>

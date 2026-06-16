@@ -84,7 +84,7 @@
                     <div
                         style="display: flex; align-items: center; gap: 8px; font-weight: 500; color: var(--accent-purple);">
                         <i class="fa-solid fa-calendar-day"></i>
-                        <span>{{ client.nextContactDate[:10] }}</span>
+                        <span>{{ client.nextContactDate | format_date }}</span>
                     </div>
                 </div>
                 {% endif %}
@@ -343,7 +343,7 @@
                                     <span style="font-size: 0.85rem; font-weight: 500; color: var(--text-primary);">
                                         Llamar el: <strong
                                             style="color: {% if item.completed %}var(--text-muted){% else %}var(--accent-purple){% endif %};">{{
-                                            item.nextContactDate[:10] }}</strong>
+                                            item.nextContactDate | format_date }}</strong>
                                     </span>
                                 </div>
 
@@ -589,7 +589,7 @@
                         </div>
                         <div
                             style="border-top: 1px solid var(--border-color); padding-top: 10px; display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; color: var(--text-muted);">
-                            <span>Subido el {{ doc.createdAt[:10] }}</span>
+                            <span>Subido el {{ doc.createdAt | format_date }}</span>
                             <a href="{{ doc.url }}" target="_blank" class="btn btn-secondary"
                                 style="padding: 4px 10px; font-size: 0.75rem; display: inline-flex; align-items: center; gap: 4px; border-color: var(--accent-emerald); color: var(--accent-emerald);">
                                 <i class="fa-solid fa-download"></i>
@@ -633,7 +633,7 @@
                             {% for pay in payments %}
                             <tr>
                                 <td>
-                                    <span style="font-family: monospace; font-size: 0.88rem;">{{ pay.paymentDate[:10] if pay.paymentDate else 'N/A' }}</span>
+                                    <span style="font-family: monospace; font-size: 0.88rem;">{{ pay.paymentDate | format_date if pay.paymentDate else 'N/A' }}</span>
                                 </td>
                                 <td>
                                     <a href="{{ url_for('invoice_detail', invoice_id=pay.invoiceId) }}"

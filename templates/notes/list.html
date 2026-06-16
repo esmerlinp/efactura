@@ -437,7 +437,7 @@
         {% else %}
         <i class="fa-solid fa-users" title="Compartida"></i>
         {% endif %}
-        <span>{{ note.createdAt[:10] }}</span>
+        <span>{{ note.createdAt | format_date }}</span>
     </div>
 
     <div class="card-actions">
