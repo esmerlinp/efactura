@@ -426,9 +426,16 @@
     function toggleRecurrenceFields(val) {
         document.getElementById('recurrence-fields').style.display = val === 'true' ? 'flex' : 'none';
         if (val === 'true' && !document.getElementById('nextOccurrenceDate').value) {
-            const date = new Date();
-            date.setDate(date.getDate() + 30);
-            document.getElementById('nextOccurrenceDate').value = date.toISOString().split('T')[0];
+            const dateStr = document.getElementById('date')?.value;
+            if (dateStr) {
+                const dateObj = new Date(dateStr + 'T12:00:00');
+                dateObj.setDate(dateObj.getDate() + 30);
+                document.getElementById('nextOccurrenceDate').value = dateObj.toISOString().split('T')[0];
+            } else {
+                const dateObj = new Date();
+                dateObj.setDate(dateObj.getDate() + 30);
+                document.getElementById('nextOccurrenceDate').value = dateObj.toISOString().split('T')[0];
+            }
         }
     }
 
