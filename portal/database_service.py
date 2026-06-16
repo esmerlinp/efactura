@@ -278,6 +278,9 @@ class DatabaseService:
             'prod_current_cycle': 0,
             'sandbox_total': 0,
             'sandbox_current_cycle': 0,
+            'db_clients': 0,
+            'db_products': 0,
+            'db_team': 0,
             'current_cycle_start': None,
             'current_cycle_end': None
         }
@@ -352,6 +355,22 @@ class DatabaseService:
         except Exception as e:
             print(f"⚠️ Error counting sandbox invoices for {owner_uid}: {e}")
             
+        # Contadores de volumen de base de datos (Firestore)
+        try:
+            stats['db_clients'] = db.collection('users').document(owner_uid).collection('clients').count().get()[0][0].value
+        except Exception as e:
+            print(f"⚠️ Error counting clients for {owner_uid}: {e}")
+            
+        try:
+            stats['db_products'] = db.collection('users').document(owner_uid).collection('items').count().get()[0][0].value
+        except Exception as e:
+            print(f"⚠️ Error counting products for {owner_uid}: {e}")
+            
+        try:
+            stats['db_team'] = db.collection('users').document(owner_uid).collection('team').count().get()[0][0].value
+        except Exception as e:
+            print(f"⚠️ Error counting team for {owner_uid}: {e}")
+
         return stats
 
     @classmethod

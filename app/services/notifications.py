@@ -53,6 +53,7 @@ class NotificationService:
                 return False, "Servidor de correo SMTP no configurado en los ajustes de la aplicación."
                 
             try:
+                brand_color = company.get('colorMarca', '#10b981')
                 # Construir el correo HTML
                 msg = MIMEMultipart('alternative')
                 msg["Subject"] = f"⚠️ Recordatorio de Pago - Factura {invoice_number} - {company_name}"
@@ -64,8 +65,8 @@ class NotificationService:
                 html_body = f"""
                 <html>
                 <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #333; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
-                    <div style="text-align: center; margin-bottom: 24px; padding-bottom: 12px; border-bottom: 2px solid #10b981;">
-                        <h2 style="color: #10b981; margin: 0;">Recordatorio de Pago Pendiente</h2>
+                    <div style="text-align: center; margin-bottom: 24px; padding-bottom: 12px; border-bottom: 2px solid {brand_color};">
+                        <h2 style="color: {brand_color}; margin: 0;">Recordatorio de Pago Pendiente</h2>
                         <p style="color: #666; margin: 4px 0 0 0;">{company_name}</p>
                     </div>
                     
@@ -92,14 +93,14 @@ class NotificationService:
                                 <td style="padding: 12px 0 6px 0; border-top: 1px solid #e5e7eb; text-align: right;">RD$ {float(invoice.get('netPayable', 0.0)):,.2f}</td>
                             </tr>
                             <tr>
-                                <td style="padding: 6px 0; color: #10b981; font-weight: bold;">Balance Pendiente:</td>
-                                <td style="padding: 6px 0; color: #10b981; font-weight: bold; font-size: 1.1rem; text-align: right;">RD$ {remaining_balance:,.2f}</td>
+                                <td style="padding: 6px 0; color: {brand_color}; font-weight: bold;">Balance Pendiente:</td>
+                                <td style="padding: 6px 0; color: {brand_color}; font-weight: bold; font-size: 1.1rem; text-align: right;">RD$ {remaining_balance:,.2f}</td>
                             </tr>
                         </table>
                     </div>
                     
                     <p style="text-align: center; margin: 28px 0;">
-                        <a href="{portal_url}" style="background: linear-gradient(135deg, #10b981, #059669); color: white; text-decoration: none; padding: 12px 30px; border-radius: 6px; font-weight: bold; display: inline-block; box-shadow: 0 4px 10px rgba(16, 185, 129, 0.2);">
+                        <a href="{portal_url}" style="background: {brand_color}; color: white; text-decoration: none; padding: 12px 30px; border-radius: 6px; font-weight: bold; display: inline-block; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);">
                             Pagar o Ver Detalle en Línea
                         </a>
                     </p>
@@ -271,7 +272,7 @@ class NotificationService:
         return sent_count
 
     @classmethod
-    def send_mention_notification(cls, recipient_email, recipient_name, commenter_name, comment_snippet, doc_number, doc_url, issuer_company_name="e-Factura", sandbox=True):
+    def send_mention_notification(cls, recipient_email, recipient_name, commenter_name, comment_snippet, doc_number, doc_url, issuer_company_name="e-Factura", sandbox=True, brand_color="#10b981"):
         """Envía un correo electrónico de notificación cuando un usuario es tagueado en un comentario."""
         smtp_server = current_app.config.get("SMTP_SERVER", "smtp.gmail.com")
         smtp_port = int(current_app.config.get("SMTP_PORT", 587))
@@ -295,8 +296,8 @@ class NotificationService:
             html_body = f"""
             <html>
             <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #333; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
-                <div style="text-align: center; margin-bottom: 24px; padding-bottom: 12px; border-bottom: 2px solid #7c3aed;">
-                    <h2 style="color: #7c3aed; margin: 0;">Nueva Mención</h2>
+                <div style="text-align: center; margin-bottom: 24px; padding-bottom: 12px; border-bottom: 2px solid {brand_color};">
+                    <h2 style="color: {brand_color}; margin: 0;">Nueva Mención</h2>
                     <p style="color: #666; margin: 4px 0 0 0;">Plataforma e-Factura · <strong>{issuer_company_name}</strong></p>
                 </div>
                 
@@ -304,12 +305,12 @@ class NotificationService:
                 
                 <p><strong>{commenter_name}</strong> te ha mencionado en un comentario en el documento <strong>{doc_number}</strong>:</p>
                 
-                <div style="background-color: #f3f4f6; border-left: 4px solid #7c3aed; border-radius: 4px; padding: 16px; margin: 20px 0; font-style: italic; color: #4b5563;">
+                <div style="background-color: #f3f4f6; border-left: 4px solid {brand_color}; border-radius: 4px; padding: 16px; margin: 20px 0; font-style: italic; color: #4b5563;">
                     "{comment_snippet}"
                 </div>
                 
                 <p style="text-align: center; margin: 28px 0;">
-                    <a href="{doc_url}" style="background: linear-gradient(135deg, #7c3aed, #6d28d9); color: white; text-decoration: none; padding: 12px 30px; border-radius: 6px; font-weight: bold; display: inline-block; box-shadow: 0 4px 10px rgba(124, 58, 237, 0.2);">
+                    <a href="{doc_url}" style="background: {brand_color}; color: white; text-decoration: none; padding: 12px 30px; border-radius: 6px; font-weight: bold; display: inline-block; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);">
                         Ver Comentario y Documento
                     </a>
                 </p>

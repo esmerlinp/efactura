@@ -1761,6 +1761,9 @@ def send_receipt_email(invoice_id):
     company_phone   = company.get("companyPhone", "")
     company_email   = company.get("companyEmail", smtp_user)
 
+    company_name    = company.get("tradeName") or company.get("companyName", "e-Factura")
+    brand_color     = company.get("colorMarca", "#10b981")
+
     html_body = f"""
 <!DOCTYPE html>
 <html lang="es">
@@ -1769,7 +1772,7 @@ def send_receipt_email(invoice_id):
   <style>
     body {{ font-family: 'Segoe UI', Arial, sans-serif; background: #f8fafc; color: #1e293b; margin: 0; padding: 0; }}
     .wrapper {{ max-width: 600px; margin: 30px auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.08); }}
-    .header {{ background: linear-gradient(135deg, #1e3a8a 0%, #7c3aed 100%); padding: 32px 36px; text-align: center; }}
+    .header {{ background: {brand_color}; padding: 32px 36px; text-align: center; }}
     .header h1 {{ color: #ffffff; font-size: 1.6rem; margin: 0 0 4px; font-weight: 800; letter-spacing: -0.5px; }}
     .header p {{ color: rgba(255,255,255,0.75); font-size: 0.88rem; margin: 0; }}
     .receipt-badge {{ display: inline-block; background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3); color: #fff; padding: 6px 16px; border-radius: 20px; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; margin-top: 14px; }}
@@ -1980,6 +1983,7 @@ def send_invoice_email(owner_uid, invoice, recipient_email, sandbox=True, base_u
         
         encf = invoice.get('encf', 'N/A')
         company_name = company.get("tradeName") or company.get("companyName", "EMISOR")
+        brand_color  = company.get("colorMarca", "#1a365d")
         ecf_type = invoice.get('ecfType', 'Factura de Consumo Electrónica')
         date_str = invoice.get('date', '')[:10]
         total_str = f"$ {invoice.get('total', 0.0):.2f} {invoice.get('currency', 'DOP')}"
@@ -1997,7 +2001,7 @@ def send_invoice_email(owner_uid, invoice, recipient_email, sandbox=True, base_u
             <style>
                 body {{ font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f4f7f6; margin: 0; padding: 0; }}
                 .container {{ max-width: 600px; margin: 30px auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }}
-                .header {{ background-color: #1a365d; color: #ffffff; padding: 30px 40px; text-align: center; }}
+                .header {{ background-color: {brand_color}; color: #ffffff; padding: 30px 40px; text-align: center; }}
                 .header h1 {{ margin: 0; font-size: 24px; font-weight: 500; letter-spacing: 1px; }}
                 .content {{ padding: 40px; color: #333333; line-height: 1.6; }}
                 .greeting {{ font-size: 18px; margin-bottom: 20px; color: #2d3748; }}
@@ -4798,8 +4802,9 @@ def api_ai_draft_collection():
         amount = 0.00
         
     owner_uid = session['user']['ownerUID']
+    sender_name = session['user'].get('name', session['user'].get('email', 'Usuario'))
     from app.services.ai_service import AIService
-    message = AIService.draft_collection_message(owner_uid, client_name, amount, due_date, status, tone)
+    message = AIService.draft_collection_message(owner_uid, client_name, amount, due_date, status, tone, sender_name=sender_name)
     return jsonify({"success": True, "message": message})
 
 

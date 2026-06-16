@@ -44,10 +44,44 @@ def dashboard():
     active_count = sum(1 for c in companies if c.get('status', 'Activo') == 'Activo')
     suspended_count = sum(1 for c in companies if c.get('status') == 'Suspendido')
     
+    # New metrics
+    mrr = sum(float(c.get('monthlyPayment') or 0.0) for c in companies if c.get('status', 'Activo') == 'Activo')
+    
+    total_docs_prod = sum(c.get('stats', {}).get('prod_current_cycle', 0) for c in companies)
+    total_docs_sandbox = sum(c.get('stats', {}).get('sandbox_current_cycle', 0) for c in companies)
+    
+    # Calculate excess revenue
+    excess_revenue = 0.0
+    for c in companies:
+        if c.get('status', 'Activo') == 'Activo':
+            limit = int(c.get('documentLimit') or 0)
+            prod_docs = c.get('stats', {}).get('prod_current_cycle', 0)
+            if limit > 0 and prod_docs > limit:
+                excess = prod_docs - limit
+                cost = float(c.get('additionalDocumentCost') or 0.0)
+                excess_revenue += (excess * cost)
+                
+    total_db_clients = sum(c.get('stats', {}).get('db_clients', 0) for c in companies)
+    total_db_products = sum(c.get('stats', {}).get('db_products', 0) for c in companies)
+    
+    # Top 5 clients
+    top_clients = sorted(
+        [c for c in companies if c.get('status', 'Activo') == 'Activo'], 
+        key=lambda x: x.get('stats', {}).get('prod_current_cycle', 0), 
+        reverse=True
+    )[:5]
+    
     stats = {
         'total_companies': len(companies),
         'active_companies': active_count,
-        'suspended_companies': suspended_count
+        'suspended_companies': suspended_count,
+        'mrr': round(mrr, 2),
+        'excess_revenue': round(excess_revenue, 2),
+        'total_docs_prod': total_docs_prod,
+        'total_docs_sandbox': total_docs_sandbox,
+        'total_db_clients': total_db_clients,
+        'total_db_products': total_db_products,
+        'top_clients': top_clients
     }
     return render_template('admin/dashboard.html', stats=stats, active_page='dashboard')
 
@@ -83,7 +117,7 @@ def new_company():
         )
 
         if success:
-            flash(f'Usuario propietario "{name}" registrado exitosamente. La configuración de la empresa iniciará cuando acceda por primera vez.', 'success')
+            flash(f'Usuario propietario "{name}" registrado exitosamente. La configuración de su cuenta iniciará cuando acceda por primera vez.', 'success')
             return redirect(url_for('clientes'))
         else:
             flash(f'Error al registrar el propietario: {msg_or_uid}', 'error')
@@ -95,7 +129,7 @@ def new_company():
 def client_detail(company_id):
     company = DatabaseService.get_company(company_id)
     if not company:
-        flash('Empresa no encontrada.', 'error')
+        flash('Cliente no encontrado.', 'error')
         return redirect(url_for('clientes'))
         
     plans = DatabaseService.get_all_plans()
@@ -234,7 +268,7 @@ def record_payment(company_id):
 def client_azul_payment(company_id):
     company = DatabaseService.get_company(company_id)
     if not company:
-        flash('Empresa no encontrada.', 'error')
+        flash('Cliente no encontrado.', 'error')
         return redirect(url_for('clientes'))
         
     amount = float(request.form.get('amount', 0) or company.get('monthlyPayment', 0))

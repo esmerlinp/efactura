@@ -61,12 +61,14 @@
             </div>
 
             <!-- Notas del Contrato -->
-            {% if contract.notes %}
             <div style="margin-bottom: 30px;">
                 <h4 style="font-size: 0.88rem; font-weight: 700; text-transform: uppercase; color: var(--text-secondary); margin-bottom: 8px;">Términos, Notas o Acuerdos</h4>
-                <p style="font-size: 0.9rem; line-height: 1.6; color: var(--text-secondary); background: rgba(0,0,0,0.015); border: 1px solid var(--border-color); padding: 16px; border-radius: var(--radius-sm); margin: 0; white-space: pre-wrap;">{{ contract.notes }}</p>
+                {% if contract.get('notes') %}
+                <p style="font-size: 0.9rem; line-height: 1.6; color: var(--text-secondary); background: rgba(0,0,0,0.015); border: 1px solid var(--border-color); padding: 16px; border-radius: var(--radius-sm); margin: 0; white-space: pre-wrap;">{{ contract.get('notes') }}</p>
+                {% else %}
+                <p style="font-size: 0.9rem; line-height: 1.6; color: var(--text-muted); font-style: italic; background: rgba(0,0,0,0.015); border: 1px solid var(--border-color); padding: 16px; border-radius: var(--radius-sm); margin: 0;">No se especificaron términos comerciales ni notas internas para este contrato.</p>
+                {% endif %}
             </div>
-            {% endif %}
 
         </div>
 
