@@ -128,28 +128,34 @@ class PortalDbService:
             print(f"Error en PortalDbService.save_invoice: {e}")
         return False
 
-@portal_bp.route('/portal/cliente/<client_id>')
-def client_portal_legacy(client_id):
-    # Por defecto buscar en el ownerUID demo si no se especifica
-    # (Retrocompatibilidad para links rápidos con client_id de un único dueño)
-    owner_uid = "W2n2BfR1G4eN3K7m7n8b9v0c1x2z" # ownerUID por defecto
-    return redirect(url_for('portal.client_portal', owner_uid=owner_uid, client_id=client_id))
-
-def clean_rnc(rnc_str):
-    if not rnc_str:
-        return ""
-    return "".join(c for c in rnc_str if c.isalnum()).lower()
-
-@portal_bp.route('/portal/cliente/<owner_uid>/<client_id>')
-def client_portal(owner_uid, client_id):
-    sandbox = request.args.get('sandbox', 'true').lower() == 'true'
+@portal_bp.route('/portal/p/<token>')
+def portal_entry(token):
+    from app.utils.security import decode_portal_token
+    data = decode_portal_token(token)
+    if not data:
+        return "El enlace es inválido, ha expirado o ha sido modificado.", 403
     
+    session['portal_owner_uid'] = data['owner_uid']
+    session['portal_client_id'] = data['client_id']
+    session['portal_sandbox'] = data['sandbox']
+    
+    return redirect(url_for('portal.client_portal_main'))
+
+@portal_bp.route('/portal')
+def client_portal_main():
+    owner_uid = session.get('portal_owner_uid')
+    client_id = session.get('portal_client_id')
+    sandbox = session.get('portal_sandbox', True)
+    
+    if not owner_uid or not client_id:
+        return "Sesión de autogestión no válida o expirada. Por favor use el enlace oficial enviado a su correo.", 403
+        
     company = DatabaseService.get_company_profile(owner_uid)
     client = PortalDbService.get_client_by_id(owner_uid, client_id, sandbox=sandbox)
     if not client:
-        return "Cliente no encontrado en este ambiente.", 404
+        return "Cliente no encontrado.", 404
         
-    # Verificar identidad mediante RNC/Cédula
+    # Verificar identidad mediante RNC/Cédula y PIN
     session_key = f'verified_client_{client_id}'
     if session.get(session_key) != True:
         return render_template(
@@ -185,20 +191,25 @@ def client_portal(owner_uid, client_id):
         sandbox=sandbox
     )
 
-@portal_bp.route('/portal/cliente/<owner_uid>/<client_id>/verify', methods=['POST'])
-def client_portal_verify(owner_uid, client_id):
-    sandbox = request.args.get('sandbox', 'true').lower() == 'true'
+@portal_bp.route('/portal/verify', methods=['POST'])
+def client_portal_verify_main():
+    owner_uid = session.get('portal_owner_uid')
+    client_id = session.get('portal_client_id')
+    sandbox = session.get('portal_sandbox', True)
+    
+    if not owner_uid or not client_id:
+        return "Sesión de autogestión no válida o expirada.", 403
+        
     input_rnc = request.form.get('rnc', '').strip()
     input_pin = request.form.get('accessPin', '').strip()
     
     company = DatabaseService.get_company_profile(owner_uid)
     client = PortalDbService.get_client_by_id(owner_uid, client_id, sandbox=sandbox)
     if not client:
-        return "Cliente no encontrado en este ambiente.", 404
+        return "Cliente no encontrado.", 404
         
     db_pin = client.get('accessPin', '')
     if not db_pin:
-        # Generar un código por defecto si es un cliente legado sin clave
         import random
         db_pin = "".join([str(random.randint(0, 9)) for _ in range(6)])
         client['accessPin'] = db_pin
@@ -206,7 +217,7 @@ def client_portal_verify(owner_uid, client_id):
         
     if clean_rnc(input_rnc) == clean_rnc(client.get('rnc', '')) and input_pin == db_pin:
         session[f'verified_client_{client_id}'] = True
-        return redirect(url_for('portal.client_portal', owner_uid=owner_uid, client_id=client_id, sandbox='true' if sandbox else 'false'))
+        return redirect(url_for('portal.client_portal_main'))
     else:
         error = "El RNC/Cédula o el Código de Acceso ingresado es incorrecto. Por favor, intente de nuevo."
         return render_template(
@@ -217,6 +228,33 @@ def client_portal_verify(owner_uid, client_id):
             sandbox=sandbox,
             error=error
         )
+
+@portal_bp.route('/portal/cliente/<client_id>')
+def client_portal_legacy(client_id):
+    owner_uid = "W2n2BfR1G4eN3K7m7n8b9v0c1x2z" # ownerUID por defecto
+    return redirect(url_for('portal.client_portal', owner_uid=owner_uid, client_id=client_id))
+
+def clean_rnc(rnc_str):
+    if not rnc_str:
+        return ""
+    return "".join(c for c in rnc_str if c.isalnum()).lower()
+
+@portal_bp.route('/portal/cliente/<owner_uid>/<client_id>')
+def client_portal(owner_uid, client_id):
+    sandbox = request.args.get('sandbox', 'true').lower() == 'true'
+    session['portal_owner_uid'] = owner_uid
+    session['portal_client_id'] = client_id
+    session['portal_sandbox'] = sandbox
+    return redirect(url_for('portal.client_portal_main'))
+
+@portal_bp.route('/portal/cliente/<owner_uid>/<client_id>/verify', methods=['POST'])
+def client_portal_verify(owner_uid, client_id):
+    sandbox = request.args.get('sandbox', 'true').lower() == 'true'
+    session['portal_owner_uid'] = owner_uid
+    session['portal_client_id'] = client_id
+    session['portal_sandbox'] = sandbox
+    return redirect(url_for('portal.client_portal_verify_main'), code=307)
+
 
 def validate_certificate_signature(cert_file, password, client_rnc):
     try:
@@ -297,9 +335,13 @@ def validate_certificate_signature(cert_file, password, client_rnc):
     except Exception as e:
         return False, f"Error al procesar el certificado digital: {str(e)}"
 
-@portal_bp.route('/portal/cliente/<owner_uid>/<client_id>/cotizacion/<invoice_id>/firmar', methods=['POST'])
-def sign_quotation(owner_uid, client_id, invoice_id):
-    sandbox = request.args.get('sandbox', 'true').lower() == 'true'
+@portal_bp.route('/portal/cotizacion/<invoice_id>/firmar', methods=['POST'])
+def sign_quotation(invoice_id):
+    owner_uid = session.get('portal_owner_uid')
+    client_id = session.get('portal_client_id')
+    sandbox = session.get('portal_sandbox', True)
+    if not owner_uid or not client_id:
+        return jsonify({"success": False, "error": "Sesión no válida o expirada."}), 403
     
     # Validar sesión de cliente
     session_key = f'verified_client_{client_id}'
@@ -346,9 +388,13 @@ def sign_quotation(owner_uid, client_id, invoice_id):
 
     return jsonify({"success": True, "message": "Propuesta firmada y aprobada digitalmente de forma exitosa."})
 
-@portal_bp.route('/portal/cliente/<owner_uid>/<client_id>/contrato/<contract_id>/firmar', methods=['POST'])
-def sign_contract(owner_uid, client_id, contract_id):
-    sandbox = request.args.get('sandbox', 'true').lower() == 'true'
+@portal_bp.route('/portal/contrato/<contract_id>/firmar', methods=['POST'])
+def sign_contract(contract_id):
+    owner_uid = session.get('portal_owner_uid')
+    client_id = session.get('portal_client_id')
+    sandbox = session.get('portal_sandbox', True)
+    if not owner_uid or not client_id:
+        return jsonify({"success": False, "error": "Sesión no válida o expirada."}), 403
     
     # Validar sesión de cliente
     session_key = f'verified_client_{client_id}'
@@ -395,9 +441,13 @@ def sign_contract(owner_uid, client_id, contract_id):
 
     return jsonify({"success": True, "message": "Contrato firmado y activado digitalmente de forma exitosa."})
 
-@portal_bp.route('/portal/cliente/<owner_uid>/<client_id>/cotizacion/<invoice_id>/rechazar', methods=['POST'])
-def reject_quotation(owner_uid, client_id, invoice_id):
-    sandbox = request.args.get('sandbox', 'true').lower() == 'true'
+@portal_bp.route('/portal/cotizacion/<invoice_id>/rechazar', methods=['POST'])
+def reject_quotation(invoice_id):
+    owner_uid = session.get('portal_owner_uid')
+    client_id = session.get('portal_client_id')
+    sandbox = session.get('portal_sandbox', True)
+    if not owner_uid or not client_id:
+        return jsonify({"success": False, "error": "Sesión no válida o expirada."}), 403
 
     session_key = f'verified_client_{client_id}'
     if session.get(session_key) != True:
@@ -432,9 +482,13 @@ def reject_quotation(owner_uid, client_id, invoice_id):
     return jsonify({"success": True, "message": "Cotización rechazada. Hemos notificado al equipo responsable."})
 
 
-@portal_bp.route('/portal/cliente/<owner_uid>/<client_id>/contrato/<contract_id>/rechazar', methods=['POST'])
-def reject_contract(owner_uid, client_id, contract_id):
-    sandbox = request.args.get('sandbox', 'true').lower() == 'true'
+@portal_bp.route('/portal/contrato/<contract_id>/rechazar', methods=['POST'])
+def reject_contract(contract_id):
+    owner_uid = session.get('portal_owner_uid')
+    client_id = session.get('portal_client_id')
+    sandbox = session.get('portal_sandbox', True)
+    if not owner_uid or not client_id:
+        return jsonify({"success": False, "error": "Sesión no válida o expirada."}), 403
 
     session_key = f'verified_client_{client_id}'
     if session.get(session_key) != True:
@@ -580,13 +634,17 @@ def _notify_portal_action(owner_uid, action, document_type, document_number, cli
         print(f"⚠️ [Portal Notification] Error al notificar: {e}")
 
 
-@portal_bp.route('/portal/cliente/<owner_uid>/<client_id>/contrato/<contract_id>/cancelar', methods=['POST'])
-def cancel_contract(owner_uid, client_id, contract_id):
+@portal_bp.route('/portal/contrato/<contract_id>/cancelar', methods=['POST'])
+def cancel_contract(contract_id):
     """
     Permite al cliente cancelar (no renovar) un contrato activo usando firma electrónica.
     El servicio sigue activo hasta que el periodo pagado expire. Solo se deja de renovar.
     """
-    sandbox = request.args.get('sandbox', 'true').lower() == 'true'
+    owner_uid = session.get('portal_owner_uid')
+    client_id = session.get('portal_client_id')
+    sandbox = session.get('portal_sandbox', True)
+    if not owner_uid or not client_id:
+        return jsonify({"success": False, "error": "Sesión no válida o expirada."}), 403
 
     session_key = f'verified_client_{client_id}'
     if session.get(session_key) != True:
@@ -642,9 +700,14 @@ def cancel_contract(owner_uid, client_id, contract_id):
         "message": "Solicitud de cancelación registrada. Su servicio continuará activo hasta el final del período vigente y no será renovado automáticamente."
     })
 
-@portal_bp.route('/portal/cliente/<owner_uid>/<client_id>/pago/<invoice_id>', methods=['POST'])
-def pay_invoice(owner_uid, client_id, invoice_id):
-    sandbox = request.args.get('sandbox', 'true').lower() == 'true'
+@portal_bp.route('/portal/pago/<invoice_id>', methods=['POST'])
+def pay_invoice(invoice_id):
+    owner_uid = session.get('portal_owner_uid')
+    client_id = session.get('portal_client_id')
+    sandbox = session.get('portal_sandbox', True)
+    if not owner_uid or not client_id:
+        return jsonify({"success": False, "error": "Sesión no válida o expirada."}), 403
+
     amount = float(request.json.get('amount', 0.0))
     
     if amount <= 0.0:
@@ -693,10 +756,14 @@ def pay_invoice(owner_uid, client_id, invoice_id):
     PortalDbService.save_invoice(owner_uid, invoice_id, invoice, sandbox=sandbox)
     return jsonify({"success": True, "message": "Pago simulado y procesado correctamente."})
 
-@portal_bp.route('/portal/cliente/<owner_uid>/<client_id>/pago/<invoice_id>/reportar', methods=['POST'])
-def report_invoice_payment(owner_uid, client_id, invoice_id):
+@portal_bp.route('/portal/pago/<invoice_id>/reportar', methods=['POST'])
+def report_invoice_payment(invoice_id):
     import os
-    sandbox = request.args.get('sandbox', 'true').lower() == 'true'
+    owner_uid = session.get('portal_owner_uid')
+    client_id = session.get('portal_client_id')
+    sandbox = session.get('portal_sandbox', True)
+    if not owner_uid or not client_id:
+        return jsonify({"success": False, "error": "Sesión no válida o expirada."}), 403
     
     # Validar sesión de cliente
     session_key = f'verified_client_{client_id}'
@@ -789,8 +856,8 @@ def report_invoice_payment(owner_uid, client_id, invoice_id):
     except Exception as e:
         return jsonify({"success": False, "error": f"Error al procesar el comprobante: {str(e)}"}), 500
 
-@portal_bp.route('/portal/cliente/<owner_uid>/<client_id>/pago/<invoice_id>/azul', methods=['GET', 'POST'])
-def pay_invoice_azul(owner_uid, client_id, invoice_id):
+@portal_bp.route('/portal/pago/<invoice_id>/azul', methods=['GET', 'POST'])
+def pay_invoice_azul(invoice_id):
     return "El pago con tarjeta de crédito/débito a través del simulador de Azul se encuentra inhabilitado temporalmente.", 403
 
 @portal_bp.route('/portal/azul/callback', methods=['GET', 'POST'])

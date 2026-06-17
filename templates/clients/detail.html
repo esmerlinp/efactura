@@ -688,7 +688,7 @@
                             </span>
                         </div>
                         <div style="display: flex; align-items: center; justify-content: flex-end; flex-shrink: 0;">
-                            <button id="copy-portal-btn" onclick="copyPortalLink('{{ request.url_root.rstrip('/') }}{{ url_for('portal.client_portal', owner_uid=client.ownerUID or session['user']['ownerUID'], client_id=client.id, sandbox='true' if session.get('is_sandbox_mode', True) else 'false') }}')" 
+                            <button id="copy-portal-btn" onclick="copyPortalLink('{{ portal_url }}')" 
                                     class="btn btn-secondary" style="padding: 0 12px; font-size: 0.8rem; height: 32px; display: inline-flex; align-items: center; gap: 4px; border-color: var(--accent-emerald); color: var(--accent-emerald);">
                                 <i class="fa-solid fa-copy"></i>
                                 <span>Copiar Enlace</span>
@@ -712,7 +712,7 @@
                         <span style="font-size: 0.8rem; color: var(--text-secondary); line-height: 1.4; max-width: 60%;">
                             Ingresa directamente al portal de este cliente para visualizar sus facturas, cotizaciones firmadas y estado de cuenta tal como él lo vería.
                         </span>
-                        <a href="{{ url_for('portal.client_portal', owner_uid=client.ownerUID or session['user']['ownerUID'], client_id=client.id, sandbox='true' if session.get('is_sandbox_mode', True) else 'false') }}" target="_blank" 
+                        <a href="{{ portal_url }}" target="_blank" 
                            class="btn btn-primary" style="padding: 0 14px; font-size: 0.8rem; height: 32px; display: inline-flex; align-items: center; gap: 6px;">
                             <i class="fa-solid fa-arrow-up-right-from-square"></i>
                             <span>Ver Portal</span>
