@@ -440,4 +440,19 @@ def create_app():
     app.register_blueprint(portal_bp)
     app.register_blueprint(web_audit_bp)
 
+    # =========================================================================
+    # APScheduler — Facturación automática diaria de contratos recurrentes
+    # Se activa solo si no estamos en el proceso secundario del reloader de Flask
+    # =========================================================================
+    import os
+    if not app.debug or os.environ.get('WERKZEUG_RUN_MAIN') == 'true':
+        try:
+            from app.services.scheduler import init_scheduler
+            init_scheduler(app)
+        except Exception as _sched_err:
+            import logging
+            logging.getLogger(__name__).warning(
+                f"⚠️ APScheduler no pudo inicializarse: {_sched_err}"
+            )
+
     return app

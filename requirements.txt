@@ -10,3 +10,4 @@ gunicorn==22.0.0
 weasyprint
 pypdf
 pyotp==2.9.0
+apscheduler>=3.9.1

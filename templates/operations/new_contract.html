@@ -1,0 +1,551 @@
+{% extends "layout.html" %}
+
+{% block title %}Registrar Contrato Recurrente{% endblock %}
+{% block page_header %}Registrar Contrato Recurrente{% endblock %}
+
+{% block content %}
+<style>
+    .field-label {
+        display: block;
+        font-size: 0.83rem;
+        font-weight: 600;
+        margin-bottom: 6px;
+        color: var(--text-secondary);
+        letter-spacing: 0.01em;
+    }
+    .field-input {
+        width: 100%;
+        border-radius: var(--radius-sm);
+        border: 1px solid #e2e8f0;
+        background-color: #ffffff;
+        color: var(--text-primary);
+        padding: 10px 14px;
+        height: 44px;
+        box-sizing: border-box;
+        font-size: 0.9rem;
+        font-family: var(--font-body);
+        transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        outline: none;
+    }
+    .field-input:focus {
+        border-color: var(--accent-emerald);
+        box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.08);
+    }
+    textarea.field-input { height: auto; resize: vertical; }
+    .section-card {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: var(--radius-md);
+        padding: 28px 32px;
+        margin-bottom: 20px;
+    }
+    .section-title {
+        font-size: 0.78rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--text-muted);
+        margin-bottom: 20px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid #f1f5f9;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .section-title i { color: var(--accent-emerald); font-size: 0.85rem; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
+    .toggle-option {
+        display: flex; align-items: center; gap: 14px;
+        padding: 16px 18px; border: 1px solid #e2e8f0;
+        border-radius: var(--radius-sm); background: #f8fafc;
+        cursor: pointer; transition: border-color 0.2s, background 0.2s;
+    }
+    .toggle-option:hover { border-color: var(--accent-emerald); background: rgba(30,58,138,0.02); }
+    .toggle-option input[type="checkbox"] {
+        width: 18px; height: 18px; accent-color: var(--accent-emerald);
+        cursor: pointer; flex-shrink: 0;
+    }
+    .toggle-label { font-size: 0.88rem; font-weight: 600; color: var(--text-primary); margin: 0; cursor: pointer; }
+    .toggle-desc { font-size: 0.77rem; color: var(--text-muted); margin-top: 2px; }
+
+    /* ── Searchable Select ─────────────────────────── */
+    .searchable-wrapper { position: relative; width: 100%; }
+    .searchable-input {
+        width: 100%; height: 44px; padding: 10px 36px 10px 14px;
+        border: 1px solid #e2e8f0; border-radius: var(--radius-sm);
+        background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='M21 21l-4.35-4.35'/%3E%3C/svg%3E") no-repeat right 12px center;
+        font-size: 0.9rem; font-family: var(--font-body); color: var(--text-primary);
+        box-sizing: border-box; cursor: text;
+        transition: border-color 0.2s, box-shadow 0.2s; outline: none;
+    }
+    .searchable-input:focus { border-color: var(--accent-emerald); box-shadow: 0 0 0 3px rgba(30,58,138,0.08); }
+    .searchable-input.has-value { background-image: none; padding-right: 14px; }
+    .searchable-dropdown {
+        display: none; position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+        background: #fff; border: 1px solid #e2e8f0; border-radius: var(--radius-sm);
+        box-shadow: 0 8px 24px rgba(0,0,0,0.10); z-index: 200;
+        max-height: 220px; overflow-y: auto;
+    }
+    .searchable-dropdown.open { display: block; }
+    .sd-option {
+        padding: 10px 14px; cursor: pointer; font-size: 0.875rem;
+        color: var(--text-primary); border-bottom: 1px solid #f8fafc;
+        transition: background 0.12s;
+    }
+    .sd-option:last-child { border-bottom: none; }
+    .sd-option:hover, .sd-option.active { background: rgba(30,58,138,0.06); }
+    .sd-option .sd-sub { font-size: 0.75rem; color: var(--text-muted); margin-top: 2px; }
+    .sd-empty { padding: 14px; text-align: center; color: var(--text-muted); font-size: 0.85rem; }
+
+    /* ── Lines Table ─────────────────────────────────── */
+    .lines-table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
+    .lines-table th {
+        text-align: left; padding: 8px 10px; font-size: 0.72rem;
+        text-transform: uppercase; letter-spacing: 0.06em;
+        color: var(--text-muted); font-weight: 600;
+        border-bottom: 2px solid #e2e8f0; white-space: nowrap;
+    }
+    .lines-table td { padding: 8px 6px; vertical-align: middle; }
+    .lines-table tr:not(:last-child) td { border-bottom: 1px solid #f1f5f9; }
+    .line-num-input {
+        width: 100%; height: 38px; padding: 6px 10px;
+        border: 1px solid #e2e8f0; border-radius: 6px;
+        background: #fff; font-size: 0.875rem;
+        text-align: right; font-family: var(--font-body);
+        color: var(--text-primary); outline: none;
+        transition: border-color 0.15s;
+    }
+    .line-num-input:focus { border-color: var(--accent-emerald); }
+    .line-calculated {
+        text-align: right; font-weight: 600;
+        color: var(--text-primary); padding: 0 8px;
+        white-space: nowrap; min-width: 90px;
+    }
+    .btn-remove-line {
+        background: none; border: none; cursor: pointer;
+        color: #cbd5e1; padding: 4px 6px; border-radius: 4px;
+        font-size: 0.85rem; transition: color 0.15s;
+    }
+    .btn-remove-line:hover { color: var(--accent-red); }
+    .totals-row td { font-weight: 600; padding-top: 10px; }
+    .grand-total { font-size: 1.05rem; color: var(--accent-emerald); }
+    @media (max-width: 768px) {
+        .grid-2, .grid-3 { grid-template-columns: 1fr; }
+    }
+</style>
+
+<!-- JSON data for JS -->
+<script>
+    const CLIENTS_DATA = {{ clients | tojson }};
+    const ITEMS_DATA   = {{ items | tojson }};
+</script>
+
+<div style="max-width: 920px; margin: 0 auto;">
+
+    <!-- Breadcrumb -->
+    <div style="display:flex;align-items:center;gap:8px;font-size:0.82rem;color:var(--text-muted);margin-bottom:24px;">
+        <a href="{{ url_for('web_operations.list_contracts') }}" style="color:var(--accent-emerald);text-decoration:none;font-weight:500;">
+            <i class="fa-solid fa-file-signature" style="margin-right:4px;"></i>Contratos Recurrentes
+        </a>
+        <i class="fa-solid fa-chevron-right" style="font-size:0.65rem;"></i>
+        <span>Nuevo Contrato</span>
+    </div>
+
+    <form action="{{ url_for('web_operations.list_contracts') }}" method="POST" id="contract-form">
+        <input type="hidden" name="id" value="">
+
+        <!-- Sección 1: Identificación -->
+        <div class="section-card">
+            <div class="section-title"><i class="fa-solid fa-tag"></i> Identificación del Contrato</div>
+            <div class="grid-2">
+                <div>
+                    <label class="field-label" for="contractNumber">Código o Nro. del Contrato</label>
+                    <input type="text" id="contractNumber" name="contractNumber" class="field-input"
+                        placeholder="Se genera automáticamente si lo dejas vacío">
+                </div>
+                <div>
+                    <label class="field-label" for="contractStatus">Estado Inicial</label>
+                    <select id="contractStatus" name="status" class="field-input" required>
+                        <option value="Borrador">Borrador</option>
+                        <option value="Pendiente de Aprobación">Pendiente de Aprobación</option>
+                        <option value="Activo" selected>Activo</option>
+                        <option value="Suspendido">Suspendido</option>
+                        <option value="Cancelado">Cancelado</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sección 2: Cliente (searchable) -->
+        <div class="section-card">
+            <div class="section-title"><i class="fa-solid fa-building-user"></i> Cliente Asignado</div>
+            <div>
+                <label class="field-label">Cliente del CRM <span style="color:var(--accent-red);">*</span></label>
+                <input type="hidden" id="clientId" name="clientId" required>
+                <div class="searchable-wrapper">
+                    <input type="text" class="searchable-input" id="clientSearch"
+                        placeholder="Buscar por nombre o RNC..." autocomplete="off">
+                    <div class="searchable-dropdown" id="clientDropdown"></div>
+                </div>
+                <small style="color:var(--text-muted);font-size:0.77rem;margin-top:6px;display:block;">
+                    <i class="fa-solid fa-magnifying-glass" style="margin-right:4px;"></i>Escribe el nombre del cliente o su RNC/Cédula para filtrar.
+                </small>
+            </div>
+        </div>
+
+        <!-- Sección 3: Líneas del Contrato (Fase 2) -->
+        <div class="section-card">
+            <div class="section-title"><i class="fa-solid fa-list-check"></i> Servicios / Productos del Contrato</div>
+
+            <div style="overflow-x:auto;">
+                <table class="lines-table" id="lines-table">
+                    <thead>
+                        <tr>
+                            <th style="min-width:240px;">Ítem del Catálogo</th>
+                            <th style="width:70px;text-align:right;">Cant.</th>
+                            <th style="width:120px;text-align:right;">Precio Unit.</th>
+                            <th style="width:80px;text-align:right;">ITBIS%</th>
+                            <th style="width:110px;text-align:right;">Total</th>
+                            <th style="width:36px;"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="lines-body">
+                        <!-- Rows injected by JS -->
+                    </tbody>
+                    <tfoot>
+                        <tr style="border-top: 2px solid #e2e8f0;">
+                            <td colspan="4" style="padding-top:12px;text-align:right;font-size:0.82rem;color:var(--text-muted);">Subtotal (sin ITBIS)</td>
+                            <td class="line-calculated" id="sum-subtotal">RD$ 0.00</td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td colspan="4" style="text-align:right;font-size:0.82rem;color:var(--text-muted);">ITBIS</td>
+                            <td class="line-calculated" id="sum-itbis">RD$ 0.00</td>
+                            <td></td>
+                        </tr>
+                        <tr class="totals-row">
+                            <td colspan="4" style="text-align:right;font-size:0.9rem;">Total del Contrato</td>
+                            <td class="line-calculated grand-total" id="sum-total">RD$ 0.00</td>
+                            <td></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+
+            <input type="hidden" id="amount" name="amount" value="0">
+
+            <button type="button" id="btn-add-line"
+                style="margin-top:16px;display:inline-flex;align-items:center;gap:8px;padding:8px 18px;border:1.5px dashed #94a3b8;border-radius:var(--radius-sm);background:transparent;color:var(--text-secondary);font-size:0.85rem;font-weight:600;cursor:pointer;transition:all 0.15s;"
+                onmouseover="this.style.borderColor='var(--accent-emerald)';this.style.color='var(--accent-emerald)';"
+                onmouseout="this.style.borderColor='#94a3b8';this.style.color='var(--text-secondary)';">
+                <i class="fa-solid fa-plus"></i> Agregar línea
+            </button>
+        </div>
+
+        <!-- Sección 4: Frecuencia -->
+        <div class="section-card">
+            <div class="section-title"><i class="fa-solid fa-rotate"></i> Frecuencia de Facturación</div>
+            <div>
+                <label class="field-label" for="recurrenceInterval">Periodicidad <span style="color:var(--accent-red);">*</span></label>
+                <select id="recurrenceInterval" name="recurrenceInterval" class="field-input" required>
+                    <option value="semanal">Semanal (cada 7 días)</option>
+                    <option value="quincenal">Quincenal (cada 15 días)</option>
+                    <option value="mensual" selected>Mensual (cada 30 días)</option>
+                    <option value="trimestral">Trimestral (cada 3 meses)</option>
+                    <option value="semestral">Semestral (cada 6 meses)</option>
+                    <option value="anual">Anual (cada 365 días)</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Sección 5: Vigencia -->
+        <div class="section-card">
+            <div class="section-title"><i class="fa-solid fa-calendar-days"></i> Vigencia y Programación</div>
+            <div class="grid-3">
+                <div>
+                    <label class="field-label" for="startDate">Fecha de Inicio <span style="color:var(--accent-red);">*</span></label>
+                    <input type="date" id="startDate" name="startDate" class="field-input" required>
+                </div>
+                <div>
+                    <label class="field-label" for="nextBillingDate">Primera / Próxima Factura <span style="color:var(--accent-red);">*</span></label>
+                    <input type="date" id="nextBillingDate" name="nextBillingDate" class="field-input" required>
+                </div>
+                <div>
+                    <label class="field-label" for="endDate">Fecha de Vencimiento <small style="color:var(--text-muted);font-weight:400;">(opcional)</small></label>
+                    <input type="date" id="endDate" name="endDate" class="field-input">
+                </div>
+            </div>
+        </div>
+
+        <!-- Sección 6: Notas -->
+        <div class="section-card">
+            <div class="section-title"><i class="fa-solid fa-file-lines"></i> Términos y Notas Comerciales</div>
+            <textarea id="notes" name="notes" class="field-input" rows="4"
+                placeholder="Ej: Iguala mensual de soporte técnico. Incluye: respuesta en menos de 4 horas, actualizaciones de software y backup semanal..."></textarea>
+        </div>
+
+        <!-- Sección 7: Automatizaciones -->
+        <div class="section-card">
+            <div class="section-title"><i class="fa-solid fa-robot"></i> Automatizaciones</div>
+            <div style="display:flex;flex-direction:column;gap:12px;">
+                <label class="toggle-option">
+                    <input type="checkbox" id="autoSendEmail" name="autoSendEmail">
+                    <div>
+                        <div class="toggle-label"><i class="fa-solid fa-paper-plane" style="color:var(--accent-emerald);margin-right:6px;"></i>Enviar factura al cliente automáticamente por email</div>
+                        <div class="toggle-desc">Si el cliente tiene email registrado en el CRM, se le enviará la factura en el momento en que se genere cada cobro.</div>
+                    </div>
+                </label>
+                <label class="toggle-option">
+                    <input type="checkbox" id="autoRenew" name="autoRenew">
+                    <div>
+                        <div class="toggle-label"><i class="fa-solid fa-rotate" style="color:var(--accent-emerald);margin-right:6px;"></i>Renovar contrato automáticamente al vencer</div>
+                        <div class="toggle-desc">Al alcanzar la Fecha de Vencimiento, el sistema extenderá la vigencia por el mismo período en lugar de marcarlo como Expirado.</div>
+                    </div>
+                </label>
+            </div>
+        </div>
+
+        <!-- Botones -->
+        <div style="display:flex;justify-content:flex-end;gap:12px;margin-top:8px;padding-bottom:32px;">
+            <a href="{{ url_for('web_operations.list_contracts') }}" class="btn btn-secondary" style="padding:11px 24px;">
+                <i class="fa-solid fa-arrow-left" style="margin-right:6px;"></i>Cancelar
+            </a>
+            <button type="submit" class="btn btn-primary" style="padding:11px 28px;font-weight:700;">
+                <i class="fa-solid fa-floppy-disk" style="margin-right:6px;"></i>Guardar Contrato
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+// ─── Searchable Select helper ─────────────────────────────────────────────────
+function initSearchable(inputId, dropdownId, hiddenId, data, labelFn, subFn, valueFn, filterFn) {
+    const input    = document.getElementById(inputId);
+    const dropdown = document.getElementById(dropdownId);
+    const hidden   = document.getElementById(hiddenId);
+
+    function render(query) {
+        const q = query.toLowerCase().trim();
+        const filtered = q
+            ? data.filter(item => filterFn(item, q))
+            : data;
+        dropdown.innerHTML = '';
+        if (!filtered.length) {
+            dropdown.innerHTML = '<div class="sd-empty">No se encontraron resultados</div>';
+        } else {
+            filtered.slice(0, 60).forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'sd-option';
+                div.innerHTML = `<div>${labelFn(item)}</div><div class="sd-sub">${subFn(item)}</div>`;
+                div.addEventListener('mousedown', e => {
+                    e.preventDefault();
+                    input.value = labelFn(item);
+                    input.classList.add('has-value');
+                    hidden.value = valueFn(item);
+                    dropdown.classList.remove('open');
+                });
+                dropdown.appendChild(div);
+            });
+        }
+        dropdown.classList.add('open');
+    }
+
+    input.addEventListener('input', () => render(input.value));
+    input.addEventListener('focus', () => render(input.value));
+    input.addEventListener('blur', () => setTimeout(() => dropdown.classList.remove('open'), 150));
+}
+
+// Client searchable
+initSearchable(
+    'clientSearch', 'clientDropdown', 'clientId',
+    CLIENTS_DATA,
+    c => c.razonSocial,
+    c => `RNC/Cédula: ${c.rnc}`,
+    c => c.id,
+    (c, q) => c.razonSocial.toLowerCase().includes(q) || (c.rnc || '').replace(/-/g,'').includes(q.replace(/-/g,''))
+);
+
+// ─── Contract Lines (Phase 2) ─────────────────────────────────────────────────
+let lineCount = 0;
+
+function fmt(n) {
+    return 'RD$ ' + parseFloat(n || 0).toLocaleString('es-DO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function recalcLine(idx) {
+    const qty   = parseFloat(document.getElementById(`lineQty_${idx}`).value) || 0;
+    const price = parseFloat(document.getElementById(`linePrice_${idx}`).value) || 0;
+    const rate  = parseFloat(document.getElementById(`lineItbisRate_${idx}`).value) || 0;
+    const sub   = qty * price;
+    const itbis = sub * (rate / 100);
+    const tot   = sub + itbis;
+    document.getElementById(`lineSubtotal_${idx}`).value = sub.toFixed(2);
+    document.getElementById(`lineTotal_${idx}`).value    = tot.toFixed(2);
+    document.getElementById(`lineDisplay_${idx}`).textContent = fmt(tot);
+    recalcTotals();
+}
+
+function recalcTotals() {
+    let totalSub = 0, totalItbis = 0, totalAmt = 0;
+    document.querySelectorAll('.line-row').forEach(row => {
+        const idx  = row.dataset.idx;
+        const qty   = parseFloat(document.getElementById(`lineQty_${idx}`).value) || 0;
+        const price = parseFloat(document.getElementById(`linePrice_${idx}`).value) || 0;
+        const rate  = parseFloat(document.getElementById(`lineItbisRate_${idx}`).value) || 0;
+        const sub   = qty * price;
+        const itbis = sub * (rate / 100);
+        totalSub   += sub;
+        totalItbis += itbis;
+        totalAmt   += sub + itbis;
+    });
+    document.getElementById('sum-subtotal').textContent = fmt(totalSub);
+    document.getElementById('sum-itbis').textContent    = fmt(totalItbis);
+    document.getElementById('sum-total').textContent    = fmt(totalAmt);
+    document.getElementById('amount').value             = totalAmt.toFixed(2);
+}
+
+function buildItemOptions(currentVal) {
+    return ITEMS_DATA.map(it =>
+        `<option value="${it.id}" data-price="${it.price}" data-rate="${(it.itbisRate||0.18)*100}" data-name="${it.name}" data-code="${it.code||''}"
+            ${it.id === currentVal ? 'selected' : ''}>
+            ${it.name}${it.code ? ' ['+it.code+']' : ''} — RD$ ${parseFloat(it.price).toLocaleString('es-DO',{minimumFractionDigits:2})}
+        </option>`
+    ).join('');
+}
+
+// Row-level item search
+function initLineItemSearch(idx) {
+    const searchInput = document.getElementById(`lineItemSearch_${idx}`);
+    const dropdown    = document.getElementById(`lineItemDropdown_${idx}`);
+    const hiddenName  = document.getElementById(`lineName_${idx}`);
+    const hiddenItemId = document.getElementById(`lineItemId_${idx}`);
+    const hiddenCode  = document.getElementById(`lineCode_${idx}`);
+
+    function render(q) {
+        q = q.toLowerCase().trim();
+        const filtered = q
+            ? ITEMS_DATA.filter(it => it.name.toLowerCase().includes(q) || (it.code||'').toLowerCase().includes(q))
+            : ITEMS_DATA;
+        dropdown.innerHTML = '';
+        if (!filtered.length) {
+            dropdown.innerHTML = '<div class="sd-empty">No se encontraron ítems</div>';
+        } else {
+            filtered.slice(0, 50).forEach(it => {
+                const div = document.createElement('div');
+                div.className = 'sd-option';
+                div.innerHTML = `<div>${it.name}</div><div class="sd-sub">Código: ${it.code||'—'} &nbsp;|&nbsp; RD$ ${parseFloat(it.price).toLocaleString('es-DO',{minimumFractionDigits:2})} &nbsp;|&nbsp; ITBIS: ${Math.round((it.itbisRate||0.18)*100)}%</div>`;
+                div.addEventListener('mousedown', e => {
+                    e.preventDefault();
+                    searchInput.value = it.name + (it.code ? ' ['+it.code+']' : '');
+                    hiddenItemId.value = it.id;
+                    hiddenName.value   = it.name;
+                    hiddenCode.value   = it.code || '';
+                    document.getElementById(`linePrice_${idx}`).value    = parseFloat(it.price).toFixed(2);
+                    document.getElementById(`lineItbisRate_${idx}`).value = Math.round((it.itbisRate||0.18)*100);
+                    dropdown.classList.remove('open');
+                    recalcLine(idx);
+                });
+                dropdown.appendChild(div);
+            });
+        }
+        dropdown.classList.add('open');
+    }
+
+    searchInput.addEventListener('input',  () => render(searchInput.value));
+    searchInput.addEventListener('focus',  () => render(searchInput.value));
+    searchInput.addEventListener('blur',   () => setTimeout(() => dropdown.classList.remove('open'), 150));
+}
+
+function addLine(preset) {
+    const idx = lineCount++;
+    const tbody = document.getElementById('lines-body');
+    const tr = document.createElement('tr');
+    tr.className = 'line-row';
+    tr.dataset.idx = idx;
+    tr.innerHTML = `
+        <td style="min-width:240px;">
+            <div class="searchable-wrapper">
+                <input type="text" id="lineItemSearch_${idx}" class="searchable-input" placeholder="Buscar ítem o código..." autocomplete="off">
+                <div class="searchable-dropdown" id="lineItemDropdown_${idx}"></div>
+            </div>
+            <input type="hidden" name="lineItemId"    id="lineItemId_${idx}" value="${preset?.id||''}">
+            <input type="hidden" name="lineName"      id="lineName_${idx}"   value="${preset?.name||''}">
+            <input type="hidden" name="lineCode"      id="lineCode_${idx}"   value="${preset?.code||''}">
+            <input type="hidden" name="lineSubtotal"  id="lineSubtotal_${idx}" value="0">
+            <input type="hidden" name="lineTotal"     id="lineTotal_${idx}"   value="0">
+        </td>
+        <td style="width:70px;">
+            <input type="number" id="lineQty_${idx}" name="lineQty"
+                class="line-num-input" value="1" min="1" step="1"
+                oninput="recalcLine(${idx})">
+        </td>
+        <td style="width:120px;">
+            <input type="number" id="linePrice_${idx}" name="linePrice"
+                class="line-num-input" value="${preset?.price||''}" min="0" step="0.01" placeholder="0.00"
+                oninput="recalcLine(${idx})">
+        </td>
+        <td style="width:80px;">
+            <input type="number" id="lineItbisRate_${idx}" name="lineItbisRate"
+                class="line-num-input" value="${preset?.rate||18}" min="0" max="100" step="1" placeholder="18"
+                oninput="recalcLine(${idx})">
+        </td>
+        <td style="width:110px;" class="line-calculated">
+            <span id="lineDisplay_${idx}">RD$ 0.00</span>
+        </td>
+        <td style="width:36px;text-align:center;">
+            <button type="button" class="btn-remove-line" onclick="removeLine(this)" title="Eliminar línea">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </td>`;
+    tbody.appendChild(tr);
+    initLineItemSearch(idx);
+    if (preset) {
+        document.getElementById(`lineItemSearch_${idx}`).value = preset.name + (preset.code ? ' ['+preset.code+']' : '');
+        document.getElementById(`linePrice_${idx}`).value = parseFloat(preset.price||0).toFixed(2);
+        recalcLine(idx);
+    }
+}
+
+function removeLine(btn) {
+    btn.closest('tr').remove();
+    recalcTotals();
+}
+
+document.getElementById('btn-add-line').addEventListener('click', () => addLine(null));
+
+// Form validation
+document.getElementById('contract-form').addEventListener('submit', function(e) {
+    const clientId = document.getElementById('clientId').value;
+    if (!clientId) {
+        e.preventDefault();
+        document.getElementById('clientSearch').focus();
+        document.getElementById('clientSearch').style.borderColor = 'var(--accent-red)';
+        alert('Por favor selecciona un cliente del CRM.');
+        return;
+    }
+    const lines = document.querySelectorAll('.line-row');
+    if (lines.length === 0) {
+        e.preventDefault();
+        alert('Debes agregar al menos un producto o servicio al contrato.');
+        return;
+    }
+    let allItemsFilled = true;
+    lines.forEach(row => {
+        if (!document.getElementById(`lineItemId_${row.dataset.idx}`).value) {
+            allItemsFilled = false;
+        }
+    });
+    if (!allItemsFilled) {
+        e.preventDefault();
+        alert('Todas las líneas deben tener un ítem del catálogo seleccionado.');
+        return;
+    }
+});
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+document.getElementById('startDate').valueAsDate = new Date();
+document.getElementById('nextBillingDate').valueAsDate = new Date();
+addLine(null); // Start with one empty line
+</script>
+{% endblock %}

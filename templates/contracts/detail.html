@@ -20,14 +20,32 @@
             <!-- Header -->
             <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid var(--border-color); padding-bottom: 24px; margin-bottom: 24px;">
                 <div>
-                    <span class="badge {% if contract.status == 'Activo' %}badge-success{% else %}badge-secondary{% endif %}" style="font-size: 0.75rem; padding: 4px 10px; margin-bottom: 10px; display: inline-block;">
-                        {{ contract.status }}
+                    {% set s = contract.status %}
+                    <span style="font-size: 0.75rem; font-weight: 700; padding: 4px 12px; border-radius: 20px; margin-bottom: 10px; display: inline-block;
+                        {% if s == 'Activo' %}background: rgba(22,163,74,0.12); color: #16a34a;
+                        {% elif s == 'Borrador' %}background: rgba(100,116,139,0.12); color: #64748b;
+                        {% elif s == 'Pendiente de Aprobación' %}background: rgba(245,158,11,0.12); color: #d97706;
+                        {% elif s == 'Suspendido' %}background: rgba(249,115,22,0.12); color: #ea580c;
+                        {% elif s == 'Cancelado' %}background: rgba(220,38,38,0.12); color: #dc2626;
+                        {% elif s == 'Expirado' %}background: rgba(124,58,237,0.12); color: #7c3aed;
+                        {% else %}background: rgba(100,116,139,0.12); color: #64748b;{% endif %}">
+                        {{ s }}
                     </span>
                     <h2 style="font-size: 1.6rem; font-weight: 800; font-family: var(--font-heading); margin-bottom: 6px; color: var(--text-primary);">
                         Contrato {{ contract.contractNumber }}
                     </h2>
                     <span style="font-size: 0.85rem; color: var(--text-muted);">
-                        Facturación Recurrente: <strong>{{ contract.recurrenceInterval | capitalize }}</strong>
+                        Facturación: <strong>{{ contract.recurrenceInterval | capitalize }}</strong>
+                        {% if contract.autoRenew %}
+                        <span style="margin-left: 10px; font-size: 0.75rem; color: #16a34a; font-weight: 600;">
+                            <i class="fa-solid fa-rotate"></i> Renovación automática activa
+                        </span>
+                        {% endif %}
+                        {% if contract.autoSendEmail %}
+                        <span style="margin-left: 10px; font-size: 0.75rem; color: var(--accent-emerald); font-weight: 600;">
+                            <i class="fa-solid fa-paper-plane"></i> Email automático activo
+                        </span>
+                        {% endif %}
                     </span>
                 </div>
                 <div style="text-align: right;">
@@ -43,15 +61,14 @@
                     <strong style="font-size: 1.1rem; display: block; margin-bottom: 4px; color: var(--text-primary);">{{ contract.clientName }}</strong>
                     <span style="font-family: monospace; font-size: 0.82rem; color: var(--text-secondary);">RNC/Cédula: {{ contract.clientRNC or 'N/A' }}</span>
                 </div>
-
                 <div>
-                    <span style="font-size: 0.72rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600; display: block; margin-bottom: 8px;">Programación de Facturas</span>
+                    <span style="font-size: 0.72rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600; display: block; margin-bottom: 8px;">Programación</span>
                     <div style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 4px;">
-                        Fecha Inicio: <strong>{{ contract.startDate }}</strong>
+                        Inicio: <strong>{{ contract.startDate }}</strong>
                     </div>
                     {% if contract.endDate %}
                     <div style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 4px;">
-                        Fecha Fin: <strong>{{ contract.endDate }}</strong>
+                        Vencimiento: <strong>{{ contract.endDate }}</strong>
                     </div>
                     {% endif %}
                     <div style="font-size: 0.85rem; color: var(--text-secondary);">
@@ -60,21 +77,122 @@
                 </div>
             </div>
 
-            <!-- Notas del Contrato -->
+            <!-- Líneas del Contrato (Fase 2) -->
+            {% set lines = contract.contractLines if contract.contractLines is defined and contract.contractLines else [] %}
+            {% if lines %}
             <div style="margin-bottom: 30px;">
-                <h4 style="font-size: 0.88rem; font-weight: 700; text-transform: uppercase; color: var(--text-secondary); margin-bottom: 8px;">Términos, Notas o Acuerdos</h4>
+                <h4 style="font-size: 0.88rem; font-weight: 700; text-transform: uppercase; color: var(--text-secondary); margin-bottom: 12px;">
+                    <i class="fa-solid fa-list-check" style="color: var(--accent-emerald); margin-right: 6px;"></i>Servicios / Productos del Contrato
+                </h4>
+                <table style="width:100%; border-collapse:collapse; font-size:0.86rem;">
+                    <thead>
+                        <tr style="border-bottom: 2px solid var(--border-color);">
+                            <th style="text-align:left; padding:8px 10px; font-size:0.72rem; text-transform:uppercase; color:var(--text-muted); font-weight:600;">Ítem</th>
+                            <th style="text-align:right; padding:8px 10px; font-size:0.72rem; text-transform:uppercase; color:var(--text-muted); font-weight:600;">Cant.</th>
+                            <th style="text-align:right; padding:8px 10px; font-size:0.72rem; text-transform:uppercase; color:var(--text-muted); font-weight:600;">Precio Unit.</th>
+                            <th style="text-align:right; padding:8px 10px; font-size:0.72rem; text-transform:uppercase; color:var(--text-muted); font-weight:600;">ITBIS</th>
+                            <th style="text-align:right; padding:8px 10px; font-size:0.72rem; text-transform:uppercase; color:var(--text-muted); font-weight:600;">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for line in lines %}
+                        <tr style="border-bottom: 1px solid var(--border-color);">
+                            <td style="padding:10px 10px;">
+                                <span style="font-weight:600; color:var(--text-primary);">{{ line.name }}</span>
+                                {% if line.code %}<small style="color:var(--text-muted); margin-left:6px;">[{{ line.code }}]</small>{% endif %}
+                            </td>
+                            <td style="padding:10px 10px; text-align:right; color:var(--text-secondary);">{{ line.quantity }}</td>
+                            <td style="padding:10px 10px; text-align:right; color:var(--text-secondary);">RD$ {{ "{:,.2f}".format(line.unitPrice) }}</td>
+                            <td style="padding:10px 10px; text-align:right; color:var(--text-muted); font-size:0.82rem;">RD$ {{ "{:,.2f}".format(line.itbisAmount) }}</td>
+                            <td style="padding:10px 10px; text-align:right; font-weight:700; color:var(--accent-emerald);">RD$ {{ "{:,.2f}".format(line.total) }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="4" style="padding:8px 10px; text-align:right; font-size:0.82rem; color:var(--text-muted);">Subtotal</td>
+                            <td style="padding:8px 10px; text-align:right; color:var(--text-secondary);">RD$ {{ "{:,.2f}".format(contract.totalSubtotal or 0) }}</td>
+                        </tr>
+                        <tr>
+                            <td colspan="4" style="padding:4px 10px; text-align:right; font-size:0.82rem; color:var(--text-muted);">ITBIS</td>
+                            <td style="padding:4px 10px; text-align:right; color:var(--text-secondary);">RD$ {{ "{:,.2f}".format(contract.totalITBIS or 0) }}</td>
+                        </tr>
+                        <tr style="border-top: 2px solid var(--border-color);">
+                            <td colspan="4" style="padding:10px 10px; text-align:right; font-weight:700; font-size:0.9rem;">Total del Contrato</td>
+                            <td style="padding:10px 10px; text-align:right; font-weight:800; font-size:1.05rem; color:var(--accent-emerald);">RD$ {{ "{:,.2f}".format(contract.amount) }}</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+            {% endif %}
+
+            <!-- Notas del Contrato -->
+            <div style="margin-bottom: 10px;">
+                <h4 style="font-size: 0.88rem; font-weight: 700; text-transform: uppercase; color: var(--text-secondary); margin-bottom: 8px;">Términos / Notas Comerciales</h4>
                 {% if contract.get('notes') %}
                 <p style="font-size: 0.9rem; line-height: 1.6; color: var(--text-secondary); background: rgba(0,0,0,0.015); border: 1px solid var(--border-color); padding: 16px; border-radius: var(--radius-sm); margin: 0; white-space: pre-wrap;">{{ contract.get('notes') }}</p>
                 {% else %}
                 <p style="font-size: 0.9rem; line-height: 1.6; color: var(--text-muted); font-style: italic; background: rgba(0,0,0,0.015); border: 1px solid var(--border-color); padding: 16px; border-radius: var(--radius-sm); margin: 0;">No se especificaron términos comerciales ni notas internas para este contrato.</p>
                 {% endif %}
             </div>
+        </div>
 
+        <!-- Historial de Facturas Generadas -->
+        <div class="card-table-wrapper" style="padding: 28px;">
+            <h3 style="font-size: 1rem; font-weight: 700; font-family: var(--font-heading); margin-bottom: 20px; color: var(--text-primary); display: flex; align-items: center; gap: 10px;">
+                <i class="fa-solid fa-file-invoice" style="color: var(--accent-emerald);"></i>
+                Facturas Generadas desde este Contrato
+                <span style="background: rgba(30,58,138,0.1); color: var(--accent-emerald); font-size: 0.75rem; padding: 2px 10px; border-radius: 20px; font-weight: 700;">{{ contract_invoices|length }}</span>
+            </h3>
+            {% if contract_invoices %}
+            <table style="width: 100%; border-collapse: collapse; font-size: 0.875rem;">
+                <thead>
+                    <tr style="border-bottom: 2px solid var(--border-color);">
+                        <th style="text-align: left; padding: 10px 12px; font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600;">Nro. Factura</th>
+                        <th style="text-align: left; padding: 10px 12px; font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600;">Fecha</th>
+                        <th style="text-align: left; padding: 10px 12px; font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600;">e-NCF</th>
+                        <th style="text-align: right; padding: 10px 12px; font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600;">Total</th>
+                        <th style="text-align: center; padding: 10px 12px; font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600;">Estado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for inv in contract_invoices %}
+                    <tr style="border-bottom: 1px solid var(--border-color);">
+                        <td style="padding: 12px 12px;">
+                            <a href="{{ url_for('web_invoices.invoice_detail', invoice_id=inv.id) }}"
+                               style="font-weight: 600; color: var(--accent-emerald); text-decoration: none; font-family: monospace;">
+                               {{ inv.invoiceNumber }}
+                            </a>
+                        </td>
+                        <td style="padding: 12px 12px; color: var(--text-secondary);">{{ inv.date[:10] if inv.date else '-' }}</td>
+                        <td style="padding: 12px 12px; font-family: monospace; font-size: 0.8rem; color: var(--text-muted);">{{ inv.encf or 'Pendiente' }}</td>
+                        <td style="padding: 12px 12px; text-align: right; font-weight: 600; color: var(--accent-emerald);">RD$ {{ "{:,.2f}".format(inv.total or 0) }}</td>
+                        <td style="padding: 12px 12px; text-align: center;">
+                            {% set si = inv.status %}
+                            <span style="font-size: 0.73rem; font-weight: 700; padding: 3px 10px; border-radius: 20px;
+                                {% if si in ['Cobrada', 'Pagada'] %}background: rgba(22,163,74,0.12); color: #16a34a;
+                                {% elif si == 'Emitida' %}background: rgba(30,58,138,0.1); color: #1e3a8a;
+                                {% elif si == 'Vencida' %}background: rgba(220,38,38,0.1); color: #dc2626;
+                                {% else %}background: rgba(100,116,139,0.1); color: #64748b;{% endif %}">
+                                {{ si }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div style="text-align: center; padding: 32px 0; color: var(--text-muted);">
+                <i class="fa-solid fa-file-circle-question" style="font-size: 2rem; opacity: 0.3; display: block; margin-bottom: 10px;"></i>
+                <span style="font-size: 0.9rem;">Aún no se han generado facturas desde este contrato.</span>
+            </div>
+            {% endif %}
         </div>
 
         {% set submit_url = "/contracts/" ~ contract.id ~ "/comments/new" %}
-{% set edit_url_prefix = "/contracts/" ~ contract.id ~ "/comments" %}
-{% set delete_url_prefix = "/contracts/" ~ contract.id ~ "/comments" %}
-{% include 'components/_comments.html' %}
-</script>
+        {% set edit_url_prefix = "/contracts/" ~ contract.id ~ "/comments" %}
+        {% set delete_url_prefix = "/contracts/" ~ contract.id ~ "/comments" %}
+        {% include 'components/_comments.html' %}
+    </div>
+</div>
 {% endblock %}

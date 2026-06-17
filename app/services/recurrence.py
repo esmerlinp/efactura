@@ -20,9 +20,13 @@ class RecurrenceService:
         elif interval == "quincenal":
             next_date = current_date + timedelta(days=15)
         elif interval == "mensual":
-            # Sumar un mes de forma simple (30 días) o exacta
-            # Para simplificar de forma robusta, sumamos 30 días
             next_date = current_date + timedelta(days=30)
+        elif interval == "trimestral":
+            next_date = current_date + timedelta(days=90)
+        elif interval == "semestral":
+            next_date = current_date + timedelta(days=180)
+        elif interval == "anual":
+            next_date = current_date + timedelta(days=365)
         else:
             next_date = current_date + timedelta(days=30)
             
@@ -223,3 +227,256 @@ class RecurrenceService:
                 processed_count += 1
 
         return processed_count
+
+    # =========================================================================
+    # CONTRATOS RECURRENTES — Facturación automática (APScheduler)
+    # =========================================================================
+
+    @classmethod
+    def _build_invoice_from_contract(cls, owner_uid, contract, sandbox=True):
+        """
+        Construye y guarda una factura a partir de un contrato recurrente.
+        Soporta contratos multi-línea (contractLines) y de ítem único (Fase 1).
+        Retorna el invoice_id generado o None si falla.
+        """
+        import uuid
+        import random
+        from datetime import datetime, timedelta
+        from app.services.db_service import DatabaseService
+
+        try:
+            random_num    = f"{random.randint(1, 999999):06d}"
+            invoice_id    = str(uuid.uuid4())
+            invoice_number = f"FAC-{random_num}"
+            today_str     = datetime.utcnow().strftime("%Y-%m-%d")
+            due_date_str  = (datetime.utcnow() + timedelta(days=30)).strftime("%Y-%m-%d")
+
+            contract_lines = contract.get("contractLines", [])
+
+            if contract_lines:
+                # ── Multi-línea (Fase 2+) ────────────────────────────────────
+                items         = []
+                subtotal      = 0.0
+                itbis_amount  = 0.0
+                total_invoice = 0.0
+                for line in contract_lines:
+                    qty        = float(line.get("quantity", 1))
+                    unit_price = float(line.get("unitPrice", 0))
+                    itbis_rate = float(line.get("itbisRate", 0.18))
+                    line_sub   = round(qty * unit_price, 2)
+                    line_itbis = round(line_sub * itbis_rate, 2)
+                    line_total = round(line_sub + line_itbis, 2)
+                    items.append({
+                        "id":           str(uuid.uuid4()),
+                        "code":         line.get("code", "SERV-REC"),
+                        "type":         line.get("type", "Servicio"),
+                        "name":         f"{line.get('name', 'Servicio')} — {contract.get('contractNumber', '')}",
+                        "price":        unit_price,
+                        "quantity":     qty,
+                        "itbisRate":    itbis_rate,
+                        "discountRate": 0.0,
+                        "subtotal":     line_sub,
+                        "itbis_amount": line_itbis,
+                        "total":        line_total,
+                    })
+                    subtotal      += line_sub
+                    itbis_amount  += line_itbis
+                    total_invoice += line_total
+            else:
+                # ── Ítem único (Fase 1 — compatibilidad) ─────────────────────
+                contract_item_id = contract.get("itemId")
+                selected_item    = None
+                if contract_item_id:
+                    all_items     = DatabaseService.get_items(owner_uid, sandbox=sandbox)
+                    selected_item = next(
+                        (it for it in all_items if it["id"] == contract_item_id), None
+                    )
+                itbis_rate    = selected_item.get("itbisRate", 0.18) if selected_item else 0.18
+                total_invoice = float(contract.get("amount", 0))
+                subtotal      = round(total_invoice / (1 + itbis_rate), 2)
+                itbis_amount  = round(total_invoice - subtotal, 2)
+                item_name     = (
+                    selected_item.get("name", "Servicio Contratado")
+                    if selected_item else "Servicio Contratado"
+                )
+                item_code     = selected_item.get("code", "SERV-REC") if selected_item else "SERV-REC"
+                item_type     = selected_item.get("type", "Servicio") if selected_item else "Servicio"
+                items = [{
+                    "id":           str(uuid.uuid4()),
+                    "code":         item_code,
+                    "type":         item_type,
+                    "name":         f"{item_name} ({contract.get('contractNumber', '')})",
+                    "price":        subtotal,
+                    "quantity":     1,
+                    "itbisRate":    itbis_rate,
+                    "discountRate": 0.0,
+                    "subtotal":     subtotal,
+                    "itbis_amount": itbis_amount,
+                    "total":        total_invoice,
+                }]
+
+            invoice_dict = {
+                "id":                invoice_id,
+                "invoiceNumber":     invoice_number,
+                "date":              today_str,
+                "dueDate":           due_date_str,
+                "clientId":          contract.get("clientId", ""),
+                "clientName":        contract.get("clientName", ""),
+                "clientRNC":         contract.get("clientRNC", ""),
+                "status":            "Emitida",
+                "ecfType":           "Factura de Consumo (E32)",
+                "encf":              "E32PENDIENTE",
+                "xmlSignature":      "",
+                "qrCodeURL":         "",
+                "isSyncedWithDGII":  False,
+                "creditedAmount":    0.0,
+                "retainedISR":       0.0,
+                "retainedITBIS":     0.0,
+                "netPayable":        round(total_invoice, 2),
+                "subtotal":          round(subtotal, 2),
+                "totalITBIS":        round(itbis_amount, 2),
+                "total":             round(total_invoice, 2),
+                "isQuotation":       False,
+                "isConvertedToInvoice": False,
+                "notes":             f"Generado automáticamente desde Contrato {contract.get('contractNumber', '')}",
+                "comentario":        contract.get("notes", ""),
+                "isRecurring":       False,
+                "firebasePDFURL":    "",
+                "firebaseXMLURL":    "",
+                "currency":          "DOP",
+                "paymentType":       "Contado",
+                "paymentMethod":     "Efectivo",
+                "incomeType":        "01 - Ingresos por operaciones",
+                "exchangeRate":      1.0,
+                "registeredBy":      "Sistema (APScheduler)",
+                "contractId":        contract.get("id", ""),
+                "contractNumber":    contract.get("contractNumber", ""),
+                "items":             items,
+            }
+
+            DatabaseService.save_invoice(owner_uid, invoice_id, invoice_dict, sandbox=sandbox)
+            return invoice_id
+
+        except Exception as exc:
+            print(f"❌ Error generando factura para contrato {contract.get('contractNumber')}: {exc}")
+            return None
+
+    @classmethod
+    def _send_contract_invoice_email_bg(cls, app_instance, owner_uid, invoice_id, sandbox=True):
+        """
+        Envía por email la factura generada desde un contrato, en un hilo separado.
+        Requiere la instancia Flask para crear el contexto de aplicación.
+        """
+        import threading
+        from app.services.db_service import DatabaseService
+
+        def _send(app, o_uid, inv_id, sb):
+            with app.app_context():
+                try:
+                    invoice = DatabaseService.get_invoice(o_uid, inv_id, sandbox=sb)
+                    if not invoice:
+                        return
+                    client = DatabaseService.get_client(o_uid, invoice.get("clientId", ""), sandbox=sb)
+                    if not client:
+                        return
+                    recipient = (client.get("email") or "").strip()
+                    if not recipient:
+                        return
+                    from app.web.invoices import send_invoice_email
+                    ok, msg = send_invoice_email(o_uid, invoice, recipient, sandbox=sb)
+                    status = "✅" if ok else "⚠️"
+                    print(f"{status} Email contrato [{inv_id}] → {recipient}: {msg}")
+                except Exception as exc:
+                    print(f"❌ Error enviando email del contrato {inv_id}: {exc}")
+
+        t = threading.Thread(
+            target=_send,
+            args=(app_instance, owner_uid, invoice_id, sandbox),
+            daemon=True,
+        )
+        t.start()
+
+    @classmethod
+    def process_pending_contracts(cls, owner_uid, sandbox=True, app_instance=None):
+        """
+        Recorre todos los contratos Activos del owner cuya nextBillingDate <= hoy
+        y genera las facturas automáticamente.
+
+        Args:
+            owner_uid:    UID del propietario de la empresa.
+            sandbox:      True si es entorno sandbox, False si es producción.
+            app_instance: Instancia Flask (necesaria para envío de email en hilo).
+                          Si es None, el envío de email se omite.
+
+        Returns:
+            int: Número de contratos facturados exitosamente.
+        """
+        from app.services.db_service import DatabaseService
+        from datetime import datetime
+
+        today_str = datetime.utcnow().strftime("%Y-%m-%d")
+        processed_count = 0
+
+        contracts = DatabaseService.get_contracts(owner_uid, sandbox=sandbox)
+        pending = [
+            c for c in contracts
+            if c.get("status") == "Activo"
+            and (c.get("nextBillingDate") or "")[:10] <= today_str
+        ]
+
+        for contract in pending:
+            try:
+                contract_id = contract["id"]
+
+                # ── 1. Verificar expiración por endDate ───────────────────────
+                end_date     = (contract.get("endDate") or "")[:10]
+                next_billing = (contract.get("nextBillingDate") or "")[:10]
+
+                if end_date and next_billing > end_date:
+                    if contract.get("autoRenew"):
+                        new_end = cls.calculate_next_date(
+                            end_date, contract.get("frequency") or contract.get("recurrenceInterval", "mensual")
+                        )
+                        contract["endDate"] = new_end
+                        print(f"🔄 Contrato {contract.get('contractNumber')} renovado automáticamente hasta {new_end}")
+                    else:
+                        contract["status"] = "Expirado"
+                        DatabaseService.save_contract(owner_uid, contract_id, contract, sandbox=sandbox)
+                        print(f"⏹️ Contrato {contract.get('contractNumber')} marcado como Expirado")
+                        continue
+
+                # ── 2. Generar factura ────────────────────────────────────────
+                invoice_id = cls._build_invoice_from_contract(owner_uid, contract, sandbox=sandbox)
+                if not invoice_id:
+                    continue
+
+                # ── 3. Reprogramar nextBillingDate ────────────────────────────
+                freq = contract.get("frequency") or contract.get("recurrenceInterval", "mensual")
+                new_billing = cls.calculate_next_date(next_billing, freq)
+
+                # ── 4. Verificar si la PRÓXIMA fecha supera endDate ───────────
+                if end_date and new_billing > end_date:
+                    if contract.get("autoRenew"):
+                        new_end = cls.calculate_next_date(end_date, freq)
+                        contract["endDate"] = new_end
+                        print(f"🔄 Contrato {contract.get('contractNumber')} renovado hasta {new_end}")
+                    else:
+                        contract["status"] = "Expirado"
+                        print(f"⏹️ Contrato {contract.get('contractNumber')} expirará tras esta factura")
+
+                contract["nextBillingDate"] = new_billing
+                DatabaseService.save_contract(owner_uid, contract_id, contract, sandbox=sandbox)
+
+                print(f"✅ Factura {invoice_id} generada para contrato {contract.get('contractNumber')} — próxima: {new_billing}")
+
+                # ── 5. Enviar email si está configurado ───────────────────────
+                if contract.get("autoSendEmail") and app_instance:
+                    cls._send_contract_invoice_email_bg(app_instance, owner_uid, invoice_id, sandbox=sandbox)
+
+                processed_count += 1
+
+            except Exception as exc:
+                print(f"❌ Error procesando contrato {contract.get('contractNumber', contract.get('id'))}: {exc}")
+
+        return processed_count
+

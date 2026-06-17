@@ -2358,6 +2358,111 @@ def approve_quotation_route(invoice_id):
     return redirect(url_for('invoice_detail', invoice_id=invoice_id))
 
 
+@web_invoices_bp.route('/quotations/<invoice_id>/convert-to-contract', methods=['POST'])
+def convert_quotation_to_contract(invoice_id):
+    """Convierte una Cotización Aprobada en un Contrato Recurrente."""
+    if 'user' not in session:
+        return redirect(url_for('web_auth.login'))
+    if not check_permission('canManageContracts'):
+        return render_template('auth/restricted.html',
+                               feature_name="Convertir a Contrato",
+                               required_permission="canManageContracts")
+
+    owner_uid = session['user']['ownerUID']
+    sandbox   = session.get('is_sandbox_mode', True)
+
+    invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+    if not invoice:
+        flash('Cotización no encontrada.', 'error')
+        return redirect(url_for('list_quotations'))
+
+    if not invoice.get('isQuotation'):
+        flash('Este documento no es una cotización.', 'error')
+        return redirect(url_for('invoice_detail', invoice_id=invoice_id))
+
+    if invoice.get('status') != 'Aprobada':
+        flash('Solo se pueden convertir cotizaciones con estado "Aprobada".', 'warning')
+        return redirect(url_for('invoice_detail', invoice_id=invoice_id))
+
+    if invoice.get('isConvertedToContract'):
+        flash('Esta cotización ya fue convertida a un contrato recurrente.', 'info')
+        return redirect(url_for('invoice_detail', invoice_id=invoice_id))
+
+    # ── Mapear ítems de la cotización a contractLines ─────────────────────────
+    contract_lines = []
+    total_amount   = 0.0
+
+    for item in invoice.get('items', []):
+        qty        = float(item.get('quantity', 1))
+        unit_price = float(item.get('price', 0))
+        itbis_rate = float(item.get('itbisRate', 0.18))
+        subtotal   = round(qty * unit_price, 2)
+        itbis_amt  = round(subtotal * itbis_rate, 2)
+        line_total = round(subtotal + itbis_amt, 2)
+        total_amount += line_total
+        contract_lines.append({
+            'itemId':      item.get('id', ''),
+            'name':        item.get('name', 'Servicio'),
+            'code':        item.get('code', 'SERV-REC'),
+            'type':        item.get('type', 'Servicio'),
+            'quantity':    qty,
+            'unitPrice':   unit_price,
+            'itbisRate':   itbis_rate,
+            'subtotal':    subtotal,
+            'itbisAmount': itbis_amt,
+            'total':       line_total,
+        })
+
+    # ── Construir contrato ────────────────────────────────────────────────────
+    from app.services.recurrence import RecurrenceService
+    from datetime import datetime
+    import uuid, random
+
+    now_iso       = datetime.utcnow().isoformat()
+    today_str     = datetime.utcnow().strftime('%Y-%m-%d')
+    random_num    = f"{random.randint(1, 999999):06d}"
+    contract_id   = str(uuid.uuid4())
+    contract_num  = f"CONT-{random_num}"
+
+    # Primera factura: en un mes (no inmediata, para dar tiempo de revisión)
+    first_billing = RecurrenceService.calculate_next_date(today_str, 'mensual')
+
+    contract_dict = {
+        'id':              contract_id,
+        'contractNumber':  contract_num,
+        'quotationId':     invoice_id,          # Trazabilidad hacia la cotización
+        'clientId':        invoice.get('clientId', ''),
+        'clientName':      invoice.get('clientName', ''),
+        'clientRNC':       invoice.get('clientRNC', ''),
+        'status':          'Activo',
+        'frequency':       'mensual',
+        'recurrenceInterval': 'mensual',
+        'startDate':       today_str,
+        'nextBillingDate': first_billing,
+        'endDate':         '',
+        'autoRenew':       False,
+        'autoSendEmail':   False,
+        'contractLines':   contract_lines,
+        'amount':          round(total_amount, 2),
+        'itemId':          contract_lines[0]['itemId'] if contract_lines else '',
+        'notes':           invoice.get('notes', ''),
+        'createdAt':       now_iso,
+        'updatedAt':       now_iso,
+    }
+
+    DatabaseService.save_contract(owner_uid, contract_id, contract_dict, sandbox=sandbox)
+
+    # ── Marcar cotización como convertida ─────────────────────────────────────
+    invoice['isConvertedToContract'] = True
+    DatabaseService.save_invoice(owner_uid, invoice_id, invoice, sandbox=sandbox)
+
+    flash(
+        f'¡Cotización convertida exitosamente al Contrato Recurrente {contract_num}! '
+        f'Primera factura programada para {first_billing}.',
+        'success'
+    )
+    return redirect(url_for('web_operations.contract_detail', contract_id=contract_id))
+
 
 @web_invoices_bp.route('/invoices/<invoice_id>/qr-image')
 def invoice_qr_image(invoice_id):
