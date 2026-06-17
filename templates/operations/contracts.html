@@ -127,11 +127,11 @@
             <i class="fa-solid fa-file-csv"></i>
             <span>Exportar CSV</span>
         </a>
-        <button onclick="openModal('new-contract-modal')" class="btn btn-primary"
+        <a href="{{ url_for('web_operations.new_contract') }}" class="btn btn-primary"
             style="display: inline-flex; align-items: center; gap: 8px;">
             <i class="fa-solid fa-plus"></i>
             <span>Registrar Nuevo Contrato</span>
-        </button>
+        </a>
     </div>
 </div>
 
@@ -156,7 +156,12 @@
                 {% for contract in contracts %}
                 <tr id="contract-row-{{ contract.id }}">
                     <td><span style="font-family: monospace;">{{ contract.contractNumber }}</span></td>
-                    <td>{{ contract.clientName }}</td>
+                    <td>
+                        {{ contract.clientName }}
+                        {% if contract.autoSendEmail %}
+                        <i class="fa-solid fa-paper-plane" title="Envío automático de factura activado" style="color: var(--accent-emerald); font-size: 0.75rem; margin-left: 6px; opacity: 0.8;"></i>
+                        {% endif %}
+                    </td>
                     <td><span style="font-family: monospace; font-size: 0.85rem;">{{ contract.clientRNC }}</span></td>
                     <td><span style="color: var(--accent-emerald);">RD$ {{ "{:,.2f}".format(contract.amount) }}</span>
                     </td>
@@ -166,10 +171,18 @@
                                 class="fa-solid fa-calendar-days" style="margin-right: 4px;"></i> {{
                             contract.nextBillingDate }}</span></td>
                     <td>
-                        <span
-                            class="badge {% if contract.status == 'Activo' %}badge-success{% else %}badge-secondary{% endif %}"
-                            id="status-badge-{{ contract.id }}">
-                            {{ contract.status }}
+                        {% set s = contract.status %}
+                        <span id="status-badge-{{ contract.id }}" class="badge"
+                            style="font-weight: 600; padding: 4px 10px; border-radius: 20px; font-size: 0.75rem;
+                            {% if s == 'Activo' %}background: rgba(22,163,74,0.12); color: #16a34a;
+                            {% elif s == 'Borrador' %}background: rgba(100,116,139,0.12); color: #64748b;
+                            {% elif s == 'Pendiente de Aprobación' %}background: rgba(245,158,11,0.12); color: #d97706;
+                            {% elif s == 'Suspendido' %}background: rgba(249,115,22,0.12); color: #ea580c;
+                            {% elif s == 'Cancelado' %}background: rgba(220,38,38,0.12); color: #dc2626;
+                            {% elif s == 'Expirado' %}background: rgba(124,58,237,0.12); color: #7c3aed;
+                            {% else %}background: rgba(100,116,139,0.12); color: #64748b;
+                            {% endif %}">
+                            {{ s }}
                         </span>
                     </td>
                     <td style="text-align: right;">
@@ -316,10 +329,38 @@
                     <select id="recurrenceInterval" name="recurrenceInterval" class="form-control"
                         style="width:100%; border-radius: var(--radius-sm); border: 1px solid #e2e8f0; background-color: var(--bg-input); color: var(--text-primary); padding: 10px; height: 42px; box-sizing: border-box;"
                         required>
-                        <option value="mensual" selected>Mensual</option>
-                        <option value="quincenal">Quincenal</option>
                         <option value="semanal">Semanal</option>
+                        <option value="quincenal">Quincenal</option>
+                        <option value="mensual" selected>Mensual</option>
+                        <option value="trimestral">Trimestral (cada 3 meses)</option>
+                        <option value="semestral">Semestral (cada 6 meses)</option>
+                        <option value="anual">Anual</option>
                     </select>
+                </div>
+            </div>
+
+            <!-- Estado del Contrato y Fecha de Fin -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                <div>
+                    <label for="status"
+                        style="display: block; font-size: 0.85rem; font-weight: 500; margin-bottom: 6px; color: var(--text-secondary);">Estado
+                        del Contrato</label>
+                    <select id="contractStatus" name="status" class="form-control"
+                        style="width:100%; border-radius: var(--radius-sm); border: 1px solid #e2e8f0; background-color: var(--bg-input); color: var(--text-primary); padding: 10px; height: 42px; box-sizing: border-box;"
+                        required>
+                        <option value="Borrador">Borrador</option>
+                        <option value="Pendiente de Aprobación">Pendiente de Aprobación</option>
+                        <option value="Activo" selected>Activo</option>
+                        <option value="Suspendido">Suspendido</option>
+                        <option value="Cancelado">Cancelado</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="endDate"
+                        style="display: block; font-size: 0.85rem; font-weight: 500; margin-bottom: 6px; color: var(--text-secondary);">Fecha
+                        de Vencimiento <small style="color: var(--text-muted);">(opcional)</small></label>
+                    <input type="date" id="endDate" name="endDate" class="form-control"
+                        style="width:100%; border-radius: var(--radius-sm); border: 1px solid #e2e8f0; background-color: var(--bg-input); color: var(--text-primary); padding: 10px; height: 42px; box-sizing: border-box;">
                 </div>
             </div>
 
@@ -353,6 +394,34 @@
                     placeholder="Detalles de los servicios cubiertos en esta recurrencia..." rows="3"
                     class="form-control"
                     style="width: 100%; border-radius: var(--radius-sm); border: 1px solid #e2e8f0; background-color: var(--bg-input); color: var(--text-primary); padding: 12px; font-family: inherit; resize: vertical;"></textarea>
+            </div>
+
+            <!-- Envío Automático por Email -->
+            <div style="display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: var(--radius-sm); border: 1px solid #e2e8f0; background-color: rgba(30, 58, 138, 0.03);">
+                <div style="position: relative; flex-shrink: 0;">
+                    <input type="checkbox" id="autoSendEmail" name="autoSendEmail"
+                        style="width: 18px; height: 18px; accent-color: var(--accent-emerald); cursor: pointer;">
+                </div>
+                <div>
+                    <label for="autoSendEmail" style="font-size: 0.85rem; font-weight: 600; color: var(--text-primary); cursor: pointer; display: block; margin: 0;">
+                        <i class="fa-solid fa-paper-plane" style="color: var(--accent-emerald); margin-right: 6px;"></i>Enviar factura al cliente automáticamente por email
+                    </label>
+                    <small style="color: var(--text-muted); font-size: 0.75rem;">Si el cliente tiene email registrado en el CRM, se le enviará la factura al generarse cada cobro.</small>
+                </div>
+            </div>
+
+            <!-- Renovación automática -->
+            <div style="display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: var(--radius-sm); border: 1px solid #e2e8f0; background-color: rgba(30, 58, 138, 0.03);">
+                <div style="position: relative; flex-shrink: 0;">
+                    <input type="checkbox" id="autoRenew" name="autoRenew"
+                        style="width: 18px; height: 18px; accent-color: var(--accent-emerald); cursor: pointer;">
+                </div>
+                <div>
+                    <label for="autoRenew" style="font-size: 0.85rem; font-weight: 600; color: var(--text-primary); cursor: pointer; display: block; margin: 0;">
+                        <i class="fa-solid fa-rotate" style="color: var(--accent-emerald); margin-right: 6px;"></i>Renovar contrato automáticamente al vencer
+                    </label>
+                    <small style="color: var(--text-muted); font-size: 0.75rem;">Al llegar a la fecha de vencimiento, el contrato se extenderá por el mismo período automáticamente.</small>
+                </div>
             </div>
 
             <div

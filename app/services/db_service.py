@@ -3620,6 +3620,12 @@ class DatabaseService:
         return contract_dict
 
     @classmethod
+    def get_invoices_by_contract(cls, owner_uid, contract_id, sandbox=True):
+        """Retorna todas las facturas generadas desde un contrato específico."""
+        all_invoices = cls.get_invoices(owner_uid, sandbox=sandbox)
+        return [inv for inv in all_invoices if inv.get('contractId') == contract_id]
+
+    @classmethod
     def delete_contract(cls, owner_uid, contract_id, sandbox=True):
         """Elimina un contrato de Firestore."""
         if firebase_initialized:

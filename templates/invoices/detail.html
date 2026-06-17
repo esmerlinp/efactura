@@ -593,6 +593,39 @@
         </div>
         {% endif %}
 
+        {# ── Botón Convertir a Contrato Recurrente (solo si Aprobada) ─────── #}
+        {% if invoice.status == 'Aprobada' and not invoice.isConvertedToContract %}
+        <div class="card-table-wrapper no-print"
+            style="padding: 24px; text-align: center; border: 1.5px solid var(--accent-emerald); background: rgba(16,185,129,0.04);">
+            <div style="width: 52px; height: 52px; border-radius: 50%; background: linear-gradient(135deg, #059669, #10b981); display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; color: white;">
+                <i class="fa-solid fa-rotate" style="font-size: 1.2rem;"></i>
+            </div>
+            <h4 style="font-size: 1rem; font-family: var(--font-heading); margin-bottom: 8px; color: var(--accent-emerald);">
+                Convertir a Contrato Recurrente</h4>
+            <p style="color: var(--text-secondary); font-size: 0.78rem; line-height: 1.45; margin-bottom: 16px;">
+                Genera un contrato mensual recurrente a partir de esta cotización aprobada. Las facturas se emitirán automáticamente.
+            </p>
+            <form action="{{ url_for('web_invoices.convert_quotation_to_contract', invoice_id=invoice.id) }}" method="POST" style="margin: 0;"
+                  onsubmit="return confirm('¿Convertir esta cotización en un Contrato Recurrente mensual?\n\nPodrás editar la frecuencia y configuración desde el detalle del contrato.')">
+                <button type="submit" class="btn btn-primary"
+                    style="width: 100%; background: linear-gradient(135deg, #059669, #10b981); border: none; color: white; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
+                    <i class="fa-solid fa-file-contract"></i>
+                    <span>Crear Contrato Recurrente</span>
+                </button>
+            </form>
+        </div>
+        {% elif invoice.isConvertedToContract %}
+        <div class="card-table-wrapper no-print"
+            style="padding: 16px 20px; text-align: center; border: 1px solid var(--border-color); background: rgba(16,185,129,0.03);">
+            <span class="badge badge-success" style="font-size: 0.8rem; padding: 6px 14px; display: inline-flex; align-items: center; gap: 6px;">
+                <i class="fa-solid fa-circle-check"></i> Convertida a Contrato Recurrente
+            </span>
+            <p style="color: var(--text-muted); font-size: 0.72rem; margin: 8px 0 0;">
+                Esta cotización fue transformada en un contrato activo.
+            </p>
+        </div>
+        {% endif %}
+
         {% else %}
         <!-- Módulo Fiscal DGII e-CF (documento ya convertido) -->
         <div class="card-table-wrapper" style="padding: 24px; text-align: center;">
