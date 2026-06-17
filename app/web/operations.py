@@ -37,6 +37,7 @@ def list_contracts():
             "clientId": client_id,
             "clientName": client.get("razonSocial", ""),
             "clientRNC": client.get("rnc", ""),
+            "itemId": request.form.get('itemId', ""),
             "amount": float(request.form.get('amount', 0.0)),
             "recurrenceInterval": request.form.get('recurrenceInterval', 'mensual'),
             "status": request.form.get('status', 'Activo'),
@@ -52,6 +53,7 @@ def list_contracts():
 
     contracts = DatabaseService.get_contracts(owner_uid, sandbox=sandbox)
     clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox)
+    items = DatabaseService.get_items(owner_uid, sandbox=sandbox)
 
     # Exportar a CSV si se solicita
     if request.args.get('export') == 'csv':
@@ -95,6 +97,7 @@ def list_contracts():
         active_page='contracts',
         contracts=contracts,
         clients=clients,
+        items=items,
         total_active=total_active,
         monthly_estimate=monthly_estimate,
         total_contracts=total_contracts
@@ -152,19 +155,27 @@ def trigger_contract_billing(contract_id):
     invoice_number = f"FAC-{random_num}"
     invoice_id = str(uuid.uuid4())
     
-    # Calcular ITBIS (asumiendo 18% incluido o más)
-    subtotal = contract['amount'] / 1.18
+    # Obtener el item relacionado si existe
+    contract_item_id = contract.get('itemId')
+    selected_item = None
+    if contract_item_id:
+        all_items = DatabaseService.get_items(owner_uid, sandbox=sandbox)
+        selected_item = next((it for it in all_items if it['id'] == contract_item_id), None)
+        
+    # Calcular ITBIS según la tasa del item o 18% por defecto
+    itbis_rate = selected_item.get('itbisRate', 0.18) if selected_item else 0.18
+    subtotal = contract['amount'] / (1 + itbis_rate)
     itbis_amount = contract['amount'] - subtotal
     
     item_id = str(uuid.uuid4())
     items = [{
         "id": item_id,
-        "code": "SERV-REC",
-        "type": "Servicio",
-        "name": f"Servicio Contratado ({contract.get('contractNumber')})",
+        "code": selected_item.get('code', 'SERV-REC') if selected_item else "SERV-REC",
+        "type": selected_item.get('type', 'Servicio') if selected_item else "Servicio",
+        "name": f"{selected_item.get('name', 'Servicio Contratado')} ({contract.get('contractNumber')})" if selected_item else f"Servicio Contratado ({contract.get('contractNumber')})",
         "price": subtotal,
         "quantity": 1,
-        "itbisRate": 0.18,
+        "itbisRate": itbis_rate,
         "discountRate": 0.0,
         "subtotal": subtotal,
         "itbis_amount": itbis_amount,
