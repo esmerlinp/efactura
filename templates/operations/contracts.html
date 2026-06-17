@@ -241,7 +241,7 @@
     justify-content: center;
     backdrop-filter: blur(8px);
 ">
-    <div class="card-table-wrapper" style="width: 500px; padding: 28px; margin: 0; max-height: 90vh; overflow-y: auto;">
+    <div class="card-table-wrapper" style="width: 500px; padding: 28px; margin: 0; max-height: 90vh; overflow-y: auto; background-color: var(--bg-sidebar); box-shadow: 0 10px 25px rgba(0,0,0,0.1);">
         <div
             style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px;">
             <h3
@@ -262,10 +262,9 @@
                 <label for="contractNumber"
                     style="display: block; font-size: 0.85rem; font-weight: 500; margin-bottom: 6px; color: var(--text-secondary);">Código
                     o Nro. del Contrato</label>
-                <input type="text" id="contractNumber" name="contractNumber" placeholder="Ej: CON-1002"
+                <input type="text" id="contractNumber" name="contractNumber" placeholder="Se generará automáticamente si lo dejas vacío"
                     class="form-control"
-                    style="width:100%; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background-color: var(--bg-input); color: var(--text-primary); padding: 10px;"
-                    required>
+                    style="width:100%; border-radius: var(--radius-sm); border: 1px solid #e2e8f0; background-color: var(--bg-input); color: var(--text-primary); padding: 10px; height: 42px; box-sizing: border-box;">
             </div>
 
             <!-- Cliente -->
@@ -274,13 +273,28 @@
                     style="display: block; font-size: 0.85rem; font-weight: 500; margin-bottom: 6px; color: var(--text-secondary);">Cliente
                     Asignado</label>
                 <select id="clientId" name="clientId" class="form-control"
-                    style="width:100%; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background-color: var(--bg-input); color: var(--text-primary); padding: 10px;"
+                    style="width:100%; border-radius: var(--radius-sm); border: 1px solid #e2e8f0; background-color: var(--bg-input); color: var(--text-primary); padding: 10px; height: 42px; box-sizing: border-box;"
                     required>
                     <option value="" disabled selected>Selecciona un cliente del CRM...</option>
                     {% for client in clients %}
                     <option value="{{ client.id }}">{{ client.razonSocial }} ({{ client.rnc }})</option>
                     {% endfor %}
                 </select>
+            </div>
+
+            <!-- Producto/Servicio -->
+            <div>
+                <label for="itemId"
+                    style="display: block; font-size: 0.85rem; font-weight: 500; margin-bottom: 6px; color: var(--text-secondary);">Producto / Servicio Relacionado</label>
+                <select id="itemId" name="itemId" class="form-control"
+                    style="width:100%; border-radius: var(--radius-sm); border: 1px solid #e2e8f0; background-color: var(--bg-input); color: var(--text-primary); padding: 10px; height: 42px; box-sizing: border-box;"
+                    required>
+                    <option value="" disabled selected>Selecciona el producto o servicio que se facturará...</option>
+                    {% for item in items %}
+                    <option value="{{ item.id }}">{{ item.name }} - RD$ {{ "{:,.2f}".format(item.price) }} (ITBIS: {{ "{:.0%}".format(item.itbisRate) }})</option>
+                    {% endfor %}
+                </select>
+                <small style="color: var(--text-muted); font-size: 0.75rem; margin-top: 4px; display: block;">La tasa de ITBIS configurada en este ítem se usará para calcular los impuestos de cada factura.</small>
             </div>
 
             <!-- Monto Recurrente e Intervalo en Fila -->
@@ -291,7 +305,7 @@
                         Recurrente (RD$)</label>
                     <input type="number" step="0.01" id="amount" name="amount" placeholder="Ej: 15000"
                         class="form-control"
-                        style="width:100%; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background-color: var(--bg-input); color: var(--text-primary); padding: 10px;"
+                        style="width:100%; border-radius: var(--radius-sm); border: 1px solid #e2e8f0; background-color: var(--bg-input); color: var(--text-primary); padding: 10px; height: 42px; box-sizing: border-box;"
                         required>
                 </div>
 
@@ -300,7 +314,7 @@
                         style="display: block; font-size: 0.85rem; font-weight: 500; margin-bottom: 6px; color: var(--text-secondary);">Frecuencia
                         de Factura</label>
                     <select id="recurrenceInterval" name="recurrenceInterval" class="form-control"
-                        style="width:100%; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background-color: var(--bg-input); color: var(--text-primary); padding: 10px;"
+                        style="width:100%; border-radius: var(--radius-sm); border: 1px solid #e2e8f0; background-color: var(--bg-input); color: var(--text-primary); padding: 10px; height: 42px; box-sizing: border-box;"
                         required>
                         <option value="mensual" selected>Mensual</option>
                         <option value="quincenal">Quincenal</option>
@@ -316,7 +330,7 @@
                         style="display: block; font-size: 0.85rem; font-weight: 500; margin-bottom: 6px; color: var(--text-secondary);">Fecha
                         de Inicio</label>
                     <input type="date" id="startDate" name="startDate" class="form-control"
-                        style="width:100%; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background-color: var(--bg-input); color: var(--text-primary); padding: 10px;"
+                        style="width:100%; border-radius: var(--radius-sm); border: 1px solid #e2e8f0; background-color: var(--bg-input); color: var(--text-primary); padding: 10px; height: 42px; box-sizing: border-box;"
                         required>
                 </div>
 
@@ -325,7 +339,7 @@
                         style="display: block; font-size: 0.85rem; font-weight: 500; margin-bottom: 6px; color: var(--text-secondary);">Próxima
                         Facturación</label>
                     <input type="date" id="nextBillingDate" name="nextBillingDate" class="form-control"
-                        style="width:100%; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background-color: var(--bg-input); color: var(--text-primary); padding: 10px;"
+                        style="width:100%; border-radius: var(--radius-sm); border: 1px solid #e2e8f0; background-color: var(--bg-input); color: var(--text-primary); padding: 10px; height: 42px; box-sizing: border-box;"
                         required>
                 </div>
             </div>
@@ -338,7 +352,7 @@
                 <textarea id="notes" name="notes"
                     placeholder="Detalles de los servicios cubiertos en esta recurrencia..." rows="3"
                     class="form-control"
-                    style="width: 100%; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background-color: var(--bg-input); color: var(--text-primary); padding: 12px; font-family: inherit; resize: vertical;"></textarea>
+                    style="width: 100%; border-radius: var(--radius-sm); border: 1px solid #e2e8f0; background-color: var(--bg-input); color: var(--text-primary); padding: 12px; font-family: inherit; resize: vertical;"></textarea>
             </div>
 
             <div
@@ -388,5 +402,19 @@
     // Establecer fecha por defecto para hoy
     document.getElementById('startDate').valueAsDate = new Date();
     document.getElementById('nextBillingDate').valueAsDate = new Date();
+
+    // Actualizar el monto cuando se selecciona un servicio
+    document.getElementById('itemId').addEventListener('change', function(e) {
+        const selectedOption = this.options[this.selectedIndex];
+        if (selectedOption && selectedOption.value !== "") {
+            // Extraer el precio del texto de la opción usando una expresión regular
+            const text = selectedOption.text;
+            const match = text.match(/RD\$\s*([\d,]+\.?\d*)/);
+            if (match && match[1]) {
+                const price = match[1].replace(/,/g, '');
+                document.getElementById('amount').value = parseFloat(price).toFixed(2);
+            }
+        }
+    });
 </script>
 {% endblock %}
