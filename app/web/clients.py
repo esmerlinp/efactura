@@ -122,6 +122,7 @@ def new_client():
             "direccion": request.form.get('direccion', ''),
             "crmNotes": request.form.get('crmNotes', ''),
             "nextContactDate": request.form.get('nextContactDate', ''),
+            "pipelineStage": "Cliente Activo",
             "disableAutoReminders": request.form.get('disableAutoReminders') == 'on' or request.form.get('disableAutoReminders') == 'true'
         }
         
@@ -170,6 +171,7 @@ def ajax_create_client():
         "direccion": (data.get('direccion') or '').strip(),
         "crmNotes": "Registrado desde formulario de facturación",
         "nextContactDate": "",
+        "pipelineStage": "Cliente Activo",
         "createdAt": datetime.utcnow().isoformat()
     }
     

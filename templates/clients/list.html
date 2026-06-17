@@ -257,9 +257,9 @@
             <i class="fa-solid fa-eraser"></i> Limpiar
         </a>
 
-        <!-- Vista Toggle -->
+        <!-- Vista Toggle (Oculto temporalmente) -->
         <div
-            style="display: flex; align-items: center; gap: 4px; margin-left: auto; background: rgba(0,0,0,0.05); padding: 4px; border-radius: var(--radius-md);">
+            style="display: none; align-items: center; gap: 4px; margin-left: auto; background: rgba(0,0,0,0.05); padding: 4px; border-radius: var(--radius-md);">
             <button type="button" id="btn-kanban" onclick="switchView('kanban')"
                 style="border: none; background: transparent; padding: 6px 10px; border-radius: var(--radius-sm); cursor: pointer; color: var(--text-secondary); font-size: 0.85rem;"><i
                     class="fa-solid fa-table-columns"></i> Kanban</button>
@@ -479,7 +479,7 @@
 
 <script>
     (function() {
-        const savedView = localStorage.getItem('crmView') || 'list';
+        const savedView = 'list'; // localStorage.getItem('crmView') || 'list';
         if (savedView === 'kanban') {
             const kanban = document.querySelector('.kanban-board');
             const listView = document.getElementById('list-view');
@@ -548,7 +548,7 @@
     }
 
     document.addEventListener('DOMContentLoaded', () => {
-        const savedView = localStorage.getItem('crmView') || 'list';
+        const savedView = 'list'; // localStorage.getItem('crmView') || 'list';
         switchView(savedView);
 
         // Auto-submit logic for filter
