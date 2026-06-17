@@ -24,7 +24,7 @@ def list_clients():
         c_id = client['id']
         client_sales = [inv for inv in invoices if inv['clientId'] == c_id and not inv.get('isQuotation') and inv.get('status') not in ['Anulada', 'Borrador']]
         client['total_invoiced'] = sum(inv['total'] for inv in client_sales)
-        client['total_cxc'] = sum(inv['netPayable'] for inv in client_sales if inv['status'] in ['Emitida', 'Vencida'])
+        client['total_cxc'] = sum(inv['netPayable'] for inv in client_sales if inv['status'] in ['Emitida', 'Vencida', 'Revisión de Pago'])
 
     # Aplicar filtros
     q = request.args.get('q', '').strip()
@@ -114,6 +114,27 @@ def new_client():
     
     if request.method == 'POST':
         client_id = str(uuid.uuid4())
+        image_url = ""
+        image_file = request.files.get('image')
+        if image_file and image_file.filename:
+            try:
+                file_data = image_file.read()
+                mime_type = image_file.mimetype or "image/png"
+                filename = f"client_{client_id}_{str(uuid.uuid4())[:8]}_{image_file.filename}"
+                destination_path = f"users/{owner_uid}/clients/{filename}"
+                image_url = DatabaseService.upload_file_to_storage(
+                    file_data=file_data,
+                    destination_path=destination_path,
+                    mime_type=mime_type
+                )
+            except Exception as e:
+                flash(f"Advertencia: No se pudo subir la imagen del cliente: {str(e)}", 'warning')
+
+        import random
+        access_pin = request.form.get('accessPin', '').strip()
+        if not access_pin or len(access_pin) != 6 or not access_pin.isdigit():
+            access_pin = "".join([str(random.randint(0, 9)) for _ in range(6)])
+
         client_dict = {
             "rnc": request.form['rnc'],
             "razonSocial": request.form['razonSocial'],
@@ -122,8 +143,11 @@ def new_client():
             "direccion": request.form.get('direccion', ''),
             "crmNotes": request.form.get('crmNotes', ''),
             "nextContactDate": request.form.get('nextContactDate', ''),
-            "pipelineStage": "Cliente Activo",
-            "disableAutoReminders": request.form.get('disableAutoReminders') == 'on' or request.form.get('disableAutoReminders') == 'true'
+            "pipelineStage": request.form.get('pipelineStage', 'Cliente Activo'),
+            "disableAutoReminders": request.form.get('disableAutoReminders') == 'on' or request.form.get('disableAutoReminders') == 'true',
+            "responsibleId": request.form.get('responsibleId', ''),
+            "imageUrl": image_url,
+            "accessPin": access_pin
         }
         
         DatabaseService.save_client(owner_uid, client_id, client_dict, sandbox=sandbox)
@@ -142,7 +166,8 @@ def new_client():
         flash('Cliente registrado exitosamente en el directorio CRM.', 'success')
         return redirect(url_for('list_clients'))
         
-    return render_template('clients/form.html', active_page='clients', client=None)
+    collaborators = DatabaseService.get_team_members(owner_uid) or []
+    return render_template('clients/form.html', active_page='clients', client=None, collaborators=collaborators)
 
 @web_clients_bp.route('/clients/ajax_create', methods=['POST'])
 def ajax_create_client():
@@ -162,6 +187,9 @@ def ajax_create_client():
     if not razon_social:
         return jsonify({"success": False, "error": "La Razón Social es obligatoria."}), 400
     
+    import random
+    access_pin = "".join([str(random.randint(0, 9)) for _ in range(6)])
+    
     client_id = str(uuid.uuid4())
     client_dict = {
         "rnc": rnc,
@@ -172,7 +200,8 @@ def ajax_create_client():
         "crmNotes": "Registrado desde formulario de facturación",
         "nextContactDate": "",
         "pipelineStage": "Cliente Activo",
-        "createdAt": datetime.utcnow().isoformat()
+        "createdAt": datetime.utcnow().isoformat(),
+        "accessPin": access_pin
     }
     
     DatabaseService.save_client(owner_uid, client_id, client_dict, sandbox=sandbox)
@@ -219,6 +248,29 @@ def edit_client(client_id):
         
     if request.method == 'POST':
         before_client = client.copy()
+        image_url = client.get('imageUrl', '')
+        image_file = request.files.get('image')
+        if image_file and image_file.filename:
+            try:
+                file_data = image_file.read()
+                mime_type = image_file.mimetype or "image/png"
+                filename = f"client_{client_id}_{str(uuid.uuid4())[:8]}_{image_file.filename}"
+                destination_path = f"users/{owner_uid}/clients/{filename}"
+                image_url = DatabaseService.upload_file_to_storage(
+                    file_data=file_data,
+                    destination_path=destination_path,
+                    mime_type=mime_type
+                )
+            except Exception as e:
+                flash(f"Advertencia: No se pudo subir la imagen del cliente: {str(e)}", 'warning')
+
+        import random
+        access_pin = request.form.get('accessPin', '').strip()
+        if not access_pin or len(access_pin) != 6 or not access_pin.isdigit():
+            access_pin = client.get('accessPin', '')
+            if not access_pin:
+                access_pin = "".join([str(random.randint(0, 9)) for _ in range(6)])
+
         client_dict = {
             "rnc": request.form['rnc'],
             "razonSocial": request.form['razonSocial'],
@@ -228,7 +280,11 @@ def edit_client(client_id):
             "crmNotes": request.form.get('crmNotes', ''),
             "nextContactDate": request.form.get('nextContactDate', ''),
             "createdAt": client["createdAt"],
-            "disableAutoReminders": request.form.get('disableAutoReminders') == 'on' or request.form.get('disableAutoReminders') == 'true'
+            "pipelineStage": request.form.get('pipelineStage', client.get("pipelineStage", "Cliente Activo")),
+            "disableAutoReminders": request.form.get('disableAutoReminders') == 'on' or request.form.get('disableAutoReminders') == 'true',
+            "responsibleId": request.form.get('responsibleId', ''),
+            "imageUrl": image_url,
+            "accessPin": access_pin
         }
         DatabaseService.save_client(owner_uid, client_id, client_dict, sandbox=sandbox)
         
@@ -247,7 +303,8 @@ def edit_client(client_id):
         flash('Ficha CRM del cliente actualizada exitosamente.', 'success')
         return redirect(url_for('list_clients'))
         
-    return render_template('clients/form.html', active_page='clients', client=client)
+    collaborators = DatabaseService.get_team_members(owner_uid) or []
+    return render_template('clients/form.html', active_page='clients', client=client, collaborators=collaborators)
 
 @web_clients_bp.route('/clients/<client_id>/delete', methods=['POST'])
 def delete_client_route(client_id):
@@ -318,6 +375,159 @@ def toggle_client_reminders(client_id):
     DatabaseService.save_client(owner_uid, client_id, client, sandbox=sandbox)
     return jsonify({"success": True, "disableAutoReminders": disable_reminders})
 
+@web_clients_bp.route('/clients/<client_id>/send_portal_credentials', methods=['POST'])
+def send_portal_credentials(client_id):
+    """Envía las credenciales de acceso del portal al cliente por email."""
+    if 'user' not in session:
+        return jsonify({"success": False, "error": "No autorizado."}), 401
+    if not check_permission('canClients'):
+        return jsonify({"success": False, "error": "Sin permisos."}), 403
+
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+
+    data = request.json or {}
+    recipient_email = data.get('email', '').strip()
+
+    clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox)
+    client = next((c for c in clients if c['id'] == client_id), None)
+    if not client:
+        return jsonify({"success": False, "error": "Cliente no encontrado."}), 404
+
+    if not recipient_email:
+        recipient_email = client.get('email', '')
+    if not recipient_email:
+        return jsonify({"success": False, "error": "Este cliente no tiene un correo registrado."}), 400
+
+    access_pin = client.get('accessPin', '')
+    if not access_pin:
+        return jsonify({"success": False, "error": "El cliente no tiene una clave de acceso asignada. Edite el cliente primero."}), 400
+
+    # Construir URL del portal
+    from flask import request as flask_request
+    try:
+        base_url = flask_request.host_url.rstrip('/')
+    except Exception:
+        import os
+        base_url = os.environ.get("PORTAL_BASE_URL", "http://localhost:5001").rstrip('/')
+    portal_url = f"{base_url}/portal/cliente/{owner_uid}/{client_id}?sandbox={'true' if sandbox else 'false'}"
+
+    company = DatabaseService.get_company_profile(owner_uid) or {}
+    company_name = company.get('tradeName') or company.get('companyName') or 'e-Factura'
+    brand_color = company.get('colorMarca', '#10b981')
+    logo_url = company.get('logoUrl', '')
+    logo_html = f'<img src="{logo_url}" alt="Logo" style="max-height: 60px; margin-bottom: 15px;"><br>' if logo_url else ''
+
+    from flask import current_app
+    import smtplib
+    from email.mime.multipart import MIMEMultipart
+    from email.mime.text import MIMEText
+
+    smtp_server = current_app.config.get("SMTP_SERVER", "smtp.gmail.com")
+    smtp_port = int(current_app.config.get("SMTP_PORT", 587))
+    smtp_user = current_app.config.get("SMTP_USER", "")
+    smtp_password = current_app.config.get("SMTP_PASSWORD", "")
+
+    client_name = client.get('razonSocial', 'Cliente')
+    client_rnc = client.get('rnc', '')
+
+    html_body = f"""
+    <html>
+    <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #333; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
+        <div style="text-align: center; margin-bottom: 24px; padding-bottom: 12px; border-bottom: 2px solid {brand_color};">
+            {logo_html}
+            <h2 style="color: {brand_color}; margin: 0;">Acceso al Portal de Autoservicio</h2>
+            <p style="color: #666; margin: 4px 0 0 0;">{company_name}</p>
+        </div>
+
+        <p>Estimado/a <strong>{client_name}</strong>,</p>
+        <p>Le compartimos sus credenciales de acceso al portal de autoservicio de <strong>{company_name}</strong>, donde podrá consultar sus facturas, cotizaciones y realizar pagos en línea.</p>
+
+        <div style="background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; margin: 20px 0;">
+            <h3 style="margin: 0 0 14px 0; color: {brand_color}; font-size: 1rem;">Sus Credenciales de Acceso</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+                <tr>
+                    <td style="padding: 8px 0; color: #6b7280; font-size: 0.9rem;">Usuario (RNC / Cédula):</td>
+                    <td style="padding: 8px 0; font-weight: bold; text-align: right; font-family: monospace; font-size: 1rem;">{client_rnc}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px 0; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: 0.9rem;">Clave de Acceso (PIN):</td>
+                    <td style="padding: 8px 0; border-top: 1px solid #e5e7eb; font-weight: bold; text-align: right; font-family: monospace; font-size: 1.2rem; letter-spacing: 0.15em; color: {brand_color};">{access_pin}</td>
+                </tr>
+            </table>
+        </div>
+
+        <p style="text-align: center; margin: 28px 0 10px 0;">
+            <a href="{portal_url}" style="background: {brand_color}; color: white; text-decoration: none; padding: 14px 36px; border-radius: 6px; font-weight: bold; display: inline-block; box-shadow: 0 4px 10px rgba(0,0,0,0.1); font-size: 1rem;">
+                Ingresar al Portal
+            </a>
+        </p>
+        <p style="font-size: 0.82rem; color: #6b7280; text-align: center; margin-top: 8px;">
+            O copie y pegue este enlace en su navegador:<br>
+            <span style="font-family: monospace; color: #475569; font-size: 0.8rem; word-break: break-all;">{portal_url}</span>
+        </p>
+
+        <p style="font-size: 0.82rem; color: #6b7280; text-align: center; margin-top: 20px;">
+            Por seguridad, le recomendamos no compartir su clave de acceso con terceros.
+        </p>
+
+        <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 24px 0;">
+        <div style="font-size: 0.8rem; color: #9ca3af; text-align: center;">
+            Enviado automáticamente por la plataforma e-Factura &middot; {company_name}
+        </div>
+    </body>
+    </html>
+    """
+
+    if not smtp_user or not smtp_password:
+        if sandbox:
+            print(f"⚠️ SMTP no configurado. Simulando envío de credenciales a {recipient_email}...")
+            import uuid as _uuid
+            from datetime import datetime as _dt
+            interaction_id = str(_uuid.uuid4())
+            interaction_dict = {
+                "type": "Email",
+                "title": "Credenciales del Portal enviadas (Simulado)",
+                "content": f"Simulación: Credenciales de acceso al portal enviadas a {recipient_email}.\nRNC: {client_rnc} | PIN: {access_pin} | URL: {portal_url}",
+                "date": _dt.utcnow().isoformat(),
+                "completed": True,
+                "createdBy": session.get('user', {}).get('email', 'Sistema')
+            }
+            DatabaseService.save_client_interaction(owner_uid, client_id, interaction_id, interaction_dict, sandbox=sandbox)
+            return jsonify({"success": True, "message": f"Credenciales simuladas enviadas a {recipient_email} (SMTP no configurado)."})
+        return jsonify({"success": False, "error": "Servidor de correo SMTP no configurado."}), 500
+
+    try:
+        msg = MIMEMultipart('alternative')
+        msg["Subject"] = f"🔑 Acceso al Portal de Autoservicio - {company_name}"
+        msg["From"] = f"{company_name} <{smtp_user}>"
+        msg["To"] = recipient_email
+        msg.attach(MIMEText(html_body, 'html'))
+
+        with smtplib.SMTP(smtp_server, smtp_port) as server:
+            server.starttls()
+            server.login(smtp_user, smtp_password)
+            server.sendmail(smtp_user, recipient_email, msg.as_string())
+
+        # Registrar en historial CRM
+        import uuid as _uuid
+        from datetime import datetime as _dt
+        interaction_id = str(_uuid.uuid4())
+        interaction_dict = {
+            "type": "Email",
+            "title": "Credenciales del Portal enviadas",
+            "content": f"Credenciales de acceso al portal enviadas a {recipient_email}.\nRNC: {client_rnc} | PIN: {access_pin}",
+            "date": _dt.utcnow().isoformat(),
+            "completed": True,
+            "createdBy": session.get('user', {}).get('email', 'Sistema')
+        }
+        DatabaseService.save_client_interaction(owner_uid, client_id, interaction_id, interaction_dict, sandbox=sandbox)
+
+        return jsonify({"success": True, "message": f"Credenciales enviadas exitosamente a {recipient_email}."})
+    except Exception as e:
+        print(f"⚠️ Error al enviar credenciales: {e}")
+        return jsonify({"success": False, "error": f"Error al enviar correo: {str(e)}"}), 500
+
 @web_clients_bp.route('/clients/<client_id>')
 def client_detail(client_id):
     if 'user' not in session: return redirect(url_for('login'))
@@ -340,7 +550,7 @@ def client_detail(client_id):
     
     # Calcular sumas financieras específicas (excluyendo cotizaciones, anuladas y borradores)
     client['total_invoiced'] = sum(inv['total'] for inv in client_invoices if inv.get('status') not in ['Anulada', 'Borrador'])
-    client['total_cxc'] = sum(inv['netPayable'] for inv in client_invoices if inv['status'] in ['Emitida', 'Vencida'])
+    client['total_cxc'] = sum(inv['netPayable'] for inv in client_invoices if inv['status'] in ['Emitida', 'Vencida', 'Revisión de Pago'])
     
     # Obtener interacciones
     interactions = DatabaseService.get_client_interactions(owner_uid, client_id, sandbox=sandbox)
@@ -356,6 +566,18 @@ def client_detail(client_id):
             client_payments.append(pay)
     client_payments.sort(key=lambda x: x.get('paymentDate') or '', reverse=True)
     
+    # Obtener nombre del responsable
+    responsible_name = None
+    resp_id = client.get('responsibleId')
+    if resp_id:
+        try:
+            colabs = DatabaseService.get_team_members(owner_uid) or []
+            target_colab = next((col for col in colabs if col['uid'] == resp_id), None)
+            if target_colab:
+                responsible_name = target_colab.get('name') or target_colab.get('email', '').split('@')[0]
+        except Exception:
+            pass
+            
     return render_template(
         'clients/detail.html',
         active_page='clients',
@@ -364,7 +586,8 @@ def client_detail(client_id):
         quotations=client_quotations,
         interactions=interactions,
         documents=documents,
-        payments=client_payments
+        payments=client_payments,
+        responsible_name=responsible_name
     )
 
 @web_clients_bp.route('/clients/<client_id>/interactions/new', methods=['POST'])

@@ -7,6 +7,66 @@
 {% block content %}
 <div style="display: grid; grid-template-columns: 3fr 1fr; gap: 30px; max-width: 100%; margin: 0 auto;">
     <div style="display: flex; flex-direction: column; gap: 30px;">
+        {% if invoice.status == 'Revisión de Pago' and invoice.pendingPaymentProof %}
+        <!-- Tarjeta de Revisión de Pago por Cuentas por Cobrar -->
+        <div class="card-table-wrapper" style="padding: 30px; border: 1.5px solid var(--accent-yellow); background: rgba(245, 158, 11, 0.04); border-radius: var(--radius-md); box-shadow: var(--shadow-sm);">
+            <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 20px; border-bottom: 1px solid rgba(245, 158, 11, 0.2); padding-bottom: 12px;">
+                <div style="width: 44px; height: 44px; border-radius: 50%; background-color: rgba(245, 158, 11, 0.15); color: #d97706; display: flex; align-items: center; justify-content: center; font-size: 1.3rem;">
+                    <i class="fa-solid fa-clock-rotate-left"></i>
+                </div>
+                <div>
+                    <h4 style="font-size: 1.2rem; font-family: var(--font-heading); margin: 0; color: #d97706; font-weight: 800;">Pago en Revisión de Cuentas por Cobrar</h4>
+                    <span style="font-size: 0.8rem; color: var(--text-secondary);">El cliente reportó un pago que requiere validación</span>
+                </div>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px; margin-bottom: 20px; background-color: rgba(255, 255, 255, 0.5); padding: 16px; border-radius: 8px; border: 1px solid rgba(0,0,0,0.03);">
+                <div>
+                    <span style="font-size: 0.72rem; color: var(--text-muted); display: block; text-transform: uppercase; font-weight: 700; margin-bottom: 4px;">Monto Reportado</span>
+                    <strong style="font-size: 1.1rem; color: var(--text-primary);">RD$ {{ "{:,.2f}".format(invoice.pendingPaymentProof.amount) }}</strong>
+                </div>
+                <div>
+                    <span style="font-size: 0.72rem; color: var(--text-muted); display: block; text-transform: uppercase; font-weight: 700; margin-bottom: 4px;">Método de Pago</span>
+                    <strong style="font-size: 0.95rem; color: var(--text-primary);">{{ invoice.pendingPaymentProof.paymentMethod }}</strong>
+                </div>
+                <div>
+                    <span style="font-size: 0.72rem; color: var(--text-muted); display: block; text-transform: uppercase; font-weight: 700; margin-bottom: 4px;">Banco</span>
+                    <strong style="font-size: 0.95rem; color: var(--text-primary);">{{ invoice.pendingPaymentProof.bank }}</strong>
+                </div>
+                <div>
+                    <span style="font-size: 0.72rem; color: var(--text-muted); display: block; text-transform: uppercase; font-weight: 700; margin-bottom: 4px;">Referencia</span>
+                    <strong style="font-size: 0.95rem; color: var(--text-primary); font-family: monospace;">{{ invoice.pendingPaymentProof.referenceNumber }}</strong>
+                </div>
+                <div>
+                    <span style="font-size: 0.72rem; color: var(--text-muted); display: block; text-transform: uppercase; font-weight: 700; margin-bottom: 4px;">Fecha de Pago</span>
+                    <strong style="font-size: 0.95rem; color: var(--text-primary);">{{ invoice.pendingPaymentProof.paymentDate | format_date }}</strong>
+                </div>
+            </div>
+
+            {% if invoice.pendingPaymentProof.notes %}
+            <div style="margin-bottom: 20px; font-size: 0.85rem; color: var(--text-secondary); background: #f8fafc; padding: 12px; border-radius: 6px; border: 1px solid var(--border-color);">
+                <strong>Comentario del Cliente:</strong> {{ invoice.pendingPaymentProof.notes }}
+            </div>
+            {% endif %}
+
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
+                <div>
+                    <a href="{{ invoice.pendingPaymentProof.fileUrl }}" target="_blank" class="btn btn-secondary" style="border-color: #d97706; color: #d97706; font-weight: 600;">
+                        <i class="fa-solid fa-file-pdf"></i> Ver Comprobante de Pago
+                    </a>
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <button type="button" onclick="openRejectProofModal()" class="btn btn-danger" style="font-weight: 600;">
+                        <i class="fa-solid fa-ban"></i> Rechazar
+                    </button>
+                    <button type="button" onclick="openApproveProofModal()" class="btn btn-success" style="font-weight: 600; background-color: #10b981;">
+                        <i class="fa-solid fa-check"></i> Aprobar Pago
+                    </button>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
         <!-- Vista Principal de Factura Premium -->
         <div class="card-table-wrapper" style="padding: 40px; position: relative;">
             <!-- Píldora de Sandbox visual -->
@@ -506,6 +566,80 @@
             </div>
         </div>
         {% endif %}
+
+        <!-- Historial de Abonos / Pagos Realizados -->
+        {% if payments %}
+        <div class="card-table-wrapper" style="padding: 24px; text-align: left; margin-top: 30px;">
+            <h4
+                style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-receipt" style="color: var(--accent-purple);"></i>
+                <span>Historial de Abonos</span>
+            </h4>
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+                {% for p in payments %}
+                <div
+                    style="background: rgba(255, 255, 255, 0.01); border: 1px solid {% if p.get('moraAction') == 'cobrado_separado' %}rgba(249,115,22,0.4){% elif p.get('moraAction') == 'perdonado' %}rgba(59,130,246,0.3){% else %}var(--border-color){% endif %}; border-radius: var(--radius-sm); padding: 14px; font-size: 0.82rem; {% if p.get('moraAction') %}border-left-width: 3px;{% endif %}">
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap;">
+                        <div style="flex: 1; min-width: 0;">
+                            <strong style="color: var(--text-primary); display: block; margin-bottom: 2px;">{{
+                                p.paymentMethod }}</strong>
+                            <span style="font-size: 0.74rem; color: var(--text-muted); display: block;">Fecha: {{
+                                p.paymentDate | format_date }}</span>
+                            {% if p.bank and p.bank != 'Caja Efectivo' %}
+                            <span
+                                style="font-size: 0.72rem; color: var(--text-secondary); display: block; margin-top: 3px;">{{
+                                p.bank }}</span>
+                            <span
+                                style="font-family: monospace; font-size: 0.72rem; color: var(--text-muted); display: block;">Ref:
+                                {{ p.referenceNumber }}</span>
+                            {% endif %}
+                            {% if p.get('moraAction') == 'cobrado_separado' %}
+                            <span
+                                style="display: inline-flex; align-items: center; gap: 4px; margin-top: 5px; font-size: 0.68rem; font-weight: 700; background: rgba(249,115,22,0.1); color: #c2410c; padding: 2px 8px; border-radius: 20px; border: 1px solid rgba(249,115,22,0.25);">
+                                <i class="fa-solid fa-coins"></i> Mora cobrada: RD$ {{
+                                "{:,.2f}".format(p.get('moraAmount', 0)) }}
+                            </span>
+                            {% elif p.get('moraAction') == 'perdonado' %}
+                            <span
+                                style="display: inline-flex; align-items: center; gap: 4px; margin-top: 5px; font-size: 0.68rem; font-weight: 700; background: rgba(59,130,246,0.08); color: #1d4ed8; padding: 2px 8px; border-radius: 20px; border: 1px solid rgba(59,130,246,0.2);">
+                                <i class="fa-solid fa-handshake"></i> Mora perdonada: RD$ {{
+                                "{:,.2f}".format(p.get('moraForgiven', 0)) }}
+                            </span>
+                            {% if p.get('moraForgivenNote') %}
+                            <span
+                                style="font-size: 0.68rem; color: var(--text-muted); display: block; margin-top: 2px; font-style: italic;">{{
+                                p.moraForgivenNote }}</span>
+                            {% endif %}
+                            {% endif %}
+                        </div>
+                        <div style="text-align: right; flex-shrink: 0;">
+                            <strong
+                                style="color: var(--accent-emerald); font-size: 0.95rem; display: block; margin-bottom: 8px;">RD$
+                                {{ "{:,.2f}".format(p.amount) }}</strong>
+                            <div style="display: flex; gap: 6px; justify-content: flex-end;" class="no-print">
+                                <button type="button"
+                                    onclick="printReceipt('{{ p.id }}', '{{ p.paymentDate | format_date }}', '{{ p.paymentMethod }}', '{{ p.bank or '' }}', '{{ p.referenceNumber or '' }}', {{ p.amount }})"
+                                    class="btn btn-secondary" title="Imprimir Recibo de Ingreso"
+                                    style="font-size: 0.7rem; padding: 4px 10px; height: 28px; display: inline-flex; align-items: center; gap: 4px; border-color: #1e3a8a; color: #1e3a8a;">
+                                    <i class="fa-solid fa-print"></i>
+                                    <span>Recibo</span>
+                                </button>
+                                <button type="button"
+                                    onclick="openEmailReceiptModal('{{ p.id }}', '{{ p.paymentDate | format_date }}', '{{ p.paymentMethod }}', '{{ p.bank or '' }}', '{{ p.referenceNumber or '' }}', {{ p.amount }})"
+                                    class="btn btn-secondary" title="Enviar Recibo por Email al Cliente"
+                                    style="font-size: 0.7rem; padding: 4px 10px; height: 28px; display: inline-flex; align-items: center; gap: 4px; border-color: var(--accent-purple); color: var(--accent-purple);">
+                                    <i class="fa-solid fa-paper-plane"></i>
+                                    <span>Email</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
     </div>
 
     <!-- Barra Lateral de Certificación y Acciones (NCF, Firma, QR) -->
@@ -742,79 +876,7 @@
         </div>
         {% endif %}
 
-        <!-- Historial de Abonos / Pagos Realizados -->
-        {% if payments %}
-        <div class="card-table-wrapper" style="padding: 24px; text-align: left;">
-            <h4
-                style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
-                <i class="fa-solid fa-receipt" style="color: var(--accent-purple);"></i>
-                <span>Historial de Abonos</span>
-            </h4>
-            <div style="display: flex; flex-direction: column; gap: 12px;">
-                {% for p in payments %}
-                <div
-                    style="background: rgba(255, 255, 255, 0.01); border: 1px solid {% if p.get('moraAction') == 'cobrado_separado' %}rgba(249,115,22,0.4){% elif p.get('moraAction') == 'perdonado' %}rgba(59,130,246,0.3){% else %}var(--border-color){% endif %}; border-radius: var(--radius-sm); padding: 14px; font-size: 0.82rem; {% if p.get('moraAction') %}border-left-width: 3px;{% endif %}">
-                    <div
-                        style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap;">
-                        <div style="flex: 1; min-width: 0;">
-                            <strong style="color: var(--text-primary); display: block; margin-bottom: 2px;">{{
-                                p.paymentMethod }}</strong>
-                            <span style="font-size: 0.74rem; color: var(--text-muted); display: block;">Fecha: {{
-                                p.paymentDate | format_date }}</span>
-                            {% if p.bank and p.bank != 'Caja Efectivo' %}
-                            <span
-                                style="font-size: 0.72rem; color: var(--text-secondary); display: block; margin-top: 3px;">{{
-                                p.bank }}</span>
-                            <span
-                                style="font-family: monospace; font-size: 0.72rem; color: var(--text-muted); display: block;">Ref:
-                                {{ p.referenceNumber }}</span>
-                            {% endif %}
-                            {% if p.get('moraAction') == 'cobrado_separado' %}
-                            <span
-                                style="display: inline-flex; align-items: center; gap: 4px; margin-top: 5px; font-size: 0.68rem; font-weight: 700; background: rgba(249,115,22,0.1); color: #c2410c; padding: 2px 8px; border-radius: 20px; border: 1px solid rgba(249,115,22,0.25);">
-                                <i class="fa-solid fa-coins"></i> Mora cobrada: RD$ {{
-                                "{:,.2f}".format(p.get('moraAmount', 0)) }}
-                            </span>
-                            {% elif p.get('moraAction') == 'perdonado' %}
-                            <span
-                                style="display: inline-flex; align-items: center; gap: 4px; margin-top: 5px; font-size: 0.68rem; font-weight: 700; background: rgba(59,130,246,0.08); color: #1d4ed8; padding: 2px 8px; border-radius: 20px; border: 1px solid rgba(59,130,246,0.2);">
-                                <i class="fa-solid fa-handshake"></i> Mora perdonada: RD$ {{
-                                "{:,.2f}".format(p.get('moraForgiven', 0)) }}
-                            </span>
-                            {% if p.get('moraForgivenNote') %}
-                            <span
-                                style="font-size: 0.68rem; color: var(--text-muted); display: block; margin-top: 2px; font-style: italic;">{{
-                                p.moraForgivenNote }}</span>
-                            {% endif %}
-                            {% endif %}
-                        </div>
-                        <div style="text-align: right; flex-shrink: 0;">
-                            <strong
-                                style="color: var(--accent-emerald); font-size: 0.95rem; display: block; margin-bottom: 8px;">RD$
-                                {{ "{:,.2f}".format(p.amount) }}</strong>
-                            <div style="display: flex; gap: 6px; justify-content: flex-end;" class="no-print">
-                                <button type="button"
-                                    onclick="printReceipt('{{ p.id }}', '{{ p.paymentDate | format_date }}', '{{ p.paymentMethod }}', '{{ p.bank or '' }}', '{{ p.referenceNumber or '' }}', {{ p.amount }})"
-                                    class="btn btn-secondary" title="Imprimir Recibo de Ingreso"
-                                    style="font-size: 0.7rem; padding: 4px 10px; height: 28px; display: inline-flex; align-items: center; gap: 4px; border-color: #1e3a8a; color: #1e3a8a;">
-                                    <i class="fa-solid fa-print"></i>
-                                    <span>Recibo</span>
-                                </button>
-                                <button type="button"
-                                    onclick="openEmailReceiptModal('{{ p.id }}', '{{ p.paymentDate | format_date }}', '{{ p.paymentMethod }}', '{{ p.bank or '' }}', '{{ p.referenceNumber or '' }}', {{ p.amount }})"
-                                    class="btn btn-secondary" title="Enviar Recibo por Email al Cliente"
-                                    style="font-size: 0.7rem; padding: 4px 10px; height: 28px; display: inline-flex; align-items: center; gap: 4px; border-color: var(--accent-purple); color: var(--accent-purple);">
-                                    <i class="fa-solid fa-paper-plane"></i>
-                                    <span>Email</span>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                {% endfor %}
-            </div>
-        </div>
-        {% endif %}
+
 
         <!-- Acciones Generales -->
         <div class="card-table-wrapper" style="padding: 24px; display: flex; flex-direction: column; gap: 12px;">
@@ -1242,6 +1304,81 @@
                 </form>
             </div>
         </div>
+
+        {% if invoice.status == 'Revisión de Pago' and invoice.pendingPaymentProof %}
+        <!-- Modal Aprobar Comprobante de Pago -->
+        <div id="approve-proof-modal" class="search-modal" style="display: none; justify-content: center; align-items: center; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 2000;">
+            <div class="modal-backdrop" onclick="closeApproveProofModal()" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px);"></div>
+            <div class="modal-content" style="max-width: 500px; width: 90%; padding: 24px; border-radius: var(--radius-md); position: relative; z-index: 2001; background: #ffffff; box-shadow: var(--shadow-lg);">
+                <h3 style="margin-top: 0; margin-bottom: 16px; font-family: var(--font-heading); color: var(--text-primary); font-weight: 800; display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-check-circle" style="color: var(--accent-emerald);"></i> Confirmar y Aplicar Pago
+                </h3>
+                <form id="approve-proof-form" action="{{ url_for('web_invoices.approve_payment_proof', invoice_id=invoice.id) }}" method="POST">
+                    <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 16px;">Revise y confirme los datos del cobro a registrar en el sistema:</p>
+                    
+                    <div style="margin-bottom: 12px;">
+                        <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 4px; color: var(--text-primary);">Monto a Registrar (RD$)</label>
+                        <input type="number" name="amount" id="approve-amount" step="0.01" required
+                            style="width: 100%; height: 38px; padding: 0 10px; border: 1px solid var(--border-color); border-radius: 6px; box-sizing: border-box;"
+                            value="{{ invoice.pendingPaymentProof.amount if invoice.pendingPaymentProof else '' }}">
+                    </div>
+                    <div style="margin-bottom: 12px;">
+                        <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 4px; color: var(--text-primary);">Método de Pago</label>
+                        <input type="text" name="paymentMethod" id="approve-method" required
+                            style="width: 100%; height: 38px; padding: 0 10px; border: 1px solid var(--border-color); border-radius: 6px; box-sizing: border-box;"
+                            value="{{ invoice.pendingPaymentProof.paymentMethod if invoice.pendingPaymentProof else '' }}">
+                    </div>
+                    <div style="margin-bottom: 12px;">
+                        <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 4px; color: var(--text-primary);">Banco</label>
+                        <input type="text" name="bank" id="approve-bank" required
+                            style="width: 100%; height: 38px; padding: 0 10px; border: 1px solid var(--border-color); border-radius: 6px; box-sizing: border-box;"
+                            value="{{ invoice.pendingPaymentProof.bank if invoice.pendingPaymentProof else '' }}">
+                    </div>
+                    <div style="margin-bottom: 12px;">
+                        <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 4px; color: var(--text-primary);">Número de Referencia</label>
+                        <input type="text" name="referenceNumber" id="approve-reference" required
+                            style="width: 100%; height: 38px; padding: 0 10px; border: 1px solid var(--border-color); border-radius: 6px; box-sizing: border-box;"
+                            value="{{ invoice.pendingPaymentProof.referenceNumber if invoice.pendingPaymentProof else '' }}">
+                    </div>
+                    <div style="margin-bottom: 16px;">
+                        <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 4px; color: var(--text-primary);">Fecha de Pago</label>
+                        <input type="date" name="paymentDate" id="approve-date" required
+                            style="width: 100%; height: 38px; padding: 0 10px; border: 1px solid var(--border-color); border-radius: 6px; box-sizing: border-box;"
+                            value="{{ invoice.pendingPaymentProof.paymentDate if invoice.pendingPaymentProof else '' }}">
+                    </div>
+
+                    <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px;">
+                        <button type="button" class="btn btn-secondary" onclick="closeApproveProofModal()">Cancelar</button>
+                        <button type="submit" class="btn btn-success" style="background-color: #10b981; color: white;">Aprobar y Aplicar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Modal Rechazar Comprobante de Pago -->
+        <div id="reject-proof-modal" class="search-modal" style="display: none; justify-content: center; align-items: center; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 2000;">
+            <div class="modal-backdrop" onclick="closeRejectProofModal()" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px);"></div>
+            <div class="modal-content" style="max-width: 450px; width: 90%; padding: 24px; border-radius: var(--radius-md); position: relative; z-index: 2001; background: #ffffff; box-shadow: var(--shadow-lg);">
+                <h3 style="margin-top: 0; margin-bottom: 16px; font-family: var(--font-heading); color: var(--text-primary); font-weight: 800; display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-circle-xmark" style="color: var(--accent-red);"></i> Rechazar Comprobante
+                </h3>
+                <form id="reject-proof-form" action="{{ url_for('web_invoices.reject_payment_proof', invoice_id=invoice.id) }}" method="POST">
+                    <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 16px;">¿Está seguro de que desea rechazar este comprobante de pago? El estatus de la factura volverá a <strong>Emitida</strong> (o su estado pendiente anterior).</p>
+                    
+                    <div style="margin-bottom: 16px;">
+                        <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 4px; color: var(--text-primary);">Motivo del Rechazo (Opcional)</label>
+                        <textarea name="rejectionReason" placeholder="Indique al cliente por qué se rechaza el comprobante (ej: referencia incorrecta, fondos insuficientes, etc.)" rows="3"
+                            style="width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 6px; box-sizing: border-box; font-family: var(--font-main); font-size: 0.9rem; resize: vertical;"></textarea>
+                    </div>
+
+                    <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px;">
+                        <button type="button" class="btn btn-secondary" onclick="closeRejectProofModal()">Cancelar</button>
+                        <button type="submit" class="btn btn-danger">Rechazar Pago</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        {% endif %}
     {% endblock %}
 
 
@@ -1742,6 +1879,21 @@
             if (modal) {
                 modal.style.display = 'none';
             }
+        }
+        // =========================================================================
+        // APROBACIÓN / RECHAZO DE COMPROBANTE DE PAGO
+        // =========================================================================
+        function openApproveProofModal() {
+            document.getElementById('approve-proof-modal').style.display = 'flex';
+        }
+        function closeApproveProofModal() {
+            document.getElementById('approve-proof-modal').style.display = 'none';
+        }
+        function openRejectProofModal() {
+            document.getElementById('reject-proof-modal').style.display = 'flex';
+        }
+        function closeRejectProofModal() {
+            document.getElementById('reject-proof-modal').style.display = 'none';
         }
 
     </script>

@@ -182,6 +182,31 @@ def toggle_contract(contract_id):
         
     return jsonify({"success": False, "error": "Contrato no encontrado"}), 404
 
+@web_operations_bp.route('/operations/contracts/<contract_id>/status', methods=['POST'])
+def set_contract_status(contract_id):
+    if 'user' not in session: return jsonify({"success": False, "error": "No autorizado"}), 401
+    if not check_permission('canManageContracts'): return jsonify({"success": False, "error": "Sin permisos"}), 403
+    
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+    
+    data = request.get_json() or {}
+    new_status = data.get('status', '').strip()
+    
+    valid_statuses = ['Borrador', 'Pendiente de Aprobación', 'Activo', 'Suspendido', 'Cancelado', 'Expirado', 'Inactivo']
+    if new_status not in valid_statuses:
+        return jsonify({"success": False, "error": f"Estado no válido: {new_status}"}), 400
+    
+    contracts = DatabaseService.get_contracts(owner_uid, sandbox=sandbox)
+    contract = next((c for c in contracts if c['id'] == contract_id), None)
+    
+    if contract:
+        contract['status'] = new_status
+        DatabaseService.save_contract(owner_uid, contract_id, contract, sandbox=sandbox)
+        return jsonify({"success": True, "new_status": new_status})
+        
+    return jsonify({"success": False, "error": "Contrato no encontrado"}), 404
+
 @web_operations_bp.route('/operations/contracts/<contract_id>/delete', methods=['POST'])
 def delete_contract_route(contract_id):
     if 'user' not in session: return redirect(url_for('web_auth.login'))

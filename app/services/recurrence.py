@@ -428,6 +428,14 @@ class RecurrenceService:
             try:
                 contract_id = contract["id"]
 
+                # ── 0. Verificar si se solicitó la cancelación (no renovación) ──
+                if contract.get("cancelRequest") is True:
+                    contract["status"] = "Cancelado"
+                    contract["nextBillingDate"] = None
+                    DatabaseService.save_contract(owner_uid, contract_id, contract, sandbox=sandbox)
+                    print(f"⏹️ Contrato {contract.get('contractNumber')} cancelado definitivamente por solicitud del cliente (cancelRequest).")
+                    continue
+
                 # ── 1. Verificar expiración por endDate ───────────────────────
                 end_date     = (contract.get("endDate") or "")[:10]
                 next_billing = (contract.get("nextBillingDate") or "")[:10]

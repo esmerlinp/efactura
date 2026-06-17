@@ -545,12 +545,16 @@
                                         <i class="fa-solid fa-file-code" style="color: var(--accent-emerald);"></i>
                                     </a>
                                     {% endif %}
-                                    {% if inv.remainingBalance > 0.01 and inv.status != 'Borrador' %}
+                                    {% if inv.remainingBalance > 0.01 and inv.status != 'Borrador' and inv.status != 'Revisión de Pago' %}
                                     <button class="btn btn-success"
                                         onclick="openPaymentModal('{{ inv.id }}', {{ inv.remainingBalance }})">
-                                        <i class="fa-solid fa-credit-card"></i>
-                                        <span>Pagar</span>
+                                        <i class="fa-solid fa-upload"></i>
+                                        <span>Reportar Pago</span>
                                     </button>
+                                    {% elif inv.status == 'Revisión de Pago' %}
+                                    <span class="badge badge-info" style="background-color: rgba(59, 130, 246, 0.1); color: #2563eb; padding: 6px 10px; display: inline-flex; align-items: center; gap: 4px;">
+                                        <i class="fa-solid fa-clock-rotate-left"></i> En Revisión
+                                    </span>
                                     {% endif %}
                                     {% endif %}
                                 </div>
@@ -576,6 +580,7 @@
                     <thead>
                         <tr>
                             <th>Número Contrato</th>
+                            <th>Concepto</th>
                             <th>Fecha Inicio</th>
                             <th>Monto Recurrente</th>
                             <th>Frecuencia</th>
@@ -589,6 +594,9 @@
                             <td data-label="Número Contrato">
                                 <strong>{{ contract.contractNumber }}</strong>
                             </td>
+                            <td data-label="Concepto">
+                                <span style="font-size: 0.88rem;">{{ contract.concept or contract.description or '—' }}</span>
+                            </td>
                             <td data-label="Fecha Inicio">
                                 <span style="font-family: monospace;">{{ contract.startDate | format_date if contract.startDate else '-' }}</span>
                             </td>
@@ -599,7 +607,11 @@
                                 <span class="badge badge-info" style="text-transform: capitalize;">{{ contract.recurrenceInterval or 'Mensual' }}</span>
                             </td>
                             <td data-label="Estado">
-                                {% if contract.status == 'Activo' %}
+                                {% if contract.cancelRequest %}
+                                <span class="badge" style="background: rgba(245,158,11,0.1); color: #d97706; border: 1px solid rgba(245,158,11,0.25);">
+                                    <i class="fa-solid fa-clock"></i> No Renovar
+                                </span>
+                                {% elif contract.status == 'Activo' %}
                                 <span class="badge badge-success">{{ contract.status }}</span>
                                 {% elif contract.status == 'Inactivo' %}
                                 <span class="badge badge-danger" style="background: rgba(0,0,0,0.05); color: var(--text-muted);">{{ contract.status }}</span>
@@ -608,12 +620,26 @@
                                 {% endif %}
                             </td>
                             <td style="text-align: right;">
-                                <div style="display: inline-flex; gap: 8px;">
-                                    {% if contract.status != 'Activo' and contract.status != 'Inactivo' %}
+                                <div style="display: inline-flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end;">
+                                    <button class="btn btn-secondary" data-contract="{{ contract | tojson | forceescape }}" onclick="showContractDetail(this)" title="Ver Detalle">
+                                        <i class="fa-solid fa-eye"></i>
+                                    </button>
+                                    {% if contract.status != 'Activo' and contract.status != 'Inactivo' and not contract.cancelRequest %}
                                     <button class="btn btn-primary" onclick="openSignatureModal('{{ contract.id }}', 'contrato')">
                                         <i class="fa-solid fa-signature"></i>
                                         <span>Firmar Contrato</span>
                                     </button>
+                                    {% elif contract.status == 'Activo' and not contract.cancelRequest %}
+                                    <button class="btn btn-secondary"
+                                            style="border-color: #ef4444; color: #ef4444;"
+                                            onclick="openCancelContractModal('{{ contract.id }}', '{{ contract.contractNumber }}', '{{ contract.concept or contract.description or '' }}')">
+                                        <i class="fa-solid fa-ban"></i>
+                                        <span>Solicitar Cancelación</span>
+                                    </button>
+                                    {% elif contract.cancelRequest %}
+                                    <span style="font-size: 0.8rem; color: #d97706; display: inline-flex; align-items: center; gap: 4px;">
+                                        <i class="fa-solid fa-circle-check"></i> Cancelación solicitada
+                                    </span>
                                     {% else %}
                                     <span class="badge badge-success"><i class="fa-solid fa-circle-check"></i> {{ contract.status }}</span>
                                     {% endif %}
@@ -622,7 +648,7 @@
                         </tr>
                         {% else %}
                         <tr>
-                            <td colspan="6" style="text-align: center; padding: 40px 0; color: var(--text-muted);">
+                            <td colspan="7" style="text-align: center; padding: 40px 0; color: var(--text-muted);">
                                 No hay contratos registrados.
                             </td>
                         </tr>
@@ -637,13 +663,18 @@
     <div id="signature-modal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h3 class="modal-title"><i class="fa-solid fa-file-signature" style="color: var(--primary);"></i> Firma Electrónica Certificada</h3>
+                <h3 class="modal-title" id="sig-modal-title"><i class="fa-solid fa-file-signature" style="color: var(--primary);"></i> Firma Electrónica Certificada</h3>
                 <button class="modal-close" onclick="closeSignatureModal()">&times;</button>
             </div>
+            <p id="sig-modal-subtitle" style="font-size: 0.82rem; color: var(--text-secondary); margin-top: 0; margin-bottom: 16px;">
+                Para firmar legalmente, cargue su certificado digital (.p12 / .pfx) e ingrese su contraseña.
+            </p>
             <form id="signature-form" onsubmit="submitSignature(event)" enctype="multipart/form-data">
-                <p style="font-size: 0.82rem; color: var(--text-secondary); margin-top: 0; margin-bottom: 16px;">
-                    Para firmar legalmente, cargue su certificado digital (.p12 / .pfx) e ingrese su contraseña.
-                </p>
+                <div id="sig-cancel-warning" style="display:none; background: rgba(239,68,68,0.07); border: 1px solid rgba(239,68,68,0.2); border-radius: 8px; padding: 12px 14px; margin-bottom: 16px; font-size: 0.83rem; color: #b91c1c;">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                    <strong>Cancelación de contrato: <span id="sig-cancel-contract-num"></span></strong><br>
+                    Al firmar, su solicitud de cancelación quedará registrada. El servicio seguirá activo hasta el final del período ya pagado y <strong>no será renovado automáticamente</strong>.
+                </div>
                 <div style="margin-bottom: 16px;">
                     <label style="display: block; font-size: 0.85rem; font-weight: 500; margin-bottom: 6px;">Certificado Digital (.p12 / .pfx)</label>
                     <input type="file" id="sig-certificate" name="certificate" accept=".p12,.pfx" required
@@ -659,46 +690,104 @@
                 </div>
                 <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px;">
                     <button type="button" class="btn btn-secondary" onclick="closeSignatureModal()">Cancelar</button>
-                    <button type="submit" class="btn btn-primary"><i class="fa-solid fa-check"></i> Validar y Firmar</button>
+                    <button type="submit" id="sig-submit-btn" class="btn btn-primary"><i class="fa-solid fa-check"></i> <span id="sig-submit-label">Validar y Firmar</span></button>
                 </div>
             </form>
         </div>
     </div>
 
-    <!-- Modal de Pago Simulado -->
+    <!-- Modal de Registro de Pago (Reportar Transferencia / Cheque) -->
     <div id="payment-modal" class="modal">
-        <div class="modal-content">
+        <div class="modal-content" style="max-width: 500px; width: 100%;">
             <div class="modal-header">
-                <h3 class="modal-title"><i class="fa-solid fa-credit-card" style="color: var(--accent-emerald);"></i>
-                    Pasarela de Pago</h3>
+                <h3 class="modal-title"><i class="fa-solid fa-file-invoice-dollar" style="color: var(--accent-emerald);"></i>
+                    Reportar Pago de Factura</h3>
                 <button class="modal-close" onclick="closePaymentModal()">&times;</button>
             </div>
-            <form id="payment-form" onsubmit="submitPayment(event)">
+            <form id="payment-form" onsubmit="submitPaymentProof(event)" enctype="multipart/form-data">
                 <input type="hidden" id="pay-invoice-id">
+                
                 <div style="margin-bottom: 16px;">
-                    <label style="display: block; font-size: 0.85rem; font-weight: 500; margin-bottom: 6px;">Monto a
-                        Pagar (RD$)</label>
-                    <input type="number" id="pay-amount" class="btn btn-secondary"
-                        style="width: 100%; height: 40px; font-size: 1rem; padding: 0 12px; border: 1px solid var(--border-color); text-align: right;"
+                    <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px; color: var(--text-primary);">Monto Pagado (RD$)</label>
+                    <input type="number" id="pay-amount" name="amount"
+                        style="width: 100%; height: 40px; font-size: 1rem; padding: 0 12px; border: 1px solid var(--border-color); border-radius: 6px; text-align: right; box-sizing: border-box;"
                         step="0.01" required>
                 </div>
-                <div
-                    style="background-color: #f8fafc; border: 1px solid var(--border-color); border-radius: 6px; padding: 12px; font-size: 0.78rem; color: var(--text-muted); margin-bottom: 16px;">
-                    <i class="fa-solid fa-info-circle"></i> Esto simula una transacción integrada con tarjeta de
-                    crédito/débito. Al procesarse, se aplicará el abono de forma automática en el sistema.
+
+                <div style="margin-bottom: 16px;">
+                    <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px; color: var(--text-primary);">Método de Pago</label>
+                    <select id="pay-method" name="paymentMethod" required
+                        style="width: 100%; height: 40px; font-size: 0.9rem; padding: 0 10px; border: 1px solid var(--border-color); border-radius: 6px; box-sizing: border-box; background-color: white;">
+                        <option value="Transferencia Bancaria">Transferencia Bancaria</option>
+                        <option value="Cheque">Cheque</option>
+                        <option value="Depósito Bancario">Depósito Bancario</option>
+                        <option value="Otro">Otro</option>
+                    </select>
                 </div>
-                <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 20px;">
-                    <button type="button" class="btn btn-primary" onclick="redirectToAzul()" style="width: 100%; height: 44px; justify-content: center; font-size: 0.92rem; font-weight: 600; background-color: #004b93; color: white;">
-                        <i class="fa-solid fa-credit-card"></i> Pagar con Tarjeta (Pasarela Azul)
-                    </button>
-                    <button type="submit" class="btn btn-success" style="width: 100%; height: 44px; justify-content: center; font-size: 0.92rem; background-color: #10b981; color: white;">
-                        <i class="fa-solid fa-flask"></i> Procesar Pago Simulado (Demostración)
-                    </button>
-                    <button type="button" class="btn btn-secondary" onclick="closePaymentModal()" style="width: 100%; height: 40px; justify-content: center;">
-                        Cancelar
+
+                <div style="margin-bottom: 16px;">
+                    <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px; color: var(--text-primary);">Banco</label>
+                    <select id="pay-bank" name="bank" required
+                        style="width: 100%; height: 40px; font-size: 0.9rem; padding: 0 10px; border: 1px solid var(--border-color); border-radius: 6px; box-sizing: border-box; background-color: white;">
+                        <option value="Banco Popular Dominicano">Banco Popular Dominicano</option>
+                        <option value="Banco de Reservas (Banreservas)">Banco de Reservas (Banreservas)</option>
+                        <option value="Banco BHD">Banco BHD</option>
+                        <option value="Banco Scotiabank">Banco Scotiabank</option>
+                        <option value="Asociación Popular de Ahorros y Préstamos (APAP)">Asociación Popular (APAP)</option>
+                        <option value="Otro">Otro</option>
+                    </select>
+                </div>
+
+                <div style="margin-bottom: 16px;">
+                    <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px; color: var(--text-primary);">Número de Referencia (Confirmación)</label>
+                    <input type="text" id="pay-reference" name="referenceNumber" required placeholder="Ej: TX192837 o Cheque #0192"
+                        style="width: 100%; height: 40px; font-size: 0.9rem; padding: 0 12px; border: 1px solid var(--border-color); border-radius: 6px; box-sizing: border-box;">
+                </div>
+
+                <div style="margin-bottom: 16px;">
+                    <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px; color: var(--text-primary);">Fecha de Pago</label>
+                    <input type="date" id="pay-date" name="paymentDate" required
+                        style="width: 100%; height: 40px; font-size: 0.9rem; padding: 0 12px; border: 1px solid var(--border-color); border-radius: 6px; box-sizing: border-box;">
+                </div>
+
+                <div style="margin-bottom: 16px;">
+                    <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px; color: var(--text-primary);">Adjuntar Comprobante (PDF o Imagen)</label>
+                    <input type="file" id="pay-file" name="paymentProofFile" accept=".pdf,image/*" required
+                        style="width: 100%; padding: 8px; border: 1px solid var(--border-color); border-radius: 6px; box-sizing: border-box; background-color: #fafafa;">
+                </div>
+
+                <div style="margin-bottom: 16px;">
+                    <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px; color: var(--text-primary);">Comentario / Notas (Opcional)</label>
+                    <textarea id="pay-notes" name="notes" placeholder="Detalles adicionales sobre el pago..." rows="2"
+                        style="width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 6px; box-sizing: border-box; font-family: var(--font-main); font-size: 0.9rem; resize: vertical;"></textarea>
+                </div>
+
+                <div style="background-color: #f0f9ff; border: 1px solid #bae6fd; border-radius: 6px; padding: 12px; font-size: 0.78rem; color: #0369a1; margin-bottom: 16px;">
+                    <i class="fa-solid fa-circle-info"></i> El pago reportado pasará a una fase de validación por parte del equipo de Cuentas por Cobrar. La factura quedará en estado <strong>Revisión de Pago</strong> hasta ser aprobada.
+                </div>
+
+                <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
+                    <button type="button" class="btn btn-secondary" onclick="closePaymentModal()">Cancelar</button>
+                    <button type="submit" id="submit-proof-btn" class="btn btn-success" style="background-color: #10b981; color: white; font-weight: 600;">
+                        <i class="fa-solid fa-cloud-arrow-up"></i> Enviar Comprobante
                     </button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- Modal de Detalles de Contrato -->
+    <div id="contract-detail-modal" class="modal">
+        <div class="modal-content" style="max-width: 600px; width: 100%;">
+            <div class="modal-header">
+                <h3 class="modal-title" id="cd-modal-title">
+                    <i class="fa-solid fa-file-contract" style="color: var(--primary);"></i> Detalle de Contrato
+                </h3>
+                <button class="modal-close" onclick="closeContractDetailModal()">&times;</button>
+            </div>
+            <div id="cd-modal-body" style="max-height: 70vh; overflow-y: auto; font-size: 0.9rem; padding-right: 4px;">
+                <!-- Se llena dinámicamente mediante JS -->
+            </div>
         </div>
     </div>
 
@@ -708,12 +797,35 @@
         const ownerUid = '{{ owner_uid }}';
         const sandbox = {{ 'true' if sandbox else 'false' }};
 
-        // Modal Control
+        // Modal de Firma — Generico (firmar / cancelar)
         function openSignatureModal(itemId, itemType = 'cotizacion') {
             activeItemId = itemId;
             activeItemType = itemType;
             document.getElementById('sig-certificate').value = '';
             document.getElementById('sig-password').value = '';
+            // Restablecer encabezado a modo firma normal
+            document.getElementById('sig-modal-title').innerHTML = '<i class="fa-solid fa-file-signature" style="color: var(--primary);"></i> Firma Electrónica Certificada';
+            document.getElementById('sig-modal-subtitle').textContent = 'Para firmar legalmente, cargue su certificado digital (.p12 / .pfx) e ingrese su contraseña.';
+            document.getElementById('sig-cancel-warning').style.display = 'none';
+            document.getElementById('sig-submit-btn').className = 'btn btn-primary';
+            document.getElementById('sig-submit-label').textContent = 'Validar y Firmar';
+            document.getElementById('signature-modal').style.display = 'flex';
+        }
+
+        function openCancelContractModal(contractId, contractNumber, concept) {
+            activeItemId = contractId;
+            activeItemType = 'cancelar-contrato';
+            document.getElementById('sig-certificate').value = '';
+            document.getElementById('sig-password').value = '';
+            // Ajustar modal para modo cancelación
+            document.getElementById('sig-modal-title').innerHTML = '<i class="fa-solid fa-ban" style="color: #ef4444;"></i> Solicitar Cancelación de Contrato';
+            document.getElementById('sig-modal-subtitle').textContent = 'Debe firmar digitalmente para confirmar la solicitud de cancelación.';
+            document.getElementById('sig-cancel-contract-num').textContent = contractNumber + (concept ? ' — ' + concept : '');
+            document.getElementById('sig-cancel-warning').style.display = 'block';
+            document.getElementById('sig-submit-btn').className = 'btn btn-danger';
+            document.getElementById('sig-submit-btn').style.background = '#ef4444';
+            document.getElementById('sig-submit-btn').style.borderColor = '#ef4444';
+            document.getElementById('sig-submit-label').textContent = 'Confirmar Cancelación';
             document.getElementById('signature-modal').style.display = 'flex';
         }
 
@@ -731,12 +843,11 @@
             document.getElementById('payment-modal').style.display = 'none';
         }
 
-        // Submissions
         function submitSignature(e) {
             e.preventDefault();
             const certInput = document.getElementById('sig-certificate');
             const passInput = document.getElementById('sig-password');
-            
+
             if (!certInput.files[0]) {
                 alert('Debe cargar un archivo de certificado digital.');
                 return;
@@ -746,13 +857,19 @@
             formData.append('certificate', certInput.files[0]);
             formData.append('password', passInput.value);
 
-            const endpoint = activeItemType === 'contrato' ? 'contrato' : 'cotizacion';
-            const url = `/portal/cliente/${ownerUid}/{{ client.id }}/${endpoint}/${activeItemId}/firmar?sandbox=${sandbox}`;
+            let url;
+            if (activeItemType === 'cancelar-contrato') {
+                url = `/portal/cliente/${ownerUid}/{{ client.id }}/contrato/${activeItemId}/cancelar?sandbox=${sandbox}`;
+            } else if (activeItemType === 'contrato') {
+                url = `/portal/cliente/${ownerUid}/{{ client.id }}/contrato/${activeItemId}/firmar?sandbox=${sandbox}`;
+            } else {
+                url = `/portal/cliente/${ownerUid}/{{ client.id }}/cotizacion/${activeItemId}/firmar?sandbox=${sandbox}`;
+            }
 
-            const submitBtn = document.querySelector('#signature-form button[type="submit"]');
+            const submitBtn = document.getElementById('sig-submit-btn');
             const originalBtnText = submitBtn.innerHTML;
             submitBtn.disabled = true;
-            submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Validando...';
+            submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Procesando...';
 
             fetch(url, {
                 method: 'POST',
@@ -777,18 +894,46 @@
                 });
         }
 
-        function submitPayment(e) {
+        function submitPaymentProof(e) {
             e.preventDefault();
             const invoiceId = document.getElementById('pay-invoice-id').value;
-            const amount = parseFloat(document.getElementById('pay-amount').value);
+            const amount = document.getElementById('pay-amount').value;
+            const method = document.getElementById('pay-method').value;
+            const bank = document.getElementById('pay-bank').value;
+            const reference = document.getElementById('pay-reference').value;
+            const date = document.getElementById('pay-date').value;
+            const fileInput = document.getElementById('pay-file');
+            const notes = document.getElementById('pay-notes').value;
 
-            fetch(`/portal/cliente/${ownerUid}/{{ client.id }}/pago/${invoiceId}?sandbox=${sandbox}`, {
+            if (!fileInput.files[0]) {
+                alert('Debe adjuntar una imagen o PDF del comprobante de pago.');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('amount', amount);
+            formData.append('paymentMethod', method);
+            formData.append('bank', bank);
+            formData.append('referenceNumber', reference);
+            formData.append('paymentDate', date);
+            formData.append('paymentProofFile', fileInput.files[0]);
+            formData.append('notes', notes);
+
+            const submitBtn = document.getElementById('submit-proof-btn');
+            const originalBtnText = submitBtn.innerHTML;
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Enviando...';
+
+            const url = `/portal/cliente/${ownerUid}/{{ client.id }}/pago/${invoiceId}/reportar?sandbox=${sandbox}`;
+
+            fetch(url, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ amount: amount })
+                body: formData
             })
                 .then(res => res.json())
                 .then(data => {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalBtnText;
                     if (data.success) {
                         alert(data.message);
                         location.reload();
@@ -796,12 +941,156 @@
                         alert('Error: ' + data.error);
                     }
                 })
-                .catch(err => console.error(err));
+                .catch(err => {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalBtnText;
+                    console.error(err);
+                    alert('Error de red al intentar reportar el pago.');
+                });
         }
 
-        function redirectToAzul() {
-            const invoiceId = document.getElementById('pay-invoice-id').value;
-            window.location.href = `/portal/cliente/${ownerUid}/{{ client.id }}/pago/${invoiceId}/azul?sandbox=${sandbox}`;
+        // --- Funciones para ver detalle de contrato ---
+        function showContractDetail(btn) {
+            console.log("showContractDetail llamado", btn);
+            const contractData = btn.getAttribute('data-contract');
+            console.log("contractData:", contractData);
+            try {
+                const contract = JSON.parse(contractData);
+                console.log("contract parseado:", contract);
+                openContractDetailModal(contract);
+            } catch(e) {
+                console.error("Error parsing contract data:", e);
+                alert("No se pudieron cargar los detalles del contrato.");
+            }
+        }
+
+        function openContractDetailModal(contract) {
+            const body = document.getElementById('cd-modal-body');
+            document.getElementById('cd-modal-title').innerHTML = `<i class="fa-solid fa-file-contract" style="color: var(--primary);"></i> Contrato ${contract.contractNumber || ''}`;
+            
+            let statusBadge = '';
+            if (contract.cancelRequest) {
+                statusBadge = '<span class="badge" style="background: rgba(245,158,11,0.1); color: #d97706; border: 1px solid rgba(245,158,11,0.25);"><i class="fa-solid fa-clock"></i> No Renovar</span>';
+            } else if (contract.status === 'Activo') {
+                statusBadge = '<span class="badge badge-success" style="background: rgba(22,163,74,0.12); color: #16a34a; padding: 4px 10px; border-radius: 20px;">Activo</span>';
+            } else if (contract.status === 'Inactivo') {
+                statusBadge = '<span class="badge badge-danger" style="background: rgba(220,38,38,0.12); color: #dc2626; padding: 4px 10px; border-radius: 20px;">Inactivo</span>';
+            } else {
+                statusBadge = `<span class="badge badge-warning" style="background: rgba(245,158,11,0.12); color: #d97706; padding: 4px 10px; border-radius: 20px;">${contract.status || 'Pendiente de Firma'}</span>`;
+            }
+
+            let linesHtml = '';
+            if (contract.contractLines && contract.contractLines.length > 0) {
+                linesHtml = `
+                    <div style="margin-top: 20px;">
+                        <h4 style="margin: 0 0 10px 0; font-size: 0.85rem; font-weight: 700; text-transform: uppercase; color: var(--text-secondary);">Productos/Servicios Contratados</h4>
+                        <table style="width: 100%; border-collapse: collapse; font-size: 0.82rem; text-align: left;">
+                            <thead>
+                                <tr style="border-bottom: 2px solid var(--border-color); font-weight: bold; color: var(--text-muted);">
+                                    <th style="padding: 6px 4px;">Descripción</th>
+                                    <th style="padding: 6px 4px; text-align: right;">Cant.</th>
+                                    <th style="padding: 6px 4px; text-align: right;">Precio</th>
+                                    <th style="padding: 6px 4px; text-align: right;">Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${contract.contractLines.map(line => `
+                                    <tr style="border-bottom: 1px solid var(--border-color);">
+                                        <td style="padding: 8px 4px;"><strong>${line.name || 'Servicio'}</strong> ${line.code ? `<small style="color: var(--text-muted);">[${line.code}]</small>` : ''}</td>
+                                        <td style="padding: 8px 4px; text-align: right;">${line.quantity || 1}</td>
+                                        <td style="padding: 8px 4px; text-align: right;">RD$ ${(line.unitPrice || 0).toLocaleString('es-DO', {minimumFractionDigits:2})}</td>
+                                        <td style="padding: 8px 4px; text-align: right; font-weight: bold; color: var(--accent-emerald);">RD$ ${(line.total || 0).toLocaleString('es-DO', {minimumFractionDigits:2})}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            } else {
+                linesHtml = `
+                    <div style="margin-top: 20px; padding: 12px; background: rgba(0,0,0,0.01); border: 1px solid var(--border-color); border-radius: 6px;">
+                        <strong style="font-size: 0.85rem;">Servicio Contratado</strong>
+                        <div style="font-size: 0.82rem; color: var(--text-secondary); margin-top: 4px;">Monto único recurrente contratado.</div>
+                    </div>
+                `;
+            }
+
+            let signatureHtml = '';
+            if (contract.signatureInfo) {
+                signatureHtml = `
+                    <div style="margin-top: 20px; padding: 14px; background: rgba(16,185,129,0.04); border: 1px solid rgba(16,185,129,0.15); border-radius: 8px;">
+                        <h4 style="margin: 0 0 8px 0; font-size: 0.82rem; color: #065f46; display: flex; align-items: center; gap: 6px;"><i class="fa-solid fa-circle-check"></i> Firmado Digitalmente</h4>
+                        <div style="font-size: 0.78rem; color: #047857; line-height: 1.4;">
+                            <strong>Firmante (RNC):</strong> ${contract.signatureInfo.subject || ''}<br>
+                            <strong>Emisor:</strong> ${contract.signatureInfo.issuer || ''}<br>
+                            <strong>Fecha de Firma:</strong> ${contract.signatureInfo.signedAt ? new Date(contract.signatureInfo.signedAt).toLocaleString() : ''}<br>
+                            <strong>Nro. Serie:</strong> <span style="font-family: monospace; font-size: 0.75rem;">${contract.signatureInfo.serialNumber || ''}</span>
+                        </div>
+                    </div>
+                `;
+            }
+
+            let cancelHtml = '';
+            if (contract.cancelRequest) {
+                cancelHtml = `
+                    <div style="margin-top: 16px; padding: 14px; background: rgba(245,158,11,0.04); border: 1px solid rgba(245,158,11,0.15); border-radius: 8px;">
+                        <h4 style="margin: 0 0 8px 0; font-size: 0.82rem; color: #92400e; display: flex; align-items: center; gap: 6px;"><i class="fa-solid fa-clock"></i> Solicitud de Cancelación Firmada</h4>
+                        <div style="font-size: 0.78rem; color: #b45309; line-height: 1.4;">
+                            <strong>Solicitante:</strong> ${contract.cancelRequestBy || 'Cliente'}<br>
+                            <strong>Fecha Solicitud:</strong> ${contract.cancelRequestAt ? new Date(contract.cancelRequestAt).toLocaleString() : ''}
+                            ${contract.cancelSignatureInfo ? `<br><strong>Certificado:</strong> ${contract.cancelSignatureInfo.subject || ''}` : ''}
+                        </div>
+                    </div>
+                `;
+            }
+
+            body.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                    <div>${statusBadge}</div>
+                    <div style="text-align: right;">
+                        <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Monto Recurrente</div>
+                        <strong style="font-size: 1.35rem; color: var(--accent-emerald); font-family: var(--font-heading);">RD$ ${(contract.amount || 0).toLocaleString('es-DO', {minimumFractionDigits: 2})}</strong>
+                    </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; background: rgba(0,0,0,0.015); border: 1px solid var(--border-color); border-radius: 8px; padding: 16px;">
+                    <div>
+                        <span style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 2px;">Frecuencia de Cobro</span>
+                        <strong style="text-transform: capitalize;">${contract.recurrenceInterval || 'Mensual'}</strong>
+                    </div>
+                    <div>
+                        <span style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 2px;">Próximo Cobro (Disparo)</span>
+                        <strong style="color: var(--accent-purple);">${contract.nextBillingDate || '—'}</strong>
+                    </div>
+                    <div>
+                        <span style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 2px;">Fecha de Inicio</span>
+                        <span>${contract.startDate || '—'}</span>
+                    </div>
+                    <div>
+                        <span style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-bottom: 2px;">Fecha de Vencimiento</span>
+                        <span>${contract.endDate || 'Sin límite definido'}</span>
+                    </div>
+                </div>
+
+                ${linesHtml}
+
+                <div style="margin-top: 20px;">
+                    <h4 style="margin: 0 0 6px 0; font-size: 0.85rem; font-weight: 700; text-transform: uppercase; color: var(--text-secondary);">Términos y Notas</h4>
+                    <div style="font-size: 0.82rem; color: var(--text-secondary); background: #f8fafc; border: 1px solid var(--border-color); padding: 12px; border-radius: 6px; white-space: pre-wrap; line-height: 1.4;">${contract.notes || 'No se han especificado notas adicionales en este contrato.'}</div>
+                </div>
+
+                ${signatureHtml}
+                ${cancelHtml}
+                
+                <div style="display: flex; justify-content: flex-end; margin-top: 24px; border-top: 1px solid var(--border-color); padding-top: 16px;">
+                    <button class="btn btn-secondary" onclick="closeContractDetailModal()">Cerrar</button>
+                </div>
+            `;
+            document.getElementById('contract-detail-modal').style.display = 'flex';
+        }
+
+        function closeContractDetailModal() {
+            document.getElementById('contract-detail-modal').style.display = 'none';
         }
     </script>
 

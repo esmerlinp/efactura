@@ -90,6 +90,11 @@
         color: var(--accent-red);
     }
 
+    .badge-revision {
+        background: rgba(245, 158, 11, 0.12);
+        color: #d97706;
+    }
+
     .badge-cumplida {
         background: rgba(16, 185, 129, 0.12);
         color: var(--accent-emerald);
@@ -309,6 +314,7 @@
                     <option value="Emitida">Pendiente</option>
                     <option value="Parcialmente Cobrada">Parcialmente Cobrada</option>
                     <option value="Vencida">Vencida</option>
+                    <option value="Revisión de Pago">En Revisión de Pago</option>
                 </select>
             </div>
         </div>
@@ -365,9 +371,9 @@
                         </td>
                         <td style="padding: 14px 16px;">
                             <span
-                                class="status-badge {% if inv.status == 'Vencida' %}badge-vencida{% elif inv.status == 'Parcialmente Cobrada' %}badge-parcial{% else %}badge-pendiente{% endif %}">
+                                class="status-badge {% if inv.status == 'Vencida' %}badge-vencida{% elif inv.status == 'Parcialmente Cobrada' %}badge-parcial{% elif inv.status == 'Revisión de Pago' %}badge-revision{% else %}badge-pendiente{% endif %}">
                                 <i
-                                    class="fa-solid {% if inv.status == 'Vencida' %}fa-circle-exclamation{% elif inv.status == 'Parcialmente Cobrada' %}fa-clock{% else %}fa-circle-dot{% endif %}"></i>
+                                    class="fa-solid {% if inv.status == 'Vencida' %}fa-circle-exclamation{% elif inv.status == 'Parcialmente Cobrada' %}fa-clock{% elif inv.status == 'Revisión de Pago' %}fa-clock-rotate-left{% else %}fa-circle-dot{% endif %}"></i>
                                 {% if inv.status == 'Emitida' %}Pendiente{% else %}{{ inv.status }}{% endif %}
                             </span>
                         </td>

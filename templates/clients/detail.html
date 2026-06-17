@@ -5,8 +5,52 @@
 {% block page_header %}Ficha de Cliente CRM{% endblock %}
 
 {% block content %}
+<style>
+    /* Toggle Switch Premium */
+    .switch-premium {
+        position: relative;
+        display: inline-block;
+        width: 46px;
+        height: 24px;
+    }
+    .switch-premium input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+    }
+    .slider-premium {
+        position: absolute;
+        cursor: pointer;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: var(--border-color);
+        transition: .3s;
+        border-radius: 24px;
+    }
+    .slider-premium:before {
+        position: absolute;
+        content: "";
+        height: 16px;
+        width: 16px;
+        left: 4px;
+        bottom: 4px;
+        background-color: white;
+        transition: .3s;
+        border-radius: 50%;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+    }
+    .switch-premium input:checked + .slider-premium {
+        background-color: var(--accent-emerald);
+    }
+    .switch-premium input:checked + .slider-premium:before {
+        transform: translateX(22px);
+    }
+</style>
+
 <!-- Botón Volver -->
-<div style="margin-bottom: 24px;">
+<div style="margin-bottom: 20px;">
     <a href="{{ url_for('list_clients') }}"
         style="display: inline-flex; align-items: center; gap: 8px; color: var(--text-secondary); text-decoration: none; font-size: 0.9rem; font-weight: 500; transition: color var(--transition-fast);"
         onmouseover="this.style.color='var(--accent-emerald)'" onmouseout="this.style.color='var(--text-secondary)'">
@@ -15,688 +59,727 @@
     </a>
 </div>
 
-<!-- Layout Principal de Ficha de Cliente -->
-<div style="display: grid; grid-template-columns: 350px 1fr; gap: 30px; align-items: start;">
-
-    <!-- Sidebar Izquierdo: Tarjetas de Información -->
-    <div style="display: flex; flex-direction: column; gap: 24px;">
-
-        <!-- Tarjeta de Perfil y Contacto -->
-        <div class="card-table-wrapper" style="margin-bottom: 0; padding: 24px;">
-            <div
-                style="text-align: center; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 20px;">
-                <div
-                    style="width: 70px; height: 70px; border-radius: 50%; background-color: var(--accent-emerald); color: white; display: flex; align-items: center; justify-content: center; font-size: 2rem; font-weight: bold; margin: 0 auto 12px auto; font-family: var(--font-heading);">
-                    {{ client.razonSocial[:2].upper() }}
-                </div>
-                <h2 style="font-size: 1.25rem; font-family: var(--font-heading); margin-bottom: 6px; line-height: 1.3;">
-                    {{ client.razonSocial }}</h2>
-                <span class="badge badge-secondary"
-                    style="font-family: monospace; font-size: 0.85rem; padding: 4px 10px;">RNC: {{ client.rnc }}</span>
+<!-- ═══════════════════════════════════════════════════════
+     TARJETA PRINCIPAL DEL CLIENTE — ANCHO COMPLETO (ARRIBA)
+     ═══════════════════════════════════════════════════════ -->
+<div class="card-table-wrapper" style="margin-bottom: 24px; padding: 24px; box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.08); border: 1px solid var(--border-color); border-radius: 12px; background: var(--bg-card);">
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 24px; flex-wrap: wrap;">
+        
+        <!-- Avatar + nombre -->
+        <div style="display: flex; align-items: center; gap: 20px; flex: 1.2; min-width: 300px;">
+            {% if client.imageUrl %}
+            <div style="width: 72px; height: 72px; border-radius: 50%; overflow: hidden; border: 2px solid var(--border-color); flex-shrink: 0; box-shadow: 0 4px 12px rgba(0,0,0,0.08); transition: transform var(--transition-fast) ease;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+                <img src="{{ client.imageUrl }}" alt="{{ client.razonSocial }}" style="width: 100%; height: 100%; object-fit: cover;">
             </div>
-
-            <div style="display: flex; flex-direction: column; gap: 16px; font-size: 0.9rem;">
-                <div>
-                    <strong
-                        style="color: var(--text-secondary); display: block; font-size: 0.75rem; text-transform: uppercase; margin-bottom: 4px;">Teléfono</strong>
-                    {% if client.telefono %}
-                    <a href="tel:{{ client.telefono }}"
-                        style="color: var(--text-primary); text-decoration: none; display: flex; align-items: center; gap: 8px;">
-                        <i class="fa-solid fa-phone" style="color: var(--text-muted);"></i>
-                        <span>{{ client.telefono }}</span>
-                    </a>
-                    {% else %}
-                    <span style="color: var(--text-muted); font-style: italic;">No registrado</span>
-                    {% endif %}
-                </div>
-
-                <div>
-                    <strong
-                        style="color: var(--text-secondary); display: block; font-size: 0.75rem; text-transform: uppercase; margin-bottom: 4px;">Email
-                        Comercial</strong>
-                    {% if client.email %}
-                    <a href="mailto:{{ client.email }}"
-                        style="color: var(--text-primary); text-decoration: none; display: flex; align-items: center; gap: 8px;">
-                        <i class="fa-solid fa-envelope" style="color: var(--text-muted);"></i>
-                        <span style="word-break: break-all;">{{ client.email }}</span>
-                    </a>
-                    {% else %}
-                    <span style="color: var(--text-muted); font-style: italic;">No registrado</span>
-                    {% endif %}
-                </div>
-
-                <div>
-                    <strong
-                        style="color: var(--text-secondary); display: block; font-size: 0.75rem; text-transform: uppercase; margin-bottom: 4px;">Dirección
-                        Física</strong>
-                    <div style="display: flex; align-items: flex-start; gap: 8px; color: var(--text-primary);">
-                        <i class="fa-solid fa-map-location-dot" style="color: var(--text-muted); margin-top: 3px;"></i>
-                        <span>{{ client.direccion or 'República Dominicana' }}</span>
+            {% else %}
+            <div style="width: 72px; height: 72px; border-radius: 50%; background: linear-gradient(135deg, var(--accent-emerald), #059669); color: white; display: flex; align-items: center; justify-content: center; font-size: 1.8rem; font-weight: bold; flex-shrink: 0; font-family: var(--font-heading); box-shadow: 0 4px 12px rgba(16,185,129,0.2); transition: transform var(--transition-fast) ease;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+                {{ client.razonSocial[:2].upper() }}
+            </div>
+            {% endif %}
+            <div>
+                <h2 style="font-size: 1.45rem; font-family: var(--font-heading); margin: 0 0 6px 0; line-height: 1.2; font-weight: 700; color: var(--text-primary);">
+                    {{ client.razonSocial }}
+                </h2>
+                <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 0.88rem; color: var(--text-secondary);">
+                    <span><strong>RNC:</strong> {{ client.rnc }}</span>
+                    <span style="color: var(--border-color);">|</span>
+                    
+                    <!-- Selector de Estado/Etapa editable sin fondo de badge -->
+                    <div style="display: inline-flex; align-items: center; gap: 4px;">
+                        <strong>Estado:</strong>
+                        <select id="detail-pipeline-stage" onchange="updateClientStage('{{ client.id }}', this.value)" style="border: none; background: transparent; color: var(--accent-emerald); font-size: 0.88rem; font-weight: bold; outline: none; cursor: pointer; padding: 0; font-family: var(--font-main);">
+                            <option value="Prospecto" {% if client.pipelineStage == 'Prospecto' %}selected{% endif %} style="background: var(--bg-card); color: var(--text-primary);">Prospecto</option>
+                            <option value="Contactado" {% if client.pipelineStage == 'Contactado' %}selected{% endif %} style="background: var(--bg-card); color: var(--text-primary);">Contactado</option>
+                            <option value="En Negociación" {% if client.pipelineStage == 'En Negociación' %}selected{% endif %} style="background: var(--bg-card); color: var(--text-primary);">En Negociación</option>
+                            <option value="Cliente Activo" {% if client.pipelineStage == 'Cliente Activo' or not client.pipelineStage %}selected{% endif %} style="background: var(--bg-card); color: var(--text-primary);">Cliente Activo</option>
+                        </select>
                     </div>
                 </div>
-
-                {% if client.nextContactDate %}
-                <div
-                    style="margin-top: 10px; padding: 12px; background-color: rgba(168, 85, 247, 0.08); border: 1px solid rgba(168, 85, 247, 0.2); border-radius: var(--radius-sm);">
-                    <strong
-                        style="color: var(--accent-purple); display: block; font-size: 0.75rem; text-transform: uppercase; margin-bottom: 4px;">Próximo
-                        Seguimiento</strong>
-                    <div
-                        style="display: flex; align-items: center; gap: 8px; font-weight: 500; color: var(--accent-purple);">
-                        <i class="fa-solid fa-calendar-day"></i>
-                        <span>{{ client.nextContactDate | format_date }}</span>
-                    </div>
-                </div>
-                {% endif %}
             </div>
+        </div>
 
-            <!-- Pausar recordatorios automáticos de cobro -->
-            <div
-                style="margin-top: 16px; display: flex; align-items: center; gap: 8px; padding: 10px; background: rgba(0,0,0,0.02); border: 1px solid var(--border-color); border-radius: var(--radius-sm); margin-bottom: 12px;">
-                <input type="checkbox" id="disableAutoReminders" {% if client.disableAutoReminders %}checked{% endif %}
-                    onchange="toggleAutoReminders('{{ client.id }}')"
-                    style="width: 16px; height: 16px; cursor: pointer;">
-                <label for="disableAutoReminders"
-                    style="font-size: 0.8rem; color: var(--text-primary); font-weight: 500; cursor: pointer; margin: 0;">Pausar
-                    recordatorios de cobro</label>
-            </div>
-
-            <div style="margin-top: 12px; border-top: 1px solid var(--border-color); padding-top: 16px; display: flex; flex-direction: column; gap: 10px;">
-                <a href="{{ url_for('edit_client', client_id=client.id) }}" class="btn btn-secondary"
-                    style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 500;">
-                    <i class="fa-solid fa-user-pen"></i>
-                    <span>Editar Ficha CRM</span>
+        <!-- Datos de contacto en Grid Limpio 2x2 para evitar el desborde del email -->
+        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px 24px; flex: 1.8; min-width: 320px; padding: 4px 0 4px 24px; border-left: 1px solid var(--border-color);">
+            <div>
+                <span style="color: var(--text-secondary); display: block; font-size: 0.72rem; text-transform: uppercase; font-weight: 600; margin-bottom: 2px; letter-spacing: 0.05em;">Teléfono</span>
+                {% if client.telefono %}
+                <a href="tel:{{ client.telefono }}" style="color: var(--text-primary); text-decoration: none; display: flex; align-items: center; gap: 6px; font-size: 0.9rem; font-weight: 500;">
+                    <i class="fa-solid fa-phone" style="color: var(--accent-emerald); font-size: 0.8rem;"></i>
+                    {{ client.telefono }}
                 </a>
+                {% else %}
+                <span style="color: var(--text-muted); font-style: italic; font-size: 0.85rem;">No registrado</span>
+                {% endif %}
+            </div>
 
-                {% set portal_url = url_for('portal.client_portal', owner_uid=session.get('user', {}).get('ownerUID', 'W2n2BfR1G4eN3K7m7n8b9v0c1x2z'), client_id=client.id, sandbox='true' if session.get('is_sandbox_mode', True) else 'false', _external=True) %}
-                
-                <a href="{{ portal_url }}" target="_blank" class="btn btn-primary"
-                    style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; background: var(--accent-purple); border-color: var(--accent-purple); font-weight: 500;">
-                    <i class="fa-solid fa-up-right-from-square"></i>
-                    <span>Ver Portal de Cliente</span>
+            <div>
+                <span style="color: var(--text-secondary); display: block; font-size: 0.72rem; text-transform: uppercase; font-weight: 600; margin-bottom: 2px; letter-spacing: 0.05em;">Email</span>
+                {% if client.email %}
+                <a href="mailto:{{ client.email }}" style="color: var(--text-primary); text-decoration: none; display: flex; align-items: center; gap: 6px; font-size: 0.9rem; font-weight: 500; word-break: break-all;">
+                    <i class="fa-solid fa-envelope" style="color: var(--accent-emerald); font-size: 0.8rem; flex-shrink: 0;"></i>
+                    {{ client.email }}
                 </a>
-
-                <button type="button" onclick="copyPortalLink('{{ portal_url }}')" class="btn btn-secondary" id="copy-portal-btn"
-                    style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 500;">
-                    <i class="fa-solid fa-copy"></i>
-                    <span>Copiar Enlace del Portal</span>
-                </button>
-            </div>
-        </div>
-
-        <!-- Resumen Financiero -->
-        <div class="card-table-wrapper" style="margin-bottom: 0; padding: 24px;">
-            <h3
-                style="font-size: 1rem; font-family: var(--font-heading); margin-bottom: 18px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px;">
-                Desempeño Comercial</h3>
-
-            <div style="display: flex; flex-direction: column; gap: 16px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
-                    <span style="font-size: 0.85rem; color: var(--text-secondary); min-width: 0; flex-shrink: 1;">Facturado Acumulado:</span>
-                    <strong style="color: var(--accent-emerald); font-size: 0.95rem; white-space: nowrap; flex-shrink: 0;">RD$ {{
-                        "{:,.2f}".format(client.total_invoiced | default(0.0)) }}</strong>
-                </div>
-                <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
-                    <span style="font-size: 0.85rem; color: var(--text-secondary); min-width: 0; flex-shrink: 1;">CxC Pendiente:</span>
-                    <strong
-                        style="color: {% if client.total_cxc | default(0.0) > 0 %}var(--accent-red){% else %}var(--text-secondary){% endif %}; font-size: 0.95rem; white-space: nowrap; flex-shrink: 0;">
-                        RD$ {{ "{:,.2f}".format(client.total_cxc | default(0.0)) }}
-                    </strong>
-                </div>
-                <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
-                    <span style="font-size: 0.85rem; color: var(--text-secondary); min-width: 0; flex-shrink: 1;">Documentos Emitidos:</span>
-                    <strong style="font-size: 0.95rem; color: var(--text-primary); white-space: nowrap; flex-shrink: 0;">{{ invoices | length }}</strong>
-                </div>
-                <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
-                    <span style="font-size: 0.85rem; color: var(--text-secondary); min-width: 0; flex-shrink: 1;">Cotizaciones Activas:</span>
-                    <strong style="font-size: 0.95rem; color: var(--accent-purple); white-space: nowrap; flex-shrink: 0;">{{ quotations | length }}</strong>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Panel Derecho: Timeline de Comentarios y Ventas -->
-    <div style="display: flex; flex-direction: column; gap: 24px;">
-
-        <!-- Pestañas de Navegación del Workspace -->
-        <div style="display: flex; border-bottom: 2px solid var(--border-color); margin-bottom: 6px; gap: 30px;">
-            <button onclick="changeTab('timeline-tab')" id="btn-timeline-tab"
-                style="background: none; border: none; padding: 12px 6px; font-size: 1rem; font-family: var(--font-heading); font-weight: 500; color: var(--accent-emerald); border-bottom: 3px solid var(--accent-emerald); cursor: pointer; transition: all var(--transition-fast);">
-                <i class="fa-solid fa-clock-rotate-left" style="margin-right: 6px;"></i>
-                Historial y Seguimiento
-            </button>
-            <button onclick="changeTab('invoices-tab')" id="btn-invoices-tab"
-                style="background: none; border: none; padding: 12px 6px; font-size: 1rem; font-family: var(--font-heading); font-weight: 500; color: var(--text-secondary); border-bottom: 3px solid transparent; cursor: pointer; transition: all var(--transition-fast);">
-                <i class="fa-solid fa-file-invoice-dollar" style="margin-right: 6px;"></i>
-                Historial de Ventas ({{ invoices | length }})
-            </button>
-            <button onclick="changeTab('documents-tab')" id="btn-documents-tab"
-                style="background: none; border: none; padding: 12px 6px; font-size: 1rem; font-family: var(--font-heading); font-weight: 500; color: var(--text-secondary); border-bottom: 3px solid transparent; cursor: pointer; transition: all var(--transition-fast);">
-                <i class="fa-solid fa-folder-open" style="margin-right: 6px;"></i>
-                Gestión Documental ({{ documents | length }})
-            </button>
-            <button onclick="changeTab('payments-tab')" id="btn-payments-tab"
-                style="background: none; border: none; padding: 12px 6px; font-size: 1rem; font-family: var(--font-heading); font-weight: 500; color: var(--text-secondary); border-bottom: 3px solid transparent; cursor: pointer; transition: all var(--transition-fast);">
-                <i class="fa-solid fa-receipt" style="margin-right: 6px;"></i>
-                Historial de Pagos ({{ payments | length }})
-            </button>
-        </div>
-
-        <!-- SECCIÓN 1: Pestaña Historial y Seguimiento -->
-        <div id="timeline-tab" style="display: flex; flex-direction: column; gap: 24px;">
-
-            <!-- Formulario de nueva interacción / comentario -->
-            <div class="card-table-wrapper" style="margin-bottom: 0; padding: 24px;">
-                <h3
-                    style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
-                    <i class="fa-solid fa-comment-medical" style="color: var(--accent-emerald);"></i>
-                    <span>Registrar Nueva Interacción o Seguimiento</span>
-                </h3>
-
-                <form action="{{ url_for('add_client_interaction', client_id=client.id) }}" method="POST"
-                    enctype="multipart/form-data" style="display: flex; flex-direction: column; gap: 16px;">
-                    <!-- Tipo y Fecha en fila -->
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-                        <div>
-                            <label for="type"
-                                style="display: block; font-size: 0.85rem; font-weight: 500; margin-bottom: 6px; color: var(--text-secondary);">Tipo
-                                de Interacción</label>
-                            <select id="type" name="type" onchange="toggleNextContactField(this.value)"
-                                class="form-control"
-                                style="width: 100%; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background-color: var(--bg-input); color: var(--text-primary); padding: 10px;"
-                                required>
-                                <option value="Nota" selected>📝 Nota Interna / Comentario</option>
-                                <option value="Llamada">📞 Llamada Telefónica</option>
-                                <option value="Reunión">🤝 Reunión Presencial / Virtual</option>
-                                <option value="Correo">✉️ Correo Electrónico</option>
-                                <option value="Seguimiento">⏰ Seguimiento / Tarea Programada</option>
-                            </select>
-                        </div>
-
-                        <!-- Flatpickr / Fecha de Próximo Seguimiento (Se muestra dinámicamente) -->
-                        <div id="next-contact-wrapper">
-                            <label for="nextContactDate"
-                                style="display: block; font-size: 0.85rem; font-weight: 500; margin-bottom: 6px; color: var(--text-secondary);">Programar
-                                Fecha de Próximo Seguimiento</label>
-                            <input type="date" id="nextContactDate" name="nextContactDate" class="form-control"
-                                style="width: 100%; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background-color: var(--bg-input); color: var(--text-primary); padding: 10px;">
-                        </div>
-                    </div>
-
-                    <!-- Comentario -->
-                    <div>
-                        <label for="content"
-                            style="display: block; font-size: 0.85rem; font-weight: 500; margin-bottom: 6px; color: var(--text-secondary);">Notas
-                            del seguimiento / interacción</label>
-                        <textarea id="content" name="content"
-                            placeholder="Escribe aquí los acuerdos comerciales, resumen de la llamada o detalles del seguimiento..."
-                            rows="3" class="form-control"
-                            style="width: 100%; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background-color: var(--bg-input); color: var(--text-primary); padding: 12px; font-family: inherit; resize: vertical;"
-                            required></textarea>
-                    </div>
-
-                    <!-- Adjuntar archivo -->
-                    <div>
-                        <label for="attachment"
-                            style="display: block; font-size: 0.85rem; font-weight: 500; margin-bottom: 6px; color: var(--text-secondary);">Adjuntar
-                            Documento / Archivo (PDF, XML, Imagen)</label>
-                        <div style="position: relative; border: 1px dashed var(--border-color); border-radius: var(--radius-sm); padding: 12px; display: flex; align-items: center; gap: 10px; background-color: var(--bg-input); cursor: pointer;"
-                            onclick="document.getElementById('attachment').click()">
-                            <i class="fa-solid fa-paperclip" style="color: var(--text-muted); font-size: 1.1rem;"></i>
-                            <span id="attachment-label"
-                                style="font-size: 0.85rem; color: var(--text-secondary);">Seleccionar archivo adjunto
-                                (opcional)...</span>
-                            <input type="file" id="attachment" name="attachment" style="display: none;"
-                                onchange="document.getElementById('attachment-label').textContent=this.files[0].name; document.getElementById('attachment-label').style.color='var(--text-primary)';">
-                        </div>
-                    </div>
-
-                    <!-- Botón Enviar -->
-                    <div style="display: flex; justify-content: flex-end; margin-top: 8px;">
-                        <button type="submit" class="btn btn-primary"
-                            style="padding: 10px 24px; font-weight: 500; display: flex; align-items: center; gap: 8px;">
-                            <i class="fa-solid fa-floppy-disk"></i>
-                            <span>Registrar Interacción</span>
-                        </button>
-                    </div>
-                </form>
-            </div>
-
-            <!-- Flujo Visual de la Línea de Tiempo (Timeline) -->
-            <div class="card-table-wrapper" style="margin-bottom: 0; padding: 24px;">
-                <h3
-                    style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 24px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px;">
-                    Historial del Cliente</h3>
-
-                {% if interactions %}
-                <div
-                    style="position: relative; padding-left: 20px; border-left: 2px solid var(--border-color); margin-left: 10px; display: flex; flex-direction: column; gap: 24px;">
-                    {% for item in interactions %}
-                    <div style="position: relative;">
-                        <!-- Icono e indicación de estado del nodo -->
-                        <div style="position: absolute; left: -31px; top: 0; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.72rem; color: white;
-                                    {% if item.type == 'Nota' %}background-color: var(--text-secondary);
-                                    {% elif item.type == 'Llamada' %}background-color: var(--accent-emerald);
-                                    {% elif item.type == 'Reunión' %}background-color: var(--accent-purple);
-                                    {% elif item.type == 'Correo' %}background-color: #3b82f6;
-                                    {% elif item.type == 'Seguimiento' %}
-                                        {% if item.completed %}background-color: var(--text-muted);
-                                        {% else %}background-color: var(--accent-red);{% endif %}
-                                    {% endif %}">
-                            {% if item.type == 'Nota' %}<i class="fa-solid fa-pen-nib"></i>
-                            {% elif item.type == 'Llamada' %}<i class="fa-solid fa-phone"></i>
-                            {% elif item.type == 'Reunión' %}<i class="fa-solid fa-users"></i>
-                            {% elif item.type == 'Correo' %}<i class="fa-solid fa-envelope"></i>
-                            {% elif item.type == 'Seguimiento' %}<i class="fa-solid fa-clock"></i>
-                            {% endif %}
-                        </div>
-
-                        <!-- Tarjeta del nodo de timeline -->
-                        <div
-                            style="background-color: var(--bg-input); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 16px;">
-
-                            <!-- Encabezado de la interacción -->
-                            <div
-                                style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
-                                <div>
-                                    <!-- Badge de Categoría -->
-                                    <span class="badge" style="font-size: 0.75rem; font-weight: bold; margin-right: 6px;
-                                                {% if item.type == 'Nota' %}background-color: rgba(100, 116, 139, 0.1); color: var(--text-primary);
-                                                {% elif item.type == 'Llamada' %}background-color: rgba(16, 185, 129, 0.1); color: var(--accent-emerald);
-                                                {% elif item.type == 'Reunión' %}background-color: rgba(168, 85, 247, 0.1); color: var(--accent-purple);
-                                                {% elif item.type == 'Correo' %}background-color: rgba(59, 130, 246, 0.1); color: #3b82f6;
-                                                {% elif item.type == 'Seguimiento' %}
-                                                    {% if item.completed %}background-color: rgba(156, 163, 175, 0.15); color: var(--text-muted);
-                                                    {% else %}background-color: rgba(239, 68, 68, 0.1); color: var(--accent-red);{% endif %}
-                                                {% endif %}">
-                                        {{ item.type }}
-                                    </span>
-
-                                    <!-- Creado Por -->
-                                    <span style="font-size: 0.8rem; color: var(--text-secondary); font-weight: 500;">
-                                        por {{ item.createdBy }}
-                                    </span>
-                                </div>
-
-                                <!-- Fecha -->
-                                <div style="display: flex; align-items: center; gap: 8px;">
-                                    <span style="font-size: 0.8rem; color: var(--text-secondary); white-space: nowrap;">
-                                        <i class="fa-solid fa-calendar-day" style="font-size: 0.75rem;"></i> {{
-                                        item.date }}
-                                    </span>
-
-                                    <!-- Acciones de eliminar -->
-                                    <form
-                                        action="{{ url_for('delete_client_interaction_route', client_id=client.id, interaction_id=item.id) }}"
-                                        method="POST"
-                                        onsubmit="return confirm('¿Seguro que deseas eliminar este comentario del historial?');"
-                                        style="display: inline;">
-                                        <button type="submit"
-                                            style="background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 2px 4px; font-size: 0.8rem; transition: color var(--transition-fast);"
-                                            onmouseover="this.style.color='var(--accent-red)'"
-                                            onmouseout="this.style.color='var(--text-muted)'"
-                                            title="Eliminar Interacción">
-                                            <i class="fa-solid fa-trash-can"></i>
-                                        </button>
-                                    </form>
-                                </div>
-                            </div>
-
-                            <!-- Contenido de la nota -->
-                            <p
-                                style="font-size: 0.92rem; color: var(--text-primary); line-height: 1.5; margin-bottom: 12px; white-space: pre-line;">
-                                {{ item.content }}</p>
-
-                            <!-- Elemento Especial: Tarea de Seguimiento Programada -->
-                            {% if item.type == 'Seguimiento' and item.nextContactDate %}
-                            <div
-                                style="display: flex; justify-content: space-between; align-items: center; padding: 12px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background-color: var(--bg-card); margin-bottom: 12px;">
-                                <div style="display: flex; align-items: center; gap: 8px;">
-                                    <i class="fa-solid fa-circle-exclamation"
-                                        style="color: {% if item.completed %}var(--text-muted){% else %}var(--accent-red){% endif %};"></i>
-                                    <span style="font-size: 0.85rem; font-weight: 500; color: var(--text-primary);">
-                                        Llamar el: <strong
-                                            style="color: {% if item.completed %}var(--text-muted){% else %}var(--accent-purple){% endif %};">{{
-                                            item.nextContactDate | format_date }}</strong>
-                                    </span>
-                                </div>
-
-                                {% if not item.completed %}
-                                <form
-                                    action="{{ url_for('complete_client_interaction_task', client_id=client.id, interaction_id=item.id) }}"
-                                    method="POST" style="margin: 0;">
-                                    <button type="submit" class="btn btn-secondary"
-                                        style="padding: 6px 12px; font-size: 0.78rem; font-weight: 500; display: inline-flex; align-items: center; gap: 6px; border-color: var(--accent-emerald); color: var(--accent-emerald);">
-                                        <i class="fa-solid fa-circle-check"></i>
-                                        <span>Marcar Completado</span>
-                                    </button>
-                                </form>
-                                {% else %}
-                                <span
-                                    style="font-size: 0.8rem; color: var(--accent-emerald); font-weight: 500; display: inline-flex; align-items: center; gap: 4px;">
-                                    <i class="fa-solid fa-circle-check"></i>
-                                    <span>Completado</span>
-                                </span>
-                                {% endif %}
-                            </div>
-                            {% endif %}
-
-                            <!-- Adjunto -->
-                            {% if item.attachmentUrl %}
-                            <div
-                                style="border-top: 1px solid var(--border-color); padding-top: 10px; display: flex; align-items: center; justify-content: space-between;">
-                                <div
-                                    style="display: flex; align-items: center; gap: 8px; color: var(--text-secondary); font-size: 0.85rem;">
-                                    <i class="fa-solid fa-file-arrow-down" style="color: var(--accent-emerald);"></i>
-                                    <span
-                                        style="max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                                        {{ item.attachmentName or 'Archivo Adjunto' }}
-                                    </span>
-                                </div>
-
-                                <a href="{{ item.attachmentUrl }}" target="_blank" class="btn btn-secondary"
-                                    style="padding: 6px 14px; font-size: 0.78rem; display: flex; align-items: center; gap: 6px;">
-                                    <i class="fa-solid fa-arrow-up-right-from-square"></i>
-                                    <span>Ver Documento</span>
-                                </a>
-                            </div>
-                            {% endif %}
-
-                        </div>
-                    </div>
-                    {% endfor %}
-                </div>
                 {% else %}
-                <div style="text-align: center; padding: 40px 0; color: var(--text-secondary);">
-                    <i class="fa-solid fa-list-check"
-                        style="font-size: 2.2rem; color: var(--text-muted); opacity: 0.5; margin-bottom: 12px; display: block;"></i>
-                    <span>No hay comentarios ni tareas de seguimiento registradas para este cliente aún.</span>
-                </div>
+                <span style="color: var(--text-muted); font-style: italic; font-size: 0.85rem;">No registrado</span>
                 {% endif %}
             </div>
-        </div>
 
-        <!-- SECCIÓN 2: Pestaña Historial de Ventas -->
-        <div id="invoices-tab" style="display: none;">
-            <div class="card-table-wrapper" style="margin-bottom: 0; padding: 24px;">
-                <h3
-                    style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px;">
-                    Comprobantes Emitidos</h3>
+            <div>
+                <span style="color: var(--text-secondary); display: block; font-size: 0.72rem; text-transform: uppercase; font-weight: 600; margin-bottom: 2px; letter-spacing: 0.05em;">Dirección</span>
+                <div style="display: flex; align-items: flex-start; gap: 6px; color: var(--text-primary); font-size: 0.9rem; font-weight: 500;">
+                    <i class="fa-solid fa-map-location-dot" style="color: var(--accent-emerald); margin-top: 2px; font-size: 0.8rem; flex-shrink: 0;"></i>
+                    <span>{{ client.direccion or 'República Dominicana' }}</span>
+                </div>
+            </div>
 
-                <div class="table-responsive">
-                    <table class="table-premium">
-                        <thead>
-                            <tr>
-                                <th>Nro. Documento</th>
-                                <th>Tipo Comprobante</th>
-                                <th>Fecha Emisión</th>
-                                <th>Vence</th>
-                                <th>Tasa ITBIS</th>
-                                <th>Total Facturado</th>
-                                <th>Estado</th>
-                                <th style="text-align: right;">Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% if invoices %}
-                            {% for inv in invoices %}
-                            <tr>
-                                <td>
-                                    <span
-                                        style="font-family: monospace; font-size: 0.88rem; background-color: var(--bg-input); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-color);">
-                                        {{ inv.invoiceNumber }}
-                                    </span>
-                                </td>
-                                <td>
-                                    <span style="font-size: 0.85rem; font-weight: 500;">{{ inv.ecfType.split('(')[0]
-                                        }}</span>
-                                </td>
-                                <td>
-                                    <span style="font-size: 0.88rem; color: var(--text-secondary);">{{ inv.date
-                                        }}</span>
-                                </td>
-                                <td>
-                                    <span style="font-size: 0.88rem; color: var(--text-secondary);">{{ inv.dueDate
-                                        }}</span>
-                                </td>
-                                <td>
-                                    <span style="font-size: 0.88rem; font-weight: 500; color: var(--accent-purple);">RD$
-                                        {{ "{:,.2f}".format(inv.totalITBIS) }}</span>
-                                </td>
-                                <td>
-                                    <strong style="color: var(--accent-emerald);">RD$ {{ "{:,.2f}".format(inv.total)
-                                        }}</strong>
-                                </td>
-                                <td>
-                                    <span
-                                        class="badge {% if inv.status == 'Emitida' %}badge-success{% elif inv.status == 'Borrador' %}badge-secondary{% elif inv.status == 'Vencida' %}badge-danger{% else %}badge-primary{% endif %}">
-                                        {{ inv.status }}
-                                    </span>
-                                </td>
-                                <td style="text-align: right;">
-                                    <a href="{{ url_for('invoice_detail', invoice_id=inv.id) }}"
-                                        class="btn btn-secondary" style="padding: 6px 10px; font-size: 0.78rem;"
-                                        title="Ver Detalle de Factura">
-                                        <i class="fa-solid fa-eye"></i>
-                                    </a>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                            {% else %}
-                            <tr>
-                                <td colspan="8"
-                                    style="text-align: center; padding: 40px 0; color: var(--text-secondary);">
-                                    <span>No se han emitido facturas reales a este cliente aún.</span>
-                                </td>
-                            </tr>
-                            {% endif %}
-                        </tbody>
-                    </table>
+            <div>
+                <span style="color: var(--text-secondary); display: block; font-size: 0.72rem; text-transform: uppercase; font-weight: 600; margin-bottom: 2px; letter-spacing: 0.05em;">Responsable</span>
+                <div style="display: flex; align-items: center; gap: 6px; color: var(--text-primary); font-size: 0.9rem; font-weight: 500;">
+                    <i class="fa-solid fa-user-tie" style="color: var(--accent-emerald); font-size: 0.8rem;"></i>
+                    <span>{{ responsible_name or 'Propietario / Owner' }}</span>
                 </div>
             </div>
         </div>
 
-        <!-- SECCIÓN 3: Pestaña Gestión Documental Centralizada -->
-        <div id="documents-tab" style="display: none; flex-direction: column; gap: 24px;">
-            <!-- Formulario de carga de documento -->
-            <div class="card-table-wrapper" style="margin-bottom: 0; padding: 24px;">
-                <h3
-                    style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
-                    <i class="fa-solid fa-cloud-arrow-up" style="color: var(--accent-emerald);"></i>
-                    <span>Archivar Nuevo Documento</span>
-                </h3>
-
-                <form action="{{ url_for('web_operations.upload_client_document_route', client_id=client.id) }}"
-                    method="POST" enctype="multipart/form-data"
-                    style="display: flex; flex-direction: column; gap: 16px;">
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-                        <div>
-                            <label for="documentType"
-                                style="display: block; font-size: 0.85rem; font-weight: 500; margin-bottom: 6px; color: var(--text-secondary);">Clasificación
-                                del Documento</label>
-                            <select id="documentType" name="documentType" class="form-control"
-                                style="width: 100%; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background-color: var(--bg-input); color: var(--text-primary); padding: 10px;"
-                                required>
-                                <option value="Contrato Legal" selected>📜 Contrato Legal</option>
-                                <option value="Orden de Compra Firmada">✍️ Orden de Compra Firmada</option>
-                                <option value="Comprobante de Pago (Voucher)">💵 Comprobante de Pago (Voucher)</option>
-                                <option value="Otros">📁 Otros Documentos</option>
-                            </select>
-                        </div>
-
-                        <div>
-                            <label for="doc-file"
-                                style="display: block; font-size: 0.85rem; font-weight: 500; margin-bottom: 6px; color: var(--text-secondary);">Seleccionar
-                                Archivo (PDF, Imagen, Word)</label>
-                            <div style="position: relative; border: 1px dashed var(--border-color); border-radius: var(--radius-sm); padding: 10px; display: flex; align-items: center; gap: 10px; background-color: var(--bg-input); cursor: pointer;"
-                                onclick="document.getElementById('doc-file').click()">
-                                <i class="fa-solid fa-paperclip"
-                                    style="color: var(--text-muted); font-size: 1.1rem;"></i>
-                                <span id="doc-file-label"
-                                    style="font-size: 0.85rem; color: var(--text-secondary);">Seleccionar
-                                    archivo...</span>
-                                <input type="file" id="doc-file" name="file" style="display: none;" required
-                                    onchange="document.getElementById('doc-file-label').textContent=this.files[0].name; document.getElementById('doc-file-label').style.color='var(--text-primary)';">
-                            </div>
-                        </div>
-                    </div>
-
-                    <div>
-                        <label for="doc-notes"
-                            style="display: block; font-size: 0.85rem; font-weight: 500; margin-bottom: 6px; color: var(--text-secondary);">Descripción
-                            / Notas</label>
-                        <input type="text" id="doc-notes" name="notes"
-                            placeholder="Ej: Firma del representante legal para iguala 2026..." class="form-control"
-                            style="width: 100%; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background-color: var(--bg-input); color: var(--text-primary); padding: 10px;">
-                    </div>
-
-                    <div style="display: flex; justify-content: flex-end; margin-top: 8px;">
-                        <button type="submit" class="btn btn-primary"
-                            style="padding: 10px 24px; font-weight: 500; display: flex; align-items: center; gap: 8px;">
-                            <i class="fa-solid fa-cloud-arrow-up"></i>
-                            <span>Cargar al Expediente</span>
-                        </button>
-                    </div>
-                </form>
-            </div>
-
-            <!-- Listado de documentos centralizados -->
-            <div class="card-table-wrapper" style="margin-bottom: 0; padding: 24px;">
-                <h3
-                    style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px;">
-                    Historial Documental Centralizado</h3>
-
-                {% if documents %}
-                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px;">
-                    {% for doc in documents %}
-                    <div style="border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 16px; background-color: var(--bg-input); display: flex; flex-direction: column; justify-content: space-between; gap: 12px; transition: transform 0.2s ease, box-shadow 0.2s ease;"
-                        onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='var(--shadow-sm)';"
-                        onmouseout="this.style.transform='none'; this.style.boxShadow='none';">
-                        <div>
-                            <div
-                                style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
-                                <span class="badge"
-                                    style="font-size: 0.72rem; font-weight: bold; background-color: rgba(16, 185, 129, 0.1); color: var(--accent-emerald);">
-                                    {{ doc.documentType }}
-                                </span>
-                                <form
-                                    action="{{ url_for('web_operations.delete_client_document_route', client_id=client.id, doc_id=doc.id) }}"
-                                    method="POST" style="margin:0;"
-                                    onsubmit="return confirm('¿Seguro que deseas eliminar este documento de los archivos del cliente?');">
-                                    <button type="submit"
-                                        style="background:none; border:none; color:var(--text-muted); cursor:pointer; padding: 2px;"
-                                        title="Eliminar Archivo">
-                                        <i class="fa-solid fa-trash-can" style="font-size: 0.82rem;"
-                                            onmouseover="this.style.color='var(--accent-red)'"
-                                            onmouseout="this.style.color='var(--text-muted)'"></i>
-                                    </button>
-                                </form>
-                            </div>
-                            <h4
-                                style="font-size: 0.92rem; font-weight: 700; margin: 0 0 6px 0; color: var(--text-primary); text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">
-                                {{ doc.name }}
-                            </h4>
-                            <p
-                                style="font-size: 0.8rem; color: var(--text-secondary); margin: 0 0 8px 0; line-height: 1.4;">
-                                {{ doc.notes or 'Sin notas adicionales.' }}
-                            </p>
-                        </div>
-                        <div
-                            style="border-top: 1px solid var(--border-color); padding-top: 10px; display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; color: var(--text-muted);">
-                            <span>Subido el {{ doc.createdAt | format_date }}</span>
-                            <a href="{{ doc.url }}" target="_blank" class="btn btn-secondary"
-                                style="padding: 4px 10px; font-size: 0.75rem; display: inline-flex; align-items: center; gap: 4px; border-color: var(--accent-emerald); color: var(--accent-emerald);">
-                                <i class="fa-solid fa-download"></i>
-                                <span>Descargar</span>
-                            </a>
-                        </div>
-                    </div>
-                    {% endfor %}
-                </div>
-                {% else %}
-                <div style="text-align: center; padding: 40px 0; color: var(--text-secondary);">
-                    <i class="fa-solid fa-folder-open"
-                        style="font-size: 2.2rem; color: var(--text-muted); opacity: 0.5; margin-bottom: 12px; display: block;"></i>
-                    <span>No hay documentos adjuntos en el expediente del cliente todavía.</span>
-                </div>
-                {% endif %}
-            </div>
-        </div>
-
-        <!-- SECCIÓN 4: Pestaña Historial de Pagos -->
-        <div id="payments-tab" style="display: none;">
-            <div class="card-table-wrapper" style="margin-bottom: 0; padding: 24px;">
-                <h3 style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px;">
-                    Historial de Abonos y Pagos</h3>
-
-                <div class="table-responsive">
-                    <table class="table-premium">
-                        <thead>
-                            <tr>
-                                <th>Fecha Pago</th>
-                                <th>Nro. Factura</th>
-                                <th>Método de Pago</th>
-                                <th>Banco / Pasarela</th>
-                                <th>Referencia</th>
-                                <th>Monto Recibido</th>
-                                <th>Registrado Por</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% if payments %}
-                            {% for pay in payments %}
-                            <tr>
-                                <td>
-                                    <span style="font-family: monospace; font-size: 0.88rem;">{{ pay.paymentDate | format_date if pay.paymentDate else 'N/A' }}</span>
-                                </td>
-                                <td>
-                                    <a href="{{ url_for('invoice_detail', invoice_id=pay.invoiceId) }}"
-                                       style="font-family: monospace; font-size: 0.88rem; background-color: var(--bg-input); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-color); color: var(--accent-emerald); text-decoration: none; font-weight: 600;">
-                                        {{ pay.invoiceNumber }}
-                                    </a>
-                                </td>
-                                <td>
-                                    <span style="font-size: 0.85rem; font-weight: 500;">{{ pay.paymentMethod }}</span>
-                                </td>
-                                <td>
-                                    <span style="font-size: 0.85rem; color: var(--text-secondary);">{{ pay.bank or '—' }}</span>
-                                </td>
-                                <td>
-                                    <span style="font-family: monospace; font-size: 0.82rem; color: var(--text-muted);">{{ pay.referenceNumber or '—' }}</span>
-                                </td>
-                                <td>
-                                    <strong style="color: var(--accent-emerald);">RD$ {{ "{:,.2f}".format(pay.amount) }}</strong>
-                                </td>
-                                <td>
-                                    <span style="font-size: 0.82rem; color: var(--text-secondary);">{{ pay.registeredBy or 'N/A' }}</span>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                            {% else %}
-                            <tr>
-                                <td colspan="7" style="text-align: center; padding: 40px 0; color: var(--text-secondary);">
-                                    <span>No se han registrado pagos o abonos para este cliente todavía.</span>
-                                </td>
-                            </tr>
-                            {% endif %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+        <!-- Botón Editar Ficha CRM (Derecha, reducido a 34px de alto) -->
+        <div style="display: flex; align-items: center; justify-content: flex-end; flex-shrink: 0; min-width: 140px;">
+            <a href="{{ url_for('edit_client', client_id=client.id) }}" class="btn btn-secondary"
+                style="display: inline-flex; align-items: center; gap: 6px; font-weight: 600; padding: 0 14px; font-size: 0.8rem; height: 34px; border-radius: 6px; transition: all var(--transition-fast) ease;">
+                <i class="fa-solid fa-user-pen"></i>
+                <span>Editar Ficha</span>
+            </a>
         </div>
 
     </div>
 </div>
 
+<!-- ═══════════════════════════════════════════════════════
+     PANEL DE PESTAÑAS — ANCHO COMPLETO (DEBAJO)
+     ═══════════════════════════════════════════════════════ -->
+<div>
+    <!-- Barra de pestañas -->
+    <div style="display: flex; border-bottom: 2px solid var(--border-color); margin-bottom: 0; gap: 4px; overflow-x: auto;">
+        <button onclick="changeTab('timeline-tab')" id="btn-timeline-tab"
+            style="background: none; border: none; padding: 10px 16px; font-size: 0.9rem; font-family: var(--font-heading); font-weight: 500; color: var(--accent-emerald); border-bottom: 3px solid var(--accent-emerald); cursor: pointer; transition: all var(--transition-fast); white-space: nowrap; margin-bottom: -2px;">
+            <i class="fa-solid fa-clock-rotate-left" style="margin-right: 6px;"></i>
+            Historial y Seguimiento
+        </button>
+        <button onclick="changeTab('invoices-tab')" id="btn-invoices-tab"
+            style="background: none; border: none; padding: 10px 16px; font-size: 0.9rem; font-family: var(--font-heading); font-weight: 500; color: var(--text-secondary); border-bottom: 3px solid transparent; cursor: pointer; transition: all var(--transition-fast); white-space: nowrap; margin-bottom: -2px;">
+            <i class="fa-solid fa-file-invoice-dollar" style="margin-right: 6px;"></i>
+            Historial de Ventas ({{ invoices | length }})
+        </button>
+        <button onclick="changeTab('documents-tab')" id="btn-documents-tab"
+            style="background: none; border: none; padding: 10px 16px; font-size: 0.9rem; font-family: var(--font-heading); font-weight: 500; color: var(--text-secondary); border-bottom: 3px solid transparent; cursor: pointer; transition: all var(--transition-fast); white-space: nowrap; margin-bottom: -2px;">
+            <i class="fa-solid fa-folder-open" style="margin-right: 6px;"></i>
+            Gestión Documental ({{ documents | length }})
+        </button>
+        <button onclick="changeTab('payments-tab')" id="btn-payments-tab"
+            style="background: none; border: none; padding: 10px 16px; font-size: 0.9rem; font-family: var(--font-heading); font-weight: 500; color: var(--text-secondary); border-bottom: 3px solid transparent; cursor: pointer; transition: all var(--transition-fast); white-space: nowrap; margin-bottom: -2px;">
+            <i class="fa-solid fa-receipt" style="margin-right: 6px;"></i>
+            Historial de Pagos ({{ payments | length }})
+        </button>
+        <button onclick="changeTab('portal-tab')" id="btn-portal-tab"
+            style="background: none; border: none; padding: 10px 16px; font-size: 0.9rem; font-family: var(--font-heading); font-weight: 500; color: var(--text-secondary); border-bottom: 3px solid transparent; cursor: pointer; transition: all var(--transition-fast); white-space: nowrap; margin-bottom: -2px;">
+            <i class="fa-solid fa-circle-user" style="margin-right: 6px;"></i>
+            Portal de Autoservicio
+        </button>
+    </div>
+
+    <!-- ─── PESTAÑA 1: Historial y Seguimiento ─── -->
+    <div id="timeline-tab" style="display: flex; flex-direction: column; gap: 24px; padding-top: 24px;">
+
+        <!-- Información de fecha de próximo seguimiento -->
+        {% if client.nextContactDate %}
+        <div style="background-color: var(--bg-card); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; box-shadow: var(--shadow-sm);">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <i class="fa-solid fa-calendar-check" style="color: var(--accent-purple); font-size: 1.1rem;"></i>
+                <div>
+                    <span style="font-size: 0.75rem; color: var(--text-secondary); display: block; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em;">Próximo Seguimiento Programado</span>
+                    <strong style="font-size: 0.95rem; color: var(--text-primary);">{{ client.nextContactDate | format_date }}</strong>
+                </div>
+            </div>
+            <a href="{{ url_for('edit_client', client_id=client.id) }}" class="btn btn-secondary" style="padding: 0 10px; font-size: 0.75rem; height: 28px; display: inline-flex; align-items: center; gap: 4px;">
+                <i class="fa-solid fa-calendar-days"></i>
+                <span>Re-programar</span>
+            </a>
+        </div>
+        {% endif %}
+
+        <!-- Desempeño Comercial (KPIs) integrado en la primera pestaña -->
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;">
+            <!-- Facturado Acumulado -->
+            <div class="card-table-wrapper" style="margin-bottom: 0; padding: 20px; display: flex; align-items: center; gap: 16px;">
+                <div style="width: 44px; height: 44px; border-radius: 10px; background: rgba(16,185,129,0.1); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                    <i class="fa-solid fa-chart-line" style="color: var(--accent-emerald); font-size: 1.1rem;"></i>
+                </div>
+                <div>
+                    <span style="font-size: 0.72rem; color: var(--text-secondary); text-transform: uppercase; font-weight: 600; letter-spacing: 0.05em; display: block;">Facturado Acumulado</span>
+                    <strong style="font-size: 1.15rem; color: var(--accent-emerald); font-family: var(--font-heading);">
+                        RD$ {{ "{:,.2f}".format(client.total_invoiced | default(0.0)) }}
+                    </strong>
+                </div>
+            </div>
+
+            <!-- CxC Pendiente -->
+            <div class="card-table-wrapper" style="margin-bottom: 0; padding: 20px; display: flex; align-items: center; gap: 16px;">
+                <div style="width: 44px; height: 44px; border-radius: 10px; background: rgba(239,68,68,0.1); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                    <i class="fa-solid fa-circle-exclamation" style="color: var(--accent-red); font-size: 1.1rem;"></i>
+                </div>
+                <div>
+                    <span style="font-size: 0.72rem; color: var(--text-secondary); text-transform: uppercase; font-weight: 600; letter-spacing: 0.05em; display: block;">CxC Pendiente</span>
+                    <strong style="font-size: 1.15rem; color: {% if client.total_cxc | default(0.0) > 0 %}var(--accent-red){% else %}var(--text-secondary){% endif %}; font-family: var(--font-heading);">
+                        RD$ {{ "{:,.2f}".format(client.total_cxc | default(0.0)) }}
+                    </strong>
+                </div>
+            </div>
+
+            <!-- Documentos Emitidos -->
+            <div class="card-table-wrapper" style="margin-bottom: 0; padding: 20px; display: flex; align-items: center; gap: 16px;">
+                <div style="width: 44px; height: 44px; border-radius: 10px; background: rgba(59,130,246,0.1); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                    <i class="fa-solid fa-file-invoice" style="color: #3b82f6; font-size: 1.1rem;"></i>
+                </div>
+                <div>
+                    <span style="font-size: 0.72rem; color: var(--text-secondary); text-transform: uppercase; font-weight: 600; letter-spacing: 0.05em; display: block;">Documentos Emitidos</span>
+                    <strong style="font-size: 1.15rem; color: var(--text-primary); font-family: var(--font-heading);">
+                        {{ invoices | length }}
+                    </strong>
+                </div>
+            </div>
+
+            <!-- Cotizaciones Activas -->
+            <div class="card-table-wrapper" style="margin-bottom: 0; padding: 20px; display: flex; align-items: center; gap: 16px;">
+                <div style="width: 44px; height: 44px; border-radius: 10px; background: rgba(168,85,247,0.1); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                    <i class="fa-solid fa-file-pen" style="color: var(--accent-purple); font-size: 1.1rem;"></i>
+                </div>
+                <div>
+                    <span style="font-size: 0.72rem; color: var(--text-secondary); text-transform: uppercase; font-weight: 600; letter-spacing: 0.05em; display: block;">Cotizaciones Activas</span>
+                    <strong style="font-size: 1.15rem; color: var(--accent-purple); font-family: var(--font-heading);">
+                        {{ quotations | length }}
+                    </strong>
+                </div>
+            </div>
+        </div>
+
+        <!-- Formulario de nueva interacción -->
+        <div class="card-table-wrapper" style="margin-bottom: 0; padding: 24px;">
+            <h3 style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-comment-medical" style="color: var(--accent-emerald);"></i>
+                <span>Registrar Nueva Interacción o Seguimiento</span>
+            </h3>
+
+            <form action="{{ url_for('add_client_interaction', client_id=client.id) }}" method="POST"
+                enctype="multipart/form-data" style="display: flex; flex-direction: column; gap: 16px;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                    <div>
+                        <label for="type" style="display: block; font-size: 0.85rem; font-weight: 500; margin-bottom: 6px; color: var(--text-secondary);">Tipo de Interacción</label>
+                        <select id="type" name="type" onchange="toggleNextContactField(this.value)" class="form-control"
+                            style="width: 100%; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background-color: var(--bg-input); color: var(--text-primary); padding: 10px;" required>
+                            <option value="Nota" selected>📝 Nota Interna / Comentario</option>
+                            <option value="Llamada">📞 Llamada Telefónica</option>
+                            <option value="Reunión">🤝 Reunión Presencial / Virtual</option>
+                            <option value="Correo">✉️ Correo Electrónico</option>
+                            <option value="Seguimiento">⏰ Seguimiento / Tarea Programada</option>
+                        </select>
+                    </div>
+
+                    <div id="next-contact-wrapper">
+                        <label for="nextContactDate" style="display: block; font-size: 0.85rem; font-weight: 500; margin-bottom: 6px; color: var(--text-secondary);">Programar Fecha de Próximo Seguimiento</label>
+                        <input type="date" id="nextContactDate" name="nextContactDate" class="form-control"
+                            style="width: 100%; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background-color: var(--bg-input); color: var(--text-primary); padding: 10px;">
+                    </div>
+                </div>
+
+                <div>
+                    <label for="content" style="display: block; font-size: 0.85rem; font-weight: 500; margin-bottom: 6px; color: var(--text-secondary);">Notas del seguimiento / interacción</label>
+                    <textarea id="content" name="content"
+                        placeholder="Escribe aquí los acuerdos comerciales, resumen de la llamada o detalles del seguimiento..."
+                        rows="3" class="form-control"
+                        style="width: 100%; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background-color: var(--bg-input); color: var(--text-primary); padding: 12px; font-family: inherit; resize: vertical;"
+                        required></textarea>
+                </div>
+
+                <div>
+                    <label for="attachment" style="display: block; font-size: 0.85rem; font-weight: 500; margin-bottom: 6px; color: var(--text-secondary);">Adjuntar Documento / Archivo (PDF, XML, Imagen)</label>
+                    <div style="position: relative; border: 1px dashed var(--border-color); border-radius: var(--radius-sm); padding: 12px; display: flex; align-items: center; gap: 10px; background-color: var(--bg-input); cursor: pointer;"
+                        onclick="document.getElementById('attachment').click()">
+                        <i class="fa-solid fa-paperclip" style="color: var(--text-muted); font-size: 1.1rem;"></i>
+                        <span id="attachment-label" style="font-size: 0.85rem; color: var(--text-secondary);">Seleccionar archivo adjunto (opcional)...</span>
+                        <input type="file" id="attachment" name="attachment" style="display: none;"
+                            onchange="document.getElementById('attachment-label').textContent=this.files[0].name; document.getElementById('attachment-label').style.color='var(--text-primary)';">
+                    </div>
+                </div>
+
+                <div style="display: flex; justify-content: flex-end; margin-top: 8px;">
+                    <button type="submit" class="btn btn-primary"
+                        style="padding: 0 16px; font-size: 0.82rem; height: 32px; font-weight: 500; display: flex; align-items: center; gap: 8px;">
+                        <i class="fa-solid fa-floppy-disk"></i>
+                        <span>Registrar Interacción</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Timeline de historial -->
+        <div class="card-table-wrapper" style="margin-bottom: 0; padding: 24px;">
+            <h3 style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 24px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px;">
+                Historial del Cliente
+            </h3>
+
+            {% if interactions %}
+            <div style="position: relative; padding-left: 20px; border-left: 2px solid var(--border-color); margin-left: 10px; display: flex; flex-direction: column; gap: 24px;">
+                {% for item in interactions %}
+                <div style="position: relative;">
+                    <div style="position: absolute; left: -31px; top: 0; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.72rem; color: white;
+                                {% if item.type == 'Nota' %}background-color: var(--text-secondary);
+                                {% elif item.type == 'Llamada' %}background-color: var(--accent-emerald);
+                                {% elif item.type == 'Reunión' %}background-color: var(--accent-purple);
+                                {% elif item.type == 'Correo' %}background-color: #3b82f6;
+                                {% elif item.type == 'Seguimiento' %}
+                                    {% if item.completed %}background-color: var(--text-muted);
+                                    {% else %}background-color: var(--accent-red);{% endif %}
+                                {% endif %}">
+                        {% if item.type == 'Nota' %}<i class="fa-solid fa-pen-nib"></i>
+                        {% elif item.type == 'Llamada' %}<i class="fa-solid fa-phone"></i>
+                        {% elif item.type == 'Reunión' %}<i class="fa-solid fa-users"></i>
+                        {% elif item.type == 'Correo' %}<i class="fa-solid fa-envelope"></i>
+                        {% elif item.type == 'Seguimiento' %}<i class="fa-solid fa-clock"></i>
+                        {% endif %}
+                    </div>
+
+                    <div style="background-color: var(--bg-input); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 16px;">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+                            <div>
+                                <span style="font-size: 0.78rem; font-weight: 600; margin-right: 8px; padding: 0; background: none;
+                                            {% if item.type == 'Nota' %}color: var(--text-secondary);
+                                            {% elif item.type == 'Llamada' %}color: var(--accent-emerald);
+                                            {% elif item.type == 'Reunión' %}color: var(--accent-purple);
+                                            {% elif item.type == 'Correo' %}color: #3b82f6;
+                                            {% elif item.type == 'Seguimiento' %}
+                                                {% if item.completed %}color: var(--text-muted);
+                                                {% else %}color: var(--accent-red);{% endif %}
+                                            {% endif %}">
+                                    {{ item.type }}
+                                </span>
+                                <span style="font-size: 0.8rem; color: var(--text-secondary); font-weight: 500;">por {{ item.createdBy }}</span>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span style="font-size: 0.8rem; color: var(--text-secondary); white-space: nowrap;">
+                                    <i class="fa-solid fa-calendar-day" style="font-size: 0.75rem;"></i> {{ item.date }}
+                                </span>
+                                <form action="{{ url_for('delete_client_interaction_route', client_id=client.id, interaction_id=item.id) }}" method="POST"
+                                    onsubmit="return confirm('¿Seguro que deseas eliminar este comentario del historial?');" style="display: inline;">
+                                    <button type="submit" style="background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 2px 4px; font-size: 0.8rem; transition: color var(--transition-fast);"
+                                        onmouseover="this.style.color='var(--accent-red)'" onmouseout="this.style.color='var(--text-muted)'" title="Eliminar Interacción">
+                                        <i class="fa-solid fa-trash-can"></i>
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+
+                        <p style="font-size: 0.92rem; color: var(--text-primary); line-height: 1.5; margin-bottom: 12px; white-space: pre-line;">{{ item.content }}</p>
+
+                        {% if item.type == 'Seguimiento' and item.nextContactDate %}
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background-color: var(--bg-card); margin-bottom: 12px;">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <i class="fa-solid fa-circle-exclamation" style="color: {% if item.completed %}var(--text-muted){% else %}var(--accent-red){% endif %};"></i>
+                                <span style="font-size: 0.85rem; font-weight: 500; color: var(--text-primary);">
+                                    Llamar el: <strong style="color: {% if item.completed %}var(--text-muted){% else %}var(--accent-purple){% endif %};">{{ item.nextContactDate | format_date }}</strong>
+                                </span>
+                            </div>
+                            {% if not item.completed %}
+                            <form action="{{ url_for('complete_client_interaction_task', client_id=client.id, interaction_id=item.id) }}" method="POST" style="margin: 0;">
+                                <button type="submit" class="btn btn-secondary" style="padding: 0 10px; font-size: 0.75rem; height: 28px; font-weight: 500; display: inline-flex; align-items: center; gap: 6px; border-color: var(--accent-emerald); color: var(--accent-emerald);">
+                                    <i class="fa-solid fa-circle-check"></i>
+                                    <span>Marcar Completado</span>
+                                </button>
+                            </form>
+                            {% else %}
+                            <span style="font-size: 0.8rem; color: var(--accent-emerald); font-weight: 500; display: inline-flex; align-items: center; gap: 4px;">
+                                <i class="fa-solid fa-circle-check"></i>
+                                <span>Completado</span>
+                            </span>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+
+                        {% if item.attachmentUrl %}
+                        <div style="border-top: 1px solid var(--border-color); padding-top: 10px; display: flex; align-items: center; justify-content: space-between;">
+                            <div style="display: flex; align-items: center; gap: 8px; color: var(--text-secondary); font-size: 0.85rem;">
+                                <i class="fa-solid fa-file-arrow-down" style="color: var(--accent-emerald);"></i>
+                                <span style="max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ item.attachmentName or 'Archivo Adjunto' }}</span>
+                            </div>
+                            <a href="{{ item.attachmentUrl }}" target="_blank" class="btn btn-secondary" style="padding: 0 10px; font-size: 0.75rem; height: 28px; display: flex; align-items: center; gap: 6px;">
+                                <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                                <span>Ver Documento</span>
+                            </a>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div style="text-align: center; padding: 40px 0; color: var(--text-secondary);">
+                <i class="fa-solid fa-list-check" style="font-size: 2.2rem; color: var(--text-muted); opacity: 0.5; margin-bottom: 12px; display: block;"></i>
+                <span>No hay comentarios ni tareas de seguimiento registradas para este cliente aún.</span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- ─── PESTAÑA 2: Historial de Ventas ─── -->
+    <div id="invoices-tab" style="display: none; padding-top: 24px;">
+        <div class="card-table-wrapper" style="margin-bottom: 0; padding: 24px;">
+            <h3 style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px;">
+                Comprobantes Emitidos
+            </h3>
+            <div class="table-responsive">
+                <table class="table-premium">
+                    <thead>
+                        <tr>
+                            <th>Nro. Documento</th>
+                            <th>Tipo Comprobante</th>
+                            <th>Fecha Emisión</th>
+                            <th>Vence</th>
+                            <th>Tasa ITBIS</th>
+                            <th>Total Facturado</th>
+                            <th>Estado</th>
+                            <th style="text-align: right;">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if invoices %}
+                        {% for inv in invoices %}
+                        <tr>
+                            <td>
+                                <span style="font-family: monospace; font-size: 0.88rem; background-color: var(--bg-input); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-color);">{{ inv.invoiceNumber }}</span>
+                            </td>
+                            <td><span style="font-size: 0.85rem; font-weight: 500;">{{ inv.ecfType.split('(')[0] }}</span></td>
+                            <td><span style="font-size: 0.88rem; color: var(--text-secondary);">{{ inv.date }}</span></td>
+                            <td><span style="font-size: 0.88rem; color: var(--text-secondary);">{{ inv.dueDate }}</span></td>
+                            <td><span style="font-size: 0.88rem; font-weight: 500; color: var(--accent-purple);">RD$ {{ "{:,.2f}".format(inv.totalITBIS) }}</span></td>
+                            <td><strong style="color: var(--accent-emerald);">RD$ {{ "{:,.2f}".format(inv.total) }}</strong></td>
+                            <td>
+                                <span style="font-size: 0.82rem; font-weight: 600;
+                                            {% if inv.status == 'Emitida' %}color: var(--accent-emerald);
+                                            {% elif inv.status == 'Borrador' %}color: var(--text-secondary);
+                                            {% elif inv.status == 'Vencida' %}color: var(--accent-red);
+                                            {% elif inv.status == 'Revisión de Pago' %}color: var(--accent-yellow, #d97706);
+                                            {% else %}color: var(--accent-blue, #2563eb);{% endif %}">
+                                    {{ inv.status }}
+                                </span>
+                            </td>
+                            <td style="text-align: right;">
+                                <a href="{{ url_for('invoice_detail', invoice_id=inv.id) }}" class="btn btn-secondary" style="padding: 0 8px; font-size: 0.75rem; height: 26px; display: inline-flex; align-items: center; justify-content: center;" title="Ver Detalle de Factura">
+                                    <i class="fa-solid fa-eye"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        {% else %}
+                        <tr>
+                            <td colspan="8" style="text-align: center; padding: 40px 0; color: var(--text-secondary);">
+                                <span>No se han emitido facturas reales a este cliente aún.</span>
+                            </td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- ─── PESTAÑA 3: Gestión Documental ─── -->
+    <div id="documents-tab" style="display: none; flex-direction: column; gap: 24px; padding-top: 24px;">
+        <div class="card-table-wrapper" style="margin-bottom: 0; padding: 24px;">
+            <h3 style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-cloud-arrow-up" style="color: var(--accent-emerald);"></i>
+                <span>Archivar Nuevo Documento</span>
+            </h3>
+            <form action="{{ url_for('web_operations.upload_client_document_route', client_id=client.id) }}" method="POST" enctype="multipart/form-data" style="display: flex; flex-direction: column; gap: 16px;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                    <div>
+                        <label for="documentType" style="display: block; font-size: 0.85rem; font-weight: 500; margin-bottom: 6px; color: var(--text-secondary);">Clasificación del Documento</label>
+                        <select id="documentType" name="documentType" class="form-control"
+                            style="width: 100%; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background-color: var(--bg-input); color: var(--text-primary); padding: 10px;" required>
+                            <option value="Contrato Legal" selected>📜 Contrato Legal</option>
+                            <option value="Orden de Compra Firmada">✍️ Orden de Compra Firmada</option>
+                            <option value="Comprobante de Pago (Voucher)">💵 Comprobante de Pago (Voucher)</option>
+                            <option value="Otros">📁 Otros Documentos</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="doc-file" style="display: block; font-size: 0.85rem; font-weight: 500; margin-bottom: 6px; color: var(--text-secondary);">Seleccionar Archivo (PDF, Imagen, Word)</label>
+                        <div style="position: relative; border: 1px dashed var(--border-color); border-radius: var(--radius-sm); padding: 10px; display: flex; align-items: center; gap: 10px; background-color: var(--bg-input); cursor: pointer;"
+                            onclick="document.getElementById('doc-file').click()">
+                            <i class="fa-solid fa-paperclip" style="color: var(--text-muted); font-size: 1.1rem;"></i>
+                            <span id="doc-file-label" style="font-size: 0.85rem; color: var(--text-secondary);">Seleccionar archivo...</span>
+                            <input type="file" id="doc-file" name="file" style="display: none;" required
+                                onchange="document.getElementById('doc-file-label').textContent=this.files[0].name; document.getElementById('doc-file-label').style.color='var(--text-primary)';">
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <label for="doc-notes" style="display: block; font-size: 0.85rem; font-weight: 500; margin-bottom: 6px; color: var(--text-secondary);">Descripción / Notas</label>
+                    <input type="text" id="doc-notes" name="notes" placeholder="Ej: Firma del representante legal para iguala 2026..." class="form-control"
+                        style="width: 100%; border-radius: var(--radius-sm); border: 1px solid var(--border-color); background-color: var(--bg-input); color: var(--text-primary); padding: 10px;">
+                </div>
+                <div style="display: flex; justify-content: flex-end; margin-top: 8px;">
+                    <button type="submit" class="btn btn-primary" style="padding: 0 16px; font-size: 0.82rem; height: 32px; font-weight: 500; display: flex; align-items: center; gap: 8px;">
+                        <i class="fa-solid fa-cloud-arrow-up"></i>
+                        <span>Cargar al Expediente</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <div class="card-table-wrapper" style="margin-bottom: 0; padding: 24px;">
+            <h3 style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px;">
+                Historial Documental Centralizado
+            </h3>
+            {% if documents %}
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px;">
+                {% for doc in documents %}
+                <div style="border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 16px; background-color: var(--bg-input); display: flex; flex-direction: column; justify-content: space-between; gap: 12px; transition: transform 0.2s ease, box-shadow 0.2s ease;"
+                    onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='var(--shadow-sm)';"
+                    onmouseout="this.style.transform='none'; this.style.boxShadow='none';">
+                    <div>
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+                            <span style="font-size: 0.75rem; font-weight: 600; color: var(--accent-emerald);">{{ doc.documentType }}</span>
+                            <form action="{{ url_for('web_operations.delete_client_document_route', client_id=client.id, doc_id=doc.id) }}" method="POST" style="margin:0;"
+                                onsubmit="return confirm('¿Seguro que deseas eliminar este documento de los archivos del cliente?');">
+                                <button type="submit" style="background:none; border:none; color:var(--text-muted); cursor:pointer; padding: 2px;" title="Eliminar Archivo">
+                                    <i class="fa-solid fa-trash-can" style="font-size: 0.82rem;" onmouseover="this.style.color='var(--accent-red)'" onmouseout="this.style.color='var(--text-muted)'"></i>
+                                </button>
+                            </form>
+                        </div>
+                        <h4 style="font-size: 0.92rem; font-weight: 700; margin: 0 0 6px 0; color: var(--text-primary); text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">{{ doc.name }}</h4>
+                        <p style="font-size: 0.8rem; color: var(--text-secondary); margin: 0 0 8px 0; line-height: 1.4;">{{ doc.notes or 'Sin notas adicionales.' }}</p>
+                    </div>
+                    <div style="border-top: 1px solid var(--border-color); padding-top: 10px; display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; color: var(--text-muted);">
+                        <span>Subido el {{ doc.createdAt | format_date }}</span>
+                        <a href="{{ doc.url }}" target="_blank" class="btn btn-secondary" style="padding: 0 10px; font-size: 0.75rem; height: 26px; display: inline-flex; align-items: center; gap: 4px; border-color: var(--accent-emerald); color: var(--accent-emerald);">
+                            <i class="fa-solid fa-download"></i>
+                            <span>Descargar</span>
+                        </a>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div style="text-align: center; padding: 40px 0; color: var(--text-secondary);">
+                <i class="fa-solid fa-folder-open" style="font-size: 2.2rem; color: var(--text-muted); opacity: 0.5; margin-bottom: 12px; display: block;"></i>
+                <span>No hay documentos adjuntos en el expediente del cliente todavía.</span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- ─── PESTAÑA 4: Historial de Pagos ─── -->
+    <div id="payments-tab" style="display: none; padding-top: 24px;">
+        <div class="card-table-wrapper" style="margin-bottom: 0; padding: 24px;">
+            <h3 style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px;">
+                Historial de Abonos y Pagos
+            </h3>
+            <div class="table-responsive">
+                <table class="table-premium">
+                    <thead>
+                        <tr>
+                            <th>Fecha Pago</th>
+                            <th>Nro. Factura</th>
+                            <th>Método de Pago</th>
+                            <th>Banco / Pasarela</th>
+                            <th>Referencia</th>
+                            <th>Monto Recibido</th>
+                            <th>Registrado Por</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if payments %}
+                        {% for pay in payments %}
+                        <tr>
+                            <td><span style="font-family: monospace; font-size: 0.88rem;">{{ pay.paymentDate | format_date if pay.paymentDate else 'N/A' }}</span></td>
+                            <td>
+                                <a href="{{ url_for('invoice_detail', invoice_id=pay.invoiceId) }}"
+                                   style="font-family: monospace; font-size: 0.88rem; background-color: var(--bg-input); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-color); color: var(--accent-emerald); text-decoration: none; font-weight: 600;">
+                                    {{ pay.invoiceNumber }}
+                                </a>
+                            </td>
+                            <td><span style="font-size: 0.85rem; font-weight: 500;">{{ pay.paymentMethod }}</span></td>
+                            <td><span style="font-size: 0.85rem; color: var(--text-secondary);">{{ pay.bank or '—' }}</span></td>
+                            <td><span style="font-family: monospace; font-size: 0.82rem; color: var(--text-muted);">{{ pay.referenceNumber or '—' }}</span></td>
+                            <td><strong style="color: var(--accent-emerald);">RD$ {{ "{:,.2f}".format(pay.amount) }}</strong></td>
+                            <td><span style="font-size: 0.82rem; color: var(--text-secondary);">{{ pay.registeredBy or 'N/A' }}</span></td>
+                        </tr>
+                        {% endfor %}
+                        {% else %}
+                        <tr>
+                            <td colspan="7" style="text-align: center; padding: 40px 0; color: var(--text-secondary);">
+                                <span>No se han registrado pagos o abonos para este cliente todavía.</span>
+                            </td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- ─── PESTAÑA 5: Portal de Autoservicio ─── -->
+    <div id="portal-tab" style="display: none; flex-direction: column; gap: 24px; padding-top: 24px;">
+        <div class="card-table-wrapper" style="margin-bottom: 0; padding: 24px;">
+            <h3 style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-server" style="color: var(--accent-emerald);"></i>
+                <span>Configuración del Portal de Autoservicio</span>
+            </h3>
+            
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; margin-bottom: 24px;">
+                <!-- Datos y Claves de Acceso -->
+                <div style="border: 1px solid var(--border-color); border-radius: 8px; padding: 16px; background-color: var(--bg-input);">
+                    <h4 style="font-size: 0.95rem; font-weight: 700; margin: 0 0 12px 0; color: var(--text-primary); display: flex; align-items: center; gap: 6px;">
+                        <i class="fa-solid fa-key" style="color: var(--accent-purple);"></i>
+                        <span>Credenciales de Acceso</span>
+                    </h4>
+                    <div style="display: flex; flex-direction: column; gap: 10px; font-size: 0.9rem;">
+                        <div>
+                           <span style="color: var(--text-secondary); display: block; font-size: 0.75rem; text-transform: uppercase; font-weight: 600;">Usuario (RNC / Cédula)</span>
+                           <strong style="color: var(--text-primary); font-family: monospace;">{{ client.rnc }}</strong>
+                        </div>
+                        <div>
+                           <span style="color: var(--text-secondary); display: block; font-size: 0.75rem; text-transform: uppercase; font-weight: 600;">Clave de Acceso (PIN)</span>
+                           <strong style="color: var(--text-primary); font-family: monospace;">{{ client.accessPin or 'No asignada (Edita el cliente para asignarla)' }}</strong>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Preferencias de Recordatorios -->
+                <div style="border: 1px solid var(--border-color); border-radius: 8px; padding: 16px; background-color: var(--bg-input); display: flex; flex-direction: column; justify-content: space-between;">
+                    <div>
+                        <h4 style="font-size: 0.95rem; font-weight: 700; margin: 0 0 8px 0; color: var(--text-primary); display: flex; align-items: center; gap: 6px;">
+                            <i class="fa-solid fa-bell" style="color: var(--accent-emerald);"></i>
+                            <span>Notificaciones y Cobros</span>
+                        </h4>
+                        <p style="font-size: 0.82rem; color: var(--text-secondary); margin: 0 0 12px 0; line-height: 1.4;">
+                            Activa o pausa los avisos de cobro y recordatorios automáticos de facturas para este cliente.
+                        </p>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <label class="switch-premium">
+                            <input type="checkbox" id="disableAutoReminders" onchange="toggleAutoReminders('{{ client.id }}')" {% if client.disableAutoReminders %}checked{% endif %}>
+                            <span class="slider-premium"></span>
+                        </label>
+                        <span style="font-size: 0.88rem; font-weight: 500; color: var(--text-primary);">Pausar recordatorios</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Acciones del Portal (Botones con descripción) -->
+            <div style="border-top: 1px solid var(--border-color); padding-top: 20px;">
+                <h4 style="font-size: 0.95rem; font-weight: 700; margin: 0 0 16px 0; color: var(--text-primary);">Acciones y Enlace del Portal</h4>
+                
+                <div style="display: flex; flex-direction: column; gap: 16px;">
+                    <!-- Enlace de Copiado con descripción -->
+                    <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; flex-wrap: wrap; background: rgba(0,0,0,0.01); border: 1px dashed var(--border-color); padding: 16px; border-radius: 8px;">
+                        <div style="flex: 1; min-width: 250px;">
+                            <strong style="display: block; font-size: 0.88rem; color: var(--text-primary); margin-bottom: 4px;">Copiar Enlace de Acceso</strong>
+                            <span style="display: block; font-size: 0.85rem; color: var(--text-secondary); line-height: 1.4;">
+                                Copia el enlace de autoservicio único para compartirlo con el cliente. Al acceder, se le solicitará su RNC/Cédula y su clave de acceso.
+                            </span>
+                        </div>
+                        <div style="display: flex; align-items: center; justify-content: flex-end; flex-shrink: 0;">
+                            <button id="copy-portal-btn" onclick="copyPortalLink('{{ request.url_root.rstrip('/') }}{{ url_for('portal.client_portal', owner_uid=client.ownerUID or session['user']['ownerUID'], client_id=client.id, sandbox='true' if session.get('is_sandbox_mode', True) else 'false') }}')" 
+                                    class="btn btn-secondary" style="padding: 0 12px; font-size: 0.8rem; height: 32px; display: inline-flex; align-items: center; gap: 4px; border-color: var(--accent-emerald); color: var(--accent-emerald);">
+                                <i class="fa-solid fa-copy"></i>
+                                <span>Copiar Enlace</span>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Botón Enviar Credenciales -->
+                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap; padding: 0 8px;">
+                        <span style="font-size: 0.8rem; color: var(--text-secondary); line-height: 1.4; max-width: 60%;">
+                            Envía las credenciales de acceso (RNC, clave y enlace al portal) directamente al correo del cliente.
+                        </span>
+                        <button onclick="openCredentialsModal()" class="btn btn-secondary"
+                                style="padding: 0 14px; font-size: 0.8rem; height: 32px; display: inline-flex; align-items: center; gap: 6px; border-color: var(--accent-purple); color: var(--accent-purple);">
+                            <i class="fa-solid fa-paper-plane"></i>
+                            <span>Enviar Credenciales</span>
+                        </button>
+                    </div>
+                    <!-- Botón de Vista Previa -->
+                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap; padding: 0 8px;">
+                        <span style="font-size: 0.8rem; color: var(--text-secondary); line-height: 1.4; max-width: 60%;">
+                            Ingresa directamente al portal de este cliente para visualizar sus facturas, cotizaciones firmadas y estado de cuenta tal como él lo vería.
+                        </span>
+                        <a href="{{ url_for('portal.client_portal', owner_uid=client.ownerUID or session['user']['ownerUID'], client_id=client.id, sandbox='true' if session.get('is_sandbox_mode', True) else 'false') }}" target="_blank" 
+                           class="btn btn-primary" style="padding: 0 14px; font-size: 0.8rem; height: 32px; display: inline-flex; align-items: center; gap: 6px;">
+                            <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                            <span>Ver Portal</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══ MODAL: Confirmar envío de credenciales ═══ -->
+<div id="modal-send-credentials" style="display: none; position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,0.5); align-items: center; justify-content: center; backdrop-filter: blur(2px);">
+    <div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 14px; padding: 28px 32px; max-width: 440px; width: 90%; box-shadow: 0 20px 60px rgba(0,0,0,0.2);">
+        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 20px;">
+            <div style="width: 40px; height: 40px; border-radius: 10px; background: rgba(168,85,247,0.1); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                <i class="fa-solid fa-paper-plane" style="color: var(--accent-purple);"></i>
+            </div>
+            <div>
+                <h3 style="margin: 0; font-size: 1rem; font-family: var(--font-heading); font-weight: 700; color: var(--text-primary);">Enviar Credenciales al Cliente</h3>
+                <p style="margin: 2px 0 0 0; font-size: 0.8rem; color: var(--text-secondary);">Confirma el correo destinatario antes de enviar</p>
+            </div>
+        </div>
+
+        <div style="background: var(--bg-input); border: 1px solid var(--border-color); border-radius: 8px; padding: 14px 16px; margin-bottom: 20px; font-size: 0.85rem;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                <span style="color: var(--text-secondary);">Usuario (RNC):</span>
+                <strong style="font-family: monospace;">{{ client.rnc }}</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 6px; border-top: 1px solid var(--border-color); padding-top: 6px;">
+                <span style="color: var(--text-secondary);">Clave (PIN):</span>
+                <strong style="font-family: monospace; letter-spacing: 0.1em; color: var(--accent-emerald);">{{ client.accessPin or '—' }}</strong>
+            </div>
+        </div>
+
+        <div style="margin-bottom: 20px;">
+            <label for="modal-email-input" style="display: block; font-size: 0.82rem; font-weight: 600; margin-bottom: 6px; color: var(--text-secondary);">Correo Electrónico del Destinatario</label>
+            <input type="email" id="modal-email-input"
+                   value="{{ client.email or '' }}"
+                   placeholder="correo@ejemplo.com"
+                   style="width: 100%; padding: 9px 12px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--bg-input); color: var(--text-primary); font-size: 0.88rem; outline: none; box-sizing: border-box;">
+            <p id="modal-email-hint" style="margin: 4px 0 0 0; font-size: 0.75rem; color: var(--text-muted);">Puedes cambiar el correo si deseas enviarlo a una dirección diferente.</p>
+        </div>
+
+        <div id="modal-send-result" style="display: none; font-size: 0.82rem; border-radius: 6px; padding: 10px 14px; margin-bottom: 16px;"></div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 10px;">
+            <button onclick="closeCredentialsModal()" class="btn btn-secondary" style="padding: 0 16px; font-size: 0.82rem; height: 34px;">
+                Cancelar
+            </button>
+            <button id="modal-send-btn" onclick="confirmSendCredentials('{{ client.id }}')" class="btn btn-primary"
+                    style="padding: 0 16px; font-size: 0.82rem; height: 34px; display: inline-flex; align-items: center; gap: 6px; background: var(--accent-purple, #7c3aed); border-color: var(--accent-purple, #7c3aed);">
+                <i class="fa-solid fa-paper-plane"></i>
+                <span>Enviar Ahora</span>
+            </button>
+        </div>
+    </div>
+</div>
+
 <script>
-    // Conmutador interactivo de pestañas del workspace CRM (Soporta 4 pestañas)
     function changeTab(tabId) {
-        const tabs = ['timeline-tab', 'invoices-tab', 'documents-tab', 'payments-tab'];
+        const tabs = ['timeline-tab', 'invoices-tab', 'documents-tab', 'payments-tab', 'portal-tab'];
         tabs.forEach(id => {
             const el = document.getElementById(id);
             const btn = document.getElementById('btn-' + id);
             if (id === tabId) {
-                if (id === 'timeline-tab' || id === 'documents-tab') {
+                if (id === 'timeline-tab' || id === 'documents-tab' || id === 'portal-tab') {
                     el.style.display = 'flex';
                 } else {
                     el.style.display = 'block';
@@ -711,7 +794,6 @@
         });
     }
 
-    // Ocultar o mostrar el campo de fecha de seguimiento según el tipo
     function toggleNextContactField(val) {
         const wrapper = document.getElementById('next-contact-wrapper');
         const input = document.getElementById('nextContactDate');
@@ -725,7 +807,6 @@
         }
     }
 
-    // Inicializar estado del campo
     toggleNextContactField(document.getElementById('type').value);
 
     function toggleAutoReminders(clientId) {
@@ -754,16 +835,107 @@
         navigator.clipboard.writeText(url).then(() => {
             const btn = document.getElementById('copy-portal-btn');
             const originalContent = btn.innerHTML;
-            btn.innerHTML = '<i class="fa-solid fa-check" style="color: var(--accent-emerald);"></i><span> ¡Enlace Copiado!</span>';
+            btn.innerHTML = '<i class="fa-solid fa-check" style="color: var(--accent-emerald);"></i>';
             btn.style.borderColor = 'var(--accent-emerald)';
             setTimeout(() => {
                 btn.innerHTML = originalContent;
                 btn.style.borderColor = '';
             }, 2000);
         }).catch(err => {
-            console.error('Error al copiar: ', err);
             alert('No se pudo copiar el enlace automáticamente. Cópielo manualmente: ' + url);
         });
     }
+
+    function updateClientStage(clientId, newStage) {
+        fetch(`/clients/${clientId}/update_pipeline`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ pipelineStage: newStage })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                console.log("Estado actualizado con éxito a: " + newStage);
+            } else {
+                alert("Error al actualizar el estado: " + (data.error || "Error desconocido"));
+            }
+        })
+        .catch(err => {
+            console.error("Error:", err);
+            alert("Error de red al actualizar el estado del cliente.");
+        });
+    }
+
+    function openCredentialsModal() {
+        const modal = document.getElementById('modal-send-credentials');
+        const result = document.getElementById('modal-send-result');
+        const sendBtn = document.getElementById('modal-send-btn');
+        result.style.display = 'none';
+        sendBtn.disabled = false;
+        sendBtn.innerHTML = '<i class="fa-solid fa-paper-plane"></i><span>Enviar Ahora</span>';
+        modal.style.display = 'flex';
+    }
+
+    function closeCredentialsModal() {
+        document.getElementById('modal-send-credentials').style.display = 'none';
+    }
+
+    function confirmSendCredentials(clientId) {
+        const email = document.getElementById('modal-email-input').value.trim();
+        const result = document.getElementById('modal-send-result');
+        const sendBtn = document.getElementById('modal-send-btn');
+
+        if (!email) {
+            result.style.display = 'block';
+            result.style.background = 'rgba(239,68,68,0.08)';
+            result.style.color = 'var(--accent-red)';
+            result.style.border = '1px solid rgba(239,68,68,0.2)';
+            result.textContent = '⚠️ Por favor ingresa un correo válido.';
+            return;
+        }
+
+        sendBtn.disabled = true;
+        sendBtn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i><span>Enviando...</span>';
+        result.style.display = 'none';
+
+        fetch(`/clients/${clientId}/send_portal_credentials`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email })
+        })
+        .then(res => res.json())
+        .then(data => {
+            result.style.display = 'block';
+            if (data.success) {
+                result.style.background = 'rgba(16,185,129,0.08)';
+                result.style.color = 'var(--accent-emerald)';
+                result.style.border = '1px solid rgba(16,185,129,0.2)';
+                result.innerHTML = '<i class="fa-solid fa-circle-check"></i> ' + data.message;
+                sendBtn.innerHTML = '<i class="fa-solid fa-check"></i><span>Enviado</span>';
+                setTimeout(() => closeCredentialsModal(), 2500);
+            } else {
+                result.style.background = 'rgba(239,68,68,0.08)';
+                result.style.color = 'var(--accent-red)';
+                result.style.border = '1px solid rgba(239,68,68,0.2)';
+                result.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> ' + data.error;
+                sendBtn.disabled = false;
+                sendBtn.innerHTML = '<i class="fa-solid fa-paper-plane"></i><span>Enviar Ahora</span>';
+            }
+        })
+        .catch(err => {
+            result.style.display = 'block';
+            result.style.background = 'rgba(239,68,68,0.08)';
+            result.style.color = 'var(--accent-red)';
+            result.style.border = '1px solid rgba(239,68,68,0.2)';
+            result.textContent = '⚠️ Error de red. Intente nuevamente.';
+            sendBtn.disabled = false;
+            sendBtn.innerHTML = '<i class="fa-solid fa-paper-plane"></i><span>Enviar Ahora</span>';
+        });
+    }
+
+    // Cerrar modal al hacer clic fuera
+    document.getElementById('modal-send-credentials').addEventListener('click', function(e) {
+        if (e.target === this) closeCredentialsModal();
+    });
 </script>
 {% endblock %}

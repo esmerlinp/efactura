@@ -76,6 +76,11 @@ class PortalDbService:
                 
                 # Evaluar vencimiento de facturas
                 status = data.get("status", "Borrador")
+                
+                # Excluir facturas en estado Borrador (las cotizaciones en Borrador sí se muestran para firma)
+                if not data.get('isQuotation', False) and status == 'Borrador':
+                    continue
+                
                 due_date_str = data.get("dueDate")
                 if status in ["Emitida", "Parcialmente Cobrada"] and due_date_str:
                     due_date_clean = due_date_str[:10]
@@ -165,7 +170,7 @@ def client_portal(owner_uid, client_id):
     for inv in invoices:
         if not inv.get('isQuotation') and inv.get('status') not in ['Anulada', 'Borrador']:
             total_invoiced += float(inv.get('total', 0.0))
-            if inv.get('status') in ['Emitida', 'Vencida', 'Parcialmente Cobrada']:
+            if inv.get('status') in ['Emitida', 'Vencida', 'Parcialmente Cobrada', 'Revisión de Pago']:
                 total_cxc += float(inv.get('remainingBalance', inv.get('netPayable', 0.0)))
                 
     return render_template(
@@ -184,17 +189,26 @@ def client_portal(owner_uid, client_id):
 def client_portal_verify(owner_uid, client_id):
     sandbox = request.args.get('sandbox', 'true').lower() == 'true'
     input_rnc = request.form.get('rnc', '').strip()
+    input_pin = request.form.get('accessPin', '').strip()
     
     company = DatabaseService.get_company_profile(owner_uid)
     client = PortalDbService.get_client_by_id(owner_uid, client_id, sandbox=sandbox)
     if not client:
         return "Cliente no encontrado en este ambiente.", 404
         
-    if clean_rnc(input_rnc) == clean_rnc(client.get('rnc', '')):
+    db_pin = client.get('accessPin', '')
+    if not db_pin:
+        # Generar un código por defecto si es un cliente legado sin clave
+        import random
+        db_pin = "".join([str(random.randint(0, 9)) for _ in range(6)])
+        client['accessPin'] = db_pin
+        DatabaseService.save_client(owner_uid, client_id, client, sandbox=sandbox)
+        
+    if clean_rnc(input_rnc) == clean_rnc(client.get('rnc', '')) and input_pin == db_pin:
         session[f'verified_client_{client_id}'] = True
         return redirect(url_for('portal.client_portal', owner_uid=owner_uid, client_id=client_id, sandbox='true' if sandbox else 'false'))
     else:
-        error = "El RNC o Cédula ingresado es incorrecto. Por favor, intente de nuevo."
+        error = "El RNC/Cédula o el Código de Acceso ingresado es incorrecto. Por favor, intente de nuevo."
         return render_template(
             'portal/verify.html',
             company=company,
@@ -316,6 +330,20 @@ def sign_quotation(owner_uid, client_id, invoice_id):
     invoice['signedAt'] = result['signedAt']
     
     PortalDbService.save_invoice(owner_uid, invoice_id, invoice, sandbox=sandbox)
+
+    # --- Notificar al responsable ---
+    _notify_portal_action(
+        owner_uid=owner_uid,
+        action='firmada',
+        document_type='Cotización',
+        document_number=invoice.get('invoiceNumber', invoice_id),
+        client=client,
+        signed_at=result['signedAt'],
+        invoice_or_contract=invoice,
+        invoice_id=invoice_id,
+        sandbox=sandbox
+    )
+
     return jsonify({"success": True, "message": "Propuesta firmada y aprobada digitalmente de forma exitosa."})
 
 @portal_bp.route('/portal/cliente/<owner_uid>/<client_id>/contrato/<contract_id>/firmar', methods=['POST'])
@@ -351,7 +379,268 @@ def sign_contract(owner_uid, client_id, contract_id):
     contract['signedAt'] = result['signedAt']
     
     PortalDbService.save_contract(owner_uid, contract_id, contract, sandbox=sandbox)
+
+    # --- Notificar al responsable ---
+    _notify_portal_action(
+        owner_uid=owner_uid,
+        action='firmada',
+        document_type='Contrato',
+        document_number=contract.get('contractNumber', contract_id),
+        client=client,
+        signed_at=result['signedAt'],
+        invoice_or_contract=contract,
+        invoice_id=None,
+        sandbox=sandbox
+    )
+
     return jsonify({"success": True, "message": "Contrato firmado y activado digitalmente de forma exitosa."})
+
+@portal_bp.route('/portal/cliente/<owner_uid>/<client_id>/cotizacion/<invoice_id>/rechazar', methods=['POST'])
+def reject_quotation(owner_uid, client_id, invoice_id):
+    sandbox = request.args.get('sandbox', 'true').lower() == 'true'
+
+    session_key = f'verified_client_{client_id}'
+    if session.get(session_key) != True:
+        return jsonify({"success": False, "error": "Acceso no autorizado."}), 403
+
+    client = PortalDbService.get_client_by_id(owner_uid, client_id, sandbox=sandbox)
+    if not client:
+        return jsonify({"success": False, "error": "Cliente no encontrado."}), 404
+
+    invoice = PortalDbService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+    if not invoice or not invoice.get('isQuotation'):
+        return jsonify({"success": False, "error": "Cotización no encontrada."}), 404
+
+    rejected_at = datetime.utcnow().isoformat()
+    invoice['status'] = 'Rechazada'
+    invoice['rejectedAt'] = rejected_at
+    invoice['rejectedBy'] = client.get('name', client.get('rnc', 'Cliente'))
+    PortalDbService.save_invoice(owner_uid, invoice_id, invoice, sandbox=sandbox)
+
+    _notify_portal_action(
+        owner_uid=owner_uid,
+        action='rechazada',
+        document_type='Cotización',
+        document_number=invoice.get('invoiceNumber', invoice_id),
+        client=client,
+        signed_at=rejected_at,
+        invoice_or_contract=invoice,
+        invoice_id=invoice_id,
+        sandbox=sandbox
+    )
+
+    return jsonify({"success": True, "message": "Cotización rechazada. Hemos notificado al equipo responsable."})
+
+
+@portal_bp.route('/portal/cliente/<owner_uid>/<client_id>/contrato/<contract_id>/rechazar', methods=['POST'])
+def reject_contract(owner_uid, client_id, contract_id):
+    sandbox = request.args.get('sandbox', 'true').lower() == 'true'
+
+    session_key = f'verified_client_{client_id}'
+    if session.get(session_key) != True:
+        return jsonify({"success": False, "error": "Acceso no autorizado."}), 403
+
+    client = PortalDbService.get_client_by_id(owner_uid, client_id, sandbox=sandbox)
+    if not client:
+        return jsonify({"success": False, "error": "Cliente no encontrado."}), 404
+
+    contract = PortalDbService.get_contract(owner_uid, contract_id, sandbox=sandbox)
+    if not contract:
+        return jsonify({"success": False, "error": "Contrato no encontrado."}), 404
+
+    rejected_at = datetime.utcnow().isoformat()
+    contract['status'] = 'Rechazado'
+    contract['rejectedAt'] = rejected_at
+    contract['rejectedBy'] = client.get('name', client.get('rnc', 'Cliente'))
+    PortalDbService.save_contract(owner_uid, contract_id, contract, sandbox=sandbox)
+
+    _notify_portal_action(
+        owner_uid=owner_uid,
+        action='rechazada',
+        document_type='Contrato',
+        document_number=contract.get('contractNumber', contract_id),
+        client=client,
+        signed_at=rejected_at,
+        invoice_or_contract=contract,
+        invoice_id=None,
+        sandbox=sandbox
+    )
+
+    return jsonify({"success": True, "message": "Contrato rechazado. Hemos notificado al equipo responsable."})
+
+
+def _notify_portal_action(owner_uid, action, document_type, document_number, client, signed_at, invoice_or_contract, invoice_id, sandbox):
+    """Helper interno: resuelve el responsable del cliente y envía email + notificación in-app."""
+    try:
+        from app.services.notifications import NotificationService
+        from app.services.db_service import DatabaseService
+        from flask import request as flask_request
+        import uuid as _uuid
+
+        # 1. Resolver el responsable de la cuenta del cliente (responsibleId)
+        responsible_uid = None
+        responsible_email = None
+        responsible_name = None
+
+        responsible_id = client.get('responsibleId')
+        if responsible_id:
+            try:
+                team_members = DatabaseService.get_team_members(owner_uid)
+                for member in team_members:
+                    if member.get('uid') == responsible_id or member.get('id') == responsible_id:
+                        responsible_uid = member.get('uid') or member.get('id')
+                        responsible_email = member.get('email')
+                        responsible_name = member.get('name') or member.get('email')
+                        break
+            except Exception as ex:
+                print(f"⚠️ [Portal Notification] Error al buscar responsable en equipo: {ex}")
+
+        # 2. Si no hay responsable asignado, caer al owner
+        if not responsible_email or '@' not in str(responsible_email):
+            try:
+                from app.services.db_service import db_firestore
+                doc = db_firestore.collection('users').document(owner_uid).collection('config').document('user_profile').get()
+                if doc.exists:
+                    owner_profile = doc.to_dict()
+                    responsible_email = owner_profile.get('email', '')
+                    responsible_name = owner_profile.get('name') or responsible_email
+                    responsible_uid = owner_uid
+            except Exception:
+                pass
+
+        if not responsible_email:
+            print(f"⚠️ [Portal Notification] No se encontró email del responsable para notificar.")
+            return
+
+        # 3. Construir URL del documento en el sistema
+        document_url = ""
+        if invoice_id and document_type == 'Cotización':
+            try:
+                base_url = flask_request.host_url.rstrip('/')
+                document_url = f"{base_url}/invoices/{invoice_id}"
+            except Exception:
+                pass
+
+        # 4. Enviar notificación por email al responsable
+        NotificationService.send_portal_action_notification(
+            owner_uid=owner_uid,
+            action=action,
+            document_type=document_type,
+            document_number=document_number,
+            client_name=client.get('name', 'Cliente'),
+            client_rnc=client.get('rnc', ''),
+            signed_at=signed_at,
+            recipient_email=responsible_email,
+            document_url=document_url,
+            sandbox=sandbox
+        )
+
+        # 5. Guardar notificación in-app al responsable
+        if responsible_uid:
+            try:
+                client_name = client.get('name', 'Cliente')
+                if action == 'firmada':
+                    notif_icon = '✅'
+                    notif_title = f"{document_type} aprobada por cliente"
+                    notif_body = f"{client_name} autorizó {document_type.lower()} {document_number}."
+                    notif_type = 'portal_firma'
+                elif action == 'rechazada':
+                    notif_icon = '❌'
+                    notif_title = f"{document_type} rechazada por cliente"
+                    notif_body = f"{client_name} rechazó {document_type.lower()} {document_number}."
+                    notif_type = 'portal_rechazo'
+                elif action == 'cancelada':
+                    notif_icon = '🚫'
+                    notif_title = f"Solicitud de cancelación de {document_type}"
+                    notif_body = f"{client_name} solicitó la cancelación de {document_type.lower()} {document_number}. El servicio seguirá activo hasta el vencimiento del período pagado."
+                    notif_type = 'portal_cancelacion'
+                else:
+                    notif_icon = '💰'
+                    notif_title = "Pago reportado por cliente"
+                    notif_body = f"{client_name} cargó un comprobante de pago para {document_number}."
+                    notif_type = 'portal_pago'
+
+                DatabaseService.create_user_notification(responsible_uid, {
+                    "id": str(_uuid.uuid4()),
+                    "type": notif_type,
+                    "icon": notif_icon,
+                    "title": notif_title,
+                    "body": notif_body,
+                    "documentType": document_type,
+                    "documentNumber": document_number,
+                    "clientName": client_name,
+                    "documentUrl": document_url,
+                    "createdAt": signed_at,
+                    "read": False
+                })
+            except Exception as ex:
+                print(f"⚠️ [Portal Notification] Error al guardar notificación in-app: {ex}")
+
+    except Exception as e:
+        print(f"⚠️ [Portal Notification] Error al notificar: {e}")
+
+
+@portal_bp.route('/portal/cliente/<owner_uid>/<client_id>/contrato/<contract_id>/cancelar', methods=['POST'])
+def cancel_contract(owner_uid, client_id, contract_id):
+    """
+    Permite al cliente cancelar (no renovar) un contrato activo usando firma electrónica.
+    El servicio sigue activo hasta que el periodo pagado expire. Solo se deja de renovar.
+    """
+    sandbox = request.args.get('sandbox', 'true').lower() == 'true'
+
+    session_key = f'verified_client_{client_id}'
+    if session.get(session_key) != True:
+        return jsonify({"success": False, "error": "Acceso no autorizado. Verifique su identidad primero."}), 403
+
+    cert_file = request.files.get('certificate')
+    password = request.form.get('password', '')
+
+    if not cert_file:
+        return jsonify({"success": False, "error": "No se recibió el archivo del certificado digital."}), 400
+
+    client = PortalDbService.get_client_by_id(owner_uid, client_id, sandbox=sandbox)
+    if not client:
+        return jsonify({"success": False, "error": "Cliente no encontrado."}), 404
+
+    contract = PortalDbService.get_contract(owner_uid, contract_id, sandbox=sandbox)
+    if not contract:
+        return jsonify({"success": False, "error": "Contrato no encontrado."}), 404
+
+    if contract.get('status') not in ['Activo']:
+        return jsonify({"success": False, "error": "Solo se pueden cancelar contratos activos."}), 400
+
+    success, result = validate_certificate_signature(cert_file, password, client.get('rnc', ''))
+    if not success:
+        return jsonify({"success": False, "error": result}), 400
+
+    cancelled_at = result.get('signedAt', datetime.utcnow().isoformat())
+
+    # Marcar como "No Renovar" — el servicio sigue activo hasta el próximo vencimiento
+    contract['cancelRequest'] = True
+    contract['cancelRequestAt'] = cancelled_at
+    contract['cancelRequestBy'] = client.get('razonSocial', client.get('rnc', 'Cliente'))
+    contract['cancelSignatureInfo'] = result
+    # No tocamos contract['status'] = 'Activo' — el servicio continúa
+    # El scheduler de recurrencia debe chequear cancelRequest=True para NO generar la siguiente factura
+
+    PortalDbService.save_contract(owner_uid, contract_id, contract, sandbox=sandbox)
+
+    _notify_portal_action(
+        owner_uid=owner_uid,
+        action='cancelada',
+        document_type='Contrato',
+        document_number=contract.get('contractNumber', contract_id),
+        client=client,
+        signed_at=cancelled_at,
+        invoice_or_contract=contract,
+        invoice_id=None,
+        sandbox=sandbox
+    )
+
+    return jsonify({
+        "success": True,
+        "message": "Solicitud de cancelación registrada. Su servicio continuará activo hasta el final del período vigente y no será renovado automáticamente."
+    })
 
 @portal_bp.route('/portal/cliente/<owner_uid>/<client_id>/pago/<invoice_id>', methods=['POST'])
 def pay_invoice(owner_uid, client_id, invoice_id):
@@ -404,29 +693,105 @@ def pay_invoice(owner_uid, client_id, invoice_id):
     PortalDbService.save_invoice(owner_uid, invoice_id, invoice, sandbox=sandbox)
     return jsonify({"success": True, "message": "Pago simulado y procesado correctamente."})
 
+@portal_bp.route('/portal/cliente/<owner_uid>/<client_id>/pago/<invoice_id>/reportar', methods=['POST'])
+def report_invoice_payment(owner_uid, client_id, invoice_id):
+    import os
+    sandbox = request.args.get('sandbox', 'true').lower() == 'true'
+    
+    # Validar sesión de cliente
+    session_key = f'verified_client_{client_id}'
+    if session.get(session_key) != True:
+        return jsonify({"success": False, "error": "Acceso no autorizado. Verifique su RNC primero."}), 403
+        
+    # Validar campos del formulario
+    try:
+        amount = float(request.form.get('amount', 0.0))
+    except ValueError:
+        return jsonify({"success": False, "error": "Monto de pago no válido."}), 400
+        
+    if amount <= 0.0:
+        return jsonify({"success": False, "error": "El monto debe ser mayor a cero."}), 400
+        
+    payment_method = request.form.get('paymentMethod', '').strip()
+    bank = request.form.get('bank', '').strip()
+    reference_number = request.form.get('referenceNumber', '').strip()
+    payment_date = request.form.get('paymentDate', '').strip()
+    notes = request.form.get('notes', '').strip()
+    
+    if not payment_method or not bank or not reference_number or not payment_date:
+        return jsonify({"success": False, "error": "Todos los campos de confirmación de pago son requeridos."}), 400
+        
+    # Obtener el archivo del comprobante
+    proof_file = request.files.get('paymentProofFile')
+    if not proof_file or not proof_file.filename:
+        return jsonify({"success": False, "error": "Debe adjuntar el archivo del comprobante de pago."}), 400
+        
+    client = PortalDbService.get_client_by_id(owner_uid, client_id, sandbox=sandbox)
+    if not client:
+        return jsonify({"success": False, "error": "Cliente no encontrado."}), 404
+        
+    invoice = PortalDbService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+    if not invoice or invoice.get('isQuotation'):
+        return jsonify({"success": False, "error": "Factura no encontrada."}), 404
+        
+    # Validar que el monto no exceda el balance pendiente
+    remaining_balance = float(invoice.get('remainingBalance', invoice.get('netPayable', 0.0)))
+    if amount > remaining_balance + 0.01:
+        return jsonify({"success": False, "error": f"El monto reportado (RD$ {amount:,.2f}) no puede ser mayor que el balance pendiente (RD$ {remaining_balance:,.2f})."}), 400
+        
+    try:
+        # Subir archivo a storage
+        file_data = proof_file.read()
+        mime_type = proof_file.mimetype or "application/octet-stream"
+        ext = os.path.splitext(proof_file.filename)[1] or ".pdf"
+        filename = f"proof_{invoice_id}_{uuid.uuid4().hex[:8]}{ext}"
+        destination_path = f"users/{owner_uid}/payment_proofs/{filename}"
+        
+        file_url = DatabaseService.upload_file_to_storage(
+            file_data=file_data,
+            destination_path=destination_path,
+            mime_type=mime_type
+        )
+        
+        # Guardar en la factura los detalles del comprobante pendiente
+        invoice['status'] = 'Revisión de Pago'
+        invoice['pendingPaymentProof'] = {
+            "amount": amount,
+            "paymentMethod": payment_method,
+            "bank": bank,
+            "referenceNumber": reference_number,
+            "paymentDate": payment_date,
+            "fileUrl": file_url,
+            "fileName": proof_file.filename,
+            "notes": notes,
+            "uploadedAt": datetime.utcnow().isoformat()
+        }
+        
+        PortalDbService.save_invoice(owner_uid, invoice_id, invoice, sandbox=sandbox)
+        
+        # Notificar al responsable (email + in-app) usando _notify_portal_action
+        try:
+            _notify_portal_action(
+                owner_uid=owner_uid,
+                action='pago_reportado',
+                document_type='Factura',
+                document_number=invoice.get('invoiceNumber', invoice_id),
+                client=client,
+                signed_at=invoice['pendingPaymentProof']['uploadedAt'],
+                invoice_or_contract=invoice,
+                invoice_id=invoice_id,
+                sandbox=sandbox
+            )
+        except Exception as e:
+            print(f"⚠️ Error al notificar pago reportado: {e}")
+            
+        return jsonify({"success": True, "message": "El comprobante de pago ha sido cargado correctamente y está en proceso de revisión."})
+    except Exception as e:
+        return jsonify({"success": False, "error": f"Error al procesar el comprobante: {str(e)}"}), 500
+
 @portal_bp.route('/portal/cliente/<owner_uid>/<client_id>/pago/<invoice_id>/azul', methods=['GET', 'POST'])
 def pay_invoice_azul(owner_uid, client_id, invoice_id):
-    sandbox = request.args.get('sandbox', 'true').lower() == 'true'
-    company = DatabaseService.get_company_profile(owner_uid)
-    invoice = PortalDbService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
-    if not invoice:
-        return "Factura no encontrada.", 404
-        
-    # El return_url es donde Azul redirigirá al cliente. 
-    return_url = url_for('portal.azul_callback', client_id=client_id, sandbox='true' if sandbox else 'false', _external=True)
-    
-    amount = float(invoice.get('remainingBalance', invoice.get('netPayable', 0.0)))
-    
-    payment_data = AzulService.prepare_payment_request(company, invoice, return_url, sandbox=sandbox)
-    
-    return render_template(
-        'portal/azul_redirect.html',
-        payment=payment_data,
-        company=company,
-        client_id=client_id,
-        invoice=invoice,
-        sandbox=sandbox
-    )
+    return "El pago con tarjeta de crédito/débito a través del simulador de Azul se encuentra inhabilitado temporalmente.", 403
 
 @portal_bp.route('/portal/azul/callback', methods=['GET', 'POST'])
 def azul_callback():

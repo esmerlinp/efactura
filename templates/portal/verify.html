@@ -184,8 +184,7 @@
 
         <h2 class="title">Verificación de Acceso</h2>
         <p class="description">
-            Por motivos de seguridad y confidencialidad, por favor ingrese el RNC o Cédula asociado a su cuenta para ver
-            sus facturas y cotizaciones.
+            Por motivos de seguridad y confidencialidad, por favor ingrese el RNC o Cédula de su cuenta y su código de acceso de 6 dígitos para ingresar a su portal de autoservicio.
         </p>
 
         {% if error %}
@@ -203,6 +202,15 @@
                     <i class="fa-solid fa-id-card input-icon"></i>
                     <input type="text" id="rnc_input" name="rnc" placeholder="Ej: 101-01234-5 o 224012345" required
                         class="form-input" autofocus autocomplete="off">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="pin_input" class="form-label">Código de Acceso (6 dígitos)</label>
+                <div class="input-wrapper">
+                    <i class="fa-solid fa-key input-icon"></i>
+                    <input type="password" id="pin_input" name="accessPin" placeholder="******" required
+                        class="form-input" maxlength="6" pattern="\d{6}" inputmode="numeric" autocomplete="off" style="text-align: center; letter-spacing: 0.3em; font-weight: bold; padding-left: 14px;">
                 </div>
             </div>
 

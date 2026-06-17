@@ -34,6 +34,15 @@ class NotificationService:
                 base_url = os.environ.get("PORTAL_BASE_URL", "http://localhost:5001").rstrip('/')
             portal_url = f"{base_url}/portal/cliente/{owner_uid}/{client_id}?sandbox={'true' if sandbox else 'false'}"
 
+        client_pin = ""
+        try:
+            clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox)
+            client_obj = next((c for c in clients if c['id'] == client_id), None)
+            if client_obj:
+                client_pin = client_obj.get('accessPin', '')
+        except Exception:
+            pass
+
         if method == 'email':
             # Configuración SMTP
             smtp_server = current_app.config.get("SMTP_SERVER", "smtp.gmail.com")
@@ -47,7 +56,7 @@ class NotificationService:
                     print(f"⚠️ SMTP no configurado. Simulando envío de email a {recipient_contact}...")
                     cls._record_interaction(owner_uid, client_id, "Email", 
                                             f"Recordatorio de Pago enviado (Email Simulado)",
-                                            f"Simulación de envío para factura {invoice_number} al correo {recipient_contact}. Balance pendiente: RD$ {remaining_balance:,.2f}.\nContenido custom: {custom_message}", 
+                                            f"Simulación de envío para factura {invoice_number} al correo {recipient_contact}. Balance pendiente: RD$ {remaining_balance:,.2f}.\nContenido custom: {custom_message}\nClave de acceso: {client_pin}", 
                                             sandbox=sandbox)
                     return True, f"Simulado: Recordatorio enviado por correo a {recipient_contact} (SMTP no configurado)."
                 return False, "Servidor de correo SMTP no configurado en los ajustes de la aplicación."
@@ -102,11 +111,14 @@ class NotificationService:
                         </table>
                     </div>
                     
-                    <p style="text-align: center; margin: 28px 0;">
+                    <p style="text-align: center; margin: 28px 0 10px 0;">
                         <a href="{portal_url}" style="background: {brand_color}; color: white; text-decoration: none; padding: 12px 30px; border-radius: 6px; font-weight: bold; display: inline-block; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);">
                             Pagar o Ver Detalle en Línea
                         </a>
                     </p>
+                    <div style="text-align: center; font-size: 0.85rem; color: #475569; margin-bottom: 24px;">
+                        <strong>Clave de Acceso Autoservicio:</strong> <span style="font-family: monospace; font-size: 0.95rem; background: #f1f5f9; padding: 3px 8px; border-radius: 4px; font-weight: bold;">{client_pin}</span>
+                    </div>
                     
                     <p style="font-size: 0.85rem; color: #6b7280; text-align: center;">
                         Si ya realizó este pago, por favor ignore este mensaje o envíenos el comprobante respondiendo a este correo.
@@ -442,4 +454,224 @@ class NotificationService:
             return True, "Correo enviado correctamente."
         except Exception as e:
             print(f"⚠️ Error al enviar email de asignación: {e}")
+            return False, str(e)
+
+    @classmethod
+    def send_portal_action_notification(cls, owner_uid, action, document_type, document_number, client_name, client_rnc, signed_at, recipient_email, document_url="", sandbox=True):
+        """
+        Notifica al responsable (owner/creador) cuando un cliente firma o rechaza
+        una cotización o contrato desde el portal de autogestión, o cuando reporta un pago.
+        
+        action: 'firmada' | 'rechazada' | 'pago_reportado'
+        document_type: 'Cotización' | 'Contrato' | 'Factura'
+        """
+        company = DatabaseService.get_company_profile(owner_uid) or {}
+        company_name = company.get("tradeName") or company.get("companyName") or "e-Factura"
+        brand_color = company.get('colorMarca', '#10b981')
+        logo_url = company.get('logoUrl', '')
+
+        smtp_server = current_app.config.get("SMTP_SERVER", "smtp.gmail.com")
+        smtp_port = int(current_app.config.get("SMTP_PORT", 587))
+        smtp_user = current_app.config.get("SMTP_USER", "")
+        smtp_password = current_app.config.get("SMTP_PASSWORD", "")
+
+        if not smtp_user or not smtp_password:
+            print(f"⚠️ [Portal Notification] SMTP no configurado. No se notificó a {recipient_email}.")
+            return False, "SMTP no configurado."
+
+        if action == 'pago_reportado':
+            icon = "💰"
+            status_label = "PAGO REPORTADO (En revisión)"
+            status_color = "#d97706"
+            status_bg = "rgba(245, 158, 11, 0.07)"
+            status_border = "rgba(245, 158, 11, 0.3)"
+            body_text = f"<p>El cliente ha cargado un comprobante de pago para este documento. El estado de la factura ha cambiado a <strong>Revisión de Pago</strong> y requiere su validación en la sección de cuentas por cobrar para ser aprobado y aplicado.</p>"
+        else:
+            is_approved = action == 'firmada'
+            icon = "✅" if is_approved else "❌"
+            status_label = "APROBADA y FIRMADA" if is_approved else "RECHAZADA"
+            status_color = "#059669" if is_approved else "#dc2626"
+            status_bg = "rgba(5, 150, 105, 0.07)" if is_approved else "rgba(220, 38, 38, 0.07)"
+            status_border = "rgba(5, 150, 105, 0.3)" if is_approved else "rgba(220, 38, 38, 0.3)"
+            body_text = "<p>La firma electrónica ha sido validada con el certificado digital del cliente. El documento ya está disponible en el sistema para que proceda con los siguientes pasos.</p>" if is_approved else "<p>El cliente ha indicado que no desea proceder con esta propuesta. Se recomienda contactarle para conocer los motivos y ofrecer una alternativa.</p>"
+
+        logo_html = f'<img src="{logo_url}" alt="Logo" style="max-height: 60px; margin-bottom: 15px;"><br>' if logo_url else ''
+        doc_link_html = f'<p style="text-align: center; margin: 28px 0;"><a href="{document_url}" style="background: {brand_color}; color: white; text-decoration: none; padding: 12px 30px; border-radius: 6px; font-weight: bold; display: inline-block;">Ver {document_type} en el Sistema</a></p>' if document_url else ''
+
+        try:
+            msg = MIMEMultipart('alternative')
+            msg["Subject"] = f"{icon} {document_type} {status_label} por el cliente — {document_number}"
+            msg["From"] = f"{company_name} <{smtp_user}>"
+            msg["To"] = recipient_email
+
+            html_body = f"""
+            <html>
+            <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #333; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
+                <div style="text-align: center; margin-bottom: 24px; padding-bottom: 12px; border-bottom: 2px solid {brand_color};">
+                    {logo_html}
+                    <h2 style="color: {brand_color}; margin: 0;">Notificación del Portal de Clientes</h2>
+                    <p style="color: #666; margin: 4px 0 0 0;">{company_name}</p>
+                </div>
+
+                <p>Le informamos que el cliente <strong>{client_name}</strong> (RNC/Cédula: <code>{client_rnc}</code>) ha realizado una acción en su portal de autogestión:</p>
+
+                <div style="background: {status_bg}; border: 1px solid {status_border}; border-radius: 8px; padding: 20px; margin: 20px 0; text-align: center;">
+                    <div style="font-size: 2rem; margin-bottom: 8px;">{icon}</div>
+                    <div style="font-size: 1.15rem; font-weight: bold; color: {status_color};">{document_type} {status_label}</div>
+                    <div style="color: #475569; margin-top: 6px; font-size: 0.9rem;">Documento: <strong>{document_number}</strong></div>
+                    <div style="color: #94a3b8; margin-top: 4px; font-size: 0.8rem;">Fecha y hora: {signed_at}</div>
+                </div>
+
+                {body_text}
+
+                {doc_link_html}
+
+                <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 24px 0;">
+                <div style="font-size: 0.8rem; color: #9ca3af; text-align: center;">
+                    Notificación automática del sistema e-Factura · Portal de Autogestión de Clientes
+                </div>
+            </body>
+            </html>
+            """
+
+            msg.attach(MIMEText(html_body, 'html'))
+
+            with smtplib.SMTP(smtp_server, smtp_port) as server:
+                server.starttls()
+                server.login(smtp_user, smtp_password)
+                server.sendmail(smtp_user, recipient_email, msg.as_string())
+
+            print(f"✅ [Portal Notification] Email enviado a {recipient_email}: {document_type} {status_label} — {document_number}")
+            return True, "Notificación enviada."
+        except Exception as e:
+            print(f"⚠️ [Portal Notification] Error al enviar email: {e}")
+            return False, str(e)
+
+    @classmethod
+    def send_client_payment_notification(cls, owner_uid, action, invoice, client_email, client_name, sandbox=True, rejection_reason=""):
+        """
+        Notifica al cliente por email cuando su comprobante de pago fue aprobado o rechazado.
+        action: 'aprobado' | 'rechazado'
+        """
+        company = DatabaseService.get_company_profile(owner_uid) or {}
+        company_name = company.get("tradeName") or company.get("companyName") or "e-Factura"
+        brand_color = company.get('colorMarca', '#10b981')
+        logo_url = company.get('logoUrl', '')
+
+        smtp_server = current_app.config.get("SMTP_SERVER", "smtp.gmail.com")
+        smtp_port = int(current_app.config.get("SMTP_PORT", 587))
+        smtp_user = current_app.config.get("SMTP_USER", "")
+        smtp_password = current_app.config.get("SMTP_PASSWORD", "")
+
+        invoice_number = invoice.get("invoiceNumber", f"ID: {invoice.get('id', '')}")
+
+        client_pin = ""
+        client_id = invoice.get('clientId')
+        if client_id:
+            try:
+                clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox)
+                client_obj = next((c for c in clients if c['id'] == client_id), None)
+                if client_obj:
+                    client_pin = client_obj.get('accessPin', '')
+            except Exception:
+                pass
+
+        if not smtp_user or not smtp_password:
+            if sandbox:
+                print(f"⚠️ [Cliente Pago] SMTP no configurado. Simulando email a {client_email}. Clave: {client_pin}")
+                return True, "Simulado: Notificación enviada al cliente."
+            return False, "SMTP no configurado."
+
+        portal_link = ""
+        from flask import request
+        try:
+            base_url = request.host_url.rstrip('/')
+        except Exception:
+            base_url = os.environ.get("PORTAL_BASE_URL", "http://localhost:5001").rstrip('/')
+        
+        if client_id:
+            portal_link = f"{base_url}/portal/cliente/{owner_uid}/{client_id}?sandbox={'true' if sandbox else 'false'}"
+
+        is_approved = action == 'aprobado'
+        icon = "✅" if is_approved else "❌"
+        subject = f"{icon} Tu pago fue {'aprobado' if is_approved else 'rechazado'} — Factura {invoice_number}"
+        status_color = "#059669" if is_approved else "#dc2626"
+        status_bg = "rgba(5, 150, 105, 0.07)" if is_approved else "rgba(220, 38, 38, 0.07)"
+        status_border = "rgba(5, 150, 105, 0.3)" if is_approved else "rgba(220, 38, 38, 0.3)"
+        status_label = "PAGO APROBADO" if is_approved else "PAGO RECHAZADO"
+
+        if is_approved:
+            body_text = f"""
+            <p>Tu comprobante de pago para la factura <strong>{invoice_number}</strong> ha sido revisado y <strong style="color: {status_color};">aprobado</strong> por nuestro equipo.</p>
+            <p>El pago ya ha sido registrado en nuestro sistema. Gracias por tu puntualidad.</p>
+            """
+        else:
+            reason_html = f'<p><strong>Motivo:</strong> {rejection_reason}</p>' if rejection_reason else ''
+            body_text = f"""
+            <p>Lamentamos informarte que el comprobante de pago para la factura <strong>{invoice_number}</strong> no pudo ser procesado.</p>
+            {reason_html}
+            <p>Por favor, contáctanos o carga un nuevo comprobante para continuar con tu proceso de pago.</p>
+            """
+
+        portal_html = ""
+        if portal_link:
+            portal_html = f"""
+                <p style="text-align: center; margin: 28px 0 10px 0;">
+                    <a href="{portal_link}" style="background: {brand_color}; color: white; text-decoration: none; padding: 10px 24px; border-radius: 6px; font-weight: bold; display: inline-block;">
+                        Ingresar a mi Portal
+                    </a>
+                </p>
+                <div style="text-align: center; font-size: 0.85rem; color: #475569; margin-bottom: 24px;">
+                    <strong>Clave de Acceso Autoservicio:</strong> <span style="font-family: monospace; font-size: 0.95rem; background: #f1f5f9; padding: 3px 8px; border-radius: 4px; font-weight: bold;">{client_pin}</span>
+                </div>
+            """
+
+        logo_html = f'<img src="{logo_url}" alt="Logo" style="max-height: 60px; margin-bottom: 15px;"><br>' if logo_url else ''
+
+        try:
+            msg = MIMEMultipart('alternative')
+            msg["Subject"] = subject
+            msg["From"] = f"{company_name} <{smtp_user}>"
+            msg["To"] = client_email
+
+            html_body = f"""
+            <html>
+            <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #333; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
+                <div style="text-align: center; margin-bottom: 24px; padding-bottom: 12px; border-bottom: 2px solid {brand_color};">
+                    {logo_html}
+                    <h2 style="color: {brand_color}; margin: 0;">Estado de tu Pago</h2>
+                    <p style="color: #666; margin: 4px 0 0 0;">{company_name}</p>
+                </div>
+
+                <p>Estimado/a <strong>{client_name}</strong>,</p>
+
+                <div style="background: {status_bg}; border: 1px solid {status_border}; border-radius: 8px; padding: 20px; margin: 20px 0; text-align: center;">
+                    <div style="font-size: 2.5rem; margin-bottom: 8px;">{icon}</div>
+                    <div style="font-size: 1.2rem; font-weight: bold; color: {status_color};">{status_label}</div>
+                    <div style="color: #475569; margin-top: 6px; font-size: 0.9rem;">Factura: <strong>{invoice_number}</strong></div>
+                </div>
+
+                {body_text}
+
+                {portal_html}
+
+                <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 24px 0;">
+                <div style="font-size: 0.8rem; color: #9ca3af; text-align: center;">
+                    Notificación automática del sistema e-Factura &middot; {company_name}
+                </div>
+            </body>
+            </html>
+            """
+
+            msg.attach(MIMEText(html_body, 'html'))
+
+            with smtplib.SMTP(smtp_server, smtp_port) as server:
+                server.starttls()
+                server.login(smtp_user, smtp_password)
+                server.sendmail(smtp_user, client_email, msg.as_string())
+
+            print(f"✅ [Cliente Pago] Email enviado a {client_email}: Pago {action} — {invoice_number}. Clave: {client_pin}")
+            return True, "Notificación enviada al cliente."
+        except Exception as e:
+            print(f"⚠️ [Cliente Pago] Error al enviar email: {e}")
             return False, str(e)
