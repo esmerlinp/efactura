@@ -2357,6 +2357,123 @@ def approve_quotation_route(invoice_id):
     flash('Cotización aprobada manualmente con éxito.', 'success')
     return redirect(url_for('invoice_detail', invoice_id=invoice_id))
 
+@web_invoices_bp.route('/quotations/<invoice_id>/send-to-client', methods=['POST'])
+def send_quotation_to_client(invoice_id):
+    """Envía el enlace de aprobación de la cotización por correo electrónico."""
+    if 'user' not in session: return redirect(url_for('login'))
+    if not check_permission('canInvoice'):
+        return render_template('auth/restricted.html', feature_name="Enviar Cotización", required_permission="canInvoice")
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+    
+    recipient_email = request.form.get("email", "").strip()
+    
+    invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+    if not invoice or not invoice.get('isQuotation'):
+        flash('Cotización no encontrada.', 'error')
+        return redirect(url_for('list_quotations'))
+        
+    if not recipient_email:
+        recipient_email = _get_client_email(owner_uid, invoice, sandbox)
+        
+    if not recipient_email:
+        flash('El cliente no tiene un correo registrado. Especifique un correo de destino.', 'error')
+        return redirect(url_for('invoice_detail', invoice_id=invoice_id))
+        
+    company = DatabaseService.get_company_profile(owner_uid)
+    company_name = company.get("tradeName") or company.get("companyName", "e-Factura")
+    
+    # Enlace al portal de autoservicio
+    portal_link = url_for('portal.client_portal', owner_uid=owner_uid, client_id=invoice['clientId'], sandbox='true' if sandbox else 'false', _external=True)
+    
+    # Preparar SMTP
+    from flask import current_app as app
+    smtp_server   = app.config.get("SMTP_SERVER", "")
+    smtp_port     = int(app.config.get("SMTP_PORT", 587))
+    smtp_user     = app.config.get("SMTP_USER", "")
+    smtp_password = app.config.get("SMTP_PASSWORD", "")
+    
+    if not smtp_server or not smtp_user or not smtp_password:
+        flash('El servidor de correo no está configurado (SMTP).', 'error')
+        return redirect(url_for('invoice_detail', invoice_id=invoice_id))
+        
+    brand_color = company.get("colorMarca", "#1e3a8a")
+    
+    html_body = f"""
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body {{ font-family: 'Segoe UI', Arial, sans-serif; background: #f8fafc; color: #1e293b; margin: 0; padding: 0; }}
+    .wrapper {{ max-width: 600px; margin: 30px auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.08); }}
+    .header {{ background: {brand_color}; padding: 32px 36px; text-align: center; }}
+    .header h1 {{ color: #ffffff; font-size: 1.6rem; margin: 0 0 4px; font-weight: 800; }}
+    .header p {{ color: rgba(255,255,255,0.75); font-size: 0.88rem; margin: 0; }}
+    .body {{ padding: 32px 36px; }}
+    .btn-container {{ text-align: center; margin: 30px 0; }}
+    .btn-link {{ display: inline-block; background-color: {brand_color}; color: #ffffff !important; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 700; font-size: 0.95rem; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }}
+    .footer-note {{ font-size: 0.78rem; color: #94a3b8; text-align: center; border-top: 1px solid #e2e8f0; padding-top: 20px; margin-top: 24px; }}
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="header">
+      {f'<img src="{company.get("logoUrl")}" alt="Logo" style="max-height: 50px; margin-bottom: 15px;">' if company.get("logoUrl") else ''}
+      <h1>Propuesta Comercial</h1>
+      <p>{company_name}</p>
+    </div>
+    <div class="body">
+      <p style="font-size:1.05rem; font-weight: 600; color:#0f172a; margin-top:0;">Estimado cliente ({invoice.get('clientName', '')}):</p>
+      <p style="font-size:0.92rem; color:#475569; line-height: 1.6;">
+        Hemos preparado una propuesta comercial para usted con el número de documento <strong>{invoice.get('invoiceNumber', '')}</strong> por un monto total de <strong>RD$ {invoice.get('total', 0.0):,.2f}</strong>.
+      </p>
+      <p style="font-size:0.92rem; color:#475569; line-height: 1.6;">
+        Puede revisar la propuesta completa y proceder a su firma y aprobación electrónica certificada haciendo clic en el siguiente botón:
+      </p>
+      
+      <div class="btn-container">
+        <a href="{portal_link}" class="btn-link" target="_blank">Revisar y Firmar Cotización</a>
+      </div>
+      
+      <p style="font-size:0.85rem; color:#64748b; text-align: center;">
+        Si el botón no funciona, copie y pegue el siguiente enlace en su navegador:<br>
+        <a href="{portal_link}" style="color: {brand_color}; word-break: break-all;">{portal_link}</a>
+      </p>
+      
+      <div class="footer-note">
+        Para consultas adicionales, comuníquese con nosotros.<br>
+        Generado automáticamente por la plataforma e-Factura.
+      </div>
+    </div>
+  </div>
+</body>
+</html>
+"""
+    try:
+        import smtplib
+        from email.mime.text import MIMEText
+        from email.mime.multipart import MIMEMultipart
+        
+        msg = MIMEMultipart("alternative")
+        msg["Subject"] = f"Propuesta Comercial - Cotización {invoice.get('invoiceNumber', '')} | {company_name}"
+        msg["From"]    = f"{company_name} <{smtp_user}>"
+        msg["To"]      = recipient_email
+        
+        msg.attach(MIMEText(html_body, "html", "utf-8"))
+        
+        with smtplib.SMTP(smtp_server, smtp_port) as server:
+            server.ehlo()
+            server.starttls()
+            server.login(smtp_user, smtp_password)
+            server.sendmail(smtp_user, recipient_email, msg.as_string())
+            
+        flash(f"Enlace de aprobación enviado con éxito a {recipient_email}.", "success")
+    except Exception as e:
+        flash(f"Error al enviar correo: {str(e)}", "error")
+        
+    return redirect(url_for('invoice_detail', invoice_id=invoice_id))
+
 
 @web_invoices_bp.route('/quotations/<invoice_id>/convert-to-contract', methods=['POST'])
 def convert_quotation_to_contract(invoice_id):

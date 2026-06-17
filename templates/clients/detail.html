@@ -101,12 +101,26 @@
                     recordatorios de cobro</label>
             </div>
 
-            <div style="margin-top: 12px; border-top: 1px solid var(--border-color); padding-top: 16px;">
+            <div style="margin-top: 12px; border-top: 1px solid var(--border-color); padding-top: 16px; display: flex; flex-direction: column; gap: 10px;">
                 <a href="{{ url_for('edit_client', client_id=client.id) }}" class="btn btn-secondary"
-                    style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                    style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 500;">
                     <i class="fa-solid fa-user-pen"></i>
                     <span>Editar Ficha CRM</span>
                 </a>
+
+                {% set portal_url = url_for('portal.client_portal', owner_uid=session.get('user', {}).get('ownerUID', 'W2n2BfR1G4eN3K7m7n8b9v0c1x2z'), client_id=client.id, sandbox='true' if session.get('is_sandbox_mode', True) else 'false', _external=True) %}
+                
+                <a href="{{ portal_url }}" target="_blank" class="btn btn-primary"
+                    style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; background: var(--accent-purple); border-color: var(--accent-purple); font-weight: 500;">
+                    <i class="fa-solid fa-up-right-from-square"></i>
+                    <span>Ver Portal de Cliente</span>
+                </a>
+
+                <button type="button" onclick="copyPortalLink('{{ portal_url }}')" class="btn btn-secondary" id="copy-portal-btn"
+                    style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 500;">
+                    <i class="fa-solid fa-copy"></i>
+                    <span>Copiar Enlace del Portal</span>
+                </button>
             </div>
         </div>
 
@@ -734,6 +748,22 @@
                 alert("Error de red al actualizar la preferencia.");
                 document.getElementById('disableAutoReminders').checked = !disableAutoReminders;
             });
+    }
+
+    function copyPortalLink(url) {
+        navigator.clipboard.writeText(url).then(() => {
+            const btn = document.getElementById('copy-portal-btn');
+            const originalContent = btn.innerHTML;
+            btn.innerHTML = '<i class="fa-solid fa-check" style="color: var(--accent-emerald);"></i><span> ¡Enlace Copiado!</span>';
+            btn.style.borderColor = 'var(--accent-emerald)';
+            setTimeout(() => {
+                btn.innerHTML = originalContent;
+                btn.style.borderColor = '';
+            }, 2000);
+        }).catch(err => {
+            console.error('Error al copiar: ', err);
+            alert('No se pudo copiar el enlace automáticamente. Cópielo manualmente: ' + url);
+        });
     }
 </script>
 {% endblock %}

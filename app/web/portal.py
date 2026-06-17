@@ -4,6 +4,7 @@ from flask import Blueprint, render_template, request, jsonify, redirect, url_fo
 from firebase_admin import firestore
 from app.services.db_service import db_firestore, DatabaseService
 from app.services.azul_service import AzulService
+from cryptography.hazmat.primitives.serialization import pkcs12
 
 portal_bp = Blueprint('portal', __name__, template_folder='templates')
 
@@ -20,6 +21,47 @@ class PortalDbService:
         except Exception as e:
             print(f"Error en PortalDbService.get_client_by_id: {e}")
         return None
+
+    @classmethod
+    def get_client_contracts(cls, owner_uid, client_id, sandbox=True):
+        contracts = []
+        try:
+            coll_name = "sandbox_contracts" if sandbox else "contracts"
+            docs = db_firestore.collection('users').document(owner_uid).collection(coll_name)\
+                .where(filter=firestore.FieldFilter('clientId', '==', client_id)).get()
+            for doc in docs:
+                data = doc.to_dict()
+                data['id'] = doc.id
+                data['amount'] = float(data.get('amount', 0.0))
+                contracts.append(data)
+            contracts.sort(key=lambda x: x.get('contractNumber', ''))
+        except Exception as e:
+            print(f"Error en PortalDbService.get_client_contracts: {e}")
+        return contracts
+
+    @classmethod
+    def get_contract(cls, owner_uid, contract_id, sandbox=True):
+        try:
+            coll_name = "sandbox_contracts" if sandbox else "contracts"
+            doc = db_firestore.collection('users').document(owner_uid).collection(coll_name).document(contract_id).get()
+            if doc.exists:
+                data = doc.to_dict()
+                data['id'] = doc.id
+                data['amount'] = float(data.get('amount', 0.0))
+                return data
+        except Exception as e:
+            print(f"Error en PortalDbService.get_contract: {e}")
+        return None
+
+    @classmethod
+    def save_contract(cls, owner_uid, contract_id, contract_dict, sandbox=True):
+        try:
+            coll_name = "sandbox_contracts" if sandbox else "contracts"
+            db_firestore.collection('users').document(owner_uid).collection(coll_name).document(contract_id).set(contract_dict)
+            return True
+        except Exception as e:
+            print(f"Error en PortalDbService.save_contract: {e}")
+        return False
 
     @classmethod
     def get_client_invoices(cls, owner_uid, client_id, sandbox=True):
@@ -114,6 +156,7 @@ def client_portal(owner_uid, client_id):
         )
         
     invoices = PortalDbService.get_client_invoices(owner_uid, client_id, sandbox=sandbox)
+    contracts = PortalDbService.get_client_contracts(owner_uid, client_id, sandbox=sandbox)
     
     # Calcular saldos consolidados
     total_invoiced = 0.0
@@ -130,6 +173,7 @@ def client_portal(owner_uid, client_id):
         company=company,
         client=client,
         invoices=invoices,
+        contracts=contracts,
         total_invoiced=total_invoiced,
         total_cxc=total_cxc,
         owner_uid=owner_uid,
@@ -160,24 +204,154 @@ def client_portal_verify(owner_uid, client_id):
             error=error
         )
 
+def validate_certificate_signature(cert_file, password, client_rnc):
+    try:
+        cert_data = cert_file.read()
+        if not cert_data:
+            return False, "El archivo de certificado está vacío."
+        
+        # Cargar llave privada y certificado
+        private_key, certificate, additional_certificates = pkcs12.load_key_and_certificates(
+            cert_data, password.encode()
+        )
+        
+        if not certificate:
+            return False, "No se encontró un certificado válido en el archivo."
+        
+        # Limpiar RNC del cliente
+        client_rnc_clean = "".join(c for c in client_rnc if c.isalnum()).lower()
+        found_match = False
+        
+        # 1. Buscar en el subject del certificado
+        for attribute in certificate.subject:
+            val = "".join(c for c in str(attribute.value) if c.isalnum()).lower()
+            if client_rnc_clean in val:
+                found_match = True
+                break
+                
+        # 2. Buscar en Subject Alternative Name (SAN)
+        if not found_match:
+            try:
+                from cryptography.x509.oid import ExtensionOID
+                san_ext = certificate.extensions.get_extension_for_oid(ExtensionOID.SUBJECT_ALTERNATIVE_NAME)
+                for name in san_ext.value:
+                    val = "".join(c for c in str(name.value) if c.isalnum()).lower()
+                    if client_rnc_clean in val:
+                        found_match = True
+                        break
+            except Exception:
+                pass
+                
+        if not found_match:
+            return False, f"El certificado digital no corresponde al RNC/Cédula ({client_rnc}) registrado para este cliente."
+            
+        # Extraer información del certificado para los metadatos
+        subject_name = ""
+        issuer_name = ""
+        for attr in certificate.subject:
+            if attr.oid._name == "commonName":
+                subject_name = attr.value
+                break
+        for attr in certificate.issuer:
+            if attr.oid._name == "commonName":
+                issuer_name = attr.value
+                break
+        if not subject_name:
+            subject_name = str(certificate.subject)
+        if not issuer_name:
+            issuer_name = str(certificate.issuer)
+            
+        try:
+            not_before = certificate.not_valid_before_utc.isoformat()
+            not_after = certificate.not_valid_after_utc.isoformat()
+        except AttributeError:
+            not_before = certificate.not_valid_before.isoformat()
+            not_after = certificate.not_valid_after.isoformat()
+            
+        cert_info = {
+            "subject": subject_name,
+            "issuer": issuer_name,
+            "serialNumber": str(certificate.serial_number),
+            "notBefore": not_before,
+            "notAfter": not_after,
+            "signedAt": datetime.utcnow().isoformat()
+        }
+        return True, cert_info
+        
+    except ValueError:
+        return False, "La contraseña del certificado es incorrecta o el archivo no es un certificado PKCS#12 (.p12/.pfx) válido."
+    except Exception as e:
+        return False, f"Error al procesar el certificado digital: {str(e)}"
+
 @portal_bp.route('/portal/cliente/<owner_uid>/<client_id>/cotizacion/<invoice_id>/firmar', methods=['POST'])
 def sign_quotation(owner_uid, client_id, invoice_id):
     sandbox = request.args.get('sandbox', 'true').lower() == 'true'
-    signature_data = request.json.get('signature')
     
-    if not signature_data:
-        return jsonify({"success": False, "error": "No se recibió el trazo de la firma."}), 400
+    # Validar sesión de cliente
+    session_key = f'verified_client_{client_id}'
+    if session.get(session_key) != True:
+        return jsonify({"success": False, "error": "Acceso no autorizado. Verifique su RNC primero."}), 403
+        
+    cert_file = request.files.get('certificate')
+    password = request.form.get('password', '')
+    
+    if not cert_file:
+        return jsonify({"success": False, "error": "No se recibió el archivo del certificado digital."}), 400
+        
+    client = PortalDbService.get_client_by_id(owner_uid, client_id, sandbox=sandbox)
+    if not client:
+        return jsonify({"success": False, "error": "Cliente no encontrado."}), 404
         
     invoice = PortalDbService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
     if not invoice or not invoice.get('isQuotation'):
         return jsonify({"success": False, "error": "Cotización no encontrada."}), 404
         
+    success, result = validate_certificate_signature(cert_file, password, client.get('rnc', ''))
+    if not success:
+        return jsonify({"success": False, "error": result}), 400
+        
+    # Guardar metadatos de la firma
     invoice['status'] = 'Aprobada'
-    invoice['signatureBase64'] = signature_data
-    invoice['signedAt'] = datetime.utcnow().isoformat()
+    invoice['signatureInfo'] = result
+    invoice['signedAt'] = result['signedAt']
     
     PortalDbService.save_invoice(owner_uid, invoice_id, invoice, sandbox=sandbox)
-    return jsonify({"success": True, "message": "Propuesta firmada y aprobada exitosamente."})
+    return jsonify({"success": True, "message": "Propuesta firmada y aprobada digitalmente de forma exitosa."})
+
+@portal_bp.route('/portal/cliente/<owner_uid>/<client_id>/contrato/<contract_id>/firmar', methods=['POST'])
+def sign_contract(owner_uid, client_id, contract_id):
+    sandbox = request.args.get('sandbox', 'true').lower() == 'true'
+    
+    # Validar sesión de cliente
+    session_key = f'verified_client_{client_id}'
+    if session.get(session_key) != True:
+        return jsonify({"success": False, "error": "Acceso no autorizado. Verifique su RNC primero."}), 403
+        
+    cert_file = request.files.get('certificate')
+    password = request.form.get('password', '')
+    
+    if not cert_file:
+        return jsonify({"success": False, "error": "No se recibió el archivo del certificado digital."}), 400
+        
+    client = PortalDbService.get_client_by_id(owner_uid, client_id, sandbox=sandbox)
+    if not client:
+        return jsonify({"success": False, "error": "Cliente no encontrado."}), 404
+        
+    contract = PortalDbService.get_contract(owner_uid, contract_id, sandbox=sandbox)
+    if not contract:
+        return jsonify({"success": False, "error": "Contrato no encontrado."}), 404
+        
+    success, result = validate_certificate_signature(cert_file, password, client.get('rnc', ''))
+    if not success:
+        return jsonify({"success": False, "error": result}), 400
+        
+    # Guardar metadatos de la firma
+    contract['status'] = 'Activo'
+    contract['signatureInfo'] = result
+    contract['signedAt'] = result['signedAt']
+    
+    PortalDbService.save_contract(owner_uid, contract_id, contract, sandbox=sandbox)
+    return jsonify({"success": True, "message": "Contrato firmado y activado digitalmente de forma exitosa."})
 
 @portal_bp.route('/portal/cliente/<owner_uid>/<client_id>/pago/<invoice_id>', methods=['POST'])
 def pay_invoice(owner_uid, client_id, invoice_id):
