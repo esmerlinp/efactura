@@ -2252,6 +2252,7 @@ def approve_payment_proof(invoice_id):
         # Eliminar el comprobante pendiente
         coll_inv = "sandbox_invoices" if sandbox else "invoices"
         from firebase_admin import firestore
+        from app.services.db_service import db_firestore
         db_firestore.collection("users").document(owner_uid).collection(coll_inv).document(invoice_id).update({
             "pendingPaymentProof": firestore.DELETE_FIELD
         })
@@ -2317,6 +2318,7 @@ def reject_payment_proof(invoice_id):
     try:
         coll_inv = "sandbox_invoices" if sandbox else "invoices"
         from firebase_admin import firestore
+        from app.services.db_service import db_firestore
         
         # Devolver el estado a "Emitida" (o su estado previo) y eliminar pendingPaymentProof
         total_paid = float(invoice.get('totalPaid', 0.0))
