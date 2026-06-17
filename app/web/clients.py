@@ -403,14 +403,10 @@ def send_portal_credentials(client_id):
     if not access_pin:
         return jsonify({"success": False, "error": "El cliente no tiene una clave de acceso asignada. Edite el cliente primero."}), 400
 
-    # Construir URL del portal
-    from flask import request as flask_request
-    try:
-        base_url = flask_request.host_url.rstrip('/')
-    except Exception:
-        import os
-        base_url = os.environ.get("PORTAL_BASE_URL", "http://localhost:5001").rstrip('/')
-    portal_url = f"{base_url}/portal/cliente/{owner_uid}/{client_id}?sandbox={'true' if sandbox else 'false'}"
+    # Construir URL del portal segura y encriptada
+    from app.utils.security import generate_portal_token
+    token = generate_portal_token(owner_uid, client_id, sandbox=sandbox)
+    portal_url = url_for('portal.portal_entry', token=token, _external=True)
 
     company = DatabaseService.get_company_profile(owner_uid) or {}
     company_name = company.get('tradeName') or company.get('companyName') or 'e-Factura'
@@ -578,6 +574,11 @@ def client_detail(client_id):
         except Exception:
             pass
             
+    # Generar URL del portal encriptada y segura
+    from app.utils.security import generate_portal_token
+    token = generate_portal_token(owner_uid, client_id, sandbox=sandbox)
+    portal_url = url_for('portal.portal_entry', token=token, _external=True)
+
     return render_template(
         'clients/detail.html',
         active_page='clients',
@@ -587,7 +588,8 @@ def client_detail(client_id):
         interactions=interactions,
         documents=documents,
         payments=client_payments,
-        responsible_name=responsible_name
+        responsible_name=responsible_name,
+        portal_url=portal_url
     )
 
 @web_clients_bp.route('/clients/<client_id>/interactions/new', methods=['POST'])

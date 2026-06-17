@@ -195,7 +195,7 @@
         {% endif %}
 
         <form method="POST"
-            action="{{ url_for('portal.client_portal_verify', owner_uid=owner_uid, client_id=client_id, sandbox='true' if sandbox else 'false') }}">
+            action="{{ url_for('portal.client_portal_verify_main') }}">
             <div class="form-group">
                 <label for="rnc_input" class="form-label">RNC o Cédula del Cliente</label>
                 <div class="input-wrapper">
