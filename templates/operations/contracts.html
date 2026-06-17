@@ -51,17 +51,17 @@
     <button onclick="closeGuide('guide-contracts')" style="position: absolute; top: 12px; right: 12px; background: transparent; border: none; color: var(--text-muted); cursor: pointer; padding: 4px; border-radius: 50%; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; transition: background 0.2s, color 0.2s;" onmouseover="this.style.background='rgba(0,0,0,0.05)'; this.style.color='var(--text-primary)';" onmouseout="this.style.background='transparent'; this.style.color='var(--text-muted)';" title="Cerrar guía"><i class="fa-solid fa-xmark"></i></button>
     <div style="display: flex; gap: 16px; align-items: flex-start;">
         <div style="color: var(--accent-purple); font-size: 1.5rem; margin-top: 4px;">
-            <i class="fa-solid fa-circle-info"></i>
+            <i class="fa-solid fa-file-contract"></i>
         </div>
         <div>
             <h4 style="margin: 0 0 8px 0; color: var(--accent-purple); font-family: var(--font-heading); font-size: 1.05rem;">¿Cómo funciona la Facturación Recurrente?</h4>
-            <p style="margin: 0 0 12px 0; font-size: 0.9rem; color: var(--text-secondary); line-height: 1.5;">
-                Este módulo automatiza el cobro de igualas o servicios continuos. Al registrar un contrato en estado <strong>Activo</strong>, e-Factura emitirá el comprobante fiscal (e-CF) de forma automática cuando se cumpla la fecha del "Próximo Disparo", y reprogramará el siguiente cobro según la frecuencia configurada. Las facturas emitidas pasarán directamente a tus Cuentas por Cobrar.
+            <p style="margin: 0 0 12px 0; font-size: 0.9rem; color: var(--text-secondary); line-height: 1.55;">
+                Este módulo automatiza el ciclo de vida y cobro de tus igualas o servicios continuos. Al registrar un contrato en estado <strong>Activo</strong>, e-Factura emitirá de forma automática el comprobante fiscal electrónico (e-CF) en cada fecha de facturación programada y reprogramará el próximo cobro según la frecuencia establecida. Los contratos en estados de preparación (Borrador, Pendiente de Aprobación) o detenidos (Suspendido, Cancelado, Expirado) no generarán cobros. Las facturas emitidas pasan directamente a tus cuentas por cobrar (CxC).
             </p>
-            <ul style="margin: 0; padding-left: 20px; font-size: 0.85rem; color: var(--text-secondary); line-height: 1.6;">
-                <li>Usa <strong style="color: var(--text-primary);"><i class="fa-solid fa-eye"></i> Ver Detalle</strong> para colaborar con tu equipo en los comentarios y ver el historial del contrato.</li>
-                <li>Usa <strong style="color: var(--text-primary);"><i class="fa-solid fa-power-off"></i> Cambiar Estado</strong> para pausar temporalmente la automatización de un contrato.</li>
-                <li>Usa <strong style="color: var(--text-primary);"><i class="fa-solid fa-bolt"></i> Emitir Factura Ahora</strong> si necesitas forzar la generación de la factura correspondiente hoy mismo.</li>
+            <ul style="margin: 0; padding-left: 20px; font-size: 0.85rem; color: var(--text-secondary); line-height: 1.65;">
+                <li>Usa <strong style="color: var(--text-primary);"><i class="fa-solid fa-eye"></i> Ver Detalle</strong> para colaborar con tu equipo en los comentarios, registrar notas y consultar el historial completo del contrato.</li>
+                <li>Usa <strong style="color: var(--text-primary);"><i class="fa-solid fa-sliders"></i> Cambiar Estado</strong> para modificar la etapa operativa (Borrador, Pendiente, Activo, Suspendido, Cancelado o Expirado) con explicaciones dinámicas e inmediatas.</li>
+                <li>Usa <strong style="color: var(--text-primary);"><i class="fa-solid fa-bolt"></i> Emitir Factura Ahora</strong> si deseas forzar la emisión manual del comprobante correspondiente al período actual hoy mismo.</li>
             </ul>
         </div>
     </div>
@@ -194,10 +194,10 @@
                                 <i class="fa-solid fa-eye"></i>
                             </a>
 
-                            <!-- Toggle Estado -->
-                            <button onclick="toggleContract('{{ contract.id }}')" class="btn btn-secondary"
+                            <!-- Cambiar Estado -->
+                            <button type="button" onclick="openStatusModal('{{ contract.id }}', '{{ contract.status }}')" class="btn btn-secondary"
                                 style="padding: 6px 10px; font-size: 0.78rem;" title="Cambiar Estado">
-                                <i class="fa-solid fa-power-off"></i>
+                                <i class="fa-solid fa-sliders"></i>
                             </button>
 
                             <!-- Disparo manual de factura -->
@@ -434,6 +434,64 @@
     </div>
 </div>
 
+<!-- MODAL CAMBIO DE ESTADO -->
+<div id="status-change-modal" style="
+    display: none;
+    position: fixed;
+    top: 0; left: 0;
+    width: 100vw; height: 100vh;
+    background: rgba(0,0,0,0.5);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(8px);
+">
+    <div class="card-table-wrapper" style="width: 420px; padding: 28px; margin: 0; background-color: var(--bg-sidebar); box-shadow: 0 10px 25px rgba(0,0,0,0.15);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px;">
+            <h3 style="font-size: 1.05rem; font-family: var(--font-heading); font-weight: 700; margin: 0; color: var(--text-primary);">
+                <i class="fa-solid fa-sliders" style="color: var(--accent-purple); margin-right: 8px;"></i>Cambiar Estado del Contrato
+            </h3>
+            <button type="button" onclick="closeStatusModal()" style="background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 1.1rem;">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div style="margin-bottom: 14px;">
+            <label style="display: block; font-size: 0.85rem; font-weight: 500; margin-bottom: 8px; color: var(--text-secondary);">Nuevo Estado</label>
+            <select id="status-select" class="form-control" onchange="updateStatusDescription(this.value)"
+                style="width:100%; border-radius: var(--radius-sm); border: 1px solid #e2e8f0; background-color: var(--bg-input); color: var(--text-primary); padding: 10px; height: 42px; box-sizing: border-box;">
+                <option value="Borrador">📝 Borrador</option>
+                <option value="Pendiente de Aprobación">⏳ Pendiente de Aprobación</option>
+                <option value="Activo">✅ Activo</option>
+                <option value="Suspendido">⏸️ Suspendido</option>
+                <option value="Cancelado">🚫 Cancelado</option>
+                <option value="Expirado">📅 Expirado</option>
+            </select>
+        </div>
+
+        <!-- Descripción dinámica del estado -->
+        <div id="status-description-box" style="
+            margin-bottom: 20px;
+            padding: 12px 14px;
+            border-radius: 8px;
+            font-size: 0.82rem;
+            line-height: 1.5;
+            color: var(--text-secondary);
+            border: 1px solid var(--border-color);
+            background: rgba(0,0,0,0.015);
+            transition: all 0.2s ease;
+        ">
+            <span id="status-description-text">Selecciona un estado para ver su descripción.</span>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 10px;">
+            <button type="button" onclick="closeStatusModal()" class="btn btn-secondary" style="padding: 8px 18px;">Cancelar</button>
+            <button type="button" id="apply-status-btn" onclick="applyStatusChange()" class="btn btn-primary" style="padding: 8px 18px; background: var(--accent-purple); border-color: var(--accent-purple);">
+                <i class="fa-solid fa-check"></i> Aplicar
+            </button>
+        </div>
+    </div>
+</div>
+
 <script>
     function openModal(id) {
         document.getElementById(id).style.display = 'flex';
@@ -442,30 +500,75 @@
         document.getElementById(id).style.display = 'none';
     }
 
-    function toggleContract(contractId) {
-        fetch(`/operations/contracts/${contractId}/toggle`, {
+    // ── Modal de Cambio de Estado ───────────────────────────────────────────
+    let _statusContractId = '';
+    const STATUS_STYLES = {
+        'Activo':                 'background: rgba(22,163,74,0.12); color: #16a34a; border-color: rgba(22,163,74,0.25);',
+        'Borrador':               'background: rgba(100,116,139,0.12); color: #64748b; border-color: rgba(100,116,139,0.25);',
+        'Pendiente de Aprobación':'background: rgba(245,158,11,0.12); color: #d97706; border-color: rgba(245,158,11,0.25);',
+        'Suspendido':             'background: rgba(249,115,22,0.12); color: #ea580c; border-color: rgba(249,115,22,0.25);',
+        'Cancelado':              'background: rgba(220,38,38,0.12); color: #dc2626; border-color: rgba(220,38,38,0.25);',
+        'Expirado':               'background: rgba(124,58,237,0.12); color: #7c3aed; border-color: rgba(124,58,237,0.25);',
+    };
+    const STATUS_DESCRIPTIONS = {
+        'Borrador':               '<strong>📝 Borrador</strong> — El contrato está en construcción y aún no está vigente. No genera facturas automáticas ni aparece en el portal del cliente. Ideal para preparar los términos antes de formalizar.',
+        'Pendiente de Aprobación':'<strong>⏳ Pendiente de Aprobación</strong> — El contrato fue enviado para revisión interna o firma del cliente. Permanece en pausa hasta ser aprobado formalmente. No genera facturación automática.',
+        'Activo':                 '<strong>✅ Activo</strong> — El contrato está vigente y en plena ejecución. e-Factura emitirá el comprobante fiscal (e-CF) automáticamente en cada fecha de disparo programada y reprogramará el siguiente cobro.',
+        'Suspendido':             '<strong>⏸️ Suspendido</strong> — La facturación automática está pausada temporalmente. El contrato sigue registrado pero no generará facturas hasta ser reactivado. Útil durante períodos de gracia o renegociación.',
+        'Cancelado':              '<strong>🚫 Cancelado</strong> — El contrato fue rescindido antes de su vencimiento natural. No genera más facturas y queda registrado como histórico en la cartera. Esta acción es difícilmente reversible.',
+        'Expirado':               '<strong>📅 Expirado</strong> — El contrato llegó a su fecha de vencimiento sin ser renovado. Queda en el historial con fines de auditoría. Si aplica renovación, usa la opción de renovar o crea un nuevo contrato.',
+    };
+
+    function updateStatusDescription(status) {
+        const box = document.getElementById('status-description-box');
+        const text = document.getElementById('status-description-text');
+        const desc = STATUS_DESCRIPTIONS[status] || 'Selecciona un estado para ver su descripción.';
+        text.innerHTML = desc;
+        const style = STATUS_STYLES[status] || 'background: rgba(0,0,0,0.015); color: var(--text-secondary); border-color: var(--border-color);';
+        box.setAttribute('style', `margin-bottom: 20px; padding: 12px 14px; border-radius: 8px; font-size: 0.82rem; line-height: 1.55; border: 1px solid; transition: all 0.2s ease; ${style}`);
+    }
+
+    function openStatusModal(contractId, currentStatus) {
+        _statusContractId = contractId;
+        document.getElementById('status-select').value = currentStatus;
+        updateStatusDescription(currentStatus);
+        document.getElementById('status-change-modal').style.display = 'flex';
+    }
+
+    function closeStatusModal() {
+        document.getElementById('status-change-modal').style.display = 'none';
+    }
+
+    function applyStatusChange() {
+        const newStatus = document.getElementById('status-select').value;
+        const btn = document.getElementById('apply-status-btn');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Guardando...';
+
+        fetch(`/operations/contracts/${_statusContractId}/status`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: newStatus })
+        })
+        .then(r => r.json())
+        .then(data => {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-check"></i> Aplicar';
+            if (data.success) {
+                const badge = document.getElementById(`status-badge-${_statusContractId}`);
+                badge.textContent = newStatus;
+                const style = STATUS_STYLES[newStatus] || 'background: rgba(100,116,139,0.12); color: #64748b;';
+                badge.setAttribute('style', `font-weight: 600; padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; ${style}`);
+                closeStatusModal();
+            } else {
+                alert('Error: ' + (data.error || 'No se pudo actualizar el estado.'));
             }
         })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    const badge = document.getElementById(`status-badge-${contractId}`);
-                    badge.textContent = data.new_status;
-                    if (data.new_status === 'Activo') {
-                        badge.className = 'badge badge-success';
-                    } else {
-                        badge.className = 'badge badge-secondary';
-                    }
-                } else {
-                    alert("Error al cambiar el estado: " + data.error);
-                }
-            })
-            .catch(error => {
-                console.error("Error toggling contract:", error);
-            });
+        .catch(err => {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-check"></i> Aplicar';
+            alert('Error de red: ' + err.message);
+        });
     }
 
     // Establecer fecha por defecto para hoy

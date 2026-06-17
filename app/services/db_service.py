@@ -726,8 +726,9 @@ class DatabaseService:
                 docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).get()
                 for doc in docs:
                     data = doc.to_dict()
-                    clients.append({
+                    client_dict = {
                         "id": doc.id,
+                        "ownerUID": owner_uid,
                         "rnc": data.get("rnc", ""),
                         "razonSocial": data.get("razonSocial", ""),
                         "email": data.get("email", ""),
@@ -736,8 +737,16 @@ class DatabaseService:
                         "crmNotes": data.get("crmNotes", ""),
                         "nextContactDate": serialize_field(data.get("nextContactDate")),
                         "pipelineStage": data.get("pipelineStage", "Prospecto"),
-                        "createdAt": serialize_field(data.get("createdAt"))
-                    })
+                        "responsibleId": data.get("responsibleId", ""),
+                        "createdAt": serialize_field(data.get("createdAt")),
+                        "imageUrl": data.get("imageUrl", ""),
+                        "accessPin": data.get("accessPin", ""),
+                        "disableAutoReminders": data.get("disableAutoReminders", False)
+                    }
+                    for k, v in data.items():
+                        if k not in client_dict:
+                            client_dict[k] = v
+                    clients.append(client_dict)
                 clients.sort(key=lambda x: x["razonSocial"].lower())
             except Exception as e:
                 print(f"⚠️ Error al obtener clientes desde Firestore: {e}")
@@ -752,16 +761,27 @@ class DatabaseService:
                 doc = db_firestore.collection("users").document(owner_uid).collection(coll_name).document(client_id).get()
                 if doc.exists:
                     data = doc.to_dict()
-                    return {
+                    client_dict = {
                         "id": doc.id,
+                        "ownerUID": owner_uid,
                         "rnc": data.get("rnc", ""),
                         "razonSocial": data.get("razonSocial", ""),
                         "email": data.get("email", ""),
                         "telefono": data.get("telefono", ""),
                         "direccion": data.get("direccion", ""),
                         "crmNotes": data.get("crmNotes", ""),
-                        "nextContactDate": data.get("nextContactDate", "")
+                        "responsibleId": data.get("responsibleId", ""),
+                        "nextContactDate": data.get("nextContactDate", ""),
+                        "pipelineStage": data.get("pipelineStage", "Prospecto"),
+                        "createdAt": serialize_field(data.get("createdAt")),
+                        "imageUrl": data.get("imageUrl", ""),
+                        "accessPin": data.get("accessPin", ""),
+                        "disableAutoReminders": data.get("disableAutoReminders", False)
                     }
+                    for k, v in data.items():
+                        if k not in client_dict:
+                            client_dict[k] = v
+                    return client_dict
             except Exception as e:
                 print(f"⚠️ Error al obtener cliente específico desde Firestore: {e}")
         return None
@@ -776,30 +796,52 @@ class DatabaseService:
                 docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).where("rnc", "==", clean_rnc).get()
                 for doc in docs:
                     data = doc.to_dict()
-                    return {
+                    client_dict = {
                         "id": doc.id,
+                        "ownerUID": owner_uid,
                         "rnc": data.get("rnc", ""),
                         "razonSocial": data.get("razonSocial", ""),
                         "email": data.get("email", ""),
                         "telefono": data.get("telefono", ""),
                         "direccion": data.get("direccion", ""),
                         "crmNotes": data.get("crmNotes", ""),
-                        "nextContactDate": data.get("nextContactDate", "")
+                        "responsibleId": data.get("responsibleId", ""),
+                        "nextContactDate": data.get("nextContactDate", ""),
+                        "pipelineStage": data.get("pipelineStage", "Prospecto"),
+                        "createdAt": serialize_field(data.get("createdAt")),
+                        "imageUrl": data.get("imageUrl", ""),
+                        "accessPin": data.get("accessPin", ""),
+                        "disableAutoReminders": data.get("disableAutoReminders", False)
                     }
+                    for k, v in data.items():
+                        if k not in client_dict:
+                            client_dict[k] = v
+                    return client_dict
                 # Intentar también con guiones por si acaso
                 docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).where("rnc", "==", rnc).get()
                 for doc in docs:
                     data = doc.to_dict()
-                    return {
+                    client_dict = {
                         "id": doc.id,
+                        "ownerUID": owner_uid,
                         "rnc": data.get("rnc", ""),
                         "razonSocial": data.get("razonSocial", ""),
                         "email": data.get("email", ""),
                         "telefono": data.get("telefono", ""),
                         "direccion": data.get("direccion", ""),
                         "crmNotes": data.get("crmNotes", ""),
-                        "nextContactDate": data.get("nextContactDate", "")
+                        "responsibleId": data.get("responsibleId", ""),
+                        "nextContactDate": data.get("nextContactDate", ""),
+                        "pipelineStage": data.get("pipelineStage", "Prospecto"),
+                        "createdAt": serialize_field(data.get("createdAt")),
+                        "imageUrl": data.get("imageUrl", ""),
+                        "accessPin": data.get("accessPin", ""),
+                        "disableAutoReminders": data.get("disableAutoReminders", False)
                     }
+                    for k, v in data.items():
+                        if k not in client_dict:
+                            client_dict[k] = v
+                    return client_dict
             except Exception as e:
                 print(f"⚠️ Error al obtener cliente por RNC desde Firestore: {e}")
         return None
@@ -1471,7 +1513,8 @@ class DatabaseService:
                         "installments": installments,
                         "branchId": data.get("branchId", "default-sucursal-principal"),
                         "createdAt": serialize_field(data.get("createdAt")),
-                        "items": items
+                        "items": items,
+                        "pendingPaymentProof": data.get("pendingPaymentProof")
                     })
                 invoices.sort(key=lambda x: x["date"] or "", reverse=True)
             except Exception as e:
@@ -1610,7 +1653,8 @@ class DatabaseService:
                         "installments": installments,
                         "branchId": data.get("branchId", "default-sucursal-principal"),
                         "createdAt": serialize_field(data.get("createdAt")),
-                        "items": items
+                        "items": items,
+                        "pendingPaymentProof": data.get("pendingPaymentProof")
                     }
             except Exception as e:
                 print(f"⚠️ Error al obtener factura por ID desde Firestore: {e}")

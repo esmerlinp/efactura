@@ -2209,6 +2209,182 @@ def pay_invoice_route(invoice_id):
             
     return redirect(url_for('invoice_detail', invoice_id=invoice_id))
 
+@web_invoices_bp.route('/invoices/<invoice_id>/approve_payment_proof', methods=['POST'])
+def approve_payment_proof(invoice_id):
+    if 'user' not in session: return redirect(url_for('login'))
+    if not check_permission('canInvoice'):
+        return render_template('auth/restricted.html', feature_name="Aprobar Pago", required_permission="canInvoice")
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+    
+    invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+    if not invoice:
+        flash('Factura no encontrada.', 'error')
+        return redirect(url_for('list_invoices'))
+        
+    try:
+        amount = float(request.form.get('amount', 0.0))
+    except ValueError:
+        amount = 0.0
+        
+    if amount <= 0.0:
+        flash('El monto del cobro debe ser mayor a cero.', 'error')
+        return redirect(url_for('invoice_detail', invoice_id=invoice_id))
+        
+    payment_method = request.form.get('paymentMethod', 'Transferencia Bancaria')
+    bank = request.form.get('bank', 'Banco Popular Dominicano')
+    reference_number = request.form.get('referenceNumber', 'Abono Registrado')
+    payment_date = request.form.get('paymentDate') or datetime.utcnow().isoformat()
+    
+    payment_dict = {
+        "amount": amount,
+        "paymentMethod": payment_method,
+        "bank": bank,
+        "referenceNumber": reference_number,
+        "paymentDate": payment_date,
+        "registeredBy": session['user']['email']
+    }
+    
+    try:
+        # Registrar el pago oficial y recalcular balances
+        DatabaseService.register_invoice_payment(owner_uid, invoice_id, payment_dict, sandbox=sandbox)
+        
+        # Eliminar el comprobante pendiente
+        coll_inv = "sandbox_invoices" if sandbox else "invoices"
+        from firebase_admin import firestore
+        db_firestore.collection("users").document(owner_uid).collection(coll_inv).document(invoice_id).update({
+            "pendingPaymentProof": firestore.DELETE_FIELD
+        })
+        
+        # Notificar al cliente por email e in-app
+        try:
+            client_id = invoice.get('clientId')
+            client_email = invoice.get('clientEmail', '')
+            client_name = invoice.get('clientName', 'Cliente')
+
+            if client_email:
+                from app.services.notifications import NotificationService
+                NotificationService.send_client_payment_notification(
+                    owner_uid=owner_uid,
+                    action='aprobado',
+                    invoice=invoice,
+                    client_email=client_email,
+                    client_name=client_name,
+                    sandbox=sandbox
+                )
+
+            # Notificación in-app (guardada bajo el owner para que aparezca en el sistema)
+            if client_id:
+                import uuid as _uuid2
+                from app.services.db_service import DatabaseService as _DS
+                _DS.create_user_notification(owner_uid, {
+                    "id": str(_uuid2.uuid4()),
+                    "type": "pago_aprobado",
+                    "icon": "✅",
+                    "title": f"Pago aprobado — {invoice.get('invoiceNumber', invoice_id)}",
+                    "body": f"El pago de {client_name} fue aprobado y registrado exitosamente.",
+                    "clientName": client_name,
+                    "documentNumber": invoice.get('invoiceNumber', invoice_id),
+                    "documentUrl": f"/invoices/{invoice_id}",
+                    "createdAt": datetime.utcnow().isoformat(),
+                    "read": False
+                })
+        except Exception as _ne:
+            print(f"⚠️ Error al notificar al cliente sobre aprobación de pago: {_ne}")
+
+        flash('El comprobante de pago ha sido aprobado y el pago ha sido registrado exitosamente.', 'success')
+
+    except Exception as e:
+        flash(f'Error al aprobar el pago: {str(e)}', 'error')
+        
+    return redirect(url_for('invoice_detail', invoice_id=invoice_id))
+
+@web_invoices_bp.route('/invoices/<invoice_id>/reject_payment_proof', methods=['POST'])
+def reject_payment_proof(invoice_id):
+    if 'user' not in session: return redirect(url_for('login'))
+    if not check_permission('canInvoice'):
+        return render_template('auth/restricted.html', feature_name="Rechazar Pago", required_permission="canInvoice")
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+    
+    invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+    if not invoice:
+        flash('Factura no encontrada.', 'error')
+        return redirect(url_for('list_invoices'))
+        
+    rejection_reason = request.form.get('rejectionReason', '').strip()
+    
+    try:
+        coll_inv = "sandbox_invoices" if sandbox else "invoices"
+        from firebase_admin import firestore
+        
+        # Devolver el estado a "Emitida" (o su estado previo) y eliminar pendingPaymentProof
+        total_paid = float(invoice.get('totalPaid', 0.0))
+        new_status = "Parcialmente Cobrada" if total_paid > 0.01 else "Emitida"
+        
+        db_firestore.collection("users").document(owner_uid).collection(coll_inv).document(invoice_id).update({
+            "status": new_status,
+            "pendingPaymentProof": firestore.DELETE_FIELD
+        })
+        
+        # Si se especificó un motivo de rechazo, registrarlo como comentario interno
+        if rejection_reason:
+            comment_id = str(uuid.uuid4())
+            comment_dict = {
+                "content": f"❌ [PAGO RECHAZADO] Se rechazó el comprobante de pago reportado. Motivo: {rejection_reason}",
+                "createdBy": session['user']['email'],
+                "createdByName": session['user'].get('name', session['user']['email']),
+                "createdByUid": session['user']['uid'],
+                "createdAt": datetime.utcnow().isoformat(),
+                "attachmentUrl": "",
+                "attachmentName": "",
+                "edited": False
+            }
+            DatabaseService.save_invoice_comment(owner_uid, invoice_id, comment_id, comment_dict, sandbox=sandbox)
+            
+        # Notificar al cliente por email e in-app
+        try:
+            client_email = invoice.get('clientEmail', '')
+            client_name = invoice.get('clientName', 'Cliente')
+            client_id = invoice.get('clientId')
+
+            if client_email:
+                from app.services.notifications import NotificationService
+                NotificationService.send_client_payment_notification(
+                    owner_uid=owner_uid,
+                    action='rechazado',
+                    invoice=invoice,
+                    client_email=client_email,
+                    client_name=client_name,
+                    sandbox=sandbox,
+                    rejection_reason=rejection_reason
+                )
+
+            if client_id:
+                import uuid as _uuid3
+                from app.services.db_service import DatabaseService as _DS2
+                _DS2.create_user_notification(owner_uid, {
+                    "id": str(_uuid3.uuid4()),
+                    "type": "pago_rechazado",
+                    "icon": "❌",
+                    "title": f"Pago rechazado — {invoice.get('invoiceNumber', invoice_id)}",
+                    "body": f"Se rechazó el comprobante de {client_name}. Motivo: {rejection_reason}" if rejection_reason else f"Se rechazó el comprobante de {client_name}.",
+                    "clientName": client_name,
+                    "documentNumber": invoice.get('invoiceNumber', invoice_id),
+                    "documentUrl": f"/invoices/{invoice_id}",
+                    "createdAt": datetime.utcnow().isoformat(),
+                    "read": False
+                })
+        except Exception as _ne2:
+            print(f"⚠️ Error al notificar al cliente sobre rechazo de pago: {_ne2}")
+
+        flash('El comprobante de pago ha sido rechazado y el estado de la factura ha sido restablecido.', 'warning')
+
+    except Exception as e:
+        flash(f'Error al rechazar el pago: {str(e)}', 'error')
+        
+    return redirect(url_for('invoice_detail', invoice_id=invoice_id))
+
 @web_invoices_bp.route('/invoices/<invoice_id>/sign', methods=['POST'])
 def sign_invoice_route(invoice_id):
     if 'user' not in session: return redirect(url_for('login'))
@@ -4696,7 +4872,7 @@ def cxc_dashboard():
         # Si es cobrada, sumar al total cobrado para KPIs
         if status == "Cobrada":
             total_cobrado_periodo += float(inv.get('totalPaid', inv.get('netPayable', 0.0)))
-        elif status in ["Emitida", "Parcialmente Cobrada", "Vencida"]:
+        elif status in ["Emitida", "Parcialmente Cobrada", "Vencida", "Revisión de Pago"]:
             # Excluir Consumidor Final o facturas sin cliente asociado de la cartera de CxC
             client_name = inv.get('clientName', '')
             client_id = inv.get('clientId', '')
