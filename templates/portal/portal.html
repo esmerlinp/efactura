@@ -567,29 +567,101 @@
                 </table>
             </div>
         </div>
+
+        <!-- Contratos de Servicios -->
+        <div class="table-card" style="margin-top: 30px;">
+            <h3 style="margin-top: 0; margin-bottom: 20px; font-size: 1.15rem;">Contratos y Servicios Recurrentes</h3>
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Número Contrato</th>
+                            <th>Fecha Inicio</th>
+                            <th>Monto Recurrente</th>
+                            <th>Frecuencia</th>
+                            <th>Estado</th>
+                            <th style="text-align: right;">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for contract in contracts %}
+                        <tr>
+                            <td data-label="Número Contrato">
+                                <strong>{{ contract.contractNumber }}</strong>
+                            </td>
+                            <td data-label="Fecha Inicio">
+                                <span style="font-family: monospace;">{{ contract.startDate | format_date if contract.startDate else '-' }}</span>
+                            </td>
+                            <td data-label="Monto Recurrente">
+                                <strong>RD$ {{ "{:,.2f}".format(contract.amount) }}</strong>
+                            </td>
+                            <td data-label="Frecuencia">
+                                <span class="badge badge-info" style="text-transform: capitalize;">{{ contract.recurrenceInterval or 'Mensual' }}</span>
+                            </td>
+                            <td data-label="Estado">
+                                {% if contract.status == 'Activo' %}
+                                <span class="badge badge-success">{{ contract.status }}</span>
+                                {% elif contract.status == 'Inactivo' %}
+                                <span class="badge badge-danger" style="background: rgba(0,0,0,0.05); color: var(--text-muted);">{{ contract.status }}</span>
+                                {% else %}
+                                <span class="badge badge-warning">{{ contract.status or 'Pendiente de Firma' }}</span>
+                                {% endif %}
+                            </td>
+                            <td style="text-align: right;">
+                                <div style="display: inline-flex; gap: 8px;">
+                                    {% if contract.status != 'Activo' and contract.status != 'Inactivo' %}
+                                    <button class="btn btn-primary" onclick="openSignatureModal('{{ contract.id }}', 'contrato')">
+                                        <i class="fa-solid fa-signature"></i>
+                                        <span>Firmar Contrato</span>
+                                    </button>
+                                    {% else %}
+                                    <span class="badge badge-success"><i class="fa-solid fa-circle-check"></i> {{ contract.status }}</span>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="6" style="text-align: center; padding: 40px 0; color: var(--text-muted);">
+                                No hay contratos registrados.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 
     <!-- Modal de Firma Digital -->
     <div id="signature-modal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h3 class="modal-title"><i class="fa-solid fa-signature" style="color: var(--primary);"></i> Firmar
-                    Aceptación</h3>
+                <h3 class="modal-title"><i class="fa-solid fa-file-signature" style="color: var(--primary);"></i> Firma Electrónica Certificada</h3>
                 <button class="modal-close" onclick="closeSignatureModal()">&times;</button>
             </div>
-            <p style="font-size: 0.82rem; color: var(--text-secondary); margin-top: 0; margin-bottom: 16px;">
-                Firme dentro del cuadro delimitado usando su dedo, lápiz digital o mouse para aprobar el presupuesto.
-            </p>
-            <canvas id="signature-pad" width="450" height="200"></canvas>
-            <div style="display: flex; justify-content: space-between; margin-top: 16px;">
-                <button class="btn btn-secondary" onclick="clearSignaturePad()"><i class="fa-solid fa-eraser"></i>
-                    Limpiar</button>
-                <div style="display: flex; gap: 8px;">
-                    <button class="btn btn-secondary" onclick="closeSignatureModal()">Cancelar</button>
-                    <button class="btn btn-primary" onclick="submitSignature()"><i class="fa-solid fa-check"></i> Enviar
-                        Firma</button>
+            <form id="signature-form" onsubmit="submitSignature(event)" enctype="multipart/form-data">
+                <p style="font-size: 0.82rem; color: var(--text-secondary); margin-top: 0; margin-bottom: 16px;">
+                    Para firmar legalmente, cargue su certificado digital (.p12 / .pfx) e ingrese su contraseña.
+                </p>
+                <div style="margin-bottom: 16px;">
+                    <label style="display: block; font-size: 0.85rem; font-weight: 500; margin-bottom: 6px;">Certificado Digital (.p12 / .pfx)</label>
+                    <input type="file" id="sig-certificate" name="certificate" accept=".p12,.pfx" required
+                        style="width: 100%; padding: 8px; border: 1px solid var(--border-color); border-radius: 6px; box-sizing: border-box;">
                 </div>
-            </div>
+                <div style="margin-bottom: 16px;">
+                    <label style="display: block; font-size: 0.85rem; font-weight: 500; margin-bottom: 6px;">Contraseña del Certificado</label>
+                    <input type="password" id="sig-password" name="password" required placeholder="Ingrese la clave del certificado"
+                        style="width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 6px; box-sizing: border-box;">
+                </div>
+                <div style="background-color: #f8fafc; border: 1px solid var(--border-color); border-radius: 6px; padding: 12px; font-size: 0.78rem; color: var(--text-muted); margin-bottom: 16px;">
+                    <i class="fa-solid fa-info-circle"></i> Los datos de identidad del certificado cargado deben corresponder a la identificación fiscal del cliente (RNC: {{ client.rnc }}).
+                </div>
+                <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px;">
+                    <button type="button" class="btn btn-secondary" onclick="closeSignatureModal()">Cancelar</button>
+                    <button type="submit" class="btn btn-primary"><i class="fa-solid fa-check"></i> Validar y Firmar</button>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -631,77 +703,18 @@
     </div>
 
     <script>
-        let activeInvoiceId = '';
+        let activeItemId = '';
+        let activeItemType = '';
         const ownerUid = '{{ owner_uid }}';
         const sandbox = {{ 'true' if sandbox else 'false' }};
 
-        // Canvas Signature Logic
-        const canvas = document.getElementById('signature-pad');
-        const ctx = canvas ? canvas.getContext('2d') : null;
-        let drawing = false;
-
-        if (canvas && ctx) {
-            ctx.strokeStyle = '#0f172a';
-            ctx.lineWidth = 3;
-            ctx.lineJoin = 'round';
-            ctx.lineCap = 'round';
-
-            canvas.addEventListener('mousedown', startDrawing);
-            canvas.addEventListener('mousemove', draw);
-            canvas.addEventListener('mouseup', stopDrawing);
-            canvas.addEventListener('mouseout', stopDrawing);
-
-            canvas.addEventListener('touchstart', (e) => {
-                const touch = e.touches[0];
-                startDrawing(getTouchPos(touch));
-            });
-            canvas.addEventListener('touchmove', (e) => {
-                const touch = e.touches[0];
-                draw(getTouchPos(touch));
-                e.preventDefault();
-            });
-            canvas.addEventListener('touchend', stopDrawing);
-        }
-
-        function getTouchPos(touch) {
-            const rect = canvas.getBoundingClientRect();
-            return {
-                clientX: touch.clientX,
-                clientY: touch.clientY
-            };
-        }
-
-        function startDrawing(e) {
-            drawing = true;
-            const rect = canvas.getBoundingClientRect();
-            const x = ((e.clientX || e.x) - rect.left) * (canvas.width / rect.width);
-            const y = ((e.clientY || e.y) - rect.top) * (canvas.height / rect.height);
-            ctx.beginPath();
-            ctx.moveTo(x, y);
-        }
-
-        function draw(e) {
-            if (!drawing) return;
-            const rect = canvas.getBoundingClientRect();
-            const x = ((e.clientX || e.x) - rect.left) * (canvas.width / rect.width);
-            const y = ((e.clientY || e.y) - rect.top) * (canvas.height / rect.height);
-            ctx.lineTo(x, y);
-            ctx.stroke();
-        }
-
-        function stopDrawing() {
-            drawing = false;
-        }
-
-        function clearSignaturePad() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-        }
-
         // Modal Control
-        function openSignatureModal(invoiceId) {
-            activeInvoiceId = invoiceId;
+        function openSignatureModal(itemId, itemType = 'cotizacion') {
+            activeItemId = itemId;
+            activeItemType = itemType;
+            document.getElementById('sig-certificate').value = '';
+            document.getElementById('sig-password').value = '';
             document.getElementById('signature-modal').style.display = 'flex';
-            clearSignaturePad();
         }
 
         function closeSignatureModal() {
@@ -719,16 +732,36 @@
         }
 
         // Submissions
-        function submitSignature() {
-            const signatureImg = canvas.toDataURL();
+        function submitSignature(e) {
+            e.preventDefault();
+            const certInput = document.getElementById('sig-certificate');
+            const passInput = document.getElementById('sig-password');
+            
+            if (!certInput.files[0]) {
+                alert('Debe cargar un archivo de certificado digital.');
+                return;
+            }
 
-            fetch(`/portal/cliente/${ownerUid}/{{ client.id }}/cotizacion/${activeInvoiceId}/firmar?sandbox=${sandbox}`, {
+            const formData = new FormData();
+            formData.append('certificate', certInput.files[0]);
+            formData.append('password', passInput.value);
+
+            const endpoint = activeItemType === 'contrato' ? 'contrato' : 'cotizacion';
+            const url = `/portal/cliente/${ownerUid}/{{ client.id }}/${endpoint}/${activeItemId}/firmar?sandbox=${sandbox}`;
+
+            const submitBtn = document.querySelector('#signature-form button[type="submit"]');
+            const originalBtnText = submitBtn.innerHTML;
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Validando...';
+
+            fetch(url, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ signature: signatureImg })
+                body: formData
             })
                 .then(res => res.json())
                 .then(data => {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalBtnText;
                     if (data.success) {
                         alert(data.message);
                         location.reload();
@@ -736,7 +769,12 @@
                         alert('Error: ' + data.error);
                     }
                 })
-                .catch(err => console.error(err));
+                .catch(err => {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalBtnText;
+                    console.error(err);
+                    alert('Error de red al intentar procesar la firma.');
+                });
         }
 
         function submitPayment(e) {

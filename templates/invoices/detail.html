@@ -59,7 +59,8 @@
                     <span class="badge badge-success" style="margin-bottom: 10px;">{{ invoice.status }}</span>
                     {% endif %}
                     <div style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 4px;">Fecha: <strong>{{
-                            invoice.date | format_date }}{% if invoice.date|length > 10 %} {{ invoice.date[11:16] }}{% endif
+                            invoice.date | format_date }}{% if invoice.date|length > 10 %} {{ invoice.date[11:16] }}{%
+                            endif
                             %}</strong></div>
                     <div style="font-size: 0.85rem; color: var(--text-secondary);">Vence: <strong>{{
                             invoice.dueDate | format_date }}</strong></div>
@@ -457,7 +458,8 @@
                                 #{{ inst.installmentNumber }}
                             </td>
                             <td style="border-bottom: 1px solid #e2e8f0; padding: 14px 16px;">
-                                <span style="font-family: monospace; color: #334155;">{{ inst.dueDate | format_date }}</span>
+                                <span style="font-family: monospace; color: #334155;">{{ inst.dueDate | format_date
+                                    }}</span>
                             </td>
                             <td
                                 style="text-align: right; font-weight: 500; color: #0f172a; border-bottom: 1px solid #e2e8f0; padding: 14px 16px;">
@@ -543,6 +545,14 @@
                     <i class="fa-solid fa-up-right-from-square"></i>
                     <span>Ver Portal de Cliente</span>
                 </a>
+
+                <div style="border-top: 1px dashed var(--border-color); padding-top: 15px; margin-top: 5px;">
+                    <button type="button" onclick="openSendQuotationModal()" class="btn btn-secondary"
+                        style="width: 100%; border-color: var(--accent-purple); color: var(--accent-purple); display: inline-flex; align-items: center; justify-content: center; gap: 6px; font-weight: 600;">
+                        <i class="fa-solid fa-envelope"></i>
+                        <span>Enviar al Cliente Para Aprobación</span>
+                    </button>
+                </div>
                 {% endif %}
             </div>
         </div>
@@ -597,16 +607,20 @@
         {% if invoice.status == 'Aprobada' and not invoice.isConvertedToContract %}
         <div class="card-table-wrapper no-print"
             style="padding: 24px; text-align: center; border: 1.5px solid var(--accent-emerald); background: rgba(16,185,129,0.04);">
-            <div style="width: 52px; height: 52px; border-radius: 50%; background: linear-gradient(135deg, #059669, #10b981); display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; color: white;">
+            <div
+                style="width: 52px; height: 52px; border-radius: 50%; background: linear-gradient(135deg, #059669, #10b981); display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; color: white;">
                 <i class="fa-solid fa-rotate" style="font-size: 1.2rem;"></i>
             </div>
-            <h4 style="font-size: 1rem; font-family: var(--font-heading); margin-bottom: 8px; color: var(--accent-emerald);">
+            <h4
+                style="font-size: 1rem; font-family: var(--font-heading); margin-bottom: 8px; color: var(--accent-emerald);">
                 Convertir a Contrato Recurrente</h4>
             <p style="color: var(--text-secondary); font-size: 0.78rem; line-height: 1.45; margin-bottom: 16px;">
-                Genera un contrato mensual recurrente a partir de esta cotización aprobada. Las facturas se emitirán automáticamente.
+                Genera un contrato mensual recurrente a partir de esta cotización aprobada. Las facturas se emitirán
+                automáticamente.
             </p>
-            <form action="{{ url_for('web_invoices.convert_quotation_to_contract', invoice_id=invoice.id) }}" method="POST" style="margin: 0;"
-                  onsubmit="return confirm('¿Convertir esta cotización en un Contrato Recurrente mensual?\n\nPodrás editar la frecuencia y configuración desde el detalle del contrato.')">
+            <form action="{{ url_for('web_invoices.convert_quotation_to_contract', invoice_id=invoice.id) }}"
+                method="POST" style="margin: 0;"
+                onsubmit="return confirm('¿Convertir esta cotización en un Contrato Recurrente mensual?\n\nPodrás editar la frecuencia y configuración desde el detalle del contrato.')">
                 <button type="submit" class="btn btn-primary"
                     style="width: 100%; background: linear-gradient(135deg, #059669, #10b981); border: none; color: white; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
                     <i class="fa-solid fa-file-contract"></i>
@@ -617,7 +631,8 @@
         {% elif invoice.isConvertedToContract %}
         <div class="card-table-wrapper no-print"
             style="padding: 16px 20px; text-align: center; border: 1px solid var(--border-color); background: rgba(16,185,129,0.03);">
-            <span class="badge badge-success" style="font-size: 0.8rem; padding: 6px 14px; display: inline-flex; align-items: center; gap: 6px;">
+            <span class="badge badge-success"
+                style="font-size: 0.8rem; padding: 6px 14px; display: inline-flex; align-items: center; gap: 6px;">
                 <i class="fa-solid fa-circle-check"></i> Convertida a Contrato Recurrente
             </span>
             <p style="color: var(--text-muted); font-size: 0.72rem; margin: 8px 0 0;">
@@ -1167,354 +1182,413 @@
                 </button>
             </div>
         </div>
+        <!-- =========================================================================
+         MODAL PARA ENVIAR COTIZACIÓN POR EMAIL AL CLIENTE
+         ========================================================================= -->
+        <div class="search-modal" id="send-quotation-modal"
+            style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1200; align-items: center; justify-content: center;">
+            <div class="modal-backdrop" onclick="closeSendQuotationModal()"
+                style="position: absolute; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(8px);">
+            </div>
+            <div class="modal-content"
+                style="max-width: 480px; width: calc(100% - 32px); background: var(--bg-card); backdrop-filter: blur(20px); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 30px; position: relative; z-index: 2; box-shadow: var(--shadow-lg); animation: floatIn 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards; color: var(--text-primary); text-align: left;">
+                <div class="modal-header"
+                    style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 16px; margin-bottom: 20px;">
+                    <h3
+                        style="font-size: 1.1rem; font-family: var(--font-heading); display: flex; align-items: center; gap: 8px; color: var(--text-primary); font-weight: 800; margin: 0;">
+                        <i class="fa-solid fa-paper-plane" style="color: var(--accent-purple);"></i>
+                        <span>Enviar Cotización al Cliente</span>
+                    </h3>
+                    <button type="button" onclick="closeSendQuotationModal()"
+                        style="cursor: pointer; font-size: 1.25rem; opacity: 0.7; background: transparent; border: none; color: var(--text-primary);"><i
+                            class="fa-solid fa-xmark"></i></button>
+                </div>
+                <form action="/quotations/{{ invoice.id }}/send-to-client" method="POST" style="margin: 0;">
+                    <div class="modal-body">
+                        <!-- Info Alert -->
+                        <div
+                            style="background: rgba(124, 58, 237, 0.05); border: 1px solid rgba(124, 58, 237, 0.2); border-radius: var(--radius-sm); padding: 14px; margin-bottom: 20px; font-size: 0.8rem; line-height: 1.4; color: var(--text-secondary);">
+                            Se enviará un correo electrónico formal con el enlace de acceso al portal del cliente para
+                            que pueda revisar, firmar y aprobar electrónicamente la propuesta.
+                        </div>
+
+                        <!-- Email Input -->
+                        <div class="form-group" style="margin-bottom: 20px;">
+                            <label for="send-quote-email-input"
+                                style="font-size: 0.8rem; font-weight: 500; margin-bottom: 6px; display: block; color: var(--text-secondary);">Correo
+                                del Destinatario</label>
+                            <input type="email" id="send-quote-email-input" name="email" class="form-input"
+                                placeholder="cliente@ejemplo.com" value="{{ client_email or '' }}"
+                                style="width: 100%; padding: 10px 12px; font-size: 0.9rem; height: 44px; border-radius: 6px;"
+                                required>
+                        </div>
+                    </div>
+
+                    <!-- Buttons -->
+                    <div style="display: flex; gap: 10px;">
+                        <button type="button" onclick="closeSendQuotationModal()" class="btn btn-secondary"
+                            style="flex: 1; height: 44px; justify-content: center;">
+                            <i class="fa-solid fa-xmark"></i>
+                            <span>Cancelar</span>
+                        </button>
+                        <button type="submit" class="btn btn-primary"
+                            style="flex: 2; background: linear-gradient(135deg, var(--accent-purple), #a78bfa); border: none; color: white; height: 44px; justify-content: center; font-weight: 700;">
+                            <i class="fa-solid fa-paper-plane"></i>
+                            <span>Enviar Enlace</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
     </div>
-</div>
-{% endblock %}
+    {% endblock %}
 
 
-{% block extra_scripts %}
-<script>
-    document.addEventListener('DOMContentLoaded', () => {
-        const payMethodSelect = document.getElementById('payment-method-select-pay');
-        const bankTransferFields = document.getElementById('bank-transfer-fields');
-        const bankSelect = document.getElementById('bank-select');
-        const refInput = document.getElementById('ref-input');
+    {% block extra_scripts %}
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const payMethodSelect = document.getElementById('payment-method-select-pay');
+            const bankTransferFields = document.getElementById('bank-transfer-fields');
+            const bankSelect = document.getElementById('bank-select');
+            const refInput = document.getElementById('ref-input');
 
-        function togglePayFields() {
-            if (!payMethodSelect || !bankTransferFields) return;
-            if (payMethodSelect.value === 'Efectivo') {
-                bankTransferFields.style.display = 'none';
-                if (bankSelect) bankSelect.removeAttribute('required');
-                if (refInput) refInput.removeAttribute('required');
-            } else {
-                bankTransferFields.style.display = 'flex';
-                if (bankSelect) bankSelect.setAttribute('required', 'required');
-                if (refInput) refInput.setAttribute('required', 'required');
-            }
-        }
-
-        if (payMethodSelect) {
-            payMethodSelect.addEventListener('change', togglePayFields);
-            // Run initially to match initial select value
-            togglePayFields();
-        }
-    });
-
-    function printAmortization() {
-        const element = document.getElementById('payment-agreement-card');
-        if (!element) return;
-
-        const printWindow = window.open('', '_blank', 'width=950,height=850');
-
-        printWindow.document.write('<!DOCTYPE html><html><head><title>Calendario de Amortización - Factura {{ invoice.invoiceNumber }}</title>');
-        printWindow.document.write('<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">');
-        printWindow.document.write('<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">');
-        printWindow.document.write('<style>');
-        printWindow.document.write('  body { font-family: "Inter", sans-serif; color: #0f172a; padding: 40px; background: #ffffff; line-height: 1.5; }');
-        printWindow.document.write('  h1, h2, h3, h4 { font-family: "Outfit", sans-serif; font-weight: 700; margin: 0; color: #0f172a; }');
-        printWindow.document.write('  .badge { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 20px; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }');
-        printWindow.document.write('  .badge-success { background-color: rgba(16, 185, 129, 0.1); color: #16a34a; }');
-        printWindow.document.write('  .badge-danger { background-color: rgba(239, 68, 68, 0.1); color: #dc2626; }');
-        printWindow.document.write('  .badge-warning { background-color: rgba(245, 158, 11, 0.1); color: #d97706; }');
-        printWindow.document.write('  .badge-secondary { background-color: rgba(156, 163, 175, 0.1); color: #475569; }');
-        printWindow.document.write('  .table-premium { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 0.88rem; }');
-        printWindow.document.write('  .table-premium th { padding: 12px 14px; font-weight: 700; font-size: 0.78rem; text-transform: uppercase; border-bottom: 2px solid #cbd5e1; color: #475569; text-align: left; }');
-        printWindow.document.write('  .table-premium td { padding: 14px 14px; border-bottom: 1px solid #e2e8f0; color: #334155; }');
-        printWindow.document.write('  .table-premium tr:last-child td { border-bottom: 2px solid #cbd5e1; }');
-        printWindow.document.write('  .no-print { display: none !important; }');
-        printWindow.document.write('</style></head><body>');
-
-        // Header
-        printWindow.document.write('<div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #0f172a; padding-bottom: 20px; margin-bottom: 30px;">');
-        printWindow.document.write('  <div>');
-        printWindow.document.write('    <h1 style="font-size: 1.85rem; font-weight: 800; color: #1e3a8a; margin-bottom: 6px;">' + {{ (company.tradeName or company.companyName) | tojson }} + '</h1>');
-    printWindow.document.write('    <span style="font-family: monospace; font-size: 0.88rem; color: #475569; display: block; margin-bottom: 4px;">RNC Emisor: ' + {{ company.companyRNC | tojson }} + '</span>');
-    printWindow.document.write('    <span style="font-size: 0.82rem; color: #64748b; display: block;">' + {{ company.companyAddress | tojson }} + '</span>');
-    printWindow.document.write('    <span style="font-size: 0.82rem; color: #64748b; display: block;"><i class="fa-solid fa-phone"></i> ' + {{ company.companyPhone | tojson }} + ' | <i class="fa-solid fa-envelope"></i> ' + {{ company.companyEmail | tojson }} + '</span>');
-    printWindow.document.write('  </div>');
-    printWindow.document.write('  <div style="text-align: right;">');
-    printWindow.document.write('    <h2 style="font-size: 1.25rem; font-weight: 800; color: #0f172a; margin-bottom: 6px;">REPORTE DE AMORTIZACIÓN</h2>');
-    printWindow.document.write('    <span style="font-size: 0.88rem; color: #475569; display: block; margin-bottom: 4px;">Factura Nro: <strong>' + {{ invoice.invoiceNumber | tojson }} + '</strong></span>');
-    printWindow.document.write('    <span style="font-size: 0.85rem; color: #475569; display: block; margin-bottom: 4px;">Fecha Factura: ' + {{ (invoice.date[: 10]+ (' ' + invoice.date[11: 16] if invoice.date | length > 10 else ''))| tojson }} + '</span>');
-    printWindow.document.write('    <span style="font-size: 0.85rem; color: #475569; display: block;">Cliente CRM: <strong>' + {{ invoice.clientName | tojson }} + '</strong></span>');
-    printWindow.document.write('  </div>');
-    printWindow.document.write('</div>');
-
-    // Body content (agreement card details)
-    const clone = element.cloneNode(true);
-
-    // Remove the print buttons/status block
-    const noPrintElements = clone.querySelectorAll('.no-print');
-    noPrintElements.forEach(el => el.remove());
-
-    // Remove inline paper styles to make it occupy full width naturally in print
-    clone.removeAttribute('style');
-    clone.style.background = '#ffffff';
-
-    printWindow.document.write(clone.innerHTML);
-
-    // Signatures / Footer for formal legal receipt
-    printWindow.document.write('<div style="margin-top: 60px; display: grid; grid-template-columns: 1fr 1fr; gap: 50px; text-align: center;">');
-    printWindow.document.write('  <div style="border-top: 1px solid #cbd5e1; padding-top: 10px;">');
-    printWindow.document.write('    <span style="font-size: 0.8rem; color: #64748b; font-weight: 500; display: block;">Firma Autorizada</span>');
-    printWindow.document.write('    <small style="font-size: 0.72rem; color: #94a3b8;">' + {{ (company.tradeName or company.companyName) | tojson }} + '</small>');
-    printWindow.document.write('  </div>');
-    printWindow.document.write('  <div style="border-top: 1px solid #cbd5e1; padding-top: 10px;">');
-    printWindow.document.write('    <span style="font-size: 0.8rem; color: #64748b; font-weight: 500; display: block;">Firma Conforme del Cliente</span>');
-    printWindow.document.write('    <small style="font-size: 0.72rem; color: #94a3b8;">' + {{ invoice.clientName | tojson }} + '</small>');
-    printWindow.document.write('  </div>');
-    printWindow.document.write('</div>');
-
-    printWindow.document.write('<div style="margin-top: 40px; text-align: center; border-top: 1px solid #e2e8f0; padding-top: 15px; font-size: 0.72rem; color: #94a3b8;">');
-    printWindow.document.write('  Este es un reporte descriptivo oficial emitido de forma automatizada por el sistema de facturación e-Factura. Emitido el: ' + new Date().toLocaleString() + '');
-    printWindow.document.write('</div>');
-
-    printWindow.document.write('</body></html>');
-    printWindow.document.close();
-
-    printWindow.onload = function () {
-        printWindow.print();
-    };
-    }
-
-    let currentTotalMora = 0.0;
-    let baseRemainingBalance = 0.0;
-
-    function openPaymentModal(cuotaNumber, remainingBalance, totalMora = 0.0) {
-        const modal = document.getElementById('payment-modal');
-        const modalCuota = document.getElementById('modal-cuota-number');
-        const amountInput = document.getElementById('amount-input');
-        const moraPanel = document.getElementById('mora-panel');
-
-        currentTotalMora = parseFloat(totalMora) || 0.0;
-        baseRemainingBalance = parseFloat(remainingBalance) || 0.0;
-
-        if (modal && amountInput) {
-            if (modalCuota) {
-                if (cuotaNumber > 0) {
-                    modalCuota.innerText = " - Cuota #" + cuotaNumber;
+            function togglePayFields() {
+                if (!payMethodSelect || !bankTransferFields) return;
+                if (payMethodSelect.value === 'Efectivo') {
+                    bankTransferFields.style.display = 'none';
+                    if (bankSelect) bankSelect.removeAttribute('required');
+                    if (refInput) refInput.removeAttribute('required');
                 } else {
-                    modalCuota.innerText = "";
+                    bankTransferFields.style.display = 'flex';
+                    if (bankSelect) bankSelect.setAttribute('required', 'required');
+                    if (refInput) refInput.setAttribute('required', 'required');
                 }
             }
-            amountInput.value = baseRemainingBalance.toFixed(2);
 
-            // Setup hidden inputs
-            document.getElementById('mora-amount-input').value = currentTotalMora;
-
-            if (currentTotalMora > 0) {
-                moraPanel.style.display = 'block';
-                document.getElementById('mora-display-amount').innerText = 'RD$ ' + currentTotalMora.toLocaleString('es-DO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-                document.getElementById('mora-ecf-note').innerText = currentTotalMora.toLocaleString('es-DO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-                setMoraAction('perdonar'); // Default action
-            } else {
-                moraPanel.style.display = 'none';
-                document.getElementById('mora-action-input').value = 'perdonar';
-                document.getElementById('mora-amount-input').value = '0';
+            if (payMethodSelect) {
+                payMethodSelect.addEventListener('change', togglePayFields);
+                // Run initially to match initial select value
+                togglePayFields();
             }
+        });
 
-            modal.style.display = 'flex';
+        function printAmortization() {
+            const element = document.getElementById('payment-agreement-card');
+            if (!element) return;
+
+            const printWindow = window.open('', '_blank', 'width=950,height=850');
+
+            printWindow.document.write('<!DOCTYPE html><html><head><title>Calendario de Amortización - Factura {{ invoice.invoiceNumber }}</title>');
+            printWindow.document.write('<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">');
+            printWindow.document.write('<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">');
+            printWindow.document.write('<style>');
+            printWindow.document.write('  body { font-family: "Inter", sans-serif; color: #0f172a; padding: 40px; background: #ffffff; line-height: 1.5; }');
+            printWindow.document.write('  h1, h2, h3, h4 { font-family: "Outfit", sans-serif; font-weight: 700; margin: 0; color: #0f172a; }');
+            printWindow.document.write('  .badge { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 20px; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }');
+            printWindow.document.write('  .badge-success { background-color: rgba(16, 185, 129, 0.1); color: #16a34a; }');
+            printWindow.document.write('  .badge-danger { background-color: rgba(239, 68, 68, 0.1); color: #dc2626; }');
+            printWindow.document.write('  .badge-warning { background-color: rgba(245, 158, 11, 0.1); color: #d97706; }');
+            printWindow.document.write('  .badge-secondary { background-color: rgba(156, 163, 175, 0.1); color: #475569; }');
+            printWindow.document.write('  .table-premium { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 0.88rem; }');
+            printWindow.document.write('  .table-premium th { padding: 12px 14px; font-weight: 700; font-size: 0.78rem; text-transform: uppercase; border-bottom: 2px solid #cbd5e1; color: #475569; text-align: left; }');
+            printWindow.document.write('  .table-premium td { padding: 14px 14px; border-bottom: 1px solid #e2e8f0; color: #334155; }');
+            printWindow.document.write('  .table-premium tr:last-child td { border-bottom: 2px solid #cbd5e1; }');
+            printWindow.document.write('  .no-print { display: none !important; }');
+            printWindow.document.write('</style></head><body>');
+
+            // Header
+            printWindow.document.write('<div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #0f172a; padding-bottom: 20px; margin-bottom: 30px;">');
+            printWindow.document.write('  <div>');
+            printWindow.document.write('    <h1 style="font-size: 1.85rem; font-weight: 800; color: #1e3a8a; margin-bottom: 6px;">' + {{ (company.tradeName or company.companyName) | tojson }} + '</h1>');
+        printWindow.document.write('    <span style="font-family: monospace; font-size: 0.88rem; color: #475569; display: block; margin-bottom: 4px;">RNC Emisor: ' + {{ company.companyRNC | tojson }} + '</span>');
+        printWindow.document.write('    <span style="font-size: 0.82rem; color: #64748b; display: block;">' + {{ company.companyAddress | tojson }} + '</span>');
+        printWindow.document.write('    <span style="font-size: 0.82rem; color: #64748b; display: block;"><i class="fa-solid fa-phone"></i> ' + {{ company.companyPhone | tojson }} + ' | <i class="fa-solid fa-envelope"></i> ' + {{ company.companyEmail | tojson }} + '</span>');
+        printWindow.document.write('  </div>');
+        printWindow.document.write('  <div style="text-align: right;">');
+        printWindow.document.write('    <h2 style="font-size: 1.25rem; font-weight: 800; color: #0f172a; margin-bottom: 6px;">REPORTE DE AMORTIZACIÓN</h2>');
+        printWindow.document.write('    <span style="font-size: 0.88rem; color: #475569; display: block; margin-bottom: 4px;">Factura Nro: <strong>' + {{ invoice.invoiceNumber | tojson }} + '</strong></span>');
+        printWindow.document.write('    <span style="font-size: 0.85rem; color: #475569; display: block; margin-bottom: 4px;">Fecha Factura: ' + {{ (invoice.date[: 10]+ (' ' + invoice.date[11: 16] if invoice.date | length > 10 else ''))| tojson }} + '</span>');
+        printWindow.document.write('    <span style="font-size: 0.85rem; color: #475569; display: block;">Cliente CRM: <strong>' + {{ invoice.clientName | tojson }} + '</strong></span>');
+        printWindow.document.write('  </div>');
+        printWindow.document.write('</div>');
+
+        // Body content (agreement card details)
+        const clone = element.cloneNode(true);
+
+        // Remove the print buttons/status block
+        const noPrintElements = clone.querySelectorAll('.no-print');
+        noPrintElements.forEach(el => el.remove());
+
+        // Remove inline paper styles to make it occupy full width naturally in print
+        clone.removeAttribute('style');
+        clone.style.background = '#ffffff';
+
+        printWindow.document.write(clone.innerHTML);
+
+        // Signatures / Footer for formal legal receipt
+        printWindow.document.write('<div style="margin-top: 60px; display: grid; grid-template-columns: 1fr 1fr; gap: 50px; text-align: center;">');
+        printWindow.document.write('  <div style="border-top: 1px solid #cbd5e1; padding-top: 10px;">');
+        printWindow.document.write('    <span style="font-size: 0.8rem; color: #64748b; font-weight: 500; display: block;">Firma Autorizada</span>');
+        printWindow.document.write('    <small style="font-size: 0.72rem; color: #94a3b8;">' + {{ (company.tradeName or company.companyName) | tojson }} + '</small>');
+        printWindow.document.write('  </div>');
+        printWindow.document.write('  <div style="border-top: 1px solid #cbd5e1; padding-top: 10px;">');
+        printWindow.document.write('    <span style="font-size: 0.8rem; color: #64748b; font-weight: 500; display: block;">Firma Conforme del Cliente</span>');
+        printWindow.document.write('    <small style="font-size: 0.72rem; color: #94a3b8;">' + {{ invoice.clientName | tojson }} + '</small>');
+        printWindow.document.write('  </div>');
+        printWindow.document.write('</div>');
+
+        printWindow.document.write('<div style="margin-top: 40px; text-align: center; border-top: 1px solid #e2e8f0; padding-top: 15px; font-size: 0.72rem; color: #94a3b8;">');
+        printWindow.document.write('  Este es un reporte descriptivo oficial emitido de forma automatizada por el sistema de facturación e-Factura. Emitido el: ' + new Date().toLocaleString() + '');
+        printWindow.document.write('</div>');
+
+        printWindow.document.write('</body></html>');
+        printWindow.document.close();
+
+        printWindow.onload = function () {
+            printWindow.print();
+        };
+    }
+
+        let currentTotalMora = 0.0;
+        let baseRemainingBalance = 0.0;
+
+        function openPaymentModal(cuotaNumber, remainingBalance, totalMora = 0.0) {
+            const modal = document.getElementById('payment-modal');
+            const modalCuota = document.getElementById('modal-cuota-number');
+            const amountInput = document.getElementById('amount-input');
+            const moraPanel = document.getElementById('mora-panel');
+
+            currentTotalMora = parseFloat(totalMora) || 0.0;
+            baseRemainingBalance = parseFloat(remainingBalance) || 0.0;
+
+            if (modal && amountInput) {
+                if (modalCuota) {
+                    if (cuotaNumber > 0) {
+                        modalCuota.innerText = " - Cuota #" + cuotaNumber;
+                    } else {
+                        modalCuota.innerText = "";
+                    }
+                }
+                amountInput.value = baseRemainingBalance.toFixed(2);
+
+                // Setup hidden inputs
+                document.getElementById('mora-amount-input').value = currentTotalMora;
+
+                if (currentTotalMora > 0) {
+                    moraPanel.style.display = 'block';
+                    document.getElementById('mora-display-amount').innerText = 'RD$ ' + currentTotalMora.toLocaleString('es-DO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                    document.getElementById('mora-ecf-note').innerText = currentTotalMora.toLocaleString('es-DO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                    setMoraAction('perdonar'); // Default action
+                } else {
+                    moraPanel.style.display = 'none';
+                    document.getElementById('mora-action-input').value = 'perdonar';
+                    document.getElementById('mora-amount-input').value = '0';
+                }
+
+                modal.style.display = 'flex';
+                updateMoraDesglose();
+            }
+        }
+
+        function setMoraAction(action) {
+            const btnPerdonar = document.getElementById('btn-perdonar-mora');
+            const btnCobrar = document.getElementById('btn-cobrar-mora');
+            const actionInput = document.getElementById('mora-action-input');
+            const forgiveSec = document.getElementById('mora-forgive-section');
+            const chargeSec = document.getElementById('mora-charge-section');
+
+            if (action === 'cobrar') {
+                actionInput.value = 'cobrar';
+                btnCobrar.style.background = 'rgba(249,115,22,0.12)';
+                btnCobrar.querySelector('i').style.color = '#f97316';
+                btnCobrar.querySelector('span').style.color = '#c2410c';
+
+                btnPerdonar.style.background = 'transparent';
+                btnPerdonar.querySelector('i').style.color = '#64748b';
+                btnPerdonar.querySelector('span').style.color = '#64748b';
+
+                forgiveSec.style.display = 'none';
+                chargeSec.style.display = 'block';
+            } else {
+                actionInput.value = 'perdonar';
+                btnPerdonar.style.background = 'rgba(59,130,246,0.08)';
+                btnPerdonar.querySelector('i').style.color = '#2563eb';
+                btnPerdonar.querySelector('span').style.color = '#1d4ed8';
+
+                btnCobrar.style.background = 'transparent';
+                btnCobrar.querySelector('i').style.color = '#64748b';
+                btnCobrar.querySelector('span').style.color = '#64748b';
+
+                forgiveSec.style.display = 'block';
+                chargeSec.style.display = 'none';
+            }
             updateMoraDesglose();
         }
-    }
 
-    function setMoraAction(action) {
-        const btnPerdonar = document.getElementById('btn-perdonar-mora');
-        const btnCobrar = document.getElementById('btn-cobrar-mora');
-        const actionInput = document.getElementById('mora-action-input');
-        const forgiveSec = document.getElementById('mora-forgive-section');
-        const chargeSec = document.getElementById('mora-charge-section');
+        function updateMoraDesglose() {
+            const amountInput = document.getElementById('amount-input');
+            const actionInput = document.getElementById('mora-action-input');
 
-        if (action === 'cobrar') {
-            actionInput.value = 'cobrar';
-            btnCobrar.style.background = 'rgba(249,115,22,0.12)';
-            btnCobrar.querySelector('i').style.color = '#f97316';
-            btnCobrar.querySelector('span').style.color = '#c2410c';
+            if (!amountInput) return;
 
-            btnPerdonar.style.background = 'transparent';
-            btnPerdonar.querySelector('i').style.color = '#64748b';
-            btnPerdonar.querySelector('span').style.color = '#64748b';
+            const enteredVal = parseFloat(amountInput.value) || 0.0;
+            const action = actionInput ? actionInput.value : 'perdonar';
 
-            forgiveSec.style.display = 'none';
-            chargeSec.style.display = 'block';
-        } else {
-            actionInput.value = 'perdonar';
-            btnPerdonar.style.background = 'rgba(59,130,246,0.08)';
-            btnPerdonar.querySelector('i').style.color = '#2563eb';
-            btnPerdonar.querySelector('span').style.color = '#1d4ed8';
+            if (action === 'cobrar' && currentTotalMora > 0) {
+                let activeMora = Math.min(enteredVal, currentTotalMora);
+                let activeCapital = enteredVal - activeMora;
 
-            btnCobrar.style.background = 'transparent';
-            btnCobrar.querySelector('i').style.color = '#64748b';
-            btnCobrar.querySelector('span').style.color = '#64748b';
-
-            forgiveSec.style.display = 'block';
-            chargeSec.style.display = 'none';
+                document.getElementById('mora-capital-display').innerText = 'RD$ ' + activeCapital.toLocaleString('es-DO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                document.getElementById('mora-fee-display').innerText = 'RD$ ' + activeMora.toLocaleString('es-DO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                document.getElementById('mora-total-display').innerText = 'RD$ ' + enteredVal.toLocaleString('es-DO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                document.getElementById('mora-amount-input').value = activeMora.toFixed(2);
+            } else {
+                document.getElementById('mora-amount-input').value = '0';
+            }
         }
-        updateMoraDesglose();
-    }
 
-    function updateMoraDesglose() {
-        const amountInput = document.getElementById('amount-input');
-        const actionInput = document.getElementById('mora-action-input');
-
-        if (!amountInput) return;
-
-        const enteredVal = parseFloat(amountInput.value) || 0.0;
-        const action = actionInput ? actionInput.value : 'perdonar';
-
-        if (action === 'cobrar' && currentTotalMora > 0) {
-            let activeMora = Math.min(enteredVal, currentTotalMora);
-            let activeCapital = enteredVal - activeMora;
-
-            document.getElementById('mora-capital-display').innerText = 'RD$ ' + activeCapital.toLocaleString('es-DO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-            document.getElementById('mora-fee-display').innerText = 'RD$ ' + activeMora.toLocaleString('es-DO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-            document.getElementById('mora-total-display').innerText = 'RD$ ' + enteredVal.toLocaleString('es-DO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-            document.getElementById('mora-amount-input').value = activeMora.toFixed(2);
-        } else {
-            document.getElementById('mora-amount-input').value = '0';
+        function closePaymentModal() {
+            const modal = document.getElementById('payment-modal');
+            if (modal) {
+                modal.style.display = 'none';
+            }
         }
-    }
 
-    function closePaymentModal() {
-        const modal = document.getElementById('payment-modal');
-        if (modal) {
-            modal.style.display = 'none';
-        }
-    }
-
-    // =========================================================================
-    // RECIBO DE INGRESO - Imprimir
-    // =========================================================================
-    function printReceipt(paymentId, paymentDate, paymentMethod, bank, ref, amount) {
-        const invoiceNumber = {{ invoice.invoiceNumber| tojson }};
+        // =========================================================================
+        // RECIBO DE INGRESO - Imprimir
+        // =========================================================================
+        function printReceipt(paymentId, paymentDate, paymentMethod, bank, ref, amount) {
+            const invoiceNumber = {{ invoice.invoiceNumber| tojson
+        }};
         const clientName = {{ invoice.clientName| tojson }};
         const clientRNC = {{ invoice.clientRNC| tojson }};
-    const companyName = {{ (company.tradeName or company.companyName)| tojson }};
-    const companyRNC = {{ company.companyRNC| tojson }};
-    const companyAddr = {{ company.companyAddress| tojson }};
-    const companyPhone = {{ company.companyPhone| tojson }};
-    const companyEmail = {{ company.companyEmail| tojson }};
-    const receiptNo = paymentId ? paymentId.slice(-8).toUpperCase() : 'N/A';
-    const amountFmt = 'RD$ ' + parseFloat(amount).toLocaleString('es-DO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        const companyName = {{ (company.tradeName or company.companyName)| tojson }};
+        const companyRNC = {{ company.companyRNC| tojson }};
+        const companyAddr = {{ company.companyAddress| tojson }};
+        const companyPhone = {{ company.companyPhone| tojson }};
+        const companyEmail = {{ company.companyEmail| tojson }};
+        const receiptNo = paymentId ? paymentId.slice(-8).toUpperCase() : 'N/A';
+        const amountFmt = 'RD$ ' + parseFloat(amount).toLocaleString('es-DO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-    const w = window.open('', '_blank', 'width=720,height=900');
-    w.document.write('<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">');
-    w.document.write('<title>Recibo de Ingreso - ' + invoiceNumber + '</title>');
-    w.document.write('<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">');
-    w.document.write('<style>');
-    w.document.write('  * { box-sizing: border-box; margin: 0; padding: 0; }');
-    w.document.write('  body { font-family: "Inter", sans-serif; background: #ffffff; color: #1e293b; padding: 48px 56px; }');
-    w.document.write('  h1, h2, h3 { font-family: "Outfit", sans-serif; font-weight: 800; }');
-    w.document.write('  .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #1e3a8a; padding-bottom: 24px; margin-bottom: 32px; }');
-    w.document.write('  .header-left h1 { font-size: 1.75rem; color: #1e3a8a; margin-bottom: 4px; }');
-    w.document.write('  .header-left span { font-size: 0.78rem; color: #64748b; display: block; }');
-    w.document.write('  .header-right { text-align: right; }');
-    w.document.write('  .header-right h2 { font-size: 1.1rem; color: #0f172a; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 6px; }');
-    w.document.write('  .header-right .receipt-no { font-family: monospace; font-size: 0.9rem; color: #475569; display: block; margin-bottom: 4px; }');
-    w.document.write('  .header-right .receipt-date { font-size: 0.82rem; color: #64748b; }');
-    w.document.write('  .parties { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 28px; }');
-    w.document.write('  .party-card { background: #f8fafc; border-radius: 8px; padding: 16px 20px; }');
-    w.document.write('  .party-card .role { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em; color: #94a3b8; margin-bottom: 8px; }');
-    w.document.write('  .party-card strong { font-size: 0.95rem; color: #0f172a; display: block; margin-bottom: 2px; }');
-    w.document.write('  .party-card span { font-size: 0.78rem; color: #64748b; display: block; }');
-    w.document.write('  .amount-box { background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border: 2px solid #16a34a; border-radius: 12px; padding: 24px 32px; text-align: center; margin: 28px 0; }');
-    w.document.write('  .amount-box .al { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #166534; margin-bottom: 8px; }');
-    w.document.write('  .amount-box .av { font-size: 2.4rem; font-weight: 800; color: #15803d; }');
-    w.document.write('  .detail-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #e2e8f0; font-size: 0.85rem; }');
-    w.document.write('  .detail-row .dl { color: #64748b; }');
-    w.document.write('  .detail-row .dv { font-weight: 500; color: #0f172a; }');
-    w.document.write('  .signatures { display: grid; grid-template-columns: 1fr 1fr; gap: 60px; margin-top: 70px; text-align: center; }');
-    w.document.write('  .sig-line { border-top: 1px solid #94a3b8; padding-top: 10px; font-size: 0.75rem; color: #64748b; }');
-    w.document.write('  .footer { margin-top: 36px; text-align: center; font-size: 0.68rem; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 16px; line-height: 1.7; }');
-    w.document.write('  @media print { body { padding: 20px 30px; } }');
-    w.document.write('</style></head><body>');
+        const w = window.open('', '_blank', 'width=720,height=900');
+        w.document.write('<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">');
+        w.document.write('<title>Recibo de Ingreso - ' + invoiceNumber + '</title>');
+        w.document.write('<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">');
+        w.document.write('<style>');
+        w.document.write('  * { box-sizing: border-box; margin: 0; padding: 0; }');
+        w.document.write('  body { font-family: "Inter", sans-serif; background: #ffffff; color: #1e293b; padding: 48px 56px; }');
+        w.document.write('  h1, h2, h3 { font-family: "Outfit", sans-serif; font-weight: 800; }');
+        w.document.write('  .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #1e3a8a; padding-bottom: 24px; margin-bottom: 32px; }');
+        w.document.write('  .header-left h1 { font-size: 1.75rem; color: #1e3a8a; margin-bottom: 4px; }');
+        w.document.write('  .header-left span { font-size: 0.78rem; color: #64748b; display: block; }');
+        w.document.write('  .header-right { text-align: right; }');
+        w.document.write('  .header-right h2 { font-size: 1.1rem; color: #0f172a; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 6px; }');
+        w.document.write('  .header-right .receipt-no { font-family: monospace; font-size: 0.9rem; color: #475569; display: block; margin-bottom: 4px; }');
+        w.document.write('  .header-right .receipt-date { font-size: 0.82rem; color: #64748b; }');
+        w.document.write('  .parties { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 28px; }');
+        w.document.write('  .party-card { background: #f8fafc; border-radius: 8px; padding: 16px 20px; }');
+        w.document.write('  .party-card .role { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.12em; color: #94a3b8; margin-bottom: 8px; }');
+        w.document.write('  .party-card strong { font-size: 0.95rem; color: #0f172a; display: block; margin-bottom: 2px; }');
+        w.document.write('  .party-card span { font-size: 0.78rem; color: #64748b; display: block; }');
+        w.document.write('  .amount-box { background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border: 2px solid #16a34a; border-radius: 12px; padding: 24px 32px; text-align: center; margin: 28px 0; }');
+        w.document.write('  .amount-box .al { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #166534; margin-bottom: 8px; }');
+        w.document.write('  .amount-box .av { font-size: 2.4rem; font-weight: 800; color: #15803d; }');
+        w.document.write('  .detail-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #e2e8f0; font-size: 0.85rem; }');
+        w.document.write('  .detail-row .dl { color: #64748b; }');
+        w.document.write('  .detail-row .dv { font-weight: 500; color: #0f172a; }');
+        w.document.write('  .signatures { display: grid; grid-template-columns: 1fr 1fr; gap: 60px; margin-top: 70px; text-align: center; }');
+        w.document.write('  .sig-line { border-top: 1px solid #94a3b8; padding-top: 10px; font-size: 0.75rem; color: #64748b; }');
+        w.document.write('  .footer { margin-top: 36px; text-align: center; font-size: 0.68rem; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 16px; line-height: 1.7; }');
+        w.document.write('  @media print { body { padding: 20px 30px; } }');
+        w.document.write('</style></head><body>');
 
-    // Header
-    w.document.write('<div class="header">');
-    w.document.write('  <div class="header-left">');
-    w.document.write('    <h1>' + companyName + '</h1>');
-    w.document.write('    <span>RNC: ' + companyRNC + '</span>');
-    w.document.write('    <span>' + companyAddr + '</span>');
-    w.document.write('    <span>' + companyPhone + ' | ' + companyEmail + '</span>');
-    w.document.write('  </div>');
-    w.document.write('  <div class="header-right">');
-    w.document.write('    <h2>Recibo de Ingreso</h2>');
-    w.document.write('    <span class="receipt-no">No. ' + receiptNo + '</span>');
-    w.document.write('    <span class="receipt-date">Fecha: ' + paymentDate + '</span>');
-    w.document.write('  </div>');
-    w.document.write('</div>');
+        // Header
+        w.document.write('<div class="header">');
+        w.document.write('  <div class="header-left">');
+        w.document.write('    <h1>' + companyName + '</h1>');
+        w.document.write('    <span>RNC: ' + companyRNC + '</span>');
+        w.document.write('    <span>' + companyAddr + '</span>');
+        w.document.write('    <span>' + companyPhone + ' | ' + companyEmail + '</span>');
+        w.document.write('  </div>');
+        w.document.write('  <div class="header-right">');
+        w.document.write('    <h2>Recibo de Ingreso</h2>');
+        w.document.write('    <span class="receipt-no">No. ' + receiptNo + '</span>');
+        w.document.write('    <span class="receipt-date">Fecha: ' + paymentDate + '</span>');
+        w.document.write('  </div>');
+        w.document.write('</div>');
 
-    // Parties
-    w.document.write('<div class="parties">');
-    w.document.write('  <div class="party-card">');
-    w.document.write('    <div class="role">Recibido de</div>');
-    w.document.write('    <strong>' + clientName + '</strong>');
-    if (clientRNC) w.document.write('    <span>RNC/Cédula: ' + clientRNC + '</span>');
-    w.document.write('  </div>');
-    w.document.write('  <div class="party-card">');
-    w.document.write('    <div class="role">Referencia de Factura</div>');
-    w.document.write('    <strong style="font-family:monospace;">' + invoiceNumber + '</strong>');
-    w.document.write('    <span>Abono / Pago parcial</span>');
-    w.document.write('  </div>');
-    w.document.write('</div>');
+        // Parties
+        w.document.write('<div class="parties">');
+        w.document.write('  <div class="party-card">');
+        w.document.write('    <div class="role">Recibido de</div>');
+        w.document.write('    <strong>' + clientName + '</strong>');
+        if (clientRNC) w.document.write('    <span>RNC/Cédula: ' + clientRNC + '</span>');
+        w.document.write('  </div>');
+        w.document.write('  <div class="party-card">');
+        w.document.write('    <div class="role">Referencia de Factura</div>');
+        w.document.write('    <strong style="font-family:monospace;">' + invoiceNumber + '</strong>');
+        w.document.write('    <span>Abono / Pago parcial</span>');
+        w.document.write('  </div>');
+        w.document.write('</div>');
 
-    // Amount
-    w.document.write('<div class="amount-box">');
-    w.document.write('  <div class="al">Monto Recibido</div>');
-    w.document.write('  <div class="av">' + amountFmt + '</div>');
-    w.document.write('</div>');
+        // Amount
+        w.document.write('<div class="amount-box">');
+        w.document.write('  <div class="al">Monto Recibido</div>');
+        w.document.write('  <div class="av">' + amountFmt + '</div>');
+        w.document.write('</div>');
 
-    // Detail rows
-    w.document.write('<div class="detail-row"><span class="dl">Forma de Pago</span><span class="dv">' + paymentMethod + '</span></div>');
-    if (bank && bank !== 'Caja Efectivo') {
-        w.document.write('<div class="detail-row"><span class="dl">Banco</span><span class="dv">' + bank + '</span></div>');
-    }
-    if (ref) {
-        w.document.write('<div class="detail-row"><span class="dl">No. Referencia / Depósito</span><span class="dv" style="font-family:monospace;">' + ref + '</span></div>');
-    }
-    w.document.write('<div class="detail-row"><span class="dl">Factura Correspondiente</span><span class="dv" style="font-family:monospace;">' + invoiceNumber + '</span></div>');
-    w.document.write('<div class="detail-row"><span class="dl">Fecha de Registro</span><span class="dv">' + paymentDate + '</span></div>');
-
-    // Signatures
-    w.document.write('<div class="signatures">');
-    w.document.write('  <div class="sig-line">Firma Autorizada<br><small>' + companyName + '</small></div>');
-    w.document.write('  <div class="sig-line">Firma Conforme del Cliente<br><small>' + clientName + '</small></div>');
-    w.document.write('</div>');
-
-    // Footer
-    w.document.write('<div class="footer">');
-    w.document.write('  Este recibo es un comprobante administrativo de ingreso emitido por ' + companyName + '.<br>');
-    w.document.write('  Generado automáticamente por el sistema e-Factura el ' + new Date().toLocaleString('es-DO') + '.');
-    w.document.write('</div>');
-
-    w.document.write('</body></html>');
-    w.document.close();
-    w.onload = function () { w.print(); };
-    }
-
-    // =========================================================================
-    // RECIBO DE INGRESO - Email
-    // =========================================================================
-    let _emailReceiptData = {};
-
-    function openEmailReceiptModal(paymentId, paymentDate, paymentMethod, bank, ref, amount) {
-        _emailReceiptData = { paymentId, paymentDate, paymentMethod, bank, referenceNumber: ref, amount };
-
-        document.getElementById('er-method').textContent = paymentMethod;
-        document.getElementById('er-date').textContent = 'Fecha: ' + paymentDate;
-        document.getElementById('er-amount').textContent = 'RD$ ' + parseFloat(amount).toLocaleString('es-DO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
-        const bankRow = document.getElementById('er-bank-row');
+        // Detail rows
+        w.document.write('<div class="detail-row"><span class="dl">Forma de Pago</span><span class="dv">' + paymentMethod + '</span></div>');
         if (bank && bank !== 'Caja Efectivo') {
-            bankRow.textContent = bank + (ref ? ' · Ref: ' + ref : '');
-            bankRow.style.display = 'block';
-        } else {
-            bankRow.style.display = 'none';
+            w.document.write('<div class="detail-row"><span class="dl">Banco</span><span class="dv">' + bank + '</span></div>');
         }
+        if (ref) {
+            w.document.write('<div class="detail-row"><span class="dl">No. Referencia / Depósito</span><span class="dv" style="font-family:monospace;">' + ref + '</span></div>');
+        }
+        w.document.write('<div class="detail-row"><span class="dl">Factura Correspondiente</span><span class="dv" style="font-family:monospace;">' + invoiceNumber + '</span></div>');
+        w.document.write('<div class="detail-row"><span class="dl">Fecha de Registro</span><span class="dv">' + paymentDate + '</span></div>');
 
-        // Pre-fill with client email if available
-        const emailInput = document.getElementById('email-receipt-input');
-        emailInput.value = {{ client_email | tojson }};
+        // Signatures
+        w.document.write('<div class="signatures">');
+        w.document.write('  <div class="sig-line">Firma Autorizada<br><small>' + companyName + '</small></div>');
+        w.document.write('  <div class="sig-line">Firma Conforme del Cliente<br><small>' + clientName + '</small></div>');
+        w.document.write('</div>');
+
+        // Footer
+        w.document.write('<div class="footer">');
+        w.document.write('  Este recibo es un comprobante administrativo de ingreso emitido por ' + companyName + '.<br>');
+        w.document.write('  Generado automáticamente por el sistema e-Factura el ' + new Date().toLocaleString('es-DO') + '.');
+        w.document.write('</div>');
+
+        w.document.write('</body></html>');
+        w.document.close();
+        w.onload = function () { w.print(); };
+    }
+
+        // =========================================================================
+        // RECIBO DE INGRESO - Email
+        // =========================================================================
+        let _emailReceiptData = {};
+
+        function openEmailReceiptModal(paymentId, paymentDate, paymentMethod, bank, ref, amount) {
+            _emailReceiptData = { paymentId, paymentDate, paymentMethod, bank, referenceNumber: ref, amount };
+
+            document.getElementById('er-method').textContent = paymentMethod;
+            document.getElementById('er-date').textContent = 'Fecha: ' + paymentDate;
+            document.getElementById('er-amount').textContent = 'RD$ ' + parseFloat(amount).toLocaleString('es-DO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+            const bankRow = document.getElementById('er-bank-row');
+            if (bank && bank !== 'Caja Efectivo') {
+                bankRow.textContent = bank + (ref ? ' · Ref: ' + ref : '');
+                bankRow.style.display = 'block';
+            } else {
+                bankRow.style.display = 'none';
+            }
+
+            // Pre-fill with client email if available
+            const emailInput = document.getElementById('email-receipt-input');
+            emailInput.value = {{ client_email | tojson }
+        };
 
         // Reset status
         const status = document.getElementById('email-receipt-status');
@@ -1528,130 +1602,148 @@
         document.getElementById('email-receipt-modal').style.display = 'flex';
     }
 
-    function closeEmailReceiptModal() {
-        document.getElementById('email-receipt-modal').style.display = 'none';
-    }
+        function closeEmailReceiptModal() {
+            document.getElementById('email-receipt-modal').style.display = 'none';
+        }
 
-    function submitEmailReceipt() {
-        const emailInput = document.getElementById('email-receipt-input');
-        const email = emailInput.value.trim();
-        if (!email) { emailInput.focus(); return; }
+        function submitEmailReceipt() {
+            const emailInput = document.getElementById('email-receipt-input');
+            const email = emailInput.value.trim();
+            if (!email) { emailInput.focus(); return; }
 
-        const btn = document.getElementById('send-receipt-btn');
-        const status = document.getElementById('email-receipt-status');
+            const btn = document.getElementById('send-receipt-btn');
+            const status = document.getElementById('email-receipt-status');
 
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i><span> Enviando...</span>';
-        status.style.display = 'none';
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i><span> Enviando...</span>';
+            status.style.display = 'none';
 
-        fetch('/invoices/{{ invoice.id }}/send-receipt', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, ..._emailReceiptData })
-        })
-            .then(r => r.json())
-            .then(data => {
-                status.style.display = 'block';
-                if (data.success) {
-                    status.style.background = 'rgba(16, 185, 129, 0.1)';
-                    status.style.border = '1px solid rgba(16, 185, 129, 0.3)';
-                    status.style.color = '#065f46';
-                    status.innerHTML = '<i class="fa-solid fa-circle-check"></i> ' + data.message;
-                    btn.disabled = false;
-                    btn.innerHTML = '<i class="fa-solid fa-check"></i><span> Enviado</span>';
-                    setTimeout(closeEmailReceiptModal, 2800);
-                } else {
+            fetch('/invoices/{{ invoice.id }}/send-receipt', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, ..._emailReceiptData })
+            })
+                .then(r => r.json())
+                .then(data => {
+                    status.style.display = 'block';
+                    if (data.success) {
+                        status.style.background = 'rgba(16, 185, 129, 0.1)';
+                        status.style.border = '1px solid rgba(16, 185, 129, 0.3)';
+                        status.style.color = '#065f46';
+                        status.innerHTML = '<i class="fa-solid fa-circle-check"></i> ' + data.message;
+                        btn.disabled = false;
+                        btn.innerHTML = '<i class="fa-solid fa-check"></i><span> Enviado</span>';
+                        setTimeout(closeEmailReceiptModal, 2800);
+                    } else {
+                        status.style.background = 'rgba(239, 68, 68, 0.08)';
+                        status.style.border = '1px solid rgba(239, 68, 68, 0.25)';
+                        status.style.color = '#991b1b';
+                        status.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> ' + data.message;
+                        btn.disabled = false;
+                        btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i><span> Reintentar</span>';
+                    }
+                })
+                .catch(err => {
+                    status.style.display = 'block';
                     status.style.background = 'rgba(239, 68, 68, 0.08)';
                     status.style.border = '1px solid rgba(239, 68, 68, 0.25)';
                     status.style.color = '#991b1b';
-                    status.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> ' + data.message;
+                    status.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Error de red: ' + err.message;
                     btn.disabled = false;
                     btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i><span> Reintentar</span>';
-                }
+                });
+        }
+
+        // =========================================================================
+        // NOTIFICACIÓN DE e-CF - Alanube Correo
+        // =========================================================================
+        function openNotifyEmailModal() {
+            const emailInput = document.getElementById('notify-email-input');
+            // Pre-rellenar con el email del cliente
+            emailInput.value = {{ client_email | tojson }};
+
+            // Resetear estado del modal
+            const status = document.getElementById('notify-email-status');
+            status.style.display = 'none';
+            status.textContent = '';
+
+            const btn = document.getElementById('send-notify-btn');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i><span> Enviar Notificación</span>';
+
+            document.getElementById('notify-email-modal').style.display = 'flex';
+        }
+    }
+
+        function closeNotifyEmailModal() {
+            document.getElementById('notify-email-modal').style.display = 'none';
+        }
+
+        function submitNotifyEmail() {
+            const emailInput = document.getElementById('notify-email-input');
+            const email = emailInput.value.trim();
+            const pdfTypeSelect = document.getElementById('notify-pdf-type');
+            const pdfType = pdfTypeSelect.value;
+
+            const btn = document.getElementById('send-notify-btn');
+            const status = document.getElementById('notify-email-status');
+
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i><span> Notificando...</span>';
+            status.style.display = 'none';
+
+            fetch('/invoices/{{ invoice.id }}/notify-email', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: email, pdfType: pdfType })
             })
-            .catch(err => {
-                status.style.display = 'block';
-                status.style.background = 'rgba(239, 68, 68, 0.08)';
-                status.style.border = '1px solid rgba(239, 68, 68, 0.25)';
-                status.style.color = '#991b1b';
-                status.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Error de red: ' + err.message;
-                btn.disabled = false;
-                btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i><span> Reintentar</span>';
-            });
-    }
-
-    // =========================================================================
-    // NOTIFICACIÓN DE e-CF - Alanube Correo
-    // =========================================================================
-    function openNotifyEmailModal() {
-        const emailInput = document.getElementById('notify-email-input');
-        // Pre-rellenar con el email del cliente
-        emailInput.value = {{ client_email | tojson }};
-
-        // Resetear estado del modal
-        const status = document.getElementById('notify-email-status');
-        status.style.display = 'none';
-        status.textContent = '';
-
-        const btn = document.getElementById('send-notify-btn');
-        btn.disabled = false;
-        btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i><span> Enviar Notificación</span>';
-
-        document.getElementById('notify-email-modal').style.display = 'flex';
-    }
-
-    function closeNotifyEmailModal() {
-        document.getElementById('notify-email-modal').style.display = 'none';
-    }
-
-    function submitNotifyEmail() {
-        const emailInput = document.getElementById('notify-email-input');
-        const email = emailInput.value.trim();
-        const pdfTypeSelect = document.getElementById('notify-pdf-type');
-        const pdfType = pdfTypeSelect.value;
-
-        const btn = document.getElementById('send-notify-btn');
-        const status = document.getElementById('notify-email-status');
-
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i><span> Notificando...</span>';
-        status.style.display = 'none';
-
-        fetch('/invoices/{{ invoice.id }}/notify-email', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: email, pdfType: pdfType })
-        })
-            .then(r => r.json())
-            .then(data => {
-                status.style.display = 'block';
-                if (data.success) {
-                    status.style.background = 'rgba(16, 185, 129, 0.1)';
-                    status.style.border = '1px solid rgba(16, 185, 129, 0.3)';
-                    status.style.color = '#065f46';
-                    status.innerHTML = '<i class="fa-solid fa-circle-check"></i> ' + data.message;
-                    btn.disabled = false;
-                    btn.innerHTML = '<i class="fa-solid fa-check"></i><span> Notificado</span>';
-                    setTimeout(closeNotifyEmailModal, 2800);
-                } else {
+                .then(r => r.json())
+                .then(data => {
+                    status.style.display = 'block';
+                    if (data.success) {
+                        status.style.background = 'rgba(16, 185, 129, 0.1)';
+                        status.style.border = '1px solid rgba(16, 185, 129, 0.3)';
+                        status.style.color = '#065f46';
+                        status.innerHTML = '<i class="fa-solid fa-circle-check"></i> ' + data.message;
+                        btn.disabled = false;
+                        btn.innerHTML = '<i class="fa-solid fa-check"></i><span> Notificado</span>';
+                        setTimeout(closeNotifyEmailModal, 2800);
+                    } else {
+                        status.style.background = 'rgba(239, 68, 68, 0.08)';
+                        status.style.border = '1px solid rgba(239, 68, 68, 0.25)';
+                        status.style.color = '#991b1b';
+                        status.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> ' + data.message;
+                        btn.disabled = false;
+                        btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i><span> Reintentar</span>';
+                    }
+                })
+                .catch(err => {
+                    status.style.display = 'block';
                     status.style.background = 'rgba(239, 68, 68, 0.08)';
                     status.style.border = '1px solid rgba(239, 68, 68, 0.25)';
                     status.style.color = '#991b1b';
-                    status.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> ' + data.message;
+                    status.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Error de red: ' + err.message;
                     btn.disabled = false;
                     btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i><span> Reintentar</span>';
-                }
-            })
-            .catch(err => {
-                status.style.display = 'block';
-                status.style.background = 'rgba(239, 68, 68, 0.08)';
-                status.style.border = '1px solid rgba(239, 68, 68, 0.25)';
-                status.style.color = '#991b1b';
-                status.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Error de red: ' + err.message;
-                btn.disabled = false;
-                btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i><span> Reintentar</span>';
-            });
-    }
+                });
+        }
+
+        // =========================================================================
+        // ENVIAR COTIZACIÓN POR CORREO
+        // =========================================================================
+        function openSendQuotationModal() {
+            const modal = document.getElementById('send-quotation-modal');
+            if (modal) {
+                modal.style.display = 'flex';
+            }
+        }
+
+        function closeSendQuotationModal() {
+            const modal = document.getElementById('send-quotation-modal');
+            if (modal) {
+                modal.style.display = 'none';
+            }
+        }
 
     </script>
-{% endblock %}
+    {% endblock %}
