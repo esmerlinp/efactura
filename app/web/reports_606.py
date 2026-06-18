@@ -164,7 +164,10 @@ def reporte_606_export():
     filtered.sort(key=lambda x: (x.get("date") or x.get("createdAt") or ""))
 
     output = io.StringIO()
-    writer = csv.writer(output)
+    writer = csv.writer(output, quoting=csv.QUOTE_ALL)
+
+    profile = DatabaseService.get_company_profile(owner_uid)
+    owner_rnc = (profile or {}).get("companyRNC", "")
 
     if fmt == "dgii":
         writer.writerow([
@@ -180,7 +183,6 @@ def reporte_606_export():
             "Fecha Comprobante",
             "Tipo Gasto 606",
         ])
-        owner_rnc = session["user"].get("rnc", "")
         period = f"{year:04d}{month:02d}"
         tipo_comp_map = {
             "E31": "01", "E41": "02", "E43": "03", "E45": "04", "E47": "05",

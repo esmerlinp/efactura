@@ -132,7 +132,7 @@
 
 <!-- Acceso Directo para Registrar Gasto -->
 <div style="display: flex; justify-content: flex-end; margin-bottom: 20px;">
-    <a href="{{ url_for('new_expense_route') }}" class="btn btn-primary" style="display: inline-flex; align-items: center; gap: 8px;">
+    <a href="{{ url_for('web_invoices.new_expense_route') }}" class="btn btn-primary" style="display: inline-flex; align-items: center; gap: 8px;">
         <i class="fa-solid fa-file-circle-plus"></i>
         <span>Registrar Nuevo Gasto</span>
     </a>
@@ -224,7 +224,7 @@
 </div>
 
 <!-- Sección de Filtros y Exportación CxP -->
-<form method="GET" action="{{ url_for('list_cxp') }}" style="margin-bottom: 24px; padding: 15px; background: rgba(0, 0, 0, 0.02); border: 1px solid var(--border-color); border-radius: 8px;">
+<form method="GET" action="{{ url_for('web_invoices.list_cxp') }}" style="margin-bottom: 24px; padding: 15px; background: rgba(0, 0, 0, 0.02); border: 1px solid var(--border-color); border-radius: 8px;">
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; align-items: flex-end;">
         <div class="form-group" style="margin-bottom: 0;">
             <label for="search" style="font-size: 0.72rem; margin-bottom: 4px; display: block; color: var(--text-secondary);">Buscar Documento</label>
@@ -256,7 +256,7 @@
             <button type="submit" class="btn btn-secondary" style="flex: 1; justify-content: center; height: 36px; font-size: 0.78rem; padding: 0 12px; border-color: var(--accent-emerald); color: var(--accent-emerald);">
                 <i class="fa-solid fa-filter"></i> Filtrar
             </button>
-            <a href="{{ url_for('list_cxp') }}" class="btn btn-secondary" style="justify-content: center; height: 36px; font-size: 0.78rem; padding: 0 10px; border-color: var(--border-color); color: var(--text-muted);" title="Limpiar Filtros">
+            <a href="{{ url_for('web_invoices.list_cxp') }}" class="btn btn-secondary" style="justify-content: center; height: 36px; font-size: 0.78rem; padding: 0 10px; border-color: var(--border-color); color: var(--text-muted);" title="Limpiar Filtros">
                 <i class="fa-solid fa-filter-circle-xmark"></i>
             </a>
             <button type="button" class="btn btn-secondary" onclick="exportToCSV()" style="flex: 1; justify-content: center; height: 36px; font-size: 0.78rem; padding: 0 12px; border-color: var(--accent-blue); color: var(--accent-blue);" title="Exportar a CSV">
@@ -332,7 +332,7 @@
                 </td>
                 <td style="padding: 14px 16px; align-items: center;">
                     <div class="action-btn-group">
-                        <a href="{{ url_for('expense_detail', expense_id=cxp.id) }}" class="action-btn"
+                        <a href="{{ url_for('web_invoices.expense_detail', expense_id=cxp.id) }}" class="action-btn"
                             title="Ver Detalle y Comentarios" style="color: var(--accent-purple); border-color: rgba(124, 58, 237, 0.3);">
                             <i class="fa-solid fa-eye"></i>
                         </a>

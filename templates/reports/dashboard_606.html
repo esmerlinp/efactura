@@ -15,10 +15,10 @@
         </p>
     </div>
     <div style="display:flex; gap:8px;">
-        <a href="{{ url_for('reporte_606', year=year, month=month) }}" class="btn btn-secondary">
+        <a href="{{ url_for('web_reports_606.reporte_606', year=year, month=month) }}" class="btn btn-secondary">
             <i class="fa-solid fa-table"></i> Ver Detalle
         </a>
-        <select id="period-select" class="form-select" style="width:auto; height:36px;" onchange="window.location.href='{{ url_for('reporte_606_dashboard') }}?year='+this.value.split('-')[0]+'&month='+this.value.split('-')[1];">
+        <select id="period-select" class="form-select" style="width:auto; height:36px;" onchange="window.location.href='{{ url_for('web_reports_606.reporte_606_dashboard') }}?year='+this.value.split('-')[0]+'&month='+this.value.split('-')[1];">
             {% for y in range(now.year - 1, now.year + 1) %}
             {% for m in range(1, 13) %}
             {% set sel = (y == year and m == month) %}

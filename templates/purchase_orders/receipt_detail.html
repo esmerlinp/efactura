@@ -15,7 +15,7 @@
         </p>
     </div>
     <div>
-        <a href="{{ url_for('list_receipts') }}" class="btn btn-secondary">
+        <a href="{{ url_for('web_purchase_orders.list_receipts') }}" class="btn btn-secondary">
             <i class="fa-solid fa-arrow-left"></i> Volver
         </a>
     </div>
@@ -30,7 +30,7 @@
             <div><span style="color:var(--text-muted);">Recepción:</span></div>
             <div style="font-weight:600;">{{ receipt.receiptNumber }}</div>
             <div><span style="color:var(--text-muted);">OC Relacionada:</span></div>
-            <div><a href="{{ url_for('purchase_order_detail', po_id=receipt.poId) }}" style="color:var(--accent-blue);">{{ receipt.poNumber or '—' }}</a></div>
+            <div><a href="{{ url_for('web_purchase_orders.purchase_order_detail', po_id=receipt.poId) }}" style="color:var(--accent-blue);">{{ receipt.poNumber or '—' }}</a></div>
             <div><span style="color:var(--text-muted);">Proveedor:</span></div>
             <div>{{ receipt.supplierName or '—' }}</div>
             <div><span style="color:var(--text-muted);">RNC:</span></div>
@@ -55,7 +55,7 @@
         </h4>
         {% set items = receipt.get('items', []) %}
         {% set total_qty = items|sum(attribute='receivedQuantity') %}
-        {% set total_value = items|sum(attribute='receivedQuantity')|sum(attribute='unitPrice') %}
+
         {% set catalog_items = items|selectattr('itemId')|list %}
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
             <div style="text-align:center; padding:16px; background:rgba(139,92,246,0.06); border-radius:12px;">

@@ -11,11 +11,11 @@
         <p style="color: var(--text-secondary); font-size: 0.88rem;">Puntos y sucursales físicas donde resguardas existencias de inventario.</p>
     </div>
     <div style="display: flex; gap: 12px;">
-        <a href="{{ url_for('inventory_dashboard') }}" class="btn btn-secondary">
+        <a href="{{ url_for('web_invoices.inventory_dashboard') }}" class="btn btn-secondary">
             <i class="fa-solid fa-arrow-left"></i>
             <span>Volver a Inventario</span>
         </a>
-        <a href="{{ url_for('new_warehouse') }}" class="btn btn-primary">
+        <a href="{{ url_for('web_invoices.new_warehouse') }}" class="btn btn-primary">
             <i class="fa-solid fa-plus"></i>
             <span>Nuevo Almacén</span>
         </a>
@@ -49,13 +49,13 @@
         </div>
         
         <div style="display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid var(--border-color); padding-top: 16px; margin-top: 20px;">
-            <a href="{{ url_for('edit_warehouse', warehouse_id=wh.id) }}" class="btn btn-secondary" style="padding: 8px 14px; font-size: 0.8rem;" title="Editar Almacén">
+            <a href="{{ url_for('web_invoices.edit_warehouse', warehouse_id=wh.id) }}" class="btn btn-secondary" style="padding: 8px 14px; font-size: 0.8rem;" title="Editar Almacén">
                 <i class="fa-solid fa-pen-to-square"></i>
                 <span>Editar</span>
             </a>
             
             {% if wh.id != 'default-almacen-principal' %}
-            <form action="{{ url_for('delete_warehouse_route', warehouse_id=wh.id) }}" method="POST" onsubmit="return confirm('¿Seguro que deseas eliminar este almacén? Se borrará permanentemente de tu base de datos.');" style="display: inline;">
+            <form action="{{ url_for('web_invoices.delete_warehouse_route', warehouse_id=wh.id) }}" method="POST" onsubmit="return confirm('¿Seguro que deseas eliminar este almacén? Se borrará permanentemente de tu base de datos.');" style="display: inline;">
                 <button type="submit" class="btn btn-danger" style="padding: 8px 14px; font-size: 0.8rem;" title="Eliminar Almacén">
                     <i class="fa-solid fa-trash-can"></i>
                     <span>Eliminar</span>

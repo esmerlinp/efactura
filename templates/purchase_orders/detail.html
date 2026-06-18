@@ -16,7 +16,7 @@
     </div>
     <div style="display:flex; gap:8px; flex-wrap:wrap;">
         {% if order.status in ('borrador', 'pendiente_aprobacion') %}
-        <a href="{{ url_for('edit_purchase_order', po_id=order.id) }}" class="btn btn-secondary">
+        <a href="{{ url_for('web_purchase_orders.edit_purchase_order', po_id=order.id) }}" class="btn btn-secondary">
             <i class="fa-solid fa-pen-to-square"></i> Editar
         </a>
         <button type="button" class="btn btn-primary" onclick="approvePO()">
@@ -24,8 +24,13 @@
         </button>
         {% endif %}
         {% if order.status == 'aprobada' or order.status == 'recibida_parcial' %}
-        <a href="{{ url_for('new_receipt', po_id=order.id) }}" class="btn btn-primary">
+        <a href="{{ url_for('web_purchase_orders.new_receipt', po_id=order.id) }}" class="btn btn-primary">
             <i class="fa-solid fa-truck-loading"></i> Recibir Mercancía
+        </a>
+        {% endif %}
+        {% if order.status in ('recibida_parcial', 'recibida_completa') %}
+        <a href="{{ url_for('web_purchase_orders.register_supplier_invoice', po_id=order.id) }}" class="btn btn-primary" style="background:var(--accent-purple); border-color:var(--accent-purple);">
+            <i class="fa-solid fa-file-invoice"></i> Registrar Factura Proveedor
         </a>
         {% endif %}
         {% if order.status not in ('cancelada', 'recibida_completa') %}
@@ -33,7 +38,7 @@
             <i class="fa-solid fa-ban"></i> Cancelar
         </button>
         {% endif %}
-        <form action="{{ url_for('delete_purchase_order', po_id=order.id) }}" method="POST" style="display:inline;" onsubmit="return confirm('¿Eliminar permanentemente esta orden?');">
+        <form action="{{ url_for('web_purchase_orders.delete_purchase_order', po_id=order.id) }}" method="POST" style="display:inline;" onsubmit="return confirm('¿Eliminar permanentemente esta orden?');">
             <button type="submit" class="btn btn-danger">
                 <i class="fa-solid fa-trash-can"></i> Eliminar
             </button>
@@ -111,7 +116,7 @@
 
 <div class="card-form-body" style="padding:20px; margin-bottom:24px;">
     <h4 style="font-size:0.9rem; font-weight:700; font-family:var(--font-heading); margin-bottom:14px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.03em;">
-        <i class="fa-solid fa-box" style="margin-right:6px;"></i> Partidas ({{ order.items|length if order.items else 0 }})
+        <i class="fa-solid fa-box" style="margin-right:6px;"></i> Partidas ({{ order['items']|length if order['items'] else 0 }})
     </h4>
     <div class="table-responsive">
         <table class="table-premium">
@@ -130,8 +135,8 @@
                 </tr>
             </thead>
             <tbody>
-                {% if order.items %}
-                {% for item in order.items %}
+                {% if order['items'] %}
+                {% for item in order['items'] %}
                 <tr>
                     <td>{{ loop.index }}</td>
                     <td style="font-weight:600;">{{ item.name or '—' }}</td>
@@ -188,9 +193,9 @@
                     <td><span class="mono" style="font-weight:600; color:var(--accent-blue);">{{ r.receiptNumber }}</span></td>
                     <td style="font-size:0.82rem;">{{ r.receiptDate or r.createdAt[:10] if r.createdAt else '—' }}</td>
                     <td>{{ r.warehouseName or '—' }}</td>
-                    <td style="text-align:center;">{{ r.items|length if r.items else 0 }}</td>
+                    <td style="text-align:center;">{{ r['items']|length if r['items'] else 0 }}</td>
                     <td style="text-align:center;">
-                        {% set cat_count = r.items|selectattr('itemId')|list|length if r.items else 0 %}
+                        {% set cat_count = r['items']|selectattr('itemId')|list|length if r['items'] else 0 %}
                         {% if cat_count > 0 %}
                         <span style="color:var(--accent-emerald); font-weight:600;">{{ cat_count }}</span>
                         {% else %}
@@ -198,7 +203,7 @@
                         {% endif %}
                     </td>
                     <td style="text-align:right;">
-                        <a href="{{ url_for('receipt_detail', receipt_id=r.id) }}" class="btn btn-secondary btn-sm" style="padding:4px 8px; font-size:0.7rem;">
+                        <a href="{{ url_for('web_purchase_orders.receipt_detail', receipt_id=r.id) }}" class="btn btn-secondary btn-sm" style="padding:4px 8px; font-size:0.7rem;">
                             <i class="fa-solid fa-eye"></i>
                         </a>
                     </td>
@@ -209,6 +214,60 @@
     </div>
     {% else %}
     <p style="color:var(--text-muted); font-size:0.85rem;">No hay recepciones registradas para esta orden.</p>
+    {% endif %}
+</div>
+
+<div class="card-form-body" style="padding:20px; margin-bottom:24px;">
+    <h4 style="font-size:0.9rem; font-weight:700; font-family:var(--font-heading); margin-bottom:14px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.03em;">
+        <i class="fa-solid fa-file-invoice" style="margin-right:6px;"></i> Facturas de Proveedor
+    </h4>
+    {% if order.supplier_invoices and order.supplier_invoices|length > 0 %}
+    <div class="table-responsive">
+        <table class="table-premium">
+            <thead>
+                <tr>
+                    <th>Factura#</th>
+                    <th>Factura Prov.</th>
+                    <th>NCF</th>
+                    <th>Fecha</th>
+                    <th>Vence</th>
+                    <th>Total (RD$)</th>
+                    <th>Balance (RD$)</th>
+                    <th>Estado CxP</th>
+                    <th style="text-align:right;">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for inv in order.supplier_invoices %}
+                <tr>
+                    <td><span class="mono" style="font-weight:600; color:var(--accent-blue);">{{ inv.invoiceNumber }}</span></td>
+                    <td>{{ inv.supplierInvoiceNumber or '—' }}</td>
+                    <td class="mono">{{ inv.ncf or '—' }}</td>
+                    <td style="font-size:0.82rem;">{{ (inv.date or '')[:10] }}</td>
+                    <td style="font-size:0.82rem;">{{ (inv.dueDate or '')[:10] }}</td>
+                    <td style="font-weight:600;">{{ "{:,.2f}".format(inv.total|default(0)) }}</td>
+                    <td style="font-weight:600; color:{% if inv.cxpStatus == 'Vencido' %}var(--accent-red){% elif inv.cxpStatus == 'Pagado' %}var(--accent-emerald){% else %}var(--accent-amber){% endif %}">
+                        {{ "{:,.2f}".format(inv.cxpRemainingBalance|default(inv.total|default(0))) }}
+                    </td>
+                    <td>
+                        {% set st = inv.cxpStatus|default('Pendiente') %}
+                        {% if st == 'Pagado' %}<span class="badge badge-green">Pagado</span>
+                        {% elif st == 'Abonado' %}<span class="badge badge-blue">Abonado</span>
+                        {% elif st == 'Vencido' %}<span class="badge badge-red">Vencido</span>
+                        {% else %}<span class="badge badge-amber">Pendiente</span>{% endif %}
+                    </td>
+                    <td style="text-align:right;">
+                        <a href="{{ url_for('web_purchase_orders.supplier_invoice_detail', invoice_id=inv.id) }}" class="btn btn-secondary btn-sm" style="padding:4px 8px; font-size:0.7rem;">
+                            <i class="fa-solid fa-eye"></i>
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p style="color:var(--text-muted); font-size:0.85rem;">No hay facturas de proveedor registradas para esta orden.</p>
     {% endif %}
 </div>
 
@@ -241,7 +300,7 @@
 <script>
 function approvePO() {
     if (!confirm('¿Aprobar esta orden de compra?')) return;
-    fetch("{{ url_for('approve_purchase_order', po_id=order.id) }}", { method: 'POST' })
+    fetch("{{ url_for('web_purchase_orders.approve_purchase_order', po_id=order.id) }}", { method: 'POST' })
         .then(r => r.json())
         .then(d => {
             if (d.success) { location.reload(); }
@@ -252,7 +311,7 @@ function approvePO() {
 
 function cancelPO() {
     if (!confirm('¿Cancelar esta orden de compra?')) return;
-    fetch("{{ url_for('cancel_purchase_order', po_id=order.id) }}", { method: 'POST' })
+    fetch("{{ url_for('web_purchase_orders.cancel_purchase_order', po_id=order.id) }}", { method: 'POST' })
         .then(r => r.json())
         .then(d => {
             if (d.success) { location.reload(); }

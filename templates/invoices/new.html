@@ -33,7 +33,9 @@ Documento Electrónico{% endif %}{% endblock %}
                 <!-- 1. Clasificación del Documento -->
                 <div class="form-group">
                     <label for="ecf-type-select">Tipo de Documento <span
-                            style="color: var(--accent-red); font-weight: bold; margin-left: 2px;">*</span></label>
+                            style="color: var(--accent-red); font-weight: bold; margin-left: 2px;">*</span>
+                        <i class="fa-solid fa-question-circle" style="color:var(--text-muted); cursor:help;" title="E31: Crédito Fiscal (B2B corporativo). E32: Consumo (público general). E33/E34: Notas de Débito/Crédito (ajustes). E41: Compras. E43: Gastos menores. E47: Pagos al exterior. El tipo determina el formato del e-NCF y la validación DGII."></i>
+                    </label>
                     <select id="ecf-type-select"
                         name="{% if is_referencing %}ecfTypeDisabled{% else %}ecfType{% endif %}" class="form-select"
                         required {% if is_referencing %}disabled style="opacity: 0.85; cursor: not-allowed;" {% endif
@@ -64,7 +66,9 @@ Documento Electrónico{% endif %}{% endblock %}
 
                 <div class="form-group">
                     <label for="income-type-select">Tipo de Ingreso (DGII) <span
-                            style="color: var(--accent-red); font-weight: bold; margin-left: 2px;">*</span></label>
+                            style="color: var(--accent-red); font-weight: bold; margin-left: 2px;">*</span>
+                        <i class="fa-solid fa-question-circle" style="color:var(--text-muted); cursor:help;" title="Clasificación DGII del ingreso: 01=Operaciones, 02=Financieros, 03=Extraordinarios, 04=Arrendamientos, 05=Venta activo fijo, 06=Otros. Esta clasificación se reporta en el informe 606."></i>
+                    </label>
                     <select id="income-type-select" name="incomeType" class="form-select" required>
                         <option value="01 - Ingresos por operaciones" {% if not invoice or
                             invoice.incomeType=='01 - Ingresos por operaciones' %}selected{% endif %}>01 - Ingresos por
@@ -127,8 +131,22 @@ Documento Electrónico{% endif %}{% endblock %}
                     {% endif %}
                 </div>
 
+                <div class="form-group" id="exchange-rate-container" style="display: none;">
+                    <label for="exchangeRate">Tasa de Cambio (Venta)
+                        <i class="fa-solid fa-question-circle" style="color:var(--text-muted); cursor:help;" title="Tasa de cambio del día para convertir a DOP. Se auto-obtiene del Banco Popular. Puedes ajustarla manualmente."></i>
+                    </label>
+                    <div style="position: relative;">
+                        <input type="number" id="exchangeRate" name="exchangeRate" class="form-input" placeholder="0.00" step="0.01" style="width: 100%;">
+                        <div id="rate-loading" style="display: none; position: absolute; right: 10px; top: 8px;">
+                            <i class="fa-solid fa-spinner fa-spin" style="color: var(--accent-emerald);"></i>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="form-group">
-                    <label for="payment-type-select">Condición de Pago</label>
+                    <label for="payment-type-select">Condición de Pago
+                        <i class="fa-solid fa-question-circle" style="color:var(--text-muted); cursor:help;" title="'Contado' para pago inmediato (la factura se marca como cobrada). 'Crédito' activa el acuerdo de pago y CxC. Afecta la fecha de declaración del ITBIS ante la DGII."></i>
+                    </label>
                     <select id="payment-type-select" name="paymentType" class="form-select">
                         <option value="Contado" {% if not invoice or invoice.paymentType=='Contado' %}selected{% endif
                             %}>Contado (Inmediato)</option>
@@ -145,7 +163,9 @@ Documento Electrónico{% endif %}{% endblock %}
                 </div>
 
                 <div class="form-group" id="payment-method-group">
-                    <label for="payment-method-select">Forma de Pago</label>
+                    <label for="payment-method-select">Forma de Pago
+                        <i class="fa-solid fa-question-circle" style="color:var(--text-muted); cursor:help;" title="Método usado para recibir el pago. Se reporta en la DGII para conciliación. 'Cheque/Transferencia' y 'Tarjeta' generan registros bancarios rastreables para la declaración de ITBIS."></i>
+                    </label>
                     <select id="payment-method-select" name="paymentMethod" class="form-select">
                         <option value="Efectivo" {% if not invoice or invoice.paymentMethod=='Efectivo' %}selected{%
                             endif %}>Efectivo</option>
@@ -441,7 +461,9 @@ Documento Electrónico{% endif %}{% endblock %}
                     step="0.01" value="0.00" placeholder="Ej: 0.10 = 10%">
             </div>
             <div class="form-group" style="margin-bottom: 0;">
-                <label for="isr-rate-select">Retención ISR</label>
+                <label for="isr-rate-select">Retención ISR
+                    <i class="fa-solid fa-question-circle" style="color:var(--text-muted); cursor:help;" title="La DGII exige retener ISR al pagar a proveedores: 2% sobre bienes y servicios (RNC válido), 10% sobre honorarios profesionales y alquileres. Se declara en el reporte 607."></i>
+                </label>
                 <select id="isr-rate-select" name="retainedISRRate" class="form-select">
                     <option value="0.0" selected>Sin retención (0%)</option>
                     <option value="0.02">2% — Bienes y servicios</option>
@@ -449,7 +471,9 @@ Documento Electrónico{% endif %}{% endblock %}
                 </select>
             </div>
             <div class="form-group" style="margin-bottom: 0;">
-                <label for="itbis-rate-select">Retención ITBIS</label>
+                <label for="itbis-rate-select">Retención ITBIS
+                    <i class="fa-solid fa-question-circle" style="color:var(--text-muted); cursor:help;" title="Retención ITBIS al pagar a proveedores según régimen DGII: 30% para bienes corporativos, 75% para servicios jurídicos, 100% para profesionales independientes. Se declara en el reporte 607."></i>
+                </label>
                 <select id="itbis-rate-select" name="retainedITBISRate" class="form-select">
                     <option value="0.0" selected>Sin retención (0%)</option>
                     <option value="0.30">30% — Bienes corporativos</option>
@@ -620,7 +644,7 @@ Documento Electrónico{% endif %}{% endblock %}
     <!-- BARRA DE ACCIONES FINAL -->
     <div
         style="display: flex; justify-content: flex-end; gap: 15px; border-top: 1px solid var(--border-color); padding-top: 24px; margin-bottom: 12px;">
-        <a href="{% if active_page == 'quotations' %}/quotations{% else %}{{ url_for('list_invoices') }}{% endif %}"
+        <a href="{% if active_page == 'quotations' %}/quotations{% else %}{{ url_for('web_invoices.list_invoices') }}{% endif %}"
             class="btn btn-secondary">
             <span>Cancelar</span>
         </a>
@@ -1039,6 +1063,43 @@ Documento Electrónico{% endif %}{% endblock %}
         if (agreementEnabledSelect) {
             agreementEnabledSelect.addEventListener('change', handleAgreementToggle);
             handleAgreementToggle();
+        }
+
+        // Auto-fetch exchange rate on currency change
+        function handleCurrencyChange() {
+            const currency = document.getElementById('currency-select').value;
+            const rateContainer = document.getElementById('exchange-rate-container');
+            const rateInput = document.getElementById('exchangeRate');
+            const loadingIcon = document.getElementById('rate-loading');
+            if (!rateContainer || !rateInput) return;
+
+            if (currency === 'DOP') {
+                rateContainer.style.display = 'none';
+                rateInput.value = 1.0;
+            } else {
+                rateContainer.style.display = 'block';
+                loadingIcon.style.display = 'block';
+                fetch('/api/currency/rate/' + currency)
+                    .then(function(res){ return res.json(); })
+                    .then(function(data){
+                        loadingIcon.style.display = 'none';
+                        if (data.success && data.rate) {
+                            rateInput.value = data.rate.toFixed(2);
+                            rateInput.classList.add('field-highlighted');
+                            setTimeout(function(){ rateInput.classList.remove('field-highlighted'); }, 3000);
+                        } else {
+                            rateInput.value = '';
+                        }
+                    })
+                    .catch(function(){
+                        loadingIcon.style.display = 'none';
+                    });
+            }
+        }
+        var currencySelect = document.getElementById('currency-select');
+        if (currencySelect) {
+            currencySelect.addEventListener('change', handleCurrencyChange);
+            handleCurrencyChange();
         }
 
         // Lógica de Notas de Crédito / Débito (Ley 32-23)

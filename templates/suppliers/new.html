@@ -37,10 +37,10 @@
             </h2>
             <p style="color:var(--text-secondary); font-size:0.82rem; margin:4px 0 0;">Completa los datos del proveedor.</p>
         </div>
-        <a href="{{ url_for('list_suppliers') }}" class="btn btn-secondary"><i class="fa-solid fa-arrow-left"></i> Volver</a>
+        <a href="{{ url_for('web_suppliers.list_suppliers') }}" class="btn btn-secondary"><i class="fa-solid fa-arrow-left"></i> Volver</a>
     </div>
 
-    <form action="{{ url_for('new_supplier') }}" method="POST" enctype="multipart/form-data" id="supplier-form" novalidate>
+    <form action="{{ url_for('web_suppliers.new_supplier') }}" method="POST" enctype="multipart/form-data" id="supplier-form" novalidate>
         <div class="settings-accordion">
 
             <!-- SECCIÓN 1: DATOS GENERALES -->
@@ -259,7 +259,7 @@
         </div>
 
         <div style="display:flex; gap:12px; justify-content:flex-end; margin-top:12px;">
-            <a href="{{ url_for('list_suppliers') }}" class="btn btn-secondary" style="padding:10px 24px;">Cancelar</a>
+            <a href="{{ url_for('web_suppliers.list_suppliers') }}" class="btn btn-secondary" style="padding:10px 24px;">Cancelar</a>
             <button type="submit" class="btn btn-primary" style="padding:10px 24px;">
                 <i class="fa-solid fa-save"></i> Guardar Proveedor
             </button>

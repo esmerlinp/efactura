@@ -1,0 +1,134 @@
+{% extends "layout.html" %}
+{% block title %}Exportación Contable{% endblock %}
+{% block page_header %}Exportación Contable{% endblock %}
+
+{% block content %}
+<div class="page-title-container" style="margin-bottom:24px; padding-left:4px;">
+    <h1 style="font-size:1.75rem; font-weight:800; font-family:var(--font-heading); color:var(--text-primary); margin:0;">
+        <i class="fa-solid fa-file-export" style="color:var(--accent-purple); margin-right:10px;"></i>
+        Exportación Contable
+    </h1>
+    <p style="color:var(--text-secondary); font-size:0.88rem; margin:6px 0 0 2px;">
+        Exporta tus facturas y gastos como asientos contables para importar en tu software de contabilidad.
+    </p>
+</div>
+
+<div style="display:grid; grid-template-columns:1fr 1fr; gap:24px; margin-bottom:24px;">
+    <div class="card-form-body" style="padding:20px;">
+        <h4 style="font-size:0.9rem; font-weight:700; font-family:var(--font-heading); margin-bottom:14px; color:var(--text-secondary); text-transform:uppercase;">
+            <i class="fa-solid fa-file-invoice-dollar"></i> Exportar Ventas
+        </h4>
+        <form method="POST" action="{{ url_for('web_invoices.accounting_export_download') }}" style="display:flex; flex-direction:column; gap:12px;">
+            <input type="hidden" name="exportType" value="sales">
+            <div class="form-group">
+                <label style="font-size:0.78rem; font-weight:600; color:var(--text-secondary);">Formato</label>
+                <select name="format" class="form-select" style="width:100%;">
+                    {% for key, label in formats.items() %}
+                    <option value="{{ key }}">{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div style="display:flex; gap:12px;">
+                <div class="form-group" style="flex:1;">
+                    <label style="font-size:0.78rem; font-weight:600; color:var(--text-secondary);">Desde</label>
+                    <input type="date" name="dateFrom" class="form-input" style="width:100%;">
+                </div>
+                <div class="form-group" style="flex:1;">
+                    <label style="font-size:0.78rem; font-weight:600; color:var(--text-secondary);">Hasta</label>
+                    <input type="date" name="dateTo" class="form-input" style="width:100%;">
+                </div>
+            </div>
+            <button type="submit" class="btn btn-primary" style="align-self:flex-start;">
+                <i class="fa-solid fa-download"></i> Exportar Ventas
+            </button>
+        </form>
+    </div>
+
+    <div class="card-form-body" style="padding:20px;">
+        <h4 style="font-size:0.9rem; font-weight:700; font-family:var(--font-heading); margin-bottom:14px; color:var(--text-secondary); text-transform:uppercase;">
+            <i class="fa-solid fa-receipt"></i> Exportar Gastos
+        </h4>
+        <form method="POST" action="{{ url_for('web_invoices.accounting_export_download') }}" style="display:flex; flex-direction:column; gap:12px;">
+            <input type="hidden" name="exportType" value="expenses">
+            <div class="form-group">
+                <label style="font-size:0.78rem; font-weight:600; color:var(--text-secondary);">Formato</label>
+                <select name="format" class="form-select" style="width:100%;">
+                    {% for key, label in formats.items() %}
+                    <option value="{{ key }}">{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div style="display:flex; gap:12px;">
+                <div class="form-group" style="flex:1;">
+                    <label style="font-size:0.78rem; font-weight:600; color:var(--text-secondary);">Desde</label>
+                    <input type="date" name="dateFrom" class="form-input" style="width:100%;">
+                </div>
+                <div class="form-group" style="flex:1;">
+                    <label style="font-size:0.78rem; font-weight:600; color:var(--text-secondary);">Hasta</label>
+                    <input type="date" name="dateTo" class="form-input" style="width:100%;">
+                </div>
+            </div>
+            <button type="submit" class="btn btn-primary" style="align-self:flex-start;">
+                <i class="fa-solid fa-download"></i> Exportar Gastos
+            </button>
+        </form>
+    </div>
+</div>
+
+<div class="card-form-body" style="padding:20px; margin-bottom:24px;">
+    <h4 style="font-size:0.9rem; font-weight:700; font-family:var(--font-heading); margin-bottom:14px; color:var(--text-secondary); text-transform:uppercase;">
+        <i class="fa-solid fa-book"></i> Plan de Cuentas
+    </h4>
+    <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:12px;">
+        Personaliza las cuentas contables que se usan en la exportación. Cada software usa nomenclatura distinta.
+    </p>
+    {% set coa = (profile.chartOfAccounts if profile else {}) %}
+    <form method="POST" action="{{ url_for('web_invoices.save_chart_of_accounts') }}" style="display:grid; grid-template-columns:1fr 1fr; gap:12px; max-width:600px;">
+        <div class="form-group">
+            <label style="font-size:0.72rem; font-weight:600; color:var(--text-secondary);">CxC (Débito)</label>
+            <input type="text" name="coa_CXC" class="form-input" value="{{ coa.get('CXC', '1.1.3.01') }}" style="width:100%; font-size:0.82rem;">
+        </div>
+        <div class="form-group">
+            <label style="font-size:0.72rem; font-weight:600; color:var(--text-secondary);">Ventas (Crédito)</label>
+            <input type="text" name="coa_VENTAS" class="form-input" value="{{ coa.get('VENTAS', '4.1.1.01') }}" style="width:100%; font-size:0.82rem;">
+        </div>
+        <div class="form-group">
+            <label style="font-size:0.72rem; font-weight:600; color:var(--text-secondary);">ITBIS por Pagar</label>
+            <input type="text" name="coa_ITBIS_POR_PAGAR" class="form-input" value="{{ coa.get('ITBIS_POR_PAGAR', '2.1.1.02') }}" style="width:100%; font-size:0.82rem;">
+        </div>
+        <div class="form-group">
+            <label style="font-size:0.72rem; font-weight:600; color:var(--text-secondary);">CxP (Crédito)</label>
+            <input type="text" name="coa_CXP" class="form-input" value="{{ coa.get('CXP', '2.1.2.01') }}" style="width:100%; font-size:0.82rem;">
+        </div>
+        <div class="form-group">
+            <label style="font-size:0.72rem; font-weight:600; color:var(--text-secondary);">Gastos</label>
+            <input type="text" name="coa_GASTOS" class="form-input" value="{{ coa.get('GASTOS', '5.1.1.01') }}" style="width:100%; font-size:0.82rem;">
+        </div>
+        <div class="form-group">
+            <label style="font-size:0.72rem; font-weight:600; color:var(--text-secondary);">Compras</label>
+            <input type="text" name="coa_COMPRAS" class="form-input" value="{{ coa.get('COMPRAS', '6.1.1.01') }}" style="width:100%; font-size:0.82rem;">
+        </div>
+        <div style="grid-column:1/-1; margin-top:8px;">
+            <button type="submit" class="btn btn-secondary">
+                <i class="fa-solid fa-save"></i> Guardar Plan de Cuentas
+            </button>
+        </div>
+    </form>
+</div>
+
+<div class="card-form-body" style="padding:20px;">
+    <h4 style="font-size:0.9rem; font-weight:700; font-family:var(--font-heading); margin-bottom:14px; color:var(--text-secondary); text-transform:uppercase;">
+        <i class="fa-solid fa-circle-info"></i> Formatos Soportados
+    </h4>
+    <ul style="font-size:0.82rem; color:var(--text-secondary); padding-left:20px;">
+        <li><strong>CSV Estándar</strong> — Columnas para importar en Excel / Google Sheets. Compatible con la mayoría de contadores independientes.</li>
+        <li><strong>QuickBooks (IIF)</strong> — Formato IIF con cabeceras !TRNS/!SPL. Compatible con QuickBooks Desktop y Online (importación CSV).</li>
+        <li><strong>Sage 50 (Pez)</strong> — Columnas ACCTNO, DATE, TRNSID, AMOUNT, TYPE. Compatible con Sage 50 (antes Peachtree).</li>
+        <li><strong>Odoo</strong> — Columnas account_id, partner_id, date, ref, debit, credit. Compatible con Odoo Community y Enterprise.</li>
+        <li><strong>Softland</strong> — Columnas TIPO, FECHA, COMPROBANTE, CUENTA, DEBE, HABER, DETALLE. Formato CSV del ERP líder en RD.</li>
+    </ul>
+    <p style="font-size:0.78rem; color:var(--text-muted); margin-top:12px;">
+        <i class="fa-solid fa-lightbulb"></i> Tip: Exporta primero en formato CSV Estándar para validar los datos. Luego usa el formato específico de tu software.
+    </p>
+</div>
+{% endblock %}

@@ -148,6 +148,11 @@
                     <span
                         style="font-size: 0.85rem; color: var(--text-secondary); display: block; margin-bottom: 4px;">Moneda:
                         <strong>{{ invoice.currency }}</strong></span>
+                    {% if invoice.currency and invoice.currency != 'DOP' and invoice.exchangeRate %}
+                    <span
+                        style="font-size: 0.85rem; color: var(--text-secondary); display: block; margin-bottom: 4px;">Tasa:
+                        <strong>1 {{ invoice.currency }} = RD$ {{ "%.2f"|format(invoice.exchangeRate) }}</strong></span>
+                    {% endif %}
                     <span
                         style="font-size: 0.85rem; color: var(--text-secondary); display: block; margin-bottom: 4px;">Método
                         Pago: <strong>{{ invoice.paymentMethod }}</strong></span>
@@ -794,7 +799,7 @@
             <!-- QR Code de verificación en vivo -->
             <div
                 style="background-color: white; padding: 12px; border-radius: var(--radius-sm); display: inline-block; box-shadow: var(--shadow-sm); margin-bottom: 16px;">
-                <img src="{{ url_for('invoice_qr_image', invoice_id=invoice.id) }}" alt="QR Code DGII"
+                <img src="{{ url_for('web_invoices.invoice_qr_image', invoice_id=invoice.id) }}" alt="QR Code DGII"
                     style="width: 140px; height: 140px; display: block;">
             </div>
 
@@ -805,7 +810,7 @@
                     ⚠️ e-CF emitido en contingencia
                 </div>
                 {% if not invoice.isSyncedWithDGII %}
-                <form action="{{ url_for('sync_single_invoice_route', invoice_id=invoice.id) }}" method="POST"
+                <form action="{{ url_for('web_invoices.sync_single_invoice_route', invoice_id=invoice.id) }}" method="POST"
                     style="margin-top: 6px;">
                     <button type="submit" class="btn btn-primary"
                         style="width: 100%; font-size: 0.76rem; padding: 6px 12px; background: linear-gradient(135deg, #f59e0b, #d97706); border: none; font-weight: bold; cursor: pointer;">
@@ -828,7 +833,7 @@
 
             <div
                 style="border-top: 1px solid var(--border-color); padding-top: 16px; display: flex; flex-direction: column; gap: 8px;">
-                <a href="{{ invoice.firebasePDFURL or url_for('invoice_pdf_download', invoice_id=invoice.id) }}"
+                <a href="{{ invoice.firebasePDFURL or url_for('web_invoices.invoice_pdf_download', invoice_id=invoice.id) }}"
                     target="_blank" class="btn btn-secondary"
                     style="width: 100%; font-size: 0.82rem; padding: 8px 16px;">
                     <i class="fa-solid fa-file-pdf" style="color: var(--accent-red);"></i>
@@ -851,7 +856,7 @@
             <p style="color: var(--text-secondary); font-size: 0.82rem; line-height: 1.4; margin-bottom: 20px;">
                 Esta factura se encuentra guardada como borrador. Emite el documento para firmarlo digitalmente.
             </p>
-            <form action="{{ url_for('sign_invoice_route', invoice_id=invoice.id) }}" method="POST">
+            <form action="{{ url_for('web_invoices.sign_invoice_route', invoice_id=invoice.id) }}" method="POST">
                 <button type="submit" class="btn btn-primary" style="width: 100%;">
                     <i class="fa-solid fa-signature"></i>
                     <span>Firmar y Emitir Documento</span>
@@ -881,7 +886,7 @@
         <!-- Acciones Generales -->
         <div class="card-table-wrapper" style="padding: 24px; display: flex; flex-direction: column; gap: 12px;">
             {% if invoice.status == 'Borrador' %}
-            <a href="{{ url_for('new_invoice_route', invoice_id=invoice.id) }}" class="btn btn-primary"
+            <a href="{{ url_for('web_invoices.new_invoice_route', invoice_id=invoice.id) }}" class="btn btn-primary"
                 style="width: 100%; {% if company.get('gradientEnabled', True) %}background: linear-gradient(135deg, var(--accent-purple), var(--accent-purple-hover));{% else %}background: var(--accent-purple);{% endif %} border: none; color: white;">
                 <i class="fa-solid fa-pen-to-square"></i>
                 <span>Editar {% if invoice.isQuotation %}Cotización{% else %}Borrador{% endif %}</span>
@@ -889,7 +894,7 @@
             {% endif %}
 
             <!-- Unified Premium Print Button -->
-            <a href="{{ url_for('invoice_pdf_download', invoice_id=invoice.id) }}?action=print" target="_blank"
+            <a href="{{ url_for('web_invoices.invoice_pdf_download', invoice_id=invoice.id) }}?action=print" target="_blank"
                 class="btn btn-secondary"
                 style="width: 100%; border-color: var(--accent-emerald); color: var(--accent-emerald); display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
                 <i class="fa-solid fa-print"></i>
@@ -899,13 +904,13 @@
             {% if not invoice.isQuotation and invoice.encf and invoice.ecfType not in ['Nota de Crédito (E34)', 'Nota de
             Débito (E33)'] %}
             <!-- Notas de Crédito / Débito (Ley 32-23) -->
-            <a href="{{ url_for('new_invoice_route') }}?reference_invoice_id={{ invoice.id }}&note_type=E34"
+            <a href="{{ url_for('web_invoices.new_invoice_route') }}?reference_invoice_id={{ invoice.id }}&note_type=E34"
                 class="btn btn-secondary"
                 style="width: 100%; border-color: var(--accent-red); color: var(--accent-red); display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
                 <i class="fa-solid fa-file-circle-minus"></i>
                 <span>Emitir Nota de Crédito (E34)</span>
             </a>
-            <a href="{{ url_for('new_invoice_route') }}?reference_invoice_id={{ invoice.id }}&note_type=E33"
+            <a href="{{ url_for('web_invoices.new_invoice_route') }}?reference_invoice_id={{ invoice.id }}&note_type=E33"
                 class="btn btn-secondary"
                 style="width: 100%; border-color: var(--accent-purple); color: var(--accent-purple); display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
                 <i class="fa-solid fa-file-circle-plus"></i>
@@ -914,12 +919,12 @@
             {% endif %}
 
             {% if invoice.isQuotation %}
-            <a href="{{ url_for('list_quotations') }}" class="btn btn-secondary" style="width: 100%;">
+            <a href="{{ url_for('web_invoices.list_quotations') }}" class="btn btn-secondary" style="width: 100%;">
                 <i class="fa-solid fa-arrow-rotate-left"></i>
                 <span>Volver a Cotizaciones</span>
             </a>
             {% else %}
-            <a href="{{ url_for('list_invoices') }}" class="btn btn-secondary" style="width: 100%;">
+            <a href="{{ url_for('web_invoices.list_invoices') }}" class="btn btn-secondary" style="width: 100%;">
                 <i class="fa-solid fa-arrow-rotate-left"></i>
                 <span>Volver al Listado</span>
             </a>

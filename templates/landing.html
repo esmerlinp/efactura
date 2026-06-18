@@ -41,12 +41,12 @@
             
             <div class="landing-actions">
                 {% if is_logged_in %}
-                    <a href="{{ url_for('dashboard') }}" class="btn btn-primary">
+                    <a href="{{ url_for('web_dashboard.dashboard') }}" class="btn btn-primary">
                         <i class="fa-solid fa-chart-pie"></i>
                         <span>Ir al Dashboard</span>
                     </a>
                 {% else %}
-                    <a href="{{ url_for('login') }}" class="btn btn-secondary" style="font-size:0.9rem;">
+                    <a href="{{ url_for('web_auth.login') }}" class="btn btn-secondary" style="font-size:0.9rem;">
                         <i class="fa-solid fa-right-to-bracket"></i>
                         <span>Iniciar Sesión</span>
                     </a>

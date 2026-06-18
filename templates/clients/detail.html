@@ -51,7 +51,7 @@
 
 <!-- Botón Volver -->
 <div style="margin-bottom: 20px;">
-    <a href="{{ url_for('list_clients') }}"
+    <a href="{{ url_for('web_clients.list_clients') }}"
         style="display: inline-flex; align-items: center; gap: 8px; color: var(--text-secondary); text-decoration: none; font-size: 0.9rem; font-weight: 500; transition: color var(--transition-fast);"
         onmouseover="this.style.color='var(--accent-emerald)'" onmouseout="this.style.color='var(--text-secondary)'">
         <i class="fa-solid fa-arrow-left"></i>
@@ -143,7 +143,7 @@
 
         <!-- Botón Editar Ficha CRM (Derecha, reducido a 34px de alto) -->
         <div style="display: flex; align-items: center; justify-content: flex-end; flex-shrink: 0; min-width: 140px;">
-            <a href="{{ url_for('edit_client', client_id=client.id) }}" class="btn btn-secondary"
+            <a href="{{ url_for('web_clients.edit_client', client_id=client.id) }}" class="btn btn-secondary"
                 style="display: inline-flex; align-items: center; gap: 6px; font-weight: 600; padding: 0 14px; font-size: 0.8rem; height: 34px; border-radius: 6px; transition: all var(--transition-fast) ease;">
                 <i class="fa-solid fa-user-pen"></i>
                 <span>Editar Ficha</span>
@@ -199,7 +199,7 @@
                     <strong style="font-size: 0.95rem; color: var(--text-primary);">{{ client.nextContactDate | format_date }}</strong>
                 </div>
             </div>
-            <a href="{{ url_for('edit_client', client_id=client.id) }}" class="btn btn-secondary" style="padding: 0 10px; font-size: 0.75rem; height: 28px; display: inline-flex; align-items: center; gap: 4px;">
+            <a href="{{ url_for('web_clients.edit_client', client_id=client.id) }}" class="btn btn-secondary" style="padding: 0 10px; font-size: 0.75rem; height: 28px; display: inline-flex; align-items: center; gap: 4px;">
                 <i class="fa-solid fa-calendar-days"></i>
                 <span>Re-programar</span>
             </a>
@@ -268,7 +268,7 @@
                 <span>Registrar Nueva Interacción o Seguimiento</span>
             </h3>
 
-            <form action="{{ url_for('add_client_interaction', client_id=client.id) }}" method="POST"
+            <form action="{{ url_for('web_clients.add_client_interaction', client_id=client.id) }}" method="POST"
                 enctype="multipart/form-data" style="display: flex; flex-direction: column; gap: 16px;">
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
                     <div>
@@ -367,7 +367,7 @@
                                 <span style="font-size: 0.8rem; color: var(--text-secondary); white-space: nowrap;">
                                     <i class="fa-solid fa-calendar-day" style="font-size: 0.75rem;"></i> {{ item.date }}
                                 </span>
-                                <form action="{{ url_for('delete_client_interaction_route', client_id=client.id, interaction_id=item.id) }}" method="POST"
+                                <form action="{{ url_for('web_clients.delete_client_interaction_route', client_id=client.id, interaction_id=item.id) }}" method="POST"
                                     onsubmit="return confirm('¿Seguro que deseas eliminar este comentario del historial?');" style="display: inline;">
                                     <button type="submit" style="background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 2px 4px; font-size: 0.8rem; transition: color var(--transition-fast);"
                                         onmouseover="this.style.color='var(--accent-red)'" onmouseout="this.style.color='var(--text-muted)'" title="Eliminar Interacción">
@@ -388,7 +388,7 @@
                                 </span>
                             </div>
                             {% if not item.completed %}
-                            <form action="{{ url_for('complete_client_interaction_task', client_id=client.id, interaction_id=item.id) }}" method="POST" style="margin: 0;">
+                            <form action="{{ url_for('web_clients.complete_client_interaction_task', client_id=client.id, interaction_id=item.id) }}" method="POST" style="margin: 0;">
                                 <button type="submit" class="btn btn-secondary" style="padding: 0 10px; font-size: 0.75rem; height: 28px; font-weight: 500; display: inline-flex; align-items: center; gap: 6px; border-color: var(--accent-emerald); color: var(--accent-emerald);">
                                     <i class="fa-solid fa-circle-check"></i>
                                     <span>Marcar Completado</span>
@@ -471,7 +471,7 @@
                                 </span>
                             </td>
                             <td style="text-align: right;">
-                                <a href="{{ url_for('invoice_detail', invoice_id=inv.id) }}" class="btn btn-secondary" style="padding: 0 8px; font-size: 0.75rem; height: 26px; display: inline-flex; align-items: center; justify-content: center;" title="Ver Detalle de Factura">
+                                <a href="{{ url_for('web_invoices.invoice_detail', invoice_id=inv.id) }}" class="btn btn-secondary" style="padding: 0 8px; font-size: 0.75rem; height: 26px; display: inline-flex; align-items: center; justify-content: center;" title="Ver Detalle de Factura">
                                     <i class="fa-solid fa-eye"></i>
                                 </a>
                             </td>
@@ -601,7 +601,7 @@
                         <tr>
                             <td><span style="font-family: monospace; font-size: 0.88rem;">{{ pay.paymentDate | format_date if pay.paymentDate else 'N/A' }}</span></td>
                             <td>
-                                <a href="{{ url_for('invoice_detail', invoice_id=pay.invoiceId) }}"
+                                <a href="{{ url_for('web_invoices.invoice_detail', invoice_id=pay.invoiceId) }}"
                                    style="font-family: monospace; font-size: 0.88rem; background-color: var(--bg-input); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-color); color: var(--accent-emerald); text-decoration: none; font-weight: 600;">
                                     {{ pay.invoiceNumber }}
                                 </a>

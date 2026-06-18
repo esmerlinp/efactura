@@ -14,7 +14,7 @@
     </p>
 </div>
 
-<form method="POST" action="{{ url_for('new_purchase_order') }}" id="po-form" enctype="multipart/form-data">
+<form method="POST" action="{{ url_for('web_purchase_orders.new_purchase_order') }}" id="po-form" enctype="multipart/form-data">
     <div class="card-form-body" style="padding:24px; margin-bottom:24px;">
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px;">
             <div class="form-group">
@@ -195,7 +195,7 @@
     </div>
 
     <div style="display:flex; gap:12px; justify-content:flex-end; margin-top:24px; padding:16px 0;">
-        <a href="{{ url_for('list_purchase_orders') }}" class="btn btn-secondary">
+        <a href="{{ url_for('web_purchase_orders.list_purchase_orders') }}" class="btn btn-secondary">
             <i class="fa-solid fa-xmark"></i> Cancelar
         </a>
         <button type="submit" class="btn btn-primary">

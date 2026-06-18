@@ -135,22 +135,30 @@
 
         <div class="wizard-step-node active" data-step-indicator="1">
             <div class="node-circle" style="width: 36px; height: 36px; border-radius: 50%; background: var(--accent-emerald); color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; border: 3px solid var(--bg-card); transition: all 0.3s ease; box-shadow: 0 0 0 1px var(--accent-emerald);">1</div>
-            <span style="font-size: 0.78rem; font-weight: 600; color: var(--accent-emerald);">Fiscal</span>
+            <span style="font-size: 0.78rem; font-weight: 600; color: var(--accent-emerald);">Tipo</span>
         </div>
         <div class="wizard-step-node" data-step-indicator="2">
             <div class="node-circle" style="width: 36px; height: 36px; border-radius: 50%; background: var(--bg-body); color: var(--text-muted); display: flex; align-items: center; justify-content: center; font-weight: bold; border: 3px solid var(--border-color); transition: all 0.3s ease;">2</div>
-            <span style="font-size: 0.78rem; font-weight: 500; color: var(--text-muted);">Firma & Ubicación</span>
+            <span style="font-size: 0.78rem; font-weight: 500; color: var(--text-muted);">Régimen</span>
         </div>
         <div class="wizard-step-node" data-step-indicator="3">
             <div class="node-circle" style="width: 36px; height: 36px; border-radius: 50%; background: var(--bg-body); color: var(--text-muted); display: flex; align-items: center; justify-content: center; font-weight: bold; border: 3px solid var(--border-color); transition: all 0.3s ease;">3</div>
-            <span style="font-size: 0.78rem; font-weight: 500; color: var(--text-muted);">Clientes</span>
+            <span style="font-size: 0.78rem; font-weight: 500; color: var(--text-muted);">Datos Fiscales</span>
         </div>
         <div class="wizard-step-node" data-step-indicator="4">
             <div class="node-circle" style="width: 36px; height: 36px; border-radius: 50%; background: var(--bg-body); color: var(--text-muted); display: flex; align-items: center; justify-content: center; font-weight: bold; border: 3px solid var(--border-color); transition: all 0.3s ease;">4</div>
-            <span style="font-size: 0.78rem; font-weight: 500; color: var(--text-muted);">Productos</span>
+            <span style="font-size: 0.78rem; font-weight: 500; color: var(--text-muted);">Firma</span>
         </div>
         <div class="wizard-step-node" data-step-indicator="5">
             <div class="node-circle" style="width: 36px; height: 36px; border-radius: 50%; background: var(--bg-body); color: var(--text-muted); display: flex; align-items: center; justify-content: center; font-weight: bold; border: 3px solid var(--border-color); transition: all 0.3s ease;">5</div>
+            <span style="font-size: 0.78rem; font-weight: 500; color: var(--text-muted);">Clientes</span>
+        </div>
+        <div class="wizard-step-node" data-step-indicator="6">
+            <div class="node-circle" style="width: 36px; height: 36px; border-radius: 50%; background: var(--bg-body); color: var(--text-muted); display: flex; align-items: center; justify-content: center; font-weight: bold; border: 3px solid var(--border-color); transition: all 0.3s ease;">6</div>
+            <span style="font-size: 0.78rem; font-weight: 500; color: var(--text-muted);">Productos</span>
+        </div>
+        <div class="wizard-step-node" data-step-indicator="7">
+            <div class="node-circle" style="width: 36px; height: 36px; border-radius: 50%; background: var(--bg-body); color: var(--text-muted); display: flex; align-items: center; justify-content: center; font-weight: bold; border: 3px solid var(--border-color); transition: all 0.3s ease;">7</div>
             <span style="font-size: 0.78rem; font-weight: 500; color: var(--text-muted);">Transacciones</span>
         </div>
     </div>
@@ -171,8 +179,106 @@
 
     <form id="wizardSettingsForm" action="{{ url_for('web_invoices.onboarding_wizard') }}" method="POST" enctype="multipart/form-data">
         
-        <!-- PASO 1: FISCAL -->
+        <!-- PASO 1: TIPO DE CONTRIBUYENTE -->
         <div class="wizard-step-section" data-step="1">
+            <div style="text-align: center; margin-bottom: 32px;">
+                <h3 style="font-family: var(--font-heading); font-size: 1.3rem; color: var(--text-primary); margin-bottom: 8px;">¿Eres persona física o empresa?</h3>
+                <p style="color: var(--text-secondary); font-size: 0.9rem;">Selecciona tu tipo de contribuyente para configurar la facturación electrónica.</p>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; max-width: 600px; margin: 0 auto;">
+                <label class="contribuyente-card" style="display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 32px 24px; border: 2px solid var(--border-color); border-radius: var(--radius-md); cursor: pointer; transition: all 0.25s ease; background: var(--bg-card); text-align: center;">
+                    <input type="radio" name="contribuyenteTipo" value="persona_fisica" style="display: none;" onchange="document.querySelectorAll('.contribuyente-card').forEach(c=>c.style.borderColor='var(--border-color)'); this.parentElement.style.borderColor='var(--accent-emerald)';">
+                    <i class="fa-solid fa-user" style="font-size: 2.5rem; color: var(--accent-blue);"></i>
+                    <div>
+                        <strong style="font-size: 1rem; color: var(--text-primary); display: block;">Persona Física</strong>
+                        <span style="font-size: 0.8rem; color: var(--text-secondary);">Trabajador independiente o profesional liberal</span>
+                    </div>
+                    <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 4px;">Cédula: 001-1234567-8</div>
+                </label>
+                <label class="contribuyente-card" style="display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 32px 24px; border: 2px solid var(--accent-emerald); border-radius: var(--radius-md); cursor: pointer; transition: all 0.25s ease; background: var(--bg-card); text-align: center;">
+                    <input type="radio" name="contribuyenteTipo" value="empresa" checked style="display: none;" onchange="document.querySelectorAll('.contribuyente-card').forEach(c=>c.style.borderColor='var(--border-color)'); this.parentElement.style.borderColor='var(--accent-emerald)';">
+                    <i class="fa-solid fa-building" style="font-size: 2.5rem; color: var(--accent-purple);"></i>
+                    <div>
+                        <strong style="font-size: 1rem; color: var(--text-primary); display: block;">Empresa</strong>
+                        <span style="font-size: 0.8rem; color: var(--text-secondary);">SRL, SAS, EIRL, Asociación, etc.</span>
+                    </div>
+                    <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 4px;">RNC: 1-01-12345-6</div>
+                </label>
+            </div>
+        </div>
+
+        <!-- PASO 2: RÉGIMEN FISCAL -->
+        <div class="wizard-step-section" data-step="2" style="display: none;">
+            <div style="text-align: center; margin-bottom: 28px;">
+                <h3 style="font-family: var(--font-heading); font-size: 1.3rem; color: var(--text-primary); margin-bottom: 8px;">¿Cuál es tu régimen fiscal?</h3>
+                <p style="color: var(--text-secondary); font-size: 0.9rem;">Tu régimen determina qué comprobantes puedes emitir y cómo se calculan los impuestos.</p>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                <label class="regimen-card" style="display: flex; flex-direction: column; gap: 10px; padding: 20px; border: 2px solid var(--accent-emerald); border-radius: var(--radius-md); cursor: pointer; transition: all 0.25s ease; background: var(--bg-card);">
+                    <input type="radio" name="regimenFiscal" value="ordinary" checked style="display: none;" onchange="document.querySelectorAll('.regimen-card').forEach(c=>c.style.borderColor='var(--border-color)'); this.parentElement.style.borderColor='var(--accent-emerald)';">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <i class="fa-solid fa-building-columns" style="font-size: 1.3rem; color: var(--accent-emerald);"></i>
+                        <strong style="font-size: 0.95rem; color: var(--text-primary);">Régimen Ordinario (General)</strong>
+                    </div>
+                    <ul style="margin: 0; padding-left: 16px; font-size: 0.78rem; color: var(--text-secondary); line-height: 1.6;">
+                        <li>Emite E31 (Crédito Fiscal) para B2B</li>
+                        <li>ITBIS 18% en la mayoría de transacciones</li>
+                        <li>Declaración mensual DGII</li>
+                    </ul>
+                </label>
+                <label class="regimen-card" style="display: flex; flex-direction: column; gap: 10px; padding: 20px; border: 2px solid var(--border-color); border-radius: var(--radius-md); cursor: pointer; transition: all 0.25s ease; background: var(--bg-card);">
+                    <input type="radio" name="regimenFiscal" value="rst_income" style="display: none;" onchange="document.querySelectorAll('.regimen-card').forEach(c=>c.style.borderColor='var(--border-color)'); this.parentElement.style.borderColor='var(--accent-emerald)';">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <i class="fa-solid fa-chart-line" style="font-size: 1.3rem; color: var(--accent-blue);"></i>
+                        <strong style="font-size: 0.95rem; color: var(--text-primary);">RST basado en Ingresos</strong>
+                    </div>
+                    <ul style="margin: 0; padding-left: 16px; font-size: 0.78rem; color: var(--text-secondary); line-height: 1.6;">
+                        <li>Emite E32 (Factura de Consumo)</li>
+                        <li>ITBIS 0% (no lo trasladas ni deduces)</li>
+                        <li>Paga ITBIS sobre ingresos percibidos</li>
+                    </ul>
+                </label>
+                <label class="regimen-card" style="display: flex; flex-direction: column; gap: 10px; padding: 20px; border: 2px solid var(--border-color); border-radius: var(--radius-md); cursor: pointer; transition: all 0.25s ease; background: var(--bg-card);">
+                    <input type="radio" name="regimenFiscal" value="rst_purchases" style="display: none;" onchange="document.querySelectorAll('.regimen-card').forEach(c=>c.style.borderColor='var(--border-color)'); this.parentElement.style.borderColor='var(--accent-emerald)';">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <i class="fa-solid fa-cart-shopping" style="font-size: 1.3rem; color: var(--accent-blue);"></i>
+                        <strong style="font-size: 0.95rem; color: var(--text-primary);">RST basado en Compras</strong>
+                    </div>
+                    <ul style="margin: 0; padding-left: 16px; font-size: 0.78rem; color: var(--text-secondary); line-height: 1.6;">
+                        <li>Emite E32 (Factura de Consumo)</li>
+                        <li>ITBIS 0% en ventas</li>
+                        <li>Paga ITBIS sobre tus compras realizadas</li>
+                    </ul>
+                </label>
+                <label class="regimen-card" style="display: flex; flex-direction: column; gap: 10px; padding: 20px; border: 2px solid var(--border-color); border-radius: var(--radius-md); cursor: pointer; transition: all 0.25s ease; background: var(--bg-card);">
+                    <input type="radio" name="regimenFiscal" value="consumer" style="display: none;" onchange="document.querySelectorAll('.regimen-card').forEach(c=>c.style.borderColor='var(--border-color)'); this.parentElement.style.borderColor='var(--accent-emerald)';">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <i class="fa-solid fa-user" style="font-size: 1.3rem; color: var(--accent-yellow);"></i>
+                        <strong style="font-size: 0.95rem; color: var(--text-primary);">Consumidor Final</strong>
+                    </div>
+                    <ul style="margin: 0; padding-left: 16px; font-size: 0.78rem; color: var(--text-secondary); line-height: 1.6;">
+                        <li>Emite E32 (Factura de Consumo)</li>
+                        <li>No necesita RNC para emitir</li>
+                        <li>Para pequeños comercios y personas</li>
+                    </ul>
+                </label>
+                <label class="regimen-card" style="display: flex; flex-direction: column; gap: 10px; padding: 20px; border: 2px solid var(--border-color); border-radius: var(--radius-md); cursor: pointer; transition: all 0.25s ease; background: var(--bg-card); grid-column: 1 / -1; max-width: 50%; justify-self: center;">
+                    <input type="radio" name="regimenFiscal" value="exempt" style="display: none;" onchange="document.querySelectorAll('.regimen-card').forEach(c=>c.style.borderColor='var(--border-color)'); this.parentElement.style.borderColor='var(--accent-emerald)';">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <i class="fa-solid fa-ban" style="font-size: 1.3rem; color: var(--text-muted);"></i>
+                        <strong style="font-size: 0.95rem; color: var(--text-primary);">Exento</strong>
+                    </div>
+                    <ul style="margin: 0; padding-left: 16px; font-size: 0.78rem; color: var(--text-secondary); line-height: 1.6;">
+                        <li>Actividades exentas de ITBIS por ley</li>
+                        <li>ITBIS 0% en todas las transacciones</li>
+                        <li>No presenta declaración ITBIS</li>
+                    </ul>
+                </label>
+            </div>
+        </div>
+
+        <!-- PASO 3: DATOS FISCALES + CONTACTO + UBICACIÓN -->
+        <div class="wizard-step-section" data-step="3" style="display: none;">
             <div class="settings-accordion">
                 <div class="accordion-item active">
                     <button type="button" class="accordion-header" onclick="toggleAccordionSection(this)">
@@ -186,32 +292,18 @@
                         <div class="accordion-body">
                             <div class="form-grid" style="grid-template-columns: 1fr 2fr; gap: 20px; margin-bottom: 20px; display: grid;">
                                 <div class="form-group">
-                                    <label for="companyRNC">RNC Comercial del Emisor *</label>
+                                    <label for="companyRNC">RNC / Cédula del Contribuyente *</label>
                                     <input type="text" id="companyRNC" name="companyRNC" class="form-input" placeholder="Ej: 132109122" required value="">
-                                    <small style="color: var(--text-muted); font-size: 0.72rem; margin-top: 4px;">RNC de contribuyente.</small>
+                                    <small style="color: var(--text-muted); font-size: 0.72rem; margin-top: 4px;">RNC de 9 dígitos para empresas, cédula para persona física.</small>
                                 </div>
                                 <div class="form-group">
-                                    <label for="companyName">Razón Social de la Empresa *</label>
-                                    <input type="text" id="companyName" name="companyName" class="form-input" placeholder="Ej: Mi Empresa SRL" required value="">
+                                    <label for="companyName">Razón Social / Nombre Completo *</label>
+                                    <input type="text" id="companyName" name="companyName" class="form-input" placeholder="Ej: Mi Empresa SRL o Juan Pérez" required value="">
                                 </div>
-                            </div>
-                            <div class="form-group" style="max-width: 50%; margin-bottom: 0;">
-                                    <label for="regimenFiscal">Régimen Fiscal (DGII)</label>
-                                    <select id="regimenFiscal" name="regimenFiscal" class="form-select">
-                                        <option value="General" selected>Régimen General (IT-1)</option>
-                                        <option value="RST">Régimen Simplificado (RST - Ingresos)</option>
-                                    </select>
                             </div>
                         </div>
                     </div>
                 </div>
-            </div>
-        </div>
-
-        <!-- PASO 2: UBICACIÓN, CONTACTO Y FIRMA -->
-        <div class="wizard-step-section" data-step="2" style="display: none;">
-            <div class="settings-accordion">
-                <!-- ACORDEÓN 1: CONTACTO Y UBICACIÓN -->
                 <div class="accordion-item active">
                     <button type="button" class="accordion-header" onclick="toggleAccordionSection(this)">
                         <div class="accordion-title">
@@ -255,38 +347,6 @@
                         </div>
                     </div>
                 </div>
-
-                <!-- ACORDEÓN 2: CERTIFICADO DE FIRMA DIGITAL -->
-                <div class="accordion-item">
-                    <button type="button" class="accordion-header" onclick="toggleAccordionSection(this)">
-                        <div class="accordion-title">
-                            <i class="fa-solid fa-certificate"></i>
-                            <span>Certificado de Firma Digital</span>
-                        </div>
-                        <i class="fa-solid fa-chevron-down accordion-chevron"></i>
-                    </button>
-                    <div class="accordion-content">
-                        <div class="accordion-body">
-                            <div class="form-grid" style="grid-template-columns: 1fr 1fr; gap: 20px; display: grid;">
-                                <div class="form-group" style="margin-bottom: 0;">
-                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                                        <label for="certificateFile" style="margin: 0;">Certificado Digital (.p12 / .pfx)</label>
-                                        <a href="https://digi.camarasantodomingo.do/Certificados-de-Firma-Digital.html" target="_blank" style="color: var(--accent-emerald); font-size: 0.75rem; text-decoration: none; font-weight: 500;">
-                                            ¿Cómo obtener mi certificado digital?
-                                        </a>
-                                    </div>
-                                    <input type="file" id="certificateFile" name="certificateFile" class="form-input" accept=".p12,.pfx">
-                                </div>
-                                <div class="form-group" style="margin-bottom: 0;">
-                                    <label for="certificatePassword">Contraseña del Certificado</label>
-                                    <input type="password" id="certificatePassword" name="certificatePassword" class="form-input" placeholder="••••••••">
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- ACORDEÓN 3: CONSOLIDACIÓN DE COMPROBANTES -->
                 <div class="accordion-item">
                     <button type="button" class="accordion-header" onclick="toggleAccordionSection(this)">
                         <div class="accordion-title">
@@ -315,8 +375,51 @@
             </div>
         </div>
 
-        <!-- PASO 3: CARGA MASIVA DE CLIENTES (OPCIONAL) -->
-        <div class="wizard-step-section" data-step="3" style="display: none;">
+        <!-- PASO 4: FIRMA DIGITAL -->
+        <div class="wizard-step-section" data-step="4" style="display: none;">
+            <div style="text-align: center; margin-bottom: 28px;">
+                <h3 style="font-family: var(--font-heading); font-size: 1.3rem; color: var(--text-primary); margin-bottom: 8px;">Firma Digital</h3>
+                <p style="color: var(--text-secondary); font-size: 0.9rem;">La firma digital es obligatoria para emitir comprobantes fiscales electrónicos ante la DGII.</p>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; max-width: 800px; margin: 0 auto;">
+                <div class="firma-card" style="display: flex; flex-direction: column; gap: 16px; padding: 24px; border: 2px solid var(--accent-emerald); border-radius: var(--radius-md); background: var(--bg-card);">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                        <i class="fa-solid fa-certificate" style="font-size: 1.5rem; color: var(--accent-emerald);"></i>
+                        <strong style="font-size: 1rem; color: var(--text-primary);">Subir certificado digital</strong>
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                            <label for="certificateFile" style="margin: 0;">Certificado (.p12 / .pfx)</label>
+                            <a href="https://digi.camarasantodomingo.do/Certificados-de-Firma-Digital.html" target="_blank" style="color: var(--accent-emerald); font-size: 0.75rem; text-decoration: none; font-weight: 500;">
+                                ¿Cómo obtenerlo?
+                            </a>
+                        </div>
+                        <input type="file" id="certificateFile" name="certificateFile" class="form-input" accept=".p12,.pfx">
+                    </div>
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label for="certificatePassword">Contraseña del Certificado</label>
+                        <input type="password" id="certificatePassword" name="certificatePassword" class="form-input" placeholder="••••••••">
+                    </div>
+                </div>
+                <div class="firma-card" style="display: flex; flex-direction: column; gap: 16px; padding: 24px; border: 2px dashed var(--border-color); border-radius: var(--radius-md); background: var(--bg-card);">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                        <i class="fa-solid fa-flask" style="font-size: 1.5rem; color: var(--accent-emerald);"></i>
+                        <strong style="font-size: 1rem; color: var(--text-primary);">Usar simulación</strong>
+                    </div>
+                    <p style="font-size: 0.82rem; color: var(--text-secondary); line-height: 1.5; margin: 0;">
+                        El sistema generará firmas simuladas. Ideal para pruebas y capacitación.<br>
+                        <strong>Importante:</strong> Para producción deberás subir un certificado real.
+                    </p>
+                    <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-weight: 500; color: var(--text-main); padding: 8px 0;">
+                        <input type="checkbox" id="useSimulation" name="useSimulation" value="true" style="width: 18px; height: 18px; accent-color: var(--accent-emerald);" onchange="document.getElementById('certificateFile').disabled=this.checked; document.getElementById('certificatePassword').disabled=this.checked; this.parentElement.parentElement.style.borderColor=this.checked?'var(--accent-emerald)':'var(--border-color)';">
+                        <span>Usar firma simulada (modo pruebas)</span>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- PASO 5: CARGA MASIVA DE CLIENTES (OPCIONAL) -->
+        <div class="wizard-step-section" data-step="5" style="display: none;">
             <h4 style="font-size: 1.1rem; font-family: var(--font-heading); color: var(--accent-emerald); margin: 0 0 16px 0; display: flex; align-items: center; gap: 8px; border-bottom: 1px dashed var(--border-color); padding-bottom: 8px; font-weight: 500;">
                 <i class="fa-solid fa-users"></i>
                 <span>Carga Masiva de Clientes (Opcional)</span>
@@ -335,8 +438,8 @@
             <div class="import-mapping-wrapper" id="mapping-clients" style="display: none;"></div>
         </div>
 
-        <!-- PASO 4: CARGA MASIVA DE PRODUCTOS (OPCIONAL) -->
-        <div class="wizard-step-section" data-step="4" style="display: none;">
+        <!-- PASO 6: CARGA MASIVA DE PRODUCTOS (OPCIONAL) -->
+        <div class="wizard-step-section" data-step="6" style="display: none;">
             <h4 style="font-size: 1.1rem; font-family: var(--font-heading); color: var(--accent-emerald); margin: 0 0 16px 0; display: flex; align-items: center; gap: 8px; border-bottom: 1px dashed var(--border-color); padding-bottom: 8px; font-weight: 500;">
                 <i class="fa-solid fa-box-open"></i>
                 <span>Carga Masiva de Productos (Opcional)</span>
@@ -355,8 +458,8 @@
             <div class="import-mapping-wrapper" id="mapping-products" style="display: none;"></div>
         </div>
 
-        <!-- PASO 5: CARGA MASIVA DE TRANSACCIONES (OPCIONAL) -->
-        <div class="wizard-step-section" data-step="5" style="display: none;">
+        <!-- PASO 7: CARGA MASIVA DE TRANSACCIONES (OPCIONAL) -->
+        <div class="wizard-step-section" data-step="7" style="display: none;">
             <h4 style="font-size: 1.1rem; font-family: var(--font-heading); color: var(--accent-emerald); margin: 0 0 16px 0; display: flex; align-items: center; gap: 8px; border-bottom: 1px dashed var(--border-color); padding-bottom: 8px; font-weight: 500;">
                 <i class="fa-solid fa-file-invoice-dollar"></i>
                 <span>Carga Masiva de Transacciones Históricas (Opcional)</span>
@@ -470,7 +573,7 @@
 
         // CONTROL DE PASOS
         let currentStep = 1;
-        const totalSteps = 5;
+        const totalSteps = 7;
 
         const steps = document.querySelectorAll('.wizard-step-section');
         const nodes = document.querySelectorAll('.wizard-step-node');
@@ -550,8 +653,9 @@
             }
 
             if (btnSkipStep) {
-                if (stepNum > 2 && stepNum < totalSteps) {
+                if (stepNum >= 5 && stepNum < totalSteps) {
                     btnSkipStep.style.display = 'inline-block';
+                    btnSkipStep.innerHTML = 'Omitir paso <i class="fa-solid fa-forward" style="margin-left: 6px;"></i>';
                     btnNext.innerHTML = 'Continuar <i class="fa-solid fa-arrow-right"></i>';
                 } else if (stepNum === totalSteps) {
                     btnSkipStep.style.display = 'inline-block';
@@ -566,7 +670,7 @@
         }
 
         function checkStepValidity(stepNum) {
-            if (stepNum > 2) return true;
+            if (stepNum > 4) return true;
             const activeStep = document.querySelector(`.wizard-step-section[data-step="${stepNum}"]`);
             if (!activeStep) return true;
 

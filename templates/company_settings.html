@@ -121,12 +121,12 @@
 
     <div
         style="display: flex; gap: 20px; justify-content: center; align-items: center; max-width: 500px; margin: 0 auto;">
-        <a href="{{ url_for('new_invoice_route') }}" class="btn btn-primary"
+        <a href="{{ url_for('web_invoices.new_invoice_route') }}" class="btn btn-primary"
             style="padding: 16px 32px; font-size: 1.05rem; display: flex; align-items: center; gap: 10px; flex: 1; justify-content: center; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4); text-decoration: none;">
             <i class="fa-solid fa-file-invoice-dollar" style="font-size: 1.2rem;"></i>
             <span>Emitir Primera Factura</span>
         </a>
-        <a href="{{ url_for('dashboard') }}" class="btn btn-secondary"
+        <a href="{{ url_for('web_dashboard.dashboard') }}" class="btn btn-secondary"
             style="padding: 16px 32px; font-size: 1.05rem; display: flex; align-items: center; gap: 10px; flex: 1; justify-content: center; border-color: var(--border-color); text-decoration: none;">
             <i class="fa-solid fa-chart-line"></i>
             <span>Ir al Panel de Control</span>
@@ -189,7 +189,7 @@
         </div>
         {% endif %}
 
-        <form id="settingsForm" action="{{ url_for('company_settings') }}" method="POST" enctype="multipart/form-data">
+        <form id="settingsForm" action="{{ url_for('web_invoices.company_settings') }}" method="POST" enctype="multipart/form-data">
             <!-- Campo oculto para saber si se procesa el Wizard -->
             <input type="hidden" name="is_wizard" id="is_wizard_field"
                 value="{% if show_wizard %}true{% else %}false{% endif %}">
@@ -225,13 +225,34 @@
                                 </div>
                             </div>
                             <div class="form-group" style="max-width: 50%; margin-bottom: 0;">
-                                <label for="regimenFiscal">Régimen Fiscal (DGII)</label>
+                                <label for="regimenFiscal">
+                                    Régimen Fiscal (DGII)
+                                    <i class="fa-solid fa-question-circle" style="color:var(--text-muted); cursor:help;" title="Define cómo tributas ante la DGII. El régimen afecta los tipos de comprobante disponibles y el cálculo de impuestos."></i>
+                                </label>
                                 <select id="regimenFiscal" name="regimenFiscal" class="form-select">
-                                    <option value="General" {% if profile.regimenFiscal !='RST' %}selected{% endif %}>
-                                        Régimen General (IT-1)</option>
-                                    <option value="RST" {% if profile.regimenFiscal=='RST' %}selected{% endif %}>Régimen
-                                        Simplificado (RST - Ingresos)</option>
+                                    <option value="ordinary" {% if profile.regimenFiscal in ('ordinary', 'General', '') %}selected{% endif %}>
+                                        Régimen Ordinario (General)</option>
+                                    <option value="rst_income" {% if profile.regimenFiscal in ('rst_income', 'RST') %}selected{% endif %}>
+                                        RST basado en ingresos</option>
+                                    <option value="rst_purchases" {% if profile.regimenFiscal == 'rst_purchases' %}selected{% endif %}>
+                                        RST basado en compras</option>
+                                    <option value="consumer" {% if profile.regimenFiscal == 'consumer' %}selected{% endif %}>
+                                        Consumidor Final</option>
+                                    <option value="exempt" {% if profile.regimenFiscal == 'exempt' %}selected{% endif %}>
+                                        Exento</option>
                                 </select>
+                                <small style="color:var(--text-muted); display:block; margin-top:4px; font-size:0.72rem;">
+                                    {% set r = profile.regimenFiscal|default('ordinary') %}
+                                    {% if r in ('ordinary', 'General') %}
+                                    Contabilidad completa. Permite todos los tipos de e-CF. ITBIS 16%/18%.
+                                    {% elif r in ('rst_income', 'rst_purchases', 'RST') %}
+                                    Régimen Simplificado. Facturas E32 principalmente. Límite anual~RD$ 12M. ITBIS incluido.
+                                    {% elif r == 'consumer' %}
+                                    Solo facturas E32 de consumo. Sin RNC de cliente.
+                                    {% elif r == 'exempt' %}
+                                    Actividades exentas de ITBIS. Solo facturas E32 sin ITBIS.
+                                    {% endif %}
+                                </small>
                             </div>
                         </div>
                     </div>
@@ -605,13 +626,34 @@
                 </div>
 
                 <div class="form-group" style="max-width: 50%;">
-                    <label for="regimenFiscal">Régimen Fiscal (DGII)</label>
+                    <label for="regimenFiscal">
+                        Régimen Fiscal (DGII)
+                        <i class="fa-solid fa-question-circle" style="color:var(--text-muted); cursor:help;" title="Define cómo tributas ante la DGII. El régimen afecta los tipos de comprobante disponibles y el cálculo de impuestos."></i>
+                    </label>
                     <select id="regimenFiscal" name="regimenFiscal" class="form-select">
-                        <option value="General" {% if profile.regimenFiscal !='RST' %}selected{% endif %}>Régimen
-                            General (IT-1)</option>
-                        <option value="RST" {% if profile.regimenFiscal=='RST' %}selected{% endif %}>Régimen
-                            Simplificado (RST - Ingresos)</option>
+                        <option value="ordinary" {% if profile.regimenFiscal in ('ordinary', 'General', '') %}selected{% endif %}>
+                            Régimen Ordinario (General)</option>
+                        <option value="rst_income" {% if profile.regimenFiscal in ('rst_income', 'RST') %}selected{% endif %}>
+                            RST basado en ingresos</option>
+                        <option value="rst_purchases" {% if profile.regimenFiscal == 'rst_purchases' %}selected{% endif %}>
+                            RST basado en compras</option>
+                        <option value="consumer" {% if profile.regimenFiscal == 'consumer' %}selected{% endif %}>
+                            Consumidor Final</option>
+                        <option value="exempt" {% if profile.regimenFiscal == 'exempt' %}selected{% endif %}>
+                            Exento</option>
                     </select>
+                    <small style="color:var(--text-muted); display:block; margin-top:4px; font-size:0.72rem;">
+                        {% set r = profile.regimenFiscal|default('ordinary') %}
+                        {% if r in ('ordinary', 'General') %}
+                        Contabilidad completa. Permite todos los tipos de e-CF. ITBIS 16%/18%.
+                        {% elif r in ('rst_income', 'rst_purchases', 'RST') %}
+                        Régimen Simplificado. Facturas E32 principalmente. Límite anual ~RD$ 12M. ITBIS incluido.
+                        {% elif r == 'consumer' %}
+                        Solo facturas E32 de consumo. Sin RNC de cliente.
+                        {% elif r == 'exempt' %}
+                        Actividades exentas de ITBIS. Solo facturas E32 sin ITBIS.
+                        {% endif %}
+                    </small>
                 </div>
 
                 {% if e_cf_provider == 'alanube' %}
@@ -1070,7 +1112,7 @@
         </div>
 
         <!-- Formulario oculto para regeneración de API Key (Evita formularios anidados en el acordeón) -->
-        <form id="generateKeyForm" action="{{ url_for('generate_company_api_key') }}" method="POST"
+        <form id="generateKeyForm" action="{{ url_for('web_invoices.generate_company_api_key') }}" method="POST"
             style="display: none;"></form>
 
         <!-- Modal Añadir/Editar Sucursal -->

@@ -94,7 +94,7 @@
         <!-- Lista compacta y limpia de pendientes -->
         <div style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px;">
             {% for inv in contingency_invoices %}
-            <a href="{{ url_for('invoice_detail', invoice_id=inv.id) }}"
+            <a href="{{ url_for('web_invoices.invoice_detail', invoice_id=inv.id) }}"
                 style="display: flex; align-items: center; gap: 10px; font-size: 0.8rem; padding: 6px 12px; background-color: var(--bg-input); border-radius: var(--radius-xs); border: 1px solid var(--border-color); text-decoration: none; transition: border-color 0.2s ease, background-color 0.2s ease;"
                 onmouseover="this.style.borderColor='#f59e0b'; this.style.backgroundColor='rgba(245, 158, 11, 0.05)';"
                 onmouseout="this.style.borderColor='var(--border-color)'; this.style.backgroundColor='var(--bg-input)';">
@@ -257,7 +257,7 @@
     <h2 style="font-size: 0.95rem; font-weight: 500; color: var(--text-secondary); margin: 0;">
         Resumen Financiero
     </h2>
-    <form action="{{ url_for('dashboard') }}" method="GET" id="kpi-filter-form"
+    <form action="{{ url_for('web_dashboard.dashboard') }}" method="GET" id="kpi-filter-form"
         style="margin: 0; display: flex; align-items: center; gap: 8px;">
         <input type="hidden" name="scale" value="{{ scale }}">
         <input type="hidden" name="date" value="{{ date_str }}">
@@ -347,7 +347,7 @@
             {{ chart_title }}
         </h2>
 
-        <form action="{{ url_for('dashboard') }}" method="GET" id="filter-form"
+        <form action="{{ url_for('web_dashboard.dashboard') }}" method="GET" id="filter-form"
             style="display: flex; align-items: center; gap: 16px; margin: 0;">
 
             <!-- Switcher de Bar/Line -->
@@ -463,9 +463,10 @@
         <h2 style="font-size: 0.95rem; font-weight: 500; color: var(--text-secondary); margin: 0;">
             Diagnóstico de Salud Fiscal & Regulación DGII
         </h2>
-        <span class="badge {% if profile.regimenFiscal == 'RST' %}badge-success{% else %}badge-primary{% endif %}"
-            style="font-size: 0.8rem; padding: 4px 12px; border: none; background-color: var(--bg-input); color: var(--text-primary);">
-            Régimen: {% if profile.regimenFiscal == 'RST' %}Simplificado (RST){% else %}General (Ordinario){% endif %}
+        <span class="badge {% if profile.regimenFiscal in ('rst_income', 'rst_purchases', 'RST') %}badge-success{% else %}badge-primary{% endif %}"
+              style="font-size:0.65rem;">
+            {% set r = profile.regimenFiscal|default('ordinary') %}
+            {% if r in ('rst_income', 'RST') %}RST (Ingresos){% elif r == 'rst_purchases' %}RST (Compras){% elif r == 'consumer' %}Consumidor Final{% elif r == 'exempt' %}Exento{% else %}Ordinario{% endif %}
         </span>
     </div>
 
@@ -478,10 +479,10 @@
                 <div
                     style="display: flex; flex-direction: column; gap: 10px; background-color: rgba(0, 0, 0, 0.15); padding: 14px; border-radius: 20px; align-items: center; min-width: 60px;">
                     <div
-                        style="width: 28px; height: 28px; border-radius: 50%; background-color: var(--accent-red); opacity: {% if stats.total_cxc > 100000 or (profile.regimenFiscal == 'RST' and rst_income_year >= rst_limit_2026 * 0.9) %}1.0{% else %}0.15{% endif %}; box-shadow: {% if stats.total_cxc > 100000 or (profile.regimenFiscal == 'RST' and rst_income_year >= rst_limit_2026 * 0.9) %}0 0 12px var(--accent-red){% else %}none{% endif %}; transition: all 0.3s ease;">
+                        style="width: 28px; height: 28px; border-radius: 50%; background-color: var(--accent-red); opacity: {% if stats.total_cxc > 100000 or (profile.regimenFiscal in ('RST', 'rst_income', 'rst_purchases') and rst_income_year >= rst_limit_2026 * 0.9) %}1.0{% else %}0.15{% endif %}; box-shadow: {% if stats.total_cxc > 100000 or (profile.regimenFiscal in ('RST', 'rst_income', 'rst_purchases') and rst_income_year >= rst_limit_2026 * 0.9) %}0 0 12px var(--accent-red){% else %}none{% endif %}; transition: all 0.3s ease;">
                     </div>
                     <div
-                        style="width: 28px; height: 28px; border-radius: 50%; background-color: var(--accent-yellow); opacity: {% if (stats.total_cxc > 20000 and stats.total_cxc <= 100000) or (profile.regimenFiscal == 'RST' and rst_income_year >= rst_limit_2026 * 0.7 and rst_income_year < rst_limit_2026 * 0.9) %}1.0{% else %}0.15{% endif %}; box-shadow: {% if (stats.total_cxc > 20000 and stats.total_cxc <= 100000) or (profile.regimenFiscal == 'RST' and rst_income_year >= rst_limit_2026 * 0.7 and rst_income_year < rst_limit_2026 * 0.9) %}0 0 12px var(--accent-yellow){% else %}none{% endif %}; transition: all 0.3s ease;">
+                        style="width: 28px; height: 28px; border-radius: 50%; background-color: var(--accent-yellow); opacity: {% if (stats.total_cxc > 20000 and stats.total_cxc <= 100000) or (profile.regimenFiscal in ('RST', 'rst_income', 'rst_purchases') and rst_income_year >= rst_limit_2026 * 0.7 and rst_income_year < rst_limit_2026 * 0.9) %}1.0{% else %}0.15{% endif %}; box-shadow: {% if (stats.total_cxc > 20000 and stats.total_cxc <= 100000) or (profile.regimenFiscal in ('RST', 'rst_income', 'rst_purchases') and rst_income_year >= rst_limit_2026 * 0.7 and rst_income_year < rst_limit_2026 * 0.9) %}0 0 12px var(--accent-yellow){% else %}none{% endif %}; transition: all 0.3s ease;">
                     </div>
                     <div
                         style="width: 28px; height: 28px; border-radius: 50%; background-color: var(--accent-emerald); opacity: {% if stats.total_cxc <= 20000 and (profile.regimenFiscal != 'RST' or rst_income_year < rst_limit_2026 * 0.7) %}1.0{% else %}0.15{% endif %}; box-shadow: {% if stats.total_cxc <= 20000 and (profile.regimenFiscal != 'RST' or rst_income_year < rst_limit_2026 * 0.7) %}0 0 12px var(--accent-emerald){% else %}none{% endif %}; transition: all 0.3s ease;">
@@ -493,7 +494,7 @@
                     <h4 style="font-size: 1.05rem; font-family: var(--font-heading); margin-bottom: 2px;">Análisis de
                         Contabilidad en Tiempo Real</h4>
 
-                    {% if profile.regimenFiscal == 'RST' %}
+                    {% if profile.regimenFiscal in ('RST', 'rst_income', 'rst_purchases') %}
                     <p style="color: var(--text-secondary); font-size: 0.88rem; line-height: 1.4; margin: 0;">
                         🟢 <strong>Diagnóstico de Régimen:</strong> Estás operando en el <strong>Régimen Simplificado
                             (RST)</strong>. Este régimen simplifica tus declaraciones y tu único enfoque es no superar
@@ -559,7 +560,7 @@
             <!-- Lado Derecho: Barra de Progreso del RST (sólo si aplica) -->
             <div
                 style="border-left: 1px solid var(--border-color); padding-left: 30px; height: 100%; display: flex; flex-direction: column; justify-content: center; gap: 12px;">
-                {% if profile.regimenFiscal == 'RST' %}
+                {% if profile.regimenFiscal in ('RST', 'rst_income', 'rst_purchases') %}
                 <div
                     style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-secondary); font-weight: 500;">
                     <span>Límite Anual RST 2026 (Ingresos)</span>

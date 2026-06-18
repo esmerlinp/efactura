@@ -42,7 +42,7 @@ def upload_file():
     is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.is_json
     if 'user' not in session:
         if is_ajax: return jsonify({"success": False, "error": "No autorizado"}), 401
-        return redirect(url_for('login'))
+        return redirect(url_for('web_auth.login'))
     
     import_type = request.form.get('import_type')
     if import_type not in ['clients', 'products', 'invoices']:
@@ -57,7 +57,7 @@ def upload_file():
         if import_type == 'clients':
             return redirect(url_for('web_clients.list_clients'))
         elif import_type == 'products':
-            return redirect(url_for('list_items'))
+            return redirect(url_for('web_invoices.list_items'))
         else:
             return redirect(url_for('web_invoices.list_invoices'))
             
@@ -97,7 +97,7 @@ def upload_file():
         if import_type == 'clients':
             return redirect(url_for('web_clients.list_clients'))
         elif import_type == 'products':
-            return redirect(url_for('list_items'))
+            return redirect(url_for('web_invoices.list_items'))
         else:
             return redirect(url_for('web_invoices.list_invoices'))
             
@@ -192,7 +192,7 @@ def process_import():
     is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.is_json
     if 'user' not in session:
         if is_ajax: return jsonify({"success": False, "error": "No autorizado"}), 401
-        return redirect(url_for('login'))
+        return redirect(url_for('web_auth.login'))
     
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
@@ -381,6 +381,6 @@ def process_import():
     if import_type == 'clients':
         return redirect(url_for('web_clients.list_clients'))
     elif import_type == 'products':
-        return redirect(url_for('list_items'))
+        return redirect(url_for('web_invoices.list_items'))
     else:
         return redirect(url_for('web_invoices.list_invoices'))

@@ -21,7 +21,7 @@
             <h3 style="font-size:1.15rem; font-family:var(--font-heading);">Filtros</h3>
         </div>
         <div style="display:flex; gap:8px;">
-            <a href="{{ url_for('reporte_606_dashboard', year=year, month=month) }}" class="btn btn-secondary">
+            <a href="{{ url_for('web_reports_606.reporte_606_dashboard', year=year, month=month) }}" class="btn btn-secondary">
                 <i class="fa-solid fa-chart-pie"></i> KPIs
             </a>
             <div class="dropdown" style="position:relative; display:inline-block;">
@@ -29,10 +29,10 @@
                     <i class="fa-solid fa-download"></i> Exportar ▾
                 </button>
                 <div style="display:none; position:absolute; right:0; top:100%; background:var(--bg-card); border:1px solid var(--border-color); border-radius:8px; box-shadow:var(--shadow-lg); z-index:100; min-width:200px; margin-top:4px;">
-                    <a href="{{ url_for('reporte_606_export', year=year, month=month, supplier_id=supplier_id, tipo_gasto=tipo_gasto, ecf_type=ecf_type, search=search, format='simple') }}" style="display:block; padding:10px 16px; text-decoration:none; color:var(--text-primary); font-size:0.85rem; border-bottom:1px solid var(--border-color);">
+                    <a href="{{ url_for('web_reports_606.reporte_606_export', year=year, month=month, supplier_id=supplier_id, tipo_gasto=tipo_gasto, ecf_type=ecf_type, search=search, format='simple') }}" style="display:block; padding:10px 16px; text-decoration:none; color:var(--text-primary); font-size:0.85rem; border-bottom:1px solid var(--border-color);">
                         <i class="fa-solid fa-file-csv" style="margin-right:8px;"></i> CSV Simple
                     </a>
-                    <a href="{{ url_for('reporte_606_export', year=year, month=month, supplier_id=supplier_id, tipo_gasto=tipo_gasto, ecf_type=ecf_type, search=search, format='dgii') }}" style="display:block; padding:10px 16px; text-decoration:none; color:var(--text-primary); font-size:0.85rem;">
+                    <a href="{{ url_for('web_reports_606.reporte_606_export', year=year, month=month, supplier_id=supplier_id, tipo_gasto=tipo_gasto, ecf_type=ecf_type, search=search, format='dgii') }}" style="display:block; padding:10px 16px; text-decoration:none; color:var(--text-primary); font-size:0.85rem;">
                         <i class="fa-solid fa-file-export" style="margin-right:8px;"></i> CSV Formato DGII 606
                     </a>
                 </div>
@@ -40,7 +40,7 @@
         </div>
     </div>
 
-    <form method="GET" action="{{ url_for('reporte_606') }}" style="padding:15px; background:rgba(0,0,0,0.02); border:1px solid var(--border-color); border-radius:8px; margin:0 20px 20px;">
+    <form method="GET" action="{{ url_for('web_reports_606.reporte_606') }}" style="padding:15px; background:rgba(0,0,0,0.02); border:1px solid var(--border-color); border-radius:8px; margin:0 20px 20px;">
         <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(130px,1fr)); gap:12px; align-items:flex-end;">
             <div class="form-group" style="margin-bottom:0;">
                 <label style="font-size:0.72rem; color:var(--text-secondary);">Año</label>
@@ -84,7 +84,7 @@
                 <button type="submit" class="btn btn-secondary" style="height:36px; font-size:0.78rem; border-color:var(--accent-emerald); color:var(--accent-emerald);">
                     <i class="fa-solid fa-filter"></i> Filtrar
                 </button>
-                <a href="{{ url_for('reporte_606') }}" class="btn btn-secondary" style="height:36px; font-size:0.78rem; padding:0 10px; border-color:var(--border-color); color:var(--text-muted);">
+                <a href="{{ url_for('web_reports_606.reporte_606') }}" class="btn btn-secondary" style="height:36px; font-size:0.78rem; padding:0 10px; border-color:var(--border-color); color:var(--text-muted);">
                     <i class="fa-solid fa-filter-circle-xmark"></i>
                 </a>
             </div>

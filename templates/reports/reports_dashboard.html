@@ -20,7 +20,7 @@
             <p style="color: var(--text-secondary); font-size: 0.82rem; line-height: 1.45; flex-grow: 1;">
                 Calcula automáticamente una estimación de tu declaración de ITBIS del periodo. Mapea el ITBIS devengado frente al ITBIS deducible registrado.
             </p>
-            <a href="{{ url_for('it1_diagnostic') }}" class="btn btn-primary" style="width: 100%; margin-top: 10px;">
+            <a href="{{ url_for('web_invoices.it1_diagnostic') }}" class="btn btn-primary" style="width: 100%; margin-top: 10px;">
                 <span>Ver Diagnóstico IT-1</span>
             </a>
         </div>
@@ -34,7 +34,7 @@
             <p style="color: var(--text-secondary); font-size: 0.82rem; line-height: 1.45; flex-grow: 1;">
                 Análisis de rentabilidad por producto/cliente, flujos de caja futuros y simulador comparativo interactivo de regímenes fiscales (RST vs Ordinario).
             </p>
-            <a href="{{ url_for('bi_dashboard') }}" class="btn btn-primary" style="width: 100%; margin-top: 10px; background: linear-gradient(135deg, var(--accent-emerald), var(--accent-emerald-hover)); color: white; border: none;">
+            <a href="{{ url_for('web_invoices.bi_dashboard') }}" class="btn btn-primary" style="width: 100%; margin-top: 10px; background: linear-gradient(135deg, var(--accent-emerald), var(--accent-emerald-hover)); color: white; border: none;">
                 <span>Inteligencia de Negocio</span>
             </a>
         </div>
@@ -48,7 +48,7 @@
             <p style="color: var(--text-secondary); font-size: 0.82rem; line-height: 1.45; flex-grow: 1;">
                 Verifica RNCs homologados en facturación electrónica y consulta el estado/mantenimiento en vivo de los servidores de la DGII.
             </p>
-            <a href="{{ url_for('dgii_tools') }}" class="btn btn-primary" style="width: 100%; margin-top: 10px; background: transparent; border: 1px solid var(--border-color); color: var(--text-primary);">
+            <a href="{{ url_for('web_invoices.dgii_tools') }}" class="btn btn-primary" style="width: 100%; margin-top: 10px; background: transparent; border: 1px solid var(--border-color); color: var(--text-primary);">
                 <span>Herramientas DGII</span>
             </a>
         </div>

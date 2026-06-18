@@ -775,7 +775,7 @@
             </div>
             {% endif %}
 
-            <form method="POST" action="{{ url_for('change_user_password') }}" id="form-password" novalidate>
+            <form method="POST" action="{{ url_for('web_auth.change_user_password') }}" id="form-password" novalidate>
                 <div class="profile-form-grid">
                     <!-- Contraseña actual -->
                     <div class="profile-form-group full-width">
@@ -872,7 +872,7 @@
             </div>
             {% endif %}
 
-            <form method="POST" action="{{ url_for('update_supervisor_pin') }}" id="form-supervisor-pin" novalidate>
+            <form method="POST" action="{{ url_for('web_auth.update_supervisor_pin') }}" id="form-supervisor-pin" novalidate>
                 <div class="profile-form-grid">
                     <div class="profile-form-group full-width">
                         <label class="profile-label" for="pin-val">Clave / PIN de Autorización (Numérico, 4-6 dígitos) <span style="color: var(--accent-red);">*</span></label>

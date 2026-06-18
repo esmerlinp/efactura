@@ -14,7 +14,7 @@
     </p>
 </div>
 
-<form method="POST" action="{{ url_for('edit_purchase_order', po_id=order.id) }}" id="po-form">
+<form method="POST" action="{{ url_for('web_purchase_orders.edit_purchase_order', po_id=order.id) }}" id="po-form">
     <div class="card-form-body" style="padding:24px; margin-bottom:24px;">
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px;">
             <div class="form-group">
@@ -107,8 +107,8 @@
                     </tr>
                 </thead>
                 <tbody id="items-body">
-                    {% if order.items and order.items|length > 0 %}
-                    {% for item in order.items %}
+                    {% if order['items'] and order['items']|length > 0 %}
+                    {% for item in order['items'] %}
                     <tr class="item-row">
                         <td>
                             <input type="text" class="form-input item-name" name="items[][name]" value="{{ item.name or '' }}" placeholder="Descripción del producto/servicio" required style="width:100%;">
@@ -232,7 +232,7 @@
     </div>
 
     <div style="display:flex; gap:12px; justify-content:flex-end; margin-top:24px; padding:16px 0;">
-        <a href="{{ url_for('purchase_order_detail', po_id=order.id) }}" class="btn btn-secondary">
+        <a href="{{ url_for('web_purchase_orders.purchase_order_detail', po_id=order.id) }}" class="btn btn-secondary">
             <i class="fa-solid fa-xmark"></i> Cancelar
         </a>
         <button type="submit" class="btn btn-primary">

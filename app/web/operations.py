@@ -121,7 +121,7 @@ def list_contracts():
         import io
         from flask import send_file
         output = io.StringIO()
-        writer = csv.writer(output)
+        writer = csv.writer(output, quoting=csv.QUOTE_ALL)
         writer.writerow(["Número de Contrato", "Cliente", "RNC", "Monto Fijo (RD$)", "Frecuencia", "Fecha Inicio", "Fecha Fin", "Próximo Cobro", "Estatus"])
         for c in contracts:
             writer.writerow([

@@ -11,7 +11,7 @@
         <span>Ajuste Físico de Existencias</span>
     </h3>
     
-    <form action="{{ url_for('new_inventory_transaction') }}" method="POST" id="tx-form">
+    <form action="{{ url_for('web_invoices.new_inventory_transaction') }}" method="POST" id="tx-form">
         <div class="form-grid" style="grid-template-columns: 1fr 1fr; width: 100%; box-sizing: border-box;">
             
             <!-- Selector de Producto -->
@@ -78,7 +78,7 @@
         </div>
 
         <div style="margin-top: 36px; display: flex; justify-content: flex-end; gap: 15px; border-top: 1px solid var(--border-color); padding-top: 24px;">
-            <a href="{{ url_for('inventory_dashboard') }}" class="btn btn-secondary">
+            <a href="{{ url_for('web_invoices.inventory_dashboard') }}" class="btn btn-secondary">
                 <span>Cancelar</span>
             </a>
             <button type="submit" class="btn btn-primary" style="padding: 12px 24px;">

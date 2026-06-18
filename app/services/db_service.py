@@ -246,7 +246,9 @@ class DatabaseService:
                     "isPosSupervisor": False,
                     "canViewSubscription": True,
                     "canToggleSandbox": True,
-                    "canManageNotes": True
+                    "canManageNotes": True,
+                    "canManageSuppliers": True,
+                    "canManagePurchaseCXP": True
                 },
                 "createdAt": created_at,
                 "associated_companies": [],
@@ -368,7 +370,9 @@ class DatabaseService:
                         "isPosSupervisor": bool(perms.get("isPosSupervisor", False)),
                         "canViewSubscription": bool(perms.get("canViewSubscription", True)),
                         "canToggleSandbox": bool(perms.get("canToggleSandbox", True)),
-                        "canManageNotes": bool(perms.get("canManageNotes", True))
+                        "canManageNotes": bool(perms.get("canManageNotes", True)),
+                        "canManageSuppliers": bool(perms.get("canManageSuppliers", True)),
+                        "canManagePurchaseCXP": bool(perms.get("canManagePurchaseCXP", True))
                     },
                     "createdAt": created_at,
                     "two_factor_enabled": bool(data.get("two_factor_enabled", False)),
@@ -404,7 +408,9 @@ class DatabaseService:
                         "isPosSupervisor": False,
                         "canViewSubscription": True,
                         "canToggleSandbox": True,
-                        "canManageNotes": True
+                        "canManageNotes": True,
+                        "canManageSuppliers": True,
+                        "canManagePurchaseCXP": True
                     },
                     "createdAt": datetime.utcnow().isoformat(),
                     "two_factor_enabled": False,
@@ -463,7 +469,9 @@ class DatabaseService:
                         "isPosSupervisor": bool(perms.get("isPosSupervisor", False)),
                         "canViewSubscription": bool(perms.get("canViewSubscription", True)),
                         "canToggleSandbox": bool(perms.get("canToggleSandbox", True)),
-                        "canManageNotes": bool(perms.get("canManageNotes", True))
+                        "canManageNotes": bool(perms.get("canManageNotes", True)),
+                        "canManageSuppliers": bool(perms.get("canManageSuppliers", True)),
+                        "canManagePurchaseCXP": bool(perms.get("canManagePurchaseCXP", True))
                     },
                     "createdAt": serialize_field(data.get("createdAt")),
                     "two_factor_enabled": bool(data.get("two_factor_enabled", False)),
@@ -548,7 +556,9 @@ class DatabaseService:
                                 "isPosSupervisor": bool(emp_data.get("permissions", {}).get("isPosSupervisor", False)),
                                 "canViewSubscription": bool(emp_data.get("permissions", {}).get("canViewSubscription", True)),
                                 "canToggleSandbox": bool(emp_data.get("permissions", {}).get("canToggleSandbox", True)),
-                                "canManageNotes": bool(emp_data.get("permissions", {}).get("canManageNotes", True))
+                                "canManageNotes": bool(emp_data.get("permissions", {}).get("canManageNotes", True)),
+                                "canManageSuppliers": bool(emp_data.get("permissions", {}).get("canManageSuppliers", True)),
+                                "canManagePurchaseCXP": bool(emp_data.get("permissions", {}).get("canManagePurchaseCXP", True))
                             }
                         })
             except Exception as e:
@@ -599,7 +609,7 @@ class DatabaseService:
             "gradientEnabled": True,
             "logoUrl": "",
             "logoBase64": "",
-            "regimenFiscal": "General",
+            "regimenFiscal": "ordinary",
             "certificateName": "",
             "certificateExtension": "",
             "certificateContent": "",
@@ -745,7 +755,7 @@ class DatabaseService:
                     }
                     for k, v in data.items():
                         if k not in client_dict:
-                            client_dict[k] = v
+                            client_dict[k] = serialize_field(v)
                     clients.append(client_dict)
                 clients.sort(key=lambda x: x["razonSocial"].lower())
             except Exception as e:

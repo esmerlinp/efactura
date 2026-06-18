@@ -21,10 +21,7 @@ def serialize_field(val):
 class SupplierService:
 
     @classmethod
-    def get_supplier_by_rnc(cls, owner_uid, rnc, sandbox=True):
-        rnc_clean = "".join(filter(str.isdigit, str(rnc)))
-        if not rnc_clean:
-            return None
+    def get_suppliers(cls, owner_uid, sandbox=True):
         if not firebase_initialized or db_firestore is None:
             return []
         suppliers = []

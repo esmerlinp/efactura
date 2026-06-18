@@ -10,7 +10,7 @@ web_clients_bp = Blueprint('web_clients', __name__)
 
 @web_clients_bp.route('/clients')
 def list_clients():
-    if 'user' not in session: return redirect(url_for('login'))
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canClients'):
         return render_template('auth/restricted.html', feature_name="CRM Clientes", required_permission="canClients")
     owner_uid = session['user']['ownerUID']
@@ -50,7 +50,7 @@ def list_clients():
         from flask import send_file
         from datetime import datetime
         output = io.StringIO()
-        writer = csv.writer(output)
+        writer = csv.writer(output, quoting=csv.QUOTE_ALL)
         writer.writerow(["RNC / Cédula", "Razón Social", "Email", "Teléfono", "Dirección", "Etapa Pipeline", "Total Facturado (RD$)", "Pendiente CxC (RD$)"])
         for c in clients:
             writer.writerow([
@@ -106,7 +106,7 @@ def list_clients():
 
 @web_clients_bp.route('/clients/new', methods=['GET', 'POST'])
 def new_client():
-    if 'user' not in session: return redirect(url_for('login'))
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canClients'):
         return render_template('auth/restricted.html', feature_name="Nuevo Cliente", required_permission="canClients")
     owner_uid = session['user']['ownerUID']
@@ -164,7 +164,7 @@ def new_client():
             sandbox=sandbox
         )
         flash('Cliente registrado exitosamente en el directorio CRM.', 'success')
-        return redirect(url_for('list_clients'))
+        return redirect(url_for('web_clients.list_clients'))
         
     collaborators = DatabaseService.get_team_members(owner_uid) or []
     return render_template('clients/form.html', active_page='clients', client=None, collaborators=collaborators)
@@ -233,7 +233,7 @@ def ajax_create_client():
 
 @web_clients_bp.route('/clients/<client_id>/edit', methods=['GET', 'POST'])
 def edit_client(client_id):
-    if 'user' not in session: return redirect(url_for('login'))
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canClients'):
         return render_template('auth/restricted.html', feature_name="Editar Cliente", required_permission="canClients")
     owner_uid = session['user']['ownerUID']
@@ -244,7 +244,7 @@ def edit_client(client_id):
     
     if not client:
         flash('Cliente no encontrado.', 'error')
-        return redirect(url_for('list_clients'))
+        return redirect(url_for('web_clients.list_clients'))
         
     if request.method == 'POST':
         before_client = client.copy()
@@ -301,14 +301,14 @@ def edit_client(client_id):
             sandbox=sandbox
         )
         flash('Ficha CRM del cliente actualizada exitosamente.', 'success')
-        return redirect(url_for('list_clients'))
+        return redirect(url_for('web_clients.list_clients'))
         
     collaborators = DatabaseService.get_team_members(owner_uid) or []
     return render_template('clients/form.html', active_page='clients', client=client, collaborators=collaborators)
 
 @web_clients_bp.route('/clients/<client_id>/delete', methods=['POST'])
 def delete_client_route(client_id):
-    if 'user' not in session: return redirect(url_for('login'))
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canClients'):
         return render_template('auth/restricted.html', feature_name="Eliminar Cliente", required_permission="canClients")
     owner_uid = session['user']['ownerUID']
@@ -335,7 +335,7 @@ def delete_client_route(client_id):
         sandbox=sandbox
     )
     flash('Cliente eliminado del directorio.', 'success')
-    return redirect(url_for('list_clients'))
+    return redirect(url_for('web_clients.list_clients'))
 
 @web_clients_bp.route('/clients/<client_id>/update_pipeline', methods=['POST'])
 def update_client_pipeline(client_id):
@@ -526,7 +526,7 @@ def send_portal_credentials(client_id):
 
 @web_clients_bp.route('/clients/<client_id>')
 def client_detail(client_id):
-    if 'user' not in session: return redirect(url_for('login'))
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canClients'):
         return render_template('auth/restricted.html', feature_name="Ver Detalle de Cliente", required_permission="canClients")
     owner_uid = session['user']['ownerUID']
@@ -537,7 +537,7 @@ def client_detail(client_id):
     
     if not client:
         flash('Cliente no encontrado.', 'error')
-        return redirect(url_for('list_clients'))
+        return redirect(url_for('web_clients.list_clients'))
         
     # Obtener facturas y cotizaciones del cliente
     all_invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox)
@@ -594,7 +594,7 @@ def client_detail(client_id):
 
 @web_clients_bp.route('/clients/<client_id>/interactions/new', methods=['POST'])
 def add_client_interaction(client_id):
-    if 'user' not in session: return redirect(url_for('login'))
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canClients'):
         return render_template('auth/restricted.html', feature_name="Registrar Seguimiento", required_permission="canClients")
     owner_uid = session['user']['ownerUID']
@@ -606,7 +606,7 @@ def add_client_interaction(client_id):
     
     if not content:
         flash('El comentario no puede estar vacío.', 'error')
-        return redirect(url_for('client_detail', client_id=client_id))
+        return redirect(url_for('web_clients.client_detail', client_id=client_id))
         
     attachment_url = ""
     attachment_name = ""
@@ -665,11 +665,11 @@ def add_client_interaction(client_id):
             DatabaseService.save_client(owner_uid, client_id, client, sandbox=sandbox)
             
     flash('Interacción registrada exitosamente.', 'success')
-    return redirect(url_for('client_detail', client_id=client_id))
+    return redirect(url_for('web_clients.client_detail', client_id=client_id))
 
 @web_clients_bp.route('/clients/<client_id>/interactions/<interaction_id>/delete', methods=['POST'])
 def delete_client_interaction_route(client_id, interaction_id):
-    if 'user' not in session: return redirect(url_for('login'))
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canClients'):
         return render_template('auth/restricted.html', feature_name="Eliminar Seguimiento", required_permission="canClients")
     owner_uid = session['user']['ownerUID']
@@ -688,11 +688,11 @@ def delete_client_interaction_route(client_id, interaction_id):
         sandbox=sandbox
     )
     flash('Interacción eliminada correctamente de la línea de tiempo.', 'success')
-    return redirect(url_for('client_detail', client_id=client_id))
+    return redirect(url_for('web_clients.client_detail', client_id=client_id))
 
 @web_clients_bp.route('/clients/<client_id>/interactions/<interaction_id>/complete', methods=['POST'])
 def complete_client_interaction_task(client_id, interaction_id):
-    if 'user' not in session: return redirect(url_for('login'))
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canClients'):
         return render_template('auth/restricted.html', feature_name="Completar Seguimiento", required_permission="canClients")
     owner_uid = session['user']['ownerUID']
@@ -714,11 +714,11 @@ def complete_client_interaction_task(client_id, interaction_id):
             
         flash('Seguimiento marcado como COMPLETADO.', 'success')
         
-    return redirect(url_for('client_detail', client_id=client_id))
+    return redirect(url_for('web_clients.client_detail', client_id=client_id))
 
 @web_clients_bp.route('/clients/<client_id>/interactions/quick-note', methods=['POST'])
 def add_quick_note(client_id):
-    if 'user' not in session: return redirect(url_for('login'))
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canClients'):
         return render_template('auth/restricted.html', feature_name="Registrar Nota CRM", required_permission="canClients")
     owner_uid = session['user']['ownerUID']

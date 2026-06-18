@@ -11,7 +11,7 @@
         <span>Detalles de Almacén</span>
     </h3>
     
-    <form action="{% if warehouse %}{{ url_for('edit_warehouse', warehouse_id=warehouse.id) }}{% else %}{{ url_for('new_warehouse') }}{% endif %}" method="POST">
+    <form action="{% if warehouse %}{{ url_for('web_invoices.edit_warehouse', warehouse_id=warehouse.id) }}{% else %}{{ url_for('web_invoices.new_warehouse') }}{% endif %}" method="POST">
         <div class="form-grid" style="grid-template-columns: 1fr;">
             <!-- Nombre del Almacén -->
             <div class="form-group">
@@ -45,7 +45,7 @@
         </div>
 
         <div style="margin-top: 36px; display: flex; justify-content: flex-end; gap: 15px; border-top: 1px solid var(--border-color); padding-top: 24px;">
-            <a href="{{ url_for('inventory_warehouses') }}" class="btn btn-secondary">
+            <a href="{{ url_for('web_invoices.inventory_warehouses') }}" class="btn btn-secondary">
                 <span>Cancelar</span>
             </a>
             <button type="submit" class="btn btn-primary">

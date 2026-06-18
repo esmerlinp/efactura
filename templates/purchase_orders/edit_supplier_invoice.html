@@ -1,0 +1,51 @@
+{% extends "layout.html" %}
+{% block title %}Editar Factura {{ invoice.invoiceNumber }}{% endblock %}
+{% block page_header %}Editar Factura Proveedor{% endblock %}
+
+{% block content %}
+<div class="page-title-container" style="margin-bottom:24px; padding-left:4px; display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px;">
+    <div>
+        <h1 style="font-size:1.75rem; font-weight:800; font-family:var(--font-heading); color:var(--text-primary); margin:0;">
+            <i class="fa-solid fa-pen" style="color:var(--accent-purple); margin-right:10px;"></i>
+            Editar: {{ invoice.invoiceNumber }}
+        </h1>
+        <p style="color:var(--text-secondary); font-size:0.88rem; margin:6px 0 0 2px;">
+            {{ invoice.supplierName or '—' }} · {{ invoice.supplierRnc or '—' }}
+        </p>
+    </div>
+    <div>
+        <a href="{{ url_for('web_purchase_orders.supplier_invoice_detail', invoice_id=invoice.id) }}" class="btn btn-secondary">
+            <i class="fa-solid fa-arrow-left"></i> Volver al Detalle
+        </a>
+    </div>
+</div>
+
+<div class="card-form-body" style="padding:24px; max-width:600px;">
+    <form method="POST">
+        <div class="form-group" style="margin-bottom:16px;">
+            <label style="font-size:0.82rem; font-weight:600; display:block; margin-bottom:4px; color:var(--text-secondary);">
+                Fecha de Emisión
+            </label>
+            <input type="date" name="date" class="form-input" value="{{ (invoice.date or '')[:10] }}" style="width:100%;">
+        </div>
+        <div class="form-group" style="margin-bottom:16px;">
+            <label style="font-size:0.82rem; font-weight:600; display:block; margin-bottom:4px; color:var(--text-secondary);">
+                Fecha de Vencimiento
+            </label>
+            <input type="date" name="dueDate" class="form-input" value="{{ (invoice.dueDate or '')[:10] }}" style="width:100%;">
+        </div>
+        <div class="form-group" style="margin-bottom:20px;">
+            <label style="font-size:0.82rem; font-weight:600; display:block; margin-bottom:4px; color:var(--text-secondary);">
+                Notas
+            </label>
+            <textarea name="notes" class="form-input" rows="4" style="width:100%; resize:vertical;">{{ invoice.notes or '' }}</textarea>
+        </div>
+        <div style="color:var(--text-muted); font-size:0.78rem; margin-bottom:16px;">
+            <i class="fa-solid fa-info-circle"></i> Solo puedes modificar fechas y notas. Los montos, NCF e items no se pueden editar.
+        </div>
+        <button type="submit" class="btn btn-primary">
+            <i class="fa-solid fa-save"></i> Guardar Cambios
+        </button>
+    </form>
+</div>
+{% endblock %}

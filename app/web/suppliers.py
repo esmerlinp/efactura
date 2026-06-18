@@ -10,8 +10,8 @@ web_suppliers_bp = Blueprint('web_suppliers', __name__)
 
 @web_suppliers_bp.route('/suppliers')
 def list_suppliers():
-    if 'user' not in session: return redirect(url_for('login'))
-    if not check_permission('canExpenses'):
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
+    if not check_permission('canManageSuppliers'):
         return render_template('auth/restricted.html', feature_name="Proveedores", required_permission="canExpenses")
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
@@ -45,7 +45,7 @@ def list_suppliers():
         import csv, io
         from flask import send_file
         output = io.StringIO()
-        writer = csv.writer(output)
+        writer = csv.writer(output, quoting=csv.QUOTE_ALL)
         writer.writerow(["RNC", "Nombre", "Teléfono", "Email", "Tipo", "Estado", "Compras (RD$)", "Saldo CxP (RD$)"])
         for s in suppliers:
             writer.writerow([
@@ -60,10 +60,42 @@ def list_suppliers():
         filename = f"proveedores_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.csv"
         return send_file(dest, mimetype="text/csv", as_attachment=True, download_name=filename)
 
+    total_items = len(suppliers)
+    try:
+        page = int(request.args.get('page', 1))
+    except ValueError:
+        page = 1
+    per_page = request.args.get('per_page', '10').strip()
+    if per_page == 'all':
+        per_page_val = max(1, total_items)
+    else:
+        try:
+            per_page_val = int(per_page)
+            if per_page_val not in [10, 25, 50, 100]:
+                per_page_val = 10
+        except ValueError:
+            per_page_val = 10
+    total_pages = max(1, (total_items + per_page_val - 1) // per_page_val)
+    if page < 1: page = 1
+    if page > total_pages: page = total_pages
+    start_idx = (page - 1) * per_page_val
+    end_idx = start_idx + per_page_val
+    paginated = suppliers[start_idx:end_idx]
+    start_count = ((page - 1) * per_page_val) + 1 if total_items > 0 else 0
+    end_count = min(page * per_page_val, total_items)
+
     return render_template(
         'suppliers/list.html',
         active_page='suppliers',
-        suppliers=suppliers,
+        suppliers=paginated,
+        page=page,
+        total_pages=total_pages,
+        total_items=total_items,
+        pages_range=range(1, total_pages + 1),
+        has_prev=page > 1,
+        has_next=page < total_pages,
+        start_count=start_count,
+        end_count=end_count,
         q=request.args.get('q', ''),
         estado=request.args.get('estado', ''),
         tipo=request.args.get('tipo', ''),
@@ -72,8 +104,8 @@ def list_suppliers():
 
 @web_suppliers_bp.route('/suppliers/new', methods=['GET', 'POST'])
 def new_supplier():
-    if 'user' not in session: return redirect(url_for('login'))
-    if not check_permission('canExpenses'):
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
+    if not check_permission('canManageSuppliers'):
         return render_template('auth/restricted.html', feature_name="Nuevo Proveedor", required_permission="canExpenses")
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
@@ -141,15 +173,15 @@ def new_supplier():
             user_session=session.get('user', {}), after=supplier_dict, sandbox=sandbox
         )
         flash('Proveedor registrado exitosamente.', 'success')
-        return redirect(url_for('list_suppliers'))
+        return redirect(url_for('web_suppliers.list_suppliers'))
 
     return render_template('suppliers/new.html', active_page='suppliers')
 
 
 @web_suppliers_bp.route('/suppliers/<supplier_id>')
 def supplier_detail(supplier_id):
-    if 'user' not in session: return redirect(url_for('login'))
-    if not check_permission('canExpenses'):
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
+    if not check_permission('canManageSuppliers'):
         return render_template('auth/restricted.html', feature_name="Detalle Proveedor", required_permission="canExpenses")
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
@@ -157,7 +189,7 @@ def supplier_detail(supplier_id):
     supplier = SupplierService.get_supplier(owner_uid, supplier_id, sandbox=sandbox)
     if not supplier:
         flash('Proveedor no encontrado.', 'error')
-        return redirect(url_for('list_suppliers'))
+        return redirect(url_for('web_suppliers.list_suppliers'))
 
     expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox)
     linked_expenses = [e for e in expenses if e.get('supplierId') == supplier_id]
@@ -178,8 +210,8 @@ def supplier_detail(supplier_id):
 
 @web_suppliers_bp.route('/suppliers/<supplier_id>/edit', methods=['GET', 'POST'])
 def edit_supplier(supplier_id):
-    if 'user' not in session: return redirect(url_for('login'))
-    if not check_permission('canExpenses'):
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
+    if not check_permission('canManageSuppliers'):
         return render_template('auth/restricted.html', feature_name="Editar Proveedor", required_permission="canExpenses")
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
@@ -187,7 +219,7 @@ def edit_supplier(supplier_id):
     supplier = SupplierService.get_supplier(owner_uid, supplier_id, sandbox=sandbox)
     if not supplier:
         flash('Proveedor no encontrado.', 'error')
-        return redirect(url_for('list_suppliers'))
+        return redirect(url_for('web_suppliers.list_suppliers'))
 
     if request.method == 'POST':
         before = supplier.copy()
@@ -244,15 +276,15 @@ def edit_supplier(supplier_id):
             user_session=session.get('user', {}), before=before, after=supplier_dict, sandbox=sandbox
         )
         flash('Proveedor actualizado exitosamente.', 'success')
-        return redirect(url_for('list_suppliers'))
+        return redirect(url_for('web_suppliers.list_suppliers'))
 
     return render_template('suppliers/edit.html', active_page='suppliers', supplier=supplier)
 
 
 @web_suppliers_bp.route('/suppliers/<supplier_id>/delete', methods=['POST'])
 def delete_supplier(supplier_id):
-    if 'user' not in session: return redirect(url_for('login'))
-    if not check_permission('canExpenses'):
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
+    if not check_permission('canManageSuppliers'):
         return render_template('auth/restricted.html', feature_name="Eliminar Proveedor", required_permission="canExpenses")
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
@@ -260,7 +292,7 @@ def delete_supplier(supplier_id):
     supplier = SupplierService.get_supplier(owner_uid, supplier_id, sandbox=sandbox)
     if not supplier:
         flash('Proveedor no encontrado.', 'error')
-        return redirect(url_for('list_suppliers'))
+        return redirect(url_for('web_suppliers.list_suppliers'))
 
     SupplierService.delete_supplier(owner_uid, supplier_id, sandbox=sandbox)
 
@@ -272,7 +304,7 @@ def delete_supplier(supplier_id):
         user_session=session.get('user', {}), before=supplier, sandbox=sandbox
     )
     flash('Proveedor eliminado.', 'success')
-    return redirect(url_for('list_suppliers'))
+    return redirect(url_for('web_suppliers.list_suppliers'))
 
 
 @web_suppliers_bp.route('/api/suppliers/search')

@@ -116,7 +116,7 @@
             <a href="{{ url_for('web_clients.list_clients') }}" class="btn btn-secondary"
                 style="display: inline-flex; align-items: center;">Cancelar</a>
             {% elif import_type == 'products' %}
-            <a href="{{ url_for('list_items') }}" class="btn btn-secondary"
+            <a href="{{ url_for('web_invoices.list_items') }}" class="btn btn-secondary"
                 style="display: inline-flex; align-items: center;">Cancelar</a>
             {% else %}
             <a href="{{ url_for('web_invoices.list_invoices') }}" class="btn btn-secondary"
@@ -193,7 +193,7 @@
             <a href="{{ url_for('web_clients.list_clients') }}" class="btn btn-secondary"
                 style="display: inline-flex; align-items: center;">Cancelar</a>
             {% elif import_type == 'products' %}
-            <a href="{{ url_for('list_items') }}" class="btn btn-secondary"
+            <a href="{{ url_for('web_invoices.list_items') }}" class="btn btn-secondary"
                 style="display: inline-flex; align-items: center;">Cancelar</a>
             {% else %}
             <a href="{{ url_for('web_invoices.list_invoices') }}" class="btn btn-secondary"

@@ -349,7 +349,7 @@
                     <tr style="border-bottom: 1px solid var(--border-color);" class="cxc-row"
                         data-invoice-id="{{ inv.id }}" data-status="{{ inv.status }}">
                         <td style="padding: 14px 16px;">
-                            <a href="{{ url_for('invoice_detail', invoice_id=inv.id) }}"
+                            <a href="{{ url_for('web_invoices.invoice_detail', invoice_id=inv.id) }}"
                                 style="font-weight: normal; color: var(--text-primary); text-decoration: none; display: block; margin-bottom: 2px;">
                                 {{ inv.invoiceNumber }}
                             </a>

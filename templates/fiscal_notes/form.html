@@ -1,0 +1,133 @@
+{% extends "layout.html" %}
+{% block title %}{% if note_type == 'E34' %}Nueva Nota de Crédito{% else %}Nueva Nota de Débito{% endif %}{% endblock %}
+{% block page_header %}{% if note_type == 'E34' %}Nota de Crédito (E34){% else %}Nota de Débito (E33){% endif %}{% endblock %}
+
+{% block content %}
+<div class="page-title-container" style="margin-bottom:24px; padding-left:4px; display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px;">
+    <div>
+        <h1 style="font-size:1.75rem; font-weight:800; font-family:var(--font-heading); color:var(--text-primary); margin:0;">
+            <i class="fa-solid {% if note_type == 'E34' %}fa-minus-circle{% else %}fa-plus-circle{% endif %}" style="color:var(--accent-purple); margin-right:10px;"></i>
+            {% if note_type == 'E34' %}Nueva Nota de Crédito{% else %}Nueva Nota de Débito{% endif %}
+        </h1>
+        <p style="color:var(--text-secondary); font-size:0.88rem; margin:6px 0 0 2px;">
+            {{ 'E34: Reduce el monto de una factura ya emitida' if note_type == 'E34' else 'E33: Incrementa el monto de una factura ya emitida' }}
+        </p>
+    </div>
+    <div>
+        <a href="{{ url_for('web_fiscal_notes.list_fiscal_notes') }}" class="btn btn-secondary">
+            <i class="fa-solid fa-arrow-left"></i> Volver
+        </a>
+    </div>
+</div>
+
+<div class="card-form-body" style="padding:24px; max-width:700px;">
+    <form method="POST" action="{{ url_for('web_fiscal_notes.save_fiscal_note') }}">
+        <input type="hidden" name="noteType" value="{{ note_type }}">
+
+        <div class="form-group" style="margin-bottom:16px;">
+            <label style="font-size:0.82rem; font-weight:600; display:block; margin-bottom:4px; color:var(--text-secondary);">
+                Factura de Referencia <span style="color:var(--accent-red);">*</span>
+                <i class="fa-solid fa-question-circle" style="color:var(--text-muted); cursor:help;" title="La factura original que se está ajustando"></i>
+            </label>
+            {% if ref_invoice %}
+            <div style="padding:10px; background:var(--bg-nav-hover); border-radius:var(--radius-sm); border:1px solid var(--border-color);">
+                <input type="hidden" name="referenceInvoiceId" value="{{ ref_invoice.id }}">
+                <strong>{{ ref_invoice.clientName or ref_invoice.razonSocial or '—' }}</strong>
+                <span style="color:var(--text-muted); font-size:0.82rem; margin-left:8px;">
+                    {{ ref_invoice.invoiceNumber or '' }} — RD$ {{ "{:,.2f}".format(ref_invoice.netPayable|default(ref_invoice.total|default(0))) }}
+                </span>
+                <a href="{{ url_for('web_fiscal_notes.create_fiscal_note', type=note_type) }}" style="font-size:0.78rem; margin-left:8px; color:var(--accent-blue);">Cambiar</a>
+            </div>
+            {% else %}
+            <div class="select-search-container">
+                <input type="text" class="form-input select-search" placeholder="Buscar factura..." style="width:100%; margin-bottom:4px;">
+                <select name="referenceInvoiceId" class="form-select" required style="width:100%;">
+                    <option value="">Seleccionar factura...</option>
+                    {% for inv in invoices %}
+                    <option value="{{ inv.id }}">
+                        {{ inv.invoiceNumber or inv.id[:8] }} — {{ inv.clientName or inv.razonSocial or 'Sin cliente' }} — RD$ {{ "{:,.2f}".format(inv.netPayable|default(inv.total|default(0))) }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <script>
+            (function(){
+                var input = document.querySelector('.select-search');
+                if (!input) return;
+                input.addEventListener('input', function(){
+                    var filter = this.value.toLowerCase();
+                    var select = this.nextElementSibling;
+                    for (var i = 0; i < select.options.length; i++) {
+                        var opt = select.options[i];
+                        opt.style.display = opt.text.toLowerCase().includes(filter) ? '' : 'none';
+                    }
+                });
+            })();
+            </script>
+            {% endif %}
+        </div>
+
+        <div class="form-group" style="margin-bottom:16px;">
+            <label style="font-size:0.82rem; font-weight:600; display:block; margin-bottom:4px; color:var(--text-secondary);">
+                Código de Modificación <span style="color:var(--accent-red);">*</span>
+                <i class="fa-solid fa-question-circle" style="color:var(--text-muted); cursor:help;" title="Razón del ajuste según catálogo DGII"></i>
+            </label>
+            <select name="modificationCode" class="form-select" style="width:100%;">
+                <option value="1">Devolución</option>
+                <option value="2">Corrección de texto</option>
+                <option value="3">Descuento</option>
+                <option value="4">Descuento por volumen</option>
+                <option value="5">Otros</option>
+            </select>
+        </div>
+
+        <div class="form-group" style="margin-bottom:16px;">
+            <label style="font-size:0.82rem; font-weight:600; display:block; margin-bottom:4px; color:var(--text-secondary);">Razón / Detalle</label>
+            <textarea name="reason" class="form-input" rows="2" style="width:100%; resize:vertical;" placeholder="Describe el motivo del ajuste..."></textarea>
+        </div>
+
+        <div class="form-group" style="margin-bottom:16px;">
+            <label style="font-size:0.82rem; font-weight:600; display:block; margin-bottom:4px; color:var(--text-secondary);">Fecha de Emisión</label>
+            <input type="date" name="date" class="form-input" value="{{ datetime.utcnow().strftime('%Y-%m-%d') }}" style="width:100%;">
+        </div>
+
+        {% if note_type == 'E34' %}
+        <div class="form-group" style="margin-bottom:20px;">
+            <label style="font-size:0.82rem; font-weight:600; display:block; margin-bottom:4px; color:var(--text-secondary);">
+                Monto a Acreditar (RD$)
+                <i class="fa-solid fa-question-circle" style="color:var(--text-muted); cursor:help;" title="No puede exceder el total de la factura original. La DGII permite hasta el 100%."></i>
+            </label>
+            <input type="number" name="creditedAmount" class="form-input" step="0.01" min="0.01" style="width:100%;">
+            <small style="color:var(--text-muted); font-size:0.72rem;">
+                Debe ser ≥ 0.01. Máximo: el total de la factura de referencia.
+            </small>
+        </div>
+        {% else %}
+        <div class="form-group" style="margin-bottom:20px;">
+            <label style="font-size:0.82rem; font-weight:600; display:block; margin-bottom:4px; color:var(--text-secondary);">
+                Monto a Debitar (RD$)
+            </label>
+            <input type="number" name="debitedAmount" class="form-input" step="0.01" min="0.01" style="width:100%;">
+        </div>
+        {% endif %}
+
+        <div class="form-group" style="margin-bottom:20px;">
+            <label style="font-size:0.82rem; font-weight:600; display:block; margin-bottom:4px; color:var(--text-secondary);">Notas Internas</label>
+            <textarea name="notes" class="form-input" rows="2" style="width:100%; resize:vertical;" placeholder="Notas opcionales..."></textarea>
+        </div>
+
+        <div style="color:var(--text-muted); font-size:0.78rem; margin-bottom:16px; background:var(--bg-nav-hover); padding:10px; border-radius:var(--radius-sm); border:1px solid var(--border-color);">
+            <i class="fa-solid fa-info-circle"></i>
+            {% if note_type == 'E34' %}
+            La nota de crédito se creará como Borrador. Deberás emitirla formalmente desde el módulo de facturación para que tenga validez fiscal (firma digital y envío DGII).
+            {% else %}
+            La nota de débito se creará como Borrador. Deberás emitirla formalmente desde el módulo de facturación.
+            {% endif %}
+        </div>
+
+        <button type="submit" class="btn btn-primary">
+            <i class="fa-solid fa-check"></i> Crear {{ 'Nota de Crédito' if note_type == 'E34' else 'Nota de Débito' }}
+        </button>
+    </form>
+</div>
+{% endblock %}
