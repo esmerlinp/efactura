@@ -1,0 +1,185 @@
+{% set apply_brand = company.applyColorMarcaReports %}
+{% set brand_color = company.colorMarca if (apply_brand and company.colorMarca) else '#1E3A8A' %}
+{% set company_color_marca = brand_color %}
+{% set current_color = brand_color %}
+{% set current_light_color = brand_color if apply_brand else '#E2E8F0' %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>e-CF {{ expense.ecfType }} - {{ expense.encf or expense.ncf }}</title>
+    {% if auto_print %}
+    <script>
+        window.addEventListener('load', function () {
+            setTimeout(function () { window.print(); }, 500);
+        });
+    </script>
+    {% endif %}
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+        body { font-family: 'Arial', 'Helvetica', sans-serif; font-size: 12px; color: #1a1a2e; background: white; padding: 0; }
+        .header { display: flex; justify-content: space-between; align-items: flex-start; padding: 32px 20px 24px; border-bottom: 3px solid {{ company_color_marca or '#1E3A8A' }}; margin-bottom: 28px; }
+        .header-left { display: flex; align-items: center; gap: 16px; }
+        .logo-img { max-height: 70px; max-width: 160px; }
+        .company-info h1 { font-size: 20px; margin-bottom: 4px; color: {{ company_color_marca }}; }
+        .company-info p { font-size: 11px; color: #475569; line-height: 1.6; }
+        .header-right { text-align: right; }
+        .doc-badge { display: inline-block; padding: 6px 16px; border-radius: 20px; font-size: 13px; font-weight: 700; background: {{ company_color_marca }}; color: #fff; margin-bottom: 8px; }
+        .doc-number { font-size: 15px; font-weight: 700; color: {{ company_color_marca }}; font-family: monospace; }
+        .badge { display: inline-block; padding: 2px 10px; border-radius: 10px; font-size: 10px; font-weight: 600; }
+        .badge-green { background: #dcfce7; color: #16a34a; }
+        .badge-amber { background: #fef3c7; color: #d97706; }
+        .section { padding: 0 20px; margin-bottom: 24px; }
+        .section-title { font-size: 13px; font-weight: 700; color: {{ company_color_marca }}; border-bottom: 2px solid {{ current_light_color }}; padding-bottom: 6px; margin-bottom: 12px; }
+        .field-row { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #f1f5f9; }
+        .field-label { color: #64748b; font-size: 11px; flex: 0 0 140px; }
+        .field-value { color: #1a1a2e; font-size: 12px; font-weight: 500; text-align: right; flex: 1; }
+        .field-value.mono { font-family: monospace; }
+        .totals-table { width: 100%; margin-top: 8px; }
+        .totals-table td { padding: 6px 10px; font-size: 12px; }
+        .totals-table tr:last-child td { font-size: 16px; font-weight: 700; color: {{ company_color_marca }}; border-top: 2px solid {{ company_color_marca }}; padding-top: 10px; }
+        .totals-table td:first-child { text-align: left; color: #64748b; }
+        .totals-table td:last-child { text-align: right; font-weight: 600; }
+        .items-table { width: 100%; border-collapse: collapse; }
+        .items-table th { background: {{ current_light_color }}; color: {{ company_color_marca }}; padding: 8px 10px; font-size: 11px; text-align: left; font-weight: 600; }
+        .items-table td { padding: 8px 10px; font-size: 11px; border-bottom: 1px solid #f1f5f9; }
+        .items-table tr:last-child td { border-bottom: none; }
+        .footer { text-align: center; padding: 20px; font-size: 10px; color: #94a3b8; border-top: 1px solid #e2e8f0; margin-top: 20px; }
+        .qr-section { display: flex; justify-content: center; align-items: center; gap: 20px; padding: 16px 20px; background: #f8fafc; border-radius: 8px; margin: 16px 20px; }
+        .qr-section img { width: 110px; height: 110px; border: 1px solid #e2e8f0; border-radius: 6px; padding: 4px; background: #fff; }
+        .qr-info { font-size: 10px; color: #64748b; line-height: 1.6; }
+        .qr-info strong { color: #1a1a2e; }
+        .watermark { position: fixed; top: 40%; left: 10%; font-size: 60px; color: rgba(220, 38, 38, 0.08); transform: rotate(-30deg); font-weight: 900; pointer-events: none; z-index: 999; white-space: nowrap; }
+        @media print { .watermark { display: block; } }
+    </style>
+</head>
+<body>
+    {% if sandbox %}
+    <div class="watermark">SIN VALOR COMERCIAL</div>
+    {% endif %}
+    <div class="header">
+        <div class="header-left">
+            {% if company.logoBase64 %}
+            <img src="{{ company.logoBase64 }}" class="logo-img" alt="Logo">
+            {% endif %}
+            <div class="company-info">
+                <h1>{{ company.companyName or 'Mi Empresa' }}</h1>
+                <p>RNC: {{ company.companyRNC or '' }}<br>
+                {{ company.companyAddress or '' }}<br>
+                Tel: {{ company.companyPhone or '' }}<br>
+                Email: {{ company.companyEmail or '' }}</p>
+            </div>
+        </div>
+        <div class="header-right">
+            <div class="doc-badge">
+                {% if expense.ecfType == 'E41' %}Comprobante de Compras (E41)
+                {% elif expense.ecfType == 'E43' %}Gastos Menores (E43)
+                {% else %}e-CF {{ expense.ecfType }}{% endif %}
+            </div>
+            <div class="doc-number">{{ expense.encf or expense.ncf or 'N/A' }}</div>
+            {% if expense.emisionMode == 'FALLBACK' %}
+            <div style="margin-top:6px;"><span class="badge badge-amber">Modo Contingencia</span></div>
+            {% elif expense.isSyncedWithDGII %}
+            <div style="margin-top:6px;"><span class="badge badge-green">Sincronizado DGII</span></div>
+            {% endif %}
+        </div>
+    </div>
+    <div class="section">
+        <div class="section-title">Proveedor</div>
+        <div class="field-row">
+            <span class="field-label">Razón Social</span>
+            <span class="field-value">{{ expense.providerName or 'Proveedor' }}</span>
+        </div>
+        <div class="field-row">
+            <span class="field-label">RNC / Cédula</span>
+            <span class="field-value mono">{{ expense.rncEmisor or 'N/A' }}</span>
+        </div>
+    </div>
+    <div class="section">
+        <div class="section-title">Detalles del Gasto</div>
+        <div class="field-row">
+            <span class="field-label">Concepto</span>
+            <span class="field-value">{{ expense.concept or 'Gasto Operativo' }}</span>
+        </div>
+        <div class="field-row">
+            <span class="field-label">Categoría</span>
+            <span class="field-value">{{ expense.category or '—' }}</span>
+        </div>
+        <div class="field-row">
+            <span class="field-label">Fecha</span>
+            <span class="field-value">{{ (expense.date or '')[:10] }}</span>
+        </div>
+        {% if expense.notes %}
+        <div class="field-row">
+            <span class="field-label">Notas</span>
+            <span class="field-value">{{ expense.notes }}</span>
+        </div>
+        {% endif %}
+    </div>
+    <div class="section">
+        <div class="section-title">Montos</div>
+        <table class="items-table">
+            <thead>
+                <tr>
+                    <th style="width:50%;">Descripción</th>
+                    <th style="width:15%;">Cant.</th>
+                    <th style="width:20%;">Precio</th>
+                    <th style="width:15%;">Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>{{ expense.concept or 'Gasto Operativo' }}</td>
+                    <td>1</td>
+                    <td>RD$ {{ "{:,.2f}".format(expense.amount or 0) }}</td>
+                    <td>RD$ {{ "{:,.2f}".format(expense.amount or 0) }}</td>
+                </tr>
+            </tbody>
+        </table>
+        <table class="totals-table">
+            <tr>
+                <td>Subtotal</td>
+                <td>RD$ {{ "{:,.2f}".format((expense.amount or 0) - (expense.itbisAmount or 0)) }}</td>
+            </tr>
+            <tr>
+                <td>ITBIS</td>
+                <td>RD$ {{ "{:,.2f}".format(expense.itbisAmount or 0) }}</td>
+            </tr>
+            {% if expense.retainedITBIS and expense.retainedITBIS > 0 %}
+            <tr>
+                <td>ITBIS Retenido</td>
+                <td>(RD$ {{ "{:,.2f}".format(expense.retainedITBIS) }})</td>
+            </tr>
+            {% endif %}
+            {% if expense.retainedISR and expense.retainedISR > 0 %}
+            <tr>
+                <td>ISR Retenido</td>
+                <td>(RD$ {{ "{:,.2f}".format(expense.retainedISR) }})</td>
+            </tr>
+            {% endif %}
+            <tr>
+                <td>Total</td>
+                <td>RD$ {{ "{:,.2f}".format(expense.amount or 0) }}</td>
+            </tr>
+        </table>
+    </div>
+    {% if qr_base64 %}
+    <div class="qr-section">
+        <img src="data:image/png;base64,{{ qr_base64 }}" alt="QR DGII">
+        <div class="qr-info">
+            <strong>Validación DGII</strong><br>
+            e-NCF: {{ expense.encf or expense.ncf or '' }}<br>
+            Monto: RD$ {{ "{:,.2f}".format(expense.amount or 0) }}<br>
+            Escanea el código QR para verificar<br>
+            este comprobante en el portal de la DGII.
+        </div>
+    </div>
+    {% endif %}
+    <div class="footer">
+        Este documento es un Comprobante Electrónico (e-CF) {{ expense.ecfType }}<br>
+        Generado según Ley 32-23. Valide en <strong>https://dgii.gov.do/validaecf</strong><br>
+        {{ company.companyName or 'Mi Empresa' }} &mdash; RNC: {{ company.companyRNC or '' }}
+    </div>
+</body>
+</html>
