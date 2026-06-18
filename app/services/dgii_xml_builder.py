@@ -238,7 +238,15 @@ class DgiiXmlBuilder:
         
         # Indicadores requeridos
         ET.SubElement(id_doc, "IndicadorMontoGravado").text = "0" if tipo_ecf in ["31", "32", "33", "34"] else "1"
-        ET.SubElement(id_doc, "TipoIngresos").text = "01"
+        income_raw = invoice_data.get("incomeType", "01")
+        if isinstance(income_raw, str):
+            income_code = income_raw.split("-")[0].strip()
+        else:
+            income_code = str(income_raw)
+        if not income_code.isdigit():
+            income_code = "01"
+        income_code = income_code.zfill(2)[:2]
+        ET.SubElement(id_doc, "TipoIngresos").text = income_code
         
         # TipoPago y FormaPago
         pay_method = invoice_data.get("paymentMethod", "Efectivo")

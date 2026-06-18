@@ -1245,6 +1245,21 @@ class DatabaseService:
             secuenciaFinal = int(seq_data.get("secuenciaFinal", 1))
             ultimoConsecutivoUsado = int(seq_data.get("ultimoConsecutivoUsado", secuenciaInicial - 1))
 
+            fecha_exp = seq_data.get("fechaExpiracion", "")
+            if fecha_exp:
+                try:
+                    fecha_exp_str = str(fecha_exp)[:10]
+                    today_str = datetime.utcnow().strftime("%Y-%m-%d")
+                    if fecha_exp_str and fecha_exp_str < today_str:
+                        transaction.update(db_firestore.collection("users").document(owner_uid).collection(coll_seq).document(seq_id), {
+                            "estado": "EXPIRADA"
+                        })
+                        raise ValueError(f"La secuencia fiscal autorizada para {tipo_comprobante} está EXPIRADA.")
+                except ValueError:
+                    raise
+                except Exception:
+                    pass
+
             next_consecutivo = ultimoConsecutivoUsado + 1
             if next_consecutivo > secuenciaFinal:
                 transaction.update(db_firestore.collection("users").document(owner_uid).collection(coll_seq).document(seq_id), {
@@ -1351,7 +1366,7 @@ class DatabaseService:
                         "startSequence": int(data.get("startSequence", 0)),
                         "endSequence": int(data.get("endSequence", 0)),
                         "reason": data.get("reason", ""),
-                        "status": data.get("status", "Borrador"),
+                        "status": status,
                         "date": serialize_field(data.get("date")),
                         "responseMessage": data.get("responseMessage", ""),
                         "cancellationCode": data.get("cancellationCode", "")
@@ -1400,6 +1415,8 @@ class DatabaseService:
                 
                 for doc in docs:
                     data = doc.to_dict()
+                    if data.get("isDeleted") and not include_all:
+                        continue
                     
                     # Cargar partidas
                     items = []
@@ -1476,6 +1493,17 @@ class DatabaseService:
                             })
                         installments = formatted_installments
 
+                    dgii_status = data.get("dgiiStatus")
+                    if not dgii_status:
+                        if data.get("emisionMode") == "FALLBACK":
+                            dgii_status = "CONTINGENCY"
+                        elif data.get("isSyncedWithDGII"):
+                            dgii_status = "ACCEPTED"
+                        elif data.get("status") == "Pendiente DGII":
+                            dgii_status = "PENDING"
+                        else:
+                            dgii_status = ""
+
                     invoices.append({
                         "id": doc.id,
                         "invoiceNumber": data.get("invoiceNumber", ""),
@@ -1484,13 +1512,14 @@ class DatabaseService:
                         "clientId": data.get("clientId", ""),
                         "clientName": data.get("clientName", ""),
                         "clientRNC": data.get("clientRNC", ""),
-                        "status": data.get("status", "Borrador"),
+                        "status": status,
                         "ecfType": data.get("ecfType", "Factura de Consumo (E32)"),
                         "encf": data.get("encf", ""),
                         "xmlSignature": data.get("xmlSignature", ""),
                         "qrCodeURL": data.get("qrCodeURL", ""),
                         "isSyncedWithDGII": bool(data.get("isSyncedWithDGII", False)),
                         "emisionMode": data.get("emisionMode", ""),
+                        "dgiiStatus": dgii_status,
                         "contingencyEmittedAt": serialize_field(data.get("contingencyEmittedAt")),
                         "creditedAmount": float(data.get("creditedAmount", 0.0)),
                         "retainedISR": float(data.get("retainedISR", 0.0)),
@@ -1540,6 +1569,8 @@ class DatabaseService:
                 doc = db_firestore.collection("users").document(owner_uid).collection(coll_name).document(invoice_id).get()
                 if doc.exists:
                     data = doc.to_dict()
+                    if data.get("isDeleted"):
+                        return None
                     
                     items = []
                     for it in data.get("items", []):
@@ -1616,6 +1647,17 @@ class DatabaseService:
                             })
                         installments = formatted_installments
 
+                    dgii_status = data.get("dgiiStatus")
+                    if not dgii_status:
+                        if data.get("emisionMode") == "FALLBACK":
+                            dgii_status = "CONTINGENCY"
+                        elif data.get("isSyncedWithDGII"):
+                            dgii_status = "ACCEPTED"
+                        elif data.get("status") == "Pendiente DGII":
+                            dgii_status = "PENDING"
+                        else:
+                            dgii_status = ""
+
                     return {
                         "id": doc.id,
                         "invoiceNumber": data.get("invoiceNumber", ""),
@@ -1631,6 +1673,7 @@ class DatabaseService:
                         "qrCodeURL": data.get("qrCodeURL", ""),
                         "isSyncedWithDGII": bool(data.get("isSyncedWithDGII", False)),
                         "emisionMode": data.get("emisionMode", ""),
+                        "dgiiStatus": dgii_status,
                         "contingencyEmittedAt": serialize_field(data.get("contingencyEmittedAt")),
                         "creditedAmount": float(data.get("creditedAmount", 0.0)),
                         "retainedISR": float(data.get("retainedISR", 0.0)),
@@ -1663,6 +1706,12 @@ class DatabaseService:
                         "installments": installments,
                         "branchId": data.get("branchId", "default-sucursal-principal"),
                         "createdAt": serialize_field(data.get("createdAt")),
+                        "warehouseId": data.get("warehouseId", ""),
+                        "stockReduced": bool(data.get("stockReduced", False)),
+                        "isConsolidado": bool(data.get("isConsolidado", False)),
+                        "consolidatedInvoiceIds": data.get("consolidatedInvoiceIds", []),
+                        "invoiceNumberConsolidado": data.get("invoiceNumberConsolidado", ""),
+                        "encfConsolidado": data.get("encfConsolidado", ""),
                         "items": items,
                         "pendingPaymentProof": data.get("pendingPaymentProof")
                     }
@@ -1716,6 +1765,24 @@ class DatabaseService:
                 print(f"⚠️ Fallo al actualizar estado de la factura/cotización: {e}")
 
     @classmethod
+    def delete_invoice(cls, owner_uid, invoice_id, sandbox=True, soft_delete=True):
+        """Elimina una factura de forma lógica o física."""
+        if firebase_initialized:
+            try:
+                coll_name = "sandbox_invoices" if sandbox else "invoices"
+                doc_ref = db_firestore.collection("users").document(owner_uid).collection(coll_name).document(invoice_id)
+                if soft_delete:
+                    doc_ref.update({
+                        "isDeleted": True,
+                        "deletedAt": datetime.utcnow().isoformat(),
+                        "status": "Eliminada"
+                    })
+                else:
+                    doc_ref.delete()
+            except Exception as e:
+                print(f"⚠️ Fallo al eliminar factura en Firestore: {e}")
+
+    @classmethod
     def save_invoice(cls, owner_uid, invoice_id, inv_dict, sandbox=True):
         """Guarda o actualiza una factura y sus partidas en Firestore."""
         inv_dict["id"] = invoice_id
@@ -1757,11 +1824,32 @@ class DatabaseService:
         inv_dict["nextOccurrenceDate"] = serialize_field(inv_dict.get("nextOccurrenceDate"))
         inv_dict["createdAt"] = serialize_field(inv_dict["createdAt"])
 
-        # Descontar inventario automáticamente si la factura está en estado final y no ha sido descontada aún
+        if not inv_dict.get("dgiiStatus"):
+            if inv_dict.get("emisionMode") == "FALLBACK":
+                inv_dict["dgiiStatus"] = "CONTINGENCY"
+            elif inv_dict.get("isSyncedWithDGII"):
+                inv_dict["dgiiStatus"] = "ACCEPTED"
+            elif inv_dict.get("status") == "Pendiente DGII":
+                inv_dict["dgiiStatus"] = "PENDING"
+
+        # Descontar inventario automáticamente si la factura está aceptada por DGII
         status = inv_dict.get("status", "Borrador")
         is_quotation = inv_dict.get("isQuotation", False)
-        
-        if not is_quotation and status in ["Emitida", "Cobrada", "Pagada", "Vencida"] and not inv_dict.get("stockReduced"):
+        ecf_type = inv_dict.get("ecfType", "")
+        is_note = "Nota de Crédito" in ecf_type or "Nota de Débito" in ecf_type
+        is_synced = bool(inv_dict.get("isSyncedWithDGII", False))
+        existing_stock_reduced = False
+        if firebase_initialized:
+            try:
+                coll_name = "sandbox_invoices" if sandbox else "invoices"
+                existing_doc = db_firestore.collection("users").document(owner_uid).collection(coll_name).document(invoice_id).get()
+                if existing_doc.exists and existing_doc.to_dict().get("stockReduced"):
+                    existing_stock_reduced = True
+                    inv_dict["stockReduced"] = True
+            except Exception as e:
+                print(f"⚠️ Error al verificar stock reducido en factura {invoice_id}: {e}")
+
+        if not is_quotation and not is_note and is_synced and status in ["Emitida", "Cobrada", "Pagada", "Vencida"] and not inv_dict.get("stockReduced") and not existing_stock_reduced:
             wh_id = inv_dict.get("warehouseId")
             if not wh_id:
                 whs = cls.get_warehouses(owner_uid, sandbox=sandbox)
@@ -1968,6 +2056,13 @@ class DatabaseService:
                 new_remaining_balance = 0.0
             else:
                 new_status = "Parcialmente Cobrada"
+
+            fiscal_pending = (
+                inv_data.get("dgiiStatus") in ["PENDING", "CONTINGENCY"]
+                or (inv_data.get("emisionMode") == "FALLBACK" and not inv_data.get("isSyncedWithDGII", False))
+            )
+            if fiscal_pending:
+                new_status = "Pendiente DGII"
                 
             # Actualizar ficha principal
             inv_ref.update({
@@ -1980,6 +2075,40 @@ class DatabaseService:
                 "paymentDate": payment_dict["paymentDate"],
                 "installments": updated_installments
             })
+
+            # Aplicar inventario si procede y no se ha aplicado
+            try:
+                ecf_type = inv_data.get("ecfType", "")
+                is_note = "Nota de Crédito" in ecf_type or "Nota de Débito" in ecf_type
+                if not inv_data.get("isQuotation", False) and not is_note and inv_data.get("isSyncedWithDGII", False):
+                    if not inv_data.get("stockReduced") and new_status in ["Cobrada", "Parcialmente Cobrada", "Emitida", "Vencida"]:
+                        wh_id = inv_data.get("warehouseId")
+                        if not wh_id:
+                            whs = cls.get_warehouses(owner_uid, sandbox=sandbox)
+                            wh_id = whs[0]["id"] if whs else "default-almacen-principal"
+                            inv_ref.update({"warehouseId": wh_id})
+
+                        for it in inv_data.get("items", []):
+                            if it.get("type", "Bien") == "Bien" and it.get("id"):
+                                items_catalog = cls.get_items(owner_uid, sandbox=sandbox)
+                                catalog_ids = {cit["id"] for cit in items_catalog}
+                                if it["id"] in catalog_ids:
+                                    tx_dict = {
+                                        "itemId": it["id"],
+                                        "itemName": it.get("name", ""),
+                                        "type": "SALIDA",
+                                        "quantity": float(it.get("quantity", 0)),
+                                        "reason": "VENTA",
+                                        "referenceId": inv_data.get("invoiceNumber") or invoice_id,
+                                        "originWarehouseId": wh_id,
+                                        "destinationWarehouseId": "",
+                                        "notes": f"Venta en Factura {inv_data.get('invoiceNumber')}",
+                                        "performedBy": "Sistema e-Factura"
+                                    }
+                                    cls.register_inventory_transaction(owner_uid, tx_dict, sandbox=sandbox)
+                        inv_ref.update({"stockReduced": True})
+            except Exception as inv_err:
+                print(f"⚠️ Error al aplicar inventario en pago: {inv_err}")
             
             return payment_dict
         except Exception as e:
@@ -2036,6 +2165,17 @@ class DatabaseService:
                     data["trackId"] = data.get("trackId", "")
                     data["xmlContent"] = data.get("xmlContent", "")
                     data["supplierId"] = data.get("supplierId", "")
+                    dgii_status = data.get("dgiiStatus")
+                    if not dgii_status:
+                        if data.get("emisionMode") == "FALLBACK":
+                            dgii_status = "CONTINGENCY"
+                        elif data.get("isSyncedWithDGII"):
+                            dgii_status = "ACCEPTED"
+                        elif data.get("emisionMode") == "API":
+                            dgii_status = "PENDING"
+                        else:
+                            dgii_status = ""
+                    data["dgiiStatus"] = dgii_status
                     return data
             except Exception as e:
                 print(f"⚠️ Error al obtener gasto {expense_id} desde Firestore: {e}")
@@ -2051,6 +2191,16 @@ class DatabaseService:
                 docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).get()
                 for doc in docs:
                     data = doc.to_dict()
+                    dgii_status = data.get("dgiiStatus")
+                    if not dgii_status:
+                        if data.get("emisionMode") == "FALLBACK":
+                            dgii_status = "CONTINGENCY"
+                        elif data.get("isSyncedWithDGII"):
+                            dgii_status = "ACCEPTED"
+                        elif data.get("emisionMode") == "API":
+                            dgii_status = "PENDING"
+                        else:
+                            dgii_status = ""
                     expenses.append({
                         "id": doc.id,
                         "concept": data.get("concept", ""),
@@ -2090,7 +2240,8 @@ class DatabaseService:
                         "emisionMode": data.get("emisionMode", ""),
                         "trackId": data.get("trackId", ""),
                         "xmlContent": data.get("xmlContent", ""),
-                        "supplierId": data.get("supplierId", "")
+                        "supplierId": data.get("supplierId", ""),
+                        "dgiiStatus": dgii_status
                     })
                 expenses.sort(key=lambda x: x["date"] or "", reverse=True)
             except Exception as e:
@@ -2130,6 +2281,15 @@ class DatabaseService:
         exp_dict["trackId"] = exp_dict.get("trackId", "")
         exp_dict["xmlContent"] = exp_dict.get("xmlContent", "")
         exp_dict["supplierId"] = exp_dict.get("supplierId", "")
+        if not exp_dict.get("dgiiStatus"):
+            if exp_dict.get("emisionMode") == "FALLBACK":
+                exp_dict["dgiiStatus"] = "CONTINGENCY"
+            elif exp_dict.get("isSyncedWithDGII"):
+                exp_dict["dgiiStatus"] = "ACCEPTED"
+            elif exp_dict.get("emisionMode") == "API":
+                exp_dict["dgiiStatus"] = "PENDING"
+            else:
+                exp_dict["dgiiStatus"] = ""
         
         exp_dict["date"] = serialize_field(exp_dict["date"])
         exp_dict["nextOccurrenceDate"] = serialize_field(exp_dict.get("nextOccurrenceDate"))
@@ -2565,6 +2725,41 @@ class DatabaseService:
         except Exception as e:
             print(f"⚠️ Error al generar API Key: {e}")
             return None
+
+    # =========================================================================
+    # IDEMPOTENCIA API
+    # =========================================================================
+
+    @classmethod
+    def get_idempotency_record(cls, owner_uid, key, sandbox=True):
+        """Obtiene un registro de idempotencia por key."""
+        if not firebase_initialized:
+            return None
+        try:
+            coll_name = "sandbox_idempotency_keys" if sandbox else "idempotency_keys"
+            doc = db_firestore.collection("users").document(owner_uid).collection(coll_name).document(key).get()
+            if doc.exists:
+                return doc.to_dict()
+        except Exception as e:
+            print(f"⚠️ Error al obtener idempotency key: {e}")
+        return None
+
+    @classmethod
+    def save_idempotency_record(cls, owner_uid, key, payload, sandbox=True):
+        """Guarda un registro de idempotencia por key."""
+        if not firebase_initialized:
+            return False
+        try:
+            coll_name = "sandbox_idempotency_keys" if sandbox else "idempotency_keys"
+            db_firestore.collection("users").document(owner_uid).collection(coll_name).document(key).set({
+                "id": key,
+                **payload,
+                "createdAt": datetime.utcnow().isoformat()
+            })
+            return True
+        except Exception as e:
+            print(f"⚠️ Error al guardar idempotency key: {e}")
+            return False
 
     @classmethod
     def get_invoice_stats(cls, owner_uid, billing_day=1):
@@ -3563,31 +3758,89 @@ class DatabaseService:
                     "totalITBIS": float(data.get("totalITBIS", 0.0)),
                     "items": data.get("items", []),
                     "paymentMethod": data.get("paymentMethod", "Efectivo"),
+                    "ecfType": data.get("ecfType", ""),
+                    "isQuotation": bool(data.get("isQuotation", False)),
+                    "warehouseId": data.get("warehouseId", ""),
+                    "stockReduced": bool(data.get("stockReduced", False))
                 })
         except Exception as e:
             print(f"⚠️ Error al obtener facturas pendientes de consolidación: {e}")
         return invoices
 
     @classmethod
-    def mark_invoices_consolidated(cls, owner_uid, invoice_ids, encf_consolidado, invoice_number_consolidado, sandbox=True):
+    def mark_invoices_consolidated(cls, owner_uid, invoice_ids, encf_consolidado, invoice_number_consolidado, pending_invoices=None, is_synced=True, dgii_status=None, emision_mode=None, sandbox=True):
         """Marca masivamente facturas como Consolidada y guarda referencia al ENCF del consolidado."""
         if not firebase_initialized or not invoice_ids:
             return
         try:
             coll_name = "sandbox_invoices" if sandbox else "invoices"
             batch = db_firestore.batch()
+            synced_value = bool(is_synced)
             for inv_id in invoice_ids:
                 ref = db_firestore.collection("users").document(owner_uid).collection(coll_name).document(inv_id)
-                batch.update(ref, {
+                update_payload = {
                     "status": "Consolidada",
                     "encfConsolidado": encf_consolidado,
                     "invoiceNumberConsolidado": invoice_number_consolidado,
                     "consolidadoAt": datetime.utcnow().isoformat(),
-                    "isSyncedWithDGII": True,
-                })
+                    "isSyncedWithDGII": synced_value,
+                }
+                if dgii_status:
+                    update_payload["dgiiStatus"] = dgii_status
+                if emision_mode:
+                    update_payload["emisionMode"] = emision_mode
+                batch.update(ref, update_payload)
             batch.commit()
         except Exception as e:
             print(f"⚠️ Error al marcar facturas como consolidadas: {e}")
+            return
+
+        if not synced_value or not pending_invoices:
+            return
+
+        try:
+            items_catalog = cls.get_items(owner_uid, sandbox=sandbox)
+            catalog_ids = {cit["id"] for cit in items_catalog}
+            whs = cls.get_warehouses(owner_uid, sandbox=sandbox)
+            default_wh_id = whs[0]["id"] if whs else "default-almacen-principal"
+            coll_name = "sandbox_invoices" if sandbox else "invoices"
+            for inv in pending_invoices:
+                inv_id = inv.get("id")
+                if not inv_id:
+                    continue
+                if inv.get("stockReduced"):
+                    continue
+                if inv.get("isQuotation", False):
+                    continue
+                ecf_type = inv.get("ecfType", "")
+                is_note = "Nota de Crédito" in ecf_type or "Nota de Débito" in ecf_type
+                if is_note:
+                    continue
+
+                wh_id = inv.get("warehouseId") or default_wh_id
+                for it in inv.get("items", []):
+                    if it.get("type", "Bien") == "Bien" and it.get("id"):
+                        if it["id"] in catalog_ids:
+                            tx_dict = {
+                                "itemId": it["id"],
+                                "itemName": it.get("name", ""),
+                                "type": "SALIDA",
+                                "quantity": float(it.get("quantity", 0)),
+                                "reason": "VENTA",
+                                "referenceId": inv.get("invoiceNumber") or inv_id,
+                                "originWarehouseId": wh_id,
+                                "destinationWarehouseId": "",
+                                "notes": f"Venta en Factura {inv.get('invoiceNumber')}",
+                                "performedBy": "Sistema e-Factura"
+                            }
+                            cls.register_inventory_transaction(owner_uid, tx_dict, sandbox=sandbox)
+
+                update_payload = {"stockReduced": True}
+                if not inv.get("warehouseId"):
+                    update_payload["warehouseId"] = wh_id
+                db_firestore.collection("users").document(owner_uid).collection(coll_name).document(inv_id).update(update_payload)
+        except Exception as e:
+            print(f"⚠️ Error al aplicar inventario en consolidación: {e}")
 
     @classmethod
     def update_cash_register_settings(cls, owner_uid, register_id, settings_dict, sandbox=True):
@@ -4142,6 +4395,3 @@ class DatabaseService:
                     db_firestore.collection("users").document(owner_uid).collection(coll_name).document(resource_id).collection("comments").document(comment_id).delete()
             except Exception as e:
                 print(f"⚠️ Fallo al borrar comentario de {resource_type} de Firestore: {e}")
-
-
-

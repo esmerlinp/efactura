@@ -37,6 +37,20 @@ def sanitize_float(val, default=0.0):
     except Exception:
         return default
 
+def sanitize_bool(val, default=None):
+    if val is None:
+        return default
+    if isinstance(val, bool):
+        return val
+    val_clean = str(val).strip().lower()
+    if not val_clean:
+        return default
+    if val_clean in ['true', '1', 'si', 'sí', 'yes', 'y', 't']:
+        return True
+    if val_clean in ['false', '0', 'no', 'n', 'f']:
+        return False
+    return default
+
 @web_import_mapper_bp.route('/import/upload', methods=['POST'])
 def upload_file():
     is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.is_json
@@ -149,7 +163,12 @@ def upload_file():
             {"id": "dueDate", "name": "Fecha de Vencimiento", "required": False, "suggestions": ["vence", "vencimiento", "duedate"]},
             {"id": "ecfType", "name": "Tipo Comprobante (Consumo, Crédito Fiscal)", "required": False, "suggestions": ["tipo", "ecftype", "comprobante"]},
             {"id": "encf", "name": "Número de Comprobante / e-NCF", "required": False, "suggestions": ["ncf", "encf", "comprobante_fiscal"]},
-            {"id": "concept", "name": "Concepto / Descripción Única", "required": False, "suggestions": ["concepto", "descripcion", "detalle", "nota"]}
+            {"id": "concept", "name": "Concepto / Descripción Única", "required": False, "suggestions": ["concepto", "descripcion", "detalle", "nota"]},
+            {"id": "dgiiStatus", "name": "Estado DGII (ACCEPTED, PENDING, CONTINGENCY)", "required": False, "suggestions": ["dgiistatus", "estado_dgii", "dgii"]},
+            {"id": "emisionMode", "name": "Modo Emisión (API, FALLBACK, IMPORT)", "required": False, "suggestions": ["emisionmode", "modo_emision", "modo"]},
+            {"id": "isSyncedWithDGII", "name": "Sincronizada DGII (true/false)", "required": False, "suggestions": ["synced", "is_synced", "sincronizada"]},
+            {"id": "stockReduced", "name": "Stock reducido (true/false)", "required": False, "suggestions": ["stock", "inventario", "stockreduced"]},
+            {"id": "warehouseId", "name": "Almacén (ID)", "required": False, "suggestions": ["almacen", "warehouse", "warehouse_id"]}
         ]
         
     if is_ajax:
@@ -337,6 +356,35 @@ def process_import():
                     
                     status = get_val('status', 'Cobrada')
                     net_payable = 0.0 if status == 'Cobrada' else total
+
+                    raw_emision_mode = get_val('emisionMode', '').strip()
+                    emision_mode = raw_emision_mode.upper() if raw_emision_mode else "IMPORT"
+                    raw_dgii_status = get_val('dgiiStatus', '').strip()
+                    dgii_status = raw_dgii_status.upper() if raw_dgii_status else ""
+                    is_synced = sanitize_bool(get_val('isSyncedWithDGII', None), None)
+                    stock_reduced = sanitize_bool(get_val('stockReduced', None), None)
+                    warehouse_id = get_val('warehouseId', '').strip()
+
+                    if not dgii_status:
+                        if emision_mode == "FALLBACK":
+                            dgii_status = "CONTINGENCY"
+                        elif is_synced is True:
+                            dgii_status = "ACCEPTED"
+                        elif status == "Pendiente DGII":
+                            dgii_status = "PENDING"
+
+                    if is_synced is None:
+                        if dgii_status in ["ACCEPTED", "ACCEPTED_CONDITIONAL"]:
+                            is_synced = True
+                        elif dgii_status in ["PENDING", "CONTINGENCY", "REJECTED"]:
+                            is_synced = False
+                        elif status == "Pendiente DGII":
+                            is_synced = False
+                        else:
+                            is_synced = True
+
+                    if stock_reduced is None:
+                        stock_reduced = True
                     
                     inv_dict = {
                         "invoiceNumber": inv_num,
@@ -350,8 +398,9 @@ def process_import():
                         "encf": get_val('encf'),
                         "xmlSignature": "HISTORICAL_IMPORT",
                         "qrCodeURL": "",
-                        "isSyncedWithDGII": True,
-                        "emisionMode": "IMPORT",
+                        "isSyncedWithDGII": bool(is_synced),
+                        "emisionMode": emision_mode,
+                        "dgiiStatus": dgii_status,
                         "totalPaid": total if status == 'Cobrada' else 0.0,
                         "remainingBalance": net_payable,
                         "netPayable": net_payable,
@@ -362,8 +411,10 @@ def process_import():
                         "notes": "Registro de factura histórica importado desde sistema previo.",
                         "createdAt": datetime.utcnow().isoformat(),
                         "items": items,
-                        "stockReduced": True
+                        "stockReduced": bool(stock_reduced)
                     }
+                    if warehouse_id:
+                        inv_dict["warehouseId"] = warehouse_id
                     DatabaseService.save_invoice(owner_uid, invoice_id, inv_dict, sandbox=sandbox)
                     count += 1
                     

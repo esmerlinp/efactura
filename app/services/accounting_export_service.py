@@ -23,6 +23,7 @@ DEFAULT_CHART_OF_ACCOUNTS = {
     "CXP": "2.1.2.01",          # Cuentas por Pagar Proveedores (Crédito)
     "COMPRAS": "6.1.1.01",      # Compras / Costos (Débito)
     "GASTOS": "5.1.1.01",       # Gastos Operativos (Débito)
+    "ITBIS_CREDITO": "1.1.4.01", # ITBIS por Recuperar (Débito)
 }
 
 
@@ -54,7 +55,7 @@ class AccountingExportService:
         for inv in invoices:
             total = float(inv.get("netPayable", inv.get("total", 0)))
             subtotal = float(inv.get("subtotal", 0))
-            itbis = float(inv.get("itbis", 0))
+            itbis = float(inv.get("totalITBIS", inv.get("itbis", 0)))
             retained_isr = float(inv.get("retainedISR", 0))
             retained_itbis = float(inv.get("retainedITBIS", 0))
             date = cls._format_date(inv.get("date", ""))
@@ -97,11 +98,12 @@ class AccountingExportService:
         coa = cls._get_chart_of_accounts(owner_uid)
         entries = []
         for exp in expenses:
-            amount = float(exp.get("amount", exp.get("total", 0)))
-            itbis = float(exp.get("itbis", 0))
+            total_amount = float(exp.get("amount", exp.get("total", 0)))
+            itbis = float(exp.get("itbisAmount", exp.get("itbis", 0)))
+            net_amount = max(0.0, total_amount - itbis)
             date = cls._format_date(exp.get("date", ""))
-            supplier = exp.get("supplierName", "—")
-            rnc = exp.get("supplierRnc", "")
+            supplier = exp.get("supplierName", exp.get("providerName", "—"))
+            rnc = exp.get("supplierRnc", exp.get("rncEmisor", ""))
             concept = exp.get("concept", exp.get("description", "Gasto"))
             ncf = exp.get("ncf", "")
 
@@ -112,10 +114,11 @@ class AccountingExportService:
                 "supplier": supplier,
                 "rnc": rnc,
                 "concept": concept,
-                "amount": amount,
+                "amount": net_amount,
                 "itbis": itbis,
+                "total": total_amount,
                 "account_debit": coa["GASTOS"],
-                "account_itbis": coa["ITBIS_POR_PAGAR"],
+                "account_itbis": coa["ITBIS_CREDITO"],
                 "account_credit_cxp": coa["CXP"],
             })
 
@@ -256,6 +259,13 @@ class AccountingExportService:
                 f"{e['amount']:.2f}", f"{e['itbis']:.2f}",
                 e["account_debit"], e["account_credit_cxp"],
             ])
+            if e["itbis"] > 0:
+                writer.writerow([
+                    e["date"], e["reference"], e["ncf"],
+                    e["supplier"], e["rnc"], "ITBIS Crédito",
+                    f"{e['itbis']:.2f}", "0.00",
+                    e["account_itbis"], e["account_credit_cxp"],
+                ])
         return cls._bom_output(output)
 
     @classmethod
@@ -266,11 +276,15 @@ class AccountingExportService:
         writer.writerow(["!SPL", "SPLID", "TRNSTYPE", "DATE", "ACCNT", "AMOUNT", "DOCNUM", "MEMO"])
         for e in entries:
             writer.writerow(["TRNS", e["reference"], "BILL", e["date"],
-                             e["account_credit_cxp"], f"{e['amount']:.2f}",
+                             e["account_credit_cxp"], f"{e['total']:.2f}",
                              e["ncf"], e["concept"]])
             writer.writerow(["SPL", "", "BILL", e["date"],
                              e["account_debit"], f"{-e['amount']:.2f}",
                              e["ncf"], ""])
+            if e["itbis"] > 0:
+                writer.writerow(["SPL", "", "BILL", e["date"],
+                                 e["account_itbis"], f"{-e['itbis']:.2f}",
+                                 e["ncf"], "ITBIS Crédito"])
         return cls._bom_output(output)
 
     @classmethod
@@ -280,9 +294,12 @@ class AccountingExportService:
         writer.writerow(["ACCTNO", "DATE", "TRNSID", "AMOUNT", "TYPE", "MEMO", "CLEAR"])
         for e in entries:
             writer.writerow([e["account_credit_cxp"], e["date"], e["reference"],
-                             f"{e['amount']:.2f}", "BILL", e["concept"], "N"])
+                             f"{e['total']:.2f}", "BILL", e["concept"], "N"])
             writer.writerow([e["account_debit"], e["date"], e["reference"],
                              f"{-e['amount']:.2f}", "BILL", "", "N"])
+            if e["itbis"] > 0:
+                writer.writerow([e["account_itbis"], e["date"], e["reference"],
+                                 f"{-e['itbis']:.2f}", "BILL", "ITBIS Crédito", "N"])
         return cls._bom_output(output)
 
     @classmethod
@@ -293,8 +310,10 @@ class AccountingExportService:
         for e in entries:
             writer.writerow([e["account_debit"], e["supplier"], e["date"],
                              e["reference"], f"{e['amount']:.2f}", "0.00"])
+            writer.writerow([e["account_itbis"], e["supplier"], e["date"],
+                             e["reference"], f"{e['itbis']:.2f}", "0.00"])
             writer.writerow([e["account_credit_cxp"], e["supplier"], e["date"],
-                             e["reference"], "0.00", f"{e['amount']:.2f}"])
+                             e["reference"], "0.00", f"{e['total']:.2f}"])
         return cls._bom_output(output)
 
     @classmethod
@@ -306,8 +325,12 @@ class AccountingExportService:
             writer.writerow(["FC", e["date"], e["reference"],
                              e["account_debit"], f"{e['amount']:.2f}", "0.00",
                              e["concept"]])
+            if e["itbis"] > 0:
+                writer.writerow(["FC", e["date"], e["reference"],
+                                 e["account_itbis"], f"{e['itbis']:.2f}", "0.00",
+                                 "ITBIS Crédito"])
             writer.writerow(["FC", e["date"], e["reference"],
-                             e["account_credit_cxp"], "0.00", f"{e['amount']:.2f}",
+                             e["account_credit_cxp"], "0.00", f"{e['total']:.2f}",
                              f"Proveedor {e['supplier']}"])
         return cls._bom_output(output)
 

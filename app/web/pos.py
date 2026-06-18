@@ -310,6 +310,9 @@ def _emit_consolidated_ecf(owner_uid, shift_id, pending_invoices, sandbox):
 
     company = DatabaseService.get_company_profile(owner_uid)
     encf_consolidado = consolidado_number  # fallback
+    is_synced = False
+    dgii_status = None
+    emision_mode = None
     try:
         res = EcfEmissionService.emit_electronic_comprobante(company, consolidado_dict, sandbox=sandbox)
         if res and res.get('success'):
@@ -317,17 +320,47 @@ def _emit_consolidated_ecf(owner_uid, shift_id, pending_invoices, sandbox):
             consolidado_dict["encf"] = encf_consolidado
             consolidado_dict["xmlSignature"] = res.get('xmlSignature', '')
             consolidado_dict["qrCodeURL"] = res.get('qrCodeURL', '')
-            consolidado_dict["isSyncedWithDGII"] = True
-            consolidado_dict["status"] = "Cobrada"
+            pending_dgii = res.get("status") == "PENDING" or res.get("mode") == "FALLBACK"
+            is_synced = (res.get("mode", "API") == "API" and res.get("status") != "PENDING")
+            emision_mode = res.get("mode", "API")
+            dgii_status = res.get("dgiiStatus") or ("PENDING" if pending_dgii else "ACCEPTED")
+            consolidado_dict["isSyncedWithDGII"] = is_synced
+            consolidado_dict["emisionMode"] = emision_mode
+            consolidado_dict["dgiiStatus"] = dgii_status
+            consolidado_dict["contingencyEmittedAt"] = datetime.utcnow().isoformat() if emision_mode == "FALLBACK" else None
+            consolidado_dict["status"] = "Pendiente DGII" if pending_dgii else "Cobrada"
+            DatabaseService.save_invoice(owner_uid, consolidado_id, consolidado_dict, sandbox=sandbox)
+        else:
+            emision_mode = "FALLBACK"
+            dgii_status = "CONTINGENCY"
+            consolidado_dict["emisionMode"] = "FALLBACK"
+            consolidado_dict["dgiiStatus"] = "CONTINGENCY"
+            consolidado_dict["isSyncedWithDGII"] = False
+            consolidado_dict["contingencyEmittedAt"] = datetime.utcnow().isoformat()
+            consolidado_dict["status"] = "Pendiente DGII"
             DatabaseService.save_invoice(owner_uid, consolidado_id, consolidado_dict, sandbox=sandbox)
     except Exception as ecf_err:
         print(f"⚠️ Error al emitir e-CF consolidado: {ecf_err}")
+        emision_mode = "FALLBACK"
+        dgii_status = "CONTINGENCY"
         consolidado_dict["emisionMode"] = "FALLBACK"
+        consolidado_dict["dgiiStatus"] = "CONTINGENCY"
+        consolidado_dict["isSyncedWithDGII"] = False
+        consolidado_dict["contingencyEmittedAt"] = datetime.utcnow().isoformat()
+        consolidado_dict["status"] = "Pendiente DGII"
         DatabaseService.save_invoice(owner_uid, consolidado_id, consolidado_dict, sandbox=sandbox)
 
     # Marcar todas las facturas individuales como Consolidadas
     DatabaseService.mark_invoices_consolidated(
-        owner_uid, invoice_ids, encf_consolidado, consolidado_number, sandbox=sandbox
+        owner_uid,
+        invoice_ids,
+        encf_consolidado,
+        consolidado_number,
+        pending_invoices=pending_invoices,
+        is_synced=is_synced,
+        dgii_status=dgii_status,
+        emision_mode=emision_mode,
+        sandbox=sandbox
     )
 
     print(f"✅ [Consolidado] Emitido {consolidado_number} cubriendo {len(invoice_ids)} ventas. ENCF: {encf_consolidado}")
@@ -671,6 +704,13 @@ def create_pos_sale():
     open_shift = DatabaseService.get_open_shift(owner_uid, user_uid, sandbox=sandbox)
 
     data = request.json
+    idempotency_key = request.headers.get('Idempotency-Key') or data.get('idempotencyKey') or data.get('idempotency_key')
+    if idempotency_key:
+        record = DatabaseService.get_idempotency_record(owner_uid, idempotency_key, sandbox=sandbox)
+        if record and record.get("response"):
+            status_code = int(record.get("statusCode", 200))
+            return jsonify(record["response"]), status_code
+
     client_id = data.get('clientId', '')
     client_name = data.get('clientName', 'Consumidor Final')
     client_rnc = data.get('clientRNC', '999999999')
@@ -781,14 +821,21 @@ def create_pos_sale():
             after=invoice_dict,
             sandbox=sandbox
         )
-        return jsonify({
+        response_body = {
             "success": True,
             "invoiceId": invoice_id,
             "invoiceNumber": invoice_number,
             "total": calcs["total"],
             "encf": "(Consolidado al Cierre)",
             "consolidated": True
-        })
+        }
+        if idempotency_key:
+            DatabaseService.save_idempotency_record(owner_uid, idempotency_key, {
+                "response": response_body,
+                "statusCode": 200,
+                "invoiceId": invoice_id
+            }, sandbox=sandbox)
+        return jsonify(response_body)
 
     # 4. Intentar emisión electrónica (e-CF) individual
     company = DatabaseService.get_company_profile(owner_uid)
@@ -799,8 +846,12 @@ def create_pos_sale():
             invoice_dict["encf"] = res.get('encf', '')
             invoice_dict["xmlSignature"] = res.get('xmlSignature', '')
             invoice_dict["qrCodeURL"] = res.get('qrCodeURL', '')
-            invoice_dict["isSyncedWithDGII"] = True
-            invoice_dict["status"] = "Cobrada"
+            pending_dgii = res.get("status") == "PENDING" or res.get("mode") == "FALLBACK"
+            invoice_dict["isSyncedWithDGII"] = (res.get("mode", "API") == "API" and res.get("status") != "PENDING")
+            invoice_dict["emisionMode"] = res.get("mode", "API")
+            invoice_dict["dgiiStatus"] = res.get("dgiiStatus") or ("PENDING" if pending_dgii else "ACCEPTED")
+            invoice_dict["contingencyEmittedAt"] = datetime.utcnow().isoformat() if res.get("mode") == "FALLBACK" else None
+            invoice_dict["status"] = "Pendiente DGII" if pending_dgii else "Cobrada"
             DatabaseService.save_invoice(owner_uid, invoice_id, invoice_dict, sandbox=sandbox)
     except Exception as e:
         # Si falla, operamos en contingencia local
@@ -849,13 +900,20 @@ def create_pos_sale():
         except Exception as email_err:
             print(f"⚠️ Error al iniciar hilo de envío de correo en POS: {email_err}")
             
-    return jsonify({
+    response_body = {
         "success": True,
         "invoiceId": invoice_id,
         "invoiceNumber": invoice_number,
         "total": calcs["total"],
         "encf": invoice_dict.get("encf", "Contingencia")
-    })
+    }
+    if idempotency_key:
+        DatabaseService.save_idempotency_record(owner_uid, idempotency_key, {
+            "response": response_body,
+            "statusCode": 200,
+            "invoiceId": invoice_id
+        }, sandbox=sandbox)
+    return jsonify(response_body)
 
 
 @web_pos_bp.route('/pos/invoice/<invoice_id>/print')

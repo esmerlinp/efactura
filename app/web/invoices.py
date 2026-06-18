@@ -663,7 +663,11 @@ def list_invoices():
                 continue
         if status:
             if status == "Pendiente DGII":
-                if not (inv.get('emisionMode') == 'FALLBACK' and not inv.get('isSyncedWithDGII') and inv.get('status') != 'Anulada'):
+                if not (
+                    (inv.get('emisionMode') == 'FALLBACK' and not inv.get('isSyncedWithDGII') and inv.get('status') != 'Anulada')
+                    or inv.get('status') == 'Pendiente DGII'
+                    or inv.get('dgiiStatus') in ['PENDING', 'CONTINGENCY']
+                ):
                     continue
             elif status == "Con Saldo Pendiente":
                 if not (inv.get('netPayable', 0.0) > 0.0 and inv.get('status') not in ['Anulada', 'Borrador', 'Cobrada']):
@@ -943,6 +947,12 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
     active_page = 'quotations' if is_quotation_route else 'invoices'
     
     if request.method == 'POST':
+        idempotency_key = request.headers.get('Idempotency-Key') or request.form.get('idempotency_key')
+        if idempotency_key:
+            record = DatabaseService.get_idempotency_record(owner_uid, idempotency_key, sandbox=sandbox)
+            if record and record.get("invoiceId"):
+                return redirect(url_for('web_invoices.invoice_detail', invoice_id=record["invoiceId"]))
+
         # 0. Validar régimen fiscal
         profile = DatabaseService.get_company_profile(owner_uid)
         regimen = DGIIService.normalize_regimen(profile.get("regimenFiscal", "ordinary")) if profile else "ordinary"
@@ -1234,6 +1244,14 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
                 invoice_dict["referencedInvoiceTotal"] = float(request.form.get("referencedInvoiceTotal", 0.0))
 
         DatabaseService.save_invoice(owner_uid, target_invoice_id, invoice_dict, sandbox=sandbox)
+        if idempotency_key:
+            DatabaseService.save_idempotency_record(owner_uid, idempotency_key, {
+                "response": {
+                    "invoiceId": target_invoice_id
+                },
+                "statusCode": 200,
+                "invoiceId": target_invoice_id
+            }, sandbox=sandbox)
         
         from app.services.audit_service import AuditService, ACTION_CREATE, ACTION_UPDATE, MODULE_FACTURAS, MODULE_COTIZACIONES
         audit_action = ACTION_UPDATE if existing_invoice else ACTION_CREATE
@@ -1281,12 +1299,14 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
                     invoice_dict["firebasePDFURL"] = res.get("pdfUrl", "")
                     invoice_dict["firebaseXMLURL"] = res.get("xmlUrl", "")
                     # FALLBACK = emitido offline, aún pendiente de sincronizar con la DGII
-                    invoice_dict["isSyncedWithDGII"] = (res.get("mode", "API") == "API")
+                    invoice_dict["isSyncedWithDGII"] = (res.get("mode", "API") == "API" and res.get("status") != "PENDING")
                     invoice_dict["emisionMode"] = res.get("mode", "API")
+                    pending_dgii = res.get("status") == "PENDING" or res.get("mode") == "FALLBACK"
+                    invoice_dict["dgiiStatus"] = res.get("dgiiStatus") or ("PENDING" if pending_dgii else "ACCEPTED")
                     invoice_dict["contingencyEmittedAt"] = datetime.utcnow().isoformat() if res.get("mode") == "FALLBACK" else None
                     
                     if action == 'emitir_cobrar':
-                        invoice_dict["status"] = "Cobrada"
+                        invoice_dict["status"] = "Pendiente DGII" if pending_dgii else "Cobrada"
                         invoice_dict["totalPaid"] = invoice_dict["netPayable"]
                         invoice_dict["remainingBalance"] = 0.0
                         invoice_dict["paymentDate"] = datetime.utcnow().isoformat()
@@ -1303,7 +1323,7 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
                         # La factura se guardará al registrar el pago
                         DatabaseService.register_invoice_payment(owner_uid, target_invoice_id, payment_dict, sandbox=sandbox)
                     else:
-                        invoice_dict["status"] = "Pendiente DGII" if res.get("status") == "PENDING" else "Emitida"
+                        invoice_dict["status"] = "Pendiente DGII" if pending_dgii else "Emitida"
                         invoice_dict["totalPaid"] = 0.0
                         invoice_dict["remainingBalance"] = invoice_dict["netPayable"]
                         DatabaseService.save_invoice(owner_uid, target_invoice_id, invoice_dict, sandbox=sandbox)
@@ -2470,7 +2490,8 @@ def sign_invoice_route(invoice_id):
         res = EcfEmissionService.emit_electronic_comprobante(company, invoice, sandbox=sandbox)
         
         if res.get("success"):
-            invoice["status"] = "Pendiente DGII" if res.get("status") == "PENDING" else "Emitida"
+            pending_dgii = res.get("status") == "PENDING" or res.get("mode") == "FALLBACK"
+            invoice["status"] = "Pendiente DGII" if pending_dgii else "Emitida"
             invoice["encf"] = res.get("encf", invoice.get("encf", ""))
             invoice["xmlSignature"] = res.get("xmlSignature", "")
             invoice["qrCodeURL"] = res.get("qrCodeURL", "")
@@ -2479,6 +2500,7 @@ def sign_invoice_route(invoice_id):
             # FALLBACK = emitido offline, aún pendiente de sincronizar con la DGII
             invoice["isSyncedWithDGII"] = (res.get("mode", "API") == "API" and res.get("status") != "PENDING")
             invoice["emisionMode"] = res.get("mode", "API")
+            invoice["dgiiStatus"] = res.get("dgiiStatus") or ("PENDING" if pending_dgii else "ACCEPTED")
             invoice["contingencyEmittedAt"] = datetime.utcnow().isoformat() if res.get("mode") == "FALLBACK" else None
             invoice["date"] = datetime.now(timezone(timedelta(hours=-4))).strftime("%Y-%m-%d %H:%M:%S")
             
@@ -3218,7 +3240,7 @@ def sync_contingency_invoices():
     pending = [
         inv for inv in invoices
         if inv.get('emisionMode') == 'FALLBACK' and not inv.get('isSyncedWithDGII', True)
-        and inv.get('status') in ['Emitida', 'Cobrada']
+        and inv.get('status') in ['Emitida', 'Cobrada', 'Pendiente DGII']
     ]
 
     synced_count = 0
@@ -3229,20 +3251,27 @@ def sync_contingency_invoices():
         inv_id = inv['id']
         try:
             # Re-emitir a Alanube con el mismo encf ya asignado
-            res = EcfEmissionService.emit_electronic_comprobante(company, inv, sandbox=sandbox)
+            full_inv = DatabaseService.get_invoice(owner_uid, inv_id, sandbox=sandbox)
+            target_invoice = full_inv or inv
+            res = EcfEmissionService.emit_electronic_comprobante(company, target_invoice, sandbox=sandbox)
             if res.get("success") and res.get("mode", "API") == "API":
-                inv["isSyncedWithDGII"] = True
-                inv["emisionMode"] = "API"
-                inv["xmlSignature"] = res.get("xmlSignature", inv.get("xmlSignature", ""))
-                inv["qrCodeURL"] = res.get("qrCodeURL", inv.get("qrCodeURL", ""))
-                inv["contingencyEmittedAt"] = None
-                DatabaseService.save_invoice(owner_uid, inv_id, inv, sandbox=sandbox)
+                target_invoice["isSyncedWithDGII"] = True
+                target_invoice["emisionMode"] = "API"
+                target_invoice["dgiiStatus"] = res.get("dgiiStatus") or "ACCEPTED"
+                target_invoice["xmlSignature"] = res.get("xmlSignature", target_invoice.get("xmlSignature", ""))
+                target_invoice["qrCodeURL"] = res.get("qrCodeURL", target_invoice.get("qrCodeURL", ""))
+                target_invoice["contingencyEmittedAt"] = None
+                if float(target_invoice.get("totalPaid", 0.0)) >= float(target_invoice.get("netPayable", target_invoice.get("total", 0.0))) and float(target_invoice.get("totalPaid", 0.0)) > 0:
+                    target_invoice["status"] = "Cobrada"
+                elif target_invoice.get("status") == "Pendiente DGII":
+                    target_invoice["status"] = "Emitida"
+                DatabaseService.save_invoice(owner_uid, inv_id, target_invoice, sandbox=sandbox)
 
                 # Registrar en Log de Auditoría que pasó de FALLBACK a sincronizado
                 logs = DatabaseService.get_sequence_logs(owner_uid, sandbox=sandbox)
-                log = next((l for l in logs if l.get("encf") == inv.get("encf")), None)
+                log = next((l for l in logs if l.get("encf") == target_invoice.get("encf")), None)
                 if log:
-                    cuadratura = DGIIService.check_tolerancia_cuadratura(inv.get("items", []), inv.get("total", 0))
+                    cuadratura = DGIIService.check_tolerancia_cuadratura(target_invoice.get("items", []), target_invoice.get("total", 0))
                     estado_dgii = "ACCEPTED" if cuadratura["within_tolerance"] else "ACCEPTED_CONDITIONAL"
                     DatabaseService.update_sequence_log(owner_uid, log["id"], {
                         "estado": estado_dgii,
@@ -3251,11 +3280,30 @@ def sync_contingency_invoices():
                         "respuestaDGII": json.dumps(res.get("responseBody"), indent=2) if res.get("responseBody") else ""
                     }, sandbox=sandbox)
 
+                if target_invoice.get("isConsolidado") and target_invoice.get("consolidatedInvoiceIds"):
+                    pending_children = []
+                    for child_id in target_invoice.get("consolidatedInvoiceIds", []):
+                        child_inv = DatabaseService.get_invoice(owner_uid, child_id, sandbox=sandbox)
+                        if child_inv:
+                            pending_children.append(child_inv)
+                    if pending_children:
+                        DatabaseService.mark_invoices_consolidated(
+                            owner_uid,
+                            target_invoice.get("consolidatedInvoiceIds", []),
+                            target_invoice.get("encf", ""),
+                            target_invoice.get("invoiceNumber", ""),
+                            pending_invoices=pending_children,
+                            is_synced=True,
+                            dgii_status=target_invoice.get("dgiiStatus") or "ACCEPTED",
+                            emision_mode=target_invoice.get("emisionMode") or "API",
+                            sandbox=sandbox
+                        )
+
                 synced_count += 1
-                results.append({"encf": inv.get("encf"), "status": "synced"})
+                results.append({"encf": target_invoice.get("encf"), "status": "synced"})
             else:
                 failed_count += 1
-                results.append({"encf": inv.get("encf"), "status": "still_offline", "mode": res.get("mode")})
+                results.append({"encf": target_invoice.get("encf"), "status": "still_offline", "mode": res.get("mode")})
         except Exception as e:
             failed_count += 1
             results.append({"encf": inv.get("encf"), "status": "error", "message": str(e)})
@@ -3288,13 +3336,37 @@ def sync_single_invoice_route(invoice_id):
         if res.get("success") and res.get("mode", "API") == "API":
             invoice["isSyncedWithDGII"] = True
             invoice["emisionMode"] = "API"
+            invoice["dgiiStatus"] = res.get("dgiiStatus") or "ACCEPTED"
             invoice["xmlSignature"] = res.get("xmlSignature", invoice.get("xmlSignature", ""))
             invoice["qrCodeURL"] = res.get("qrCodeURL", invoice.get("qrCodeURL", ""))
             invoice["contingencyEmittedAt"] = None
             if res.get("pdfUrl"): invoice["firebasePDFURL"] = res["pdfUrl"]
             if res.get("xmlUrl"): invoice["firebaseXMLURL"] = res["xmlUrl"]
+            if float(invoice.get("totalPaid", 0.0)) >= float(invoice.get("netPayable", invoice.get("total", 0.0))) and float(invoice.get("totalPaid", 0.0)) > 0:
+                invoice["status"] = "Cobrada"
+            elif invoice.get("status") == "Pendiente DGII":
+                invoice["status"] = "Emitida"
             
             DatabaseService.save_invoice(owner_uid, invoice_id, invoice, sandbox=sandbox)
+
+            if invoice.get("isConsolidado") and invoice.get("consolidatedInvoiceIds"):
+                pending_children = []
+                for child_id in invoice.get("consolidatedInvoiceIds", []):
+                    child_inv = DatabaseService.get_invoice(owner_uid, child_id, sandbox=sandbox)
+                    if child_inv:
+                        pending_children.append(child_inv)
+                if pending_children:
+                    DatabaseService.mark_invoices_consolidated(
+                        owner_uid,
+                        invoice.get("consolidatedInvoiceIds", []),
+                        invoice.get("encf", ""),
+                        invoice.get("invoiceNumber", ""),
+                        pending_invoices=pending_children,
+                        is_synced=True,
+                        dgii_status=invoice.get("dgiiStatus") or "ACCEPTED",
+                        emision_mode=invoice.get("emisionMode") or "API",
+                        sandbox=sandbox
+                    )
             
             # Registrar en Log de Auditoría
             logs = DatabaseService.get_sequence_logs(owner_uid, sandbox=sandbox)
@@ -3573,6 +3645,9 @@ def _update_expense_sequence_log(owner_uid, log_id, emission_res, expense_dict, 
         if emission_res.get("mode") == "FALLBACK":
             estado_dgii = "CONTINGENCY"
             motivo = "Emitido en modo contingencia. Pendiente de sincronización con DGII."
+        elif emission_res.get("status") == "PENDING":
+            estado_dgii = "PENDING"
+            motivo = "En proceso de validación por la DGII."
 
         DatabaseService.update_sequence_log(owner_uid, log_id, {
             "estado":       estado_dgii,
@@ -3769,9 +3844,11 @@ def new_expense_route():
                         expense_dict["ecfNumber"]        = res.get("encf", encf)
                         expense_dict["xmlSignature"]     = res.get("xmlSignature", "")
                         expense_dict["qrCodeURL"]        = res.get("qrCodeURL", "")
-                        expense_dict["isSyncedWithDGII"] = (res.get("mode", "API") == "API")
+                        pending_dgii = res.get("status") == "PENDING"
+                        expense_dict["isSyncedWithDGII"] = (res.get("mode", "API") == "API" and not pending_dgii)
                         expense_dict["emisionMode"]      = res.get("mode", "API")
                         expense_dict["trackId"]          = res.get("trackId", "")
+                        expense_dict["dgiiStatus"]        = res.get("dgiiStatus") or ("CONTINGENCY" if res.get("mode") == "FALLBACK" else ("PENDING" if pending_dgii else "ACCEPTED"))
                         # Generar y guardar el XML firmado
                         try:
                             from app.services.dgii_xml_builder import DgiiXmlBuilder
@@ -4134,9 +4211,11 @@ def edit_expense_route(expense_id):
                         expense_dict["ecfNumber"]        = res_edit.get("encf", encf_edit)
                         expense_dict["xmlSignature"]     = res_edit.get("xmlSignature", "")
                         expense_dict["qrCodeURL"]        = res_edit.get("qrCodeURL", "")
-                        expense_dict["isSyncedWithDGII"] = (res_edit.get("mode", "API") == "API")
+                        pending_dgii = res_edit.get("status") == "PENDING"
+                        expense_dict["isSyncedWithDGII"] = (res_edit.get("mode", "API") == "API" and not pending_dgii)
                         expense_dict["emisionMode"]      = res_edit.get("mode", "API")
                         expense_dict["trackId"]          = res_edit.get("trackId", "")
+                        expense_dict["dgiiStatus"]        = res_edit.get("dgiiStatus") or ("CONTINGENCY" if res_edit.get("mode") == "FALLBACK" else ("PENDING" if pending_dgii else "ACCEPTED"))
                         try:
                             from app.services.dgii_xml_builder import DgiiXmlBuilder
                             from app.services.dgii_signer import DgiiSigner
@@ -4237,8 +4316,10 @@ def sync_expense_ecf_route(expense_id):
         res = EcfEmissionService.emit_electronic_comprobante(company, invoice_payload, sandbox=sandbox)
 
         if res.get("success") and res.get("mode", "API") == "API":
-            expense["isSyncedWithDGII"] = True
+            pending_dgii = res.get("status") == "PENDING"
+            expense["isSyncedWithDGII"] = not pending_dgii
             expense["emisionMode"] = "API"
+            expense["dgiiStatus"] = res.get("dgiiStatus") or ("PENDING" if pending_dgii else "ACCEPTED")
             expense["xmlSignature"] = res.get("xmlSignature", expense.get("xmlSignature", ""))
             expense["qrCodeURL"] = res.get("qrCodeURL", expense.get("qrCodeURL", ""))
             expense["encf"] = res.get("encf", expense.get("encf", ""))
@@ -4261,6 +4342,8 @@ def sync_expense_ecf_route(expense_id):
                 }]
                 cuadratura = DGIIService.check_tolerancia_cuadratura(items, expense.get("amount", 0.0))
                 estado_dgii = "ACCEPTED" if cuadratura["within_tolerance"] else "ACCEPTED_CONDITIONAL"
+                if pending_dgii:
+                    estado_dgii = "PENDING"
                 DatabaseService.update_sequence_log(owner_uid, log["id"], {
                     "estado": estado_dgii,
                     "motivo": f"Regularizado por Sincronización Manual. Firma: {res['xmlSignature'][:12] if res.get('xmlSignature') else 'N/A'}",
@@ -4268,7 +4351,10 @@ def sync_expense_ecf_route(expense_id):
                     "respuestaDGII": json.dumps(res.get("responseBody"), indent=2) if res.get("responseBody") else ""
                 }, sandbox=sandbox)
 
-            flash(f"Gasto {ecf_short} sincronizado con la DGII exitosamente! e-NCF: {expense.get('encf')}", 'success')
+            if pending_dgii:
+                flash(f"Gasto {ecf_short} enviado a la DGII y pendiente de validación. e-NCF: {expense.get('encf')}", 'warning')
+            else:
+                flash(f"Gasto {ecf_short} sincronizado con la DGII exitosamente! e-NCF: {expense.get('encf')}", 'success')
         else:
             flash(f"No se pudo sincronizar: {res.get('message') or 'Sigue en modalidad de contingencia (sin conexión a Alanube).'}", 'warning')
     except Exception as e:
@@ -5330,6 +5416,226 @@ def it1_diagnostic():
     
     current_period = datetime.utcnow().strftime("%Y-%m")
     return render_template('reports/it1.html', active_page='reports', it1=it1, current_period=current_period)
+
+
+def _parse_period_args():
+    now = datetime.utcnow()
+    try:
+        year = int(request.args.get('year', now.year))
+    except ValueError:
+        year = now.year
+    try:
+        month = int(request.args.get('month', now.month))
+    except ValueError:
+        month = now.month
+    month = max(1, min(12, month))
+    return year, month
+
+
+def _filter_docs_by_period(docs, year, month, date_field='date'):
+    prefix = f"{year:04d}-{month:02d}"
+    filtered = []
+    for d in docs:
+        date_val = (d.get(date_field) or d.get('createdAt') or '')[:7]
+        if date_val == prefix:
+            filtered.append(d)
+    return filtered
+
+
+@web_invoices_bp.route('/reports/607/export')
+def report_607_export():
+    if 'user' not in session:
+        return redirect(url_for('web_auth.login'))
+    if not check_permission('canInvoice'):
+        return render_template('auth/restricted.html', feature_name="Reporte 607", required_permission="canInvoice")
+
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+    year, month = _parse_period_args()
+    fmt = request.args.get('format', 'dgii')
+
+    invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, quotations_only=False)
+    real_invoices = [
+        inv for inv in invoices
+        if inv.get('status') not in ['Borrador', 'Anulada', 'Consolidada']
+        and inv.get('dgiiStatus') in ['ACCEPTED', 'ACCEPTED_CONDITIONAL']
+    ]
+    filtered = _filter_docs_by_period(real_invoices, year, month)
+
+    company = DatabaseService.get_company_profile(owner_uid) or {}
+    owner_rnc = (company.get('companyRNC') or '').replace('-', '')
+
+    output = io.StringIO()
+    writer = csv.writer(output, quoting=csv.QUOTE_ALL)
+
+    if fmt == 'dgii':
+        writer.writerow([
+            "RNC Emisor",
+            "Periodo",
+            "RNC/Cédula Receptor",
+            "Tipo Identificación",
+            "NCF/e-CF",
+            "NCF Modificado",
+            "Tipo Ingreso",
+            "Fecha Comprobante",
+            "Monto Facturado",
+            "ITBIS Facturado",
+            "ITBIS Retenido",
+            "ISR Retenido",
+        ])
+        period = f"{year:04d}{month:02d}"
+        for inv in filtered:
+            rnc_rec = (inv.get('clientRNC') or '').replace('-', '')
+            tipo_id = "1" if len(rnc_rec) == 9 else ("2" if len(rnc_rec) == 11 else "3")
+            income_type = (inv.get('incomeType', '01') or '01')
+            income_code = income_type.split('-')[0].strip() if isinstance(income_type, str) else str(income_type)
+            income_code = income_code.zfill(2)[:2]
+            writer.writerow([
+                owner_rnc,
+                period,
+                rnc_rec,
+                tipo_id,
+                inv.get('encf', ''),
+                inv.get('ncfModified', ''),
+                income_code,
+                (inv.get('date') or '')[:10],
+                f"{float(inv.get('total', 0.0)):.2f}",
+                f"{float(inv.get('totalITBIS', 0.0)):.2f}",
+                f"{float(inv.get('retainedITBIS', 0.0)):.2f}",
+                f"{float(inv.get('retainedISR', 0.0)):.2f}",
+            ])
+    else:
+        writer.writerow([
+            "Fecha",
+            "Cliente",
+            "RNC",
+            "NCF/e-CF",
+            "Tipo e-CF",
+            "Monto",
+            "ITBIS",
+            "Ret. ITBIS",
+            "Ret. ISR",
+            "Estatus",
+        ])
+        for inv in filtered:
+            writer.writerow([
+                (inv.get('date') or '')[:10],
+                inv.get('clientName', ''),
+                inv.get('clientRNC', ''),
+                inv.get('encf', ''),
+                inv.get('ecfType', ''),
+                f"{float(inv.get('total', 0.0)):.2f}",
+                f"{float(inv.get('totalITBIS', 0.0)):.2f}",
+                f"{float(inv.get('retainedITBIS', 0.0)):.2f}",
+                f"{float(inv.get('retainedISR', 0.0)):.2f}",
+                inv.get('status', ''),
+            ])
+
+    dest = io.BytesIO()
+    dest.write(b"\xef\xbb\xbf")
+    dest.write(output.getvalue().encode('utf-8'))
+    dest.seek(0)
+    filename = f"reporte_607_{year:04d}{month:02d}_{datetime.utcnow().strftime('%Y%m%d')}.csv"
+    return send_file(dest, mimetype="text/csv", as_attachment=True, download_name=filename)
+
+
+@web_invoices_bp.route('/reports/608/export')
+def report_608_export():
+    if 'user' not in session:
+        return redirect(url_for('web_auth.login'))
+    if not check_permission('canInvoice'):
+        return render_template('auth/restricted.html', feature_name="Reporte 608", required_permission="canInvoice")
+
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+    year, month = _parse_period_args()
+
+    invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, quotations_only=False)
+    anuladas = [inv for inv in invoices if inv.get('status') == 'Anulada']
+    filtered = _filter_docs_by_period(anuladas, year, month)
+
+    company = DatabaseService.get_company_profile(owner_uid) or {}
+    owner_rnc = (company.get('companyRNC') or '').replace('-', '')
+
+    output = io.StringIO()
+    writer = csv.writer(output, quoting=csv.QUOTE_ALL)
+    writer.writerow([
+        "RNC Emisor",
+        "Periodo",
+        "NCF/e-CF",
+        "Fecha Anulación",
+        "Tipo Anulación",
+        "Motivo"
+    ])
+    period = f"{year:04d}{month:02d}"
+    for inv in filtered:
+        writer.writerow([
+            owner_rnc,
+            period,
+            inv.get('encf', ''),
+            (inv.get('updatedAt') or inv.get('date') or '')[:10],
+            "01",
+            (inv.get('comentario') or inv.get('notes') or "")[:150]
+        ])
+
+    dest = io.BytesIO()
+    dest.write(b"\xef\xbb\xbf")
+    dest.write(output.getvalue().encode('utf-8'))
+    dest.seek(0)
+    filename = f"reporte_608_{year:04d}{month:02d}_{datetime.utcnow().strftime('%Y%m%d')}.csv"
+    return send_file(dest, mimetype="text/csv", as_attachment=True, download_name=filename)
+
+
+@web_invoices_bp.route('/reports/609/export')
+def report_609_export():
+    if 'user' not in session:
+        return redirect(url_for('web_auth.login'))
+    if not check_permission('canInvoice'):
+        return render_template('auth/restricted.html', feature_name="Reporte 609", required_permission="canInvoice")
+
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+    year, month = _parse_period_args()
+
+    invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, quotations_only=False)
+    contingencia = [
+        inv for inv in invoices
+        if inv.get('emisionMode') == 'FALLBACK' and not inv.get('isSyncedWithDGII', False)
+    ]
+    filtered = _filter_docs_by_period(contingencia, year, month)
+
+    company = DatabaseService.get_company_profile(owner_uid) or {}
+    owner_rnc = (company.get('companyRNC') or '').replace('-', '')
+
+    output = io.StringIO()
+    writer = csv.writer(output, quoting=csv.QUOTE_ALL)
+    writer.writerow([
+        "RNC Emisor",
+        "Periodo",
+        "NCF/e-CF",
+        "Fecha Emisión",
+        "Monto",
+        "ITBIS",
+        "Estado"
+    ])
+    period = f"{year:04d}{month:02d}"
+    for inv in filtered:
+        writer.writerow([
+            owner_rnc,
+            period,
+            inv.get('encf', ''),
+            (inv.get('date') or '')[:10],
+            f"{float(inv.get('total', 0.0)):.2f}",
+            f"{float(inv.get('totalITBIS', 0.0)):.2f}",
+            inv.get('status', 'Pendiente DGII')
+        ])
+
+    dest = io.BytesIO()
+    dest.write(b"\xef\xbb\xbf")
+    dest.write(output.getvalue().encode('utf-8'))
+    dest.seek(0)
+    filename = f"reporte_609_{year:04d}{month:02d}_{datetime.utcnow().strftime('%Y%m%d')}.csv"
+    return send_file(dest, mimetype="text/csv", as_attachment=True, download_name=filename)
 
 
 @web_invoices_bp.route('/reports/dgii-tools', methods=['GET'])
