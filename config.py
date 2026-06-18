@@ -41,5 +41,30 @@ class Config:
     # Proveedor de Emisión de e-CF (alanube / dgii_direct)
     E_CF_PROVIDER = os.getenv('E_CF_PROVIDER', 'alanube')
 
+    # Endpoints oficiales de la DGII (Legacy / compatibilidad)
+    DGII_AUTH_URL = os.getenv('DGII_AUTH_URL', 'https://ecf.dgii.gov.do/test/autenticacion/api/Autenticacion/Semilla')
+    DGII_RECEPCION_URL = os.getenv('DGII_RECEPCION_URL', 'https://ecf.dgii.gov.do/test/recepcion/api/Recepcion/Enviar')
+
+    # Endpoints DGII por entorno (preferidos)
+    DGII_AUTH_URL_SANDBOX = os.getenv('DGII_AUTH_URL_SANDBOX', DGII_AUTH_URL)
+    DGII_AUTH_URL_PRODUCTION = os.getenv('DGII_AUTH_URL_PRODUCTION', '')
+    DGII_TOKEN_URL_SANDBOX = os.getenv('DGII_TOKEN_URL_SANDBOX', os.getenv('DGII_TOKEN_URL', ''))
+    DGII_TOKEN_URL_PRODUCTION = os.getenv('DGII_TOKEN_URL_PRODUCTION', '')
+    DGII_RECEPCION_URL_SANDBOX = os.getenv('DGII_RECEPCION_URL_SANDBOX', DGII_RECEPCION_URL)
+    DGII_RECEPCION_URL_PRODUCTION = os.getenv('DGII_RECEPCION_URL_PRODUCTION', '')
+    DGII_STATUS_URL_SANDBOX = os.getenv('DGII_STATUS_URL_SANDBOX', os.getenv('DGII_STATUS_URL', ''))
+    DGII_STATUS_URL_PRODUCTION = os.getenv('DGII_STATUS_URL_PRODUCTION', '')
+    DGII_CANCEL_URL_SANDBOX = os.getenv('DGII_CANCEL_URL_SANDBOX', os.getenv('DGII_CANCEL_URL', ''))
+    DGII_CANCEL_URL_PRODUCTION = os.getenv('DGII_CANCEL_URL_PRODUCTION', '')
+
+    DGII_HTTP_TIMEOUT = int(os.getenv('DGII_HTTP_TIMEOUT', '20'))
+    DGII_TOKEN_CONTENT_TYPE = os.getenv('DGII_TOKEN_CONTENT_TYPE', 'application/json')
+    DGII_RECEPCION_CONTENT_TYPE = os.getenv('DGII_RECEPCION_CONTENT_TYPE', 'application/json')
+    DGII_STATUS_CONTENT_TYPE = os.getenv('DGII_STATUS_CONTENT_TYPE', 'application/json')
+    DGII_CANCEL_CONTENT_TYPE = os.getenv('DGII_CANCEL_CONTENT_TYPE', 'application/json')
+    DGII_SIGNING_MODE = os.getenv('DGII_SIGNING_MODE', 'mock')
+    DGII_ALLOW_SIMULATION = os.getenv('DGII_ALLOW_SIMULATION', 'true').lower() == 'true'
+    DGII_USER_AGENT = os.getenv('DGII_USER_AGENT', 'e-FacturaWeb/1.0')
+
 
 

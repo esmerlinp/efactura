@@ -6,6 +6,9 @@ qrcode==7.4.2
 pdfkit==1.0.0
 pillow
 pillow-heif
+cryptography>=42.0.0
+lxml>=4.9.0
+signxml>=3.0.0
 gunicorn==22.0.0
 weasyprint
 pypdf
