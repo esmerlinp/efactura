@@ -34,7 +34,7 @@ Documento Electrónico{% endif %}{% endblock %}
                 <div class="form-group">
                     <label for="ecf-type-select">Tipo de Documento <span
                             style="color: var(--accent-red); font-weight: bold; margin-left: 2px;">*</span>
-                        <i class="fa-solid fa-question-circle" style="color:var(--text-muted); cursor:help;" title="E31: Crédito Fiscal (B2B corporativo). E32: Consumo (público general). E33/E34: Notas de Débito/Crédito (ajustes). E41: Compras. E43: Gastos menores. E47: Pagos al exterior. El tipo determina el formato del e-NCF y la validación DGII."></i>
+                        <i class="fa-solid fa-question-circle" style="color:var(--text-muted); cursor:help;" title="E31: Credito Fiscal (B2B corporativo). E32: Consumo (publico general). E33/E34: Notas de Debito/Credito (ajustes). El tipo determina el formato del e-NCF y la validacion DGII."></i>
                     </label>
                     <select id="ecf-type-select"
                         name="{% if is_referencing %}ecfTypeDisabled{% else %}ecfType{% endif %}" class="form-select"
@@ -50,14 +50,6 @@ Documento Electrónico{% endif %}{% endblock %}
                             %}selected{% endif %}>E33 - Nota de Débito</option>
                         <option value="Nota de Crédito (E34)" {% if invoice and invoice.ecfType=='Nota de Crédito (E34)'
                             %}selected{% endif %}>E34 - Nota de Crédito</option>
-                        <option value="Comprobante de Compras (E41)" {% if invoice and
-                            invoice.ecfType=='Comprobante de Compras (E41)' %}selected{% endif %}>E41 - Comprobante de
-                            Compras</option>
-                        <option value="Gastos Menores (E43)" {% if invoice and invoice.ecfType=='Gastos Menores (E43)'
-                            %}selected{% endif %}>E43 - Gastos Menores</option>
-                        <option value="Pagos al Exterior (E47)" {% if invoice and
-                            invoice.ecfType=='Pagos al Exterior (E47)' %}selected{% endif %}>E47 - Pagos al Exterior
-                        </option>
                     </select>
                     {% if is_referencing %}
                     <input type="hidden" name="ecfType" value="{{ invoice.ecfType }}">
