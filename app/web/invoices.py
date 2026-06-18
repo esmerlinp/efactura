@@ -22,6 +22,7 @@ from app.services.dgii import DGIIService
 from app.utils.currency import CurrencyService
 from app.services.ecf_emission import EcfEmissionService
 from app.services.alanube import AlanubeService
+from app.services.dgii_direct import DgiiDirectService
 from app.services.recurrence import RecurrenceService
 from app.utils.decorators import check_permission, require_permission
 
@@ -5649,7 +5650,11 @@ def dgii_tools():
     company = DatabaseService.get_company_profile(owner_uid)
     
     # Obtener estado de DGII por defecto al cargar la página
-    dgii_status = AlanubeService.check_dgii_status(company, sandbox=sandbox)
+    provider = Config.E_CF_PROVIDER.lower()
+    if provider == "dgii_direct":
+        dgii_status = DgiiDirectService.check_dgii_status(company, sandbox=sandbox)
+    else:
+        dgii_status = AlanubeService.check_dgii_status(company, sandbox=sandbox)
     
     return render_template('reports/dgii_tools.html', active_page='reports', dgii_status=dgii_status)
 
@@ -5679,7 +5684,11 @@ def check_dgii_status_ajax():
     maint = data.get("maintenance")
     
     company = DatabaseService.get_company_profile(owner_uid)
-    res = AlanubeService.check_dgii_status(company, environment=env, maintenance=maint, sandbox=sandbox)
+    provider = Config.E_CF_PROVIDER.lower()
+    if provider == "dgii_direct":
+        res = DgiiDirectService.check_dgii_status(company, sandbox=sandbox)
+    else:
+        res = AlanubeService.check_dgii_status(company, environment=env, maintenance=maint, sandbox=sandbox)
     return jsonify(res)
 
 
