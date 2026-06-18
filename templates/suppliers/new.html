@@ -1,0 +1,343 @@
+{% extends "layout.html" %}
+
+{% block title %}Nuevo Proveedor{% endblock %}
+{% block page_header %}Registrar Proveedor{% endblock %}
+
+{% block content %}
+<style>
+    .settings-accordion { display:flex; flex-direction:column; gap:12px; margin-bottom:24px; width:100%; }
+    .accordion-item { border:1px solid var(--border-color); border-radius:12px; background:var(--bg-card); overflow:hidden; transition:all 0.3s cubic-bezier(0.4,0,0.2,1); }
+    .accordion-item.active { border-color:var(--accent-emerald); box-shadow:0 4px 20px rgba(16,185,129,0.05); }
+    .accordion-header { width:100%; padding:14px 18px; background:rgba(255,255,255,0.01); border:none; display:flex; justify-content:space-between; align-items:center; cursor:pointer; text-align:left; transition:background 0.2s ease; }
+    .accordion-header:hover { background:rgba(255,255,255,0.03); }
+    .accordion-title { font-size:0.95rem; font-family:var(--font-heading); font-weight:500; color:var(--text-main); display:flex; align-items:center; gap:10px; }
+    .accordion-title i { font-size:1.05rem; width:24px; text-align:center; }
+    .accordion-chevron { color:var(--text-muted); transition:transform 0.3s cubic-bezier(0.4,0,0.2,1); font-size:0.85rem; }
+    .accordion-item.active .accordion-chevron { transform:rotate(180deg); color:var(--accent-emerald); }
+    .accordion-content { max-height:0; overflow:hidden; transition:max-height 0.3s cubic-bezier(0.4,0,0.2,1); }
+    .accordion-item.active .accordion-content { max-height:none; }
+    .accordion-body { padding:0 18px 18px; }
+    .form-inner-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+    .form-inner-grid .span-full { grid-column:1/-1; }
+    .form-inner-grid .span-2 { grid-column:span 2; }
+    .form-group label { font-size:0.78rem; font-weight:600; color:var(--text-primary); display:block; margin-bottom:4px; }
+    .form-group label .required { color:var(--accent-red); }
+    .form-group input, .form-group select, .form-group textarea { width:100%; padding:8px 10px; font-size:0.82rem; border:1px solid var(--border-color); border-radius:var(--radius-sm); background:var(--bg-card); color:var(--text-primary); }
+    .form-group textarea { min-height:70px; resize:vertical; }
+    .uploader-zone { border:2px dashed var(--border-color); border-radius:var(--radius-md); padding:24px 16px; text-align:center; cursor:pointer; transition:all 0.25s ease; background:rgba(0,0,0,0.01); }
+    .uploader-zone:hover, .uploader-zone.dragover { border-color:var(--accent-emerald); background:rgba(16,185,129,0.03); }
+</style>
+
+<div style="width:100%;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+        <div>
+            <h2 style="font-size:1.2rem; font-family:var(--font-heading); margin:0;">
+                <i class="fa-solid fa-truck" style="color:var(--accent-purple); margin-right:8px;"></i>
+                Nuevo Proveedor
+            </h2>
+            <p style="color:var(--text-secondary); font-size:0.82rem; margin:4px 0 0;">Completa los datos del proveedor.</p>
+        </div>
+        <a href="{{ url_for('list_suppliers') }}" class="btn btn-secondary"><i class="fa-solid fa-arrow-left"></i> Volver</a>
+    </div>
+
+    <form action="{{ url_for('new_supplier') }}" method="POST" enctype="multipart/form-data" id="supplier-form" novalidate>
+        <div class="settings-accordion">
+
+            <!-- SECCIÓN 1: DATOS GENERALES -->
+            <div class="accordion-item active" id="sec-general">
+                <button type="button" class="accordion-header" onclick="toggleAccordionSection(this)">
+                    <div class="accordion-title">
+                        <i class="fa-solid fa-building" style="color:var(--accent-emerald);"></i>
+                        <span>1. Datos Generales</span>
+                    </div>
+                    <i class="fa-solid fa-chevron-down accordion-chevron"></i>
+                </button>
+                <div class="accordion-content" style="max-height:none;">
+                    <div class="accordion-body">
+                        <div class="form-inner-grid">
+                            <div class="form-group span-full">
+                                <label>Tipo de Persona</label>
+                                <select name="tipoPersona">
+                                    <option value="fisica">Persona Física</option>
+                                    <option value="juridica">Persona Jurídica</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Nombre / Razón Social <span class="required">*</span></label>
+                                <input type="text" name="name" required placeholder="Ej: Suplidores del Norte SRL">
+                            </div>
+                            <div class="form-group" id="rnc-group">
+                                <label id="rnc-label">RNC / Cédula <span class="required">*</span></label>
+                                <input type="text" name="rnc" placeholder="Ej: 101001577" inputmode="numeric" oninput="this.value=this.value.replace(/\D/g,'')">
+                                <span id="rnc-helper" style="font-size:0.7rem; color:var(--text-muted); display:none;">Opcional para proveedores informales e internacionales</span>
+                            </div>
+                            <div class="form-group">
+                                <label>Código Interno</label>
+                                <input type="text" name="code" placeholder="Ej: PROV-001">
+                            </div>
+                            <div class="form-group">
+                                <label>Estado</label>
+                                <select name="estado">
+                                    <option value="Activo">Activo</option>
+                                    <option value="Inactivo">Inactivo</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECCIÓN 2: CONTACTO -->
+            <div class="accordion-item" id="sec-contacto">
+                <button type="button" class="accordion-header" onclick="toggleAccordionSection(this)">
+                    <div class="accordion-title">
+                        <i class="fa-solid fa-address-card" style="color:var(--accent-blue);"></i>
+                        <span>2. Contacto</span>
+                    </div>
+                    <i class="fa-solid fa-chevron-down accordion-chevron"></i>
+                </button>
+                <div class="accordion-content">
+                    <div class="accordion-body">
+                        <div class="form-inner-grid">
+                            <div class="form-group">
+                                <label>Teléfono</label>
+                                <input type="text" name="phone" placeholder="809-555-5555">
+                            </div>
+                            <div class="form-group">
+                                <label>Email</label>
+                                <input type="email" name="email" placeholder="proveedor@ejemplo.com">
+                            </div>
+                            <div class="form-group span-full">
+                                <label>Dirección</label>
+                                <input type="text" name="address" placeholder="Av. Principal, Edif. 123">
+                            </div>
+                            <div class="form-group">
+                                <label>Ciudad</label>
+                                <input type="text" name="city" placeholder="Santo Domingo">
+                            </div>
+                            <div class="form-group">
+                                <label>País</label>
+                                <input type="text" name="country" value="República Dominicana">
+                            </div>
+                            <div class="form-group span-full">
+                                <label>Persona de Contacto</label>
+                                <input type="text" name="contactPerson" placeholder="Juan Pérez">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECCIÓN 3: CONFIGURACIÓN COMERCIAL -->
+            <div class="accordion-item" id="sec-comercial">
+                <button type="button" class="accordion-header" onclick="toggleAccordionSection(this)">
+                    <div class="accordion-title">
+                        <i class="fa-solid fa-handshake" style="color:var(--accent-purple);"></i>
+                        <span>3. Configuración Comercial</span>
+                    </div>
+                    <i class="fa-solid fa-chevron-down accordion-chevron"></i>
+                </button>
+                <div class="accordion-content">
+                    <div class="accordion-body">
+                        <div class="form-inner-grid">
+                            <div class="form-group">
+                                <label>Tipo de Proveedor</label>
+                                <select name="supplierType">
+                                    <option value="formal">Formal (RNC Registrado)</option>
+                                    <option value="informal">Informal</option>
+                                    <option value="internacional">Internacional</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Moneda</label>
+                                <select name="currency">
+                                    <option value="DOP">DOP - Peso Dominicano</option>
+                                    <option value="USD">USD - Dólar</option>
+                                    <option value="EUR">EUR - Euro</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Días de Crédito</label>
+                                <input type="number" name="creditDays" value="0" min="0" placeholder="Ej: 30">
+                            </div>
+                            <div class="form-group">
+                                <label>Límite de Crédito (RD$)</label>
+                                <input type="number" name="creditLimit" value="0" min="0" step="0.01">
+                            </div>
+                            <div class="form-group">
+                                <label>Método de Pago</label>
+                                <select name="paymentMethod">
+                                    <option value="Efectivo">Efectivo</option>
+                                    <option value="Transferencia">Transferencia Bancaria</option>
+                                    <option value="Cheque">Cheque</option>
+                                    <option value="Tarjeta">Tarjeta de Crédito/Débito</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECCIÓN 4: CONFIGURACIÓN FISCAL -->
+            <div class="accordion-item" id="sec-fiscal">
+                <button type="button" class="accordion-header" onclick="toggleAccordionSection(this)">
+                    <div class="accordion-title">
+                        <i class="fa-solid fa-stamp" style="color:var(--accent-amber);"></i>
+                        <span>4. Configuración Fiscal</span>
+                    </div>
+                    <i class="fa-solid fa-chevron-down accordion-chevron"></i>
+                </button>
+                <div class="accordion-content">
+                    <div class="accordion-body">
+                        <div class="form-inner-grid">
+                            <div class="form-group">
+                                <label>Tipo de e-CF que Emite</label>
+                                <select name="ecfTypeEmits">
+                                    <option value="E31">E31 - Factura de Crédito Fiscal</option>
+                                    <option value="E32">E32 - Factura de Consumo</option>
+                                    <option value="E41">E41 - Comprobante de Compras</option>
+                                    <option value="E43">E43 - Gastos Menores</option>
+                                    <option value="E47">E47 - Pago al Exterior</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Tipo de Gasto DGII</label>
+                                <select name="tipoGastoDGII">
+                                    <option value="01">01 - Gastos de Personal</option>
+                                    <option value="02" selected>02 - Gastos por Trabajos, Suministros y Servicios</option>
+                                    <option value="03">03 - Arrendamientos</option>
+                                    <option value="04">04 - Gastos de Activos Fijos</option>
+                                    <option value="05">05 - Gastos de Representación</option>
+                                    <option value="06">06 - Otras Deducciones</option>
+                                    <option value="07">07 - Gastos Financieros</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="display:flex; align-items:center; gap:8px; padding-top:8px;">
+                                <input type="checkbox" name="itbisWithholding" id="itbisWithholding" style="width:18px;height:18px;">
+                                <label for="itbisWithholding" style="font-size:0.82rem;">Agente de Retención ITBIS</label>
+                            </div>
+                            <div class="form-group" style="display:flex; align-items:center; gap:8px; padding-top:8px;">
+                                <input type="checkbox" name="isrWithholding" id="isrWithholding" style="width:18px;height:18px;">
+                                <label for="isrWithholding" style="font-size:0.82rem;">Agente de Retención ISR</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECCIÓN 5: NOTAS Y ADJUNTOS -->
+            <div class="accordion-item" id="sec-adjuntos">
+                <button type="button" class="accordion-header" onclick="toggleAccordionSection(this)">
+                    <div class="accordion-title">
+                        <i class="fa-solid fa-paperclip" style="color:var(--accent-emerald);"></i>
+                        <span>5. Notas y Adjuntos</span>
+                    </div>
+                    <i class="fa-solid fa-chevron-down accordion-chevron"></i>
+                </button>
+                <div class="accordion-content">
+                    <div class="accordion-body">
+                        <div class="form-inner-grid">
+                            <div class="form-group span-full">
+                                <label>Notas Internas</label>
+                                <textarea name="notes" placeholder="Condiciones especiales, observaciones, etc."></textarea>
+                            </div>
+                            <div class="form-group span-full">
+                                <label>Documentos Adjuntos (Contratos, RNC, Certificaciones)</label>
+                                <div class="uploader-zone" onclick="document.getElementById('attachments-input').click()">
+                                    <i class="fa-solid fa-cloud-arrow-up" style="font-size:2rem; color:var(--text-muted); margin-bottom:8px;"></i>
+                                    <p style="font-size:0.82rem; margin:0 0 4px; font-weight:600; color:var(--text-primary);">Arrastra o haz clic para adjuntar</p>
+                                    <span style="font-size:0.72rem; color:var(--text-muted);">PDF, XML, imágenes</span>
+                                    <input type="file" id="attachments-input" name="attachments[]" accept=".xml,.pdf,image/*,application/pdf" style="display:none" multiple onchange="handleAttachments(this.files)">
+                                </div>
+                                <div id="attachment-queue" style="margin-top:10px; display:flex; flex-direction:column; gap:6px;"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <div style="display:flex; gap:12px; justify-content:flex-end; margin-top:12px;">
+            <a href="{{ url_for('list_suppliers') }}" class="btn btn-secondary" style="padding:10px 24px;">Cancelar</a>
+            <button type="submit" class="btn btn-primary" style="padding:10px 24px;">
+                <i class="fa-solid fa-save"></i> Guardar Proveedor
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+    window.toggleAccordionSection = function(header) {
+        const item = header.parentElement;
+        const content = item.querySelector('.accordion-content');
+        const isActive = item.classList.contains('active');
+        document.querySelectorAll('.accordion-item').forEach(el => {
+            el.classList.remove('active');
+            const c = el.querySelector('.accordion-content');
+            if (c) c.style.maxHeight = null;
+        });
+        if (!isActive) {
+            item.classList.add('active');
+            if (content) content.style.maxHeight = content.scrollHeight + 'px';
+        }
+    };
+
+    let attachmentFiles = [];
+
+    // ── Toggle RNC required based on supplierType ──────────────────
+    document.addEventListener('DOMContentLoaded', function() {
+        const stSel = document.querySelector('select[name="supplierType"]');
+        const rncInput = document.querySelector('input[name="rnc"]');
+        const rncLabel = document.getElementById('rnc-label');
+        const rncHelper = document.getElementById('rnc-helper');
+        function updateRncRequirement() {
+            const val = stSel ? stSel.value : 'formal';
+            if (val === 'formal') {
+                rncInput.required = true;
+                if (rncLabel) rncLabel.innerHTML = 'RNC / Cédula <span class="required">*</span>';
+                if (rncHelper) rncHelper.style.display = 'none';
+            } else {
+                rncInput.required = false;
+                if (rncLabel) rncLabel.innerHTML = 'RNC / Cédula <span style="color:var(--text-muted); font-weight:400;">(opcional)</span>';
+                if (rncHelper) rncHelper.style.display = 'block';
+            }
+        }
+        if (stSel) {
+            stSel.addEventListener('change', updateRncRequirement);
+            updateRncRequirement();
+        }
+    });
+
+    function handleAttachments(files) {
+        Array.from(files).forEach(f => {
+            if (!attachmentFiles.some(q => q.name === f.name && q.size === f.size)) {
+                attachmentFiles.push(f);
+            }
+        });
+        renderAttachmentQueue();
+    }
+    function removeAttachment(idx) { attachmentFiles.splice(idx, 1); renderAttachmentQueue(); }
+    function renderAttachmentQueue() {
+        const container = document.getElementById('attachment-queue');
+        const input = document.getElementById('attachments-input');
+        container.innerHTML = '';
+        if (!attachmentFiles.length) return;
+        attachmentFiles.forEach((f, i) => {
+            const icon = f.type.includes('pdf') || f.name.endsWith('.pdf') ? 'fa-file-pdf' :
+                         f.name.endsWith('.xml') ? 'fa-file-code' : 'fa-file-image';
+            const color = f.name.endsWith('.pdf') ? '#ef4444' : f.name.endsWith('.xml') ? 'var(--accent-emerald)' : '#3b82f6';
+            const card = document.createElement('div');
+            card.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--border-color);border-radius:var(--radius-sm);background:var(--bg-card);font-size:0.78rem;';
+            card.innerHTML = '<i class="fa-solid ' + icon + '" style="color:' + color + ';font-size:1.2rem;"></i>' +
+                '<span style="flex:1;font-weight:500;">' + f.name + '</span>' +
+                '<span style="font-size:0.68rem;color:var(--text-muted);">' + (f.size/1024).toFixed(1) + ' KB</span>' +
+                '<button type="button" onclick="removeAttachment(' + i + ')" style="background:none;border:none;color:var(--accent-red);cursor:pointer;"><i class="fa-solid fa-xmark"></i></button>';
+            container.appendChild(card);
+        });
+        const dt = new DataTransfer();
+        attachmentFiles.forEach(f => dt.items.add(f));
+        input.files = dt.files;
+    }
+</script>
+{% endblock %}

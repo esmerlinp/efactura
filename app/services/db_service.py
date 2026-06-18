@@ -2025,6 +2025,7 @@ class DatabaseService:
                     data["emisionMode"] = data.get("emisionMode", "")
                     data["trackId"] = data.get("trackId", "")
                     data["xmlContent"] = data.get("xmlContent", "")
+                    data["supplierId"] = data.get("supplierId", "")
                     return data
             except Exception as e:
                 print(f"⚠️ Error al obtener gasto {expense_id} desde Firestore: {e}")
@@ -2078,7 +2079,8 @@ class DatabaseService:
                         "encf": data.get("encf", ""),
                         "emisionMode": data.get("emisionMode", ""),
                         "trackId": data.get("trackId", ""),
-                        "xmlContent": data.get("xmlContent", "")
+                        "xmlContent": data.get("xmlContent", ""),
+                        "supplierId": data.get("supplierId", "")
                     })
                 expenses.sort(key=lambda x: x["date"] or "", reverse=True)
             except Exception as e:
@@ -2117,6 +2119,7 @@ class DatabaseService:
         exp_dict["emisionMode"] = exp_dict.get("emisionMode", "")
         exp_dict["trackId"] = exp_dict.get("trackId", "")
         exp_dict["xmlContent"] = exp_dict.get("xmlContent", "")
+        exp_dict["supplierId"] = exp_dict.get("supplierId", "")
         
         exp_dict["date"] = serialize_field(exp_dict["date"])
         exp_dict["nextOccurrenceDate"] = serialize_field(exp_dict.get("nextOccurrenceDate"))

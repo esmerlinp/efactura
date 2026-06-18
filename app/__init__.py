@@ -350,7 +350,7 @@ def create_app():
                 return flask_url_for(endpoint, **values)
             except Exception:
                 # Si falla, intentar buscar agregando el prefijo de nuestros Blueprints web
-                for bp_name in ['web_auth', 'web_dashboard', 'web_clients', 'web_invoices', 'web_pos', 'web_operations', 'portal', 'web_audit']:
+                for bp_name in ['web_auth', 'web_dashboard', 'web_clients', 'web_invoices', 'web_suppliers', 'web_purchase_orders', 'web_reports_606', 'web_pos', 'web_operations', 'portal', 'web_audit']:
                     try:
                         return flask_url_for(f"{bp_name}.{endpoint}", **values)
                     except Exception:
@@ -428,6 +428,9 @@ def create_app():
     from app.web.operations import web_operations_bp
     from app.web.portal import portal_bp
     from app.web.audit import web_audit_bp
+    from app.web.suppliers import web_suppliers_bp
+    from app.web.purchase_orders import web_purchase_orders_bp
+    from app.web.reports_606 import web_reports_606_bp
 
     app.register_blueprint(web_auth_bp)
     app.register_blueprint(web_dashboard_bp)
@@ -439,6 +442,9 @@ def create_app():
     app.register_blueprint(web_operations_bp)
     app.register_blueprint(portal_bp)
     app.register_blueprint(web_audit_bp)
+    app.register_blueprint(web_suppliers_bp)
+    app.register_blueprint(web_purchase_orders_bp)
+    app.register_blueprint(web_reports_606_bp)
 
     # =========================================================================
     # APScheduler — Facturación automática diaria de contratos recurrentes

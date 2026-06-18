@@ -839,6 +839,36 @@
                     <ul class="sidebar-section-content">
                         {% if session.get('user', {}).get('role') == 'owner' or session.get('user',
                         {}).get('permissions', {}).get('canExpenses', True) %}
+                        <li class="nav-item {% if active_page == 'suppliers' %}active{% endif %}"
+                            data-tooltip="Proveedores">
+                            <a href="{{ url_for('list_suppliers') }}">
+                                <i class="fa-solid fa-truck"></i>
+                                <span>Proveedores</span>
+                            </a>
+                        </li>
+                        {% endif %}
+                        {% if session.get('user', {}).get('role') == 'owner' or session.get('user',
+                        {}).get('permissions', {}).get('canExpenses', True) %}
+                        <li class="nav-item {% if active_page == 'purchase_orders' %}active{% endif %}"
+                            data-tooltip="Órdenes de Compra">
+                            <a href="{{ url_for('list_purchase_orders') }}">
+                                <i class="fa-solid fa-cart-shopping"></i>
+                                <span>Órdenes de Compra</span>
+                            </a>
+                        </li>
+                        {% endif %}
+                        {% if session.get('user', {}).get('role') == 'owner' or session.get('user',
+                        {}).get('permissions', {}).get('canExpenses', True) %}
+                        <li class="nav-item {% if active_page == 'receipts' %}active{% endif %}"
+                            data-tooltip="Recepciones">
+                            <a href="{{ url_for('list_receipts') }}">
+                                <i class="fa-solid fa-truck-loading"></i>
+                                <span>Recepciones</span>
+                            </a>
+                        </li>
+                        {% endif %}
+                        {% if session.get('user', {}).get('role') == 'owner' or session.get('user',
+                        {}).get('permissions', {}).get('canExpenses', True) %}
                         <li class="nav-item {% if active_page == 'expenses' %}active{% endif %}"
                             data-tooltip="Control de Gastos">
                             <a href="{{ url_for('list_expenses') }}">
@@ -864,6 +894,16 @@
                             <a href="{{ url_for('bi_dashboard') }}">
                                 <i class="fa-solid fa-chart-line"></i>
                                 <span>Inteligencia Financiera (BI)</span>
+                            </a>
+                        </li>
+                        {% endif %}
+                        {% if session.get('user', {}).get('role') == 'owner' or session.get('user',
+                        {}).get('permissions', {}).get('canExpenses', True) %}
+                        <li class="nav-item {% if active_page == 'reporte_606' or active_page == 'dashboard_606' %}active{% endif %}"
+                            data-tooltip="Reporte 606">
+                            <a href="{{ url_for('reporte_606') }}">
+                                <i class="fa-solid fa-file-invoice"></i>
+                                <span>Reporte 606</span>
                             </a>
                         </li>
                         {% endif %}

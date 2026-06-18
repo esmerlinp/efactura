@@ -1,0 +1,164 @@
+{% extends "layout.html" %}
+
+{% block title %}Proveedores{% endblock %}
+{% block page_header %}Directorio de Proveedores{% endblock %}
+
+{% block content %}
+<div class="page-title-container" style="margin-bottom: 24px; padding-left: 4px;">
+    <h1 style="font-size:1.75rem; font-weight:800; font-family:var(--font-heading); color:var(--text-primary); margin:0;">
+        <i class="fa-solid fa-truck" style="color:var(--accent-purple); margin-right:10px;"></i>
+        Proveedores
+    </h1>
+</div>
+
+<div class="card-table-wrapper" style="margin-bottom:30px;">
+    <div class="table-header-row">
+        <div>
+            <h3 style="font-size:1.25rem; font-family:var(--font-heading); margin-bottom:6px;">Directorio de Proveedores</h3>
+            <p style="color:var(--text-secondary); font-size:0.88rem;">Gestión de proveedores, compras y cuentas por pagar.</p>
+        </div>
+        <a href="{{ url_for('new_supplier') }}" class="btn btn-primary">
+            <i class="fa-solid fa-plus"></i>
+            <span>Nuevo Proveedor</span>
+        </a>
+    </div>
+
+    <form method="GET" action="{{ url_for('list_suppliers') }}" style="margin-bottom:24px; padding:15px; background:rgba(0,0,0,0.02); border:1px solid var(--border-color); border-radius:8px; margin-left:20px; margin-right:20px;">
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(140px,1fr)); gap:12px; align-items:flex-end;">
+            <div class="form-group" style="margin-bottom:0;">
+                <label style="font-size:0.72rem; margin-bottom:4px; display:block; color:var(--text-secondary);">Buscar</label>
+                <input type="text" name="q" class="form-input" placeholder="Nombre, RNC, email..." value="{{ q }}" style="width:100%; font-size:0.78rem; height:36px; padding:6px 10px;">
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+                <label style="font-size:0.72rem; margin-bottom:4px; display:block; color:var(--text-secondary);">Estado</label>
+                <select name="estado" class="form-select" style="width:100%; font-size:0.78rem; height:36px; padding:6px 10px;">
+                    <option value="">Todos</option>
+                    <option value="Activo" {% if estado == 'Activo' %}selected{% endif %}>Activo</option>
+                    <option value="Inactivo" {% if estado == 'Inactivo' %}selected{% endif %}>Inactivo</option>
+                </select>
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+                <label style="font-size:0.72rem; margin-bottom:4px; display:block; color:var(--text-secondary);">Tipo</label>
+                <select name="tipo" class="form-select" style="width:100%; font-size:0.78rem; height:36px; padding:6px 10px;">
+                    <option value="">Todos</option>
+                    <option value="formal" {% if tipo == 'formal' %}selected{% endif %}>Formal</option>
+                    <option value="informal" {% if tipo == 'informal' %}selected{% endif %}>Informal</option>
+                    <option value="internacional" {% if tipo == 'internacional' %}selected{% endif %}>Internacional</option>
+                </select>
+            </div>
+            <div style="display:flex; gap:8px;">
+                <button type="submit" class="btn btn-secondary" style="flex:1; justify-content:center; height:36px; font-size:0.78rem; border-color:var(--accent-emerald); color:var(--accent-emerald);">
+                    <i class="fa-solid fa-filter"></i> Filtrar
+                </button>
+                <a href="{{ url_for('list_suppliers') }}" class="btn btn-secondary" style="height:36px; font-size:0.78rem; padding:0 10px; border-color:var(--border-color); color:var(--text-muted);">
+                    <i class="fa-solid fa-filter-circle-xmark"></i>
+                </a>
+                <button type="button" class="btn btn-secondary" onclick="window.location.href='{{ url_for('list_suppliers') }}?export=csv&q={{ q }}&estado={{ estado }}&tipo={{ tipo }}'" style="height:36px; font-size:0.78rem; padding:0 12px; border-color:var(--accent-blue); color:var(--accent-blue);">
+                    <i class="fa-solid fa-file-csv"></i> Exportar
+                </button>
+            </div>
+        </div>
+    </form>
+
+    <div class="table-responsive">
+        <table class="table-premium">
+            <thead>
+                <tr>
+                    <th>RNC / Cédula</th>
+                    <th>Nombre / Razón Social</th>
+                    <th>Tipo</th>
+                    <th>Contacto</th>
+                    <th>Días Crédito</th>
+                    <th>Compras (RD$)</th>
+                    <th>Saldo CxP (RD$)</th>
+                    <th>Estado</th>
+                    <th style="text-align:right;">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if suppliers %}
+                {% for s in suppliers %}
+                <tr>
+                    <td><span class="mono">{{ s.rnc or '—' }}</span></td>
+                    <td>
+                        <a href="{{ url_for('supplier_detail', supplier_id=s.id) }}" style="color:var(--accent-blue); text-decoration:none; font-weight:600;">
+                            {{ s.name or '—' }}
+                        </a>
+                        {% if s.code %}
+                        <span style="font-size:0.7rem; color:var(--text-muted); display:block;">Código: {{ s.code }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if s.supplierType == 'formal' %}
+                        <span class="badge-pill badge-green">Formal</span>
+                        {% elif s.supplierType == 'informal' %}
+                        <span class="badge-pill badge-amber">Informal</span>
+                        {% elif s.supplierType == 'internacional' %}
+                        <span class="badge-pill badge-blue">Internacional</span>
+                        {% else %}
+                        <span class="badge-pill badge-gray">{{ s.supplierType }}</span>
+                        {% endif %}
+                    </td>
+                    <td style="font-size:0.82rem;">
+                        {% if s.phone %}<div><i class="fa-solid fa-phone" style="font-size:0.7rem; color:var(--text-muted);"></i> {{ s.phone }}</div>{% endif %}
+                        {% if s.email %}<div style="font-size:0.72rem; color:var(--text-muted);">{{ s.email }}</div>{% endif %}
+                    </td>
+                    <td style="text-align:center;">{{ s.creditDays or '—' }}</td>
+                    <td style="font-weight:600;">RD$ {{ "{:,.2f}".format(s.total_purchases|default(0)) }}</td>
+                    <td>
+                        {% if s.cxp_balance|default(0) > 0 %}
+                        <span style="color:var(--accent-red); font-weight:600;">RD$ {{ "{:,.2f}".format(s.cxp_balance) }}</span>
+                        {% else %}
+                        <span style="color:var(--text-muted);">RD$ 0.00</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if s.estado == 'Activo' %}
+                        <span class="badge-pill badge-green">Activo</span>
+                        {% else %}
+                        <span class="badge-pill badge-gray">Inactivo</span>
+                        {% endif %}
+                    </td>
+                    <td style="text-align:right;">
+                        <div style="display:inline-flex; gap:6px;">
+                            <a href="{{ url_for('supplier_detail', supplier_id=s.id) }}" class="btn btn-secondary btn-sm" style="padding:6px 10px; font-size:0.75rem;" title="Ver Detalle">
+                                <i class="fa-solid fa-eye"></i>
+                            </a>
+                            <a href="{{ url_for('edit_supplier', supplier_id=s.id) }}" class="btn btn-secondary btn-sm" style="padding:6px 10px; font-size:0.75rem;" title="Editar">
+                                <i class="fa-solid fa-pen-to-square"></i>
+                            </a>
+                            <form action="{{ url_for('delete_supplier', supplier_id=s.id) }}" method="POST" style="display:inline;" onsubmit="return confirm('¿Eliminar este proveedor? Los gastos vinculados no se eliminarán.');">
+                                <button type="submit" class="btn btn-danger btn-sm" style="padding:6px 10px; font-size:0.75rem;" title="Eliminar">
+                                    <i class="fa-solid fa-trash-can"></i>
+                                </button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+                {% else %}
+                <tr>
+                    <td colspan="9" style="text-align:center; padding:40px; color:var(--text-muted);">
+                        <i class="fa-solid fa-truck" style="font-size:2rem; display:block; margin-bottom:10px; opacity:0.3;"></i>
+                        No hay proveedores registrados.
+                        <a href="{{ url_for('new_supplier') }}" style="display:block; margin-top:10px; color:var(--accent-blue);">Registrar primer proveedor</a>
+                    </td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<style>
+.badge-pill {
+    display:inline-flex; align-items:center; gap:4px; padding:2px 8px; border-radius:99px;
+    font-size:0.7rem; font-weight:600;
+}
+.badge-green  { background:rgba(16,185,129,0.12); color:var(--accent-emerald); border:1px solid rgba(16,185,129,0.25); }
+.badge-amber  { background:rgba(245,158,11,0.1);  color:#f59e0b;              border:1px solid rgba(245,158,11,0.2);  }
+.badge-blue   { background:rgba(59,130,246,0.1);   color:#3b82f6;              border:1px solid rgba(59,130,246,0.2);  }
+.badge-gray   { background:rgba(107,114,128,0.1);  color:#6b7280;              border:1px solid rgba(107,114,128,0.2); }
+.mono { font-family:monospace; font-size:0.82rem; }
+</style>
+{% endblock %}
