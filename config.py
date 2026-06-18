@@ -64,7 +64,7 @@ class Config:
     DGII_CANCEL_CONTENT_TYPE = os.getenv('DGII_CANCEL_CONTENT_TYPE', 'application/json')
     DGII_SIGNING_MODE = os.getenv('DGII_SIGNING_MODE', 'mock')
     DGII_ALLOW_SIMULATION = os.getenv('DGII_ALLOW_SIMULATION', 'true').lower() == 'true'
+    DGII_SANDBOX_MODE = os.getenv('DGII_SANDBOX_MODE', 'local').lower()
     DGII_USER_AGENT = os.getenv('DGII_USER_AGENT', 'e-FacturaWeb/1.0')
-
 
 

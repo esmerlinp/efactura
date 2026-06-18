@@ -5656,7 +5656,14 @@ def dgii_tools():
     else:
         dgii_status = AlanubeService.check_dgii_status(company, sandbox=sandbox)
     
-    return render_template('reports/dgii_tools.html', active_page='reports', dgii_status=dgii_status)
+    return render_template(
+        'reports/dgii_tools.html',
+        active_page='reports',
+        dgii_status=dgii_status,
+        dgii_provider=provider,
+        dgii_sandbox_mode=Config.DGII_SANDBOX_MODE,
+        is_sandbox=sandbox
+    )
 
 @web_invoices_bp.route('/reports/check-directory-ajax', methods=['POST'])
 def check_directory_ajax():

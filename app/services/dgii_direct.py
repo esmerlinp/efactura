@@ -17,6 +17,10 @@ from config import Config
 class DgiiDirectService:
 
     @classmethod
+    def _use_local_simulation(cls, sandbox):
+        return sandbox and Config.DGII_ALLOW_SIMULATION and Config.DGII_SANDBOX_MODE == "local"
+
+    @classmethod
     def _resolve_endpoints(cls, sandbox=True):
         if sandbox:
             return {
@@ -172,6 +176,9 @@ class DgiiDirectService:
         auth_url = endpoints.get("auth")
         token_url = endpoints.get("token")
 
+        if cls._use_local_simulation(sandbox) and (not auth_url or not token_url):
+            return "simulated_dgii_token_jwt_2026", None
+
         if not auth_url:
             return None, "DGII_AUTH_URL no configurado."
 
@@ -194,6 +201,8 @@ class DgiiDirectService:
                 return None, "No se pudo obtener la semilla de autenticacion."
 
             if not token_url:
+                if cls._use_local_simulation(sandbox):
+                    return "simulated_dgii_token_jwt_2026", None
                 return None, "DGII_TOKEN_URL no configurado."
 
             signed_seed = DgiiSigner.sign_seed(seed, company_profile)
@@ -219,6 +228,8 @@ class DgiiDirectService:
             return token, None
 
         except Exception as e:
+            if cls._use_local_simulation(sandbox):
+                return "simulated_dgii_token_jwt_2026", None
             return None, f"Error al autenticar con DGII: {str(e)}"
         finally:
             cls._cleanup_tls_cert(cert_path)
@@ -255,7 +266,7 @@ class DgiiDirectService:
             endpoints = cls._resolve_endpoints(sandbox=sandbox)
             recepcion_url = endpoints.get("recepcion")
 
-            if sandbox and Config.DGII_ALLOW_SIMULATION and not recepcion_url:
+            if cls._use_local_simulation(sandbox) and not recepcion_url:
                 return cls._simulate_emit(company_profile, invoice_data)
 
             if not recepcion_url:
@@ -274,7 +285,7 @@ class DgiiDirectService:
 
             token, token_error = cls.get_dgii_token(company_profile, sandbox=sandbox)
             if not token:
-                if sandbox and Config.DGII_ALLOW_SIMULATION:
+                if cls._use_local_simulation(sandbox):
                     return cls._simulate_emit(company_profile, invoice_data)
                 return {
                     "success": False,
@@ -348,6 +359,14 @@ class DgiiDirectService:
         endpoints = cls._resolve_endpoints(sandbox=sandbox)
         status_url = endpoints.get("status")
         if not status_url:
+            if cls._use_local_simulation(sandbox):
+                return {
+                    "success": True,
+                    "trackId": track_id,
+                    "dgiiStatus": "PENDING",
+                    "responseBody": {"message": "Simulacion local DGII (status)."},
+                    "statusCode": 200
+                }
             return {"success": False, "message": "DGII_STATUS_URL no configurado."}
 
         token, token_error = cls.get_dgii_token(company_profile, sandbox=sandbox)
@@ -392,15 +411,35 @@ class DgiiDirectService:
     def check_dgii_status(cls, company_profile, sandbox=True):
         endpoints = cls._resolve_endpoints(sandbox=sandbox)
         auth_url = endpoints.get("auth")
+        token_url = endpoints.get("token")
         if not auth_url:
+            if cls._use_local_simulation(sandbox):
+                return {
+                    "success": True,
+                    "status": "ONLINE",
+                    "message": "Simulacion local DGII habilitada."
+                }
             return {
                 "success": False,
                 "status": "NOT_CONFIGURED",
                 "message": "DGII_AUTH_URL no configurado."
             }
 
+        if cls._use_local_simulation(sandbox) and not token_url:
+            return {
+                "success": True,
+                "status": "ONLINE",
+                "message": "Simulacion local DGII habilitada."
+            }
+
         token, token_error = cls.get_dgii_token(company_profile, sandbox=sandbox)
         if not token:
+            if cls._use_local_simulation(sandbox):
+                return {
+                    "success": True,
+                    "status": "ONLINE",
+                    "message": "Simulacion local DGII habilitada."
+                }
             return {
                 "success": False,
                 "status": "AUTH_ERROR",
@@ -417,7 +456,7 @@ class DgiiDirectService:
     def cancel_direct(cls, company_profile, cancellation_dict, sandbox=True):
         endpoints = cls._resolve_endpoints(sandbox=sandbox)
         cancel_url = endpoints.get("cancel")
-        if sandbox and Config.DGII_ALLOW_SIMULATION and not cancel_url:
+        if cls._use_local_simulation(sandbox) and not cancel_url:
             return {
                 "success": True,
                 "message": "Comprobante anulado directamente (simulado).",
