@@ -3263,6 +3263,55 @@ def list_expenses():
         tab=tab
     )
 
+@web_invoices_bp.route('/expenses/api/next-ecf', methods=['GET'])
+def expense_next_ecf_api():
+    """
+    API: Devuelve el próximo número de e-CF disponible para un tipo dado (E41, E43, etc.)
+    sin consumirlo. Útil para pre-rellenar el campo NCF en el formulario de gasto.
+    Query param: ?tipo=E43
+    """
+    if 'user' not in session:
+        return jsonify({"error": "No autenticado"}), 401
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+    tipo = request.args.get('tipo', '').upper().strip()
+
+    if not tipo:
+        return jsonify({"error": "Parámetro 'tipo' requerido"}), 400
+
+    try:
+        sequences = DatabaseService.get_sequences(owner_uid, sandbox=sandbox)
+        # Buscar la secuencia ACTIVA para ese tipo
+        seq = next(
+            (s for s in sequences
+             if s.get('tipoComprobante', '').upper() == tipo
+             and s.get('estado', '').upper() == 'ACTIVA'
+             and not s.get('bloqueadaManualmente', False)),
+            None
+        )
+        if not seq:
+            return jsonify({"error": f"No hay una secuencia ACTIVA para {tipo}"}), 404
+
+        ultimo = int(seq.get('ultimoConsecutivoUsado', seq.get('secuenciaInicial', 1) - 1))
+        siguiente = ultimo + 1
+        final = int(seq.get('secuenciaFinal', siguiente))
+        disponibles = max(0, final - ultimo)
+
+        if siguiente > final:
+            return jsonify({"error": f"La secuencia de {tipo} está AGOTADA"}), 409
+
+        encf = f"{tipo}{siguiente:010d}"
+        return jsonify({
+            "encf": encf,
+            "tipo": tipo,
+            "consecutivo": siguiente,
+            "disponibles": disponibles,
+            "secuenciaFinal": final
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @web_invoices_bp.route('/expenses/new', methods=['GET', 'POST'])
 def new_expense_route():
     if 'user' not in session: return redirect(url_for('login'))
@@ -3479,12 +3528,22 @@ def new_expense_route():
             "name": f"{owner_profile.get('name', 'Usuario Principal')} (Tú)",
             "email": owner_profile.get("email", "")
         })
+    # Secuencias disponibles para gastos (E41, E43)
+    all_sequences = DatabaseService.get_sequences(owner_uid, sandbox=sandbox)
+    expense_sequences = {
+        s['tipoComprobante']: s
+        for s in all_sequences
+        if s.get('tipoComprobante', '').upper() in ('E41', 'E43')
+        and s.get('estado', '').upper() == 'ACTIVA'
+        and not s.get('bloqueadaManualmente', False)
+    }
     return render_template(
         'expenses/new.html',
         active_page='expenses',
         team_members=team_members,
         invoices=[],
-        today_str=today_str
+        today_str=today_str,
+        expense_sequences=expense_sequences
     )
 
 @web_invoices_bp.route('/expenses/<expense_id>/delete', methods=['POST'])
@@ -3729,12 +3788,22 @@ def edit_expense_route(expense_id):
             "name": f"{owner_profile.get('name', 'Usuario Principal')} (Tú)",
             "email": owner_profile.get("email", "")
         })
+    # Secuencias disponibles para gastos (E41, E43)
+    all_sequences = DatabaseService.get_sequences(owner_uid, sandbox=sandbox)
+    expense_sequences = {
+        s['tipoComprobante']: s
+        for s in all_sequences
+        if s.get('tipoComprobante', '').upper() in ('E41', 'E43')
+        and s.get('estado', '').upper() == 'ACTIVA'
+        and not s.get('bloqueadaManualmente', False)
+    }
     return render_template(
         'expenses/edit.html',
         active_page='expenses',
         team_members=team_members,
         expense=expense,
-        invoices=invoices
+        invoices=invoices,
+        expense_sequences=expense_sequences
     )
 
 @web_invoices_bp.route('/api/expenses/ocr-upload', methods=['POST'])
@@ -5644,6 +5713,64 @@ def expense_detail(expense_id):
         cxp_payments=cxp_payments,
         format_mentions=format_mentions
     )
+
+
+@web_invoices_bp.route('/expenses/<expense_id>/attach', methods=['POST'])
+def attach_expense_document(expense_id):
+    """Agrega documentos a un gasto existente sin pasar por el flujo de edición completo."""
+    if 'user' not in session: return redirect(url_for('login'))
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+
+    expense = DatabaseService.get_expense(owner_uid, expense_id, sandbox=sandbox)
+    if not expense:
+        flash('Gasto no encontrado.', 'error')
+        return redirect(url_for('list_expenses'))
+
+    attachment_files = request.files.getlist('attachments[]')
+    attachment_types = request.form.getlist('attachmentTypes[]')
+
+    existing_attachments = expense.get('attachments', [])
+    existing_urls = expense.get('firebaseAttachmentURLs', [])
+
+    # Migrar formato antiguo si es necesario
+    if not existing_attachments and existing_urls:
+        existing_attachments = [{'url': u, 'type': 'factura', 'name': u.split('/')[-1].split('?')[0]} for u in existing_urls]
+
+    new_attachments = list(existing_attachments)
+    new_urls = list(existing_urls)
+    uploaded_count = 0
+
+    for i, att_file in enumerate(attachment_files):
+        if att_file and att_file.filename:
+            file_data = att_file.read()
+            mime_type = att_file.content_type or "image/jpeg"
+            safe_name = att_file.filename.replace(' ', '_')
+            dest_path = f"users/{owner_uid}/expenses/{expense_id}/{safe_name}"
+            try:
+                public_url = DatabaseService.upload_file_to_storage(file_data, dest_path, mime_type)
+                att_type = attachment_types[i] if i < len(attachment_types) else 'otro'
+                new_urls.append(public_url)
+                new_attachments.append({'url': public_url, 'type': att_type, 'name': att_file.filename})
+                uploaded_count += 1
+            except Exception as e:
+                print(f"⚠️ Error al subir adjunto {att_file.filename}: {e}")
+                flash(f'Error al subir {att_file.filename}: {str(e)}', 'error')
+
+    if uploaded_count > 0:
+        # Actualizar solo los campos de adjuntos en Firestore
+        from app.services.db_service import db_firestore, firebase_initialized
+        if firebase_initialized:
+            coll_name = "sandbox_expenses" if sandbox else "expenses"
+            db_firestore.collection("users").document(owner_uid).collection(coll_name).document(expense_id).update({
+                "attachments": new_attachments,
+                "firebaseAttachmentURLs": new_urls
+            })
+        flash(f'{uploaded_count} documento(s) adjuntado(s) exitosamente.', 'success')
+    else:
+        flash('No se seleccionó ningún archivo válido.', 'warning')
+
+    return redirect(url_for('expense_detail', expense_id=expense_id))
 
 
 @web_invoices_bp.route('/expenses/<expense_id>/comments/new', methods=['POST'])

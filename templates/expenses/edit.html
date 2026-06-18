@@ -397,8 +397,22 @@
                             </div>
 
                             <div class="form-group" id="ncf-group">
-                                <label for="ncf">NCF / e-CF del Gasto</label>
-                                <input type="text" id="ncf" name="ncf" class="form-input" value="{{ expense.ncf or '' }}" placeholder="Ej: E310120000452" required style="width: 100%; font-family: monospace;">
+                                <label for="ncf" style="display:flex; align-items:center; gap:8px;">
+                                    NCF / e-CF del Gasto
+                                    <span id="ecf-avail-badge" style="display:none; font-size:0.68rem; padding:2px 8px; border-radius:99px; background:rgba(16,185,129,0.12); color:var(--accent-emerald); border:1px solid rgba(16,185,129,0.25); font-weight:600;"></span>
+                                </label>
+                                <div style="display:flex; gap:6px; align-items:center;">
+                                    <input type="text" id="ncf" name="ncf" class="form-input" value="{{ expense.ncf or '' }}" placeholder="Ej: E310120000452" required style="flex:1; font-family: monospace;">
+                                    <button type="button" id="btn-load-ecf"
+                                        title="Cargar próximo e-CF disponible de secuencia autorizada"
+                                        onclick="loadNextECF()"
+                                        style="display:none; padding:8px 12px; border-radius:var(--radius-sm); border:1px solid var(--accent-emerald); background:rgba(16,185,129,0.1); color:var(--accent-emerald); cursor:pointer; flex-shrink:0; transition:all 0.2s;"
+                                        onmouseover="this.style.background='rgba(16,185,129,0.2)'"
+                                        onmouseout="this.style.background='rgba(16,185,129,0.1)'">
+                                        <i class="fa-solid fa-wand-magic-sparkles"></i>
+                                    </button>
+                                </div>
+                                <div id="ecf-seq-info" style="display:none; margin-top:5px; font-size:0.7rem; color:var(--text-muted); padding:6px 9px; background:rgba(0,0,0,0.08); border-radius:5px; border-left:2px solid var(--accent-emerald);"></div>
                             </div>
 
                             <div class="form-group">
@@ -1062,9 +1076,10 @@
             rncInput.required = true;
             ncfInput.required = true;
             ncfInput.placeholder = 'Ej: E310120000452';
-            document.querySelector('label[for="ncf"]').textContent = 'NCF / e-CF del Gasto';
+            document.getElementById('ncf').closest('.form-group').querySelector('label').firstChild.textContent = 'NCF / e-CF del Gasto ';
             ecfTypeSelect.value = 'E31';
             isDeductibleCheckbox.checked = true;
+            updateECFAutoFill('E31');
         } 
         else if (type === 'informal') {
             rncLabel.textContent = 'Cédula del Proveedor (No Registrado)';
@@ -1072,9 +1087,10 @@
             rncInput.required = true;
             ncfInput.required = false;
             ncfInput.placeholder = 'Opcional si no lo has generado';
-            document.querySelector('label[for="ncf"]').textContent = 'e-CF de Compras (Opcional)';
+            document.getElementById('ncf').closest('.form-group').querySelector('label').firstChild.textContent = 'e-CF de Compras (Opcional) ';
             ecfTypeSelect.value = 'E41';
             isDeductibleCheckbox.checked = true;
+            updateECFAutoFill('E41');
         }
         else if (type === 'internacional') {
             rncLabel.textContent = 'Tax ID / Identificación Extranjera (Opcional)';
@@ -1082,8 +1098,10 @@
             rncInput.required = false;
             ncfInput.required = false;
             ncfInput.placeholder = 'Opcional si no lo has generado';
-            document.querySelector('label[for="ncf"]').textContent = 'e-CF de Pagos al Exterior (Opcional)';
+            document.getElementById('ncf').closest('.form-group').querySelector('label').firstChild.textContent = 'e-CF de Pagos al Exterior (Opcional) ';
             ecfTypeSelect.value = 'E47';
+            isDeductibleCheckbox.checked = false;
+            updateECFAutoFill('E47');
         }
         else if (type === 'interno') {
             rncGroup.style.display = 'none';
@@ -1156,6 +1174,70 @@
             document.getElementById('rnc-group').style.display = 'none';
             document.getElementById('ncf-group').style.display = 'none';
         }
+        // Inicializar auto-fill ECF según tipo actual
+        updateECFAutoFill(document.getElementById('ecfType').value);
+    });
+
+    // ─── AUTO-FILL e-CF para E41 / E43 ──────────────────────────────────
+    const expenseSequences = {{ expense_sequences | tojson | safe }};
+
+    function updateECFAutoFill(tipo) {
+        const btn = document.getElementById('btn-load-ecf');
+        const badge = document.getElementById('ecf-avail-badge');
+        const seqInfo = document.getElementById('ecf-seq-info');
+        if (!tipo) tipo = document.getElementById('ecfType').value;
+
+        const isExpenseType = tipo === 'E41' || tipo === 'E43';
+        btn.style.display = isExpenseType ? 'inline-flex' : 'none';
+
+        if (isExpenseType && expenseSequences[tipo]) {
+            const seq = expenseSequences[tipo];
+            const disp = seq.cantidadDisponible || 0;
+            badge.textContent = disp + ' disponibles';
+            badge.style.display = 'inline-flex';
+            badge.style.background = disp < 50 ? 'rgba(245,158,11,0.15)' : 'rgba(16,185,129,0.12)';
+            badge.style.color = disp < 50 ? '#f59e0b' : 'var(--accent-emerald)';
+            badge.style.borderColor = disp < 50 ? 'rgba(245,158,11,0.3)' : 'rgba(16,185,129,0.25)';
+            const ultimo = seq.ultimoConsecutivoUsado || (seq.secuenciaInicial - 1);
+            const siguiente = ultimo + 1;
+            const encfPreview = tipo + String(siguiente).padStart(10, '0');
+            seqInfo.innerHTML = `<i class="fa-solid fa-circle-info" style="color:var(--accent-emerald);"></i> Próximo disponible: <strong style="font-family:monospace;">${encfPreview}</strong> · Hasta: ${seq.secuenciaFinal}`;
+            seqInfo.style.display = 'block';
+        } else {
+            badge.style.display = 'none';
+            seqInfo.style.display = 'none';
+        }
+    }
+
+    async function loadNextECF() {
+        const tipo = document.getElementById('ecfType').value;
+        if (tipo !== 'E41' && tipo !== 'E43') return;
+        const btn = document.getElementById('btn-load-ecf');
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+        btn.disabled = true;
+        try {
+            const resp = await fetch(`/expenses/api/next-ecf?tipo=${tipo}`);
+            const data = await resp.json();
+            if (data.error) {
+                Swal.fire({ icon: 'warning', title: 'Sin secuencia disponible', text: data.error, confirmButtonColor: 'var(--accent-emerald)' });
+            } else {
+                const ncfInput = document.getElementById('ncf');
+                ncfInput.value = data.encf;
+                ncfInput.classList.add('field-highlighted');
+                setTimeout(() => ncfInput.classList.remove('field-highlighted'), 2500);
+                document.getElementById('ecf-avail-badge').textContent = data.disponibles + ' disponibles';
+            }
+        } catch(e) {
+            console.error('Error al cargar e-CF:', e);
+        } finally {
+            btn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i>';
+            btn.disabled = false;
+        }
+    }
+
+    // Actualizar botón cuando cambia el tipo manualmente
+    document.getElementById('ecfType').addEventListener('change', function() {
+        updateECFAutoFill(this.value);
     });
 </script>
 {% endblock %}

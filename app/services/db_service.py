@@ -1990,15 +1990,37 @@ class DatabaseService:
                 if doc.exists:
                     data = doc.to_dict()
                     data["id"] = doc.id
+                    # Montos
                     data["amount"] = float(data.get("amount", 0.0))
                     data["itbisAmount"] = float(data.get("itbisAmount", 0.0))
+                    data["amountOriginal"] = float(data.get("amountOriginal", data.get("amount", 0.0)))
+                    data["itbisAmountOriginal"] = float(data.get("itbisAmountOriginal", data.get("itbisAmount", 0.0)))
+                    data["exchangeRate"] = float(data.get("exchangeRate", 1.0))
+                    data["cxpRemainingBalance"] = float(data.get("cxpRemainingBalance", 0.0))
+                    # Fechas
                     data["date"] = serialize_field(data.get("date"))
                     data["nextOccurrenceDate"] = serialize_field(data.get("nextOccurrenceDate"))
                     data["recurrenceEndDate"] = serialize_field(data.get("recurrenceEndDate"))
                     data["createdAt"] = serialize_field(data.get("createdAt"))
                     data["dueDate"] = serialize_field(data.get("dueDate", ""))
-                    data["cxpRemainingBalance"] = float(data.get("cxpRemainingBalance", 0.0))
+                    # Campos fiscales / proveedor
+                    data["currency"] = data.get("currency", "DOP")
+                    data["supplierType"] = data.get("supplierType", "formal")
+                    data["providerName"] = data.get("providerName", "")
+                    data["rncEmisor"] = data.get("rncEmisor", "")
+                    data["ncf"] = data.get("ncf", data.get("ecfNumber", ""))
+                    data["ecfType"] = data.get("ecfType", "")
+                    data["cne"] = data.get("cne", "")
+                    data["tipoGastoDGII"] = data.get("tipoGastoDGII", "02")
+                    # Adjuntos
                     data["attachments"] = data.get("attachments", [])
+                    data["firebaseAttachmentURLs"] = data.get("firebaseAttachmentURLs", [])
+                    # Aprobación / flujo
+                    data["approvalStatus"] = data.get("approvalStatus", "Aprobado")
+                    data["assignedApproverName"] = data.get("assignedApproverName", "")
+                    data["assignedApproverEmail"] = data.get("assignedApproverEmail", "")
+                    data["requestedBy"] = data.get("requestedBy", "")
+                    data["approvedBy"] = data.get("approvedBy", "")
                     return data
             except Exception as e:
                 print(f"⚠️ Error al obtener gasto {expense_id} desde Firestore: {e}")
