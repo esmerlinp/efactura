@@ -6046,7 +6046,7 @@ def send_invoice_cxc_reminder(invoice_id, method):
 # =========================================================================================
 # EXPORTACIÓN CONTABLE
 # =========================================================================================
-from app.services.accounting_export_service import AccountingExportService, EXPORT_FORMATS
+from app.services.accounting_export_service import AccountingExportService, EXPORT_FORMATS, DEFAULT_CHART_OF_ACCOUNTS
 
 
 @web_invoices_bp.route('/reports/export/accounting')
