@@ -1,0 +1,278 @@
+{% extends "layout.html" %}
+
+{% block title %}OC {{ order.poNumber }}{% endblock %}
+{% block page_header %}Detalle de Orden de Compra{% endblock %}
+
+{% block content %}
+<div class="page-title-container" style="margin-bottom:24px; padding-left:4px; display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px;">
+    <div>
+        <h1 style="font-size:1.75rem; font-weight:800; font-family:var(--font-heading); color:var(--text-primary); margin:0;">
+            <i class="fa-solid fa-cart-shopping" style="color:var(--accent-purple); margin-right:10px;"></i>
+            {{ order.poNumber }}
+        </h1>
+        <p style="color:var(--text-secondary); font-size:0.88rem; margin:6px 0 0 2px;">
+            {{ order.supplierName or 'Sin proveedor' }} · Creada {{ order.createdAt[:10] if order.createdAt else '' }}
+        </p>
+    </div>
+    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        {% if order.status in ('borrador', 'pendiente_aprobacion') %}
+        <a href="{{ url_for('edit_purchase_order', po_id=order.id) }}" class="btn btn-secondary">
+            <i class="fa-solid fa-pen-to-square"></i> Editar
+        </a>
+        <button type="button" class="btn btn-primary" onclick="approvePO()">
+            <i class="fa-solid fa-check"></i> Aprobar
+        </button>
+        {% endif %}
+        {% if order.status == 'aprobada' or order.status == 'recibida_parcial' %}
+        <a href="{{ url_for('new_receipt', po_id=order.id) }}" class="btn btn-primary">
+            <i class="fa-solid fa-truck-loading"></i> Recibir Mercancía
+        </a>
+        {% endif %}
+        {% if order.status not in ('cancelada', 'recibida_completa') %}
+        <button type="button" class="btn btn-danger" onclick="cancelPO()">
+            <i class="fa-solid fa-ban"></i> Cancelar
+        </button>
+        {% endif %}
+        <form action="{{ url_for('delete_purchase_order', po_id=order.id) }}" method="POST" style="display:inline;" onsubmit="return confirm('¿Eliminar permanentemente esta orden?');">
+            <button type="submit" class="btn btn-danger">
+                <i class="fa-solid fa-trash-can"></i> Eliminar
+            </button>
+        </form>
+    </div>
+</div>
+
+<div class="card-dashboard" style="display:grid; grid-template-columns:2fr 1fr; gap:24px; margin-bottom:24px;">
+    <div class="card-form-body" style="padding:20px;">
+        <h4 style="font-size:0.9rem; font-weight:700; font-family:var(--font-heading); margin-bottom:14px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.03em;">
+            <i class="fa-solid fa-info-circle" style="margin-right:6px;"></i> Información General
+        </h4>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; font-size:0.88rem;">
+            <div><span style="color:var(--text-muted);">Proveedor:</span></div>
+            <div style="font-weight:600;">{{ order.supplierName or '—' }}</div>
+            <div><span style="color:var(--text-muted);">RNC:</span></div>
+            <div class="mono">{{ order.supplierRnc or '—' }}</div>
+            <div><span style="color:var(--text-muted);">Fecha de Orden:</span></div>
+            <div>{{ order.orderDate or '—' }}</div>
+            <div><span style="color:var(--text-muted);">Fecha Esperada:</span></div>
+            <div>{{ order.expectedDate or '—' }}</div>
+            <div><span style="color:var(--text-muted);">Estado:</span></div>
+            <div>
+                {% set status = order.status|default('borrador') %}
+                {% if status == 'borrador' %}<span class="badge badge-gray">Borrador</span>
+                {% elif status == 'pendiente_aprobacion' %}<span class="badge badge-amber">Pendiente</span>
+                {% elif status == 'aprobada' %}<span class="badge badge-green">Aprobada</span>
+                {% elif status == 'recibida_parcial' %}<span class="badge badge-blue">Rec. Parcial</span>
+                {% elif status == 'recibida_completa' %}<span class="badge badge-purple">Recibida</span>
+                {% elif status == 'cancelada' %}<span class="badge badge-red">Cancelada</span>
+                {% elif status == 'rechazada' %}<span class="badge badge-red">Rechazada</span>
+                {% endif %}
+            </div>
+            <div><span style="color:var(--text-muted);">Términos de Pago:</span></div>
+            <div>{{ order.paymentTerms|replace('_', ' ')|title if order.paymentTerms else 'Contado' }}</div>
+            <div><span style="color:var(--text-muted);">Moneda:</span></div>
+            <div>{{ order.currency or 'DOP' }}</div>
+            <div><span style="color:var(--text-muted);">Dirección Entrega:</span></div>
+            <div>{{ order.deliveryAddress or '—' }}</div>
+        </div>
+    </div>
+
+    <div class="card-form-body" style="padding:20px; display:flex; flex-direction:column; gap:16px;">
+        <div style="text-align:center; padding:16px; background:rgba(139,92,246,0.06); border-radius:12px; border:1px solid rgba(139,92,246,0.12);">
+            <div style="font-size:0.7rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.03em;">Total</div>
+            <div style="font-size:1.6rem; font-weight:800; font-family:var(--font-heading); color:var(--accent-purple);">
+                {% if order.currency and order.currency != 'DOP' %}{{ order.currency }} {% endif %}
+                RD$ {{ "{:,.2f}".format(order.total|default(0)) }}
+            </div>
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+            <div style="text-align:center; padding:10px; background:rgba(0,0,0,0.02); border-radius:8px;">
+                <div style="font-size:0.7rem; color:var(--text-muted);">Subtotal</div>
+                <div style="font-weight:700;">RD$ {{ "{:,.2f}".format(order.subtotal|default(0)) }}</div>
+            </div>
+            <div style="text-align:center; padding:10px; background:rgba(0,0,0,0.02); border-radius:8px;">
+                <div style="font-size:0.7rem; color:var(--text-muted);">ITBIS</div>
+                <div style="font-weight:700;">RD$ {{ "{:,.2f}".format(order.itbis|default(0)) }}</div>
+            </div>
+        </div>
+        {% if order.approvedBy %}
+        <div style="font-size:0.78rem; color:var(--text-muted); padding-top:8px; border-top:1px solid var(--border-color);">
+            Aprobado por: <strong>{{ order.approvedBy }}</strong>
+            {% if order.approvedAt %} · {{ order.approvedAt[:10] }}{% endif %}
+        </div>
+        {% endif %}
+        {% if order.receivedBy %}
+        <div style="font-size:0.78rem; color:var(--text-muted);">
+            Recibido por: <strong>{{ order.receivedBy }}</strong>
+            {% if order.receivedAt %} · {{ order.receivedAt[:10] }}{% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card-form-body" style="padding:20px; margin-bottom:24px;">
+    <h4 style="font-size:0.9rem; font-weight:700; font-family:var(--font-heading); margin-bottom:14px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.03em;">
+        <i class="fa-solid fa-box" style="margin-right:6px;"></i> Partidas ({{ order.items|length if order.items else 0 }})
+    </h4>
+    <div class="table-responsive">
+        <table class="table-premium">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Descripción</th>
+                    <th>Cant.</th>
+                    <th>Unidad</th>
+                    <th style="text-align:right;">Precio Unit.</th>
+                    <th style="text-align:right;">ITBIS</th>
+                    <th style="text-align:right;">Desc. %</th>
+                    <th style="text-align:right;">Subtotal</th>
+                    <th style="text-align:right;">Total</th>
+                    <th style="text-align:center;">Recibido</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if order.items %}
+                {% for item in order.items %}
+                <tr>
+                    <td>{{ loop.index }}</td>
+                    <td style="font-weight:600;">{{ item.name or '—' }}</td>
+                    <td style="text-align:center;">{{ item.quantity|default(0) }}</td>
+                    <td>{{ item.unit|default('Unidad') }}</td>
+                    <td style="text-align:right;">{{ "{:,.2f}".format(item.unitPrice|default(0)) }}</td>
+                    <td style="text-align:right;">{{ "%.0f%%"|format((item.itbisRate|default(0))*100) if item.itbisRate else '0%' }}</td>
+                    <td style="text-align:right;">{{ item.discount|default(0) }}%</td>
+                    <td style="text-align:right;">{{ "{:,.2f}".format(item.subtotal|default(0)) }}</td>
+                    <td style="text-align:right; font-weight:600;">{{ "{:,.2f}".format(item.total|default(0)) }}</td>
+                    <td style="text-align:center;">
+                        {% set rqty = item.receivedQuantity|default(0) %}
+                        {% set oqty = item.quantity|default(0) %}
+                        {% if rqty >= oqty %}
+                        <span style="color:var(--accent-emerald); font-weight:600;">{{ rqty }}</span>
+                        {% elif rqty > 0 %}
+                        <span style="color:var(--accent-amber); font-weight:600;">{{ rqty }}</span>
+                        {% else %}
+                        <span style="color:var(--text-muted);">—</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+                {% else %}
+                <tr>
+                    <td colspan="10" style="text-align:center; padding:20px; color:var(--text-muted);">Sin partidas registradas.</td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="card-form-body" style="padding:20px; margin-bottom:24px;">
+    <h4 style="font-size:0.9rem; font-weight:700; font-family:var(--font-heading); margin-bottom:14px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.03em;">
+        <i class="fa-solid fa-truck-loading" style="margin-right:6px;"></i> Recepciones
+    </h4>
+    {% if order.receipts and order.receipts|length > 0 %}
+    <div class="table-responsive">
+        <table class="table-premium">
+            <thead>
+                <tr>
+                    <th>Recepción #</th>
+                    <th>Fecha</th>
+                    <th>Almacén</th>
+                    <th>Partidas</th>
+                    <th style="text-align:center;">Items Catálogo</th>
+                    <th style="text-align:right;">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in order.receipts %}
+                <tr>
+                    <td><span class="mono" style="font-weight:600; color:var(--accent-blue);">{{ r.receiptNumber }}</span></td>
+                    <td style="font-size:0.82rem;">{{ r.receiptDate or r.createdAt[:10] if r.createdAt else '—' }}</td>
+                    <td>{{ r.warehouseName or '—' }}</td>
+                    <td style="text-align:center;">{{ r.items|length if r.items else 0 }}</td>
+                    <td style="text-align:center;">
+                        {% set cat_count = r.items|selectattr('itemId')|list|length if r.items else 0 %}
+                        {% if cat_count > 0 %}
+                        <span style="color:var(--accent-emerald); font-weight:600;">{{ cat_count }}</span>
+                        {% else %}
+                        <span style="color:var(--text-muted);">—</span>
+                        {% endif %}
+                    </td>
+                    <td style="text-align:right;">
+                        <a href="{{ url_for('receipt_detail', receipt_id=r.id) }}" class="btn btn-secondary btn-sm" style="padding:4px 8px; font-size:0.7rem;">
+                            <i class="fa-solid fa-eye"></i>
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p style="color:var(--text-muted); font-size:0.85rem;">No hay recepciones registradas para esta orden.</p>
+    {% endif %}
+</div>
+
+{% if order.notes or order.internalNotes %}
+<div class="card-form-body" style="padding:20px; margin-bottom:24px;">
+    <h4 style="font-size:0.9rem; font-weight:700; font-family:var(--font-heading); margin-bottom:14px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.03em;">
+        <i class="fa-solid fa-note-sticky" style="margin-right:6px;"></i> Notas
+    </h4>
+    {% if order.notes %}
+    <div style="margin-bottom:10px;">
+        <strong style="font-size:0.78rem; color:var(--text-muted);">Notas:</strong>
+        <p style="margin:4px 0; white-space:pre-wrap;">{{ order.notes }}</p>
+    </div>
+    {% endif %}
+    {% if order.internalNotes %}
+    <div>
+        <strong style="font-size:0.78rem; color:var(--text-muted);">Notas Internas:</strong>
+        <p style="margin:4px 0; white-space:pre-wrap; color:var(--text-muted);">{{ order.internalNotes }}</p>
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
+{% if order.createdBy %}
+<div style="font-size:0.78rem; color:var(--text-muted); text-align:right; padding-bottom:20px;">
+    Creada por: {{ order.createdBy }} · {{ order.createdAt[:19] if order.createdAt else '' }}
+</div>
+{% endif %}
+
+<script>
+function approvePO() {
+    if (!confirm('¿Aprobar esta orden de compra?')) return;
+    fetch("{{ url_for('approve_purchase_order', po_id=order.id) }}", { method: 'POST' })
+        .then(r => r.json())
+        .then(d => {
+            if (d.success) { location.reload(); }
+            else { alert('Error: ' + (d.error || 'Desconocido')); }
+        })
+        .catch(() => alert('Error de red'));
+}
+
+function cancelPO() {
+    if (!confirm('¿Cancelar esta orden de compra?')) return;
+    fetch("{{ url_for('cancel_purchase_order', po_id=order.id) }}", { method: 'POST' })
+        .then(r => r.json())
+        .then(d => {
+            if (d.success) { location.reload(); }
+            else { alert('Error: ' + (d.error || 'Desconocido')); }
+        })
+        .catch(() => alert('Error de red'));
+}
+</script>
+
+<style>
+.badge {
+    display:inline-flex; align-items:center; gap:4px; padding:3px 10px; border-radius:99px;
+    font-size:0.75rem; font-weight:600;
+}
+.badge-green  { background:rgba(16,185,129,0.12); color:var(--accent-emerald); border:1px solid rgba(16,185,129,0.25); }
+.badge-amber  { background:rgba(245,158,11,0.1);  color:#f59e0b;              border:1px solid rgba(245,158,11,0.2);  }
+.badge-blue   { background:rgba(59,130,246,0.1);   color:#3b82f6;              border:1px solid rgba(59,130,246,0.2);  }
+.badge-purple { background:rgba(139,92,246,0.1);   color:#8b5cf6;              border:1px solid rgba(139,92,246,0.2);  }
+.badge-gray   { background:rgba(107,114,128,0.1);  color:#6b7280;              border:1px solid rgba(107,114,128,0.2); }
+.badge-red    { background:rgba(239,68,68,0.1);    color:#ef4444;              border:1px solid rgba(239,68,68,0.2);   }
+.mono { font-family:monospace; font-size:0.82rem; }
+</style>
+{% endblock %}

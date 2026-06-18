@@ -1,0 +1,230 @@
+{% extends "layout.html" %}
+
+{% block title %}Reporte 606 — {{ year }}-{{ '%02d'|format(month) }}{% endblock %}
+{% block page_header %}Reporte DGII 606{% endblock %}
+
+{% block content %}
+<div class="page-title-container" style="margin-bottom: 24px; padding-left: 4px;">
+    <h1 style="font-size:1.75rem; font-weight:800; font-family:var(--font-heading); color:var(--text-primary); margin:0;">
+        <i class="fa-solid fa-file-invoice" style="color:var(--accent-purple); margin-right:10px;"></i>
+        Reporte 606 — Compras y Gastos
+    </h1>
+    <p style="color:var(--text-secondary); font-size:0.88rem; margin:6px 0 0 2px;">
+        Período: <strong>{{ year }}-{{ '%02d'|format(month) }}</strong> · {{ filtered|length }} registros
+        · Total RD$ {{ "{:,.2f}".format(total_monto) }}
+    </p>
+</div>
+
+<div class="card-table-wrapper" style="margin-bottom:30px;">
+    <div class="table-header-row">
+        <div>
+            <h3 style="font-size:1.15rem; font-family:var(--font-heading);">Filtros</h3>
+        </div>
+        <div style="display:flex; gap:8px;">
+            <a href="{{ url_for('reporte_606_dashboard', year=year, month=month) }}" class="btn btn-secondary">
+                <i class="fa-solid fa-chart-pie"></i> KPIs
+            </a>
+            <div class="dropdown" style="position:relative; display:inline-block;">
+                <button class="btn btn-secondary" onclick="this.nextElementSibling.classList.toggle('show')">
+                    <i class="fa-solid fa-download"></i> Exportar ▾
+                </button>
+                <div style="display:none; position:absolute; right:0; top:100%; background:var(--bg-card); border:1px solid var(--border-color); border-radius:8px; box-shadow:var(--shadow-lg); z-index:100; min-width:200px; margin-top:4px;">
+                    <a href="{{ url_for('reporte_606_export', year=year, month=month, supplier_id=supplier_id, tipo_gasto=tipo_gasto, ecf_type=ecf_type, search=search, format='simple') }}" style="display:block; padding:10px 16px; text-decoration:none; color:var(--text-primary); font-size:0.85rem; border-bottom:1px solid var(--border-color);">
+                        <i class="fa-solid fa-file-csv" style="margin-right:8px;"></i> CSV Simple
+                    </a>
+                    <a href="{{ url_for('reporte_606_export', year=year, month=month, supplier_id=supplier_id, tipo_gasto=tipo_gasto, ecf_type=ecf_type, search=search, format='dgii') }}" style="display:block; padding:10px 16px; text-decoration:none; color:var(--text-primary); font-size:0.85rem;">
+                        <i class="fa-solid fa-file-export" style="margin-right:8px;"></i> CSV Formato DGII 606
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <form method="GET" action="{{ url_for('reporte_606') }}" style="padding:15px; background:rgba(0,0,0,0.02); border:1px solid var(--border-color); border-radius:8px; margin:0 20px 20px;">
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(130px,1fr)); gap:12px; align-items:flex-end;">
+            <div class="form-group" style="margin-bottom:0;">
+                <label style="font-size:0.72rem; color:var(--text-secondary);">Año</label>
+                <select name="year" class="form-select" style="width:100%; font-size:0.78rem; height:36px;">
+                    {% for y in range(now.year - 5, now.year + 1) %}
+                    <option value="{{ y }}" {% if year == y %}selected{% endif %}>{{ y }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+                <label style="font-size:0.72rem; color:var(--text-secondary);">Mes</label>
+                <select name="month" class="form-select" style="width:100%; font-size:0.78rem; height:36px;">
+                    {% for m in range(1, 13) %}
+                    <option value="{{ m }}" {% if month == m %}selected{% endif %}>{{ '%02d'|format(m) }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+                <label style="font-size:0.72rem; color:var(--text-secondary);">Buscar</label>
+                <input type="text" name="search" class="form-input" placeholder="Proveedor, RNC, NCF..." value="{{ search }}" style="width:100%; font-size:0.78rem; height:36px;">
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+                <label style="font-size:0.72rem; color:var(--text-secondary);">e-CF Type</label>
+                <select name="ecf_type" class="form-select" style="width:100%; font-size:0.78rem; height:36px;">
+                    <option value="">Todos</option>
+                    {% for k, v in ecf_labels.items() %}
+                    <option value="{{ k }}" {% if ecf_type == k %}selected{% endif %}>{{ k }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+                <label style="font-size:0.72rem; color:var(--text-secondary);">Tipo Gasto 606</label>
+                <select name="tipo_gasto" class="form-select" style="width:100%; font-size:0.78rem; height:36px;">
+                    <option value="">Todos</option>
+                    {% for k, v in tipo_gasto_map.items() %}
+                    <option value="{{ k }}" {% if tipo_gasto == k %}selected{% endif %}>{{ k }} — {{ v }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div style="display:flex; gap:6px;">
+                <button type="submit" class="btn btn-secondary" style="height:36px; font-size:0.78rem; border-color:var(--accent-emerald); color:var(--accent-emerald);">
+                    <i class="fa-solid fa-filter"></i> Filtrar
+                </button>
+                <a href="{{ url_for('reporte_606') }}" class="btn btn-secondary" style="height:36px; font-size:0.78rem; padding:0 10px; border-color:var(--border-color); color:var(--text-muted);">
+                    <i class="fa-solid fa-filter-circle-xmark"></i>
+                </a>
+            </div>
+        </div>
+    </form>
+
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(150px,1fr)); gap:12px; margin:0 20px 20px;">
+        <div style="padding:12px; background:rgba(139,92,246,0.06); border-radius:8px; text-align:center; border:1px solid rgba(139,92,246,0.12);">
+            <div style="font-size:0.65rem; color:var(--text-muted); text-transform:uppercase;">Total Monto</div>
+            <div style="font-size:1.1rem; font-weight:700; color:var(--accent-purple);">RD$ {{ "{:,.2f}".format(total_monto) }}</div>
+        </div>
+        <div style="padding:12px; background:rgba(16,185,129,0.06); border-radius:8px; text-align:center; border:1px solid rgba(16,185,129,0.12);">
+            <div style="font-size:0.65rem; color:var(--text-muted); text-transform:uppercase;">ITBIS Total</div>
+            <div style="font-size:1.1rem; font-weight:700; color:var(--accent-emerald);">RD$ {{ "{:,.2f}".format(total_itbis) }}</div>
+        </div>
+        <div style="padding:12px; background:rgba(59,130,246,0.06); border-radius:8px; text-align:center; border:1px solid rgba(59,130,246,0.12);">
+            <div style="font-size:0.65rem; color:var(--text-muted); text-transform:uppercase;">ITBIS Deducible</div>
+            <div style="font-size:1.1rem; font-weight:700; color:var(--accent-blue);">RD$ {{ "{:,.2f}".format(total_itbis_deducible) }}</div>
+        </div>
+        <div style="padding:12px; background:rgba(245,158,11,0.06); border-radius:8px; text-align:center; border:1px solid rgba(245,158,11,0.12);">
+            <div style="font-size:0.65rem; color:var(--text-muted); text-transform:uppercase;">Registros</div>
+            <div style="font-size:1.1rem; font-weight:700; color:#f59e0b;">{{ filtered|length }}</div>
+        </div>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table-premium" style="min-width:1100px;">
+            <thead>
+                <tr>
+                    <th>Fecha</th>
+                    <th>RNC</th>
+                    <th>Proveedor</th>
+                    <th>e-CF</th>
+                    <th>NCF/e-CF</th>
+                    <th>Concepto</th>
+                    <th style="text-align:right;">Monto RD$</th>
+                    <th style="text-align:right;">ITBIS RD$</th>
+                    <th style="text-align:center;">ITBIS Ded.</th>
+                    <th>Tipo Gasto 606</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if filtered %}
+                {% for e in filtered %}
+                <tr>
+                    <td style="font-size:0.82rem;">{{ (e.date or e.createdAt or '')[:10] }}</td>
+                    <td><span class="mono">{{ e.rncEmisor or '—' }}</span></td>
+                    <td style="font-weight:600; max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ e.providerName or '—' }}</td>
+                    <td><span class="badge-ecf">{{ e.ecfType or '—' }}</span></td>
+                    <td><span class="mono" style="font-size:0.75rem;">{{ e.ncf or e.encf or '—' }}</span></td>
+                    <td style="max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:0.82rem; color:var(--text-muted);">{{ e.concept or '—' }}</td>
+                    <td style="text-align:right; font-weight:600;">{{ "{:,.2f}".format(e.amount|default(0)) }}</td>
+                    <td style="text-align:right;">{{ "{:,.2f}".format(e.itbisAmount|default(0)) }}</td>
+                    <td style="text-align:center;">
+                        {% if e.isITBISDeductible %}
+                        <span style="color:var(--accent-emerald);"><i class="fa-solid fa-check"></i></span>
+                        {% else %}
+                        <span style="color:var(--text-muted);">—</span>
+                        {% endif %}
+                    </td>
+                    <td style="font-size:0.78rem;">{{ tipo_gasto_map.get(e.tipoGastoDGII, e.tipoGastoDGII|default('—')) }}</td>
+                </tr>
+                {% endfor %}
+                {% else %}
+                <tr>
+                    <td colspan="10" style="text-align:center; padding:40px; color:var(--text-muted);">
+                        <i class="fa-solid fa-file-invoice" style="font-size:2rem; display:block; margin-bottom:10px; opacity:0.3;"></i>
+                        No hay gastos registrados en este período.
+                    </td>
+                </tr>
+                {% endif %}
+            </tbody>
+            <tfoot>
+                <tr style="font-weight:700; background:rgba(139,92,246,0.04);">
+                    <td colspan="6" style="text-align:right; padding:10px 12px;">TOTALES</td>
+                    <td style="text-align:right; padding:10px 12px;">RD$ {{ "{:,.2f}".format(total_monto) }}</td>
+                    <td style="text-align:right; padding:10px 12px;">RD$ {{ "{:,.2f}".format(total_itbis) }}</td>
+                    <td style="text-align:center; padding:10px 12px;">RD$ {{ "{:,.2f}".format(total_itbis_deducible) }}</td>
+                    <td></td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</div>
+
+{% if by_supplier and by_supplier|length > 1 %}
+<div class="card-form-body" style="padding:20px; margin-bottom:24px;">
+    <h4 style="font-size:0.9rem; font-weight:700; font-family:var(--font-heading); margin-bottom:14px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.03em;">
+        <i class="fa-solid fa-truck" style="margin-right:6px;"></i> Resumen por Proveedor
+    </h4>
+    <div class="table-responsive">
+        <table class="table-premium">
+            <thead>
+                <tr>
+                    <th>RNC</th>
+                    <th>Proveedor</th>
+                    <th style="text-align:center;">Facturas</th>
+                    <th style="text-align:right;">Monto Total</th>
+                    <th style="text-align:right;">ITBIS Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for sid, s in by_supplier.items() %}
+                <tr>
+                    <td><span class="mono">{{ s.rnc }}</span></td>
+                    <td style="font-weight:600;">{{ s.name }}</td>
+                    <td style="text-align:center;">{{ s.count }}</td>
+                    <td style="text-align:right; font-weight:600;">RD$ {{ "{:,.2f}".format(s.monto) }}</td>
+                    <td style="text-align:right;">RD$ {{ "{:,.2f}".format(s.itbis) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<script>
+document.querySelectorAll('.dropdown button').forEach(btn => {
+    btn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        const menu = this.nextElementSibling;
+        menu.classList.toggle('show');
+        menu.style.display = menu.classList.contains('show') ? 'block' : 'none';
+    });
+});
+document.addEventListener('click', function() {
+    document.querySelectorAll('.dropdown [style*="display: block"]').forEach(el => {
+        el.style.display = 'none';
+        el.classList.remove('show');
+    });
+});
+</script>
+
+<style>
+.badge-ecf {
+    display:inline-block; padding:2px 6px; border-radius:4px;
+    font-size:0.7rem; font-weight:600; font-family:monospace;
+    background:rgba(59,130,246,0.1); color:#3b82f6;
+}
+.mono { font-family:monospace; font-size:0.82rem; }
+</style>
+{% endblock %}

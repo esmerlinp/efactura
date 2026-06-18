@@ -329,6 +329,12 @@
                                 </select>
                             </div>
 
+                            <div class="form-group span-full" style="position: relative;">
+                                <label for="supplier-search">Buscar Proveedor del Catálogo <span style="font-size:0.7rem; color:var(--text-muted);">(opcional — autocompleta RNC y datos)</span></label>
+                                <input type="text" id="supplier-search" class="form-input" placeholder="Escribe el nombre o RNC del proveedor..." style="width: 100%;" autocomplete="off">
+                                <div id="supplier-search-results" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 8px; box-shadow: var(--shadow-lg); z-index: 999; max-height: 250px; overflow-y: auto; margin-top: 4px;"></div>
+                            </div>
+
                             <div class="form-group" id="rnc-group">
                                 <label for="rnc-emisor" id="rnc-label">RNC del Proveedor</label>
                                 <input type="text" id="rnc-emisor" name="rncEmisor" class="form-input" value="{{ expense.rncEmisor or '' }}" placeholder="Ej: 101001011" required style="width: 100%; font-family: monospace;">
@@ -782,6 +788,64 @@
     document.getElementById('rnc-emisor').addEventListener('blur', function () {
         lookupRncInDgii(this.value);
     });
+
+    // ── Supplier Search Autocomplete ────────────────────────────────
+    let supplierSearchTimeout = null;
+    const supplierSearchInput = document.getElementById('supplier-search');
+    const supplierSearchResults = document.getElementById('supplier-search-results');
+
+    if (supplierSearchInput) {
+        supplierSearchInput.addEventListener('input', function() {
+            clearTimeout(supplierSearchTimeout);
+            const q = this.value.trim();
+            if (q.length < 2) { supplierSearchResults.style.display = 'none'; return; }
+            supplierSearchTimeout = setTimeout(() => {
+                fetch('/api/suppliers/search?q=' + encodeURIComponent(q))
+                    .then(res => res.json())
+                    .then(data => {
+                        supplierSearchResults.innerHTML = '';
+                        if (data.success && data.suppliers.length) {
+                            data.suppliers.forEach(s => {
+                                const div = document.createElement('div');
+                                div.style.cssText = 'padding:10px 14px; cursor:pointer; border-bottom:1px solid var(--border-color); display:flex; flex-direction:column; gap:2px; transition:background 0.15s;';
+                                div.onmouseenter = function() { this.style.background = 'rgba(255,255,255,0.04)'; };
+                                div.onmouseleave = function() { this.style.background = 'transparent'; };
+                                div.onclick = function() { selectSupplier(s); };
+                                div.innerHTML = '<span style="font-weight:600; font-size:0.82rem;">' + s.name + '</span>' +
+                                    '<span style="font-size:0.7rem; color:var(--text-muted);">RNC: ' + (s.rnc || '—') + ' | Crédito: ' + (s.creditDays || 0) + 'd</span>';
+                                supplierSearchResults.appendChild(div);
+                            });
+                            supplierSearchResults.style.display = 'block';
+                        } else {
+                            supplierSearchResults.style.display = 'none';
+                        }
+                    })
+                    .catch(() => { supplierSearchResults.style.display = 'none'; });
+            }, 300);
+        });
+
+        document.addEventListener('click', function(e) {
+            if (!supplierSearchInput.contains(e.target) && !supplierSearchResults.contains(e.target)) {
+                supplierSearchResults.style.display = 'none';
+            }
+        });
+    }
+
+    function selectSupplier(s) {
+        document.getElementById('rnc-emisor').value = s.rnc || '';
+        document.getElementById('provider-name').value = s.name || '';
+        if (s.ecfTypeEmits) {
+            const ecfSelect = document.getElementById('ecfType');
+            if (ecfSelect) ecfSelect.value = s.ecfTypeEmits;
+        }
+        if (s.supplierType) {
+            const stSelect = document.getElementById('supplierType');
+            if (stSelect) stSelect.value = s.supplierType;
+        }
+        supplierSearchInput.value = s.name || '';
+        supplierSearchResults.style.display = 'none';
+        lookupRncInDgii(s.rnc || '');
+    }
 
     function mapNcfToEcfType(ncf) {
         if (!ncf) return;

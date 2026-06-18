@@ -1,0 +1,192 @@
+{% extends "layout.html" %}
+
+{% block title %}Dashboard 606 — {{ year }}-{{ '%02d'|format(month) }}{% endblock %}
+{% block page_header %}KPIs — Reporte 606{% endblock %}
+
+{% block content %}
+<div class="page-title-container" style="margin-bottom: 24px; padding-left: 4px; display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px;">
+    <div>
+        <h1 style="font-size:1.75rem; font-weight:800; font-family:var(--font-heading); color:var(--text-primary); margin:0;">
+            <i class="fa-solid fa-chart-line" style="color:var(--accent-purple); margin-right:10px;"></i>
+            Dashboard 606
+        </h1>
+        <p style="color:var(--text-secondary); font-size:0.88rem; margin:6px 0 0 2px;">
+            Período: <strong>{{ year }}-{{ '%02d'|format(month) }}</strong>
+        </p>
+    </div>
+    <div style="display:flex; gap:8px;">
+        <a href="{{ url_for('reporte_606', year=year, month=month) }}" class="btn btn-secondary">
+            <i class="fa-solid fa-table"></i> Ver Detalle
+        </a>
+        <select id="period-select" class="form-select" style="width:auto; height:36px;" onchange="window.location.href='{{ url_for('reporte_606_dashboard') }}?year='+this.value.split('-')[0]+'&month='+this.value.split('-')[1];">
+            {% for y in range(now.year - 1, now.year + 1) %}
+            {% for m in range(1, 13) %}
+            {% set sel = (y == year and m == month) %}
+            <option value="{{ y }}-{{ '%02d'|format(m) }}" {% if sel %}selected{% endif %}>{{ y }}-{{ '%02d'|format(m) }}</option>
+            {% endfor %}
+            {% endfor %}
+        </select>
+    </div>
+</div>
+
+<div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px,1fr)); gap:16px; margin-bottom:28px;">
+    <div class="stat-card" style="padding:20px; background:linear-gradient(135deg, rgba(139,92,246,0.08), rgba(139,92,246,0.02)); border:1px solid rgba(139,92,246,0.15); border-radius:12px;">
+        <div style="font-size:0.7rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.03em;">Total Compras</div>
+        <div style="font-size:1.5rem; font-weight:800; color:var(--accent-purple); margin-top:4px;">RD$ {{ "{:,.0f}".format(total_monto) }}</div>
+    </div>
+    <div class="stat-card" style="padding:20px; background:linear-gradient(135deg, rgba(16,185,129,0.08), rgba(16,185,129,0.02)); border:1px solid rgba(16,185,129,0.15); border-radius:12px;">
+        <div style="font-size:0.7rem; color:var(--text-muted); text-transform:uppercase;">ITBIS Total</div>
+        <div style="font-size:1.5rem; font-weight:800; color:var(--accent-emerald); margin-top:4px;">RD$ {{ "{:,.0f}".format(total_itbis) }}</div>
+    </div>
+    <div class="stat-card" style="padding:20px; background:linear-gradient(135deg, rgba(59,130,246,0.08), rgba(59,130,246,0.02)); border:1px solid rgba(59,130,246,0.15); border-radius:12px;">
+        <div style="font-size:0.7rem; color:var(--text-muted); text-transform:uppercase;">ITBIS Deducible</div>
+        <div style="font-size:1.5rem; font-weight:800; color:var(--accent-blue); margin-top:4px;">RD$ {{ "{:,.0f}".format(total_itbis_deducible) }}</div>
+    </div>
+    <div class="stat-card" style="padding:20px; background:linear-gradient(135deg, rgba(245,158,11,0.08), rgba(245,158,11,0.02)); border:1px solid rgba(245,158,11,0.15); border-radius:12px;">
+        <div style="font-size:0.7rem; color:var(--text-muted); text-transform:uppercase;">Facturas</div>
+        <div style="font-size:1.5rem; font-weight:800; color:#f59e0b; margin-top:4px;">{{ count }}</div>
+    </div>
+    <div class="stat-card" style="padding:20px; background:linear-gradient(135deg, rgba(239,68,68,0.08), rgba(239,68,68,0.02)); border:1px solid rgba(239,68,68,0.15); border-radius:12px;">
+        <div style="font-size:0.7rem; color:var(--text-muted); text-transform:uppercase;">Proveedores</div>
+        <div style="font-size:1.5rem; font-weight:800; color:#ef4444; margin-top:4px;">{{ supplier_count }}</div>
+    </div>
+    <div class="stat-card" style="padding:20px; background:linear-gradient(135deg, rgba(16,185,129,0.08), rgba(16,185,129,0.02)); border:1px solid rgba(16,185,129,0.15); border-radius:12px;">
+        <div style="font-size:0.7rem; color:var(--text-muted); text-transform:uppercase;">Gasto Deducible</div>
+        <div style="font-size:1.5rem; font-weight:800; color:var(--accent-emerald); margin-top:4px;">RD$ {{ "{:,.0f}".format(total_deducible) }}</div>
+    </div>
+</div>
+
+<div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:24px;">
+    <div class="card-form-body" style="padding:20px;">
+        <h4 style="font-size:0.85rem; font-weight:700; font-family:var(--font-heading); margin-bottom:12px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.03em;">
+            <i class="fa-solid fa-chart-pie" style="margin-right:6px;"></i> Tipo de Gasto 606
+        </h4>
+        <canvas id="tipoGastoChart" height="250"></canvas>
+    </div>
+    <div class="card-form-body" style="padding:20px;">
+        <h4 style="font-size:0.85rem; font-weight:700; font-family:var(--font-heading); margin-bottom:12px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.03em;">
+            <i class="fa-solid fa-receipt" style="margin-right:6px;"></i> e-CF Distribution
+        </h4>
+        <canvas id="ecfChart" height="250"></canvas>
+    </div>
+</div>
+
+<div class="card-form-body" style="padding:20px; margin-bottom:24px;">
+    <h4 style="font-size:0.85rem; font-weight:700; font-family:var(--font-heading); margin-bottom:12px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.03em;">
+        <i class="fa-solid fa-trophy" style="margin-right:6px;"></i> Top Proveedores
+    </h4>
+    <div class="table-responsive">
+        <table class="table-premium">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Proveedor</th>
+                    <th style="text-align:center;">Facturas</th>
+                    <th style="text-align:right;">Monto Total</th>
+                    <th style="text-align:right;">ITBIS</th>
+                    <th style="text-align:right;">% del Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for sid, s in top_suppliers %}
+                <tr>
+                    <td>{{ loop.index }}</td>
+                    <td style="font-weight:600;">{{ s.name }}</td>
+                    <td style="text-align:center;">{{ s.count }}</td>
+                    <td style="text-align:right; font-weight:600;">RD$ {{ "{:,.2f}".format(s.monto) }}</td>
+                    <td style="text-align:right;">RD$ {{ "{:,.2f}".format(s.itbis) }}</td>
+                    <td style="text-align:right;">
+                        {% if total_monto > 0 %}
+                        {{ "%.1f"|format((s.monto / total_monto) * 100) }}%
+                        {% else %}0%{% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script>
+// ── Colors palette ─────────────────────────────────────────────────
+const COLORS = [
+    'rgba(139,92,246,0.75)', 'rgba(16,185,129,0.75)', 'rgba(59,130,246,0.75)',
+    'rgba(245,158,11,0.75)', 'rgba(239,68,68,0.75)', 'rgba(236,72,153,0.75)',
+    'rgba(20,184,166,0.75)', 'rgba(168,85,247,0.75)', 'rgba(34,211,238,0.75)',
+    'rgba(251,146,60,0.75)',
+];
+const BORDERS = COLORS.map(c => c.replace('0.75', '1'));
+
+// ── Tipo Gasto 606 Pie Chart ──────────────────────────────────────
+const tipoData = {{ tipo_breakdown|tojson|safe }};
+if (document.getElementById('tipoGastoChart')) {
+    new Chart(document.getElementById('tipoGastoChart'), {
+        type: 'doughnut',
+        data: {
+            labels: tipoData.map(d => d.code + ' - ' + d.label),
+            datasets: [{
+                data: tipoData.map(d => d.monto),
+                backgroundColor: COLORS.slice(0, tipoData.length),
+                borderColor: BORDERS.slice(0, tipoData.length),
+                borderWidth: 1,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'bottom', labels: { font: { size: 10 }, boxWidth: 12, padding: 8 } },
+                tooltip: {
+                    callbacks: {
+                        label: function(ctx) {
+                            const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                            const pct = ((ctx.parsed / total) * 100).toFixed(1);
+                            return 'RD$ ' + ctx.parsed.toLocaleString('es-DO', {minimumFractionDigits: 2}) + ' (' + pct + '%)';
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+// ── e-CF Type Pie Chart ──────────────────────────────────────────
+const ecfData = {{ ecf_dist|tojson|safe }};
+if (document.getElementById('ecfChart')) {
+    new Chart(document.getElementById('ecfChart'), {
+        type: 'doughnut',
+        data: {
+            labels: ecfData.map(d => d.label),
+            datasets: [{
+                data: ecfData.map(d => d.monto),
+                backgroundColor: COLORS.slice(0, ecfData.length),
+                borderColor: BORDERS.slice(0, ecfData.length),
+                borderWidth: 1,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'bottom', labels: { font: { size: 10 }, boxWidth: 12, padding: 8 } },
+                tooltip: {
+                    callbacks: {
+                        label: function(ctx) {
+                            const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                            const pct = ((ctx.parsed / total) * 100).toFixed(1);
+                            return 'RD$ ' + ctx.parsed.toLocaleString('es-DO', {minimumFractionDigits: 2}) + ' (' + pct + '%)';
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+</script>
+
+<style>
+.stat-card { transition: transform 0.15s, box-shadow 0.15s; }
+.stat-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+</style>
+{% endblock %}

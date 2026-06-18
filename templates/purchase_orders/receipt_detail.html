@@ -1,0 +1,153 @@
+{% extends "layout.html" %}
+
+{% block title %}Recepción {{ receipt.receiptNumber }}{% endblock %}
+{% block page_header %}Detalle de Recepción{% endblock %}
+
+{% block content %}
+<div class="page-title-container" style="margin-bottom:24px; padding-left:4px; display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px;">
+    <div>
+        <h1 style="font-size:1.75rem; font-weight:800; font-family:var(--font-heading); color:var(--text-primary); margin:0;">
+            <i class="fa-solid fa-truck-loading" style="color:var(--accent-purple); margin-right:10px;"></i>
+            {{ receipt.receiptNumber }}
+        </h1>
+        <p style="color:var(--text-secondary); font-size:0.88rem; margin:6px 0 0 2px;">
+            {{ receipt.supplierName or '—' }} · {{ receipt.receiptDate or (receipt.createdAt[:10] if receipt.createdAt else '') }}
+        </p>
+    </div>
+    <div>
+        <a href="{{ url_for('list_receipts') }}" class="btn btn-secondary">
+            <i class="fa-solid fa-arrow-left"></i> Volver
+        </a>
+    </div>
+</div>
+
+<div class="card-dashboard" style="display:grid; grid-template-columns:2fr 1fr; gap:24px; margin-bottom:24px;">
+    <div class="card-form-body" style="padding:20px;">
+        <h4 style="font-size:0.9rem; font-weight:700; font-family:var(--font-heading); margin-bottom:14px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.03em;">
+            <i class="fa-solid fa-info-circle" style="margin-right:6px;"></i> Información
+        </h4>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; font-size:0.88rem;">
+            <div><span style="color:var(--text-muted);">Recepción:</span></div>
+            <div style="font-weight:600;">{{ receipt.receiptNumber }}</div>
+            <div><span style="color:var(--text-muted);">OC Relacionada:</span></div>
+            <div><a href="{{ url_for('purchase_order_detail', po_id=receipt.poId) }}" style="color:var(--accent-blue);">{{ receipt.poNumber or '—' }}</a></div>
+            <div><span style="color:var(--text-muted);">Proveedor:</span></div>
+            <div>{{ receipt.supplierName or '—' }}</div>
+            <div><span style="color:var(--text-muted);">RNC:</span></div>
+            <div class="mono">{{ receipt.supplierRnc or '—' }}</div>
+            <div><span style="color:var(--text-muted);">Almacén:</span></div>
+            <div>{{ receipt.warehouseName or '—' }}</div>
+            <div><span style="color:var(--text-muted);">Fecha Recepción:</span></div>
+            <div>{{ receipt.receiptDate or '—' }}</div>
+            <div><span style="color:var(--text-muted);">Estado:</span></div>
+            <div>
+                {% if receipt.status == 'completada' %}
+                <span class="badge badge-green">Completada</span>
+                {% else %}
+                <span class="badge badge-amber">{{ receipt.status }}</span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="card-form-body" style="padding:20px;">
+        <h4 style="font-size:0.9rem; font-weight:700; font-family:var(--font-heading); margin-bottom:14px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.03em;">
+            <i class="fa-solid fa-cubes" style="margin-right:6px;"></i> Resumen
+        </h4>
+        {% set items = receipt.get('items', []) %}
+        {% set total_qty = items|sum(attribute='receivedQuantity') %}
+        {% set total_value = items|sum(attribute='receivedQuantity')|sum(attribute='unitPrice') %}
+        {% set catalog_items = items|selectattr('itemId')|list %}
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+            <div style="text-align:center; padding:16px; background:rgba(139,92,246,0.06); border-radius:12px;">
+                <div style="font-size:0.7rem; color:var(--text-muted); text-transform:uppercase;">Partidas</div>
+                <div style="font-size:1.3rem; font-weight:700;">{{ items|length }}</div>
+            </div>
+            <div style="text-align:center; padding:16px; background:rgba(16,185,129,0.06); border-radius:12px;">
+                <div style="font-size:0.7rem; color:var(--text-muted); text-transform:uppercase;">Total Unidades</div>
+                <div style="font-size:1.3rem; font-weight:700;">{{ total_qty }}</div>
+            </div>
+            <div style="text-align:center; padding:16px; background:rgba(59,130,246,0.06); border-radius:12px;">
+                <div style="font-size:0.7rem; color:var(--text-muted); text-transform:uppercase;">Items Catálogo</div>
+                <div style="font-size:1.3rem; font-weight:700;">{{ catalog_items|length }}</div>
+            </div>
+            <div style="text-align:center; padding:16px; background:rgba(245,158,11,0.06); border-radius:12px;">
+                <div style="font-size:0.7rem; color:var(--text-muted); text-transform:uppercase;">Sin Vincular</div>
+                <div style="font-size:1.3rem; font-weight:700;">{{ items|length - catalog_items|length }}</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card-form-body" style="padding:20px; margin-bottom:24px;">
+    <h4 style="font-size:0.9rem; font-weight:700; font-family:var(--font-heading); margin-bottom:14px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.03em;">
+        <i class="fa-solid fa-box" style="margin-right:6px;"></i> Partidas Recibidas ({{ items|length }})
+    </h4>
+    <div class="table-responsive">
+        <table class="table-premium">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Descripción (OC)</th>
+                    <th style="text-align:center;">Cant. Ordenada</th>
+                    <th style="text-align:center;">Cant. Recibida</th>
+                    <th>Unidad</th>
+                    <th style="text-align:right;">Precio Unit.</th>
+                    <th style="text-align:right;">Total</th>
+                    <th>Ítem Catálogo</th>
+                    <th>Stock Actual</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in items %}
+                <tr>
+                    <td>{{ loop.index }}</td>
+                    <td style="font-weight:600;">{{ item.poItemName or '—' }}</td>
+                    <td style="text-align:center;">{{ item.orderedQuantity|default(0) }}</td>
+                    <td style="text-align:center; font-weight:600; color:var(--accent-emerald);">{{ item.receivedQuantity|default(0) }}</td>
+                    <td>{{ item.unit|default('Unidad') }}</td>
+                    <td style="text-align:right;">{{ "{:,.2f}".format(item.unitPrice|default(0)) }}</td>
+                    <td style="text-align:right; font-weight:600;">{{ "{:,.2f}".format((item.receivedQuantity|default(0)) * (item.unitPrice|default(0))) }}</td>
+                    <td>
+                        {% if item.itemId %}
+                        <span style="color:var(--accent-emerald);"><i class="fa-solid fa-link"></i> {{ item.itemName or '—' }}</span>
+                        {% else %}
+                        <span style="color:var(--text-muted); font-size:0.78rem;">Sin vincular</span>
+                        {% endif %}
+                    </td>
+                    <td style="font-size:0.82rem;">
+                        {% if item.itemId %}
+                        <span class="mono" style="color:var(--text-muted);">Actualizado vía ENTRADA</span>
+                        {% else %}
+                        <span style="color:var(--text-muted); font-size:0.72rem;">—</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% if receipt.notes %}
+<div class="card-form-body" style="padding:20px; margin-bottom:24px;">
+    <h4 style="font-size:0.9rem; font-weight:700; font-family:var(--font-heading); margin-bottom:14px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.03em;">
+        <i class="fa-solid fa-note-sticky" style="margin-right:6px;"></i> Notas
+    </h4>
+    <p style="white-space:pre-wrap;">{{ receipt.notes }}</p>
+</div>
+{% endif %}
+
+<div style="font-size:0.78rem; color:var(--text-muted); text-align:right; padding-bottom:20px;">
+    Creada por: {{ receipt.createdBy or '—' }} · {{ receipt.createdAt[:19] if receipt.createdAt else '' }}
+</div>
+
+<style>
+.badge {
+    display:inline-flex; align-items:center; gap:4px; padding:3px 10px; border-radius:99px;
+    font-size:0.75rem; font-weight:600;
+}
+.badge-green  { background:rgba(16,185,129,0.12); color:var(--accent-emerald); border:1px solid rgba(16,185,129,0.25); }
+.badge-amber  { background:rgba(245,158,11,0.1);  color:#f59e0b;              border:1px solid rgba(245,158,11,0.2);  }
+.mono { font-family:monospace; font-size:0.82rem; }
+</style>
+{% endblock %}

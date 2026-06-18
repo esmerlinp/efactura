@@ -1,0 +1,194 @@
+{% extends "layout.html" %}
+
+{% block title %}Proveedor: {{ supplier.name }}{% endblock %}
+{% block page_header %}Detalle de Proveedor{% endblock %}
+
+{% block content %}
+<style>
+    .detail-grid { display:grid; grid-template-columns:1.65fr 1fr; gap:22px; align-items:start; width:100%; }
+    .detail-card { background:var(--bg-card); border:1px solid var(--border-color); border-radius:12px; padding:20px; margin-bottom:18px; }
+    .detail-card:last-child { margin-bottom:0; }
+    .detail-card-title { font-size:0.92rem; font-family:var(--font-heading); font-weight:600; color:var(--text-primary); display:flex; align-items:center; gap:9px; margin-bottom:16px; padding-bottom:12px; border-bottom:1px solid var(--border-color); }
+    .field-row { display:flex; align-items:baseline; gap:8px; padding:6px 0; border-bottom:1px solid rgba(255,255,255,0.04); font-size:0.82rem; }
+    .field-row:last-child { border-bottom:none; }
+    .field-label { color:var(--text-muted); flex-shrink:0; min-width:140px; font-size:0.75rem; text-transform:uppercase; letter-spacing:0.03em; }
+    .field-value { color:var(--text-primary); font-weight:500; flex:1; word-break:break-word; }
+    .field-value.mono { font-family:monospace; font-size:0.85rem; }
+    .badge-pill { display:inline-flex; align-items:center; gap:5px; padding:3px 10px; border-radius:99px; font-size:0.72rem; font-weight:600; }
+    .badge-green  { background:rgba(16,185,129,0.12); color:var(--accent-emerald); border:1px solid rgba(16,185,129,0.25); }
+    .badge-red    { background:rgba(239,68,68,0.1);   color:#ef4444;               border:1px solid rgba(239,68,68,0.2);   }
+    .badge-blue   { background:rgba(59,130,246,0.1);  color:#3b82f6;               border:1px solid rgba(59,130,246,0.2);  }
+    .badge-amber  { background:rgba(245,158,11,0.1);  color:#f59e0b;               border:1px solid rgba(245,158,11,0.2);  }
+    .badge-purple { background:rgba(139,92,246,0.1);  color:#8b5cf6;               border:1px solid rgba(139,92,246,0.2);  }
+    .badge-gray   { background:rgba(107,114,128,0.1); color:#6b7280;               border:1px solid rgba(107,114,128,0.2); }
+    .kpi-card { text-align:center; padding:16px; border-radius:var(--radius-sm); border:1px solid var(--border-color); }
+    .kpi-value { font-size:1.3rem; font-weight:700; font-family:monospace; }
+    .kpi-label { font-size:0.72rem; color:var(--text-muted); margin-top:4px; text-transform:uppercase; }
+    .att-card { display:flex; align-items:center; gap:10px; padding:9px 12px; border-radius:var(--radius-sm); border:1px solid var(--border-color); background:rgba(255,255,255,0.01); margin-bottom:7px; }
+    .att-card:hover { border-color:var(--accent-emerald); }
+</style>
+
+<div style="width:100%;">
+    <!-- Top Actions -->
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:10px;">
+        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+            <span style="font-size:1.2rem; font-weight:700; font-family:var(--font-heading);">{{ supplier.name }}</span>
+            <span class="badge-pill {% if supplier.estado == 'Activo' %}badge-green{% else %}badge-gray{% endif %}">{{ supplier.estado or 'Activo' }}</span>
+            {% if supplier.supplierType == 'formal' %}
+            <span class="badge-pill badge-blue">Formal</span>
+            {% elif supplier.supplierType == 'internacional' %}
+            <span class="badge-pill badge-purple">Internacional</span>
+            {% elif supplier.supplierType == 'informal' %}
+            <span class="badge-pill badge-amber">Informal</span>
+            {% endif %}
+        </div>
+        <div style="display:flex; gap:10px;">
+            <a href="{{ url_for('list_suppliers') }}" class="btn btn-secondary"><i class="fa-solid fa-arrow-left"></i> Volver</a>
+            <a href="{{ url_for('edit_supplier', supplier_id=supplier.id) }}" class="btn btn-primary"><i class="fa-solid fa-pen-to-square"></i> Editar</a>
+            <form action="{{ url_for('delete_supplier', supplier_id=supplier.id) }}" method="POST" style="display:inline;" onsubmit="return confirm('¿Eliminar este proveedor?');">
+                <button type="submit" class="btn btn-danger"><i class="fa-solid fa-trash-can"></i> Eliminar</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- KPIs -->
+    <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:22px;">
+        <div class="kpi-card" style="border-color:rgba(16,185,129,0.25);">
+            <div class="kpi-value" style="color:var(--accent-emerald);">RD$ {{ "{:,.2f}".format(total_purchases) }}</div>
+            <div class="kpi-label">Total Compras</div>
+        </div>
+        <div class="kpi-card" style="border-color:rgba(239,68,68,0.25);">
+            <div class="kpi-value" style="color:#ef4444;">RD$ {{ "{:,.2f}".format(cxp_balance) }}</div>
+            <div class="kpi-label">Saldo Pendiente CxP</div>
+        </div>
+        <div class="kpi-card" style="border-color:rgba(59,130,246,0.25);">
+            <div class="kpi-value" style="color:#3b82f6;">{{ expenses|length }}</div>
+            <div class="kpi-label">Gastos Registrados</div>
+        </div>
+        <div class="kpi-card" style="border-color:rgba(139,92,246,0.25);">
+            <div class="kpi-value" style="color:#8b5cf6;">{{ supplier.creditDays or 0 }} días</div>
+            <div class="kpi-label">Plazo de Crédito</div>
+        </div>
+    </div>
+
+    <div class="detail-grid">
+
+        <!-- COLUMNA IZQUIERDA -->
+        <div>
+            <!-- DATOS GENERALES -->
+            <div class="detail-card">
+                <div class="detail-card-title"><i class="fa-solid fa-building" style="color:var(--accent-emerald);"></i>Datos Generales</div>
+                <div class="field-row"><span class="field-label">RNC / Cédula</span><span class="field-value mono">{{ supplier.rnc or '—' }}</span></div>
+                <div class="field-row"><span class="field-label">Código Interno</span><span class="field-value">{{ supplier.code or '—' }}</span></div>
+                <div class="field-row"><span class="field-label">Tipo Persona</span><span class="field-value">{{ 'Jurídica' if supplier.tipoPersona == 'juridica' else 'Física' }}</span></div>
+                <div class="field-row"><span class="field-label">Tipo Proveedor</span><span class="field-value">{{ supplier.supplierType or 'formal' }}</span></div>
+                <div class="field-row"><span class="field-label">Creado</span><span class="field-value">{{ (supplier.createdAt or '')[:10] }}</span></div>
+            </div>
+
+            <!-- CONTACTO -->
+            <div class="detail-card">
+                <div class="detail-card-title"><i class="fa-solid fa-address-card" style="color:var(--accent-blue);"></i>Contacto</div>
+                {% if supplier.phone %}<div class="field-row"><span class="field-label">Teléfono</span><span class="field-value">{{ supplier.phone }}</span></div>{% endif %}
+                {% if supplier.email %}<div class="field-row"><span class="field-label">Email</span><span class="field-value">{{ supplier.email }}</span></div>{% endif %}
+                {% if supplier.address %}<div class="field-row"><span class="field-label">Dirección</span><span class="field-value">{{ supplier.address }}</span></div>{% endif %}
+                {% if supplier.city or supplier.country %}<div class="field-row"><span class="field-label">Ubicación</span><span class="field-value">{{ supplier.city }}{% if supplier.city and supplier.country %}, {% endif %}{{ supplier.country }}</span></div>{% endif %}
+                {% if supplier.contactPerson %}<div class="field-row"><span class="field-label">Contacto</span><span class="field-value">{{ supplier.contactPerson }}</span></div>{% endif %}
+            </div>
+
+            <!-- CONFIGURACIÓN FISCAL -->
+            <div class="detail-card">
+                <div class="detail-card-title"><i class="fa-solid fa-stamp" style="color:var(--accent-amber);"></i>Configuración Fiscal</div>
+                <div class="field-row"><span class="field-label">e-CF que Emite</span><span class="field-value">{{ supplier.ecfTypeEmits or 'E31' }}</span></div>
+                <div class="field-row"><span class="field-label">Tipo Gasto DGII</span><span class="field-value">{{ supplier.tipoGastoDGII or '02' }}</span></div>
+                <div class="field-row"><span class="field-label">Retención ITBIS</span><span class="field-value">{% if supplier.itbisWithholding %}<span class="badge-pill badge-green">Sí</span>{% else %}<span class="badge-pill badge-gray">No</span>{% endif %}</span></div>
+                <div class="field-row"><span class="field-label">Retención ISR</span><span class="field-value">{% if supplier.isrWithholding %}<span class="badge-pill badge-green">Sí</span>{% else %}<span class="badge-pill badge-gray">No</span>{% endif %}</span></div>
+            </div>
+        </div>
+
+        <!-- COLUMNA DERECHA -->
+        <div>
+            <!-- CONFIGURACIÓN COMERCIAL -->
+            <div class="detail-card">
+                <div class="detail-card-title"><i class="fa-solid fa-handshake" style="color:var(--accent-purple);"></i>Configuración Comercial</div>
+                <div class="field-row"><span class="field-label">Moneda</span><span class="field-value">{{ supplier.currency or 'DOP' }}</span></div>
+                <div class="field-row"><span class="field-label">Días Crédito</span><span class="field-value">{{ supplier.creditDays or 0 }}</span></div>
+                <div class="field-row"><span class="field-label">Límite Crédito</span><span class="field-value">RD$ {{ "{:,.2f}".format(supplier.creditLimit|default(0)) }}</span></div>
+                <div class="field-row"><span class="field-label">Método Pago</span><span class="field-value">{{ supplier.paymentMethod or 'Efectivo' }}</span></div>
+            </div>
+
+            <!-- GASTOS VINCULADOS -->
+            <div class="detail-card">
+                <div class="detail-card-title">
+                    <i class="fa-solid fa-receipt" style="color:var(--accent-red);"></i>
+                    Gastos Vinculados
+                    <span class="badge-pill badge-blue" style="margin-left:auto;">{{ expenses|length }}</span>
+                </div>
+                {% if expenses %}
+                <div style="max-height:400px; overflow-y:auto;">
+                    <table style="width:100%; font-size:0.78rem; border-collapse:collapse;">
+                        <thead>
+                            <tr style="border-bottom:1px solid var(--border-color);">
+                                <th style="text-align:left; padding:6px 4px; color:var(--text-muted);">Fecha</th>
+                                <th style="text-align:left; padding:6px 4px; color:var(--text-muted);">Concepto</th>
+                                <th style="text-align:right; padding:6px 4px; color:var(--text-muted);">Monto</th>
+                                <th style="text-align:right; padding:6px 4px; color:var(--text-muted);">CxP</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for e in expenses[:20] %}
+                            <tr style="border-bottom:1px solid rgba(255,255,255,0.03);">
+                                <td style="padding:6px 4px;">{{ (e.date or '')[:10] }}</td>
+                                <td style="padding:6px 4px;">
+                                    <a href="{{ url_for('expense_detail', expense_id=e.id) }}" style="color:var(--accent-blue); text-decoration:none;">{{ e.concept|truncate(30) }}</a>
+                                </td>
+                                <td style="padding:6px 4px; text-align:right; font-weight:600;">RD$ {{ "{:,.2f}".format(e.amount|default(0)) }}</td>
+                                <td style="padding:6px 4px; text-align:right;">
+                                    {% if e.cxpRemainingBalance|default(0) > 0 %}
+                                    <span style="color:var(--accent-red);">RD$ {{ "{:,.2f}".format(e.cxpRemainingBalance) }}</span>
+                                    {% else %}
+                                    <span style="color:var(--text-muted);">—</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% if expenses|length > 20 %}
+                <p style="font-size:0.72rem; color:var(--text-muted); text-align:center; margin-top:8px;">Mostrando 20 de {{ expenses|length }} gastos.</p>
+                {% endif %}
+                {% else %}
+                <p style="font-size:0.78rem; color:var(--text-muted); text-align:center; padding:20px;">
+                    <i class="fa-solid fa-receipt" style="font-size:1.8rem; display:block; margin-bottom:6px; opacity:0.3;"></i>
+                    No hay gastos vinculados a este proveedor.
+                </p>
+                {% endif %}
+            </div>
+
+            <!-- NOTAS -->
+            {% if supplier.notes %}
+            <div class="detail-card">
+                <div class="detail-card-title"><i class="fa-solid fa-note-sticky" style="color:var(--accent-blue);"></i>Notas</div>
+                <p style="font-size:0.82rem; color:var(--text-secondary); margin:0; white-space:pre-wrap;">{{ supplier.notes }}</p>
+            </div>
+            {% endif %}
+
+            <!-- ADJUNTOS -->
+            {% if supplier.attachments and supplier.attachments|length > 0 %}
+            <div class="detail-card">
+                <div class="detail-card-title"><i class="fa-solid fa-paperclip" style="color:var(--accent-emerald);"></i>Documentos Adjuntos</div>
+                {% for att in supplier.attachments %}
+                <div class="att-card">
+                    <i class="fa-solid {{ 'fa-file-pdf' if att.name and '.pdf' in att.name else 'fa-file' }}" style="color:#ef4444; font-size:1.2rem; flex-shrink:0;"></i>
+                    <div style="flex:1; min-width:0;">
+                        <div style="font-size:0.78rem; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ att.name }}</div>
+                    </div>
+                    <a href="{{ att.url }}" target="_blank" class="btn btn-secondary btn-sm" style="padding:3px 8px; font-size:0.68rem;"><i class="fa-solid fa-eye"></i></a>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

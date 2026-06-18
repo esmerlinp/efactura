@@ -5922,6 +5922,198 @@ def bi_dashboard():
     )
 
 
+# =========================================================================
+# IMPORTACIÓN DE XML DE GASTOS
+# =========================================================================
+
+@web_invoices_bp.route('/expenses/import')
+def expense_import_page():
+    if 'user' not in session: return redirect(url_for('login'))
+    if not check_permission('canExpenses'):
+        return render_template('auth/restricted.html', feature_name="Importar XML", required_permission="canExpenses")
+    return render_template('expenses/import.html', active_page='expenses',
+                           categories=["Comida y Restaurantes", "Transporte y Combustible",
+                                       "Servicios Básicos", "Software y Tecnología",
+                                       "Materiales de Oficina", "Alquileres",
+                                       "Impuestos y Tasas", "Otros Gastos"])
+
+
+@web_invoices_bp.route('/expenses/import/preview', methods=['POST'])
+def expense_import_preview():
+    if 'user' not in session: return redirect(url_for('login'))
+    if not check_permission('canExpenses'):
+        return jsonify({"success": False, "error": "Sin permiso"}), 403
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+
+    xml_file = request.files.get('xml_file')
+    pdf_file = request.files.get('pdf_file')
+
+    if not xml_file or not xml_file.filename:
+        return jsonify({"success": False, "message": "Debes subir un archivo XML."}), 400
+
+    try:
+        xml_bytes = xml_file.read()
+    except Exception as e:
+        return jsonify({"success": False, "message": f"Error al leer XML: {e}"}), 400
+
+    from app.services.xml_import_service import XMLImportService
+    parsed = XMLImportService.parse_ecf_xml(xml_bytes)
+    if not parsed.get("success"):
+        return jsonify({"success": False, "message": parsed.get("message", "Error al parsear XML")}), 400
+
+    errors = XMLImportService.validate_fiscal_structure(parsed)
+    if errors:
+        return jsonify({"success": False, "message": "Errores de validación: " + "; ".join(errors)}), 400
+
+    from app.services.supplier_service import SupplierService
+    supplier_id = SupplierService.get_or_create_supplier(
+        owner_uid, parsed["supplierRnc"], parsed["supplierName"],
+        parsed.get("supplierAddress", ""), sandbox=sandbox
+    )
+
+    from app.services.ai_classifier_service import AIExpenseClassifier
+    items_text = XMLImportService.items_to_text(parsed)
+    ai_result = AIExpenseClassifier.classify_expense_from_import(
+        owner_uid, parsed["supplierName"], parsed["supplierRnc"],
+        items_text, parsed["total"], parsed.get("issueDate", ""), parsed["ecfType"]
+    )
+
+    duplicate = AIExpenseClassifier.detect_duplicate(
+        owner_uid, parsed["supplierRnc"], parsed["total"],
+        parsed.get("issueDate", ""), sandbox=sandbox
+    )
+
+    import json
+    import uuid
+    preview_id = str(uuid.uuid4())
+    session_data = {
+        "parsed": parsed,
+        "ai_result": ai_result,
+        "supplier_id": supplier_id,
+        "items_text": items_text,
+    }
+    if 'expense_import_previews' not in session:
+        session['expense_import_previews'] = {}
+    session['expense_import_previews'][preview_id] = session_data
+    session.modified = True
+
+    return jsonify({
+        "success": True,
+        "preview_id": preview_id,
+        "parsed": {
+            "encf": parsed.get("encf", ""),
+            "ecfType": parsed.get("ecfType", ""),
+            "supplierName": parsed.get("supplierName", ""),
+            "supplierRnc": parsed.get("supplierRnc", ""),
+            "supplierAddress": parsed.get("supplierAddress", ""),
+            "issueDate": parsed.get("issueDate", ""),
+            "subtotal": parsed.get("subtotal", 0),
+            "totalITBIS": parsed.get("totalITBIS", 0),
+            "total": parsed.get("total", 0),
+            "items": parsed.get("items", []),
+        },
+        "ai": ai_result,
+        "duplicate": duplicate,
+        "supplier_id": supplier_id,
+        "categories": AIExpenseClassifier.CATEGORIES,
+    })
+
+
+@web_invoices_bp.route('/expenses/import/confirm', methods=['POST'])
+def expense_import_confirm():
+    if 'user' not in session: return redirect(url_for('login'))
+    if not check_permission('canExpenses'):
+        return jsonify({"success": False, "error": "Sin permiso"}), 403
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+
+    import uuid
+    expense_id = str(uuid.uuid4())
+    data = request.get_json(force=True) or {}
+
+    encf = data.get("encf", "")
+    ecf_type = data.get("ecfType", "E31")
+    supplier_rnc = "".join(filter(str.isdigit, str(data.get("supplierRnc", ""))))
+    supplier_name = data.get("supplierName", "")
+    supplier_address = data.get("supplierAddress", "")
+    date = data.get("issueDate", "")
+    subtotal = float(data.get("subtotal", 0))
+    itbis = float(data.get("totalITBIS", 0))
+    total = float(data.get("total", 0))
+    category = data.get("category", "Otros Gastos")
+    tipo_gasto = data.get("tipoGastoDGII", "02")
+    concept = data.get("concept", supplier_name)
+    payment_type = data.get("paymentType", "Contado")
+    is_recurring = data.get("isRecurring", False)
+    recurrence_interval = data.get("recurrenceInterval", "mensual") if is_recurring else ""
+    is_deductible = data.get("isDeductible", True)
+
+    from app.services.supplier_service import SupplierService
+    supplier_id = SupplierService.get_or_create_supplier(
+        owner_uid, supplier_rnc, supplier_name, supplier_address, sandbox=sandbox
+    )
+
+    expense_dict = {
+        "supplierType": "formal",
+        "concept": concept,
+        "category": category,
+        "currency": "DOP",
+        "exchangeRate": 1.0,
+        "amountOriginal": total,
+        "amount": total,
+        "date": date[:10] if date else "",
+        "rncEmisor": supplier_rnc,
+        "providerName": supplier_name,
+        "ncf": encf,
+        "isMinorExpense": False,
+        "isSyncedWithDGII": False,
+        "qrCodeURL": "",
+        "xmlSignature": "",
+        "notes": f"Importado de XML e-CF. Proveedor: {supplier_name}",
+        "isRecurring": is_recurring,
+        "recurrenceInterval": recurrence_interval,
+        "nextOccurrenceDate": "",
+        "recurrenceEndDate": "",
+        "associatedInvoiceId": "",
+        "itbisAmountOriginal": itbis,
+        "itbisAmount": itbis,
+        "isITBISDeductible": is_deductible,
+        "isDeductible": is_deductible,
+        "firebaseAttachmentURLs": [],
+        "attachments": [],
+        "ecfType": ecf_type,
+        "ecfNumber": encf,
+        "cne": "",
+        "tipoGastoDGII": tipo_gasto,
+        "paymentType": payment_type,
+        "cxpStatus": "Pagado" if payment_type == "Contado" else "Pendiente",
+        "cxpRemainingBalance": 0.0 if payment_type == "Contado" else total,
+        "approvalStatus": "Aprobado",
+        "requestedBy": session['user'].get('name', 'Usuario'),
+        "approvedBy": session['user'].get('name', 'Usuario'),
+        "dueDate": "",
+        "encf": encf,
+        "emisionMode": "",
+        "trackId": "",
+        "xmlContent": "",
+        "supplierId": supplier_id or "",
+    }
+
+    DatabaseService.save_expense(owner_uid, expense_id, expense_dict, sandbox=sandbox)
+
+    from app.services.audit_service import AuditService, ACTION_CREATE, MODULE_GASTOS
+    AuditService.log_from_request(
+        owner_uid=owner_uid, action=ACTION_CREATE, module=MODULE_GASTOS,
+        entity_id=expense_id,
+        entity_label=f"Gasto importado de XML: {concept} (RD$ {total:.2f})",
+        user_session=session.get('user', {}), after=expense_dict, sandbox=sandbox
+    )
+
+    flash(f'Gasto importado exitosamente. {ecf_type} - {encf}', 'success')
+    return jsonify({"success": True, "expense_id": expense_id})
+
+
 @web_invoices_bp.route('/api/ai/receipt-ocr', methods=['POST'])
 def api_ai_receipt_ocr():
     if 'user' not in session:

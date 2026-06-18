@@ -1,0 +1,647 @@
+{% extends "layout.html" %}
+
+{% block title %}Importar XML de e-CF{% endblock %}
+{% block page_header %}Importar Comprobante Fiscal (e-CF){% endblock %}
+
+{% block content %}
+<style>
+    .uploader-zone {
+        border: 2px dashed var(--border-color);
+        border-radius: var(--radius-md);
+        padding: 32px 16px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.25s ease;
+        background: rgba(0,0,0,0.01);
+    }
+    .uploader-zone:hover, .uploader-zone.dragover {
+        border-color: var(--accent-emerald);
+        background: rgba(16,185,129,0.03);
+    }
+    .uploader-zone.has-file {
+        border-color: var(--accent-emerald);
+        background: rgba(16,185,129,0.05);
+    }
+    .file-card {
+        display: flex; align-items: center; gap: 10px;
+        padding: 10px 14px;
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--border-color);
+        background: var(--bg-card);
+        margin-top: 10px;
+    }
+    .review-section { margin-top: 24px; }
+    .review-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 18px;
+    }
+    .review-card-title {
+        font-size: 0.92rem;
+        font-family: var(--font-heading);
+        font-weight: 600;
+        color: var(--text-primary);
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        margin-bottom: 16px;
+        padding-bottom: 12px;
+        border-bottom: 1px solid var(--border-color);
+    }
+    .field-row {
+        display: flex;
+        align-items: baseline;
+        gap: 8px;
+        padding: 6px 0;
+        border-bottom: 1px solid rgba(255,255,255,0.04);
+        font-size: 0.82rem;
+    }
+    .field-row:last-child { border-bottom: none; }
+    .field-label {
+        color: var(--text-muted);
+        flex-shrink: 0;
+        min-width: 140px;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+    }
+    .field-value { color: var(--text-primary); font-weight: 500; flex: 1; word-break: break-all; }
+    .badge-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 3px 10px;
+        border-radius: 99px;
+        font-size: 0.72rem;
+        font-weight: 600;
+    }
+    .badge-green  { background: rgba(16,185,129,0.12); color: var(--accent-emerald); border: 1px solid rgba(16,185,129,0.25); }
+    .badge-red    { background: rgba(239,68,68,0.1);   color: #ef4444;               border: 1px solid rgba(239,68,68,0.2);   }
+    .badge-blue   { background: rgba(59,130,246,0.1);  color: #3b82f6;               border: 1px solid rgba(59,130,246,0.2);  }
+    .badge-amber  { background: rgba(245,158,11,0.1);  color: #f59e0b;               border: 1px solid rgba(245,158,11,0.2);  }
+    .badge-purple { background: rgba(139,92,246,0.1);  color: #8b5cf6;               border: 1px solid rgba(139,92,246,0.2);  }
+    .confidence-bar {
+        height: 6px;
+        border-radius: 3px;
+        background: rgba(0,0,0,0.08);
+        margin-top: 4px;
+        overflow: hidden;
+    }
+    .confidence-fill {
+        height: 100%;
+        border-radius: 3px;
+        transition: width 0.5s ease;
+    }
+    .alert-box {
+        padding: 12px 16px;
+        border-radius: var(--radius-sm);
+        font-size: 0.82rem;
+        margin-bottom: 12px;
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+    }
+    .alert-duplicate { background: rgba(239,68,68,0.06); border: 1px solid rgba(239,68,68,0.2); color: #ef4444; }
+    .alert-anomaly   { background: rgba(245,158,11,0.06); border: 1px solid rgba(245,158,11,0.2); color: #f59e0b; }
+    .alert-info      { background: rgba(59,130,246,0.06); border: 1px solid rgba(59,130,246,0.2); color: #3b82f6; }
+</style>
+
+<div style="width:100%;">
+
+    <!-- ═══ TOP ACTIONS ═══════════════════════════════════════════════ -->
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+        <div>
+            <h2 style="font-size:1.2rem; font-family:var(--font-heading); margin:0 0 4px;">
+                <i class="fa-solid fa-file-import" style="color:var(--accent-purple); margin-right:8px;"></i>
+                Importar XML de e-CF
+            </h2>
+            <p style="color:var(--text-secondary); font-size:0.82rem; margin:0;">
+                Sube un archivo XML de comprobante fiscal electrónico recibido de un proveedor para registrar el gasto automáticamente.
+            </p>
+        </div>
+        <a href="{{ url_for('list_expenses') }}" class="btn btn-secondary">
+            <i class="fa-solid fa-arrow-left"></i> Volver a Gastos
+        </a>
+    </div>
+
+    <!-- ═══ FASE 1: CARGA ════════════════════════════════════════════ -->
+    <div id="upload-phase">
+        <div class="review-card">
+            <div class="review-card-title">
+                <i class="fa-solid fa-cloud-arrow-up" style="color:var(--accent-emerald);"></i>
+                Subir Archivos
+            </div>
+
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+                <div>
+                    <label style="font-size:0.78rem; font-weight:600; color:var(--text-primary); display:block; margin-bottom:6px;">
+                        <i class="fa-solid fa-file-code" style="color:var(--accent-emerald);"></i>
+                        XML del e-CF <span style="color:var(--accent-red);">*</span>
+                    </label>
+                    <div class="uploader-zone" id="xml-drop-zone" onclick="document.getElementById('xml-file-input').click()">
+                        <i class="fa-solid fa-file-code" style="font-size:2rem; color:var(--text-muted); margin-bottom:8px;"></i>
+                        <p style="font-size:0.82rem; margin:0 0 4px; font-weight:600; color:var(--text-primary);">
+                            Arrastra o haz clic para subir XML
+                        </p>
+                        <span style="font-size:0.72rem; color:var(--text-muted);">Archivo .xml del comprobante fiscal</span>
+                        <input type="file" id="xml-file-input" name="xml_file" accept=".xml" style="display:none" onchange="handleXMLFile(this.files[0])">
+                    </div>
+                    <div id="xml-file-card" class="file-card" style="display:none;">
+                        <i class="fa-solid fa-file-code" style="color:var(--accent-emerald); font-size:1.2rem;"></i>
+                        <span id="xml-file-name" style="flex:1; font-size:0.82rem; font-weight:500;"></span>
+                        <button type="button" onclick="clearXMLFile()" style="background:none;border:none;cursor:pointer;color:var(--accent-red);font-size:1rem;"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                </div>
+
+                <div>
+                    <label style="font-size:0.78rem; font-weight:600; color:var(--text-primary); display:block; margin-bottom:6px;">
+                        <i class="fa-solid fa-file-pdf" style="color:#ef4444;"></i>
+                        PDF del Comprobante <span style="font-size:0.7rem; color:var(--text-muted);">(opcional)</span>
+                    </label>
+                    <div class="uploader-zone" id="pdf-drop-zone" onclick="document.getElementById('pdf-file-input').click()" style="border-color:rgba(239,68,68,0.2);">
+                        <i class="fa-solid fa-file-pdf" style="font-size:2rem; color:rgba(239,68,68,0.3); margin-bottom:8px;"></i>
+                        <p style="font-size:0.82rem; margin:0 0 4px; font-weight:600; color:var(--text-primary);">
+                            Arrastra o haz clic para subir PDF
+                        </p>
+                        <span style="font-size:0.72rem; color:var(--text-muted);">Factura escaneada (para contexto adicional)</span>
+                        <input type="file" id="pdf-file-input" name="pdf_file" accept=".pdf" style="display:none" onchange="handlePDFFile(this.files[0])">
+                    </div>
+                    <div id="pdf-file-card" class="file-card" style="display:none;">
+                        <i class="fa-solid fa-file-pdf" style="color:#ef4444; font-size:1.2rem;"></i>
+                        <span id="pdf-file-name" style="flex:1; font-size:0.82rem; font-weight:500;"></span>
+                        <button type="button" onclick="clearPDFFile()" style="background:none;border:none;cursor:pointer;color:var(--accent-red);font-size:1rem;"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                </div>
+            </div>
+
+            <div style="margin-top:20px; text-align:right;">
+                <button id="btn-process" class="btn btn-primary" onclick="processImport()" disabled style="padding:12px 28px; font-size:0.9rem;">
+                    <i class="fa-solid fa-microchip"></i> Procesar y Clasificar con IA
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══ FASE 2: PREVIEW / REVISIÓN ═══════════════════════════════ -->
+    <div id="preview-phase" style="display:none;">
+        <div id="duplicate-alerts"></div>
+        <div id="anomaly-alerts"></div>
+
+        <div style="display:grid; grid-template-columns:1.5fr 1fr; gap:18px; align-items:start;">
+
+            <!-- COLUMNA IZQUIERDA: Datos extraídos del XML -->
+            <div>
+                <div class="review-card">
+                    <div class="review-card-title">
+                        <i class="fa-solid fa-receipt" style="color:var(--accent-blue);"></i>
+                        Datos del Comprobante Fiscal
+                    </div>
+
+                    <div class="field-row">
+                        <span class="field-label">Tipo e-CF</span>
+                        <span class="field-value" id="pv-ecf-type"></span>
+                    </div>
+                    <div class="field-row">
+                        <span class="field-label">e-NCF</span>
+                        <span class="field-value mono" id="pv-encf" style="font-family:monospace;color:var(--accent-purple);"></span>
+                    </div>
+                    <div class="field-row">
+                        <span class="field-label">Fecha Emisión</span>
+                        <span class="field-value" id="pv-date"></span>
+                    </div>
+                    <div class="field-row">
+                        <span class="field-label">Proveedor</span>
+                        <span class="field-value" id="pv-supplier" style="font-weight:600;"></span>
+                    </div>
+                    <div class="field-row">
+                        <span class="field-label">RNC</span>
+                        <span class="field-value mono" id="pv-rnc"></span>
+                    </div>
+                    <div class="field-row">
+                        <span class="field-label">Dirección</span>
+                        <span class="field-value" id="pv-address"></span>
+                    </div>
+                    <div class="field-row">
+                        <span class="field-label">Subtotal</span>
+                        <span class="field-value" id="pv-subtotal" style="font-weight:600;"></span>
+                    </div>
+                    <div class="field-row">
+                        <span class="field-label">ITBIS</span>
+                        <span class="field-value" id="pv-itbis" style="color:var(--accent-blue);"></span>
+                    </div>
+                    <div class="field-row">
+                        <span class="field-label">Total</span>
+                        <span class="field-value" id="pv-total" style="font-weight:700; font-family:monospace; font-size:1rem; color:var(--accent-emerald);"></span>
+                    </div>
+                </div>
+
+                {% if false %}
+                <div class="review-card">
+                    <div class="review-card-title">
+                        <i class="fa-solid fa-list" style="color:var(--text-muted);"></i>
+                        Detalle de Items
+                    </div>
+                    <div id="pv-items"></div>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- COLUMNA DERECHA: Clasificación IA + Campos editables -->
+            <div>
+                <!-- Clasificación IA -->
+                <div class="review-card" id="ai-card">
+                    <div class="review-card-title">
+                        <i class="fa-solid fa-brain" style="color:var(--accent-purple);"></i>
+                        Clasificación por IA
+                    </div>
+
+                    <div style="margin-bottom:12px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <span style="font-size:0.78rem; font-weight:600; color:var(--text-primary);">Confianza</span>
+                            <span id="pv-confidence-text" style="font-size:0.82rem; font-weight:700;"></span>
+                        </div>
+                        <div class="confidence-bar">
+                            <div id="pv-confidence-bar" class="confidence-fill" style="width:0%;"></div>
+                        </div>
+                    </div>
+
+                    <div class="field-row">
+                        <span class="field-label">Categoría</span>
+                        <span class="field-value" id="pv-category-display" style="font-weight:600;"></span>
+                    </div>
+                    <div class="field-row">
+                        <span class="field-label">Código DGII</span>
+                        <span class="field-value" id="pv-dgii-display"></span>
+                    </div>
+                    <div class="field-row">
+                        <span class="field-label">Cuenta Sugerida</span>
+                        <span class="field-value" id="pv-account-display" style="color:var(--accent-blue);"></span>
+                    </div>
+                    <div class="field-row">
+                        <span class="field-label">Recurrencia</span>
+                        <span class="field-value" id="pv-recurring-display"></span>
+                    </div>
+                    <div class="field-row">
+                        <span class="field-label">Deducible</span>
+                        <span class="field-value" id="pv-deductible-display"></span>
+                    </div>
+                </div>
+
+                <!-- Campos editables -->
+                <div class="review-card">
+                    <div class="review-card-title">
+                        <i class="fa-solid fa-pen-to-square" style="color:var(--accent-emerald);"></i>
+                        Confirmar / Corregir
+                    </div>
+
+                    <input type="hidden" id="input-encf">
+                    <input type="hidden" id="input-ecf-type">
+                    <input type="hidden" id="input-supplier-rnc">
+                    <input type="hidden" id="input-supplier-name">
+                    <input type="hidden" id="input-supplier-address">
+                    <input type="hidden" id="input-issue-date">
+                    <input type="hidden" id="input-subtotal">
+                    <input type="hidden" id="input-total-itbis">
+                    <input type="hidden" id="input-total">
+
+                    <div class="form-group" style="margin-bottom:12px;">
+                        <label style="font-size:0.72rem; font-weight:600; color:var(--text-primary); display:block; margin-bottom:4px;">
+                            Concepto del Gasto
+                        </label>
+                        <input type="text" id="input-concept" class="form-input" style="width:100%; padding:8px 10px; font-size:0.82rem;">
+                    </div>
+
+                    <div class="form-group" style="margin-bottom:12px;">
+                        <label style="font-size:0.72rem; font-weight:600; color:var(--text-primary); display:block; margin-bottom:4px;">
+                            Categoría
+                        </label>
+                        <select id="input-category" class="form-select" style="width:100%; padding:8px 10px; font-size:0.82rem;">
+                            {% for cat in categories %}
+                            <option value="{{ cat }}">{{ cat }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="form-group" style="margin-bottom:12px;">
+                        <label style="font-size:0.72rem; font-weight:600; color:var(--text-primary); display:block; margin-bottom:4px;">
+                            Tipo de Gasto DGII
+                        </label>
+                        <select id="input-tipo-gasto" class="form-select" style="width:100%; padding:8px 10px; font-size:0.82rem;">
+                            <option value="01">01 - Gastos de Personal</option>
+                            <option value="02" selected>02 - Gastos por Trabajos, Suministros y Servicios</option>
+                            <option value="03">03 - Arrendamientos</option>
+                            <option value="04">04 - Gastos de Activos Fijos</option>
+                            <option value="05">05 - Gastos de Representación</option>
+                            <option value="06">06 - Otras Deducciones</option>
+                            <option value="07">07 - Gastos Financieros</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group" style="margin-bottom:12px;">
+                        <label style="font-size:0.72rem; font-weight:600; color:var(--text-primary); display:block; margin-bottom:4px;">
+                            Tipo de Pago
+                        </label>
+                        <select id="input-payment-type" class="form-select" style="width:100%; padding:8px 10px; font-size:0.82rem;">
+                            <option value="Contado">Contado (ya pagado)</option>
+                            <option value="Crédito">Crédito (pendiente de pago)</option>
+                        </select>
+                    </div>
+
+                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px;">
+                        <input type="checkbox" id="input-deductible" checked style="width:18px;height:18px;">
+                        <label for="input-deductible" style="font-size:0.82rem; color:var(--text-primary);">Gasto Deducible</label>
+                    </div>
+
+                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px;">
+                        <input type="checkbox" id="input-recurring" style="width:18px;height:18px;">
+                        <label for="input-recurring" style="font-size:0.82rem; color:var(--text-primary);">Gasto Recurrente</label>
+                    </div>
+
+                    <div id="recurrence-interval-container" style="display:none; margin-bottom:12px;">
+                        <label style="font-size:0.72rem; font-weight:600; color:var(--text-primary); display:block; margin-bottom:4px;">
+                            Intervalo de Recurrencia
+                        </label>
+                        <select id="input-recurrence-interval" class="form-select" style="width:100%; padding:8px 10px; font-size:0.82rem;">
+                            <option value="semanal">Semanal</option>
+                            <option value="quincenal">Quincenal</option>
+                            <option value="mensual" selected>Mensual</option>
+                            <option value="trimestral">Trimestral</option>
+                            <option value="semestral">Semestral</option>
+                            <option value="anual">Anual</option>
+                        </select>
+                    </div>
+
+                    <button id="btn-confirm" class="btn btn-primary" onclick="confirmImport()" style="width:100%; padding:12px; font-size:0.9rem; justify-content:center;">
+                        <i class="fa-solid fa-check-circle"></i> Confirmar y Registrar Gasto
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══ SPINNER ═══════════════════════════════════════════════════ -->
+    <div id="loading-overlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.4); backdrop-filter:blur(4px); z-index:9999; align-items:center; justify-content:center; flex-direction:column; gap:16px;">
+        <div class="spinner" style="width:48px;height:48px;border:4px solid rgba(255,255,255,0.2);border-top-color:white;border-radius:50%;animation:spin 0.8s linear infinite;"></div>
+        <p style="color:white; font-size:1rem; font-weight:500;">Procesando... la IA está clasificando el gasto</p>
+    </div>
+</div>
+
+<style>
+    @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+
+<script>
+    let xmlFile = null;
+    let pdfFile = null;
+
+    // ── Drag & Drop for XML ────────────────────────────────────────
+    const xmlDropZone = document.getElementById('xml-drop-zone');
+    ['dragenter','dragover'].forEach(ev => {
+        xmlDropZone.addEventListener(ev, e => { e.preventDefault(); xmlDropZone.classList.add('dragover'); }, false);
+    });
+    ['dragleave','drop'].forEach(ev => {
+        xmlDropZone.addEventListener(ev, e => { e.preventDefault(); xmlDropZone.classList.remove('dragover'); }, false);
+    });
+    xmlDropZone.addEventListener('drop', e => {
+        e.preventDefault();
+        const files = e.dataTransfer.files;
+        if (files.length) handleXMLFile(files[0]);
+    });
+
+    // ── Drag & Drop for PDF ────────────────────────────────────────
+    const pdfDropZone = document.getElementById('pdf-drop-zone');
+    ['dragenter','dragover'].forEach(ev => {
+        pdfDropZone.addEventListener(ev, e => { e.preventDefault(); pdfDropZone.classList.add('dragover'); }, false);
+    });
+    ['dragleave','drop'].forEach(ev => {
+        pdfDropZone.addEventListener(ev, e => { e.preventDefault(); pdfDropZone.classList.remove('dragover'); }, false);
+    });
+    pdfDropZone.addEventListener('drop', e => {
+        e.preventDefault();
+        const files = e.dataTransfer.files;
+        if (files.length) handlePDFFile(files[0]);
+    });
+
+    function handleXMLFile(file) {
+        if (!file || !file.name.endsWith('.xml')) {
+            alert('Por favor selecciona un archivo XML válido.');
+            return;
+        }
+        xmlFile = file;
+        document.getElementById('xml-file-name').textContent = file.name;
+        document.getElementById('xml-file-card').style.display = 'flex';
+        xmlDropZone.classList.add('has-file');
+        updateProcessButton();
+    }
+
+    function clearXMLFile() {
+        xmlFile = null;
+        document.getElementById('xml-file-input').value = '';
+        document.getElementById('xml-file-card').style.display = 'none';
+        xmlDropZone.classList.remove('has-file');
+        updateProcessButton();
+    }
+
+    function handlePDFFile(file) {
+        if (!file || !file.name.endsWith('.pdf')) return;
+        pdfFile = file;
+        document.getElementById('pdf-file-name').textContent = file.name;
+        document.getElementById('pdf-file-card').style.display = 'flex';
+        pdfDropZone.classList.add('has-file');
+    }
+
+    function clearPDFFile() {
+        pdfFile = null;
+        document.getElementById('pdf-file-input').value = '';
+        document.getElementById('pdf-file-card').style.display = 'none';
+        pdfDropZone.classList.remove('has-file');
+    }
+
+    function updateProcessButton() {
+        document.getElementById('btn-process').disabled = !xmlFile;
+    }
+
+    // ── Process Import ──────────────────────────────────────────────
+    async function processImport() {
+        if (!xmlFile) return;
+
+        const loading = document.getElementById('loading-overlay');
+        loading.style.display = 'flex';
+
+        const formData = new FormData();
+        formData.append('xml_file', xmlFile);
+        if (pdfFile) formData.append('pdf_file', pdfFile);
+
+        try {
+            const res = await fetch('/expenses/import/preview', {
+                method: 'POST',
+                body: formData,
+            });
+            const data = await res.json();
+
+            if (!data.success) {
+                alert(data.message || 'Error al procesar el XML');
+                loading.style.display = 'none';
+                return;
+            }
+
+            renderPreview(data);
+            document.getElementById('upload-phase').style.display = 'none';
+            document.getElementById('preview-phase').style.display = 'block';
+        } catch (err) {
+            alert('Error de conexión: ' + err.message);
+        }
+
+        loading.style.display = 'none';
+    }
+
+    // ── Render Preview ──────────────────────────────────────────────
+    function renderPreview(data) {
+        const p = data.parsed;
+        const ai = data.ai;
+
+        // Hidden fields
+        document.getElementById('input-encf').value = p.encf || '';
+        document.getElementById('input-ecf-type').value = p.ecfType || '';
+        document.getElementById('input-supplier-rnc').value = p.supplierRnc || '';
+        document.getElementById('input-supplier-name').value = p.supplierName || '';
+        document.getElementById('input-supplier-address').value = p.supplierAddress || '';
+        document.getElementById('input-issue-date').value = p.issueDate || '';
+        document.getElementById('input-subtotal').value = p.subtotal || 0;
+        document.getElementById('input-total-itbis').value = p.totalITBIS || 0;
+        document.getElementById('input-total').value = p.total || 0;
+
+        // Parsed data display
+        document.getElementById('pv-ecf-type').textContent = p.ecfType || '—';
+        document.getElementById('pv-encf').textContent = p.encf || '—';
+        document.getElementById('pv-date').textContent = p.issueDate ? p.issueDate.slice(0,10) : '—';
+        document.getElementById('pv-supplier').textContent = p.supplierName || '—';
+        document.getElementById('pv-rnc').textContent = p.supplierRnc || '—';
+        document.getElementById('pv-address').textContent = p.supplierAddress || '—';
+        document.getElementById('pv-subtotal').innerHTML = 'RD$ ' + Number(p.subtotal || 0).toLocaleString('en', {minimumFractionDigits:2, maximumFractionDigits:2});
+        document.getElementById('pv-itbis').innerHTML = 'RD$ ' + Number(p.totalITBIS || 0).toLocaleString('en', {minimumFractionDigits:2, maximumFractionDigits:2});
+        document.getElementById('pv-total').innerHTML = 'RD$ ' + Number(p.total || 0).toLocaleString('en', {minimumFractionDigits:2, maximumFractionDigits:2});
+
+        // AI Classification
+        const conf = Math.round((ai.confidence || 0.5) * 100);
+        document.getElementById('pv-confidence-text').textContent = conf + '%';
+        const bar = document.getElementById('pv-confidence-bar');
+        bar.style.width = conf + '%';
+        bar.style.background = conf >= 80 ? 'var(--accent-emerald)' : conf >= 60 ? '#f59e0b' : '#ef4444';
+
+        document.getElementById('pv-category-display').textContent = ai.category || '—';
+        document.getElementById('pv-dgii-display').textContent = ai.tipoGastoDGII || '—';
+        document.getElementById('pv-account-display').textContent = ai.suggestedAccount || '—';
+
+        const isRecurring = ai.isRecurring || false;
+        document.getElementById('pv-recurring-display').innerHTML = isRecurring
+            ? '<span class="badge-pill badge-purple"><i class="fa-solid fa-arrows-spin"></i> Recurrente (' + (ai.recurrenceInterval || 'mensual') + ')</span>'
+            : '<span class="badge-pill badge-gray">No recurrente</span>';
+
+        const isDeductible = ai.isDeductible !== false;
+        document.getElementById('pv-deductible-display').innerHTML = isDeductible
+            ? '<span class="badge-pill badge-green"><i class="fa-solid fa-check"></i> Deducible</span>'
+            : '<span class="badge-pill badge-amber">No deducible</span>';
+
+        // Fill editable fields with AI suggestions
+        document.getElementById('input-concept').value = p.supplierName + ' - ' + (p.items && p.items.length ? p.items.map(i => i.name).join(', ') : '');
+        const catSelect = document.getElementById('input-category');
+        if (ai.category) { catSelect.value = ai.category; }
+        const dgiiSelect = document.getElementById('input-tipo-gasto');
+        if (ai.tipoGastoDGII) { dgiiSelect.value = ai.tipoGastoDGII; }
+        document.getElementById('input-deductible').checked = isDeductible;
+        document.getElementById('input-recurring').checked = isRecurring;
+        if (isRecurring && ai.recurrenceInterval) {
+            document.getElementById('input-recurrence-interval').value = ai.recurrenceInterval;
+        }
+        document.getElementById('recurrence-interval-container').style.display = isRecurring ? 'block' : 'none';
+
+        // Anomalies
+        const anomalyContainer = document.getElementById('anomaly-alerts');
+        anomalyContainer.innerHTML = '';
+        if (ai.anomalies && ai.anomalies.length) {
+            ai.anomalies.forEach(a => {
+                anomalyContainer.innerHTML +=
+                    '<div class="alert-box alert-anomaly"><i class="fa-solid fa-triangle-exclamation" style="margin-top:2px;"></i><span>' + a + '</span></div>';
+            });
+        }
+
+        // Duplicate
+        const dupContainer = document.getElementById('duplicate-alerts');
+        dupContainer.innerHTML = '';
+        if (data.duplicate && data.duplicate.duplicate) {
+            const d = data.duplicate;
+            dupContainer.innerHTML =
+                '<div class="alert-box alert-duplicate"><i class="fa-solid fa-circle-exclamation" style="margin-top:2px;"></i>' +
+                '<div><strong>Posible gasto duplicado</strong><br>' +
+                'Ya existe un gasto similar de <strong>' + (d.existingConcept || '') + '</strong> ' +
+                'por RD$ ' + Number(d.existingAmount || 0).toLocaleString('en', {minimumFractionDigits:2}) + ' del ' + (d.existingDate || '') + '.</div></div>';
+        }
+
+        // Supplier created badge
+        const supplierId = data.supplier_id;
+        if (supplierId) {
+            const infoBox = document.createElement('div');
+            infoBox.className = 'alert-box alert-info';
+            infoBox.innerHTML = '<i class="fa-solid fa-building" style="margin-top:2px;"></i><span>Proveedor vinculado/creado automáticamente.</span>';
+            document.getElementById('duplicate-alerts').appendChild(infoBox);
+        }
+    }
+
+    // ── Toggle recurrence fields ─────────────────────────────────────
+    document.getElementById('input-recurring').addEventListener('change', function() {
+        document.getElementById('recurrence-interval-container').style.display = this.checked ? 'block' : 'none';
+    });
+
+    // ── Confirm Import ───────────────────────────────────────────────
+    async function confirmImport() {
+        if (!confirm('¿Estás seguro de que deseas registrar este gasto?')) return;
+
+        const btn = document.getElementById('btn-confirm');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Registrando...';
+
+        const payload = {
+            encf: document.getElementById('input-encf').value,
+            ecfType: document.getElementById('input-ecf-type').value,
+            supplierRnc: document.getElementById('input-supplier-rnc').value,
+            supplierName: document.getElementById('input-supplier-name').value,
+            supplierAddress: document.getElementById('input-supplier-address').value,
+            issueDate: document.getElementById('input-issue-date').value,
+            subtotal: parseFloat(document.getElementById('input-subtotal').value) || 0,
+            totalITBIS: parseFloat(document.getElementById('input-total-itbis').value) || 0,
+            total: parseFloat(document.getElementById('input-total').value) || 0,
+            concept: document.getElementById('input-concept').value,
+            category: document.getElementById('input-category').value,
+            tipoGastoDGII: document.getElementById('input-tipo-gasto').value,
+            paymentType: document.getElementById('input-payment-type').value,
+            isDeductible: document.getElementById('input-deductible').checked,
+            isRecurring: document.getElementById('input-recurring').checked,
+            recurrenceInterval: document.getElementById('input-recurrence-interval').value,
+        };
+
+        try {
+            const res = await fetch('/expenses/import/confirm', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                window.location.href = '/expenses/' + data.expense_id;
+            } else {
+                alert(data.message || 'Error al registrar el gasto');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-check-circle"></i> Confirmar y Registrar Gasto';
+            }
+        } catch (err) {
+            alert('Error de conexión: ' + err.message);
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-check-circle"></i> Confirmar y Registrar Gasto';
+        }
+    }
+</script>
+{% endblock %}
