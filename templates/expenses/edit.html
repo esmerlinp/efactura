@@ -2,29 +2,87 @@
 
 {% block title %}Editar Comprobante e-CF o Gasto{% endblock %}
 
-{% block page_header %}Editar Gasto Operativo / e-CF{% endblock %}
+{% block page_header %}Editar Egreso Fiscal / e-CF{% endblock %}
 
 {% block content %}
 <style>
-    .expense-layout-grid {
-        display: grid;
-        grid-template-columns: 1.6fr 1fr;
-        gap: 24px;
-        align-items: start;
+    /* Accordion Styles matching templates/items/form.html */
+    .settings-accordion {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
         margin-bottom: 24px;
         width: 100%;
     }
 
-    .expense-layout-grid .card-table-wrapper {
-        background-color: rgba(255, 255, 255, 0.85);
-        backdrop-filter: blur(20px);
-        box-shadow: var(--shadow-md);
+    .accordion-item {
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        background: var(--bg-card);
+        overflow: hidden;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
-    [data-theme="dark"] .expense-layout-grid .card-table-wrapper {
-        background-color: rgba(15, 23, 42, 0.85);
-        backdrop-filter: blur(20px);
-        box-shadow: var(--shadow-md);
+    .accordion-item.active {
+        border-color: var(--accent-emerald);
+        box-shadow: 0 4px 20px rgba(16, 185, 129, 0.05);
+    }
+
+    .accordion-header {
+        width: 100%;
+        padding: 14px 18px;
+        background: rgba(255, 255, 255, 0.01);
+        border: none;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        cursor: pointer;
+        text-align: left;
+        transition: background 0.2s ease;
+    }
+
+    .accordion-header:hover {
+        background: rgba(255, 255, 255, 0.03);
+    }
+
+    .accordion-title {
+        font-size: 0.95rem;
+        font-family: var(--font-heading);
+        font-weight: 500;
+        color: var(--text-main);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .accordion-title i {
+        font-size: 1.05rem;
+        color: var(--accent-emerald);
+        width: 24px;
+        text-align: center;
+    }
+
+    .accordion-chevron {
+        color: var(--text-muted);
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        font-size: 0.85rem;
+    }
+
+    .accordion-item.active .accordion-chevron {
+        transform: rotate(180deg);
+        color: var(--accent-emerald);
+    }
+
+    .accordion-content {
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .accordion-body {
+        padding: 20px;
+        border-top: 1px solid var(--border-color);
+        background: rgba(0, 0, 0, 0.02);
     }
 
     .form-inner-grid {
@@ -40,7 +98,7 @@
     .uploader-zone {
         border: 2px dashed var(--border-color);
         border-radius: var(--radius-md);
-        padding: 30px 20px;
+        padding: 40px 20px;
         text-align: center;
         background: rgba(0, 0, 0, 0.01);
         cursor: pointer;
@@ -61,12 +119,9 @@
     }
 
     @keyframes highlightPulse {
-
-        0%,
-        100% {
+        0%, 100% {
             background-color: transparent;
         }
-
         50% {
             background-color: rgba(16, 185, 129, 0.05);
         }
@@ -84,7 +139,6 @@
         border-radius: var(--radius-sm);
     }
 
-    /* WebRTC Camera Widget */
     #camera-container {
         display: none;
         flex-direction: column;
@@ -103,299 +157,438 @@
         border-radius: var(--radius-xs);
         transform: scaleX(-1);
     }
+
+    .form-group:has(:required) label::after {
+        content: " *";
+        color: var(--accent-red);
+        font-weight: bold;
+        font-size: 1.1em;
+    }
 </style>
 
-<form action="{{ url_for('edit_expense_route', expense_id=expense.id) }}" method="POST" enctype="multipart/form-data"
-    style="width: 100%;" id="expense-form">
-    <div class="expense-layout-grid">
-        <!-- Columna Izquierda: Datos del Egreso -->
-        <div style="display:flex; flex-direction:column; gap:24px;">
-            <div class="card-table-wrapper" style="margin-bottom: 0;">
-                <h3
-                    style="font-size: 1.15rem; font-family: var(--font-heading); margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px; display: flex; align-items: center; gap: 10px;">
-                    <i class="fa-solid fa-file-pen" style="color: var(--accent-blue);"></i>
-                    <span>Modificar Datos de Comprobante / e-CF</span>
-                </h3>
+<div style="max-width: 850px; margin: 0 auto 50px auto; width: 100%;">
+    <form action="{{ url_for('edit_expense_route', expense_id=expense.id) }}" method="POST" enctype="multipart/form-data" style="width: 100%;" id="expense-form" novalidate>
+        <div class="settings-accordion">
 
-                <div class="form-inner-grid">
-                    <div class="form-group span-full">
-                        <label for="concept">Concepto / Detalle del Gasto</label>
-                        <input type="text" id="concept" name="concept" class="form-input" value="{{ expense.concept }}"
-                            required style="width: 100%;">
+            <!-- SECCIÓN 1: SOPORTE DIGITAL MÚLTIPLE -->
+            <div class="accordion-item active" id="sec-documento">
+                <button type="button" class="accordion-header" onclick="toggleAccordionSection(this)">
+                    <div class="accordion-title">
+                        <i class="fa-solid fa-wand-magic-sparkles" style="color: var(--accent-emerald);"></i>
+                        <span>1. Soporte Digital (Múltiples Documentos - Actualizar con IA)</span>
                     </div>
+                    <i class="fa-solid fa-chevron-down accordion-chevron"></i>
+                </button>
+                <div class="accordion-content" style="max-height: none;">
+                    <div class="accordion-body">
 
-                    <div class="form-group">
-                        <label for="category">Categoría del Gasto</label>
-                        <select id="category" name="category" class="form-select" required style="width: 100%;">
-                            <option value="Comida y Restaurantes" {% if expense.category=='Comida y Restaurantes'
-                                %}selected{% endif %}>Comida y Restaurantes</option>
-                            <option value="Transporte y Combustible" {% if expense.category=='Transporte y Combustible'
-                                %}selected{% endif %}>Transporte y Combustible</option>
-                            <option value="Servicios Básicos" {% if expense.category=='Servicios Básicos' %}selected{%
-                                endif %}>Servicios Básicos (Luz, Internet)</option>
-                            <option value="Software y Tecnología" {% if expense.category=='Software y Tecnología'
-                                %}selected{% endif %}>Software y Tecnología</option>
-                            <option value="Materiales de Oficina" {% if expense.category=='Materiales de Oficina'
-                                %}selected{% endif %}>Materiales de Oficina</option>
-                            <option value="Alquileres" {% if expense.category=='Alquileres' %}selected{% endif %}>
-                                Alquileres</option>
-                            <option value="Impuestos y Tasas" {% if expense.category=='Impuestos y Tasas' %}selected{%
-                                endif %}>Impuestos y Tasas</option>
-                            <option value="Otros Gastos" {% if expense.category=='Otros Gastos' %}selected{% endif %}>
-                                Otros Gastos</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="tipoGastoDGII">Tipo de Gasto Deducible (DGII 606)</label>
-                        <select id="tipoGastoDGII" name="tipoGastoDGII" class="form-select" required
-                            style="width: 100%;">
-                            <option value="01" {% if expense.tipoGastoDGII=='01' %}selected{% endif %}>01 - Gastos de
-                                Personal</option>
-                            <option value="02" {% if expense.tipoGastoDGII=='02' or not expense.tipoGastoDGII
-                                %}selected{% endif %}>02 - Gastos por Trabajos, Suministros y Servicios</option>
-                            <option value="03" {% if expense.tipoGastoDGII=='03' %}selected{% endif %}>03 -
-                                Arrendamientos</option>
-                            <option value="04" {% if expense.tipoGastoDGII=='04' %}selected{% endif %}>04 - Gastos de
-                                Activos Fijos</option>
-                            <option value="05" {% if expense.tipoGastoDGII=='05' %}selected{% endif %}>05 - Gastos de
-                                Representación</option>
-                            <option value="06" {% if expense.tipoGastoDGII=='06' %}selected{% endif %}>06 - Otras
-                                Deducciones Admitidas</option>
-                            <option value="07" {% if expense.tipoGastoDGII=='07' %}selected{% endif %}>07 - Gastos
-                                Financieros</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="ecfType">Tipo de Comprobante e-CF</label>
-                        <select id="ecfType" name="ecfType" class="form-select" style="width: 100%;">
-                            <option value="E31" {% if expense.ecfType=='E31' %}selected{% endif %}>E31 - Factura de
-                                Crédito Fiscal Electrónica</option>
-                            <option value="E32" {% if expense.ecfType=='E32' %}selected{% endif %}>E32 - Factura de
-                                Consumo Electrónica</option>
-                            <option value="E41" {% if expense.ecfType=='E41' %}selected{% endif %}>E41 - Nota de Débito
-                                Electrónica</option>
-                            <option value="E43" {% if expense.ecfType=='E43' %}selected{% endif %}>E43 - Gastos Menores
-                                Electrónicos</option>
-                            <option value="E45" {% if expense.ecfType=='E45' %}selected{% endif %}>E45 - Comprobante
-                                Gubernamental Electrónico</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="ncf">NCF Electrónico (e-CF)</label>
-                        <input type="text" id="ncf" name="ncf" class="form-input" value="{{ expense.ncf }}" required
-                            style="width: 100%; font-family: monospace;">
-                    </div>
-
-                    <div class="form-group">
-                        <label for="rnc-emisor">RNC del Proveedor</label>
-                        <input type="text" id="rnc-emisor" name="rncEmisor" class="form-input"
-                            value="{{ expense.rncEmisor }}" required style="width: 100%; font-family: monospace;">
-                    </div>
-
-                    <div class="form-group">
-                        <label for="cne">Código de Seguridad (CNE)</label>
-                        <input type="text" id="cne" name="cne" class="form-input" value="{{ expense.cne }}"
-                            style="width: 100%; font-family: monospace;">
-                    </div>
-
-                    <div class="form-group">
-                        <label for="amount">Monto Total Facturado (RD$)</label>
-                        <input type="number" id="amount" name="amount" class="form-input" value="{{ expense.amount }}"
-                            step="0.01" required style="width: 100%; font-weight: bold;">
-                    </div>
-
-                    <div class="form-group">
-                        <label for="itbisAmount">ITBIS Adelantado / Deducible (RD$)</label>
-                        <input type="number" id="itbisAmount" name="itbisAmount" class="form-input"
-                            value="{{ expense.itbisAmount }}" step="0.01" style="width: 100%;">
-                    </div>
-
-                    <div class="form-group">
-                        <label for="date">Fecha del Comprobante</label>
-                        <input type="date" id="date" name="date" class="form-input" required
-                            value="{{ expense.date[:10]}}" style="width: 100%;">
-                    </div>
-
-                    <div class="form-group">
-                        <label for="associated-invoice">Imputar a Proyecto / Factura de Ingreso</label>
-                        <select id="associated-invoice" name="associatedInvoiceId" class="form-select"
-                            style="width: 100%;">
-                            <option value="">-- Gasto General Operativo --</option>
-                            {% for inv in invoices %}
-                            <option value="{{ inv.id }}" {% if expense.associatedInvoiceId==inv.id %}selected{% endif
-                                %}>Factura {{ inv.invoiceNumber }} (RD$ {{ "{:,.0f}".format(inv.total) }} - {{
-                                inv.clientName }})</option>
+                        <!-- Documentos existentes -->
+                        {% if expense.attachments and expense.attachments|length > 0 %}
+                        <div style="margin-bottom: 14px;">
+                            <p style="font-size:0.82rem; font-weight:600; color:var(--text-primary); margin:0 0 8px 0;">
+                                <i class="fa-solid fa-folder-open" style="color:var(--accent-emerald); margin-right:6px;"></i>
+                                Documentos Actuales ({{ expense.attachments|length }})
+                            </p>
+                            <div style="display:flex; flex-direction:column; gap:6px;">
+                                {% for att in expense.attachments %}
+                                <div style="display:flex; align-items:center; gap:10px; padding:8px 12px; background:rgba(16,185,129,0.04); border:1px solid rgba(16,185,129,0.2); border-radius:var(--radius-sm);">
+                                    <i class="fa-solid fa-paperclip" style="color:var(--accent-emerald); font-size:1rem;"></i>
+                                    <div style="flex:1; min-width:0;">
+                                        <div style="font-size:0.78rem; font-weight:600; color:var(--text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                                            {{ att.name or att.url.split('/')[-1] }}
+                                        </div>
+                                        <div style="font-size:0.68rem; color:var(--text-muted);">{{ att.type or 'Documento' }}</div>
+                                    </div>
+                                    <a href="{{ att.url }}" target="_blank" class="btn btn-secondary btn-sm" style="padding:3px 8px; font-size:0.7rem; flex-shrink:0;">
+                                        <i class="fa-solid fa-eye"></i> Ver
+                                    </a>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% elif expense.firebaseAttachmentURLs and expense.firebaseAttachmentURLs|length > 0 %}
+                        <!-- Retrocompatibilidad: adjuntos en formato antiguo -->
+                        <div style="margin-bottom: 14px;">
+                            <p style="font-size:0.82rem; font-weight:600; color:var(--text-primary); margin:0 0 8px 0;">
+                                <i class="fa-solid fa-folder-open" style="color:var(--accent-emerald); margin-right:6px;"></i>
+                                Documento Actual
+                            </p>
+                            {% for url in expense.firebaseAttachmentURLs %}
+                            <div style="display:flex; align-items:center; gap:10px; padding:8px 12px; background:rgba(16,185,129,0.04); border:1px solid rgba(16,185,129,0.2); border-radius:var(--radius-sm); margin-bottom:4px;">
+                                <i class="fa-solid fa-paperclip" style="color:var(--accent-emerald); font-size:1rem;"></i>
+                                <div style="flex:1; min-width:0; font-size:0.78rem; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Archivo adjunto</div>
+                                <a href="{{ url }}" target="_blank" class="btn btn-secondary btn-sm" style="padding:3px 8px; font-size:0.7rem; flex-shrink:0;">
+                                    <i class="fa-solid fa-eye"></i> Ver
+                                </a>
+                            </div>
                             {% endfor %}
-                        </select>
-                    </div>
+                        </div>
+                        {% endif %}
 
-                    <div class="form-group span-full"
-                        style="margin-top: 10px; border-top: 1px dashed var(--border-color); padding-top: 16px;">
-                        <label class="switch-container"
-                            style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
-                            <input type="checkbox" id="is-deductible-checkbox" name="isDeductible" value="true" {% if
-                                expense.isDeductible %}checked{% endif %}
-                                style="width: 18px; height: 18px; accent-color: var(--accent-red);">
-                            <span style="font-weight: 500;">¿Este gasto es para tu negocio (gasto deducible)?</span>
-                        </label>
+                        <!-- Zona de drop para nuevos documentos -->
+                        <div class="uploader-zone" id="drop-zone" onclick="document.getElementById('multi-file-input').click()">
+                            <i class="fa-solid fa-cloud-arrow-up" style="font-size: 2.5rem; color: var(--text-muted); margin-bottom: 12px;"></i>
+                            <p style="font-size: 0.9rem; font-weight: 600; margin: 0 0 6px 0; color: var(--text-primary);">
+                                Agregar / Reemplazar Documentos (XML, PDF, Fotos, Email)
+                            </p>
+                            <span style="font-size: 0.75rem; color: var(--text-muted);">Puedes adjuntar múltiples documentos — se añadirán a los existentes</span>
+                            <input type="file" id="multi-file-input" name="attachments[]" accept=".xml,.pdf,image/*,application/pdf" style="display:none" multiple onchange="handleMultipleFiles(this.files)">
+                        </div>
+
+                        <div style="display: flex; gap: 10px; margin-top: 12px;">
+                            <button type="button" class="btn btn-secondary" style="flex:1; justify-content:center;" onclick="toggleCamera()">
+                                <i class="fa-solid fa-camera"></i> Tomar Foto con Cámara
+                            </button>
+                        </div>
+
+                        <!-- Cola de nuevos archivos -->
+                        <div id="file-queue" style="display:none; margin-top: 16px;">
+                            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom: 10px;">
+                                <span style="font-size:0.82rem; font-weight:600; color:var(--text-primary);">
+                                    <i class="fa-solid fa-plus-circle" style="color:var(--accent-emerald); margin-right:6px;"></i>
+                                    Nuevos Documentos a Agregar
+                                </span>
+                                <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('multi-file-input').click()" style="font-size:0.75rem; padding:4px 10px;">
+                                    <i class="fa-solid fa-plus"></i> Agregar más
+                                </button>
+                            </div>
+                            <div id="file-list" style="display:flex; flex-direction:column; gap:8px;"></div>
+                        </div>
+
+                        <!-- Cámara WebRTC Widget -->
+                        <div id="camera-container">
+                            <video id="camera-preview" autoplay playsinline></video>
+                            <button type="button" class="btn btn-success btn-sm" onclick="capturePhoto()">Capturar Foto</button>
+                        </div>
+
+                        <div id="ocr-status" style="margin-top: 15px; font-size: 0.8rem; text-align: center; color: var(--text-muted); display: none;">
+                            <i class="fa-solid fa-spinner fa-spin" style="margin-right: 8px;"></i><span>Leyendo datos fiscales del e-CF con IA...</span>
+                        </div>
+
+                        <div style="margin-top: 12px; padding: 10px 12px; background: rgba(59,130,246,0.06); border: 1px solid rgba(59,130,246,0.2); border-radius: var(--radius-sm);">
+                            <p style="font-size:0.75rem; color:var(--text-muted); margin:0; line-height:1.5;">
+                                <i class="fa-solid fa-circle-info" style="color:var(--accent-blue); margin-right:5px;"></i>
+                                <strong>Tip DGII:</strong> Para gastos E43 (Gastos Menores) y E41 (Compra a Suplidor Informal) puedes adjuntar: factura del proveedor, comprobante de pago, estado de cuenta bancario y/o email de confirmación.
+                            </p>
+                        </div>
                     </div>
                 </div>
             </div>
+
+            <!-- SECCIÓN 2: INFORMACIÓN GENERAL DEL GASTO Y PROVEEDOR -->
+            <div class="accordion-item" id="sec-proveedor">
+                <button type="button" class="accordion-header" onclick="toggleAccordionSection(this)">
+                    <div class="accordion-title">
+                        <i class="fa-solid fa-file-invoice-dollar" style="color: var(--accent-red);"></i>
+                        <span>2. Información del Gasto y Proveedor</span>
+                    </div>
+                    <i class="fa-solid fa-chevron-down accordion-chevron"></i>
+                </button>
+                <div class="accordion-content">
+                    <div class="accordion-body">
+                        <div class="form-inner-grid">
+                            <div class="form-group span-full">
+                                <label for="concept">Concepto / Detalle del Gasto</label>
+                                <input type="text" id="concept" name="concept" class="form-input" value="{{ expense.concept }}" placeholder="Ej: Pago de Servidor Mensual Google Cloud" required style="width: 100%;">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="category">Categoría del Gasto</label>
+                                <select id="category" name="category" class="form-select" required style="width: 100%;">
+                                    <option value="Comida y Restaurantes" {% if expense.category=='Comida y Restaurantes' %}selected{% endif %}>Comida y Restaurantes</option>
+                                    <option value="Transporte y Combustible" {% if expense.category=='Transporte y Combustible' %}selected{% endif %}>Transporte y Combustible</option>
+                                    <option value="Servicios Básicos" {% if expense.category=='Servicios Básicos' %}selected{% endif %}>Servicios Básicos (Luz, Internet)</option>
+                                    <option value="Software y Tecnología" {% if expense.category=='Software y Tecnología' or not expense.category %}selected{% endif %}>Software y Tecnología</option>
+                                    <option value="Materiales de Oficina" {% if expense.category=='Materiales de Oficina' %}selected{% endif %}>Materiales de Oficina</option>
+                                    <option value="Alquileres" {% if expense.category=='Alquileres' %}selected{% endif %}>Alquileres</option>
+                                    <option value="Impuestos y Tasas" {% if expense.category=='Impuestos y Tasas' %}selected{% endif %}>Impuestos y Tasas</option>
+                                    <option value="Otros Gastos" {% if expense.category=='Otros Gastos' %}selected{% endif %}>Otros Gastos</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="tipoGastoDGII">Tipo de Gasto Deducible (DGII 606)</label>
+                                <select id="tipoGastoDGII" name="tipoGastoDGII" class="form-select" required style="width: 100%;">
+                                    <option value="01" {% if expense.tipoGastoDGII=='01' %}selected{% endif %}>01 - Gastos de Personal</option>
+                                    <option value="02" {% if expense.tipoGastoDGII=='02' or not expense.tipoGastoDGII %}selected{% endif %}>02 - Gastos por Trabajos, Suministros y Servicios</option>
+                                    <option value="03" {% if expense.tipoGastoDGII=='03' %}selected{% endif %}>03 - Arrendamientos</option>
+                                    <option value="04" {% if expense.tipoGastoDGII=='04' %}selected{% endif %}>04 - Gastos de Activos Fijos</option>
+                                    <option value="05" {% if expense.tipoGastoDGII=='05' %}selected{% endif %}>05 - Gastos de Representación</option>
+                                    <option value="06" {% if expense.tipoGastoDGII=='06' %}selected{% endif %}>06 - Otras Deducciones Admitidas</option>
+                                    <option value="07" {% if expense.tipoGastoDGII=='07' %}selected{% endif %}>07 - Gastos Financieros</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group span-full" style="margin-bottom: 15px;">
+                                <label for="supplierType">Tipo de Proveedor / Gasto</label>
+                                <select id="supplierType" name="supplierType" class="form-select" style="width: 100%;" onchange="handleSupplierTypeChange()">
+                                    <option value="formal" {% if expense.supplierType=='formal' or not expense.supplierType %}selected{% endif %}>Proveedor Formal (RNC / Cédula Registrada)</option>
+                                    <option value="informal" {% if expense.supplierType=='informal' %}selected{% endif %}>Proveedor Informal (Persona Física No Registrada)</option>
+                                    <option value="internacional" {% if expense.supplierType=='internacional' %}selected{% endif %}>Proveedor Internacional (Pagos al Exterior)</option>
+                                    <option value="interno" {% if expense.supplierType=='interno' %}selected{% endif %}>Gasto Interno / Sin Comprobante Fiscal</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group" id="rnc-group">
+                                <label for="rnc-emisor" id="rnc-label">RNC del Proveedor</label>
+                                <input type="text" id="rnc-emisor" name="rncEmisor" class="form-input" value="{{ expense.rncEmisor or '' }}" placeholder="Ej: 101001011" required style="width: 100%; font-family: monospace;">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="provider-name">Razón Social del Proveedor</label>
+                                <input type="text" id="provider-name" name="providerName" class="form-input" value="{{ expense.providerName or '' }}" placeholder="Se autocompleta al validar RNC" style="width: 100%;">
+                            </div>
+
+                            <div class="form-group span-full" style="position: relative;">
+                                <label for="associated-invoice-search">Imputar a Proyecto / Factura de Ingreso (Opcional)</label>
+                                <div style="display: flex; gap: 8px; width: 100%;">
+                                    <div style="position: relative; flex: 1;">
+                                        <input type="text" id="associated-invoice-search" class="form-input"
+                                            value="{% if expense.associatedInvoiceId %}{{ expense.associatedInvoiceId }}{% endif %}"
+                                            placeholder="Escribe el número de factura o cliente para buscar..."
+                                            style="width: 100%;{% if expense.associatedInvoiceId %} background-color: var(--bg-card-hover);{% endif %}"
+                                            {% if expense.associatedInvoiceId %}readonly{% endif %}>
+                                        <div id="invoice-search-results" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 8px; box-shadow: var(--shadow-lg); z-index: 999; max-height: 250px; overflow-y: auto; margin-top: 4px;"></div>
+                                    </div>
+                                    <button type="button" class="btn btn-secondary" id="clear-invoice-link" style="display: {% if expense.associatedInvoiceId %}flex{% else %}none{% endif %}; align-items: center; gap: 6px; padding: 0 16px;" onclick="clearInvoiceLink()">
+                                        <i class="fa-solid fa-xmark"></i> Desvincular
+                                    </button>
+                                </div>
+                                <span style="font-size: 0.72rem; color: var(--text-muted); margin-top: 5px; display: block; line-height: 1.35;">
+                                    <i class="fa-solid fa-circle-info" style="color: var(--accent-blue); margin-right: 4px;"></i>
+                                    Vincula este gasto a una factura de venta específica para calcular la rentabilidad real y margen de ganancia de ese proyecto o cliente.
+                                </span>
+                                <input type="hidden" id="associated-invoice" name="associatedInvoiceId" value="{{ expense.associatedInvoiceId or '' }}">
+                            </div>
+
+                            <div class="form-group span-full" style="margin-top: 10px; border-top: 1px dashed var(--border-color); padding-top: 16px;">
+                                <label class="switch-container" style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                                    <input type="checkbox" id="is-deductible-checkbox" name="isDeductible" value="true" {% if expense.isDeductible %}checked{% endif %} style="width: 18px; height: 18px; accent-color: var(--accent-red);">
+                                    <span style="font-weight: 500;">¿Este gasto es para tu negocio (gasto deducible)?</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECCIÓN 3: COMPROBANTE FISCAL (e-CF / NCF) -->
+            <div class="accordion-item" id="sec-fiscal">
+                <button type="button" class="accordion-header" onclick="toggleAccordionSection(this)">
+                    <div class="accordion-title">
+                        <i class="fa-solid fa-stamp" style="color: var(--accent-blue);"></i>
+                        <span>3. Datos del Comprobante Fiscal (e-CF)</span>
+                    </div>
+                    <i class="fa-solid fa-chevron-down accordion-chevron"></i>
+                </button>
+                <div class="accordion-content">
+                    <div class="accordion-body">
+                        <div class="form-inner-grid">
+                            <div class="form-group">
+                                <label for="ecfType">Tipo de Comprobante e-CF</label>
+                                <select id="ecfType" name="ecfType" class="form-select" style="width: 100%;">
+                                    <option value="E31" {% if expense.ecfType=='E31' %}selected{% endif %}>E31 - Factura de Crédito Fiscal Electrónica</option>
+                                    <option value="E32" {% if expense.ecfType=='E32' %}selected{% endif %}>E32 - Factura de Consumo Electrónica</option>
+                                    <option value="E41" {% if expense.ecfType=='E41' %}selected{% endif %}>E41 - Comprobante de Compras Electrónico</option>
+                                    <option value="E43" {% if expense.ecfType=='E43' %}selected{% endif %}>E43 - Gastos Menores Electrónicos</option>
+                                    <option value="E45" {% if expense.ecfType=='E45' %}selected{% endif %}>E45 - Comprobante Gubernamental Electrónico</option>
+                                    <option value="E47" {% if expense.ecfType=='E47' %}selected{% endif %}>E47 - Comprobante para Pagos al Exterior Electrónico</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group" id="ncf-group">
+                                <label for="ncf">NCF / e-CF del Gasto</label>
+                                <input type="text" id="ncf" name="ncf" class="form-input" value="{{ expense.ncf or '' }}" placeholder="Ej: E310120000452" required style="width: 100%; font-family: monospace;">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="cne">Código de Seguridad (CNE)</label>
+                                <input type="text" id="cne" name="cne" class="form-input" value="{{ expense.cne or '' }}" placeholder="Firma digital corta de DGII" style="width: 100%; font-family: monospace;">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="date">Fecha del Comprobante</label>
+                                <input type="date" id="date" name="date" class="form-input" required value="{{ expense.date[:10] }}" style="width: 100%;">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECCIÓN 4: TOTALES E IMPUESTOS -->
+            <div class="accordion-item" id="sec-totales">
+                <button type="button" class="accordion-header" onclick="toggleAccordionSection(this)">
+                    <div class="accordion-title">
+                        <i class="fa-solid fa-calculator" style="color: var(--accent-emerald);"></i>
+                        <span>4. Importes e Impuestos</span>
+                    </div>
+                    <i class="fa-solid fa-chevron-down accordion-chevron"></i>
+                </button>
+                <div class="accordion-content">
+                    <div class="accordion-body">
+                        <div class="form-inner-grid">
+                            <div class="form-group">
+                                <label for="currency">Moneda del Comprobante</label>
+                                <select id="currency" name="currency" class="form-select" style="width: 100%;" onchange="handleCurrencyChange()">
+                                    <option value="DOP" {% if expense.currency=='DOP' or not expense.currency %}selected{% endif %}>DOP - Peso Dominicano</option>
+                                    <option value="USD" {% if expense.currency=='USD' %}selected{% endif %}>USD - Dólar Estadounidense</option>
+                                    <option value="EUR" {% if expense.currency=='EUR' %}selected{% endif %}>EUR - Euro</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group" id="exchange-rate-container" style="display: {% if expense.currency and expense.currency != 'DOP' %}block{% else %}none{% endif %};">
+                                <label for="exchangeRate">Tasa de Cambio (Venta)</label>
+                                <div style="position: relative;">
+                                    <input type="number" id="exchangeRate" name="exchangeRate" class="form-input" placeholder="0.00" step="0.01" value="{{ expense.exchangeRate or 1.0 }}" style="width: 100%;">
+                                    <div id="rate-loading" style="display: none; position: absolute; right: 10px; top: 8px;">
+                                        <i class="fa-solid fa-spinner fa-spin" style="color: var(--accent-emerald);"></i>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="form-group span-full" style="border-top: 1px dashed var(--border-color); padding-top: 15px; margin-top: 5px;"></div>
+
+                            <div class="form-group">
+                                <label for="amount">Monto Total Facturado <span id="currency-label">({{ expense.currency or 'DOP' }})</span></label>
+                                <input type="number" id="amount" name="amount" class="form-input" value="{{ expense.amountOriginal or expense.amount }}" placeholder="0.00" step="0.01" required style="width: 100%; font-weight: bold;">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="itbisAmount">ITBIS Adelantado / Deducible <span id="itbis-currency-label">({{ expense.currency or 'DOP' }})</span></label>
+                                <input type="number" id="itbisAmount" name="itbisAmount" class="form-input" value="{{ expense.itbisAmountOriginal or expense.itbisAmount }}" placeholder="0.00" step="0.01" style="width: 100%;">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECCIÓN 5: CONDICIONES DE PAGO Y AUTOMATIZACIÓN -->
+            <div class="accordion-item" id="sec-pago">
+                <button type="button" class="accordion-header" onclick="toggleAccordionSection(this)">
+                    <div class="accordion-title">
+                        <i class="fa-solid fa-credit-card" style="color: var(--accent-purple);"></i>
+                        <span>5. Condiciones de Pago y Automatización</span>
+                    </div>
+                    <i class="fa-solid fa-chevron-down accordion-chevron"></i>
+                </button>
+                <div class="accordion-content">
+                    <div class="accordion-body">
+                        <div class="form-inner-grid">
+                            <div class="form-group span-full">
+                                <label for="paymentType">Estado del Pago (¿Ya fue pagado?)</label>
+                                <select id="paymentType" name="paymentType" class="form-select" onchange="toggleCxpFields(this.value)" style="width: 100%;">
+                                    <option value="Contado" {% if expense.paymentType=='Contado' or not expense.paymentType %}selected{% endif %}>Sí, ya está pagado (Contado)</option>
+                                    <option value="Crédito" {% if expense.paymentType=='Crédito' %}selected{% endif %}>No, pendiente de pago (Crédito / CxP)</option>
+                                </select>
+                            </div>
+
+                            <div class="span-full">
+                                <div class="credit-box" id="cxp-fields" style="{% if expense.paymentType == 'Crédito' %}display:flex;{% endif %}">
+                                    <div class="form-group" style="margin-bottom: 0;">
+                                        <label for="dueDate">Fecha de Vencimiento de Factura</label>
+                                        <input type="date" id="dueDate" name="dueDate" class="form-input" value="{{ expense.dueDate[:10] if expense.dueDate else '' }}" style="width: 100%;">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="form-group span-full">
+                                <label for="approvalStatus">Estatus de Gasto Interno</label>
+                                <select id="approvalStatus" name="approvalStatus" class="form-select" style="width: 100%;">
+                                    <option value="Aprobado" {% if expense.approvalStatus=='Aprobado' or not expense.approvalStatus %}selected{% endif %}>Aprobado automáticamente</option>
+                                    <option value="Pendiente" {% if expense.approvalStatus=='Pendiente' %}selected{% endif %}>Pendiente de Firma/Aprobación</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group" style="margin-top:14px;">
+                                <label for="assignedApproverId">Asignar Aprobador</label>
+                                <select id="assignedApproverId" name="assignedApproverId" class="form-select" style="width: 100%;">
+                                    <option value="">-- Sin Asignar --</option>
+                                    {% for member in team_members %}
+                                    <option value="{{ member.uid }}" {% if expense.assignedApproverId == member.uid %}selected{% endif %}>{{ member.name }} ({{ member.email }})</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            <div class="form-group span-full" style="border-top: 1px dashed var(--border-color); padding-top: 15px; margin-top: 10px;">
+                                <label for="isRecurring">¿Es un Gasto Fijo Recurrente?</label>
+                                <select id="isRecurring" name="isRecurring" class="form-select" onchange="toggleRecurrenceFields(this.value)" style="width: 100%;">
+                                    <option value="false" {% if not expense.isRecurring %}selected{% endif %}>No, egreso único</option>
+                                    <option value="true" {% if expense.isRecurring %}selected{% endif %}>Sí, automatizar registro</option>
+                                </select>
+                            </div>
+
+                            <div class="span-full">
+                                <div class="recurrence-box" id="recurrence-fields" style="{% if expense.isRecurring %}display:flex;{% else %}display:none;{% endif %}">
+                                    <div class="form-group" style="margin-bottom: 12px;">
+                                        <label for="recurrenceInterval">Frecuencia del Gasto</label>
+                                        <select id="recurrenceInterval" name="recurrenceInterval" class="form-select" style="width: 100%;">
+                                            <option value="semanal" {% if expense.recurrenceInterval=='semanal' %}selected{% endif %}>Semanal</option>
+                                            <option value="quincenal" {% if expense.recurrenceInterval=='quincenal' %}selected{% endif %}>Quincenal</option>
+                                            <option value="mensual" {% if expense.recurrenceInterval=='mensual' or not expense.recurrenceInterval %}selected{% endif %}>Mensual</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group" style="margin-bottom: 12px;">
+                                        <label for="nextOccurrenceDate">Próxima Fecha de Registro</label>
+                                        <input type="date" id="nextOccurrenceDate" name="nextOccurrenceDate" class="form-input" value="{{ expense.nextOccurrenceDate[:10] if expense.nextOccurrenceDate else '' }}" style="width: 100%;">
+                                    </div>
+                                    <div class="form-group" style="margin-bottom: 0;">
+                                        <label for="recurrenceEndDate">Fecha de Finalización (Límite)</label>
+                                        <input type="date" id="recurrenceEndDate" name="recurrenceEndDate" class="form-input" value="{{ expense.recurrenceEndDate[:10] if expense.recurrenceEndDate else '' }}" style="width: 100%;">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
         </div>
 
-        <!-- Columna Derecha: Carga de e-CF & CxP -->
-        <div style="display:flex; flex-direction:column; gap:24px;">
-            <!-- CARD DE SOPORTE DIGITAL -->
-            <div class="card-table-wrapper" style="margin-bottom: 0;">
-                <h3
-                    style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 16px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; display: flex; align-items: center; gap: 10px;">
-                    <i class="fa-solid fa-paperclip" style="color: var(--accent-emerald);"></i>
-                    <span>Soporte Digital</span>
-                </h3>
-
-                {% if expense.firebaseAttachmentURLs and expense.firebaseAttachmentURLs|length > 0 %}
-                <div
-                    style="margin-bottom:12px; padding:8px 12px; background:rgba(0,0,0,0.02); border:1px solid var(--border-color); border-radius:4px; display:flex; align-items:center; justify-content:space-between;">
-                    <span style="font-size:0.78rem; font-weight:600;"><i class="fa-solid fa-file-pdf"
-                            style="margin-right:6px; color:var(--accent-red);"></i> Archivo Cargado</span>
-                    <a href="{{ expense.firebaseAttachmentURLs[0] }}" target="_blank" class="btn btn-secondary btn-sm"
-                        style="padding:4px 8px; font-size:0.7rem;">Ver archivo</a>
-                </div>
-                {% endif %}
-
-                <div class="uploader-zone" id="drop-zone" onclick="document.getElementById('ocr-file').click()">
-                    <i class="fa-solid fa-cloud-arrow-up"
-                        style="font-size: 2rem; color: var(--text-muted); margin-bottom: 8px;"></i>
-                    <p style="font-size: 0.78rem; font-weight:600; margin: 0 0 4px 0; color: var(--text-primary);">Sube
-                        otro XML o Foto para Reemplazar</p>
-                    <span style="font-size: 0.68rem; color: var(--text-muted);">Arrastra o haz clic aquí</span>
-                    <input type="file" id="ocr-file" accept=".xml,image/*" style="display:none"
-                        onchange="uploadForOCR(this.files[0])">
-                </div>
-
-                <div id="ocr-status"
-                    style="margin-top: 12px; font-size: 0.78rem; text-align: center; color: var(--text-muted); display: none;">
-                    <i class="fa-solid fa-spinner fa-spin" style="margin-right: 6px;"></i><span>Leyendo nuevo
-                        comprobante e-CF...</span>
-                </div>
-            </div>
-
-            <!-- CARD CONDICIONES DE PAGO & CXP -->
-            <div class="card-table-wrapper" style="margin-bottom: 0;">
-                <h3
-                    style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 16px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; display: flex; align-items: center; gap: 10px;">
-                    <i class="fa-solid fa-credit-card" style="color: var(--accent-blue);"></i>
-                    <span>Condiciones de Pago / CxP</span>
-                </h3>
-
-                <div class="form-group" style="margin-bottom: 12px;">
-                    <label for="paymentType">Estado del Pago (¿Ya fue pagado?)</label>
-                    <select id="paymentType" name="paymentType" class="form-select"
-                        onchange="toggleCxpFields(this.value)" style="width: 100%;">
-                        <option value="Contado" {% if expense.paymentType=='Contado' %}selected{% endif %}>Sí, ya está pagado (Contado)
-                            (Pagado al instante)</option>
-                        <option value="Crédito" {% if expense.paymentType=='Crédito' %}selected{% endif %}>No, pendiente de pago (Crédito / CxP)
-                            (Cuenta por Pagar - CxP)</option>
-                    </select>
-                </div>
-
-                <div class="credit-box" id="cxp-fields"
-                    style="{% if expense.paymentType == 'Crédito' %}display:flex;{% endif %}">
-                    <div class="form-group" style="margin-bottom: 0;">
-                        <label for="dueDate">Fecha de Vencimiento de Factura</label>
-                        <input type="date" id="dueDate" name="dueDate" class="form-input"
-                            value="{{ expense.dueDate[:10] if expense.dueDate else '' }}" style="width: 100%;">
-                    </div>
-                </div>
-
-                <div class="form-group" style="margin-top:14px; margin-bottom:0;">
-                    <label for="approvalStatus">Estatus de Gasto Interno</label>
-                    <select id="approvalStatus" name="approvalStatus" class="form-select" style="width: 100%;">
-                        <option value="Aprobado" {% if expense.approvalStatus=='Aprobado' %}selected{% endif %}>Aprobado
-                        </option>
-                        <option value="Pendiente" {% if expense.approvalStatus=='Pendiente' %}selected{% endif %}>
-                            Pendiente de Firma/Aprobación</option>
-                    </select>
-                </div>
-                <div class="form-group" style="margin-top:14px;">
-                    <label for="assignedApproverId">Asignar Aprobador</label>
-                    <select id="assignedApproverId" name="assignedApproverId" class="form-select" style="width: 100%;">
-                        <option value="">-- Sin Asignar --</option>
-                        {% for member in team_members %}
-                        <option value="{{ member.uid }}" {% if expense.assignedApproverId == member.id %}selected{% endif %}>{{ member.name }} ({{ member.email }})</option>
-                        {% endfor %}
-                    </select>
-                </div>
-
-            </div>
-
-            <!-- CARD DE AUTOMATIZACIÓN (GASTO RECURRENTE) -->
-            <div class="card-table-wrapper" style="margin-bottom: 0;">
-                <h3
-                    style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 16px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; display: flex; align-items: center; gap: 10px;">
-                    <i class="fa-solid fa-arrows-spin" style="color: var(--accent-purple);"></i>
-                    <span>Gasto Recurrente / Automatización</span>
-                </h3>
-
-                <div class="form-group" style="margin-bottom: 12px;">
-                    <label for="isRecurring">¿Es un Gasto Fijo Recurrente?</label>
-                    <select id="isRecurring" name="isRecurring" class="form-select"
-                        onchange="toggleRecurrenceFields(this.value)" style="width: 100%;">
-                        <option value="false" {% if not expense.isRecurring %}selected{% endif %}>No, egreso único
-                        </option>
-                        <option value="true" {% if expense.isRecurring %}selected{% endif %}>Sí, automatizar registro
-                        </option>
-                    </select>
-                </div>
-
-                <div class="recurrence-box" id="recurrence-fields"
-                    style="{% if expense.isRecurring %}display:flex;{% else %}display:none;{% endif %}">
-                    <div class="form-group" style="margin-bottom: 12px;">
-                        <label for="recurrenceInterval">Frecuencia del Gasto</label>
-                        <select id="recurrenceInterval" name="recurrenceInterval" class="form-select"
-                            style="width: 100%;">
-                            <option value="semanal" {% if expense.recurrenceInterval=='semanal' %}selected{% endif %}>
-                                Semanal</option>
-                            <option value="quincenal" {% if expense.recurrenceInterval=='quincenal' %}selected{% endif
-                                %}>Quincenal</option>
-                            <option value="mensual" {% if expense.recurrenceInterval=='mensual' or not
-                                expense.recurrenceInterval %}selected{% endif %}>Mensual</option>
-                        </select>
-                    </div>
-                    <div class="form-group" style="margin-bottom: 12px;">
-                        <label for="nextOccurrenceDate">Próxima Fecha de Registro</label>
-                        <input type="date" id="nextOccurrenceDate" name="nextOccurrenceDate" class="form-input"
-                            value="{{ expense.nextOccurrenceDate[:10] if expense.nextOccurrenceDate else '' }}"
-                            style="width: 100%;">
-                    </div>
-                    <div class="form-group" style="margin-bottom: 0;">
-                        <label for="recurrenceEndDate">Fecha de Finalización (Límite)</label>
-                        <input type="date" id="recurrenceEndDate" name="recurrenceEndDate" class="form-input"
-                            value="{{ expense.recurrenceEndDate[:10] if expense.recurrenceEndDate else '' }}"
-                            style="width: 100%;">
-                    </div>
-                </div>
-            </div>
+        <!-- Botones de Acción -->
+        <div style="margin-top: 24px; display: flex; justify-content: flex-end; gap: 15px; border-top: 1px solid var(--border-color); padding-top: 24px;">
+            <a href="{{ url_for('list_expenses') }}" class="btn btn-secondary">
+                <span>Cancelar</span>
+            </a>
+            <button type="submit" class="btn btn-primary" style="padding: 14px 28px; background: var(--accent-emerald); border-color: var(--accent-emerald);">
+                <i class="fa-solid fa-floppy-disk"></i>
+                <span>Guardar Cambios</span>
+            </button>
         </div>
-    </div>
-
-    <!-- Botones de Acción -->
-    <div
-        style="margin-top: 24px; display: flex; justify-content: flex-end; gap: 15px; border-top: 1px solid var(--border-color); padding-top: 24px;">
-        <a href="{{ url_for('list_expenses') }}" class="btn btn-secondary">
-            <span>Cancelar</span>
-        </a>
-        <button type="submit" class="btn btn-primary" style="padding: 14px 28px;">
-            <i class="fa-solid fa-floppy-disk"></i>
-            <span>Guardar Cambios</span>
-        </button>
-    </div>
-</form>
+    </form>
+</div>
 
 <script>
+    // Behavior of Accordion (matching items/form.html)
+    window.toggleAccordionSection = function (header) {
+        const item = header.parentElement;
+        const content = item.querySelector('.accordion-content');
+        const isActive = item.classList.contains('active');
+
+        // Close all sections first
+        document.querySelectorAll('.accordion-item').forEach(el => {
+            el.classList.remove('active');
+            const c = el.querySelector('.accordion-content');
+            if (c) c.style.maxHeight = null;
+        });
+
+        // Open target if it wasn't active
+        if (!isActive) {
+            item.classList.add('active');
+            content.style.maxHeight = content.scrollHeight + 'px';
+        }
+    };
+
+    function adjustActiveAccordionHeight() {
+        const activeItem = document.querySelector('.accordion-item.active');
+        if (activeItem) {
+            const content = activeItem.querySelector('.accordion-content');
+            if (content) {
+                content.style.maxHeight = content.scrollHeight + 'px';
+            }
+        }
+    }
+
+    // ── Multi-File Drop Zone ──────────────────────────────────────────────
     const dropZone = document.getElementById('drop-zone');
     ['dragenter', 'dragover'].forEach(eventName => {
         dropZone.addEventListener(eventName, (e) => {
@@ -411,12 +604,104 @@
     });
     dropZone.addEventListener('drop', (e) => {
         const dt = e.dataTransfer;
-        const files = dt.files;
-        if (files.length) {
-            uploadForOCR(files[0]);
-        }
+        if (dt.files.length) handleMultipleFiles(dt.files);
     });
 
+    // ── Document type labels ──────────────────────────────────────────────
+    const DOC_TYPES = [
+        { value: 'factura',     label: 'Factura / Comprobante Fiscal', icon: 'fa-file-invoice-dollar', color: '#10b981' },
+        { value: 'comprobante', label: 'Comprobante de Pago',          icon: 'fa-money-check-dollar',  color: '#3b82f6' },
+        { value: 'estado',      label: 'Estado de Cuenta Bancario',    icon: 'fa-landmark',            color: '#8b5cf6' },
+        { value: 'email',       label: 'Email / Confirmación',         icon: 'fa-envelope',            color: '#f59e0b' },
+        { value: 'otro',        label: 'Otro Documento',               icon: 'fa-file',                color: '#6b7280' },
+    ];
+
+    let fileQueue = [];
+
+    function getFileIcon(file) {
+        if (file.type === 'text/xml' || file.name.endsWith('.xml')) return { icon: 'fa-file-code',    color: 'var(--accent-emerald)' };
+        if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) return { icon: 'fa-file-pdf', color: '#ef4444' };
+        if (file.type.startsWith('image/')) return { icon: 'fa-file-image', color: '#3b82f6' };
+        return { icon: 'fa-file', color: 'var(--text-muted)' };
+    }
+
+    function syncFileInputs() {
+        const input = document.getElementById('multi-file-input');
+        const dt = new DataTransfer();
+        fileQueue.forEach(f => dt.items.add(f));
+        input.files = dt.files;
+    }
+
+    function renderFileQueue() {
+        const queueEl = document.getElementById('file-queue');
+        const listEl  = document.getElementById('file-list');
+        listEl.innerHTML = '';
+
+        if (fileQueue.length === 0) {
+            queueEl.style.display = 'none';
+            setTimeout(adjustActiveAccordionHeight, 150);
+            return;
+        }
+
+        queueEl.style.display = 'block';
+
+        fileQueue.forEach((file, idx) => {
+            const { icon, color } = getFileIcon(file);
+            const typeOptions = DOC_TYPES.map(dt =>
+                `<option value="${dt.value}">${dt.label}</option>`
+            ).join('');
+
+            const card = document.createElement('div');
+            card.style.cssText = 'display:flex; align-items:center; gap:10px; padding:10px 12px; background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-sm); transition: all 0.2s;';
+            card.innerHTML = `
+                <i class="fa-solid ${icon}" style="font-size:1.4rem; color:${color}; flex-shrink:0;"></i>
+                <div style="flex:1; min-width:0;">
+                    <div style="font-size:0.8rem; font-weight:600; color:var(--text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${file.name}</div>
+                    <div style="font-size:0.7rem; color:var(--text-muted);">${(file.size / 1024).toFixed(1)} KB</div>
+                </div>
+                <select name="attachmentTypes[]" style="font-size:0.75rem; padding:4px 6px; border-radius:var(--radius-xs); border:1px solid var(--border-color); background:var(--bg-card); color:var(--text-primary); max-width:180px; flex-shrink:0;">
+                    ${typeOptions}
+                </select>
+                <button type="button" onclick="removeFile(${idx})" style="background:none; border:none; cursor:pointer; color:var(--accent-red); padding:4px; font-size:1rem; flex-shrink:0;" title="Eliminar">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            `;
+            if (idx === 0) {
+                card.style.borderColor = 'var(--accent-emerald)';
+                card.insertAdjacentHTML('beforeend', '<span style="font-size:0.65rem; background:rgba(16,185,129,0.15); color:var(--accent-emerald); padding:2px 6px; border-radius:99px; white-space:nowrap; flex-shrink:0;">IA OCR</span>');
+            }
+            listEl.appendChild(card);
+        });
+
+        syncFileInputs();
+        setTimeout(adjustActiveAccordionHeight, 150);
+    }
+
+    function removeFile(idx) {
+        fileQueue.splice(idx, 1);
+        renderFileQueue();
+    }
+
+    function handleMultipleFiles(fileList) {
+        const newFiles = Array.from(fileList);
+        newFiles.forEach(f => {
+            if (!fileQueue.some(q => q.name === f.name && q.size === f.size)) {
+                fileQueue.push(f);
+            }
+        });
+        renderFileQueue();
+
+        const ocrCandidates = fileQueue.filter(f =>
+            f.type === 'text/xml' || f.name.endsWith('.xml') ||
+            f.type.startsWith('image/') ||
+            f.type === 'application/pdf' || f.name.endsWith('.pdf')
+        );
+        if (ocrCandidates.length > 0) {
+            uploadForOCR(ocrCandidates[0]);
+        }
+    }
+
+    // Auto-calculate ITBIS when amount changes
     document.getElementById('amount').addEventListener('input', function () {
         const val = parseFloat(this.value);
         if (!isNaN(val)) {
@@ -431,12 +716,13 @@
             date.setDate(date.getDate() + 30);
             document.getElementById('dueDate').value = date.toISOString().split('T')[0];
         }
+        setTimeout(adjustActiveAccordionHeight, 150);
     }
 
     function toggleRecurrenceFields(val) {
         document.getElementById('recurrence-fields').style.display = val === 'true' ? 'flex' : 'none';
         if (val === 'true' && !document.getElementById('nextOccurrenceDate').value) {
-            const dateStr = document.getElementById('date')?.value;
+            const dateStr = document.getElementById('date').value;
             if (dateStr) {
                 const dateObj = new Date(dateStr + 'T12:00:00');
                 dateObj.setDate(dateObj.getDate() + 30);
@@ -447,33 +733,106 @@
                 document.getElementById('nextOccurrenceDate').value = dateObj.toISOString().split('T')[0];
             }
         }
+        setTimeout(adjustActiveAccordionHeight, 150);
     }
+
+    function classifyConcept(conceptVal) {
+        if (!conceptVal) return;
+        fetch('/api/ai/classify-expense?concept=' + encodeURIComponent(conceptVal))
+            .then(res => res.json())
+            .then(data => {
+                if (data.success && data.code) {
+                    const el = document.getElementById('tipoGastoDGII');
+                    if (el) {
+                        el.value = data.code;
+                        el.classList.add('field-highlighted');
+                        setTimeout(() => el.classList.remove('field-highlighted'), 3000);
+                    }
+                }
+            })
+            .catch(err => console.error("Error al clasificar el concepto con IA:", err));
+    }
+
+    document.getElementById('concept').addEventListener('blur', function () {
+        classifyConcept(this.value);
+    });
+
+    function lookupRncInDgii(rncVal) {
+        if (!rncVal) return;
+        const cleanRnc = rncVal.replace(/[^0-9]/g, '');
+        if (cleanRnc.length !== 9 && cleanRnc.length !== 11) return;
+
+        fetch(`/api/dgii/rnc/${cleanRnc}`)
+            .then(res => res.json())
+            .then(data => {
+                if (!data.error && data.razon_social) {
+                    const el = document.getElementById('provider-name');
+                    if (el) {
+                        el.value = data.razon_social;
+                        el.classList.add('field-highlighted');
+                        setTimeout(() => el.classList.remove('field-highlighted'), 3000);
+                    }
+                }
+            })
+            .catch(err => console.error("Error al consultar RNC en DGII:", err));
+    }
+
+    document.getElementById('rnc-emisor').addEventListener('blur', function () {
+        lookupRncInDgii(this.value);
+    });
+
+    function mapNcfToEcfType(ncf) {
+        if (!ncf) return;
+        const prefix = ncf.trim().toUpperCase().substring(0, 3);
+        const ecfSelect = document.getElementById('ecfType');
+        if (!ecfSelect) return;
+
+        if (prefix.startsWith('E31') || prefix.startsWith('B01')) {
+            ecfSelect.value = 'E31';
+        } else if (prefix.startsWith('E32') || prefix.startsWith('B02')) {
+            ecfSelect.value = 'E32';
+        } else if (prefix.startsWith('E41') || prefix.startsWith('B04')) {
+            ecfSelect.value = 'E41';
+        } else if (prefix.startsWith('E43') || prefix.startsWith('B13')) {
+            ecfSelect.value = 'E43';
+        } else if (prefix.startsWith('E45') || prefix.startsWith('B15')) {
+            ecfSelect.value = 'E45';
+        }
+    }
+
+    document.getElementById('ncf').addEventListener('input', function() {
+        mapNcfToEcfType(this.value);
+    });
 
     function uploadForOCR(file) {
         if (!file) return;
 
+        // File is already in the queue — no need to set it again
+
         const statusDiv = document.getElementById('ocr-status');
         statusDiv.style.display = 'block';
+        setTimeout(adjustActiveAccordionHeight, 150);
 
         const formData = new FormData();
         formData.append('file', file);
 
-        fetch('/api/expenses/ocr-upload', {
+        fetch('/api/ai/receipt-ocr', {
             method: 'POST',
             body: formData
         })
             .then(res => res.json())
             .then(data => {
                 statusDiv.style.display = 'none';
-                if (data.success) {
+                setTimeout(adjustActiveAccordionHeight, 150);
+                if (data.success && data.data) {
+                    const extracted = data.data;
                     const fields = {
-                        'rnc-emisor': data.rncEmisor,
-                        'ncf': data.ncf,
-                        'amount': data.amount,
-                        'itbisAmount': data.itbisAmount,
-                        'date': data.date,
-                        'cne': data.cne,
-                        'ecfType': data.ecfType
+                        'rnc-emisor': extracted.rncEmisor,
+                        'ncf': extracted.ncf,
+                        'amount': extracted.amount,
+                        'itbisAmount': extracted.itbisAmount,
+                        'date': extracted.date,
+                        'concept': extracted.concept
                     };
 
                     for (let key in fields) {
@@ -484,15 +843,319 @@
                             setTimeout(() => el.classList.remove('field-highlighted'), 3000);
                         }
                     }
-                    alert(data.notes || 'Comprobante fiscal e-CF procesado exitosamente.');
+
+                    if (extracted.concept) {
+                        classifyConcept(extracted.concept);
+                    }
+
+                    if (extracted.rncEmisor) {
+                        lookupRncInDgii(extracted.rncEmisor);
+                    }
+
+                    if (extracted.ncf) {
+                        mapNcfToEcfType(extracted.ncf);
+                    }
+
+                    // Auto-expandir la Sección 2 (Información del Gasto y Proveedor)
+                    const secProveedorHeader = document.querySelector('#sec-proveedor .accordion-header');
+                    if (secProveedorHeader) {
+                        toggleAccordionSection(secProveedorHeader);
+                    }
                 } else {
-                    alert('No se pudieron extraer los datos fiscales: ' + data.error);
+                    alert('No se pudieron extraer los datos fiscales: ' + (data.message || data.error));
                 }
             })
             .catch(err => {
                 statusDiv.style.display = 'none';
+                setTimeout(adjustActiveAccordionHeight, 150);
                 alert('Error de red al procesar el OCR.');
             });
     }
+
+    // WebRTC Camera Logic
+    let stream = null;
+    function toggleCamera() {
+        const container = document.getElementById('camera-container');
+        const preview = document.getElementById('camera-preview');
+
+        if (container.style.display === 'flex') {
+            stopCamera();
+            container.style.display = 'none';
+            setTimeout(adjustActiveAccordionHeight, 150);
+        } else {
+            navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+                .then(s => {
+                    stream = s;
+                    preview.srcObject = s;
+                    container.style.display = 'flex';
+                    setTimeout(adjustActiveAccordionHeight, 150);
+                })
+                .catch(err => {
+                    alert('No se pudo acceder a la cámara del dispositivo.');
+                });
+        }
+    }
+
+    function stopCamera() {
+        if (stream) {
+            stream.getTracks().forEach(track => track.stop());
+            stream = null;
+        }
+    }
+
+    function capturePhoto() {
+        const preview = document.getElementById('camera-preview');
+        const canvas = document.createElement('canvas');
+        canvas.width = preview.videoWidth;
+        canvas.height = preview.videoHeight;
+
+        const ctx = canvas.getContext('2d');
+        ctx.translate(canvas.width, 0);
+        ctx.scale(-1, 1);
+        ctx.drawImage(preview, 0, 0, canvas.width, canvas.height);
+
+        canvas.toBlob(blob => {
+            const file = new File([blob], "camera-capture.jpg", { type: "image/jpeg" });
+            uploadForOCR(file);
+            toggleCamera();
+        }, 'image/jpeg');
+    }
+
+    // Auto-complete para Facturas de Ingreso (Imputar a Proyecto)
+    const invSearchInput = document.getElementById('associated-invoice-search');
+    const invSearchResults = document.getElementById('invoice-search-results');
+    const invHiddenInput = document.getElementById('associated-invoice');
+    const clearInvBtn = document.getElementById('clear-invoice-link');
+    let searchTimeout = null;
+
+    if (invSearchInput) {
+        invSearchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            const query = this.value.trim();
+            if (!query) {
+                invSearchResults.style.display = 'none';
+                return;
+            }
+
+            searchTimeout = setTimeout(() => {
+                fetch(`/api/invoices/search?q=${encodeURIComponent(query)}`)
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.success && data.results && data.results.length > 0) {
+                            invSearchResults.innerHTML = '';
+                            data.results.forEach(inv => {
+                                const div = document.createElement('div');
+                                div.style.padding = '10px 14px';
+                                div.style.cursor = 'pointer';
+                                div.style.borderBottom = '1px solid var(--border-color)';
+                                div.style.fontSize = '0.85rem';
+                                div.style.transition = 'background 0.2s';
+                                div.innerHTML = `<strong>Factura ${inv.invoiceNumber}</strong> (RD$ ${inv.total.toLocaleString()} - ${inv.clientName})`;
+                                
+                                div.addEventListener('mouseover', () => {
+                                    div.style.background = 'rgba(255,255,255,0.05)';
+                                });
+                                div.addEventListener('mouseout', () => {
+                                    div.style.background = 'transparent';
+                                });
+                                
+                                div.addEventListener('click', () => {
+                                    invHiddenInput.value = inv.id;
+                                    invSearchInput.value = `Factura ${inv.invoiceNumber} (${inv.clientName})`;
+                                    invSearchInput.readOnly = true;
+                                    invSearchInput.style.backgroundColor = 'var(--bg-card-hover)';
+                                    clearInvBtn.style.display = 'flex';
+                                    invSearchResults.style.display = 'none';
+                                    adjustActiveAccordionHeight();
+                                });
+                                invSearchResults.appendChild(div);
+                            });
+                            invSearchResults.style.display = 'block';
+                            adjustActiveAccordionHeight();
+                        } else {
+                            invSearchResults.innerHTML = '<div style="padding: 10px 14px; font-size: 0.85rem; color: var(--text-muted);">No se encontraron facturas.</div>';
+                            invSearchResults.style.display = 'block';
+                            adjustActiveAccordionHeight();
+                        }
+                    })
+                    .catch(err => console.error("Error al buscar facturas:", err));
+            }, 300);
+        });
+
+        // Cerrar resultados al hacer click fuera
+        document.addEventListener('click', function(e) {
+            if (e.target !== invSearchInput && e.target !== invSearchResults) {
+                if (invSearchResults) invSearchResults.style.display = 'none';
+            }
+        });
+    }
+
+    window.clearInvoiceLink = function() {
+        if (invHiddenInput) invHiddenInput.value = '';
+        if (invSearchInput) {
+            invSearchInput.value = '';
+            invSearchInput.readOnly = false;
+            invSearchInput.style.backgroundColor = 'transparent';
+        }
+        if (clearInvBtn) clearInvBtn.style.display = 'none';
+        if (invSearchResults) invSearchResults.style.display = 'none';
+        adjustActiveAccordionHeight();
+    };
+
+    function handleCurrencyChange() {
+        const currency = document.getElementById('currency').value;
+        const rateContainer = document.getElementById('exchange-rate-container');
+        const rateInput = document.getElementById('exchangeRate');
+        const currencyLabel = document.getElementById('currency-label');
+        const itbisCurrencyLabel = document.getElementById('itbis-currency-label');
+        const loadingIcon = document.getElementById('rate-loading');
+
+        currencyLabel.textContent = `(${currency})`;
+        itbisCurrencyLabel.textContent = `(${currency})`;
+
+        if (currency === 'DOP') {
+            rateContainer.style.display = 'none';
+            rateInput.value = 1.0;
+            setTimeout(adjustActiveAccordionHeight, 150);
+        } else {
+            rateContainer.style.display = 'block';
+            setTimeout(adjustActiveAccordionHeight, 150);
+            
+            // Auto-fetch exchange rate
+            loadingIcon.style.display = 'block';
+            fetch(`/api/currency/rate/${currency}`)
+                .then(res => res.json())
+                .then(data => {
+                    loadingIcon.style.display = 'none';
+                    if (data.success && data.rate) {
+                        rateInput.value = data.rate.toFixed(2);
+                        rateInput.classList.add('field-highlighted');
+                        setTimeout(() => rateInput.classList.remove('field-highlighted'), 3000);
+                    }
+                })
+                .catch(err => {
+                    loadingIcon.style.display = 'none';
+                    console.error("Error fetching currency rate", err);
+                });
+        }
+    }
+
+    function handleSupplierTypeChange() {
+        const type = document.getElementById('supplierType').value;
+        const rncLabel = document.getElementById('rnc-label');
+        const rncInput = document.getElementById('rnc-emisor');
+        const rncGroup = document.getElementById('rnc-group');
+        
+        const ncfGroup = document.getElementById('ncf-group');
+        const ncfInput = document.getElementById('ncf');
+        const ecfTypeSelect = document.getElementById('ecfType');
+        
+        const isDeductibleCheckbox = document.getElementById('is-deductible-checkbox');
+
+        // Reset display
+        rncGroup.style.display = 'block';
+        ncfGroup.style.display = 'block';
+
+        if (type === 'formal') {
+            rncLabel.textContent = 'RNC / Cédula del Proveedor';
+            rncInput.placeholder = 'Ej: 101001011';
+            rncInput.required = true;
+            ncfInput.required = true;
+            ncfInput.placeholder = 'Ej: E310120000452';
+            document.querySelector('label[for="ncf"]').textContent = 'NCF / e-CF del Gasto';
+            ecfTypeSelect.value = 'E31';
+            isDeductibleCheckbox.checked = true;
+        } 
+        else if (type === 'informal') {
+            rncLabel.textContent = 'Cédula del Proveedor (No Registrado)';
+            rncInput.placeholder = 'Ej: 40200000001';
+            rncInput.required = true;
+            ncfInput.required = false;
+            ncfInput.placeholder = 'Opcional si no lo has generado';
+            document.querySelector('label[for="ncf"]').textContent = 'e-CF de Compras (Opcional)';
+            ecfTypeSelect.value = 'E41';
+            isDeductibleCheckbox.checked = true;
+        }
+        else if (type === 'internacional') {
+            rncLabel.textContent = 'Tax ID / Identificación Extranjera (Opcional)';
+            rncInput.placeholder = 'Opcional';
+            rncInput.required = false;
+            ncfInput.required = false;
+            ncfInput.placeholder = 'Opcional si no lo has generado';
+            document.querySelector('label[for="ncf"]').textContent = 'e-CF de Pagos al Exterior (Opcional)';
+            ecfTypeSelect.value = 'E47';
+        }
+        else if (type === 'interno') {
+            rncGroup.style.display = 'none';
+            rncInput.required = false;
+            rncInput.value = '';
+            
+            ncfGroup.style.display = 'none';
+            ncfInput.required = false;
+            ncfInput.value = '';
+            
+            isDeductibleCheckbox.checked = false;
+        }
+        
+        setTimeout(adjustActiveAccordionHeight, 150);
+    }
+
+    // Custom Validation
+    document.getElementById('expense-form').addEventListener('submit', function(e) {
+        if (!this.checkValidity()) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const invalidElements = this.querySelectorAll(':invalid');
+            
+            if (invalidElements.length > 0) {
+                const firstInvalid = invalidElements[0];
+                
+                // Open accordion if needed
+                const accordionItem = firstInvalid.closest('.accordion-item');
+                if (accordionItem && !accordionItem.classList.contains('active')) {
+                    const header = accordionItem.querySelector('.accordion-header');
+                    if (header) {
+                        toggleAccordionSection(header);
+                    }
+                }
+                
+                // Highlight fields
+                invalidElements.forEach(el => {
+                    el.style.border = '2px solid var(--accent-red)';
+                    el.style.backgroundColor = 'rgba(239, 68, 68, 0.05)';
+                    
+                    el.addEventListener('input', function() {
+                        this.style.border = '';
+                        this.style.backgroundColor = '';
+                    }, { once: true });
+                });
+                
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Faltan campos obligatorios',
+                        text: 'Por favor, completa todos los campos marcados con un asterisco rojo (*).',
+                        confirmButtonColor: 'var(--accent-red)',
+                        confirmButtonText: 'Entendido'
+                    }).then(() => {
+                        setTimeout(() => {
+                            firstInvalid.focus();
+                            firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }, 300);
+                    });
+                }
+            }
+        }
+    });
+
+    // On load: apply supplier type display logic
+    document.addEventListener('DOMContentLoaded', function() {
+        const supplierTypeEl = document.getElementById('supplierType');
+        if (supplierTypeEl && supplierTypeEl.value === 'interno') {
+            document.getElementById('rnc-group').style.display = 'none';
+            document.getElementById('ncf-group').style.display = 'none';
+        }
+    });
 </script>
 {% endblock %}

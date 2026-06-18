@@ -3274,17 +3274,26 @@ def new_expense_route():
     if request.method == 'POST':
         expense_id = str(uuid.uuid4())
         
-        # Procesar archivo subido (recibo/ticket/XML) a Storage
-        attachment_file = request.files.get('attachment')
-        attachment_urls = []
-        if attachment_file and attachment_file.filename:
-            file_data = attachment_file.read()
-            mime_type = attachment_file.content_type or "image/jpeg"
-            dest_path = f"users/{owner_uid}/expenses/{expense_id}/{attachment_file.filename}"
-            
-            public_url = DatabaseService.upload_file_to_storage(file_data, dest_path, mime_type)
-            attachment_urls.append(public_url)
-            
+        # Procesar MÚLTIPLES archivos subidos a Storage
+        attachment_files = request.files.getlist('attachments[]')
+        attachment_types = request.form.getlist('attachmentTypes[]')
+        attachment_urls = []      # retrocompatibilidad: lista de URLs simples
+        attachments = []          # nuevo: lista de {url, type, name}
+        
+        for i, att_file in enumerate(attachment_files):
+            if att_file and att_file.filename:
+                file_data = att_file.read()
+                mime_type = att_file.content_type or "image/jpeg"
+                safe_name = att_file.filename.replace(' ', '_')
+                dest_path = f"users/{owner_uid}/expenses/{expense_id}/{safe_name}"
+                try:
+                    public_url = DatabaseService.upload_file_to_storage(file_data, dest_path, mime_type)
+                    att_type = attachment_types[i] if i < len(attachment_types) else 'otro'
+                    attachment_urls.append(public_url)
+                    attachments.append({'url': public_url, 'type': att_type, 'name': att_file.filename})
+                except Exception as e:
+                    print(f"⚠️ Error al subir adjunto {att_file.filename}: {e}")
+
         currency = request.form.get('currency', 'DOP')
         exchange_rate = float(request.form.get('exchangeRate', 1.0)) if currency != 'DOP' else 1.0
         amount_original = float(request.form['amount'])
@@ -3374,6 +3383,7 @@ def new_expense_route():
             "assignedApproverName": assigned_approver_name,
             "assignedApproverEmail": assigned_approver_email,
             "firebaseAttachmentURLs": attachment_urls,
+            "attachments": attachments,
             # Nuevos campos e-CF y CxP:
             "assignedApproverId": assigned_approver_id,
             "assignedApproverName": assigned_approver_name,
@@ -3544,7 +3554,6 @@ def delete_multiple_expenses_route():
             
     flash(f'{deleted_count} gasto(s) eliminado(s) correctamente.', 'success')
     return redirect(url_for('list_expenses'))
-
 @web_invoices_bp.route('/expenses/<expense_id>/edit', methods=['GET', 'POST'])
 def edit_expense_route(expense_id):
     if 'user' not in session: return redirect(url_for('login'))
@@ -3567,16 +3576,42 @@ def edit_expense_route(expense_id):
         return redirect(url_for('list_expenses'))
         
     if request.method == 'POST':
-        attachment_file = request.files.get('attachment')
-        attachment_urls = expense.get('firebaseAttachmentURLs', [])
-        if attachment_file and attachment_file.filename:
-            file_data = attachment_file.read()
-            mime_type = attachment_file.content_type or "image/jpeg"
-            dest_path = f"users/{owner_uid}/expenses/{expense_id}/{attachment_file.filename}"
-            public_url = DatabaseService.upload_file_to_storage(file_data, dest_path, mime_type)
-            attachment_urls = [public_url]
-            
-        amount = float(request.form['amount'])
+        # Procesar MÚLTIPLES archivos nuevos (se agregan a los existentes)
+        existing_attachments = expense.get('attachments', [])
+        existing_urls = expense.get('firebaseAttachmentURLs', [])
+        
+        # Si no hay nuevo formato 'attachments' pero sí URLs antiguas, migrar retrocompat.
+        if not existing_attachments and existing_urls:
+            existing_attachments = [{'url': u, 'type': 'factura', 'name': u.split('/')[-1].split('?')[0]} for u in existing_urls]
+        
+        attachment_files = request.files.getlist('attachments[]')
+        attachment_types = request.form.getlist('attachmentTypes[]')
+        
+        new_attachments = list(existing_attachments)
+        new_attachment_urls = list(existing_urls)
+        
+        for i, att_file in enumerate(attachment_files):
+            if att_file and att_file.filename:
+                file_data = att_file.read()
+                mime_type = att_file.content_type or "image/jpeg"
+                safe_name = att_file.filename.replace(' ', '_')
+                dest_path = f"users/{owner_uid}/expenses/{expense_id}/{safe_name}"
+                try:
+                    public_url = DatabaseService.upload_file_to_storage(file_data, dest_path, mime_type)
+                    att_type = attachment_types[i] if i < len(attachment_types) else 'otro'
+                    new_attachment_urls.append(public_url)
+                    new_attachments.append({'url': public_url, 'type': att_type, 'name': att_file.filename})
+                except Exception as e:
+                    print(f"⚠️ Error al subir adjunto {att_file.filename}: {e}")
+        
+        attachment_urls = new_attachment_urls
+        attachments = new_attachments
+
+        currency = request.form.get('currency', 'DOP')
+        exchange_rate = float(request.form.get('exchangeRate', 1.0)) if currency != 'DOP' else 1.0
+        amount_original = float(request.form['amount'])
+        amount = amount_original * exchange_rate
+        
         is_recurring = request.form.get('isRecurring') == 'true'
         is_deductible = request.form.get('isDeductible') == 'true'
         recurrence_interval = request.form.get('recurrenceInterval', 'mensual')
@@ -3585,6 +3620,9 @@ def edit_expense_route(expense_id):
         
         payment_type = request.form.get('paymentType', 'Contado')
         due_date = request.form.get('dueDate', '')
+        
+        raw_itbis = request.form.get('itbisAmount', '').strip()
+        itbis_amount_original = float(raw_itbis) if raw_itbis else (amount_original * 0.18 / 1.18)
         
         cxp_status = expense.get('cxpStatus', 'Pagado')
         if payment_type == 'Crédito' and cxp_status == 'Pagado':
@@ -3601,9 +3639,31 @@ def edit_expense_route(expense_id):
             else:
                 rem_bal = current_rem
 
+        assigned_approver_id = request.form.get('assignedApproverId', '')
+        assigned_approver_name = expense.get('assignedApproverName', '')
+        assigned_approver_email = expense.get('assignedApproverEmail', '')
+        if assigned_approver_id:
+            _team_members = DatabaseService.get_team_members(owner_uid)
+            _owner_profile = DatabaseService.get_user_profile(owner_uid)
+            if _owner_profile and not any(m.get('uid') == owner_uid for m in _team_members):
+                _team_members.insert(0, {
+                    "uid": _owner_profile.get("uid"),
+                    "name": f"{_owner_profile.get('name', 'Usuario Principal')} (Tú)",
+                    "email": _owner_profile.get("email", "")
+                })
+            for m in _team_members:
+                if m.get('uid') == assigned_approver_id:
+                    assigned_approver_name = m.get('name', '')
+                    assigned_approver_email = m.get('email', '')
+                    break
+
         expense_dict = {
+            "supplierType": request.form.get('supplierType', expense.get('supplierType', 'formal')),
             "concept": request.form['concept'],
             "category": request.form['category'],
+            "currency": currency,
+            "exchangeRate": exchange_rate,
+            "amountOriginal": amount_original,
             "amount": amount,
             "date": request.form['date'],
             "rncEmisor": request.form.get('rncEmisor', ''),
@@ -3619,10 +3679,12 @@ def edit_expense_route(expense_id):
             "nextOccurrenceDate": next_occurrence if is_recurring else None,
             "recurrenceEndDate": recurrence_end_date if is_recurring else None,
             "associatedInvoiceId": request.form.get('associatedInvoiceId', ''),
-            "itbisAmount": float(request.form.get('itbisAmount', amount * 0.18 / 1.18)),
+            "itbisAmountOriginal": itbis_amount_original,
+            "itbisAmount": itbis_amount_original * exchange_rate,
             "isITBISDeductible": is_deductible,
             "isDeductible": is_deductible,
             "firebaseAttachmentURLs": attachment_urls,
+            "attachments": attachments,
             "ecfType": request.form.get('ecfType', 'E31'),
             "ecfNumber": request.form.get('ncf', ''),
             "cne": request.form.get('cne', ''),
@@ -3631,6 +3693,9 @@ def edit_expense_route(expense_id):
             "cxpStatus": cxp_status,
             "cxpRemainingBalance": rem_bal,
             "approvalStatus": request.form.get('approvalStatus', 'Aprobado'),
+            "assignedApproverId": assigned_approver_id,
+            "assignedApproverName": assigned_approver_name,
+            "assignedApproverEmail": assigned_approver_email,
             "requestedBy": expense.get('requestedBy', session['user'].get('name', 'Usuario')),
             "approvedBy": session['user'].get('name', 'Usuario') if request.form.get('approvalStatus', 'Aprobado') == 'Aprobado' else '',
             "dueDate": due_date,
