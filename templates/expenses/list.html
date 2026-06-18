@@ -201,6 +201,13 @@
                     <td>
                         {% if exp.ncf %}
                         <span style="font-family: monospace; font-size: 0.78rem; color: var(--accent-purple); display: block; font-weight: 500;">{{ exp.ncf }}</span>
+                        {% if exp.ecfType in ('E41', 'E43') %}
+                            {% if exp.isSyncedWithDGII %}
+                            <span style="font-size:0.62rem; padding:1px 5px; border-radius:3px; display:inline-block; background:rgba(16,185,129,0.1); color:#10b981; border:1px solid rgba(16,185,129,0.2); margin-bottom:2px;">DGII: Sincronizado</span>
+                            {% elif exp.emisionMode == 'FALLBACK' %}
+                            <span style="font-size:0.62rem; padding:1px 5px; border-radius:3px; display:inline-block; background:rgba(234,179,8,0.1); color:#eab308; border:1px solid rgba(234,179,8,0.2); margin-bottom:2px;">DGII: Contingencia</span>
+                            {% endif %}
+                        {% endif %}
                         <span style="font-size: 0.7rem; color: var(--text-secondary); font-family: monospace; display: block;">RNC: {{ exp.rncEmisor or 'N/A' }}</span>
                         {% if exp.providerName %}
                         <span style="display: block; font-size: 0.7rem; color: var(--text-muted); font-weight: normal; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 180px;">{{ exp.providerName }}</span>

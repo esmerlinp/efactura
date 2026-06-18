@@ -209,6 +209,10 @@ class DgiiXmlBuilder:
             tipo_ecf = "33"
         elif "34" in raw_type or "Nota de Crédito" in raw_type:
             tipo_ecf = "34"
+        elif "41" in raw_type or "Comprobante de Compras" in raw_type:
+            tipo_ecf = "41"
+        elif "43" in raw_type or "Gastos Menores" in raw_type:
+            tipo_ecf = "43"
             
         # Crear Elemento Raíz
         root = ET.Element("ECF")
@@ -278,38 +282,53 @@ class DgiiXmlBuilder:
         if internal_num:
             ET.SubElement(emisor, "NumeroFacturaInterna").text = str(internal_num)[:60]
         
+        total_amount = float(invoice_data.get("total", 0.0))
+        
         # Encabezado -> Receptor (Condicional según actualización 19-11-2021)
         receptor = ET.SubElement(encabezado, "Receptor")
-        client_rnc = invoice_data.get("clientRNC", "").replace("-", "").strip()
-        razon_social_rec = invoice_data.get("razonSocial", invoice_data.get("clientName", "")).strip()
+        is_expense_ecf = tipo_ecf in ["41", "43"]
         
-        total_amount = float(invoice_data.get("total", 0.0))
-        is_consumo_or_related = tipo_ecf in ["32", "33", "34"]
-        is_less_than_250k = total_amount < 250000.00
-        
-        # Si es Consumo, NC o ND menor de RD$ 250,000, los campos son condicionales
-        if is_consumo_or_related and is_less_than_250k:
-            if client_rnc:
-                ET.SubElement(receptor, "RNCReceptor").text = client_rnc
-            if razon_social_rec:
-                ET.SubElement(receptor, "RazonSocialReceptor").text = razon_social_rec
-            
-            # Enviar provincia y municipio si están presentes
-            if invoice_data.get("clientMunicipality"):
-                mun_comp = cls.map_province_or_municipality(invoice_data.get("clientMunicipality"), is_province=False)
-                ET.SubElement(receptor, "MunicipioComprador").text = mun_comp
-            if invoice_data.get("clientProvince"):
-                prov_comp = cls.map_province_or_municipality(invoice_data.get("clientProvince"), is_province=True)
-                ET.SubElement(receptor, "ProvinciaComprador").text = prov_comp
-        else:
-            # En otros casos, forzar los datos obligatorios
-            ET.SubElement(receptor, "RNCReceptor").text = client_rnc if client_rnc else "999999999"
-            ET.SubElement(receptor, "RazonSocialReceptor").text = razon_social_rec if razon_social_rec else "Consumidor Final"
-            
-            mun_comp = cls.map_province_or_municipality(invoice_data.get("clientMunicipality", "Santo Domingo de Guzmán"), is_province=False)
-            prov_comp = cls.map_province_or_municipality(invoice_data.get("clientProvince", "Santo Domingo"), is_province=True)
+        if is_expense_ecf:
+            # Para E41/E43 el receptor es la misma empresa (comprador del gasto)
+            company_rnc = company_profile.get("companyRNC", "").replace("-", "").strip()
+            company_name = company_profile.get("companyName", "Mi Empresa SRL")
+            ET.SubElement(receptor, "RNCReceptor").text = company_rnc or "999999999"
+            ET.SubElement(receptor, "RazonSocialReceptor").text = company_name
+            mun_comp = cls.map_province_or_municipality(company_profile.get("municipality", "Santo Domingo de Guzmán"), is_province=False)
+            prov_comp = cls.map_province_or_municipality(company_profile.get("province", "Santo Domingo"), is_province=True)
             ET.SubElement(receptor, "MunicipioComprador").text = mun_comp
             ET.SubElement(receptor, "ProvinciaComprador").text = prov_comp
+        else:
+            client_rnc = invoice_data.get("clientRNC", "").replace("-", "").strip()
+            razon_social_rec = invoice_data.get("razonSocial", invoice_data.get("clientName", "")).strip()
+            
+            total_amount = float(invoice_data.get("total", 0.0))
+            is_consumo_or_related = tipo_ecf in ["32", "33", "34"]
+            is_less_than_250k = total_amount < 250000.00
+            
+            # Si es Consumo, NC o ND menor de RD$ 250,000, los campos son condicionales
+            if is_consumo_or_related and is_less_than_250k:
+                if client_rnc:
+                    ET.SubElement(receptor, "RNCReceptor").text = client_rnc
+                if razon_social_rec:
+                    ET.SubElement(receptor, "RazonSocialReceptor").text = razon_social_rec
+                
+                # Enviar provincia y municipio si están presentes
+                if invoice_data.get("clientMunicipality"):
+                    mun_comp = cls.map_province_or_municipality(invoice_data.get("clientMunicipality"), is_province=False)
+                    ET.SubElement(receptor, "MunicipioComprador").text = mun_comp
+                if invoice_data.get("clientProvince"):
+                    prov_comp = cls.map_province_or_municipality(invoice_data.get("clientProvince"), is_province=True)
+                    ET.SubElement(receptor, "ProvinciaComprador").text = prov_comp
+            else:
+                # En otros casos, forzar los datos obligatorios
+                ET.SubElement(receptor, "RNCReceptor").text = client_rnc if client_rnc else "999999999"
+                ET.SubElement(receptor, "RazonSocialReceptor").text = razon_social_rec if razon_social_rec else "Consumidor Final"
+                
+                mun_comp = cls.map_province_or_municipality(invoice_data.get("clientMunicipality", "Santo Domingo de Guzmán"), is_province=False)
+                prov_comp = cls.map_province_or_municipality(invoice_data.get("clientProvince", "Santo Domingo"), is_province=True)
+                ET.SubElement(receptor, "MunicipioComprador").text = mun_comp
+                ET.SubElement(receptor, "ProvinciaComprador").text = prov_comp
         
         # Encabezado -> Totales (Actualización 28-07-2020: Retenciones obligatorias a cero)
         totales = ET.SubElement(encabezado, "Totales")

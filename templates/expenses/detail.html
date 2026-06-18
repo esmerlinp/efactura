@@ -176,6 +176,17 @@
             {% if expense.isDeductible %}
             <span class="badge-pill badge-green"><i class="fa-solid fa-landmark"></i> Deducible</span>
             {% endif %}
+
+            <!-- DGII Sync Status -->
+            {% if expense.ecfType in ('E41', 'E43') %}
+                {% if expense.isSyncedWithDGII %}
+                <span class="badge-pill badge-green"><i class="fa-solid fa-check-double"></i> DGII: Sincronizado</span>
+                {% elif expense.emisionMode == 'FALLBACK' %}
+                <span class="badge-pill badge-amber"><i class="fa-solid fa-triangle-exclamation"></i> DGII: Contingencia</span>
+                {% elif expense.encf %}
+                <span class="badge-pill badge-amber"><i class="fa-solid fa-clock"></i> DGII: Pendiente</span>
+                {% endif %}
+            {% endif %}
         </div>
 
         <div style="display:flex; gap:10px;">
@@ -340,10 +351,66 @@
                     <span class="field-value mono" style="font-size:0.78rem;">{{ expense.cne }}</span>
                 </div>
                 {% endif %}
-                {% if expense.isSyncedWithDGII %}
+                {% if expense.encf %}
+                <div class="field-row">
+                    <span class="field-label">e-NCF</span>
+                    <span class="field-value mono" style="font-size:0.88rem; color:var(--accent-purple);">{{ expense.encf }}</span>
+                </div>
+                {% endif %}
                 <div class="field-row">
                     <span class="field-label">Estado DGII</span>
-                    <span class="field-value"><span class="badge-pill badge-green"><i class="fa-solid fa-check-double"></i> Sincronizado</span></span>
+                    <span class="field-value">
+                        {% if expense.isSyncedWithDGII %}
+                        <span class="badge-pill badge-green"><i class="fa-solid fa-check-double"></i> Sincronizado</span>
+                        <span style="font-size:0.7rem; color:var(--text-muted); margin-left:6px;">({{ expense.emisionMode or 'API' }})</span>
+                        {% elif expense.emisionMode == 'FALLBACK' %}
+                        <span class="badge-pill badge-amber"><i class="fa-solid fa-triangle-exclamation"></i> Contingencia</span>
+                        <span style="font-size:0.7rem; color:var(--text-muted); margin-left:6px;">Sincronizar en max. 72h</span>
+                        {% elif expense.ecfType in ('E41', 'E43') %}
+                        <span class="badge-pill badge-amber"><i class="fa-solid fa-clock"></i> Pendiente de Emisión</span>
+                        {% else %}
+                        <span class="badge-pill badge-gray">No Aplica</span>
+                        {% endif %}
+                    </span>
+                </div>
+                {% if expense.xmlSignature %}
+                <div class="field-row">
+                    <span class="field-label">Firma XML</span>
+                    <span class="field-value mono" style="font-size:0.7rem; word-break:break-all;">{{ expense.xmlSignature[:48] ~ '...' if expense.xmlSignature|length > 48 else expense.xmlSignature }}</span>
+                </div>
+                {% endif %}
+                {% if expense.trackId %}
+                <div class="field-row">
+                    <span class="field-label">Track ID</span>
+                    <span class="field-value mono" style="font-size:0.72rem;">{{ expense.trackId }}</span>
+                </div>
+                {% endif %}
+                {% if expense.qrCodeURL %}
+                <div class="field-row" style="flex-direction:column; align-items:flex-start; gap:8px;">
+                    <span class="field-label">QR DGII</span>
+                    <img src="{{ expense.qrCodeURL }}" alt="QR DGII" style="width:120px; height:120px; border:1px solid var(--border-color); border-radius:8px; padding:4px; background:#fff;">
+                    <a href="{{ expense.qrCodeURL }}" target="_blank" style="font-size:0.72rem; color:var(--accent-blue);">Ver QR en grande</a>
+                </div>
+                {% endif %}
+                {% if expense.encf or expense.xmlContent %}
+                <div class="field-row" style="margin-top:12px; padding-top:12px; border-top:1px dashed var(--border-color); gap:8px;">
+                    <a href="{{ url_for('expense_pdf_download', expense_id=expense.id) }}" target="_blank"
+                        class="btn btn-secondary" style="flex:1; justify-content:center; padding:10px; font-size:0.82rem;">
+                        <i class="fa-solid fa-file-pdf" style="color:var(--accent-red);"></i> Descargar PDF
+                    </a>
+                    <a href="{{ url_for('expense_xml_download', expense_id=expense.id) }}"
+                        class="btn btn-secondary" style="flex:1; justify-content:center; padding:10px; font-size:0.82rem;">
+                        <i class="fa-solid fa-file-code" style="color:var(--accent-emerald);"></i> Descargar XML
+                    </a>
+                </div>
+                {% endif %}
+                {% if expense.emisionMode == 'FALLBACK' and expense.ecfType in ('E41', 'E43') %}
+                <div class="field-row" style="margin-top:8px; padding-top:0; border-top:none; gap:8px;">
+                    <form action="{{ url_for('sync_expense_ecf_route', expense_id=expense.id) }}" method="POST" style="width:100%;">
+                        <button type="submit" class="btn btn-primary" style="width:100%; padding:10px; font-size:0.82rem; background: linear-gradient(135deg, #f59e0b, #d97706); border: none;">
+                            <i class="fa-solid fa-rotate"></i> Sincronizar con DGII
+                        </button>
+                    </form>
                 </div>
                 {% endif %}
             </div>

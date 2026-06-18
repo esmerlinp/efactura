@@ -580,13 +580,22 @@ endblock %}
                 {% for inv in invoices %}
                 <tr>
                     <td>
+                        {% if inv.isExpense %}
+                        <a href="{{ url_for('expense_detail', expense_id=inv.id) }}" class="invoice-link">
+                            <span style="font-size: 0.85rem; display: block; margin-bottom: 2px;">{{ inv.invoiceNumber
+                                }}</span>
+                        </a>
+                        {% else %}
                         <a href="{{ url_for('web_invoices.invoice_detail', invoice_id=inv.id) }}" class="invoice-link">
                             <span style="font-size: 0.85rem; display: block; margin-bottom: 2px;">{{ inv.invoiceNumber
                                 }}</span>
                         </a>
+                        {% endif %}
                         {% if active_page != 'quotations' %}
                         <span style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase;">
-                            {{ inv.ecfType.split('(')[0] | default('Consumo') }}
+                            {% if inv.ecfShortType == 'E41' %}E41 – COMPRA
+                            {% elif inv.ecfShortType == 'E43' %}E43 – GASTO MENOR
+                            {% else %}{{ inv.ecfType.split('(')[0] | default('Consumo') }}{% endif %}
                         </span>
                         {% endif %}
                     </td>
@@ -615,7 +624,11 @@ endblock %}
                         <span style="font-size: 0.75rem; color: var(--text-muted);">Vence: {{ inv.dueDate | format_date }}</span>
                     </td>
                     <td>
-                        {% if inv.clientId and inv.clientId != 'api_client_default' %}
+                        {% if inv.isExpense %}
+                        <span style="font-size: 0.85rem; display: block; margin-bottom: 2px;">{{ inv.providerName or inv.clientName }}</span>
+                        <span style="font-size: 0.75rem; color: var(--text-secondary); font-family: monospace;">{{ inv.rncEmisor or inv.clientRNC or 'N/A' }}</span>
+                        <span style="display:block; font-size:0.65rem; color:var(--text-muted); margin-top:2px;">{{ inv.concept or '' }}</span>
+                        {% elif inv.clientId and inv.clientId != 'api_client_default' %}
                         <a href="{{ url_for('web_clients.client_detail', client_id=inv.clientId) }}"
                             class="client-link">
                             <span style="font-size: 0.85rem; display: block; margin-bottom: 2px;">{{ inv.clientName
@@ -625,8 +638,10 @@ endblock %}
                         <span style="font-size: 0.85rem; display: block; margin-bottom: 2px;">{{ inv.clientName
                             }}</span>
                         {% endif %}
+                        {% if not inv.isExpense %}
                         <span style="font-size: 0.75rem; color: var(--text-secondary); font-family: monospace;">{{
                             inv.clientRNC or '999999999' }}</span>
+                        {% endif %}
                     </td>
                     <td>
                         {% if inv.status == 'Anulada' %}
@@ -662,13 +677,29 @@ endblock %}
                     </td>
                     <td style="text-align: right;">
                         <div style="display: inline-flex; gap: 8px;">
+                            {% if inv.isExpense %}
+                            <a href="{{ url_for('expense_detail', expense_id=inv.id) }}"
+                                class="btn btn-secondary" style="padding: 8px 12px; font-size: 0.8rem;"
+                                title="Ver Detalle">
+                                <i class="fa-solid fa-eye"></i>
+                            </a>
+                            {% if inv.emisionMode == 'FALLBACK' and not inv.isSyncedWithDGII %}
+                            <form action="{{ url_for('sync_expense_ecf_route', expense_id=inv.id) }}"
+                                method="POST" style="display: inline;">
+                                <button type="submit" class="btn btn-primary"
+                                    style="padding: 8px 12px; font-size: 0.8rem; background: linear-gradient(135deg, #f59e0b, #d97706); border: none;"
+                                    title="Sincronizar con DGII">
+                                    <i class="fa-solid fa-rotate"></i>
+                                </button>
+                            </form>
+                            {% endif %}
+                            {% else %}
                             <a href="{{ url_for('web_invoices.invoice_detail', invoice_id=inv.id) }}"
                                 class="btn btn-secondary" style="padding: 8px 12px; font-size: 0.8rem;"
                                 title="Ver Detalle y QR">
                                 <i class="fa-solid fa-eye"></i>
                             </a>
-                            {% if inv.emisionMode == 'FALLBACK' and not inv.isSyncedWithDGII and inv.status != 'Anulada'
-                            %}
+                            {% if inv.emisionMode == 'FALLBACK' and not inv.isSyncedWithDGII and inv.status != 'Anulada' %}
                             <form action="{{ url_for('web_invoices.sync_single_invoice_route', invoice_id=inv.id) }}"
                                 method="POST" style="display: inline;">
                                 <button type="submit" class="btn btn-primary"
@@ -684,6 +715,7 @@ endblock %}
                                 style="padding: 8px 12px; font-size: 0.8rem;" title="Anular Factura">
                                 <i class="fa-solid fa-ban"></i>
                             </button>
+                            {% endif %}
                             {% endif %}
                         </div>
                     </td>
