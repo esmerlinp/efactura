@@ -27,6 +27,10 @@ def api_docs():
 def faqs():
     return render_template('faqs.html')
 
+@web_auth_bp.route('/contacto-embed')
+def contact_embed():
+    return render_template('landing_contact_embed.html')
+
 @web_auth_bp.route('/api/solicitar-demo', methods=['POST'])
 def api_solicitar_demo():
     try:

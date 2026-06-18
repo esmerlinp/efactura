@@ -1,683 +1,781 @@
 <!DOCTYPE html>
-<html lang="es" data-theme="light">
+<html lang="es-DO">
 <head>
     <meta charset="UTF-8">
-    <script>
-        // Forzar modo claro en la página de producto por defecto
-        document.documentElement.setAttribute('data-theme', 'light');
-    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>e-Factura - Facturación Electrónica en República Dominicana (Ley 32-23)</title>
-    
-    <!-- Metas de SEO -->
-    <meta name="description" content="e-Factura es la solución definitiva para cumplir con la Ley 32-23 de Facturación Electrónica en RD. Diseñada especialmente para Pymes, profesionales independientes y RST.">
-    <meta name="keywords" content="facturacion electronica rd, ley 32-23 dgii, dgii ncf, rst ingresos, e-cf republica dominicana">
-    
-    <!-- Google Fonts & FontAwesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    {% if company_theme == 'moderno' %}
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style_moderno.css') }}">
-    {% else %}
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style_clasico.css') }}">
-    {% endif %}
+    <title>e-Factura: Facturación Electrónica e-CF Certificada por DGII</title>
+    <meta name="description" content="e-Factura: sistema e-CF certificado por DGII desde RD$ 2,151/mes. Firma digital, certificación guiada y API REST. Prueba gratis 14 días.">
+    <meta name="keywords" content="facturación electrónica, e-CF, DGII, comprobante fiscal electrónico, República Dominicana, Ley 32-23">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        display: ['Sora', 'sans-serif'],
+                        body: ['DM Sans', 'sans-serif'],
+                    },
+                    colors: {
+                        midnight: {
+                            900: '#0a0e1a',
+                            800: '#0f1629',
+                            700: '#151d35',
+                            600: '#1c2541',
+                        },
+                        amber: {
+                            400: '#fbbf24',
+                            500: '#f59e0b',
+                            600: '#d97706',
+                        },
+                        teal: {
+                            400: '#2dd4bf',
+                            500: '#14b8a6',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/landing_dgmax.css') }}">
 </head>
-<body class="landing-body animate-fade-in">
 
-    <!-- 1. Header / Navegación -->
-    <header class="landing-header">
-        <div class="landing-container landing-nav">
-            <a href="#" class="landing-logo">
-                <img src="{{ url_for('static', filename='images/logo.png') }}" alt="e-Factura" style="height: 48px; width: auto; object-fit: contain;">
-            </a>
-            
-            <ul class="landing-menu">
-                <li><a href="#caracteristicas" class="landing-menu-link">Características</a></li>
-                <li><a href="#contingencia" class="landing-menu-link">Contingencia</a></li>
-                <li><a href="#salud-fiscal" class="landing-menu-link">Salud Fiscal</a></li>
-                <li><a href="#cotizador" class="landing-menu-link">Precios</a></li>
-                <li><a href="{{ url_for('web_auth.api_docs') }}" class="landing-menu-link">API</a></li>
-                <li><a href="{{ url_for('web_auth.faqs') }}" class="landing-menu-link">FAQs</a></li>
-            </ul>
-            
-            <div class="landing-actions">
-                {% if is_logged_in %}
-                    <a href="{{ url_for('web_dashboard.dashboard') }}" class="btn btn-primary">
-                        <i class="fa-solid fa-chart-pie"></i>
-                        <span>Ir al Dashboard</span>
-                    </a>
-                {% else %}
-                    <a href="{{ url_for('web_auth.login') }}" class="btn btn-secondary" style="font-size:0.9rem;">
-                        <i class="fa-solid fa-right-to-bracket"></i>
-                        <span>Iniciar Sesión</span>
-                    </a>
-                    <a href="#demo" class="btn btn-primary" style="font-size:0.9rem;">
-                        <span>Solicitar Demo</span>
-                    </a>
-                {% endif %}
+<body class="bg-midnight-900 text-white antialiased overflow-x-hidden">
+    <nav class="fixed top-0 left-0 right-0 z-50 glass">
+        <div class="max-w-7xl mx-auto px-6 lg:px-8">
+            <div class="flex justify-between items-center h-20">
+                <a href="{{ url_for('web_auth.home') }}" class="flex items-center gap-3 group">
+                    <img src="{{ url_for('static', filename='images/logo.png') }}" alt="e-Factura" class="w-10 h-10 object-contain">
+                    <span class="font-display text-2xl font-bold bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">e-Factura</span>
+                </a>
+
+                <div class="hidden md:flex items-center gap-10">
+                    <a href="#features" class="nav-link text-gray-300 hover:text-white transition-colors">Características</a>
+                    <a href="#pricing" class="nav-link text-gray-300 hover:text-white transition-colors">Precios</a>
+                    <a href="#faq" class="nav-link text-gray-300 hover:text-white transition-colors">FAQ</a>
+                    <a href="#contacto" class="nav-link text-gray-300 hover:text-white transition-colors">Contacto</a>
+                    <a href="{{ url_for('web_auth.api_docs') }}" class="nav-link text-gray-300 hover:text-white transition-colors">API</a>
+                </div>
+
+                <div class="flex items-center gap-4">
+                    {% if is_logged_in %}
+                        <a href="{{ url_for('web_dashboard.dashboard') }}" class="btn-primary bg-gradient-to-r from-amber-500 to-amber-600 text-midnight-900 px-6 py-2.5 rounded-xl font-semibold">Ir al Dashboard</a>
+                    {% else %}
+                        <a href="{{ url_for('web_auth.login') }}" class="hidden sm:block text-gray-300 hover:text-white transition-colors">Iniciar Sesión</a>
+                        <a href="#contacto" class="btn-primary bg-gradient-to-r from-amber-500 to-amber-600 text-midnight-900 px-6 py-2.5 rounded-xl font-semibold">Comenzar Gratis</a>
+                    {% endif %}
+                </div>
             </div>
         </div>
-    </header>
+    </nav>
 
+    <section class="relative min-h-screen hero-gradient noise overflow-hidden">
+        <div class="absolute inset-0 overflow-hidden pointer-events-none">
+            <div class="floating-shape top-20 left-[10%] w-64 h-64 rounded-full border border-amber-500/20"></div>
+            <div class="floating-shape top-40 right-[15%] w-48 h-48 rounded-3xl border border-teal-500/20 rotate-45"></div>
+            <div class="floating-shape bottom-32 left-[20%] w-32 h-32 rounded-2xl border border-amber-500/10 -rotate-12"></div>
+            <div class="floating-shape bottom-20 right-[25%] w-56 h-56 rounded-full border border-teal-500/10"></div>
+        </div>
 
-    <!-- 2. Hero Section -->
-    <section class="hero-section">
-        <div class="hero-gradient-orb"></div>
-        <div class="landing-container">
-            <span class="hero-tag">
-                <i class="fa-solid fa-shield-halved"></i> Homologado DGII - Ley 32-23
-            </span>
-            <h1 class="hero-title">
-                Facturación Electrónica en RD, <br><span>Simplificada al Máximo</span>
-            </h1>
-            <p class="hero-subtitle">
-                Emite comprobantes fiscales electrónicos (e-CF) certificados con total seguridad. Cumple al 100% con la ley dominicana sin procesos complejos y protege tu salud fiscal en tiempo real.
+        <div class="relative max-w-7xl mx-auto px-6 lg:px-8 pt-32 pb-20">
+            <div class="grid lg:grid-cols-2 gap-16 items-center min-h-[calc(100vh-200px)]">
+                <div class="space-y-8">
+                    <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full glass border-amber-500/30">
+                        <span class="w-2 h-2 rounded-full bg-teal-400 status-pulse"></span>
+                        <span class="text-sm text-gray-300">Autorizado por DGII</span>
+                    </div>
+
+                    <h1 class="font-display text-5xl md:text-6xl lg:text-7xl font-bold leading-[1.1]">
+                        <span class="block bg-gradient-to-r from-amber-400 via-amber-500 to-teal-400 bg-clip-text text-transparent">e-Factura</span>
+                        <span class="block">Facturación</span>
+                        <span class="block">Electrónica</span>
+                        <span class="block text-gray-400">sin complicaciones</span>
+                    </h1>
+
+                    <p class="text-xl text-gray-400 max-w-xl leading-relaxed">
+                        e-Factura es el sistema completo de comprobantes fiscales electrónicos (e-CF) para empresas dominicanas. Integración directa con DGII, firma digital automática y cumplimiento con la Ley 32-23 garantizado.
+                    </p>
+
+                    <div class="flex flex-col sm:flex-row gap-4 pt-4">
+                        <a href="#contacto" class="btn-primary bg-gradient-to-r from-amber-500 to-amber-600 text-midnight-900 px-8 py-4 rounded-xl font-semibold text-lg text-center">Comenzar Prueba Gratis</a>
+                        <a href="#features" class="btn-secondary border border-white/20 text-white px-8 py-4 rounded-xl font-semibold text-lg text-center">Ver Características</a>
+                    </div>
+
+                    <p class="text-gray-500 text-sm">14 días gratis. No requiere tarjeta de crédito.</p>
+                </div>
+
+                <div class="hidden lg:block relative">
+                    <div class="doc-preview relative">
+                        <div class="glass rounded-3xl p-8 shadow-2xl">
+                            <div class="flex items-center justify-between mb-6">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500/20 to-amber-600/20 flex items-center justify-center">
+                                        <svg class="w-6 h-6 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <p class="text-sm text-gray-400">Comprobante Fiscal</p>
+                                        <p class="font-display font-semibold">Factura de Crédito Fiscal</p>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-teal-500/10 border border-teal-500/30">
+                                    <span class="w-2 h-2 rounded-full bg-teal-400"></span>
+                                    <span class="text-sm text-teal-400 font-medium">Aceptado</span>
+                                </div>
+                            </div>
+
+                            <div class="space-y-4 mb-6">
+                                <div class="flex justify-between items-center py-3 border-b border-white/5">
+                                    <span class="text-gray-400">e-NCF</span>
+                                    <span class="font-mono font-semibold text-amber-400">E310000000001</span>
+                                </div>
+                                <div class="flex justify-between items-center py-3 border-b border-white/5">
+                                    <span class="text-gray-400">Fecha</span>
+                                    <span class="text-white">19 Dic, 2024</span>
+                                </div>
+                                <div class="flex justify-between items-center py-3 border-b border-white/5">
+                                    <span class="text-gray-400">Cliente</span>
+                                    <span class="text-white">Empresa Demo SRL</span>
+                                </div>
+                            </div>
+
+                            <div class="flex justify-between items-center pt-4">
+                                <span class="text-gray-400">Total</span>
+                                <span class="text-3xl font-display font-bold bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">RD$ 45,500.00</span>
+                            </div>
+
+                            <div class="mt-6 pt-6 border-t border-white/5 flex items-center justify-between">
+                                <div class="flex items-center gap-2 text-teal-400">
+                                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                                    </svg>
+                                    <span class="text-sm font-medium">Aceptado por DGII</span>
+                                </div>
+                                <div class="flex items-center gap-2 text-gray-400">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+                                    </svg>
+                                    <span class="text-sm">Firmado digitalmente</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="absolute -top-7 -right-4 glass rounded-2xl px-4 py-3 shadow-xl animate-pulse">
+                            <div class="flex items-center gap-2">
+                                <div class="w-8 h-8 rounded-lg bg-teal-500/20 flex items-center justify-center">
+                                    <svg class="w-4 h-4 text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                                    </svg>
+                                </div>
+                                <span class="text-sm font-medium">Enviado a DGII</span>
+                            </div>
+                        </div>
+
+                        <div class="absolute -bottom-10 -left-4 glass rounded-2xl px-4 py-3 shadow-xl">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center">
+                                    <svg class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <p class="text-xs text-gray-400">Tiempo de respuesta</p>
+                                    <p class="font-semibold text-amber-400">< 2 segundos</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="relative border-y border-white/5 bg-midnight-800/50">
+        <div class="max-w-7xl mx-auto px-6 lg:px-8 py-8">
+            <div class="flex flex-wrap justify-center items-center gap-8 md:gap-16">
+                <div class="trust-badge flex items-center gap-3 text-gray-400 cursor-default">
+                    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                    </svg>
+                    <span class="font-medium">Certificado DGII</span>
+                </div>
+                <div class="trust-badge flex items-center gap-3 text-gray-400 cursor-default">
+                    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"/>
+                    </svg>
+                    <span class="font-medium">SSL 256-bit</span>
+                </div>
+                <div class="trust-badge flex items-center gap-3 text-gray-400 cursor-default">
+                    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"/>
+                    </svg>
+                    <span class="font-medium">99.5% Uptime</span>
+                </div>
+                <div class="trust-badge flex items-center gap-3 text-gray-400 cursor-default">
+                    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M2 5a2 2 0 012-2h7a2 2 0 012 2v4a2 2 0 01-2 2H9l-3 3v-3H4a2 2 0 01-2-2V5z"/>
+                        <path d="M15 7v2a4 4 0 01-4 4H9.828l-1.766 1.767c.28.149.599.233.938.233h2l3 3v-3h2a2 2 0 002-2V9a2 2 0 00-2-2h-1z"/>
+                    </svg>
+                    <span class="font-medium">Soporte Local RD</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="features" class="relative py-32 mesh-gradient noise">
+        <div class="max-w-7xl mx-auto px-6 lg:px-8">
+            <div class="text-center mb-20 fade-in">
+                <span class="inline-block px-4 py-1.5 rounded-full text-sm font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20 mb-6">Características</span>
+                <h2 class="font-display text-4xl md:text-5xl font-bold mb-6">
+                    Todo lo que necesitas para<br>
+                    <span class="bg-gradient-to-r from-amber-400 to-teal-400 bg-clip-text text-transparent">facturar electrónicamente</span>
+                </h2>
+                <p class="text-xl text-gray-400 max-w-2xl mx-auto">Desde la emisión hasta la recepción, e-Factura maneja todo el ciclo de vida de tus comprobantes fiscales.</p>
+            </div>
+
+            <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div class="glass-card rounded-2xl p-8 fade-in fade-in-delay-1">
+                    <div class="feature-icon w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-500/20 to-amber-600/10 flex items-center justify-center mb-6 text-amber-400">
+                        <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                        </svg>
+                    </div>
+                    <h3 class="font-display text-xl font-semibold mb-3">Emisión de e-CF</h3>
+                    <p class="text-gray-400 leading-relaxed">Genera todos los comprobantes fiscales electrónicos (E31 a E47) requeridos por la DGII. Facturas, notas de crédito, notas de débito y más con envío automático.</p>
+                </div>
+
+                <div class="glass-card rounded-2xl p-8 fade-in fade-in-delay-2">
+                    <div class="feature-icon w-14 h-14 rounded-2xl bg-gradient-to-br from-teal-500/20 to-teal-600/10 flex items-center justify-center mb-6 text-teal-400">
+                        <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+                        </svg>
+                    </div>
+                    <h3 class="font-display text-xl font-semibold mb-3">Firma Digital Automática</h3>
+                    <p class="text-gray-400 leading-relaxed">Firma con tu certificado digital X.509 sin intervención manual. Almacenamiento seguro y renovación simplificada.</p>
+                </div>
+
+                <div class="glass-card rounded-2xl p-8 fade-in fade-in-delay-3">
+                    <div class="feature-icon w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500/20 to-purple-600/10 flex items-center justify-center mb-6 text-purple-400">
+                        <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
+                        </svg>
+                    </div>
+                    <h3 class="font-display text-xl font-semibold mb-3">Recepción de e-CF</h3>
+                    <p class="text-gray-400 leading-relaxed">Recibe comprobantes de tus proveedores. Genera ARECF (acuse de recibo) y ACECF (aprobación comercial) automáticamente según normativa.</p>
+                </div>
+
+                <div class="glass-card rounded-2xl p-8 fade-in fade-in-delay-4">
+                    <div class="feature-icon w-14 h-14 rounded-2xl bg-gradient-to-br from-orange-500/20 to-orange-600/10 flex items-center justify-center mb-6 text-orange-400">
+                        <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                        </svg>
+                    </div>
+                    <h3 class="font-display text-xl font-semibold mb-3">API para Desarrolladores</h3>
+                    <p class="text-gray-400 leading-relaxed">Integra con cualquier ERP - Odoo, SAP, .NET, PHP, Python. Documentación completa y SDK disponible para emisores electrónicos.</p>
+                </div>
+
+                <div class="glass-card rounded-2xl p-8 fade-in fade-in-delay-5">
+                    <div class="feature-icon w-14 h-14 rounded-2xl bg-gradient-to-br from-rose-500/20 to-rose-600/10 flex items-center justify-center mb-6 text-rose-400">
+                        <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zm0 8a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zm10 0a1 1 0 011-1h4a1 1 0 011 1v6a1 1 0 01-1 1h-4a1 1 0 01-1-1v-6z"/>
+                        </svg>
+                    </div>
+                    <h3 class="font-display text-xl font-semibold mb-3">Dashboard de Seguimiento</h3>
+                    <p class="text-gray-400 leading-relaxed">Visualiza el estado de tus comprobantes en tiempo real. Monitorea emisiones, recepciones y acuses desde un solo panel.</p>
+                </div>
+
+                <div class="glass-card rounded-2xl p-8 fade-in fade-in-delay-6">
+                    <div class="feature-icon w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500/20 to-blue-600/10 flex items-center justify-center mb-6 text-blue-400">
+                        <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+                        </svg>
+                    </div>
+                    <h3 class="font-display text-xl font-semibold mb-3">Multi-Empresa Nativo</h3>
+                    <p class="text-gray-400 leading-relaxed">Administra múltiples RNC desde una sola cuenta. Ideal para contadores, integradores y grupos empresariales.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="pricing" class="relative py-32 geo-pattern">
+        <div class="max-w-7xl mx-auto px-6 lg:px-8">
+            <div class="text-center mb-16 fade-in">
+                <span class="inline-block px-4 py-1.5 rounded-full text-sm font-medium bg-teal-500/10 text-teal-400 border border-teal-500/20 mb-6">Precios</span>
+                <h2 class="font-display text-4xl md:text-5xl font-bold mb-6">
+                    Precios simples y<br>
+                    <span class="bg-gradient-to-r from-teal-400 to-amber-400 bg-clip-text text-transparent">transparentes</span>
+                </h2>
+                <p class="text-xl text-gray-400 max-w-2xl mx-auto mb-10">Sin sorpresas. Paga solo por lo que necesitas.</p>
+
+                <div class="flex flex-wrap items-center justify-center gap-4">
+                    <div class="inline-flex items-center gap-4 p-1.5 rounded-full glass">
+                        <button id="monthly-btn" class="billing-btn px-6 py-2 rounded-full text-sm font-medium transition-all bg-amber-500 text-midnight-900">Mensual</button>
+                        <button id="annual-btn" class="billing-btn px-6 py-2 rounded-full text-sm font-medium transition-all text-gray-400 hover:text-white">Anual <span class="text-teal-400 ml-1">-10%</span></button>
+                    </div>
+                    <div class="inline-flex items-center gap-2 p-1.5 rounded-full glass">
+                        <button id="dop-btn" class="currency-btn px-5 py-2 rounded-full text-sm font-medium transition-all bg-teal-500 text-midnight-900">DOP (RD$)</button>
+                        <button id="usd-btn" class="currency-btn px-5 py-2 rounded-full text-sm font-medium transition-all text-gray-400 hover:text-white">USD</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
+                <div class="glass-card rounded-3xl p-8 fade-in fade-in-delay-1">
+                    <div class="mb-8">
+                        <h3 class="font-display text-xl font-semibold mb-2">Starter</h3>
+                        <p class="text-gray-400">Para comenzar a facturar</p>
+                    </div>
+                    <div class="mb-8">
+                        <span class="price-monthly text-4xl whitespace-nowrap font-display font-bold" data-usd="$35" data-dop="RD$ 2,151">RD$ 2,151</span>
+                        <span class="price-annual text-4xl whitespace-nowrap font-display font-bold hidden" data-usd="$31" data-dop="RD$ 1,905">RD$ 1,905</span>
+                        <span class="text-gray-400">/mes</span>
+                    </div>
+                    <ul class="space-y-4 mb-8">
+                        <li class="flex items-center gap-3 text-gray-300">
+                            <svg class="w-5 h-5 text-teal-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                            800 e-CF / mes
+                        </li>
+                        <li class="flex items-center gap-3 text-gray-300">
+                            <svg class="w-5 h-5 text-teal-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                            Todos los e-CF (E31-E47)
+                        </li>
+                        <li class="flex items-center gap-3 text-gray-300">
+                            <svg class="w-5 h-5 text-teal-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                            Firma digital automática
+                        </li>
+                        <li class="flex items-center gap-3 text-gray-300">
+                            <svg class="w-5 h-5 text-teal-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                            Recepción (ARECF/ACECF)
+                        </li>
+                        <li class="flex items-center gap-3 text-gray-300">
+                            <svg class="w-5 h-5 text-teal-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                            API completa
+                        </li>
+                        <li class="flex items-center gap-3 text-gray-300">
+                            <svg class="w-5 h-5 text-teal-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                            Soporte por email
+                        </li>
+                    </ul>
+                    <a href="#contacto" class="block w-full text-center py-4 rounded-xl font-semibold border border-white/10 text-white hover:bg-white/5 transition-all">Comenzar</a>
+                </div>
+
+                <div class="pricing-featured glass-card rounded-3xl p-8 bg-midnight-700/50 fade-in fade-in-delay-2">
+                    <div class="flex items-center justify-between mb-8">
+                        <div>
+                            <h3 class="font-display text-xl font-semibold mb-2">PyME</h3>
+                            <p class="text-gray-400">Para empresas en crecimiento</p>
+                        </div>
+                        <span class="px-3 py-1 rounded-full text-xs font-semibold bg-gradient-to-r from-amber-500 to-teal-500 text-midnight-900">Popular</span>
+                    </div>
+                    <div class="mb-8">
+                        <span class="price-monthly text-4xl whitespace-nowrap font-display font-bold bg-gradient-to-r from-amber-400 to-teal-400 bg-clip-text text-transparent" data-usd="$55" data-dop="RD$ 3,380">RD$ 3,380</span>
+                        <span class="price-annual text-4xl whitespace-nowrap font-display font-bold bg-gradient-to-r from-amber-400 to-teal-400 bg-clip-text text-transparent hidden" data-usd="$49" data-dop="RD$ 3,011">RD$ 3,011</span>
+                        <span class="text-gray-400">/mes</span>
+                    </div>
+                    <ul class="space-y-4 mb-8">
+                        <li class="flex items-center gap-3 text-gray-300">
+                            <svg class="w-5 h-5 text-amber-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                            2,000 e-CF / mes
+                        </li>
+                        <li class="flex items-center gap-3 text-gray-300">
+                            <svg class="w-5 h-5 text-amber-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                            Todo en Starter
+                        </li>
+                        <li class="flex items-center gap-3 text-gray-300">
+                            <svg class="w-5 h-5 text-amber-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                            Soporte prioritario
+                        </li>
+                        <li class="flex items-center gap-3 text-gray-300">
+                            <svg class="w-5 h-5 text-amber-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                            Dashboard de seguimiento
+                        </li>
+                    </ul>
+                    <a href="#contacto" class="btn-primary block w-full text-center py-4 rounded-xl font-semibold bg-gradient-to-r from-amber-500 to-amber-600 text-midnight-900">Comenzar</a>
+                </div>
+
+                <div class="glass-card rounded-3xl p-8 fade-in fade-in-delay-3">
+                    <div class="mb-8">
+                        <h3 class="font-display text-xl font-semibold mb-2">Business</h3>
+                        <p class="text-gray-400">Para operaciones de alto volumen</p>
+                    </div>
+                    <div class="mb-8">
+                        <span class="price-monthly text-4xl whitespace-nowrap font-display font-bold" data-usd="$95" data-dop="RD$ 5,838">RD$ 5,838</span>
+                        <span class="price-annual text-4xl whitespace-nowrap font-display font-bold hidden" data-usd="$85" data-dop="RD$ 5,223">RD$ 5,223</span>
+                        <span class="text-gray-400">/mes</span>
+                    </div>
+                    <ul class="space-y-4 mb-8">
+                        <li class="flex items-center gap-3 text-gray-300">
+                            <svg class="w-5 h-5 text-teal-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                            6,000 e-CF / mes
+                        </li>
+                        <li class="flex items-center gap-3 text-gray-300">
+                            <svg class="w-5 h-5 text-teal-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                            Todo en PyME
+                        </li>
+                        <li class="flex items-center gap-3 text-gray-300">
+                            <svg class="w-5 h-5 text-teal-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                            Soporte dedicado
+                        </li>
+                        <li class="flex items-center gap-3 text-gray-300">
+                            <svg class="w-5 h-5 text-teal-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                            Multi-empresa disponible
+                        </li>
+                    </ul>
+                    <a href="#contacto" class="block w-full text-center py-4 rounded-xl font-semibold border border-white/10 text-white hover:bg-white/5 transition-all">Comenzar</a>
+                </div>
+
+                <div class="glass-card rounded-3xl p-8 fade-in fade-in-delay-4">
+                    <div class="mb-8">
+                        <h3 class="font-display text-xl font-semibold mb-2">Enterprise</h3>
+                        <p class="text-gray-400">Corporativo a medida</p>
+                    </div>
+                    <div class="mb-8">
+                        <span class="text-4xl font-display font-bold">Personalizado</span>
+                    </div>
+                    <ul class="space-y-4 mb-8">
+                        <li class="flex items-center gap-3 text-gray-300">
+                            <svg class="w-5 h-5 text-amber-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                            Hasta 40,000+ e-CF / mes
+                        </li>
+                        <li class="flex items-center gap-3 text-gray-300">
+                            <svg class="w-5 h-5 text-amber-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                            SLA garantizado 99.5%
+                        </li>
+                        <li class="flex items-center gap-3 text-gray-300">
+                            <svg class="w-5 h-5 text-amber-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                            Soporte dedicado 24/7
+                        </li>
+                        <li class="flex items-center gap-3 text-gray-300">
+                            <svg class="w-5 h-5 text-amber-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                            Integración personalizada
+                        </li>
+                        <li class="flex items-center gap-3 text-gray-300">
+                            <svg class="w-5 h-5 text-amber-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                            Multi-empresa nativo
+                        </li>
+                    </ul>
+                    <a href="#contacto" class="block w-full text-center py-4 rounded-xl font-semibold border border-white/10 text-white hover:bg-white/5 transition-all">Contactar Ventas</a>
+                </div>
+            </div>
+
+            <p class="text-center text-gray-500 text-sm mt-8 max-w-2xl mx-auto">
+                Precios en pesos dominicanos (RD$). También disponibles en USD con referencia al tipo de cambio del día.<br>
+                Los documentos nunca se bloquean - si excedes tu plan, seguimos procesando. 14 días gratis en todos los planes.
             </p>
-            
-            <div class="hero-buttons">
-                <a href="#demo" class="btn btn-primary" style="padding: 16px 32px; font-size: 1.05rem;">
-                    <i class="fa-solid fa-rocket"></i> Solicitar una Demo Gratis
-                </a>
-                <a href="#cotizador" class="btn btn-secondary" style="padding: 16px 32px; font-size: 1.05rem;">
-                    <i class="fa-solid fa-calculator"></i> Estimar mi Tarifa
-                </a>
-            </div>
-            
-            <!-- Mockup Interactivo Multitap -->
-            <div class="mockup-container">
-                <div class="mockup-header-bar">
-                    <div class="mockup-dots">
-                        <span class="mockup-dot"></span>
-                        <span class="mockup-dot"></span>
-                        <span class="mockup-dot"></span>
-                    </div>
-                    <div class="mockup-tabs">
-                        <div class="mockup-tab-btn active" data-target="slide-dashboard">
-                            <i class="fa-solid fa-chart-pie"></i> Dashboard Ejecutivo
-                        </div>
-                        <div class="mockup-tab-btn" data-target="slide-documentos">
-                            <i class="fa-solid fa-file-invoice-dollar"></i> Registro e-CF
-                        </div>
-                        <div class="mockup-tab-btn" data-target="slide-detalle">
-                            <i class="fa-solid fa-receipt"></i> Detalle de Factura
-                        </div>
-                    </div>
-                    <div style="width: 50px;"></div> <!-- Compensación visual -->
-                </div>
-                
-                <div class="mockup-viewport">
-                    <!-- Slide 1: Dashboard -->
-                    <div class="mockup-slide active" id="slide-dashboard">
-                        <div class="mockup-image-wrapper">
-                            <img src="{{ url_for('static', filename='images/dashboard_preview.png') }}" onerror="this.src='https://placehold.co/1000x520/1e293b/ffffff?text=e-Factura+Dashboard+General';" alt="Dashboard General e-Factura">
-                        </div>
-                    </div>
-                    
-                    <!-- Slide 2: Documentos -->
-                    <div class="mockup-slide" id="slide-documentos">
-                        <div class="mockup-image-wrapper">
-                            <img src="{{ url_for('static', filename='images/documentos_preview.png') }}" onerror="this.src='https://placehold.co/1000x520/1e293b/ffffff?text=e-Factura+Registro+Documentos';" alt="Registro de Comprobantes Emitidos">
-                        </div>
-                    </div>
-                    
-                    <!-- Slide 3: Detalle -->
-                    <div class="mockup-slide" id="slide-detalle">
-                        <div class="mockup-image-wrapper">
-                            <img src="{{ url_for('static', filename='images/detalle_preview.png') }}" onerror="this.src='https://placehold.co/1000x520/1e293b/ffffff?text=e-Factura+Detalle+de+Comprobante+QR';" alt="Detalle de Comprobante e-CF con QR">
-                    </div>
-            </div>
         </div>
     </section>
 
-    <!-- 2.5 Barra de Confianza (Métricas) -->
-    <div class="landing-container" style="position: relative; z-index: 10;">
-        <div class="trust-bar">
-            <div class="trust-item">
-                <span class="trust-number">+5M</span>
-                <span class="trust-label">e-CF Emitidos</span>
+    <section id="faq" class="relative py-32 mesh-gradient noise">
+        <div class="max-w-3xl mx-auto px-6 lg:px-8">
+            <div class="text-center mb-16 fade-in">
+                <span class="inline-block px-4 py-1.5 rounded-full text-sm font-medium bg-purple-500/10 text-purple-400 border border-purple-500/20 mb-6">FAQ</span>
+                <h2 class="font-display text-4xl md:text-5xl font-bold">
+                    Preguntas <span class="bg-gradient-to-r from-purple-400 to-amber-400 bg-clip-text text-transparent">Frecuentes</span>
+                </h2>
             </div>
-            <div class="trust-item">
-                <span class="trust-number">99.99%</span>
-                <span class="trust-label">Uptime SLA</span>
-            </div>
-            <div class="trust-item">
-                <span class="trust-number">&lt; 1.2s</span>
-                <span class="trust-label">Respuesta API</span>
-            </div>
-            <div class="trust-item">
-                <span class="trust-number">100%</span>
-                <span class="trust-label">Homologado DGII</span>
-            </div>
-        </div>
-    </div>
 
-    <!-- 2.6 Sección API First (Desarrolladores) -->
-    <section class="api-section" id="api-devs">
-        <div class="landing-container">
-            <div class="api-grid">
-                <!-- Columna Izquierda: Mockup IDE Código Criptográfico -->
-                <div class="code-editor">
-                    <div class="code-header">
-                        <div class="mockup-dots">
-                            <span class="mockup-dot"></span>
-                            <span class="mockup-dot"></span>
-                            <span class="mockup-dot"></span>
-                        </div>
-                        <div class="code-tabs">
-                            <button type="button" class="code-tab active" data-code="req-json">POST /v1/invoices</button>
-                            <button type="button" class="code-tab" data-code="res-json">RESPONSE (e-CF)</button>
-                        </div>
-                    </div>
-                    
-                    <div class="code-body">
-                        <!-- Request JSON -->
-                        <div id="code-req-json" class="code-block active" style="display: block;">
-                            <div class="code-line"><span class="code-num">1</span><span class="code-content"><span class="json-bracket">{</span></span></div>
-                            <div class="code-line"><span class="code-num">2</span><span class="code-content">  <span class="json-prop">"rncEmisor"</span>: <span class="json-string">"131689787"</span>,</span></div>
-                            <div class="code-line"><span class="code-num">3</span><span class="code-content">  <span class="json-prop">"ncfTipo"</span>: <span class="json-string">"E31"</span>, <span class="code-comment">// Crédito Fiscal</span></span></div>
-                            <div class="code-line"><span class="code-num">4</span><span class="code-content">  <span class="json-prop">"cliente"</span>: <span class="json-bracket">{</span></span></div>
-                            <div class="code-line"><span class="code-num">5</span><span class="code-content">    <span class="json-prop">"rnc"</span>: <span class="json-string">"101565022"</span>,</span></div>
-                            <div class="code-line"><span class="code-num">6</span><span class="code-content">    <span class="json-prop">"razonSocial"</span>: <span class="json-string">"INMOBILIARIA COSTA VERDE S A"</span></span></div>
-                            <div class="code-line"><span class="code-num">7</span><span class="code-content">  <span class="json-bracket">}</span>,</span></div>
-                            <div class="code-line"><span class="code-num">8</span><span class="code-content">  <span class="json-prop">"items"</span>: <span class="json-bracket">[</span></span></div>
-                            <div class="code-line"><span class="code-num">9</span><span class="code-content">    <span class="json-bracket">{</span></span></div>
-                            <div class="code-line"><span class="code-num">10</span><span class="code-content">      <span class="json-prop">"descripcion"</span>: <span class="json-string">"Maqueta de Diseño"</span>,</span></div>
-                            <div class="code-line"><span class="code-num">11</span><span class="code-content">      <span class="json-prop">"precio"</span>: <span class="json-number">4500.00</span>,</span></div>
-                            <div class="code-line"><span class="code-num">12</span><span class="code-content">      <span class="json-prop">"cantidad"</span>: <span class="json-number">2</span>,</span></div>
-                            <div class="code-line"><span class="code-num">13</span><span class="code-content">      <span class="json-prop">"itbis"</span>: <span class="json-number">1620.00</span></span></div>
-                            <div class="code-line"><span class="code-num">14</span><span class="code-content">    <span class="json-bracket">}</span></span></div>
-                            <div class="code-line"><span class="code-num">15</span><span class="code-content">  <span class="json-bracket">]</span></span></div>
-                            <div class="code-line"><span class="code-num">16</span><span class="code-content"><span class="json-bracket">}</span></span></div>
-                        </div>
-                        <!-- Response JSON -->
-                        <div id="code-res-json" class="code-block" style="display: none;">
-                            <div class="code-line"><span class="code-num">1</span><span class="code-content"><span class="json-bracket">{</span></span></div>
-                            <div class="code-line"><span class="code-num">2</span><span class="code-content">  <span class="json-prop">"status"</span>: <span class="json-string">"COMPLETADO"</span>,</span></div>
-                            <div class="code-line"><span class="code-num">3</span><span class="code-content">  <span class="json-prop">"ecf"</span>: <span class="json-string">"E310000002001"</span>,</span></div>
-                            <div class="code-line"><span class="code-num">4</span><span class="code-content">  <span class="json-prop">"dgii_approval"</span>: <span class="json-bracket">{</span></span></div>
-                            <div class="code-line"><span class="code-num">5</span><span class="code-content">    <span class="json-prop">"trackId"</span>: <span class="json-string">"cf6f2648-5544-48f8"</span>,</span></div>
-                            <div class="code-line"><span class="code-num">6</span><span class="code-content">    <span class="json-prop">"codigoSeguridad"</span>: <span class="json-string">"MOCK-SIGNATURE-C..."</span>,</span></div>
-                            <div class="code-line"><span class="code-num">7</span><span class="code-content">    <span class="json-prop">"qrURL"</span>: <span class="json-string">"https://dgii.gov.do/consulta..."</span></span></div>
-                            <div class="code-line"><span class="code-num">8</span><span class="code-content">  <span class="json-bracket">}</span>,</span></div>
-                            <div class="code-line"><span class="code-num">9</span><span class="code-content">  <span class="json-prop">"firmaDigital"</span>: <span class="json-string">"SHA256withRSA..."</span>,</span></div>
-                            <div class="code-line"><span class="code-num">10</span><span class="code-content">  <span class="json-prop">"netPayable"</span>: <span class="json-number">10620.00</span></span></div>
-                            <div class="code-line"><span class="code-num">11</span><span class="code-content"><span class="json-bracket">}</span></span></div>
-                        </div>
+            <div class="space-y-4">
+                <div class="glass-card rounded-2xl overflow-hidden fade-in fade-in-delay-1">
+                    <button class="faq-toggle w-full px-6 py-5 text-left flex justify-between items-center">
+                        <span class="font-display font-semibold text-lg">¿Qué es e-Factura?</span>
+                        <svg class="faq-icon w-5 h-5 text-amber-400 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                        </svg>
+                    </button>
+                    <div class="faq-content px-6 text-gray-400">
+                        e-Factura es una plataforma de facturación electrónica (e-CF) certificada por la DGII para empresas en República Dominicana. Permite emitir todos los comprobantes fiscales electrónicos (E31-E47), firmar digitalmente con certificado X.509, recibir e-CF de proveedores, y certificarte como emisor electrónico.
                     </div>
                 </div>
-                
-                <!-- Columna Derecha: Beneficios para Programadores e Integradores -->
-                <div class="api-info">
-                    <span class="hero-tag" style="background: rgba(96, 165, 250, 0.08); color: #60a5fa; margin-bottom: 16px;">
-                        <i class="fa-solid fa-code"></i> API First Infrastructure
-                    </span>
-                    <h3 style="font-family: var(--font-heading); font-size: 2.2rem; font-weight: 800; margin-bottom: 20px; line-height: 1.2; text-align: left;">
-                        API de Alto Rendimiento para Desarrolladores
-                    </h3>
-                    <p style="color: var(--text-secondary); font-size: 1.05rem; line-height: 1.6; margin-bottom: 30px; text-align: left;">
-                        e-Factura provee una infraestructura tipo **Backend as a Service (BaaS)** líder en el mercado. Diseñada para que integres facturación electrónica directamente en tu ERP, CRM, o e-commerce propio con la menor latencia del mercado.
-                    </p>
-                    
-                    <div class="contact-benefit-item" style="margin-bottom: 16px; display: flex; align-items: flex-start; text-align: left;">
-                        <i class="fa-solid fa-shield-halved" style="color: #60a5fa; margin-top: 3px; margin-right: 12px; flex-shrink: 0;"></i>
-                        <span><strong>Firma Electrónica Criptográfica Automatizada</strong>: Nos encargamos de encriptar y firmar el XML con tu certificado sin procesos adicionales.</span>
+
+                <div class="glass-card rounded-2xl overflow-hidden fade-in fade-in-delay-1">
+                    <button class="faq-toggle w-full px-6 py-5 text-left flex justify-between items-center">
+                        <span class="font-display font-semibold text-lg">¿Qué necesito para comenzar?</span>
+                        <svg class="faq-icon w-5 h-5 text-amber-400 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                        </svg>
+                    </button>
+                    <div class="faq-content px-6 text-gray-400">
+                        Solo necesitas tu RNC activo, un certificado digital válido emitido por una entidad certificadora autorizada, y estar registrado como emisor electrónico ante la DGII. Nosotros te guiamos en todo el proceso.
                     </div>
-                    <div class="contact-benefit-item" style="margin-bottom: 16px; display: flex; align-items: flex-start; text-align: left;">
-                        <i class="fa-solid fa-code-fork" style="color: #60a5fa; margin-top: 3px; margin-right: 12px; flex-shrink: 0;"></i>
-                        <span><strong>Webhooks en Tiempo Real</strong>: Recibe notificaciones automáticas inmediatas sobre rechazos, aprobaciones comerciales o estados DGII.</span>
+                </div>
+
+                <div class="glass-card rounded-2xl overflow-hidden fade-in fade-in-delay-2">
+                    <button class="faq-toggle w-full px-6 py-5 text-left flex justify-between items-center">
+                        <span class="font-display font-semibold text-lg">¿La prueba gratis tiene limitaciones?</span>
+                        <svg class="faq-icon w-5 h-5 text-amber-400 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                        </svg>
+                    </button>
+                    <div class="faq-content px-6 text-gray-400">
+                        No, tienes acceso completo a todas las funcionalidades durante 14 días. No requerimos tarjeta de crédito para comenzar. Puedes emitir comprobantes en ambiente de prueba de DGII.
                     </div>
-                    <div class="contact-benefit-item" style="margin-bottom: 24px; display: flex; align-items: flex-start; text-align: left;">
-                        <i class="fa-solid fa-database" style="color: #60a5fa; margin-top: 3px; margin-right: 12px; flex-shrink: 0;"></i>
-                        <span><strong>Respaldo en Nube por 10 Años</strong>: Cumplimos al pie de la letra con el requerimiento legal de conservación de la DGII.</span>
+                </div>
+
+                <div class="glass-card rounded-2xl overflow-hidden fade-in fade-in-delay-3">
+                    <button class="faq-toggle w-full px-6 py-5 text-left flex justify-between items-center">
+                        <span class="font-display font-semibold text-lg">¿Cómo funciona la integración con mi sistema actual?</span>
+                        <svg class="faq-icon w-5 h-5 text-amber-400 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                        </svg>
+                    </button>
+                    <div class="faq-content px-6 text-gray-400">
+                        Ofrecemos una API completa con documentación detallada para integrar e-Factura con tu sistema. Nuestro equipo te ayuda con la integración.
                     </div>
-                    
-                    <a href="{{ url_for('web_auth.api_docs') }}" class="btn btn-primary" style="font-size: 1rem; width: fit-content;">
-                        <i class="fa-solid fa-book"></i> Ver Documentación de la API
-                    </a>
+                </div>
+
+                <div class="glass-card rounded-2xl overflow-hidden fade-in fade-in-delay-4">
+                    <button class="faq-toggle w-full px-6 py-5 text-left flex justify-between items-center">
+                        <span class="font-display font-semibold text-lg">¿Mis datos están seguros?</span>
+                        <svg class="faq-icon w-5 h-5 text-amber-400 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                        </svg>
+                    </button>
+                    <div class="faq-content px-6 text-gray-400">
+                        Usamos encriptación SSL de 256 bits, almacenamiento seguro en la nube con backups automáticos, y cumplimos con las mejores prácticas de seguridad. Tu certificado digital se almacena de forma encriptada.
+                    </div>
+                </div>
+
+                <div class="glass-card rounded-2xl overflow-hidden fade-in fade-in-delay-5">
+                    <button class="faq-toggle w-full px-6 py-5 text-left flex justify-between items-center">
+                        <span class="font-display font-semibold text-lg">¿Puedo cancelar en cualquier momento?</span>
+                        <svg class="faq-icon w-5 h-5 text-amber-400 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                        </svg>
+                    </button>
+                    <div class="faq-content px-6 text-gray-400">
+                        Sí, puedes cancelar tu suscripción en cualquier momento sin penalidades. Tendrás acceso hasta el final de tu período de facturación actual y podrás exportar todos tus datos.
+                    </div>
+                </div>
+
+                <div class="glass-card rounded-2xl overflow-hidden fade-in fade-in-delay-6">
+                    <button class="faq-toggle w-full px-6 py-5 text-left flex justify-between items-center">
+                        <span class="font-display font-semibold text-lg">¿Cuándo es obligatoria la facturación electrónica para mi empresa?</span>
+                        <svg class="faq-icon w-5 h-5 text-amber-400 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                        </svg>
+                    </button>
+                    <div class="faq-content px-6 text-gray-400">
+                        La Ley 32-23 establece fechas según el tamaño del contribuyente. Los grandes contribuyentes nacionales ya están obligados desde 2024. Los grandes locales y medianos tienen hasta noviembre 2025. Las PyMEs, microempresas y no clasificados tienen hasta el 15 de mayo de 2026.
+                    </div>
+                </div>
+
+                <div class="glass-card rounded-2xl overflow-hidden fade-in fade-in-delay-6">
+                    <button class="faq-toggle w-full px-6 py-5 text-left flex justify-between items-center">
+                        <span class="font-display font-semibold text-lg">¿Qué pasa si la DGII está caída cuando necesito facturar?</span>
+                        <svg class="faq-icon w-5 h-5 text-amber-400 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                        </svg>
+                    </button>
+                    <div class="faq-content px-6 text-gray-400">
+                        e-Factura incluye un sistema de cola automática con reintentos. Si la DGII no está disponible, tus documentos se firman y almacenan localmente, y se envían automáticamente cuando el servicio se restablece. Tu operación nunca se detiene.
+                    </div>
                 </div>
             </div>
         </div>
     </section>
 
+    <section id="contacto" class="relative py-32 overflow-hidden">
+        <div class="absolute inset-0 bg-gradient-to-b from-midnight-900 via-midnight-800 to-midnight-900"></div>
+        <div class="absolute inset-0 mesh-gradient opacity-50"></div>
 
+        <div class="relative max-w-4xl mx-auto px-6 lg:px-8 text-center fade-in">
+            <h2 class="font-display text-4xl md:text-5xl lg:text-6xl font-bold mb-6">
+                Hablemos de tu<br>
+                <span class="bg-gradient-to-r from-amber-400 via-teal-400 to-amber-400 bg-clip-text text-transparent">facturación electrónica</span>
+            </h2>
+            <p class="text-xl text-gray-400 max-w-2xl mx-auto mb-4">Nuestro equipo te asesorará sin compromiso sobre el mejor plan para tu empresa.</p>
+            <p class="text-sm text-gray-500 max-w-2xl mx-auto mb-10">14 días gratis. Sin tarjeta de crédito. Sin compromiso.</p>
 
-    <!-- 2.8 Sección de Integraciones con ERPs/Sistemas -->
-    <section class="integrations-section">
-        <div class="landing-container">
-            <div class="section-header">
-                <span class="hero-tag" style="margin-bottom: 16px;">
-                    <i class="fa-solid fa-network-wired"></i> Ecosistema Integrable
+            <div class="max-w-2xl mx-auto">
+                <iframe src="{{ url_for('web_auth.contact_embed') }}" loading="lazy" width="100%" height="560" frameborder="0" marginheight="0" marginwidth="0" title="Formulario de contacto e-Factura"></iframe>
+            </div>
+
+            <div class="flex flex-wrap items-center justify-center gap-4 mt-6 text-xs text-gray-500">
+                <span class="flex items-center gap-1.5">
+                    <svg class="w-4 h-4 text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                    Certificado DGII
                 </span>
-                <h2 class="section-title">Conectividad Nativa con tus Herramientas</h2>
-                <p class="section-subtitle">e-Factura se integra de forma natural con los sistemas y plataformas líderes que ya utilizas en tu día a día.</p>
+                <span class="flex items-center gap-1.5">
+                    <svg class="w-4 h-4 text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    Respuesta en menos de 2 horas
+                </span>
+                <span class="flex items-center gap-1.5">
+                    <svg class="w-4 h-4 text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                    Tu información está protegida
+                </span>
             </div>
-            
-            <div class="integrations-grid">
-                <!-- SAP -->
-                <div class="integration-card">
-                    <i class="fa-solid fa-server integration-icon"></i>
-                    <span class="integration-name">SAP Business One</span>
-                </div>
-                <!-- QuickBooks -->
-                <div class="integration-card">
-                    <i class="fa-solid fa-file-invoice integration-icon"></i>
-                    <span class="integration-name">QuickBooks</span>
-                </div>
-                <!-- Zoho -->
-                <div class="integration-card">
-                    <i class="fa-solid fa-briefcase integration-icon"></i>
-                    <span class="integration-name">Zoho CRM & Books</span>
-                </div>
-                <!-- WooCommerce -->
-                <div class="integration-card">
-                    <i class="fa-brands fa-wordpress integration-icon"></i>
-                    <span class="integration-name">WooCommerce</span>
-                </div>
-                <!-- Shopify -->
-                <div class="integration-card">
-                    <i class="fa-brands fa-shopify integration-icon"></i>
-                    <span class="integration-name">Shopify</span>
-                </div>
-                <!-- API Personalizada -->
-                <div class="integration-card">
-                    <i class="fa-solid fa-code integration-icon"></i>
-                    <span class="integration-name">Sistemas Propios</span>
-                </div>
-            </div>
+            <p class="mt-4 text-sm text-gray-500">¿Prefieres escribirnos? <a href="mailto:efactura@mdevs.com" class="text-amber-400 hover:text-amber-300 transition-colors">efactura@mdevs.com</a></p>
         </div>
     </section>
 
-    <!-- 3. Características Clave (Features Grid) -->
-    <section class="features-section" id="caracteristicas">
-        <div class="landing-container">
-            <div class="section-header">
-                <h2 class="section-title">Diseñado para la Realidad de tu Negocio</h2>
-                <p class="section-subtitle">No somos un simple facturador. e-Factura es un copiloto fiscal inteligente diseñado bajo el ecosistema dominicano.</p>
-            </div>
-            
-            <div class="features-grid">
-                <!-- Feature 1 -->
-                <div class="feature-card">
-                    <div class="feature-icon-box">
-                        <i class="fa-solid fa-passport"></i>
-                    </div>
-                    <h3 class="feature-title">Cumplimiento Ley 32-23</h3>
-                    <p class="feature-description">
-                        Emisión formal de todos los comprobantes electrónicos (e-CF) dominicanos de la serie E (E31, E32, E34, E43, etc.) firmados digitalmente y transmitidos en tiempo real ante la DGII a través de nuestra plataforma homologada.
-                    </p>
-                </div>
-                
-                <!-- Feature 2 -->
-                <div class="feature-card" id="contingencia">
-                    <div class="feature-icon-box" style="background: rgba(239, 68, 68, 0.1); color: var(--accent-red);">
-                        <i class="fa-solid fa-triangle-exclamation"></i>
-                    </div>
-                    <h3 class="feature-title">Contingencia Inteligente 72h</h3>
-                    <p class="feature-description">
-                        ¿Sin internet o caída técnica? La plataforma activa de manera inteligente el modo contingencia offline (FALLBACK). Genera el código QR de validación local y estampa la leyenda de ley para que sigas vendiendo sin frenar tu operación. Sincroniza al volver.
-                    </p>
-                </div>
-                
-                <!-- Feature 3 -->
-                <div class="feature-card" id="salud-fiscal">
-                    <div class="feature-icon-box" style="background: rgba(245, 158, 11, 0.1); color: var(--accent-yellow);">
-                        <i class="fa-solid fa-scale-balanced"></i>
-                    </div>
-                    <h3 class="feature-title">Semáforo Salud Fiscal RST</h3>
-                    <p class="feature-description">
-                        Monitoreo preventivo y matemático para contribuyentes del Régimen Simplificado (RST) de ingresos. Una barra de control te avisa qué tan cerca estás del límite legal anual 2026 (<strong>RD$ 12.06M</strong>) para que no seas excluido al régimen general.
-                    </p>
-                </div>
-                
-                <!-- Feature 4 -->
-                <div class="feature-card">
-                    <div class="feature-icon-box" style="background: rgba(16, 185, 129, 0.1); color: var(--accent-emerald);">
-                        <i class="fa-solid fa-cash-register"></i>
-                    </div>
-                    <h3 class="feature-title">POS y Cierre Supervisado</h3>
-                    <p class="feature-description">
-                        Terminal de punto de venta exprés compatible con lectores de códigos de barra. Incluye emisión de facturas rápidas, consolidación automática al cierre (Norma DGII 02-2023) y arqueos auditados mediante PIN de supervisor.
-                    </p>
-                </div>
-                
-                <!-- Feature 5 -->
-                <div class="feature-card">
-                    <div class="feature-icon-box" style="background: rgba(59, 130, 246, 0.1); color: #3b82f6;">
-                        <i class="fa-solid fa-wand-magic-sparkles"></i>
-                    </div>
-                    <h3 class="feature-title">CxC & CxP con Cobranza IA</h3>
-                    <p class="feature-description">
-                        Control total de tus Cuentas por Cobrar y Pagar. Genera promesas de pago estructuradas y utiliza Inteligencia Artificial para redactar recordatorios personalizados y persuasivos para enviar por WhatsApp o Correo.
-                    </p>
-                </div>
-                
-                <!-- Feature 6 -->
-                <div class="feature-card">
-                    <div class="feature-icon-box" style="background: rgba(139, 92, 246, 0.1); color: var(--accent-purple);">
-                        <i class="fa-solid fa-chart-line"></i>
-                    </div>
-                    <h3 class="feature-title">Business Intelligence & Tax</h3>
-                    <p class="feature-description">
-                        Analiza la salud de tu negocio con KPI premium de margen de ganancias, rentabilidad de productos y estimaciones en tiempo real de obligaciones tributarias (ITBIS, ISR, RST y Anticipos).
-                    </p>
-                </div>
-
-                <!-- Feature 7 -->
-                <div class="feature-card">
-                    <div class="feature-icon-box" style="background: rgba(236, 72, 153, 0.1); color: #ec4899;">
-                        <i class="fa-solid fa-trophy"></i>
-                    </div>
-                    <h3 class="feature-title">Metas y Comisiones de Venta</h3>
-                    <p class="feature-description">
-                        Calcula automáticamente comisiones de tu equipo comercial basadas en facturación cobrada. Define metas mensuales, sigue el desempeño de cada vendedor y motiva a tu equipo con clasificaciones.
-                    </p>
-                </div>
-
-                <!-- Feature 8 -->
-                <div class="feature-card">
-                    <div class="feature-icon-box">
-                        <i class="fa-solid fa-mobile-screen-button"></i>
-                    </div>
-                    <h3 class="feature-title">Multidispositivo iOS/macOS</h3>
-                    <p class="feature-description">
-                        Lleva tu facturación contigo. Con el mismo usuario puedes sincronizar tus catálogos, clientes y secuencias en tiempo real con nuestra aplicación nativa disponible en dispositivos móviles Apple (iOS y macOS).
-                    </p>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- 4. Cotizador Interactivo de Precios (Precios) -->
-    <section class="pricing-section" id="cotizador">
-        <div class="landing-container pricing-container">
-            <div class="section-header">
-                <h2 class="section-title">Precios Transparentes según tu Volumen</h2>
-                <p class="section-subtitle">No pagues de más. Nuestras cotizaciones están personalizadas matemáticamente según el volumen exacto de documentos electrónicos que emites mensualmente.</p>
-            </div>
-            
-            <div class="calculator-card">
-                <div class="slider-container">
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <span class="slider-title">Volumen de Facturas Estimado</span>
-                    </div>
-                    <div class="slider-value-display">
-                        <span id="slider-display-val">100</span> <span style="font-size:1.1rem; color:var(--text-secondary); font-weight:500;">/ mes</span>
-                    </div>
-                    <input type="range" min="5" max="5000" step="5" value="100" class="premium-slider" id="invoice-slider">
-                    
-                    <div style="display:flex; justify-content:space-between; font-size:0.75rem; color:var(--text-muted); font-weight:600; margin-top:5px;">
-                        <span>5 e-CF</span>
-                        <span>1,000 e-CF</span>
-                        <span>2,500 e-CF</span>
-                        <span>5,000+ e-CF</span>
-                    </div>
-                </div>
-                
-                <div class="calculator-result">
-                    <span class="category-tag" id="calc-category-tag">Micro-Emisor</span>
-                    <h4 class="category-title" id="calc-category-title">Plan Pyme Inicial</h4>
-                    <p class="category-description" id="calc-category-desc">
-                        Excelente para profesionales independientes o freelancers en régimen RST. Cubre de sobra los requerimientos de NCF del mes y cuenta con soporte técnico prioritario por correo.
-                    </p>
-                    
-                    <a href="#solicitar-cotizacion-ancla" id="calc-action-btn" class="btn btn-primary" style="width:100%; margin-top:10px;">
-                        <i class="fa-solid fa-envelope-open-text"></i> Solicitar Cotización Formal
+    <footer id="contact" class="relative border-t border-white/5 bg-midnight-900">
+        <div class="max-w-7xl mx-auto px-6 lg:px-8 py-16">
+            <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-12">
+                <div class="lg:col-span-1">
+                    <a href="{{ url_for('web_auth.home') }}" class="flex items-center gap-3 mb-6">
+                        <img src="{{ url_for('static', filename='images/logo.png') }}" alt="e-Factura" class="w-10 h-10 object-contain">
+                        <span class="font-display text-2xl font-bold">e-Factura</span>
                     </a>
+                    <p class="text-gray-400 mb-6">e-Factura es el sistema de facturación electrónica e-CF certificado por la DGII para empresas dominicanas.</p>
+                </div>
+
+                <div>
+                    <h4 class="font-display font-semibold mb-6">Producto</h4>
+                    <ul class="space-y-3">
+                        <li><a href="#features" class="text-gray-400 hover:text-amber-400 transition-colors">Características</a></li>
+                        <li><a href="#pricing" class="text-gray-400 hover:text-amber-400 transition-colors">Precios</a></li>
+                        <li><a href="{{ url_for('web_auth.api_docs') }}" class="text-gray-400 hover:text-amber-400 transition-colors">API</a></li>
+                        <li><a href="#faq" class="text-gray-400 hover:text-amber-400 transition-colors">FAQ</a></li>
+                    </ul>
+                </div>
+
+                <div>
+                    <h4 class="font-display font-semibold mb-6">Recursos</h4>
+                    <ul class="space-y-3">
+                        <li><a href="{{ url_for('web_auth.faqs') }}" class="text-gray-400 hover:text-amber-400 transition-colors">Centro de Ayuda</a></li>
+                        <li><a href="{{ url_for('web_auth.api_docs') }}" class="text-gray-400 hover:text-amber-400 transition-colors">Documentación API</a></li>
+                    </ul>
+                </div>
+
+                <div>
+                    <h4 class="font-display font-semibold mb-6">Servicio al cliente</h4>
+                    <ul class="space-y-3 text-gray-400">
+                        <li>
+                            <a href="mailto:efactura@mdevs.com" class="flex items-center gap-3 hover:text-amber-400 transition-colors">
+                                <svg class="w-5 h-5 text-amber-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                                efactura@mdevs.com
+                            </a>
+                        </li>
+                        <li>
+                            <a href="tel:8098668227" class="flex items-center gap-3 hover:text-amber-400 transition-colors">
+                                <svg class="w-5 h-5 text-amber-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>
+                                8098668227
+                            </a>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <svg class="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                            <span>Santo Domingo, DN</span>
+                        </li>
+                    </ul>
                 </div>
             </div>
-        </div>
-    </section>
 
-    <!-- 5. Formulario de Demo / Contacto (Lead Generation) -->
-    <section class="contact-section" id="demo">
-        <div class="landing-container" id="solicitar-cotizacion-ancla">
-            <div class="contact-card">
-                <div class="contact-grid">
-                    <div class="contact-info">
-                        <h3>¿Listo para dar el gran paso hacia la nube fiscal?</h3>
-                        <p>Completa tus datos en el formulario y uno de nuestros expertos se pondrá en contacto contigo para ofrecerte una demostración personalizada en Sandbox o generarte una cotización basada en tu volumen.</p>
-                        
-                        <div class="contact-benefit-item">
-                            <i class="fa-solid fa-circle-check"></i>
-                            <span>Activación inmediata en entorno de pruebas</span>
-                        </div>
-                        <div class="contact-benefit-item">
-                            <i class="fa-solid fa-circle-check"></i>
-                            <span>Asesoría gratuita en la firma digital Cámara de Comercio</span>
-                        </div>
-                        <div class="contact-benefit-item">
-                            <i class="fa-solid fa-circle-check"></i>
-                            <span>Precios ajustados de forma justa a tu volumen</span>
-                        </div>
-                    </div>
-                    
-                    <div>
-                        <!-- Formulario de Entrada -->
-                        <form id="landing-lead-form" class="glass-form">
-                            <!-- Input Oculto de volumen capturado del slider -->
-                            <input type="hidden" name="volumen_facturas" id="form-hidden-volume" value="100">
-                            
-                            <div class="form-group">
-                                <label for="form-name">Nombre Completo *</label>
-                                <input type="text" id="form-name" name="name" class="form-input" placeholder="Ingresa tu nombre y apellido" required>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="form-email">Correo Electrónico Corporativo *</label>
-                                <input type="email" id="form-email" name="email" class="form-input" placeholder="ejemplo@empresa.com" required>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="form-phone">Teléfono de Contacto *</label>
-                                <input type="tel" id="form-phone" name="phone" class="form-input" placeholder="809-555-0199" required>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="form-rnc">RNC de la Empresa (Opcional)</label>
-                                <input type="text" id="form-rnc" name="rnc" class="form-input" placeholder="131689787">
-                            </div>
-
-                            <div class="form-group">
-                                <label for="form-transactions">¿Cuántas transacciones emite mensualmente aproximadamente? *</label>
-                                <select id="form-transactions" name="transactions_qty" class="form-select" required style="height: 38px;">
-                                    <option value="" disabled selected>Seleccione un rango...</option>
-                                    <option value="Menos de 50">Menos de 50</option>
-                                    <option value="50 a 200">50 a 200</option>
-                                    <option value="200 a 500">200 a 500</option>
-                                    <option value="500 a 1,500">500 a 1,500</option>
-                                    <option value="Más de 1,500">Más de 1,500</option>
-                                </select>
-                            </div>
-
-                            <div class="form-group">
-                                <label for="form-comments">Comentarios / Requerimientos Adicionales</label>
-                                <textarea id="form-comments" name="comments" class="form-textarea" placeholder="Cuéntanos más sobre tus necesidades..." rows="3" style="resize: vertical; padding: 10px;"></textarea>
-                            </div>
-                            
-                            <button type="submit" class="btn btn-primary" style="width:100%; padding:14px; margin-top:10px;">
-                                <i class="fa-solid fa-paper-plane"></i>
-                                <span>Solicitar Demo & Cotización</span>
-                            </button>
-                        </form>
-                        
-                        <!-- Tarjeta de Éxito Oculta (Vanilla JS AJAX) -->
-                        <div id="form-success-card" class="glass-form form-success-state">
-                            <div class="form-success-icon">
-                                <i class="fa-solid fa-circle-check"></i>
-                            </div>
-                            <h4 class="form-success-title">¡Solicitud Enviada!</h4>
-                            <p class="form-success-text">
-                                Hemos recibido tus datos exitosamente. Un especialista fiscal de <strong>e-Factura</strong> te contactará por correo o llamada telefónica en un plazo menor a 24 horas laborables para coordinar tu demostración y entregarte tu cotización adaptada de <span id="success-volume-label" style="font-weight:500; color:var(--accent-emerald);">100</span> facturas/mes. ¡Gracias por confiar en nosotros!
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- 7. Footer -->
-    <footer class="landing-footer">
-        <div class="landing-container">
-            <div class="footer-top">
-                <a href="#" class="landing-logo">
-                    <img src="{{ url_for('static', filename='images/logo.png') }}" alt="e-Factura" style="height: 40px; width: auto; object-fit: contain;">
-                </a>
-                <p style="max-width:350px; font-size:0.88rem; color:var(--text-secondary); line-height:1.5;">
-                    La plataforma fiscal premium de facturación electrónica diseñada de forma nativa para las regulaciones de República Dominicana.
-                </p>
-            </div>
-            
-            <div class="footer-bottom">
-                <span>&copy; 2026 e-Factura. Todos los derechos reservados. Conforme a la Ley 32-23 de la República Dominicana.</span>
-                <div class="footer-socials">
-                    <a href="#" class="footer-social-link"><i class="fa-brands fa-x-twitter"></i></a>
-                    <a href="#" class="footer-social-link"><i class="fa-brands fa-linkedin"></i></a>
-                    <a href="#" class="footer-social-link"><i class="fa-brands fa-github"></i></a>
+            <div class="border-t border-white/5 mt-16 pt-8">
+                <div class="flex flex-col md:flex-row justify-between items-center gap-2 text-xs text-gray-500">
+                    <p>&copy; 2026 e-Factura. Todos los derechos reservados.</p>
+                    <p>Pagos seguros · Autenticación 3D Secure en cada transacción</p>
                 </div>
             </div>
         </div>
     </footer>
 
-    <!-- JavaScript del Ecosistema de la Landing Page -->
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // A. Lógica del Selector del Mockup Interactivo
-            const tabButtons = document.querySelectorAll('.mockup-tab-btn');
-            const slides = document.querySelectorAll('.mockup-slide');
-            
-            tabButtons.forEach(btn => {
-                btn.addEventListener('click', function() {
-                    tabButtons.forEach(b => b.classList.remove('active'));
-                    slides.forEach(s => s.classList.remove('active'));
-                    
-                    this.classList.add('active');
-                    const targetSlide = document.getElementById(this.getAttribute('data-target'));
-                    if (targetSlide) {
-                        targetSlide.classList.add('active');
-                    }
-                });
-            });
-            
-            // B. Lógica del Slider del Estimador de Precios y Volumen
-            const slider = document.getElementById('invoice-slider');
-            const displayVal = document.getElementById('slider-display-val');
-            const categoryTag = document.getElementById('calc-category-tag');
-            const categoryTitle = document.getElementById('calc-category-title');
-            const categoryDesc = document.getElementById('calc-category-desc');
-            const formHiddenVolume = document.getElementById('form-hidden-volume');
-            
-            function updateCalculator(val) {
-                displayVal.textContent = Number(val).toLocaleString('es-DO');
-                formHiddenVolume.value = val;
-                
-                if (val <= 50) {
-                    categoryTag.textContent = "Micro-Emisor";
-                    categoryTag.style.color = "var(--accent-emerald)";
-                    categoryTag.style.backgroundColor = "var(--bg-brand-translucent)";
-                    categoryTitle.textContent = "Plan Profesional / RST";
-                    categoryDesc.textContent = "Ideal para freelancers, consultores o pequeños médicos independientes acogidos al régimen RST. Incluye firma digital básica e historial completo de e-CF.";
-                } else if (val <= 300) {
-                    categoryTag.textContent = "Pyme Inicial";
-                    categoryTag.style.color = "var(--accent-emerald)";
-                    categoryTag.style.backgroundColor = "var(--bg-brand-translucent)";
-                    categoryTitle.textContent = "Plan Crecimiento Pyme";
-                    categoryDesc.textContent = "Excelente para comercios minoristas locales o prestadores de servicios de tamaño medio que emiten NCF diariamente. Soporta modo contingencia ilimitado y multiusuario.";
-                } else if (val <= 1500) {
-                    categoryTag.textContent = "Empresa Consolidada";
-                    categoryTag.style.color = "var(--accent-yellow)";
-                    categoryTag.style.backgroundColor = "rgba(245, 158, 11, 0.1)";
-                    categoryTitle.textContent = "Plan Corporativo Nube";
-                    categoryDesc.textContent = "Perfecto para distribuidoras o empresas en expansión con transacciones continuas. Incluye integración en lote, CRM avanzado de cobros con Neto a Recibir, y soporte de guardia.";
-                } else {
-                    categoryTag.textContent = "Gran Contribuyente / API";
-                    categoryTag.style.color = "var(--accent-red)";
-                    categoryTag.style.backgroundColor = "rgba(239, 68, 68, 0.1)";
-                    categoryTitle.textContent = "Plan Enterprise Premium";
-                    categoryDesc.textContent = "Tarificación optimizada por API para alto volumen transaccional (más de 1,500 e-CF/mes). Soporte prioritario y servidores redundantes dedicados.";
+        const observerOptions = {
+            threshold: 0.1,
+            rootMargin: '0px 0px -50px 0px'
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
                 }
-            }
-            
-            slider.addEventListener('input', function() {
-                updateCalculator(this.value);
             });
-            updateCalculator(slider.value); // Ejecución inicial
+        }, observerOptions);
 
-            // F. Lógica de Pestañas del Mock Editor de Código API
-            const codeTabs = document.querySelectorAll('.code-tab');
-            const codeBlocks = document.querySelectorAll('.code-block');
-            
-            codeTabs.forEach(tab => {
-                tab.addEventListener('click', function() {
-                    const parent = this.closest('.code-editor');
-                    if (parent) {
-                        const tabs = parent.querySelectorAll('.code-tab');
-                        const blocks = parent.querySelectorAll('.code-block');
-                        
-                        tabs.forEach(t => t.classList.remove('active'));
-                        blocks.forEach(b => b.style.display = 'none');
-                        
-                        this.classList.add('active');
-                        const targetId = this.getAttribute('data-code');
-                        if (targetId) {
-                            const targetBlock = document.getElementById('code-' + targetId);
-                            if (targetBlock) {
-                                targetBlock.style.display = 'block';
-                            }
-                        }
-                    }
-                });
+        document.querySelectorAll('.fade-in').forEach(el => {
+            observer.observe(el);
+        });
+
+        const monthlyBtn = document.getElementById('monthly-btn');
+        const annualBtn = document.getElementById('annual-btn');
+        const monthlyPrices = document.querySelectorAll('.price-monthly');
+        const annualPrices = document.querySelectorAll('.price-annual');
+
+        function setMonthly() {
+            monthlyBtn.classList.add('bg-amber-500', 'text-midnight-900');
+            monthlyBtn.classList.remove('text-gray-400');
+            annualBtn.classList.remove('bg-amber-500', 'text-midnight-900');
+            annualBtn.classList.add('text-gray-400');
+            monthlyPrices.forEach(el => el.classList.remove('hidden'));
+            annualPrices.forEach(el => el.classList.add('hidden'));
+        }
+
+        function setAnnual() {
+            annualBtn.classList.add('bg-amber-500', 'text-midnight-900');
+            annualBtn.classList.remove('text-gray-400');
+            monthlyBtn.classList.remove('bg-amber-500', 'text-midnight-900');
+            monthlyBtn.classList.add('text-gray-400');
+            annualPrices.forEach(el => el.classList.remove('hidden'));
+            monthlyPrices.forEach(el => el.classList.add('hidden'));
+        }
+
+        monthlyBtn.addEventListener('click', setMonthly);
+        annualBtn.addEventListener('click', setAnnual);
+
+        const usdBtn = document.getElementById('usd-btn');
+        const dopBtn = document.getElementById('dop-btn');
+        const priceSpans = document.querySelectorAll('[data-usd][data-dop]');
+
+        function setCurrency(currency) {
+            const activeBtn = currency === 'usd' ? usdBtn : dopBtn;
+            const inactiveBtn = currency === 'usd' ? dopBtn : usdBtn;
+            activeBtn.classList.add('bg-teal-500', 'text-midnight-900');
+            activeBtn.classList.remove('text-gray-400');
+            inactiveBtn.classList.remove('bg-teal-500', 'text-midnight-900');
+            inactiveBtn.classList.add('text-gray-400');
+            priceSpans.forEach(el => {
+                el.textContent = el.dataset[currency];
             });
+        }
 
-            // Formateador de Teléfono (XXX-XXX-XXXX)
-            const phoneInput = document.getElementById('form-phone');
-            if (phoneInput) {
-                phoneInput.addEventListener('input', function(e) {
-                    let x = e.target.value.replace(/\D/g, '').match(/(\d{0,3})(\d{0,3})(\d{0,4})/);
-                    e.target.value = !x[2] ? x[1] : x[1] + '-' + x[2] + (x[3] ? '-' + x[3] : '');
-                });
-            }
-            const leadForm = document.getElementById('landing-lead-form');
-            const successCard = document.getElementById('form-success-card');
-            const successVolumeLabel = document.getElementById('success-volume-label');
-            
-            if (leadForm) {
-                leadForm.addEventListener('submit', function(event) {
-                    event.preventDefault(); // Evitar recarga
-                    
-                    const formData = new FormData(leadForm);
-                    const volumeVal = Number(slider.value).toLocaleString('es-DO');
-                    successVolumeLabel.textContent = volumeVal;
-                    
-                    // Convertir FormData a JSON
-                    const data = {};
-                    formData.forEach((value, key) => { data[key] = value });
-                    
-                    // Enviar AJAX a Flask
-                    fetch('/api/solicitar-demo', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify(data)
-                    })
-                    .then(response => response.json())
-                    .then(res => {
-                        if (res.success) {
-                            leadForm.style.display = 'none';
-                            successCard.style.display = 'block';
-                            successCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                        } else {
-                            alert('Error al enviar la solicitud: ' + (res.error || 'Inténtelo de nuevo.'));
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error:', error);
-                        // Mock fallback por si acaso falla la API
-                        leadForm.style.display = 'none';
-                        successCard.style.display = 'block';
-                        successCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        usdBtn.addEventListener('click', () => setCurrency('usd'));
+        dopBtn.addEventListener('click', () => setCurrency('dop'));
+
+        document.querySelectorAll('.faq-toggle').forEach(button => {
+            button.addEventListener('click', () => {
+                const content = button.nextElementSibling;
+                const icon = button.querySelector('.faq-icon');
+                const isOpen = content.classList.contains('open');
+
+                document.querySelectorAll('.faq-content').forEach(c => c.classList.remove('open'));
+                document.querySelectorAll('.faq-icon').forEach(i => i.classList.remove('rotate-180'));
+
+                if (!isOpen) {
+                    content.classList.add('open');
+                    icon.classList.add('rotate-180');
+                }
+            });
+        });
+
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function(e) {
+                e.preventDefault();
+                const targetId = this.getAttribute('href');
+                if (targetId === '#') return;
+                const target = document.querySelector(targetId);
+                if (target) {
+                    const offset = 100;
+                    const targetPosition = target.getBoundingClientRect().top + window.pageYOffset - offset;
+                    window.scrollTo({
+                        top: targetPosition,
+                        behavior: 'smooth'
                     });
-                });
+                }
+            });
+        });
+
+        const nav = document.querySelector('nav');
+        window.addEventListener('scroll', () => {
+            if (window.scrollY > 50) {
+                nav.classList.add('bg-midnight-900/90');
+            } else {
+                nav.classList.remove('bg-midnight-900/90');
             }
         });
     </script>
