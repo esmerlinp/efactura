@@ -174,6 +174,7 @@ class AlanubeService:
                         "xmlUrl": data.get("xml_url"),
                         "mode": "API",
                         "status": data.get("status"),
+                        "dgiiStatus": data.get("status") or "ACCEPTED",
                         "requestPayload": payload,
                         "responseBody": data,
                         "statusCode": response.status_code
@@ -239,6 +240,8 @@ class AlanubeService:
                 "pdfUrl": pdf_url,
                 "xmlUrl": xml_url,
                 "mode": "FALLBACK",
+                "status": "CONTINGENCY",
+                "dgiiStatus": "CONTINGENCY",
                 "requestPayload": payload,
                 "responseBody": error_detail or {"error": "Unauthorized / Contingency Fallback Activated"},
                 "statusCode": response_status_code
@@ -1002,7 +1005,6 @@ class AlanubeService:
                 "success": False,
                 "message": f"Error de conexión con la API de Alanube: {str(e)}"
             }
-
 
 
 

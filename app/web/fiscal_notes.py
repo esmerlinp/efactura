@@ -83,16 +83,33 @@ def save_fiscal_note():
         return redirect(url_for('web_fiscal_notes.list_fiscal_notes'))
 
     ref_total = float(ref_invoice.get('netPayable', ref_invoice.get('total', 0)))
+    ref_subtotal = float(ref_invoice.get('subtotal', 0.0))
+    ref_itbis = float(ref_invoice.get('totalITBIS', ref_invoice.get('itbis', 0.0)))
+    itbis_rate = (ref_itbis / ref_subtotal) if ref_subtotal > 0 else 0.0
+
+    if ref_invoice.get('status') in ('Borrador', 'Anulada'):
+        flash('❌ No puedes crear una nota basada en un documento no emitido o anulado.', 'error')
+        return redirect(url_for('web_fiscal_notes.list_fiscal_notes'))
+
+    if ref_invoice.get('emisionMode') == 'FALLBACK' and not ref_invoice.get('isSyncedWithDGII', False):
+        flash('❌ La factura de referencia está en contingencia y no ha sido aceptada por la DGII.', 'error')
+        return redirect(url_for('web_fiscal_notes.list_fiscal_notes'))
+
     if note_type == 'E34':
         credited_amount = float(request.form.get('creditedAmount', ref_total))
+        if credited_amount <= 0:
+            flash('❌ El monto a acreditar debe ser mayor a 0.', 'error')
+            return redirect(url_for('web_fiscal_notes.create_fiscal_note', type=note_type, reference_invoice_id=ref_invoice_id))
         if credited_amount > ref_total:
             flash(f'❌ El monto a acreditar (RD$ {credited_amount:,.2f}) no puede exceder el total de la factura original (RD$ {ref_total:,.2f}).', 'error')
             return redirect(url_for('web_fiscal_notes.create_fiscal_note', type=note_type, reference_invoice_id=ref_invoice_id))
+        note_amount = credited_amount
     else:
         debited_amount = float(request.form.get('debitedAmount', 0))
         if debited_amount <= 0:
             flash('❌ El monto a debitar debe ser mayor a 0.', 'error')
             return redirect(url_for('web_fiscal_notes.create_fiscal_note', type=note_type, reference_invoice_id=ref_invoice_id))
+        note_amount = debited_amount
 
     modification_codes = {
         '1': 'Devolución',
@@ -107,6 +124,20 @@ def save_fiscal_note():
     inv_id = str(uuid.uuid4())
     inv_number = f"NC-{ref_invoice.get('invoiceNumber', ref_invoice_id)[-6:]}" if note_type == 'E34' else f"ND-{ref_invoice.get('invoiceNumber', ref_invoice_id)[-6:]}"
 
+    unit_price = round(note_amount / (1.0 + itbis_rate), 2) if itbis_rate > 0 else round(note_amount, 2)
+    items = [{
+        "id": str(uuid.uuid4()),
+        "code": "AJUSTE-NC" if note_type == 'E34' else "AJUSTE-ND",
+        "type": "Servicio",
+        "name": f"Ajuste {ecf_type_label} {ref_invoice.get('invoiceNumber', ref_invoice_id)}",
+        "price": unit_price,
+        "quantity": 1,
+        "itbisRate": itbis_rate,
+        "discountRate": 0.0
+    }]
+
+    calcs = DGIIService.calculate_invoice_totals(items, discount_rate=0.0, retained_isr_rate=0.0, retained_itbis_rate=0.0)
+
     inv_data = {
         "id": inv_id,
         "invoiceNumber": inv_number,
@@ -120,11 +151,11 @@ def save_fiscal_note():
         "razonSocial": ref_invoice.get("razonSocial", ref_invoice.get("clientName", "")),
         "currency": ref_invoice.get("currency", "DOP"),
         "exchangeRate": ref_invoice.get("exchangeRate", 1.0),
-        "items": ref_invoice.get("items", []),
-        "subtotal": ref_total if note_type == 'E34' else debited_amount,
-        "itbis": 0,
-        "total": ref_total if note_type == 'E34' else debited_amount,
-        "netPayable": ref_total if note_type == 'E34' else debited_amount,
+        "items": calcs["items"],
+        "subtotal": calcs["subtotal"],
+        "totalITBIS": calcs["total_itbis"],
+        "total": calcs["total"],
+        "netPayable": calcs["net_payable"],
         "informationReference": {
             "modificationCode": int(modification_code),
             "ncfModified": ref_invoice.get("encf", ref_invoice.get("ncf", "")),
@@ -135,6 +166,8 @@ def save_fiscal_note():
         "notes": notes,
         "createdBy": user.get('displayName', 'Usuario'),
         "createdAt": datetime.utcnow().isoformat(),
+        "creditedAmount": note_amount if note_type == 'E34' else 0.0,
+        "debitedAmount": note_amount if note_type == 'E33' else 0.0,
     }
 
     DatabaseService.save_invoice(owner_uid, inv_id, inv_data, sandbox=sandbox)

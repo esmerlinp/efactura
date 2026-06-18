@@ -186,6 +186,7 @@ class DGIIService:
         total_itbis = 0.0
         total_isc_especifico = 0.0
         total_isc_advalorem = 0.0
+        total_otros_impuestos = 0.0
         
         calculated_items = []
         for item in items:
@@ -284,7 +285,7 @@ class DGIIService:
             total_itbis += item_itbis
             total_isc_especifico += isc_especifico
             total_isc_advalorem += isc_advalorem
-            total_isc_especifico += otros_impuestos # Sumamos en total_otros_impuestos local
+            total_otros_impuestos += otros_impuestos
             
             calculated_items.append({
                 **item,
@@ -306,7 +307,6 @@ class DGIIService:
         subtotal = subtotal_raw - total_discount
         
         # Recalcular ITBIS si hay descuento global proporcional o usar la suma de ITBIS individuales
-        total_otros_impuestos = 0.0
         if discount_rate > 0.0:
             total_itbis = 0.0
             for item in calculated_items:

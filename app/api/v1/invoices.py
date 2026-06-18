@@ -1,4 +1,5 @@
 # app/api/v1/invoices.py
+import json
 import uuid
 from datetime import datetime, timedelta
 from flask import Blueprint, request, g, jsonify
@@ -20,6 +21,12 @@ def emit_invoice():
     """
     try:
         data = request.json or {}
+        idempotency_key = request.headers.get('Idempotency-Key') or data.get('idempotency_key')
+        if idempotency_key:
+            record = DatabaseService.get_idempotency_record(g.owner_uid, idempotency_key, sandbox=g.sandbox_mode)
+            if record and record.get("response"):
+                status_code = int(record.get("statusCode", 200))
+                return jsonify(record["response"]), status_code
         
         # Validaciones iniciales del Payload
         items = data.get('items', [])
@@ -33,37 +40,40 @@ def emit_invoice():
         payment_method = data.get('payment_method', 'Efectivo')
         due_date = data.get('due_date', datetime.utcnow().strftime("%Y-%m-%d"))
         
-        # Cálculo de subtotals y taxes
-        subtotal = 0.0
-        total_itbis = 0.0
-        formatted_items = []
-        
+        # Cálculo fiscal completo (DGII)
+        parsed_items = []
         for index, item in enumerate(items):
             price = float(item.get('price', 0.0))
             qty = float(item.get('quantity', 1.0))
-            itbis_rate = float(item.get('itbis_rate', 0.18))
-            
-            line_subtotal = price * qty
-            line_itbis = line_subtotal * itbis_rate
-            
-            subtotal += line_subtotal
-            total_itbis += line_itbis
-            
-            formatted_items.append({
-                "itemId": item.get('id', f"api_item_{index}"),
+            itbis_rate = float(item.get('itbis_rate', item.get('itbisRate', 0.18)))
+            parsed_items.append({
+                "id": item.get('id') or item.get('item_id') or f"api_item_{index}",
+                "code": item.get('code', ''),
+                "type": item.get('type', 'Bien'),
                 "name": item.get('name', 'Artículo Genérico'),
                 "price": price,
                 "quantity": qty,
                 "unit": item.get('unit', 'Unidad'),
                 "itbisRate": itbis_rate,
-                "subtotal": line_subtotal,
-                "itbis": line_itbis,
-                "total": line_subtotal + line_itbis
+                "discountRate": float(item.get('discount_rate', item.get('discountRate', 0.0))),
+                "codigoImpuesto": item.get('codigo_impuesto', item.get('codigoImpuesto', '')),
+                "tasaImpuestoAdicional": float(item.get('tasa_impuesto_adicional', item.get('tasaImpuestoAdicional', 0.0))),
+                "gradosAlcohol": float(item.get('grados_alcohol', item.get('gradosAlcohol', 0.0))),
+                "cantidadReferencia": float(item.get('cantidad_referencia', item.get('cantidadReferencia', 0.0))),
+                "subcantidad": float(item.get('subcantidad', 1.0)),
+                "precioReferencia": float(item.get('precio_referencia', item.get('precioReferencia', 0.0))),
+                "tasaImpuestoAdValorem": float(item.get('tasa_impuesto_ad_valorem', item.get('tasaImpuestoAdValorem', 0.0)))
             })
-            
+
         discount_rate = float(data.get('discount_rate', 0.0))
-        discount_amount = subtotal * discount_rate
-        total = (subtotal - discount_amount) + total_itbis
+        retained_isr_rate = float(data.get('retained_isr_rate', data.get('retainedISRRate', 0.0)))
+        retained_itbis_rate = float(data.get('retained_itbis_rate', data.get('retainedITBISRate', 0.0)))
+        calcs = DGIIService.calculate_invoice_totals(
+            parsed_items,
+            discount_rate=discount_rate,
+            retained_isr_rate=retained_isr_rate,
+            retained_itbis_rate=retained_itbis_rate
+        )
         
         invoice_id = str(uuid.uuid4())
         
@@ -77,11 +87,16 @@ def emit_invoice():
             "paymentMethod": payment_method,
             "dueDate": due_date,
             "discountRate": discount_rate,
-            "subtotal": subtotal,
-            "totalITBIS": total_itbis,
-            "netPayable": total,
-            "total": total,
-            "items": formatted_items,
+            "retainedISR": calcs["retained_isr"],
+            "retainedITBIS": calcs["retained_itbis"],
+            "subtotal": calcs["subtotal"],
+            "totalITBIS": calcs["total_itbis"],
+            "total": calcs["total"],
+            "netPayable": calcs["net_payable"],
+            "totalISCEspecifico": calcs["total_isc_especifico"],
+            "totalISCAdValorem": calcs["total_isc_advalorem"],
+            "totalOtrosImpuestos": calcs["total_otros_impuestos"],
+            "items": calcs["items"],
             "status": "Borrador",
             "date": datetime.utcnow().isoformat(),
             "incomeType": data.get('income_type', '01 - Ingresos por operaciones'),
@@ -108,7 +123,8 @@ def emit_invoice():
         res = EcfEmissionService.emit_electronic_comprobante(company, invoice_dict, sandbox=g.sandbox_mode)
         
         if res.get('success'):
-            invoice_dict["status"] = "Pendiente DGII" if res.get("status") == "PENDING" else "Emitida"
+            pending_dgii = res.get("status") == "PENDING" or res.get("mode") == "FALLBACK"
+            invoice_dict["status"] = "Pendiente DGII" if pending_dgii else "Emitida"
             invoice_dict["encf"] = res.get("encf", invoice_dict.get("encf", ""))
             invoice_dict["xmlSignature"] = res.get("xmlSignature") or res.get("trackId") or ""
             invoice_dict["qrCodeURL"] = res.get("qrCodeURL", "")
@@ -116,11 +132,12 @@ def emit_invoice():
             invoice_dict["firebaseXMLURL"] = res.get("xmlUrl", "")
             invoice_dict["isSyncedWithDGII"] = (res.get("mode", "API") == "API" and res.get("status") != "PENDING")
             invoice_dict["emisionMode"] = res.get("mode", "API")
+            invoice_dict["dgiiStatus"] = res.get("dgiiStatus") or ("PENDING" if pending_dgii else "ACCEPTED")
             
             # Guardamos con el estado final actualizado
             DatabaseService.save_invoice(g.owner_uid, invoice_id, invoice_dict, sandbox=g.sandbox_mode)
             
-            return jsonify({
+            response_body = {
                 "success": True,
                 "message": "Factura Electrónica e-CF emitida exitosamente.",
                 "invoice_id": invoice_id,
@@ -130,21 +147,73 @@ def emit_invoice():
                 "qrCodeURL": res.get("qrCodeURL", ""),
                 "pdfUrl": res.get("pdfUrl", ""),
                 "xmlUrl": res.get("xmlUrl", ""),
-                "total": total
-            })
+                "total": invoice_dict["total"]
+            }
+            try:
+                logs = DatabaseService.get_sequence_logs(g.owner_uid, sandbox=g.sandbox_mode)
+                log = next((l for l in logs if l.get("encf") == invoice_dict.get("encf")), None)
+                if log:
+                    cuadratura = DGIIService.check_tolerancia_cuadratura(invoice_dict.get("items", []), invoice_dict.get("total", 0.0))
+                    estado_dgii = "ACCEPTED" if cuadratura["within_tolerance"] else "ACCEPTED_CONDITIONAL"
+                    if pending_dgii:
+                        estado_dgii = "PENDING"
+                    elif res.get("mode") == "FALLBACK":
+                        estado_dgii = "CONTINGENCY"
+                    DatabaseService.update_sequence_log(g.owner_uid, log["id"], {
+                        "estado": estado_dgii,
+                        "motivo": res.get("message") or "Emisión API",
+                        "xmlEnviado": json.dumps(res.get("requestPayload"), indent=2) if res.get("requestPayload") else "",
+                        "respuestaDGII": json.dumps(res.get("responseBody"), indent=2) if res.get("responseBody") else ""
+                    }, sandbox=g.sandbox_mode)
+            except Exception as log_err:
+                print(f"⚠️ Error al actualizar log de secuencia en API: {log_err}")
+            if idempotency_key:
+                DatabaseService.save_idempotency_record(g.owner_uid, idempotency_key, {
+                    "response": response_body,
+                    "statusCode": 200,
+                    "invoiceId": invoice_id
+                }, sandbox=g.sandbox_mode)
+            return jsonify(response_body)
         else:
             invoice_dict["status"] = "Rechazada"
+            invoice_dict["dgiiStatus"] = "REJECTED"
             invoice_dict["errorDetail"] = res.get("error", "Error desconocido de emisión")
             DatabaseService.save_invoice(g.owner_uid, invoice_id, invoice_dict, sandbox=g.sandbox_mode)
+
+            try:
+                logs = DatabaseService.get_sequence_logs(g.owner_uid, sandbox=g.sandbox_mode)
+                log = next((l for l in logs if l.get("encf") == invoice_dict.get("encf")), None)
+                if log:
+                    DatabaseService.update_sequence_log(g.owner_uid, log["id"], {
+                        "estado": "REJECTED",
+                        "motivo": invoice_dict.get("errorDetail") or "Emisión API rechazada",
+                        "xmlEnviado": json.dumps(res.get("requestPayload"), indent=2) if res.get("requestPayload") else "",
+                        "respuestaDGII": json.dumps(res.get("responseBody"), indent=2) if res.get("responseBody") else ""
+                    }, sandbox=g.sandbox_mode)
+            except Exception as log_err:
+                print(f"⚠️ Error al actualizar log de secuencia en API (rechazo): {log_err}")
             
-            return jsonify({
+            response_body = {
                 "success": False,
                 "error": "Error al procesar el e-CF con el proveedor de facturación.",
                 "details": res.get("error")
-            }), 422
+            }
+            if idempotency_key:
+                DatabaseService.save_idempotency_record(g.owner_uid, idempotency_key, {
+                    "response": response_body,
+                    "statusCode": 422,
+                    "invoiceId": invoice_id
+                }, sandbox=g.sandbox_mode)
+            return jsonify(response_body), 422
             
     except Exception as e:
-        return jsonify({"success": False, "error": f"Fallo interno del servidor: {str(e)}"}), 500
+        response_body = {"success": False, "error": f"Fallo interno del servidor: {str(e)}"}
+        if 'idempotency_key' in locals() and idempotency_key:
+            DatabaseService.save_idempotency_record(g.owner_uid, idempotency_key, {
+                "response": response_body,
+                "statusCode": 500
+            }, sandbox=g.sandbox_mode)
+        return jsonify(response_body), 500
 
 
 @api_invoices_bp.route('/invoices/<invoice_id>/status', methods=['GET'])
@@ -168,6 +237,7 @@ def get_invoice_status(invoice_id):
             "encf": invoice.get("encf"),
             "track_id": invoice.get("trackId"),
             "is_synced_dgii": invoice.get("isSyncedWithDGII", False),
+            "dgii_status": invoice.get("dgiiStatus", ""),
             "error_detail": invoice.get("errorDetail")
         })
     except Exception as e:
@@ -1101,4 +1171,3 @@ def get_company_plan_consumption():
         })
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
-

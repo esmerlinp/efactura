@@ -2,6 +2,9 @@ from datetime import datetime, timedelta
 import uuid
 import random
 from app.services.db_service import DatabaseService
+from app.services.ecf_emission import EcfEmissionService
+from app.services.alanube import AlanubeService
+from app.services.dgii import DGIIService
 
 class RecurrenceService:
     @staticmethod
@@ -94,9 +97,9 @@ class RecurrenceService:
                     "clientId": original.get("clientId"),
                     "clientName": original.get("clientName"),
                     "clientRNC": original.get("clientRNC"),
-                    "status": "Emitida" if not is_quotation else "Borrador",
+                    "status": "Borrador" if is_quotation else "Pendiente DGII",
                     "ecfType": original.get("ecfType", "Factura de Consumo (E32)"),
-                    "encf": f"{original.get('ecfType', 'E32')[:3]}PENDIENTE" if not is_quotation else "",
+                    "encf": "" if is_quotation else "PENDIENTE",
                     "xmlSignature": "",
                     "qrCodeURL": "",
                     "isSyncedWithDGII": False,
@@ -124,7 +127,52 @@ class RecurrenceService:
                     "exchangeRate": original.get("exchangeRate", 1.0),
                     "items": duplicated_items
                 }
-                
+
+                # Emitir e-CF si aplica
+                if not is_quotation:
+                    try:
+                        company = DatabaseService.get_company_profile(owner_uid)
+                        user_email = company.get("companyEmail", "sistema@efactura.com.do")
+                        ecf_short = AlanubeService.get_ecf_type_short_code(new_invoice["ecfType"])
+                        encf, log_id = DatabaseService.consume_next_sequence(owner_uid, ecf_short, user_email, sandbox=sandbox)
+                        new_invoice["encf"] = encf
+
+                        res = EcfEmissionService.emit_electronic_comprobante(company, new_invoice, sandbox=sandbox)
+                        if res.get("success"):
+                            new_invoice["encf"] = res.get("encf", new_invoice.get("encf", ""))
+                            new_invoice["xmlSignature"] = res.get("xmlSignature", "")
+                            new_invoice["qrCodeURL"] = res.get("qrCodeURL", "")
+                            new_invoice["firebasePDFURL"] = res.get("pdfUrl", "")
+                            new_invoice["firebaseXMLURL"] = res.get("xmlUrl", "")
+                            new_invoice["isSyncedWithDGII"] = (res.get("mode", "API") == "API" and res.get("status") != "PENDING")
+                            new_invoice["emisionMode"] = res.get("mode", "API")
+                            new_invoice["dgiiStatus"] = res.get("dgiiStatus") or ("PENDING" if res.get("status") == "PENDING" else "ACCEPTED")
+                            new_invoice["status"] = "Pendiente DGII" if res.get("status") == "PENDING" or res.get("mode") == "FALLBACK" else "Emitida"
+                            if res.get("mode") == "FALLBACK":
+                                new_invoice["contingencyEmittedAt"] = datetime.utcnow().isoformat()
+                        else:
+                            new_invoice["status"] = "Rechazada"
+                            new_invoice["dgiiStatus"] = "REJECTED"
+                            new_invoice["errorDetail"] = res.get("error") or res.get("message")
+
+                        logs = DatabaseService.get_sequence_logs(owner_uid, sandbox=sandbox)
+                        log = next((l for l in logs if l.get("encf") == new_invoice.get("encf")), None)
+                        if log:
+                            cuadratura = DGIIService.check_tolerancia_cuadratura(new_invoice.get("items", []), new_invoice.get("total", 0.0))
+                            estado_dgii = "ACCEPTED" if cuadratura["within_tolerance"] else "ACCEPTED_CONDITIONAL"
+                            if res.get("mode") == "FALLBACK":
+                                estado_dgii = "CONTINGENCY"
+                            DatabaseService.update_sequence_log(owner_uid, log["id"], {
+                                "estado": estado_dgii,
+                                "motivo": res.get("message") or "Emisión automática por recurrencia",
+                                "xmlEnviado": "",
+                                "respuestaDGII": "",
+                            }, sandbox=sandbox)
+                    except Exception as emit_err:
+                        new_invoice["status"] = "Rechazada"
+                        new_invoice["dgiiStatus"] = "REJECTED"
+                        new_invoice["errorDetail"] = str(emit_err)
+
                 # Guardar la nueva factura
                 DatabaseService.save_invoice(owner_uid, new_id, new_invoice, sandbox=sandbox)
                 
@@ -487,4 +535,3 @@ class RecurrenceService:
                 print(f"❌ Error procesando contrato {contract.get('contractNumber', contract.get('id'))}: {exc}")
 
         return processed_count
-
