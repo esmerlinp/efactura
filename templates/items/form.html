@@ -159,7 +159,7 @@
             <span>Datos del Producto (Catálogo)</span>
         </h3>
         <form
-            action="{% if item %}{{ url_for('edit_item', item_id=item.id) }}{% else %}{{ url_for('new_item') }}{% endif %}"
+            action="{% if item %}{{ url_for('web_invoices.edit_item', item_id=item.id) }}{% else %}{{ url_for('web_invoices.new_item') }}{% endif %}"
             method="POST">
 
             <div class="settings-accordion">
@@ -333,7 +333,9 @@
                                 </div>
 
                                 <div class="form-group">
-                                    <label for="itbis_rate">Tasa de ITBIS Aplicable</label>
+                                    <label for="itbis_rate">Tasa de ITBIS Aplicable
+                                        <i class="fa-solid fa-question-circle" style="color:var(--text-muted); cursor:help;" title="18% tasa general para la mayoría de bienes y servicios. 16% tasa reducida para ciertos productos (ej: algunos alimentos básicos). 0% exento para actividades exentas por ley. La tasa incorrecta puede generar reparos DGII."></i>
+                                    </label>
                                     <select id="itbis_rate" name="itbisRate" class="form-select" required>
                                         <option value="0.18" {% if item and item.itbisRate==0.18 %}selected{% endif %}>
                                             Gravado con ITBIS General (18%)</option>
@@ -356,7 +358,9 @@
                                     <div
                                         style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px;">
                                         <div class="form-group">
-                                            <label for="codigo_impuesto">Tipo de Impuesto Adicional</label>
+                                            <label for="codigo_impuesto">Tipo de Impuesto Adicional
+                                                <i class="fa-solid fa-question-circle" style="color:var(--text-muted); cursor:help;" title="Código DGII para Impuesto Selectivo al Consumo (ISC) o Propina Legal. Aplica a productos específicos como alcohol, telecomunicaciones, seguros y vehículos. Selecciona 'Ninguno' si el producto no está gravado con ISC."></i>
+                                            </label>
                                             <select id="codigo_impuesto" name="codigoImpuesto" class="form-select"
                                                 onchange="toggleIscFields()">
                                                 <option value="" {% if not item or not item.codigoImpuesto %}selected{%
@@ -387,7 +391,9 @@
                                         </div>
 
                                         <div class="form-group isc-field general-tasa">
-                                            <label for="tasa_impuesto_adicional">Tasa o Monto Unitario</label>
+                                            <label for="tasa_impuesto_adicional">Tasa o Monto Unitario
+                                                <i class="fa-solid fa-question-circle" style="color:var(--text-muted); cursor:help;" title="Para ISC AdValorem: porcentaje (ej: 0.17 = 17%). Para ISC Específico: monto fijo por unidad vendida en RD$. La DGII usa este valor para calcular el impuesto selectivo."></i>
+                                            </label>
                                             <input type="number" id="tasa_impuesto_adicional"
                                                 name="tasaImpuestoAdicional" class="form-input" placeholder="0.00"
                                                 step="0.0001"
@@ -395,14 +401,18 @@
                                         </div>
 
                                         <div class="form-group isc-field alcohol-only" style="display: none;">
-                                            <label for="grados_alcohol">Grados de Alcohol (%)</label>
+                                            <label for="grados_alcohol">Grados de Alcohol (%)
+                                                <i class="fa-solid fa-question-circle" style="color:var(--text-muted); cursor:help;" title="Porcentaje de alcohol volumen (ABV). Requerido por la DGII para calcular el ISC Específico en bebidas alcohólicas. Ej: 5.0 para cerveza, 12.5 para vino, 40.0 para ron."></i>
+                                            </label>
                                             <input type="number" id="grados_alcohol" name="gradosAlcohol"
                                                 class="form-input" placeholder="Ej: 5.0" step="0.01"
                                                 value="{{ item.gradosAlcohol if item else '0.00' }}">
                                         </div>
 
                                         <div class="form-group isc-field alcohol-only" style="display: none;">
-                                            <label for="cantidad_referencia">Litros de Referencia</label>
+                                            <label for="cantidad_referencia">Litros de Referencia
+                                                <i class="fa-solid fa-question-circle" style="color:var(--text-muted); cursor:help;" title="Volumen total en litros de una unidad de venta. La DGII usa este valor junto con los grados de alcohol para calcular el ISC Específico. Ej: 0.355 L para una lata de cerveza."></i>
+                                            </label>
                                             <input type="number" id="cantidad_referencia" name="cantidadReferencia"
                                                 class="form-input" placeholder="Ej: 0.355" step="0.0001"
                                                 value="{{ item.cantidadReferencia if item else '0.00' }}">
@@ -416,7 +426,9 @@
                                         </div>
 
                                         <div class="form-group isc-field advalorem-only" style="display: none;">
-                                            <label for="precio_referencia">Precio Referencia (PVP)</label>
+                                            <label for="precio_referencia">Precio Referencia (PVP)
+                                                <i class="fa-solid fa-question-circle" style="color:var(--text-muted); cursor:help;" title="Precio de venta al público por unidad. Utilizado por la DGII como base para calcular el ISC AdValorem en productos como bebidas alcohólicas."></i>
+                                            </label>
                                             <input type="number" id="precio_referencia" name="precioReferencia"
                                                 class="form-input" placeholder="0.00" step="0.01"
                                                 value="{{ item.precioReferencia if item else '0.00' }}">
@@ -485,7 +497,7 @@
 
             <div
                 style="margin-top: 36px; display: flex; justify-content: flex-end; gap: 15px; border-top: 1px solid var(--border-color); padding-top: 24px;">
-                <a href="{{ url_for('list_items') }}" class="btn btn-secondary">
+                <a href="{{ url_for('web_invoices.list_items') }}" class="btn btn-secondary">
                     <span>Cancelar</span>
                 </a>
                 <button type="submit" class="btn btn-primary">

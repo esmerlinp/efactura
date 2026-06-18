@@ -223,7 +223,7 @@
         {% endif %}
         {% endwith %}
 
-        <form action="{{ url_for('login') }}" method="POST" id="login-form">
+        <form action="{{ url_for('web_auth.login') }}" method="POST" id="login-form">
             <div class="form-group">
                 <label for="email">Correo Electrónico</label>
                 <div style="position: relative;">

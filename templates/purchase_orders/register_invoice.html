@@ -1,0 +1,129 @@
+{% extends "layout.html" %}
+{% block title %}Registrar Factura Proveedor{% endblock %}
+{% block page_header %}Registrar Factura de Proveedor{% endblock %}
+
+{% block content %}
+<div class="page-title-container" style="margin-bottom:24px; padding-left:4px; display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px;">
+    <div>
+        <h1 style="font-size:1.75rem; font-weight:800; font-family:var(--font-heading); color:var(--text-primary); margin:0;">
+            <i class="fa-solid fa-file-invoice" style="color:var(--accent-purple); margin-right:10px;"></i>
+            Registrar Factura Proveedor
+        </h1>
+        <p style="color:var(--text-secondary); font-size:0.88rem; margin:6px 0 0 2px;">
+            OC: {{ po.poNumber }} · {{ po.supplierName or '—' }}
+        </p>
+    </div>
+    <div>
+        <a href="{{ url_for('web_purchase_orders.purchase_order_detail', po_id=po.id) }}" class="btn btn-secondary">
+            <i class="fa-solid fa-arrow-left"></i> Volver a OC
+        </a>
+    </div>
+</div>
+
+<form method="POST" enctype="multipart/form-data" style="width:100%;">
+<div class="card-form-body" style="padding:20px; margin-bottom:24px;">
+    <h4 style="font-size:0.9rem; font-weight:700; font-family:var(--font-heading); margin-bottom:14px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.03em;">
+        <i class="fa-solid fa-info-circle" style="margin-right:6px;"></i> Datos de la Factura
+    </h4>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+        <div class="form-group">
+            <label>Número de Factura del Proveedor *</label>
+            <input type="text" name="invoiceNumber" class="form-input" required placeholder="Ej: F001-123" style="width:100%;">
+        </div>
+        <div class="form-group">
+            <label>NCF (opcional)</label>
+            <input type="text" name="ncf" class="form-input" placeholder="Ej: E310000000001" style="width:100%;">
+        </div>
+        <div class="form-group">
+            <label>Fecha de Emisión</label>
+            <input type="date" name="date" class="form-input" value="{{ today }}" style="width:100%;">
+        </div>
+        <div class="form-group">
+            <label>Fecha de Vencimiento</label>
+            <input type="date" name="dueDate" class="form-input" style="width:100%;">
+        </div>
+        <div class="form-group" style="grid-column: span 2;">
+            <label>PDF / Archivo de la Factura (opcional)</label>
+            <input type="file" name="attachment" class="form-input" accept=".pdf,.jpg,.jpeg,.png" style="width:100%;">
+        </div>
+        <div class="form-group" style="grid-column: span 2;">
+            <label>Notas</label>
+            <textarea name="notes" class="form-input" rows="3" style="width:100%; resize:vertical;"></textarea>
+        </div>
+    </div>
+</div>
+
+<div class="card-form-body" style="padding:20px; margin-bottom:24px;">
+    <h4 style="font-size:0.9rem; font-weight:700; font-family:var(--font-heading); margin-bottom:14px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.03em;">
+        <i class="fa-solid fa-box" style="margin-right:6px;"></i> Partidas (heredadas de la OC)
+    </h4>
+    <div class="table-responsive">
+        <table class="table-premium">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Descripción</th>
+                    <th style="text-align:center;">Cant. Recibida</th>
+                    <th style="text-align:right;">Precio Unit.</th>
+                    <th style="text-align:right;">ITBIS</th>
+                    <th style="text-align:right;">Desc. %</th>
+                    <th style="text-align:right;">Subtotal</th>
+                    <th style="text-align:right;">Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in po.get('items', []) %}
+                {% set qty = item.get('receivedQuantity', item.get('quantity', 0)) %}
+                {% set price = item.get('unitPrice', 0) %}
+                {% set itbis_rate = item.get('itbisRate', 0) %}
+                {% set discount_pct = item.get('discount', 0) %}
+                {% set line_sub = qty * price %}
+                {% set line_disc = line_sub * (discount_pct / 100.0) %}
+                {% set line_itbis = (line_sub - line_disc) * itbis_rate %}
+                {% set line_total = line_sub - line_disc + line_itbis %}
+                <tr>
+                    <td>{{ loop.index }}</td>
+                    <td style="font-weight:600;">{{ item.name or '—' }}</td>
+                    <td style="text-align:center;">{{ qty }}</td>
+                    <td style="text-align:right;">{{ "{:,.2f}".format(price) }}</td>
+                    <td style="text-align:right;">{{ "%.0f%%"|format(itbis_rate*100) if itbis_rate else '0%' }}</td>
+                    <td style="text-align:right;">{{ discount_pct }}%</td>
+                    <td style="text-align:right;">{{ "{:,.2f}".format(line_sub) }}</td>
+                    <td style="text-align:right; font-weight:600;">{{ "{:,.2f}".format(line_total) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                {% set totals = namespace(g_subtotal=0, g_itbis=0, g_discount=0, g_total=0) %}
+                {% for item in po.get('items', []) %}
+                {% set qty = item.get('receivedQuantity', item.get('quantity', 0)) %}
+                {% set price = item.get('unitPrice', 0) %}
+                {% set itbis_rate = item.get('itbisRate', 0) %}
+                {% set discount_pct = item.get('discount', 0) %}
+                {% set line_sub = qty * price %}
+                {% set line_disc = line_sub * (discount_pct / 100.0) %}
+                {% set line_itbis = (line_sub - line_disc) * itbis_rate %}
+                {% set line_total = line_sub - line_disc + line_itbis %}
+                {% set totals.g_subtotal = totals.g_subtotal + line_sub %}
+                {% set totals.g_discount = totals.g_discount + line_disc %}
+                {% set totals.g_itbis = totals.g_itbis + line_itbis %}
+                {% set totals.g_total = totals.g_total + line_total %}
+                {% endfor %}
+                <tr style="font-weight:700;">
+                    <td colspan="6" style="text-align:right;">Totales:</td>
+                    <td style="text-align:right;">{{ "{:,.2f}".format(totals.g_subtotal) }}</td>
+                    <td style="text-align:right;">{{ "{:,.2f}".format(totals.g_total) }}</td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</div>
+
+<div style="display:flex; gap:12px; justify-content:flex-end;">
+    <a href="{{ url_for('web_purchase_orders.purchase_order_detail', po_id=po.id) }}" class="btn btn-secondary">Cancelar</a>
+    <button type="submit" class="btn btn-primary">
+        <i class="fa-solid fa-save"></i> Registrar Factura
+    </button>
+</div>
+</form>
+{% endblock %}

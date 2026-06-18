@@ -84,15 +84,15 @@
 
 <!-- Acciones de Inventario Destacadas -->
 <div style="display: flex; justify-content: flex-end; gap: 15px; margin-bottom: 30px;">
-    <a href="{{ url_for('inventory_warehouses') }}" class="btn btn-secondary" style="padding: 12px 20px;">
+    <a href="{{ url_for('web_invoices.inventory_warehouses') }}" class="btn btn-secondary" style="padding: 12px 20px;">
         <i class="fa-solid fa-warehouse"></i>
         <span>Administrar Almacenes</span>
     </a>
-    <a href="{{ url_for('inventory_transactions') }}" class="btn btn-secondary" style="padding: 12px 20px;">
+    <a href="{{ url_for('web_invoices.inventory_transactions') }}" class="btn btn-secondary" style="padding: 12px 20px;">
         <i class="fa-solid fa-list-check"></i>
         <span>Kárdex (Movimientos)</span>
     </a>
-    <a href="{{ url_for('new_inventory_transaction') }}" class="btn btn-primary"
+    <a href="{{ url_for('web_invoices.new_inventory_transaction') }}" class="btn btn-primary"
         style="padding: 12px 24px; font-weight: 500;">
         <i class="fa-solid fa-shuffle"></i>
         <span>Ajuste / Transacción Manual</span>
@@ -256,7 +256,7 @@
                         <span>No hay bienes físicos registrados en el catálogo.</span>
                         <p style="font-size: 0.82rem; color: var(--text-muted); margin-top: 5px;">Solo los artículos
                             marcados como **Bien / Producto Físico** tienen control de almacenes.</p>
-                        <a href="{{ url_for('new_item') }}"
+                        <a href="{{ url_for('web_invoices.new_item') }}"
                             style="color: var(--accent-emerald); font-weight: 500; display: block; margin-top: 15px;">Ir
                             a Catálogo a Crear Producto</a>
                     </td>

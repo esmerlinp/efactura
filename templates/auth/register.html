@@ -41,7 +41,7 @@
         {% endif %}
         {% endwith %}
 
-        <form action="{{ url_for('register') }}" method="POST">
+        <form action="{{ url_for('web_auth.register') }}" method="POST">
             <div class="form-group">
                 <label for="name">Nombre Completo / Razón Social Emisor</label>
                 <div style="position: relative;">
@@ -107,7 +107,7 @@
 
         <div style="margin-top: 24px; text-align: center; font-size: 0.88rem; color: var(--text-secondary);">
             <span>¿Ya tienes una cuenta registrada? </span>
-            <a href="{{ url_for('login') }}" style="color: var(--accent-emerald); font-weight: 500;">Inicia sesión
+            <a href="{{ url_for('web_auth.login') }}" style="color: var(--accent-emerald); font-weight: 500;">Inicia sesión
                 aquí</a>
         </div>
     </div>

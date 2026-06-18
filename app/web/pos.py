@@ -22,7 +22,7 @@ def require_open_shift(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if 'user' not in session:
-            return redirect(url_for('login'))
+            return redirect(url_for('web_auth.login'))
         if not check_permission('canManagePOS'):
             return render_template('auth/restricted.html', feature_name="Punto de Venta", required_permission="canManagePOS")
         
@@ -1184,7 +1184,7 @@ def pos_admin_shift_detail(shift_id):
 
 @web_pos_bp.route('/pos/admin/shift/<shift_id>/comments/new', methods=['POST'])
 def add_shift_comment(shift_id):
-    if 'user' not in session: return redirect(url_for('login'))
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
     
@@ -1239,7 +1239,7 @@ def add_shift_comment(shift_id):
 
 @web_pos_bp.route('/pos/admin/shift/<shift_id>/comments/<comment_id>/edit', methods=['POST'])
 def edit_shift_comment(shift_id, comment_id):
-    if 'user' not in session: return redirect(url_for('login'))
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
     
@@ -1295,7 +1295,7 @@ def edit_shift_comment(shift_id, comment_id):
 
 @web_pos_bp.route('/pos/admin/shift/<shift_id>/comments/<comment_id>/delete', methods=['POST'])
 def delete_shift_comment(shift_id, comment_id):
-    if 'user' not in session: return redirect(url_for('login'))
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
     

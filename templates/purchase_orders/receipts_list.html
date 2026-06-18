@@ -43,9 +43,9 @@
                     <td>{{ r.supplierName or '—' }}</td>
                     <td>{{ r.warehouseName or '—' }}</td>
                     <td style="font-size:0.82rem;">{{ r.receiptDate or r.createdAt[:10] if r.createdAt else '—' }}</td>
-                    <td style="text-align:center;">{{ r.items|length if r.items else 0 }}</td>
+                    <td style="text-align:center;">{{ r['items']|length if r['items'] else 0 }}</td>
                     <td style="text-align:center;">
-                        {% set catalog_count = r.items|selectattr('itemId')|list|length if r.items else 0 %}
+                        {% set catalog_count = r['items']|selectattr('itemId')|list|length if r['items'] else 0 %}
                         {% if catalog_count > 0 %}
                         <span style="color:var(--accent-emerald); font-weight:600;">{{ catalog_count }}</span>
                         {% else %}
@@ -60,7 +60,7 @@
                         {% endif %}
                     </td>
                     <td style="text-align:right;">
-                        <a href="{{ url_for('receipt_detail', receipt_id=r.id) }}" class="btn btn-secondary btn-sm" style="padding:6px 10px; font-size:0.75rem;">
+                        <a href="{{ url_for('web_purchase_orders.receipt_detail', receipt_id=r.id) }}" class="btn btn-secondary btn-sm" style="padding:6px 10px; font-size:0.75rem;">
                             <i class="fa-solid fa-eye"></i>
                         </a>
                     </td>

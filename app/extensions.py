@@ -28,5 +28,6 @@ def init_extensions(app):
     app.template_filter('formatted')(formatted_filter)
     app.template_filter('format_date')(format_date_filter)
     
-    # Registrar funciones matemáticas útiles en Jinja2
-    app.jinja_env.globals.update(min=min, max=max)
+    # Registrar funciones matemáticas y utilidades en Jinja2
+    from datetime import datetime
+    app.jinja_env.globals.update(min=min, max=max, datetime=datetime)

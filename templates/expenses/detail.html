@@ -190,10 +190,10 @@
         </div>
 
         <div style="display:flex; gap:10px;">
-            <a href="{{ url_for('list_expenses') }}" class="btn btn-secondary">
+            <a href="{{ url_for('web_invoices.list_expenses') }}" class="btn btn-secondary">
                 <i class="fa-solid fa-arrow-left"></i> Volver
             </a>
-            <a href="{{ url_for('edit_expense_route', expense_id=expense.id) }}" class="btn btn-primary">
+            <a href="{{ url_for('web_invoices.edit_expense_route', expense_id=expense.id) }}" class="btn btn-primary">
                 <i class="fa-solid fa-pen-to-square"></i> Editar
             </a>
         </div>
@@ -279,7 +279,7 @@
                 <div class="field-row">
                     <span class="field-label">Proyecto / Factura</span>
                     <span class="field-value">
-                        <a href="{{ url_for('invoice_detail', invoice_id=expense.associatedInvoiceId) }}" style="color:var(--accent-blue); text-decoration:none;">
+                        <a href="{{ url_for('web_invoices.invoice_detail', invoice_id=expense.associatedInvoiceId) }}" style="color:var(--accent-blue); text-decoration:none;">
                             <i class="fa-solid fa-link" style="font-size:0.75rem;"></i>
                             {{ expense.associatedInvoiceId }}
                         </a>
@@ -394,11 +394,11 @@
                 {% endif %}
                 {% if expense.encf or expense.xmlContent %}
                 <div class="field-row" style="margin-top:12px; padding-top:12px; border-top:1px dashed var(--border-color); gap:8px;">
-                    <a href="{{ url_for('expense_pdf_download', expense_id=expense.id) }}" target="_blank"
+                    <a href="{{ url_for('web_invoices.expense_pdf_download', expense_id=expense.id) }}" target="_blank"
                         class="btn btn-secondary" style="flex:1; justify-content:center; padding:10px; font-size:0.82rem;">
                         <i class="fa-solid fa-file-pdf" style="color:var(--accent-red);"></i> Descargar PDF
                     </a>
-                    <a href="{{ url_for('expense_xml_download', expense_id=expense.id) }}"
+                    <a href="{{ url_for('web_invoices.expense_xml_download', expense_id=expense.id) }}"
                         class="btn btn-secondary" style="flex:1; justify-content:center; padding:10px; font-size:0.82rem;">
                         <i class="fa-solid fa-file-code" style="color:var(--accent-emerald);"></i> Descargar XML
                     </a>
@@ -406,7 +406,7 @@
                 {% endif %}
                 {% if expense.emisionMode == 'FALLBACK' and expense.ecfType in ('E41', 'E43') %}
                 <div class="field-row" style="margin-top:8px; padding-top:0; border-top:none; gap:8px;">
-                    <form action="{{ url_for('sync_expense_ecf_route', expense_id=expense.id) }}" method="POST" style="width:100%;">
+                    <form action="{{ url_for('web_invoices.sync_expense_ecf_route', expense_id=expense.id) }}" method="POST" style="width:100%;">
                         <button type="submit" class="btn btn-primary" style="width:100%; padding:10px; font-size:0.82rem; background: linear-gradient(135deg, #f59e0b, #d97706); border: none;">
                             <i class="fa-solid fa-rotate"></i> Sincronizar con DGII
                         </button>
@@ -487,7 +487,7 @@
                         Adjuntar Nuevo Documento
                     </div>
 
-                    <form action="{{ url_for('attach_expense_document', expense_id=expense.id) }}" method="POST" enctype="multipart/form-data" id="quick-attach-form">
+                    <form action="{{ url_for('web_invoices.attach_expense_document', expense_id=expense.id) }}" method="POST" enctype="multipart/form-data" id="quick-attach-form">
                         <div class="uploader-zone" id="qa-drop-zone" onclick="document.getElementById('qa-file-input').click()">
                             <i class="fa-solid fa-cloud-arrow-up" style="font-size:1.8rem; color:var(--text-muted); margin-bottom:8px;"></i>
                             <p style="font-size:0.78rem; margin:0 0 4px; font-weight:600; color:var(--text-primary);">

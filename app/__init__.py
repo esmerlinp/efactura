@@ -431,6 +431,7 @@ def create_app():
     from app.web.suppliers import web_suppliers_bp
     from app.web.purchase_orders import web_purchase_orders_bp
     from app.web.reports_606 import web_reports_606_bp
+    from app.web.fiscal_notes import web_fiscal_notes_bp
 
     app.register_blueprint(web_auth_bp)
     app.register_blueprint(web_dashboard_bp)
@@ -445,6 +446,7 @@ def create_app():
     app.register_blueprint(web_suppliers_bp)
     app.register_blueprint(web_purchase_orders_bp)
     app.register_blueprint(web_reports_606_bp)
+    app.register_blueprint(web_fiscal_notes_bp)
 
     # =========================================================================
     # APScheduler — Facturación automática diaria de contratos recurrentes

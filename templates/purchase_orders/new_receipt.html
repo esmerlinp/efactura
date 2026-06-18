@@ -14,7 +14,7 @@
     </p>
 </div>
 
-<form method="POST" action="{{ url_for('new_receipt', po_id=order.id) }}" id="receipt-form">
+<form method="POST" action="{{ url_for('web_purchase_orders.new_receipt', po_id=order.id) }}" id="receipt-form">
     <div class="card-form-body" style="padding:24px; margin-bottom:24px;">
         <h4 style="font-size:1rem; font-weight:700; font-family:var(--font-heading); margin-bottom:16px;">
             <i class="fa-solid fa-receipt" style="margin-right:8px; color:var(--accent-purple);"></i> Datos de la Recepción
@@ -105,7 +105,7 @@
     </div>
 
     <div style="display:flex; gap:12px; justify-content:flex-end; margin-top:24px; padding:16px 0;">
-        <a href="{{ url_for('purchase_order_detail', po_id=order.id) }}" class="btn btn-secondary">
+        <a href="{{ url_for('web_purchase_orders.purchase_order_detail', po_id=order.id) }}" class="btn btn-secondary">
             <i class="fa-solid fa-xmark"></i> Cancelar
         </a>
         <button type="submit" class="btn btn-primary">

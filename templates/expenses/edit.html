@@ -167,7 +167,7 @@
 </style>
 
 <div style="max-width: 850px; margin: 0 auto 50px auto; width: 100%;">
-    <form action="{{ url_for('edit_expense_route', expense_id=expense.id) }}" method="POST" enctype="multipart/form-data" style="width: 100%;" id="expense-form" novalidate>
+    <form action="{{ url_for('web_invoices.edit_expense_route', expense_id=expense.id) }}" method="POST" enctype="multipart/form-data" style="width: 100%;" id="expense-form" novalidate>
         <div class="settings-accordion">
 
             <!-- SECCIÓN 1: SOPORTE DIGITAL MÚLTIPLE -->
@@ -307,7 +307,9 @@
                             </div>
 
                             <div class="form-group">
-                                <label for="tipoGastoDGII">Tipo de Gasto Deducible (DGII 606)</label>
+                                <label for="tipoGastoDGII">Tipo de Gasto Deducible (DGII 606)
+                                    <i class="fa-solid fa-question-circle" style="color:var(--text-muted); cursor:help;" title="Clasificación DGII para el informe 606: 01=Personal, 02=Servicios/Suministros, 03=Arrendamientos, 04=Activos fijos, 05=Representación, 06=Otras deducciones, 07=Financieros."></i>
+                                </label>
                                 <select id="tipoGastoDGII" name="tipoGastoDGII" class="form-select" required style="width: 100%;">
                                     <option value="01" {% if expense.tipoGastoDGII=='01' %}selected{% endif %}>01 - Gastos de Personal</option>
                                     <option value="02" {% if expense.tipoGastoDGII=='02' or not expense.tipoGastoDGII %}selected{% endif %}>02 - Gastos por Trabajos, Suministros y Servicios</option>
@@ -391,7 +393,9 @@
                     <div class="accordion-body">
                         <div class="form-inner-grid">
                             <div class="form-group">
-                                <label for="ecfType">Tipo de Comprobante e-CF</label>
+                                <label for="ecfType">Tipo de Comprobante e-CF
+                                    <i class="fa-solid fa-question-circle" style="color:var(--text-muted); cursor:help;" title="Debe coincidir con el prefijo del NCF. La DGII rechaza comprobantes con tipo/NCF inconsistentes."></i>
+                                </label>
                                 <select id="ecfType" name="ecfType" class="form-select" style="width: 100%;">
                                     <option value="E31" {% if expense.ecfType=='E31' %}selected{% endif %}>E31 - Factura de Crédito Fiscal Electrónica</option>
                                     <option value="E32" {% if expense.ecfType=='E32' %}selected{% endif %}>E32 - Factura de Consumo Electrónica</option>
@@ -403,14 +407,18 @@
                             </div>
 
                             <div class="form-group" id="ncf-group">
-                                <label for="ncf">NCF / e-CF del Gasto</label>
+                                <label for="ncf">NCF / e-CF del Gasto
+                                    <i class="fa-solid fa-question-circle" style="color:var(--text-muted); cursor:help;" title="Formato: 3 letras (tipo e-CF) + 9 dígitos. Identificador único ante la DGII para el reporte 606."></i>
+                                </label>
                                 <div style="display:flex; gap:6px; align-items:center;">
                                     <input type="text" id="ncf" name="ncf" class="form-input" value="{{ expense.ncf or '' }}" placeholder="Ej: E310120000452" required style="flex:1; font-family: monospace;">
                                 </div>
                             </div>
 
                             <div class="form-group">
-                                <label for="cne">Código de Seguridad (CNE)</label>
+                                <label for="cne">Código de Seguridad (CNE)
+                                    <i class="fa-solid fa-question-circle" style="color:var(--text-muted); cursor:help;" title="Código Numérico de Seguridad generado por la DGII al emitir un e-CF. Para facturas físicas puede dejarse vacío."></i>
+                                </label>
                                 <input type="text" id="cne" name="cne" class="form-input" value="{{ expense.cne or '' }}" placeholder="Firma digital corta de DGII" style="width: 100%; font-family: monospace;">
                             </div>
 
@@ -462,7 +470,9 @@
                             </div>
 
                             <div class="form-group">
-                                <label for="itbisAmount">ITBIS Adelantado / Deducible <span id="itbis-currency-label">({{ expense.currency or 'DOP' }})</span></label>
+                                <label for="itbisAmount">ITBIS Adelantado / Deducible <span id="itbis-currency-label">({{ expense.currency or 'DOP' }})</span>
+                                    <i class="fa-solid fa-question-circle" style="color:var(--text-muted); cursor:help;" title="ITBIS que pagaste en esta compra y puedes deducir. Se reporta en el formulario 606 como ITBIS deducible."></i>
+                                </label>
                                 <input type="number" id="itbisAmount" name="itbisAmount" class="form-input" value="{{ expense.itbisAmountOriginal or expense.itbisAmount }}" placeholder="0.00" step="0.01" style="width: 100%;">
                             </div>
                         </div>
@@ -554,7 +564,7 @@
 
         <!-- Botones de Acción -->
         <div style="margin-top: 24px; display: flex; justify-content: flex-end; gap: 15px; border-top: 1px solid var(--border-color); padding-top: 24px;">
-            <a href="{{ url_for('list_expenses') }}" class="btn btn-secondary">
+            <a href="{{ url_for('web_invoices.list_expenses') }}" class="btn btn-secondary">
                 <span>Cancelar</span>
             </a>
             <button type="submit" class="btn btn-primary" style="padding: 14px 28px; background: var(--accent-emerald); border-color: var(--accent-emerald);">

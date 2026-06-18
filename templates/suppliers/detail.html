@@ -43,9 +43,9 @@
             {% endif %}
         </div>
         <div style="display:flex; gap:10px;">
-            <a href="{{ url_for('list_suppliers') }}" class="btn btn-secondary"><i class="fa-solid fa-arrow-left"></i> Volver</a>
-            <a href="{{ url_for('edit_supplier', supplier_id=supplier.id) }}" class="btn btn-primary"><i class="fa-solid fa-pen-to-square"></i> Editar</a>
-            <form action="{{ url_for('delete_supplier', supplier_id=supplier.id) }}" method="POST" style="display:inline;" onsubmit="return confirm('¿Eliminar este proveedor?');">
+            <a href="{{ url_for('web_suppliers.list_suppliers') }}" class="btn btn-secondary"><i class="fa-solid fa-arrow-left"></i> Volver</a>
+            <a href="{{ url_for('web_suppliers.edit_supplier', supplier_id=supplier.id) }}" class="btn btn-primary"><i class="fa-solid fa-pen-to-square"></i> Editar</a>
+            <form action="{{ url_for('web_suppliers.delete_supplier', supplier_id=supplier.id) }}" method="POST" style="display:inline;" onsubmit="return confirm('¿Eliminar este proveedor?');">
                 <button type="submit" class="btn btn-danger"><i class="fa-solid fa-trash-can"></i> Eliminar</button>
             </form>
         </div>
@@ -139,7 +139,7 @@
                             <tr style="border-bottom:1px solid rgba(255,255,255,0.03);">
                                 <td style="padding:6px 4px;">{{ (e.date or '')[:10] }}</td>
                                 <td style="padding:6px 4px;">
-                                    <a href="{{ url_for('expense_detail', expense_id=e.id) }}" style="color:var(--accent-blue); text-decoration:none;">{{ e.concept|truncate(30) }}</a>
+                                    <a href="{{ url_for('web_invoices.expense_detail', expense_id=e.id) }}" style="color:var(--accent-blue); text-decoration:none;">{{ e.concept|truncate(30) }}</a>
                                 </td>
                                 <td style="padding:6px 4px; text-align:right; font-weight:600;">RD$ {{ "{:,.2f}".format(e.amount|default(0)) }}</td>
                                 <td style="padding:6px 4px; text-align:right;">

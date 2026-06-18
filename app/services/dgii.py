@@ -1,7 +1,109 @@
 import requests
 import re
 
+# Regímenes fiscales reconocidos por la DGII
+REGIMEN_ORDINARY = "ordinary"
+REGIMEN_RST_INCOME = "rst_income"
+REGIMEN_RST_PURCHASES = "rst_purchases"
+REGIMEN_CONSUMER = "consumer"
+REGIMEN_EXEMPT = "exempt"
+
+REGIMEN_CHOICES = [
+    (REGIMEN_ORDINARY, "Régimen Ordinario (General)"),
+    (REGIMEN_RST_INCOME, "RST basado en ingresos"),
+    (REGIMEN_RST_PURCHASES, "RST basado en compras"),
+    (REGIMEN_CONSUMER, "Consumidor Final"),
+    (REGIMEN_EXEMPT, "Exento"),
+]
+
+REGIMEN_DEFAULT = REGIMEN_ORDINARY
+
+REGIMEN_LEGACY_MAP = {
+    "General": REGIMEN_ORDINARY,
+    "RST": REGIMEN_RST_INCOME,
+    "Simplificado": REGIMEN_RST_INCOME,
+}
+
+REGIMEN_RULES = {
+    REGIMEN_ORDINARY: {
+        "label": "Régimen Ordinario (General)",
+        "allowed_ecf_types": ["E31", "E32", "E33", "E34", "E41", "E43", "E44", "E45", "E46", "E47"],
+        "itbis_enabled": True,
+        "default_ecf_type": "E31",
+        "rst_limit": None,
+        "description": "Contabilidad completa, ITBIS 16%/18% según actividad.",
+    },
+    REGIMEN_RST_INCOME: {
+        "label": "RST basado en ingresos",
+        "allowed_ecf_types": ["E32", "E33", "E34", "E41", "E43"],
+        "itbis_enabled": True,
+        "default_ecf_type": "E32",
+        "rst_limit": 12060000,
+        "description": "La DGII estima ISR por escala de ingresos. Factura con ITBIS.",
+    },
+    REGIMEN_RST_PURCHASES: {
+        "label": "RST basado en compras",
+        "allowed_ecf_types": ["E32", "E33", "E34", "E41", "E43"],
+        "itbis_enabled": True,
+        "default_ecf_type": "E32",
+        "rst_limit": 12060000,
+        "description": "La DGII estima ventas desde compras. Factura con ITBIS.",
+    },
+    REGIMEN_CONSUMER: {
+        "label": "Consumidor Final",
+        "allowed_ecf_types": ["E32"],
+        "itbis_enabled": True,
+        "default_ecf_type": "E32",
+        "rst_limit": None,
+        "description": "Factura solo E32 (consumo), sin RNC de cliente.",
+    },
+    REGIMEN_EXEMPT: {
+        "label": "Exento",
+        "allowed_ecf_types": ["E32"],
+        "itbis_enabled": False,
+        "default_ecf_type": "E32",
+        "rst_limit": None,
+        "description": "Actividades exentas de ITBIS. Factura E32 sin ITBIS.",
+    },
+}
+
+
 class DGIIService:
+
+    @staticmethod
+    def normalize_regimen(regimen):
+        """Convert legacy regime values to new codes."""
+        if not regimen:
+            return REGIMEN_DEFAULT
+        return REGIMEN_LEGACY_MAP.get(regimen, regimen)
+
+    @staticmethod
+    def is_rst_regimen(regimen):
+        """Check if the regime is an RST type."""
+        normalized = DGIIService.normalize_regimen(regimen)
+        return normalized in (REGIMEN_RST_INCOME, REGIMEN_RST_PURCHASES)
+
+    @staticmethod
+    def get_regimen_rules(regimen):
+        """Return the rules dict for a given regimen, or the default."""
+        return REGIMEN_RULES.get(regimen, REGIMEN_RULES[REGIMEN_ORDINARY])
+
+    @staticmethod
+    def is_ecf_type_allowed(regimen, ecf_type):
+        """Check if a given e-CF type is allowed for this regime."""
+        rules = DGIIService.get_regimen_rules(regimen)
+        ecf_code = ecf_type.split("(")[-1].replace(")", "").strip() if "(" in ecf_type else ecf_type
+        return ecf_code in rules["allowed_ecf_types"]
+
+    @staticmethod
+    def get_default_ecf_type(regimen):
+        """Get the default e-CF type for this regime."""
+        return DGIIService.get_regimen_rules(regimen)["default_ecf_type"]
+
+    @staticmethod
+    def is_itbis_enabled(regimen):
+        """Check if ITBIS can be applied for this regime."""
+        return DGIIService.get_regimen_rules(regimen)["itbis_enabled"]
     @staticmethod
     def clean_rnc(rnc):
         """Limpia el RNC o Cédula removiendo guiones, espacios u otros caracteres."""

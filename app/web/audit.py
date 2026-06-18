@@ -169,7 +169,7 @@ def audit_export():
     output = io.StringIO()
     fieldnames = ['Fecha/Hora', 'Módulo', 'Acción', 'Descripción',
                   'Entidad ID', 'Realizado por', 'Email', 'IP', 'Entorno']
-    writer = csv.DictWriter(output, fieldnames=fieldnames)
+    writer = csv.DictWriter(output, fieldnames=fieldnames, quoting=csv.QUOTE_ALL)
     writer.writeheader()
 
     for log in logs:

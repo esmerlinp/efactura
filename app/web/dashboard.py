@@ -3,6 +3,7 @@ from datetime import datetime
 from flask import Blueprint, render_template, redirect, url_for, session, request
 from app.services.db_service import DatabaseService
 from app.services.recurrence import RecurrenceService
+from app.services.dgii import DGIIService
 
 web_dashboard_bp = Blueprint('web_dashboard', __name__)
 

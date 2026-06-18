@@ -12,11 +12,11 @@
             <p style="color: var(--text-secondary); font-size: 0.88rem; margin: 0;">Registro inmutable de todas las entradas, salidas y transferencias.</p>
         </div>
         <div style="display: flex; gap: 12px;">
-            <a href="{{ url_for('inventory_dashboard') }}" class="btn btn-secondary">
+            <a href="{{ url_for('web_invoices.inventory_dashboard') }}" class="btn btn-secondary">
                 <i class="fa-solid fa-arrow-left"></i>
                 <span>Volver a Inventario</span>
             </a>
-            <a href="{{ url_for('new_inventory_transaction') }}" class="btn btn-primary">
+            <a href="{{ url_for('web_invoices.new_inventory_transaction') }}" class="btn btn-primary">
                 <i class="fa-solid fa-shuffle"></i>
                 <span>Nuevo Ajuste</span>
             </a>

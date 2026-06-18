@@ -683,7 +683,7 @@
                         {}).get('permissions', {}).get('canViewDashboard', True) %}
                         <li class="nav-item {% if active_page == 'dashboard' %}active{% endif %}"
                             data-tooltip="Dashboard">
-                            <a href="{{ url_for('dashboard') }}">
+                            <a href="{{ url_for('web_dashboard.dashboard') }}">
                                 <i class="fa-solid fa-chart-pie"></i>
                                 <span>Dashboard</span>
                             </a>
@@ -694,32 +694,17 @@
 
 
 
-                <!-- SECCIÓN: NOTAS -->
-                {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canManageNotes', True) %}
-                <div class="sidebar-section" id="sidebar-section-notas">
-                    <ul class="sidebar-section-content" style="overflow: visible;">
-                        <li class="nav-item {% if active_page == 'notes' %}active{% endif %}"
-                            data-tooltip="Gestor de Notas">
-                            <a href="{{ url_for('web_notes.list_notes') }}">
-                                <i class="fa-solid fa-clipboard-check"></i>
-                                <span>Gestor de Notas</span>
-                            </a>
-                        </li>
-                    </ul>
-                </div>
-                {% endif %}
-
-                <!-- SECCIÓN: OPERACIONES & VENTAS -->
+                <!-- SECCIÓN: VENTAS -->
                 <div class="sidebar-section" id="sidebar-section-ventas">
                     <div class="sidebar-section-header">
-                        <span>Operaciones & Ventas</span>
+                        <span>Ventas</span>
                         <i class="fa-solid fa-chevron-down section-toggle-icon"></i>
                     </div>
                     <ul class="sidebar-section-content">
                         {% if (session.get('user', {}).get('role') == 'owner' or session.get('user',
                         {}).get('permissions', {}).get('canManagePOS', True)) and session.get('company_profile_pos_enabled', True) %}
                         <li class="nav-item {% if active_page == 'pos' %}active{% endif %}" data-tooltip="Caja / POS">
-                            <a href="{{ url_for('pos_dashboard') }}">
+                            <a href="{{ url_for('web_pos.pos_dashboard') }}">
                                 <i class="fa-solid fa-cash-register"></i>
                                 <span>Caja Registradora</span>
                             </a>
@@ -738,35 +723,41 @@
                         {}).get('permissions', {}).get('canInvoice', True) %}
                         <li class="nav-item {% if active_page == 'invoices' %}active{% endif %}"
                             data-tooltip="Documentos">
-                            <a href="{{ url_for('list_invoices') }}">
+                            <a href="{{ url_for('web_invoices.list_invoices') }}">
                                 <i class="fa-solid fa-file-invoice-dollar"></i>
                                 <span>Documentos</span>
                             </a>
                         </li>
                         <li class="nav-item {% if active_page == 'quotations' %}active{% endif %}"
                             data-tooltip="Cotizaciones">
-                            <a href="{{ url_for('list_quotations') }}">
+                            <a href="{{ url_for('web_invoices.list_quotations') }}">
                                 <i class="fa-solid fa-file-signature"></i>
                                 <span>Cotizaciones</span>
                             </a>
                         </li>
-                        {% endif %}
-                        {% if session.get('user', {}).get('role') == 'owner' or session.get('user',
-                        {}).get('permissions', {}).get('canManageCXC', True) %}
-                        <li class="nav-item {% if active_page == 'cxc' %}active{% endif %}"
-                            data-tooltip="Control de CxC">
-                            <a href="{{ url_for('cxc_dashboard') }}">
-                                <i class="fa-solid fa-hand-holding-dollar"></i>
-                                <span>Control de CxC</span>
+                        <li class="nav-item {% if active_page == 'fiscal_notes' %}active{% endif %}"
+                            data-tooltip="Notas Fiscales">
+                            <a href="{{ url_for('web_fiscal_notes.list_fiscal_notes') }}">
+                                <i class="fa-solid fa-notes-medical"></i>
+                                <span>Notas Fiscales</span>
                             </a>
                         </li>
                         {% endif %}
+                    </ul>
+                </div>
 
+                <!-- SECCIÓN: CRM & OPERACIONES -->
+                <div class="sidebar-section" id="sidebar-section-crm">
+                    <div class="sidebar-section-header">
+                        <span>CRM &amp; Operaciones</span>
+                        <i class="fa-solid fa-chevron-down section-toggle-icon"></i>
+                    </div>
+                    <ul class="sidebar-section-content">
                         {% if session.get('user', {}).get('role') == 'owner' or session.get('user',
                         {}).get('permissions', {}).get('canClients', True) %}
                         <li class="nav-item {% if active_page == 'clients' %}active{% endif %}"
                             data-tooltip="CRM Clientes">
-                            <a href="{{ url_for('list_clients') }}">
+                            <a href="{{ url_for('web_clients.list_clients') }}">
                                 <i class="fa-solid fa-address-book"></i>
                                 <span>CRM Clientes</span>
                             </a>
@@ -794,6 +785,17 @@
                             </a>
                         </li>
                         {% endif %}
+
+                        {% if session.get('user', {}).get('role') == 'owner' or session.get('user',
+                        {}).get('permissions', {}).get('canManageNotes', True) %}
+                        <li class="nav-item {% if active_page == 'notes' %}active{% endif %}"
+                            data-tooltip="Gestor de Notas">
+                            <a href="{{ url_for('web_notes.list_notes') }}">
+                                <i class="fa-solid fa-clipboard-check"></i>
+                                <span>Gestor de Notas</span>
+                            </a>
+                        </li>
+                        {% endif %}
                     </ul>
                 </div>
 
@@ -807,7 +809,7 @@
                         {% if session.get('user', {}).get('role') == 'owner' or session.get('user',
                         {}).get('permissions', {}).get('canClients', True) %}
                         <li class="nav-item {% if active_page == 'items' %}active{% endif %}" data-tooltip="Catálogo">
-                            <a href="{{ url_for('list_items') }}">
+                            <a href="{{ url_for('web_invoices.list_items') }}">
                                 <i class="fa-solid fa-boxes-stacked"></i>
                                 <span>Catálogo</span>
                             </a>
@@ -818,7 +820,7 @@
                         {}).get('permissions', {}).get('canManageInventory', True) %}
                         <li class="nav-item {% if active_page == 'inventory' %}active{% endif %}"
                             data-tooltip="Inventario">
-                            <a href="{{ url_for('inventory_dashboard') }}">
+                            <a href="{{ url_for('web_invoices.inventory_dashboard') }}">
                                 <i class="fa-solid fa-warehouse"></i>
                                 <span>Inventario</span>
                             </a>
@@ -830,7 +832,8 @@
                 <!-- SECCIÓN: FINANZAS -->
                 {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions',
                 {}).get('canExpenses', True) or session.get('user', {}).get('permissions', {}).get('canManageCXP', True)
-                or session.get('user', {}).get('permissions', {}).get('canViewBI', True) %}
+                or session.get('user', {}).get('permissions', {}).get('canViewBI', True) or session.get('user',
+                {}).get('permissions', {}).get('canManageCXC', True) %}
                 <div class="sidebar-section" id="sidebar-section-finanzas">
                     <div class="sidebar-section-header">
                         <span>Finanzas</span>
@@ -838,10 +841,10 @@
                     </div>
                     <ul class="sidebar-section-content">
                         {% if session.get('user', {}).get('role') == 'owner' or session.get('user',
-                        {}).get('permissions', {}).get('canExpenses', True) %}
+                        {}).get('permissions', {}).get('canManageSuppliers', True) %}
                         <li class="nav-item {% if active_page == 'suppliers' %}active{% endif %}"
                             data-tooltip="Proveedores">
-                            <a href="{{ url_for('list_suppliers') }}">
+                            <a href="{{ url_for('web_suppliers.list_suppliers') }}">
                                 <i class="fa-solid fa-truck"></i>
                                 <span>Proveedores</span>
                             </a>
@@ -851,7 +854,7 @@
                         {}).get('permissions', {}).get('canExpenses', True) %}
                         <li class="nav-item {% if active_page == 'purchase_orders' %}active{% endif %}"
                             data-tooltip="Órdenes de Compra">
-                            <a href="{{ url_for('list_purchase_orders') }}">
+                            <a href="{{ url_for('web_purchase_orders.list_purchase_orders') }}">
                                 <i class="fa-solid fa-cart-shopping"></i>
                                 <span>Órdenes de Compra</span>
                             </a>
@@ -861,7 +864,7 @@
                         {}).get('permissions', {}).get('canExpenses', True) %}
                         <li class="nav-item {% if active_page == 'receipts' %}active{% endif %}"
                             data-tooltip="Recepciones">
-                            <a href="{{ url_for('list_receipts') }}">
+                            <a href="{{ url_for('web_purchase_orders.list_receipts') }}">
                                 <i class="fa-solid fa-truck-loading"></i>
                                 <span>Recepciones</span>
                             </a>
@@ -871,19 +874,30 @@
                         {}).get('permissions', {}).get('canExpenses', True) %}
                         <li class="nav-item {% if active_page == 'expenses' %}active{% endif %}"
                             data-tooltip="Control de Gastos">
-                            <a href="{{ url_for('list_expenses') }}">
+                            <a href="{{ url_for('web_invoices.list_expenses') }}">
                                 <i class="fa-solid fa-wallet"></i>
                                 <span>Control de Gastos</span>
                             </a>
                         </li>
                         {% endif %}
                         {% if session.get('user', {}).get('role') == 'owner' or session.get('user',
+                        {}).get('permissions', {}).get('canManagePurchaseCXP', True) or session.get('user',
                         {}).get('permissions', {}).get('canManageCXP', True) %}
-                        <li class="nav-item {% if active_page == 'expenses_cxp' %}active{% endif %}"
-                            data-tooltip="Cuentas por Pagar (CxP)">
-                            <a href="{{ url_for('list_cxp') }}">
-                                <i class="fa-solid fa-receipt"></i>
+                        <li class="nav-item {% if active_page == 'consolidated_cxp' %}active{% endif %}"
+                            data-tooltip="Cuentas por Pagar">
+                            <a href="{{ url_for('web_purchase_orders.consolidated_cxp') }}">
+                                <i class="fa-solid fa-credit-card"></i>
                                 <span>Cuentas por Pagar (CxP)</span>
+                            </a>
+                        </li>
+                        {% endif %}
+                        {% if session.get('user', {}).get('role') == 'owner' or session.get('user',
+                        {}).get('permissions', {}).get('canManageCXC', True) %}
+                        <li class="nav-item {% if active_page == 'cxc' %}active{% endif %}"
+                            data-tooltip="Control de CxC">
+                            <a href="{{ url_for('web_invoices.cxc_dashboard') }}">
+                                <i class="fa-solid fa-hand-holding-dollar"></i>
+                                <span>Control de CxC</span>
                             </a>
                         </li>
                         {% endif %}
@@ -891,7 +905,7 @@
                         {}).get('permissions', {}).get('canViewBI', True) %}
                         <li class="nav-item {% if active_page == 'bi_dashboard' %}active{% endif %}"
                             data-tooltip="Inteligencia Financiera (BI)">
-                            <a href="{{ url_for('bi_dashboard') }}">
+                            <a href="{{ url_for('web_invoices.bi_dashboard') }}">
                                 <i class="fa-solid fa-chart-line"></i>
                                 <span>Inteligencia Financiera (BI)</span>
                             </a>
@@ -901,9 +915,19 @@
                         {}).get('permissions', {}).get('canExpenses', True) %}
                         <li class="nav-item {% if active_page == 'reporte_606' or active_page == 'dashboard_606' %}active{% endif %}"
                             data-tooltip="Reporte 606">
-                            <a href="{{ url_for('reporte_606') }}">
+                            <a href="{{ url_for('web_reports_606.reporte_606') }}">
                                 <i class="fa-solid fa-file-invoice"></i>
                                 <span>Reporte 606</span>
+                            </a>
+                        </li>
+                        {% endif %}
+                        {% if session.get('user', {}).get('role') == 'owner' or session.get('user',
+                        {}).get('permissions', {}).get('canInvoice', True) %}
+                        <li class="nav-item {% if active_page == 'accounting_export' %}active{% endif %}"
+                            data-tooltip="Exportar Contabilidad">
+                            <a href="{{ url_for('web_invoices.accounting_export_page') }}">
+                                <i class="fa-solid fa-file-export"></i>
+                                <span>Exportar Contabilidad</span>
                             </a>
                         </li>
                         {% endif %}
@@ -916,7 +940,7 @@
                 <!-- Inicializar estado de secciones colapsables para evitar visual layout shift -->
                 <script>
                     (function () {
-                        const sections = ['general', 'ventas', 'logistica', 'finanzas', 'configuracion'];
+                        const sections = ['general', 'ventas', 'crm', 'logistica', 'finanzas', 'configuracion'];
                         sections.forEach(id => {
                             const el = document.getElementById('sidebar-section-' + id);
                             if (!el) return;
@@ -1025,7 +1049,7 @@
                         <span class="sidebar-plan-type">{{ global_plan_billing_type or 'Pago por uso' }}</span>
                     </div>
                     {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canViewSubscription', True) %}
-                    <a href="{{ url_for('client_subscription_page') }}" class="sidebar-plan-modify">Modificar</a>
+                    <a href="{{ url_for('web_invoices.client_subscription_page') }}" class="sidebar-plan-modify">Modificar</a>
                     {% endif %}
                 </div>
                 {% endif %}
@@ -1170,7 +1194,7 @@
                                 <div style="display: flex; justify-content: space-between; align-items: center;">
                                     <span style="color: var(--text-muted); font-size: 0.7rem;"><i
                                             class="fa-solid fa-phone"></i> {{ contact.telefono or 'N/A' }}</span>
-                                    <a href="{{ url_for('client_detail', client_id=contact.id) }}"
+                                    <a href="{{ url_for('web_clients.client_detail', client_id=contact.id) }}"
                                         style="color: var(--accent-emerald); font-weight: 500; text-decoration: none; font-size: 0.75rem;"><i
                                             class="fa-solid fa-eye"></i> Ver</a>
                                 </div>
@@ -1206,14 +1230,14 @@
                         box-sizing: border-box;
                     ">
                         {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canModifySettings', True) %}
-                        <a href="{{ url_for('company_settings') }}" style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--radius-sm); color: var(--text-primary); text-decoration: none; font-size: 0.85rem; transition: background-color var(--transition-fast);" onmouseover="this.style.backgroundColor='var(--bg-nav-hover)'" onmouseout="this.style.backgroundColor='transparent'">
+                        <a href="{{ url_for('web_invoices.company_settings') }}" style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--radius-sm); color: var(--text-primary); text-decoration: none; font-size: 0.85rem; transition: background-color var(--transition-fast);" onmouseover="this.style.backgroundColor='var(--bg-nav-hover)'" onmouseout="this.style.backgroundColor='transparent'">
                             <i class="fa-solid fa-gears" style="width: 16px; text-align: center;"></i>
                             <span>Administrar Empresa</span>
                         </a>
                         {% endif %}
 
                         {% if session.get('user', {}).get('role') == 'owner' %}
-                        <a href="{{ url_for('team_settings') }}" style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--radius-sm); color: var(--text-primary); text-decoration: none; font-size: 0.85rem; transition: background-color var(--transition-fast);" onmouseover="this.style.backgroundColor='var(--bg-nav-hover)'" onmouseout="this.style.backgroundColor='transparent'">
+                        <a href="{{ url_for('web_invoices.team_settings') }}" style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--radius-sm); color: var(--text-primary); text-decoration: none; font-size: 0.85rem; transition: background-color var(--transition-fast);" onmouseover="this.style.backgroundColor='var(--bg-nav-hover)'" onmouseout="this.style.backgroundColor='transparent'">
                             <i class="fa-solid fa-users-gear" style="width: 16px; text-align: center;"></i>
                             <span>Usuarios y Permisos</span>
                         </a>
@@ -1227,27 +1251,27 @@
                         {% endif %}
 
                         {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canModifySettings', True) %}
-                        <a href="{{ url_for('list_sequences') }}" style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--radius-sm); color: var(--text-primary); text-decoration: none; font-size: 0.85rem; transition: background-color var(--transition-fast);" onmouseover="this.style.backgroundColor='var(--bg-nav-hover)'" onmouseout="this.style.backgroundColor='transparent'">
+                        <a href="{{ url_for('web_invoices.list_sequences') }}" style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--radius-sm); color: var(--text-primary); text-decoration: none; font-size: 0.85rem; transition: background-color var(--transition-fast);" onmouseover="this.style.backgroundColor='var(--bg-nav-hover)'" onmouseout="this.style.backgroundColor='transparent'">
                             <i class="fa-solid fa-barcode" style="width: 16px; text-align: center;"></i>
                             <span>Secuencias Fiscales</span>
                         </a>
                         {% endif %}
 
                         {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canInvoice', True) %}
-                        <a href="{{ url_for('reports_dashboard') }}" style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--radius-sm); color: var(--text-primary); text-decoration: none; font-size: 0.85rem; transition: background-color var(--transition-fast);" onmouseover="this.style.backgroundColor='var(--bg-nav-hover)'" onmouseout="this.style.backgroundColor='transparent'">
+                        <a href="{{ url_for('web_invoices.reports_dashboard') }}" style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--radius-sm); color: var(--text-primary); text-decoration: none; font-size: 0.85rem; transition: background-color var(--transition-fast);" onmouseover="this.style.backgroundColor='var(--bg-nav-hover)'" onmouseout="this.style.backgroundColor='transparent'">
                             <i class="fa-solid fa-file-shield" style="width: 16px; text-align: center;"></i>
                             <span>Reportes DGII</span>
                         </a>
                         {% endif %}
 
                         {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canViewSubscription', True) %}
-                        <a href="{{ url_for('client_subscription_page') }}" style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--radius-sm); color: var(--text-primary); text-decoration: none; font-size: 0.85rem; transition: background-color var(--transition-fast);" onmouseover="this.style.backgroundColor='var(--bg-nav-hover)'" onmouseout="this.style.backgroundColor='transparent'">
+                        <a href="{{ url_for('web_invoices.client_subscription_page') }}" style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--radius-sm); color: var(--text-primary); text-decoration: none; font-size: 0.85rem; transition: background-color var(--transition-fast);" onmouseover="this.style.backgroundColor='var(--bg-nav-hover)'" onmouseout="this.style.backgroundColor='transparent'">
                             <i class="fa-solid fa-credit-card" style="width: 16px; text-align: center;"></i>
                             <span>Mi Plan y Consumo</span>
                         </a>
                         {% endif %}
 
-                        <a href="{{ url_for('help_center') }}" style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--radius-sm); color: var(--text-primary); text-decoration: none; font-size: 0.85rem; transition: background-color var(--transition-fast);" onmouseover="this.style.backgroundColor='var(--bg-nav-hover)'" onmouseout="this.style.backgroundColor='transparent'">
+                        <a href="{{ url_for('web_invoices.help_center') }}" style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--radius-sm); color: var(--text-primary); text-decoration: none; font-size: 0.85rem; transition: background-color var(--transition-fast);" onmouseover="this.style.backgroundColor='var(--bg-nav-hover)'" onmouseout="this.style.backgroundColor='transparent'">
                             <i class="fa-solid fa-circle-question" style="width: 16px; text-align: center;"></i>
                             <span>Centro de Ayuda</span>
                         </a>
@@ -1262,7 +1286,7 @@
                 </button>
 
                 <!-- Centro de Ayuda -->
-                <a href="{{ url_for('help_center') }}" class="utility-item" title="Centro de Ayuda">
+                <a href="{{ url_for('web_invoices.help_center') }}" class="utility-item" title="Centro de Ayuda">
                     <i class="fa-solid fa-circle-question"></i>
                 </a>
 
@@ -1277,7 +1301,7 @@
                 <!-- Botón: Nuevo Documento Rápido -->
                 {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions',
                 {}).get('canInvoice', True) %}
-                <a href="{{ url_for('new_invoice_route') }}" class="utility-item" title="Nuevo Documento (+)"
+                <a href="{{ url_for('web_invoices.new_invoice_route') }}" class="utility-item" title="Nuevo Documento (+)"
                     style="color: var(--accent-emerald);">
                     <i class="fa-solid fa-file-circle-plus" style="font-size: 1.25rem;"></i>
                 </a>
@@ -1308,7 +1332,7 @@
                 </button>
 
                 <!-- Cerrar Sesión -->
-                <a href="{{ url_for('logout') }}" class="utility-item" style="color: var(--accent-red);"
+                <a href="{{ url_for('web_auth.logout') }}" class="utility-item" style="color: var(--accent-red);"
                     title="Cerrar Sesión" onclick="return confirm('¿Seguro que deseas cerrar la sesión?');">
                     <i class="fa-solid fa-right-from-bracket"></i>
                 </a>

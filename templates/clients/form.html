@@ -13,7 +13,7 @@
     </h3>
 
     <form
-        action="{% if client %}{{ url_for('edit_client', client_id=client.id) }}{% else %}{{ url_for('new_client') }}{% endif %}"
+        action="{% if client %}{{ url_for('web_clients.edit_client', client_id=client.id) }}{% else %}{{ url_for('web_clients.new_client') }}{% endif %}"
         method="POST" enctype="multipart/form-data">
         <div class="form-grid">
             <!-- Imagen del Cliente -->
@@ -139,7 +139,7 @@
 
         <div
             style="margin-top: 36px; display: flex; justify-content: flex-end; gap: 15px; border-top: 1px solid var(--border-color); padding-top: 24px;">
-            <a href="{{ url_for('list_clients') }}" class="btn btn-secondary">
+            <a href="{{ url_for('web_clients.list_clients') }}" class="btn btn-secondary">
                 <span>Cancelar</span>
             </a>
             <button type="submit" class="btn btn-primary">

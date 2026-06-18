@@ -73,7 +73,7 @@ def check_document_limit_exceeded(owner_uid, sandbox=True):
 # =========================================================================
 @web_invoices_bp.route('/items')
 def list_items():
-    if 'user' not in session: return redirect(url_for('login'))
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canClients'):
         return render_template('auth/restricted.html', feature_name="Catálogo de Productos", required_permission="canClients")
     owner_uid = session['user']['ownerUID']
@@ -85,7 +85,7 @@ def list_items():
         import io
         from datetime import datetime
         output = io.StringIO()
-        writer = csv.writer(output)
+        writer = csv.writer(output, quoting=csv.QUOTE_ALL)
         writer.writerow(["Código SKU", "Código de Barra", "Nombre / Descripción", "Categoría", "Tipo", "Medida", "Ubicación Pasillo", "Tasa ITBIS", "Costo Unitario", "Precio Venta", "Existencia/Stock", "Estado"])
         for item in items:
             writer.writerow([
@@ -118,7 +118,7 @@ def list_items():
 
 @web_invoices_bp.route('/items/new', methods=['GET', 'POST'])
 def new_item():
-    if 'user' not in session: return redirect(url_for('login'))
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canClients'):
         return render_template('auth/restricted.html', feature_name="Nuevo Artículo", required_permission="canClients")
     owner_uid = session['user']['ownerUID']
@@ -155,14 +155,14 @@ def new_item():
         
         DatabaseService.save_item(owner_uid, item_id, item_dict, sandbox=sandbox)
         flash('Artículo añadido al catálogo de ventas.', 'success')
-        return redirect(url_for('list_items'))
+        return redirect(url_for('web_invoices.list_items'))
         
     categories = DatabaseService.get_categories(owner_uid, sandbox=sandbox)
     return render_template('items/form.html', active_page='items', item=None, categories=categories)
 
 @web_invoices_bp.route('/items/<item_id>/edit', methods=['GET', 'POST'])
 def edit_item(item_id):
-    if 'user' not in session: return redirect(url_for('login'))
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canClients'):
         return render_template('auth/restricted.html', feature_name="Editar Artículo", required_permission="canClients")
     owner_uid = session['user']['ownerUID']
@@ -173,7 +173,7 @@ def edit_item(item_id):
     
     if not item:
         flash('Artículo no encontrado.', 'error')
-        return redirect(url_for('list_items'))
+        return redirect(url_for('web_invoices.list_items'))
         
     if request.method == 'POST':
         item_dict = {
@@ -205,14 +205,14 @@ def edit_item(item_id):
         }
         DatabaseService.save_item(owner_uid, item_id, item_dict, sandbox=sandbox)
         flash('Artículo del catálogo actualizado.', 'success')
-        return redirect(url_for('list_items'))
+        return redirect(url_for('web_invoices.list_items'))
         
     categories = DatabaseService.get_categories(owner_uid, sandbox=sandbox)
     return render_template('items/form.html', active_page='items', item=item, categories=categories)
 
 @web_invoices_bp.route('/items/<item_id>/delete', methods=['POST'])
 def delete_item_route(item_id):
-    if 'user' not in session: return redirect(url_for('login'))
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canClients'):
         return render_template('auth/restricted.html', feature_name="Eliminar Artículo", required_permission="canClients")
     owner_uid = session['user']['ownerUID']
@@ -220,7 +220,7 @@ def delete_item_route(item_id):
     
     DatabaseService.delete_item(owner_uid, item_id, sandbox=sandbox)
     flash('Artículo eliminado del catálogo.', 'success')
-    return redirect(url_for('list_items'))
+    return redirect(url_for('web_invoices.list_items'))
 
 @web_invoices_bp.route('/items/upload-image', methods=['POST'])
 def upload_item_image():
@@ -249,7 +249,7 @@ def upload_item_image():
 
 @web_invoices_bp.route('/items/import-csv', methods=['POST'])
 def import_items_csv():
-    if 'user' not in session: return redirect(url_for('login'))
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canClients'):
         return render_template('auth/restricted.html', feature_name="Importar Catálogo CSV", required_permission="canClients")
     owner_uid = session['user']['ownerUID']
@@ -258,7 +258,7 @@ def import_items_csv():
     file = request.files.get('csv_file')
     if not file or not file.filename.endswith('.csv'):
         flash('Por favor sube un archivo con formato .csv válido.', 'error')
-        return redirect(url_for('list_items'))
+        return redirect(url_for('web_invoices.list_items'))
         
     try:
         stream = io.StringIO(file.stream.read().decode("utf-8"), newline=None)
@@ -297,11 +297,11 @@ def import_items_csv():
     except Exception as e:
         flash(f'Fallo al parsear archivo CSV: {str(e)}', 'error')
         
-    return redirect(url_for('list_items'))
+    return redirect(url_for('web_invoices.list_items'))
 
 @web_invoices_bp.route('/items/download-template')
 def download_csv_template():
-    if 'user' not in session: return redirect(url_for('login'))
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canClients'):
         return render_template('auth/restricted.html', feature_name="Descargar Plantilla CSV", required_permission="canClients")
     output = io.StringIO()
@@ -320,7 +320,7 @@ def download_csv_template():
 
 @web_invoices_bp.route('/inventory/export-stock')
 def export_stock_report():
-    if 'user' not in session: return redirect(url_for('login'))
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canManageInventory'):
         return render_template('auth/restricted.html', feature_name="Reporte de Existencia", required_permission="canManageInventory")
     owner_uid = session['user']['ownerUID']
@@ -395,7 +395,7 @@ def export_stock_report():
 # =========================================================================
 @web_invoices_bp.route('/inventory')
 def inventory_dashboard():
-    if 'user' not in session: return redirect(url_for('login'))
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canManageInventory'):
         return render_template('auth/restricted.html', feature_name="Inventario y Almacén", required_permission="canManageInventory")
     owner_uid = session['user']['ownerUID']
@@ -438,7 +438,7 @@ def inventory_dashboard():
 
 @web_invoices_bp.route('/inventory/warehouses')
 def inventory_warehouses():
-    if 'user' not in session: return redirect(url_for('login'))
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canManageInventory'):
         return render_template('auth/restricted.html', feature_name="Almacenes", required_permission="canManageInventory")
     owner_uid = session['user']['ownerUID']
@@ -449,7 +449,7 @@ def inventory_warehouses():
 
 @web_invoices_bp.route('/inventory/warehouses/new', methods=['GET', 'POST'])
 def new_warehouse():
-    if 'user' not in session: return redirect(url_for('login'))
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canManageInventory'):
         return render_template('auth/restricted.html', feature_name="Nuevo Almacén", required_permission="canManageInventory")
     owner_uid = session['user']['ownerUID']
@@ -465,14 +465,14 @@ def new_warehouse():
         }
         DatabaseService.save_warehouse(owner_uid, warehouse_id, wh_dict, sandbox=sandbox)
         flash('Almacén registrado exitosamente.', 'success')
-        return redirect(url_for('inventory_warehouses'))
+        return redirect(url_for('web_invoices.inventory_warehouses'))
         
     branches = DatabaseService.get_branches(owner_uid, sandbox=sandbox)
     return render_template('inventario/warehouse_form.html', active_page='inventory', warehouse=None, branches=branches)
 
 @web_invoices_bp.route('/inventory/warehouses/<warehouse_id>/edit', methods=['GET', 'POST'])
 def edit_warehouse(warehouse_id):
-    if 'user' not in session: return redirect(url_for('login'))
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canManageInventory'):
         return render_template('auth/restricted.html', feature_name="Editar Almacén", required_permission="canManageInventory")
     owner_uid = session['user']['ownerUID']
@@ -482,7 +482,7 @@ def edit_warehouse(warehouse_id):
     warehouse = next((w for w in warehouses if w['id'] == warehouse_id), None)
     if not warehouse:
         flash('Almacén no encontrado.', 'error')
-        return redirect(url_for('inventory_warehouses'))
+        return redirect(url_for('web_invoices.inventory_warehouses'))
         
     if request.method == 'POST':
         wh_dict = {
@@ -494,14 +494,14 @@ def edit_warehouse(warehouse_id):
         }
         DatabaseService.save_warehouse(owner_uid, warehouse_id, wh_dict, sandbox=sandbox)
         flash('Almacén actualizado correctamente.', 'success')
-        return redirect(url_for('inventory_warehouses'))
+        return redirect(url_for('web_invoices.inventory_warehouses'))
         
     branches = DatabaseService.get_branches(owner_uid, sandbox=sandbox)
     return render_template('inventario/warehouse_form.html', active_page='inventory', warehouse=warehouse, branches=branches)
 
 @web_invoices_bp.route('/inventory/warehouses/<warehouse_id>/delete', methods=['POST'])
 def delete_warehouse_route(warehouse_id):
-    if 'user' not in session: return redirect(url_for('login'))
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canManageInventory'):
         return render_template('auth/restricted.html', feature_name="Eliminar Almacén", required_permission="canManageInventory")
     owner_uid = session['user']['ownerUID']
@@ -511,15 +511,15 @@ def delete_warehouse_route(warehouse_id):
     warehouses = DatabaseService.get_warehouses(owner_uid, sandbox=sandbox)
     if len(warehouses) <= 1:
         flash('Debe mantener al menos un almacén activo en el sistema.', 'error')
-        return redirect(url_for('inventory_warehouses'))
+        return redirect(url_for('web_invoices.inventory_warehouses'))
         
     DatabaseService.delete_warehouse(owner_uid, warehouse_id, sandbox=sandbox)
     flash('Almacén eliminado correctamente.', 'success')
-    return redirect(url_for('inventory_warehouses'))
+    return redirect(url_for('web_invoices.inventory_warehouses'))
 
 @web_invoices_bp.route('/inventory/transactions')
 def inventory_transactions():
-    if 'user' not in session: return redirect(url_for('login'))
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canManageInventory'):
         return render_template('auth/restricted.html', feature_name="Movimientos de Inventario", required_permission="canManageInventory")
     owner_uid = session['user']['ownerUID']
@@ -541,7 +541,7 @@ def inventory_transactions():
 
 @web_invoices_bp.route('/inventory/transactions/new', methods=['GET', 'POST'])
 def new_inventory_transaction():
-    if 'user' not in session: return redirect(url_for('login'))
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canManageInventory'):
         return render_template('auth/restricted.html', feature_name="Nuevo Ajuste de Inventario", required_permission="canManageInventory")
     owner_uid = session['user']['ownerUID']
@@ -581,7 +581,7 @@ def new_inventory_transaction():
         else:
             flash('Fallo al registrar el movimiento de inventario.', 'error')
             
-        return redirect(url_for('inventory_dashboard'))
+        return redirect(url_for('web_invoices.inventory_dashboard'))
         
     items = DatabaseService.get_items(owner_uid, sandbox=sandbox)
     goods = [it for it in items if it.get('type', 'Bien') == 'Bien']
@@ -599,7 +599,7 @@ def new_inventory_transaction():
 # =========================================================================
 @web_invoices_bp.route('/invoices')
 def list_invoices():
-    if 'user' not in session: return redirect(url_for('login'))
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canInvoice'):
         return render_template('auth/restricted.html', feature_name="Documentos y Facturación", required_permission="canInvoice")
     owner_uid = session['user']['ownerUID']
@@ -682,7 +682,7 @@ def list_invoices():
         import io
         from datetime import datetime
         output = io.StringIO()
-        writer = csv.writer(output)
+        writer = csv.writer(output, quoting=csv.QUOTE_ALL)
         writer.writerow(["Número de Factura", "Cliente", "RNC", "Fecha", "Fecha Vencimiento", "Subtotal (RD$)", "Total (RD$)", "Pendiente (RD$)", "Estatus", "NCF / e-CF", "Tipo e-CF"])
         for inv in filtered:
             writer.writerow([
@@ -753,7 +753,7 @@ def list_invoices():
 
 @web_invoices_bp.route('/quotations')
 def list_quotations():
-    if 'user' not in session: return redirect(url_for('login'))
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canInvoice'):
         return render_template('auth/restricted.html', feature_name="Cotizaciones", required_permission="canInvoice")
     owner_uid = session['user']['ownerUID']
@@ -796,7 +796,7 @@ def list_quotations():
         import io
         from datetime import datetime
         output = io.StringIO()
-        writer = csv.writer(output)
+        writer = csv.writer(output, quoting=csv.QUOTE_ALL)
         writer.writerow(["Número de Cotización", "Cliente", "RNC", "Fecha", "Subtotal (RD$)", "Total (RD$)", "Estatus"])
         for inv in filtered:
             writer.writerow([
@@ -889,7 +889,7 @@ def update_invoice_status_ajax(invoice_id):
     return jsonify({'success': True})
 
 def _new_document_helper(invoice_id=None, is_quotation=False):
-    if 'user' not in session: return redirect(url_for('login'))
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canInvoice'):
         return render_template('auth/restricted.html', feature_name="Emisión de Documentos", required_permission="canInvoice")
     owner_uid = session['user']['ownerUID']
@@ -943,11 +943,22 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
     active_page = 'quotations' if is_quotation_route else 'invoices'
     
     if request.method == 'POST':
+        # 0. Validar régimen fiscal
+        profile = DatabaseService.get_company_profile(owner_uid)
+        regimen = DGIIService.normalize_regimen(profile.get("regimenFiscal", "ordinary")) if profile else "ordinary"
+        regimen_rules = REGIMEN_RULES.get(regimen, REGIMEN_RULES.get("ordinary", {}))
+        ecf_code_from_form = request.form.get('ecfType', 'Factura de Consumo (E32)')
+
         # 1. Obtener campos principales
         client_id = request.form.get('clientId')
-        ecf_type = request.form.get('ecfType', 'Factura de Consumo (E32)')
+        ecf_type = ecf_code_from_form
         if is_quotation_route:
             ecf_type = "Cotización"
+        elif regimen_rules.get("allowed_ecf_types"):
+            ecf_code = ecf_type.split("(")[-1].replace(")", "").strip() if "(" in ecf_type else ecf_type
+            if ecf_code not in regimen_rules["allowed_ecf_types"]:
+                flash(f'❌ Su régimen ({regimen}) no permite el tipo de comprobante {ecf_type}. Tipos permitidos: {", ".join(regimen_rules["allowed_ecf_types"])}', 'error')
+                return redirect(url_for('web_invoices.list_invoices'))
         currency = request.form.get('currency', 'DOP')
         payment_method = request.form.get('paymentMethod', 'Efectivo')
         due_date = request.form['dueDate']
@@ -1017,6 +1028,8 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
             price = float(request.form.get(f'items[{idx}][price]', 0.0))
             qty = int(request.form.get(f'items[{idx}][quantity]', 1))
             itbis_rate = float(request.form.get(f'items[{idx}][itbisRate]', 0.18))
+            if not regimen_rules.get("itbis_enabled", True):
+                itbis_rate = 0.0
             item_disc = float(request.form.get(f'items[{idx}][discountRate]', 0.0))
             
             if name:
@@ -1187,7 +1200,7 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
                 "paymentMethod": payment_method,
                 "incomeType": income_type,
                 "customFields": [],
-                "exchangeRate": CurrencyService.get_rate(currency),
+                "exchangeRate": float(request.form.get('exchangeRate', 0) or 0) or CurrencyService.get_rate(currency),
                 "warehouseId": request.form.get('warehouseId', ''),
                 "branchId": request.form.get('branchId', 'default-sucursal-principal'),
                 "items": calcs["items"],
@@ -1242,12 +1255,12 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
         
         if is_quotation:
             flash('Cotización creada exitosamente como borrador.', 'success')
-            return redirect(url_for('list_quotations'))
+            return redirect(url_for('web_invoices.list_quotations'))
         elif action in ['emitir_cobrar', 'emitir_credito']:
             exceeded, limit_msg = check_document_limit_exceeded(owner_uid, sandbox=sandbox)
             if exceeded:
                 flash(limit_msg, 'error')
-                return redirect(url_for('list_invoices'))
+                return redirect(url_for('web_invoices.list_invoices'))
             elif limit_msg:
                 flash(limit_msg, 'warning')
                 
@@ -1322,10 +1335,10 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
                     flash(f"Borrador creado, pero error al emitir: {res.get('message')}", "warning")
             except Exception as e:
                 flash(f"Borrador creado, pero fallo en emisión: {str(e)}", "error")
-            return redirect(url_for('invoice_detail', invoice_id=target_invoice_id))
+            return redirect(url_for('web_invoices.invoice_detail', invoice_id=target_invoice_id))
         else:
             flash('Borrador de documento guardado exitosamente.', 'success')
-            return redirect(url_for('invoice_detail', invoice_id=target_invoice_id))
+            return redirect(url_for('web_invoices.invoice_detail', invoice_id=target_invoice_id))
 
     # Cargar catálogo de ítems, clientes y almacenes para alimentar form
     clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox)
@@ -1510,7 +1523,7 @@ def mark_notifications_read():
 
 @web_invoices_bp.route('/invoices/<invoice_id>')
 def invoice_detail(invoice_id):
-    if 'user' not in session: return redirect(url_for('login'))
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
 
     if not check_permission('canInvoice'):
         return render_template('auth/restricted.html', feature_name="Detalle de Factura", required_permission="canInvoice")
@@ -1520,7 +1533,7 @@ def invoice_detail(invoice_id):
     invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
     if not invoice:
         flash('Factura no encontrada.', 'error')
-        return redirect(url_for('list_invoices'))
+        return redirect(url_for('web_invoices.list_invoices'))
     
     invoice = _enrich_invoice_totals(invoice)
         
@@ -1593,14 +1606,14 @@ def invoice_detail(invoice_id):
 
 @web_invoices_bp.route('/invoices/<invoice_id>/comments/new', methods=['POST'])
 def add_invoice_comment(invoice_id):
-    if 'user' not in session: return redirect(url_for('login'))
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
     
     content = request.form.get('content', '').strip()
     if not content:
         flash('El comentario no puede estar vacío.', 'error')
-        return redirect(url_for('invoice_detail', invoice_id=invoice_id))
+        return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
         
     attachment_url = ""
     attachment_name = ""
@@ -1646,11 +1659,11 @@ def add_invoice_comment(invoice_id):
         print(f"⚠️ Error al procesar menciones en add_invoice_comment: {ex}")
         
     flash('Comentario agregado exitosamente.', 'success')
-    return redirect(url_for('invoice_detail', invoice_id=invoice_id))
+    return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
 
 @web_invoices_bp.route('/invoices/<invoice_id>/comments/<comment_id>/edit', methods=['POST'])
 def edit_invoice_comment(invoice_id, comment_id):
-    if 'user' not in session: return redirect(url_for('login'))
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
     
@@ -1658,19 +1671,19 @@ def edit_invoice_comment(invoice_id, comment_id):
     comment = next((c for c in comments if c['id'] == comment_id), None)
     if not comment:
         flash('Comentario no encontrado.', 'error')
-        return redirect(url_for('invoice_detail', invoice_id=invoice_id))
+        return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
         
     # Validar permisos
     is_owner = session['user'].get('role') == 'owner'
     is_author = session['user']['uid'] == comment.get('createdByUid')
     if not (is_owner or is_author):
         flash('No tienes permiso para editar este comentario.', 'error')
-        return redirect(url_for('invoice_detail', invoice_id=invoice_id))
+        return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
         
     content = request.form.get('content', '').strip()
     if not content:
         flash('El comentario no puede estar vacío.', 'error')
-        return redirect(url_for('invoice_detail', invoice_id=invoice_id))
+        return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
         
     comment['content'] = content
     comment['edited'] = True
@@ -1706,12 +1719,12 @@ def edit_invoice_comment(invoice_id, comment_id):
         print(f"⚠️ Error al procesar menciones en edit_invoice_comment: {ex}")
         
     flash('Comentario editado exitosamente.', 'success')
-    return redirect(url_for('invoice_detail', invoice_id=invoice_id))
+    return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
 
 
 @web_invoices_bp.route('/invoices/<invoice_id>/comments/<comment_id>/delete', methods=['POST'])
 def delete_invoice_comment(invoice_id, comment_id):
-    if 'user' not in session: return redirect(url_for('login'))
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
     
@@ -1719,18 +1732,18 @@ def delete_invoice_comment(invoice_id, comment_id):
     comment = next((c for c in comments if c['id'] == comment_id), None)
     if not comment:
         flash('Comentario no encontrado.', 'error')
-        return redirect(url_for('invoice_detail', invoice_id=invoice_id))
+        return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
         
     # Validar permisos
     is_owner = session['user'].get('role') == 'owner'
     is_author = session['user']['uid'] == comment.get('createdByUid')
     if not (is_owner or is_author):
         flash('No tienes permiso para eliminar este comentario.', 'error')
-        return redirect(url_for('invoice_detail', invoice_id=invoice_id))
+        return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
         
     DatabaseService.delete_invoice_comment(owner_uid, invoice_id, comment_id, sandbox=sandbox)
     flash('Comentario eliminado exitosamente.', 'success')
-    return redirect(url_for('invoice_detail', invoice_id=invoice_id))
+    return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
 
 @web_invoices_bp.route('/invoices/comments/ai-polish', methods=['POST'])
 def ai_polish_comment():
@@ -2151,7 +2164,7 @@ def notify_invoice_email(invoice_id):
 
 @web_invoices_bp.route('/invoices/<invoice_id>/pay', methods=['POST'])
 def pay_invoice_route(invoice_id):
-    if 'user' not in session: return redirect(url_for('login'))
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
 
     if not check_permission('canInvoice'):
         return render_template('auth/restricted.html', feature_name="Registrar Pago", required_permission="canInvoice")
@@ -2161,7 +2174,7 @@ def pay_invoice_route(invoice_id):
     invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
     if not invoice:
         flash('Factura no encontrada.', 'error')
-        return redirect(url_for('list_invoices'))
+        return redirect(url_for('web_invoices.list_invoices'))
         
     try:
         amount = float(request.form.get('amount', invoice.get('remainingBalance', 0.0)))
@@ -2172,7 +2185,7 @@ def pay_invoice_route(invoice_id):
     
     if amount <= 0.0:
         flash('El monto a abonar debe ser mayor a cero.', 'error')
-        return redirect(url_for('invoice_detail', invoice_id=invoice_id))
+        return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
         
     payment_method = request.form.get('paymentMethod', 'Cheque / Transferencia')
     
@@ -2201,7 +2214,7 @@ def pay_invoice_route(invoice_id):
         capital_amount = max(0.0, amount - mora_amount)
         if capital_amount > remaining_balance + 0.01:
             flash(f'El monto de capital del abono (RD$ {capital_amount:,.2f}) no puede superar el balance pendiente (RD$ {remaining_balance:,.2f}).', 'error')
-            return redirect(url_for('invoice_detail', invoice_id=invoice_id))
+            return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
             
         payment_dict["amount"] = capital_amount
         payment_dict["moraAction"] = "cobrado_separado"
@@ -2220,7 +2233,7 @@ def pay_invoice_route(invoice_id):
     else:
         if amount > remaining_balance + 0.01:
             flash(f'El monto del abono (RD$ {amount:,.2f}) no puede superar el balance pendiente (RD$ {remaining_balance:,.2f}).', 'error')
-            return redirect(url_for('invoice_detail', invoice_id=invoice_id))
+            return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
             
         payment_dict["amount"] = amount
         if mora_amount > 0:
@@ -2241,11 +2254,11 @@ def pay_invoice_route(invoice_id):
         except Exception as e:
             flash(f'Error al registrar el cobro: {str(e)}', 'error')
             
-    return redirect(url_for('invoice_detail', invoice_id=invoice_id))
+    return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
 
 @web_invoices_bp.route('/invoices/<invoice_id>/approve_payment_proof', methods=['POST'])
 def approve_payment_proof(invoice_id):
-    if 'user' not in session: return redirect(url_for('login'))
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canInvoice'):
         return render_template('auth/restricted.html', feature_name="Aprobar Pago", required_permission="canInvoice")
     owner_uid = session['user']['ownerUID']
@@ -2254,7 +2267,7 @@ def approve_payment_proof(invoice_id):
     invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
     if not invoice:
         flash('Factura no encontrada.', 'error')
-        return redirect(url_for('list_invoices'))
+        return redirect(url_for('web_invoices.list_invoices'))
         
     try:
         amount = float(request.form.get('amount', 0.0))
@@ -2263,7 +2276,7 @@ def approve_payment_proof(invoice_id):
         
     if amount <= 0.0:
         flash('El monto del cobro debe ser mayor a cero.', 'error')
-        return redirect(url_for('invoice_detail', invoice_id=invoice_id))
+        return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
         
     payment_method = request.form.get('paymentMethod', 'Transferencia Bancaria')
     bank = request.form.get('bank', 'Banco Popular Dominicano')
@@ -2332,11 +2345,11 @@ def approve_payment_proof(invoice_id):
     except Exception as e:
         flash(f'Error al aprobar el pago: {str(e)}', 'error')
         
-    return redirect(url_for('invoice_detail', invoice_id=invoice_id))
+    return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
 
 @web_invoices_bp.route('/invoices/<invoice_id>/reject_payment_proof', methods=['POST'])
 def reject_payment_proof(invoice_id):
-    if 'user' not in session: return redirect(url_for('login'))
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canInvoice'):
         return render_template('auth/restricted.html', feature_name="Rechazar Pago", required_permission="canInvoice")
     owner_uid = session['user']['ownerUID']
@@ -2345,7 +2358,7 @@ def reject_payment_proof(invoice_id):
     invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
     if not invoice:
         flash('Factura no encontrada.', 'error')
-        return redirect(url_for('list_invoices'))
+        return redirect(url_for('web_invoices.list_invoices'))
         
     rejection_reason = request.form.get('rejectionReason', '').strip()
     
@@ -2419,11 +2432,11 @@ def reject_payment_proof(invoice_id):
     except Exception as e:
         flash(f'Error al rechazar el pago: {str(e)}', 'error')
         
-    return redirect(url_for('invoice_detail', invoice_id=invoice_id))
+    return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
 
 @web_invoices_bp.route('/invoices/<invoice_id>/sign', methods=['POST'])
 def sign_invoice_route(invoice_id):
-    if 'user' not in session: return redirect(url_for('login'))
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canInvoice'):
         return render_template('auth/restricted.html', feature_name="Firmar Comprobante", required_permission="canInvoice")
     owner_uid = session['user']['ownerUID']
@@ -2432,12 +2445,12 @@ def sign_invoice_route(invoice_id):
     invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
     if not invoice:
         flash('Factura no encontrada.', 'error')
-        return redirect(url_for('list_invoices'))
+        return redirect(url_for('web_invoices.list_invoices'))
         
     exceeded, limit_msg = check_document_limit_exceeded(owner_uid, sandbox=sandbox)
     if exceeded:
         flash(limit_msg, 'error')
-        return redirect(url_for('invoice_detail', invoice_id=invoice_id))
+        return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
     elif limit_msg:
         flash(limit_msg, 'warning')
         
@@ -2502,12 +2515,12 @@ def sign_invoice_route(invoice_id):
     except Exception as e:
         flash(f"Fallo en la emisión de comprobante: {str(e)}", "error")
         
-    return redirect(url_for('invoice_detail', invoice_id=invoice_id))
+    return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
 
 @web_invoices_bp.route('/invoices/<invoice_id>/convert', methods=['POST'])
 def convert_quotation_route(invoice_id):
     """Convierte una Cotización (COT-) en un Comprobante Fiscal Electrónico real (FAC-)."""
-    if 'user' not in session: return redirect(url_for('login'))
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canInvoice'):
         return render_template('auth/restricted.html', feature_name="Convertir Cotización", required_permission="canInvoice")
     owner_uid = session['user']['ownerUID']
@@ -2516,11 +2529,11 @@ def convert_quotation_route(invoice_id):
     invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
     if not invoice:
         flash('Cotización no encontrada.', 'error')
-        return redirect(url_for('list_quotations'))
+        return redirect(url_for('web_invoices.list_quotations'))
 
     if not invoice.get('isQuotation'):
         flash('Este documento ya es una factura real. No necesita conversión.', 'info')
-        return redirect(url_for('invoice_detail', invoice_id=invoice_id))
+        return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
 
     target_ecf_type = request.form.get('targetEcfType', 'Factura de Consumo (E32)')
 
@@ -2530,11 +2543,11 @@ def convert_quotation_route(invoice_id):
 
     if target_ecf_type == 'Factura de Crédito Fiscal (E31)' and not client_rnc:
         flash('Las facturas de Crédito Fiscal (E31) siempre requieren el RNC/Cédula del cliente. Edita la cotización y agrega un cliente antes de convertir.', 'error')
-        return redirect(url_for('invoice_detail', invoice_id=invoice_id))
+        return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
 
     if target_ecf_type == 'Factura de Consumo (E32)' and total >= 250000 and not client_rnc:
         flash(f'Por Ley 32-23 de la DGII, las facturas de consumo que superen RD$ 250,000 deben identificar al comprador. El total de esta cotización es RD$ {total:,.2f}. Agrega un cliente con RNC antes de convertir.', 'error')
-        return redirect(url_for('invoice_detail', invoice_id=invoice_id))
+        return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
 
     # Realizar la conversión
     random_num = f"{random.randint(1, 999999):06d}"
@@ -2547,13 +2560,13 @@ def convert_quotation_route(invoice_id):
     DatabaseService.save_invoice(owner_uid, invoice_id, invoice, sandbox=sandbox)
 
     flash(f'¡Cotización convertida exitosamente a {target_ecf_type}! El número de documento es {invoice["invoiceNumber"]}. Procede a firmar digitalmente el comprobante.', 'success')
-    return redirect(url_for('invoice_detail', invoice_id=invoice_id))
+    return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
 
 
 @web_invoices_bp.route('/quotations/<invoice_id>/approve', methods=['POST'])
 def approve_quotation_route(invoice_id):
     """Aprueba manualmente una cotización cambiándole el estado a 'Aprobada'."""
-    if 'user' not in session: return redirect(url_for('login'))
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canInvoice'):
         return render_template('auth/restricted.html', feature_name="Aprobar Cotización", required_permission="canInvoice")
     owner_uid = session['user']['ownerUID']
@@ -2562,17 +2575,17 @@ def approve_quotation_route(invoice_id):
     invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
     if not invoice or not invoice.get('isQuotation'):
         flash('Cotización no encontrada.', 'error')
-        return redirect(url_for('list_quotations'))
+        return redirect(url_for('web_invoices.list_quotations'))
         
     invoice['status'] = 'Aprobada'
     DatabaseService.save_invoice(owner_uid, invoice_id, invoice, sandbox=sandbox)
     flash('Cotización aprobada manualmente con éxito.', 'success')
-    return redirect(url_for('invoice_detail', invoice_id=invoice_id))
+    return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
 
 @web_invoices_bp.route('/quotations/<invoice_id>/send-to-client', methods=['POST'])
 def send_quotation_to_client(invoice_id):
     """Envía el enlace de aprobación de la cotización por correo electrónico."""
-    if 'user' not in session: return redirect(url_for('login'))
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canInvoice'):
         return render_template('auth/restricted.html', feature_name="Enviar Cotización", required_permission="canInvoice")
     owner_uid = session['user']['ownerUID']
@@ -2583,14 +2596,14 @@ def send_quotation_to_client(invoice_id):
     invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
     if not invoice or not invoice.get('isQuotation'):
         flash('Cotización no encontrada.', 'error')
-        return redirect(url_for('list_quotations'))
+        return redirect(url_for('web_invoices.list_quotations'))
         
     if not recipient_email:
         recipient_email = _get_client_email(owner_uid, invoice, sandbox)
         
     if not recipient_email:
         flash('El cliente no tiene un correo registrado. Especifique un correo de destino.', 'error')
-        return redirect(url_for('invoice_detail', invoice_id=invoice_id))
+        return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
         
     company = DatabaseService.get_company_profile(owner_uid)
     company_name = company.get("tradeName") or company.get("companyName", "e-Factura")
@@ -2607,7 +2620,7 @@ def send_quotation_to_client(invoice_id):
     
     if not smtp_server or not smtp_user or not smtp_password:
         flash('El servidor de correo no está configurado (SMTP).', 'error')
-        return redirect(url_for('invoice_detail', invoice_id=invoice_id))
+        return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
         
     brand_color = company.get("colorMarca", "#1e3a8a")
     
@@ -2684,7 +2697,7 @@ def send_quotation_to_client(invoice_id):
     except Exception as e:
         flash(f"Error al enviar correo: {str(e)}", "error")
         
-    return redirect(url_for('invoice_detail', invoice_id=invoice_id))
+    return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
 
 
 @web_invoices_bp.route('/quotations/<invoice_id>/convert-to-contract', methods=['POST'])
@@ -2703,19 +2716,19 @@ def convert_quotation_to_contract(invoice_id):
     invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
     if not invoice:
         flash('Cotización no encontrada.', 'error')
-        return redirect(url_for('list_quotations'))
+        return redirect(url_for('web_invoices.list_quotations'))
 
     if not invoice.get('isQuotation'):
         flash('Este documento no es una cotización.', 'error')
-        return redirect(url_for('invoice_detail', invoice_id=invoice_id))
+        return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
 
     if invoice.get('status') != 'Aprobada':
         flash('Solo se pueden convertir cotizaciones con estado "Aprobada".', 'warning')
-        return redirect(url_for('invoice_detail', invoice_id=invoice_id))
+        return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
 
     if invoice.get('isConvertedToContract'):
         flash('Esta cotización ya fue convertida a un contrato recurrente.', 'info')
-        return redirect(url_for('invoice_detail', invoice_id=invoice_id))
+        return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
 
     # ── Mapear ítems de la cotización a contractLines ─────────────────────────
     contract_lines = []
@@ -3108,7 +3121,7 @@ def expense_pdf_download(expense_id):
 
 @web_invoices_bp.route('/invoices/<invoice_id>/void', methods=['POST'])
 def void_invoice_route(invoice_id):
-    if 'user' not in session: return redirect(url_for('login'))
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canInvoice'):
         return render_template('auth/restricted.html', feature_name="Anular Comprobante", required_permission="canInvoice")
     owner_uid = session['user']['ownerUID']
@@ -3117,7 +3130,7 @@ def void_invoice_route(invoice_id):
     invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
     if not invoice:
         flash('Factura no encontrada.', 'error')
-        return redirect(url_for('list_invoices'))
+        return redirect(url_for('web_invoices.list_invoices'))
         
     company = DatabaseService.get_company_profile(owner_uid)
     
@@ -3182,7 +3195,7 @@ def void_invoice_route(invoice_id):
         )
         flash('Borrador de factura anulado correctamente.', 'success')
         
-    return redirect(url_for('list_invoices'))
+    return redirect(url_for('web_invoices.list_invoices'))
 
 @web_invoices_bp.route('/api/invoices/sync-contingency', methods=['POST'])
 def sync_contingency_invoices():
@@ -3257,7 +3270,7 @@ def sync_contingency_invoices():
 
 @web_invoices_bp.route('/invoices/<invoice_id>/sync', methods=['POST'])
 def sync_single_invoice_route(invoice_id):
-    if 'user' not in session: return redirect(url_for('login'))
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canInvoice'):
         return render_template('auth/restricted.html', feature_name="Sincronizar Comprobante", required_permission="canInvoice")
     owner_uid = session['user']['ownerUID']
@@ -3266,7 +3279,7 @@ def sync_single_invoice_route(invoice_id):
     invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
     if not invoice:
         flash('Factura no encontrada.', 'error')
-        return redirect(url_for('list_invoices'))
+        return redirect(url_for('web_invoices.list_invoices'))
         
     company = DatabaseService.get_company_profile(owner_uid)
     
@@ -3302,14 +3315,14 @@ def sync_single_invoice_route(invoice_id):
     except Exception as e:
         flash(f"Error durante la sincronización: {str(e)}", 'error')
         
-    return redirect(url_for('invoice_detail', invoice_id=invoice_id))
+    return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
 
 # =========================================================================
 # CONTROL DE GASTOS Y RENTABILIDAD
 # =========================================================================
 @web_invoices_bp.route('/expenses')
 def list_expenses():
-    if 'user' not in session: return redirect(url_for('login'))
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canExpenses'):
         return render_template('auth/restricted.html', feature_name="Control de Gastos", required_permission="canExpenses")
     owner_uid = session['user']['ownerUID']
@@ -3365,7 +3378,7 @@ def list_expenses():
         import csv
         import io
         output = io.StringIO()
-        writer = csv.writer(output)
+        writer = csv.writer(output, quoting=csv.QUOTE_ALL)
         writer.writerow(["Fecha", "Concepto", "Categoría", "NCF", "RNC Emisor", "Proveedor", "Monto Total (RD$)", "ITBIS (RD$)", "Factura Imputada", "Recurrente", "Estatus Aprobación"])
         for exp in filtered_expenses:
             writer.writerow([
@@ -3395,10 +3408,42 @@ def list_expenses():
             download_name=filename
         )
                     
+    total_items = len(filtered_expenses)
+    try:
+        page = int(request.args.get('page', 1))
+    except ValueError:
+        page = 1
+    per_page = request.args.get('per_page', '10').strip()
+    if per_page == 'all':
+        per_page_val = max(1, total_items)
+    else:
+        try:
+            per_page_val = int(per_page)
+            if per_page_val not in [10, 25, 50, 100]:
+                per_page_val = 10
+        except ValueError:
+            per_page_val = 10
+    total_pages = max(1, (total_items + per_page_val - 1) // per_page_val)
+    if page < 1: page = 1
+    if page > total_pages: page = total_pages
+    start_idx = (page - 1) * per_page_val
+    end_idx = start_idx + per_page_val
+    paginated = filtered_expenses[start_idx:end_idx]
+    start_count = ((page - 1) * per_page_val) + 1 if total_items > 0 else 0
+    end_count = min(page * per_page_val, total_items)
+
     return render_template(
         'expenses/list.html', 
         active_page='expenses', 
-        expenses=filtered_expenses,
+        expenses=paginated,
+        page=page,
+        total_pages=total_pages,
+        total_items=total_items,
+        pages_range=range(1, total_pages + 1),
+        has_prev=page > 1,
+        has_next=page < total_pages,
+        start_count=start_count,
+        end_count=end_count,
         category_filter=category_filter,
         start_date=start_date,
         end_date=end_date,
@@ -3541,7 +3586,7 @@ def _update_expense_sequence_log(owner_uid, log_id, emission_res, expense_dict, 
 
 @web_invoices_bp.route('/expenses/new', methods=['GET', 'POST'])
 def new_expense_route():
-    if 'user' not in session: return redirect(url_for('login'))
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canExpenses'):
         return render_template('auth/restricted.html', feature_name="Registrar Gasto", required_permission="canExpenses")
     owner_uid = session['user']['ownerUID']
@@ -3798,7 +3843,7 @@ def new_expense_route():
             except Exception as e:
                 print("Error enviando notificacion de gasto: ", e)
 
-        return redirect(url_for('list_expenses'))
+        return redirect(url_for('web_invoices.list_expenses'))
 
 
         
@@ -3832,7 +3877,7 @@ def new_expense_route():
 
 @web_invoices_bp.route('/expenses/<expense_id>/delete', methods=['POST'])
 def delete_expense_route(expense_id):
-    if 'user' not in session: return redirect(url_for('login'))
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canExpenses'):
         return render_template('auth/restricted.html', feature_name="Eliminar Gasto", required_permission="canExpenses")
     owner_uid = session['user']['ownerUID']
@@ -3860,11 +3905,11 @@ def delete_expense_route(expense_id):
         sandbox=sandbox
     )
     flash('Gasto eliminado.', 'success')
-    return redirect(url_for('list_expenses'))
+    return redirect(url_for('web_invoices.list_expenses'))
 
 @web_invoices_bp.route('/expenses/delete-multiple', methods=['POST'])
 def delete_multiple_expenses_route():
-    if 'user' not in session: return redirect(url_for('login'))
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canExpenses'):
         return render_template('auth/restricted.html', feature_name="Eliminar Gasto", required_permission="canExpenses")
     owner_uid = session['user']['ownerUID']
@@ -3873,7 +3918,7 @@ def delete_multiple_expenses_route():
     expense_ids = request.form.getlist('expense_ids')
     if not expense_ids:
         flash('No se seleccionó ningún gasto para eliminar.', 'warning')
-        return redirect(url_for('list_expenses'))
+        return redirect(url_for('web_invoices.list_expenses'))
 
     from app.services.audit_service import AuditService, ACTION_DELETE, MODULE_GASTOS
     expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox)
@@ -3896,10 +3941,10 @@ def delete_multiple_expenses_route():
             deleted_count += 1
             
     flash(f'{deleted_count} gasto(s) eliminado(s) correctamente.', 'success')
-    return redirect(url_for('list_expenses'))
+    return redirect(url_for('web_invoices.list_expenses'))
 @web_invoices_bp.route('/expenses/<expense_id>/edit', methods=['GET', 'POST'])
 def edit_expense_route(expense_id):
-    if 'user' not in session: return redirect(url_for('login'))
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canExpenses'):
         return render_template('auth/restricted.html', feature_name="Editar Gasto", required_permission="canExpenses")
         
@@ -3916,7 +3961,7 @@ def edit_expense_route(expense_id):
             
     if not expense:
         flash('Gasto no encontrado.', 'error')
-        return redirect(url_for('list_expenses'))
+        return redirect(url_for('web_invoices.list_expenses'))
         
     if request.method == 'POST':
         # Procesar MÚLTIPLES archivos nuevos (se agregan a los existentes)
@@ -4135,7 +4180,7 @@ def edit_expense_route(expense_id):
             flash(ecf_edit_msg[1], ecf_edit_msg[0])
         else:
             flash('Gasto operativo actualizado exitosamente.', 'success')
-        return redirect(url_for('list_expenses'))
+        return redirect(url_for('web_invoices.list_expenses'))
         
     invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox)
     
@@ -4167,7 +4212,7 @@ def edit_expense_route(expense_id):
 
 @web_invoices_bp.route('/expenses/<expense_id>/sync', methods=['POST'])
 def sync_expense_ecf_route(expense_id):
-    if 'user' not in session: return redirect(url_for('login'))
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canExpenses'):
         return render_template('auth/restricted.html', feature_name="Sincronizar e-CF Gasto", required_permission="canExpenses")
     owner_uid = session['user']['ownerUID']
@@ -4176,12 +4221,12 @@ def sync_expense_ecf_route(expense_id):
     expense = DatabaseService.get_expense(owner_uid, expense_id, sandbox=sandbox)
     if not expense:
         flash('Gasto no encontrado.', 'error')
-        return redirect(url_for('list_expenses'))
+        return redirect(url_for('web_invoices.list_expenses'))
 
     ecf_type_raw = expense.get("ecfType", "")
     if ecf_type_raw not in ("E41", "E43", "Comprobante de Compras (E41)", "Gastos Menores (E43)"):
         flash('Solo los gastos E41 y E43 pueden sincronizarse con la DGII.', 'warning')
-        return redirect(url_for('expense_detail', expense_id=expense_id))
+        return redirect(url_for('web_invoices.expense_detail', expense_id=expense_id))
 
     ecf_short = "E41" if "E41" in ecf_type_raw else "E43"
     ecf_full_type = "Comprobante de Compras (E41)" if ecf_short == "E41" else "Gastos Menores (E43)"
@@ -4229,7 +4274,7 @@ def sync_expense_ecf_route(expense_id):
     except Exception as e:
         flash(f"Error durante la sincronización: {str(e)}", 'error')
 
-    return redirect(url_for('expense_detail', expense_id=expense_id))
+    return redirect(url_for('web_invoices.expense_detail', expense_id=expense_id))
 
 @web_invoices_bp.route('/api/expenses/ocr-upload', methods=['POST'])
 def api_expenses_ocr_upload():
@@ -4283,7 +4328,7 @@ def approve_expense_route(expense_id):
 
 @web_invoices_bp.route('/expenses/cxp')
 def list_cxp():
-    if 'user' not in session: return redirect(url_for('login'))
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canManageCXP'):
         return render_template('auth/restricted.html', feature_name="Cuentas por Pagar (CxP)", required_permission="canManageCXP")
         
@@ -4353,7 +4398,7 @@ def list_cxp():
         import csv
         import io
         output = io.StringIO()
-        writer = csv.writer(output)
+        writer = csv.writer(output, quoting=csv.QUOTE_ALL)
         writer.writerow(["Proveedor", "RNC Proveedor", "NCF", "Concepto", "Fecha Emisión", "Fecha Vencimiento", "Estatus", "Monto Total (RD$)", "Balance Pendiente (RD$)"])
         for exp in filtered_cxp:
             writer.writerow([
@@ -4396,7 +4441,7 @@ def list_cxp():
 
 @web_invoices_bp.route('/expenses/cxp/<expense_id>/pay', methods=['POST'])
 def pay_cxp_route(expense_id):
-    if 'user' not in session: return redirect(url_for('login'))
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canManageCXP'):
         return jsonify({"success": False, "message": "No autorizado"}), 403
         
@@ -4422,7 +4467,7 @@ def pay_cxp_route(expense_id):
 # =========================================================================
 @web_invoices_bp.route('/sequences')
 def list_sequences():
-    if 'user' not in session: return redirect(url_for('login'))
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canModifySettings'):
         return render_template('auth/restricted.html', feature_name="Secuencias Fiscales", required_permission="canModifySettings")
     owner_uid = session['user']['ownerUID']
@@ -4445,7 +4490,7 @@ def list_sequences():
 
 @web_invoices_bp.route('/sequences/new', methods=['POST'])
 def new_sequence_route():
-    if 'user' not in session: return redirect(url_for('login'))
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canModifySettings'):
         return render_template('auth/restricted.html', feature_name="Crear Secuencia Fiscal", required_permission="canModifySettings")
     owner_uid = session['user']['ownerUID']
@@ -4469,11 +4514,11 @@ def new_sequence_route():
     
     DatabaseService.save_sequence(owner_uid, seq_id, seq_dict, sandbox=sandbox)
     flash('Secuencia fiscal autorizada por la DGII registrada con éxito.', 'success')
-    return redirect(url_for('list_sequences'))
+    return redirect(url_for('web_invoices.list_sequences'))
 
 @web_invoices_bp.route('/cancellations/new', methods=['POST'])
 def new_cancellation_route():
-    if 'user' not in session: return redirect(url_for('login'))
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canModifySettings'):
         return render_template('auth/restricted.html', feature_name="Anulación de Rangos", required_permission="canModifySettings")
     owner_uid = session['user']['ownerUID']
@@ -4505,14 +4550,14 @@ def new_cancellation_route():
     else:
         flash(f"Fallo al enviar anulación: {res.get('message')}", 'error')
         
-    return redirect(url_for('list_sequences'))
+    return redirect(url_for('web_invoices.list_sequences'))
 
 # =========================================================================
 # CONFIGURACIÓN DE EMPRESA Y EQUIPO
 # =========================================================================
 @web_invoices_bp.route('/settings/company', methods=['GET', 'POST'])
 def company_settings():
-    if 'user' not in session: return redirect(url_for('login'))
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canModifySettings'):
         return render_template('auth/restricted.html', feature_name="Configuración de la Empresa", required_permission="canModifySettings")
     owner_uid = session['user']['ownerUID']
@@ -4560,7 +4605,7 @@ def company_settings():
             "applyColorMarcaUI": existing_profile.get('applyColorMarcaUI', True),
             "applyColorMarcaReports": existing_profile.get('applyColorMarcaReports', True),
             "logoUrl": existing_profile.get('logoUrl', ''),
-            "regimenFiscal": request.form.get('regimenFiscal', 'General'),
+            "regimenFiscal": DGIIService.normalize_regimen(request.form.get('regimenFiscal', 'General')),
             "openaiApiKey": request.form.get('openaiApiKey', ''),
             "alanubeCompanyIDSandbox": request.form.get('alanubeCompanyIDSandbox', '').strip(),
             "alanubeCompanyIDProduction": request.form.get('alanubeCompanyIDProduction', '').strip(),
@@ -4679,9 +4724,9 @@ def company_settings():
                 }
                 DatabaseService.save_client(owner_uid, client_id, client_dict, sandbox=sandbox)
                 
-            return redirect(url_for('company_settings', onboarding_success='true'))
+            return redirect(url_for('web_invoices.company_settings', onboarding_success='true'))
 
-        return redirect(url_for('company_settings'))
+        return redirect(url_for('web_invoices.company_settings'))
         
     profile = DatabaseService.get_company_profile(owner_uid)
 
@@ -4694,7 +4739,7 @@ def company_settings():
 
 @web_invoices_bp.route('/onboarding', methods=['GET', 'POST'])
 def onboarding_wizard():
-    if 'user' not in session: return redirect(url_for('login'))
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
     owner_uid = session['user']['ownerUID']
     
     if request.method == 'POST':
@@ -4719,6 +4764,19 @@ def onboarding_wizard():
             cert_password = existing_profile.get('certificatePassword', '')
 
         profile_dict = dict(existing_profile)
+        regimen_normalized = DGIIService.normalize_regimen(request.form.get('regimenFiscal', 'ordinary'))
+        use_simulation = request.form.get('useSimulation') == 'true'
+
+        # Defaults inteligentes según régimen fiscal
+        if regimen_normalized in ('rst_income', 'rst_purchases'):
+            defaults = {"defaultEcfType": "Factura de Consumo (E32)", "defaultItbisRate": 0.0}
+        elif regimen_normalized == 'ordinary':
+            defaults = {"defaultEcfType": "Factura de Crédito Fiscal (E31)", "defaultItbisRate": 0.18}
+        elif regimen_normalized == 'exempt':
+            defaults = {"defaultEcfType": "Factura de Consumo (E32)", "defaultItbisRate": 0.0}
+        else:
+            defaults = {"defaultEcfType": "Factura de Consumo (E32)", "defaultItbisRate": 0.18}
+
         profile_dict.update({
             "companyName": request.form['companyName'],
             "companyRNC": request.form['companyRNC'],
@@ -4729,14 +4787,17 @@ def onboarding_wizard():
             "companyType": "associated",
             "province": request.form.get('province', ''),
             "municipality": request.form.get('municipality', ''),
-            "certificateName": cert_name,
-            "certificateExtension": cert_ext,
-            "certificateContent": cert_content,
-            "certificatePassword": cert_password,
-            "regimenFiscal": request.form.get('regimenFiscal', 'General'),
+            "certificateName": cert_name if not use_simulation else '',
+            "certificateExtension": cert_ext if not use_simulation else '',
+            "certificateContent": cert_content if not use_simulation else '',
+            "certificatePassword": cert_password if not use_simulation else '',
+            "regimenFiscal": regimen_normalized,
             "consolidationEnabled": request.form.get('consolidationEnabled') == 'true',
             "consolidationThreshold": float(request.form.get('consolidationThreshold') or 250000.0),
-            "configured": True
+            "contribuyenteTipo": request.form.get('contribuyenteTipo', 'empresa'),
+            "useSimulation": use_simulation,
+            "configured": True,
+            **defaults
         })
         
         DatabaseService.save_company_profile(owner_uid, profile_dict)
@@ -4748,7 +4809,7 @@ def onboarding_wizard():
 
 @web_invoices_bp.route('/settings/company/generate-api-key', methods=['POST'])
 def generate_company_api_key():
-    if 'user' not in session: return redirect(url_for('login'))
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canModifySettings'):
         return render_template('auth/restricted.html', feature_name="Configuración de la Empresa", required_permission="canModifySettings")
     
@@ -4758,7 +4819,7 @@ def generate_company_api_key():
         flash('¡Nueva API Key generada con éxito!', 'success')
     else:
         flash('Ocurrió un error al generar la API Key.', 'error')
-    return redirect(url_for('company_settings'))
+    return redirect(url_for('web_invoices.company_settings'))
 
 @web_invoices_bp.route('/settings/company/brand', methods=['POST'])
 def save_company_brand_settings():
@@ -4810,20 +4871,20 @@ def save_company_brand_settings():
 
 @web_invoices_bp.route('/settings/team', methods=['GET'])
 def team_settings():
-    if 'user' not in session: return redirect(url_for('login'))
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
     if session['user'].get('role') != 'owner':
         flash('No tienes permisos de propietario.', 'error')
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('web_dashboard.dashboard'))
     owner_uid = session['user']['ownerUID']
     team = DatabaseService.get_team_members(owner_uid)
     return render_template('team_settings.html', active_page='team_settings', team=team)
 
 @web_invoices_bp.route('/settings/team/new', methods=['POST'])
 def add_team_member():
-    if 'user' not in session: return redirect(url_for('login'))
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
     if session['user'].get('role') != 'owner':
         flash('No tienes permisos de propietario.', 'error')
-        return redirect(url_for('team_settings'))
+        return redirect(url_for('web_invoices.team_settings'))
     
     owner_uid = session['user']['ownerUID']
     
@@ -4832,7 +4893,7 @@ def add_team_member():
     team = DatabaseService.get_team_members(owner_uid)
     if (len(team) + 1) >= user_limit:
         flash(f'Límite de usuarios alcanzado ({user_limit} usuarios en tu plan). Por favor, actualiza tu plan para registrar nuevos colaboradores.', 'error')
-        return redirect(url_for('team_settings'))
+        return redirect(url_for('web_invoices.team_settings'))
     
     name = request.form['name']
     email = request.form['email']
@@ -4855,9 +4916,11 @@ def add_team_member():
         "isPosSupervisor": 'isPosSupervisor' in request.form,
         "canViewSubscription": 'canViewSubscription' in request.form,
         "canToggleSandbox": 'canToggleSandbox' in request.form,
-        "canManageNotes": 'canManageNotes' in request.form
+        "canManageNotes": 'canManageNotes' in request.form,
+        "canManageSuppliers": 'canManageSuppliers' in request.form,
+        "canManagePurchaseCXP": 'canManagePurchaseCXP' in request.form
     }
-    
+
     try:
         # Registrar usuario en Firebase Auth & Firestore
         profile = DatabaseService.register_user(
@@ -4885,14 +4948,14 @@ def add_team_member():
     except Exception as e:
         flash(f'Error al registrar colaborador: {str(e)}', 'error')
         
-    return redirect(url_for('team_settings'))
+    return redirect(url_for('web_invoices.team_settings'))
 
 @web_invoices_bp.route('/settings/branches/save', methods=['POST'])
 def save_branch_route():
-    if 'user' not in session: return redirect(url_for('login'))
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canModifySettings'):
         flash('No tienes permisos.', 'error')
-        return redirect(url_for('company_settings'))
+        return redirect(url_for('web_invoices.company_settings'))
     
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
@@ -4907,14 +4970,14 @@ def save_branch_route():
     
     DatabaseService.save_branch(owner_uid, branch_id, branch_dict, sandbox=sandbox)
     flash(f"Sucursal '{branch_dict['name']}' guardada correctamente.", 'success')
-    return redirect(url_for('company_settings'))
+    return redirect(url_for('web_invoices.company_settings'))
 
 @web_invoices_bp.route('/settings/branches/<branch_id>/delete', methods=['POST'])
 def delete_branch_route(branch_id):
-    if 'user' not in session: return redirect(url_for('login'))
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canModifySettings'):
         flash('No tienes permisos.', 'error')
-        return redirect(url_for('company_settings'))
+        return redirect(url_for('web_invoices.company_settings'))
     
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
@@ -4924,26 +4987,26 @@ def delete_branch_route(branch_id):
     branch = next((b for b in branches if b['id'] == branch_id), None)
     if not branch:
         flash("Sucursal no encontrada.", 'error')
-        return redirect(url_for('company_settings'))
+        return redirect(url_for('web_invoices.company_settings'))
         
     if branch.get('isDefault') and len(branches) > 1:
         flash("No puedes eliminar la sucursal principal. Marca otra como principal primero.", 'error')
-        return redirect(url_for('company_settings'))
+        return redirect(url_for('web_invoices.company_settings'))
         
     if len(branches) <= 1:
         flash("No puedes eliminar la única sucursal.", 'error')
-        return redirect(url_for('company_settings'))
+        return redirect(url_for('web_invoices.company_settings'))
 
     DatabaseService.delete_branch(owner_uid, branch_id, sandbox=sandbox)
     flash("Sucursal eliminada.", 'success')
-    return redirect(url_for('company_settings'))
+    return redirect(url_for('web_invoices.company_settings'))
 
 @web_invoices_bp.route('/settings/team/<employee_uid>/permissions', methods=['POST'])
 def update_team_member_permissions(employee_uid):
-    if 'user' not in session: return redirect(url_for('login'))
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
     if session['user'].get('role') != 'owner':
         flash('No tienes permisos de propietario.', 'error')
-        return redirect(url_for('team_settings'))
+        return redirect(url_for('web_invoices.team_settings'))
     
     permissions = {
         "canInvoice": 'canInvoice' in request.form,
@@ -4962,9 +5025,11 @@ def update_team_member_permissions(employee_uid):
         "isPosSupervisor": 'isPosSupervisor' in request.form,
         "canViewSubscription": 'canViewSubscription' in request.form,
         "canToggleSandbox": 'canToggleSandbox' in request.form,
-        "canManageNotes": 'canManageNotes' in request.form
+        "canManageNotes": 'canManageNotes' in request.form,
+        "canManageSuppliers": 'canManageSuppliers' in request.form,
+        "canManagePurchaseCXP": 'canManagePurchaseCXP' in request.form
     }
-    
+
     avatar_file = request.files.get('avatar')
     if avatar_file and avatar_file.filename:
         from werkzeug.utils import secure_filename
@@ -5007,14 +5072,14 @@ def update_team_member_permissions(employee_uid):
     else:
         flash('Error al actualizar permisos.', 'error')
         
-    return redirect(url_for('team_settings'))
+    return redirect(url_for('web_invoices.team_settings'))
 
 @web_invoices_bp.route('/settings/team/<employee_uid>/delete', methods=['POST'])
 def delete_team_member_route(employee_uid):
-    if 'user' not in session: return redirect(url_for('login'))
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
     if session['user'].get('role') != 'owner':
         flash('No tienes permisos de propietario.', 'error')
-        return redirect(url_for('team_settings'))
+        return redirect(url_for('web_invoices.team_settings'))
     
     owner_uid = session['user']['ownerUID']
     
@@ -5033,11 +5098,11 @@ def delete_team_member_route(employee_uid):
     else:
         flash('Error al desvincular colaborador.', 'error')
         
-    return redirect(url_for('team_settings'))
+    return redirect(url_for('web_invoices.team_settings'))
 
 @web_invoices_bp.route('/settings/company/export', methods=['POST'])
 def export_company_data():
-    if 'user' not in session: return redirect(url_for('login'))
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canModifySettings'):
         return render_template('auth/restricted.html', feature_name="Exportación de Datos", required_permission="canModifySettings")
     
@@ -5047,7 +5112,7 @@ def export_company_data():
     selected_sections = request.form.getlist('sections')
     if not selected_sections:
         flash('Debes seleccionar al menos una sección para exportar.', 'error')
-        return redirect(url_for('company_settings'))
+        return redirect(url_for('web_invoices.company_settings'))
     
     import io
     import csv
@@ -5056,7 +5121,7 @@ def export_company_data():
     
     def build_clients_csv():
         output = io.StringIO()
-        writer = csv.writer(output)
+        writer = csv.writer(output, quoting=csv.QUOTE_ALL)
         writer.writerow(["ID", "RNC/Cedula", "Razon Social", "Email", "Telefono", "Direccion", "Notas CRM", "Proximo Contacto", "Creado En"])
         clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox)
         for c in clients:
@@ -5075,7 +5140,7 @@ def export_company_data():
 
     def build_products_csv():
         output = io.StringIO()
-        writer = csv.writer(output)
+        writer = csv.writer(output, quoting=csv.QUOTE_ALL)
         writer.writerow(["ID", "Codigo", "Tipo", "Nombre", "Precio", "Unidad", "Tasa ITBIS", "Stock Minimo", "Ubicacion Estanteria", "Stock Total", "Creado En", "Precio Costo", "Categoria", "Codigo de Barra", "Codigo Impuesto Selectivo", "Tasa Impuesto Selectivo", "Proveedor", "Precio Mayorista", "Marca", "Stock Maximo", "Imagen URL", "Estado"])
         products = DatabaseService.get_items(owner_uid, sandbox=sandbox)
         for p in products:
@@ -5107,7 +5172,7 @@ def export_company_data():
 
     def build_quotes_csv():
         output = io.StringIO()
-        writer = csv.writer(output)
+        writer = csv.writer(output, quoting=csv.QUOTE_ALL)
         writer.writerow(["ID", "Numero Cotizacion", "Fecha", "Fecha Vencimiento", "ID Cliente", "Nombre Cliente", "RNC Cliente", "Estado", "Monto Neto a Pagar", "Total ITBIS", "Subtotal", "Total"])
         quotes = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, quotations_only=True)
         for q in quotes:
@@ -5129,7 +5194,7 @@ def export_company_data():
 
     def build_expenses_csv():
         output = io.StringIO()
-        writer = csv.writer(output)
+        writer = csv.writer(output, quoting=csv.QUOTE_ALL)
         writer.writerow(["ID", "Concepto", "Categoria", "Monto", "Monto ITBIS", "Fecha", "RNC Emisor", "NCF", "Notas", "Recurrente", "Deducible"])
         expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox)
         for e in expenses:
@@ -5150,7 +5215,7 @@ def export_company_data():
 
     def build_documents_csv():
         output = io.StringIO()
-        writer = csv.writer(output)
+        writer = csv.writer(output, quoting=csv.QUOTE_ALL)
         writer.writerow(["ID", "Numero Documento", "Fecha", "Fecha Vencimiento", "ID Cliente", "Nombre Cliente", "RNC Cliente", "Estado", "Tipo e-CF", "e-NCF", "Sincronizado DGII", "Monto Neto a Pagar", "Total ITBIS", "Subtotal", "Total"])
         documents = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, quotations_only=False)
         for d in documents:
@@ -5227,14 +5292,14 @@ def export_company_data():
 # =========================================================================
 @web_invoices_bp.route('/reports')
 def reports_dashboard():
-    if 'user' not in session: return redirect(url_for('login'))
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canInvoice'):
         return render_template('auth/restricted.html', feature_name="Reportería DGII", required_permission="canInvoice")
     return render_template('reports/reports_dashboard.html', active_page='reports')
 
 @web_invoices_bp.route('/reports/it1')
 def it1_diagnostic():
-    if 'user' not in session: return redirect(url_for('login'))
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canInvoice'):
         return render_template('auth/restricted.html', feature_name="Diagnóstico de IT-1", required_permission="canInvoice")
     owner_uid = session['user']['ownerUID']
@@ -5269,7 +5334,7 @@ def it1_diagnostic():
 
 @web_invoices_bp.route('/reports/dgii-tools', methods=['GET'])
 def dgii_tools():
-    if 'user' not in session: return redirect(url_for('login'))
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canInvoice'):
         return render_template('auth/restricted.html', feature_name="Herramientas DGII", required_permission="canInvoice")
     
@@ -5314,7 +5379,7 @@ def check_dgii_status_ajax():
 
 @web_invoices_bp.route('/help')
 def help_center():
-    if 'user' not in session: return redirect(url_for('login'))
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
     return render_template('help.html', active_page='help')
 
 @web_invoices_bp.route('/api/chatbot', methods=['POST'])
@@ -5339,7 +5404,7 @@ def chatbot_api():
 @web_invoices_bp.route('/suscripcion')
 @require_permission('canViewSubscription', 'Suscripción y Consumo')
 def client_subscription_page():
-    if 'user' not in session: return redirect(url_for('login'))
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
     owner_uid = session['user']['ownerUID']
     
     # 1. Obtener perfil de la empresa
@@ -5404,7 +5469,7 @@ def client_subscription_page():
 
 @web_invoices_bp.route('/cxc')
 def cxc_dashboard():
-    if 'user' not in session: return redirect(url_for('login'))
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canManageCXC'):
         return render_template('auth/restricted.html', feature_name="Dashboard CxC", required_permission="canManageCXC")
         
@@ -5460,7 +5525,7 @@ def cxc_dashboard():
         import io
         from datetime import datetime
         output = io.StringIO()
-        writer = csv.writer(output)
+        writer = csv.writer(output, quoting=csv.QUOTE_ALL)
         writer.writerow(["Factura #", "Cliente", "Fecha Emisión", "Fecha Vencimiento", "Total Facturado (RD$)", "Balance Pendiente (RD$)", "Estatus"])
         for inv in cxc_invoices:
             writer.writerow([
@@ -5521,10 +5586,10 @@ def save_cxc_reminders_settings():
 
 @web_invoices_bp.route('/cxc/promises/add', methods=['POST'])
 def add_payment_promise():
-    if 'user' not in session: return redirect(url_for('login'))
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canManageCXC'):
         flash("No tienes permiso para gestionar promesas de pago.", "error")
-        return redirect(url_for('cxc_dashboard'))
+        return redirect(url_for('web_invoices.cxc_dashboard'))
         
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
@@ -5536,12 +5601,12 @@ def add_payment_promise():
     
     if not invoice_id or not fecha_promesa:
         flash("Factura y fecha de promesa son campos obligatorios.", "error")
-        return redirect(url_for('cxc_dashboard'))
+        return redirect(url_for('web_invoices.cxc_dashboard'))
         
     invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
     if not invoice:
         flash("Factura no encontrada.", "error")
-        return redirect(url_for('cxc_dashboard'))
+        return redirect(url_for('web_invoices.cxc_dashboard'))
         
     promise_id = str(uuid.uuid4())
     promise_dict = {
@@ -5571,11 +5636,11 @@ def add_payment_promise():
         DatabaseService.save_client_interaction(owner_uid, invoice["clientId"], str(uuid.uuid4()), interaction_dict, sandbox=sandbox)
         
     flash("Promesa de pago registrada exitosamente.", "success")
-    return redirect(url_for('cxc_dashboard'))
+    return redirect(url_for('web_invoices.cxc_dashboard'))
 
 @web_invoices_bp.route('/cxc/promises/<promise_id>/update-status', methods=['POST'])
 def update_payment_promise_status(promise_id):
-    if 'user' not in session: return redirect(url_for('login'))
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canManageCXC'):
         return jsonify({"success": False, "message": "No autorizado"}), 403
         
@@ -5656,11 +5721,87 @@ def send_invoice_cxc_reminder(invoice_id, method):
         return jsonify({"success": False, "message": message}), 500
 
 
+# =========================================================================================
+# EXPORTACIÓN CONTABLE
+# =========================================================================================
+from app.services.accounting_export_service import AccountingExportService, EXPORT_FORMATS
+
+
+@web_invoices_bp.route('/reports/export/accounting')
+def accounting_export_page():
+    if 'user' not in session:
+        return redirect(url_for('web_auth.login'))
+    if not check_permission('canInvoice'):
+        return render_template('auth/restricted.html', required_permission="canInvoice")
+    return render_template('reports/accounting_export.html',
+                           formats=EXPORT_FORMATS,
+                           active_page='reports')
+
+
+@web_invoices_bp.route('/reports/export/accounting/download', methods=['POST'])
+def accounting_export_download():
+    if 'user' not in session:
+        return redirect(url_for('web_auth.login'))
+    if not check_permission('canInvoice'):
+        return jsonify(success=False, error="Permiso denegado"), 403
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+
+    export_type = request.form.get('exportType', 'sales')
+    fmt = request.form.get('format', 'csv_std')
+    date_from = request.form.get('dateFrom', '')
+    date_to = request.form.get('dateTo', '')
+
+    all_invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox)
+    real = [inv for inv in all_invoices if not inv.get('isQuotation') and inv.get('status') not in ('Anulada', 'Borrador')]
+
+    if date_from:
+        real = [inv for inv in real if (inv.get('date') or '')[:10] >= date_from]
+    if date_to:
+        real = [inv for inv in real if (inv.get('date') or '')[:10] <= date_to]
+
+    all_expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox)
+    real_exp = [exp for exp in all_expenses if exp.get('status') not in ('Anulada',)]
+    if date_from:
+        real_exp = [exp for exp in real_exp if (exp.get('date') or '')[:10] >= date_from]
+    if date_to:
+        real_exp = [exp for exp in real_exp if (exp.get('date') or '')[:10] <= date_to]
+
+    from flask import send_file
+    if export_type == 'sales':
+        buf = AccountingExportService.export_sales(owner_uid, real, fmt=fmt)
+        filename = f"contabilidad_ventas_{datetime.utcnow().strftime('%Y%m%d')}.csv"
+    elif export_type == 'expenses':
+        buf = AccountingExportService.export_expenses(owner_uid, real_exp, fmt=fmt)
+        filename = f"contabilidad_gastos_{datetime.utcnow().strftime('%Y%m%d')}.csv"
+    else:
+        flash('❌ Tipo de exportación inválido.', 'error')
+        return redirect(url_for('web_invoices.accounting_export_page'))
+
+    return send_file(buf, mimetype="text/csv", as_attachment=True, download_name=filename)
+
+
+@web_invoices_bp.route('/api/save-chart-of-accounts', methods=['POST'])
+def save_chart_of_accounts():
+    if 'user' not in session:
+        return jsonify(success=False, error="No autorizado"), 401
+    owner_uid = session['user']['ownerUID']
+    coa = {}
+    for key in DEFAULT_CHART_OF_ACCOUNTS:
+        val = request.form.get(f'coa_{key}', '').strip()
+        if val:
+            coa[key] = val
+    profile = DatabaseService.get_company_profile(owner_uid) or {}
+    profile["chartOfAccounts"] = coa
+    DatabaseService.save_company_profile(owner_uid, profile)
+    flash('✅ Plan de cuentas actualizado.', 'success')
+    return redirect(url_for('web_invoices.accounting_export_page'))
+
 
 @web_invoices_bp.route('/reports/bi')
 def bi_dashboard():
     if 'user' not in session:
-        return redirect(url_for('login'))
+        return redirect(url_for('web_auth.login'))
     if not check_permission('canViewBI'):
         return render_template('auth/restricted.html', feature_name="Inteligencia de Negocios (BI)", required_permission="canViewBI")
         
@@ -5928,7 +6069,7 @@ def bi_dashboard():
 
 @web_invoices_bp.route('/expenses/import')
 def expense_import_page():
-    if 'user' not in session: return redirect(url_for('login'))
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canExpenses'):
         return render_template('auth/restricted.html', feature_name="Importar XML", required_permission="canExpenses")
     return render_template('expenses/import.html', active_page='expenses',
@@ -5940,7 +6081,7 @@ def expense_import_page():
 
 @web_invoices_bp.route('/expenses/import/preview', methods=['POST'])
 def expense_import_preview():
-    if 'user' not in session: return redirect(url_for('login'))
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canExpenses'):
         return jsonify({"success": False, "error": "Sin permiso"}), 403
     owner_uid = session['user']['ownerUID']
@@ -6022,7 +6163,7 @@ def expense_import_preview():
 
 @web_invoices_bp.route('/expenses/import/confirm', methods=['POST'])
 def expense_import_confirm():
-    if 'user' not in session: return redirect(url_for('login'))
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canExpenses'):
         return jsonify({"success": False, "error": "Sin permiso"}), 403
     owner_uid = session['user']['ownerUID']
@@ -6199,7 +6340,6 @@ def web_lookup_rnc(rnc):
     if 'user' not in session:
         return jsonify({"success": False, "error": "No autorizado"}), 401
     try:
-        from app.services.dgii import DGIIService
         res = DGIIService.validate_and_fetch_rnc(rnc)
         return jsonify(res)
     except Exception as e:
@@ -6300,7 +6440,7 @@ def process_resource_comment_mentions(owner_uid, content, resource_type, resourc
 
 @web_invoices_bp.route('/expenses/<expense_id>')
 def expense_detail(expense_id):
-    if 'user' not in session: return redirect(url_for('login'))
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canExpenses'):
         return render_template('auth/restricted.html', feature_name="Detalle de Gasto", required_permission="canExpenses")
         
@@ -6310,7 +6450,7 @@ def expense_detail(expense_id):
     expense = DatabaseService.get_expense(owner_uid, expense_id, sandbox=sandbox)
     if not expense:
         flash('Gasto no encontrado.', 'error')
-        return redirect(url_for('list_expenses'))
+        return redirect(url_for('web_invoices.list_expenses'))
         
     comments = DatabaseService.get_resource_comments(owner_uid, "expenses", expense_id, sandbox=sandbox)
     taggable_users = _get_taggable_users(owner_uid)
@@ -6335,14 +6475,14 @@ def expense_detail(expense_id):
 @web_invoices_bp.route('/expenses/<expense_id>/attach', methods=['POST'])
 def attach_expense_document(expense_id):
     """Agrega documentos a un gasto existente sin pasar por el flujo de edición completo."""
-    if 'user' not in session: return redirect(url_for('login'))
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
 
     expense = DatabaseService.get_expense(owner_uid, expense_id, sandbox=sandbox)
     if not expense:
         flash('Gasto no encontrado.', 'error')
-        return redirect(url_for('list_expenses'))
+        return redirect(url_for('web_invoices.list_expenses'))
 
     attachment_files = request.files.getlist('attachments[]')
     attachment_types = request.form.getlist('attachmentTypes[]')
@@ -6387,19 +6527,19 @@ def attach_expense_document(expense_id):
     else:
         flash('No se seleccionó ningún archivo válido.', 'warning')
 
-    return redirect(url_for('expense_detail', expense_id=expense_id))
+    return redirect(url_for('web_invoices.expense_detail', expense_id=expense_id))
 
 
 @web_invoices_bp.route('/expenses/<expense_id>/comments/new', methods=['POST'])
 def add_expense_comment(expense_id):
-    if 'user' not in session: return redirect(url_for('login'))
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
     
     content = request.form.get('content', '').strip()
     if not content:
         flash('El comentario no puede estar vacío.', 'error')
-        return redirect(url_for('expense_detail', expense_id=expense_id))
+        return redirect(url_for('web_invoices.expense_detail', expense_id=expense_id))
         
     attachment_url = ""
     attachment_name = ""
@@ -6437,12 +6577,12 @@ def add_expense_comment(expense_id):
         print(f"⚠️ Error al procesar menciones en add_expense_comment: {ex}")
         
     flash('Comentario agregado exitosamente.', 'success')
-    return redirect(url_for('expense_detail', expense_id=expense_id))
+    return redirect(url_for('web_invoices.expense_detail', expense_id=expense_id))
 
 
 @web_invoices_bp.route('/expenses/<expense_id>/comments/<comment_id>/edit', methods=['POST'])
 def edit_expense_comment(expense_id, comment_id):
-    if 'user' not in session: return redirect(url_for('login'))
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
     
@@ -6450,18 +6590,18 @@ def edit_expense_comment(expense_id, comment_id):
     comment = next((c for c in comments if c['id'] == comment_id), None)
     if not comment:
         flash('Comentario no encontrado.', 'error')
-        return redirect(url_for('expense_detail', expense_id=expense_id))
+        return redirect(url_for('web_invoices.expense_detail', expense_id=expense_id))
         
     is_owner = session['user'].get('role') == 'owner'
     is_author = session['user']['uid'] == comment.get('createdByUid')
     if not (is_owner or is_author):
         flash('No tienes permiso para editar este comentario.', 'error')
-        return redirect(url_for('expense_detail', expense_id=expense_id))
+        return redirect(url_for('web_invoices.expense_detail', expense_id=expense_id))
         
     content = request.form.get('content', '').strip()
     if not content:
         flash('El comentario no puede estar vacío.', 'error')
-        return redirect(url_for('expense_detail', expense_id=expense_id))
+        return redirect(url_for('web_invoices.expense_detail', expense_id=expense_id))
         
     comment['content'] = content
     comment['edited'] = True
@@ -6490,12 +6630,12 @@ def edit_expense_comment(expense_id, comment_id):
         print(f"⚠️ Error al procesar menciones en edit_expense_comment: {ex}")
         
     flash('Comentario modificado.', 'success')
-    return redirect(url_for('expense_detail', expense_id=expense_id))
+    return redirect(url_for('web_invoices.expense_detail', expense_id=expense_id))
 
 
 @web_invoices_bp.route('/expenses/<expense_id>/comments/<comment_id>/delete', methods=['POST'])
 def delete_expense_comment(expense_id, comment_id):
-    if 'user' not in session: return redirect(url_for('login'))
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
     
@@ -6503,17 +6643,17 @@ def delete_expense_comment(expense_id, comment_id):
     comment = next((c for c in comments if c['id'] == comment_id), None)
     if not comment:
         flash('Comentario no encontrado.', 'error')
-        return redirect(url_for('expense_detail', expense_id=expense_id))
+        return redirect(url_for('web_invoices.expense_detail', expense_id=expense_id))
         
     is_owner = session['user'].get('role') == 'owner'
     is_author = session['user']['uid'] == comment.get('createdByUid')
     if not (is_owner or is_author):
         flash('No tienes permiso para eliminar este comentario.', 'error')
-        return redirect(url_for('expense_detail', expense_id=expense_id))
+        return redirect(url_for('web_invoices.expense_detail', expense_id=expense_id))
         
     DatabaseService.delete_resource_comment(owner_uid, "expenses", expense_id, comment_id, sandbox=sandbox)
     flash('Comentario eliminado.', 'success')
-    return redirect(url_for('expense_detail', expense_id=expense_id))
+    return redirect(url_for('web_invoices.expense_detail', expense_id=expense_id))
 
 
 @web_invoices_bp.route('/api/v1/comments/<resource_type>/<resource_id>/<comment_id>/react', methods=['POST'])

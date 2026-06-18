@@ -1,0 +1,138 @@
+{% extends "layout.html" %}
+{% block title %}CxP Compras{% endblock %}
+{% block page_header %}Cuentas por Pagar - Compras{% endblock %}
+
+{% block content %}
+<div class="page-title-container" style="margin-bottom:24px; padding-left:4px;">
+    <h1 style="font-size:1.75rem; font-weight:800; font-family:var(--font-heading); color:var(--text-primary); margin:0;">
+        <i class="fa-solid fa-file-invoice-dollar" style="color:var(--accent-purple); margin-right:10px;"></i>
+        Cuentas por Pagar - Compras
+    </h1>
+</div>
+
+<div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px,1fr)); gap:16px; margin-bottom:24px;">
+    <div class="card-dashboard" style="padding:18px;">
+        <div style="font-size:0.72rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.03em;">Total Pendiente</div>
+        <div style="font-size:1.5rem; font-weight:800; color:var(--accent-amber);">RD$ {{ "{:,.2f}".format(total_pending) }}</div>
+    </div>
+    <div class="card-dashboard" style="padding:18px;">
+        <div style="font-size:0.72rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.03em;">Vencido</div>
+        <div style="font-size:1.5rem; font-weight:800; color:var(--accent-red);">RD$ {{ "{:,.2f}".format(total_overdue) }}</div>
+    </div>
+    <div class="card-dashboard" style="padding:18px;">
+        <div style="font-size:0.72rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.03em;">Total Facturas</div>
+        <div style="font-size:1.5rem; font-weight:800; color:var(--text-primary);">{{ invoices|length }}</div>
+    </div>
+</div>
+
+<div class="card-table-wrapper" style="margin-bottom:30px;">
+    <div class="table-header-row">
+        <div>
+            <h3 style="font-size:1.25rem; font-family:var(--font-heading); margin-bottom:6px;">Facturas de Proveedor</h3>
+            <p style="color:var(--text-secondary); font-size:0.88rem;">Registro de facturas de compras a crédito.</p>
+        </div>
+    </div>
+
+    <form method="GET" action="{{ url_for('web_purchase_orders.list_purchase_cxp') }}" style="margin-bottom:24px; padding:15px; background:rgba(0,0,0,0.02); border:1px solid var(--border-color); border-radius:8px; margin-left:20px; margin-right:20px;">
+        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(140px,1fr)); gap:12px; align-items:flex-end;">
+            <div class="form-group" style="margin-bottom:0;">
+                <label style="font-size:0.72rem; margin-bottom:4px; display:block; color:var(--text-secondary);">Buscar</label>
+                <input type="text" name="search" class="form-input" placeholder="Factura#, OC#, Proveedor, RNC..." value="{{ search_query }}" style="width:100%; font-size:0.78rem; height:36px; padding:6px 10px;">
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+                <label style="font-size:0.72rem; margin-bottom:4px; display:block; color:var(--text-secondary);">Estado</label>
+                <select name="status" class="form-select" style="width:100%; font-size:0.78rem; height:36px; padding:6px 10px;">
+                    <option value="">Todos</option>
+                    <option value="Pendiente" {% if status_filter == 'Pendiente' %}selected{% endif %}>Pendiente</option>
+                    <option value="Abonado" {% if status_filter == 'Abonado' %}selected{% endif %}>Abonado</option>
+                    <option value="Vencido" {% if status_filter == 'Vencido' %}selected{% endif %}>Vencido</option>
+                    <option value="Pagado" {% if status_filter == 'Pagado' %}selected{% endif %}>Pagado</option>
+                </select>
+            </div>
+            <div style="display:flex; gap:8px;">
+                <button type="submit" class="btn btn-secondary" style="flex:1; justify-content:center; height:36px; font-size:0.78rem; border-color:var(--accent-emerald); color:var(--accent-emerald);">
+                    <i class="fa-solid fa-filter"></i> Filtrar
+                </button>
+                <a href="{{ url_for('web_purchase_orders.list_purchase_cxp', export='csv', status=status_filter, search=search_query) }}" class="btn btn-secondary" style="height:36px; font-size:0.78rem; padding:0 12px; border-color:var(--accent-blue); color:var(--accent-blue);" title="Exportar CSV">
+                    <i class="fa-solid fa-download"></i>
+                </a>
+            </div>
+        </div>
+    </form>
+
+    <div class="table-responsive">
+        <table class="table-premium">
+            <thead>
+                <tr>
+                    <th>Factura#</th>
+                    <th>OC#</th>
+                    <th>Proveedor</th>
+                    <th>RNC</th>
+                    <th>NCF</th>
+                    <th>Emisión</th>
+                    <th>Vence</th>
+                    <th>Total (RD$)</th>
+                    <th>Balance (RD$)</th>
+                    <th>Estado</th>
+                    <th style="text-align:right;">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if invoices %}
+                {% for inv in invoices %}
+                <tr>
+                    <td><span class="mono" style="font-weight:600; color:var(--accent-blue);">{{ inv.invoiceNumber or '—' }}</span></td>
+                    <td><span class="mono">{{ inv.poNumber or '—' }}</span></td>
+                    <td>{{ inv.supplierName or '—' }}</td>
+                    <td><span class="mono">{{ inv.supplierRnc or '—' }}</span></td>
+                    <td><span class="mono">{{ inv.ncf or '—' }}</span></td>
+                    <td style="font-size:0.82rem;">{{ (inv.date or '')[:10] }}</td>
+                    <td style="font-size:0.82rem;">{{ (inv.dueDate or '')[:10] }}</td>
+                    <td style="font-weight:600;">{{ "{:,.2f}".format(inv.total|default(0)) }}</td>
+                    <td style="font-weight:600; color:{% if inv.cxpStatus == 'Vencido' %}var(--accent-red){% elif inv.cxpStatus == 'Pagado' %}var(--accent-emerald){% else %}var(--accent-amber){% endif %};">
+                        {{ "{:,.2f}".format(inv.cxpRemainingBalance|default(inv.total|default(0))) }}
+                    </td>
+                    <td>
+                        {% set st = inv.cxpStatus|default('Pendiente') %}
+                        {% if st == 'Pagado' %}
+                        <span class="badge-pill badge-green">Pagado</span>
+                        {% elif st == 'Abonado' %}
+                        <span class="badge-pill badge-blue">Abonado</span>
+                        {% elif st == 'Vencido' %}
+                        <span class="badge-pill badge-red">Vencido</span>
+                        {% else %}
+                        <span class="badge-pill badge-amber">Pendiente</span>
+                        {% endif %}
+                    </td>
+                    <td style="text-align:right;">
+                        <a href="{{ url_for('web_purchase_orders.supplier_invoice_detail', invoice_id=inv.id) }}" class="btn btn-secondary btn-sm" style="padding:6px 10px; font-size:0.75rem;" title="Ver Detalle">
+                            <i class="fa-solid fa-eye"></i>
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+                {% else %}
+                <tr>
+                    <td colspan="11" style="text-align:center; padding:40px; color:var(--text-muted);">
+                        <i class="fa-solid fa-file-invoice-dollar" style="font-size:2rem; display:block; margin-bottom:10px; opacity:0.3;"></i>
+                        No hay facturas de proveedor registradas.
+                    </td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<style>
+.badge-pill {
+    display:inline-flex; align-items:center; gap:4px; padding:2px 8px; border-radius:99px;
+    font-size:0.7rem; font-weight:600;
+}
+.badge-green  { background:rgba(16,185,129,0.12); color:var(--accent-emerald); border:1px solid rgba(16,185,129,0.25); }
+.badge-amber  { background:rgba(245,158,11,0.1);  color:#f59e0b;              border:1px solid rgba(245,158,11,0.2);  }
+.badge-blue   { background:rgba(59,130,246,0.1);   color:#3b82f6;              border:1px solid rgba(59,130,246,0.2);  }
+.badge-red    { background:rgba(239,68,68,0.1);    color:#ef4444;              border:1px solid rgba(239,68,68,0.2);   }
+.mono { font-family:monospace; font-size:0.82rem; }
+</style>
+{% endblock %}

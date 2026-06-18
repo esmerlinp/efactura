@@ -62,11 +62,11 @@
             <p style="color: var(--text-secondary); font-size: 0.88rem;">Registro de egresos operativos, imputaciones a
                 facturas de venta y rentabilidad.</p>
         </div>
-        <a href="{{ url_for('new_expense_route') }}" class="btn btn-primary">
+        <a href="{{ url_for('web_invoices.new_expense_route') }}" class="btn btn-primary">
             <i class="fa-solid fa-receipt"></i>
             <span>Registrar Gasto</span>
         </a>
-        <a href="{{ url_for('expense_import_page') }}" class="btn btn-secondary" style="border-color:var(--accent-purple); color:var(--accent-purple);">
+        <a href="{{ url_for('web_invoices.expense_import_page') }}" class="btn btn-secondary" style="border-color:var(--accent-purple); color:var(--accent-purple);">
             <i class="fa-solid fa-file-import"></i>
             <span>Importar XML</span>
         </a>
@@ -74,16 +74,16 @@
 
     <!-- Pestañas (Tabs) -->
     <div style="display: flex; gap: 10px; margin: 0 20px 20px 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">
-        <a href="{{ url_for('list_expenses', tab='all') }}" style="text-decoration: none; padding: 8px 16px; border-radius: var(--radius-sm); font-size: 0.9rem; font-weight: 500; {% if tab == 'all' %}background: var(--accent-purple); color: white;{% else %}color: var(--text-secondary); background: transparent;{% endif %}; transition: background 0.2s;">
+        <a href="{{ url_for('web_invoices.list_expenses', tab='all') }}" style="text-decoration: none; padding: 8px 16px; border-radius: var(--radius-sm); font-size: 0.9rem; font-weight: 500; {% if tab == 'all' %}background: var(--accent-purple); color: white;{% else %}color: var(--text-secondary); background: transparent;{% endif %}; transition: background 0.2s;">
             <i class="fa-solid fa-list" style="margin-right: 6px;"></i> Historial General
         </a>
-        <a href="{{ url_for('list_expenses', tab='recurring') }}" style="text-decoration: none; padding: 8px 16px; border-radius: var(--radius-sm); font-size: 0.9rem; font-weight: 500; {% if tab == 'recurring' %}background: var(--accent-purple); color: white;{% else %}color: var(--text-secondary); background: transparent;{% endif %}; transition: background 0.2s;">
+        <a href="{{ url_for('web_invoices.list_expenses', tab='recurring') }}" style="text-decoration: none; padding: 8px 16px; border-radius: var(--radius-sm); font-size: 0.9rem; font-weight: 500; {% if tab == 'recurring' %}background: var(--accent-purple); color: white;{% else %}color: var(--text-secondary); background: transparent;{% endif %}; transition: background 0.2s;">
             <i class="fa-solid fa-arrows-spin" style="margin-right: 6px;"></i> Gastos Recurrentes
         </a>
     </div>
 
     <!-- Sección de Filtros y Exportación -->
-    <form method="GET" action="{{ url_for('list_expenses') }}" id="filter-form" style="margin-bottom: 24px; padding: 15px; background: rgba(0, 0, 0, 0.02); border: 1px solid var(--border-color); border-radius: 8px; margin-left: 20px; margin-right: 20px;">
+    <form method="GET" action="{{ url_for('web_invoices.list_expenses') }}" id="filter-form" style="margin-bottom: 24px; padding: 15px; background: rgba(0, 0, 0, 0.02); border: 1px solid var(--border-color); border-radius: 8px; margin-left: 20px; margin-right: 20px;">
         <input type="hidden" name="tab" value="{{ tab }}">
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; align-items: flex-end;">
             <div class="form-group" style="margin-bottom: 0;">
@@ -120,7 +120,7 @@
                 <button type="submit" class="btn btn-secondary" style="flex: 1; justify-content: center; height: 36px; font-size: 0.78rem; padding: 0 12px; border-color: var(--accent-emerald); color: var(--accent-emerald);">
                     <i class="fa-solid fa-filter"></i> Filtrar
                 </button>
-                <a href="{{ url_for('list_expenses', tab=tab) }}" class="btn btn-secondary" style="justify-content: center; height: 36px; font-size: 0.78rem; padding: 0 10px; border-color: var(--border-color); color: var(--text-muted);" title="Limpiar Filtros">
+                <a href="{{ url_for('web_invoices.list_expenses', tab=tab) }}" class="btn btn-secondary" style="justify-content: center; height: 36px; font-size: 0.78rem; padding: 0 10px; border-color: var(--border-color); color: var(--text-muted);" title="Limpiar Filtros">
                     <i class="fa-solid fa-filter-circle-xmark"></i>
                 </a>
                 <button type="button" class="btn btn-secondary" onclick="exportToCSV()" style="flex: 1; justify-content: center; height: 36px; font-size: 0.78rem; padding: 0 12px; border-color: var(--accent-blue); color: var(--accent-blue);" title="Exportar a CSV">
@@ -130,7 +130,7 @@
         </div>
     </form>
 
-    <form id="multiple-delete-form" method="POST" action="{{ url_for('delete_multiple_expenses_route') }}">
+    <form id="multiple-delete-form" method="POST" action="{{ url_for('web_invoices.delete_multiple_expenses_route') }}">
         <div style="display: flex; justify-content: flex-start; margin-bottom: 12px; padding: 0 20px;">
             <button type="submit" id="btn-delete-selected" class="btn btn-danger" style="display: none; height: 36px; font-size: 0.78rem; padding: 0 16px; align-items: center;" onclick="return confirm('¿Estás seguro de que deseas eliminar los gastos seleccionados?');">
                 <i class="fa-solid fa-trash-can" style="margin-right: 6px;"></i> Eliminar Seleccionados (<span id="selected-count">0</span>)
@@ -247,7 +247,7 @@
                     </td>
                     <td style="text-align: right;">
                         <div style="display: inline-flex; gap: 6px;">
-                            <a href="{{ url_for('expense_detail', expense_id=exp.id) }}" class="btn btn-secondary"
+                            <a href="{{ url_for('web_invoices.expense_detail', expense_id=exp.id) }}" class="btn btn-secondary"
                                 style="padding: 8px 12px; font-size: 0.75rem; border-color: var(--accent-purple); color: var(--accent-purple);"
                                 title="Ver Detalle y Comentarios">
                                 <i class="fa-solid fa-eye"></i>
@@ -260,7 +260,7 @@
                                 <i class="fa-solid fa-check-double"></i>
                             </button>
                             {% endif %}
-                            <a href="{{ url_for('edit_expense_route', expense_id=exp.id) }}" class="btn btn-secondary"
+                            <a href="{{ url_for('web_invoices.edit_expense_route', expense_id=exp.id) }}" class="btn btn-secondary"
                                 style="padding: 8px 12px; font-size: 0.75rem; border-color: var(--accent-blue); color: var(--accent-blue);"
                                 title="Ver Detalle y Editar">
                                 <i class="fa-solid fa-pen-to-square"></i>
@@ -278,7 +278,7 @@
                             </button>
                             {% endif %}
                             <button type="submit" class="btn btn-danger"
-                                formaction="{{ url_for('delete_expense_route', expense_id=exp.id) }}"
+                                formaction="{{ url_for('web_invoices.delete_expense_route', expense_id=exp.id) }}"
                                 onclick="return confirm('¿Seguro que deseas eliminar este gasto?');"
                                 style="padding: 8px 12px; font-size: 0.75rem;" title="Eliminar Gasto">
                                 <i class="fa-solid fa-trash-can"></i>
@@ -293,7 +293,7 @@
                         <i class="fa-solid fa-receipt"
                             style="font-size: 3rem; color: var(--text-muted); margin-bottom: 16px; opacity: 0.5; display: block;"></i>
                         <span>No hay gastos operativos registrados aún.</span>
-                        <a href="{{ url_for('new_expense_route') }}" class="btn btn-primary"
+                        <a href="{{ url_for('web_invoices.new_expense_route') }}" class="btn btn-primary"
                             style="display: inline-block; margin-top: 16px; padding: 10px 20px;">Registrar
                             primer gasto</a>
                     </td>
@@ -303,6 +303,33 @@
         </table>
         </div>
     </form>
+
+    {% if total_items > 0 %}
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border-color); flex-wrap: wrap; gap: 16px; padding-left: 4px; padding-right: 4px;">
+        <div style="color: var(--text-secondary); font-size: 0.85rem;">
+            Mostrando <strong style="color: var(--text-primary);">{{ start_count }}</strong> a <strong style="color: var(--text-primary);">{{ end_count }}</strong> de <strong style="color: var(--text-primary);">{{ total_items }}</strong> registros
+        </div>
+        <div style="display: flex; gap: 6px;">
+            {% if has_prev %}
+            <a href="?page={{ page - 1 }}&search={{ search_query or '' }}&category={{ category_filter or '' }}&start_date={{ start_date or '' }}&end_date={{ end_date or '' }}&tab={{ tab or '' }}&per_page={{ per_page or '10' }}" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.82rem; display: inline-flex; align-items: center; gap: 6px; border-radius: var(--radius-sm);"><i class="fa-solid fa-chevron-left" style="font-size: 0.75rem;"></i> <span>Anterior</span></a>
+            {% else %}
+            <button class="btn btn-secondary" disabled style="padding: 6px 12px; font-size: 0.82rem; display: inline-flex; align-items: center; gap: 6px; opacity: 0.5; cursor: not-allowed; border-radius: var(--radius-sm);"><i class="fa-solid fa-chevron-left" style="font-size: 0.75rem;"></i> <span>Anterior</span></button>
+            {% endif %}
+            {% for p in pages_range %}
+            {% if p == page %}
+            <button class="btn btn-primary" style="padding: 6px 12px; font-size: 0.82rem; min-width: 34px; text-align: center; border-radius: var(--radius-sm);">{{ p }}</button>
+            {% else %}
+            <a href="?page={{ p }}&search={{ search_query or '' }}&category={{ category_filter or '' }}&start_date={{ start_date or '' }}&end_date={{ end_date or '' }}&tab={{ tab or '' }}&per_page={{ per_page or '10' }}" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.82rem; min-width: 34px; text-align: center; border-radius: var(--radius-sm);">{{ p }}</a>
+            {% endif %}
+            {% endfor %}
+            {% if has_next %}
+            <a href="?page={{ page + 1 }}&search={{ search_query or '' }}&category={{ category_filter or '' }}&start_date={{ start_date or '' }}&end_date={{ end_date or '' }}&tab={{ tab or '' }}&per_page={{ per_page or '10' }}" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.82rem; display: inline-flex; align-items: center; gap: 6px; border-radius: var(--radius-sm);"><span>Siguiente</span> <i class="fa-solid fa-chevron-right" style="font-size: 0.75rem;"></i></a>
+            {% else %}
+            <button class="btn btn-secondary" disabled style="padding: 6px 12px; font-size: 0.82rem; display: inline-flex; align-items: center; gap: 6px; opacity: 0.5; cursor: not-allowed; border-radius: var(--radius-sm);"><span>Siguiente</span> <i class="fa-solid fa-chevron-right" style="font-size: 0.75rem;"></i></button>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
 
 <script>
     function toggleAllCheckboxes(source) {
