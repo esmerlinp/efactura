@@ -957,7 +957,7 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
         # 0. Validar régimen fiscal
         profile = DatabaseService.get_company_profile(owner_uid)
         regimen = DGIIService.normalize_regimen(profile.get("regimenFiscal", "ordinary")) if profile else "ordinary"
-        regimen_rules = REGIMEN_RULES.get(regimen, REGIMEN_RULES.get("ordinary", {}))
+        regimen_rules = DGIIService.get_regimen_rules(regimen)
         ecf_code_from_form = request.form.get('ecfType', 'Factura de Consumo (E32)')
 
         # 1. Obtener campos principales
