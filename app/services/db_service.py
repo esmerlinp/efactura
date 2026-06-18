@@ -1998,6 +1998,7 @@ class DatabaseService:
                     data["createdAt"] = serialize_field(data.get("createdAt"))
                     data["dueDate"] = serialize_field(data.get("dueDate", ""))
                     data["cxpRemainingBalance"] = float(data.get("cxpRemainingBalance", 0.0))
+                    data["attachments"] = data.get("attachments", [])
                     return data
             except Exception as e:
                 print(f"⚠️ Error al obtener gasto {expense_id} desde Firestore: {e}")
