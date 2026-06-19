@@ -418,6 +418,7 @@ def send_portal_credentials(client_id):
     import smtplib
     from email.mime.multipart import MIMEMultipart
     from email.mime.text import MIMEText
+    from email.utils import formataddr
 
     smtp_server = current_app.config.get("SMTP_SERVER", "smtp.gmail.com")
     smtp_port = int(current_app.config.get("SMTP_PORT", 587))
@@ -496,7 +497,7 @@ def send_portal_credentials(client_id):
     try:
         msg = MIMEMultipart('alternative')
         msg["Subject"] = f"🔑 Acceso al Portal de Autoservicio - {company_name}"
-        msg["From"] = f"{company_name} <{smtp_user}>"
+        msg["From"] = formataddr((company_name, smtp_user))
         msg["To"] = recipient_email
         msg.attach(MIMEText(html_body, 'html'))
 

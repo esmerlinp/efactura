@@ -1914,10 +1914,11 @@ def send_receipt_email(invoice_id):
         import smtplib
         from email.mime.text import MIMEText
         from email.mime.multipart import MIMEMultipart
+        from email.utils import formataddr
 
         msg = MIMEMultipart("alternative")
         msg["Subject"] = f"Recibo de Pago - Factura {invoice.get('invoiceNumber', '')} | {company_name}"
-        msg["From"]    = f"{company_name} <{smtp_user}>"
+        msg["From"]    = formataddr((company_name, smtp_user))
         msg["To"]      = recipient_email
 
         msg.attach(MIMEText(html_body, "html", "utf-8"))
@@ -2046,6 +2047,7 @@ def send_invoice_email(owner_uid, invoice, recipient_email, sandbox=True, base_u
         from email.mime.text import MIMEText
         from email.mime.multipart import MIMEMultipart
         from email.mime.application import MIMEApplication
+        from email.utils import formataddr
 
         msg = MIMEMultipart()
         
@@ -2058,7 +2060,7 @@ def send_invoice_email(owner_uid, invoice, recipient_email, sandbox=True, base_u
         client_name = invoice.get('clientName') or invoice.get('razonSocial', 'Consumidor Final')
         
         msg["Subject"] = f"{ecf_type} No. [{encf}] - [{company_name}]"
-        msg["From"] = f"{company_name} <{smtp_user}>"
+        msg["From"] = formataddr((company_name, smtp_user))
         msg["To"] = recipient_email
 
         logo_url = company.get('logoUrl', '')
@@ -2702,10 +2704,11 @@ def send_quotation_to_client(invoice_id):
         import smtplib
         from email.mime.text import MIMEText
         from email.mime.multipart import MIMEMultipart
+        from email.utils import formataddr
         
         msg = MIMEMultipart("alternative")
         msg["Subject"] = f"Propuesta Comercial - Cotización {invoice.get('invoiceNumber', '')} | {company_name}"
-        msg["From"]    = f"{company_name} <{smtp_user}>"
+        msg["From"]    = formataddr((company_name, smtp_user))
         msg["To"]      = recipient_email
         
         msg.attach(MIMEText(html_body, "html", "utf-8"))

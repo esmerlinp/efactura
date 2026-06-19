@@ -1031,10 +1031,11 @@ def send_receipt_endpoint(invoice_id):
         import smtplib
         from email.mime.text import MIMEText
         from email.mime.multipart import MIMEMultipart
+        from email.utils import formataddr
 
         msg = MIMEMultipart("alternative")
         msg["Subject"] = f"Recibo de Pago - Factura {invoice.get('invoiceNumber', '')} | {company_name}"
-        msg["From"]    = f"{company_name} <{smtp_user}>"
+        msg["From"]    = formataddr((company_name, smtp_user))
         msg["To"]      = recipient_email
 
         msg.attach(MIMEText(html_body, "html", "utf-8"))
@@ -1091,10 +1092,11 @@ def send_invoice_email_endpoint(invoice_id):
         from email.mime.text import MIMEText
         from email.mime.multipart import MIMEMultipart
         from email.mime.application import MIMEApplication
+        from email.utils import formataddr
 
         msg = MIMEMultipart()
         msg["Subject"] = f"{ecf_type} No. [{encf}] - [{company_name}]"
-        msg["From"] = f"{company_name} <{smtp_user}>"
+        msg["From"] = formataddr((company_name, smtp_user))
         msg["To"] = recipient_email
         
         brand_color = company.get("colorMarca", "#10b981")
