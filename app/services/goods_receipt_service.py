@@ -1,6 +1,6 @@
 import uuid
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 
 try:
     from app.services.db_service import db_firestore, firebase_initialized, DatabaseService
@@ -74,7 +74,7 @@ class GoodsReceiptService:
 
     @classmethod
     def get_next_receipt_number(cls, owner_uid, sandbox=True):
-        year = datetime.utcnow().strftime("%Y")
+        year = datetime.now(timezone.utc).strftime("%Y")
         max_num = 0
         receipts = cls.get_receipts(owner_uid, sandbox=sandbox)
         for r in receipts:
@@ -92,8 +92,8 @@ class GoodsReceiptService:
         receipt_data["id"] = receipt_id
         receipt_data["ownerUID"] = owner_uid
         if "createdAt" not in receipt_data or not receipt_data["createdAt"]:
-            receipt_data["createdAt"] = serialize_field(datetime.utcnow())
-        receipt_data["updatedAt"] = serialize_field(datetime.utcnow())
+            receipt_data["createdAt"] = serialize_field(datetime.now(timezone.utc))
+        receipt_data["updatedAt"] = serialize_field(datetime.now(timezone.utc))
 
         defaults = {
             "status": "completada",

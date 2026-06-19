@@ -1,6 +1,6 @@
 import uuid
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify
 from app.services.db_service import DatabaseService
 from app.services.purchase_order_service import PurchaseOrderService
@@ -122,7 +122,7 @@ def new_purchase_order():
             "supplierName": request.form.get('supplierName', ''),
             "supplierRnc": request.form.get('supplierRnc', ''),
             "status": "borrador",
-            "orderDate": request.form.get('orderDate', datetime.utcnow().strftime('%Y-%m-%d')),
+            "orderDate": request.form.get('orderDate', datetime.now(timezone.utc).strftime('%Y-%m-%d')),
             "expectedDate": request.form.get('expectedDate', ''),
             "deliveryAddress": request.form.get('deliveryAddress', ''),
             "paymentTerms": request.form.get('paymentTerms', 'contado'),
@@ -153,7 +153,7 @@ def new_purchase_order():
         return redirect(url_for('web_purchase_orders.list_purchase_orders'))
 
     po_number = PurchaseOrderService.get_next_po_number(owner_uid, sandbox=sandbox)
-    today = datetime.utcnow().strftime('%Y-%m-%d')
+    today = datetime.now(timezone.utc).strftime('%Y-%m-%d')
     suppliers = SupplierService.get_suppliers(owner_uid, sandbox=sandbox)
     return render_template('purchase_orders/new.html',
                            po_number=po_number,
@@ -280,7 +280,7 @@ def edit_purchase_order(po_id):
         flash(f'✅ Orden de compra {order.get("poNumber")} actualizada.', 'success')
         return redirect(url_for('web_purchase_orders.purchase_order_detail', po_id=po_id))
 
-    today = datetime.utcnow().strftime('%Y-%m-%d')
+    today = datetime.now(timezone.utc).strftime('%Y-%m-%d')
     suppliers = SupplierService.get_suppliers(owner_uid, sandbox=sandbox)
     return render_template('purchase_orders/edit.html',
                            order=order,
@@ -373,7 +373,7 @@ def receive_purchase_order(po_id):
     user = session['user'].get('displayName', 'Usuario')
     po['status'] = new_status
     po['receivedBy'] = user
-    po['receivedAt'] = datetime.utcnow().isoformat()
+    po['receivedAt'] = datetime.now(timezone.utc).isoformat()
     po['items'] = items
     PurchaseOrderService.save_purchase_order(owner_uid, po_id, po, sandbox=sandbox)
 
@@ -505,12 +505,12 @@ def new_receipt(po_id):
             "supplierRnc": po.get("supplierRnc", ""),
             "warehouseId": warehouse_id,
             "warehouseName": warehouse_name,
-            "receiptDate": request.form.get('receiptDate', datetime.utcnow().strftime('%Y-%m-%d')),
+            "receiptDate": request.form.get('receiptDate', datetime.now(timezone.utc).strftime('%Y-%m-%d')),
             "items": receipt_items,
             "status": "completada",
             "notes": request.form.get('notes', ''),
             "createdBy": user,
-            "createdAt": datetime.utcnow().isoformat(),
+            "createdAt": datetime.now(timezone.utc).isoformat(),
         }
 
         GoodsReceiptService.create_receipt(owner_uid, receipt_data, sandbox=sandbox)
@@ -535,8 +535,8 @@ def new_receipt(po_id):
         )
         po['status'] = 'recibida_completa' if all_complete else 'recibida_parcial'
         po['receivedBy'] = user
-        po['receivedAt'] = datetime.utcnow().isoformat()
-        po['updatedAt'] = datetime.utcnow().isoformat()
+        po['receivedAt'] = datetime.now(timezone.utc).isoformat()
+        po['updatedAt'] = datetime.now(timezone.utc).isoformat()
         PurchaseOrderService.save_purchase_order(owner_uid, po_id, po, sandbox=sandbox)
 
         AuditService.log_from_request(
@@ -560,7 +560,7 @@ def new_receipt(po_id):
         return redirect(url_for('web_purchase_orders.purchase_order_detail', po_id=po_id))
 
     receipt_number = GoodsReceiptService.get_next_receipt_number(owner_uid, sandbox=sandbox)
-    today = datetime.utcnow().strftime('%Y-%m-%d')
+    today = datetime.now(timezone.utc).strftime('%Y-%m-%d')
     warehouses = DatabaseService.get_warehouses(owner_uid, sandbox=sandbox)
     catalog_items = DatabaseService.get_items(owner_uid, sandbox=sandbox)
     catalog_items = [i for i in catalog_items if i.get('isActive', True)]
@@ -603,7 +603,7 @@ def consolidated_cxp():
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
 
-    today_str = datetime.utcnow().strftime("%Y-%m-%d")
+    today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
     # 1. Purchase invoices
     purchase_invoices = SupplierInvoiceService.get_all(owner_uid, sandbox=sandbox)
@@ -720,7 +720,7 @@ def list_purchase_cxp():
 
     total_pending = 0.0
     total_overdue = 0.0
-    today_str = datetime.utcnow().strftime("%Y-%m-%d")
+    today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
     for inv in invoices:
         status = inv.get('cxpStatus', 'Pendiente')
@@ -769,7 +769,7 @@ def list_purchase_cxp():
         dest.write(b'\xef\xbb\xbf')
         dest.write(output.getvalue().encode('utf-8'))
         dest.seek(0)
-        filename = f"cxp_compras_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.csv"
+        filename = f"cxp_compras_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.csv"
         return send_file(dest, mimetype="text/csv", as_attachment=True, download_name=filename)
 
     return render_template('purchase_orders/purchase_cxp_dashboard.html',
@@ -811,18 +811,18 @@ def register_supplier_invoice(po_id):
         invoice_number = request.form.get('invoiceNumber', '').strip()
         if not invoice_number:
             flash('❌ El número de factura del proveedor es obligatorio.', 'error')
-            return render_template('purchase_orders/register_invoice.html', po=po, today=datetime.utcnow().strftime('%Y-%m-%d'), active_page='purchase_orders')
+            return render_template('purchase_orders/register_invoice.html', po=po, today=datetime.now(timezone.utc).strftime('%Y-%m-%d'), active_page='purchase_orders')
 
         if not SupplierInvoiceService._check_ncf_unique(owner_uid, invoice_number, sandbox=sandbox):
             flash('❌ El número de factura del proveedor o NCF ya existe. Verifique los datos.', 'error')
-            return render_template('purchase_orders/register_invoice.html', po=po, today=datetime.utcnow().strftime('%Y-%m-%d'), active_page='purchase_orders')
+            return render_template('purchase_orders/register_invoice.html', po=po, today=datetime.now(timezone.utc).strftime('%Y-%m-%d'), active_page='purchase_orders')
 
         ncf = request.form.get('ncf', '').strip()
-        inv_date = request.form.get('date', datetime.utcnow().strftime('%Y-%m-%d'))
+        inv_date = request.form.get('date', datetime.now(timezone.utc).strftime('%Y-%m-%d'))
         due_date = request.form.get('dueDate', '')
         notes = request.form.get('notes', '').strip()
 
-        today_str = datetime.utcnow().strftime('%Y-%m-%d')
+        today_str = datetime.now(timezone.utc).strftime('%Y-%m-%d')
         if inv_date > today_str:
             flash('❌ La fecha de emisión no puede ser futura.', 'error')
             return render_template('purchase_orders/register_invoice.html', po=po, today=today_str, active_page='purchase_orders')
@@ -925,7 +925,7 @@ def register_supplier_invoice(po_id):
         flash(msg, 'success')
         return redirect(url_for('web_purchase_orders.list_purchase_cxp'))
 
-    today = datetime.utcnow().strftime('%Y-%m-%d')
+    today = datetime.now(timezone.utc).strftime('%Y-%m-%d')
     return render_template('purchase_orders/register_invoice.html',
                            po=po, today=today, active_page='purchase_orders')
 
@@ -944,7 +944,7 @@ def supplier_invoice_detail(invoice_id):
         flash('❌ Factura proveedor no encontrada.', 'error')
         return redirect(url_for('web_purchase_orders.list_purchase_cxp'))
 
-    today_str = datetime.utcnow().strftime('%Y-%m-%d')
+    today_str = datetime.now(timezone.utc).strftime('%Y-%m-%d')
     status = invoice.get('cxpStatus', 'Pendiente')
     due_date = invoice.get('dueDate', '')
     if status in ('Pendiente', 'Abonado') and due_date and due_date < today_str:

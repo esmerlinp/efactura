@@ -1,5 +1,5 @@
 import xml.etree.ElementTree as ET
-from datetime import datetime
+from datetime import datetime, timezone
 
 class DgiiXmlBuilder:
     
@@ -230,7 +230,7 @@ class DgiiXmlBuilder:
         id_doc = ET.SubElement(encabezado, "IdDoc")
         ET.SubElement(id_doc, "TipoeCF").text = tipo_ecf
         ET.SubElement(id_doc, "eNCF").text = invoice_data.get("encf", "E" + tipo_ecf + "0000000001")
-        ET.SubElement(id_doc, "FechaEmision").text = datetime.utcnow().strftime("%Y-%m-%d")
+        ET.SubElement(id_doc, "FechaEmision").text = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         
         # Tipo de moneda (Mapeado a Tabla II)
         currency_code = cls.map_currency(invoice_data.get("currency", "DOP"))

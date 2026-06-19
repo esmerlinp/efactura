@@ -1,6 +1,6 @@
 import uuid
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 
 try:
     from app.services.db_service import db_firestore, firebase_initialized, firebase_storage_bucket, DatabaseService
@@ -49,7 +49,7 @@ class SupplierInvoiceService:
         def increment(transaction):
             ref = cls._counter_ref(owner_uid)
             doc = ref.get(transaction=transaction)
-            year = datetime.utcnow().strftime("%Y")
+            year = datetime.now(timezone.utc).strftime("%Y")
 
             if doc.exists:
                 data = doc.to_dict()
@@ -142,7 +142,7 @@ class SupplierInvoiceService:
         try:
             next_num = cls._get_next_counter(owner_uid)
         except Exception:
-            year = datetime.utcnow().strftime("%Y")
+            year = datetime.now(timezone.utc).strftime("%Y")
             max_num = 0
             invoices = cls.get_all(owner_uid, sandbox=sandbox)
             for inv in invoices:
@@ -153,7 +153,7 @@ class SupplierInvoiceService:
                     if num > max_num:
                         max_num = num
             next_num = max_num + 1
-        year = datetime.utcnow().strftime("%Y")
+        year = datetime.now(timezone.utc).strftime("%Y")
         return f"FI-{year}-{next_num:04d}"
 
     @classmethod
@@ -185,8 +185,8 @@ class SupplierInvoiceService:
         data["id"] = invoice_id
         data["ownerUID"] = owner_uid
         if "createdAt" not in data or not data["createdAt"]:
-            data["createdAt"] = serialize_field(datetime.utcnow())
-        data["updatedAt"] = serialize_field(datetime.utcnow())
+            data["createdAt"] = serialize_field(datetime.now(timezone.utc))
+        data["updatedAt"] = serialize_field(datetime.now(timezone.utc))
 
         total = float(data.get("total", 0))
         data.setdefault("cxpStatus", "Pendiente")
@@ -213,7 +213,7 @@ class SupplierInvoiceService:
         if not firebase_initialized or db_firestore is None:
             return False
         try:
-            data["updatedAt"] = serialize_field(datetime.utcnow())
+            data["updatedAt"] = serialize_field(datetime.now(timezone.utc))
             db_firestore.collection("users").document(owner_uid).collection(cls._coll(sandbox)).document(invoice_id).update(data)
             return True
         except Exception as e:
@@ -233,7 +233,7 @@ class SupplierInvoiceService:
                 doc_ref = db_firestore.collection("users").document(owner_uid).collection(cls._coll(sandbox)).document(invoice_id)
                 doc_ref.update({
                     "attachmentUrls": firestore.ArrayUnion([public_url]),
-                    "updatedAt": serialize_field(datetime.utcnow()),
+                    "updatedAt": serialize_field(datetime.now(timezone.utc)),
                 })
             return public_url
         except Exception as e:
@@ -260,7 +260,7 @@ class SupplierInvoiceService:
                 return False, f"El monto (RD$ {payment_amount:,.2f}) excede el saldo pendiente (RD$ {current_rem:,.2f})."
             new_rem = round(current_rem - payment_amount, 2)
             new_status = "Pagado" if new_rem <= 0.01 else "Abonado"
-            today_str = datetime.utcnow().strftime("%Y-%m-%d")
+            today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
             due_date = data.get("dueDate", "")
             if new_status in ("Abonado", "Pendiente") and due_date and due_date < today_str:
                 new_status = "Vencido"
@@ -268,9 +268,9 @@ class SupplierInvoiceService:
             payment_doc = {
                 "id": payment_id,
                 "amount": payment_amount,
-                "paymentDate": datetime.utcnow().isoformat(),
+                "paymentDate": datetime.now(timezone.utc).isoformat(),
                 "registeredBy": registered_by,
-                "createdAt": datetime.utcnow().isoformat(),
+                "createdAt": datetime.now(timezone.utc).isoformat(),
                 "method": payment_method or "",
                 "reference": payment_reference or "",
             }
@@ -278,7 +278,7 @@ class SupplierInvoiceService:
             doc_ref.update({
                 "cxpRemainingBalance": new_rem,
                 "cxpStatus": new_status,
-                "updatedAt": serialize_field(datetime.utcnow()),
+                "updatedAt": serialize_field(datetime.now(timezone.utc)),
             })
             msg = f"Pago de RD$ {payment_amount:,.2f} registrado con éxito. Nuevo balance: RD$ {new_rem:,.2f}."
             return True, msg
@@ -334,14 +334,14 @@ class SupplierInvoiceService:
                 new_status = "Pendiente"
             else:
                 new_status = "Abonado"
-            today_str = datetime.utcnow().strftime("%Y-%m-%d")
+            today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
             due_date = inv_data.get("dueDate", "")
             if new_status in ("Pendiente", "Abonado") and due_date and due_date < today_str:
                 new_status = "Vencido"
             doc_ref.update({
                 "cxpRemainingBalance": new_rem,
                 "cxpStatus": new_status,
-                "updatedAt": serialize_field(datetime.utcnow()),
+                "updatedAt": serialize_field(datetime.now(timezone.utc)),
             })
             return True, f"Pago de RD$ {amount:,.2f} revertido. Nuevo saldo: RD$ {new_rem:,.2f}."
         except Exception as e:

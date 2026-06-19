@@ -3,7 +3,7 @@ import json
 import uuid
 import requests
 import traceback
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from werkzeug.security import generate_password_hash, check_password_hash
 from config import Config
 from app.utils.security import encrypt_field, decrypt_field, sha256_hash
@@ -246,7 +246,7 @@ def _cached_invoices(owner_uid, sandbox, quotations_only, include_all):
                 due_date_str = serialize_field(data.get("dueDate"))
                 if status in ["Emitida", "Parcialmente Cobrada"] and due_date_str:
                     due_date_clean = due_date_str[:10]
-                    today_str = datetime.utcnow().strftime("%Y-%m-%d")
+                    today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
                     if due_date_clean < today_str:
                         status = "Vencida"
 
@@ -346,6 +346,83 @@ def _cached_invoices(owner_uid, sandbox, quotations_only, include_all):
     return invoices
 
 
+@cache.memoize(timeout=60)
+def _cached_contingency_invoices(owner_uid, sandbox):
+    invoices = []
+    if firebase_initialized:
+        try:
+            coll_name = "sandbox_invoices" if sandbox else "invoices"
+            docs = db_firestore.collection("users").document(owner_uid).collection(coll_name) \
+                .where(filter=firestore.FieldFilter("emisionMode", "==", "FALLBACK")) \
+                .get()
+
+            for doc in docs:
+                data = doc.to_dict()
+                if data.get("isDeleted"):
+                    continue
+
+                items = []
+                for it in data.get("items", []):
+                    items.append({
+                        "id": it.get("id", ""),
+                        "code": it.get("code", ""),
+                        "type": it.get("type", "Bien"),
+                        "name": it.get("name", ""),
+                        "price": float(it.get("price", 0.0)),
+                        "quantity": int(it.get("quantity", 1)),
+                        "itbisRate": float(it.get("itbisRate", 0.18)),
+                        "discountRate": float(it.get("discountRate", 0.0)),
+                        "subtotal": float(it.get("subtotal", 0.0)),
+                        "itbisAmount": float(it.get("itbisAmount", it.get("itbis_amount", 0.0))),
+                        "total": float(it.get("total", 0.0)),
+                        "codigoImpuesto": it.get("codigoImpuesto", ""),
+                        "tasaImpuestoAdicional": float(it.get("tasaImpuestoAdicional", 0.0)),
+                        "gradosAlcohol": float(it.get("gradosAlcohol", 0.0)),
+                        "cantidadReferencia": float(it.get("cantidadReferencia", 0.0)),
+                        "subcantidad": float(it.get("subcantidad", 1.0)),
+                        "precioReferencia": float(it.get("precioReferencia", 0.0)),
+                        "isc_especifico_amount": float(it.get("isc_especifico_amount", it.get("iscEspecificoAmount", 0.0))),
+                        "isc_advalorem_amount": float(it.get("isc_advalorem_amount", it.get("iscAdValoremAmount", 0.0))),
+                        "otros_impuestos_amount": float(it.get("otros_impuestos_amount", it.get("otrosImpuestosAmount", 0.0)))
+                    })
+
+                if data.get("emisionMode") == "FALLBACK" and not data.get("isSyncedWithDGII", True):
+                    total_paid = float(data.get("totalPaid", 0.0))
+                    net_payable = float(data.get("netPayable", data.get("total", 0.0)))
+
+                    invoices.append({
+                        "id": doc.id,
+                        "invoiceNumber": data.get("invoiceNumber", ""),
+                        "date": serialize_field(data.get("date")),
+                        "dueDate": serialize_field(data.get("dueDate")),
+                        "clientId": data.get("clientId", ""),
+                        "clientName": data.get("clientName", ""),
+                        "clientRNC": data.get("clientRNC", ""),
+                        "status": data.get("status", "Borrador"),
+                        "ecfType": data.get("ecfType", "Factura de Consumo (E32)"),
+                        "encf": data.get("encf", ""),
+                        "emisionMode": "FALLBACK",
+                        "isSyncedWithDGII": False,
+                        "contingencyEmittedAt": serialize_field(data.get("contingencyEmittedAt")),
+                        "netPayable": net_payable,
+                        "subtotal": float(data.get("subtotal", 0.0)),
+                        "totalITBIS": float(data.get("totalITBIS", 0.0)),
+                        "total": float(data.get("total", 0.0)),
+                        "currency": data.get("currency", "DOP"),
+                        "paymentMethod": data.get("paymentMethod", "Efectivo"),
+                        "paymentType": data.get("paymentType", "Contado"),
+                        "totalPaid": total_paid,
+                        "syncAttempts": int(data.get("syncAttempts", 0)),
+                        "lastSyncAttempt": data.get("lastSyncAttempt", ""),
+                        "items": items,
+                    })
+
+            invoices.sort(key=lambda x: x["date"] or "", reverse=True)
+        except Exception as e:
+            print(f"⚠️ Error al obtener facturas en contingencia desde Firestore: {e}")
+    return invoices
+
+
 @cache.memoize(timeout=120)
 def _cached_user_notifications(user_uid, limit):
     notifications = []
@@ -432,7 +509,7 @@ class DatabaseService:
     def register_user(cls, email, password, name, role="owner", owner_uid=None, can_manage_own_company=None):
         """Registra un nuevo usuario en Firebase Auth y Firestore."""
         uid = str(uuid.uuid4())
-        created_at = datetime.utcnow().isoformat()
+        created_at = datetime.now(timezone.utc).isoformat()
         resolved_owner_uid = owner_uid if owner_uid else uid
 
         if can_manage_own_company is None:
@@ -734,7 +811,7 @@ class DatabaseService:
                         "canManageSuppliers": True,
                         "canManagePurchaseCXP": True
                     },
-                    "createdAt": datetime.utcnow().isoformat(),
+                    "createdAt": datetime.now(timezone.utc).isoformat(),
                     "two_factor_enabled": False,
                     "two_factor_secret": None,
                     "backup_codes": [],
@@ -910,7 +987,7 @@ class DatabaseService:
                         "code": "0001",
                         "address": "Sede Principal",
                         "isDefault": True,
-                        "createdAt": datetime.utcnow().isoformat()
+                        "createdAt": datetime.now(timezone.utc).isoformat()
                     }
                     cls.save_branch(owner_uid, default_id, default_branch, sandbox=sandbox, update_defaults=False)
                     branches.append(default_branch)
@@ -926,7 +1003,7 @@ class DatabaseService:
         branch_dict["id"] = branch_id
         branch_dict["ownerUID"] = owner_uid
         if "createdAt" not in branch_dict or not branch_dict["createdAt"]:
-            branch_dict["createdAt"] = datetime.utcnow().isoformat()
+            branch_dict["createdAt"] = datetime.now(timezone.utc).isoformat()
         branch_dict["createdAt"] = serialize_field(branch_dict["createdAt"])
 
         # Si se establece como default, desmarcar las demas
@@ -1068,7 +1145,7 @@ class DatabaseService:
         client_dict["id"] = client_id
         client_dict["ownerUID"] = owner_uid
         if "createdAt" not in client_dict or not client_dict["createdAt"]:
-            client_dict["createdAt"] = datetime.utcnow().isoformat()
+            client_dict["createdAt"] = datetime.now(timezone.utc).isoformat()
         
         client_dict["nextContactDate"] = serialize_field(client_dict.get("nextContactDate"))
         client_dict["createdAt"] = serialize_field(client_dict.get("createdAt"))
@@ -1139,7 +1216,7 @@ class DatabaseService:
         """Guarda una interacción y actualiza el próximo contacto del cliente principal en Firestore."""
         interaction_dict["id"] = interaction_id
         if "createdAt" not in interaction_dict or not interaction_dict["createdAt"]:
-            interaction_dict["createdAt"] = datetime.utcnow().isoformat()
+            interaction_dict["createdAt"] = datetime.now(timezone.utc).isoformat()
         
         interaction_dict["date"] = serialize_field(interaction_dict.get("date"))
         interaction_dict["nextContactDate"] = serialize_field(interaction_dict.get("nextContactDate"))
@@ -1225,7 +1302,7 @@ class DatabaseService:
         item_dict["id"] = item_id
         item_dict["ownerUID"] = owner_uid
         if "createdAt" not in item_dict or not item_dict["createdAt"]:
-            item_dict["createdAt"] = datetime.utcnow().isoformat()
+            item_dict["createdAt"] = datetime.now(timezone.utc).isoformat()
         
         item_dict["price"] = float(item_dict.get("price", 0.0))
         item_dict["costPrice"] = float(item_dict.get("costPrice", 0.0))
@@ -1292,7 +1369,7 @@ class DatabaseService:
                         {"id": "otros", "name": "Otros"}
                     ]
                     for cat in defaults:
-                        cat["createdAt"] = datetime.utcnow().isoformat()
+                        cat["createdAt"] = datetime.now(timezone.utc).isoformat()
                         cls.save_category(owner_uid, cat["id"], cat, sandbox=sandbox)
                         categories.append(cat)
                 
@@ -1307,7 +1384,7 @@ class DatabaseService:
         category_dict["id"] = category_id
         category_dict["ownerUID"] = owner_uid
         if "createdAt" not in category_dict or not category_dict["createdAt"]:
-            category_dict["createdAt"] = datetime.utcnow().isoformat()
+            category_dict["createdAt"] = datetime.now(timezone.utc).isoformat()
         category_dict["createdAt"] = serialize_field(category_dict["createdAt"])
 
         if firebase_initialized:
@@ -1348,7 +1425,7 @@ class DatabaseService:
         new_cat = {
             "id": slug,
             "name": name_clean,
-            "createdAt": datetime.utcnow().isoformat()
+            "createdAt": datetime.now(timezone.utc).isoformat()
         }
         cls.save_category(owner_uid, slug, new_cat, sandbox=sandbox)
         return slug
@@ -1400,7 +1477,7 @@ class DatabaseService:
         seq_dict["id"] = seq_id
         seq_dict["ownerUID"] = owner_uid
         if "creadoEn" not in seq_dict or not seq_dict["creadoEn"]:
-            seq_dict["creadoEn"] = datetime.utcnow().isoformat()
+            seq_dict["creadoEn"] = datetime.now(timezone.utc).isoformat()
         
         seq_dict["secuenciaInicial"] = int(seq_dict["secuenciaInicial"])
         seq_dict["secuenciaFinal"] = int(seq_dict["secuenciaFinal"])
@@ -1455,7 +1532,7 @@ class DatabaseService:
             if fecha_exp:
                 try:
                     fecha_exp_str = str(fecha_exp)[:10]
-                    today_str = datetime.utcnow().strftime("%Y-%m-%d")
+                    today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
                     if fecha_exp_str and fecha_exp_str < today_str:
                         transaction.update(db_firestore.collection("users").document(owner_uid).collection(coll_seq).document(seq_id), {
                             "estado": "EXPIRADA"
@@ -1485,7 +1562,7 @@ class DatabaseService:
             })
 
             log_id = str(uuid.uuid4())
-            fecha_registro = datetime.utcnow().isoformat()
+            fecha_registro = datetime.now(timezone.utc).isoformat()
             
             log_data = {
                 "id": log_id,
@@ -1588,7 +1665,7 @@ class DatabaseService:
         canc_dict["id"] = cancellation_id
         canc_dict["ownerUID"] = owner_uid
         if "date" not in canc_dict or not canc_dict["date"]:
-            canc_dict["date"] = datetime.utcnow().isoformat()
+            canc_dict["date"] = datetime.now(timezone.utc).isoformat()
         
         canc_dict["startSequence"] = int(canc_dict["startSequence"])
         canc_dict["endSequence"] = int(canc_dict["endSequence"])
@@ -1610,6 +1687,11 @@ class DatabaseService:
     def get_invoices(cls, owner_uid, sandbox=True, quotations_only=False, include_all=False):
         """Retorna las facturas o cotizaciones de un owner."""
         return _cached_invoices(owner_uid, sandbox, quotations_only, include_all)
+
+    @classmethod
+    def get_contingency_invoices(cls, owner_uid, sandbox=True):
+        """Retorna solo facturas en modo contingencia (FALLBACK) no sincronizadas con la DGII."""
+        return _cached_contingency_invoices(owner_uid, sandbox)
 
     @classmethod
     def get_invoice(cls, owner_uid, invoice_id, sandbox=True):
@@ -1664,7 +1746,7 @@ class DatabaseService:
                     due_date_str = serialize_field(data.get("dueDate"))
                     if status in ["Emitida", "Parcialmente Cobrada"] and due_date_str:
                         due_date_clean = due_date_str[:10]
-                        today_str = datetime.utcnow().strftime("%Y-%m-%d")
+                        today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
                         if due_date_clean < today_str:
                             status = "Vencida"
                             
@@ -1825,7 +1907,7 @@ class DatabaseService:
                 if soft_delete:
                     doc_ref.update({
                         "isDeleted": True,
-                        "deletedAt": datetime.utcnow().isoformat(),
+                        "deletedAt": datetime.now(timezone.utc).isoformat(),
                         "status": "Eliminada"
                     })
                 else:
@@ -1840,7 +1922,7 @@ class DatabaseService:
         inv_dict["ownerUID"] = owner_uid
         
         if "createdAt" not in inv_dict or not inv_dict["createdAt"]:
-            inv_dict["createdAt"] = datetime.utcnow().isoformat()
+            inv_dict["createdAt"] = datetime.now(timezone.utc).isoformat()
             
         items = inv_dict.get("items", [])
         
@@ -2096,7 +2178,7 @@ class DatabaseService:
             payment_id = payment_dict.get("id") or str(uuid.uuid4())
             payment_dict["id"] = payment_id
             if "paymentDate" not in payment_dict or not payment_dict["paymentDate"]:
-                payment_dict["paymentDate"] = datetime.utcnow().isoformat()
+                payment_dict["paymentDate"] = datetime.now(timezone.utc).isoformat()
             payment_dict["paymentDate"] = serialize_field(payment_dict["paymentDate"])
             
             inv_ref.collection("payments").document(payment_id).set(payment_dict)
@@ -2305,7 +2387,7 @@ class DatabaseService:
         exp_dict["id"] = expense_id
         exp_dict["ownerUID"] = owner_uid
         if "createdAt" not in exp_dict or not exp_dict["createdAt"]:
-            exp_dict["createdAt"] = datetime.utcnow().isoformat()
+            exp_dict["createdAt"] = datetime.now(timezone.utc).isoformat()
         
         exp_dict["amount"] = float(exp_dict["amount"])
         exp_dict["itbisAmount"] = float(exp_dict.get("itbisAmount", exp_dict["amount"] * 0.18 / 1.18))
@@ -2380,7 +2462,7 @@ class DatabaseService:
             payment_doc = {
                 "id": payment_id,
                 "amount": payment_amount,
-                "paymentDate": datetime.utcnow().isoformat(),
+                "paymentDate": datetime.now(timezone.utc).isoformat(),
                 "registeredBy": registered_by
             }
             doc_ref.collection("cxp_payments").document(payment_id).set(payment_doc)
@@ -2533,7 +2615,7 @@ class DatabaseService:
                         "description": "Depósito central de existencias predeterminado",
                         "address": "Sede Principal",
                         "branchId": "default-sucursal-principal",
-                        "createdAt": datetime.utcnow().isoformat()
+                        "createdAt": datetime.now(timezone.utc).isoformat()
                     }
                     cls.save_warehouse(owner_uid, default_id, default_wh, sandbox=sandbox)
                     warehouses.append(default_wh)
@@ -2549,7 +2631,7 @@ class DatabaseService:
         wh_dict["id"] = warehouse_id
         wh_dict["ownerUID"] = owner_uid
         if "createdAt" not in wh_dict or not wh_dict["createdAt"]:
-            wh_dict["createdAt"] = datetime.utcnow().isoformat()
+            wh_dict["createdAt"] = datetime.now(timezone.utc).isoformat()
         wh_dict["createdAt"] = serialize_field(wh_dict["createdAt"])
 
         if firebase_initialized:
@@ -2643,7 +2725,7 @@ class DatabaseService:
         tx_dict["id"] = tx_id
         tx_dict["ownerUID"] = owner_uid
         if "date" not in tx_dict or not tx_dict["date"]:
-            tx_dict["date"] = datetime.utcnow().isoformat()
+            tx_dict["date"] = datetime.now(timezone.utc).isoformat()
 
         item_id = tx_dict["itemId"]
         tx_type = tx_dict["type"]
@@ -2763,7 +2845,7 @@ class DatabaseService:
 
             db_firestore.collection("api_keys").document(hashed_key).set({
                 "ownerUID": owner_uid,
-                "createdAt": datetime.utcnow().isoformat()
+                "createdAt": datetime.now(timezone.utc).isoformat()
             })
 
             company_profile = cls.get_company_profile(owner_uid)
@@ -2808,7 +2890,7 @@ class DatabaseService:
             return False
         try:
             coll_name = "sandbox_idempotency_keys" if sandbox else "idempotency_keys"
-            now = datetime.utcnow()
+            now = datetime.now(timezone.utc)
             db_firestore.collection("users").document(owner_uid).collection(coll_name).document(key).set({
                 "id": key,
                 **payload,
@@ -2826,7 +2908,7 @@ class DatabaseService:
         if not firebase_initialized:
             return
         try:
-            today_str = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+            today_str = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
             collections = ["idempotency_keys", "sandbox_idempotency_keys"]
             deleted_total = 0
             for coll_name in collections:
@@ -3150,9 +3232,9 @@ class DatabaseService:
         note_dict["id"] = note_id
         note_dict["ownerUID"] = owner_uid
         if "createdAt" not in note_dict or not note_dict["createdAt"]:
-            note_dict["createdAt"] = datetime.utcnow().isoformat()
+            note_dict["createdAt"] = datetime.now(timezone.utc).isoformat()
         
-        note_dict["updatedAt"] = datetime.utcnow().isoformat()
+        note_dict["updatedAt"] = datetime.now(timezone.utc).isoformat()
         
         note_dict["createdAt"] = serialize_field(note_dict["createdAt"])
         note_dict["updatedAt"] = serialize_field(note_dict["updatedAt"])
@@ -3255,7 +3337,7 @@ class DatabaseService:
                         "id": default_id,
                         "name": "Caja Principal 01",
                         "status": "CLOSED",
-                        "createdAt": datetime.utcnow().isoformat()
+                        "createdAt": datetime.now(timezone.utc).isoformat()
                     }
                     cls.save_cash_register(owner_uid, default_id, default_reg, sandbox=sandbox)
                     registers.append(default_reg)
@@ -3271,7 +3353,7 @@ class DatabaseService:
         reg_dict["id"] = register_id
         reg_dict["ownerUID"] = owner_uid
         if "createdAt" not in reg_dict or not reg_dict["createdAt"]:
-            reg_dict["createdAt"] = datetime.utcnow().isoformat()
+            reg_dict["createdAt"] = datetime.now(timezone.utc).isoformat()
         reg_dict["createdAt"] = serialize_field(reg_dict["createdAt"])
         # Normalizar bandera de modo consolidado
         if "consolidationMode" not in reg_dict:
@@ -3351,7 +3433,7 @@ class DatabaseService:
         shift_id = shift_dict.get("id") or str(uuid.uuid4())
         shift_dict["id"] = shift_id
         shift_dict["status"] = "OPEN"
-        shift_dict["openingTime"] = datetime.utcnow().isoformat()
+        shift_dict["openingTime"] = datetime.now(timezone.utc).isoformat()
         shift_dict["openingAmount"] = float(shift_dict.get("openingAmount", 0.0))
         
         if firebase_initialized:
@@ -3489,7 +3571,7 @@ class DatabaseService:
 
             update_data = {
                 "status": final_status,
-                "closingTime": datetime.utcnow().isoformat(),
+                "closingTime": datetime.now(timezone.utc).isoformat(),
                 "closingAmountExpected": closing_expected,
                 "closingAmountDeclared": declared_amount,
                 "difference": difference,
@@ -3519,7 +3601,7 @@ class DatabaseService:
             if supervisor_uid and final_status == "CLOSED":
                 update_data["auditedByUserId"] = supervisor_uid
                 update_data["auditedByUserEmail"] = supervisor_email
-                update_data["auditedAt"] = datetime.utcnow().isoformat()
+                update_data["auditedAt"] = datetime.now(timezone.utc).isoformat()
 
             shift_ref.update(update_data)
 
@@ -3558,7 +3640,7 @@ class DatabaseService:
                 "difference": difference,
                 "auditedByUserId": supervisor_uid,
                 "auditedByUserEmail": supervisor_email,
-                "auditedAt": datetime.utcnow().isoformat(),
+                "auditedAt": datetime.now(timezone.utc).isoformat(),
                 "auditNotes": notes,
                 "auditResolutionType": resolution_type
             }
@@ -3602,7 +3684,7 @@ class DatabaseService:
                 "takenOverBySupervisor": True,
                 "takenOverReason": reason,
                 "takenOverComments": comments,
-                "takenOverAt": datetime.utcnow().isoformat()
+                "takenOverAt": datetime.now(timezone.utc).isoformat()
             }
             shift_ref.update(update_data)
             return True
@@ -3624,7 +3706,7 @@ class DatabaseService:
             
             update_data = {
                 "status": "FORCED_CLOSED",
-                "closingTime": datetime.utcnow().isoformat(),
+                "closingTime": datetime.now(timezone.utc).isoformat(),
                 "forcedClosedBy": supervisor_uid,
                 "forcedClosedReason": reason,
                 "forcedClosedComments": comments
@@ -3676,7 +3758,7 @@ class DatabaseService:
                 return False
                 
             closing_date = datetime.fromisoformat(closing_time_str.replace("Z", "+00:00")).date()
-            if closing_date != datetime.utcnow().date():
+            if closing_date != datetime.now(timezone.utc).date():
                 return False
                 
             # Validar si ya fue auditado
@@ -3688,7 +3770,7 @@ class DatabaseService:
                 "reopenedBy": supervisor_uid,
                 "reopenedReason": reason,
                 "reopenedComments": comments,
-                "reopenedAt": datetime.utcnow().isoformat()
+                "reopenedAt": datetime.now(timezone.utc).isoformat()
             }
             
             # Quitar datos de cierre
@@ -3725,7 +3807,7 @@ class DatabaseService:
                 "transferredBySupervisor": supervisor_uid,
                 "transferredReason": reason,
                 "transferredComments": comments,
-                "transferredAt": datetime.utcnow().isoformat()
+                "transferredAt": datetime.now(timezone.utc).isoformat()
             }
             shift_ref.update(update_data)
             return True
@@ -3747,7 +3829,7 @@ class DatabaseService:
                 "supervisorName": supervisor_name,
                 "reason": reason,
                 "comments": comments,
-                "date": datetime.utcnow().isoformat()
+                "date": datetime.now(timezone.utc).isoformat()
             }
             shift_ref.update({
                 "incidents": firestore.ArrayUnion([incident])
@@ -3769,7 +3851,7 @@ class DatabaseService:
                 "extensionAuthorizedBy": supervisor_uid,
                 "extensionReason": reason,
                 "extensionComments": comments,
-                "extensionAuthorizedAt": datetime.utcnow().isoformat()
+                "extensionAuthorizedAt": datetime.now(timezone.utc).isoformat()
             }
             shift_ref.update(update_data)
             return True
@@ -3811,7 +3893,7 @@ class DatabaseService:
         tx_dict["id"] = tx_id
         tx_dict["ownerUID"] = owner_uid
         if "date" not in tx_dict or not tx_dict["date"]:
-            tx_dict["date"] = datetime.utcnow().isoformat()
+            tx_dict["date"] = datetime.now(timezone.utc).isoformat()
         tx_dict["date"] = serialize_field(tx_dict["date"])
         tx_dict["amount"] = float(tx_dict["amount"])
 
@@ -3870,7 +3952,7 @@ class DatabaseService:
                     "status": "Consolidada",
                     "encfConsolidado": encf_consolidado,
                     "invoiceNumberConsolidado": invoice_number_consolidado,
-                    "consolidadoAt": datetime.utcnow().isoformat(),
+                    "consolidadoAt": datetime.now(timezone.utc).isoformat(),
                     "isSyncedWithDGII": synced_value,
                 }
                 if dgii_status:
@@ -3947,7 +4029,7 @@ class DatabaseService:
         promise_dict["id"] = promise_id
         promise_dict["ownerUID"] = owner_uid
         if "createdAt" not in promise_dict or not promise_dict["createdAt"]:
-            promise_dict["createdAt"] = datetime.utcnow().isoformat()
+            promise_dict["createdAt"] = datetime.now(timezone.utc).isoformat()
         
         if firebase_initialized:
             try:
@@ -4041,8 +4123,8 @@ class DatabaseService:
         contract_dict["id"] = contract_id
         contract_dict["ownerUID"] = owner_uid
         if "createdAt" not in contract_dict or not contract_dict["createdAt"]:
-            contract_dict["createdAt"] = datetime.utcnow().isoformat()
-        contract_dict["updatedAt"] = datetime.utcnow().isoformat()
+            contract_dict["createdAt"] = datetime.now(timezone.utc).isoformat()
+        contract_dict["updatedAt"] = datetime.now(timezone.utc).isoformat()
         
         if firebase_initialized:
             try:
@@ -4152,7 +4234,7 @@ class DatabaseService:
         """Guarda un documento clasificado para un cliente."""
         doc_dict["id"] = doc_id
         if "createdAt" not in doc_dict or not doc_dict["createdAt"]:
-            doc_dict["createdAt"] = datetime.utcnow().isoformat()
+            doc_dict["createdAt"] = datetime.now(timezone.utc).isoformat()
         
         if firebase_initialized:
             try:
@@ -4293,7 +4375,7 @@ class DatabaseService:
         """Guarda o actualiza un comentario de factura en Firestore."""
         comment_dict["id"] = comment_id
         if "createdAt" not in comment_dict or not comment_dict["createdAt"]:
-            comment_dict["createdAt"] = datetime.utcnow().isoformat()
+            comment_dict["createdAt"] = datetime.now(timezone.utc).isoformat()
         
         comment_dict["createdAt"] = serialize_field(comment_dict.get("createdAt"))
         if comment_dict.get("editedAt"):
@@ -4325,7 +4407,7 @@ class DatabaseService:
                 notif_id = notification_dict.get("id") or str(uuid.uuid4())
                 notification_dict["id"] = notif_id
                 if "createdAt" not in notification_dict:
-                    notification_dict["createdAt"] = datetime.utcnow().isoformat()
+                    notification_dict["createdAt"] = datetime.now(timezone.utc).isoformat()
                 notification_dict["read"] = False
                 
                 db_firestore.collection("users").document(user_uid).collection("notifications").document(notif_id).set(notification_dict)
@@ -4397,7 +4479,7 @@ class DatabaseService:
         """Guarda o actualiza un comentario de cualquier recurso en Firestore."""
         comment_dict["id"] = comment_id
         if "createdAt" not in comment_dict or not comment_dict["createdAt"]:
-            comment_dict["createdAt"] = datetime.utcnow().isoformat()
+            comment_dict["createdAt"] = datetime.now(timezone.utc).isoformat()
         
         comment_dict["createdAt"] = serialize_field(comment_dict.get("createdAt"))
         if comment_dict.get("editedAt"):

@@ -27,6 +27,11 @@
            onmouseover="this.style.color='var(--text-primary)'" onmouseout="this.style.color='var(--text-secondary)'">
             <i class="fa-solid fa-chart-line"></i> Reportes y Auditoría de Caja
         </a>
+        <a href="{{ url_for('web_pos.pos_contingencia') }}" class="tab-link" 
+           style="padding: 10px 20px; font-weight: 500; color: var(--text-secondary); text-decoration: none; font-size: 0.95rem; display: flex; align-items: center; gap: 8px; transition: color var(--transition-fast);"
+           onmouseover="this.style.color='var(--text-primary)'" onmouseout="this.style.color='var(--text-secondary)'">
+            <i class="fa-solid fa-triangle-exclamation"></i> Contingencia DGII
+        </a>
     </div>
 
     <!-- Sección 1: Cajas Registradoras Registradas -->

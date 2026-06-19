@@ -2,7 +2,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from app.services.db_service import DatabaseService
 from app.services.recurrence import RecurrenceService
 from app.utils.decorators import check_permission
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import uuid
 import random
 
@@ -99,9 +99,9 @@ def list_contracts():
             "totalITBIS":       round(total_itbis, 2),
             "recurrenceInterval": request.form.get('recurrenceInterval', 'mensual'),
             "status":           request.form.get('status', 'Activo'),
-            "startDate":        request.form.get('startDate', datetime.utcnow().strftime("%Y-%m-%d")),
+            "startDate":        request.form.get('startDate', datetime.now(timezone.utc).strftime("%Y-%m-%d")),
             "endDate":          request.form.get('endDate', ""),
-            "nextBillingDate":  request.form.get('nextBillingDate', datetime.utcnow().strftime("%Y-%m-%d")),
+            "nextBillingDate":  request.form.get('nextBillingDate', datetime.now(timezone.utc).strftime("%Y-%m-%d")),
             "notes":            request.form.get('notes', ""),
             "autoSendEmail":    request.form.get('autoSendEmail') == 'on',
             "autoRenew":        request.form.get('autoRenew') == 'on'
@@ -139,7 +139,7 @@ def list_contracts():
         dest.write(b'\xef\xbb\xbf')  # UTF-8 BOM
         dest.write(output.getvalue().encode('utf-8'))
         dest.seek(0)
-        filename = f"contratos_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.csv"
+        filename = f"contratos_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.csv"
         return send_file(
             dest,
             mimetype="text/csv",
@@ -243,7 +243,7 @@ def trigger_contract_billing(contract_id):
     # Verificar si el contrato ha expirado por fecha
     end_date = contract.get('endDate', '')
     next_billing = contract.get('nextBillingDate', '')
-    today_str = datetime.utcnow().strftime("%Y-%m-%d")
+    today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     
     if end_date and next_billing and next_billing > end_date:
         if contract.get('autoRenew'):
@@ -325,8 +325,8 @@ def trigger_contract_billing(contract_id):
     invoice_dict = {
         "id": invoice_id,
         "invoiceNumber": invoice_number,
-        "date": datetime.utcnow().strftime("%Y-%m-%d"),
-        "dueDate": (datetime.utcnow() + timedelta(days=30)).strftime("%Y-%m-%d"),
+        "date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+        "dueDate": (datetime.now(timezone.utc) + timedelta(days=30)).strftime("%Y-%m-%d"),
         "clientId": contract['clientId'],
         "clientName": contract['clientName'],
         "clientRNC": contract['clientRNC'],
@@ -564,7 +564,7 @@ def upload_client_document_route(client_id):
             "name": file.filename,
             "url": url,
             "uploadedBy": session['user']['email'],
-            "createdAt": datetime.utcnow().isoformat(),
+            "createdAt": datetime.now(timezone.utc).isoformat(),
             "notes": notes
         }
         
@@ -643,7 +643,7 @@ def process_resource_comment_mentions(owner_uid, content, resource_type, resourc
                 "documentId": resource_id,
                 "documentNumber": resource_label,
                 "link": link,
-                "createdAt": datetime.utcnow().isoformat(),
+                "createdAt": datetime.now(timezone.utc).isoformat(),
                 "read": False,
                 "type": "mention"
             }
@@ -758,7 +758,7 @@ def add_contract_comment(contract_id):
         "createdBy": session['user']['email'],
         "createdByName": session['user'].get('name', session['user']['email']),
         "createdByUid": session['user']['uid'],
-        "createdAt": datetime.utcnow().isoformat(),
+        "createdAt": datetime.now(timezone.utc).isoformat(),
         "attachmentUrl": attachment_url,
         "attachmentName": attachment_name,
         "edited": False
@@ -802,7 +802,7 @@ def edit_contract_comment(contract_id, comment_id):
         
     comment['content'] = content
     comment['edited'] = True
-    comment['editedAt'] = datetime.utcnow().isoformat()
+    comment['editedAt'] = datetime.now(timezone.utc).isoformat()
     
     file = request.files.get('attachment')
     if file and file.filename:

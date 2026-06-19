@@ -1,6 +1,6 @@
 import uuid
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 
 try:
     from app.services.db_service import db_firestore, firebase_initialized
@@ -80,8 +80,8 @@ class PurchaseOrderService:
         po_dict["id"] = po_id
         po_dict["ownerUID"] = owner_uid
         if "createdAt" not in po_dict or not po_dict["createdAt"]:
-            po_dict["createdAt"] = serialize_field(datetime.utcnow())
-        po_dict["updatedAt"] = serialize_field(datetime.utcnow())
+            po_dict["createdAt"] = serialize_field(datetime.now(timezone.utc))
+        po_dict["updatedAt"] = serialize_field(datetime.now(timezone.utc))
 
         defaults = {
             "status": "borrador",
@@ -122,7 +122,7 @@ class PurchaseOrderService:
 
     @classmethod
     def get_next_po_number(cls, owner_uid, sandbox=True):
-        year = datetime.utcnow().strftime("%Y")
+        year = datetime.now(timezone.utc).strftime("%Y")
         max_num = 0
         orders = cls.get_purchase_orders(owner_uid, sandbox=sandbox)
         for o in orders:
@@ -143,7 +143,7 @@ class PurchaseOrderService:
         if new_status not in PO_STATUSES:
             return po
         po["status"] = new_status
-        now = serialize_field(datetime.utcnow())
+        now = serialize_field(datetime.now(timezone.utc))
         if new_status == "aprobada":
             po["approvedBy"] = user
             po["approvedAt"] = now

@@ -1,9 +1,10 @@
 # app/web/pos.py
 import uuid
 import html
-from datetime import datetime
+from datetime import datetime, timezone
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify
 from app.services.db_service import DatabaseService
+from app.services.contingency_sync_service import ContingencySyncService
 from app.services.ecf_emission import EcfEmissionService
 from app.services.dgii import DGIIService
 from app.utils.decorators import require_permission, check_permission
@@ -245,7 +246,7 @@ def close_shift():
 
 def _emit_consolidated_ecf(owner_uid, shift_id, pending_invoices, sandbox):
     """Función interna: agrupa las facturas pendientes y emite un único E32 consolidado."""
-    from datetime import date as dt_date
+    from datetime import date as dt_date, timezone
 
     today_str = dt_date.today().strftime('%d/%m/%Y')
     total_sum = sum(inv['total'] for inv in pending_invoices)
@@ -254,7 +255,7 @@ def _emit_consolidated_ecf(owner_uid, shift_id, pending_invoices, sandbox):
     invoice_ids = [inv['id'] for inv in pending_invoices]
 
     consolidado_id = str(uuid.uuid4())
-    consolidado_number = f"CONS-{datetime.utcnow().strftime('%y%m%d%H%M%S')}"
+    consolidado_number = f"CONS-{datetime.now(timezone.utc).strftime('%y%m%d%H%M%S')}"
 
     # Item único según norma DGII: descripción genérica de ventas menores del día
     consolidated_item = {
@@ -281,8 +282,8 @@ def _emit_consolidated_ecf(owner_uid, shift_id, pending_invoices, sandbox):
 
     consolidado_dict = {
         "invoiceNumber": consolidado_number,
-        "date": datetime.utcnow().isoformat(),
-        "dueDate": datetime.utcnow().isoformat(),
+        "date": datetime.now(timezone.utc).isoformat(),
+        "dueDate": datetime.now(timezone.utc).isoformat(),
         "clientId": "default",
         "clientName": "Consumidor Final",
         "clientRNC": "999999999",
@@ -328,7 +329,7 @@ def _emit_consolidated_ecf(owner_uid, shift_id, pending_invoices, sandbox):
             consolidado_dict["isSyncedWithDGII"] = is_synced
             consolidado_dict["emisionMode"] = emision_mode
             consolidado_dict["dgiiStatus"] = dgii_status
-            consolidado_dict["contingencyEmittedAt"] = datetime.utcnow().isoformat() if emision_mode == "FALLBACK" else None
+            consolidado_dict["contingencyEmittedAt"] = datetime.now(timezone.utc).isoformat() if emision_mode == "FALLBACK" else None
             consolidado_dict["status"] = "Pendiente DGII" if pending_dgii else "Cobrada"
             DatabaseService.save_invoice(owner_uid, consolidado_id, consolidado_dict, sandbox=sandbox)
         else:
@@ -337,7 +338,7 @@ def _emit_consolidated_ecf(owner_uid, shift_id, pending_invoices, sandbox):
             consolidado_dict["emisionMode"] = "FALLBACK"
             consolidado_dict["dgiiStatus"] = "CONTINGENCY"
             consolidado_dict["isSyncedWithDGII"] = False
-            consolidado_dict["contingencyEmittedAt"] = datetime.utcnow().isoformat()
+            consolidado_dict["contingencyEmittedAt"] = datetime.now(timezone.utc).isoformat()
             consolidado_dict["status"] = "Pendiente DGII"
             DatabaseService.save_invoice(owner_uid, consolidado_id, consolidado_dict, sandbox=sandbox)
     except Exception as ecf_err:
@@ -347,7 +348,7 @@ def _emit_consolidated_ecf(owner_uid, shift_id, pending_invoices, sandbox):
         consolidado_dict["emisionMode"] = "FALLBACK"
         consolidado_dict["dgiiStatus"] = "CONTINGENCY"
         consolidado_dict["isSyncedWithDGII"] = False
-        consolidado_dict["contingencyEmittedAt"] = datetime.utcnow().isoformat()
+        consolidado_dict["contingencyEmittedAt"] = datetime.now(timezone.utc).isoformat()
         consolidado_dict["status"] = "Pendiente DGII"
         DatabaseService.save_invoice(owner_uid, consolidado_id, consolidado_dict, sandbox=sandbox)
 
@@ -651,15 +652,11 @@ def pos_client_lookup():
             "client": client
         })
         
-    # 2. Buscar en el directorio de la DGII (Alanube)
-    company = DatabaseService.get_company_profile(owner_uid)
-    from app.services.alanube import AlanubeService
-    res = AlanubeService.check_directory(company, rnc, sandbox=sandbox)
+    # 2. Buscar en el directorio de la DGII (Megaplus)
+    res = DGIIService.validate_and_fetch_rnc(rnc)
     
-    if res.get('success'):
-        # Encontrado en DGII
-        real_data = res.get('data') or res
-        razon_social = real_data.get('razonSocial') or real_data.get('companyName') or 'Empresa Homologada Electrónica SRL'
+    if not res.get('error'):
+        razon_social = res.get('razon_social', 'Empresa Homologada Electrónica SRL')
         
         # Registrar el cliente automáticamente para futuras transacciones
         import uuid
@@ -672,7 +669,7 @@ def pos_client_lookup():
             "direccion": real_data.get('address', '').strip() or "República Dominicana",
             "crmNotes": "Registrado automáticamente desde consulta RNC en POS",
             "nextContactDate": "",
-            "createdAt": datetime.utcnow().isoformat()
+            "createdAt": datetime.now(timezone.utc).isoformat()
         }
         DatabaseService.save_client(owner_uid, client_id, client_dict, sandbox=sandbox)
         
@@ -741,7 +738,7 @@ def create_pos_sale():
     calcs = DGIIService.calculate_invoice_totals(parsed_items, discount_rate=0.0)
 
     invoice_id = str(uuid.uuid4())
-    invoice_number = f"POS-{datetime.utcnow().strftime('%y%m%d%H%M%S')}"
+    invoice_number = f"POS-{datetime.now(timezone.utc).strftime('%y%m%d%H%M%S')}"
 
     # --- Determinar si aplica modo consolidado ---
     # Condiciones DGII: E32, Consumidor Final (RNC 999999999), total < monto configurable de la empresa
@@ -764,8 +761,8 @@ def create_pos_sale():
 
     invoice_dict = {
         "invoiceNumber": invoice_number,
-        "date": datetime.utcnow().isoformat(),
-        "dueDate": datetime.utcnow().isoformat(),
+        "date": datetime.now(timezone.utc).isoformat(),
+        "dueDate": datetime.now(timezone.utc).isoformat(),
         "clientId": client_id,
         "clientName": client_name,
         "clientRNC": client_rnc,
@@ -851,7 +848,7 @@ def create_pos_sale():
             invoice_dict["isSyncedWithDGII"] = (res.get("mode", "API") == "API" and res.get("status") != "PENDING")
             invoice_dict["emisionMode"] = res.get("mode", "API")
             invoice_dict["dgiiStatus"] = res.get("dgiiStatus") or ("PENDING" if pending_dgii else "ACCEPTED")
-            invoice_dict["contingencyEmittedAt"] = datetime.utcnow().isoformat() if res.get("mode") == "FALLBACK" else None
+            invoice_dict["contingencyEmittedAt"] = datetime.now(timezone.utc).isoformat() if res.get("mode") == "FALLBACK" else None
             invoice_dict["status"] = "Pendiente DGII" if pending_dgii else "Cobrada"
             DatabaseService.save_invoice(owner_uid, invoice_id, invoice_dict, sandbox=sandbox)
     except Exception as e:
@@ -1080,7 +1077,7 @@ def create_cash_register():
     register_dict = {
         "name": name,
         "status": "CLOSED",
-        "createdAt": datetime.utcnow().isoformat()
+        "createdAt": datetime.now(timezone.utc).isoformat()
     }
     
     DatabaseService.save_cash_register(owner_uid, register_id, register_dict, sandbox=sandbox)
@@ -1110,6 +1107,73 @@ def pos_admin_dashboard():
         active_page='pos_admin',
         registers=registers,
         shifts=shifts
+    )
+
+
+@web_pos_bp.route('/pos/contingencia')
+@require_permission('canManagePOS', 'Contingencia DGII')
+def pos_contingencia():
+    if session['user'].get('role') != 'owner' and not check_permission('isPosSupervisor'):
+        return render_template('auth/restricted.html', feature_name="Contingencia DGII", required_permission="isPosSupervisor o Propietario")
+
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+
+    invoices = DatabaseService.get_contingency_invoices(owner_uid, sandbox=sandbox)
+    now_utc = datetime.now(timezone.utc)
+
+    contingency_invoices = []
+    for inv in invoices:
+        emitted_at_str = inv.get('contingencyEmittedAt') or inv.get('date', now_utc.isoformat())
+        try:
+            emitted_at = datetime.fromisoformat(emitted_at_str.replace('Z', '+00:00'))
+            if emitted_at.tzinfo is None:
+                emitted_at = emitted_at.replace(tzinfo=timezone.utc)
+        except Exception:
+            emitted_at = now_utc
+        hours_elapsed = (now_utc - emitted_at).total_seconds() / 3600
+        hours_remaining = max(0.0, 72.0 - hours_elapsed)
+        sync_attempts = int(inv.get('syncAttempts', 0))
+        last_attempt = inv.get('lastSyncAttempt', '')
+        next_retry = ContingencySyncService._should_retry(sync_attempts, last_attempt)
+
+        contingency_invoices.append({
+            'id': inv['id'],
+            'invoiceNumber': inv.get('invoiceNumber', ''),
+            'encf': inv.get('encf', ''),
+            'total': inv.get('total', 0.0),
+            'client': inv.get('clientName', inv.get('buyer', 'Consumidor Final')),
+            'status': inv.get('status', ''),
+            'paymentMethod': inv.get('paymentMethod', ''),
+            'date': inv.get('date', ''),
+            'contingencyEmittedAt': inv.get('contingencyEmittedAt', ''),
+            'hours_elapsed': round(hours_elapsed, 1),
+            'hours_remaining': round(hours_remaining, 1),
+            'is_critical': hours_remaining < 12,
+            'is_expired': hours_remaining <= 0,
+            'sync_attempts': sync_attempts,
+            'next_retry_ready': next_retry,
+        })
+
+    contingency_invoices.sort(key=lambda x: (x['is_expired'], x['hours_remaining']))
+
+    total_pending = len(contingency_invoices)
+    critical_count = sum(1 for inv in contingency_invoices if inv['is_critical'] and not inv['is_expired'])
+    expired_count = sum(1 for inv in contingency_invoices if inv['is_expired'])
+    total_amount = sum(inv['total'] for inv in contingency_invoices)
+
+    expired_list = ContingencySyncService.check_expired_contingency(owner_uid, sandbox=sandbox)
+
+    return render_template(
+        'pos/contingencia.html',
+        active_page='pos_contingencia',
+        contingency_invoices=contingency_invoices,
+        total_pending=total_pending,
+        critical_count=critical_count,
+        expired_count=expired_count,
+        total_amount=total_amount,
+        expired_list=expired_list,
+        sandbox=sandbox,
     )
 
 
@@ -1157,7 +1221,7 @@ def process_shift_comment_mentions(owner_uid, content, shift_id, shift_label, sa
                 "documentId": shift_id,
                 "documentNumber": shift_label,
                 "link": f"/pos/admin/shift/{shift_id}",
-                "createdAt": datetime.utcnow().isoformat(),
+                "createdAt": datetime.now(timezone.utc).isoformat(),
                 "read": False,
                 "type": "mention"
             }
@@ -1278,7 +1342,7 @@ def add_shift_comment(shift_id):
         "createdBy": session['user']['email'],
         "createdByName": session['user'].get('name', session['user']['email']),
         "createdByUid": session['user']['uid'],
-        "createdAt": datetime.utcnow().isoformat(),
+        "createdAt": datetime.now(timezone.utc).isoformat(),
         "attachmentUrl": attachment_url,
         "attachmentName": attachment_name,
         "edited": False
@@ -1321,7 +1385,7 @@ def edit_shift_comment(shift_id, comment_id):
         
     comment['content'] = content
     comment['edited'] = True
-    comment['editedAt'] = datetime.utcnow().isoformat()
+    comment['editedAt'] = datetime.now(timezone.utc).isoformat()
     
     file = request.files.get('attachment')
     if file and file.filename:

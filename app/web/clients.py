@@ -1,7 +1,7 @@
 # app/web/clients.py
 import uuid
 import html
-from datetime import datetime
+from datetime import datetime, timezone
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify
 from app.services.db_service import DatabaseService
 from app.services.dgii import DGIIService
@@ -49,7 +49,7 @@ def list_clients():
         import csv
         import io
         from flask import send_file
-        from datetime import datetime
+        from datetime import datetime, timezone
         output = io.StringIO()
         writer = csv.writer(output, quoting=csv.QUOTE_ALL)
         writer.writerow(["RNC / Cédula", "Razón Social", "Email", "Teléfono", "Dirección", "Etapa Pipeline", "Total Facturado (RD$)", "Pendiente CxC (RD$)"])
@@ -68,7 +68,7 @@ def list_clients():
         dest.write(b'\xef\xbb\xbf')  # UTF-8 BOM
         dest.write(output.getvalue().encode('utf-8'))
         dest.seek(0)
-        filename = f"clientes_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.csv"
+        filename = f"clientes_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.csv"
         return send_file(
             dest,
             mimetype="text/csv",
@@ -201,7 +201,7 @@ def ajax_create_client():
         "crmNotes": "Registrado desde formulario de facturación",
         "nextContactDate": "",
         "pipelineStage": "Cliente Activo",
-        "createdAt": datetime.utcnow().isoformat(),
+        "createdAt": datetime.now(timezone.utc).isoformat(),
         "accessPin": access_pin
     }
     
@@ -481,13 +481,13 @@ def send_portal_credentials(client_id):
         if sandbox:
             print(f"⚠️ SMTP no configurado. Simulando envío de credenciales a {recipient_email}...")
             import uuid as _uuid
-            from datetime import datetime as _dt
+            from datetime import datetime as _dt, timezone
             interaction_id = str(_uuid.uuid4())
             interaction_dict = {
                 "type": "Email",
                 "title": "Credenciales del Portal enviadas (Simulado)",
                 "content": f"Simulación: Credenciales de acceso al portal enviadas a {recipient_email}.\nRNC: {client_rnc} | PIN: {access_pin} | URL: {portal_url}",
-                "date": _dt.utcnow().isoformat(),
+                "date": _dt.now(timezone.utc).isoformat(),
                 "completed": True,
                 "createdBy": session.get('user', {}).get('email', 'Sistema')
             }
@@ -509,13 +509,13 @@ def send_portal_credentials(client_id):
 
         # Registrar en historial CRM
         import uuid as _uuid
-        from datetime import datetime as _dt
+        from datetime import datetime as _dt, timezone
         interaction_id = str(_uuid.uuid4())
         interaction_dict = {
             "type": "Email",
             "title": "Credenciales del Portal enviadas",
             "content": f"Credenciales de acceso al portal enviadas a {recipient_email}.\nRNC: {client_rnc} | PIN: {access_pin}",
-            "date": _dt.utcnow().isoformat(),
+            "date": _dt.now(timezone.utc).isoformat(),
             "completed": True,
             "createdBy": session.get('user', {}).get('email', 'Sistema')
         }
@@ -635,7 +635,7 @@ def add_client_interaction(client_id):
     interaction_dict = {
         "type": interaction_type,
         "content": content,
-        "date": datetime.utcnow().strftime("%Y-%m-%d"),
+        "date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
         "nextContactDate": next_contact_date if next_contact_date else None,
         "completed": False,
         "createdBy": session['user']['email'],
@@ -738,7 +738,7 @@ def add_quick_note(client_id):
     interaction_dict = {
         "type": interaction_type,
         "content": content,
-        "date": datetime.utcnow().strftime("%Y-%m-%d"),
+        "date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
         "nextContactDate": None,
         "completed": False,
         "createdBy": session['user']['email'],

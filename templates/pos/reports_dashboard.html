@@ -27,6 +27,11 @@
            style="padding: 10px 20px; font-weight: 700; color: var(--accent-purple); text-decoration: none; border-bottom: 3px solid var(--accent-purple); font-size: 0.95rem; display: flex; align-items: center; gap: 8px;">
             <i class="fa-solid fa-chart-line"></i> Reportes y Auditoría de Caja
         </a>
+        <a href="{{ url_for('web_pos.pos_contingencia') }}" class="tab-link" 
+           style="padding: 10px 20px; font-weight: 500; color: var(--text-secondary); text-decoration: none; font-size: 0.95rem; display: flex; align-items: center; gap: 8px; transition: color var(--transition-fast);"
+           onmouseover="this.style.color='var(--text-primary)'" onmouseout="this.style.color='var(--text-secondary)'">
+            <i class="fa-solid fa-triangle-exclamation"></i> Contingencia DGII
+        </a>
     </div>
 
     <!-- PANEL DE FILTROS -->

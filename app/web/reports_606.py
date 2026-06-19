@@ -1,6 +1,6 @@
 import io
 import csv
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from collections import defaultdict
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify, send_file
 from app.services.db_service import DatabaseService
@@ -80,7 +80,7 @@ def reporte_606():
     owner_uid = session["user"]["ownerUID"]
     sandbox = session.get("is_sandbox_mode", True)
 
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     year = _parse_int(request.args.get("year"), now.year)
     month = _parse_int(request.args.get("month"), now.month)
     supplier_id = request.args.get("supplier_id", "").strip()
@@ -150,7 +150,7 @@ def reporte_606_export():
     owner_uid = session["user"]["ownerUID"]
     sandbox = session.get("is_sandbox_mode", True)
 
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     year = _parse_int(request.args.get("year"), now.year)
     month = _parse_int(request.args.get("month"), now.month)
     supplier_id = request.args.get("supplier_id", "").strip()
@@ -265,7 +265,7 @@ def reporte_606_dashboard():
     owner_uid = session["user"]["ownerUID"]
     sandbox = session.get("is_sandbox_mode", True)
 
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     month = _parse_int(request.args.get("month"), now.month)
     year = _parse_int(request.args.get("year"), now.year)
 

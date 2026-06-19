@@ -22,10 +22,10 @@ from app.services.db_service import DatabaseService
 from app.services.dgii import DGIIService
 from app.utils.currency import CurrencyService
 from app.services.ecf_emission import EcfEmissionService
-from app.services.alanube import AlanubeService
 from app.services.dgii_direct import DgiiDirectService
 from app.services.recurrence import RecurrenceService
 from app.utils.decorators import check_permission, require_permission
+from app.utils.ecf_utils import get_ecf_type_short_code
 
 
 from flask import Blueprint
@@ -108,7 +108,7 @@ def list_items():
         dest.write(b'\xef\xbb\xbf')  # UTF-8 BOM
         dest.write(output.getvalue().encode('utf-8'))
         dest.seek(0)
-        filename = f"catalogo_general_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.csv"
+        filename = f"catalogo_general_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.csv"
         return send_file(
             dest,
             mimetype="text/csv",
@@ -379,7 +379,7 @@ def export_stock_report():
         ])
         writer.writerow(row)
         
-    timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
+    timestamp = datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')
     dest = io.BytesIO()
     dest.write(b'\xef\xbb\xbf')  # UTF-8 BOM
     dest.write(output.getvalue().encode('utf-8'))
@@ -708,7 +708,7 @@ def list_invoices():
         dest.write(b'\xef\xbb\xbf')  # UTF-8 BOM
         dest.write(output.getvalue().encode('utf-8'))
         dest.seek(0)
-        filename = f"documentos_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.csv"
+        filename = f"documentos_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.csv"
         return send_file(
             dest,
             mimetype="text/csv",
@@ -818,7 +818,7 @@ def list_quotations():
         dest.write(b'\xef\xbb\xbf')  # UTF-8 BOM
         dest.write(output.getvalue().encode('utf-8'))
         dest.seek(0)
-        filename = f"cotizaciones_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.csv"
+        filename = f"cotizaciones_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.csv"
         return send_file(
             dest,
             mimetype="text/csv",
@@ -936,7 +936,7 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
                         "informationReference": {
                             "modificationCode": 3,
                             "ncfModified": ref_inv.get("encf", ""),
-                            "ncfModifiedDate": ref_inv.get("date", "")[:10] if ref_inv.get("date") else datetime.utcnow().strftime("%Y-%m-%d"),
+                            "ncfModifiedDate": ref_inv.get("date", "")[:10] if ref_inv.get("date") else datetime.now(timezone.utc).strftime("%Y-%m-%d"),
                             "reasonForModification": "Corrección de importes"
                         }
                     }
@@ -1113,7 +1113,7 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
                 else:  # mensual
                     days_add = 30 * inst_num
                     
-                due_date_inst = (datetime.utcnow() + timedelta(days=days_add)).strftime("%Y-%m-%d")
+                due_date_inst = (datetime.now(timezone.utc) + timedelta(days=days_add)).strftime("%Y-%m-%d")
                 
                 installments.append({
                     "id": str(uuid.uuid4()),
@@ -1160,7 +1160,7 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
             invoice_dict["recurrenceInterval"] = recurrence_interval
             invoice_dict["nextOccurrenceDate"] = next_occurrence if is_recurring else None
             invoice_dict["currency"] = currency
-            invoice_dict["paymentType"] = request.form.get('paymentType') or ("Crédito" if due_date > datetime.utcnow().strftime("%Y-%m-%d") else "Contado")
+            invoice_dict["paymentType"] = request.form.get('paymentType') or ("Crédito" if due_date > datetime.now(timezone.utc).strftime("%Y-%m-%d") else "Contado")
             invoice_dict["paymentMethod"] = payment_method
             invoice_dict["warehouseId"] = request.form.get('warehouseId', '')
             invoice_dict["branchId"] = request.form.get('branchId', 'default-sucursal-principal')
@@ -1208,7 +1208,7 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
                 "firebasePDFURL": "",
                 "firebaseXMLURL": "",
                 "currency": currency,
-                "paymentType": request.form.get('paymentType') or ("Crédito" if due_date > datetime.utcnow().strftime("%Y-%m-%d") else "Contado"),
+                "paymentType": request.form.get('paymentType') or ("Crédito" if due_date > datetime.now(timezone.utc).strftime("%Y-%m-%d") else "Contado"),
                 "paymentMethod": payment_method,
                 "incomeType": income_type,
                 "customFields": [],
@@ -1287,7 +1287,7 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
             company = DatabaseService.get_company_profile(owner_uid)
             try:
                 if not invoice_dict.get("encf"):
-                    ecf_short = AlanubeService.get_ecf_type_short_code(invoice_dict["ecfType"])
+                    ecf_short = get_ecf_type_short_code(invoice_dict["ecfType"])
                     user_email = session['user']['email']
                     encf, log_id = DatabaseService.consume_next_sequence(owner_uid, ecf_short, user_email, sandbox=sandbox)
                     invoice_dict["encf"] = encf
@@ -1305,13 +1305,13 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
                     invoice_dict["emisionMode"] = res.get("mode", "API")
                     pending_dgii = res.get("status") == "PENDING" or res.get("mode") == "FALLBACK"
                     invoice_dict["dgiiStatus"] = res.get("dgiiStatus") or ("PENDING" if pending_dgii else "ACCEPTED")
-                    invoice_dict["contingencyEmittedAt"] = datetime.utcnow().isoformat() if res.get("mode") == "FALLBACK" else None
+                    invoice_dict["contingencyEmittedAt"] = datetime.now(timezone.utc).isoformat() if res.get("mode") == "FALLBACK" else None
                     
                     if action == 'emitir_cobrar':
                         invoice_dict["status"] = "Pendiente DGII" if pending_dgii else "Cobrada"
                         invoice_dict["totalPaid"] = invoice_dict["netPayable"]
                         invoice_dict["remainingBalance"] = 0.0
-                        invoice_dict["paymentDate"] = datetime.utcnow().isoformat()
+                        invoice_dict["paymentDate"] = datetime.now(timezone.utc).isoformat()
                         
                         # Registrar pago inmediato en subcolección para el historial
                         payment_dict = {
@@ -1351,7 +1351,7 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
                         
                     msg = f"¡Comprobante emitido y cobrado con éxito! e-NCF: {res.get('encf')}"
                     if res.get("mode") == "FALLBACK":
-                        msg = f"⚠️ ¡Comprobante emitido en modalidad de contingencia (sin conexión a Alanube)! e-NCF: {res.get('encf')}. Recuerde sincronizarlo con la DGII en un plazo máximo de 72 horas."
+                        msg = f"⚠️ ¡Comprobante emitido en modalidad de contingencia (sin conexión a DGII)! e-NCF: {res.get('encf')}. Recuerde sincronizarlo con la DGII en un plazo máximo de 72 horas."
                     flash(msg, "success")
                 else:
                     flash(f"Borrador creado, pero error al emitir: {res.get('message')}", "warning")
@@ -1370,7 +1370,7 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
     catalog_json = json.dumps(catalog)
     clients_json = json.dumps(clients)
     
-    default_due_date = existing_invoice.get('dueDate', (datetime.utcnow() + timedelta(days=30)).strftime("%Y-%m-%d")) if existing_invoice else (datetime.utcnow() + timedelta(days=30)).strftime("%Y-%m-%d")
+    default_due_date = existing_invoice.get('dueDate', (datetime.now(timezone.utc) + timedelta(days=30)).strftime("%Y-%m-%d")) if existing_invoice else (datetime.now(timezone.utc) + timedelta(days=30)).strftime("%Y-%m-%d")
     
     return render_template(
         'invoices/new.html',
@@ -1505,7 +1505,7 @@ def process_comment_mentions(owner_uid, content, entity_id, entity_name, entity_
                 "documentId": entity_id,
                 "documentNumber": entity_name,
                 "link": f"{entity_url_path}",
-                "createdAt": datetime.utcnow().isoformat(),
+                "createdAt": datetime.now(timezone.utc).isoformat(),
                 "read": False,
                 "type": "mention"
             }
@@ -1573,7 +1573,7 @@ def invoice_detail(invoice_id):
     total_mora = 0.0
     installments_with_mora = []
     
-    hoy = datetime.utcnow()
+    hoy = datetime.now(timezone.utc)
     
     for inst in invoice.get("installments", []):
         inst_rem = float(inst.get("remainingBalance", 0.0))
@@ -1663,7 +1663,7 @@ def add_invoice_comment(invoice_id):
         "createdBy": session['user']['email'],
         "createdByName": session['user'].get('name', session['user']['email']),
         "createdByUid": session['user']['uid'],
-        "createdAt": datetime.utcnow().isoformat(),
+        "createdAt": datetime.now(timezone.utc).isoformat(),
         "attachmentUrl": attachment_url,
         "attachmentName": attachment_name,
         "edited": False
@@ -1709,7 +1709,7 @@ def edit_invoice_comment(invoice_id, comment_id):
         
     comment['content'] = content
     comment['edited'] = True
-    comment['editedAt'] = datetime.utcnow().isoformat()
+    comment['editedAt'] = datetime.now(timezone.utc).isoformat()
     
     file = request.files.get('attachment')
     if file and file.filename:
@@ -1903,7 +1903,7 @@ def send_receipt_email(invoice_id):
       <div class="footer-note">
         Este recibo es un comprobante administrativo de pago emitido por {company_name}.<br>
         Para consultas: {company_phone} &nbsp;|&nbsp; {company_email}<br>
-        Emitido el: {datetime.utcnow().strftime('%d/%m/%Y %H:%M')} UTC
+        Emitido el: {datetime.now(timezone.utc).strftime('%d/%m/%Y %H:%M')} UTC
       </div>
     </div>
   </div>
@@ -2230,7 +2230,7 @@ def pay_invoice_route(invoice_id):
         "paymentMethod": payment_method,
         "bank": bank,
         "referenceNumber": reference_number,
-        "paymentDate": datetime.utcnow().isoformat(),
+        "paymentDate": datetime.now(timezone.utc).isoformat(),
         "registeredBy": session['user']['email']
     }
 
@@ -2305,7 +2305,7 @@ def approve_payment_proof(invoice_id):
     payment_method = request.form.get('paymentMethod', 'Transferencia Bancaria')
     bank = request.form.get('bank', 'Banco Popular Dominicano')
     reference_number = request.form.get('referenceNumber', 'Abono Registrado')
-    payment_date = request.form.get('paymentDate') or datetime.utcnow().isoformat()
+    payment_date = request.form.get('paymentDate') or datetime.now(timezone.utc).isoformat()
     
     payment_dict = {
         "amount": amount,
@@ -2358,7 +2358,7 @@ def approve_payment_proof(invoice_id):
                     "clientName": client_name,
                     "documentNumber": invoice.get('invoiceNumber', invoice_id),
                     "documentUrl": f"/invoices/{invoice_id}",
-                    "createdAt": datetime.utcnow().isoformat(),
+                    "createdAt": datetime.now(timezone.utc).isoformat(),
                     "read": False
                 })
         except Exception as _ne:
@@ -2408,7 +2408,7 @@ def reject_payment_proof(invoice_id):
                 "createdBy": session['user']['email'],
                 "createdByName": session['user'].get('name', session['user']['email']),
                 "createdByUid": session['user']['uid'],
-                "createdAt": datetime.utcnow().isoformat(),
+                "createdAt": datetime.now(timezone.utc).isoformat(),
                 "attachmentUrl": "",
                 "attachmentName": "",
                 "edited": False
@@ -2445,7 +2445,7 @@ def reject_payment_proof(invoice_id):
                     "clientName": client_name,
                     "documentNumber": invoice.get('invoiceNumber', invoice_id),
                     "documentUrl": f"/invoices/{invoice_id}",
-                    "createdAt": datetime.utcnow().isoformat(),
+                    "createdAt": datetime.now(timezone.utc).isoformat(),
                     "read": False
                 })
         except Exception as _ne2:
@@ -2483,14 +2483,14 @@ def sign_invoice_route(invoice_id):
     try:
         # Consumir el siguiente consecutivo del rango fiscal DGII si no se ha asignado
         if not invoice.get("encf"):
-            ecf_short = AlanubeService.get_ecf_type_short_code(invoice["ecfType"])
+            ecf_short = get_ecf_type_short_code(invoice["ecfType"])
             user_email = session['user']['email']
             
             # Bloquear secuencia y generar consecutivo
             encf, log_id = DatabaseService.consume_next_sequence(owner_uid, ecf_short, user_email, sandbox=sandbox)
             invoice["encf"] = encf
             
-        # Llamada asíncrona simulada al emisor Alanube (con Fallback de contingencia)
+        # Emitir a través de DGII Direct (con Fallback de contingencia)
         res = EcfEmissionService.emit_electronic_comprobante(company, invoice, sandbox=sandbox)
         
         if res.get("success"):
@@ -2505,7 +2505,7 @@ def sign_invoice_route(invoice_id):
             invoice["isSyncedWithDGII"] = (res.get("mode", "API") == "API" and res.get("status") != "PENDING")
             invoice["emisionMode"] = res.get("mode", "API")
             invoice["dgiiStatus"] = res.get("dgiiStatus") or ("PENDING" if pending_dgii else "ACCEPTED")
-            invoice["contingencyEmittedAt"] = datetime.utcnow().isoformat() if res.get("mode") == "FALLBACK" else None
+            invoice["contingencyEmittedAt"] = datetime.now(timezone.utc).isoformat() if res.get("mode") == "FALLBACK" else None
             invoice["date"] = datetime.now(timezone(timedelta(hours=-4))).strftime("%Y-%m-%d %H:%M:%S")
             
             DatabaseService.save_invoice(owner_uid, invoice_id, invoice, sandbox=sandbox)
@@ -2533,7 +2533,7 @@ def sign_invoice_route(invoice_id):
                 
             msg = f"¡Comprobante firmado digitalmente con éxito! e-NCF: {res.get('encf')} (Modo: {res.get('mode', 'API')})"
             if res.get("mode") == "FALLBACK":
-                msg = f"⚠️ ¡Comprobante firmado en modalidad de contingencia (sin conexión a Alanube)! e-NCF: {res.get('encf')}. Recuerde sincronizarlo con la DGII en un plazo máximo de 72 horas."
+                msg = f"⚠️ ¡Comprobante firmado en modalidad de contingencia (sin conexión a DGII)! e-NCF: {res.get('encf')}. Recuerde sincronizarlo con la DGII en un plazo máximo de 72 horas."
             flash(msg, "success")
         else:
             flash(f"Error al certificar comprobante: {res.get('message')}", "error")
@@ -2787,8 +2787,8 @@ def convert_quotation_to_contract(invoice_id):
     from datetime import datetime
     import uuid, random
 
-    now_iso       = datetime.utcnow().isoformat()
-    today_str     = datetime.utcnow().strftime('%Y-%m-%d')
+    now_iso       = datetime.now(timezone.utc).isoformat()
+    today_str     = datetime.now(timezone.utc).strftime('%Y-%m-%d')
     random_num    = f"{random.randint(1, 999999):06d}"
     contract_id   = str(uuid.uuid4())
     contract_num  = f"CONT-{random_num}"
@@ -3161,7 +3161,7 @@ def void_invoice_route(invoice_id):
         
     company = DatabaseService.get_company_profile(owner_uid)
     
-    # Intentar enviar anulación a Alanube
+    # Intentar enviar anulación a DGII
     if invoice.get("encf"):
         canc_dict = {
             "series": invoice["encf"][:3],
@@ -3227,9 +3227,9 @@ def void_invoice_route(invoice_id):
 @web_invoices_bp.route('/api/invoices/sync-contingency', methods=['POST'])
 def sync_contingency_invoices():
     """
-    Sincroniza las facturas emitidas en Modo Contingencia (FALLBACK) con la DGII/Alanube.
+    Sincroniza las facturas emitidas en Modo Contingencia (FALLBACK) con la DGII.
     Busca todas las facturas con isSyncedWithDGII=False y emisionMode=FALLBACK
-    e intenta reenviarlas al servicio de Alanube una vez restablecida la conexión.
+    e intenta reenviarlas al servicio DGII Direct una vez restablecida la conexión.
     Este endpoint puede ser llamado manualmente desde el Dashboard o por un Cron Job.
     """
     if 'user' not in session:
@@ -3255,7 +3255,7 @@ def sync_contingency_invoices():
     for inv in pending:
         inv_id = inv['id']
         try:
-            # Re-emitir a Alanube con el mismo encf ya asignado
+            # Re-emitir a DGII Direct con el mismo encf ya asignado
             full_inv = DatabaseService.get_invoice(owner_uid, inv_id, sandbox=sandbox)
             target_invoice = full_inv or inv
             res = EcfEmissionService.emit_electronic_comprobante(company, target_invoice, sandbox=sandbox)
@@ -3388,7 +3388,7 @@ def sync_single_invoice_route(invoice_id):
                 
             flash(f"¡Factura {invoice.get('invoiceNumber')} sincronizada con la DGII exitosamente! e-NCF: {invoice.get('encf')}", 'success')
         else:
-            flash(f"No se pudo sincronizar: {res.get('message') or 'Sigue en modalidad de contingencia (sin conexión a Alanube).'}", 'warning')
+            flash(f"No se pudo sincronizar: {res.get('message') or 'Sigue en modalidad de contingencia (sin conexión a DGII).'}", 'warning')
     except Exception as e:
         flash(f"Error durante la sincronización: {str(e)}", 'error')
         
@@ -3477,7 +3477,7 @@ def list_expenses():
         dest.write(output.getvalue().encode('utf-8'))
         dest.seek(0)
         
-        filename = f"reporte_gastos_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.csv"
+        filename = f"reporte_gastos_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.csv"
         return send_file(
             dest,
             mimetype="text/csv",
@@ -3593,7 +3593,7 @@ def _build_expense_ecf_payload(expense_dict, ecf_full_type):
     if subtotal < 0:
         subtotal = amount
 
-    date_str = expense_dict.get("date", datetime.utcnow().isoformat())
+    date_str = expense_dict.get("date", datetime.now(timezone.utc).isoformat())
     due_str  = expense_dict.get("dueDate") or date_str
 
     return {
@@ -3929,7 +3929,7 @@ def new_expense_route():
 
 
         
-    today_str = datetime.utcnow().strftime("%Y-%m-%d")
+    today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     
     team_members = DatabaseService.get_team_members(owner_uid)
     owner_profile = DatabaseService.get_user_profile(owner_uid)
@@ -4361,7 +4361,7 @@ def sync_expense_ecf_route(expense_id):
             else:
                 flash(f"Gasto {ecf_short} sincronizado con la DGII exitosamente! e-NCF: {expense.get('encf')}", 'success')
         else:
-            flash(f"No se pudo sincronizar: {res.get('message') or 'Sigue en modalidad de contingencia (sin conexión a Alanube).'}", 'warning')
+            flash(f"No se pudo sincronizar: {res.get('message') or 'Sigue en modalidad de contingencia (sin conexión a DGII).'}", 'warning')
     except Exception as e:
         flash(f"Error durante la sincronización: {str(e)}", 'error')
 
@@ -4432,7 +4432,7 @@ def list_cxp():
     total_cxp_pending = 0.0
     total_cxp_vencido = 0.0
     
-    today_str = datetime.utcnow().strftime("%Y-%m-%d")
+    today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     
     for exp in expenses:
         if exp.get('approvalStatus') == 'Pendiente':
@@ -4509,7 +4509,7 @@ def list_cxp():
         dest.write(output.getvalue().encode('utf-8'))
         dest.seek(0)
         
-        filename = f"cuentas_por_pagar_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.csv"
+        filename = f"cuentas_por_pagar_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.csv"
         return send_file(
             dest,
             mimetype="text/csv",
@@ -4568,7 +4568,7 @@ def list_sequences():
     sequence_logs = DatabaseService.get_sequence_logs(owner_uid, sandbox=sandbox)
     cancellations = DatabaseService.get_cancellations(owner_uid, sandbox=sandbox)
     
-    default_exp_date = (datetime.utcnow() + timedelta(days=730)).strftime("%Y-%m-%d") # 2 años
+    default_exp_date = (datetime.now(timezone.utc) + timedelta(days=730)).strftime("%Y-%m-%d") # 2 años
     
     return render_template(
         'sequences/list.html',
@@ -4595,7 +4595,7 @@ def new_sequence_route():
         "secuenciaFinal": int(request.form['secuenciaFinal']),
         "ultimoConsecutivoUsado": int(request.form['secuenciaInicial']) - 1,
         "alertaMinimoDisponible": int(request.form['alertaMinimoDisponible']),
-        "fechaAutorizacion": datetime.utcnow().strftime("%Y-%m-%d"),
+        "fechaAutorizacion": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
         "fechaExpiracion": request.form['fechaExpiracion'],
         "numeroAutorizacionDgii": request.form['numeroAutorizacionDgii'],
         "estado": "ACTIVA",
@@ -4698,8 +4698,7 @@ def company_settings():
             "logoUrl": existing_profile.get('logoUrl', ''),
             "regimenFiscal": DGIIService.normalize_regimen(request.form.get('regimenFiscal', 'General')),
             "openaiApiKey": request.form.get('openaiApiKey', ''),
-            "alanubeCompanyIDSandbox": request.form.get('alanubeCompanyIDSandbox', '').strip(),
-            "alanubeCompanyIDProduction": request.form.get('alanubeCompanyIDProduction', '').strip(),
+
             "theme": request.form.get('theme', existing_profile.get('theme', 'moderno')),
             "azulMerchantId": request.form.get('azulMerchantId', '').strip(),
             "azulAuth1": request.form.get('azulAuth1', '').strip(),
@@ -4711,55 +4710,7 @@ def company_settings():
             "configured": True
         })
         DatabaseService.save_company_profile(owner_uid, profile_dict)
-
-        # Si se presionó el botón de registrar en Alanube o importar desde Alanube
-        if request.form.get('registerAlanube') == 'true':
-            if not profile_dict.get("certificateContent"):
-                flash("Error: Se requiere cargar y guardar un archivo de Certificado Digital (.p12 o .pfx) con su contraseña antes de poder activarlo.", "error")
-            else:
-                sandbox = session.get('is_sandbox_mode', True)
-                res = AlanubeService.register_company(profile_dict, sandbox=sandbox)
-                if res.get("success"):
-                    flash("¡Certificado digital habilitado y activado exitosamente para la emisión de e-CF!", "success")
-                else:
-                    flash(f"Error al habilitar el certificado digital: {res.get('message')}", "error")
-        elif request.form.get('importAlanube') == 'true':
-            sandbox = session.get('is_sandbox_mode', True)
-            target_rnc = request.form.get('companyRNC', '').replace("-", "").strip()
-            if not target_rnc:
-                flash("Por favor, introduce un RNC válido para realizar la importación.", "error")
-            else:
-                res = AlanubeService.get_company_from_alanube(target_rnc, sandbox=sandbox)
-                if res.get("success") and res.get("data"):
-                    data = res["data"]
-                    # Sincronizar todos los campos recuperados de Alanube
-                    profile_dict["companyName"] = data.get("name") or profile_dict["companyName"]
-                    profile_dict["tradeName"] = data.get("tradeName") or profile_dict["tradeName"]
-                    profile_dict["companyAddress"] = data.get("address") or profile_dict["companyAddress"]
-                    profile_dict["companyEmail"] = data.get("email") or profile_dict["companyEmail"]
-                    profile_dict["companyType"] = data.get("type") or profile_dict["companyType"]
-                    profile_dict["province"] = data.get("province") or profile_dict["province"]
-                    profile_dict["municipality"] = data.get("municipality") or profile_dict["municipality"]
-                    
-                    # Certificado
-                    cert_data = data.get("certificate")
-                    if cert_data:
-                        profile_dict["certificateName"] = cert_data.get("name", "firma_digital")
-                        profile_dict["certificateExtension"] = cert_data.get("extension", ".p12")
-                        profile_dict["certificateContent"] = cert_data.get("content", "")
-                        profile_dict["certificatePassword"] = cert_data.get("password", "")
-                    
-                    # Logo
-                    if data.get("logo"):
-                        profile_dict["logoBase64"] = data.get("logo")
-                    
-                    # Guardar en Firestore con la información actualizada
-                    DatabaseService.save_company_profile(owner_uid, profile_dict)
-                    flash("¡Sincronización exitosa! La información de la empresa y el certificado digital se han descargado de Alanube y guardado de forma segura en Firestore.", "success")
-                else:
-                    flash(f"Error al sincronizar desde Alanube: {res.get('message', 'No se encontraron datos')}", "error")
-        else:
-            flash('Ajustes y perfil de empresa actualizados correctamente.', 'success')
+        flash('Ajustes y perfil de empresa actualizados correctamente.', 'success')
 
         if request.form.get('is_wizard') == 'true':
             # PROCESAR ACTIVOS OPCIONALES DEL WIZARD ONBOARDING
@@ -5348,7 +5299,7 @@ def export_company_data():
             dest.write(csv_data.encode('utf-8'))
             dest.seek(0)
             
-            timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
+            timestamp = datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')
             download_name = f"{filename.split('.')[0]}_{timestamp}.csv"
             
             return send_file(
@@ -5368,7 +5319,7 @@ def export_company_data():
                 zip_file.writestr(filename, content_bytes)
                 
     zip_buffer.seek(0)
-    timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
+    timestamp = datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')
     zip_filename = f"export_datos_empresa_{timestamp}.zip"
     
     return send_file(
@@ -5419,12 +5370,12 @@ def it1_diagnostic():
         "total_itbis_expenses": total_itbis_expenses
     }
     
-    current_period = datetime.utcnow().strftime("%Y-%m")
+    current_period = datetime.now(timezone.utc).strftime("%Y-%m")
     return render_template('reports/it1.html', active_page='reports', it1=it1, current_period=current_period)
 
 
 def _parse_period_args():
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     try:
         year = int(request.args.get('year', now.year))
     except ValueError:
@@ -5540,7 +5491,7 @@ def report_607_export():
     dest.write(b"\xef\xbb\xbf")
     dest.write(output.getvalue().encode('utf-8'))
     dest.seek(0)
-    filename = f"reporte_607_{year:04d}{month:02d}_{datetime.utcnow().strftime('%Y%m%d')}.csv"
+    filename = f"reporte_607_{year:04d}{month:02d}_{datetime.now(timezone.utc).strftime('%Y%m%d')}.csv"
     return send_file(dest, mimetype="text/csv", as_attachment=True, download_name=filename)
 
 
@@ -5587,7 +5538,7 @@ def report_608_export():
     dest.write(b"\xef\xbb\xbf")
     dest.write(output.getvalue().encode('utf-8'))
     dest.seek(0)
-    filename = f"reporte_608_{year:04d}{month:02d}_{datetime.utcnow().strftime('%Y%m%d')}.csv"
+    filename = f"reporte_608_{year:04d}{month:02d}_{datetime.now(timezone.utc).strftime('%Y%m%d')}.csv"
     return send_file(dest, mimetype="text/csv", as_attachment=True, download_name=filename)
 
 
@@ -5639,7 +5590,7 @@ def report_609_export():
     dest.write(b"\xef\xbb\xbf")
     dest.write(output.getvalue().encode('utf-8'))
     dest.seek(0)
-    filename = f"reporte_609_{year:04d}{month:02d}_{datetime.utcnow().strftime('%Y%m%d')}.csv"
+    filename = f"reporte_609_{year:04d}{month:02d}_{datetime.now(timezone.utc).strftime('%Y%m%d')}.csv"
     return send_file(dest, mimetype="text/csv", as_attachment=True, download_name=filename)
 
 
@@ -5653,18 +5604,13 @@ def dgii_tools():
     sandbox = session.get('is_sandbox_mode', True)
     company = DatabaseService.get_company_profile(owner_uid)
     
-    # Obtener estado de DGII por defecto al cargar la página
-    provider = Config.E_CF_PROVIDER.lower()
-    if provider == "dgii_direct":
-        dgii_status = DgiiDirectService.check_dgii_status(company, sandbox=sandbox)
-    else:
-        dgii_status = AlanubeService.check_dgii_status(company, sandbox=sandbox)
+    dgii_status = DgiiDirectService.check_dgii_status(company, sandbox=sandbox)
     
     return render_template(
         'reports/dgii_tools.html',
         active_page='reports',
         dgii_status=dgii_status,
-        dgii_provider=provider,
+        dgii_provider='dgii_direct',
         dgii_sandbox_mode=Config.DGII_SANDBOX_MODE,
         is_sandbox=sandbox
     )
@@ -5681,8 +5627,16 @@ def check_directory_ajax():
         return jsonify({"success": False, "message": "Debe especificar un RNC válido."}), 400
         
     company = DatabaseService.get_company_profile(owner_uid)
-    res = AlanubeService.check_directory(company, rnc, sandbox=sandbox)
-    return jsonify(res)
+    res = DGIIService.validate_and_fetch_rnc(rnc)
+    return jsonify({
+        "success": not res.get("error", True),
+        "data": {
+            "razonSocial": res.get("razon_social", ""),
+            "actividad": res.get("actividad", ""),
+            "regimen": res.get("regimen", "")
+        } if not res.get("error") else None,
+        "message": res.get("message", "")
+    })
 
 @web_invoices_bp.route('/reports/check-dgii-status-ajax', methods=['POST'])
 def check_dgii_status_ajax():
@@ -5695,11 +5649,7 @@ def check_dgii_status_ajax():
     maint = data.get("maintenance")
     
     company = DatabaseService.get_company_profile(owner_uid)
-    provider = Config.E_CF_PROVIDER.lower()
-    if provider == "dgii_direct":
-        res = DgiiDirectService.check_dgii_status(company, sandbox=sandbox)
-    else:
-        res = AlanubeService.check_dgii_status(company, environment=env, maintenance=maint, sandbox=sandbox)
+    res = DgiiDirectService.check_dgii_status(company, sandbox=sandbox)
     return jsonify(res)
 
 
@@ -5867,7 +5817,7 @@ def cxc_dashboard():
         dest.write(b'\xef\xbb\xbf')  # UTF-8 BOM
         dest.write(output.getvalue().encode('utf-8'))
         dest.seek(0)
-        filename = f"cxc_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.csv"
+        filename = f"cxc_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.csv"
         return send_file(
             dest,
             mimetype="text/csv",
@@ -5954,7 +5904,7 @@ def add_payment_promise():
             "type": "Promesa de Pago",
             "title": f"Promesa de Pago Registrada",
             "content": f"El cliente prometió pagar RD$ {float(monto_prometido):,.2f} el {fecha_promesa}. Notas: {notas}",
-            "date": datetime.utcnow().isoformat(),
+            "date": datetime.now(timezone.utc).isoformat(),
             "nextContactDate": fecha_promesa,
             "completed": False,
             "registeredBy": session['user'].get('name', 'Usuario')
@@ -5995,7 +5945,7 @@ def update_payment_promise_status(promise_id):
             "type": "CRM",
             "title": f"Promesa de Pago - {new_estado}",
             "content": f"La promesa de pago por RD$ {float(target_promise.get('montoPrometido', 0.0)):,.2f} fue marcada como {new_estado}.",
-            "date": datetime.utcnow().isoformat(),
+            "date": datetime.now(timezone.utc).isoformat(),
             "completed": True,
             "registeredBy": session['user'].get('name', 'Usuario')
         }
@@ -6096,10 +6046,10 @@ def accounting_export_download():
     from flask import send_file
     if export_type == 'sales':
         buf = AccountingExportService.export_sales(owner_uid, real, fmt=fmt)
-        filename = f"contabilidad_ventas_{datetime.utcnow().strftime('%Y%m%d')}.csv"
+        filename = f"contabilidad_ventas_{datetime.now(timezone.utc).strftime('%Y%m%d')}.csv"
     elif export_type == 'expenses':
         buf = AccountingExportService.export_expenses(owner_uid, real_exp, fmt=fmt)
-        filename = f"contabilidad_gastos_{datetime.utcnow().strftime('%Y%m%d')}.csv"
+        filename = f"contabilidad_gastos_{datetime.now(timezone.utc).strftime('%Y%m%d')}.csv"
     else:
         flash('❌ Tipo de exportación inválido.', 'error')
         return redirect(url_for('web_invoices.accounting_export_page'))
@@ -6733,7 +6683,7 @@ def process_resource_comment_mentions(owner_uid, content, resource_type, resourc
                 "documentId": resource_id,
                 "documentNumber": resource_label,
                 "link": link,
-                "createdAt": datetime.utcnow().isoformat(),
+                "createdAt": datetime.now(timezone.utc).isoformat(),
                 "read": False,
                 "type": "mention"
             }
@@ -6887,7 +6837,7 @@ def add_expense_comment(expense_id):
         "createdBy": session['user']['email'],
         "createdByName": session['user'].get('name', session['user']['email']),
         "createdByUid": session['user']['uid'],
-        "createdAt": datetime.utcnow().isoformat(),
+        "createdAt": datetime.now(timezone.utc).isoformat(),
         "attachmentUrl": attachment_url,
         "attachmentName": attachment_name,
         "edited": False
@@ -6931,7 +6881,7 @@ def edit_expense_comment(expense_id, comment_id):
         
     comment['content'] = content
     comment['edited'] = True
-    comment['editedAt'] = datetime.utcnow().isoformat()
+    comment['editedAt'] = datetime.now(timezone.utc).isoformat()
     
     file = request.files.get('attachment')
     if file and file.filename:

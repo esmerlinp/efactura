@@ -1,5 +1,5 @@
 # app/web/dashboard.py
-from datetime import datetime
+from datetime import datetime, timezone
 from flask import Blueprint, render_template, redirect, url_for, session, request
 from app.services.db_service import DatabaseService
 from app.services.recurrence import RecurrenceService
@@ -42,13 +42,13 @@ def dashboard():
     
     # Obtener filtros de escala, fecha y KPI
     scale = request.args.get('scale', 'month')
-    date_str = request.args.get('date', datetime.utcnow().strftime("%Y-%m-%d"))
+    date_str = request.args.get('date', datetime.now(timezone.utc).strftime("%Y-%m-%d"))
     kpi_period = request.args.get('kpi_period', 'month')
     
     try:
         selected_date = datetime.strptime(date_str, "%Y-%m-%d")
     except Exception:
-        selected_date = datetime.utcnow()
+        selected_date = datetime.now(timezone.utc)
         date_str = selected_date.strftime("%Y-%m-%d")
         
     selected_month = selected_date.month
@@ -280,7 +280,7 @@ def dashboard():
     }
     
     # Agenda CRM del día
-    today_str = datetime.utcnow().strftime("%Y-%m-%d")
+    today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox)
     
     for c in clients:
@@ -294,12 +294,12 @@ def dashboard():
     ]
 
     # Calcular ingresos acumulados RST 2026
-    current_year_str = str(datetime.utcnow().year)
+    current_year_str = str(datetime.now(timezone.utc).year)
     rst_income_year = sum(inv['total'] for inv in real_invoices if inv['date'].startswith(current_year_str))
     rst_limit_2026 = 12068181.09
 
     # Contingencia: detectar facturas emitidas offline sin sincronizar con la DGII
-    now_utc = datetime.utcnow()
+    now_utc = datetime.now(timezone.utc)
     contingency_invoices = []
     for inv in real_invoices:
         if inv.get('emisionMode') == 'FALLBACK' and not inv.get('isSyncedWithDGII', True):

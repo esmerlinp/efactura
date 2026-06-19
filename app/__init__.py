@@ -117,8 +117,8 @@ def create_app():
                 # Validar si sandbox está expirado
                 sandbox_expired = False
                 if not session.get('company_sandbox_indefinite', True):
-                    from datetime import datetime, timedelta
-                    now_utc = datetime.utcnow()
+                    from datetime import datetime, timedelta, timezone
+                    now_utc = datetime.now(timezone.utc)
                     now_sd = now_utc - timedelta(hours=4)
                     today_str = now_sd.strftime("%Y-%m-%d")
                     start_date = session.get('company_sandbox_start_date', '')
@@ -247,7 +247,7 @@ def create_app():
             user_uid = session['user'].get('uid')
             if owner_uid:
                 try:
-                    from datetime import datetime
+                    from datetime import datetime, timezone
                     from app.services.db_service import DatabaseService
                     sandbox = session.get('is_sandbox_mode', False)
                     
@@ -255,7 +255,7 @@ def create_app():
                     if user_uid:
                         user_notifications = DatabaseService.get_user_notifications(user_uid, limit=10)
                         
-                    today_str = datetime.utcnow().strftime("%Y-%m-%d")
+                    today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
                     clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox)
                     invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox)
                     real_invoices = [inv for inv in invoices if not inv.get('isQuotation') and inv.get('status') not in ['Anulada', 'Borrador']]
@@ -401,7 +401,6 @@ def create_app():
             "https://identitytoolkit.googleapis.com "
             "https://securetoken.googleapis.com "
             "https://firestore.googleapis.com "
-            "https://*.alanube.co "
             "https://ecf.dgii.gov.do "
             "https://api.openai.com; "
             "frame-ancestors 'none'; "
@@ -432,7 +431,7 @@ def create_app():
         if request.path.startswith('/api/') and response.status_code >= 400:
             import os
             import re
-            from datetime import datetime
+            from datetime import datetime, timezone
             
             log_file_path = os.path.join(app.root_path, '../api_errores.log')
             
@@ -510,6 +509,7 @@ def create_app():
     from app.web.purchase_orders import web_purchase_orders_bp
     from app.web.reports_606 import web_reports_606_bp
     from app.web.fiscal_notes import web_fiscal_notes_bp
+    from app.web.notifications import web_notifications_bp
 
     app.register_blueprint(web_auth_bp)
     app.register_blueprint(web_dashboard_bp)
@@ -525,6 +525,7 @@ def create_app():
     app.register_blueprint(web_purchase_orders_bp)
     app.register_blueprint(web_reports_606_bp)
     app.register_blueprint(web_fiscal_notes_bp)
+    app.register_blueprint(web_notifications_bp)
 
     # =========================================================================
     # RATE LIMITER — inicializar después de registrar todos los blueprints

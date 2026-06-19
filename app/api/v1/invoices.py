@@ -1,14 +1,14 @@
 # app/api/v1/invoices.py
 import json
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from flask import Blueprint, request, g, jsonify
 from app.api.auth import require_api_key
 from app.services.db_service import DatabaseService
 from app.services.ecf_emission import EcfEmissionService
 from app.services.dgii import DGIIService
-from app.services.alanube import AlanubeService
 from app.utils.cache_utils import http_cache
+from app.utils.ecf_utils import get_ecf_type_short_code
 
 api_invoices_bp = Blueprint('api_invoices', __name__)
 
@@ -39,7 +39,7 @@ def emit_invoice():
         
         ecf_type = data.get('ecf_type', 'Factura de Consumo (E32)')
         payment_method = data.get('payment_method', 'Efectivo')
-        due_date = data.get('due_date', datetime.utcnow().strftime("%Y-%m-%d"))
+        due_date = data.get('due_date', datetime.now(timezone.utc).strftime("%Y-%m-%d"))
         
         # Cálculo fiscal completo (DGII)
         parsed_items = []
@@ -99,15 +99,15 @@ def emit_invoice():
             "totalOtrosImpuestos": calcs["total_otros_impuestos"],
             "items": calcs["items"],
             "status": "Borrador",
-            "date": datetime.utcnow().isoformat(),
+            "date": datetime.now(timezone.utc).isoformat(),
             "incomeType": data.get('income_type', '01 - Ingresos por operaciones'),
             "isQuotation": False,
-            "createdAt": datetime.utcnow().isoformat()
+            "createdAt": datetime.now(timezone.utc).isoformat()
         }
         
         # Consumir el siguiente consecutivo del rango fiscal DGII si no se ha asignado y no es cotización
         if not invoice_dict.get("encf"):
-            ecf_short = AlanubeService.get_ecf_type_short_code(invoice_dict["ecfType"])
+            ecf_short = get_ecf_type_short_code(invoice_dict["ecfType"])
             user_email = g.company.get("companyEmail", "api@efactura.com.do")
             
             # Bloquear secuencia y generar consecutivo transaccionalmente en Firestore
@@ -266,7 +266,7 @@ def cancel_invoice(invoice_id):
         canc_dict = {
             "encf": invoice.get("encf"),
             "reason": reason,
-            "date": datetime.utcnow().strftime("%Y-%m-%d")
+            "date": datetime.now(timezone.utc).strftime("%Y-%m-%d")
         }
         
         res = EcfEmissionService.emit_cancellation(g.company, canc_dict, sandbox=g.sandbox_mode)
@@ -445,8 +445,8 @@ def create_draft_invoice():
         
         invoice_dict = {
             "invoiceNumber": inv_number,
-            "date": data.get('date', datetime.utcnow().isoformat()),
-            "dueDate": data.get('due_date', (datetime.utcnow() + timedelta(days=30)).isoformat()),
+            "date": data.get('date', datetime.now(timezone.utc).isoformat()),
+            "dueDate": data.get('due_date', (datetime.now(timezone.utc) + timedelta(days=30)).isoformat()),
             "clientId": data.get('client_id', ''),
             "clientName": data.get('client_name', 'Consumidor Final'),
             "clientRNC": data.get('client_rnc', ''),
@@ -486,7 +486,7 @@ def create_draft_invoice():
             "items": calcs["items"],
             "totalPaid": float(data.get('total_paid', 0.0)),
             "remainingBalance": calcs["net_payable"] - float(data.get('total_paid', 0.0)),
-            "createdAt": datetime.utcnow().isoformat()
+            "createdAt": datetime.now(timezone.utc).isoformat()
         }
         
         DatabaseService.save_invoice(g.owner_uid, invoice_id, invoice_dict, sandbox=g.sandbox_mode)
@@ -773,7 +773,7 @@ def create_expense():
             "concept": concept,
             "category": data.get('category', 'Otros'),
             "amount": amount,
-            "date": data.get('date', datetime.utcnow().isoformat()),
+            "date": data.get('date', datetime.now(timezone.utc).isoformat()),
             "rncEmisor": data.get('rnc_emisor', data.get('rncEmisor', '')),
             "ncf": data.get('ncf', ''),
             "isMinorExpense": bool(data.get('is_minor_expense', data.get('isMinorExpense', False))),
@@ -1002,7 +1002,7 @@ def send_receipt_endpoint(invoice_id):
         company = DatabaseService.get_company_profile(g.owner_uid)
 
         payment_id      = data.get("paymentId", "")
-        payment_date    = data.get("paymentDate", datetime.utcnow().strftime('%Y-%m-%d'))
+        payment_date    = data.get("paymentDate", datetime.now(timezone.utc).strftime('%Y-%m-%d'))
         payment_method  = data.get("paymentMethod", "Efectivo")
         payment_bank    = data.get("bank", "")
         payment_ref     = data.get("referenceNumber", "")

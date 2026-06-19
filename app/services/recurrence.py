@@ -1,22 +1,22 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import uuid
 import random
 from app.services.db_service import DatabaseService
 from app.services.ecf_emission import EcfEmissionService
-from app.services.alanube import AlanubeService
 from app.services.dgii import DGIIService
+from app.utils.ecf_utils import get_ecf_type_short_code
 
 class RecurrenceService:
     @staticmethod
     def calculate_next_date(current_date_str, interval):
         """Calcula la próxima fecha de recurrencia basándose en el intervalo."""
         if not current_date_str:
-            return datetime.utcnow().strftime("%Y-%m-%d")
+            return datetime.now(timezone.utc).strftime("%Y-%m-%d")
             
         try:
             current_date = datetime.strptime(current_date_str[:10], "%Y-%m-%d")
         except ValueError:
-            current_date = datetime.utcnow()
+            current_date = datetime.now(timezone.utc)
 
         if interval == "semanal":
             next_date = current_date + timedelta(days=7)
@@ -42,7 +42,7 @@ class RecurrenceService:
         cuya fecha de siguiente ocurrencia haya vencido (es decir, sea menor o igual a hoy).
         Duplica los registros correspondientes y actualiza la programación original.
         """
-        today_str = datetime.utcnow().strftime("%Y-%m-%d")
+        today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         processed_count = 0
 
         # =====================================================================
@@ -133,7 +133,7 @@ class RecurrenceService:
                     try:
                         company = DatabaseService.get_company_profile(owner_uid)
                         user_email = company.get("companyEmail", "sistema@efactura.com.do")
-                        ecf_short = AlanubeService.get_ecf_type_short_code(new_invoice["ecfType"])
+                        ecf_short = get_ecf_type_short_code(new_invoice["ecfType"])
                         encf, log_id = DatabaseService.consume_next_sequence(owner_uid, ecf_short, user_email, sandbox=sandbox)
                         new_invoice["encf"] = encf
 
@@ -149,7 +149,7 @@ class RecurrenceService:
                             new_invoice["dgiiStatus"] = res.get("dgiiStatus") or ("PENDING" if res.get("status") == "PENDING" else "ACCEPTED")
                             new_invoice["status"] = "Pendiente DGII" if res.get("status") == "PENDING" or res.get("mode") == "FALLBACK" else "Emitida"
                             if res.get("mode") == "FALLBACK":
-                                new_invoice["contingencyEmittedAt"] = datetime.utcnow().isoformat()
+                                new_invoice["contingencyEmittedAt"] = datetime.now(timezone.utc).isoformat()
                         else:
                             new_invoice["status"] = "Rechazada"
                             new_invoice["dgiiStatus"] = "REJECTED"
@@ -289,15 +289,15 @@ class RecurrenceService:
         """
         import uuid
         import random
-        from datetime import datetime, timedelta
+        from datetime import datetime, timedelta, timezone
         from app.services.db_service import DatabaseService
 
         try:
             random_num    = f"{random.randint(1, 999999):06d}"
             invoice_id    = str(uuid.uuid4())
             invoice_number = f"FAC-{random_num}"
-            today_str     = datetime.utcnow().strftime("%Y-%m-%d")
-            due_date_str  = (datetime.utcnow() + timedelta(days=30)).strftime("%Y-%m-%d")
+            today_str     = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+            due_date_str  = (datetime.now(timezone.utc) + timedelta(days=30)).strftime("%Y-%m-%d")
 
             contract_lines = contract.get("contractLines", [])
 
@@ -460,9 +460,9 @@ class RecurrenceService:
             int: Número de contratos facturados exitosamente.
         """
         from app.services.db_service import DatabaseService
-        from datetime import datetime
+        from datetime import datetime, timezone
 
-        today_str = datetime.utcnow().strftime("%Y-%m-%d")
+        today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         processed_count = 0
 
         contracts = DatabaseService.get_contracts(owner_uid, sandbox=sandbox)

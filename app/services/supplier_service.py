@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 try:
     from app.services.db_service import db_firestore, firebase_initialized
@@ -57,8 +57,8 @@ class SupplierService:
         supplier_dict["id"] = supplier_id
         supplier_dict["ownerUID"] = owner_uid
         if "createdAt" not in supplier_dict or not supplier_dict["createdAt"]:
-            supplier_dict["createdAt"] = serialize_field(datetime.utcnow())
-        supplier_dict["updatedAt"] = serialize_field(datetime.utcnow())
+            supplier_dict["createdAt"] = serialize_field(datetime.now(timezone.utc))
+        supplier_dict["updatedAt"] = serialize_field(datetime.now(timezone.utc))
         supplier_dict["name"] = supplier_dict.get("name", "").strip()
         supplier_dict["rnc"] = "".join(filter(str.isdigit, str(supplier_dict.get("rnc", ""))))
 
@@ -146,7 +146,7 @@ class SupplierService:
         try:
             coll_name = "sandbox_suppliers" if sandbox else "suppliers"
             db_firestore.collection("users").document(owner_uid).collection(coll_name).document(supplier_id).update({
-                "lastImportDate": serialize_field(datetime.utcnow()),
+                "lastImportDate": serialize_field(datetime.now(timezone.utc)),
             })
         except Exception as e:
             print(f"⚠️ Error al actualizar lastImportDate: {e}")

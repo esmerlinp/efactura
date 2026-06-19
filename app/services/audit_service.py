@@ -13,7 +13,7 @@ Campos registrados por evento:
 """
 import uuid
 import traceback
-from datetime import datetime
+from datetime import datetime, timezone
 
 try:
     from app.services.db_service import db_firestore, firebase_initialized
@@ -83,7 +83,7 @@ class AuditService:
                 log_path = _os.path.join(log_dir, 'security_audit.log')
                 with open(log_path, 'a', encoding='utf-8') as _f:
                     _f.write(
-                        f"[{datetime.utcnow().isoformat()}] "
+                        f"[{datetime.now(timezone.utc).isoformat()}] "
                         f"ACCION={action} MODULO={module} "
                         f"USUARIO={performed_by_email or 'anónimo'} "
                         f"ENTIDAD={entity_label or entity_id}\n"
@@ -94,7 +94,7 @@ class AuditService:
 
         try:
             log_id = str(uuid.uuid4())
-            timestamp = datetime.utcnow().isoformat()
+            timestamp = datetime.now(timezone.utc).isoformat()
 
             log_data = {
                 "id": log_id,
