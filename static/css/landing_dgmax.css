@@ -202,10 +202,19 @@ html {
     max-height: 0;
     overflow: hidden;
     transition: max-height 0.4s ease, padding 0.4s ease;
+    padding-left: 1rem;
+    padding-right: 1rem;
+}
+
+@media (min-width: 768px) {
+    .faq-content {
+        padding-left: 1.5rem;
+        padding-right: 1.5rem;
+    }
 }
 
 .faq-content.open {
-    max-height: 240px;
+    max-height: 500px;
     padding-bottom: 1.5rem;
 }
 
@@ -254,3 +263,18 @@ html {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.5; }
 }
+
+/* Mobile Menu Transitions & Styling */
+#mobile-menu {
+    opacity: 0;
+    transform: translateY(-10px);
+    pointer-events: none;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+#mobile-menu.open {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+}
+
