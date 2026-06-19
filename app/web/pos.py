@@ -1,5 +1,6 @@
 # app/web/pos.py
 import uuid
+import html
 from datetime import datetime
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify
 from app.services.db_service import DatabaseService
@@ -1269,7 +1270,7 @@ def add_shift_comment(shift_id):
             )
             attachment_name = file.filename
         except Exception as e:
-            flash(f"Advertencia: No se pudo cargar el archivo adjunto: {str(e)}", 'warning')
+            flash(f"Advertencia: No se pudo cargar el archivo adjunto: {html.escape(str(e))}", 'warning')
             
     comment_id = str(uuid.uuid4())
     comment_dict = {
@@ -1338,7 +1339,7 @@ def edit_shift_comment(shift_id, comment_id):
             comment['attachmentUrl'] = attachment_url
             comment['attachmentName'] = file.filename
         except Exception as e:
-            flash(f"Advertencia: No se pudo cargar el archivo adjunto: {str(e)}", 'warning')
+            flash(f"Advertencia: No se pudo cargar el archivo adjunto: {html.escape(str(e))}", 'warning')
             
     DatabaseService.save_resource_comment(owner_uid, "shifts", shift_id, comment_id, comment, sandbox=sandbox)
     

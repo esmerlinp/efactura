@@ -3,16 +3,18 @@ import os
 import csv
 import uuid
 import json
+import html
 from datetime import datetime
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify
 from app.services.db_service import DatabaseService
 from app.services.ai_service import AIService
 from app.utils.decorators import check_permission
+from app.utils.security import validate_uploaded_file, sanitize_filename
 
 web_import_mapper_bp = Blueprint('web_import_mapper', __name__)
 
-# Directorio temporal para archivos subidos
-TEMP_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'static', 'uploads', 'temp_imports')
+# Directorio temporal para archivos subidos (fuera de static/ por seguridad)
+TEMP_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'uploads', 'temp_imports')
 
 def get_delimiter(first_line):
     """Detecta el delimitador de un archivo CSV analizando su primera línea."""
@@ -65,9 +67,20 @@ def upload_file():
         return redirect(url_for('web_dashboard.dashboard'))
         
     file = request.files.get('file')
-    if not file or not file.filename.endswith('.csv'):
-        if is_ajax: return jsonify({"success": False, "error": "Por favor sube un archivo CSV válido (.csv)."}), 400
-        flash('Por favor sube un archivo CSV válido (.csv).', 'error')
+    if not file:
+        if is_ajax: return jsonify({"success": False, "error": "Por favor sube un archivo válido."}), 400
+        flash('Por favor sube un archivo válido.', 'error')
+        if import_type == 'clients':
+            return redirect(url_for('web_clients.list_clients'))
+        elif import_type == 'products':
+            return redirect(url_for('web_invoices.list_items'))
+        else:
+            return redirect(url_for('web_invoices.list_invoices'))
+
+    valid, err_msg = validate_uploaded_file(file, allowed_extensions={'csv'})
+    if not valid:
+        if is_ajax: return jsonify({"success": False, "error": err_msg}), 400
+        flash(err_msg, 'error')
         if import_type == 'clients':
             return redirect(url_for('web_clients.list_clients'))
         elif import_type == 'products':
@@ -76,7 +89,8 @@ def upload_file():
             return redirect(url_for('web_invoices.list_invoices'))
             
     os.makedirs(TEMP_DIR, exist_ok=True)
-    file_id = f"temp_{session['user']['uid']}_{import_type}_{uuid.uuid4().hex}.csv"
+    safe_name = sanitize_filename(file.filename)
+    file_id = f"temp_{session['user']['uid']}_{import_type}_{uuid.uuid4().hex}_{safe_name}"
     temp_path = os.path.join(TEMP_DIR, file_id)
     file.save(temp_path)
     
@@ -106,8 +120,8 @@ def upload_file():
         if os.path.exists(temp_path):
             os.remove(temp_path)
         if is_ajax:
-            return jsonify({"success": False, "error": f"Error al analizar el archivo: {str(e)}"}), 400
-        flash(f'Error al analizar el archivo: {str(e)}', 'error')
+            return jsonify({"success": False, "error": f"Error al analizar el archivo: {html.escape(str(e))}"}), 400
+        flash(f'Error al analizar el archivo: {html.escape(str(e))}', 'error')
         if import_type == 'clients':
             return redirect(url_for('web_clients.list_clients'))
         elif import_type == 'products':
@@ -423,8 +437,8 @@ def process_import():
         flash(f'¡Éxito! Se importaron {count} registros correctamente.', 'success')
     except Exception as e:
         if is_ajax:
-            return jsonify({"success": False, "error": f"Error al procesar la importación: {str(e)}"}), 500
-        flash(f'Error al procesar la importación: {str(e)}', 'error')
+            return jsonify({"success": False, "error": f"Error al procesar la importación: {html.escape(str(e))}"}), 500
+        flash(f'Error al procesar la importación: {html.escape(str(e))}', 'error')
     finally:
         if os.path.exists(temp_path):
             os.remove(temp_path)

@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 load_dotenv(override=True)
 
 class Config:
-    SECRET_KEY = os.getenv('SECRET_KEY', 'efacturard_web_secret_session_key_2026')
+    SECRET_KEY = os.getenv('SECRET_KEY')
     
     # Configuración de Firebase
     _firebase_json = os.getenv('FIREBASE_SERVICE_ACCOUNT_JSON', 'firebase-adminsdk.json')
@@ -14,20 +14,20 @@ class Config:
         if os.path.exists(_parent_json):
             _firebase_json = _parent_json
     FIREBASE_SERVICE_ACCOUNT_JSON = _firebase_json
+    FIREBASE_API_KEY = os.getenv('FIREBASE_API_KEY')
     FIREBASE_STORAGE_BUCKET = os.getenv('FIREBASE_STORAGE_BUCKET', 'e-factura-c2b78.firebasestorage.app')
-    FIREBASE_API_KEY = os.getenv('FIREBASE_API_KEY', 'AIzaSyDUhGH7Pa2DP5kNUJxiwEbxrfRGvpKANTc')
     FIREBASE_PROJECT_ID = os.getenv('FIREBASE_PROJECT_ID', 'e-factura-c2b78')
 
     
     # Integración con Alanube API (Sandbox)
     ALANUBE_SANDBOX_BASE_URL = os.getenv('ALANUBE_SANDBOX_BASE_URL', 'https://sandbox.alanube.co')
-    ALANUBE_SANDBOX_TOKEN = os.getenv('ALANUBE_SANDBOX_TOKEN', 'DEVELOPMENT_SANDBOX_TOKEN')
-    ALANUBE_SANDBOX_COMPANY_ID = os.getenv('ALANUBE_SANDBOX_COMPANY_ID', '132109122')
+    ALANUBE_SANDBOX_TOKEN = os.getenv('ALANUBE_SANDBOX_TOKEN')
+    ALANUBE_SANDBOX_COMPANY_ID = os.getenv('ALANUBE_SANDBOX_COMPANY_ID')
     
     # Integración con Alanube API (Producción)
     ALANUBE_PRODUCTION_BASE_URL = os.getenv('ALANUBE_PRODUCTION_BASE_URL', 'https://api.alanube.co')
-    ALANUBE_PRODUCTION_TOKEN = os.getenv('ALANUBE_PRODUCTION_TOKEN', 'PRODUCTION_REAL_TOKEN')
-    ALANUBE_PRODUCTION_COMPANY_ID = os.getenv('ALANUBE_PRODUCTION_COMPANY_ID', 'PRODUCTION_COMPANY_ID')
+    ALANUBE_PRODUCTION_TOKEN = os.getenv('ALANUBE_PRODUCTION_TOKEN')
+    ALANUBE_PRODUCTION_COMPANY_ID = os.getenv('ALANUBE_PRODUCTION_COMPANY_ID')
     
     # Servidor de Correo SMTP
     SMTP_SERVER = os.getenv('SMTP_SERVER', 'smtp.gmail.com')
@@ -36,7 +36,7 @@ class Config:
     SMTP_PASSWORD = os.getenv('SMTP_PASSWORD', '')
 
     # OpenAI API Key para el Chatbot
-    OPENAI_API_KEY = os.getenv('OPENAI_API_KEY', '')
+    OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 
     # Proveedor de Emisión de e-CF (alanube / dgii_direct)
     E_CF_PROVIDER = os.getenv('E_CF_PROVIDER', 'alanube')
@@ -71,5 +71,36 @@ class Config:
     CACHE_TYPE = os.getenv('CACHE_TYPE', 'SimpleCache')
     CACHE_DEFAULT_TIMEOUT = int(os.getenv('CACHE_DEFAULT_TIMEOUT', '300'))
     CACHE_THRESHOLD = int(os.getenv('CACHE_THRESHOLD', '200'))
+
+    # Uploads fuera de static/ (seguridad: no servir directamente sin auth)
+    UPLOAD_FOLDER = os.getenv('UPLOAD_FOLDER',
+                              os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads'))
+
+    # CSRF Protection
+    WTF_CSRF_ENABLED = True
+    WTF_CSRF_TIME_LIMIT = 28800  # 8 horas (coincide con sesión)
+    WTF_CSRF_SSL_STRICT = False  # En desarrollo, puede no haber HTTPS
+    WTF_CSRF_METHODS = ['POST', 'PUT', 'PATCH', 'DELETE']
+
+    # CORS
+    CORS_ORIGINS = os.getenv('CORS_ORIGINS', '*')
+
+    # Rate Limiting
+    RATELIMIT_ENABLED = os.getenv('RATELIMIT_ENABLED', 'true').lower() in ('true', '1', 'yes')
+    RATELIMIT_STORAGE_URL = os.getenv('RATELIMIT_STORAGE_URL', 'memory://')
+    RATELIMIT_STRATEGY = 'moving-window'
+    RATELIMIT_HEADERS_ENABLED = True
+    RATELIMIT_DEFAULT = os.getenv('RATELIMIT_DEFAULT', '200/day;50/hour;10/minute')
+    RATELIMIT_SWALLOW_ERRORS = True
+
+    # Seguridad de Sesión
+    # Clave de cifrado para campos sensibles en Firestore (Fernet)
+    FIELD_ENCRYPTION_KEY = os.getenv('FIELD_ENCRYPTION_KEY')
+
+    SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SAMESITE = 'Lax'
+    SESSION_COOKIE_SECURE = os.getenv('SESSION_COOKIE_SECURE', 'false').lower() in ('true', '1', 'yes')
+    SESSION_PERMANENT = True
+    PERMANENT_SESSION_LIFETIME = 28800  # 8 horas en segundos
 
 

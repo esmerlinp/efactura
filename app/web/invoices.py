@@ -3,6 +3,7 @@ import io
 import csv
 import json
 import uuid
+import html
 from datetime import datetime, timedelta, timezone
 from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify, send_file, make_response
 import qrcode
@@ -11,9 +12,9 @@ try:
     WEASYPRINT_AVAILABLE = True
     print("✅ WeasyPrint cargado correctamente en invoices.py")
 except Exception as e:
-    import traceback
+    import logging
+    logging.exception("Error al cargar WeasyPrint en invoices.py")
     print("❌ ERROR AL CARGAR WEASYPRINT en invoices.py:")
-    traceback.print_exc()
     WEASYPRINT_AVAILABLE = False
 import random
 from config import Config
@@ -246,7 +247,7 @@ def upload_item_image():
         )
         return jsonify({"success": True, "url": url})
     except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
+        return jsonify({"success": False, "error": html.escape(str(e))}), 500
 
 @web_invoices_bp.route('/items/import-csv', methods=['POST'])
 def import_items_csv():
@@ -1654,7 +1655,7 @@ def add_invoice_comment(invoice_id):
             )
             attachment_name = file.filename
         except Exception as e:
-            flash(f"Advertencia: No se pudo cargar el archivo adjunto: {str(e)}", 'warning')
+            flash(f"Advertencia: No se pudo cargar el archivo adjunto: {html.escape(str(e))}", 'warning')
             
     comment_id = str(uuid.uuid4())
     comment_dict = {
@@ -1726,7 +1727,7 @@ def edit_invoice_comment(invoice_id, comment_id):
             comment['attachmentUrl'] = attachment_url
             comment['attachmentName'] = file.filename
         except Exception as e:
-            flash(f"Advertencia: No se pudo cargar el archivo adjunto: {str(e)}", 'warning')
+            flash(f"Advertencia: No se pudo cargar el archivo adjunto: {html.escape(str(e))}", 'warning')
             
     DatabaseService.save_invoice_comment(owner_uid, invoice_id, comment_id, comment, sandbox=sandbox)
     
@@ -2157,8 +2158,8 @@ def send_invoice_email(owner_uid, invoice, recipient_email, sandbox=True, base_u
         
         return True, f"Factura enviada exitosamente por correo a {recipient_email}."
     except Exception as e:
-        import traceback
-        traceback.print_exc()
+        import logging
+        logging.exception("Error enviando factura por email")
         print(f"⚠️ Error enviando factura por email: {e}")
         return False, str(e)
 
@@ -6878,7 +6879,7 @@ def add_expense_comment(expense_id):
             attachment_url = DatabaseService.upload_file_to_storage(file_data, destination_path, mime_type)
             attachment_name = file.filename
         except Exception as e:
-            flash(f"Advertencia: No se pudo cargar el archivo adjunto: {str(e)}", 'warning')
+            flash(f"Advertencia: No se pudo cargar el archivo adjunto: {html.escape(str(e))}", 'warning')
             
     comment_id = str(uuid.uuid4())
     comment_dict = {
@@ -6943,7 +6944,7 @@ def edit_expense_comment(expense_id, comment_id):
             comment['attachmentUrl'] = attachment_url
             comment['attachmentName'] = file.filename
         except Exception as e:
-            flash(f"Advertencia: No se pudo cargar el archivo adjunto: {str(e)}", 'warning')
+            flash(f"Advertencia: No se pudo cargar el archivo adjunto: {html.escape(str(e))}", 'warning')
             
     DatabaseService.save_resource_comment(owner_uid, "expenses", expense_id, comment_id, comment, sandbox=sandbox)
     

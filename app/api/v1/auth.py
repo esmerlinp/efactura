@@ -1,5 +1,6 @@
 # app/api/v1/auth.py
 import uuid
+import hashlib
 import pyotp
 from datetime import datetime, timedelta
 from flask import Blueprint, request, jsonify
@@ -96,17 +97,19 @@ def verify_2fa():
             if totp.verify(code, valid_window=1):
                 is_valid = True
                 
-        # 2. Verificar códigos de respaldo
-        if not is_valid and code in backup_codes:
-            is_valid = True
-            backup_codes.remove(code)
-            DatabaseService.save_user_2fa_config(
-                uid=uid,
-                secret=secret,
-                enabled=True,
-                backup_codes=backup_codes
-            )
-            user_profile['backup_codes'] = backup_codes
+        # 2. Verificar códigos de respaldo (hasheados en Firestore)
+        if not is_valid:
+            hashed_input = hashlib.sha256(code.encode()).hexdigest()
+            if hashed_input in backup_codes:
+                is_valid = True
+                backup_codes.remove(hashed_input)
+                DatabaseService.save_user_2fa_config(
+                    uid=uid,
+                    secret=secret,
+                    enabled=True,
+                    backup_codes=backup_codes
+                )
+                user_profile['backup_codes'] = backup_codes
             
         if is_valid:
             # Eliminar token temporal

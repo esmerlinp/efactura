@@ -11,6 +11,7 @@
         })();
     </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Iniciar Sesión - e-Factura</title>
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/efactura_logo.png') }}">
     <meta name="description"
@@ -226,6 +227,7 @@
         {% endwith %}
 
         <form action="{{ url_for('web_auth.login') }}" method="POST" id="login-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="form-group">
                 <label for="email">Correo Electrónico</label>
                 <div style="position: relative;">
@@ -295,6 +297,7 @@
             <div id="forgot-alert" style="display: none;"></div>
 
             <form id="forgot-form" onsubmit="submitForgotPassword(event)" novalidate>
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="form-group" style="margin-bottom: 20px;">
                     <label for="forgot-email"
                         style="font-size: 0.82rem; font-weight: 500; color: var(--text-secondary);">
@@ -431,6 +434,29 @@
             alertEl.innerHTML = html;
             alertEl.style.display = 'flex';
         }
+
+        // Interceptor global: añadir X-CSRFToken a todo fetch hacia el mismo origen
+        (function () {
+            const meta = document.querySelector('meta[name="csrf-token"]');
+            if (!meta) return;
+            const token = meta.getAttribute('content');
+            const origFetch = window.fetch;
+            window.fetch = function (url, opts) {
+                opts = opts || {};
+                if (typeof url === 'string' && url.startsWith('/') && opts.method &&
+                    ['POST', 'PUT', 'PATCH', 'DELETE'].includes(opts.method.toUpperCase())) {
+                    opts.headers = opts.headers || {};
+                    if (opts.headers instanceof Headers) {
+                        if (!opts.headers.has('X-CSRFToken')) {
+                            opts.headers.set('X-CSRFToken', token);
+                        }
+                    } else {
+                        opts.headers['X-CSRFToken'] = token;
+                    }
+                }
+                return origFetch.call(window, url, opts);
+            };
+        })();
     </script>
 </body>
 
