@@ -315,42 +315,7 @@
                     </div>
                 </div>
 
-                <!-- SECCIÓN 3: INTEGRACIÓN Y PROVEEDOR (ALANUBE) -->
-                {% if e_cf_provider == 'alanube' %}
-                <div class="accordion-item">
-                    <button type="button" class="accordion-header" onclick="toggleAccordionSection(this)">
-                        <div class="accordion-title">
-                            <i class="fa-solid fa-plug"></i>
-                            <span>Integración de Proveedor (Alanube)</span>
-                        </div>
-                        <i class="fa-solid fa-chevron-down accordion-chevron"></i>
-                    </button>
-                    <div class="accordion-content">
-                        <div class="accordion-body">
-                            <div class="form-grid" style="grid-template-columns: 1fr 1fr; gap: 20px; display: grid;">
-                                <div class="form-group" style="margin-bottom: 0;">
-                                    <label for="alanubeCompanyIDSandbox">ID de Empresa Alanube (Sandbox)</label>
-                                    <input type="text" id="alanubeCompanyIDSandbox" name="alanubeCompanyIDSandbox"
-                                        class="form-input" placeholder="Ej: 01KT1RYA3PCW4317EE76TV4VMS"
-                                        value="{{ profile.alanubeCompanyIDSandbox or '' }}">
-                                    <small
-                                        style="color: var(--text-muted); font-size: 0.72rem; margin-top: 4px; display: block;">ID
-                                        en entorno de pruebas.</small>
-                                </div>
-                                <div class="form-group" style="margin-bottom: 0;">
-                                    <label for="alanubeCompanyIDProduction">ID de Empresa Alanube (Producción)</label>
-                                    <input type="text" id="alanubeCompanyIDProduction" name="alanubeCompanyIDProduction"
-                                        class="form-input" placeholder="Ej: 01KT1RYA3PCW4317EE76TV4VMS"
-                                        value="{{ profile.alanubeCompanyIDProduction or '' }}">
-                                    <small
-                                        style="color: var(--text-muted); font-size: 0.72rem; margin-top: 4px; display: block;">ID
-                                        en producción real.</small>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                {% endif %}
+
 
                 <!-- SECCIÓN 4: CERTIFICADO DE FIRMA DIGITAL -->
                 <div class="accordion-item">
@@ -656,33 +621,7 @@
                     </small>
                 </div>
 
-                {% if e_cf_provider == 'alanube' %}
-                <h5
-                    style="font-size: 0.85rem; font-family: var(--font-heading); color: var(--text-main); margin: 24px 0 8px 0; font-weight: 500; display: flex; align-items: center; gap: 6px;">
-                    <i class="fa-solid fa-key" style="color: var(--accent-emerald);"></i>
-                    <span>Identificadores de Empresa en Alanube (Requerido para API)</span>
-                </h5>
-                <div class="form-grid"
-                    style="grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; display: grid;">
-                    <div class="form-group">
-                        <label for="alanubeCompanyIDSandbox">ID de Empresa Alanube (Sandbox)</label>
-                        <input type="text" id="alanubeCompanyIDSandbox" name="alanubeCompanyIDSandbox"
-                            class="form-input" placeholder="Ej: 01KT1RYA3PCW4317EE76TV4VMS"
-                            value="{{ profile.alanubeCompanyIDSandbox or '' }}">
-                        <small style="color: var(--text-muted); font-size: 0.72rem; margin-top: 4px;">ID asignado en el
-                            entorno de pruebas.</small>
-                    </div>
 
-                    <div class="form-group">
-                        <label for="alanubeCompanyIDProduction">ID de Empresa Alanube (Producción)</label>
-                        <input type="text" id="alanubeCompanyIDProduction" name="alanubeCompanyIDProduction"
-                            class="form-input" placeholder="Ej: 01KT1RYA3PCW4317EE76TV4VMS"
-                            value="{{ profile.alanubeCompanyIDProduction or '' }}">
-                        <small style="color: var(--text-muted); font-size: 0.72rem; margin-top: 4px;">ID asignado en el
-                            entorno real de producción.</small>
-                    </div>
-                </div>
-                {% endif %}
             </div>
 
             <!-- PASO 2: CONTACTO, UBICACIÓN Y FIRMA -->
@@ -880,28 +819,7 @@
             {% else %}
             <div
                 style="margin-top: 36px; display: flex; justify-content: flex-end; gap: 15px; border-top: 1px solid var(--border-color); padding-top: 24px;">
-                {% if e_cf_provider == 'alanube' %}
-                <button type="submit" name="importAlanube" value="true" class="btn btn-secondary"
-                    style="padding: 12px 28px; border-color: var(--border-color); color: var(--text-muted); opacity: 0.6; cursor: not-allowed;"
-                    disabled title="Deshabilitado temporalmente">
-                    <i class="fa-solid fa-cloud-arrow-down"></i>
-                    <span>Sincronizar desde Alanube</span>
-                </button>
-                {% if profile.certificateName or profile.certificateContent %}
-                <button type="submit" name="registerAlanube" value="true" class="btn btn-secondary"
-                    style="padding: 12px 28px; border-color: var(--accent-emerald); color: var(--accent-emerald); cursor: pointer;">
-                    <i class="fa-solid fa-certificate"></i>
-                    <span>Habilitar Certificado Digital</span>
-                </button>
-                {% else %}
-                <button type="button" class="btn btn-secondary"
-                    style="padding: 12px 28px; border-color: var(--border-color); color: var(--text-muted); opacity: 0.6; cursor: not-allowed;"
-                    disabled title="Carga y guarda tu archivo de certificado digital primero">
-                    <i class="fa-solid fa-certificate"></i>
-                    <span>Habilitar Certificado Digital</span>
-                </button>
-                {% endif %}
-                {% endif %}
+
                 <button type="submit" class="btn btn-primary" style="padding: 12px 28px;">
                     <i class="fa-solid fa-floppy-disk"></i>
                     <span>Guardar Cambios</span>

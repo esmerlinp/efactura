@@ -4,7 +4,7 @@ import csv
 import uuid
 import json
 import html
-from datetime import datetime
+from datetime import datetime, timezone
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify
 from app.services.db_service import DatabaseService
 from app.services.ai_service import AIService
@@ -292,7 +292,7 @@ def process_import():
                         "crmNotes": get_val('crmNotes') or "Importado mediante asistente universal.",
                         "nextContactDate": get_val('nextContactDate'),
                         "pipelineStage": get_val('pipelineStage', 'Prospecto'),
-                        "createdAt": datetime.utcnow().isoformat()
+                        "createdAt": datetime.now(timezone.utc).isoformat()
                     }
                     DatabaseService.save_client(owner_uid, client_id, client_dict, sandbox=sandbox)
                     count += 1
@@ -328,7 +328,7 @@ def process_import():
                         "codigoImpuesto": get_val('codigoImpuesto'),
                         "tasaImpuestoAdicional": sanitize_float(get_val('tasaImpuestoAdicional')),
                         "totalStock": 0.0,
-                        "createdAt": datetime.utcnow().isoformat(),
+                        "createdAt": datetime.now(timezone.utc).isoformat(),
                         "isActive": is_active,
                         "supplierName": get_val('supplierName'),
                         "wholesalePrice": sanitize_float(get_val('wholesalePrice')),
@@ -423,7 +423,7 @@ def process_import():
                         "total": total,
                         "isQuotation": False,
                         "notes": "Registro de factura histórica importado desde sistema previo.",
-                        "createdAt": datetime.utcnow().isoformat(),
+                        "createdAt": datetime.now(timezone.utc).isoformat(),
                         "items": items,
                         "stockReduced": bool(stock_reduced)
                     }

@@ -5,7 +5,7 @@ import uuid
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.utils import formataddr
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from flask import current_app
 from app.services.db_service import DatabaseService
 
@@ -177,7 +177,7 @@ class NotificationService:
             "type": method,
             "title": title,
             "content": content,
-            "date": datetime.utcnow().isoformat(),
+            "date": datetime.now(timezone.utc).isoformat(),
             "completed": True,
             "registeredBy": "Sistema CxC"
         }
@@ -197,7 +197,7 @@ class NotificationService:
             return 0
 
         # Evitar doble ejecución el mismo día
-        today_str = datetime.utcnow().strftime("%Y-%m-%d")
+        today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         if company.get("autoRemindersLastRun") == today_str:
             return 0
 
@@ -229,7 +229,7 @@ class NotificationService:
         tone = company.get("autoRemindersTone", "formal")
 
         # Calcular fecha objetivo: due_date = today - offset
-        target_date = (datetime.utcnow() - timedelta(days=days_offset)).strftime("%Y-%m-%d")
+        target_date = (datetime.now(timezone.utc) - timedelta(days=days_offset)).strftime("%Y-%m-%d")
 
         sent_count = 0
         from app.services.ai_service import AIService

@@ -19,16 +19,6 @@ class Config:
     FIREBASE_PROJECT_ID = os.getenv('FIREBASE_PROJECT_ID', 'e-factura-c2b78')
 
     
-    # Integración con Alanube API (Sandbox)
-    ALANUBE_SANDBOX_BASE_URL = os.getenv('ALANUBE_SANDBOX_BASE_URL', 'https://sandbox.alanube.co')
-    ALANUBE_SANDBOX_TOKEN = os.getenv('ALANUBE_SANDBOX_TOKEN')
-    ALANUBE_SANDBOX_COMPANY_ID = os.getenv('ALANUBE_SANDBOX_COMPANY_ID')
-    
-    # Integración con Alanube API (Producción)
-    ALANUBE_PRODUCTION_BASE_URL = os.getenv('ALANUBE_PRODUCTION_BASE_URL', 'https://api.alanube.co')
-    ALANUBE_PRODUCTION_TOKEN = os.getenv('ALANUBE_PRODUCTION_TOKEN')
-    ALANUBE_PRODUCTION_COMPANY_ID = os.getenv('ALANUBE_PRODUCTION_COMPANY_ID')
-    
     # Servidor de Correo SMTP
     SMTP_SERVER = os.getenv('SMTP_SERVER', 'smtp.gmail.com')
     SMTP_PORT = int(os.getenv('SMTP_PORT', 587))
@@ -38,8 +28,8 @@ class Config:
     # OpenAI API Key para el Chatbot
     OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 
-    # Proveedor de Emisión de e-CF (alanube / dgii_direct)
-    E_CF_PROVIDER = os.getenv('E_CF_PROVIDER', 'alanube')
+    # Proveedor de Emisión de e-CF (siempre dgii_direct)
+    E_CF_PROVIDER = 'dgii_direct'
 
     # Endpoints oficiales de la DGII (Legacy / compatibilidad)
     DGII_AUTH_URL = os.getenv('DGII_AUTH_URL', 'https://ecf.dgii.gov.do/test/autenticacion/api/Autenticacion/Semilla')

@@ -76,6 +76,14 @@ def cleanup_expired_idempotency_keys():
     logger.info("✅ APScheduler — Limpieza de idempotency keys finalizada.")
 
 
+def run_contingency_sync():
+    """Job cada 30 min: sincroniza facturas en modo FALLBACK con DGII Direct."""
+    from app.services.contingency_sync_service import ContingencySyncService
+    logger.info("🔄 APScheduler — Iniciando sincronización de contingencia...")
+    synced, failed = ContingencySyncService.sync_all_companies()
+    logger.info(f"✅ APScheduler — Sincronización de contingencia: {synced} OK, {failed} fallidas")
+
+
 def init_scheduler(app):
     """
     Inicializa el BackgroundScheduler dentro del contexto de la app Flask.
@@ -108,6 +116,14 @@ def init_scheduler(app):
         trigger=CronTrigger(hour=3, minute=0),   # 3:00 AM RD cada día
         id="cleanup_idempotency_keys",
         name="Limpieza de Idempotency Keys Expiradas",
+        replace_existing=True,
+    )
+
+    _scheduler.add_job(
+        func=run_contingency_sync,
+        trigger=CronTrigger(minute="*/30"),      # Cada 30 minutos
+        id="contingency_sync",
+        name="Sincronización Automática de Contingencia DGII",
         replace_existing=True,
     )
 

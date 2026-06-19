@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify
 from app.services.db_service import DatabaseService
 from app.utils.decorators import require_permission, check_permission
@@ -71,7 +71,7 @@ def save_fiscal_note():
     modification_code = request.form.get('modificationCode', '1')
     reason = request.form.get('reason', '').strip()
     notes = request.form.get('notes', '').strip()
-    date = request.form.get('date', datetime.utcnow().strftime('%Y-%m-%d'))
+    date = request.form.get('date', datetime.now(timezone.utc).strftime('%Y-%m-%d'))
 
     if not ref_invoice_id:
         flash('❌ Debes seleccionar una factura de referencia.', 'error')
@@ -165,7 +165,7 @@ def save_fiscal_note():
         "isQuotation": False,
         "notes": notes,
         "createdBy": user.get('displayName', 'Usuario'),
-        "createdAt": datetime.utcnow().isoformat(),
+        "createdAt": datetime.now(timezone.utc).isoformat(),
         "creditedAmount": note_amount if note_type == 'E34' else 0.0,
         "debitedAmount": note_amount if note_type == 'E33' else 0.0,
     }

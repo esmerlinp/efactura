@@ -170,12 +170,12 @@
 
 <!-- Grid de Anulaciones y Auditoría de Logs inmutables -->
 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 40px;">
-    <!-- Envío de Anulación a Alanube / DGII -->
+    <!-- Envío de Anulación a DGII -->
     <div class="card-table-wrapper">
         <h3
             style="font-size: 1.15rem; font-family: var(--font-heading); margin-bottom: 20px; display: flex; align-items: center; gap: 8px;">
             <i class="fa-solid fa-ban" style="color: var(--accent-red);"></i>
-            <span>Anulación de Secuencias (Alanube)</span>
+            <span>Anulación de Secuencias (DGII)</span>
         </h3>
 
         <form action="{{ url_for('web_invoices.new_cancellation_route') }}" method="POST"
@@ -288,7 +288,7 @@
                                     style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
                                     <span
                                         style="font-size: 0.7rem; font-weight: 500; color: var(--text-secondary); text-transform: uppercase;">Payload
-                                        Enviado (Alanube)</span>
+                                        Enviado (DGII)</span>
                                     <button type="button" class="btn-copy"
                                         onclick="event.stopPropagation(); const pre = this.parentElement.nextElementSibling; navigator.clipboard.writeText(pre.innerText); const icon = this.querySelector('i'); const span = this.querySelector('span'); icon.className = 'fa-solid fa-check'; span.innerText = 'Copiado'; setTimeout(() => { icon.className = 'fa-regular fa-copy'; span.innerText = 'Copiar'; }, 1500);"
                                         style="background: transparent; border: none; padding: 2px 6px; font-size: 0.75rem; color: var(--text-muted); cursor: pointer; display: flex; align-items: center; gap: 4px;"

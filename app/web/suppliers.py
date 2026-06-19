@@ -1,6 +1,6 @@
 # app/web/suppliers.py
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify
 from app.services.db_service import DatabaseService
 from app.services.supplier_service import SupplierService
@@ -57,7 +57,7 @@ def list_suppliers():
         dest.write(b'\xef\xbb\xbf')
         dest.write(output.getvalue().encode('utf-8'))
         dest.seek(0)
-        filename = f"proveedores_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.csv"
+        filename = f"proveedores_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.csv"
         return send_file(dest, mimetype="text/csv", as_attachment=True, download_name=filename)
 
     total_items = len(suppliers)

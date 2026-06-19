@@ -117,7 +117,7 @@ class ChatbotService:
 - Falta de conectividad (Emisión Offline): Se generan e-CF firmados localmente. En su impresión es obligatoria la leyenda “e-CF emitido en modalidad de contingencia”. Plazo máximo de 72 horas para enviarlos a la DGII tras recuperar internet.
 - Imposibilidad de emisión del e-CF (Fallo Técnico): Debes facturar usando secuencias físicas de Comprobantes tradicionales no electrónicos. Este periodo no puede exceder 15 días calendario.
 - Regularización: Plazo de 30 días calendario para registrar y remitir los e-CF que reemplazan las facturas manuales de contingencia, referenciando el comprobante original.
-- Automatización en e-Factura: Si la API de Alanube está inaccesible, el sistema activa automáticamente el Modo Fallback, estampando los códigos locales y leyendas correspondientes.
+- Automatización en e-Factura: Si la conexión directa con DGII está inaccesible, el sistema activa automáticamente el Modo Fallback, estampando los códigos locales y leyendas correspondientes.
 """
 
     @classmethod
@@ -146,7 +146,7 @@ class ChatbotService:
             
         # 2. Control de límites/cuota si se utiliza la clave global del servidor
         FREE_MONTHLY_LIMIT = 50 # Límite de consultas gratuitas de cortesía por cliente al mes
-        current_month = datetime.utcnow().strftime("%Y-%m") # Formato: YYYY-MM
+        current_month = datetime.now(timezone.utc).strftime("%Y-%m") # Formato: YYYY-MM
         
         if using_global_key:
             last_reset = profile.get("chatbotLastReset", "")

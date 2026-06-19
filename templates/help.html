@@ -789,7 +789,7 @@
                     <strong>¿Es obligatorio?</strong>
                     Sí. La **Ley 32-23 de Facturación Electrónica** en la República Dominicana establece un calendario
                     de obligatoriedad de transición para todos los contribuyentes. Con **e-Factura** ya estás 100%
-                    cubierto y preparado, operando mediante la API homologada de Alanube en Sandbox y Producción.
+                    cubierto y preparado, operando mediante la API homologada de la DGII en Sandbox y Producción.
                 </div>
             </div>
 
@@ -892,7 +892,7 @@
                 </div>
             </div>
 
-            <div class="docs-article" data-search-content="contingencia falta conectividad offline fallback alanube">
+            <div class="docs-article" data-search-content="contingencia falta conectividad offline fallback">
                 <h3 class="docs-article-title">
                     <span class="docs-article-title-text">
                         <i class="fa-solid fa-wifi docs-article-title-icon"></i>
@@ -921,7 +921,7 @@
                     <div class="fiscal-alert-box alert-danger">
                         <i class="fa-solid fa-shield-halved"></i>
                         <div class="fiscal-alert-text">
-                            <strong>🛡️ Lógica automatizada en e-Factura:</strong> Si nuestra API de conexión (Alanube)
+                            <strong>🛡️ Lógica automatizada en e-Factura:</strong> Si nuestra API de conexión con la DGII
                             detecta una interrupción del servicio o red, la plataforma activa de forma reactiva y
                             automática el <strong>MODO CONTINGENCIA (FALLBACK)</strong>. Genera el código QR de
                             validación fiscal local y estampa la leyenda obligatoria tanto en la pantalla de detalle
@@ -1220,7 +1220,7 @@
             </div>
 
             <div class="docs-article"
-                data-search-content="paso 4 creacion borrador firma emision alanube qr pdf fallback">
+                data-search-content="paso 4 creacion borrador firma emision qr pdf fallback">
                 <h3 class="docs-article-title">
                     <span class="docs-article-title-text">
                         <i class="fa-solid fa-4 docs-article-title-icon"></i>
@@ -1264,7 +1264,7 @@
                             <ul>
                                 <li>El sistema consumirá la secuencia correspondiente (`E31` o `E32`) del rango activo.
                                 </li>
-                                <li>Enviará la estructura de datos a la API homologada de **Alanube** para firmarla con
+                                <li>Enviará la estructura de datos a la API homologada de la **DGII** para firmarla con
                                     tu certificado digital.</li>
                                 <li>Recibirá la validación y aprobación de la DGII en tiempo real.</li>
                                 <li>Generará y estampará en la factura un **Código QR obligatorio** de validación
@@ -1277,7 +1277,7 @@
                     <strong>3. Manejo de Fallas e Internet (Flujo de Contingencia / FALLBACK):</strong>
                     <ul>
                         <li>Si al emitir tu factura la plataforma detecta intermitencias en la conexión o servidores de
-                            Alanube/DGII, activará en milisegundos el **Modo Contingencia (FALLBACK)**.</li>
+                            DGII, activará en milisegundos el **Modo Contingencia (FALLBACK)**.</li>
                         <li>La factura se creará localmente bajo el estado **Emitida** y se estampará automáticamente en
                             el PDF la leyenda obligatoria por ley: <code
                                 style="color: #b91c1c; font-weight: bold; background: rgba(239, 68, 68, 0.08);">“e-CF emitido en modalidad de contingencia”</code>

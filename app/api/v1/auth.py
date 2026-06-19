@@ -2,7 +2,7 @@
 import uuid
 import hashlib
 import pyotp
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from flask import Blueprint, request, jsonify
 from app.services.db_service import DatabaseService, db_firestore
 
@@ -33,7 +33,7 @@ def login():
             # Guardar temporalmente en Firestore
             db_firestore.collection("temp_mfa").document(mfa_token).set({
                 "user_profile": user_profile,
-                "expires_at": (datetime.utcnow() + timedelta(minutes=5)).isoformat()
+                "expires_at": (datetime.now(timezone.utc) + timedelta(minutes=5)).isoformat()
             })
             return jsonify({
                 "success": True,

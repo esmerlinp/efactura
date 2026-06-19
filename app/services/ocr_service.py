@@ -1,7 +1,7 @@
 # app/services/ocr_service.py
 import re
 import xml.etree.ElementTree as ET
-from datetime import datetime
+from datetime import datetime, timezone
 
 class OCRService:
     @classmethod
@@ -49,7 +49,7 @@ class OCRService:
                 "ncf": encf,
                 "ecfType": ecf_type,
                 "ecfNumber": encf,
-                "date": fecha_emision[:10] if fecha_emision else datetime.utcnow().strftime("%Y-%m-%d"),
+                "date": fecha_emision[:10] if fecha_emision else datetime.now(timezone.utc).strftime("%Y-%m-%d"),
                 "amount": float(monto_total) if monto_total else 0.0,
                 "itbisAmount": float(monto_itbis) if monto_itbis else 0.0,
                 "cne": cne,
@@ -110,7 +110,7 @@ class OCRService:
         ncf = ncf_raw.group(1).strip() if ncf_raw else ""
         
         # Formatear fecha a YYYY-MM-DD
-        date_str = datetime.utcnow().strftime("%Y-%m-%d")
+        date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         if date_raw:
             raw_d = re.sub(r'\s', '', date_raw.group(1)).replace('/', '-')
             try:
@@ -167,7 +167,7 @@ class OCRService:
             cne = get_param("CNE")
             
             # Formatear fecha de DD-MM-YYYY a YYYY-MM-DD
-            date_str = datetime.utcnow().strftime("%Y-%m-%d")
+            date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
             if fecha_raw:
                 parts = fecha_raw.split('-')
                 if len(parts) == 3:

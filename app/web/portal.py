@@ -1,6 +1,6 @@
 import uuid
 import html
-from datetime import datetime
+from datetime import datetime, timezone
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash, session
 from firebase_admin import firestore
 from app.services.db_service import db_firestore, DatabaseService
@@ -85,7 +85,7 @@ class PortalDbService:
                 due_date_str = data.get("dueDate")
                 if status in ["Emitida", "Parcialmente Cobrada"] and due_date_str:
                     due_date_clean = due_date_str[:10]
-                    today_str = datetime.utcnow().strftime("%Y-%m-%d")
+                    today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
                     if due_date_clean < today_str:
                         status = "Vencida"
                 data['status'] = status
@@ -327,7 +327,7 @@ def validate_certificate_signature(cert_file, password, client_rnc):
             "serialNumber": str(certificate.serial_number),
             "notBefore": not_before,
             "notAfter": not_after,
-            "signedAt": datetime.utcnow().isoformat()
+            "signedAt": datetime.now(timezone.utc).isoformat()
         }
         return True, cert_info
         
@@ -462,7 +462,7 @@ def reject_quotation(invoice_id):
     if not invoice or not invoice.get('isQuotation'):
         return jsonify({"success": False, "error": "Cotización no encontrada."}), 404
 
-    rejected_at = datetime.utcnow().isoformat()
+    rejected_at = datetime.now(timezone.utc).isoformat()
     invoice['status'] = 'Rechazada'
     invoice['rejectedAt'] = rejected_at
     invoice['rejectedBy'] = client.get('name', client.get('rnc', 'Cliente'))
@@ -503,7 +503,7 @@ def reject_contract(contract_id):
     if not contract:
         return jsonify({"success": False, "error": "Contrato no encontrado."}), 404
 
-    rejected_at = datetime.utcnow().isoformat()
+    rejected_at = datetime.now(timezone.utc).isoformat()
     contract['status'] = 'Rechazado'
     contract['rejectedAt'] = rejected_at
     contract['rejectedBy'] = client.get('name', client.get('rnc', 'Cliente'))
@@ -672,7 +672,7 @@ def cancel_contract(contract_id):
     if not success:
         return jsonify({"success": False, "error": result}), 400
 
-    cancelled_at = result.get('signedAt', datetime.utcnow().isoformat())
+    cancelled_at = result.get('signedAt', datetime.now(timezone.utc).isoformat())
 
     # Marcar como "No Renovar" — el servicio sigue activo hasta el próximo vencimiento
     contract['cancelRequest'] = True
@@ -740,7 +740,7 @@ def pay_invoice(invoice_id):
         "paymentMethod": "Tarjeta en Línea (Portal)",
         "bank": "Pasarela e-Factura",
         "referenceNumber": f"WEB-{uuid.uuid4().hex[:8].upper()}",
-        "paymentDate": datetime.utcnow().isoformat(),
+        "paymentDate": datetime.now(timezone.utc).isoformat(),
         "registeredBy": "Cliente (Portal Autogestión)"
     }
     
@@ -832,7 +832,7 @@ def report_invoice_payment(invoice_id):
             "fileUrl": file_url,
             "fileName": proof_file.filename,
             "notes": notes,
-            "uploadedAt": datetime.utcnow().isoformat()
+            "uploadedAt": datetime.now(timezone.utc).isoformat()
         }
         
         PortalDbService.save_invoice(owner_uid, invoice_id, invoice, sandbox=sandbox)
@@ -937,7 +937,7 @@ def _process_azul_payment_record(result):
         "paymentMethod": "Tarjeta en Línea (Azul)",
         "bank": "Pasarela Azul",
         "referenceNumber": payment_id,
-        "paymentDate": datetime.utcnow().isoformat(),
+        "paymentDate": datetime.now(timezone.utc).isoformat(),
         "registeredBy": "Cliente (Pasarela Azul)"
     }
     
