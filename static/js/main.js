@@ -94,6 +94,13 @@ document.addEventListener('DOMContentLoaded', () => {
             document.documentElement.setAttribute('data-theme', newTheme);
             localStorage.setItem('theme', newTheme);
             
+            // Actualizar theme-color para Safari (reemplazar elemento para compatibilidad)
+            if (typeof window.setThemeColor === 'function') {
+                const lightColor = document.documentElement.getAttribute('data-theme-color-light') || '#7c3aed';
+                const darkColor = document.documentElement.getAttribute('data-theme-color-dark') || '#0f172a';
+                window.setThemeColor(newTheme === 'dark' ? darkColor : lightColor);
+            }
+            
             updateThemeIcons(newTheme);
         });
     }

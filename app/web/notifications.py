@@ -31,9 +31,13 @@ def notification_stream():
                         payload = json.dumps({
                             'id': nid,
                             'title': n.get('title', ''),
-                            'message': n.get('message', ''),
+                            'message': n.get('message', n.get('body', '')),
                             'type': n.get('type', 'info'),
                             'encf': n.get('encf', ''),
+                            'link': n.get('link', ''),
+                            'clientName': n.get('clientName', ''),
+                            'documentNumber': n.get('documentNumber', ''),
+                            'documentType': n.get('documentType', ''),
                             'createdAt': n.get('createdAt', ''),
                         })
                         yield f"event: notification\ndata: {payload}\n\n"

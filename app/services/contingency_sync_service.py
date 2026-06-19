@@ -221,6 +221,7 @@ class ContingencySyncService:
                 if uid:
                     user_ids.append(uid)
 
+            sandbox_param = 'true' if sandbox else 'false'
             notification = {
                 "title": "e-CF en Contingencia Prolongada",
                 "message": (
@@ -230,6 +231,7 @@ class ContingencySyncService:
                 ),
                 "type": "contingency_warning",
                 "encf": encf,
+                "link": f"/invoices/{encf}?sandbox={sandbox_param}",
                 "sandbox": sandbox,
                 "createdAt": datetime.now(timezone.utc).isoformat(),
                 "read": False,

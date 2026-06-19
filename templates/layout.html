@@ -3,11 +3,27 @@
 
 <head>
     <meta charset="UTF-8">
+    <meta name="theme-color" content="{{ company_color_marca or '#7c3aed' }}">
     <script>
+        // Función global para cambiar theme-color (Safari requiere reemplazar el elemento)
+        window.setThemeColor = function (color) {
+            var old = document.querySelector('meta[name="theme-color"]');
+            if (old) old.remove();
+            var meta = document.createElement('meta');
+            meta.name = 'theme-color';
+            meta.content = color;
+            document.head.appendChild(meta);
+        };
         // Aplicar tema guardado antes de renderizar la página para evitar destellos (flash)
         (function () {
             const savedTheme = localStorage.getItem('theme') || 'light';
             document.documentElement.setAttribute('data-theme', savedTheme);
+            // Colores para theme-color de Safari (iOS 15+ / Safari 15+)
+            const lightColor = '{{ company_color_marca or "#7c3aed" }}';
+            const darkColor = '#0f172a';
+            document.documentElement.setAttribute('data-theme-color-light', lightColor);
+            document.documentElement.setAttribute('data-theme-color-dark', darkColor);
+            window.setThemeColor(savedTheme === 'dark' ? darkColor : lightColor);
         })();
     </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -2503,37 +2519,102 @@
             eventSource.addEventListener('notification', function (e) {
                 try {
                     var data = JSON.parse(e.data);
+
+                    // Saltar notificaciones ya mostradas en sesiones anteriores
+                    var seenIds = JSON.parse(localStorage.getItem('toast_seen_ids') || '[]');
+                    if (data.id && seenIds.includes(data.id)) {
+                        if (data.id) localStorage.setItem('last_notification_id', data.id);
+                        return;
+                    }
+
+                    // Marcar como vista persistentemente
                     if (data.id) {
                         localStorage.setItem('last_notification_id', data.id);
+                        seenIds.push(data.id);
+                        if (seenIds.length > 50) seenIds = seenIds.slice(-50);
+                        localStorage.setItem('toast_seen_ids', JSON.stringify(seenIds));
                     }
 
                     // Mostrar notificación como toast
                     var type = data.type || 'info';
-                    var icon = type === 'contingency_warning'
-                        ? '<i class="fa-solid fa-triangle-exclamation" style="color: var(--accent-red);"></i>'
-                        : '<i class="fa-solid fa-bell"></i>';
-                    var bgColor = type === 'contingency_warning'
-                        ? 'rgba(244, 67, 54, 0.1)'
-                        : 'rgba(25, 118, 210, 0.1)';
-                    var borderColor = type === 'contingency_warning'
-                        ? 'var(--accent-red)'
-                        : 'var(--accent-blue)';
+
+                    // Icono según tipo
+                    var iconHtml, iconColor, borderColor, badgeHtml;
+                    if (type === 'contingency_warning') {
+                        iconHtml = '<i class="fa-solid fa-triangle-exclamation" style="color: var(--accent-red);"></i>';
+                        iconColor = 'var(--accent-red)';
+                        borderColor = 'var(--accent-red)';
+                        badgeHtml = '<span style="display: inline-block; font-size: 0.62rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent-red); border: 1px solid var(--accent-red); border-radius: 3px; padding: 1px 6px; margin-left: 8px;">CONTINGENCIA</span>';
+                    } else if (type === 'mention') {
+                        iconHtml = '<i class="fa-solid fa-at" style="color: var(--accent-purple);"></i>';
+                        iconColor = 'var(--accent-purple)';
+                        borderColor = 'var(--accent-purple)';
+                        badgeHtml = '';
+                    } else if (type === 'payment') {
+                        iconHtml = '<i class="fa-solid fa-credit-card" style="color: var(--accent-emerald);"></i>';
+                        iconColor = 'var(--accent-emerald)';
+                        borderColor = 'var(--accent-emerald)';
+                        badgeHtml = '';
+                    } else {
+                        iconHtml = '<i class="fa-solid fa-bell" style="color: var(--accent-blue);"></i>';
+                        iconColor = 'var(--accent-blue)';
+                        borderColor = 'var(--accent-blue)';
+                        badgeHtml = '';
+                    }
+
+                    // Timestamp relativo
+                    var timeHtml = '';
+                    if (data.createdAt) {
+                        var created = new Date(data.createdAt);
+                        var now = new Date();
+                        var diffSec = Math.floor((now - created) / 1000);
+                        var relTime;
+                        if (diffSec < 60) relTime = 'ahora';
+                        else if (diffSec < 3600) relTime = Math.floor(diffSec / 60) + 'm';
+                        else if (diffSec < 86400) relTime = Math.floor(diffSec / 3600) + 'h';
+                        else relTime = Math.floor(diffSec / 86400) + 'd';
+                        timeHtml = '<span style="font-size: 0.72rem; color: var(--text-muted); flex-shrink: 0;">hace ' + relTime + '</span>';
+                    }
+
+                    // e-CF badge
+                    var encfHtml = '';
+                    if (data.encf) {
+                        encfHtml = '<div style="margin-top: 6px; font-family: monospace; font-size: 0.72rem; color: var(--text-muted); background: var(--bg-nav-hover); display: inline-block; padding: 1px 8px; border-radius: 3px;">' + data.encf + '</div>';
+                    }
+
+                    // Truncar mensaje largo
+                    var msg = data.message || '';
+                    if (msg.length > 120) msg = msg.substring(0, 120) + '...';
 
                     var toast = document.createElement('div');
+                    toast.className = 'toast-notification';
+                    if (data.link) {
+                        toast.style.cursor = 'pointer';
+                        toast.addEventListener('click', function (e) {
+                            if (e.target.tagName === 'BUTTON') return;
+                            window.location.href = data.link;
+                        });
+                    }
                     toast.style.cssText = [
                         'position: fixed; bottom: 24px; right: 24px; z-index: 99999;',
                         'background: var(--bg-card); border-left: 4px solid ' + borderColor + ';',
                         'border-radius: var(--radius-md); padding: 16px 20px;',
                         'box-shadow: 0 8px 32px rgba(0,0,0,0.15); max-width: 400px;',
-                        'animation: slideInRight 0.3s ease; background-color: ' + bgColor + ';',
+                        'animation: slideInRight 0.3s ease;',
                         'display: flex; align-items: flex-start; gap: 12px;',
                     ].join('');
                     toast.innerHTML = [
-                        '<div style="font-size: 1.3rem; flex-shrink: 0;">' + icon + '</div>',
-                        '<div style="flex: 1;">',
-                        '  <div style="font-weight: 700; font-size: 0.9rem; margin-bottom: 4px;">' + data.title + '</div>',
-                        '  <div style="font-size: 0.82rem; color: var(--text-secondary); line-height: 1.4;">' + data.message + '</div>',
-                        '  <button onclick="this.parentElement.parentElement.remove()" style="',
+                        '<div style="font-size: 1.3rem; flex-shrink: 0;">' + iconHtml + '</div>',
+                        '<div style="flex: 1; min-width: 0;">',
+                        '  <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 4px;">',
+                        '    <span style="font-weight: 700; font-size: 0.9rem; color: var(--text-primary);">' + data.title + '</span>',
+                        '    ' + badgeHtml,
+                        '    ' + timeHtml,
+                        '  </div>',
+                        '  <div style="font-size: 0.82rem; color: var(--text-secondary); line-height: 1.4; word-wrap: break-word;">' + msg + '</div>',
+                        '  ' + encfHtml,
+                        '  ' + (data.clientName ? '<div style="margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border-color); font-size: 0.72rem; color: var(--text-muted); display: flex; align-items: center; gap: 6px;"><i class="fa-solid fa-user" style="font-size: 0.65rem;"></i> ' + data.clientName + (data.documentNumber ? ' · ' + data.documentNumber : '') + '</div>' : ''),
+                        '  <button onclick="event.stopPropagation(); this.parentElement.parentElement.remove()" style="',
                         '    background: none; border: none; color: var(--text-muted); cursor: pointer;',
                         '    font-size: 0.75rem; margin-top: 8px; padding: 0; text-decoration: underline;',
                         '  ">Cerrar</button>',
@@ -2558,6 +2639,10 @@
         @keyframes slideInRight {
             from { transform: translateX(100%); opacity: 0; }
             to { transform: translateX(0); opacity: 1; }
+        }
+        .toast-notification {
+            backdrop-filter: blur(24px) saturate(180%);
+            -webkit-backdrop-filter: blur(24px) saturate(180%);
         }
     </style>
 </body>
