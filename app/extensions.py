@@ -1,6 +1,14 @@
 # app/extensions.py
+import os
 from app.cache import cache
 from app.services.db_service import DatabaseService
+from flask_wtf.csrf import CSRFProtect
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+from flask_cors import CORS
+
+csrf = CSRFProtect()
+limiter = Limiter(key_func=get_remote_address)
 
 # Filtro Jinja2 personalizado para formatear montos monetarios (ej. 1,000.00)
 def formatted_filter(value):
@@ -21,12 +29,25 @@ def format_date_filter(value):
     return value
 
 def init_extensions(app):
-    """Inicializa base de datos local, caché y registra filtros globales de Jinja2."""
+    """Inicializa base de datos local, caché, CSRF, rate limiter y registra filtros globales de Jinja2."""
     # Inicializar Flask-Caching
     cache.init_app(app)
 
     # Inicializar Base de Datos SQLite local y tablas de Firebase Auth
     DatabaseService.init_local_db()
+
+    # Inicializar CSRF Protection (excluye rutas API que usan sus propios tokens)
+    csrf.init_app(app)
+    csrf.exempt(app.url_map.iter_rules
+                if hasattr(app.url_map, 'iter_rules') else None)
+
+    # Eximir rutas /api/ de CSRF (usan autenticación por token)
+    for rule in app.url_map.iter_rules():
+        if rule.rule.startswith('/api/'):
+            csrf.exempt(rule.endpoint)
+
+    # Configurar CORS para APIs
+    CORS(app, resources={r"/api/*": {"origins": os.getenv('CORS_ORIGINS', '*')}})
 
     # Registrar filtros personalizados
     app.template_filter('formatted')(formatted_filter)

@@ -794,7 +794,7 @@
     <script>
         let activeItemId = '';
         let activeItemType = '';
-        const ownerUid = '{{ owner_uid }}';
+        const ownerUid = {{ owner_uid|tojson|safe }};
         const sandbox = {{ 'true' if sandbox else 'false' }};
 
         // Modal de Firma — Generico (firmar / cancelar)

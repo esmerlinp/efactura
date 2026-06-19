@@ -1,5 +1,6 @@
 # app/web/clients.py
 import uuid
+import html
 from datetime import datetime
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify
 from app.services.db_service import DatabaseService
@@ -128,7 +129,7 @@ def new_client():
                     mime_type=mime_type
                 )
             except Exception as e:
-                flash(f"Advertencia: No se pudo subir la imagen del cliente: {str(e)}", 'warning')
+                flash(f"Advertencia: No se pudo subir la imagen del cliente: {html.escape(str(e))}", 'warning')
 
         import random
         access_pin = request.form.get('accessPin', '').strip()
@@ -262,7 +263,7 @@ def edit_client(client_id):
                     mime_type=mime_type
                 )
             except Exception as e:
-                flash(f"Advertencia: No se pudo subir la imagen del cliente: {str(e)}", 'warning')
+                flash(f"Advertencia: No se pudo subir la imagen del cliente: {html.escape(str(e))}", 'warning')
 
         import random
         access_pin = request.form.get('accessPin', '').strip()
@@ -628,7 +629,7 @@ def add_client_interaction(client_id):
             )
             attachment_name = file.filename
         except Exception as e:
-            flash(f"Advertencia: No se pudo cargar el archivo adjunto: {str(e)}", 'warning')
+            flash(f"Advertencia: No se pudo cargar el archivo adjunto: {html.escape(str(e))}", 'warning')
 
     interaction_id = str(uuid.uuid4())
     interaction_dict = {

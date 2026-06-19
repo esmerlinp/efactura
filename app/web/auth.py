@@ -1,5 +1,6 @@
 # app/web/auth.py
 import os
+import hashlib
 import requests as http_requests
 import pyotp
 import qrcode
@@ -11,6 +12,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from config import Config
 from app.services.db_service import DatabaseService
 from app.utils.decorators import check_permission
+from app.extensions import limiter
 
 web_auth_bp = Blueprint('web_auth', __name__)
 
@@ -126,18 +128,39 @@ def api_solicitar_demo():
         return jsonify({"success": False, "error": str(e)}), 500
 
 
+from app.cache import cache
+
+MAX_LOGIN_ATTEMPTS = 5
+LOCKOUT_DURATION = 900  # 15 minutos en segundos
+
 @web_auth_bp.route('/login', methods=['GET', 'POST'])
+@limiter.limit("10/minute;30/hour;100/day")
 def login():
     if 'user' in session:
         return redirect(url_for('web_dashboard.dashboard'))
         
     if request.method == 'POST':
-        email = request.form['email']
+        email = request.form['email'].strip().lower()
         password = request.form['password']
+        
+        # Verificar bloqueo temporal por intentos fallidos
+        lockout_key = f"login_lockout_{email}"
+        lockout_until = cache.get(lockout_key)
+        if lockout_until:
+            remaining = int(lockout_until - datetime.now().timestamp())
+            if remaining > 0:
+                flash(f'Demasiados intentos fallidos. Intenta de nuevo en {remaining} segundos.', 'error')
+                return render_template('auth/login.html')
+            else:
+                cache.delete(lockout_key)
         
         try:
             user_profile = DatabaseService.authenticate_user(email, password)
             if user_profile:
+                # Restablecer contador de intentos fallidos
+                cache.delete(f"login_attempts_{email}")
+                
+                # Si tiene MFA activo, guardar perfil temporal y redirigir
                 # Si tiene MFA activo, guardar perfil temporal y redirigir
                 if user_profile.get("two_factor_enabled"):
                     session['mfa_pending_uid'] = user_profile['uid']
@@ -174,13 +197,35 @@ def login():
                     return redirect(url_for('web_auth.select_company'))
                 return redirect(url_for('web_dashboard.dashboard'))
             else:
-                flash('Credenciales incorrectas. Inténtalo de nuevo.', 'error')
+                from app.services.audit_service import AuditService, ACTION_LOGIN, MODULE_AUTH
+                AuditService.log_from_request(
+                    owner_uid=email,
+                    action=ACTION_LOGIN,
+                    module=MODULE_AUTH,
+                    entity_id=email,
+                    entity_label=f"Inicio de sesión fallido — {email}",
+                    user_session={},
+                    sandbox=False
+                )
+                att_key = f"login_attempts_{email}"
+                attempts = cache.get(att_key) or 0
+                attempts += 1
+                cache.set(att_key, attempts, timeout=LOCKOUT_DURATION)
+                if attempts >= MAX_LOGIN_ATTEMPTS:
+                    lockout_key = f"login_lockout_{email}"
+                    lockout_until = datetime.now().timestamp() + LOCKOUT_DURATION
+                    cache.set(lockout_key, lockout_until, timeout=LOCKOUT_DURATION)
+                    flash(f'Cuenta bloqueada temporalmente. Intenta de nuevo en {LOCKOUT_DURATION // 60} minutos.', 'error')
+                else:
+                    remaining = MAX_LOGIN_ATTEMPTS - attempts
+                    flash(f'Credenciales incorrectas. Te quedan {remaining} intento(s).', 'error')
         except ValueError as e:
             flash(str(e), 'error')
             
     return render_template('auth/login.html')
 
 @web_auth_bp.route('/login/verify-2fa', methods=['GET', 'POST'])
+@limiter.limit("10/minute;30/hour")
 def verify_2fa():
     if 'user' in session:
         return redirect(url_for('web_dashboard.dashboard'))
@@ -203,17 +248,19 @@ def verify_2fa():
             if totp.verify(code, valid_window=1):
                 is_valid = True
                 
-        # 2. Verificar códigos de respaldo
-        if not is_valid and code in backup_codes:
-            is_valid = True
-            backup_codes.remove(code)
-            DatabaseService.save_user_2fa_config(
-                uid=user_profile['uid'],
-                secret=secret,
-                enabled=True,
-                backup_codes=backup_codes
-            )
-            user_profile['backup_codes'] = backup_codes
+        # 2. Verificar códigos de respaldo (hasheados en Firestore)
+        if not is_valid:
+            hashed_input = hashlib.sha256(code.encode()).hexdigest()
+            if hashed_input in backup_codes:
+                is_valid = True
+                backup_codes.remove(hashed_input)
+                DatabaseService.save_user_2fa_config(
+                    uid=user_profile['uid'],
+                    secret=secret,
+                    enabled=True,
+                    backup_codes=backup_codes
+                )
+                user_profile['backup_codes'] = backup_codes
             
         if is_valid:
             session['user'] = user_profile
@@ -382,7 +429,7 @@ def disable_2fa():
 
 
 @web_auth_bp.route('/register', methods=['GET', 'POST'])
-
+@limiter.limit("3/hour;10/day")
 def register():
     flash('El registro público de cuentas está deshabilitado. Comuníquese con ventas para crear su cuenta.', 'error')
     return redirect(url_for('web_auth.login'))
@@ -455,6 +502,7 @@ def select_company():
 
 
 @web_auth_bp.route('/forgot-password', methods=['POST'])
+@limiter.limit("3/minute;10/hour;30/day")
 def forgot_password():
     """Envía un correo de recuperación de contraseña usando Firebase Auth REST API."""
     data = request.get_json(silent=True) or {}

@@ -1,4 +1,5 @@
 import uuid
+import html
 from datetime import datetime
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash, session
 from firebase_admin import firestore
@@ -333,7 +334,7 @@ def validate_certificate_signature(cert_file, password, client_rnc):
     except ValueError:
         return False, "La contraseña del certificado es incorrecta o el archivo no es un certificado PKCS#12 (.p12/.pfx) válido."
     except Exception as e:
-        return False, f"Error al procesar el certificado digital: {str(e)}"
+        return False, f"Error al procesar el certificado digital: {html.escape(str(e))}"
 
 @portal_bp.route('/portal/cotizacion/<invoice_id>/firmar', methods=['POST'])
 def sign_quotation(invoice_id):

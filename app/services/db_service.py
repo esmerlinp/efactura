@@ -6,6 +6,7 @@ import traceback
 from datetime import datetime, timedelta
 from werkzeug.security import generate_password_hash, check_password_hash
 from config import Config
+from app.utils.security import encrypt_field, decrypt_field, sha256_hash
 
 # Intentar inicializar Firebase Admin
 firebase_initialized = False
@@ -41,8 +42,9 @@ try:
     firebase_initialized = True
     print("🔥 Firebase Admin SDK inicializado correctamente y conectado a Firestore.")
 except Exception as e:
+    import logging
+    logging.exception("Error al inicializar Firebase Admin SDK")
     print(f"❌ Error al inicializar Firebase Admin SDK: {e}. Operando en MODO LOCAL (SQLite).")
-    traceback.print_exc()
 
 
 from app.cache import cache
@@ -77,6 +79,10 @@ def _cached_company_profile(owner_uid):
             if doc.exists:
                 data = doc.to_dict()
                 profile.update(data)
+                if profile.get("certificatePassword"):
+                    profile["certificatePassword"] = decrypt_field(profile["certificatePassword"])
+                if profile.get("certificateContent"):
+                    profile["certificateContent"] = decrypt_field(profile["certificateContent"])
                 if "regimenFiscal" not in profile:
                     profile["regimenFiscal"] = "General"
             else:
@@ -104,6 +110,10 @@ def _cached_user_profile(uid):
         if doc.exists:
             data = doc.to_dict()
             perms = data.get("permissions", {})
+            two_factor_secret = data.get("two_factor_secret")
+            if two_factor_secret:
+                two_factor_secret = decrypt_field(two_factor_secret)
+
             return {
                 "uid": uid,
                 "ownerUID": data.get("ownerUID", uid),
@@ -135,7 +145,7 @@ def _cached_user_profile(uid):
                 },
                 "createdAt": serialize_field(data.get("createdAt")),
                 "two_factor_enabled": bool(data.get("two_factor_enabled", False)),
-                "two_factor_secret": data.get("two_factor_secret"),
+                "two_factor_secret": two_factor_secret,
                 "backup_codes": data.get("backup_codes", []),
                 "posSupervisorPin": data.get("posSupervisorPin", ""),
                 "profileImageUrl": data.get("profileImageUrl")
@@ -384,9 +394,10 @@ class DatabaseService:
                 print(f"👤 Usuario Administrador Demo '{demo_email}' ya está registrado en Firebase Auth.")
             except auth.UserNotFoundError:
                 print(f"👤 Registrando Usuario Administrador Demo '{demo_email}' en Firebase Auth...")
+                demo_password = os.getenv('DEMO_USER_PASSWORD', 'password123')
                 cls.register_user(
                     email=demo_email,
-                    password="password123",
+                    password=demo_password,
                     name="Propietario Demo",
                     role="owner"
                 )
@@ -742,16 +753,17 @@ class DatabaseService:
 
     @classmethod
     def save_user_2fa_config(cls, uid, secret, enabled, backup_codes=None):
-        """Actualiza la configuración de autenticación en dos pasos en Firestore."""
+        """Actualiza la configuración de autenticación en dos pasos en Firestore (cifrando secret, hasheando backup codes)."""
         if not firebase_initialized:
             return False
         try:
+            encrypted_secret = encrypt_field(secret) if secret else secret
             data = {
                 "two_factor_enabled": bool(enabled),
-                "two_factor_secret": secret
+                "two_factor_secret": encrypted_secret
             }
             if backup_codes is not None:
-                data["backup_codes"] = backup_codes
+                data["backup_codes"] = [sha256_hash(c) for c in backup_codes]
             db_firestore.collection("users").document(uid).collection("config").document("user_profile").update(data)
             return True
         except Exception as e:
@@ -854,10 +866,15 @@ class DatabaseService:
 
     @classmethod
     def save_company_profile(cls, owner_uid, profile_dict, upload_to_firestore=True):
-        """Guarda el perfil de la empresa."""
+        """Guarda el perfil de la empresa (cifrando campos sensibles antes de Firestore)."""
         if firebase_initialized and upload_to_firestore:
             try:
-                db_firestore.collection("users").document(owner_uid).collection("config").document("profile").set(profile_dict)
+                encrypted = dict(profile_dict)
+                if encrypted.get("certificatePassword"):
+                    encrypted["certificatePassword"] = encrypt_field(encrypted["certificatePassword"])
+                if encrypted.get("certificateContent"):
+                    encrypted["certificateContent"] = encrypt_field(encrypted["certificateContent"])
+                db_firestore.collection("users").document(owner_uid).collection("config").document("profile").set(encrypted)
             except Exception as e:
                 print(f"⚠️ Fallo al guardar perfil de empresa en Firestore: {e}")
 
@@ -2456,15 +2473,16 @@ class DatabaseService:
             except Exception as ex:
                 print(f"⚠️ Error validando límite de almacenamiento: {ex}")
 
+        # Directorio local de uploads (fuera de static/ por seguridad)
         if not firebase_initialized or not firebase_storage_bucket:
-            # En modo local, simulamos una ruta local en uploads
-            uploads_dir = os.path.join("static", "uploads")
+            from flask import current_app
+            uploads_dir = current_app.config.get('UPLOAD_FOLDER', os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'uploads'))
             os.makedirs(uploads_dir, exist_ok=True)
             filename = os.path.basename(destination_path)
             local_path = os.path.join(uploads_dir, filename)
             with open(local_path, "wb") as f:
                 f.write(file_data)
-            return f"/static/uploads/{filename}"
+            return f"/uploads/{filename}"
 
         try:
             blob = firebase_storage_bucket.blob(destination_path)
@@ -2473,14 +2491,15 @@ class DatabaseService:
             return blob.public_url
         except Exception as e:
             print(f"❌ Error al subir archivo a Firebase Storage: {e}")
-            # Fallback a guardado local en static/uploads
-            uploads_dir = os.path.join("static", "uploads")
+            # Fallback a guardado local
+            from flask import current_app
+            uploads_dir = current_app.config.get('UPLOAD_FOLDER', os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'uploads'))
             os.makedirs(uploads_dir, exist_ok=True)
             filename = os.path.basename(destination_path)
             local_path = os.path.join(uploads_dir, filename)
             with open(local_path, "wb") as f:
                 f.write(file_data)
-            return f"/static/uploads/{filename}"
+            return f"/uploads/{filename}"
 
     # =========================================================================
     # GESTIÓN DE INVENTARIO Y ALMACENES
@@ -2712,16 +2731,22 @@ class DatabaseService:
 
     @classmethod
     def get_company_by_api_key(cls, api_key):
-        """Busca una compañía y su propietario usando una API Key en la colección raíz 'api_keys'."""
+        """Busca una compañía por API Key (busca por hash, con migración lazy de keys legacy)."""
         if not firebase_initialized:
             return None
         try:
-            doc = db_firestore.collection("api_keys").document(api_key).get()
+            hashed_key = sha256_hash(api_key)
+            doc = db_firestore.collection("api_keys").document(hashed_key).get()
+            if not doc.exists:
+                doc = db_firestore.collection("api_keys").document(api_key).get()
+                if doc.exists:
+                    data = doc.to_dict()
+                    db_firestore.collection("api_keys").document(hashed_key).set(data)
+                    db_firestore.collection("api_keys").document(api_key).delete()
             if doc.exists:
                 data = doc.to_dict()
                 owner_uid = data.get("ownerUID")
                 if owner_uid:
-                    # Retornar el perfil de la compañía completo
                     return cls.get_company_profile(owner_uid)
         except Exception as e:
             print(f"⚠️ Error al buscar compañía por API Key: {e}")
@@ -2729,30 +2754,28 @@ class DatabaseService:
 
     @classmethod
     def generate_api_key(cls, owner_uid):
-        """Genera una nueva API Key única para un owner_uid y la guarda en la colección api_keys y en su perfil."""
+        """Genera una nueva API Key única y la guarda hasheada en api_keys y en su perfil."""
         if not firebase_initialized:
             return None
         try:
-            # Generar API Key
             new_key = f"ef_{uuid.uuid4().hex}"
-            
-            # 1. Guardar en la colección raíz api_keys para búsqueda ultra rápida
-            db_firestore.collection("api_keys").document(new_key).set({
+            hashed_key = sha256_hash(new_key)
+
+            db_firestore.collection("api_keys").document(hashed_key).set({
                 "ownerUID": owner_uid,
                 "createdAt": datetime.utcnow().isoformat()
             })
-            
-            # 2. Actualizar el perfil de empresa de la compañía para que pueda verla en la UI
+
             company_profile = cls.get_company_profile(owner_uid)
-            
-            # Si ya tenía una API Key anterior, podemos opcionalmente borrar la anterior
+
             old_key = company_profile.get("apiKey")
             if old_key:
                 try:
-                    db_firestore.collection("api_keys").document(old_key).delete()
+                    hashed_old = sha256_hash(old_key)
+                    db_firestore.collection("api_keys").document(hashed_old).delete()
                 except Exception:
                     pass
-            
+
             company_profile["apiKey"] = new_key
             cls.save_company_profile(owner_uid, company_profile)
             return new_key

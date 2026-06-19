@@ -75,6 +75,21 @@ class AuditService:
             str: ID del log creado, o "" si falló silenciosamente.
         """
         if not firebase_initialized or not db_firestore:
+            # Fallback: log local a archivo
+            try:
+                import os as _os
+                log_dir = _os.path.join(_os.path.dirname(_os.path.dirname(_os.path.dirname(__file__))), 'logs')
+                _os.makedirs(log_dir, exist_ok=True)
+                log_path = _os.path.join(log_dir, 'security_audit.log')
+                with open(log_path, 'a', encoding='utf-8') as _f:
+                    _f.write(
+                        f"[{datetime.utcnow().isoformat()}] "
+                        f"ACCION={action} MODULO={module} "
+                        f"USUARIO={performed_by_email or 'anónimo'} "
+                        f"ENTIDAD={entity_label or entity_id}\n"
+                    )
+            except Exception:
+                pass
             return ""
 
         try:
@@ -108,9 +123,9 @@ class AuditService:
             return log_id
 
         except Exception as e:
-            # El log de auditoría NUNCA debe interrumpir la operación principal
+            import logging
+            logging.exception("[AuditService] Error al registrar evento")
             print(f"⚠️ [AuditService] Error al registrar evento: {e}")
-            traceback.print_exc()
             return ""
 
     @classmethod
@@ -259,8 +274,9 @@ class AuditService:
             }
 
         except Exception as e:
+            import logging
+            logging.exception("[AuditService] Error al obtener logs")
             print(f"⚠️ [AuditService] Error al obtener logs: {e}")
-            traceback.print_exc()
             return {"logs": [], "total": 0, "pages": 0, "current_page": page, "is_limited": False}
 
     @classmethod

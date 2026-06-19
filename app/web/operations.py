@@ -572,7 +572,7 @@ def upload_client_document_route(client_id):
         flash("Documento cargado de forma segura y adjuntado al historial del cliente.", "success")
         
     except Exception as e:
-        flash(f"Error al subir el archivo: {str(e)}", "error")
+        flash(f"Error al subir el archivo: {html.escape(str(e))}", "error")
         
     return redirect(url_for('web_clients.client_detail', client_id=client_id))
 
@@ -750,7 +750,7 @@ def add_contract_comment(contract_id):
             attachment_url = DatabaseService.upload_file_to_storage(file_data, destination_path, mime_type)
             attachment_name = file.filename
         except Exception as e:
-            flash(f"Advertencia: No se pudo cargar el archivo adjunto: {str(e)}", 'warning')
+            flash(f"Advertencia: No se pudo cargar el archivo adjunto: {html.escape(str(e))}", 'warning')
             
     comment_id = str(uuid.uuid4())
     comment_dict = {
@@ -815,7 +815,7 @@ def edit_contract_comment(contract_id, comment_id):
             comment['attachmentUrl'] = attachment_url
             comment['attachmentName'] = file.filename
         except Exception as e:
-            flash(f"Advertencia: No se pudo cargar el archivo adjunto: {str(e)}", 'warning')
+            flash(f"Advertencia: No se pudo cargar el archivo adjunto: {html.escape(str(e))}", 'warning')
             
     DatabaseService.save_resource_comment(owner_uid, "contracts", contract_id, comment_id, comment, sandbox=sandbox)
     

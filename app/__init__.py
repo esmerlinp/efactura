@@ -1,26 +1,6 @@
-import flask
 import flask.helpers
 
-# Guardar la referencia al url_for original para evitar recursión
-_original_url_for = flask.helpers.url_for
-
-def custom_url_for(endpoint, **values):
-    try:
-        return _original_url_for(endpoint, **values)
-    except Exception:
-        # Si falla el endpoint global, intentar con el prefijo de nuestros Blueprints web
-        for bp_name in ['web_auth', 'web_dashboard', 'web_clients', 'web_invoices', 'web_pos', 'web_operations', 'portal', 'web_audit']:
-            try:
-                return _original_url_for(f"{bp_name}.{endpoint}", **values)
-            except Exception:
-                pass
-        # Si de todas formas falla, relanzar el error original
-        raise
-
-flask.helpers.url_for = custom_url_for
-flask.url_for = custom_url_for
-
-flask_url_for = _original_url_for
+flask_url_for = flask.helpers.url_for
 
 from flask import Flask, request, session, jsonify, flash, redirect, render_template
 from config import Config
@@ -37,6 +17,18 @@ def create_app():
 
     # Inicializar base de datos local, caché y filtros Jinja2
     init_extensions(app)
+
+    # Validar que secretos críticos estén configurados
+    _required_secrets = ['SECRET_KEY', 'FIREBASE_API_KEY']
+    for _key in _required_secrets:
+        if not app.config.get(_key):
+            raise RuntimeError(
+                f"❌ Variable de entorno {_key} no está configurada. "
+                f"Debe definirse en .env o en las variables de entorno del sistema."
+            )
+
+    if not app.config.get('FIELD_ENCRYPTION_KEY'):
+        print("⚠️ FIELD_ENCRYPTION_KEY no configurada — campos sensibles en Firestore se guardarán en texto plano")
 
     # =========================================================================
     # LIFECYCLE HOOKS & SEGURIDAD DE PERMISOS
@@ -376,6 +368,54 @@ def create_app():
         return dict(url_for=custom_url_for)
 
     # =========================================================================
+    # SEGURIDAD: HEADERS HTTP
+    # =========================================================================
+    @app.after_request
+    def add_security_headers(response):
+        response.headers['X-Frame-Options'] = 'DENY'
+        response.headers['X-Content-Type-Options'] = 'nosniff'
+        response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+        response.headers['Permissions-Policy'] = 'geolocation=(), microphone=(), camera=()'
+        response.headers['X-Permitted-Cross-Domain-Policies'] = 'none'
+        response.headers['Cross-Origin-Resource-Policy'] = 'same-origin'
+        response.headers['Cross-Origin-Opener-Policy'] = 'same-origin'
+        if request.is_secure:
+            response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+
+        # CSP: restringir orígenes de recursos a conocidos
+        csp = (
+            "default-src 'self'; "
+            "script-src 'self' 'unsafe-inline' "
+            "cdn.jsdelivr.net cdn.tailwindcss.com npmcdn.com "
+            "cdnjs.cloudflare.com "
+            "https://www.googletagmanager.com "
+            "https://www.google-analytics.com; "
+            "style-src 'self' 'unsafe-inline' "
+            "cdnjs.cloudflare.com cdn.jsdelivr.net "
+            "fonts.googleapis.com; "
+            "font-src 'self' cdnjs.cloudflare.com fonts.gstatic.com; "
+            "img-src 'self' data: "
+            "storage.googleapis.com firebasestorage.googleapis.com "
+            "*.googleusercontent.com; "
+            "connect-src 'self' "
+            "https://identitytoolkit.googleapis.com "
+            "https://securetoken.googleapis.com "
+            "https://firestore.googleapis.com "
+            "https://*.alanube.co "
+            "https://ecf.dgii.gov.do "
+            "https://api.openai.com; "
+            "frame-ancestors 'none'; "
+            "form-action 'self'; "
+            "base-uri 'self'"
+        )
+        response.headers['Content-Security-Policy'] = csp
+
+        # Remover Server header para no revelar versión de servidor
+        if 'Server' in response.headers:
+            del response.headers['Server']
+        return response
+
+    # =========================================================================
     # CACHÉ DE ASSETS ESTÁTICOS
     # =========================================================================
     @app.after_request
@@ -391,19 +431,32 @@ def create_app():
     def log_failed_api_calls(response):
         if request.path.startswith('/api/') and response.status_code >= 400:
             import os
+            import re
             from datetime import datetime
             
-            # root_path is typically the 'app' folder, so we go one level up for the main folder
             log_file_path = os.path.join(app.root_path, '../api_errores.log')
             
-            payload = ""
+            raw_payload = ""
             if request.is_json:
-                payload = request.get_data(as_text=True)
+                raw_payload = request.get_data(as_text=True)
             elif request.form:
-                payload = str(request.form.to_dict())
+                raw_payload = str(request.form.to_dict())
             elif request.data:
-                payload = request.get_data(as_text=True)
-                
+                raw_payload = request.get_data(as_text=True)
+            
+            sanitized = re.sub(
+                r'"(password|secret|token|private_key|api_key|authorization)"\s*:\s*"[^"]*"',
+                r'"\1":"[REDACTED]"',
+                raw_payload,
+                flags=re.IGNORECASE
+            )
+            sanitized = re.sub(
+                r'(password|secret|token|api_key)=[^&\s]+',
+                r'\1=[REDACTED]',
+                sanitized,
+                flags=re.IGNORECASE
+            )
+            
             resp_data = ""
             try:
                 resp_data = response.get_data(as_text=True)
@@ -413,7 +466,7 @@ def create_app():
             log_entry = f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] ERROR API:\n"
             log_entry += f"Ruta: {request.method} {request.path}\n"
             log_entry += f"HTTP Code: {response.status_code}\n"
-            log_entry += f"Payload: {payload}\n"
+            log_entry += f"Payload: {sanitized}\n"
             log_entry += f"Response: {resp_data}\n"
             log_entry += ("-" * 60) + "\n"
             
@@ -472,6 +525,29 @@ def create_app():
     app.register_blueprint(web_purchase_orders_bp)
     app.register_blueprint(web_reports_606_bp)
     app.register_blueprint(web_fiscal_notes_bp)
+
+    # =========================================================================
+    # RATE LIMITER — inicializar después de registrar todos los blueprints
+    # =========================================================================
+    from app.extensions import limiter
+    limiter.init_app(app)
+
+    # =========================================================================
+    # SERVIDOR DE ARCHIVOS SUBIDOS (autenticado, fuera de static/)
+    # =========================================================================
+    from flask import send_from_directory, abort
+    import os as _os
+
+    @app.route('/uploads/<path:filename>')
+    def serve_uploaded_file(filename):
+        user_id = session.get('user_id')
+        if not user_id:
+            abort(401)
+        uploads_dir = app.config.get('UPLOAD_FOLDER', _os.path.join(app.root_path, '..', 'uploads'))
+        safe_path = _os.path.normpath(_os.path.join(uploads_dir, filename))
+        if not safe_path.startswith(_os.path.normpath(uploads_dir)):
+            abort(403)
+        return send_from_directory(uploads_dir, filename)
 
     # =========================================================================
     # APScheduler — Facturación automática diaria de contratos recurrentes
