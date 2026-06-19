@@ -41,7 +41,7 @@
             }
         }
     </script>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/landing_dgmax.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/landing_dgmax.css') }}?v={{ range(1, 1000000) | random }}">
 </head>
 
 <body class="bg-midnight-900 text-white antialiased overflow-x-hidden">
@@ -63,10 +63,10 @@
 
                 <div class="flex items-center gap-4">
                     {% if is_logged_in %}
-                        <a href="{{ url_for('web_dashboard.dashboard') }}" class="btn-primary bg-gradient-to-r from-amber-500 to-amber-600 text-midnight-900 px-6 py-2.5 rounded-xl font-semibold">Ir al Dashboard</a>
+                        <a href="{{ url_for('web_dashboard.dashboard') }}" class="hidden sm:block btn-primary bg-gradient-to-r from-amber-500 to-amber-600 text-midnight-900 px-6 py-2.5 rounded-xl font-semibold">Ir al Dashboard</a>
                     {% else %}
                         <a href="{{ url_for('web_auth.login') }}" class="hidden sm:block text-gray-300 hover:text-white transition-colors">Iniciar Sesión</a>
-                        <a href="#contacto" class="btn-primary bg-gradient-to-r from-amber-500 to-amber-600 text-midnight-900 px-6 py-2.5 rounded-xl font-semibold">Comenzar Gratis</a>
+                        <a href="#contacto" class="hidden sm:block btn-primary bg-gradient-to-r from-amber-500 to-amber-600 text-midnight-900 px-6 py-2.5 rounded-xl font-semibold">Comenzar Gratis</a>
                     {% endif %}
 
                     <!-- Botón de menú móvil (Hamburger) -->
