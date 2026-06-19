@@ -939,7 +939,7 @@ Documento Electrónico{% endif %}{% endblock %}
 {% endblock %}
 
 {% block extra_scripts %}
-<script src="{{ url_for('static', filename='js/invoicing.js') }}?v=1.0.{{ range(1, 99999) | random }}"></script>
+<script src="{{ url_for('static', filename='js/invoicing.js') }}?v={{ static_hash('js/invoicing.js') }}"></script>
 <script>
     document.addEventListener('DOMContentLoaded', () => {
         const paymentTypeSelect = document.getElementById('payment-type-select');

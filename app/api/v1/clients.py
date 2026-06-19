@@ -4,11 +4,13 @@ from datetime import datetime
 from flask import Blueprint, request, jsonify, g
 from app.api.auth import require_api_key
 from app.services.db_service import DatabaseService
+from app.utils.cache_utils import http_cache
 
 api_clients_bp = Blueprint('api_clients', __name__)
 
 @api_clients_bp.route('/clients', methods=['GET'])
 @require_api_key
+@http_cache(timeout=60)
 def get_clients():
     """
     GET /api/v1/clients

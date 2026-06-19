@@ -8,6 +8,7 @@ from app.services.db_service import DatabaseService
 from app.services.ecf_emission import EcfEmissionService
 from app.services.dgii import DGIIService
 from app.services.alanube import AlanubeService
+from app.utils.cache_utils import http_cache
 
 api_invoices_bp = Blueprint('api_invoices', __name__)
 
@@ -218,6 +219,7 @@ def emit_invoice():
 
 @api_invoices_bp.route('/invoices/<invoice_id>/status', methods=['GET'])
 @require_api_key
+@http_cache(timeout=30)
 def get_invoice_status(invoice_id):
     """
     GET /api/v1/invoices/<invoice_id>/status
@@ -335,6 +337,7 @@ def calculate_totals():
 
 @api_invoices_bp.route('/invoices', methods=['GET'])
 @require_api_key
+@http_cache(timeout=30)
 def get_invoices():
     """
     GET /api/v1/invoices
@@ -354,6 +357,7 @@ def get_invoices():
 
 @api_invoices_bp.route('/documents', methods=['GET'])
 @require_api_key
+@http_cache(timeout=30)
 def get_documents():
     """
     GET /api/v1/documents
@@ -371,6 +375,7 @@ def get_documents():
 
 @api_invoices_bp.route('/invoices/<invoice_id>', methods=['GET'])
 @require_api_key
+@http_cache(timeout=30)
 def get_invoice_detail(invoice_id):
     """
     GET /api/v1/invoices/<invoice_id>
@@ -619,6 +624,7 @@ def delete_invoice(invoice_id):
 
 @api_invoices_bp.route('/items', methods=['GET'])
 @require_api_key
+@http_cache(timeout=60)
 def get_items():
     """
     GET /api/v1/items
@@ -729,6 +735,7 @@ def delete_item_route(item_id):
 
 @api_invoices_bp.route('/expenses', methods=['GET'])
 @require_api_key
+@http_cache(timeout=30)
 def get_expenses():
     """
     GET /api/v1/expenses
@@ -930,6 +937,7 @@ def delete_expense_route(expense_id):
 
 @api_invoices_bp.route('/dashboard/summary', methods=['GET'])
 @require_api_key
+@http_cache(timeout=30)
 def get_dashboard_summary():
     """
     GET /api/v1/dashboard/summary
@@ -1134,6 +1142,7 @@ def send_invoice_email_endpoint(invoice_id):
 
 @api_invoices_bp.route('/company/plan-consumption', methods=['GET'])
 @require_api_key
+@http_cache(timeout=300)
 def get_company_plan_consumption():
     """
     GET /api/v1/company/plan-consumption

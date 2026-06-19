@@ -3,7 +3,7 @@ import json
 import uuid
 import requests
 import traceback
-from datetime import datetime
+from datetime import datetime, timedelta
 from werkzeug.security import generate_password_hash, check_password_hash
 from config import Config
 
@@ -43,6 +43,317 @@ try:
 except Exception as e:
     print(f"❌ Error al inicializar Firebase Admin SDK: {e}. Operando en MODO LOCAL (SQLite).")
     traceback.print_exc()
+
+
+from app.cache import cache
+
+
+@cache.memoize(timeout=300)
+def _cached_company_profile(owner_uid):
+    profile = {
+        "ownerUID": owner_uid,
+        "companyName": "Mi Empresa SRL",
+        "tradeName": "Mi Empresa",
+        "companyRNC": "132109122",
+        "companyType": "associated",
+        "companyAddress": "Santo Domingo, RD",
+        "province": "Santo Domingo",
+        "municipality": "Santo Domingo de Guzmán",
+        "companyPhone": "809-555-0199",
+        "companyEmail": "factura@miempresa.com.do",
+        "colorMarca": "#10b981",
+        "gradientEnabled": True,
+        "logoUrl": "",
+        "logoBase64": "",
+        "regimenFiscal": "ordinary",
+        "certificateName": "",
+        "certificateExtension": "",
+        "certificateContent": "",
+        "certificatePassword": ""
+    }
+    if firebase_initialized:
+        try:
+            doc = db_firestore.collection("users").document(owner_uid).collection("config").document("profile").get()
+            if doc.exists:
+                data = doc.to_dict()
+                profile.update(data)
+                if "regimenFiscal" not in profile:
+                    profile["regimenFiscal"] = "General"
+            else:
+                DatabaseService.save_company_profile(owner_uid, profile)
+        except Exception as e:
+            print(f"⚠️ Error al obtener perfil de empresa desde Firestore: {e}")
+    return profile
+
+
+@cache.memoize(timeout=60)
+def _cached_user_profile(uid):
+    if not firebase_initialized:
+        return None
+    try:
+        try:
+            user_record = auth.get_user(uid)
+            if user_record.disabled:
+                print(f"🚫 get_user_profile: El usuario con UID '{uid}' está inhabilitado en Firebase Auth.")
+                return None
+        except Exception as e:
+            print(f"⚠️ get_user_profile: Error al obtener registro de Firebase Auth para UID '{uid}': {e}")
+            return None
+
+        doc = db_firestore.collection("users").document(uid).collection("config").document("user_profile").get()
+        if doc.exists:
+            data = doc.to_dict()
+            perms = data.get("permissions", {})
+            return {
+                "uid": uid,
+                "ownerUID": data.get("ownerUID", uid),
+                "role": data.get("role", "owner"),
+                "name": data.get("name", ""),
+                "email": data.get("email", ""),
+                "phone": data.get("phone", ""),
+                "address": data.get("address", ""),
+                "permissions": {
+                    "canInvoice": bool(perms.get("canInvoice", True)),
+                    "canExpenses": bool(perms.get("canExpenses", True)),
+                    "canClients": bool(perms.get("canClients", True)),
+                    "canModifySettings": bool(perms.get("canModifySettings", True)),
+                    "canManageInventory": bool(perms.get("canManageInventory", True)),
+                    "canManagePOS": bool(perms.get("canManagePOS", True)),
+                    "canViewDashboard": bool(perms.get("canViewDashboard", True)),
+                    "canManageCXC": bool(perms.get("canManageCXC", True)),
+                    "canManageCXP": bool(perms.get("canManageCXP", True)),
+                    "canManageContracts": bool(perms.get("canManageContracts", True)),
+                    "canManageCommissions": bool(perms.get("canManageCommissions", True)),
+                    "canViewBI": bool(perms.get("canViewBI", True)),
+                    "canViewAuditLog": bool(perms.get("canViewAuditLog", False)),
+                    "isPosSupervisor": bool(perms.get("isPosSupervisor", False)),
+                    "canViewSubscription": bool(perms.get("canViewSubscription", True)),
+                    "canToggleSandbox": bool(perms.get("canToggleSandbox", True)),
+                    "canManageNotes": bool(perms.get("canManageNotes", True)),
+                    "canManageSuppliers": bool(perms.get("canManageSuppliers", True)),
+                    "canManagePurchaseCXP": bool(perms.get("canManagePurchaseCXP", True))
+                },
+                "createdAt": serialize_field(data.get("createdAt")),
+                "two_factor_enabled": bool(data.get("two_factor_enabled", False)),
+                "two_factor_secret": data.get("two_factor_secret"),
+                "backup_codes": data.get("backup_codes", []),
+                "posSupervisorPin": data.get("posSupervisorPin", ""),
+                "profileImageUrl": data.get("profileImageUrl")
+            }
+    except Exception as e:
+        print(f"⚠️ Error al obtener perfil desde Firestore: {e}")
+    return None
+
+
+@cache.memoize(timeout=60)
+def _cached_clients(owner_uid, sandbox):
+    clients = []
+    if firebase_initialized:
+        try:
+            coll_name = "sandbox_clients" if sandbox else "clients"
+            docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).get()
+            for doc in docs:
+                data = doc.to_dict()
+                client_dict = {
+                    "id": doc.id,
+                    "ownerUID": owner_uid,
+                    "rnc": data.get("rnc", ""),
+                    "razonSocial": data.get("razonSocial", ""),
+                    "email": data.get("email", ""),
+                    "telefono": data.get("telefono", ""),
+                    "direccion": data.get("direccion", ""),
+                    "crmNotes": data.get("crmNotes", ""),
+                    "nextContactDate": serialize_field(data.get("nextContactDate")),
+                    "pipelineStage": data.get("pipelineStage", "Prospecto"),
+                    "responsibleId": data.get("responsibleId", ""),
+                    "createdAt": serialize_field(data.get("createdAt")),
+                    "imageUrl": data.get("imageUrl", ""),
+                    "accessPin": data.get("accessPin", ""),
+                    "disableAutoReminders": data.get("disableAutoReminders", False)
+                }
+                for k, v in data.items():
+                    if k not in client_dict:
+                        client_dict[k] = serialize_field(v)
+                clients.append(client_dict)
+            clients.sort(key=lambda x: x["razonSocial"].lower())
+        except Exception as e:
+            print(f"⚠️ Error al obtener clientes desde Firestore: {e}")
+    return clients
+
+
+@cache.memoize(timeout=30)
+def _cached_invoices(owner_uid, sandbox, quotations_only, include_all):
+    invoices = []
+    if firebase_initialized:
+        try:
+            coll_name = "sandbox_invoices" if sandbox else "invoices"
+            coll_ref = db_firestore.collection("users").document(owner_uid).collection(coll_name)
+            if include_all:
+                docs = coll_ref.get()
+            else:
+                docs = coll_ref.where(filter=firestore.FieldFilter("isQuotation", "==", quotations_only)).get()
+
+            for doc in docs:
+                data = doc.to_dict()
+                if data.get("isDeleted") and not include_all:
+                    continue
+
+                items = []
+                for it in data.get("items", []):
+                    items.append({
+                        "id": it.get("id", ""),
+                        "code": it.get("code", ""),
+                        "type": it.get("type", "Bien"),
+                        "name": it.get("name", ""),
+                        "price": float(it.get("price", 0.0)),
+                        "quantity": int(it.get("quantity", 1)),
+                        "itbisRate": float(it.get("itbisRate", 0.18)),
+                        "discountRate": float(it.get("discountRate", 0.0)),
+                        "subtotal": float(it.get("subtotal", 0.0)),
+                        "itbisAmount": float(it.get("itbisAmount", it.get("itbis_amount", 0.0))),
+                        "total": float(it.get("total", 0.0)),
+                        "codigoImpuesto": it.get("codigoImpuesto", ""),
+                        "tasaImpuestoAdicional": float(it.get("tasaImpuestoAdicional", 0.0)),
+                        "gradosAlcohol": float(it.get("gradosAlcohol", 0.0)),
+                        "cantidadReferencia": float(it.get("cantidadReferencia", 0.0)),
+                        "subcantidad": float(it.get("subcantidad", 1.0)),
+                        "precioReferencia": float(it.get("precioReferencia", 0.0)),
+                        "isc_especifico_amount": float(it.get("isc_especifico_amount", it.get("iscEspecificoAmount", 0.0))),
+                        "isc_advalorem_amount": float(it.get("isc_advalorem_amount", it.get("iscAdValoremAmount", 0.0))),
+                        "otros_impuestos_amount": float(it.get("otros_impuestos_amount", it.get("otrosImpuestosAmount", 0.0)))
+                    })
+
+                agreement = data.get("paymentAgreement") or {
+                    "enabled": False,
+                    "installmentsCount": 1,
+                    "frequency": "mensual",
+                    "lateFeePercentage": 5.0
+                }
+
+                net_payable = float(data.get("netPayable", 0.0))
+                status = data.get("status", "Borrador")
+
+                due_date_str = serialize_field(data.get("dueDate"))
+                if status in ["Emitida", "Parcialmente Cobrada"] and due_date_str:
+                    due_date_clean = due_date_str[:10]
+                    today_str = datetime.utcnow().strftime("%Y-%m-%d")
+                    if due_date_clean < today_str:
+                        status = "Vencida"
+
+                total_paid = float(data.get("totalPaid", data.get("netPayable", 0.0) if status == "Cobrada" else 0.0))
+                remaining_balance = float(data.get("remainingBalance", 0.0 if status == "Cobrada" else data.get("netPayable", 0.0)))
+
+                installments = data.get("installments")
+                if not installments:
+                    installments = [{
+                        "id": "cuota-unica-default",
+                        "installmentNumber": 1,
+                        "amount": net_payable,
+                        "dueDate": serialize_field(data.get("dueDate")),
+                        "status": "Saldada" if status == "Cobrada" else "Pendiente",
+                        "paidAmount": total_paid,
+                        "remainingBalance": remaining_balance
+                    }]
+                else:
+                    formatted_installments = []
+                    for inst in installments:
+                        formatted_installments.append({
+                            "id": inst.get("id", str(uuid.uuid4())),
+                            "installmentNumber": int(inst.get("installmentNumber", 1)),
+                            "amount": float(inst.get("amount", 0.0)),
+                            "dueDate": serialize_field(inst.get("dueDate")),
+                            "status": inst.get("status", "Pendiente"),
+                            "paidAmount": float(inst.get("paidAmount", 0.0)),
+                            "remainingBalance": float(inst.get("remainingBalance", 0.0))
+                        })
+                    installments = formatted_installments
+
+                dgii_status = data.get("dgiiStatus")
+                if not dgii_status:
+                    if data.get("emisionMode") == "FALLBACK":
+                        dgii_status = "CONTINGENCY"
+                    elif data.get("isSyncedWithDGII"):
+                        dgii_status = "ACCEPTED"
+                    elif data.get("status") == "Pendiente DGII":
+                        dgii_status = "PENDING"
+                    else:
+                        dgii_status = ""
+
+                invoices.append({
+                    "id": doc.id,
+                    "invoiceNumber": data.get("invoiceNumber", ""),
+                    "date": serialize_field(data.get("date")),
+                    "dueDate": serialize_field(data.get("dueDate")),
+                    "clientId": data.get("clientId", ""),
+                    "clientName": data.get("clientName", ""),
+                    "clientRNC": data.get("clientRNC", ""),
+                    "status": status,
+                    "ecfType": data.get("ecfType", "Factura de Consumo (E32)"),
+                    "encf": data.get("encf", ""),
+                    "xmlSignature": data.get("xmlSignature", ""),
+                    "qrCodeURL": data.get("qrCodeURL", ""),
+                    "isSyncedWithDGII": bool(data.get("isSyncedWithDGII", False)),
+                    "emisionMode": data.get("emisionMode", ""),
+                    "dgiiStatus": dgii_status,
+                    "contingencyEmittedAt": serialize_field(data.get("contingencyEmittedAt")),
+                    "creditedAmount": float(data.get("creditedAmount", 0.0)),
+                    "retainedISR": float(data.get("retainedISR", 0.0)),
+                    "retainedITBIS": float(data.get("retainedITBIS", 0.0)),
+                    "netPayable": net_payable,
+                    "subtotal": float(data.get("subtotal", 0.0)),
+                    "totalITBIS": float(data.get("totalITBIS", 0.0)),
+                    "total": float(data.get("total", 0.0)),
+                    "isQuotation": bool(data.get("isQuotation", False)),
+                    "isConvertedToInvoice": bool(data.get("isConvertedToInvoice", False)),
+                    "notes": data.get("notes", ""),
+                    "comentario": data.get("comentario", ""),
+                    "isRecurring": bool(data.get("isRecurring", False)),
+                    "recurrenceInterval": data.get("recurrenceInterval", "mensual"),
+                    "nextOccurrenceDate": serialize_field(data.get("nextOccurrenceDate")),
+                    "firebasePDFURL": data.get("firebasePDFURL", ""),
+                    "firebaseXMLURL": data.get("firebaseXMLURL", ""),
+                    "currency": data.get("currency", "DOP"),
+                    "paymentType": data.get("paymentType", "Contado"),
+                    "paymentMethod": data.get("paymentMethod", "Efectivo"),
+                    "incomeType": data.get("incomeType", "01 - Ingresos por operaciones"),
+                    "customFields": data.get("customFields", []),
+                    "exchangeRate": float(data.get("exchangeRate", 1.0)),
+                    "bank": data.get("bank", ""),
+                    "referenceNumber": data.get("referenceNumber", ""),
+                    "paymentDate": serialize_field(data.get("paymentDate")),
+                    "totalPaid": total_paid,
+                    "remainingBalance": remaining_balance,
+                    "paymentAgreement": agreement,
+                    "installments": installments,
+                    "branchId": data.get("branchId", "default-sucursal-principal"),
+                    "createdAt": serialize_field(data.get("createdAt")),
+                    "items": items,
+                    "pendingPaymentProof": data.get("pendingPaymentProof")
+                })
+            invoices.sort(key=lambda x: x["date"] or "", reverse=True)
+        except Exception as e:
+            print(f"⚠️ Error al obtener facturas desde Firestore: {e}")
+    return invoices
+
+
+@cache.memoize(timeout=120)
+def _cached_user_notifications(user_uid, limit):
+    notifications = []
+    if firebase_initialized:
+        try:
+            docs = db_firestore.collection("users").document(user_uid).collection("notifications").order_by("createdAt", direction="DESCENDING").limit(limit).get()
+            for doc in docs:
+                data = doc.to_dict()
+                data["id"] = doc.id
+                notifications.append(data)
+        except Exception as e:
+            print(f"⚠️ Fallo al obtener notificaciones de usuario de Firestore: {e}")
+    return notifications
+
+
+def clear_db_cache(pattern=None):
+    """Limpia la caché de consultas Firestore. Útil tras operaciones de escritura."""
+    cache.clear()
 
 
 def serialize_field(val):
@@ -427,62 +738,7 @@ class DatabaseService:
     @classmethod
     def get_user_profile(cls, uid):
         """Retorna el perfil del usuario."""
-        if not firebase_initialized:
-            return None
-        try:
-            # Verificar en Firebase Auth si el usuario está inhabilitado
-            try:
-                user_record = auth.get_user(uid)
-                if user_record.disabled:
-                    print(f"🚫 get_user_profile: El usuario con UID '{uid}' está inhabilitado en Firebase Auth.")
-                    return None
-            except Exception as e:
-                print(f"⚠️ get_user_profile: Error al obtener registro de Firebase Auth para UID '{uid}': {e}")
-                return None
-
-            doc = db_firestore.collection("users").document(uid).collection("config").document("user_profile").get()
-            if doc.exists:
-                data = doc.to_dict()
-                perms = data.get("permissions", {})
-                return {
-                    "uid": uid,
-                    "ownerUID": data.get("ownerUID", uid),
-                    "role": data.get("role", "owner"),
-                    "name": data.get("name", ""),
-                    "email": data.get("email", ""),
-                    "phone": data.get("phone", ""),
-                    "address": data.get("address", ""),
-                    "permissions": {
-                        "canInvoice": bool(perms.get("canInvoice", True)),
-                        "canExpenses": bool(perms.get("canExpenses", True)),
-                        "canClients": bool(perms.get("canClients", True)),
-                        "canModifySettings": bool(perms.get("canModifySettings", True)),
-                        "canManageInventory": bool(perms.get("canManageInventory", True)),
-                        "canManagePOS": bool(perms.get("canManagePOS", True)),
-                        "canViewDashboard": bool(perms.get("canViewDashboard", True)),
-                        "canManageCXC": bool(perms.get("canManageCXC", True)),
-                        "canManageCXP": bool(perms.get("canManageCXP", True)),
-                        "canManageContracts": bool(perms.get("canManageContracts", True)),
-                        "canManageCommissions": bool(perms.get("canManageCommissions", True)),
-                        "canViewBI": bool(perms.get("canViewBI", True)),
-                        "canViewAuditLog": bool(perms.get("canViewAuditLog", False)),
-                        "isPosSupervisor": bool(perms.get("isPosSupervisor", False)),
-                        "canViewSubscription": bool(perms.get("canViewSubscription", True)),
-                        "canToggleSandbox": bool(perms.get("canToggleSandbox", True)),
-                        "canManageNotes": bool(perms.get("canManageNotes", True)),
-                        "canManageSuppliers": bool(perms.get("canManageSuppliers", True)),
-                        "canManagePurchaseCXP": bool(perms.get("canManagePurchaseCXP", True))
-                    },
-                    "createdAt": serialize_field(data.get("createdAt")),
-                    "two_factor_enabled": bool(data.get("two_factor_enabled", False)),
-                    "two_factor_secret": data.get("two_factor_secret"),
-                    "backup_codes": data.get("backup_codes", []),
-                    "posSupervisorPin": data.get("posSupervisorPin", ""),
-                    "profileImageUrl": data.get("profileImageUrl")
-                }
-        except Exception as e:
-            print(f"⚠️ Error al obtener perfil desde Firestore: {e}")
-        return None
+        return _cached_user_profile(uid)
 
     @classmethod
     def save_user_2fa_config(cls, uid, secret, enabled, backup_codes=None):
@@ -594,43 +850,7 @@ class DatabaseService:
     @classmethod
     def get_company_profile(cls, owner_uid):
         """Obtiene el perfil de empresa del owner."""
-        profile = {
-            "ownerUID": owner_uid,
-            "companyName": "Mi Empresa SRL",
-            "tradeName": "Mi Empresa",
-            "companyRNC": "132109122",
-            "companyType": "associated",
-            "companyAddress": "Santo Domingo, RD",
-            "province": "Santo Domingo",
-            "municipality": "Santo Domingo de Guzmán",
-            "companyPhone": "809-555-0199",
-            "companyEmail": "factura@miempresa.com.do",
-            "colorMarca": "#10b981",
-            "gradientEnabled": True,
-            "logoUrl": "",
-            "logoBase64": "",
-            "regimenFiscal": "ordinary",
-            "certificateName": "",
-            "certificateExtension": "",
-            "certificateContent": "",
-            "certificatePassword": ""
-        }
-
-        if firebase_initialized:
-            try:
-                doc = db_firestore.collection("users").document(owner_uid).collection("config").document("profile").get()
-                if doc.exists:
-                    data = doc.to_dict()
-                    profile.update(data)
-                    # Asegurar que regimenFiscal exista
-                    if "regimenFiscal" not in profile:
-                        profile["regimenFiscal"] = "General"
-                else:
-                    cls.save_company_profile(owner_uid, profile)
-            except Exception as e:
-                print(f"⚠️ Error al obtener perfil de empresa desde Firestore: {e}")
-
-        return profile
+        return _cached_company_profile(owner_uid)
 
     @classmethod
     def save_company_profile(cls, owner_uid, profile_dict, upload_to_firestore=True):
@@ -729,38 +949,7 @@ class DatabaseService:
     @classmethod
     def get_clients(cls, owner_uid, sandbox=True):
         """Retorna la lista de clientes del owner."""
-        clients = []
-        if firebase_initialized:
-            try:
-                coll_name = "sandbox_clients" if sandbox else "clients"
-                docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).get()
-                for doc in docs:
-                    data = doc.to_dict()
-                    client_dict = {
-                        "id": doc.id,
-                        "ownerUID": owner_uid,
-                        "rnc": data.get("rnc", ""),
-                        "razonSocial": data.get("razonSocial", ""),
-                        "email": data.get("email", ""),
-                        "telefono": data.get("telefono", ""),
-                        "direccion": data.get("direccion", ""),
-                        "crmNotes": data.get("crmNotes", ""),
-                        "nextContactDate": serialize_field(data.get("nextContactDate")),
-                        "pipelineStage": data.get("pipelineStage", "Prospecto"),
-                        "responsibleId": data.get("responsibleId", ""),
-                        "createdAt": serialize_field(data.get("createdAt")),
-                        "imageUrl": data.get("imageUrl", ""),
-                        "accessPin": data.get("accessPin", ""),
-                        "disableAutoReminders": data.get("disableAutoReminders", False)
-                    }
-                    for k, v in data.items():
-                        if k not in client_dict:
-                            client_dict[k] = serialize_field(v)
-                    clients.append(client_dict)
-                clients.sort(key=lambda x: x["razonSocial"].lower())
-            except Exception as e:
-                print(f"⚠️ Error al obtener clientes desde Firestore: {e}")
-        return clients
+        return _cached_clients(owner_uid, sandbox)
 
     @classmethod
     def get_client(cls, owner_uid, client_id, sandbox=True):
@@ -1403,162 +1592,7 @@ class DatabaseService:
     @classmethod
     def get_invoices(cls, owner_uid, sandbox=True, quotations_only=False, include_all=False):
         """Retorna las facturas o cotizaciones de un owner."""
-        invoices = []
-        if firebase_initialized:
-            try:
-                coll_name = "sandbox_invoices" if sandbox else "invoices"
-                coll_ref = db_firestore.collection("users").document(owner_uid).collection(coll_name)
-                if include_all:
-                    docs = coll_ref.get()
-                else:
-                    docs = coll_ref.where(filter=firestore.FieldFilter("isQuotation", "==", quotations_only)).get()
-                
-                for doc in docs:
-                    data = doc.to_dict()
-                    if data.get("isDeleted") and not include_all:
-                        continue
-                    
-                    # Cargar partidas
-                    items = []
-                    for it in data.get("items", []):
-                        items.append({
-                            "id": it.get("id", ""),
-                            "code": it.get("code", ""),
-                            "type": it.get("type", "Bien"),
-                            "name": it.get("name", ""),
-                            "price": float(it.get("price", 0.0)),
-                            "quantity": int(it.get("quantity", 1)),
-                            "itbisRate": float(it.get("itbisRate", 0.18)),
-                            "discountRate": float(it.get("discountRate", 0.0)),
-                            "subtotal": float(it.get("subtotal", 0.0)),
-                            "itbisAmount": float(it.get("itbisAmount", it.get("itbis_amount", 0.0))),
-                            "total": float(it.get("total", 0.0)),
-                            "codigoImpuesto": it.get("codigoImpuesto", ""),
-                            "tasaImpuestoAdicional": float(it.get("tasaImpuestoAdicional", 0.0)),
-                            "gradosAlcohol": float(it.get("gradosAlcohol", 0.0)),
-                            "cantidadReferencia": float(it.get("cantidadReferencia", 0.0)),
-                            "subcantidad": float(it.get("subcantidad", 1.0)),
-                            "precioReferencia": float(it.get("precioReferencia", 0.0)),
-                            "isc_especifico_amount": float(it.get("isc_especifico_amount", it.get("iscEspecificoAmount", 0.0))),
-                            "isc_advalorem_amount": float(it.get("isc_advalorem_amount", it.get("iscAdValoremAmount", 0.0))),
-                            "otros_impuestos_amount": float(it.get("otros_impuestos_amount", it.get("otrosImpuestosAmount", 0.0)))
-                        })
-
-                    # Cargar acuerdo y cuotas con retrocompatibilidad
-                    agreement = data.get("paymentAgreement") or {
-                        "enabled": False,
-                        "installmentsCount": 1,
-                        "frequency": "mensual",
-                        "lateFeePercentage": 5.0
-                    }
-                    
-                    net_payable = float(data.get("netPayable", 0.0))
-                    status = data.get("status", "Borrador")
-                    
-                    # Evaluar vencimiento de facturas
-                    due_date_str = serialize_field(data.get("dueDate"))
-                    if status in ["Emitida", "Parcialmente Cobrada"] and due_date_str:
-                        due_date_clean = due_date_str[:10]
-                        today_str = datetime.utcnow().strftime("%Y-%m-%d")
-                        if due_date_clean < today_str:
-                            status = "Vencida"
-                            
-                    total_paid = float(data.get("totalPaid", data.get("netPayable", 0.0) if status == "Cobrada" else 0.0))
-                    remaining_balance = float(data.get("remainingBalance", 0.0 if status == "Cobrada" else data.get("netPayable", 0.0)))
-                    
-                    installments = data.get("installments")
-                    if not installments:
-                        # Generar cuota única retrocompatible
-                        installments = [{
-                            "id": "cuota-unica-default",
-                            "installmentNumber": 1,
-                            "amount": net_payable,
-                            "dueDate": serialize_field(data.get("dueDate")),
-                            "status": "Saldada" if status == "Cobrada" else "Pendiente",
-                            "paidAmount": total_paid,
-                            "remainingBalance": remaining_balance
-                        }]
-                    else:
-                        # Asegurar tipos correctos
-                        formatted_installments = []
-                        for inst in installments:
-                            formatted_installments.append({
-                                "id": inst.get("id", str(uuid.uuid4())),
-                                "installmentNumber": int(inst.get("installmentNumber", 1)),
-                                "amount": float(inst.get("amount", 0.0)),
-                                "dueDate": serialize_field(inst.get("dueDate")),
-                                "status": inst.get("status", "Pendiente"),
-                                "paidAmount": float(inst.get("paidAmount", 0.0)),
-                                "remainingBalance": float(inst.get("remainingBalance", 0.0))
-                            })
-                        installments = formatted_installments
-
-                    dgii_status = data.get("dgiiStatus")
-                    if not dgii_status:
-                        if data.get("emisionMode") == "FALLBACK":
-                            dgii_status = "CONTINGENCY"
-                        elif data.get("isSyncedWithDGII"):
-                            dgii_status = "ACCEPTED"
-                        elif data.get("status") == "Pendiente DGII":
-                            dgii_status = "PENDING"
-                        else:
-                            dgii_status = ""
-
-                    invoices.append({
-                        "id": doc.id,
-                        "invoiceNumber": data.get("invoiceNumber", ""),
-                        "date": serialize_field(data.get("date")),
-                        "dueDate": serialize_field(data.get("dueDate")),
-                        "clientId": data.get("clientId", ""),
-                        "clientName": data.get("clientName", ""),
-                        "clientRNC": data.get("clientRNC", ""),
-                        "status": status,
-                        "ecfType": data.get("ecfType", "Factura de Consumo (E32)"),
-                        "encf": data.get("encf", ""),
-                        "xmlSignature": data.get("xmlSignature", ""),
-                        "qrCodeURL": data.get("qrCodeURL", ""),
-                        "isSyncedWithDGII": bool(data.get("isSyncedWithDGII", False)),
-                        "emisionMode": data.get("emisionMode", ""),
-                        "dgiiStatus": dgii_status,
-                        "contingencyEmittedAt": serialize_field(data.get("contingencyEmittedAt")),
-                        "creditedAmount": float(data.get("creditedAmount", 0.0)),
-                        "retainedISR": float(data.get("retainedISR", 0.0)),
-                        "retainedITBIS": float(data.get("retainedITBIS", 0.0)),
-                        "netPayable": net_payable,
-                        "subtotal": float(data.get("subtotal", 0.0)),
-                        "totalITBIS": float(data.get("totalITBIS", 0.0)),
-                        "total": float(data.get("total", 0.0)),
-                        "isQuotation": bool(data.get("isQuotation", False)),
-                        "isConvertedToInvoice": bool(data.get("isConvertedToInvoice", False)),
-                        "notes": data.get("notes", ""),
-                        "comentario": data.get("comentario", ""),
-                        "isRecurring": bool(data.get("isRecurring", False)),
-                        "recurrenceInterval": data.get("recurrenceInterval", "mensual"),
-                        "nextOccurrenceDate": serialize_field(data.get("nextOccurrenceDate")),
-                        "firebasePDFURL": data.get("firebasePDFURL", ""),
-                        "firebaseXMLURL": data.get("firebaseXMLURL", ""),
-                        "currency": data.get("currency", "DOP"),
-                        "paymentType": data.get("paymentType", "Contado"),
-                        "paymentMethod": data.get("paymentMethod", "Efectivo"),
-                        "incomeType": data.get("incomeType", "01 - Ingresos por operaciones"),
-                        "customFields": data.get("customFields", []),
-                        "exchangeRate": float(data.get("exchangeRate", 1.0)),
-                        "bank": data.get("bank", ""),
-                        "referenceNumber": data.get("referenceNumber", ""),
-                        "paymentDate": serialize_field(data.get("paymentDate")),
-                        "totalPaid": total_paid,
-                        "remainingBalance": remaining_balance,
-                        "paymentAgreement": agreement,
-                        "installments": installments,
-                        "branchId": data.get("branchId", "default-sucursal-principal"),
-                        "createdAt": serialize_field(data.get("createdAt")),
-                        "items": items,
-                        "pendingPaymentProof": data.get("pendingPaymentProof")
-                    })
-                invoices.sort(key=lambda x: x["date"] or "", reverse=True)
-            except Exception as e:
-                print(f"⚠️ Error al obtener facturas desde Firestore: {e}")
-        return invoices
+        return _cached_invoices(owner_uid, sandbox, quotations_only, include_all)
 
     @classmethod
     def get_invoice(cls, owner_uid, invoice_id, sandbox=True):
@@ -2746,20 +2780,51 @@ class DatabaseService:
 
     @classmethod
     def save_idempotency_record(cls, owner_uid, key, payload, sandbox=True):
-        """Guarda un registro de idempotencia por key."""
+        """Guarda un registro de idempotencia por key con expiración a 24h."""
         if not firebase_initialized:
             return False
         try:
             coll_name = "sandbox_idempotency_keys" if sandbox else "idempotency_keys"
+            now = datetime.utcnow()
             db_firestore.collection("users").document(owner_uid).collection(coll_name).document(key).set({
                 "id": key,
                 **payload,
-                "createdAt": datetime.utcnow().isoformat()
+                "createdAt": now.isoformat(),
+                "expireAt": (now.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)).isoformat()
             })
             return True
         except Exception as e:
             print(f"⚠️ Error al guardar idempotency key: {e}")
             return False
+
+    @classmethod
+    def cleanup_expired_idempotency_keys(cls):
+        """Elimina todos los registros de idempotencia expirados (>24h)."""
+        if not firebase_initialized:
+            return
+        try:
+            today_str = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+            collections = ["idempotency_keys", "sandbox_idempotency_keys"]
+            deleted_total = 0
+            for coll_name in collections:
+                owners = db_firestore.collection("users").get()
+                for owner_doc in owners:
+                    try:
+                        docs = owner_doc.reference.collection(coll_name).where("expireAt", "<", today_str).get()
+                        batch = db_firestore.batch()
+                        count = 0
+                        for doc in docs:
+                            batch.delete(doc.reference)
+                            count += 1
+                        if count > 0:
+                            batch.commit()
+                            deleted_total += count
+                    except Exception:
+                        pass
+            if deleted_total > 0:
+                print(f"🧹 cleanup_expired_idempotency_keys: {deleted_total} registro(s) eliminado(s).")
+        except Exception as e:
+            print(f"⚠️ Error en cleanup_expired_idempotency_keys: {e}")
 
     @classmethod
     def get_invoice_stats(cls, owner_uid, billing_day=1):
@@ -4249,17 +4314,7 @@ class DatabaseService:
     @classmethod
     def get_user_notifications(cls, user_uid, limit=10):
         """Obtiene las últimas notificaciones del usuario de Firestore."""
-        notifications = []
-        if firebase_initialized:
-            try:
-                docs = db_firestore.collection("users").document(user_uid).collection("notifications").order_by("createdAt", direction="DESCENDING").limit(limit).get()
-                for doc in docs:
-                    data = doc.to_dict()
-                    data["id"] = doc.id
-                    notifications.append(data)
-            except Exception as e:
-                print(f"⚠️ Fallo al obtener notificaciones de usuario de Firestore: {e}")
-        return notifications
+        return _cached_user_notifications(user_uid, limit)
 
     @classmethod
     def mark_user_notifications_read(cls, user_uid):

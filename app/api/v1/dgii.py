@@ -3,6 +3,7 @@ from flask import Blueprint, jsonify, g
 from app.api.auth import require_api_key
 from app.services.dgii import DGIIService
 from app.services.db_service import DatabaseService
+from app.utils.cache_utils import http_cache
 
 api_dgii_bp = Blueprint('api_dgii', __name__)
 
@@ -22,6 +23,7 @@ def lookup_rnc(rnc):
 
 @api_dgii_bp.route('/dgii/sequences', methods=['GET'])
 @require_api_key
+@http_cache(timeout=300)
 def get_sequences():
     """
     GET /api/v1/dgii/sequences
@@ -36,6 +38,7 @@ def get_sequences():
 
 @api_dgii_bp.route('/dgii/audit', methods=['GET'])
 @require_api_key
+@http_cache(timeout=60)
 def get_sequence_audit():
     """
     GET /api/v1/dgii/audit

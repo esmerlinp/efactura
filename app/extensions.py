@@ -1,4 +1,5 @@
 # app/extensions.py
+from app.cache import cache
 from app.services.db_service import DatabaseService
 
 # Filtro Jinja2 personalizado para formatear montos monetarios (ej. 1,000.00)
@@ -20,7 +21,10 @@ def format_date_filter(value):
     return value
 
 def init_extensions(app):
-    """Inicializa base de datos local y registra filtros globales de Jinja2."""
+    """Inicializa base de datos local, caché y registra filtros globales de Jinja2."""
+    # Inicializar Flask-Caching
+    cache.init_app(app)
+
     # Inicializar Base de Datos SQLite local y tablas de Firebase Auth
     DatabaseService.init_local_db()
 

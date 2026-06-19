@@ -68,6 +68,14 @@ def run_daily_contract_billing():
 
 
 
+def cleanup_expired_idempotency_keys():
+    """Job diario: elimina idempotency keys con expireAt anterior a hoy."""
+    from app.services.db_service import DatabaseService
+    logger.info("🧹 APScheduler — Iniciando limpieza de idempotency keys expiradas...")
+    DatabaseService.cleanup_expired_idempotency_keys()
+    logger.info("✅ APScheduler — Limpieza de idempotency keys finalizada.")
+
+
 def init_scheduler(app):
     """
     Inicializa el BackgroundScheduler dentro del contexto de la app Flask.
@@ -95,10 +103,22 @@ def init_scheduler(app):
         replace_existing=True,
     )
 
+    _scheduler.add_job(
+        func=cleanup_expired_idempotency_keys,
+        trigger=CronTrigger(hour=3, minute=0),   # 3:00 AM RD cada día
+        id="cleanup_idempotency_keys",
+        name="Limpieza de Idempotency Keys Expiradas",
+        replace_existing=True,
+    )
+
     _scheduler.start()
     atexit.register(lambda: _scheduler.shutdown(wait=False))
 
     logger.info(
         "✅ APScheduler iniciado — Facturación automática de contratos activa "
         "(todos los días a las 6:00 AM hora RD)"
+    )
+    logger.info(
+        "✅ APScheduler — Limpieza de idempotency keys expiradas programada "
+        "(todos los días a las 3:00 AM hora RD)"
     )
