@@ -246,12 +246,12 @@
         }
 
         .nav-menu::-webkit-scrollbar {
-            width: 4px;
+            width: 1px;
         }
 
         .nav-menu::-webkit-scrollbar-thumb {
-            background: rgba(0, 0, 0, 0.1);
-            border-radius: 4px;
+            background: var(--text-muted);
+            border-radius: 1.5px;
         }
 
         /* --- Estilos de Submenú Desplegable (Flyout) estilo GCP/Firebase --- */
@@ -291,11 +291,11 @@
                 overflow: auto !important;
                 max-height: calc(100vh - 140px) !important;
                 scrollbar-width: thin;
-                scrollbar-color: var(--border-color) transparent;
+                scrollbar-color: var(--text-muted) transparent;
             }
 
             .nav-menu::-webkit-scrollbar {
-                width: 4px;
+                width: 1px;
             }
 
             .nav-menu::-webkit-scrollbar-track {
@@ -303,8 +303,12 @@
             }
 
             .nav-menu::-webkit-scrollbar-thumb {
-                background: var(--border-color);
-                border-radius: 4px;
+                background: var(--text-muted);
+                border-radius: 1.5px;
+            }
+
+            .nav-menu::-webkit-scrollbar-thumb:hover {
+                background: var(--text-primary);
             }
 
             /* Los flyouts usan position:fixed via JS — no se recortan aunque el nav-menu haga scroll */
