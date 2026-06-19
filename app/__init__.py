@@ -32,7 +32,10 @@ def create_app():
     app = Flask(__name__, template_folder='../templates', static_folder='../static')
     app.config.from_object(Config)
 
-    # Inicializar base de datos local y filtros Jinja2
+    # Cache de assets estáticos por 1 año con hash en URL para invalidación
+    app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 31536000
+
+    # Inicializar base de datos local, caché y filtros Jinja2
     init_extensions(app)
 
     # =========================================================================
@@ -291,7 +294,20 @@ def create_app():
             if user.get('role') == 'owner':
                 return True
             return user.get('permissions', {}).get(permission_name, True)
-        return dict(check_permission=check_permission)
+
+        import os as _os
+        _static_dir = _os.path.join(app.root_path, '..', 'static')
+
+        def static_hash(filename):
+            """Retorna un hash corto basado en la fecha de modificación del archivo estático."""
+            try:
+                filepath = _os.path.join(_static_dir, filename.lstrip('/'))
+                mtime = int(_os.path.getmtime(filepath))
+                return hex(mtime)[2:]
+            except OSError:
+                return '0'
+
+        return dict(check_permission=check_permission, static_hash=static_hash)
 
     @app.context_processor
     def inject_plan_info():
@@ -358,6 +374,15 @@ def create_app():
                 # Si de todas formas falla, relanzar el error original de Flask BuildError
                 raise
         return dict(url_for=custom_url_for)
+
+    # =========================================================================
+    # CACHÉ DE ASSETS ESTÁTICOS
+    # =========================================================================
+    @app.after_request
+    def add_static_cache(response):
+        if request.path.startswith('/static/'):
+            response.headers['Cache-Control'] = 'public, max-age=31536000, immutable'
+        return response
 
     # =========================================================================
     # LOG DE FALLOS EN APIS

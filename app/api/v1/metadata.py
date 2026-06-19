@@ -1,10 +1,12 @@
 from flask import Blueprint, jsonify
 from app.api.auth import require_api_key
+from app.utils.cache_utils import http_cache
 
 metadata_bp = Blueprint('metadata', __name__)
 
 @metadata_bp.route('/metadata/catalogs', methods=['GET'])
 @require_api_key
+@http_cache(timeout=3600, private=False)
 def get_catalogs():
     """
     Retorna todos los catálogos oficiales requeridos por los clientes móviles.

@@ -41,7 +41,7 @@
             }
         }
     </script>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/landing_dgmax.css') }}?v={{ range(1, 1000000) | random }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/landing_dgmax.css') }}?v={{ static_hash('css/landing_dgmax.css') }}">
 </head>
 
 <body class="bg-midnight-900 text-white antialiased overflow-x-hidden">

@@ -67,4 +67,9 @@ class Config:
     DGII_SANDBOX_MODE = os.getenv('DGII_SANDBOX_MODE', 'local').lower()
     DGII_USER_AGENT = os.getenv('DGII_USER_AGENT', 'e-FacturaWeb/1.0')
 
+    # Flask-Caching
+    CACHE_TYPE = os.getenv('CACHE_TYPE', 'SimpleCache')
+    CACHE_DEFAULT_TIMEOUT = int(os.getenv('CACHE_DEFAULT_TIMEOUT', '300'))
+    CACHE_THRESHOLD = int(os.getenv('CACHE_THRESHOLD', '200'))
+
 

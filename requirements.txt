@@ -10,6 +10,7 @@ cryptography>=42.0.0
 lxml>=4.9.0
 signxml>=3.0.0
 gunicorn==22.0.0
+Flask-Caching==2.4.0
 weasyprint
 pypdf
 pyotp==2.9.0

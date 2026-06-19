@@ -14,6 +14,13 @@
     <title>{% block title %}{% endblock %} - e-Factura</title>
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/efactura_logo.png') }}">
     <!-- Metas de SEO según Buenas Prácticas -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/static/js/sw.js');
+            });
+        }
+    </script>
     <meta name="description"
         content="Replicación Web Premium de e-Factura para el cumplimiento de la Ley 32-23 de Facturación Electrónica en República Dominicana.">
     <meta name="author" content="Antigravity AI">
@@ -24,13 +31,13 @@
     <!-- Estilos según Tema -->
     {% if company_theme == 'moderno' %}
     <link rel="stylesheet"
-        href="{{ url_for('static', filename='css/style_moderno.css') }}?v={{ range(1, 1000000) | random }}">
+        href="{{ url_for('static', filename='css/style_moderno.css') }}?v={{ static_hash('css/style_moderno.css') }}">
     {% elif company_theme == 'landing' %}
     <link rel="stylesheet"
-        href="{{ url_for('static', filename='css/style_landing.css') }}?v={{ range(1, 1000000) | random }}">
+        href="{{ url_for('static', filename='css/style_landing.css') }}?v={{ static_hash('css/style_landing.css') }}">
     {% else %}
     <link rel="stylesheet"
-        href="{{ url_for('static', filename='css/style_clasico.css') }}?v={{ range(1, 1000000) | random }}">
+        href="{{ url_for('static', filename='css/style_clasico.css') }}?v={{ static_hash('css/style_clasico.css') }}">
     {% endif %}
 
     {% if company_apply_color_marca_ui and company_color_marca %}
@@ -1319,7 +1326,8 @@
 
                 <!-- Cerrar Sesión -->
                 <a href="{{ url_for('web_auth.logout') }}" class="utility-item" style="color: var(--accent-red);"
-                    title="Cerrar Sesión" onclick="return confirm('¿Seguro que deseas cerrar la sesión?');">
+                    title="Cerrar Sesión"
+                    onclick="localStorage.removeItem('pos_cart'); return confirm('¿Seguro que deseas cerrar la sesión?');">
                     <i class="fa-solid fa-right-from-bracket"></i>
                 </a>
             </div>
@@ -1856,6 +1864,7 @@
             const chatbotResizeHandle = document.getElementById('chatbot-resize-handle');
 
             let conversationHistory = []; // Almacena el historial en memoria [{role: "user"/"assistant", content: "..."}]
+            const MAX_CHAT_HISTORY = 50;
 
             // 1. Persistencia de estado y ancho en LocalStorage
             const savedWidth = localStorage.getItem('chatbot-sidebar-width') || '420';
@@ -1866,11 +1875,14 @@
                 chatbotSidebar.classList.add('open');
             }
 
-            // Cargar historial persistido (opcional)
+            // Cargar historial persistido (opcional) con límite de tamaño
             const cachedHistory = localStorage.getItem('chatbot-conversation-history');
             if (cachedHistory) {
                 try {
                     conversationHistory = JSON.parse(cachedHistory);
+                    if (conversationHistory.length > MAX_CHAT_HISTORY) {
+                        conversationHistory = conversationHistory.slice(-MAX_CHAT_HISTORY);
+                    }
                     renderSavedMessages();
                 } catch (e) {
                     conversationHistory = [];
@@ -1982,9 +1994,12 @@
                         if (data.success) {
                             appendMessage('ai', data.message);
 
-                            // Guardar en el historial de memoria y persistencia
+                            // Guardar en el historial de memoria y persistencia (con límite)
                             conversationHistory.push({ role: "user", content: userText });
                             conversationHistory.push({ role: "assistant", content: data.message });
+                            if (conversationHistory.length > MAX_CHAT_HISTORY) {
+                                conversationHistory = conversationHistory.slice(-MAX_CHAT_HISTORY);
+                            }
                             localStorage.setItem('chatbot-conversation-history', JSON.stringify(conversationHistory));
                         } else {
                             appendMessage('ai', data.message || "Lo siento, ha ocurrido un error al procesar tu solicitud.");

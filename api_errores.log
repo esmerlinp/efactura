@@ -46,3 +46,10 @@ HTTP Code: 400
 Payload: {"idDoc": {"encf": "E320000000040", "sequenceDueDate": "2026-07-03", "paymentType": 1, "taxAmountIndicator": 0, "incomeType": 1, "paymentFormsTable": [{"paymentMethod": 1, "paymentAmount": 226.97}]}, "sender": {"rnc": "22900013305", "companyName": "ESMERLIN PANIAGUA MARTINEZ", "tradename": "MDevs", "branchOffice": "Sucursal Principal", "address": "", "municipality": "010101", "province": "010000", "phoneNumber": ["809-866-8227"], "mail": "esmerlinep@gmail.com", "webSite": "www.esmerlinpaniaguamartinez.com.do", "economicActivity": "Actividad Comercial", "sellerCode": "Carlos Segura ID458-457", "internalInvoiceNumber": "FAC-484087", "internalOrderNumber": "FAC-484087", "saleArea": "Santo Domingo Este", "saleRoute": "Ruta 1", "stampDate": "2026-06-03", "additionalInformationIssuer": "Informaci\u00f3n adicional del emisor"}, "totals": {"totalTaxedAmount": 180.0, "i1AmountTaxed": 180.0, "itbisS1": 18, "itbisTotal": 34.62, "itbis1Total": 34.62, "totalAmount": 226.97}, "itemDetails": [{"lineNumber": 1, "productCode": "ITM-1", "itemCodeTable": [{"codeType": "Interna", "itemCode": "ITM-1"}], "itemName": "Cerveza Popular", "quantityItem": 1.0, "unitPriceItem": 180.0, "itemAmount": 180.0, "goodServiceIndicator": 1, "billingIndicator": 1, "unitMeasure": 58}], "config": {"pdf": {"type": "generic"}}, "buyer": {"companyName": "Consumidor Final", "address": "Rep\u00fablica Dominicana", "mail": "contacto@cliente.com", "contact": "Consumidor Final", "rnc": "999999999"}}
 Response: {"errors": [{"code": "AEP2009", "message": "The DGII service returned a Bad Request error: El RNC 22900013305 del certificado no est\u00e1 delegado para realizar transaciones."}]}
 ------------------------------------------------------------
+[2026-06-19 15:31:53] ERROR API:
+Ruta: GET /api/v1/metadata/catalogs
+HTTP Code: 401
+Payload: 
+Response: {"error":"Falta la cabecera de autenticaci\u00f3n 'X-API-Key'.","success":false}
+
+------------------------------------------------------------
