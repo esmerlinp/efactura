@@ -4,6 +4,7 @@ import smtplib
 import uuid
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from email.utils import formataddr
 from datetime import datetime, timedelta
 from flask import current_app
 from app.services.db_service import DatabaseService
@@ -70,7 +71,7 @@ class NotificationService:
                 # Construir el correo HTML
                 msg = MIMEMultipart('alternative')
                 msg["Subject"] = f"⚠️ Recordatorio de Pago - Factura {invoice_number} - {company_name}"
-                msg["From"] = f"{company_name} <{smtp_user}>"
+                msg["From"] = formataddr((company_name, smtp_user))
                 msg["To"] = recipient_contact
                 
                 content_html = custom_message.replace("\n", "<br>") if custom_message else f"Le escribimos para recordarle que tiene un balance pendiente de pago correspondiente a la factura <strong>{invoice_number}</strong>."
@@ -307,7 +308,7 @@ class NotificationService:
             # Construir el correo HTML
             msg = MIMEMultipart('alternative')
             msg["Subject"] = f"💬 Te mencionaron en un comentario — {doc_number}"
-            msg["From"] = f"e-Factura <{smtp_user}>"
+            msg["From"] = formataddr(("e-Factura", smtp_user))
             msg["To"] = recipient_email
             
             logo_html = f'<img src="{logo_url}" alt="Logo" style="max-height: 50px; margin-bottom: 15px;"><br>' if logo_url else ''
@@ -383,7 +384,7 @@ class NotificationService:
             
             msg = MIMEMultipart('alternative')
             msg["Subject"] = f"📋 Gasto Pendiente de Aprobación: {expense.get('concept', 'Gasto Interno')}"
-            msg["From"] = f"{company_name} <{smtp_user}>"
+            msg["From"] = formataddr((company_name, smtp_user))
             msg["To"] = recipient_email
             
             logo_html = f'<img src="{logo_url}" alt="Logo" style="max-height: 50px; margin-bottom: 15px;"><br>' if logo_url else ''
@@ -503,7 +504,7 @@ class NotificationService:
         try:
             msg = MIMEMultipart('alternative')
             msg["Subject"] = f"{icon} {document_type} {status_label} por el cliente — {document_number}"
-            msg["From"] = f"{company_name} <{smtp_user}>"
+            msg["From"] = formataddr((company_name, smtp_user))
             msg["To"] = recipient_email
 
             html_body = f"""
@@ -635,7 +636,7 @@ class NotificationService:
         try:
             msg = MIMEMultipart('alternative')
             msg["Subject"] = subject
-            msg["From"] = f"{company_name} <{smtp_user}>"
+            msg["From"] = formataddr((company_name, smtp_user))
             msg["To"] = client_email
 
             html_body = f"""

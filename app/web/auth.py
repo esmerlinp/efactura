@@ -57,11 +57,12 @@ def api_solicitar_demo():
             import smtplib
             from email.mime.multipart import MIMEMultipart
             from email.mime.text import MIMEText
+            from email.utils import formataddr
             
             try:
                 msg = MIMEMultipart('alternative')
                 msg["Subject"] = f"🔔 Nueva Solicitud de Demo: {name}"
-                msg["From"] = f"e-Factura Landing <{smtp_user}>"
+                msg["From"] = formataddr(("e-Factura Landing", smtp_user))
                 msg["To"] = "dev.esmerlin@gmail.com"
                 
                 html_body = f"""
