@@ -952,6 +952,8 @@ class DatabaseService:
                 if encrypted.get("certificateContent"):
                     encrypted["certificateContent"] = encrypt_field(encrypted["certificateContent"])
                 db_firestore.collection("users").document(owner_uid).collection("config").document("profile").set(encrypted)
+                # Invalidar caché del perfil para que el cambio se vea inmediatamente
+                cache.delete_memoized(_cached_company_profile, owner_uid)
             except Exception as e:
                 print(f"⚠️ Fallo al guardar perfil de empresa en Firestore: {e}")
 

@@ -1606,21 +1606,24 @@
                 function saveBrandSetting(key, value) {
                     const formData = new FormData();
                     formData.append(key, value);
+                    const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+                    if (csrfMeta) formData.append('csrf_token', csrfMeta.getAttribute('content'));
 
                     fetch('/settings/company/brand', {
                         method: 'POST',
                         body: formData
                     })
-                        .then(res => res.json())
+                        .then(res => {
+                            if (!res.ok) throw new Error('HTTP ' + res.status + ': ' + res.statusText);
+                            return res.json();
+                        })
                         .then(data => {
-                            console.log(`Ajuste de marca [${key}] guardado exitosamente`);
                             if (key === 'theme') {
-                                // Recargar instantáneamente para aplicar el nuevo archivo CSS
                                 window.location.reload();
                             }
                         })
                         .catch(err => {
-                            console.error(`Error al guardar ajuste de marca [${key}]:`, err);
+                            console.error('Error al guardar ajuste de marca:', err);
                         });
                 }
 
