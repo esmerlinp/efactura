@@ -685,6 +685,7 @@ class DatabaseService:
                 "createdAt": created_at
             })
             
+        cache.delete_memoized(_cached_user_profile, uid)
         return profile_data
 
     @classmethod
@@ -826,7 +827,9 @@ class DatabaseService:
     @classmethod
     def get_user_profile(cls, uid):
         """Retorna el perfil del usuario."""
-        return _cached_user_profile(uid)
+        import copy
+        profile = _cached_user_profile(uid)
+        return copy.deepcopy(profile) if profile else None
 
     @classmethod
     def save_user_2fa_config(cls, uid, secret, enabled, backup_codes=None):
@@ -842,6 +845,7 @@ class DatabaseService:
             if backup_codes is not None:
                 data["backup_codes"] = [sha256_hash(c) for c in backup_codes]
             db_firestore.collection("users").document(uid).collection("config").document("user_profile").update(data)
+            cache.delete_memoized(_cached_user_profile, uid)
             return True
         except Exception as e:
             print(f"⚠️ Fallo al actualizar configuración 2FA en Firestore: {e}")
@@ -864,6 +868,7 @@ class DatabaseService:
                 update_data["profileImageUrl"] = profile_dict["profileImageUrl"]
             
             db_firestore.collection("users").document(uid).collection("config").document("user_profile").update(update_data)
+            cache.delete_memoized(_cached_user_profile, uid)
         except Exception as e:
             print(f"⚠️ Fallo al guardar perfil en Firestore: {e}")
 
@@ -939,7 +944,9 @@ class DatabaseService:
     @classmethod
     def get_company_profile(cls, owner_uid):
         """Obtiene el perfil de empresa del owner."""
-        return _cached_company_profile(owner_uid)
+        import copy
+        profile = _cached_company_profile(owner_uid)
+        return copy.deepcopy(profile) if profile else None
 
     @classmethod
     def save_company_profile(cls, owner_uid, profile_dict, upload_to_firestore=True):
@@ -1045,7 +1052,8 @@ class DatabaseService:
     @classmethod
     def get_clients(cls, owner_uid, sandbox=True):
         """Retorna la lista de clientes del owner."""
-        return _cached_clients(owner_uid, sandbox)
+        import copy
+        return copy.deepcopy(_cached_clients(owner_uid, sandbox))
 
     @classmethod
     def get_client(cls, owner_uid, client_id, sandbox=True):
@@ -1157,6 +1165,7 @@ class DatabaseService:
             try:
                 coll_name = "sandbox_clients" if sandbox else "clients"
                 db_firestore.collection("users").document(owner_uid).collection(coll_name).document(client_id).set(client_dict)
+                cache.delete_memoized(_cached_clients, owner_uid)
             except Exception as e:
                 print(f"⚠️ Fallo al respaldar cliente en Firestore: {e}")
 
@@ -1172,6 +1181,7 @@ class DatabaseService:
                     "pipelineStage": pipeline_stage, 
                     "updatedAt": firestore.SERVER_TIMESTAMP
                 })
+                cache.delete_memoized(_cached_clients, owner_uid)
             except Exception as e:
                 print(f"⚠️ Fallo al actualizar pipeline de cliente: {e}")
 
@@ -1182,6 +1192,7 @@ class DatabaseService:
             try:
                 coll_name = "sandbox_clients" if sandbox else "clients"
                 db_firestore.collection("users").document(owner_uid).collection(coll_name).document(client_id).delete()
+                cache.delete_memoized(_cached_clients, owner_uid)
             except Exception as e:
                 print(f"⚠️ Fallo al borrar cliente de Firestore: {e}")
 
@@ -1688,12 +1699,14 @@ class DatabaseService:
     @classmethod
     def get_invoices(cls, owner_uid, sandbox=True, quotations_only=False, include_all=False):
         """Retorna las facturas o cotizaciones de un owner."""
-        return _cached_invoices(owner_uid, sandbox, quotations_only, include_all)
+        import copy
+        return copy.deepcopy(_cached_invoices(owner_uid, sandbox, quotations_only, include_all))
 
     @classmethod
     def get_contingency_invoices(cls, owner_uid, sandbox=True):
         """Retorna solo facturas en modo contingencia (FALLBACK) no sincronizadas con la DGII."""
-        return _cached_contingency_invoices(owner_uid, sandbox)
+        import copy
+        return copy.deepcopy(_cached_contingency_invoices(owner_uid, sandbox))
 
     @classmethod
     def get_invoice(cls, owner_uid, invoice_id, sandbox=True):
@@ -1896,6 +1909,8 @@ class DatabaseService:
             try:
                 coll_name = "sandbox_invoices" if sandbox else "invoices"
                 db_firestore.collection("users").document(owner_uid).collection(coll_name).document(invoice_id).update({"status": new_status, "updatedAt": firestore.SERVER_TIMESTAMP})
+                cache.delete_memoized(_cached_invoices, owner_uid)
+                cache.delete_memoized(_cached_contingency_invoices, owner_uid)
             except Exception as e:
                 print(f"⚠️ Fallo al actualizar estado de la factura/cotización: {e}")
 
@@ -1914,6 +1929,8 @@ class DatabaseService:
                     })
                 else:
                     doc_ref.delete()
+                cache.delete_memoized(_cached_invoices, owner_uid)
+                cache.delete_memoized(_cached_contingency_invoices, owner_uid)
             except Exception as e:
                 print(f"⚠️ Fallo al eliminar factura en Firestore: {e}")
 
@@ -2076,6 +2093,8 @@ class DatabaseService:
             try:
                 coll_name = "sandbox_invoices" if sandbox else "invoices"
                 db_firestore.collection("users").document(owner_uid).collection(coll_name).document(invoice_id).set(inv_dict)
+                cache.delete_memoized(_cached_invoices, owner_uid)
+                cache.delete_memoized(_cached_contingency_invoices, owner_uid)
             except Exception as e:
                 print(f"⚠️ Fallo al respaldar factura en Firestore: {e}")
         return inv_dict
@@ -2245,6 +2264,8 @@ class DatabaseService:
             except Exception as inv_err:
                 print(f"⚠️ Error al aplicar inventario en pago: {inv_err}")
             
+            cache.delete_memoized(_cached_invoices, owner_uid)
+            cache.delete_memoized(_cached_contingency_invoices, owner_uid)
             return payment_dict
         except Exception as e:
             print(f"❌ Error al registrar abono en Firestore: {e}")
@@ -4413,6 +4434,7 @@ class DatabaseService:
                 notification_dict["read"] = False
                 
                 db_firestore.collection("users").document(user_uid).collection("notifications").document(notif_id).set(notification_dict)
+                cache.delete_memoized(_cached_user_notifications, user_uid)
                 return True
             except Exception as e:
                 print(f"⚠️ Fallo al guardar notificación de usuario en Firestore: {e}")
@@ -4421,7 +4443,8 @@ class DatabaseService:
     @classmethod
     def get_user_notifications(cls, user_uid, limit=10):
         """Obtiene las últimas notificaciones del usuario de Firestore."""
-        return _cached_user_notifications(user_uid, limit)
+        import copy
+        return copy.deepcopy(_cached_user_notifications(user_uid, limit))
 
     @classmethod
     def mark_user_notifications_read(cls, user_uid):
@@ -4434,6 +4457,7 @@ class DatabaseService:
                 for doc in docs:
                     batch.update(doc.reference, {"read": True})
                 batch.commit()
+                cache.delete_memoized(_cached_user_notifications, user_uid)
                 return True
             except Exception as e:
                 print(f"⚠️ Fallo al marcar notificaciones como leídas en Firestore: {e}")

@@ -481,17 +481,9 @@ def list_commissions():
         sellers_data[reg_by]["total_invoiced"] += inv_total
         sellers_data[reg_by]["invoice_count"] += 1
         
-        # Calcular recaudado (cobrado)
-        if inv.get('status') == 'Saldada':
-            sellers_data[reg_by]["total_collected"] += inv_total
-        else:
-            # Obtener abonos
-            try:
-                abonos = DatabaseService.get_invoice_abonos(owner_uid, inv['id'], sandbox=sandbox)
-                collected = sum(ab.get('amount', 0.0) for ab in abonos)
-                sellers_data[reg_by]["total_collected"] += collected
-            except Exception:
-                pass
+        # Calcular recaudado (cobrado) de forma instantánea usando el campo pre-calculado
+        collected = float(inv.get('totalPaid', 0.0))
+        sellers_data[reg_by]["total_collected"] += collected
 
     # Calcular comisión final
     pct = settings.get('percentage', 5.0) / 100.0

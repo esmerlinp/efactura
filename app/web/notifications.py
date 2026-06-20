@@ -22,7 +22,9 @@ def notification_stream():
         if last_id:
             sent_ids.add(last_id)
 
-        while True:
+        # Evitar conexiones huérfanas indefinidas en servidores WSGI limitando la vida de la conexión a 2 minutos
+        # El navegador reconectará automáticamente usando la funcionalidad estándar de EventSource
+        for _ in range(24):
             try:
                 notifs = DatabaseService.get_user_notifications(user_uid, limit=5)
                 for n in notifs:
