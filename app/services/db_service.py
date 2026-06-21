@@ -1014,19 +1014,22 @@ class DatabaseService:
 
     @classmethod
     def save_company_profile(cls, owner_uid, profile_dict, upload_to_firestore=True):
-        """Guarda el perfil de la empresa (cifrando campos sensibles antes de Firestore)."""
-        if firebase_initialized and upload_to_firestore:
-            try:
-                encrypted = dict(profile_dict)
-                if encrypted.get("certificatePassword"):
-                    encrypted["certificatePassword"] = encrypt_field(encrypted["certificatePassword"])
-                if encrypted.get("certificateContent"):
-                    encrypted["certificateContent"] = encrypt_field(encrypted["certificateContent"])
-                db_firestore.collection("users").document(owner_uid).collection("config").document("profile").set(encrypted)
-                # Invalidar caché del perfil para que el cambio se vea inmediatamente
-                cache.delete_memoized(_cached_company_profile, owner_uid)
-            except Exception as e:
-                print(f"⚠️ Fallo al guardar perfil de empresa en Firestore: {e}")
+        """Guarda el perfil de la empresa (cifrando campos sensibles antes de Firestore).
+        Retorna True si se guardó correctamente, False en caso contrario."""
+        if not (firebase_initialized and upload_to_firestore):
+            return False
+        try:
+            encrypted = dict(profile_dict)
+            if encrypted.get("certificatePassword"):
+                encrypted["certificatePassword"] = encrypt_field(encrypted["certificatePassword"])
+            if encrypted.get("certificateContent"):
+                encrypted["certificateContent"] = encrypt_field(encrypted["certificateContent"])
+            db_firestore.collection("users").document(owner_uid).collection("config").document("profile").set(encrypted)
+            cache.delete_memoized(_cached_company_profile, owner_uid)
+            return True
+        except Exception as e:
+            print(f"⚠️ Fallo al guardar perfil de empresa en Firestore: {e}")
+            return False
 
     # =========================================================================
     # GESTIÓN DE SUCURSALES (BRANCHES)
