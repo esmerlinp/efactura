@@ -1,6 +1,6 @@
 {% extends "layout.html" %}
 
-{% block title %}Centro de Ayuda Fiscal - e-Factura{% endblock %}
+{% block title %}Centro de Ayuda Fiscal - {{ product_name }}{% endblock %}
 
 {% block page_header %}Centro de Ayuda y Educación Fiscal{% endblock %}
 
@@ -483,7 +483,7 @@
 
         <div class="docs-sidebar-footer-info">
             <i class="fa-solid fa-shield-halved"></i>
-            <span>e-Factura cumple con la Ley 32-23 de Facturación Electrónica en República Dominicana.</span>
+            <span>{{ product_name }} cumple con la Ley 32-23 de Facturación Electrónica en República Dominicana.</span>
         </div>
     </aside>
 
@@ -581,7 +581,7 @@
                     <div class="fiscal-alert-box">
                         <i class="fa-solid fa-circle-info"></i>
                         <div class="fiscal-alert-text">
-                            En <strong>e-Factura</strong>, si activas el <strong>Régimen RST</strong> en tu
+                            En <strong>{{ product_name }}</strong>, si activas el <strong>Régimen RST</strong> en tu
                             Configuración de Empresa, el Dashboard adaptará automáticamente tu Semáforo de Salud y
                             ocultará las alertas complejas de los reportes mensuales, mostrándote en su lugar una barra
                             visual de control del límite anual.
@@ -611,7 +611,7 @@
                     Esto significa que tendrás que pasar al Régimen General de forma retroactiva, lo cual suele implicar
                     multas y gastos administrativos elevados.
                     <br><br>
-                    <strong>¿Cómo te ayuda e-Factura?</strong>
+                    <strong>¿Cómo te ayuda {{ product_name }}?</strong>
                     Nuestra barra de progreso en tiempo real lee tus facturas emitidas autorizadas del año fiscal y te
                     muestra con precisión matemática qué tan cerca estás del límite anual (RD$ 12.06M) y activa alertas
                     preventivas (amarilla al 70%, roja al 90%) para que no te lleves sorpresas desagradables al cierre
@@ -642,7 +642,7 @@
                     <strong>Ejemplos prácticos:</strong>
                     <ul>
                         <li><strong>Gastos de Negocio (Deducibles):</strong> Compra de tu laptop de trabajo, pago del
-                            plan corporativo de internet, suscripciones a software (como e-Factura, AWS, Figma),
+                            plan corporativo de internet, suscripciones a software (como {{ product_name }}, AWS, Figma),
                             alquiler de tu oficina, transporte para visitar un cliente, etc.</li>
                         <li><strong>Gastos Personales (No Deducibles):</strong> Compra del supermercado familiar, ropa
                             de uso diario, boletos de cine, regalos de cumpleaños o las comidas personales del fin de
@@ -651,7 +651,7 @@
                     <strong>¿Por qué incluimos el Switch/Toggle de deducibilidad en el registro de gastos?</strong>
                     Sabemos que como freelancer o micro-pyme es muy difícil separar las finanzas personales de las del
                     negocio.
-                    Por eso, <strong>e-Factura</strong> te permite registrar ambos tipos de gastos:
+                    Por eso, <strong>{{ product_name }}</strong> te permite registrar ambos tipos de gastos:
                     <ul>
                         <li>Si marcas <code>Deducible (Sí)</code>: El gasto se incluirá en tu diagnóstico de IT-1 y se
                             sumará para calcular los impuestos que podrás deducir legalmente.</li>
@@ -753,7 +753,7 @@
                     retenciones dominicanas (ISR e ITBIS) aplicables de ley.
                     **Este es el monto exacto que tu cliente te transferirá por el banco.**
                     <br><br>
-                    En e-Factura destacamos este valor en un bloque color **verde esmeralda** con la leyenda *"Neto a
+                    En {{ product_name }} destacamos este valor en un bloque color **verde esmeralda** con la leyenda *"Neto a
                     Recibir"* en tu vista de detalle de facturas para que sepas con absoluta certeza el monto exacto del
                     depósito bancario que debes conciliar.
                 </div>
@@ -788,7 +788,7 @@
                     </ul>
                     <strong>¿Es obligatorio?</strong>
                     Sí. La **Ley 32-23 de Facturación Electrónica** en la República Dominicana establece un calendario
-                    de obligatoriedad de transición para todos los contribuyentes. Con **e-Factura** ya estás 100%
+                    de obligatoriedad de transición para todos los contribuyentes. Con **{{ product_name }}** ya estás 100%
                     cubierto y preparado, operando mediante la API homologada de la DGII en Sandbox y Producción.
                 </div>
             </div>
@@ -809,7 +809,7 @@
                     redirigirá instantáneamente al portal de consulta de la DGII, donde se mostrará la validez oficial
                     del XML firmado y archivado en la nube.
                     <br><br>
-                    En e-Factura, generamos y renderizamos dinámicamente este código QR PNG en el lateral de tus
+                    En {{ product_name }}, generamos y renderizamos dinámicamente este código QR PNG en el lateral de tus
                     facturas autorizadas para garantizar el 100% de cumplimiento legal.
                 </div>
             </div>
@@ -921,7 +921,7 @@
                     <div class="fiscal-alert-box alert-danger">
                         <i class="fa-solid fa-shield-halved"></i>
                         <div class="fiscal-alert-text">
-                            <strong>🛡️ Lógica automatizada en e-Factura:</strong> Si nuestra API de conexión con la DGII
+                            <strong>🛡️ Lógica automatizada en {{ product_name }}:</strong> Si nuestra API de conexión con la DGII
                             detecta una interrupción del servicio o red, la plataforma activa de forma reactiva y
                             automática el <strong>MODO CONTINGENCIA (FALLBACK)</strong>. Genera el código QR de
                             validación fiscal local y estampa la leyenda obligatoria tanto en la pantalla de detalle
@@ -979,7 +979,7 @@
                             deberes formales del contribuyente, lo que puede acarrear multas y penalizaciones conforme
                             al Código Tributario dominicano.</li>
                     </ul>
-                    <strong>2. Comportamiento y mitigación en e-Factura:</strong>
+                    <strong>2. Comportamiento y mitigación en {{ product_name }}:</strong>
                     <ul>
                         <li><strong>Alertas de Regularización Críticas:</strong> La plataforma monitorea el tiempo
                             transcurrido desde la firma local offline. En tu Dashboard verás un banner informativo que
@@ -1077,7 +1077,7 @@
                     </span>
                 </h3>
                 <div class="docs-article-body">
-                    Para iniciar en <strong>e-Factura</strong>, debes configurar tu entorno de trabajo básico. Sigue
+                    Para iniciar en <strong>{{ product_name }}</strong>, debes configurar tu entorno de trabajo básico. Sigue
                     estos pasos exactos:
                     <br><br>
                     <strong>1. Creación de Cuenta y Perfil de Usuario (`/register`):</strong>
@@ -1508,7 +1508,7 @@
         <div class="docs-footer-banner">
             <div>
                 <h4>¿Tienes dudas sobre un caso tributario complejo?</h4>
-                <p>Recuerda que e-Factura simplifica el uso de la tecnología, pero siempre recomendamos validar tu
+                <p>Recuerda que {{ product_name }} simplifica el uso de la tecnología, pero siempre recomendamos validar tu
                     planeación fiscal con un asesor o contador público autorizado (CPA) certificado en RD.</p>
             </div>
             <a href="https://dgii.gov.do" target="_blank" class="btn btn-secondary"

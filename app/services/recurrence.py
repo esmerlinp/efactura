@@ -5,6 +5,7 @@ from app.services.db_service import DatabaseService
 from app.services.ecf_emission import EcfEmissionService
 from app.services.dgii import DGIIService
 from app.utils.ecf_utils import get_ecf_type_short_code
+from app.brand import get_product_name
 
 class RecurrenceService:
     @staticmethod
@@ -132,7 +133,7 @@ class RecurrenceService:
                 if not is_quotation:
                     try:
                         company = DatabaseService.get_company_profile(owner_uid)
-                        user_email = company.get("companyEmail", "sistema@efactura.com.do")
+                        user_email = company.get("companyEmail", "sistema@kodexone.com")
                         ecf_short = get_ecf_type_short_code(new_invoice["ecfType"])
                         encf, log_id = DatabaseService.consume_next_sequence(owner_uid, ecf_short, user_email, sandbox=sandbox)
                         new_invoice["encf"] = encf

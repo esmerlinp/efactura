@@ -6,6 +6,7 @@ from firebase_admin import firestore
 from app.services.db_service import db_firestore, DatabaseService
 from app.services.azul_service import AzulService
 from cryptography.hazmat.primitives.serialization import pkcs12
+from app.brand import get_product_name
 
 portal_bp = Blueprint('portal', __name__, template_folder='templates')
 
@@ -822,7 +823,7 @@ def pay_invoice(invoice_id):
         "id": payment_id,
         "amount": amount,
         "paymentMethod": "Tarjeta en Línea (Portal)",
-        "bank": "Pasarela e-Factura",
+        "bank": f"Pasarela {get_product_name()}",
         "referenceNumber": f"WEB-{uuid.uuid4().hex[:8].upper()}",
         "paymentDate": datetime.now(timezone.utc).isoformat(),
         "registeredBy": "Cliente (Portal Autogestión)"

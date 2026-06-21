@@ -62,6 +62,8 @@
         <div class="header-left">
             {% if company.logoBase64 %}
             <img src="{{ company.logoBase64 }}" class="logo-img" alt="Logo">
+            {% elif company.logoUrl %}
+            <img src="{{ company.logoUrl }}" class="logo-img" alt="Logo">
             {% endif %}
             <div class="company-info">
                 <h1>{{ company.companyName or 'Mi Empresa' }}</h1>

@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="theme-color" content="#7c3aed">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Preguntas Frecuentes - e-Factura</title>
+    <title>Preguntas Frecuentes - {{ product_name }}</title>
 
     <!-- Google Fonts & FontAwesome -->
     <link
@@ -309,7 +309,7 @@
 
     <header>
         <a href="/" class="logo">
-            <i class="fa-solid fa-receipt"></i> e-Factura
+            <i class="fa-solid fa-receipt"></i> {{ product_name }}
         </a>
         <div class="nav-links">
             <a href="/">Volver al Portal</a>
@@ -348,8 +348,8 @@
                                     Jurídica).</li>
                                 <li>Adquirir un <strong>Certificado Digital de Firma Electrónica</strong> de una entidad
                                     autorizada (como la Cámara de Comercio y Producción).</li>
-                                <li>Contar con un software de facturación homologado ante la DGII. Con
-                                    <strong>e-Factura</strong> estás completamente cubierto, ya que somos un software de
+                                    <li>Contar con un software de facturación homologado ante la DGII. Con
+                                    <strong>{{ product_name }}</strong> estás completamente cubierto, ya que somos un software de
                                     facturación certificado y homologado por la DGII.</li>
                             </ul>
                         </div>
@@ -369,7 +369,7 @@
                             una exclusión automática hacia el régimen general, forzándote a pagar multas e impuestos
                             retroactivos de forma compleja.
                             <br><br>
-                            e-Factura incorpora un motor de lectura de ventas en tiempo real. En el Dashboard y alertas,
+                            {{ product_name }} incorpora un motor de lectura de ventas en tiempo real. En el Dashboard y alertas,
                             te muestra de forma visual y con porcentaje preciso cuánto has facturado en el año fiscal en
                             curso, alertándote preventivamente al 70% y de forma crítica al 90% para evitar exclusiones
                             accidentales.
@@ -392,13 +392,13 @@
                     </div>
                     <div class="faq-answer">
                         <div class="faq-answer-inner">
-                            Si tu negocio se queda temporalmente sin conexión a internet, el sistema de e-Factura te
+                            Si tu negocio se queda temporalmente sin conexión a internet, el sistema de {{ product_name }} te
                             permite seguir emitiendo comprobantes firmados localmente (modalidad offline). La normativa
                             DGII (Ley 32-23) exige que estos comprobantes de contingencia sean remitidos a sus
                             servidores en un plazo máximo de <strong>72 horas</strong> una vez que se restablezca la
                             conexión.
                             <br><br>
-                            e-Factura monitorea de forma reactiva el estado de conexión del backend. En cuanto detecta
+                            {{ product_name }} monitorea de forma reactiva el estado de conexión del backend. En cuanto detecta
                             señal estable con nuestros servidores, transmite en bloques automatizados y silenciosos las
                             facturas pendientes de sincronizar sin interrumpir tu trabajo en pantalla.
                         </div>
@@ -407,12 +407,12 @@
 
                 <div class="faq-card searchable">
                     <div class="faq-question">
-                        ¿Es posible integrar e-Factura con mi propio sistema o ERP?
+                        ¿Es posible integrar {{ product_name }} con mi propio sistema o ERP?
                         <i class="fa-solid fa-chevron-down faq-icon"></i>
                     </div>
                     <div class="faq-answer">
                         <div class="faq-answer-inner">
-                            ¡Sí, absolutamente! e-Factura cuenta con una potente API RESTful que permite a los
+                            ¡Sí, absolutamente! {{ product_name }} cuenta con una potente API RESTful que permite a los
                             desarrolladores conectar cualquier sistema (SAP, QuickBooks, e-commerce propio, etc.)
                             directamente con nuestra infraestructura. Nosotros nos encargamos de encriptar, firmar y
                             enviar el XML a la DGII, tú solo nos envías un JSON.

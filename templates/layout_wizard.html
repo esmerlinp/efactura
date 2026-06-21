@@ -12,9 +12,9 @@
         })();
     </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}{% endblock %} - e-Factura Onboarding</title>
+    <title>{% block title %}{% endblock %} - {{ product_name }} Onboarding</title>
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/efactura_logo.png') }}">
-    <meta name="description" content="Configuración inicial de e-Factura.">
+    <meta name="description" content="Configuración inicial de {{ product_name }}.">
 
     <!-- FontAwesome para Iconos Modernos -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -139,7 +139,7 @@
         <header class="wizard-header">
             <div class="wizard-brand">
                 <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Logo">
-                <span class="wizard-brand-title">e-Factura</span>
+                <span class="wizard-brand-title">{{ product_name }}</span>
             </div>
             
             <div class="wizard-header-actions">

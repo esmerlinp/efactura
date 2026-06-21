@@ -1729,7 +1729,7 @@ function switchInvoiceTab(tabName) {
         printWindow.document.write('</div>');
 
         printWindow.document.write('<div style="margin-top: 40px; text-align: center; border-top: 1px solid #e2e8f0; padding-top: 15px; font-size: 0.72rem; color: #94a3b8;">');
-        printWindow.document.write('  Este es un reporte descriptivo oficial emitido de forma automatizada por el sistema de facturación e-Factura. Emitido el: ' + new Date().toLocaleString() + '');
+        printWindow.document.write('  Este es un reporte descriptivo oficial emitido de forma automatizada por el sistema de facturación {{ product_name }}. Emitido el: ' + new Date().toLocaleString() + '');
         printWindow.document.write('</div>');
 
         printWindow.document.write('</body></html>');
@@ -1948,7 +1948,7 @@ function switchInvoiceTab(tabName) {
         // Footer
         w.document.write('<div class="footer">');
         w.document.write('  Este recibo es un comprobante administrativo de ingreso emitido por ' + companyName + '.<br>');
-        w.document.write('  Generado automáticamente por el sistema e-Factura el ' + new Date().toLocaleString('es-DO') + '.');
+        w.document.write('  Generado automáticamente por el sistema {{ product_name }} el ' + new Date().toLocaleString('es-DO') + '.');
         w.document.write('</div>');
 
         w.document.write('</body></html>');

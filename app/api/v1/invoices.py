@@ -9,6 +9,7 @@ from app.services.ecf_emission import EcfEmissionService
 from app.services.dgii import DGIIService
 from app.utils.cache_utils import http_cache
 from app.utils.ecf_utils import get_ecf_type_short_code
+from app.brand import get_product_name
 
 api_invoices_bp = Blueprint('api_invoices', __name__)
 
@@ -108,7 +109,7 @@ def emit_invoice():
         # Consumir el siguiente consecutivo del rango fiscal DGII si no se ha asignado y no es cotización
         if not invoice_dict.get("encf"):
             ecf_short = get_ecf_type_short_code(invoice_dict["ecfType"])
-            user_email = g.company.get("companyEmail", "api@efactura.com.do")
+            user_email = g.company.get("companyEmail", "api@kodexone.com")
             
             # Bloquear secuencia y generar consecutivo transaccionalmente en Firestore
             encf, log_id = DatabaseService.consume_next_sequence(g.owner_uid, ecf_short, user_email, sandbox=g.sandbox_mode)
@@ -1019,7 +1020,7 @@ def send_receipt_endpoint(invoice_id):
         if not smtp_user or not smtp_password:
             return jsonify({"success": False, "error": "El servidor de correo no está configurado en el backend."}), 503
 
-        company_name    = company.get("tradeName") or company.get("companyName", "e-Factura")
+        company_name    = company.get("tradeName") or company.get("companyName", get_product_name())
         brand_color     = company.get("colorMarca", "#10b981")
         logo_url        = company.get("logoUrl", "")
         logo_html       = f'<img src="{logo_url}" alt="Logo" style="max-height: 50px; margin-bottom: 15px;"><br>' if logo_url else ''

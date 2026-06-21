@@ -13,6 +13,7 @@ from config import Config
 from app.services.db_service import DatabaseService
 from app.utils.decorators import check_permission
 from app.extensions import limiter
+from app.brand import get_product_name
 
 web_auth_bp = Blueprint('web_auth', __name__)
 
@@ -64,7 +65,7 @@ def api_solicitar_demo():
             try:
                 msg = MIMEMultipart('alternative')
                 msg["Subject"] = f"🔔 Nueva Solicitud de Demo: {name}"
-                msg["From"] = formataddr(("e-Factura Landing", smtp_user))
+                msg["From"] = formataddr((f"{get_product_name()} Landing", smtp_user))
                 msg["To"] = "dev.esmerlin@gmail.com"
                 
                 html_body = f"""
@@ -106,7 +107,7 @@ def api_solicitar_demo():
                     </table>
                     <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
                     <div style="font-size: 0.8rem; color: #999; text-align: center;">
-                        Notificación automática del sistema de Landing Page de e-Factura.
+                        Notificación automática del sistema de Landing Page de {get_product_name()}.
                     </div>
                 </body>
                 </html>
@@ -312,7 +313,7 @@ def setup_2fa():
     
     secret = pyotp.random_base32()
     totp = pyotp.TOTP(secret)
-    provisioning_uri = totp.provisioning_uri(name=email, issuer_name="e-Factura RD")
+    provisioning_uri = totp.provisioning_uri(name=email, issuer_name=f"{get_product_name()} RD")
     
     qr = qrcode.QRCode(version=1, box_size=10, border=4)
     qr.add_data(provisioning_uri)

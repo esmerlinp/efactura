@@ -205,9 +205,10 @@ def create_app():
                         return redirect(flask_url_for('web_invoices.onboarding_wizard'))
 
     @app.context_processor
-    def inject_company_brand():
-        """Inyecta el logo y color de marca de la empresa en todos los templates."""
-        from flask import has_request_context
+    def inject_global_brand():
+        """Inyecta el nombre del producto y la marca de la empresa en todos los templates."""
+        from flask import current_app, has_request_context
+        product_name = current_app.config.get('PRODUCT_NAME', 'KodexOne')
         logo_url = ''
         gradient_enabled = True
         color_marca = ''
@@ -227,6 +228,7 @@ def create_app():
                 theme = company.get('theme', 'moderno')
                 is_configured = company.get('configured', False)
         return dict(
+            product_name=product_name,
             company_logo_url=logo_url, 
             company_color_marca=color_marca, 
             company_gradient_enabled=gradient_enabled, 

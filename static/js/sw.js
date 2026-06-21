@@ -1,4 +1,4 @@
-const CACHE_NAME = 'efactura-static-v1';
+const CACHE_NAME = 'kodexone-static-v1';
 
 const PRECACHE_URLS = [
   '/static/css/style_moderno.css',

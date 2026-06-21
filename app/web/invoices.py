@@ -26,6 +26,7 @@ from app.services.dgii_direct import DgiiDirectService
 from app.services.recurrence import RecurrenceService
 from app.utils.decorators import check_permission, require_permission
 from app.utils.ecf_utils import get_ecf_type_short_code
+from app.brand import get_product_name
 
 
 from flask import Blueprint
@@ -317,7 +318,7 @@ def download_csv_template():
         dest,
         mimetype="text/csv",
         as_attachment=True,
-        download_name="plantilla_items_efactura.csv"
+        download_name="plantilla_items_kodexone.csv"
     )
 
 @web_invoices_bp.route('/inventory/export-stock')
@@ -1523,7 +1524,7 @@ def process_comment_mentions(owner_uid, content, entity_id, entity_name, entity_
             
             # Obtener el nombre comercial de la empresa
             company = DatabaseService.get_company(owner_uid) or {}
-            issuer_company_name = company.get("tradeName") or company.get("companyName") or "e-Factura"
+            issuer_company_name = company.get("tradeName") or company.get("companyName") or get_product_name()
             
             NotificationService.send_mention_notification(
                 recipient_email=email,
@@ -1833,13 +1834,13 @@ def send_receipt_email(invoice_id):
     if not smtp_user or not smtp_password:
         return jsonify({"success": False, "message": "El servidor de correo no está configurado. Configura SMTP_USER y SMTP_PASSWORD en el servidor."}), 503
 
-    company_name    = company.get("tradeName") or company.get("companyName", "e-Factura")
+    company_name    = company.get("tradeName") or company.get("companyName", get_product_name())
     company_rnc     = company.get("companyRNC", "")
     company_address = company.get("companyAddress", "")
     company_phone   = company.get("companyPhone", "")
     company_email   = company.get("companyEmail", smtp_user)
 
-    company_name    = company.get("tradeName") or company.get("companyName", "e-Factura")
+    company_name    = company.get("tradeName") or company.get("companyName", get_product_name())
     brand_color     = company.get("colorMarca", "#10b981")
 
     html_body = f"""
@@ -2788,7 +2789,7 @@ def send_quotation_to_client(invoice_id):
         return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
         
     company = DatabaseService.get_company_profile(owner_uid)
-    company_name = company.get("tradeName") or company.get("companyName", "e-Factura")
+    company_name = company.get("tradeName") or company.get("companyName", get_product_name())
     
     # Enlace al portal de autoservicio
     portal_link = url_for('portal.client_portal', owner_uid=owner_uid, client_id=invoice['clientId'], sandbox='true' if sandbox else 'false', _external=True)
@@ -2850,7 +2851,7 @@ def send_quotation_to_client(invoice_id):
       
       <div class="footer-note">
         Para consultas adicionales, comuníquese con nosotros.<br>
-        Generado automáticamente por la plataforma e-Factura.
+        Generado automáticamente por la plataforma {get_product_name()}.
       </div>
     </div>
   </div>
@@ -5069,7 +5070,11 @@ def save_company_brand_settings():
         ext = logo_file.filename.rsplit('.', 1)[-1].lower() if '.' in logo_file.filename else 'png'
         dest_path = f"users/{owner_uid}/company/logo_{uuid.uuid4().hex[:8]}.{ext}"
         existing_profile['logoUrl'] = DatabaseService.upload_file_to_storage(file_data, dest_path, mime_type)
-        existing_profile['logoBase64'] = base64.b64encode(file_data).decode('utf-8')
+        b64 = base64.b64encode(file_data).decode('utf-8')
+        if len(b64) < 800000:
+            existing_profile['logoBase64'] = b64
+        else:
+            existing_profile['logoBase64'] = ''
         
     if request.form.get('removeLogo') == 'true':
         existing_profile['logoUrl'] = ''
@@ -6879,7 +6884,7 @@ def process_resource_comment_mentions(owner_uid, content, resource_type, resourc
             
             # Obtener el nombre comercial de la empresa
             company = DatabaseService.get_company(owner_uid) or {}
-            issuer_company_name = company.get("tradeName") or company.get("companyName") or "e-Factura"
+            issuer_company_name = company.get("tradeName") or company.get("companyName") or get_product_name()
             
             NotificationService.send_mention_notification(
                 recipient_email=email,

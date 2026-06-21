@@ -8,6 +8,7 @@ from email.utils import formataddr
 from datetime import datetime, timedelta, timezone
 from flask import current_app
 from app.services.db_service import DatabaseService
+from app.brand import get_product_name
 
 class NotificationService:
     @classmethod
@@ -16,7 +17,7 @@ class NotificationService:
         Envía un recordatorio de pago (vía email o WhatsApp) y registra la interacción en el historial del cliente.
         """
         company = DatabaseService.get_company_profile(owner_uid) or {}
-        company_name = company.get("tradeName") or company.get("companyName") or "e-Factura Proveedor"
+        company_name = company.get("tradeName") or company.get("companyName") or f"{get_product_name()} Proveedor"
         
         client_id = invoice.get("clientId")
         if not client_id:
@@ -130,7 +131,7 @@ class NotificationService:
                     <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 24px 0;">
                     
                     <div style="font-size: 0.8rem; color: #9ca3af; text-align: center;">
-                        Enviado de forma automática por la plataforma e-Factura.
+                        Enviado de forma automática por la plataforma {get_product_name()}.
                     </div>
                 </body>
                 </html>
@@ -290,8 +291,9 @@ class NotificationService:
         return sent_count
 
     @classmethod
-    def send_mention_notification(cls, recipient_email, recipient_name, commenter_name, comment_snippet, doc_number, doc_url, issuer_company_name="e-Factura", sandbox=True, brand_color="#10b981", logo_url=""):
+    def send_mention_notification(cls, recipient_email, recipient_name, commenter_name, comment_snippet, doc_number, doc_url, issuer_company_name=None, sandbox=True, brand_color="#10b981", logo_url=""):
         """Envía un correo electrónico de notificación cuando un usuario es tagueado en un comentario."""
+        issuer_company_name = issuer_company_name or get_product_name()
         smtp_server = current_app.config.get("SMTP_SERVER", "smtp.gmail.com")
         smtp_port = int(current_app.config.get("SMTP_PORT", 587))
         smtp_user = current_app.config.get("SMTP_USER", "")
@@ -308,7 +310,7 @@ class NotificationService:
             # Construir el correo HTML
             msg = MIMEMultipart('alternative')
             msg["Subject"] = f"💬 Te mencionaron en un comentario — {doc_number}"
-            msg["From"] = formataddr(("e-Factura", smtp_user))
+            msg["From"] = formataddr((get_product_name(), smtp_user))
             msg["To"] = recipient_email
             
             logo_html = f'<img src="{logo_url}" alt="Logo" style="max-height: 50px; margin-bottom: 15px;"><br>' if logo_url else ''
@@ -319,7 +321,7 @@ class NotificationService:
                 <div style="text-align: center; margin-bottom: 24px; padding-bottom: 12px; border-bottom: 2px solid {brand_color};">
                     {logo_html}
                     <h2 style="color: {brand_color}; margin: 0;">Nueva Mención</h2>
-                    <p style="color: #666; margin: 4px 0 0 0;">Plataforma e-Factura · <strong>{issuer_company_name}</strong></p>
+                    <p style="color: #666; margin: 4px 0 0 0;">Plataforma {get_product_name()} · <strong>{issuer_company_name or get_product_name()}</strong></p>
                 </div>
                 
                 <p>Hola <strong>{recipient_name}</strong>,</p>
@@ -339,7 +341,7 @@ class NotificationService:
                 <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 24px 0;">
                 
                 <div style="font-size: 0.8rem; color: #9ca3af; text-align: center;">
-                    Enviado de forma automática por la plataforma e-Factura.
+                    Enviado de forma automática por la plataforma {get_product_name()}.
                 </div>
             </body>
             </html>
@@ -363,7 +365,7 @@ class NotificationService:
     def send_expense_assignment_notification(cls, recipient_email, recipient_name, expense, owner_uid, sandbox=True):
         """Envía un correo electrónico notificando a un usuario que se le ha asignado un gasto para revisión/aprobación."""
         company = DatabaseService.get_company_profile(owner_uid) or {}
-        company_name = company.get("tradeName") or company.get("companyName") or "e-Factura Proveedor"
+        company_name = company.get("tradeName") or company.get("companyName") or f"{get_product_name()} Proveedor"
         brand_color = company.get('colorMarca', '#10b981')
         logo_url = company.get('logoUrl', '')
         
@@ -403,7 +405,7 @@ class NotificationService:
                 <div style="text-align: center; margin-bottom: 24px; padding-bottom: 12px; border-bottom: 2px solid {brand_color};">
                     {logo_html}
                     <h2 style="color: {brand_color}; margin: 0;">Asignación de Aprobación</h2>
-                    <p style="color: #666; margin: 4px 0 0 0;">Plataforma e-Factura · <strong>{company_name}</strong></p>
+                    <p style="color: #666; margin: 4px 0 0 0;">Plataforma {get_product_name()} · <strong>{company_name}</strong></p>
                 </div>
                 
                 <p>Hola <strong>{recipient_name}</strong>,</p>
@@ -440,7 +442,7 @@ class NotificationService:
                 <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 24px 0;">
                 
                 <div style="font-size: 0.8rem; color: #9ca3af; text-align: center;">
-                    Enviado de forma automática por la plataforma e-Factura.
+                    Enviado de forma automática por la plataforma {get_product_name()}.
                 </div>
             </body>
             </html>
@@ -469,7 +471,7 @@ class NotificationService:
         document_type: 'Cotización' | 'Contrato' | 'Factura'
         """
         company = DatabaseService.get_company_profile(owner_uid) or {}
-        company_name = company.get("tradeName") or company.get("companyName") or "e-Factura"
+        company_name = company.get("tradeName") or company.get("companyName") or get_product_name()
         brand_color = company.get('colorMarca', '#10b981')
         logo_url = company.get('logoUrl', '')
 
@@ -531,7 +533,7 @@ class NotificationService:
 
                 <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 24px 0;">
                 <div style="font-size: 0.8rem; color: #9ca3af; text-align: center;">
-                    Notificación automática del sistema e-Factura · Portal de Autogestión de Clientes
+                    Notificación automática del sistema {get_product_name()} · Portal de Autogestión de Clientes
                 </div>
             </body>
             </html>
@@ -557,7 +559,7 @@ class NotificationService:
         action: 'aprobado' | 'rechazado'
         """
         company = DatabaseService.get_company_profile(owner_uid) or {}
-        company_name = company.get("tradeName") or company.get("companyName") or "e-Factura"
+        company_name = company.get("tradeName") or company.get("companyName") or get_product_name()
         brand_color = company.get('colorMarca', '#10b981')
         logo_url = company.get('logoUrl', '')
 
@@ -662,7 +664,7 @@ class NotificationService:
 
                 <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 24px 0;">
                 <div style="font-size: 0.8rem; color: #9ca3af; text-align: center;">
-                    Notificación automática del sistema e-Factura &middot; {company_name}
+                    Notificación automática del sistema {get_product_name()} &middot; {company_name}
                 </div>
             </body>
             </html>

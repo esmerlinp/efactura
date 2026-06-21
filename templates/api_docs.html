@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="theme-color" content="#7c3aed">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Documentación API REST - e-Factura</title>
+    <title>Documentación API REST - {{ product_name }}</title>
 
     <!-- Google Fonts & FontAwesome -->
     <link
@@ -366,7 +366,7 @@
 
     <header>
         <a href="/" class="logo">
-            <i class="fa-solid fa-receipt"></i> e-Factura
+            <i class="fa-solid fa-receipt"></i> {{ product_name }}
         </a>
         <div class="nav-links">
             <a href="/">Volver al Portal</a>
@@ -409,9 +409,9 @@
 
             <!-- Intro Pane -->
             <div class="endpoint-pane active" id="pane-intro">
-                <h2>Bienvenido a la API de e-Factura</h2>
+                <h2>Bienvenido a la API de {{ product_name }}</h2>
                 <p class="description" style="margin-top: 16px;">
-                    e-Factura proporciona un <strong>Backend as a Service (BaaS)</strong> robusto para la emisión y
+                    {{ product_name }} proporciona un <strong>Backend as a Service (BaaS)</strong> robusto para la emisión y
                     gestión de Comprobantes Fiscales Electrónicos (e-CF) en la República Dominicana (Ley 32-23).
                 </p>
                 <p class="description">

@@ -6,6 +6,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from app.services.db_service import DatabaseService
 from app.services.dgii import DGIIService
 from app.utils.decorators import check_permission
+from app.brand import get_product_name
 
 web_clients_bp = Blueprint('web_clients', __name__)
 
@@ -410,7 +411,7 @@ def send_portal_credentials(client_id):
     portal_url = url_for('portal.portal_entry', token=token, _external=True)
 
     company = DatabaseService.get_company_profile(owner_uid) or {}
-    company_name = company.get('tradeName') or company.get('companyName') or 'e-Factura'
+    company_name = company.get('tradeName') or company.get('companyName') or get_product_name()
     brand_color = company.get('colorMarca', '#10b981')
     logo_url = company.get('logoUrl', '')
     logo_html = f'<img src="{logo_url}" alt="Logo" style="max-height: 60px; margin-bottom: 15px;"><br>' if logo_url else ''
@@ -471,7 +472,7 @@ def send_portal_credentials(client_id):
 
         <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 24px 0;">
         <div style="font-size: 0.8rem; color: #9ca3af; text-align: center;">
-            Enviado automáticamente por la plataforma e-Factura &middot; {company_name}
+            Enviado automáticamente por la plataforma {get_product_name()} &middot; {company_name}
         </div>
     </body>
     </html>

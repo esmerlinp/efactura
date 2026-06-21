@@ -3,6 +3,7 @@ import json
 import base64
 from config import Config
 from app.services.db_service import DatabaseService
+from app.brand import get_product_name
 
 class AIService:
     @staticmethod
@@ -254,7 +255,6 @@ Retorna ÚNICAMENTE las dos cifras del código correspondiente (ej: 02 o 05). Si
         """
         api_key = cls._get_api_key(owner_uid)
         
-        from app.services.db_service import DatabaseService
         profile = DatabaseService.get_company_profile(owner_uid)
         brand_name = profile.get("tradeName") or profile.get("companyName", "Nuestra Empresa")
         company_rnc = profile.get("companyRNC", "")
@@ -298,7 +298,7 @@ Atentamente,
 Departamento de Cobranzas
 {brand_name}
 
-- NO menciones "e-Factura" en ninguna parte del texto, ya que la empresa que emite el cobro es {brand_name}.
+- NO menciones "{get_product_name()}" en ninguna parte del texto, ya que la empresa que emite el cobro es {brand_name}.
 - Retorna ÚNICAMENTE el texto redactado del mensaje. Sin introducciones ni saludos explicativos."""
 
         payload = {
@@ -399,7 +399,7 @@ No agregues explicaciones, markdown ni texto extra."""
             "Authorization": f"Bearer {api_key}"
         }
 
-        system_prompt = """Eres un asistente inteligente para el sistema e-Factura. Tu tarea es corregir la ortografía y mejorar la redacción de los comentarios y notas internas del usuario sobre documentos de forma profesional, fluida y coherente.
+        system_prompt = f"""Eres un asistente inteligente para el sistema {get_product_name()}. Tu tarea es corregir la ortografía y mejorar la redacción de los comentarios y notas internas del usuario sobre documentos de forma profesional, fluida y coherente.
 Importante:
 - Corrige errores gramaticales u ortográficos.
 - Mantén el significado original intacto.

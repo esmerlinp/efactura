@@ -57,6 +57,9 @@ class Config:
     DGII_SANDBOX_MODE = os.getenv('DGII_SANDBOX_MODE', 'local').lower()
     DGII_USER_AGENT = os.getenv('DGII_USER_AGENT', 'e-FacturaWeb/1.0')
 
+    # Nombre del producto (marca)
+    PRODUCT_NAME = os.getenv('PRODUCT_NAME', 'KodexOne')
+
     # Flask-Caching
     CACHE_TYPE = os.getenv('CACHE_TYPE', 'SimpleCache')
     CACHE_DEFAULT_TIMEOUT = int(os.getenv('CACHE_DEFAULT_TIMEOUT', '300'))
