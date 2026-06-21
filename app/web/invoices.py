@@ -599,7 +599,7 @@ def new_inventory_transaction():
 # =========================================================================
 # MESAS DE EMISIÓN DE COMPROBANTES FISCALES (e-CF)
 # =========================================================================
-@web_invoices_bp.route('/invoices')
+@web_invoices_bp.route('/invoices', strict_slashes=False)
 def list_invoices():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canInvoice'):
@@ -1585,7 +1585,7 @@ def invoice_detail(invoice_id):
         
         if inst.get("status") == "Pendiente" and inst_due_str:
             try:
-                due_date_dt = datetime.strptime(inst_due_str[:10], "%Y-%m-%d")
+                due_date_dt = datetime.strptime(inst_due_str[:10], "%Y-%m-%d").replace(tzinfo=timezone.utc)
                 if hoy > due_date_dt:
                     dias_retraso = (hoy - due_date_dt).days
                     # Recargo mensual de mora calculado por día
