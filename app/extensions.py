@@ -36,10 +36,12 @@ def init_extensions(app):
     # Inicializar Base de Datos SQLite local y tablas de Firebase Auth
     DatabaseService.init_local_db()
 
-    # Inicializar CSRF Protection (excluye rutas API que usan sus propios tokens)
+    # Inicializar CSRF Protection (excluye rutas API y el portal de autogestión de clientes)
     csrf.init_app(app)
-    csrf.exempt(app.url_map.iter_rules
-                if hasattr(app.url_map, 'iter_rules') else None)
+
+    # Eximir el blueprint del portal de clientes de validación CSRF
+    from app.web.portal import portal_bp
+    csrf.exempt(portal_bp)
 
     # Eximir rutas /api/ de CSRF (usan autenticación por token)
     for rule in app.url_map.iter_rules():
