@@ -306,6 +306,7 @@ endblock %}
                     <option value="Borrador" {% if status=='Borrador' %}selected{% endif %}>Borrador</option>
                     <option value="Pendiente Aut. Cliente" {% if status=='Pendiente Aut. Cliente' %}selected{% endif %}>Pendiente Aut. Cliente</option>
                     <option value="Aprobada" {% if status=='Aprobada' %}selected{% endif %}>Aprobada</option>
+                    <option value="Facturada" {% if status=='Facturada' %}selected{% endif %}>Facturada</option>
                     <option value="Rechazada" {% if status=='Rechazada' %}selected{% endif %}>Rechazada</option>
                     {% else %}
                     <option value="Borrador" {% if status=='Borrador' %}selected{% endif %}>Borrador</option>
@@ -441,6 +442,15 @@ endblock %}
                 </div>
             </div>
 
+            <div class="kanban-column" id="col-Facturada" ondrop="drop(event)" ondragover="allowDrop(event)">
+                <h4 class="kanban-header"><i class="fa-solid fa-receipt"></i> Facturada</h4>
+                <div class="kanban-cards">
+                    {% for inv in invoices if inv.status == 'Facturada' %}
+                    {{ render_doc(inv) }}
+                    {% endfor %}
+                </div>
+            </div>
+
             <div class="kanban-column" id="col-Rechazada" ondrop="drop(event)" ondragover="allowDrop(event)">
                 <h4 class="kanban-header"><i class="fa-solid fa-times-circle"></i> Rechazada</h4>
                 <div class="kanban-cards">
@@ -469,6 +479,7 @@ endblock %}
                 let status = 'Borrador';
                 if (targetCol.id === 'col-Enviada') status = 'Pendiente Aut. Cliente';
                 if (targetCol.id === 'col-Aprobada') status = 'Aprobada';
+                if (targetCol.id === 'col-Facturada') status = 'Facturada';
                 if (targetCol.id === 'col-Rechazada') status = 'Rechazada';
 
                 const invId = data.replace('inv-', '');
@@ -610,6 +621,8 @@ endblock %}
                             <span class="badge badge-secondary" style="font-size: 0.65rem;">Borrador</span>
                             {% elif inv.status == 'Pendiente Aut. Cliente' %}
                             <span class="badge badge-warning" style="font-size: 0.65rem; background-color: rgba(245, 158, 11, 0.15); color: #d97706; padding: 4px 8px; border-radius: 4px; font-weight: 600;">Pendiente Aut. Cliente</span>
+                            {% elif inv.status == 'Facturada' %}
+                            <span class="badge" style="font-size: 0.65rem; background-color: rgba(99, 102, 241, 0.15); color: #6366f1; padding: 4px 8px; border-radius: 4px; font-weight: 600;">Facturada</span>
                             {% elif inv.status == 'Aprobada' %}
                             <span class="badge badge-success" style="font-size: 0.65rem; background-color: rgba(16, 185, 129, 0.15); color: #10b981; padding: 4px 8px; border-radius: 4px; font-weight: 600;">Aprobada</span>
                             {% elif inv.status == 'Rechazada' %}

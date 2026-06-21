@@ -687,7 +687,26 @@
         <!-- ══════════════════════════════════════════════════════════
              PANEL DE CONVERSIÓN DE COTIZACIÓN → FACTURA REAL
         ══════════════════════════════════════════════════════════ -->
-        {% if invoice.status != 'Aprobada' %}
+        {% if invoice.status == 'Facturada' or invoice.convertedToInvoiceId %}
+        <div class="card-table-wrapper"
+            style="padding: 24px; text-align: center; border: 1.5px solid var(--accent-emerald); {% if company.get('gradientEnabled', True) %}background: linear-gradient(160deg, rgba(16,185,129,0.04), rgba(167,139,250,0.02));{% else %}background: rgba(124,58,237,0.04);{% endif %}">
+            <div
+                style="width: 52px; height: 52px; border-radius: 50%; background: linear-gradient(135deg,#10b981,#34d399); display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; color: white;">
+                <i class="fa-solid fa-circle-check" style="font-size: 1.2rem;"></i>
+            </div>
+            <h4
+                style="font-size: 1.05rem; font-family: var(--font-heading); margin-bottom: 8px; color: var(--accent-emerald);">
+                Cotización Facturada</h4>
+            <p style="color: var(--text-secondary); font-size: 0.79rem; line-height: 1.45; margin-bottom: 20px;">
+                Esta propuesta ya ha sido convertida a factura fiscal.
+            </p>
+            <a href="{{ url_for('web_invoices.invoice_detail', invoice_id=invoice.convertedToInvoiceId) }}" class="btn btn-primary"
+                style="width: 100%; background: var(--accent-emerald); border-color: var(--accent-emerald); color: white; display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-weight: 700;">
+                <i class="fa-solid fa-receipt"></i>
+                <span>Ver Factura Emitida ({{ invoice.convertedInvoiceNumber or 'FAC' }})</span>
+            </a>
+        </div>
+        {% elif invoice.status != 'Aprobada' %}
         {% if invoice.status == 'Rechazada' %}
         <div class="card-table-wrapper"
             style="padding: 24px; text-align: center; border: 1.5px solid var(--accent-red); background: rgba(239, 68, 68, 0.03);">
@@ -756,25 +775,7 @@
         </div>
         {% else %}
         <div class="card-table-wrapper"
-            style="padding: 24px; text-align: center; border: 1.5px solid {% if invoice.convertedToInvoiceId %}var(--accent-emerald){% else %}var(--accent-purple){% endif %}; {% if company.get('gradientEnabled', True) %}background: linear-gradient(160deg, {% if invoice.convertedToInvoiceId %}rgba(16,185,129,0.04){% else %}rgba(124,58,237,0.04){% endif %}, rgba(167,139,250,0.02));{% else %}background: rgba(124,58,237,0.04);{% endif %}">
-            
-            {% if invoice.convertedToInvoiceId %}
-            <div
-                style="width: 52px; height: 52px; border-radius: 50%; background: linear-gradient(135deg,#10b981,#34d399); display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; color: white;">
-                <i class="fa-solid fa-circle-check" style="font-size: 1.2rem;"></i>
-            </div>
-            <h4
-                style="font-size: 1.05rem; font-family: var(--font-heading); margin-bottom: 8px; color: var(--accent-emerald);">
-                Cotización Facturada</h4>
-            <p style="color: var(--text-secondary); font-size: 0.79rem; line-height: 1.45; margin-bottom: 20px;">
-                Esta propuesta ya ha sido convertida a factura fiscal.
-            </p>
-            <a href="{{ url_for('web_invoices.invoice_detail', invoice_id=invoice.convertedToInvoiceId) }}" class="btn btn-primary"
-                style="width: 100%; background: var(--accent-emerald); border-color: var(--accent-emerald); color: white; display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-weight: 700;">
-                <i class="fa-solid fa-receipt"></i>
-                <span>Ver Factura Emitida ({{ invoice.convertedInvoiceNumber or 'FAC' }})</span>
-            </a>
-            {% else %}
+            style="padding: 24px; text-align: center; border: 1.5px solid var(--accent-purple); {% if company.get('gradientEnabled', True) %}background: linear-gradient(160deg, rgba(124,58,237,0.04), rgba(167,139,250,0.02));{% else %}background: rgba(124,58,237,0.04);{% endif %}">
             <div
                 style="width: 52px; height: 52px; border-radius: 50%; {% if company.get('gradientEnabled', True) %}background: linear-gradient(135deg,#7c3aed,#a78bfa);{% else %}background: var(--accent-purple);{% endif %} display: flex; align-items: center; justify-content: center; margin: 0 auto 12px;">
                 <i class="fa-solid fa-wand-magic-sparkles" style="color:white; font-size: 1.2rem;"></i>
@@ -817,7 +818,6 @@
                     • <strong>E32</strong> requiere RNC si el monto supera RD$ 250,000.
                 </p>
             </div>
-            {% endif %}
         </div>
         {% endif %}
 
