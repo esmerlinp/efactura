@@ -4889,8 +4889,12 @@ def company_settings():
             "posToleranceUSD": float(request.form.get('posToleranceUSD') or 0.0),
             "configured": True
         })
-        DatabaseService.save_company_profile(owner_uid, profile_dict)
-        flash('Ajustes y perfil de empresa actualizados correctamente.', 'success')
+        saved = DatabaseService.save_company_profile(owner_uid, profile_dict)
+        if saved:
+            flash('Ajustes y perfil de empresa actualizados correctamente.', 'success')
+        else:
+            flash('Error al guardar el perfil. Verifica que los datos no excedan el tamaño permitido.', 'error')
+            return redirect(url_for('web_invoices.company_settings'))
 
         if request.form.get('is_wizard') == 'true':
             # PROCESAR ACTIVOS OPCIONALES DEL WIZARD ONBOARDING
@@ -5022,7 +5026,10 @@ def onboarding_wizard():
             **defaults
         })
         
-        DatabaseService.save_company_profile(owner_uid, profile_dict)
+        saved = DatabaseService.save_company_profile(owner_uid, profile_dict)
+        if not saved:
+            flash('Error al guardar el perfil durante el onboarding. Intenta de nuevo.', 'error')
+            return redirect(url_for('web_invoices.onboarding_wizard'))
         flash('¡Onboarding completado con éxito!', 'success')
         return redirect(url_for('web_dashboard.dashboard'))
 
@@ -5047,53 +5054,61 @@ def generate_company_api_key():
 def save_company_brand_settings():
     if 'user' not in session: return jsonify({"error": "No autorizado"}), 401
     if not check_permission('canModifySettings'): return jsonify({"error": "No autorizado"}), 403
-    
-    owner_uid = session['user']['ownerUID']
-    existing_profile = DatabaseService.get_company_profile(owner_uid)
-    
-    if 'colorMarca' in request.form:
-        existing_profile['colorMarca'] = request.form.get('colorMarca')
-    if 'gradientEnabled' in request.form:
-        existing_profile['gradientEnabled'] = request.form.get('gradientEnabled') == 'true'
-    if 'applyColorMarcaUI' in request.form:
-        existing_profile['applyColorMarcaUI'] = request.form.get('applyColorMarcaUI') == 'true'
-    if 'applyColorMarcaReports' in request.form:
-        existing_profile['applyColorMarcaReports'] = request.form.get('applyColorMarcaReports') == 'true'
-    if 'theme' in request.form:
-        existing_profile['theme'] = request.form.get('theme')
-        
-    logo_file = request.files.get('logoFile')
-    if logo_file and logo_file.filename:
-        import base64
-        file_data = logo_file.read()
-        mime_type = logo_file.content_type or "image/png"
-        ext = logo_file.filename.rsplit('.', 1)[-1].lower() if '.' in logo_file.filename else 'png'
-        dest_path = f"users/{owner_uid}/company/logo_{uuid.uuid4().hex[:8]}.{ext}"
-        existing_profile['logoUrl'] = DatabaseService.upload_file_to_storage(file_data, dest_path, mime_type)
-        b64 = base64.b64encode(file_data).decode('utf-8')
-        if len(b64) < 800000:
-            existing_profile['logoBase64'] = b64
-        else:
+
+    try:
+        owner_uid = session['user']['ownerUID']
+        existing_profile = DatabaseService.get_company_profile(owner_uid)
+        if not existing_profile:
+            return jsonify({"success": False, "error": "Perfil de empresa no encontrado."}), 404
+
+        if 'colorMarca' in request.form:
+            existing_profile['colorMarca'] = request.form.get('colorMarca')
+        if 'gradientEnabled' in request.form:
+            existing_profile['gradientEnabled'] = request.form.get('gradientEnabled') == 'true'
+        if 'applyColorMarcaUI' in request.form:
+            existing_profile['applyColorMarcaUI'] = request.form.get('applyColorMarcaUI') == 'true'
+        if 'applyColorMarcaReports' in request.form:
+            existing_profile['applyColorMarcaReports'] = request.form.get('applyColorMarcaReports') == 'true'
+        if 'theme' in request.form:
+            existing_profile['theme'] = request.form.get('theme')
+            
+        logo_file = request.files.get('logoFile')
+        if logo_file and logo_file.filename:
+            import base64
+            file_data = logo_file.read()
+            mime_type = logo_file.content_type or "image/png"
+            ext = logo_file.filename.rsplit('.', 1)[-1].lower() if '.' in logo_file.filename else 'png'
+            dest_path = f"users/{owner_uid}/company/logo_{uuid.uuid4().hex[:8]}.{ext}"
+            existing_profile['logoUrl'] = DatabaseService.upload_file_to_storage(file_data, dest_path, mime_type)
+            b64 = base64.b64encode(file_data).decode('utf-8')
+            if len(b64) < 800000:
+                existing_profile['logoBase64'] = b64
+            else:
+                existing_profile['logoBase64'] = ''
+            
+        if request.form.get('removeLogo') == 'true':
+            existing_profile['logoUrl'] = ''
             existing_profile['logoBase64'] = ''
-        
-    if request.form.get('removeLogo') == 'true':
-        existing_profile['logoUrl'] = ''
-        existing_profile['logoBase64'] = ''
-        
-    DatabaseService.save_company_profile(owner_uid, existing_profile)
-    
-    from app.services.audit_service import AuditService, ACTION_UPDATE, MODULE_EMPRESA
-    AuditService.log_from_request(
-        owner_uid=owner_uid,
-        action=ACTION_UPDATE,
-        module=MODULE_EMPRESA,
-        entity_id=owner_uid,
-        entity_label="Configuración de apariencia y marca de empresa actualizada",
-        user_session=session.get('user', {}),
-        after=existing_profile,
-        sandbox=True
-    )
-    return jsonify({"success": True, "profile": existing_profile})
+            
+        saved = DatabaseService.save_company_profile(owner_uid, existing_profile)
+        if not saved:
+            return jsonify({"success": False, "error": "No se pudo guardar el perfil. Verifica el tamaño del archivo o intenta de nuevo."}), 500
+
+        from app.services.audit_service import AuditService, ACTION_UPDATE, MODULE_EMPRESA
+        AuditService.log_from_request(
+            owner_uid=owner_uid,
+            action=ACTION_UPDATE,
+            module=MODULE_EMPRESA,
+            entity_id=owner_uid,
+            entity_label="Configuración de apariencia y marca de empresa actualizada",
+            user_session=session.get('user', {}),
+            after=existing_profile,
+            sandbox=True
+        )
+        return jsonify({"success": True, "profile": existing_profile})
+    except Exception as e:
+        print(f"❌ Error en save_company_brand_settings: {e}")
+        return jsonify({"success": False, "error": f"Error interno: {str(e)[:200]}"}), 500
 
 @web_invoices_bp.route('/settings/team', methods=['GET'])
 def team_settings():

@@ -1464,6 +1464,30 @@
                 const logoEmptyText1 = document.getElementById('logo-empty-text-1');
                 const logoEmptyText2 = document.getElementById('logo-empty-text-2');
 
+                function showToast(message, type) {
+                    const toast = document.createElement('div');
+                    toast.textContent = message;
+                    const bgColor = type === 'error' ? '#ef4444' : type === 'success' ? '#10b981' : '#6366f1';
+                    Object.assign(toast.style, {
+                        position: 'fixed', bottom: '24px', right: '24px', zIndex: '99999',
+                        background: bgColor, color: '#fff', padding: '12px 20px',
+                        borderRadius: '8px', fontSize: '0.85rem', fontWeight: '500',
+                        boxShadow: '0 4px 16px rgba(0,0,0,0.2)', maxWidth: '360px',
+                        opacity: '0', transform: 'translateY(12px)',
+                        transition: 'opacity 0.25s ease, transform 0.25s ease'
+                    });
+                    document.body.appendChild(toast);
+                    requestAnimationFrame(() => {
+                        toast.style.opacity = '1';
+                        toast.style.transform = 'translateY(0)';
+                    });
+                    setTimeout(() => {
+                        toast.style.opacity = '0';
+                        toast.style.transform = 'translateY(12px)';
+                        setTimeout(() => toast.remove(), 300);
+                    }, 4000);
+                }
+
                 function uploadLogoInstant(file) {
                     const formData = new FormData();
                     formData.append('logoFile', file);
@@ -1485,10 +1509,14 @@
                                 logoEmptyIcon.style.color = 'white';
                                 logoEmptyText1.style.color = 'white';
                                 if (logoEmptyText2) logoEmptyText2.style.color = 'rgba(255,255,255,0.7)';
+                                showToast('Logo guardado correctamente', 'success');
+                            } else {
+                                showToast(data.error || 'Error al guardar el logo', 'error');
                             }
                         })
                         .catch(err => {
                             console.error("Error al subir logo:", err);
+                            showToast('Error de conexión al subir el logo', 'error');
                         });
                 }
 
@@ -1502,10 +1530,15 @@
                     })
                         .then(res => res.json())
                         .then(data => {
-                            console.log("Logo eliminado exitosamente");
+                            if (data.success) {
+                                showToast('Logo eliminado', 'success');
+                            } else {
+                                showToast(data.error || 'Error al eliminar el logo', 'error');
+                            }
                         })
                         .catch(err => {
                             console.error("Error al eliminar logo:", err);
+                            showToast('Error de conexión al eliminar el logo', 'error');
                         });
                 }
 
