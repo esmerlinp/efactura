@@ -2513,18 +2513,28 @@
         });
     </script>
 
-    <!-- SSE Notificaciones en Vivo -->
+    <!-- SSE Notificaciones en Vivo (Polling de Corto Intervalo para Estabilidad) -->
     <script>
         document.addEventListener("DOMContentLoaded", function () {
             {% if session.user %}
-            var lastNotifId = localStorage.getItem('last_notification_id') || '';
-            var eventSource = new EventSource('/notifications/stream?last_id=' + encodeURIComponent(lastNotifId));
+            function checkNotifications() {
+                var lastNotifId = localStorage.getItem('last_notification_id') || '';
+                fetch('/notifications/poll?last_id=' + encodeURIComponent(lastNotifId))
+                    .then(function(res) { return res.json(); })
+                    .then(function(data) {
+                        if (data.success && data.notifications) {
+                            var notifs = data.notifications.slice().reverse();
+                            notifs.forEach(function (n) {
+                                showNotificationToast(n);
+                            });
+                        }
+                    })
+                    .catch(function(err) { console.debug('Error al consultar notificaciones:', err); });
+            }
 
-            eventSource.addEventListener('notification', function (e) {
+            function showNotificationToast(data) {
                 try {
-                    var data = JSON.parse(e.data);
-
-                    // Saltar notificaciones ya mostradas en sesiones anteriores
+                    // Saltar notificaciones ya mostradas en sesiones anteriores o vistas
                     var seenIds = JSON.parse(localStorage.getItem('toast_seen_ids') || '[]');
                     if (data.id && seenIds.includes(data.id)) {
                         if (data.id) localStorage.setItem('last_notification_id', data.id);
@@ -2587,7 +2597,7 @@
                     }
 
                     // Truncar mensaje largo
-                    var msg = data.message || '';
+                    var msg = data.message || data.body || '';
                     if (msg.length > 120) msg = msg.substring(0, 120) + '...';
 
                     var toast = document.createElement('div');
@@ -2628,14 +2638,12 @@
                     document.body.appendChild(toast);
                     setTimeout(function () { if (toast.parentNode) toast.remove(); }, 15000);
                 } catch (err) {
-                    console.warn('SSE notification parse error:', err);
+                    console.warn('Toast display error:', err);
                 }
-            });
+            }
 
-            eventSource.onerror = function () {
-                // Reconexión automática manejada por el navegador
-                console.debug('SSE reconectando...');
-            };
+            checkNotifications();
+            setInterval(checkNotifications, 15000);
             {% endif %}
         });
     </script>

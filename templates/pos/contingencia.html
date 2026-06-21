@@ -255,16 +255,22 @@
 <script>
     document.addEventListener("DOMContentLoaded", function () {
         {% if session.user %}
-        var lastNotifId = localStorage.getItem('last_notification_id') || '';
-        var es = new EventSource('/notifications/stream?last_id=' + encodeURIComponent(lastNotifId));
-        es.addEventListener('notification', function (e) {
-            try {
-                var data = JSON.parse(e.data);
-                if (data.type === 'contingency_warning') {
-                    setTimeout(function () { location.reload(); }, 2000);
-                }
-            } catch (_) {}
-        });
+        function checkContingencyStatus() {
+            var lastNotifId = localStorage.getItem('last_notification_id') || '';
+            fetch('/notifications/poll?last_id=' + encodeURIComponent(lastNotifId))
+                .then(function(res) { return res.json(); })
+                .then(function(data) {
+                    if (data.success && data.notifications) {
+                        data.notifications.forEach(function (n) {
+                            if (n.type === 'contingency_warning') {
+                                setTimeout(function () { location.reload(); }, 2000);
+                            }
+                        });
+                    }
+                }).catch(function() {});
+        }
+        checkContingencyStatus();
+        setInterval(checkContingencyStatus, 15000);
         {% endif %}
     });
 
