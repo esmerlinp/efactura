@@ -11,147 +11,145 @@ Variables esperadas:
 <!-- =========================================================================
      SECCIÓN DE COMENTARIOS Y ADJUNTOS
      ========================================================================= -->
-<div class="card-table-wrapper" style="margin-top: 30px; padding: 30px; color: var(--text-primary);">
+<div class="card-table-wrapper" style="margin-top: 20px; padding: 20px; color: var(--text-primary);">
     <h3
-        style="font-size: 1.25rem; font-family: var(--font-heading); font-weight: 800; display: flex; align-items: center; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 15px;">
+        style="font-size: 1.05rem; font-family: var(--font-heading); font-weight: 700; display: flex; align-items: center; gap: 8px; margin-bottom: 16px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px;">
         <i class="fa-solid fa-comments" style="color: var(--accent-purple);"></i>
         <span>Comentarios y Notas</span>
     </h3>
 
     <!-- Formulario para agregar comentario -->
     <form action="{{ submit_url }}" method="POST" enctype="multipart/form-data"
-        style="display: flex; flex-direction: column; gap: 15px; margin-bottom: 30px;">
+        style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px;">
         <div class="form-group" style="margin-bottom: 0; position: relative;">
             <label for="comment-textarea"
-                style="font-size: 0.85rem; font-weight: 500; margin-bottom: 8px; display: block; color: var(--text-secondary);">Escribe
+                style="font-size: 0.8rem; font-weight: 500; margin-bottom: 6px; display: block; color: var(--text-secondary);">Escribe
                 un comentario...</label>
             <textarea id="comment-textarea" name="content" class="form-input"
                 placeholder="Escribe aquí notas internas, aclaraciones o comentarios sobre este documento..."
-                style="width: 100%; min-height: 100px; padding: 12px; padding-bottom: 40px; font-size: 0.9rem; resize: vertical;"
+                style="width: 100%; min-height: 70px; padding: 10px; padding-bottom: 36px; font-size: 0.85rem; resize: vertical;"
                 required></textarea>
             <button type="button" onclick="polishCommentText('comment-textarea', this)" class="btn-ai-sparkle"
-                style="position: absolute; right: 10px; bottom: 10px; background: rgba(124, 58, 237, 0.1); border: 1px solid rgba(124, 58, 237, 0.3); color: var(--accent-purple); width: 32px; height: 32px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; padding: 0;"
+                style="position: absolute; right: 8px; bottom: 8px; background: rgba(124, 58, 237, 0.1); border: 1px solid rgba(124, 58, 237, 0.3); color: var(--accent-purple); width: 28px; height: 28px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; padding: 0;"
                 title="Corregir ortografía y mejorar redacción con nuestra IA">
                 <i class="fa-solid fa-wand-magic-sparkles"></i>
             </button>
         </div>
 
-        <div style="display: flex; justify-content: space-between; align-items: center; gap: 15px; flex-wrap: wrap;">
-            <div class="form-group" style="margin-bottom: 0; display: flex; align-items: center; gap: 10px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <div class="form-group" style="margin-bottom: 0; display: flex; align-items: center; gap: 8px;">
                 <label for="comment-attachment"
-                    style="cursor: pointer; display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px; border: 1.5px dashed var(--border-color); border-radius: var(--radius-sm); font-size: 0.82rem; color: var(--text-secondary); background: rgba(255,255,255,0.01); transition: all 0.2s;">
+                    style="cursor: pointer; display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border: 1.5px dashed var(--border-color); border-radius: var(--radius-sm); font-size: 0.78rem; color: var(--text-secondary); background: rgba(255,255,255,0.01); transition: all 0.2s;">
                     <i class="fa-solid fa-paperclip" style="color: var(--accent-purple);"></i>
-                    <span>Adjuntar documento o imagen</span>
+                    <span>Adjuntar</span>
                 </label>
                 <input type="file" id="comment-attachment" name="attachment" style="display: none;"
                     onchange="updateAttachmentLabel(this)">
                 <span id="attachment-filename"
-                    style="font-size: 0.78rem; color: var(--accent-emerald); display: none;"></span>
+                    style="font-size: 0.74rem; color: var(--accent-emerald); display: none;"></span>
             </div>
 
             <button type="submit" class="btn btn-primary"
-                style="padding: 10px 24px; font-size: 0.88rem; {% if company is defined and company.get('gradientEnabled', True) %}background: linear-gradient(135deg, var(--accent-purple), var(--accent-purple-hover));{% else %}background: var(--accent-purple);{% endif %} border: none; color: white;">
+                style="padding: 8px 18px; font-size: 0.82rem; {% if company is defined and company.get('gradientEnabled', True) %}background: linear-gradient(135deg, var(--accent-purple), var(--accent-purple-hover));{% else %}background: var(--accent-purple);{% endif %} border: none; color: white;">
                 <i class="fa-solid fa-paper-plane"></i>
-                <span>Enviar Comentario</span>
+                <span>Enviar</span>
             </button>
         </div>
     </form>
 
     <!-- Lista de comentarios -->
-    <div style="display: flex; flex-direction: column; gap: 24px;">
+    <div style="display: flex; flex-direction: column; gap: 16px;">
         {% if comments %}
         {% for c in comments %}
         {% set initials = (c.createdByName or c.createdBy or 'U').split(' ') %}
         {% set initials_str = initials[0][0] + (initials[1][0] if initials|length > 1 else '') %}
 
         <div
-            style="display: flex; gap: 14px; align-items: flex-start; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.02);">
+            style="display: flex; gap: 10px; align-items: flex-start; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.02);">
             <!-- Avatar del usuario -->
             <div
-                style="width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; color: white; font-size: 0.9rem; background: {% if c.createdByName and c.createdByName[0].upper() in 'ABCDEFG' %}#3b82f6{% elif c.createdByName and c.createdByName[0].upper() in 'HIJKLMNOP' %}#7c3aed{% elif c.createdByName and c.createdByName[0].upper() in 'QRSTUVWXYZ' %}#10b981{% else %}#6366f1{% endif %}; flex-shrink: 0; box-shadow: var(--shadow-sm);">
+                style="width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; color: white; font-size: 0.78rem; background: {% if c.createdByName and c.createdByName[0].upper() in 'ABCDEFG' %}#3b82f6{% elif c.createdByName and c.createdByName[0].upper() in 'HIJKLMNOP' %}#7c3aed{% elif c.createdByName and c.createdByName[0].upper() in 'QRSTUVWXYZ' %}#10b981{% else %}#6366f1{% endif %}; flex-shrink: 0; box-shadow: var(--shadow-sm);">
                 {{ initials_str.upper() }}
             </div>
 
             <!-- Contenido del comentario -->
-            <div style="display: flex; flex-direction: column; gap: 4px; width: 100%;">
+            <div style="display: flex; flex-direction: column; gap: 2px; width: 100%;">
                 <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
-                    <strong style="font-size: 0.95rem; color: var(--text-primary); font-weight: 700;">{{ c.createdByName
+                    <strong style="font-size: 0.88rem; color: var(--text-primary); font-weight: 700;">{{ c.createdByName
                         or c.createdBy }}</strong>
-                    <i class="fa-solid fa-link" style="font-size: 0.72rem; color: var(--text-muted); opacity: 0.6;"
-                        title="Enlace permanente"></i>
                 </div>
-                <div style="font-size: 0.76rem; color: var(--text-muted); margin-top: -2px;">
+                <div style="font-size: 0.72rem; color: var(--text-muted);">
                     {{ c.createdAt[:16] | replace('T', ' ') }}
                     {% if c.edited %}
-                    <span style="color: #3b82f6; font-weight: 600; margin-left: 6px;">(editado)</span>
+                    <span style="color: #3b82f6; font-weight: 600; margin-left: 4px;">(editado)</span>
                     {% endif %}
                 </div>
 
                 <!-- Texto del comentario -->
                 <div id="comment-text-{{ c.id }}"
-                    style="font-size: 0.9rem; line-height: 1.5; color: var(--text-secondary); white-space: pre-wrap; margin-top: 6px;">{{ format_mentions(c.content, taggable_users) }}</div>
+                    style="font-size: 0.85rem; line-height: 1.4; color: var(--text-secondary); white-space: pre-wrap; margin-top: 4px;">{{ format_mentions(c.content, taggable_users) }}</div>
 
                 <!-- Formulario de edición (oculto por defecto) -->
                 <form id="comment-edit-form-{{ c.id }}" action="{{ edit_url_prefix }}/{{ c.id }}/edit" method="POST"
                     enctype="multipart/form-data"
-                    style="display: none; flex-direction: column; gap: 10px; margin-top: 8px; width: 100%;">
+                    style="display: none; flex-direction: column; gap: 8px; margin-top: 6px; width: 100%;">
                     <div style="position: relative; width: 100%;">
                         <textarea id="edit-textarea-{{ c.id }}" name="content" class="form-input"
-                            style="width: 100%; min-height: 80px; padding: 10px; padding-bottom: 40px; font-size: 0.88rem; resize: vertical;"
+                            style="width: 100%; min-height: 60px; padding: 8px; padding-bottom: 34px; font-size: 0.85rem; resize: vertical;"
                             required>{{ c.content }}</textarea>
                         <button type="button" onclick="polishCommentText('edit-textarea-{{ c.id }}', this)"
                             class="btn-ai-sparkle"
-                            style="position: absolute; right: 10px; bottom: 10px; background: rgba(124, 58, 237, 0.1); border: 1px solid rgba(124, 58, 237, 0.3); color: var(--accent-purple); width: 28px; height: 28px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; padding: 0;"
+                            style="position: absolute; right: 8px; bottom: 8px; background: rgba(124, 58, 237, 0.1); border: 1px solid rgba(124, 58, 237, 0.3); color: var(--accent-purple); width: 26px; height: 26px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; padding: 0;"
                             title="Corregir ortografía y mejorar redacción con nuestra IA">
                             <i class="fa-solid fa-wand-magic-sparkles"></i>
                         </button>
                     </div>
 
                     <div
-                        style="display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap;">
-                        <div style="display: flex; align-items: center; gap: 8px;">
+                        style="display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap;">
+                        <div style="display: flex; align-items: center; gap: 6px;">
                             <label for="edit-attachment-{{ c.id }}"
-                                style="cursor: pointer; display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border: 1.5px dashed var(--border-color); border-radius: var(--radius-sm); font-size: 0.78rem; color: var(--text-secondary);">
+                                style="cursor: pointer; display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border: 1.5px dashed var(--border-color); border-radius: var(--radius-sm); font-size: 0.74rem; color: var(--text-secondary);">
                                 <i class="fa-solid fa-paperclip"></i>
-                                <span>Reemplazar adjunto</span>
+                                <span>Adjunto</span>
                             </label>
                             <input type="file" id="edit-attachment-{{ c.id }}" name="attachment" style="display: none;"
                                 onchange="updateEditAttachmentLabel('{{ c.id }}', this)">
                             <span id="edit-attachment-filename-{{ c.id }}"
-                                style="font-size: 0.74rem; color: var(--accent-emerald); display: none;"></span>
+                                style="font-size: 0.72rem; color: var(--accent-emerald); display: none;"></span>
                         </div>
 
-                        <div style="display: flex; gap: 8px;">
+                        <div style="display: flex; gap: 6px;">
                             <button type="button" onclick="cancelEdit('{{ c.id }}')" class="btn btn-secondary"
-                                style="padding: 6px 12px; font-size: 0.78rem;">Cancelar</button>
+                                style="padding: 4px 10px; font-size: 0.75rem;">Cancelar</button>
                             <button type="submit" class="btn btn-primary"
-                                style="padding: 6px 16px; font-size: 0.78rem;">Guardar</button>
+                                style="padding: 4px 14px; font-size: 0.75rem;">Guardar</button>
                         </div>
                     </div>
                 </form>
 
                 <!-- Archivos adjuntos -->
                 {% if c.attachmentUrl %}
-                <div style="margin-top: 10px; display: flex; align-items: center; gap: 12px; max-width: 100%;">
+                <div style="margin-top: 6px; display: flex; align-items: center; gap: 8px; max-width: 100%;">
                     {% if c.attachmentName.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.webp')) %}
                     <div
-                        style="max-width: 400px; border-radius: var(--radius-sm); overflow: hidden; border: 1px solid var(--border-color); background: var(--bg-card); box-shadow: var(--shadow-sm);">
+                        style="max-width: 300px; border-radius: var(--radius-sm); overflow: hidden; border: 1px solid var(--border-color); background: var(--bg-card);">
                         <a href="{{ c.attachmentUrl }}" target="_blank">
                             <img src="{{ c.attachmentUrl }}" alt="{{ c.attachmentName }}"
-                                style="max-width: 100%; max-height: 250px; display: block; object-fit: contain;">
+                                style="max-width: 100%; max-height: 180px; display: block; object-fit: contain;">
                         </a>
                     </div>
                     {% else %}
                     <div
-                        style="display: flex; align-items: center; gap: 8px; background: rgba(124, 58, 237, 0.04); border: 1px solid var(--border-color); padding: 8px 12px; border-radius: var(--radius-sm);">
+                        style="display: flex; align-items: center; gap: 6px; background: rgba(124, 58, 237, 0.04); border: 1px solid var(--border-color); padding: 6px 10px; border-radius: var(--radius-sm);">
                         <i class="fa-solid fa-file-arrow-down"
-                            style="font-size: 1.1rem; color: var(--accent-purple);"></i>
+                            style="font-size: 0.95rem; color: var(--accent-purple);"></i>
                         <div style="display: flex; flex-direction: column;">
                             <span
-                                style="font-size: 0.8rem; font-weight: 500; color: var(--text-primary); max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{
+                                style="font-size: 0.78rem; font-weight: 500; color: var(--text-primary); max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{
                                 c.attachmentName }}</span>
                             <a href="{{ c.attachmentUrl }}" target="_blank"
-                                style="font-size: 0.72rem; color: var(--accent-purple); text-decoration: none; font-weight: 600;">Descargar</a>
+                                style="font-size: 0.7rem; color: var(--accent-purple); text-decoration: none; font-weight: 600;">Descargar</a>
                         </div>
                     </div>
                     {% endif %}
@@ -160,7 +158,7 @@ Variables esperadas:
 
                 <!-- Mostrar reacciones actuales -->
                 {% if c.reactions %}
-                <div style="display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap;" id="reactions-container-{{ c.id }}">
+                <div style="display: flex; gap: 4px; margin-top: 6px; flex-wrap: wrap;" id="reactions-container-{{ c.id }}">
                     {% for emoji, users in c.reactions.items() %}
                         {% if users|length > 0 %}
                         <button type="button" onclick="toggleReaction('{{ c.id }}', '{{ emoji }}')"
@@ -168,41 +166,41 @@ Variables esperadas:
                             style="background: {% if session['user']['uid'] in users %}rgba(124, 58, 237, 0.15){% else %}rgba(255, 255, 255, 0.05){% endif %}; 
                                    border: 1px solid {% if session['user']['uid'] in users %}rgba(124, 58, 237, 0.3){% else %}rgba(255, 255, 255, 0.1){% endif %}; 
                                    color: {% if session['user']['uid'] in users %}var(--accent-purple){% else %}var(--text-secondary){% endif %};
-                                   border-radius: 12px; padding: 2px 8px; font-size: 0.8rem; cursor: pointer; display: flex; align-items: center; gap: 4px; transition: all 0.2s;">
+                                   border-radius: 10px; padding: 1px 6px; font-size: 0.75rem; cursor: pointer; display: flex; align-items: center; gap: 3px; transition: all 0.2s;">
                             <span>{{ emoji }}</span>
-                            <span style="font-weight: 600; font-size: 0.75rem;">{{ users|length }}</span>
+                            <span style="font-weight: 600; font-size: 0.7rem;">{{ users|length }}</span>
                         </button>
                         {% endif %}
                     {% endfor %}
                 </div>
                 {% else %}
-                <div style="display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; display: none;" id="reactions-container-{{ c.id }}"></div>
+                <div style="display: flex; gap: 4px; margin-top: 6px; flex-wrap: wrap; display: none;" id="reactions-container-{{ c.id }}"></div>
                 {% endif %}
 
-                <!-- Fila de Acciones/Reacciones abajo del contenido (Estilo Teams/Slack/ejemplo) -->
-                <div style="display: flex; align-items: center; gap: 14px; margin-top: 8px; opacity: 0.7; transition: opacity 0.2s;"
+                <!-- Fila de Acciones/Reacciones abajo del contenido -->
+                <div style="display: flex; align-items: center; gap: 10px; margin-top: 6px; transition: opacity 0.2s;"
                     class="comment-actions-row">
                     <button type="button" class="action-icon-btn" title="Responder"
                         onclick="replyToComment('{{ c.createdByName or c.createdBy }}')"
-                        style="background: transparent; border: none; cursor: pointer; color: var(--text-muted); font-size: 0.82rem; padding: 2px;"><i
+                        style="background: transparent; border: none; cursor: pointer; color: var(--text-muted); font-size: 0.78rem; padding: 2px;"><i
                             class="fa-solid fa-reply"></i></button>
                     <button type="button" class="action-icon-btn" title="Me gusta"
                         onclick="toggleReaction('{{ c.id }}', '👍')"
-                        style="background: transparent; border: none; cursor: pointer; color: var(--text-muted); font-size: 0.82rem; padding: 2px;"><i
+                        style="background: transparent; border: none; cursor: pointer; color: var(--text-muted); font-size: 0.78rem; padding: 2px;"><i
                             class="fa-regular fa-thumbs-up"></i></button>
                             
                     <div style="position: relative; display: inline-block;">
                         <button type="button" class="action-icon-btn" title="Reaccionar"
                             onclick="toggleEmojiPicker('{{ c.id }}')"
-                            style="background: transparent; border: none; cursor: pointer; color: var(--text-muted); font-size: 0.82rem; padding: 2px;"><i
+                            style="background: transparent; border: none; cursor: pointer; color: var(--text-muted); font-size: 0.78rem; padding: 2px;"><i
                                 class="fa-regular fa-face-smile"></i></button>
                         
                         <!-- Popover de Emojis -->
                         <div id="emoji-picker-{{ c.id }}"
-                            style="display: none; position: absolute; bottom: 100%; left: 0; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 20px; padding: 4px 8px; box-shadow: var(--shadow-md); z-index: 100; margin-bottom: 5px; gap: 4px;">
+                            style="display: none; position: absolute; bottom: 100%; left: 0; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 16px; padding: 3px 6px; box-shadow: var(--shadow-md); z-index: 100; margin-bottom: 4px; gap: 3px;">
                             {% for emoji in ['👍', '❤️', '😂', '👏', '💡'] %}
                             <button type="button" onclick="toggleReaction('{{ c.id }}', '{{ emoji }}')"
-                                style="background: transparent; border: none; cursor: pointer; font-size: 1.1rem; padding: 4px; border-radius: 50%; transition: transform 0.2s; display: flex; align-items: center; justify-content: center;"
+                                style="background: transparent; border: none; cursor: pointer; font-size: 1rem; padding: 3px; border-radius: 50%; transition: transform 0.2s; display: flex; align-items: center; justify-content: center;"
                                 onmouseover="this.style.transform='scale(1.2)'" onmouseout="this.style.transform='scale(1)'">
                                 {{ emoji }}
                             </button>
@@ -212,13 +210,13 @@ Variables esperadas:
                     {% if session['user']['role'] == 'owner' or session['user']['uid'] == c.createdByUid %}
                     <button type="button" onclick="showEditForm('{{ c.id }}')" class="action-icon-btn"
                         title="Editar comentario"
-                        style="background: transparent; border: none; cursor: pointer; color: var(--text-muted); font-size: 0.82rem; padding: 2px;"><i
+                        style="background: transparent; border: none; cursor: pointer; color: var(--text-muted); font-size: 0.78rem; padding: 2px;"><i
                             class="fa-regular fa-pen-to-square"></i></button>
                     <form action="{{ delete_url_prefix }}/{{ c.id }}/delete" method="POST"
                         onsubmit="return confirm('¿Estás seguro de que deseas eliminar este comentario?');"
                         style="margin: 0; display: inline-flex; align-items: center;">
                         <button type="submit" class="action-icon-btn" title="Eliminar comentario"
-                            style="background: transparent; border: none; cursor: pointer; color: var(--accent-red); font-size: 0.82rem; padding: 2px;"><i
+                            style="background: transparent; border: none; cursor: pointer; color: var(--accent-red); font-size: 0.78rem; padding: 2px;"><i
                                 class="fa-regular fa-trash-can"></i></button>
                     </form>
                     {% endif %}
@@ -228,9 +226,9 @@ Variables esperadas:
         {% endfor %}
         {% else %}
         <div
-            style="text-align: center; padding: 40px 20px; color: var(--text-muted); font-size: 0.88rem; border: 1px dashed var(--border-color); border-radius: var(--radius-sm); background: rgba(255,255,255,0.005);">
+            style="text-align: center; padding: 30px 20px; color: var(--text-muted); font-size: 0.85rem; border: 1px dashed var(--border-color); border-radius: var(--radius-sm); background: rgba(255,255,255,0.005);">
             <i class="fa-regular fa-comment-dots"
-                style="font-size: 2rem; margin-bottom: 10px; display: block; color: var(--text-muted); opacity: 0.5;"></i>
+                style="font-size: 1.5rem; margin-bottom: 8px; display: block; color: var(--text-muted); opacity: 0.4;"></i>
             <span>No hay comentarios aún en este documento.</span>
         </div>
         {% endif %}

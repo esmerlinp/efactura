@@ -1017,12 +1017,12 @@
 </div>
 
 <!-- Tabs Switcher for Admin (Comments / History) -->
-<div style="display: flex; gap: 15px; margin-top: 30px; border-bottom: 2px solid var(--border-color); padding-bottom: 8px;">
-    <button class="tab-btn active" id="btn-tab-comments" onclick="switchInvoiceTab('comments')" style="padding: 10px 20px; font-weight: 700; font-size: 0.95rem; border: none; background: transparent; color: var(--accent-purple); cursor: pointer; border-bottom: 3px solid var(--accent-purple); outline: none; transition: all 0.2s ease-in-out; display: flex; align-items: center; gap: 8px; margin-bottom: -10px;">
+<div style="display: flex; gap: 12px; margin-top: 20px; border-bottom: 2px solid var(--border-color); padding-bottom: 6px;">
+    <button class="tab-btn active" id="btn-tab-comments" onclick="switchInvoiceTab('comments')" style="padding: 8px 16px; font-weight: 700; font-size: 0.88rem; border: none; background: transparent; color: var(--accent-purple); cursor: pointer; border-bottom: 3px solid var(--accent-purple); outline: none; transition: all 0.2s ease-in-out; display: flex; align-items: center; gap: 6px; margin-bottom: -8px;">
         <i class="fa-solid fa-comments"></i>
         <span>Comentarios y Notas Internas</span>
     </button>
-    <button class="tab-btn" id="btn-tab-history" onclick="switchInvoiceTab('history')" style="padding: 10px 20px; font-weight: 700; font-size: 0.95rem; border: none; background: transparent; color: var(--text-secondary); cursor: pointer; border-bottom: 3px solid transparent; outline: none; transition: all 0.2s ease-in-out; display: flex; align-items: center; gap: 8px; margin-bottom: -10px;">
+    <button class="tab-btn" id="btn-tab-history" onclick="switchInvoiceTab('history')" style="padding: 8px 16px; font-weight: 700; font-size: 0.88rem; border: none; background: transparent; color: var(--text-secondary); cursor: pointer; border-bottom: 3px solid transparent; outline: none; transition: all 0.2s ease-in-out; display: flex; align-items: center; gap: 6px; margin-bottom: -8px;">
         <i class="fa-solid fa-clock-rotate-left"></i>
         <span>Historial de Cambios</span>
     </button>
@@ -1038,21 +1038,21 @@
 
 <!-- Tab Content: History -->
 <div id="pane-tab-history" class="tab-pane-content" style="display: none;">
-    <div class="card-table-wrapper" style="margin-top: 30px; padding: 30px; color: var(--text-primary); background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md);">
-        <h3 style="font-size: 1.25rem; font-family: var(--font-heading); font-weight: 800; display: flex; align-items: center; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 15px;">
+    <div class="card-table-wrapper" style="margin-top: 20px; padding: 20px; color: var(--text-primary); background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md);">
+        <h3 style="font-size: 1.05rem; font-family: var(--font-heading); font-weight: 700; display: flex; align-items: center; gap: 8px; margin-bottom: 16px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px;">
             <i class="fa-solid fa-clock-rotate-left" style="color: var(--accent-purple);"></i>
             <span>Historial de Cambios y Auditoría</span>
         </h3>
         
         {% if history_logs %}
-            <div class="timeline-container" style="position: relative; padding-left: 30px; margin-top: 15px; margin-left: 10px;">
+            <div class="timeline-container" style="position: relative; padding-left: 28px; margin-top: 12px; margin-left: 8px;">
                 <!-- Vertical Line -->
-                <div style="position: absolute; left: 11px; top: 8px; bottom: 8px; width: 2px; background-color: var(--border-color);"></div>
+                <div style="position: absolute; left: 10px; top: 6px; bottom: 6px; width: 2px; background-color: var(--border-color);"></div>
                 
                 {% for log in history_logs %}
-                    <div class="timeline-item" style="position: relative; margin-bottom: 24px;">
+                    <div class="timeline-item" style="position: relative; margin-bottom: 16px;">
                         <!-- Icon Circle -->
-                        <div style="position: absolute; left: -30px; top: 2px; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; z-index: 2; font-size: 0.75rem; 
+                        <div style="position: absolute; left: -28px; top: 2px; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; z-index: 2; font-size: 0.7rem; 
                             {% if log.action in ['CREATE'] %}
                                 background-color: rgba(16, 185, 129, 0.15); color: #10b981; border: 1.5px solid #10b981;
                             {% elif log.action in ['UPDATE'] %}
@@ -1095,18 +1095,18 @@
                         </div>
                         
                         <!-- Details Content Card -->
-                        <div style="background: rgba(0, 0, 0, 0.01); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 16px; margin-left: 10px;">
-                            <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 8px; margin-bottom: 8px;">
+                        <div style="background: rgba(0, 0, 0, 0.01); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 12px; margin-left: 8px;">
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 6px; margin-bottom: 6px;">
                                 <div>
-                                    <strong style="font-size: 0.95rem; color: var(--text-primary);">{{ log.entityLabel }}</strong>
-                                    <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 2px;">
+                                    <strong style="font-size: 0.88rem; color: var(--text-primary);">{{ log.entityLabel }}</strong>
+                                    <div style="font-size: 0.78rem; color: var(--text-secondary); margin-top: 2px;">
                                         Por: <strong>{{ log.performedBy }}</strong> ({{ log.performedByEmail }})
                                         {% if log.ipAddress %}
-                                            <span style="margin-left: 10px; color: var(--text-muted);"><i class="fa-solid fa-globe" style="font-size: 0.75rem; margin-right: 2px;"></i> {{ log.ipAddress }}</span>
+                                            <span style="margin-left: 8px; color: var(--text-muted);"><i class="fa-solid fa-globe" style="font-size: 0.72rem; margin-right: 2px;"></i> {{ log.ipAddress }}</span>
                                         {% endif %}
                                     </div>
                                 </div>
-                                <div style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500; white-space: nowrap;">
+                                <div style="font-size: 0.78rem; color: var(--text-muted); font-weight: 500; white-space: nowrap;">
                                     {{ log.timestamp | format_date }}{% if log.timestamp|length > 10 %} {{ log.timestamp[11:16] }}{% endif %}
                                 </div>
                             </div>
@@ -1116,11 +1116,11 @@
                                 {% set status_before = log.before.get('status') %}
                                 {% set status_after = log.after.get('status') %}
                                 {% if status_before != status_after %}
-                                    <div style="margin-top: 10px; display: flex; align-items: center; gap: 8px; font-size: 0.8rem;">
+                                    <div style="margin-top: 6px; display: flex; align-items: center; gap: 6px; font-size: 0.78rem;">
                                         <span style="font-weight: 600; color: var(--text-secondary);">Cambio de estado:</span>
-                                        <span style="background: rgba(0, 0, 0, 0.04); padding: 2px 8px; border-radius: 4px; color: var(--text-muted);">{{ status_before }}</span>
-                                        <i class="fa-solid fa-arrow-right" style="font-size: 0.75rem; color: var(--text-muted);"></i>
-                                        <span style="background: rgba(139, 92, 246, 0.1); padding: 2px 8px; border-radius: 4px; color: var(--accent-purple); font-weight: 600;">{{ status_after }}</span>
+                                        <span style="background: rgba(0, 0, 0, 0.04); padding: 1px 6px; border-radius: 4px; color: var(--text-muted);">{{ status_before }}</span>
+                                        <i class="fa-solid fa-arrow-right" style="font-size: 0.72rem; color: var(--text-muted);"></i>
+                                        <span style="background: rgba(139, 92, 246, 0.1); padding: 1px 6px; border-radius: 4px; color: var(--accent-purple); font-weight: 600;">{{ status_after }}</span>
                                     </div>
                                 {% endif %}
                             {% endif %}
@@ -1129,9 +1129,9 @@
                 {% endfor %}
             </div>
         {% else %}
-            <div style="text-align: center; padding: 40px 20px; color: var(--text-secondary);">
-                <i class="fa-solid fa-timeline" style="font-size: 2.5rem; color: var(--text-muted); margin-bottom: 12px; display: block;"></i>
-                <p style="margin: 0; font-size: 0.95rem;">No hay registros en el historial de este documento.</p>
+            <div style="text-align: center; padding: 30px 20px; color: var(--text-secondary);">
+                <i class="fa-solid fa-timeline" style="font-size: 1.5rem; color: var(--text-muted); margin-bottom: 8px; display: block;"></i>
+                <p style="margin: 0; font-size: 0.85rem;">No hay registros en el historial de este documento.</p>
             </div>
         {% endif %}
     </div>

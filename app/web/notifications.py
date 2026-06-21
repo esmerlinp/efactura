@@ -1,5 +1,6 @@
 from flask import Blueprint, session, request, jsonify
 from app.services.db_service import DatabaseService
+from app.extensions import limiter
 import logging
 
 logger = logging.getLogger(__name__)
@@ -7,6 +8,7 @@ web_notifications_bp = Blueprint('web_notifications', __name__)
 
 
 @web_notifications_bp.route('/notifications/poll')
+@limiter.limit("30/minute")
 def notification_poll():
     if 'user' not in session:
         return jsonify(success=False, error="No autorizado"), 401
