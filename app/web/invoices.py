@@ -2645,6 +2645,10 @@ def convert_quotation_route(invoice_id):
         flash('Este documento ya es una factura real. No necesita conversión.', 'info')
         return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
 
+    if invoice.get('convertedToInvoiceId'):
+        flash(f'Esta cotización ya fue convertida a la factura {invoice.get("convertedInvoiceNumber", "")}. No se puede convertir nuevamente.', 'error')
+        return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
+
     target_ecf_type = request.form.get('targetEcfType', 'Factura de Consumo (E32)')
 
     # Validaciones fiscales DGII
@@ -2673,9 +2677,9 @@ def convert_quotation_route(invoice_id):
     new_invoice['isConvertedToInvoice'] = True
     new_invoice['status'] = 'Borrador'  # Queda como borrador hasta firmarse
     
-    # 2. Mantener la cotización original (isQuotation=True) pero actualizar su estado a 'Aprobada'
+    # 2. Mantener la cotización original (isQuotation=True) pero actualizar su estado a 'Facturada'
     before_invoice = invoice.copy()
-    invoice['status'] = 'Aprobada'
+    invoice['status'] = 'Facturada'
     invoice['convertedToInvoiceId'] = new_invoice_id
     invoice['convertedInvoiceNumber'] = new_invoice['invoiceNumber']
 
