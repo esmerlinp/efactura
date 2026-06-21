@@ -180,6 +180,7 @@
 
         <form action="{{ url_for('web_invoices.new_cancellation_route') }}" method="POST"
             style="display: flex; flex-direction: column; gap: 15px; margin-bottom: 24px; border-bottom: 1px solid var(--border-color); padding-bottom: 24px;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="form-grid" style="gap: 16px;">
                 <div class="form-group">
                     <label for="series">Prefijo / Serie (Ej: E31)</label>
@@ -347,6 +348,7 @@
         <div class="modal-body">
             <form action="{{ url_for('web_invoices.new_sequence_route') }}" method="POST"
                 style="display: flex; flex-direction: column; gap: 15px;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="form-group">
                     <label for="tipo_comprobante">Tipo de e-CF</label>
                     <select id="tipo_comprobante" name="tipoComprobante" class="form-select" required>

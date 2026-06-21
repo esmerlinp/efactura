@@ -523,6 +523,7 @@ endblock %}
             {% if inv.emisionMode == 'FALLBACK' and not inv.isSyncedWithDGII and inv.status != 'Anulada' %}
             <form action="{{ url_for('web_invoices.sync_single_invoice_route', invoice_id=inv.id) }}" method="POST"
                 style="display: inline;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" class="btn-icon" style="color: var(--accent-yellow);" title="Sincronizar">
                     <i class="fa-solid fa-rotate"></i>
                 </button>
@@ -722,6 +723,7 @@ endblock %}
                             {% if inv.emisionMode == 'FALLBACK' and not inv.isSyncedWithDGII %}
                             <form action="{{ url_for('web_invoices.sync_expense_ecf_route', expense_id=inv.id) }}"
                                 method="POST" style="display: inline;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 <button type="submit" class="btn btn-primary"
                                     style="padding: 8px 12px; font-size: 0.8rem; background: linear-gradient(135deg, #f59e0b, #d97706); border: none;"
                                     title="Sincronizar con DGII">
@@ -738,6 +740,7 @@ endblock %}
                             {% if inv.emisionMode == 'FALLBACK' and not inv.isSyncedWithDGII and inv.status != 'Anulada' %}
                             <form action="{{ url_for('web_invoices.sync_single_invoice_route', invoice_id=inv.id) }}"
                                 method="POST" style="display: inline;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 <button type="submit" class="btn btn-primary"
                                     style="padding: 8px 12px; font-size: 0.8rem; background: linear-gradient(135deg, #f59e0b, #d97706); border: none;"
                                     title="Sincronizar con DGII">
@@ -943,6 +946,7 @@ endblock %}
                 </p>
                 <form id="void-invoice-form" method="POST" action=""
                     style="display: flex; flex-direction: column; gap: 16px; margin: 0;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <div>
                         <label for="void-invoice-input"
                             style="display: block; font-size: 0.85rem; font-weight: 500; color: var(--text-primary); margin-bottom: 8px;">
@@ -1065,6 +1069,7 @@ endblock %}
 
             <form action="{{ url_for('web_import_mapper.upload_file') }}" method="POST" enctype="multipart/form-data"
                 style="display: flex; flex-direction: column; gap: 18px; margin: 0;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <input type="hidden" name="import_type" value="invoices">
                 <div id="historical-dropzone"
                     style="border: 2px dashed var(--border-color); border-radius: var(--radius-sm); padding: 40px 16px; text-align: center; cursor: pointer; transition: all var(--transition-fast) ease-in-out;">

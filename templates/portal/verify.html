@@ -197,6 +197,7 @@
 
         <form method="POST"
             action="{{ url_for('portal.client_portal_verify_main') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="form-group">
                 <label for="rnc_input" class="form-label">RNC o Cédula del Cliente</label>
                 <div class="input-wrapper">

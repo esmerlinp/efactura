@@ -162,6 +162,7 @@
 
             <form action="{{ url_for('web_operations.list_commissions') }}" method="POST"
                 style="display: flex; flex-direction: column; gap: 16px;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <!-- Porcentaje -->
                 <div>
                     <label for="percentage"
@@ -205,6 +206,7 @@
 
             <form action="{{ url_for('web_operations.list_commissions') }}" method="POST"
                 style="display: flex; flex-direction: column; gap: 16px;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <!-- Meta General -->
                 <div>
                     <label for="monthlyGoal"

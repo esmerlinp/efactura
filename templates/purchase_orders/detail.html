@@ -39,6 +39,7 @@
         </button>
         {% endif %}
         <form action="{{ url_for('web_purchase_orders.delete_purchase_order', po_id=order.id) }}" method="POST" style="display:inline;" onsubmit="return confirm('¿Eliminar permanentemente esta orden?');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <button type="submit" class="btn btn-danger">
                 <i class="fa-solid fa-trash-can"></i> Eliminar
             </button>

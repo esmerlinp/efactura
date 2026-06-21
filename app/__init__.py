@@ -2,7 +2,8 @@ import flask.helpers
 
 flask_url_for = flask.helpers.url_for
 
-from flask import Flask, request, session, jsonify, flash, redirect, render_template
+from flask import Flask, request, session, jsonify, flash, redirect, render_template, url_for
+from flask_wtf.csrf import CSRFError
 from config import Config
 from app.extensions import init_extensions
 from app.services.db_service import DatabaseService
@@ -35,6 +36,7 @@ def create_app():
     # =========================================================================
     @app.before_request
     def load_fresh_user_profile():
+        session.permanent = True
         # Saltar carga para llamadas de archivos estáticos
         if request.endpoint == 'static':
             return
@@ -536,6 +538,14 @@ def create_app():
         if not safe_path.startswith(_os.path.normpath(uploads_dir)):
             abort(403)
         return send_from_directory(uploads_dir, filename)
+
+    # =========================================================================
+    # CSRF Error Handler — Muestra mensaje amigable en lugar de error 400 crudo
+    # =========================================================================
+    @app.errorhandler(CSRFError)
+    def handle_csrf_error(e):
+        flash('Tu sesión expiró o el token de seguridad es inválido. Por favor recarga la página y vuelve a intentarlo.', 'error')
+        return redirect(url_for('web_dashboard.dashboard'))
 
     # =========================================================================
     # APScheduler — Facturación automática diaria de contratos recurrentes

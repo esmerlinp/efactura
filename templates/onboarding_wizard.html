@@ -178,6 +178,7 @@
     </div>
 
     <form id="wizardSettingsForm" action="{{ url_for('web_invoices.onboarding_wizard') }}" method="POST" enctype="multipart/form-data">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         
         <!-- PASO 1: TIPO DE CONTRIBUYENTE -->
         <div class="wizard-step-section" data-step="1">

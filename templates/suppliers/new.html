@@ -41,6 +41,7 @@
     </div>
 
     <form action="{{ url_for('web_suppliers.new_supplier') }}" method="POST" enctype="multipart/form-data" id="supplier-form" novalidate>
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="settings-accordion">
 
             <!-- SECCIÓN 1: DATOS GENERALES -->

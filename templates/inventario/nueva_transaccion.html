@@ -12,6 +12,7 @@
     </h3>
     
     <form action="{{ url_for('web_invoices.new_inventory_transaction') }}" method="POST" id="tx-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="form-grid" style="grid-template-columns: 1fr 1fr; width: 100%; box-sizing: border-box;">
             
             <!-- Selector de Producto -->

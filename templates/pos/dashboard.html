@@ -31,6 +31,7 @@
 
         <form action="{{ url_for('web_pos.open_shift') }}" method="POST"
             style="display: flex; flex-direction: column; gap: 20px;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="form-group">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
                     <label for="registerId" style="margin-bottom: 0;">Seleccionar Caja Registradora</label>
@@ -130,6 +131,7 @@
 
             <form action="{{ url_for('web_pos.add_manual_transaction') }}" method="POST"
                 style="display: flex; flex-direction: column; gap: 14px;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
                     <div class="form-group">
                         <label for="tx_type">Tipo de Movimiento</label>
@@ -441,6 +443,7 @@
             <div class="modal-body" style="padding: 24px;">
                 <form action="{{ url_for('web_pos.create_cash_register') }}" method="POST"
                     style="display: flex; flex-direction: column; gap: 18px;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <div class="form-group">
                         <label for="reg_name">Nombre de la Caja (Ej: Caja 02 - Pasillo A)</label>
                         <input type="text" id="reg_name" name="name" class="form-input" placeholder="Nombre de la caja"

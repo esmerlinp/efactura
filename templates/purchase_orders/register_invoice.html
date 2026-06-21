@@ -21,6 +21,7 @@
 </div>
 
 <form method="POST" enctype="multipart/form-data" style="width:100%;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 <div class="card-form-body" style="padding:20px; margin-bottom:24px;">
     <h4 style="font-size:0.9rem; font-weight:700; font-family:var(--font-heading); margin-bottom:14px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.03em;">
         <i class="fa-solid fa-info-circle" style="margin-right:6px;"></i> Datos de la Factura

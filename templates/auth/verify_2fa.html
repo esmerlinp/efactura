@@ -59,6 +59,7 @@
         {% endwith %}
 
         <form action="{{ url_for('web_auth.verify_2fa') }}" method="POST" id="verify-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="form-group" style="margin-bottom: 24px;">
                 <label for="code" style="text-align: center; display: block; margin-bottom: 12px; font-weight: 500;">Código de Seguridad</label>
                 <div style="position: relative;">
