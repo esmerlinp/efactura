@@ -247,7 +247,6 @@ def create_app():
             user_uid = session['user'].get('uid')
             if owner_uid:
                 try:
-                    from datetime import datetime, timezone
                     from app.services.db_service import DatabaseService
                     sandbox = session.get('is_sandbox_mode', False)
                     
@@ -255,20 +254,7 @@ def create_app():
                     if user_uid:
                         user_notifications = DatabaseService.get_user_notifications(user_uid, limit=10)
                         
-                    today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-                    clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox)
-                    invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox)
-                    real_invoices = [inv for inv in invoices if not inv.get('isQuotation') and inv.get('status') not in ['Anulada', 'Borrador']]
-                    
-                    for c in clients:
-                        c_id = c['id']
-                        c_sales = [inv for inv in real_invoices if inv['clientId'] == c_id]
-                        c['total_cxc'] = sum(inv['netPayable'] for inv in c_sales if inv['status'] in ['Emitida', 'Vencida'])
-
-                    crm_contacts = [
-                        c for c in clients 
-                        if (c.get('nextContactDate') and c['nextContactDate'][:10] == today_str) or c.get('total_cxc', 0.0) > 0.0
-                    ]
+                    crm_contacts = DatabaseService.get_crm_contacts(owner_uid, sandbox=sandbox)
                 except Exception as e:
                     print(f"⚠️ Error al inyectar compromisos CRM o notificaciones en el contexto global: {e}")
         return dict(crm_contacts=crm_contacts, user_notifications=user_notifications)
@@ -315,10 +301,9 @@ def create_app():
                     plan_id = company.get('planId')
                     plan_billing_type = company.get('billingType', 'Pago por uso')
                     if plan_id:
-                        from app.services.db_service import db_firestore
-                        plan_doc = db_firestore.collection('plans').document(plan_id).get()
-                        if plan_doc.exists:
-                            plan_name_global = plan_doc.to_dict().get('name', '')
+                        plan_data = DatabaseService.get_plan(plan_id)
+                        if plan_data:
+                            plan_name_global = plan_data.get('name', '')
                     if not plan_name_global:
                         plan_name_global = company.get('planName', 'Plan Activo')
                 except Exception:

@@ -438,6 +438,50 @@ def _cached_user_notifications(user_uid, limit):
     return notifications
 
 
+@cache.memoize(timeout=60)
+def _cached_crm_contacts(owner_uid, sandbox):
+    from datetime import datetime, timezone
+    clients = _cached_clients(owner_uid, sandbox)
+    invoices = _cached_invoices(owner_uid, sandbox, quotations_only=False, include_all=False)
+    
+    real_invoices = [inv for inv in invoices if not inv.get('isQuotation') and inv.get('status') not in ['Anulada', 'Borrador']]
+    
+    today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    crm_contacts = []
+    
+    for c in clients:
+        c_id = c['id']
+        c_sales = [inv for inv in real_invoices if inv['clientId'] == c_id]
+        total_cxc = sum(inv['netPayable'] for inv in c_sales if inv['status'] in ['Emitida', 'Vencida'])
+        
+        if (c.get('nextContactDate') and c['nextContactDate'][:10] == today_str) or total_cxc > 0.0:
+            contact = c.copy()
+            contact['total_cxc'] = total_cxc
+            crm_contacts.append(contact)
+            
+    return crm_contacts
+
+
+@cache.memoize(timeout=3600)
+def _cached_plan(plan_id):
+    if firebase_initialized and plan_id:
+        try:
+            doc = db_firestore.collection('plans').document(plan_id).get()
+            if doc.exists:
+                return doc.to_dict()
+        except Exception as e:
+            print(f"⚠️ Error al obtener plan {plan_id} de Firestore: {e}")
+    return None
+
+
+def _invalidate_crm_contacts(owner_uid):
+    try:
+        cache.delete_memoized(_cached_crm_contacts, owner_uid, True)
+        cache.delete_memoized(_cached_crm_contacts, owner_uid, False)
+    except Exception as e:
+        print(f"⚠️ Error al invalidar caché de CRM para {owner_uid}: {e}")
+
+
 def clear_db_cache(pattern=None):
     """Limpia la caché de consultas Firestore. Útil tras operaciones de escritura."""
     cache.clear()
@@ -1166,6 +1210,7 @@ class DatabaseService:
                 coll_name = "sandbox_clients" if sandbox else "clients"
                 db_firestore.collection("users").document(owner_uid).collection(coll_name).document(client_id).set(client_dict)
                 cache.delete_memoized(_cached_clients, owner_uid)
+                _invalidate_crm_contacts(owner_uid)
             except Exception as e:
                 print(f"⚠️ Fallo al respaldar cliente en Firestore: {e}")
 
@@ -1182,6 +1227,7 @@ class DatabaseService:
                     "updatedAt": firestore.SERVER_TIMESTAMP
                 })
                 cache.delete_memoized(_cached_clients, owner_uid)
+                _invalidate_crm_contacts(owner_uid)
             except Exception as e:
                 print(f"⚠️ Fallo al actualizar pipeline de cliente: {e}")
 
@@ -1193,6 +1239,7 @@ class DatabaseService:
                 coll_name = "sandbox_clients" if sandbox else "clients"
                 db_firestore.collection("users").document(owner_uid).collection(coll_name).document(client_id).delete()
                 cache.delete_memoized(_cached_clients, owner_uid)
+                _invalidate_crm_contacts(owner_uid)
             except Exception as e:
                 print(f"⚠️ Fallo al borrar cliente de Firestore: {e}")
 
@@ -1911,6 +1958,7 @@ class DatabaseService:
                 db_firestore.collection("users").document(owner_uid).collection(coll_name).document(invoice_id).update({"status": new_status, "updatedAt": firestore.SERVER_TIMESTAMP})
                 cache.delete_memoized(_cached_invoices, owner_uid)
                 cache.delete_memoized(_cached_contingency_invoices, owner_uid)
+                _invalidate_crm_contacts(owner_uid)
             except Exception as e:
                 print(f"⚠️ Fallo al actualizar estado de la factura/cotización: {e}")
 
@@ -1931,6 +1979,7 @@ class DatabaseService:
                     doc_ref.delete()
                 cache.delete_memoized(_cached_invoices, owner_uid)
                 cache.delete_memoized(_cached_contingency_invoices, owner_uid)
+                _invalidate_crm_contacts(owner_uid)
             except Exception as e:
                 print(f"⚠️ Fallo al eliminar factura en Firestore: {e}")
 
@@ -2095,6 +2144,7 @@ class DatabaseService:
                 db_firestore.collection("users").document(owner_uid).collection(coll_name).document(invoice_id).set(inv_dict)
                 cache.delete_memoized(_cached_invoices, owner_uid)
                 cache.delete_memoized(_cached_contingency_invoices, owner_uid)
+                _invalidate_crm_contacts(owner_uid)
             except Exception as e:
                 print(f"⚠️ Fallo al respaldar factura en Firestore: {e}")
         return inv_dict
@@ -2266,6 +2316,7 @@ class DatabaseService:
             
             cache.delete_memoized(_cached_invoices, owner_uid)
             cache.delete_memoized(_cached_contingency_invoices, owner_uid)
+            _invalidate_crm_contacts(owner_uid)
             return payment_dict
         except Exception as e:
             print(f"❌ Error al registrar abono en Firestore: {e}")
@@ -4462,6 +4513,19 @@ class DatabaseService:
             except Exception as e:
                 print(f"⚠️ Fallo al marcar notificaciones como leídas en Firestore: {e}")
         return False
+
+    @classmethod
+    def get_crm_contacts(cls, owner_uid, sandbox=True):
+        """Retorna los compromisos CRM agendados para hoy o clientes con cuentas por cobrar."""
+        import copy
+        return copy.deepcopy(_cached_crm_contacts(owner_uid, sandbox))
+
+    @classmethod
+    def get_plan(cls, plan_id):
+        """Retorna los datos de un plan (cacheado)."""
+        import copy
+        p = _cached_plan(plan_id)
+        return copy.deepcopy(p) if p else None
 
     @classmethod
     def get_resource_comments(cls, owner_uid, resource_type, resource_id, sandbox=True):
