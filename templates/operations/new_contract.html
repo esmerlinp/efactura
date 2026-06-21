@@ -153,6 +153,7 @@
     </div>
 
     <form action="{{ url_for('web_operations.list_contracts') }}" method="POST" id="contract-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <input type="hidden" name="id" value="">
 
         <!-- Sección 1: Identificación -->

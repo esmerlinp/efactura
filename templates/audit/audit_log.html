@@ -235,6 +235,7 @@
         </div>
         {% if session.get('user', {}).get('role') == 'owner' %}
         <form action="{{ url_for('web_audit.audit_export') }}" method="POST" style="margin: 0;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="module" value="{{ f_module }}">
             <input type="hidden" name="action" value="{{ f_action }}">
             {% for u in f_users %}

@@ -45,6 +45,7 @@
         {% endwith %}
 
         <form action="{{ url_for('web_auth.register') }}" method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="form-group">
                 <label for="name">Nombre Completo / Razón Social Emisor</label>
                 <div style="position: relative;">

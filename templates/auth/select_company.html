@@ -127,6 +127,7 @@
         {% endwith %}
 
         <form action="{{ url_for('web_auth.select_company') }}" method="POST" id="select-company-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="owner_uid" id="selected-owner-uid">
 
             <div class="company-card-grid">

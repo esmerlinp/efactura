@@ -542,6 +542,7 @@
         </p>
 
         <form action="/cxc/promises/add" method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="invoiceId" id="modal-invoice-id">
 
             <div style="margin-bottom: 12px;">

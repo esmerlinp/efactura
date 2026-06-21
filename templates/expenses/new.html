@@ -168,6 +168,7 @@
 
 <div style="max-width: 850px; margin: 0 auto 50px auto; width: 100%;">
     <form action="{{ url_for('web_invoices.new_expense_route') }}" method="POST" enctype="multipart/form-data" style="width: 100%;" id="expense-form" novalidate>
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="settings-accordion">
 
 

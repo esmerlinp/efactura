@@ -106,6 +106,7 @@
 
     <!-- Formulario de Mapeo -->
     <form action="{{ url_for('web_import_mapper.process_import') }}" method="POST" id="mapper-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <input type="hidden" name="import_type" value="{{ import_type }}">
         <input type="hidden" name="temp_filename" value="{{ temp_filename }}">
 

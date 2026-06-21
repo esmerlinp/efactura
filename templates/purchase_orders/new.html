@@ -15,6 +15,7 @@
 </div>
 
 <form method="POST" action="{{ url_for('web_purchase_orders.new_purchase_order') }}" id="po-form" enctype="multipart/form-data">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div class="card-form-body" style="padding:24px; margin-bottom:24px;">
         <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px;">
             <div class="form-group">

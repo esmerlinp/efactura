@@ -11,6 +11,28 @@
     </h1>
 </div>
 
+<div id="guide-suppliers" style="background: rgba(168, 85, 247, 0.05); border: 1px solid rgba(168, 85, 247, 0.2); border-radius: 8px; padding: 16px; margin-bottom: 24px; display: flex; gap: 16px; align-items: flex-start; position: relative;">
+    <button onclick="closeGuide('guide-suppliers')" style="position: absolute; top: 12px; right: 12px; background: transparent; border: none; color: var(--text-muted); cursor: pointer; padding: 4px; border-radius: 50%; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; transition: background 0.2s, color 0.2s;" onmouseover="this.style.background='rgba(0,0,0,0.05)'; this.style.color='var(--text-primary)';" onmouseout="this.style.background='transparent'; this.style.color='var(--text-muted)';" title="Cerrar guía"><i class="fa-solid fa-xmark"></i></button>
+    <div style="background: rgba(168, 85, 247, 0.1); width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+        <i class="fa-solid fa-lightbulb" style="color: var(--accent-purple); font-size: 1.2rem;"></i>
+    </div>
+    <div>
+        <h4 style="margin: 0 0 8px 0; color: var(--text-primary); font-family: var(--font-heading); font-size: 1rem;">Guía de Uso: Proveedores</h4>
+        <p style="margin: 0 0 8px 0; color: var(--text-secondary); font-size: 0.85rem; line-height: 1.5;">
+            Registra y administra los proveedores de tu negocio para gestionar órdenes de compra y cuentas por pagar.
+        </p>
+        <ul style="margin: 0; padding-left: 20px; color: var(--text-secondary); font-size: 0.85rem; line-height: 1.5;">
+            <li><strong>Registro Completo:</strong> Ingresa RNC, razón social, datos de contacto y condiciones de pago.</li>
+            <li><strong>Órdenes de Compra:</strong> Genera órdenes de compra directamente desde el perfil del proveedor.</li>
+            <li><strong>Historial de Compras:</strong> Consulta el historial de transacciones y documentos asociados a cada proveedor.</li>
+        </ul>
+    </div>
+</div>
+<script>
+    if (!window.closeGuide) { window.closeGuide = function(id) { document.getElementById(id).style.display = 'none'; sessionStorage.setItem('closed_' + id, 'true'); }; }
+    if (sessionStorage.getItem('closed_guide-suppliers')) { document.getElementById('guide-suppliers').style.display = 'none'; }
+</script>
+
 <div class="card-table-wrapper" style="margin-bottom:30px;">
     <div class="table-header-row">
         <div>
@@ -128,6 +150,7 @@
                                 <i class="fa-solid fa-pen-to-square"></i>
                             </a>
                             <form action="{{ url_for('web_suppliers.delete_supplier', supplier_id=s.id) }}" method="POST" style="display:inline;" onsubmit="return confirm('¿Eliminar este proveedor? Los gastos vinculados no se eliminarán.');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 <button type="submit" class="btn btn-danger btn-sm" style="padding:6px 10px; font-size:0.75rem;" title="Eliminar">
                                     <i class="fa-solid fa-trash-can"></i>
                                 </button>

@@ -820,6 +820,7 @@
 
             <form action="{{ url_for('web_import_mapper.upload_file') }}" method="POST" enctype="multipart/form-data"
                 style="display: flex; flex-direction: column; gap: 18px; margin: 0;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <input type="hidden" name="import_type" value="clients">
                 <div id="dropzone"
                     style="border: 2px dashed var(--border-color); border-radius: var(--radius-sm); padding: 40px 16px; text-align: center; cursor: pointer; transition: all var(--transition-fast) ease-in-out;">

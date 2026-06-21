@@ -76,6 +76,7 @@
                 {% endfor %}
             </ul>
             <form method="POST" action="{{ url_for('web_purchase_orders.add_invoice_attachment', invoice_id=invoice.id) }}" enctype="multipart/form-data" style="margin-top:8px;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <input type="file" name="attachment" accept=".pdf,.jpg,.jpeg,.png" style="font-size:0.78rem; max-width:200px;">
                 <button type="submit" class="btn btn-sm btn-secondary" style="font-size:0.72rem;">Adjuntar</button>
             </form>
@@ -139,6 +140,7 @@
                     <td>{{ p.registeredBy or '—' }}</td>
                     <td>
                         <form method="POST" action="{{ url_for('web_purchase_orders.void_payment', invoice_id=invoice.id, payment_id=p.id) }}" onsubmit="return confirm('¿Revertir este pago de RD$ {{ '{:,.2f}'.format(p.amount) }}?')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <button type="submit" class="btn btn-sm btn-danger" style="font-size:0.68rem; padding:2px 8px;"><i class="fa-solid fa-rotate-left"></i></button>
                         </form>
                     </td>
@@ -157,6 +159,7 @@
         <i class="fa-solid fa-money-bill-wave" style="margin-right:6px;"></i> Registrar Pago
     </h4>
     <form method="POST" action="{{ url_for('web_purchase_orders.pay_supplier_invoice', invoice_id=invoice.id) }}" style="display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="form-group" style="margin-bottom:0;">
             <label style="font-size:0.72rem; margin-bottom:4px; display:block; color:var(--text-secondary);">Monto a Pagar (RD$)</label>
             <input type="number" name="amount" class="form-input" step="0.01" min="0.01" max="{{ invoice.cxpRemainingBalance|default(invoice.total|default(0)) }}" required

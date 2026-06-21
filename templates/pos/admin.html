@@ -242,6 +242,7 @@
             <div class="modal-body" style="padding: 24px;">
                 <form action="{{ url_for('web_pos.create_cash_register') }}" method="POST"
                     style="display: flex; flex-direction: column; gap: 18px;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <div class="form-group">
                         <label for="reg_name">Nombre de la Caja (Ej: Caja 02 - Pasillo A)</label>
                         <input type="text" id="reg_name" name="name" class="form-input" placeholder="Nombre de la caja"

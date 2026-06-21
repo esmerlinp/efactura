@@ -407,6 +407,7 @@
                 {% if expense.emisionMode == 'FALLBACK' and expense.ecfType in ('E41', 'E43') %}
                 <div class="field-row" style="margin-top:8px; padding-top:0; border-top:none; gap:8px;">
                     <form action="{{ url_for('web_invoices.sync_expense_ecf_route', expense_id=expense.id) }}" method="POST" style="width:100%;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <button type="submit" class="btn btn-primary" style="width:100%; padding:10px; font-size:0.82rem; background: linear-gradient(135deg, #f59e0b, #d97706); border: none;">
                             <i class="fa-solid fa-rotate"></i> Sincronizar con DGII
                         </button>
@@ -488,6 +489,7 @@
                     </div>
 
                     <form action="{{ url_for('web_invoices.attach_expense_document', expense_id=expense.id) }}" method="POST" enctype="multipart/form-data" id="quick-attach-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <div class="uploader-zone" id="qa-drop-zone" onclick="document.getElementById('qa-file-input').click()">
                             <i class="fa-solid fa-cloud-arrow-up" style="font-size:1.8rem; color:var(--text-muted); margin-bottom:8px;"></i>
                             <p style="font-size:0.78rem; margin:0 0 4px; font-weight:600; color:var(--text-primary);">

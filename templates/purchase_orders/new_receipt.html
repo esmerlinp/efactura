@@ -15,6 +15,7 @@
 </div>
 
 <form method="POST" action="{{ url_for('web_purchase_orders.new_receipt', po_id=order.id) }}" id="receipt-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div class="card-form-body" style="padding:24px; margin-bottom:24px;">
         <h4 style="font-size:1rem; font-weight:700; font-family:var(--font-heading); margin-bottom:16px;">
             <i class="fa-solid fa-receipt" style="margin-right:8px; color:var(--accent-purple);"></i> Datos de la Recepción

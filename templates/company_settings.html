@@ -1013,6 +1013,7 @@
                             <form action="/settings/branches/{{ branch.id }}/delete" method="POST"
                                 onsubmit="return confirm('¿Seguro que deseas eliminar esta sucursal?');"
                                 style="display: inline;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 <button type="submit" class="btn btn-danger"
                                     style="padding: 6px 8px; font-size: 0.75rem;" title="Eliminar Sucursal">
                                     <i class="fa-solid fa-trash"></i>
@@ -1033,7 +1034,8 @@
 
         <!-- Formulario oculto para regeneración de API Key (Evita formularios anidados en el acordeón) -->
         <form id="generateKeyForm" action="{{ url_for('web_invoices.generate_company_api_key') }}" method="POST"
-            style="display: none;"></form>
+            style="display: none;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form>
 
         <!-- Modal Añadir/Editar Sucursal -->
         <div class="search-modal" id="branch-modal" style="display: none;">
@@ -1048,6 +1050,7 @@
                 <div class="modal-body">
                     <form id="branch-form" action="/settings/branches/save" method="POST"
                         style="display: flex; flex-direction: column; gap: 15px;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <input type="hidden" name="id" id="branch-id" value="">
 
                         <div class="form-group" style="margin-bottom: 0;">

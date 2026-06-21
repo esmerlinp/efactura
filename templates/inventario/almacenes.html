@@ -56,6 +56,7 @@
             
             {% if wh.id != 'default-almacen-principal' %}
             <form action="{{ url_for('web_invoices.delete_warehouse_route', warehouse_id=wh.id) }}" method="POST" onsubmit="return confirm('¿Seguro que deseas eliminar este almacén? Se borrará permanentemente de tu base de datos.');" style="display: inline;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" class="btn btn-danger" style="padding: 8px 14px; font-size: 0.8rem;" title="Eliminar Almacén">
                     <i class="fa-solid fa-trash-can"></i>
                     <span>Eliminar</span>

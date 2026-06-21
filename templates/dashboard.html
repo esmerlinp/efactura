@@ -1050,6 +1050,7 @@
         </div>
 
         <form id="quickNoteForm" action="" method="POST" style="display: flex; flex-direction: column; gap: 16px;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div>
                 <label for="quickNoteType"
                     style="display: block; font-size: 0.85rem; font-weight: 500; margin-bottom: 6px; color: var(--text-secondary);">Tipo

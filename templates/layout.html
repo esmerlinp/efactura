@@ -2228,6 +2228,7 @@
                     descargará un único archivo comprimido (.zip) con todos los CSVs correspondientes.
                 </p>
                 <form action="/settings/company/export" method="POST" id="globalExportForm">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px;">
                         <label
                             style="display: flex; align-items: center; gap: 10px; font-size: 0.85rem; cursor: pointer; color: var(--text-primary); font-weight: bold;">

@@ -21,6 +21,7 @@ Variables esperadas:
     <!-- Formulario para agregar comentario -->
     <form action="{{ submit_url }}" method="POST" enctype="multipart/form-data"
         style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="form-group" style="margin-bottom: 0; position: relative;">
             <label for="comment-textarea"
                 style="font-size: 0.8rem; font-weight: 500; margin-bottom: 6px; display: block; color: var(--text-secondary);">Escribe
@@ -93,6 +94,7 @@ Variables esperadas:
                 <form id="comment-edit-form-{{ c.id }}" action="{{ edit_url_prefix }}/{{ c.id }}/edit" method="POST"
                     enctype="multipart/form-data"
                     style="display: none; flex-direction: column; gap: 8px; margin-top: 6px; width: 100%;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <div style="position: relative; width: 100%;">
                         <textarea id="edit-textarea-{{ c.id }}" name="content" class="form-input"
                             style="width: 100%; min-height: 60px; padding: 8px; padding-bottom: 34px; font-size: 0.85rem; resize: vertical;"
@@ -215,6 +217,7 @@ Variables esperadas:
                     <form action="{{ delete_url_prefix }}/{{ c.id }}/delete" method="POST"
                         onsubmit="return confirm('¿Estás seguro de que deseas eliminar este comentario?');"
                         style="margin: 0; display: inline-flex; align-items: center;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <button type="submit" class="action-icon-btn" title="Eliminar comentario"
                             style="background: transparent; border: none; cursor: pointer; color: var(--accent-red); font-size: 0.78rem; padding: 2px;"><i
                                 class="fa-regular fa-trash-can"></i></button>

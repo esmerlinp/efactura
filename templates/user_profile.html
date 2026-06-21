@@ -702,6 +702,7 @@
             {% endif %}
 
             <form method="POST" action="{{ url_for('web_auth.update_user_profile') }}" id="form-info" enctype="multipart/form-data" novalidate>
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <input type="file" id="avatar-input" name="avatar" accept="image/*" style="position: absolute; opacity: 0; width: 0.1px; height: 0.1px; overflow: hidden; z-index: -1;" onchange="previewAvatar(this)">
                 <input type="hidden" name="action" value="update_info">
                 <div class="profile-form-grid">
@@ -776,6 +777,7 @@
             {% endif %}
 
             <form method="POST" action="{{ url_for('web_auth.change_user_password') }}" id="form-password" novalidate>
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="profile-form-grid">
                     <!-- Contraseña actual -->
                     <div class="profile-form-group full-width">
@@ -873,6 +875,7 @@
             {% endif %}
 
             <form method="POST" action="{{ url_for('web_auth.update_supervisor_pin') }}" id="form-supervisor-pin" novalidate>
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="profile-form-grid">
                     <div class="profile-form-group full-width">
                         <label class="profile-label" for="pin-val">Clave / PIN de Autorización (Numérico, 4-6 dígitos) <span style="color: var(--accent-red);">*</span></label>

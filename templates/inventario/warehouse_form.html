@@ -12,6 +12,7 @@
     </h3>
     
     <form action="{% if warehouse %}{{ url_for('web_invoices.edit_warehouse', warehouse_id=warehouse.id) }}{% else %}{{ url_for('web_invoices.new_warehouse') }}{% endif %}" method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="form-grid" style="grid-template-columns: 1fr;">
             <!-- Nombre del Almacén -->
             <div class="form-group">
