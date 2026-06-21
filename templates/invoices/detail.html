@@ -5,6 +5,39 @@
 {% block page_header %}Detalle del Documento{% endblock %}
 
 {% block content %}
+<style>
+    /* Estilos dinámicos para diferenciar Cotizaciones de Facturas en la vista de detalle */
+    .document-card-sheet {
+        position: relative;
+        transition: all var(--transition-smooth);
+    }
+    
+    /* Cotización: Fondo sutil violeta/púrpura y borde púrpura */
+    .document-card-sheet.quotation-card {
+        background: linear-gradient(135deg, rgba(124, 58, 237, 0.04) 0%, var(--bg-card) 100%) !important;
+        border: 2px solid rgba(124, 58, 237, 0.25) !important;
+        box-shadow: var(--shadow-sm), 0 10px 30px rgba(124, 58, 237, 0.05) !important;
+    }
+    
+    /* Cotización: Línea decorativa superior púrpura */
+    .document-card-sheet.quotation-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 6px;
+        background: linear-gradient(90deg, #7c3aed, #a78bfa);
+        z-index: 10;
+    }
+    
+    /* Modo Oscuro - Ajustes para Cotización */
+    [data-theme="dark"] .document-card-sheet.quotation-card {
+        background: linear-gradient(135deg, rgba(167, 139, 250, 0.06) 0%, var(--bg-card) 100%) !important;
+        border: 2px solid rgba(167, 139, 250, 0.3) !important;
+        box-shadow: var(--shadow-md), 0 10px 35px rgba(167, 139, 250, 0.08) !important;
+    }
+</style>
 <div style="display: grid; grid-template-columns: 3fr 1fr; gap: 30px; max-width: 100%; margin: 0 auto;">
     <div style="display: flex; flex-direction: column; gap: 30px;">
         {% if invoice.status == 'Revisión de Pago' and invoice.pendingPaymentProof %}
@@ -68,11 +101,11 @@
         {% endif %}
 
         <!-- Vista Principal de Factura Premium -->
-        <div class="card-table-wrapper" style="padding: 40px; position: relative;">
+        <div class="card-table-wrapper document-card-sheet {% if invoice.isQuotation %}quotation-card{% endif %}" style="padding: 40px; position: relative;">
             <!-- Píldora de Sandbox visual -->
             {% if session.get('is_sandbox_mode', True) %}
             <div
-                style="position: absolute; top: 0; right: 0; background-color: var(--accent-purple); color: white; padding: 6px 16px; border-bottom-left-radius: var(--radius-sm); font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">
+                style="position: absolute; {% if invoice.isQuotation %}top: 6px;{% else %}top: 0;{% endif %} right: 0; background-color: var(--accent-purple); color: white; padding: 6px 16px; border-bottom-left-radius: var(--radius-sm); font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; z-index: 15;">
                 Sandbox Mode
             </div>
             {% endif %}
@@ -177,31 +210,31 @@
                         <tr
                             style="border-bottom: 2px solid var(--border-color); background-color: rgba(255,255,255,0.015);">
                             <th
-                                style="padding: 16px 20px; font-weight: 800; font-size: 0.85rem; text-transform: uppercase; color: var(--text-primary); letter-spacing: 0.05em;">
+                                style="padding: 12px 14px; font-weight: 800; font-size: 0.72rem; text-transform: uppercase; color: var(--text-primary); letter-spacing: 0.03em;">
                                 Cód.</th>
                             <th
-                                style="padding: 16px 20px; font-weight: 800; font-size: 0.85rem; text-transform: uppercase; color: var(--text-primary); letter-spacing: 0.05em;">
-                                Artículo / Descripción</th>
+                                style="padding: 12px 14px; font-weight: 800; font-size: 0.72rem; text-transform: uppercase; color: var(--text-primary); letter-spacing: 0.03em;">
+                                Artículo/Desc.</th>
                             <th
-                                style="padding: 16px 20px; font-weight: 800; font-size: 0.85rem; text-transform: uppercase; color: var(--text-primary); letter-spacing: 0.05em; text-align: right;">
-                                Precio Unitario</th>
+                                style="padding: 12px 14px; font-weight: 800; font-size: 0.72rem; text-transform: uppercase; color: var(--text-primary); letter-spacing: 0.03em; text-align: right;">
+                                Precio Unit.</th>
                             <th
-                                style="padding: 16px 20px; font-weight: 800; font-size: 0.85rem; text-transform: uppercase; color: var(--text-primary); letter-spacing: 0.05em; text-align: center;">
-                                Cantidad</th>
+                                style="padding: 12px 14px; font-weight: 800; font-size: 0.72rem; text-transform: uppercase; color: var(--text-primary); letter-spacing: 0.03em; text-align: center;">
+                                Cant.</th>
                             <th
-                                style="padding: 16px 20px; font-weight: 800; font-size: 0.85rem; text-transform: uppercase; color: var(--text-primary); letter-spacing: 0.05em; text-align: right;">
+                                style="padding: 12px 14px; font-weight: 800; font-size: 0.72rem; text-transform: uppercase; color: var(--text-primary); letter-spacing: 0.03em; text-align: right;">
                                 ITBIS</th>
                             {% if has_additional_taxes.value %}
                             <th
-                                style="padding: 16px 20px; font-weight: 800; font-size: 0.85rem; text-transform: uppercase; color: var(--text-primary); letter-spacing: 0.05em; text-align: right;">
+                                style="padding: 12px 14px; font-weight: 800; font-size: 0.72rem; text-transform: uppercase; color: var(--text-primary); letter-spacing: 0.03em; text-align: right;">
                                 Imp. Adic.</th>
                             {% endif %}
                             <th
-                                style="padding: 16px 20px; font-weight: 800; font-size: 0.85rem; text-transform: uppercase; color: var(--text-primary); letter-spacing: 0.05em; text-align: right;">
+                                style="padding: 12px 14px; font-weight: 800; font-size: 0.72rem; text-transform: uppercase; color: var(--text-primary); letter-spacing: 0.03em; text-align: right;">
                                 Desc. %</th>
                             <th
-                                style="padding: 16px 20px; font-weight: 800; font-size: 0.85rem; text-transform: uppercase; color: var(--text-primary); letter-spacing: 0.05em; text-align: right;">
-                                Subtotal Partida</th>
+                                style="padding: 12px 14px; font-weight: 800; font-size: 0.72rem; text-transform: uppercase; color: var(--text-primary); letter-spacing: 0.03em; text-align: right;">
+                                Subtotal</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -209,12 +242,12 @@
                         {% set item_isc = (item.isc_especifico_amount or 0) + (item.isc_advalorem_amount or 0) +
                         (item.otros_impuestos_amount or 0) %}
                         <tr>
-                            <td style="padding: 18px 20px; vertical-align: middle;"><span
-                                    style="font-family: monospace; font-size: 0.8rem; font-weight: 500; color: var(--text-secondary);">{{
+                            <td style="padding: 12px 14px; vertical-align: middle;"><span
+                                    style="font-family: monospace; font-size: 0.78rem; font-weight: 500; color: var(--text-secondary);">{{
                                     item.code or 'S/C' }}</span></td>
-                            <td style="padding: 18px 20px; vertical-align: middle;">
+                            <td style="padding: 12px 14px; vertical-align: middle;">
                                 <strong
-                                    style="font-size: 0.88rem; font-weight: 700; color: var(--text-primary); letter-spacing: -0.01em;">{{
+                                    style="font-size: 0.82rem; font-weight: 700; color: var(--text-primary); letter-spacing: -0.01em;">{{
                                     item.name }}</strong>
                                 {% if item_isc > 0.01 %}
                                 <span
@@ -231,25 +264,25 @@
                                 {% endif %}
                             </td>
                             <td
-                                style="padding: 18px 20px; text-align: right; vertical-align: middle; font-size: 0.85rem; font-weight: 500; color: var(--text-primary);">
+                                style="padding: 12px 14px; text-align: right; vertical-align: middle; font-size: 0.8rem; font-weight: 500; color: var(--text-primary);">
                                 RD$ {{ "{:,.2f}".format(item.price) }}</td>
                             <td
-                                style="padding: 18px 20px; text-align: center; vertical-align: middle; font-size: 0.85rem; font-weight: 700; color: var(--text-primary);">
+                                style="padding: 12px 14px; text-align: center; vertical-align: middle; font-size: 0.8rem; font-weight: 700; color: var(--text-primary);">
                                 {{ item.quantity }}</td>
                             <td
-                                style="padding: 18px 20px; text-align: right; vertical-align: middle; font-size: 0.85rem; font-weight: 500; color: var(--text-secondary);">
+                                style="padding: 12px 14px; text-align: right; vertical-align: middle; font-size: 0.8rem; font-weight: 500; color: var(--text-secondary);">
                                 RD$ {{ "{:,.2f}".format(item.itbisAmount) }} ({{ "{:.0%}".format(item.itbisRate) }})
                             </td>
                             {% if has_additional_taxes.value %}
                             <td
-                                style="padding: 18px 20px; text-align: right; vertical-align: middle; font-size: 0.85rem; font-weight: 700; color: var(--accent-purple);">
+                                style="padding: 12px 14px; text-align: right; vertical-align: middle; font-size: 0.8rem; font-weight: 700; color: var(--accent-purple);">
                                 {% if item_isc > 0.01 %}RD$ {{ "{:,.2f}".format(item_isc) }}{% else %}-{% endif %}</td>
                             {% endif %}
                             <td
-                                style="padding: 18px 20px; text-align: right; vertical-align: middle; font-size: 0.85rem; font-weight: 500; color: var(--text-muted);">
+                                style="padding: 12px 14px; text-align: right; vertical-align: middle; font-size: 0.8rem; font-weight: 500; color: var(--text-muted);">
                                 {{ "{:.0%}".format(item.discountRate) }}</td>
                             <td
-                                style="padding: 18px 20px; text-align: right; vertical-align: middle; font-size: 0.9rem; font-weight: 800; color: var(--text-primary);">
+                                style="padding: 12px 14px; text-align: right; vertical-align: middle; font-size: 0.82rem; font-weight: 800; color: var(--text-primary);">
                                 RD$ {{ "{:,.2f}".format(item.total) }}</td>
                         </tr>
                         {% endfor %}
@@ -655,6 +688,19 @@
              PANEL DE CONVERSIÓN DE COTIZACIÓN → FACTURA REAL
         ══════════════════════════════════════════════════════════ -->
         {% if invoice.status != 'Aprobada' %}
+        {% if invoice.status == 'Rechazada' %}
+        <div class="card-table-wrapper"
+            style="padding: 24px; text-align: center; border: 1.5px solid var(--accent-red); background: rgba(239, 68, 68, 0.03);">
+            <div
+                style="width: 52px; height: 52px; border-radius: 50%; background: var(--accent-red); display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; color: white;">
+                <i class="fa-solid fa-circle-xmark" style="font-size: 1.2rem;"></i>
+            </div>
+            <h4 style="font-size: 1.05rem; font-family: var(--font-heading); margin-bottom: 8px; color: var(--accent-red);">
+                Cotización Rechazada</h4>
+            <p style="color: var(--text-secondary); font-size: 0.79rem; line-height: 1.45; margin-bottom: 20px;">
+                El cliente ha rechazado esta propuesta comercial. Puedes contactarlo para revisar los detalles o aprobarla manualmente si se llegó a un acuerdo offline.
+            </p>
+        {% elif invoice.status == 'Pendiente Aut. Cliente' %}
         <div class="card-table-wrapper"
             style="padding: 24px; text-align: center; border: 1.5px solid var(--accent-yellow); background: rgba(245, 158, 11, 0.03);">
             <div
@@ -662,16 +708,29 @@
                 <i class="fa-solid fa-clock" style="font-size: 1.2rem;"></i>
             </div>
             <h4 style="font-size: 1.05rem; font-family: var(--font-heading); margin-bottom: 8px; color: #d97706;">
-                Cotización Pendiente</h4>
+                Pendiente Aut. Cliente</h4>
             <p style="color: var(--text-secondary); font-size: 0.79rem; line-height: 1.45; margin-bottom: 20px;">
-                Esta propuesta está pendiente de aprobación. Puedes enviársela al cliente para su firma o aprobarla
-                manualmente.
+                Esta propuesta ha sido enviada al cliente y está disponible en su portal de autoservicio para su firma y autorización electrónica.
             </p>
+        {% else %}
+        <div class="card-table-wrapper"
+            style="padding: 24px; text-align: center; border: 1.5px solid var(--text-muted); background: rgba(100, 116, 139, 0.03);">
+            <div
+                style="width: 52px; height: 52px; border-radius: 50%; background: var(--text-muted); display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; color: white;">
+                <i class="fa-solid fa-file-pen" style="font-size: 1.2rem;"></i>
+            </div>
+            <h4 style="font-size: 1.05rem; font-family: var(--font-heading); margin-bottom: 8px; color: var(--text-muted);">
+                Cotización en Borrador</h4>
+            <p style="color: var(--text-secondary); font-size: 0.79rem; line-height: 1.45; margin-bottom: 20px;">
+                Esta propuesta comercial se encuentra en estado Borrador. Edítala o envíala al cliente para habilitar su firma y autorización electrónica.
+            </p>
+        {% endif %}
 
             <div style="display: flex; flex-direction: column; gap: 10px;">
-                <form action="/quotations/{{ invoice.id }}/approve" method="POST" style="margin: 0;">
-                    <button type="submit" class="btn btn-primary"
-                        style="width:100%; background: var(--accent-yellow); border-color: var(--accent-yellow); font-weight: 700;">
+                <form id="manual-approve-form" action="/quotations/{{ invoice.id }}/approve" method="POST" style="margin: 0;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="button" onclick="confirmManualApprove()" class="btn btn-primary"
+                        style="width:100%; background: var(--accent-emerald); border-color: var(--accent-emerald); font-weight: 700; color: white;">
                         <i class="fa-solid fa-check"></i>
                         <span>Aprobar Manualmente</span>
                     </button>
@@ -689,7 +748,7 @@
                     <button type="button" onclick="openSendQuotationModal()" class="btn btn-secondary"
                         style="width: 100%; border-color: var(--accent-purple); color: var(--accent-purple); display: inline-flex; align-items: center; justify-content: center; gap: 6px; font-weight: 600;">
                         <i class="fa-solid fa-envelope"></i>
-                        <span>Enviar al Cliente Para Aprobación</span>
+                        <span>{% if invoice.status == 'Pendiente Aut. Cliente' %}Re-enviar al Cliente{% else %}Enviar al Cliente Para Aprobación{% endif %}</span>
                     </button>
                 </div>
                 {% endif %}
@@ -697,7 +756,25 @@
         </div>
         {% else %}
         <div class="card-table-wrapper"
-            style="padding: 24px; text-align: center; border: 1.5px solid var(--accent-purple); {% if company.get('gradientEnabled', True) %}background: linear-gradient(160deg, rgba(124,58,237,0.04), rgba(167,139,250,0.02));{% else %}background: rgba(124,58,237,0.04);{% endif %}">
+            style="padding: 24px; text-align: center; border: 1.5px solid {% if invoice.convertedToInvoiceId %}var(--accent-emerald){% else %}var(--accent-purple){% endif %}; {% if company.get('gradientEnabled', True) %}background: linear-gradient(160deg, {% if invoice.convertedToInvoiceId %}rgba(16,185,129,0.04){% else %}rgba(124,58,237,0.04){% endif %}, rgba(167,139,250,0.02));{% else %}background: rgba(124,58,237,0.04);{% endif %}">
+            
+            {% if invoice.convertedToInvoiceId %}
+            <div
+                style="width: 52px; height: 52px; border-radius: 50%; background: linear-gradient(135deg,#10b981,#34d399); display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; color: white;">
+                <i class="fa-solid fa-circle-check" style="font-size: 1.2rem;"></i>
+            </div>
+            <h4
+                style="font-size: 1.05rem; font-family: var(--font-heading); margin-bottom: 8px; color: var(--accent-emerald);">
+                Cotización Facturada</h4>
+            <p style="color: var(--text-secondary); font-size: 0.79rem; line-height: 1.45; margin-bottom: 20px;">
+                Esta propuesta ya ha sido convertida a factura fiscal.
+            </p>
+            <a href="{{ url_for('web_invoices.invoice_detail', invoice_id=invoice.convertedToInvoiceId) }}" class="btn btn-primary"
+                style="width: 100%; background: var(--accent-emerald); border-color: var(--accent-emerald); color: white; display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-weight: 700;">
+                <i class="fa-solid fa-receipt"></i>
+                <span>Ver Factura Emitida ({{ invoice.convertedInvoiceNumber or 'FAC' }})</span>
+            </a>
+            {% else %}
             <div
                 style="width: 52px; height: 52px; border-radius: 50%; {% if company.get('gradientEnabled', True) %}background: linear-gradient(135deg,#7c3aed,#a78bfa);{% else %}background: var(--accent-purple);{% endif %} display: flex; align-items: center; justify-content: center; margin: 0 auto 12px;">
                 <i class="fa-solid fa-wand-magic-sparkles" style="color:white; font-size: 1.2rem;"></i>
@@ -710,20 +787,21 @@
                 la DGII y registrarla en tus ingresos.
             </p>
 
-            <form action="/invoices/{{ invoice.id }}/convert" method="POST"
+            <form id="convert-quotation-form" action="/invoices/{{ invoice.id }}/convert" method="POST"
                 style="display: flex; flex-direction: column; gap: 10px;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <input type="hidden" name="targetEcfType" id="convert-ecf-type" value="Factura de Consumo (E32)">
 
-                <button type="submit"
-                    onclick="document.getElementById('convert-ecf-type').value='Factura de Consumo (E32)'"
+                <button type="button"
+                    onclick="confirmConvert('Factura de Consumo (E32)')"
                     class="btn btn-primary"
                     style="width:100%; {% if company.get('gradientEnabled', True) %}background: linear-gradient(135deg,#7c3aed,#635bff);{% else %}background: var(--accent-purple); border-color: var(--accent-purple);{% endif %}">
                     <i class="fa-solid fa-receipt"></i>
                     <span>Emitir como Consumo (E32)</span>
                 </button>
 
-                <button type="submit"
-                    onclick="document.getElementById('convert-ecf-type').value='Factura de Crédito Fiscal (E31)'"
+                <button type="button"
+                    onclick="confirmConvert('Factura de Crédito Fiscal (E31)')"
                     class="btn btn-secondary"
                     style="width:100%; border-color: var(--accent-purple); color: var(--accent-purple);">
                     <i class="fa-solid fa-building-columns"></i>
@@ -739,6 +817,7 @@
                     • <strong>E32</strong> requiere RNC si el monto supera RD$ 250,000.
                 </p>
             </div>
+            {% endif %}
         </div>
         {% endif %}
 
@@ -760,6 +839,7 @@
             <form action="{{ url_for('web_invoices.convert_quotation_to_contract', invoice_id=invoice.id) }}"
                 method="POST" style="margin: 0;"
                 onsubmit="return confirm('¿Convertir esta cotización en un Contrato Recurrente mensual?\n\nPodrás editar la frecuencia y configuración desde el detalle del contrato.')">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" class="btn btn-primary"
                     style="width: 100%; background: linear-gradient(135deg, #059669, #10b981); border: none; color: white; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
                     <i class="fa-solid fa-file-contract"></i>
@@ -812,6 +892,7 @@
                 {% if not invoice.isSyncedWithDGII %}
                 <form action="{{ url_for('web_invoices.sync_single_invoice_route', invoice_id=invoice.id) }}" method="POST"
                     style="margin-top: 6px;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <button type="submit" class="btn btn-primary"
                         style="width: 100%; font-size: 0.76rem; padding: 6px 12px; background: linear-gradient(135deg, #f59e0b, #d97706); border: none; font-weight: bold; cursor: pointer;">
                         <i class="fa-solid fa-rotate"></i> Sincronizar con DGII
@@ -856,8 +937,9 @@
             <p style="color: var(--text-secondary); font-size: 0.82rem; line-height: 1.4; margin-bottom: 20px;">
                 Esta factura se encuentra guardada como borrador. Emite el documento para firmarlo digitalmente.
             </p>
-            <form action="{{ url_for('web_invoices.sign_invoice_route', invoice_id=invoice.id) }}" method="POST">
-                <button type="submit" class="btn btn-primary" style="width: 100%;">
+            <form id="sign-invoice-form" action="{{ url_for('web_invoices.sign_invoice_route', invoice_id=invoice.id) }}" method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="button" onclick="confirmSignInvoice()" class="btn btn-primary" style="width: 100%;">
                     <i class="fa-solid fa-signature"></i>
                     <span>Firmar y Emitir Documento</span>
                 </button>
@@ -934,10 +1016,154 @@
     </div>
 </div>
 
-{% set submit_url = "/invoices/" ~ invoice.id ~ "/comments/new" %}
-{% set edit_url_prefix = "/invoices/" ~ invoice.id ~ "/comments" %}
-{% set delete_url_prefix = "/invoices/" ~ invoice.id ~ "/comments" %}
-{% include 'components/_comments.html' %}
+<!-- Tabs Switcher for Admin (Comments / History) -->
+<div style="display: flex; gap: 15px; margin-top: 30px; border-bottom: 2px solid var(--border-color); padding-bottom: 8px;">
+    <button class="tab-btn active" id="btn-tab-comments" onclick="switchInvoiceTab('comments')" style="padding: 10px 20px; font-weight: 700; font-size: 0.95rem; border: none; background: transparent; color: var(--accent-purple); cursor: pointer; border-bottom: 3px solid var(--accent-purple); outline: none; transition: all 0.2s ease-in-out; display: flex; align-items: center; gap: 8px; margin-bottom: -10px;">
+        <i class="fa-solid fa-comments"></i>
+        <span>Comentarios y Notas Internas</span>
+    </button>
+    <button class="tab-btn" id="btn-tab-history" onclick="switchInvoiceTab('history')" style="padding: 10px 20px; font-weight: 700; font-size: 0.95rem; border: none; background: transparent; color: var(--text-secondary); cursor: pointer; border-bottom: 3px solid transparent; outline: none; transition: all 0.2s ease-in-out; display: flex; align-items: center; gap: 8px; margin-bottom: -10px;">
+        <i class="fa-solid fa-clock-rotate-left"></i>
+        <span>Historial de Cambios</span>
+    </button>
+</div>
+
+<!-- Tab Content: Comments -->
+<div id="pane-tab-comments" class="tab-pane-content" style="display: block;">
+    {% set submit_url = "/invoices/" ~ invoice.id ~ "/comments/new" %}
+    {% set edit_url_prefix = "/invoices/" ~ invoice.id ~ "/comments" %}
+    {% set delete_url_prefix = "/invoices/" ~ invoice.id ~ "/comments" %}
+    {% include 'components/_comments.html' %}
+</div>
+
+<!-- Tab Content: History -->
+<div id="pane-tab-history" class="tab-pane-content" style="display: none;">
+    <div class="card-table-wrapper" style="margin-top: 30px; padding: 30px; color: var(--text-primary); background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md);">
+        <h3 style="font-size: 1.25rem; font-family: var(--font-heading); font-weight: 800; display: flex; align-items: center; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 15px;">
+            <i class="fa-solid fa-clock-rotate-left" style="color: var(--accent-purple);"></i>
+            <span>Historial de Cambios y Auditoría</span>
+        </h3>
+        
+        {% if history_logs %}
+            <div class="timeline-container" style="position: relative; padding-left: 30px; margin-top: 15px; margin-left: 10px;">
+                <!-- Vertical Line -->
+                <div style="position: absolute; left: 11px; top: 8px; bottom: 8px; width: 2px; background-color: var(--border-color);"></div>
+                
+                {% for log in history_logs %}
+                    <div class="timeline-item" style="position: relative; margin-bottom: 24px;">
+                        <!-- Icon Circle -->
+                        <div style="position: absolute; left: -30px; top: 2px; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; z-index: 2; font-size: 0.75rem; 
+                            {% if log.action in ['CREATE'] %}
+                                background-color: rgba(16, 185, 129, 0.15); color: #10b981; border: 1.5px solid #10b981;
+                            {% elif log.action in ['UPDATE'] %}
+                                background-color: rgba(59, 130, 246, 0.15); color: #3b82f6; border: 1.5px solid #3b82f6;
+                            {% elif log.action in ['PAYMENT', 'APPROVE_PAYMENT'] %}
+                                background-color: rgba(16, 185, 129, 0.2); color: #059669; border: 1.5px solid #059669;
+                            {% elif log.action in ['REJECT_PAYMENT'] %}
+                                background-color: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1.5px solid #ef4444;
+                            {% elif log.action in ['APPROVE_QUOTATION', 'SIGN'] %}
+                                background-color: rgba(139, 92, 246, 0.15); color: #8b5cf6; border: 1.5px solid #8b5cf6;
+                            {% elif log.action in ['REJECT'] %}
+                                background-color: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1.5px solid #ef4444;
+                            {% elif log.action in ['SEND_EMAIL'] %}
+                                background-color: rgba(245, 158, 11, 0.15); color: #d97706; border: 1.5px solid #d97706;
+                            {% elif log.action in ['CONVERT_DOCUMENT'] %}
+                                background-color: rgba(139, 92, 246, 0.2); color: #7c3aed; border: 1.5px solid #7c3aed;
+                            {% else %}
+                                background-color: rgba(100, 116, 139, 0.15); color: #64748b; border: 1.5px solid #64748b;
+                            {% endif %}
+                        ">
+                            {% if log.action in ['CREATE'] %}
+                                <i class="fa-solid fa-plus"></i>
+                            {% elif log.action in ['UPDATE'] %}
+                                <i class="fa-solid fa-pen"></i>
+                            {% elif log.action in ['PAYMENT', 'APPROVE_PAYMENT'] %}
+                                <i class="fa-solid fa-money-bill-wave"></i>
+                            {% elif log.action in ['REJECT_PAYMENT'] %}
+                                <i class="fa-solid fa-ban"></i>
+                            {% elif log.action in ['APPROVE_QUOTATION', 'SIGN'] %}
+                                <i class="fa-solid fa-signature"></i>
+                            {% elif log.action in ['REJECT'] %}
+                                <i class="fa-solid fa-circle-xmark"></i>
+                            {% elif log.action in ['SEND_EMAIL'] %}
+                                <i class="fa-solid fa-paper-plane"></i>
+                            {% elif log.action in ['CONVERT_DOCUMENT'] %}
+                                <i class="fa-solid fa-file-invoice-dollar"></i>
+                            {% else %}
+                                <i class="fa-solid fa-info"></i>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Details Content Card -->
+                        <div style="background: rgba(0, 0, 0, 0.01); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 16px; margin-left: 10px;">
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 8px; margin-bottom: 8px;">
+                                <div>
+                                    <strong style="font-size: 0.95rem; color: var(--text-primary);">{{ log.entityLabel }}</strong>
+                                    <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 2px;">
+                                        Por: <strong>{{ log.performedBy }}</strong> ({{ log.performedByEmail }})
+                                        {% if log.ipAddress %}
+                                            <span style="margin-left: 10px; color: var(--text-muted);"><i class="fa-solid fa-globe" style="font-size: 0.75rem; margin-right: 2px;"></i> {{ log.ipAddress }}</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div style="font-size: 0.8rem; color: var(--text-muted); font-weight: 500; white-space: nowrap;">
+                                    {{ log.timestamp | format_date }}{% if log.timestamp|length > 10 %} {{ log.timestamp[11:16] }}{% endif %}
+                                </div>
+                            </div>
+                            
+                            <!-- State / changes details if any -->
+                            {% if log.before and log.after %}
+                                {% set status_before = log.before.get('status') %}
+                                {% set status_after = log.after.get('status') %}
+                                {% if status_before != status_after %}
+                                    <div style="margin-top: 10px; display: flex; align-items: center; gap: 8px; font-size: 0.8rem;">
+                                        <span style="font-weight: 600; color: var(--text-secondary);">Cambio de estado:</span>
+                                        <span style="background: rgba(0, 0, 0, 0.04); padding: 2px 8px; border-radius: 4px; color: var(--text-muted);">{{ status_before }}</span>
+                                        <i class="fa-solid fa-arrow-right" style="font-size: 0.75rem; color: var(--text-muted);"></i>
+                                        <span style="background: rgba(139, 92, 246, 0.1); padding: 2px 8px; border-radius: 4px; color: var(--accent-purple); font-weight: 600;">{{ status_after }}</span>
+                                    </div>
+                                {% endif %}
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div style="text-align: center; padding: 40px 20px; color: var(--text-secondary);">
+                <i class="fa-solid fa-timeline" style="font-size: 2.5rem; color: var(--text-muted); margin-bottom: 12px; display: block;"></i>
+                <p style="margin: 0; font-size: 0.95rem;">No hay registros en el historial de este documento.</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+function switchInvoiceTab(tabName) {
+    // Hide all contents
+    document.getElementById('pane-tab-comments').style.display = 'none';
+    document.getElementById('pane-tab-history').style.display = 'none';
+    
+    // Deactivate all buttons
+    const btnComments = document.getElementById('btn-tab-comments');
+    const btnHistory = document.getElementById('btn-tab-history');
+    
+    btnComments.style.color = 'var(--text-secondary)';
+    btnComments.style.borderBottomColor = 'transparent';
+    btnHistory.style.color = 'var(--text-secondary)';
+    btnHistory.style.borderBottomColor = 'transparent';
+    
+    // Show selected pane & activate selected button
+    if (tabName === 'comments') {
+        document.getElementById('pane-tab-comments').style.display = 'block';
+        btnComments.style.color = 'var(--accent-purple)';
+        btnComments.style.borderBottomColor = 'var(--accent-purple)';
+    } else {
+        document.getElementById('pane-tab-history').style.display = 'block';
+        btnHistory.style.color = 'var(--accent-purple)';
+        btnHistory.style.borderBottomColor = 'var(--accent-purple)';
+    }
+}
+</script>
 
 <!-- =========================================================================
      MODAL PREMIUM PARA REGISTRAR COBRO / ABONO EN CASCADA
@@ -963,6 +1189,7 @@
         <div class="modal-body">
             <form action="/invoices/{{ invoice.id }}/pay" method="POST" id="pay-invoice-form"
                 style="display: flex; flex-direction: column; gap: 14px;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
                 <!-- Hidden mora fields -->
                 <input type="hidden" id="mora-action-input" name="moraAction" value="perdonar">
@@ -1273,6 +1500,7 @@
                             class="fa-solid fa-xmark"></i></button>
                 </div>
                 <form action="/quotations/{{ invoice.id }}/send-to-client" method="POST" style="margin: 0;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <div class="modal-body">
                         <!-- Info Alert -->
                         <div
@@ -1310,6 +1538,24 @@
             </div>
         </div>
 
+        <!-- Generic Premium Confirmation Modal -->
+        <div id="premium-confirm-modal" class="search-modal" style="display: none; justify-content: center; align-items: center; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 3000;">
+            <div class="modal-backdrop" onclick="closePremiumConfirm()" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.4); backdrop-filter: blur(8px);"></div>
+            <div class="modal-content" style="max-width: 450px; width: 90%; padding: 24px; border-radius: var(--radius-md); position: relative; z-index: 3001; background: var(--bg-card, #ffffff); border: 1px solid var(--border-color); box-shadow: var(--shadow-lg);">
+                <h3 style="margin-top: 0; margin-bottom: 16px; font-family: var(--font-heading); color: var(--text-primary); font-weight: 800; display: flex; align-items: center; gap: 8px;">
+                    <i id="confirm-icon" class="fa-solid fa-circle-question" style="color: var(--accent-purple);"></i>
+                    <span id="confirm-header-text">Confirmar Acción</span>
+                </h3>
+                
+                <p id="confirm-message" style="font-size: 0.88rem; color: var(--text-secondary); line-height: 1.5; margin-bottom: 24px;"></p>
+                
+                <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+                    <button type="button" class="btn btn-secondary" onclick="closePremiumConfirm()" style="padding: 8px 18px; font-size: 0.85rem;">Cancelar</button>
+                    <button type="button" id="confirm-submit-btn" class="btn btn-primary" style="padding: 8px 18px; font-size: 0.85rem; border: none; color: white;">Confirmar</button>
+                </div>
+            </div>
+        </div>
+
         {% if invoice.status == 'Revisión de Pago' and invoice.pendingPaymentProof %}
         <!-- Modal Aprobar Comprobante de Pago -->
         <div id="approve-proof-modal" class="search-modal" style="display: none; justify-content: center; align-items: center; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 2000;">
@@ -1319,6 +1565,7 @@
                     <i class="fa-solid fa-check-circle" style="color: var(--accent-emerald);"></i> Confirmar y Aplicar Pago
                 </h3>
                 <form id="approve-proof-form" action="{{ url_for('web_invoices.approve_payment_proof', invoice_id=invoice.id) }}" method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 16px;">Revise y confirme los datos del cobro a registrar en el sistema:</p>
                     
                     <div style="margin-bottom: 12px;">
@@ -1368,6 +1615,7 @@
                     <i class="fa-solid fa-circle-xmark" style="color: var(--accent-red);"></i> Rechazar Comprobante
                 </h3>
                 <form id="reject-proof-form" action="{{ url_for('web_invoices.reject_payment_proof', invoice_id=invoice.id) }}" method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 16px;">¿Está seguro de que desea rechazar este comprobante de pago? El estatus de la factura volverá a <strong>Emitida</strong> (o su estado pendiente anterior).</p>
                     
                     <div style="margin-bottom: 16px;">
@@ -1899,6 +2147,88 @@
         }
         function closeRejectProofModal() {
             document.getElementById('reject-proof-modal').style.display = 'none';
+        }
+
+        // =========================================================================
+        // CONFIRMACIONES CUSTOM PREMIUM MODAL
+        // =========================================================================
+        let onConfirmCallback = null;
+
+        function showPremiumConfirm(options) {
+            document.getElementById('confirm-header-text').innerText = options.title || 'Confirmar Acción';
+            document.getElementById('confirm-message').innerHTML = options.message || '¿Está seguro de continuar?';
+            
+            const iconEl = document.getElementById('confirm-icon');
+            iconEl.className = options.iconClass || 'fa-solid fa-circle-question';
+            iconEl.style.color = options.iconColor || 'var(--accent-purple)';
+            
+            const submitBtn = document.getElementById('confirm-submit-btn');
+            submitBtn.innerText = options.confirmBtnText || 'Confirmar';
+            submitBtn.style.background = options.confirmBtnBg || 'var(--accent-purple)';
+            if (options.confirmBtnBorderColor) {
+                submitBtn.style.borderColor = options.confirmBtnBorderColor;
+            } else {
+                submitBtn.style.borderColor = options.confirmBtnBg || 'transparent';
+            }
+            
+            onConfirmCallback = options.onConfirm;
+            
+            document.getElementById('premium-confirm-modal').style.display = 'flex';
+        }
+
+        function closePremiumConfirm() {
+            document.getElementById('premium-confirm-modal').style.display = 'none';
+            onConfirmCallback = null;
+        }
+
+        document.getElementById('confirm-submit-btn').addEventListener('click', () => {
+            if (onConfirmCallback) {
+                onConfirmCallback();
+            }
+            closePremiumConfirm();
+        });
+
+        function confirmManualApprove() {
+            showPremiumConfirm({
+                title: 'Aprobar Cotización',
+                message: '¿Está seguro de que desea aprobar esta cotización manualmente? Esta acción cambiará el estado de la propuesta a <strong>Aprobada</strong>.',
+                iconClass: 'fa-solid fa-check-circle',
+                iconColor: 'var(--accent-emerald)',
+                confirmBtnText: 'Sí, Aprobar',
+                confirmBtnBg: 'var(--accent-emerald)',
+                onConfirm: () => {
+                    document.getElementById('manual-approve-form').submit();
+                }
+            });
+        }
+
+        function confirmConvert(ecfType) {
+            document.getElementById('convert-ecf-type').value = ecfType;
+            showPremiumConfirm({
+                title: 'Convertir Cotización',
+                message: `¿Está seguro de que desea convertir esta cotización en una factura de tipo <strong>${ecfType}</strong>?`,
+                iconClass: 'fa-solid fa-wand-magic-sparkles',
+                iconColor: 'var(--accent-purple)',
+                confirmBtnText: 'Sí, Convertir',
+                confirmBtnBg: 'var(--accent-purple)',
+                onConfirm: () => {
+                    document.getElementById('convert-quotation-form').submit();
+                }
+            });
+        }
+
+        function confirmSignInvoice() {
+            showPremiumConfirm({
+                title: 'Firmar y Emitir e-CF',
+                message: '¿Está seguro de que desea firmar y emitir este documento? Esta acción es <strong>irreversible</strong>, registrará el comprobante ante la <strong>DGII</strong> y generará el NCF correspondiente.',
+                iconClass: 'fa-solid fa-signature',
+                iconColor: 'var(--accent-purple)',
+                confirmBtnText: 'Sí, Firmar y Emitir',
+                confirmBtnBg: 'var(--accent-purple)',
+                onConfirm: () => {
+                    document.getElementById('sign-invoice-form').submit();
+                }
+            });
         }
 
     </script>

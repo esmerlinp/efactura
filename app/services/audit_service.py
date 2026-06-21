@@ -155,6 +155,47 @@ class AuditService:
         return result
 
     @classmethod
+    def get_entity_logs(cls, owner_uid: str, entity_id: str) -> list:
+        """
+        Retorna logs de auditoría para una entidad específica (ej: una factura).
+        Ordenados por timestamp descendente.
+        """
+        if not firebase_initialized or not db_firestore:
+            return []
+        try:
+            docs = db_firestore.collection("users") \
+                                .document(owner_uid) \
+                                .collection("audit_logs") \
+                                .where("entityId", "==", str(entity_id)) \
+                                .get()
+            logs = []
+            for doc in docs:
+                data = doc.to_dict()
+                logs.append({
+                    "id": data.get("id", doc.id),
+                    "action": data.get("action", ""),
+                    "module": data.get("module", ""),
+                    "entityId": data.get("entityId", ""),
+                    "entityLabel": data.get("entityLabel", ""),
+                    "performedBy": data.get("performedBy", ""),
+                    "performedByEmail": data.get("performedByEmail", ""),
+                    "timestamp": data.get("timestamp", ""),
+                    "isSandbox": data.get("isSandbox", True),
+                    "ipAddress": data.get("ipAddress", ""),
+                    "userAgent": data.get("userAgent", ""),
+                    "before": data.get("before"),
+                    "after": data.get("after")
+                })
+            # Ordenar por timestamp descendente
+            logs.sort(key=lambda x: x.get("timestamp", ""), reverse=True)
+            return logs
+        except Exception as e:
+            import logging
+            logging.exception(f"[AuditService] Error al obtener logs de entidad {entity_id}")
+            print(f"⚠️ [AuditService] Error al obtener logs de entidad {entity_id}: {e}")
+            return []
+
+    @classmethod
     def get_logs(cls,
                  owner_uid: str,
                  page: int = 1,

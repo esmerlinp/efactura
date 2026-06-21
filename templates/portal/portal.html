@@ -515,7 +515,7 @@
                                 <span class="badge badge-danger"
                                     style="background: rgba(0,0,0,0.05); color: var(--text-muted);">{{ inv.status
                                     }}</span>
-                                {% elif inv.status == 'Vencida' %}
+                                {% elif inv.status == 'Rechazada' or inv.status == 'Vencida' %}
                                 <span class="badge badge-danger">{{ inv.status }}</span>
                                 {% else %}
                                 <span class="badge badge-warning">{{ inv.status }}</span>
@@ -523,41 +523,11 @@
                             </td>
                             <td style="text-align: right;">
                                 <div style="display: inline-flex; gap: 8px;">
-                                    {% if inv.isQuotation %}
-                                    {% if inv.status != 'Aprobada' %}
-                                    <button class="btn btn-primary" onclick="openSignatureModal('{{ inv.id }}')">
-                                        <i class="fa-solid fa-signature"></i>
-                                        <span>Firmar Aceptación</span>
-                                    </button>
-                                    {% else %}
-                                    <span class="badge badge-success"><i class="fa-solid fa-circle-check"></i>
-                                        Aprobada</span>
-                                    {% endif %}
-                                    {% else %}
-                                    {% if inv.firebasePDFURL %}
-                                    <a href="{{ inv.firebasePDFURL }}" target="_blank" class="btn btn-secondary"
-                                        title="Descargar PDF">
-                                        <i class="fa-solid fa-file-pdf" style="color: var(--accent-red);"></i>
+                                    <a href="/portal/documento/{{ inv.id }}" class="btn btn-secondary"
+                                        title="Ver Detalle">
+                                        <i class="fa-solid fa-eye"></i>
+                                        <span>Ver</span>
                                     </a>
-                                    {% endif %}
-                                    {% if inv.firebaseXMLURL %}
-                                    <a href="{{ inv.firebaseXMLURL }}" target="_blank" class="btn btn-secondary"
-                                        title="Descargar XML">
-                                        <i class="fa-solid fa-file-code" style="color: var(--accent-emerald);"></i>
-                                    </a>
-                                    {% endif %}
-                                    {% if inv.remainingBalance > 0.01 and inv.status != 'Borrador' and inv.status != 'Revisión de Pago' %}
-                                    <button class="btn btn-success"
-                                        onclick="openPaymentModal('{{ inv.id }}', {{ inv.remainingBalance }})">
-                                        <i class="fa-solid fa-upload"></i>
-                                        <span>Reportar Pago</span>
-                                    </button>
-                                    {% elif inv.status == 'Revisión de Pago' %}
-                                    <span class="badge badge-info" style="background-color: rgba(59, 130, 246, 0.1); color: #2563eb; padding: 6px 10px; display: inline-flex; align-items: center; gap: 4px;">
-                                        <i class="fa-solid fa-clock-rotate-left"></i> En Revisión
-                                    </span>
-                                    {% endif %}
-                                    {% endif %}
                                 </div>
                             </td>
                         </tr>
@@ -596,53 +566,65 @@
                                 <strong>{{ contract.contractNumber }}</strong>
                             </td>
                             <td data-label="Concepto">
-                                <span style="font-size: 0.88rem;">{{ contract.concept or contract.description or '—' }}</span>
+                                <span style="font-size: 0.88rem;">{{ contract.concept or contract.description or '—'
+                                    }}</span>
                             </td>
                             <td data-label="Fecha Inicio">
-                                <span style="font-family: monospace;">{{ contract.startDate | format_date if contract.startDate else '-' }}</span>
+                                <span style="font-family: monospace;">{{ contract.startDate | format_date if
+                                    contract.startDate else '-' }}</span>
                             </td>
                             <td data-label="Monto Recurrente">
                                 <strong>RD$ {{ "{:,.2f}".format(contract.amount) }}</strong>
                             </td>
                             <td data-label="Frecuencia">
-                                <span class="badge badge-info" style="text-transform: capitalize;">{{ contract.recurrenceInterval or 'Mensual' }}</span>
+                                <span class="badge badge-info" style="text-transform: capitalize;">{{
+                                    contract.recurrenceInterval or 'Mensual' }}</span>
                             </td>
                             <td data-label="Estado">
                                 {% if contract.cancelRequest %}
-                                <span class="badge" style="background: rgba(245,158,11,0.1); color: #d97706; border: 1px solid rgba(245,158,11,0.25);">
+                                <span class="badge"
+                                    style="background: rgba(245,158,11,0.1); color: #d97706; border: 1px solid rgba(245,158,11,0.25);">
                                     <i class="fa-solid fa-clock"></i> No Renovar
                                 </span>
                                 {% elif contract.status == 'Activo' %}
                                 <span class="badge badge-success">{{ contract.status }}</span>
                                 {% elif contract.status == 'Inactivo' %}
-                                <span class="badge badge-danger" style="background: rgba(0,0,0,0.05); color: var(--text-muted);">{{ contract.status }}</span>
+                                <span class="badge badge-danger"
+                                    style="background: rgba(0,0,0,0.05); color: var(--text-muted);">{{ contract.status
+                                    }}</span>
                                 {% else %}
                                 <span class="badge badge-warning">{{ contract.status or 'Pendiente de Firma' }}</span>
                                 {% endif %}
                             </td>
                             <td style="text-align: right;">
-                                <div style="display: inline-flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end;">
-                                    <button class="btn btn-secondary" data-contract="{{ contract | tojson | forceescape }}" onclick="showContractDetail(this)" title="Ver Detalle">
+                                <div
+                                    style="display: inline-flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end;">
+                                    <button class="btn btn-secondary"
+                                        data-contract="{{ contract | tojson | forceescape }}"
+                                        onclick="showContractDetail(this)" title="Ver">
                                         <i class="fa-solid fa-eye"></i>
                                     </button>
-                                    {% if contract.status != 'Activo' and contract.status != 'Inactivo' and not contract.cancelRequest %}
-                                    <button class="btn btn-primary" onclick="openSignatureModal('{{ contract.id }}', 'contrato')">
+                                    {% if contract.status != 'Activo' and contract.status != 'Inactivo' and not
+                                    contract.cancelRequest %}
+                                    <button class="btn btn-primary"
+                                        onclick="openSignatureModal('{{ contract.id }}', 'contrato')">
                                         <i class="fa-solid fa-signature"></i>
                                         <span>Firmar Contrato</span>
                                     </button>
                                     {% elif contract.status == 'Activo' and not contract.cancelRequest %}
-                                    <button class="btn btn-secondary"
-                                            style="border-color: #ef4444; color: #ef4444;"
-                                            onclick="openCancelContractModal('{{ contract.id }}', '{{ contract.contractNumber }}', '{{ contract.concept or contract.description or '' }}')">
+                                    <button class="btn btn-secondary" style="border-color: #ef4444; color: #ef4444;"
+                                        onclick="openCancelContractModal('{{ contract.id }}', '{{ contract.contractNumber }}', '{{ contract.concept or contract.description or '' }}')">
                                         <i class="fa-solid fa-ban"></i>
                                         <span>Solicitar Cancelación</span>
                                     </button>
                                     {% elif contract.cancelRequest %}
-                                    <span style="font-size: 0.8rem; color: #d97706; display: inline-flex; align-items: center; gap: 4px;">
+                                    <span
+                                        style="font-size: 0.8rem; color: #d97706; display: inline-flex; align-items: center; gap: 4px;">
                                         <i class="fa-solid fa-circle-check"></i> Cancelación solicitada
                                     </span>
                                     {% else %}
-                                    <span class="badge badge-success"><i class="fa-solid fa-circle-check"></i> {{ contract.status }}</span>
+                                    <span class="badge badge-success"><i class="fa-solid fa-circle-check"></i> {{
+                                        contract.status }}</span>
                                     {% endif %}
                                 </div>
                             </td>
@@ -664,34 +646,44 @@
     <div id="signature-modal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h3 class="modal-title" id="sig-modal-title"><i class="fa-solid fa-file-signature" style="color: var(--primary);"></i> Firma Electrónica Certificada</h3>
+                <h3 class="modal-title" id="sig-modal-title"><i class="fa-solid fa-file-signature"
+                        style="color: var(--primary);"></i> Firma Electrónica Certificada</h3>
                 <button class="modal-close" onclick="closeSignatureModal()">&times;</button>
             </div>
-            <p id="sig-modal-subtitle" style="font-size: 0.82rem; color: var(--text-secondary); margin-top: 0; margin-bottom: 16px;">
+            <p id="sig-modal-subtitle"
+                style="font-size: 0.82rem; color: var(--text-secondary); margin-top: 0; margin-bottom: 16px;">
                 Para firmar legalmente, cargue su certificado digital (.p12 / .pfx) e ingrese su contraseña.
             </p>
             <form id="signature-form" onsubmit="submitSignature(event)" enctype="multipart/form-data">
-                <div id="sig-cancel-warning" style="display:none; background: rgba(239,68,68,0.07); border: 1px solid rgba(239,68,68,0.2); border-radius: 8px; padding: 12px 14px; margin-bottom: 16px; font-size: 0.83rem; color: #b91c1c;">
+                <div id="sig-cancel-warning"
+                    style="display:none; background: rgba(239,68,68,0.07); border: 1px solid rgba(239,68,68,0.2); border-radius: 8px; padding: 12px 14px; margin-bottom: 16px; font-size: 0.83rem; color: #b91c1c;">
                     <i class="fa-solid fa-triangle-exclamation"></i>
                     <strong>Cancelación de contrato: <span id="sig-cancel-contract-num"></span></strong><br>
-                    Al firmar, su solicitud de cancelación quedará registrada. El servicio seguirá activo hasta el final del período ya pagado y <strong>no será renovado automáticamente</strong>.
+                    Al firmar, su solicitud de cancelación quedará registrada. El servicio seguirá activo hasta el final
+                    del período ya pagado y <strong>no será renovado automáticamente</strong>.
                 </div>
                 <div style="margin-bottom: 16px;">
-                    <label style="display: block; font-size: 0.85rem; font-weight: 500; margin-bottom: 6px;">Certificado Digital (.p12 / .pfx)</label>
+                    <label style="display: block; font-size: 0.85rem; font-weight: 500; margin-bottom: 6px;">Certificado
+                        Digital (.p12 / .pfx)</label>
                     <input type="file" id="sig-certificate" name="certificate" accept=".p12,.pfx" required
                         style="width: 100%; padding: 8px; border: 1px solid var(--border-color); border-radius: 6px; box-sizing: border-box;">
                 </div>
                 <div style="margin-bottom: 16px;">
-                    <label style="display: block; font-size: 0.85rem; font-weight: 500; margin-bottom: 6px;">Contraseña del Certificado</label>
-                    <input type="password" id="sig-password" name="password" required placeholder="Ingrese la clave del certificado"
+                    <label style="display: block; font-size: 0.85rem; font-weight: 500; margin-bottom: 6px;">Contraseña
+                        del Certificado</label>
+                    <input type="password" id="sig-password" name="password" required
+                        placeholder="Ingrese la clave del certificado"
                         style="width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 6px; box-sizing: border-box;">
                 </div>
-                <div style="background-color: #f8fafc; border: 1px solid var(--border-color); border-radius: 6px; padding: 12px; font-size: 0.78rem; color: var(--text-muted); margin-bottom: 16px;">
-                    <i class="fa-solid fa-info-circle"></i> Los datos de identidad del certificado cargado deben corresponder a la identificación fiscal del cliente (RNC: {{ client.rnc }}).
+                <div
+                    style="background-color: #f8fafc; border: 1px solid var(--border-color); border-radius: 6px; padding: 12px; font-size: 0.78rem; color: var(--text-muted); margin-bottom: 16px;">
+                    <i class="fa-solid fa-info-circle"></i> Los datos de identidad del certificado cargado deben
+                    corresponder a la identificación fiscal del cliente (RNC: {{ client.rnc }}).
                 </div>
                 <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px;">
                     <button type="button" class="btn btn-secondary" onclick="closeSignatureModal()">Cancelar</button>
-                    <button type="submit" id="sig-submit-btn" class="btn btn-primary"><i class="fa-solid fa-check"></i> <span id="sig-submit-label">Validar y Firmar</span></button>
+                    <button type="submit" id="sig-submit-btn" class="btn btn-primary"><i class="fa-solid fa-check"></i>
+                        <span id="sig-submit-label">Validar y Firmar</span></button>
                 </div>
             </form>
         </div>
@@ -701,22 +693,27 @@
     <div id="payment-modal" class="modal">
         <div class="modal-content" style="max-width: 500px; width: 100%;">
             <div class="modal-header">
-                <h3 class="modal-title"><i class="fa-solid fa-file-invoice-dollar" style="color: var(--accent-emerald);"></i>
+                <h3 class="modal-title"><i class="fa-solid fa-file-invoice-dollar"
+                        style="color: var(--accent-emerald);"></i>
                     Reportar Pago de Factura</h3>
                 <button class="modal-close" onclick="closePaymentModal()">&times;</button>
             </div>
             <form id="payment-form" onsubmit="submitPaymentProof(event)" enctype="multipart/form-data">
                 <input type="hidden" id="pay-invoice-id">
-                
+
                 <div style="margin-bottom: 16px;">
-                    <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px; color: var(--text-primary);">Monto Pagado (RD$)</label>
+                    <label
+                        style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px; color: var(--text-primary);">Monto
+                        Pagado (RD$)</label>
                     <input type="number" id="pay-amount" name="amount"
                         style="width: 100%; height: 40px; font-size: 1rem; padding: 0 12px; border: 1px solid var(--border-color); border-radius: 6px; text-align: right; box-sizing: border-box;"
                         step="0.01" required>
                 </div>
 
                 <div style="margin-bottom: 16px;">
-                    <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px; color: var(--text-primary);">Método de Pago</label>
+                    <label
+                        style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px; color: var(--text-primary);">Método
+                        de Pago</label>
                     <select id="pay-method" name="paymentMethod" required
                         style="width: 100%; height: 40px; font-size: 0.9rem; padding: 0 10px; border: 1px solid var(--border-color); border-radius: 6px; box-sizing: border-box; background-color: white;">
                         <option value="Transferencia Bancaria">Transferencia Bancaria</option>
@@ -727,49 +724,64 @@
                 </div>
 
                 <div style="margin-bottom: 16px;">
-                    <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px; color: var(--text-primary);">Banco</label>
+                    <label
+                        style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px; color: var(--text-primary);">Banco</label>
                     <select id="pay-bank" name="bank" required
                         style="width: 100%; height: 40px; font-size: 0.9rem; padding: 0 10px; border: 1px solid var(--border-color); border-radius: 6px; box-sizing: border-box; background-color: white;">
                         <option value="Banco Popular Dominicano">Banco Popular Dominicano</option>
                         <option value="Banco de Reservas (Banreservas)">Banco de Reservas (Banreservas)</option>
                         <option value="Banco BHD">Banco BHD</option>
                         <option value="Banco Scotiabank">Banco Scotiabank</option>
-                        <option value="Asociación Popular de Ahorros y Préstamos (APAP)">Asociación Popular (APAP)</option>
+                        <option value="Asociación Popular de Ahorros y Préstamos (APAP)">Asociación Popular (APAP)
+                        </option>
                         <option value="Otro">Otro</option>
                     </select>
                 </div>
 
                 <div style="margin-bottom: 16px;">
-                    <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px; color: var(--text-primary);">Número de Referencia (Confirmación)</label>
-                    <input type="text" id="pay-reference" name="referenceNumber" required placeholder="Ej: TX192837 o Cheque #0192"
+                    <label
+                        style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px; color: var(--text-primary);">Número
+                        de Referencia (Confirmación)</label>
+                    <input type="text" id="pay-reference" name="referenceNumber" required
+                        placeholder="Ej: TX192837 o Cheque #0192"
                         style="width: 100%; height: 40px; font-size: 0.9rem; padding: 0 12px; border: 1px solid var(--border-color); border-radius: 6px; box-sizing: border-box;">
                 </div>
 
                 <div style="margin-bottom: 16px;">
-                    <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px; color: var(--text-primary);">Fecha de Pago</label>
+                    <label
+                        style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px; color: var(--text-primary);">Fecha
+                        de Pago</label>
                     <input type="date" id="pay-date" name="paymentDate" required
                         style="width: 100%; height: 40px; font-size: 0.9rem; padding: 0 12px; border: 1px solid var(--border-color); border-radius: 6px; box-sizing: border-box;">
                 </div>
 
                 <div style="margin-bottom: 16px;">
-                    <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px; color: var(--text-primary);">Adjuntar Comprobante (PDF o Imagen)</label>
+                    <label
+                        style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px; color: var(--text-primary);">Adjuntar
+                        Comprobante (PDF o Imagen)</label>
                     <input type="file" id="pay-file" name="paymentProofFile" accept=".pdf,image/*" required
                         style="width: 100%; padding: 8px; border: 1px solid var(--border-color); border-radius: 6px; box-sizing: border-box; background-color: #fafafa;">
                 </div>
 
                 <div style="margin-bottom: 16px;">
-                    <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px; color: var(--text-primary);">Comentario / Notas (Opcional)</label>
+                    <label
+                        style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px; color: var(--text-primary);">Comentario
+                        / Notas (Opcional)</label>
                     <textarea id="pay-notes" name="notes" placeholder="Detalles adicionales sobre el pago..." rows="2"
                         style="width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 6px; box-sizing: border-box; font-family: var(--font-main); font-size: 0.9rem; resize: vertical;"></textarea>
                 </div>
 
-                <div style="background-color: #f0f9ff; border: 1px solid #bae6fd; border-radius: 6px; padding: 12px; font-size: 0.78rem; color: #0369a1; margin-bottom: 16px;">
-                    <i class="fa-solid fa-circle-info"></i> El pago reportado pasará a una fase de validación por parte del equipo de Cuentas por Cobrar. La factura quedará en estado <strong>Revisión de Pago</strong> hasta ser aprobada.
+                <div
+                    style="background-color: #f0f9ff; border: 1px solid #bae6fd; border-radius: 6px; padding: 12px; font-size: 0.78rem; color: #0369a1; margin-bottom: 16px;">
+                    <i class="fa-solid fa-circle-info"></i> El pago reportado pasará a una fase de validación por parte
+                    del equipo de Cuentas por Cobrar. La factura quedará en estado <strong>Revisión de Pago</strong>
+                    hasta ser aprobada.
                 </div>
 
                 <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
                     <button type="button" class="btn btn-secondary" onclick="closePaymentModal()">Cancelar</button>
-                    <button type="submit" id="submit-proof-btn" class="btn btn-success" style="background-color: #10b981; color: white; font-weight: 600;">
+                    <button type="submit" id="submit-proof-btn" class="btn btn-success"
+                        style="background-color: #10b981; color: white; font-weight: 600;">
                         <i class="fa-solid fa-cloud-arrow-up"></i> Enviar Comprobante
                     </button>
                 </div>
@@ -795,7 +807,7 @@
     <script>
         let activeItemId = '';
         let activeItemType = '';
-        const ownerUid = {{ owner_uid|tojson|safe }};
+        const ownerUid = {{ owner_uid| tojson | safe }};
         const sandbox = {{ 'true' if sandbox else 'false' }};
 
         // Modal de Firma — Generico (firmar / cancelar)
@@ -950,6 +962,29 @@
                 });
         }
 
+        function openRejectQuotationModal(itemId, itemNumber) {
+            if (confirm(`¿Está seguro de que desea rechazar la cotización ${itemNumber}? Esta acción notificará al equipo y no se podrá deshacer.`)) {
+                const url = `/portal/cotizacion/${itemId}/rechazar?sandbox=${sandbox}`;
+                fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                })
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.success) {
+                            alert(data.message || 'Cotización rechazada exitosamente.');
+                            location.reload();
+                        } else {
+                            alert('Error: ' + data.error);
+                        }
+                    })
+                    .catch(err => {
+                        console.error(err);
+                        alert('Error de red al intentar rechazar la cotización.');
+                    });
+            }
+        }
+
         // --- Funciones para ver detalle de contrato ---
         function showContractDetail(btn) {
             console.log("showContractDetail llamado", btn);
@@ -959,7 +994,7 @@
                 const contract = JSON.parse(contractData);
                 console.log("contract parseado:", contract);
                 openContractDetailModal(contract);
-            } catch(e) {
+            } catch (e) {
                 console.error("Error parsing contract data:", e);
                 alert("No se pudieron cargar los detalles del contrato.");
             }
@@ -968,7 +1003,7 @@
         function openContractDetailModal(contract) {
             const body = document.getElementById('cd-modal-body');
             document.getElementById('cd-modal-title').innerHTML = `<i class="fa-solid fa-file-contract" style="color: var(--primary);"></i> Contrato ${contract.contractNumber || ''}`;
-            
+
             let statusBadge = '';
             if (contract.cancelRequest) {
                 statusBadge = '<span class="badge" style="background: rgba(245,158,11,0.1); color: #d97706; border: 1px solid rgba(245,158,11,0.25);"><i class="fa-solid fa-clock"></i> No Renovar</span>';
@@ -999,8 +1034,8 @@
                                     <tr style="border-bottom: 1px solid var(--border-color);">
                                         <td style="padding: 8px 4px;"><strong>${line.name || 'Servicio'}</strong> ${line.code ? `<small style="color: var(--text-muted);">[${line.code}]</small>` : ''}</td>
                                         <td style="padding: 8px 4px; text-align: right;">${line.quantity || 1}</td>
-                                        <td style="padding: 8px 4px; text-align: right;">RD$ ${(line.unitPrice || 0).toLocaleString('es-DO', {minimumFractionDigits:2})}</td>
-                                        <td style="padding: 8px 4px; text-align: right; font-weight: bold; color: var(--accent-emerald);">RD$ ${(line.total || 0).toLocaleString('es-DO', {minimumFractionDigits:2})}</td>
+                                        <td style="padding: 8px 4px; text-align: right;">RD$ ${(line.unitPrice || 0).toLocaleString('es-DO', { minimumFractionDigits: 2 })}</td>
+                                        <td style="padding: 8px 4px; text-align: right; font-weight: bold; color: var(--accent-emerald);">RD$ ${(line.total || 0).toLocaleString('es-DO', { minimumFractionDigits: 2 })}</td>
                                     </tr>
                                 `).join('')}
                             </tbody>
@@ -1050,7 +1085,7 @@
                     <div>${statusBadge}</div>
                     <div style="text-align: right;">
                         <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Monto Recurrente</div>
-                        <strong style="font-size: 1.35rem; color: var(--accent-emerald); font-family: var(--font-heading);">RD$ ${(contract.amount || 0).toLocaleString('es-DO', {minimumFractionDigits: 2})}</strong>
+                        <strong style="font-size: 1.35rem; color: var(--accent-emerald); font-family: var(--font-heading);">RD$ ${(contract.amount || 0).toLocaleString('es-DO', { minimumFractionDigits: 2 })}</strong>
                     </div>
                 </div>
 

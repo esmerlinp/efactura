@@ -161,6 +161,7 @@
         <form
             action="{% if item %}{{ url_for('web_invoices.edit_item', item_id=item.id) }}{% else %}{{ url_for('web_invoices.new_item') }}{% endif %}"
             method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
             <div class="settings-accordion">
 

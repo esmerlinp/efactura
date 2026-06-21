@@ -1,0 +1,860 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Detalle de {% if invoice.isQuotation %}Cotización{% else %}Documento{% endif %} {{ invoice.invoiceNumber }}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --font-main: 'Inter', sans-serif;
+            --primary: #1e3a8a;
+            --primary-hover: #172554;
+            --accent-emerald: #10b981;
+            --accent-red: #ef4444;
+            --accent-yellow: #f59e0b;
+            --bg-page: #f8fafc;
+            --border-color: #cbd5e1;
+            --text-primary: #0f172a;
+            --text-secondary: #475569;
+            --text-muted: #64748b;
+        }
+
+        body {
+            font-family: var(--font-main);
+            background-color: var(--bg-page);
+            color: var(--text-primary);
+            margin: 0;
+            padding: 0;
+            line-height: 1.5;
+        }
+
+        .navbar {
+            background-color: white;
+            border-bottom: 1px solid var(--border-color);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            padding: 12px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+
+        .btn {
+            font-family: var(--font-main);
+            font-weight: 600;
+            font-size: 0.82rem;
+            padding: 10px 16px;
+            border-radius: 6px;
+            border: 1px solid transparent;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background-color: var(--primary);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--primary-hover);
+        }
+
+        .btn-secondary {
+            background-color: white;
+            border-color: var(--border-color);
+            color: var(--text-primary);
+        }
+
+        .btn-secondary:hover {
+            background-color: #f1f5f9;
+        }
+
+        .btn-success {
+            background-color: var(--accent-emerald);
+            color: white;
+        }
+
+        .btn-success:hover {
+            filter: brightness(0.95);
+        }
+
+        .btn-danger {
+            background-color: var(--accent-red);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            filter: brightness(0.95);
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.76rem;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .badge-success {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--accent-emerald);
+        }
+
+        .badge-danger {
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--accent-red);
+        }
+
+        .badge-warning {
+            background: rgba(245, 158, 11, 0.1);
+            color: var(--accent-yellow);
+        }
+
+        .badge-info {
+            background: rgba(59, 130, 246, 0.1);
+            color: #3b82f6;
+        }
+
+        .main-container {
+            max-width: 900px;
+            margin: 40px auto;
+            padding: 0 20px;
+        }
+
+        /* Card Document Representation */
+        .document-card {
+            background-color: white;
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05);
+            padding: 40px;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        /* Cotización: Fondo sutil violeta/púrpura y borde púrpura */
+        .document-card.quotation-card {
+            background: linear-gradient(135deg, rgba(124, 58, 237, 0.035) 0%, #ffffff 100%) !important;
+            border: 2px solid rgba(124, 58, 237, 0.25) !important;
+            box-shadow: 0 12px 30px rgba(124, 58, 237, 0.06) !important;
+        }
+
+        /* Cotización: Línea decorativa superior púrpura */
+        .document-card.quotation-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 6px;
+            background: linear-gradient(90deg, #7c3aed, #a78bfa);
+            z-index: 10;
+        }
+
+        /* Watermark for Sandbox / Test environment */
+        .sandbox-watermark {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-30deg);
+            font-size: 72px;
+            font-weight: 800;
+            color: rgba(239, 68, 68, 0.08);
+            border: 8px solid rgba(239, 68, 68, 0.08);
+            padding: 15px 30px;
+            border-radius: 16px;
+            text-transform: uppercase;
+            letter-spacing: 5px;
+            white-space: nowrap;
+            pointer-events: none;
+            z-index: 10;
+            user-select: none;
+            text-align: center;
+        }
+
+        .doc-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 24px;
+            margin-bottom: 24px;
+        }
+
+        .company-logo {
+            max-height: 70px;
+            max-width: 180px;
+            object-fit: contain;
+            margin-bottom: 12px;
+        }
+
+        .parties-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            background-color: #f8fafc;
+            border-left: 4px solid var(--primary);
+            padding: 16px 20px;
+            border-radius: 4px;
+            margin-bottom: 30px;
+        }
+
+        .party-label {
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            font-weight: 700;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+        }
+
+        .party-name {
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        /* Table details */
+        .items-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 30px;
+        }
+
+        .items-table th {
+            text-align: left;
+            padding: 10px 12px;
+            font-size: 0.76rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+            border-bottom: 2px solid var(--border-color);
+            background-color: #f8fafc;
+        }
+
+        .items-table td {
+            padding: 12px;
+            font-size: 0.88rem;
+            border-bottom: 1px solid #e2e8f0;
+            color: var(--text-primary);
+        }
+
+        .items-table td.right {
+            text-align: right;
+        }
+
+        .items-table td.center {
+            text-align: center;
+        }
+
+        .totals-section {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+        }
+
+        .totals-box {
+            width: 320px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .totals-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.88rem;
+            padding-bottom: 6px;
+            border-bottom: 1px solid #f1f5f9;
+        }
+
+        .totals-row.total-grand {
+            border-top: 2px solid var(--text-primary);
+            border-bottom: 2px solid var(--text-primary);
+            font-size: 1.15rem;
+            font-weight: 800;
+            padding: 8px 0;
+            margin-top: 4px;
+        }
+
+        .totals-row.net-payable {
+            color: var(--accent-emerald);
+            font-size: 1.25rem;
+            font-weight: 800;
+        }
+
+        .notes-box {
+            margin-top: 30px;
+            background-color: #fefce8;
+            border-left: 3px solid var(--accent-yellow);
+            padding: 16px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            color: #78350f;
+        }
+
+        /* Modals style from portal.html */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-backdrop {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(4px);
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04);
+            max-width: 500px;
+            width: 90%;
+            padding: 28px;
+            position: relative;
+            z-index: 1010;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 12px;
+            margin-bottom: 20px;
+        }
+
+        .modal-title {
+            font-size: 1.15rem;
+            font-weight: 800;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--text-muted);
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 0.9rem;
+            box-sizing: border-box;
+            font-family: inherit;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(30,58,138,0.1);
+        }
+
+        @media print {
+            .navbar {
+                display: none !important;
+            }
+
+            body {
+                background: white;
+            }
+
+            .main-container {
+                margin: 0;
+                padding: 0;
+                max-width: 100%;
+            }
+
+            .document-card {
+                border: none;
+                box-shadow: none;
+                padding: 0;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Top sticky action bar -->
+    <div class="navbar">
+        <div style="display: flex; align-items: center; gap: 16px;">
+            <a href="{{ url_for('portal.client_portal_main') }}" class="btn btn-secondary">
+                <i class="fa-solid fa-arrow-left"></i>
+                <span>Volver al Portal</span>
+            </a>
+            <h4 style="margin: 0; font-family: var(--font-heading); color: var(--text-secondary);">
+                {% if invoice.isQuotation %}Cotización{% else %}Documento{% endif %} {{ invoice.invoiceNumber }}
+            </h4>
+        </div>
+        
+        <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+            <!-- Document print / download -->
+            <a href="{{ url_for('portal.portal_document_pdf', invoice_id=invoice.id) }}" target="_blank" class="btn btn-secondary">
+                <i class="fa-solid fa-print"></i>
+                <span>Imprimir PDF</span>
+            </a>
+
+            {% if not invoice.isQuotation %}
+                {% if invoice.firebasePDFURL %}
+                <a href="{{ invoice.firebasePDFURL }}" target="_blank" class="btn btn-secondary" title="Descargar PDF Original">
+                    <i class="fa-solid fa-file-pdf" style="color: var(--accent-red);"></i>
+                    <span>Descargar PDF</span>
+                </a>
+                {% endif %}
+                {% if invoice.firebaseXMLURL %}
+                <a href="{{ invoice.firebaseXMLURL }}" target="_blank" class="btn btn-secondary" title="Descargar XML">
+                    <i class="fa-solid fa-file-code" style="color: var(--accent-emerald);"></i>
+                    <span>Descargar XML</span>
+                </a>
+                {% endif %}
+            {% endif %}
+
+            <!-- Action depending on state -->
+            {% if invoice.isQuotation %}
+                {% if invoice.status == 'Pendiente Aut. Cliente' %}
+                    <button class="btn btn-success" onclick="openSignatureModal()">
+                        <i class="fa-solid fa-signature"></i>
+                        <span>Firmar Aceptación</span>
+                    </button>
+                    <button class="btn btn-danger" onclick="openRejectModal()">
+                        <i class="fa-solid fa-circle-xmark"></i>
+                        <span>Rechazar Propuesta</span>
+                    </button>
+                {% endif %}
+            {% else %}
+                {% if invoice.remainingBalance > 0.01 and invoice.status != 'Borrador' and invoice.status != 'Revisión de Pago' %}
+                    <button class="btn btn-success" onclick="openPaymentModal()">
+                        <i class="fa-solid fa-upload"></i>
+                        <span>Reportar Pago</span>
+                    </button>
+                {% elif invoice.status == 'Revisión de Pago' %}
+                    <span class="badge badge-info" style="background-color: rgba(59, 130, 246, 0.1); color: #2563eb; display: inline-flex; align-items: center; gap: 4px; padding: 10px 16px;">
+                        <i class="fa-solid fa-clock-rotate-left"></i> Pago En Revisión
+                    </span>
+                {% endif %}
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Main document renderer -->
+    <div class="main-container">
+        <div class="document-card {% if invoice.isQuotation %}quotation-card{% endif %}">
+            {% if sandbox %}
+            <div class="sandbox-watermark">SIN VALOR COMERCIAL</div>
+            {% endif %}
+
+            <!-- Header -->
+            <div class="doc-header">
+                <div>
+                    {% if company.logoUrl %}
+                    <img src="{{ company.logoUrl }}" alt="{{ company.tradeName or company.companyName }}" class="company-logo">
+                    {% endif %}
+                    <h2 style="margin: 0; color: var(--primary); font-size: 1.45rem;">{{ company.tradeName or company.companyName }}</h2>
+                    <div style="font-size: 0.82rem; color: var(--text-secondary); margin-top: 6px;">
+                        <strong>RNC:</strong> {{ company.companyRNC }}<br>
+                        <strong>Dirección:</strong> {{ company.companyAddress }}<br>
+                        <strong>Teléfono:</strong> {{ company.companyPhone }} &nbsp;|&nbsp; <strong>Email:</strong> {{ company.companyEmail }}
+                    </div>
+                </div>
+                <div style="text-align: right;">
+                    <div style="margin-bottom: 8px;">
+                        {% if invoice.status in ['Cobrada', 'Aprobada'] %}
+                        <span class="badge badge-success">{{ invoice.status }}</span>
+                        {% elif invoice.status in ['Rechazada', 'Anulada'] %}
+                        <span class="badge badge-danger">{{ invoice.status }}</span>
+                        {% elif invoice.status == 'Revisión de Pago' %}
+                        <span class="badge badge-info" style="background-color: rgba(59, 130, 246, 0.1); color: #2563eb; border: 1px solid rgba(59, 130, 246, 0.2);">{{ invoice.status }}</span>
+                        {% else %}
+                        <span class="badge badge-warning">{{ invoice.status }}</span>
+                        {% endif %}
+                    </div>
+                    
+                    <div style="font-size: 1.15rem; font-weight: 800; color: var(--primary);">
+                        {% if invoice.isQuotation %}Cotización Comercial{% else %}Documento Electrónico{% endif %}
+                    </div>
+                    
+                    <div style="font-size: 0.95rem; color: var(--text-primary); margin-top: 4px; font-family: monospace;">
+                        {% if invoice.encf %}e-NCF: {{ invoice.encf }}{% else %}Doc: {{ invoice.invoiceNumber }}{% endif %}
+                    </div>
+                    
+                    <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 8px;">
+                        <strong>Emisión:</strong> {{ invoice.date | format_date }}<br>
+                        {% if invoice.dueDate %}
+                        <strong>Vencimiento:</strong> {{ invoice.dueDate | format_date }}<br>
+                        {% endif %}
+                        <strong>Moneda:</strong> {{ invoice.currency }} &nbsp;|&nbsp; <strong>Condición:</strong> {{ invoice.paymentType }}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Parties (Issuer/Receptor) -->
+            <div class="parties-row">
+                <div>
+                    <div class="party-label">Emisor</div>
+                    <div class="party-name">{{ company.tradeName or company.companyName }}</div>
+                    <div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 2px;">RNC: {{ company.companyRNC }}</div>
+                </div>
+                <div>
+                    <div class="party-label">Receptor (Cliente)</div>
+                    <div class="party-name">{{ invoice.clientName or 'Consumidor Final' }}</div>
+                    <div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 2px;">RNC/Cédula: {{ invoice.clientRNC or 'Consumidor Final' }}</div>
+                </div>
+            </div>
+
+            <!-- Items table -->
+            <table class="items-table">
+                <thead>
+                    <tr>
+                        <th style="width: 15%">Código</th>
+                        <th style="width: 45%">Descripción</th>
+                        <th style="width: 13%" class="right">Precio Unit.</th>
+                        <th style="width: 8%" class="center">Cant.</th>
+                        <th style="width: 8%" class="center">ITBIS</th>
+                        <th style="width: 13%" class="right">Monto</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in invoice['items'] %}
+                    <tr>
+                        <td style="font-family: monospace; font-size: 0.8rem; color: var(--text-muted);">{{ item.code or 'S/C' }}</td>
+                        <td>
+                            <strong>{{ item.name }}</strong>
+                        </td>
+                        <td class="right">RD$ {{ "{:,.2f}".format(item.price) }}</td>
+                        <td class="center">{{ item.quantity }}</td>
+                        <td class="center">{{ "{:.0%}".format(item.itbisRate) }}</td>
+                        <td class="right" style="font-weight: 600;">RD$ {{ "{:,.2f}".format(item.total) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            <!-- Totals & QR -->
+            <div class="totals-section">
+                <!-- QR DGII -->
+                <div>
+                    {% if invoice.encf and invoice.xmlSignature %}
+                    <div style="border: 1px solid var(--border-color); padding: 10px; border-radius: 6px; display: inline-block; background-color: #f8fafc; font-size: 0.72rem; color: var(--text-secondary);">
+                        <div style="font-weight: bold; margin-bottom: 4px; color: var(--text-primary);">Certificación Fiscal DGII</div>
+                        <strong>e-NCF:</strong> {{ invoice.encf }}<br>
+                        <strong>Código Seg:</strong> {{ invoice.xmlSignature[:6] }}
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <!-- Totals Box -->
+                <div class="totals-box">
+                    <div class="totals-row">
+                        <span class="label">Subtotal Neto:</span>
+                        <span class="value">RD$ {{ "{:,.2f}".format(invoice.subtotal) }}</span>
+                    </div>
+                    <div class="totals-row">
+                        <span class="label">Total Impuestos (ITBIS):</span>
+                        <span class="value">RD$ {{ "{:,.2f}".format(invoice.totalITBIS) }}</span>
+                    </div>
+                    {% if invoice.discountAmount and invoice.discountAmount > 0 %}
+                    <div class="totals-row" style="color: var(--accent-red);">
+                        <span class="label">Descuentos:</span>
+                        <span class="value">-RD$ {{ "{:,.2f}".format(invoice.discountAmount) }}</span>
+                    </div>
+                    {% endif %}
+                    <div class="totals-row total-grand">
+                        <span class="label">Total General:</span>
+                        <span class="value">RD$ {{ "{:,.2f}".format(invoice.total) }}</span>
+                    </div>
+                    {% if not invoice.isQuotation %}
+                    <div class="totals-row">
+                        <span class="label">Total Pagado:</span>
+                        <span class="value">RD$ {{ "{:,.2f}".format(invoice.totalPaid | default(0.0)) }}</span>
+                    </div>
+                    <div class="totals-row net-payable">
+                        <span class="label">Saldo Restante:</span>
+                        <span class="value">RD$ {{ "{:,.2f}".format(invoice.remainingBalance | default(invoice.netPayable)) }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Notes -->
+            {% if invoice.comentario or invoice.notes %}
+            <div class="notes-box">
+                <strong>Observaciones / Comentarios:</strong><br>
+                {{ invoice.comentario or invoice.notes }}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- ==========================================
+         MODALS (SIGNATURE, REJECT, PAYMENT)
+         ========================================== -->
+
+    <!-- Modal de Firma Electrónica -->
+    <div id="signature-modal" class="modal">
+        <div class="modal-backdrop" onclick="closeSignatureModal()"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title"><i class="fa-solid fa-file-signature" style="color: var(--primary);"></i> Autorizar Propuesta (Firma Certificada)</h3>
+                <button class="modal-close" onclick="closeSignatureModal()">&times;</button>
+            </div>
+            <form id="signature-form" onsubmit="submitSignature(event)" enctype="multipart/form-data">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <p style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 0; margin-bottom: 16px;">
+                    Para firmar legalmente esta cotización, cargue su certificado digital de pruebas (.p12 / .pfx) e ingrese su contraseña.
+                </p>
+                <div style="margin-bottom: 16px;">
+                    <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px;">Certificado Digital (.p12 / .pfx)</label>
+                    <input type="file" id="sig-certificate" name="certificate" accept=".p12,.pfx" required class="form-input">
+                </div>
+                <div style="margin-bottom: 16px;">
+                    <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px;">Contraseña del Certificado</label>
+                    <input type="password" id="sig-password" name="password" required placeholder="Contraseña de clave privada" class="form-input">
+                </div>
+                <div style="background-color: #f8fafc; border: 1px solid var(--border-color); border-radius: 6px; padding: 12px; font-size: 0.76rem; color: var(--text-muted); margin-bottom: 16px;">
+                    <i class="fa-solid fa-info-circle"></i> Los datos de identidad del certificado deben corresponder a la identificación fiscal registrada (RNC: {{ client.rnc }}).
+                </div>
+                <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px;">
+                    <button type="button" class="btn btn-secondary" onclick="closeSignatureModal()">Cancelar</button>
+                    <button type="submit" id="sig-submit-btn" class="btn btn-success"><i class="fa-solid fa-check"></i> <span id="sig-submit-label">Validar y Firmar</span></button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal de Reportar Pago -->
+    <div id="payment-modal" class="modal">
+        <div class="modal-backdrop" onclick="closePaymentModal()"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title"><i class="fa-solid fa-file-invoice-dollar" style="color: var(--accent-emerald);"></i> Reportar Pago de Factura</h3>
+                <button class="modal-close" onclick="closePaymentModal()">&times;</button>
+            </div>
+            <form id="payment-form" onsubmit="submitPaymentProof(event)" enctype="multipart/form-data">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                
+                <div style="margin-bottom: 16px;">
+                    <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px;">Monto Pagado (RD$)</label>
+                    <input type="number" id="pay-amount" name="amount" value="{{ invoice.remainingBalance }}" class="form-input" step="0.01" required style="text-align: right; font-weight: bold;">
+                </div>
+
+                <div style="margin-bottom: 16px;">
+                    <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px;">Método de Pago</label>
+                    <select id="pay-method" name="paymentMethod" required class="form-input">
+                        <option value="Transferencia Bancaria">Transferencia Bancaria</option>
+                        <option value="Cheque">Cheque</option>
+                        <option value="Depósito Bancario">Depósito Bancario</option>
+                        <option value="Otro">Otro</option>
+                    </select>
+                </div>
+
+                <div style="margin-bottom: 16px;">
+                    <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px;">Banco Origen / Referencia</label>
+                    <input type="text" id="pay-bank" name="bank" placeholder="Ej: Banco Popular / Referencia #9910" required class="form-input">
+                </div>
+
+                <div style="margin-bottom: 16px;">
+                    <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px;">Número de Transacción / Referencia</label>
+                    <input type="text" id="pay-reference" name="referenceNumber" placeholder="Número de confirmación del pago" required class="form-input">
+                </div>
+
+                <div style="margin-bottom: 16px;">
+                    <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px;">Fecha de Pago</label>
+                    <input type="date" id="pay-date" name="paymentDate" required class="form-input" value="{{ today_str }}">
+                </div>
+
+                <div style="margin-bottom: 16px;">
+                    <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px;">Comprobante Digital (PDF o Imagen)</label>
+                    <input type="file" id="pay-proof" name="proofFile" accept="image/*,.pdf" required class="form-input">
+                </div>
+
+                <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px;">
+                    <button type="button" class="btn btn-secondary" onclick="closePaymentModal()">Cancelar</button>
+                    <button type="submit" id="pay-submit-btn" class="btn btn-success"><i class="fa-solid fa-paper-plane"></i> Enviar Comprobante</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script>
+        const sandbox = {{ 'true' if sandbox else 'false' }};
+        const invoiceId = '{{ invoice.id }}';
+
+        // Signature Modal controls
+        function openSignatureModal() {
+            document.getElementById('sig-certificate').value = '';
+            document.getElementById('sig-password').value = '';
+            document.getElementById('signature-modal').style.display = 'flex';
+        }
+        function closeSignatureModal() {
+            document.getElementById('signature-modal').style.display = 'none';
+        }
+
+        // Payment Modal controls
+        function openPaymentModal() {
+            document.getElementById('pay-bank').value = '';
+            document.getElementById('pay-reference').value = '';
+            document.getElementById('pay-proof').value = '';
+            document.getElementById('payment-modal').style.display = 'flex';
+        }
+        function closePaymentModal() {
+            document.getElementById('payment-modal').style.display = 'none';
+        }
+
+        // Submit Signature
+        function submitSignature(e) {
+            e.preventDefault();
+            const certInput = document.getElementById('sig-certificate');
+            const passInput = document.getElementById('sig-password');
+
+            if (!certInput.files[0]) {
+                alert('Debe cargar un archivo de certificado digital.');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('certificate', certInput.files[0]);
+            formData.append('password', passInput.value);
+
+            const url = `/portal/cotizacion/${invoiceId}/firmar?sandbox=${sandbox}`;
+            const submitBtn = document.getElementById('sig-submit-btn');
+            const originalBtnText = submitBtn.innerHTML;
+            
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Procesando...';
+
+            fetch(url, {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalBtnText;
+                if (data.success) {
+                    alert(data.message || 'Propuesta firmada y aceptada exitosamente.');
+                    location.reload();
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            })
+            .catch(err => {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalBtnText;
+                console.error(err);
+                alert('Error de red al intentar procesar la firma.');
+            });
+        }
+
+        // Reject quotation
+        function openRejectModal() {
+            if (confirm('¿Está seguro de que desea rechazar esta cotización? Esta acción notificará al equipo y no se podrá deshacer.')) {
+                const url = `/portal/cotizacion/${invoiceId}/rechazar?sandbox=${sandbox}`;
+                fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        alert(data.message || 'Cotización rechazada exitosamente.');
+                        location.reload();
+                    } else {
+                        alert('Error: ' + data.error);
+                    }
+                })
+                .catch(err => {
+                    console.error(err);
+                    alert('Error de red al intentar rechazar la cotización.');
+                });
+            }
+        }
+
+        // Submit Payment Proof
+        function submitPaymentProof(e) {
+            e.preventDefault();
+            const amount = document.getElementById('pay-amount').value;
+            const method = document.getElementById('pay-method').value;
+            const bank = document.getElementById('pay-bank').value;
+            const ref = document.getElementById('pay-reference').value;
+            const date = document.getElementById('pay-date').value;
+            const proofFile = document.getElementById('pay-proof').files[0];
+
+            if (!proofFile) {
+                alert('Debe cargar el archivo del comprobante.');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('amount', amount);
+            formData.append('paymentMethod', method);
+            formData.append('bank', bank);
+            formData.append('referenceNumber', ref);
+            formData.append('paymentDate', date);
+            formData.append('proofFile', proofFile);
+
+            const url = `/portal/pago/${invoiceId}/reportar?sandbox=${sandbox}`;
+            const submitBtn = document.getElementById('pay-submit-btn');
+            const originalBtnText = submitBtn.innerHTML;
+
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Subiendo...';
+
+            fetch(url, {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalBtnText;
+                if (data.success) {
+                    alert(data.message || 'Comprobante reportado exitosamente. Se encuentra bajo revisión de contabilidad.');
+                    closePaymentModal();
+                    location.reload();
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            })
+            .catch(err => {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalBtnText;
+                console.error(err);
+                alert('Error de red al intentar reportar el pago.');
+            });
+        }
+    </script>
+</body>
+
+</html>
