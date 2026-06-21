@@ -28,7 +28,7 @@
     </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>{% block title %}{% endblock %} - e-Factura</title>
+    <title>{% block title %}{% endblock %} - {{ product_name }}</title>
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/efactura_logo.png') }}">
     <!-- Metas de SEO según Buenas Prácticas -->
     <script>
@@ -39,7 +39,7 @@
         }
     </script>
     <meta name="description"
-        content="Replicación Web Premium de e-Factura para el cumplimiento de la Ley 32-23 de Facturación Electrónica en República Dominicana.">
+        content="Replicación Web Premium de {{ product_name }} para el cumplimiento de la Ley 32-23 de Facturación Electrónica en República Dominicana.">
     <meta name="author" content="Antigravity AI">
 
     <!-- FontAwesome para Iconos Modernos -->
@@ -657,7 +657,7 @@
     <div class="no-plan-banner" id="no-plan-warning-banner"
         style="display: flex; justify-content: center; align-items: center; gap: 10px; padding: 8px 16px; background-color: #ef4444; color: white; font-weight: 700; font-size: 0.88rem; text-align: center; border-bottom: 1px solid #dc2626; z-index: 1000; position: relative;">
         <i class="fa-solid fa-circle-exclamation" style="font-size: 1.1rem;"></i>
-        <span>No puedes realizar operaciones hasta que no se te asigne un plan. Por favor, comunícate con el soporte de e-Factura.</span>
+        <span>No puedes realizar operaciones hasta que no se te asigne un plan. Por favor, comunícate con el soporte de {{ product_name }}.</span>
     </div>
     {% endif %}
 
@@ -676,7 +676,7 @@
                 <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Logo" class="app-brand-logo">
                 <div class="logo-text-wrapper"
                     style="display: flex; align-items: center; gap: 8px; overflow: hidden; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); width: auto;">
-                    <span class="logo-title">e-Factura</span>
+                    <span class="logo-title">{{ product_name }}</span>
                     {% if session.get('is_sandbox_mode', False) %}
                     <span class="sandbox-tag">Sandbox</span>
                     {% endif %}
@@ -1294,7 +1294,7 @@
 
                 <!-- Chatbot IA (Sparkle) -->
                 <button class="utility-item" id="chatbot-toggle-btn-alt"
-                    title="Consultar a e-Factura IA (Asesor Fiscal)"
+                    title="Consultar a {{ product_name }} IA (Asesor Fiscal)"
                     onclick="const fab = document.getElementById('chatbot-fab'); if(fab) fab.click();">
                     <i class="fa-solid fa-wand-magic-sparkles"></i>
                 </button>
@@ -1357,7 +1357,7 @@
 
     {% if false %}
     <!-- BOTÓN FLOTANTE (FAB) DEL CHATBOT IA -->
-    <div id="chatbot-fab" title="Consultar a e-Factura IA (Asesor Fiscal)">
+    <div id="chatbot-fab" title="Consultar a {{ product_name }} IA (Asesor Fiscal)">
         <i class="fa-solid fa-comments"></i>
         <div id="chatbot-pulse-ring"></div>
     </div>
@@ -1378,7 +1378,7 @@
                 <div>
                     <h4
                         style="font-size: 0.95rem; font-weight: 800; margin: 0; color: var(--text-primary); font-family: var(--font-heading);">
-                        Asistente e-Factura</h4>
+                        Asistente {{ product_name }}</h4>
                     <span
                         style="font-size: 0.72rem; font-weight: 500; color: var(--accent-emerald); display: flex; align-items: center; gap: 4px;">
                         <span
@@ -2048,7 +2048,7 @@
                     <div class="chatbot-bubble">
                         ${formattedText}
                     </div>
-                    <div class="chatbot-meta">${role === 'user' ? 'Tú' : 'e-Factura IA'} • ${timeStr}</div>
+                    <div class="chatbot-meta">${role === 'user' ? 'Tú' : '{{ product_name }} IA'} • ${timeStr}</div>
                 `;
 
                 chatbotMessagesContainer.appendChild(messageDiv);

@@ -115,7 +115,7 @@
         ¡Felicidades, todo está listo!</h2>
     <p
         style="font-size: 1.1rem; color: var(--text-main); max-width: 600px; margin: 0 auto 36px auto; line-height: 1.6;">
-        Hemos configurado tu empresa con éxito y registrado tus primeros activos en la plataforma. Tu sistema e-Factura
+        Hemos configurado tu empresa con éxito y registrado tus primeros activos en la plataforma. Tu sistema {{ product_name }}
         ya está 100% operativo para emitir comprobantes electrónicos autorizados por la DGII.
     </p>
 
@@ -190,6 +190,7 @@
         {% endif %}
 
         <form id="settingsForm" action="{{ url_for('web_invoices.company_settings') }}" method="POST" enctype="multipart/form-data">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <!-- Campo oculto para saber si se procesa el Wizard -->
             <input type="hidden" name="is_wizard" id="is_wizard_field"
                 value="{% if show_wizard %}true{% else %}false{% endif %}">

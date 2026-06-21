@@ -7,6 +7,7 @@ from datetime import datetime, timedelta, timezone
 from werkzeug.security import generate_password_hash, check_password_hash
 from config import Config
 from app.utils.security import encrypt_field, decrypt_field, sha256_hash
+from app.brand import get_product_name
 
 # Intentar inicializar Firebase Admin
 firebase_initialized = False
@@ -528,7 +529,7 @@ class DatabaseService:
         print("🔥 Firebase Admin SDK verificado exitosamente.")
         
         try:
-            demo_email = "propietario@efactura.com.do"
+            demo_email = "propietario@kodexone.com"
             try:
                 auth.get_user_by_email(demo_email)
                 print(f"👤 Usuario Administrador Demo '{demo_email}' ya está registrado en Firebase Auth.")
@@ -2090,7 +2091,7 @@ class DatabaseService:
                             "originWarehouseId": wh_id,
                             "destinationWarehouseId": "",
                             "notes": f"Venta en Factura {inv_dict.get('invoiceNumber')}",
-                            "performedBy": "Sistema e-Factura"
+                            "performedBy": f"Sistema {get_product_name()}"
                         }
                         cls.register_inventory_transaction(owner_uid, tx_dict, sandbox=sandbox)
             
@@ -2119,7 +2120,7 @@ class DatabaseService:
                                 "originWarehouseId": "",
                                 "destinationWarehouseId": wh_id,
                                 "notes": f"Reversión de Venta (Anulación de Factura {inv_dict.get('invoiceNumber')})",
-                                "performedBy": "Sistema e-Factura (Automático)"
+                                "performedBy": f"Sistema {get_product_name()} (Automático)"
                             }
                             cls.register_inventory_transaction(owner_uid, tx_dict, sandbox=sandbox)
                             
@@ -2323,7 +2324,7 @@ class DatabaseService:
                                         "originWarehouseId": wh_id,
                                         "destinationWarehouseId": "",
                                         "notes": f"Venta en Factura {inv_data.get('invoiceNumber')}",
-                                        "performedBy": "Sistema e-Factura"
+                                        "performedBy": f"Sistema {get_product_name()}"
                                     }
                                     cls.register_inventory_transaction(owner_uid, tx_dict, sandbox=sandbox)
                         inv_ref.update({"stockReduced": True})
@@ -3471,7 +3472,7 @@ class DatabaseService:
                         "id": doc.id,
                         "registerId": data.get("registerId"),
                         "openedByUserId": data.get("openedByUserId"),
-                        "openedByUserEmail": data.get("openedByUserEmail", "cajero@efactura.com.do"),
+                        "openedByUserEmail": data.get("openedByUserEmail", "cajero@kodexone.com"),
                         "openingTime": serialize_field(data.get("openingTime")),
                         "closingTime": serialize_field(data.get("closingTime")),
                         "openingAmount": float(data.get("openingAmount", 0.0)),
@@ -4090,7 +4091,7 @@ class DatabaseService:
                                 "originWarehouseId": wh_id,
                                 "destinationWarehouseId": "",
                                 "notes": f"Venta en Factura {inv.get('invoiceNumber')}",
-                                "performedBy": "Sistema e-Factura"
+                                "performedBy": f"Sistema {get_product_name()}"
                             }
                             cls.register_inventory_transaction(owner_uid, tx_dict, sandbox=sandbox)
 

@@ -13,10 +13,10 @@
     </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>Iniciar Sesión - e-Factura</title>
+    <title>Iniciar Sesión - {{ product_name }}</title>
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/efactura_logo.png') }}">
     <meta name="description"
-        content="Accede a tu cuenta de e-Factura para gestionar tu facturación electrónica conforme a la Ley 32-23.">
+        content="Accede a tu cuenta de {{ product_name }} para gestionar tu facturación electrónica conforme a la Ley 32-23.">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     {% if company_theme == 'moderno' %}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style_moderno.css') }}">
@@ -209,9 +209,9 @@
 <body class="auth-container">
     <div class="auth-card">
         <div class="auth-header">
-            <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Logo e-Factura"
+            <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Logo {{ product_name }}"
                 style="height: 100px; margin-bottom: -10px; display: inline-block; filter: drop-shadow(0 4px 12px rgba(0,0,0,0.15));">
-            <h2>e-Factura</h2>
+            <h2>{{ product_name }}</h2>
             <p>Cumplimiento de la Ley 32-23 de Facturación Electrónica</p>
         </div>
 

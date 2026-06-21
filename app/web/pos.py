@@ -8,6 +8,7 @@ from app.services.contingency_sync_service import ContingencySyncService
 from app.services.ecf_emission import EcfEmissionService
 from app.services.dgii import DGIIService
 from app.utils.decorators import require_permission, check_permission
+from app.brand import get_product_name
 
 web_pos_bp = Blueprint('web_pos', __name__)
 
@@ -1239,7 +1240,7 @@ def process_shift_comment_mentions(owner_uid, content, shift_id, shift_label, sa
             
             # Obtener el nombre comercial de la empresa
             company = DatabaseService.get_company(owner_uid) or {}
-            issuer_company_name = company.get("tradeName") or company.get("companyName") or "e-Factura"
+            issuer_company_name = company.get("tradeName") or company.get("companyName") or get_product_name()
             
             NotificationService.send_mention_notification(
                 recipient_email=email,

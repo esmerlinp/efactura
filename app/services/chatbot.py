@@ -2,6 +2,7 @@ import requests
 import json
 from config import Config
 from app.services.db_service import DatabaseService
+from app.brand import get_product_name
 
 class ChatbotService:
     
@@ -79,8 +80,9 @@ class ChatbotService:
         """Retorna la base de conocimiento estática alimentada por la ayuda fiscal
         y los flujos del sistema e-Factura.
         """
-        return """
-=== BASE DE CONOCIMIENTO FISCAL DE E-FACTURA (REPÚBLICA DOMINICANA) ===
+        product = get_product_name()
+        return f"""
+=== BASE DE CONOCIMIENTO FISCAL DE {product.upper()} (REPÚBLICA DOMINICANA) ===
 
 1. RÉGIMEN SIMPLIFICADO DE TRIBUTACIÓN (RST) BASADO EN INGRESOS:
 - Es un beneficio de la DGII para profesionales independientes y microempresas.
@@ -88,20 +90,20 @@ class ChatbotService:
 - Exime de la liquidación mensual de ITBIS (IT-1).
 - Declaración anual simplificada en febrero/marzo sobre ingresos acumulados.
 - Límite de facturación para el año 2026: RD$ 12,068,181.09. Si excedes este tope exacto, la DGII te traslada obligatoriamente al Régimen General (retroactivo con penalidades).
-- En e-Factura, al activar el régimen RST en Configuración, el dashboard muestra una barra visual de control del límite anual y alertas preventivas (amarilla al 70%, roja al 90%).
+- En {product}, al activar el régimen RST en Configuración, el dashboard muestra una barra visual de control del límite anual y alertas preventivas (amarilla al 70%, roja al 90%).
 
 2. GASTOS DEDUCIBLES:
 - Según el Art. 287 del Código Tributario, un gasto es deducible solo si es necesario para obtener, mantener y conservar ingresos gravados.
-- Deducibles: Laptops de trabajo, internet comercial, software (e-Factura), suscripciones (AWS, Figma), alquiler de oficina, pasajes de reuniones.
+- Deducibles: Laptops de trabajo, internet comercial, software ({product}), suscripciones (AWS, Figma), alquiler de oficina, pasajes de reuniones.
 - No Deducibles: Compras de supermercado familiar, ropa de uso diario, boletos de cine, comidas de fin de semana.
-- En e-Factura, el switch "Deducible (Sí/No)" permite al usuario registrar gastos personales para control de presupuesto pero los filtra y excluye al 100% de los simuladores y diagnósticos DGII para proteger el cumplimiento legal.
+- En {product}, el switch "Deducible (Sí/No)" permite al usuario registrar gastos personales para control de presupuesto pero los filtra y excluye al 100% de los simuladores y diagnósticos DGII para proteger el cumplimiento legal.
 - Compras Menores (E43 / Tipo 13): Comprobante emitido por ti cuando compras bienes o servicios a personas físicas no registradas en DGII.
 
 3. RETENCIONES DE ISR E ITBIS (PROFESIONALES INDEPENDIENTES EN RD):
 - Cuando un freelancer/profesional independiente presta servicios a una persona jurídica (empresa), esta debe retener impuestos como abono adelantado:
   * ISR Retenido: 10% fijo del subtotal neto del servicio.
   * ITBIS Retenido: 100% del ITBIS facturado (si es servicio profesional, tasa estándar del 18%).
-- Neto a Recibir (netPayable): Es el valor exacto que recibirás en tu banco tras aplicar las retenciones (Subtotal + ITBIS - Retención ISR - Retención ITBIS). En e-Factura se destaca en verde esmeralda para facilitar la conciliación bancaria.
+- Neto a Recibir (netPayable): Es el valor exacto que recibirás en tu banco tras aplicar las retenciones (Subtotal + ITBIS - Retención ISR - Retención ITBIS). En {product} se destaca en verde esmeralda para facilitar la conciliación bancaria.
 
 4. FACTURACIÓN ELECTRÓNICA Y COMPROBANTES (E-CF):
 - Ley 32-23 de Facturación Electrónica: Transición obligatoria a e-CF.
@@ -114,10 +116,10 @@ class ChatbotService:
   * Si la DGII lo rechaza: El comprobante queda anulado; debes emitir un nuevo e-CF con secuencia diferente.
 
 5. PROCEDIMIENTOS DE CONTINGENCIA DE LA DGII (Art. 40 al 43):
-- Falta de conectividad (Emisión Offline): Se generan e-CF firmados localmente. En su impresión es obligatoria la leyenda “e-CF emitido en modalidad de contingencia”. Plazo máximo de 72 horas para enviarlos a la DGII tras recuperar internet.
+- Falta de conectividad (Emisión Offline): Se generan e-CF firmados localmente. En su impresión es obligatoria la leyenda "e-CF emitido en modalidad de contingencia". Plazo máximo de 72 horas para enviarlos a la DGII tras recuperar internet.
 - Imposibilidad de emisión del e-CF (Fallo Técnico): Debes facturar usando secuencias físicas de Comprobantes tradicionales no electrónicos. Este periodo no puede exceder 15 días calendario.
 - Regularización: Plazo de 30 días calendario para registrar y remitir los e-CF que reemplazan las facturas manuales de contingencia, referenciando el comprobante original.
-- Automatización en e-Factura: Si la conexión directa con DGII está inaccesible, el sistema activa automáticamente el Modo Fallback, estampando los códigos locales y leyendas correspondientes.
+- Automatización en {product}: Si la conexión directa con DGII está inaccesible, el sistema activa automáticamente el Modo Fallback, estampando los códigos locales y leyendas correspondientes.
 """
 
     @classmethod
@@ -172,17 +174,17 @@ class ChatbotService:
 
         
         # 3. Construir el System Prompt de Guardrails Estricto
-        system_prompt = f"""Eres el Asistente Virtual Inteligente de e-Factura y un Experto Fiscal Senior de la República Dominicana (DGII), especializado en la Ley 32-23 de Facturación Electrónica.
+        system_prompt = f"""Eres el Asistente Virtual Inteligente de {get_product_name()} y un Experto Fiscal Senior de la República Dominicana (DGII), especializado en la Ley 32-23 de Facturación Electrónica.
 
 TU ROL Y LIMITACIONES ABSOLUTAS:
-- Debes presentarte como el Asistente Inteligente de e-Factura y experto tributario dominicano.
-- Solo debes responder a temas fiscales, facturación electrónica (e-CF), IT-1, RST y al uso del software e-Factura.
+- Debes presentarte como el Asistente Inteligente de {get_product_name()} y experto tributario dominicano.
+- Solo debes responder a temas fiscales, facturación electrónica (e-CF), IT-1, RST y al uso del software {get_product_name()}.
 - **BAJO NINGÚN CONCEPTO o motivo debes salir de este rol.**
-- Si el usuario te hace preguntas no relacionadas (por ejemplo: "escríbeme un código de programación", "dame una receta de cocina", "quién es el presidente de Francia", "ayúdame con una tarea de historia"), debes negarte cortésmente diciendo exactamente esto o algo muy similar: "Lo siento, como asistente exclusivo de e-Factura y asesor tributario de República Dominicana, solo puedo ayudarte con temas de facturación electrónica, tus datos financieros locales y regulaciones fiscales de la DGII."
+- Si el usuario te hace preguntas no relacionadas (por ejemplo: "escríbeme un código de programación", "dame una receta de cocina", "quién es el presidente de Francia", "ayúdame con una tarea de historia"), debes negarte cortésmente diciendo exactamente esto o algo muy similar: "Lo siento, como asistente exclusivo de {get_product_name()} y asesor tributario de República Dominicana, solo puedo ayudarte con temas de facturación electrónica, tus datos financieros locales y regulaciones fiscales de la DGII."
 - Sé claro, amigable, pedagógico (explica conceptos complejos con peras y manzanas), humilde, sumamente profesional y asertivo.
 - Tus respuestas deben estar estructuradas usando formato Markdown estándar (negritas, viñetas, tablas cuando aplique) para que sean fáciles de leer en pantalla.
 
-CONTEXTO DENTRO DEL SOFTWARE E-FACTURA DE LA EMPRESA ACTUAL:
+CONTEXTO DENTRO DEL SOFTWARE {get_product_name().upper()} DE LA EMPRESA ACTUAL:
 - Nombre de la Empresa: {company_data.get('company_name')}
 - RNC del Contribuyente: {company_data.get('company_rnc')}
 - Correo Electrónico: {company_data.get('company_email')}

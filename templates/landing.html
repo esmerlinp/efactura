@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="theme-color" content="#0a0e1a">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>e-Factura: Facturación Electrónica e-CF Certificada por DGII</title>
-    <meta name="description" content="e-Factura: sistema e-CF certificado por DGII desde RD$ 2,151/mes. Firma digital, certificación guiada y API REST. Prueba gratis 14 días.">
+    <title>{{ product_name }}: Facturación Electrónica e-CF Certificada por DGII</title>
+    <meta name="description" content="{{ product_name }}: sistema e-CF certificado por DGII desde RD$ 2,151/mes. Firma digital, certificación guiada y API REST. Prueba gratis 14 días.">
     <meta name="keywords" content="facturación electrónica, e-CF, DGII, comprobante fiscal electrónico, República Dominicana, Ley 32-23">
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -50,8 +50,8 @@
         <div class="max-w-7xl mx-auto px-6 lg:px-8">
             <div class="flex justify-between items-center h-20">
                 <a href="{{ url_for('web_auth.home') }}" class="flex items-center gap-3 group">
-                    <img src="{{ url_for('static', filename='images/logo.png') }}" alt="e-Factura" class="w-10 h-10 object-contain">
-                    <span class="font-display text-2xl font-bold bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">e-Factura</span>
+                    <img src="{{ url_for('static', filename='images/logo.png') }}" alt="{{ product_name }}" class="w-10 h-10 object-contain">
+                    <span class="font-display text-2xl font-bold bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">{{ product_name }}</span>
                 </a>
 
                 <div class="hidden md:flex items-center gap-10">
@@ -113,14 +113,14 @@
                     </div>
 
                     <h1 class="font-display text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold leading-[1.1]">
-                        <span class="block bg-gradient-to-r from-amber-400 via-amber-500 to-teal-400 bg-clip-text text-transparent">e-Factura</span>
+                        <span class="block bg-gradient-to-r from-amber-400 via-amber-500 to-teal-400 bg-clip-text text-transparent">{{ product_name }}</span>
                         <span class="block">Facturación</span>
                         <span class="block">Electrónica</span>
                         <span class="block text-gray-400">sin complicaciones</span>
                     </h1>
 
                     <p class="text-lg md:text-xl text-gray-400 max-w-xl leading-relaxed">
-                        e-Factura es la suite completa de facturacion electronica para empresas dominicanas. Emision e-CF con DGII, POS, compras, inventario, portal de clientes, reportes 606, API e IA para acelerar la operacion.
+                        {{ product_name }} es la suite completa de facturacion electronica para empresas dominicanas. Emision e-CF con DGII, POS, compras, inventario, portal de clientes, reportes 606, API e IA para acelerar la operacion.
                     </p>
 
                     <div class="flex flex-col sm:flex-row gap-4 pt-2 md:pt-4">
@@ -258,7 +258,7 @@
                     Todo lo que necesitas para<br class="hidden sm:inline">
                     <span class="bg-gradient-to-r from-amber-400 to-teal-400 bg-clip-text text-transparent">facturar electrónicamente</span>
                 </h2>
-                <p class="text-lg md:text-xl text-gray-400 max-w-2xl mx-auto">Desde la emision y cobranza hasta compras, inventario y reportes, e-Factura centraliza la operacion fiscal y administrativa.</p>
+                <p class="text-lg md:text-xl text-gray-400 max-w-2xl mx-auto">Desde la emision y cobranza hasta compras, inventario y reportes, {{ product_name }} centraliza la operacion fiscal y administrativa.</p>
             </div>
 
             <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -515,13 +515,13 @@
             <div class="space-y-4">
                 <div class="glass-card rounded-2xl overflow-hidden fade-in fade-in-delay-1">
                     <button class="faq-toggle w-full px-4 py-4 md:px-6 md:py-5 text-left flex justify-between items-center">
-                        <span class="font-display font-semibold text-lg">¿Qué es e-Factura?</span>
+                        <span class="font-display font-semibold text-lg">¿Qué es {{ product_name }}?</span>
                         <svg class="faq-icon w-5 h-5 text-amber-400 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
                         </svg>
                     </button>
                     <div class="faq-content text-gray-400">
-                        e-Factura es una plataforma de facturacion electronica (e-CF) certificada por la DGII para empresas en Republica Dominicana. Permite emitir e-CF de ventas y notas, gestionar compras y gastos, operar POS, controlar inventario, y centralizar reportes y exportes contables.
+                        {{ product_name }} es una plataforma de facturacion electronica (e-CF) certificada por la DGII para empresas en Republica Dominicana. Permite emitir e-CF de ventas y notas, gestionar compras y gastos, operar POS, controlar inventario, y centralizar reportes y exportes contables.
                     </div>
                 </div>
 
@@ -557,7 +557,7 @@
                         </svg>
                     </button>
                     <div class="faq-content text-gray-400">
-                        Ofrecemos una API completa con documentación detallada para integrar e-Factura con tu sistema. Nuestro equipo te ayuda con la integración.
+                        Ofrecemos una API completa con documentación detallada para integrar {{ product_name }} con tu sistema. Nuestro equipo te ayuda con la integración.
                     </div>
                 </div>
 
@@ -605,7 +605,7 @@
                         </svg>
                     </button>
                     <div class="faq-content text-gray-400">
-                        e-Factura incluye un sistema de cola automática con reintentos. Si la DGII no está disponible, tus documentos se firman y almacenan localmente, y se envían automáticamente cuando el servicio se restablece. Tu operación nunca se detiene.
+                        {{ product_name }} incluye un sistema de cola automática con reintentos. Si la DGII no está disponible, tus documentos se firman y almacenan localmente, y se envían automáticamente cuando el servicio se restablece. Tu operación nunca se detiene.
                     </div>
                 </div>
             </div>
@@ -625,7 +625,7 @@
             <p class="text-sm text-gray-500 max-w-2xl mx-auto mb-10">14 días gratis. Sin tarjeta de crédito. Sin compromiso.</p>
 
             <div class="max-w-2xl mx-auto">
-                <iframe src="{{ url_for('web_auth.contact_embed') }}" loading="lazy" class="w-full h-[670px] sm:h-[600px] md:h-[580px] lg:h-[560px]" frameborder="0" marginheight="0" marginwidth="0" title="Formulario de contacto e-Factura"></iframe>
+                <iframe src="{{ url_for('web_auth.contact_embed') }}" loading="lazy" class="w-full h-[670px] sm:h-[600px] md:h-[580px] lg:h-[560px]" frameborder="0" marginheight="0" marginwidth="0" title="Formulario de contacto {{ product_name }}"></iframe>
             </div>
 
             <div class="flex flex-wrap items-center justify-center gap-4 mt-6 text-xs text-gray-500">
@@ -651,10 +651,10 @@
             <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-12">
                 <div class="lg:col-span-1">
                     <a href="{{ url_for('web_auth.home') }}" class="flex items-center gap-3 mb-6">
-                        <img src="{{ url_for('static', filename='images/logo.png') }}" alt="e-Factura" class="w-10 h-10 object-contain">
-                        <span class="font-display text-2xl font-bold">e-Factura</span>
+                        <img src="{{ url_for('static', filename='images/logo.png') }}" alt="{{ product_name }}" class="w-10 h-10 object-contain">
+                        <span class="font-display text-2xl font-bold">{{ product_name }}</span>
                     </a>
-                    <p class="text-gray-400 mb-6">e-Factura es el sistema de facturación electrónica e-CF certificado por la DGII para empresas dominicanas.</p>
+                    <p class="text-gray-400 mb-6">{{ product_name }} es el sistema de facturación electrónica e-CF certificado por la DGII para empresas dominicanas.</p>
                 </div>
 
                 <div>
@@ -700,7 +700,7 @@
 
             <div class="border-t border-white/5 mt-16 pt-8">
                 <div class="flex flex-col md:flex-row justify-between items-center gap-2 text-xs text-gray-500">
-                    <p>&copy; 2026 e-Factura. Todos los derechos reservados.</p>
+                    <p>&copy; 2026 {{ product_name }}. Todos los derechos reservados.</p>
                     <p>Pagos seguros · Autenticación 3D Secure en cada transacción</p>
                 </div>
             </div>

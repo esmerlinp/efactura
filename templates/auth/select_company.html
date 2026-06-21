@@ -12,7 +12,7 @@
         })();
     </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Seleccionar Empresa - e-Factura</title>
+    <title>Seleccionar Empresa - {{ product_name }}</title>
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/efactura_logo.png') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     {% if company_theme == 'moderno' %}
@@ -109,7 +109,7 @@
 <body class="auth-container">
     <div class="auth-card" style="max-width: 520px; width: 100%;">
         <div class="auth-header">
-            <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Logo e-Factura"
+            <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Logo {{ product_name }}"
                 style="height: 80px; margin-bottom: 5px; display: inline-block; filter: drop-shadow(0 4px 12px rgba(0,0,0,0.15));">
             <h2>Seleccionar Empresa</h2>
             <p>Elige la compañía/cliente con el que deseas trabajar hoy.</p>
