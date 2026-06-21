@@ -78,8 +78,8 @@ class PortalDbService:
                 # Evaluar vencimiento de facturas
                 status = data.get("status", "Borrador")
                 
-                # Excluir facturas en estado Borrador (las cotizaciones en Borrador sí se muestran para firma)
-                if not data.get('isQuotation', False) and status == 'Borrador':
+                # Excluir documentos en estado Borrador (tanto facturas como cotizaciones en Borrador se ocultan)
+                if status == 'Borrador':
                     continue
                 
                 due_date_str = data.get("dueDate")
@@ -363,16 +363,46 @@ def sign_quotation(invoice_id):
     if not invoice or not invoice.get('isQuotation'):
         return jsonify({"success": False, "error": "Cotización no encontrada."}), 404
         
+    if invoice.get('status') == 'Aprobada':
+        return jsonify({"success": False, "error": "La cotización ya fue firmada y aprobada anteriormente."}), 400
+        
+    if invoice.get('status') != 'Pendiente Aut. Cliente':
+        return jsonify({"success": False, "error": "La cotización no se encuentra en estado pendiente de autorización por el cliente."}), 400
+        
     success, result = validate_certificate_signature(cert_file, password, client.get('rnc', ''))
     if not success:
         return jsonify({"success": False, "error": result}), 400
         
     # Guardar metadatos de la firma
+    before_invoice = invoice.copy()
     invoice['status'] = 'Aprobada'
     invoice['signatureInfo'] = result
     invoice['signedAt'] = result['signedAt']
     
     PortalDbService.save_invoice(owner_uid, invoice_id, invoice, sandbox=sandbox)
+
+    # Registrar evento de auditoría
+    try:
+        from app.services.audit_service import AuditService, MODULE_COTIZACIONES
+        ip = request.headers.get("X-Forwarded-For", request.remote_addr or "")
+        ua = request.headers.get("User-Agent", "")
+        AuditService.log(
+            owner_uid=owner_uid,
+            action="SIGN",
+            module=MODULE_COTIZACIONES,
+            entity_id=invoice_id,
+            entity_label=f"Cotización {invoice.get('invoiceNumber')} aprobada por firma del cliente",
+            performed_by_name=f"Cliente: {client.get('name')}",
+            performed_by_uid=client_id,
+            performed_by_email=client.get('email', ''),
+            before=before_invoice,
+            after=invoice,
+            sandbox=sandbox,
+            ip_address=ip,
+            user_agent=ua
+        )
+    except Exception as ae:
+        print(f"⚠️ Error al registrar auditoría de firma: {ae}")
 
     # --- Notificar al responsable ---
     _notify_portal_action(
@@ -421,11 +451,35 @@ def sign_contract(contract_id):
         return jsonify({"success": False, "error": result}), 400
         
     # Guardar metadatos de la firma
+    before_contract = contract.copy()
     contract['status'] = 'Activo'
     contract['signatureInfo'] = result
     contract['signedAt'] = result['signedAt']
     
     PortalDbService.save_contract(owner_uid, contract_id, contract, sandbox=sandbox)
+
+    # Registrar evento de auditoría
+    try:
+        from app.services.audit_service import AuditService, MODULE_CONTRATOS
+        ip = request.headers.get("X-Forwarded-For", request.remote_addr or "")
+        ua = request.headers.get("User-Agent", "")
+        AuditService.log(
+            owner_uid=owner_uid,
+            action="SIGN",
+            module=MODULE_CONTRATOS,
+            entity_id=contract_id,
+            entity_label=f"Contrato {contract.get('contractNumber')} firmado por el cliente",
+            performed_by_name=f"Cliente: {client.get('name')}",
+            performed_by_uid=client_id,
+            performed_by_email=client.get('email', ''),
+            before=before_contract,
+            after=contract,
+            sandbox=sandbox,
+            ip_address=ip,
+            user_agent=ua
+        )
+    except Exception as ae:
+        print(f"⚠️ Error al registrar auditoría de firma de contrato: {ae}")
 
     # --- Notificar al responsable ---
     _notify_portal_action(
@@ -461,12 +515,42 @@ def reject_quotation(invoice_id):
     invoice = PortalDbService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
     if not invoice or not invoice.get('isQuotation'):
         return jsonify({"success": False, "error": "Cotización no encontrada."}), 404
+        
+    if invoice.get('status') == 'Aprobada':
+        return jsonify({"success": False, "error": "No se puede rechazar una cotización que ya fue aprobada."}), 400
+        
+    if invoice.get('status') != 'Pendiente Aut. Cliente':
+        return jsonify({"success": False, "error": "La cotización no se encuentra en estado pendiente de autorización."}), 400
 
+    before_invoice = invoice.copy()
     rejected_at = datetime.now(timezone.utc).isoformat()
     invoice['status'] = 'Rechazada'
     invoice['rejectedAt'] = rejected_at
     invoice['rejectedBy'] = client.get('name', client.get('rnc', 'Cliente'))
     PortalDbService.save_invoice(owner_uid, invoice_id, invoice, sandbox=sandbox)
+
+    # Registrar evento de auditoría
+    try:
+        from app.services.audit_service import AuditService, MODULE_COTIZACIONES
+        ip = request.headers.get("X-Forwarded-For", request.remote_addr or "")
+        ua = request.headers.get("User-Agent", "")
+        AuditService.log(
+            owner_uid=owner_uid,
+            action="REJECT",
+            module=MODULE_COTIZACIONES,
+            entity_id=invoice_id,
+            entity_label=f"Cotización {invoice.get('invoiceNumber')} rechazada por el cliente",
+            performed_by_name=f"Cliente: {client.get('name')}",
+            performed_by_uid=client_id,
+            performed_by_email=client.get('email', ''),
+            before=before_invoice,
+            after=invoice,
+            sandbox=sandbox,
+            ip_address=ip,
+            user_agent=ua
+        )
+    except Exception as ae:
+        print(f"⚠️ Error al registrar auditoría de rechazo: {ae}")
 
     _notify_portal_action(
         owner_uid=owner_uid,
@@ -822,6 +906,7 @@ def report_invoice_payment(invoice_id):
         )
         
         # Guardar en la factura los detalles del comprobante pendiente
+        before_invoice = invoice.copy()
         invoice['status'] = 'Revisión de Pago'
         invoice['pendingPaymentProof'] = {
             "amount": amount,
@@ -836,6 +921,29 @@ def report_invoice_payment(invoice_id):
         }
         
         PortalDbService.save_invoice(owner_uid, invoice_id, invoice, sandbox=sandbox)
+
+        # Registrar evento de auditoría
+        try:
+            from app.services.audit_service import AuditService, MODULE_FACTURAS
+            ip = request.headers.get("X-Forwarded-For", request.remote_addr or "")
+            ua = request.headers.get("User-Agent", "")
+            AuditService.log(
+                owner_uid=owner_uid,
+                action="REPORT_PAYMENT",
+                module=MODULE_FACTURAS,
+                entity_id=invoice_id,
+                entity_label=f"Pago reportado por cliente: RD$ {amount:,.2f} ({payment_method} - {bank})",
+                performed_by_name=f"Cliente: {client.get('name')}",
+                performed_by_uid=client_id,
+                performed_by_email=client.get('email', ''),
+                before=before_invoice,
+                after=invoice,
+                sandbox=sandbox,
+                ip_address=ip,
+                user_agent=ua
+            )
+        except Exception as ae:
+            print(f"⚠️ Error al registrar auditoría de pago reportado: {ae}")
         
         # Notificar al responsable (email + in-app) usando _notify_portal_action
         try:
@@ -951,4 +1059,175 @@ def _process_azul_payment_record(result):
     
     PortalDbService.save_invoice(owner_uid, invoice_id, invoice, sandbox=sandbox)
     return True
+
+
+@portal_bp.route('/portal/documento/<invoice_id>')
+def portal_document_detail(invoice_id):
+    owner_uid = session.get('portal_owner_uid')
+    client_id = session.get('portal_client_id')
+    sandbox = session.get('portal_sandbox', True)
+    
+    if not owner_uid or not client_id:
+        return "Sesión de autogestión no válida o expirada. Por favor use el enlace oficial enviado a su correo.", 403
+        
+    session_key = f'verified_client_{client_id}'
+    if session.get(session_key) != True:
+        return redirect(url_for('portal.client_portal_main'))
+        
+    invoice = PortalDbService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+    if not invoice or invoice.get('clientId') != client_id:
+        return "Documento no encontrado o acceso denegado.", 404
+        
+    # Excluir cotizaciones en borrador
+    if invoice.get('isQuotation') and invoice.get('status') == 'Borrador':
+        return "Documento no disponible.", 404
+        
+    from app.web.invoices import _enrich_invoice_totals
+    invoice = _enrich_invoice_totals(invoice)
+    
+    company = DatabaseService.get_company_profile(owner_uid)
+    client = PortalDbService.get_client_by_id(owner_uid, client_id, sandbox=sandbox)
+    
+    # Obtener sucursal
+    branches = DatabaseService.get_branches(owner_uid, sandbox=sandbox)
+    branch = next((b for b in branches if b['id'] == invoice.get("branchId")), None)
+    if not branch and branches:
+        branch = branches[0]
+        
+    today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        
+    return render_template(
+        'portal/document_detail.html',
+        company=company,
+        client=client,
+        invoice=invoice,
+        branch=branch,
+        today_str=today_str,
+        owner_uid=owner_uid,
+        sandbox=sandbox
+    )
+
+
+@portal_bp.route('/portal/documento/<invoice_id>/pdf')
+def portal_document_pdf(invoice_id):
+    owner_uid = session.get('portal_owner_uid')
+    client_id = session.get('portal_client_id')
+    sandbox = session.get('portal_sandbox', True)
+    
+    if not owner_uid or not client_id:
+        return "Sesión de autogestión no válida o expirada.", 403
+        
+    session_key = f'verified_client_{client_id}'
+    if session.get(session_key) != True:
+        return "No verificado", 401
+        
+    invoice = PortalDbService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+    if not invoice or invoice.get('clientId') != client_id:
+        return "Documento no encontrado o acceso denegado.", 404
+        
+    # Excluir cotizaciones en borrador
+    if invoice.get('isQuotation') and invoice.get('status') == 'Borrador':
+        return "Documento no disponible.", 404
+        
+    from app.web.invoices import _enrich_invoice_totals, WEASYPRINT_AVAILABLE
+    try:
+        if WEASYPRINT_AVAILABLE:
+            from weasyprint import HTML as WeasyprintHTML
+        else:
+            WeasyprintHTML = None
+    except ImportError:
+        WeasyprintHTML = None
+        
+    invoice = _enrich_invoice_totals(invoice)
+    company = DatabaseService.get_company_profile(owner_uid)
+    
+    import io
+    import base64
+    import qrcode
+    import urllib.parse
+    
+    qr_url = invoice.get("qrCodeURL")
+    fecha_firma_str = ""
+    if invoice.get("encf") and invoice.get("xmlSignature"):
+        try:
+            fecha_emision_dt = datetime.strptime(invoice.get("date", "")[:10], "%Y-%m-%d")
+            fecha_emision_str = fecha_emision_dt.strftime("%d-%m-%Y")
+        except:
+            fecha_emision_str = ""
+            
+        if invoice.get("paymentDate"):
+            try:
+                dt = datetime.fromisoformat(invoice["paymentDate"].replace('Z', '+00:00'))
+                fecha_firma_str = dt.strftime("%d-%m-%Y %H:%M:%S")
+            except:
+                fecha_firma_str = fecha_emision_str + " 12:00:00"
+        else:
+            fecha_firma_str = fecha_emision_str + " 12:00:00"
+
+        codigo_seg = invoice.get("xmlSignature", "")[:6]
+        rnc_emisor = company.get("companyRNC", "").replace("-", "").strip()
+        rnc_comprador = invoice.get("clientRNC", "").replace("-", "").strip()
+        if not rnc_comprador: rnc_comprador = "999999999"
+        monto_total = f"{invoice.get('total', 0.0):.2f}"
+        
+        is_consumo = 'Consumo' in invoice.get("ecfType", "")
+        if is_consumo and invoice.get("total", 0.0) < 250000:
+            query_params = {
+                "RncEmisor": rnc_emisor,
+                "ENCF": invoice.get("encf"),
+                "MontoTotal": monto_total,
+                "CodigoSeguridad": codigo_seg
+            }
+            qs = urllib.parse.urlencode(query_params, quote_via=urllib.parse.quote)
+            qr_url = "https://fc.dgii.gov.do/eCF/ConsultaTimbreFC?" + qs
+        else:
+            query_params = {
+                "RncEmisor": rnc_emisor,
+                "RncComprador": rnc_comprador,
+                "ENCF": invoice.get("encf"),
+                "FechaEmision": fecha_emision_str,
+                "MontoTotal": monto_total,
+                "FechaFirma": fecha_firma_str,
+                "CodigoSeguridad": codigo_seg
+            }
+            qs = urllib.parse.urlencode(query_params, quote_via=urllib.parse.quote)
+            qr_url = "https://ecf.dgii.gov.do/ecf/ConsultaTimbre?" + qs
+
+    if not qr_url:
+        qr_url = "https://dgii.gov.do/validaecf"
+
+    qr = qrcode.QRCode(version=1, box_size=10, border=0)
+    qr.add_data(qr_url)
+    qr.make(fit=True)
+    img = qr.make_image(fill_color="black", back_color="white")
+    stream = io.BytesIO()
+    img.save(stream, format="PNG")
+    qr_base64 = base64.b64encode(stream.getvalue()).decode('utf-8')
+
+    branches = DatabaseService.get_branches(owner_uid, sandbox=sandbox)
+    branch = next((b for b in branches if b['id'] == invoice.get("branchId")), None)
+    if not branch and branches:
+        branch = branches[0]
+
+    rendered_html = render_template(
+        'invoices/pdf.html',
+        invoice=invoice,
+        company=company,
+        branch=branch,
+        auto_print=True,
+        qr_base64=qr_base64,
+        fecha_firma_str=fecha_firma_str,
+        sandbox=sandbox
+    )
+    
+    if WEASYPRINT_AVAILABLE and WeasyprintHTML:
+        pdf_bytes = WeasyprintHTML(string=rendered_html, base_url=request.host_url).write_pdf()
+        response = make_response(pdf_bytes)
+        response.headers['Content-Type'] = 'application/pdf'
+        inv_num = invoice.get('invoiceNumber', invoice_id).replace('/', '-').replace(' ', '_')
+        response.headers['Content-Disposition'] = f'attachment; filename="{inv_num}.pdf"'
+        return response
+    else:
+        return rendered_html
+
 

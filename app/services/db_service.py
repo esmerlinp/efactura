@@ -482,6 +482,25 @@ def _invalidate_crm_contacts(owner_uid):
         print(f"⚠️ Error al invalidar caché de CRM para {owner_uid}: {e}")
 
 
+def _invalidate_clients(owner_uid):
+    try:
+        cache.delete_memoized(_cached_clients, owner_uid, True)
+        cache.delete_memoized(_cached_clients, owner_uid, False)
+    except Exception as e:
+        print(f"⚠️ Error al invalidar caché de clientes para {owner_uid}: {e}")
+
+
+def _invalidate_invoices(owner_uid):
+    try:
+        for sandbox in [True, False]:
+            cache.delete_memoized(_cached_contingency_invoices, owner_uid, sandbox)
+            for quotations_only in [True, False]:
+                for include_all in [True, False]:
+                    cache.delete_memoized(_cached_invoices, owner_uid, sandbox, quotations_only, include_all)
+    except Exception as e:
+        print(f"⚠️ Error al invalidar caché de facturas para {owner_uid}: {e}")
+
+
 def clear_db_cache(pattern=None):
     """Limpia la caché de consultas Firestore. Útil tras operaciones de escritura."""
     cache.clear()
@@ -1209,7 +1228,7 @@ class DatabaseService:
             try:
                 coll_name = "sandbox_clients" if sandbox else "clients"
                 db_firestore.collection("users").document(owner_uid).collection(coll_name).document(client_id).set(client_dict)
-                cache.delete_memoized(_cached_clients, owner_uid)
+                _invalidate_clients(owner_uid)
                 _invalidate_crm_contacts(owner_uid)
             except Exception as e:
                 print(f"⚠️ Fallo al respaldar cliente en Firestore: {e}")
@@ -1226,7 +1245,7 @@ class DatabaseService:
                     "pipelineStage": pipeline_stage, 
                     "updatedAt": firestore.SERVER_TIMESTAMP
                 })
-                cache.delete_memoized(_cached_clients, owner_uid)
+                _invalidate_clients(owner_uid)
                 _invalidate_crm_contacts(owner_uid)
             except Exception as e:
                 print(f"⚠️ Fallo al actualizar pipeline de cliente: {e}")
@@ -1238,7 +1257,7 @@ class DatabaseService:
             try:
                 coll_name = "sandbox_clients" if sandbox else "clients"
                 db_firestore.collection("users").document(owner_uid).collection(coll_name).document(client_id).delete()
-                cache.delete_memoized(_cached_clients, owner_uid)
+                _invalidate_clients(owner_uid)
                 _invalidate_crm_contacts(owner_uid)
             except Exception as e:
                 print(f"⚠️ Fallo al borrar cliente de Firestore: {e}")
@@ -1956,8 +1975,7 @@ class DatabaseService:
             try:
                 coll_name = "sandbox_invoices" if sandbox else "invoices"
                 db_firestore.collection("users").document(owner_uid).collection(coll_name).document(invoice_id).update({"status": new_status, "updatedAt": firestore.SERVER_TIMESTAMP})
-                cache.delete_memoized(_cached_invoices, owner_uid)
-                cache.delete_memoized(_cached_contingency_invoices, owner_uid)
+                _invalidate_invoices(owner_uid)
                 _invalidate_crm_contacts(owner_uid)
             except Exception as e:
                 print(f"⚠️ Fallo al actualizar estado de la factura/cotización: {e}")
@@ -1977,8 +1995,7 @@ class DatabaseService:
                     })
                 else:
                     doc_ref.delete()
-                cache.delete_memoized(_cached_invoices, owner_uid)
-                cache.delete_memoized(_cached_contingency_invoices, owner_uid)
+                _invalidate_invoices(owner_uid)
                 _invalidate_crm_contacts(owner_uid)
             except Exception as e:
                 print(f"⚠️ Fallo al eliminar factura en Firestore: {e}")
@@ -2142,8 +2159,7 @@ class DatabaseService:
             try:
                 coll_name = "sandbox_invoices" if sandbox else "invoices"
                 db_firestore.collection("users").document(owner_uid).collection(coll_name).document(invoice_id).set(inv_dict)
-                cache.delete_memoized(_cached_invoices, owner_uid)
-                cache.delete_memoized(_cached_contingency_invoices, owner_uid)
+                _invalidate_invoices(owner_uid)
                 _invalidate_crm_contacts(owner_uid)
             except Exception as e:
                 print(f"⚠️ Fallo al respaldar factura en Firestore: {e}")
@@ -2314,8 +2330,7 @@ class DatabaseService:
             except Exception as inv_err:
                 print(f"⚠️ Error al aplicar inventario en pago: {inv_err}")
             
-            cache.delete_memoized(_cached_invoices, owner_uid)
-            cache.delete_memoized(_cached_contingency_invoices, owner_uid)
+            _invalidate_invoices(owner_uid)
             _invalidate_crm_contacts(owner_uid)
             return payment_dict
         except Exception as e:

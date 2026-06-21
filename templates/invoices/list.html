@@ -302,11 +302,16 @@ endblock %}
                 <select name="status" id="status"
                     style="width: 100%; height: 34px; padding: 0 10px; background-color: transparent; border: 1px solid transparent; border-bottom: 1px solid var(--border-color); color: var(--text-secondary); font-size: 0.85rem; cursor: pointer; outline: none;">
                     <option value="">Todos los Estados</option>
+                    {% if active_page == 'quotations' %}
+                    <option value="Borrador" {% if status=='Borrador' %}selected{% endif %}>Borrador</option>
+                    <option value="Pendiente Aut. Cliente" {% if status=='Pendiente Aut. Cliente' %}selected{% endif %}>Pendiente Aut. Cliente</option>
+                    <option value="Aprobada" {% if status=='Aprobada' %}selected{% endif %}>Aprobada</option>
+                    <option value="Rechazada" {% if status=='Rechazada' %}selected{% endif %}>Rechazada</option>
+                    {% else %}
                     <option value="Borrador" {% if status=='Borrador' %}selected{% endif %}>Borrador</option>
                     <option value="Emitida" {% if status=='Emitida' %}selected{% endif %}>Emitida</option>
                     <option value="Cobrada" {% if status=='Cobrada' %}selected{% endif %}>Cobrada</option>
                     <option value="Anulada" {% if status=='Anulada' %}selected{% endif %}>Anulada</option>
-                    {% if active_page != 'quotations' %}
                     <option value="Con Saldo Pendiente" {% if status=='Con Saldo Pendiente' %}selected{% endif %}>💸 Con
                         Saldo</option>
                     <option value="Pendiente DGII" {% if status=='Pendiente DGII' %}selected{% endif %}>⚠️ Pendiente
@@ -419,9 +424,9 @@ endblock %}
             </div>
 
             <div class="kanban-column" id="col-Enviada" ondrop="drop(event)" ondragover="allowDrop(event)">
-                <h4 class="kanban-header"><i class="fa-solid fa-paper-plane"></i> Enviada</h4>
+                <h4 class="kanban-header"><i class="fa-solid fa-paper-plane"></i> Pendiente Aut. Cliente</h4>
                 <div class="kanban-cards">
-                    {% for inv in invoices if inv.status == 'Enviada al Cliente' or inv.status == 'Emitida' %}
+                    {% for inv in invoices if inv.status == 'Pendiente Aut. Cliente' %}
                     {{ render_doc(inv) }}
                     {% endfor %}
                 </div>
@@ -462,7 +467,7 @@ endblock %}
                 targetCol.querySelector('.kanban-cards').appendChild(card);
                 card.style.opacity = '1';
                 let status = 'Borrador';
-                if (targetCol.id === 'col-Enviada') status = 'Enviada al Cliente';
+                if (targetCol.id === 'col-Enviada') status = 'Pendiente Aut. Cliente';
                 if (targetCol.id === 'col-Aprobada') status = 'Aprobada';
                 if (targetCol.id === 'col-Rechazada') status = 'Rechazada';
 
@@ -567,11 +572,11 @@ endblock %}
         <table class="table-premium">
             <thead>
                 <tr>
-                    <th>Factura #</th>
-                    <th>e-NCF / Firma</th>
+                    <th>{% if active_page == 'quotations' %}Cotización #{% else %}{% if is_expense %}Gasto #{% else %}Factura #{% endif %}{% endif %}</th>
+                    <th>{% if active_page == 'quotations' %}Estatus{% else %}e-NCF / Firma{% endif %}</th>
                     <th>Fecha / Vence</th>
                     <th>Cliente / RNC</th>
-                    <th>Neto a Pagar</th>
+                    <th>{% if active_page == 'quotations' %}Total{% else %}Neto a Pagar{% endif %}</th>
                     <th style="text-align: right;">Acciones</th>
                 </tr>
             </thead>
@@ -600,16 +605,30 @@ endblock %}
                         {% endif %}
                     </td>
                     <td>
-                        {% if inv.encf %}
-                        <span style="font-family: monospace; font-size: 0.85rem; color: var(--accent-purple);">{{
-                            inv.encf }}</span>
-                        {% if inv.xmlSignature %}
-                        <span
-                            style="display: block; font-size: 0.65rem; color: var(--text-muted); font-family: monospace;">Firma:
-                            {{ inv.xmlSignature[:16] }}...</span>
-                        {% endif %}
+                        {% if active_page == 'quotations' %}
+                            {% if inv.status == 'Borrador' or not inv.status %}
+                            <span class="badge badge-secondary" style="font-size: 0.65rem;">Borrador</span>
+                            {% elif inv.status == 'Pendiente Aut. Cliente' %}
+                            <span class="badge badge-warning" style="font-size: 0.65rem; background-color: rgba(245, 158, 11, 0.15); color: #d97706; padding: 4px 8px; border-radius: 4px; font-weight: 600;">Pendiente Aut. Cliente</span>
+                            {% elif inv.status == 'Aprobada' %}
+                            <span class="badge badge-success" style="font-size: 0.65rem; background-color: rgba(16, 185, 129, 0.15); color: #10b981; padding: 4px 8px; border-radius: 4px; font-weight: 600;">Aprobada</span>
+                            {% elif inv.status == 'Rechazada' %}
+                            <span class="badge badge-danger" style="font-size: 0.65rem; background-color: rgba(239, 68, 68, 0.15); color: #ef4444; padding: 4px 8px; border-radius: 4px; font-weight: 600;">Rechazada</span>
+                            {% else %}
+                            <span class="badge badge-secondary" style="font-size: 0.65rem;">{{ inv.status }}</span>
+                            {% endif %}
                         {% else %}
-                        <span class="badge badge-secondary" style="font-size: 0.65rem;">Borrador</span>
+                            {% if inv.encf %}
+                            <span style="font-family: monospace; font-size: 0.85rem; color: var(--accent-purple);">{{
+                                inv.encf }}</span>
+                            {% if inv.xmlSignature %}
+                            <span
+                                style="display: block; font-size: 0.65rem; color: var(--text-muted); font-family: monospace;">Firma:
+                                {{ inv.xmlSignature[:16] }}...</span>
+                            {% endif %}
+                            {% else %}
+                            <span class="badge badge-secondary" style="font-size: 0.65rem;">Borrador</span>
+                            {% endif %}
                         {% endif %}
                     </td>
                     <td>
@@ -644,36 +663,40 @@ endblock %}
                         {% endif %}
                     </td>
                     <td>
-                        {% if inv.status == 'Anulada' %}
-                        <span style="color: var(--text-muted); text-decoration: line-through; font-size: 0.85rem;">RD$
-                            {{ "{:,.2f}".format(inv.netPayable) }}</span>
-                        <span style="display: block; font-size: 0.7rem; color: var(--text-muted);">Total: RD$ {{
-                            "{:,.2f}".format(inv.total) }}</span>
-                        {% elif inv.status == 'Cobrada' or inv.netPayable == 0 %}
-                        <span style="color: var(--accent-emerald); font-size: 0.85rem;">RD$ 0.00</span>
-                        <span
-                            style="display: block; font-size: 0.7rem; color: var(--accent-emerald); font-weight: 500;">
-                            <i class="fa-solid fa-circle-check"></i> Pagado 100%
-                        </span>
-                        {% elif inv.netPayable < inv.total %} <span
-                            style="color: var(--accent-yellow); font-size: 0.85rem;">RD$ {{
-                            "{:,.2f}".format(inv.netPayable) }}</span>
-                            <span
-                                style="display: block; font-size: 0.7rem; color: var(--accent-yellow); font-weight: 500;">
-                                <i class="fa-solid fa-circle-half-stroke"></i> Cobro Parcial
-                            </span>
-                            <span style="display: block; font-size: 0.65rem; color: var(--text-muted);">Total: RD$ {{
+                        {% if active_page == 'quotations' %}
+                            <strong style="color: var(--text-primary); font-size: 0.85rem;">RD$ {{ "{:,.2f}".format(inv.total) }}</strong>
+                        {% else %}
+                            {% if inv.status == 'Anulada' %}
+                            <span style="color: var(--text-muted); text-decoration: line-through; font-size: 0.85rem;">RD$
+                                {{ "{:,.2f}".format(inv.netPayable) }}</span>
+                            <span style="display: block; font-size: 0.7rem; color: var(--text-muted);">Total: RD$ {{
                                 "{:,.2f}".format(inv.total) }}</span>
-                            {% else %}
-                            <span style="color: var(--accent-red); font-size: 0.85rem;">RD$ {{
+                            {% elif inv.status == 'Cobrada' or inv.netPayable == 0 %}
+                            <span style="color: var(--accent-emerald); font-size: 0.85rem;">RD$ 0.00</span>
+                            <span
+                                style="display: block; font-size: 0.7rem; color: var(--accent-emerald); font-weight: 500;">
+                                <i class="fa-solid fa-circle-check"></i> Pagado 100%
+                            </span>
+                            {% elif inv.netPayable < inv.total %} <span
+                                style="color: var(--accent-yellow); font-size: 0.85rem;">RD$ {{
                                 "{:,.2f}".format(inv.netPayable) }}</span>
-                            <span
-                                style="display: block; font-size: 0.7rem; color: var(--accent-red); font-weight: 500;">
-                                <i class="fa-solid fa-clock"></i> Pendiente
-                            </span>
-                            <span style="display: block; font-size: 0.65rem; color: var(--text-muted);">Total: RD$ {{
-                                "{:,.2f}".format(inv.total) }}</span>
-                            {% endif %}
+                                <span
+                                    style="display: block; font-size: 0.7rem; color: var(--accent-yellow); font-weight: 500;">
+                                    <i class="fa-solid fa-circle-half-stroke"></i> Cobro Parcial
+                                </span>
+                                <span style="display: block; font-size: 0.65rem; color: var(--text-muted);">Total: RD$ {{
+                                    "{:,.2f}".format(inv.total) }}</span>
+                                {% else %}
+                                <span style="color: var(--accent-red); font-size: 0.85rem;">RD$ {{
+                                    "{:,.2f}".format(inv.netPayable) }}</span>
+                                <span
+                                    style="display: block; font-size: 0.7rem; color: var(--accent-red); font-weight: 500;">
+                                    <i class="fa-solid fa-clock"></i> Pendiente
+                                </span>
+                                <span style="display: block; font-size: 0.65rem; color: var(--text-muted);">Total: RD$ {{
+                                    "{:,.2f}".format(inv.total) }}</span>
+                                {% endif %}
+                        {% endif %}
                     </td>
                     <td style="text-align: right;">
                         <div style="display: inline-flex; gap: 8px;">

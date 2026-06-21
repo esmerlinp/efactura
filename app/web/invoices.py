@@ -1259,12 +1259,13 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
         audit_action = ACTION_UPDATE if existing_invoice else ACTION_CREATE
         audit_module = MODULE_COTIZACIONES if is_quotation else MODULE_FACTURAS
         label_prefix = "Cotización" if is_quotation else f"Documento ({invoice_dict.get('ecfType') or 'Factura'})"
+        verb = "modificada" if existing_invoice else "creada"
         AuditService.log_from_request(
             owner_uid=owner_uid,
             action=audit_action,
             module=audit_module,
             entity_id=target_invoice_id,
-            entity_label=f"{label_prefix} {invoice_dict['invoiceNumber']} — Cliente: {client_name} (Total: RD$ {calcs['total']:.2f})",
+            entity_label=f"{label_prefix} {invoice_dict['invoiceNumber']} {verb} — Cliente: {client_name} (Total: RD$ {calcs['total']:,.2f})",
             user_session=session.get('user', {}),
             before=existing_invoice if existing_invoice else None,
             after=invoice_dict,
@@ -1605,6 +1606,14 @@ def invoice_detail(invoice_id):
     
     comments = DatabaseService.get_invoice_comments(owner_uid, invoice_id, sandbox=sandbox)
     
+    # Obtener el historial de auditoría
+    try:
+        from app.services.audit_service import AuditService
+        history_logs = AuditService.get_entity_logs(owner_uid, invoice_id)
+    except Exception as e:
+        print(f"⚠️ Error al obtener logs de auditoría: {e}")
+        history_logs = []
+        
     # Load taggable users
     taggable_users = []
     owner_prof = DatabaseService.get_user_profile(owner_uid)
@@ -1624,7 +1633,7 @@ def invoice_detail(invoice_id):
             "role": member.get("role", "collaborator")
         })
         
-    return render_template('invoices/detail.html', active_page='invoices', invoice=invoice, company=company, branch=branch, payments=payments, client_email=_get_client_email(owner_uid, invoice, sandbox), comments=comments, taggable_users=taggable_users, format_mentions=format_mentions)
+    return render_template('invoices/detail.html', active_page='quotations' if invoice.get('isQuotation') else 'invoices', invoice=invoice, company=company, branch=branch, payments=payments, client_email=_get_client_email(owner_uid, invoice, sandbox), comments=comments, taggable_users=taggable_users, format_mentions=format_mentions, history_logs=history_logs)
 
 @web_invoices_bp.route('/invoices/<invoice_id>/comments/new', methods=['POST'])
 def add_invoice_comment(invoice_id):
@@ -2200,6 +2209,7 @@ def pay_invoice_route(invoice_id):
         flash('Factura no encontrada.', 'error')
         return redirect(url_for('web_invoices.list_invoices'))
         
+    before_invoice = invoice.copy()
     try:
         amount = float(request.form.get('amount', invoice.get('remainingBalance', 0.0)))
     except ValueError:
@@ -2252,6 +2262,24 @@ def pay_invoice_route(invoice_id):
             else:
                 flash(f'¡Abono de RD$ {capital_amount:,.2f} + RD$ {mora_amount:,.2f} de mora cobrado con éxito! Pendiente restante: RD$ {new_balance:,.2f}.', 'success')
             flash(f'⚠️ Mora de RD$ {mora_amount:,.2f} cobrada. Debe emitir un e-CF (B02/E32) adicional por el recargo de mora.', 'warning')
+            
+            # Registrar evento de auditoría
+            try:
+                updated_invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+                from app.services.audit_service import AuditService, ACTION_UPDATE, MODULE_FACTURAS
+                AuditService.log_from_request(
+                    owner_uid=owner_uid,
+                    action="PAYMENT",
+                    module=MODULE_FACTURAS,
+                    entity_id=invoice_id,
+                    entity_label=f"Cobro registrado: RD$ {capital_amount:,.2f} (Capital) + RD$ {mora_amount:,.2f} (Mora) - {payment_method}",
+                    user_session=session.get('user', {}),
+                    before=before_invoice,
+                    after=updated_invoice,
+                    sandbox=sandbox
+                )
+            except Exception as ae:
+                print(f"⚠️ Error al registrar auditoría de cobro manual con mora: {ae}")
         except Exception as e:
             flash(f'Error al registrar el cobro: {str(e)}', 'error')
     else:
@@ -2275,6 +2303,24 @@ def pay_invoice_route(invoice_id):
                 
             if mora_amount > 0:
                 flash(f'🤝 Mora de RD$ {mora_amount:,.2f} perdonada. Se registró solo el capital.', 'info')
+                
+            # Registrar evento de auditoría
+            try:
+                updated_invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+                from app.services.audit_service import AuditService, ACTION_UPDATE, MODULE_FACTURAS
+                AuditService.log_from_request(
+                    owner_uid=owner_uid,
+                    action="PAYMENT",
+                    module=MODULE_FACTURAS,
+                    entity_id=invoice_id,
+                    entity_label=f"Cobro registrado: RD$ {amount:,.2f} - {payment_method}",
+                    user_session=session.get('user', {}),
+                    before=before_invoice,
+                    after=updated_invoice,
+                    sandbox=sandbox
+                )
+            except Exception as ae:
+                print(f"⚠️ Error al registrar auditoría de cobro manual: {ae}")
         except Exception as e:
             flash(f'Error al registrar el cobro: {str(e)}', 'error')
             
@@ -2293,6 +2339,7 @@ def approve_payment_proof(invoice_id):
         flash('Factura no encontrada.', 'error')
         return redirect(url_for('web_invoices.list_invoices'))
         
+    before_invoice = invoice.copy()
     try:
         amount = float(request.form.get('amount', 0.0))
     except ValueError:
@@ -2327,6 +2374,24 @@ def approve_payment_proof(invoice_id):
         db_firestore.collection("users").document(owner_uid).collection(coll_inv).document(invoice_id).update({
             "pendingPaymentProof": firestore.DELETE_FIELD
         })
+        
+        # Registrar evento de auditoría
+        try:
+            updated_invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+            from app.services.audit_service import AuditService, ACTION_UPDATE, MODULE_FACTURAS
+            AuditService.log_from_request(
+                owner_uid=owner_uid,
+                action="APPROVE_PAYMENT",
+                module=MODULE_FACTURAS,
+                entity_id=invoice_id,
+                entity_label=f"Comprobante de pago aprobado: RD$ {amount:,.2f} ({payment_method} - {bank})",
+                user_session=session.get('user', {}),
+                before=before_invoice,
+                after=updated_invoice,
+                sandbox=sandbox
+            )
+        except Exception as ae:
+            print(f"⚠️ Error al registrar auditoría de aprobación de pago: {ae}")
         
         # Notificar al cliente por email e in-app
         try:
@@ -2384,6 +2449,7 @@ def reject_payment_proof(invoice_id):
         flash('Factura no encontrada.', 'error')
         return redirect(url_for('web_invoices.list_invoices'))
         
+    before_invoice = invoice.copy()
     rejection_reason = request.form.get('rejectionReason', '').strip()
     
     try:
@@ -2399,6 +2465,24 @@ def reject_payment_proof(invoice_id):
             "status": new_status,
             "pendingPaymentProof": firestore.DELETE_FIELD
         })
+        
+        # Registrar evento de auditoría
+        try:
+            updated_invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+            from app.services.audit_service import AuditService, ACTION_UPDATE, MODULE_FACTURAS
+            AuditService.log_from_request(
+                owner_uid=owner_uid,
+                action="REJECT_PAYMENT",
+                module=MODULE_FACTURAS,
+                entity_id=invoice_id,
+                entity_label=f"Comprobante de pago rechazado. Motivo: {rejection_reason or 'Sin especificar'}",
+                user_session=session.get('user', {}),
+                before=before_invoice,
+                after=updated_invoice,
+                sandbox=sandbox
+            )
+        except Exception as ae:
+            print(f"⚠️ Error al registrar auditoría de rechazo de pago: {ae}")
         
         # Si se especificó un motivo de rechazo, registrarlo como comentario interno
         if rejection_reason:
@@ -2576,17 +2660,65 @@ def convert_quotation_route(invoice_id):
         return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
 
     # Realizar la conversión
+    import uuid
+    new_invoice_id = str(uuid.uuid4())
+
+    # 1. Crear la nueva factura fiscal (FAC-) a partir de los datos de la cotización
+    new_invoice = invoice.copy()
+    new_invoice['id'] = new_invoice_id
     random_num = f"{random.randint(1, 999999):06d}"
-    invoice['invoiceNumber'] = f"FAC-{random_num}"
-    invoice['ecfType'] = target_ecf_type
-    invoice['isQuotation'] = False
-    invoice['isConvertedToInvoice'] = True
-    invoice['status'] = 'Borrador'  # Queda como borrador hasta firmarse
+    new_invoice['invoiceNumber'] = f"FAC-{random_num}"
+    new_invoice['ecfType'] = target_ecf_type
+    new_invoice['isQuotation'] = False
+    new_invoice['isConvertedToInvoice'] = True
+    new_invoice['status'] = 'Borrador'  # Queda como borrador hasta firmarse
+    
+    # 2. Mantener la cotización original (isQuotation=True) pero actualizar su estado a 'Aprobada'
+    before_invoice = invoice.copy()
+    invoice['status'] = 'Aprobada'
+    invoice['convertedToInvoiceId'] = new_invoice_id
+    invoice['convertedInvoiceNumber'] = new_invoice['invoiceNumber']
 
+    # Guardar ambos documentos en la base de datos
     DatabaseService.save_invoice(owner_uid, invoice_id, invoice, sandbox=sandbox)
+    DatabaseService.save_invoice(owner_uid, new_invoice_id, new_invoice, sandbox=sandbox)
 
-    flash(f'¡Cotización convertida exitosamente a {target_ecf_type}! El número de documento es {invoice["invoiceNumber"]}. Procede a firmar digitalmente el comprobante.', 'success')
-    return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
+    # Registrar evento de auditoría en la cotización
+    try:
+        from app.services.audit_service import AuditService, MODULE_COTIZACIONES
+        AuditService.log_from_request(
+            owner_uid=owner_uid,
+            action="CONVERT_DOCUMENT",
+            module=MODULE_COTIZACIONES,
+            entity_id=invoice_id,
+            entity_label=f"Cotización {invoice['invoiceNumber']} convertida a {target_ecf_type} ({new_invoice['invoiceNumber']})",
+            user_session=session.get('user', {}),
+            before=before_invoice,
+            after=invoice,
+            sandbox=sandbox
+        )
+    except Exception as ae:
+        print(f"⚠️ Error al registrar auditoría de conversión de cotización: {ae}")
+
+    # Registrar evento de auditoría en la nueva factura
+    try:
+        from app.services.audit_service import AuditService, ACTION_CREATE, MODULE_FACTURAS
+        AuditService.log_from_request(
+            owner_uid=owner_uid,
+            action=ACTION_CREATE,
+            module=MODULE_FACTURAS,
+            entity_id=new_invoice_id,
+            entity_label=f"Factura {new_invoice['invoiceNumber']} creada a partir de cotización {invoice['invoiceNumber']}",
+            user_session=session.get('user', {}),
+            before=None,
+            after=new_invoice,
+            sandbox=sandbox
+        )
+    except Exception as ae:
+        print(f"⚠️ Error al registrar auditoría de creación de factura convertida: {ae}")
+
+    flash(f'¡Cotización convertida exitosamente a {target_ecf_type}! El número de documento es {new_invoice["invoiceNumber"]}. Procede a firmar digitalmente el comprobante.', 'success')
+    return redirect(url_for('web_invoices.invoice_detail', invoice_id=new_invoice_id))
 
 
 @web_invoices_bp.route('/quotations/<invoice_id>/approve', methods=['POST'])
@@ -2603,8 +2735,28 @@ def approve_quotation_route(invoice_id):
         flash('Cotización no encontrada.', 'error')
         return redirect(url_for('web_invoices.list_quotations'))
         
+    before_invoice = invoice.copy()
     invoice['status'] = 'Aprobada'
     DatabaseService.save_invoice(owner_uid, invoice_id, invoice, sandbox=sandbox)
+    
+    # Registrar evento de auditoría
+    try:
+        updated_invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+        from app.services.audit_service import AuditService, MODULE_FACTURAS
+        AuditService.log_from_request(
+            owner_uid=owner_uid,
+            action="APPROVE_QUOTATION",
+            module=MODULE_FACTURAS,
+            entity_id=invoice_id,
+            entity_label="Cotización aprobada manualmente por administrador",
+            user_session=session.get('user', {}),
+            before=before_invoice,
+            after=updated_invoice,
+            sandbox=sandbox
+        )
+    except Exception as ae:
+        print(f"⚠️ Error al registrar auditoría de aprobación manual de cotización: {ae}")
+
     flash('Cotización aprobada manualmente con éxito.', 'success')
     return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
 
@@ -2719,6 +2871,29 @@ def send_quotation_to_client(invoice_id):
             server.starttls()
             server.login(smtp_user, smtp_password)
             server.sendmail(smtp_user, recipient_email, msg.as_string())
+            
+        # Actualizar el estado del documento a Pendiente Aut. Cliente
+        before_invoice = invoice.copy()
+        invoice['status'] = 'Pendiente Aut. Cliente'
+        DatabaseService.save_invoice(owner_uid, invoice_id, invoice, sandbox=sandbox)
+        
+        # Registrar evento de auditoría
+        try:
+            updated_invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+            from app.services.audit_service import AuditService, MODULE_FACTURAS
+            AuditService.log_from_request(
+                owner_uid=owner_uid,
+                action="SEND_EMAIL",
+                module=MODULE_FACTURAS,
+                entity_id=invoice_id,
+                entity_label=f"Cotización enviada al correo {recipient_email} para aprobación",
+                user_session=session.get('user', {}),
+                before=before_invoice,
+                after=updated_invoice,
+                sandbox=sandbox
+            )
+        except Exception as ae:
+            print(f"⚠️ Error al registrar auditoría de envío de correo: {ae}")
             
         flash(f"Enlace de aprobación enviado con éxito a {recipient_email}.", "success")
     except Exception as e:

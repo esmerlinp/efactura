@@ -270,6 +270,7 @@
 
             <form action="{{ url_for('web_clients.add_client_interaction', client_id=client.id) }}" method="POST"
                 enctype="multipart/form-data" style="display: flex; flex-direction: column; gap: 16px;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
                     <div>
                         <label for="type" style="display: block; font-size: 0.85rem; font-weight: 500; margin-bottom: 6px; color: var(--text-secondary);">Tipo de Interacción</label>
@@ -369,6 +370,7 @@
                                 </span>
                                 <form action="{{ url_for('web_clients.delete_client_interaction_route', client_id=client.id, interaction_id=item.id) }}" method="POST"
                                     onsubmit="return confirm('¿Seguro que deseas eliminar este comentario del historial?');" style="display: inline;">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                     <button type="submit" style="background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 2px 4px; font-size: 0.8rem; transition: color var(--transition-fast);"
                                         onmouseover="this.style.color='var(--accent-red)'" onmouseout="this.style.color='var(--text-muted)'" title="Eliminar Interacción">
                                         <i class="fa-solid fa-trash-can"></i>
@@ -389,6 +391,7 @@
                             </div>
                             {% if not item.completed %}
                             <form action="{{ url_for('web_clients.complete_client_interaction_task', client_id=client.id, interaction_id=item.id) }}" method="POST" style="margin: 0;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 <button type="submit" class="btn btn-secondary" style="padding: 0 10px; font-size: 0.75rem; height: 28px; font-weight: 500; display: inline-flex; align-items: center; gap: 6px; border-color: var(--accent-emerald); color: var(--accent-emerald);">
                                     <i class="fa-solid fa-circle-check"></i>
                                     <span>Marcar Completado</span>
@@ -498,6 +501,7 @@
                 <span>Archivar Nuevo Documento</span>
             </h3>
             <form action="{{ url_for('web_operations.upload_client_document_route', client_id=client.id) }}" method="POST" enctype="multipart/form-data" style="display: flex; flex-direction: column; gap: 16px;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
                     <div>
                         <label for="documentType" style="display: block; font-size: 0.85rem; font-weight: 500; margin-bottom: 6px; color: var(--text-secondary);">Clasificación del Documento</label>
@@ -549,6 +553,7 @@
                             <span style="font-size: 0.75rem; font-weight: 600; color: var(--accent-emerald);">{{ doc.documentType }}</span>
                             <form action="{{ url_for('web_operations.delete_client_document_route', client_id=client.id, doc_id=doc.id) }}" method="POST" style="margin:0;"
                                 onsubmit="return confirm('¿Seguro que deseas eliminar este documento de los archivos del cliente?');">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 <button type="submit" style="background:none; border:none; color:var(--text-muted); cursor:pointer; padding: 2px;" title="Eliminar Archivo">
                                     <i class="fa-solid fa-trash-can" style="font-size: 0.82rem;" onmouseover="this.style.color='var(--accent-red)'" onmouseout="this.style.color='var(--text-muted)'"></i>
                                 </button>

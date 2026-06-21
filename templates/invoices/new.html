@@ -12,6 +12,7 @@ Documento Electrónico{% endif %}{% endblock %}
 <div id="clients-data-json" style="display: none;">{{ clients_json }}</div>
 
 <form method="POST" id="invoice-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
     <!-- FILA SUPERIOR: ENCABEZADO + CLIENTE LADO A LADO -->
     <div
