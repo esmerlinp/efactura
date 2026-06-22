@@ -1,0 +1,1104 @@
+{% extends "layout.html" %}
+{% block title %}Nueva Cotización Personalizada{% endblock %}
+
+{% block extra_head %}
+<div id="catalog-data-json" style="display:none;">{{ catalog_json or '[]' }}</div>
+<div id="wz-initial-data-json" style="display:none;">{{ initial_data_json or 'null' }}</div>
+<style>
+:root {
+    --wz-primary: #7c3aed;
+    --wz-primary-light: #a78bfa;
+    --wz-primary-dark: #5b21b6;
+    --wz-bg: #f5f3ff;
+    --wz-step-active: #7c3aed;
+    --wz-step-completed: #16a34a;
+    --wz-step-pending: #cbd5e1;
+}
+
+.quotation-wizard {
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+    background: var(--wz-bg);
+}
+
+.wz-sidebar {
+    width: 42%;
+    min-width: 420px;
+    overflow-y: auto;
+    padding: 24px;
+    background: white;
+    border-right: 1px solid #e2e8f0;
+    display: flex;
+    flex-direction: column;
+}
+
+.wz-preview-panel {
+    flex: 1;
+    background: #f1f5f9;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.wz-preview-header {
+    padding: 12px 20px;
+    background: white;
+    border-bottom: 1px solid #e2e8f0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #475569;
+}
+
+.wz-preview-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px;
+    display: flex;
+    justify-content: center;
+}
+
+.wz-preview-container {
+    width: 210mm;
+    min-height: 297mm;
+    background: white;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.1);
+    border-radius: 4px;
+    overflow-y: auto;
+    position: relative;
+    transition: opacity 0.2s;
+}
+.wz-preview-container > :first-child {
+    padding: 0;
+}
+.wz-preview-container .pdf-page {
+    padding: 12mm 15mm;
+}
+
+.wz-preview-container.preview-loading {
+    opacity: 0.5;
+}
+
+.wz-preview-container iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+}
+
+.wz-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 2px solid var(--wz-primary);
+}
+
+.wz-header h1 {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--wz-primary);
+    margin: 0;
+}
+
+.wz-step-indicators {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 24px;
+}
+
+.wz-step-indicator {
+    flex: 1;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--wz-step-pending);
+    transition: all 0.3s;
+}
+
+.wz-step-indicator.active {
+    background: var(--wz-step-active);
+}
+
+.wz-step-indicator.completed {
+    background: var(--wz-step-completed);
+}
+
+.wz-step-labels {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    font-size: 11px;
+    color: #94a3b8;
+}
+
+.wz-step-labels span.active {
+    color: var(--wz-step-active);
+    font-weight: 600;
+}
+
+.wz-step-labels span.completed {
+    color: var(--wz-step-completed);
+}
+
+.wz-step {
+    display: none;
+    flex: 1;
+}
+
+.wz-step.active {
+    display: block;
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.wz-step-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: #1e293b;
+    margin-bottom: 4px;
+}
+
+.wz-step-desc {
+    font-size: 13px;
+    color: #64748b;
+    margin-bottom: 20px;
+}
+
+.wz-form-group {
+    margin-bottom: 16px;
+}
+
+.wz-form-group label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: #334155;
+    margin-bottom: 4px;
+}
+
+.wz-form-group input,
+.wz-form-group select,
+.wz-form-group textarea {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 8px;
+    font-size: 14px;
+    font-family: inherit;
+    transition: border-color 0.2s;
+    background: #f8fafc;
+}
+
+.wz-form-group input:focus,
+.wz-form-group select:focus,
+.wz-form-group textarea:focus {
+    outline: none;
+    border-color: var(--wz-primary);
+    box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
+    background: white;
+}
+
+.wz-ai-context-box {
+    background: linear-gradient(135deg, #f5f3ff, #ede9fe);
+    border: 1.5px dashed var(--wz-primary-light);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+.wz-ai-context-box textarea {
+    min-height: 120px;
+    background: white;
+    border-color: #c4b5fd;
+}
+
+.wz-ai-context-box textarea:focus {
+    border-color: var(--wz-primary);
+}
+
+.wz-nav-buttons {
+    display: flex;
+    justify-content: space-between;
+    margin-top: auto;
+    padding-top: 16px;
+    border-top: 1px solid #e2e8f0;
+}
+
+.wz-item-row,
+.wz-deliverable-row,
+.wz-timeline-row,
+.wz-payment-row {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    margin-bottom: 6px;
+    padding: 6px 8px;
+    background: #f8fafc;
+    border-radius: 6px;
+    font-size: 13px;
+}
+
+#wz-items-container {
+    overflow-x: auto;
+}
+
+.wz-item-row {
+    min-width: max-content;
+}
+
+.wz-item-name-display {
+    flex: 1;
+    min-width: 100px;
+    font-weight: 500;
+    color: #1e293b;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 12px;
+}
+
+.wz-item-qty-display {
+    width: 32px;
+    text-align: center;
+    color: #475569;
+    font-size: 12px;
+}
+
+.wz-item-price-display {
+    width: 100px;
+    text-align: right;
+    font-weight: 600;
+    color: #1e293b;
+    font-size: 12px;
+}
+
+.wz-item-itbis-display {
+    width: 32px;
+    text-align: center;
+    color: #64748b;
+    font-size: 11px;
+}
+
+.wz-item-discount-display {
+    width: 40px;
+    text-align: center;
+    color: #dc2626;
+    font-size: 11px;
+    font-weight: 500;
+}
+
+.wz-item-row .wz-edit-item,
+.wz-item-row .wz-remove-item {
+    padding: 3px 6px;
+    font-size: 11px;
+    border-radius: 4px;
+    cursor: pointer;
+    border: 1px solid #e2e8f0;
+    background: white;
+    color: #475569;
+    transition: all 0.15s;
+    line-height: 1;
+}
+
+.wz-item-row .wz-edit-item:hover {
+    background: #eef2ff;
+    border-color: #a5b4fc;
+    color: #4f46e5;
+}
+
+.wz-item-row .wz-remove-item {
+    background: #fef2f2;
+    border-color: #fecaca;
+    color: #dc2626;
+}
+
+.wz-item-row .wz-remove-item:hover {
+    background: #dc2626;
+    color: white;
+    border-color: #dc2626;
+}
+
+.wz-item-row input,
+.wz-deliverable-row input,
+.wz-timeline-row input,
+.wz-payment-row input {
+    padding: 6px 8px;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    font-size: 13px;
+}
+
+.wz-scope-item {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 6px;
+}
+
+.wz-scope-item input {
+    flex: 1;
+    padding: 8px 10px;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    font-size: 13px;
+}
+
+.wz-section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.wz-section-header h3 {
+    font-size: 15px;
+    font-weight: 600;
+    color: #1e293b;
+    margin: 0;
+}
+
+.btn-wz-primary {
+    background: var(--wz-primary);
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-wz-primary:hover {
+    background: var(--wz-primary-dark);
+    transform: translateY(-1px);
+}
+
+.btn-wz-secondary {
+    background: #f1f5f9;
+    color: #475569;
+    border: 1px solid #e2e8f0;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-wz-secondary:hover {
+    background: #e2e8f0;
+}
+
+.btn-wz-ai {
+    background: linear-gradient(135deg, #7c3aed, #a78bfa);
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-wz-ai:hover {
+    opacity: 0.9;
+    transform: translateY(-1px);
+}
+
+.btn-wz-ai:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.wz-add-btn {
+    background: none;
+    border: 1.5px dashed #c4b5fd;
+    color: var(--wz-primary);
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    width: 100%;
+    transition: all 0.2s;
+}
+
+.wz-add-btn:hover {
+    background: #f5f3ff;
+    border-color: var(--wz-primary);
+}
+
+.wz-save-section {
+    text-align: center;
+    padding: 20px;
+}
+
+.wz-save-section .btn-primary {
+    padding: 14px 40px;
+    font-size: 16px;
+}
+
+.wz-scope-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+
+.wz-scope-column {
+    background: #f8fafc;
+    padding: 12px;
+    border-radius: 8px;
+}
+
+.wz-scope-column h4 {
+    font-size: 13px;
+    font-weight: 600;
+    margin: 0 0 8px 0;
+    color: #475569;
+}
+
+.payment-pct-sum {
+    font-size: 12px;
+    color: #64748b;
+    margin-top: 4px;
+}
+
+.payment-pct-sum.ok { color: #16a34a; }
+.payment-pct-sum.err { color: #dc2626; }
+
+/* Item edit modal */
+.wz-item-edit-modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 10000;
+    justify-content: center;
+    align-items: center;
+}
+.wz-item-edit-modal.active { display: flex; }
+.wz-item-edit-content {
+    background: white;
+    border-radius: 12px;
+    width: 520px;
+    max-width: 90vw;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+}
+.wz-item-edit-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    border-bottom: 1px solid #e2e8f0;
+}
+.wz-item-edit-header h3 { font-size: 16px; margin: 0; }
+.wz-item-edit-close {
+    background: none;
+    border: none;
+    font-size: 22px;
+    cursor: pointer;
+    color: #94a3b8;
+    padding: 4px 8px;
+}
+.wz-item-edit-body {
+    padding: 20px;
+    overflow-y: auto;
+}
+.wz-edit-field {
+    margin-bottom: 14px;
+}
+.wz-edit-field label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: #475569;
+    margin-bottom: 4px;
+}
+.wz-edit-field input,
+.wz-edit-field select {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    font-size: 13px;
+    box-sizing: border-box;
+}
+.wz-edit-field input:focus,
+.wz-edit-field select:focus {
+    outline: none;
+    border-color: #7c3aed;
+    box-shadow: 0 0 0 3px rgba(124,58,237,0.1);
+}
+.wz-edit-footer {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    padding: 16px 20px;
+    border-top: 1px solid #e2e8f0;
+}
+.wz-edit-footer button {
+    padding: 8px 20px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid #e2e8f0;
+    transition: all 0.15s;
+}
+.btn-edit-save {
+    background: #7c3aed;
+    color: white;
+    border-color: #7c3aed;
+}
+.btn-edit-save:hover { background: #6d28d9; }
+.btn-edit-cancel {
+    background: white;
+    color: #475569;
+}
+.btn-edit-cancel:hover { background: #f1f5f9; }
+.btn-edit-catalog {
+    background: #eef2ff;
+    color: #4f46e5;
+    border-color: #c7d2fe;
+    padding: 6px 14px;
+    font-size: 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.15s;
+    margin-top: 4px;
+}
+.btn-edit-catalog:hover { background: #e0e7ff; }
+
+/* Catalog search modal */
+.wz-catalog-modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 9999;
+    justify-content: center;
+    align-items: center;
+}
+.wz-catalog-modal.active { display: flex; }
+.wz-catalog-modal-content {
+    background: white;
+    border-radius: 12px;
+    width: 640px;
+    max-width: 90vw;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+}
+.wz-catalog-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    border-bottom: 1px solid #e2e8f0;
+}
+.wz-catalog-modal-header h3 { font-size: 16px; margin: 0; }
+.wz-catalog-modal-close {
+    background: none;
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
+    color: #94a3b8;
+    padding: 4px 8px;
+}
+.wz-catalog-modal-search {
+    padding: 12px 20px;
+    border-bottom: 1px solid #e2e8f0;
+}
+.wz-catalog-modal-search input {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    font-size: 14px;
+}
+.wz-catalog-modal-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px 0;
+}
+.wz-catalog-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 20px;
+    cursor: pointer;
+    transition: background 0.15s;
+    border-bottom: 1px solid #f1f5f9;
+}
+.wz-catalog-item:hover { background: #f5f3ff; }
+.wz-catalog-item-info { flex: 1; }
+.wz-catalog-item-name { font-size: 14px; font-weight: 600; color: #1e293b; }
+.wz-catalog-item-meta { font-size: 12px; color: #64748b; margin-top: 2px; }
+.wz-catalog-item-price { font-size: 14px; font-weight: 700; color: #7c3aed; white-space: nowrap; }
+.wz-catalog-item .btn-select-item {
+    padding: 4px 12px;
+    font-size: 12px;
+    border-radius: 6px;
+    background: #7c3aed;
+    color: white;
+    border: none;
+    cursor: pointer;
+    margin-left: 12px;
+}
+.wz-catalog-item .btn-select-item:hover { background: #5b21b6; }
+.wz-catalog-empty {
+    text-align: center;
+    padding: 40px 20px;
+    color: #94a3b8;
+    font-size: 14px;
+}
+.wz-item-row .wz-catalog-btn {
+    padding: 6px 8px;
+    background: #eef2ff;
+    border: 1px solid #c7d2fe;
+    border-radius: 6px;
+    color: #4f46e5;
+    cursor: pointer;
+    font-size: 12px;
+    white-space: nowrap;
+}
+.wz-item-row .wz-catalog-btn:hover { background: #e0e7ff; }
+#wz-client-search {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    font-size: 13px;
+    box-sizing: border-box;
+}
+#wz-client-search:focus {
+    outline: none;
+    border-color: var(--wz-primary);
+    box-shadow: 0 0 0 3px rgba(124,58,237,0.15);
+}
+#wz-client[size] {
+    width: 100%;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 4px;
+    font-size: 13px;
+}
+#wz-client[size] option {
+    padding: 6px 8px;
+    border-radius: 4px;
+}
+</style>
+{% endblock %}
+{% block content %}
+<style>
+.content-wrapper { padding: 0 !important; }
+</style>
+
+<div class="quotation-wizard">
+    <div class="wz-sidebar">
+        <div class="wz-header">
+            <h1><i class="fa-solid fa-file-pen"></i> Cotización Personalizada</h1>
+            <div>
+                <button type="button" class="btn-wz-secondary" onclick="window.location.href='/quotations'">
+                    <i class="fa-solid fa-arrow-left"></i> Volver
+                </button>
+            </div>
+        </div>
+
+        <div class="wz-step-indicators">
+            {% for i in range(1, 7) %}
+            <div class="wz-step-indicator" data-step="{{ i }}"></div>
+            {% endfor %}
+        </div>
+
+        <div class="wz-step-labels">
+            <span data-step="1">Contexto</span>
+            <span data-step="2">Cliente</span>
+            <span data-step="3">Alcance</span>
+            <span data-step="4">Cronograma</span>
+            <span data-step="5">Inversión</span>
+            <span data-step="6">Términos</span>
+        </div>
+
+        <!-- STEP 1: Contexto Inicial -->
+        <div class="wz-step" data-step="1">
+            <div class="wz-step-title">Describe el Proyecto</div>
+            <div class="wz-step-desc">Cuéntanos sobre el proyecto y la IA preparará la cotización por ti, o completa los datos manualmente.</div>
+            <div class="wz-ai-context-box">
+                <div class="wz-form-group">
+                    <label>Describe el proyecto en detalle:</label>
+                    <textarea id="wz-ai-context" placeholder="Ej: Necesito una aplicación móvil para gestión de inventario con sincronización en la nube, facturación electrónica y reportes. El proyecto debe entregarse en 3 meses. Presupuesto aproximado RD$ 500,000..." style="min-height:140px;"></textarea>
+                </div>
+                <button type="button" class="btn-wz-primary wz-btn-ai-full" style="width:100%;padding:12px;">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i> Generar Cotización Completa con IA
+                </button>
+            </div>
+            <div class="wz-form-group">
+                <label>Asunto de la Cotización</label>
+                <input type="text" data-wz-field="subject" placeholder="Ej: Desarrollo de Sistema de Facturación Electrónica">
+            </div>
+            <div class="wz-form-group">
+                <label>Notas / Observaciones Generales</label>
+                <textarea data-wz-field="notes" rows="3" placeholder="Cualquier información adicional relevante..."></textarea>
+            </div>
+            <div style="display:flex;gap:12px;">
+                <div class="wz-form-group" style="flex:1;">
+                    <label>Moneda</label>
+                    <select data-wz-field="currency" style="height:38px;">
+                        <option value="RD$">RD$ (Peso Dominicano)</option>
+                        <option value="US$">US$ (Dólar Americano)</option>
+                        <option value="EUR">EUR (Euro)</option>
+                    </select>
+                </div>
+                <div class="wz-form-group" style="flex:1;">
+                    <label>Vigencia (días)</label>
+                    <input type="number" data-wz-field="validityDays" value="15" min="1" max="90" style="height:38px;">
+                </div>
+            </div>
+        </div>
+
+        <!-- STEP 2: Datos del Cliente -->
+        <div class="wz-step" data-step="2">
+            <div class="wz-step-title">Datos del Cliente</div>
+            <div class="wz-step-desc">Selecciona un cliente existente o ingresa los datos manualmente.</div>
+
+            <div class="wz-form-group">
+                <label>Buscar Cliente</label>
+                <input type="text" id="wz-client-search" placeholder="Buscar por nombre, RNC o email..." style="margin-bottom:6px;">
+            </div>
+            <div class="wz-form-group">
+                <label>Cliente Existente</label>
+                <select id="wz-client" size="6" style="min-height:60px;">
+                    <option value="">-- Seleccionar Cliente Existente --</option>
+                </select>
+            </div>
+
+            <hr style="border:none;border-top:1px solid #e2e8f0;margin:16px 0;">
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                <div class="wz-form-group">
+                    <label>Nombre / Razón Social</label>
+                    <input type="text" data-wz-field="clientName" placeholder="Nombre del cliente o empresa">
+                </div>
+                <div class="wz-form-group">
+                    <label>RNC / Cédula</label>
+                    <input type="text" data-wz-field="clientRNC" placeholder="1-31-XXXXXX-X">
+                </div>
+                <div class="wz-form-group">
+                    <label>Persona de Contacto</label>
+                    <input type="text" data-wz-field="clientContact" placeholder="Nombre de contacto">
+                </div>
+                <div class="wz-form-group">
+                    <label>Email</label>
+                    <input type="email" data-wz-field="clientEmail" placeholder="cliente@empresa.com">
+                </div>
+                <div class="wz-form-group">
+                    <label>Teléfono</label>
+                    <input type="text" data-wz-field="clientPhone" placeholder="809-XXX-XXXX">
+                </div>
+                <div class="wz-form-group">
+                    <label>Dirección</label>
+                    <input type="text" data-wz-field="clientAddress" placeholder="Dirección fiscal">
+                </div>
+            </div>
+        </div>
+
+        <!-- STEP 3: Alcance y Entregables -->
+        <div class="wz-step" data-step="3">
+            <div class="wz-step-title">Alcance del Proyecto</div>
+            <div class="wz-step-desc">Define los items, alcance y entregables del proyecto.</div>
+
+            <div class="wz-section-header">
+                <h3>Partidas / Servicios</h3>
+                <div>
+                    <button type="button" class="btn-wz-ai wz-btn-ai-section" data-section="items">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i> Ayuda con IA
+                    </button>
+                </div>
+            </div>
+            <div id="wz-items-container"></div>
+            <div style="display:flex;gap:8px;margin-bottom:20px;">
+                <button type="button" class="wz-add-btn wz-add-item">
+                    <i class="fa-solid fa-plus"></i> Agregar Partida
+                </button>
+                <button type="button" class="wz-add-btn" id="wz-catalog-open-btn" style="background:#eef2ff;color:#4f46e5;border-color:#c7d2fe;">
+                    <i class="fa-solid fa-box"></i> Buscar en Catálogo
+                </button>
+            </div>
+
+            <div class="wz-scope-grid">
+                <div class="wz-scope-column">
+                    <h4><i class="fa-solid fa-check-circle" style="color:#16a34a;"></i> Incluye</h4>
+                    <div class="wz-scope-included-list"></div>
+                    <button type="button" class="wz-add-btn wz-add-scope-include" style="margin-top:8px;">
+                        <i class="fa-solid fa-plus"></i> Agregar
+                    </button>
+                </div>
+                <div class="wz-scope-column">
+                    <h4><i class="fa-solid fa-xmark-circle" style="color:#dc2626;"></i> No Incluye</h4>
+                    <div class="wz-scope-excluded-list"></div>
+                    <button type="button" class="wz-add-btn wz-add-scope-exclude" style="margin-top:8px;">
+                        <i class="fa-solid fa-plus"></i> Agregar
+                    </button>
+                </div>
+            </div>
+
+            <hr style="border:none;border-top:1px solid #e2e8f0;margin:20px 0;">
+
+            <div class="wz-section-header">
+                <h3>Entregables</h3>
+                <button type="button" class="btn-wz-ai wz-btn-ai-section" data-section="deliverables">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i> Ayuda con IA
+                </button>
+            </div>
+            <div id="wz-deliverables-container">
+                <p style="color:#94a3b8;font-size:13px;text-align:center;padding:12px;">Sin entregables definidos</p>
+            </div>
+            <button type="button" class="wz-add-btn wz-add-deliverable" style="margin-top:8px;">
+                <i class="fa-solid fa-plus"></i> Agregar Entregable
+            </button>
+        </div>
+
+        <!-- STEP 4: Cronograma -->
+        <div class="wz-step" data-step="4">
+            <div class="wz-step-title">Cronograma del Proyecto</div>
+            <div class="wz-step-desc">Define las fases y tiempos estimados de entrega.</div>
+
+            <div class="wz-section-header">
+                <h3>Fases del Proyecto</h3>
+                <button type="button" class="btn-wz-ai wz-btn-ai-section" data-section="timeline">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i> Ayuda con IA
+                </button>
+            </div>
+            <div id="wz-timeline-container">
+                <p style="color:#94a3b8;font-size:13px;text-align:center;padding:12px;">Sin fases definidas</p>
+            </div>
+            <button type="button" class="wz-add-btn wz-add-timeline" style="margin-top:8px;">
+                <i class="fa-solid fa-plus"></i> Agregar Fase
+            </button>
+
+            <hr style="border:none;border-top:1px solid #e2e8f0;margin:20px 0;">
+
+            <div class="wz-form-group">
+                <label>Tiempo Total Estimado de Entrega</label>
+                <input type="text" data-wz-field="deliveryTimeTotal" placeholder="Ej: 8 semanas laborables">
+            </div>
+        </div>
+
+        <!-- STEP 5: Inversión y Pagos -->
+        <div class="wz-step" data-step="5">
+            <div class="wz-step-title">Inversión y Forma de Pago</div>
+            <div class="wz-step-desc">Revisa los totales y define el plan de pagos.</div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+                <div class="wz-form-group">
+                    <label>Tipo de Pago</label>
+                    <select data-wz-field="paymentType">
+                        <option value="Contado">Contado</option>
+                        <option value="Crédito">Crédito</option>
+                        <option value="Anticipado">Anticipado</option>
+                        <option value="Por Fases" selected>Por Fases</option>
+                    </select>
+                </div>
+                <div class="wz-form-group">
+                    <label>Método de Pago</label>
+                    <select data-wz-field="paymentMethod">
+                        <option value="Transferencia Bancaria" selected>Transferencia Bancaria</option>
+                        <option value="Cheque">Cheque</option>
+                        <option value="Depósito Bancario">Depósito Bancario</option>
+                        <option value="Efectivo">Efectivo</option>
+                        <option value="Tarjeta Crédito/Débito">Tarjeta Crédito/Débito</option>
+                    </select>
+                </div>
+                <div class="wz-form-group">
+                    <label>Descuento Global (%)</label>
+                    <input type="number" data-wz-field="discountRate" value="0" min="0" max="100" step="1">
+                </div>
+            </div>
+
+            <div class="wz-section-header">
+                <h3>Plan de Pagos Proyectado</h3>
+                <button type="button" class="btn-wz-ai wz-btn-ai-section" data-section="payment">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i> Ayuda con IA
+                </button>
+            </div>
+            <div id="wz-payment-container">
+                <p style="color:#94a3b8;font-size:13px;text-align:center;padding:12px;">Sin plan de pagos definido</p>
+            </div>
+            <div class="payment-pct-sum" id="payment-pct-sum">Total: 0%</div>
+            <button type="button" class="wz-add-btn wz-add-payment" style="margin-top:8px;">
+                <i class="fa-solid fa-plus"></i> Agregar Hito de Pago
+            </button>
+        </div>
+
+        <!-- STEP 6: Términos y Revisión -->
+        <div class="wz-step" data-step="6">
+            <div class="wz-step-title">Términos Legales y Condiciones</div>
+            <div class="wz-step-desc">Configura los términos legales de la cotización. Revisa la vista previa del PDF a la derecha.</div>
+
+            <div class="wz-form-group">
+                <label style="display:flex;justify-content:space-between;">
+                    <span>Términos y Condiciones</span>
+                    <button type="button" class="btn-wz-ai wz-btn-ai-section" data-section="terms" style="font-size:11px;"><i class="fa-solid fa-wand-magic-sparkles"></i> IA</button>
+                </label>
+                <textarea data-wz-field="termsAndConditions" rows="3" placeholder="Condiciones generales del servicio..."></textarea>
+            </div>
+
+            <div class="wz-form-group">
+                <label style="display:flex;justify-content:space-between;">
+                    <span>Propiedad Intelectual</span>
+                    <button type="button" class="btn-wz-ai wz-btn-ai-section" data-section="terms" style="font-size:11px;"><i class="fa-solid fa-wand-magic-sparkles"></i> IA</button>
+                </label>
+                <textarea data-wz-field="intellectualProperty" rows="2" placeholder="Cláusula de propiedad intelectual..."></textarea>
+            </div>
+
+            <div class="wz-form-group">
+                <label style="display:flex;justify-content:space-between;">
+                    <span>Confidencialidad</span>
+                    <button type="button" class="btn-wz-ai wz-btn-ai-section" data-section="terms" style="font-size:11px;"><i class="fa-solid fa-wand-magic-sparkles"></i> IA</button>
+                </label>
+                <textarea data-wz-field="confidentiality" rows="2" placeholder="Cláusula de confidencialidad..."></textarea>
+            </div>
+
+            <div class="wz-form-group">
+                <label>Términos de Soporte Post-Entrega</label>
+                <textarea data-wz-field="supportTerms" rows="2" placeholder="Soporte incluido, tiempos de respuesta, alcance..."></textarea>
+            </div>
+
+            <div class="wz-form-group">
+                <label>Garantía</label>
+                <textarea data-wz-field="warrantyTerms" rows="2" placeholder="Garantía sobre errores, período de corrección..."></textarea>
+            </div>
+
+            <div class="wz-form-group">
+                <label>Observaciones Adicionales</label>
+                <textarea data-wz-field="observations" rows="2" placeholder="Cualquier información adicional..."></textarea>
+            </div>
+
+            <div class="wz-save-section">
+                <button type="button" id="wz-save-btn" class="btn btn-primary" style="display:none;padding:14px 40px;font-size:16px;">
+                    <i class="fa-solid fa-floppy-disk"></i> Guardar Cotización
+                </button>
+            </div>
+        </div>
+
+        <!-- Navigation Buttons -->
+        <div class="wz-nav-buttons">
+            <button type="button" class="btn-wz-secondary wz-nav-prev" style="display:none;">
+                <i class="fa-solid fa-arrow-left"></i> Anterior
+            </button>
+            <div style="flex:1;"></div>
+            <button type="button" class="btn-wz-primary wz-nav-next">
+                Siguiente <i class="fa-solid fa-arrow-right"></i>
+            </button>
+        </div>
+    </div>
+
+    <div class="wz-preview-panel">
+        <div class="wz-preview-header">
+            <i class="fa-solid fa-eye" style="color:#7c3aed;"></i>
+            Vista Previa del Documento
+            <span style="font-size:11px;color:#94a3b8;font-weight:400;">
+                (se actualiza automáticamente)
+            </span>
+        </div>
+        <div class="wz-preview-body">
+            <div class="wz-preview-container" id="wz-preview-container">
+                <div style="padding:40px;text-align:center;color:#94a3b8;">
+                    <i class="fa-solid fa-file-pen" style="font-size:48px;display:block;margin-bottom:12px;"></i>
+                    Complete los datos para ver la vista previa
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="wz-toast-container"></div>
+
+<!-- Item Edit Modal -->
+<div class="wz-item-edit-modal" id="wz-item-edit-modal">
+    <div class="wz-item-edit-content">
+        <div class="wz-item-edit-header">
+            <h3><i class="fa-solid fa-pen"></i> Editar Partida</h3>
+            <button type="button" class="wz-item-edit-close" id="wz-item-edit-close">&times;</button>
+        </div>
+        <div class="wz-item-edit-body">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+                <div class="wz-edit-field">
+                    <label>Código</label>
+                    <input type="text" id="edit-item-code" placeholder="Código interno">
+                </div>
+                <div class="wz-edit-field">
+                    <label>Cantidad</label>
+                    <input type="number" id="edit-item-qty" min="1" value="1">
+                </div>
+            </div>
+            <div class="wz-edit-field">
+                <label>Nombre / Descripción</label>
+                <input type="text" id="edit-item-name" placeholder="Nombre del producto o servicio">
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;">
+                <div class="wz-edit-field">
+                    <label>Precio Unitario</label>
+                    <input type="number" id="edit-item-price" step="0.01" min="0" value="0">
+                </div>
+                <div class="wz-edit-field">
+                    <label>ITBIS</label>
+                    <select id="edit-item-itbis">
+                        <option value="0.18">18%</option>
+                        <option value="0">0%</option>
+                    </select>
+                </div>
+                <div class="wz-edit-field">
+                    <label>Descuento %</label>
+                    <input type="number" id="edit-item-discount" min="0" max="100" step="1" value="0">
+                </div>
+            </div>
+            <div style="margin-top:12px;">
+                <button type="button" class="btn-edit-catalog" id="edit-add-catalog-btn">
+                    <i class="fa-solid fa-bookmark"></i> Agregar al Catálogo
+                </button>
+            </div>
+        </div>
+        <div class="wz-edit-footer">
+            <button type="button" class="btn-edit-cancel" id="edit-cancel-btn">Cancelar</button>
+            <button type="button" class="btn-edit-save" id="edit-save-btn"><i class="fa-solid fa-check"></i> Guardar Cambios</button>
+        </div>
+    </div>
+</div>
+
+<!-- Catalog Search Modal -->
+<div class="wz-catalog-modal" id="wz-catalog-modal">
+    <div class="wz-catalog-modal-content">
+        <div class="wz-catalog-modal-header">
+            <h3><i class="fa-solid fa-box"></i> Buscar Producto / Servicio</h3>
+            <button type="button" class="wz-catalog-modal-close" id="wz-catalog-modal-close">&times;</button>
+        </div>
+        <div class="wz-catalog-modal-search">
+            <input type="text" id="wz-catalog-search-input" placeholder="Escriba para buscar..." autofocus>
+        </div>
+        <div class="wz-catalog-modal-body" id="wz-catalog-modal-body">
+            <div class="wz-catalog-empty">Cargando catálogo...</div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/quotation_wizard.js') }}"></script>
+{% endblock %}

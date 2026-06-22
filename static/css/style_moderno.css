@@ -2368,3 +2368,11 @@ body.sandbox-mode .segment-header-icon.emerald {
 [data-theme="dark"] .sequence-card {
     border: 1px solid #475569 !important;
 }
+
+/* =========================================================================
+   QUOTATION WIZARD - ANIMATIONS
+   ========================================================================= */
+@keyframes slideInUp {
+    from { transform: translateY(20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}

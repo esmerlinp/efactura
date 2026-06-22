@@ -9,7 +9,7 @@ ENV/
 firebase-adminsdk.json
 *.log
 *.sqlite
-local_kodexone.db
+local_zentone.db
 
 # Caché de Python
 __pycache__/

@@ -339,7 +339,9 @@ def _cached_invoices(owner_uid, sandbox, quotations_only, include_all):
                     "branchId": data.get("branchId", "default-sucursal-principal"),
                     "createdAt": serialize_field(data.get("createdAt")),
                     "items": items,
-                    "pendingPaymentProof": data.get("pendingPaymentProof")
+                    "pendingPaymentProof": data.get("pendingPaymentProof"),
+                    "isProfessional": data.get("isProfessional", False),
+                    "professionalData": data.get("professionalData", {})
                 })
             invoices.sort(key=lambda x: x["date"] or "", reverse=True)
         except Exception as e:
@@ -529,7 +531,7 @@ class DatabaseService:
         print("🔥 Firebase Admin SDK verificado exitosamente.")
         
         try:
-            demo_email = "propietario@kodexone.com"
+            demo_email = "propietario@zentone.com"
             try:
                 auth.get_user_by_email(demo_email)
                 print(f"👤 Usuario Administrador Demo '{demo_email}' ya está registrado en Firebase Auth.")
@@ -1931,7 +1933,10 @@ class DatabaseService:
                         "invoiceNumberConsolidado": data.get("invoiceNumberConsolidado", ""),
                         "encfConsolidado": data.get("encfConsolidado", ""),
                         "items": items,
-                        "pendingPaymentProof": data.get("pendingPaymentProof")
+                        "pendingPaymentProof": data.get("pendingPaymentProof"),
+                        "isProfessional": data.get("isProfessional", False),
+                        "professionalData": data.get("professionalData", {}),
+                        "signatureInfo": data.get("signatureInfo")
                     }
             except Exception as e:
                 print(f"⚠️ Error al obtener factura por ID desde Firestore: {e}")
@@ -3475,7 +3480,7 @@ class DatabaseService:
                         "id": doc.id,
                         "registerId": data.get("registerId"),
                         "openedByUserId": data.get("openedByUserId"),
-                        "openedByUserEmail": data.get("openedByUserEmail", "cajero@kodexone.com"),
+                        "openedByUserEmail": data.get("openedByUserEmail", "cajero@zentone.com"),
                         "openingTime": serialize_field(data.get("openingTime")),
                         "closingTime": serialize_field(data.get("closingTime")),
                         "openingAmount": float(data.get("openingAmount", 0.0)),

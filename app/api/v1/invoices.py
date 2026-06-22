@@ -109,7 +109,7 @@ def emit_invoice():
         # Consumir el siguiente consecutivo del rango fiscal DGII si no se ha asignado y no es cotización
         if not invoice_dict.get("encf"):
             ecf_short = get_ecf_type_short_code(invoice_dict["ecfType"])
-            user_email = g.company.get("companyEmail", "api@kodexone.com")
+            user_email = g.company.get("companyEmail", "api@zentone.com")
             
             # Bloquear secuencia y generar consecutivo transaccionalmente en Firestore
             encf, log_id = DatabaseService.consume_next_sequence(g.owner_uid, ecf_short, user_email, sandbox=g.sandbox_mode)

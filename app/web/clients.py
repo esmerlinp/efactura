@@ -767,3 +767,25 @@ def rnc_lookup():
     rnc = request.args.get('rnc', '')
     res = DGIIService.validate_and_fetch_rnc(rnc)
     return jsonify(res)
+
+@web_clients_bp.route('/api/clients/list')
+def api_clients_list():
+    if 'user' not in session:
+        return jsonify({"success": False, "error": "No autorizado"}), 401
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+    clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox)
+    result = []
+    for c in clients:
+        name = c.get('name') or c.get('tradeName') or c.get('companyName') or c.get('razonSocial') or c.get('businessName') or ''
+        rnc = c.get('rnc') or c.get('companyRNC') or ''
+        result.append({
+            "id": c['id'],
+            "name": name,
+            "rnc": rnc,
+            "email": c.get('email', ''),
+            "phone": c.get('phone') or c.get('telefono') or '',
+            "address": c.get('address', ''),
+            "contactPerson": c.get('contactPerson') or c.get('contactName', '')
+        })
+    return jsonify({"success": True, "clients": result})

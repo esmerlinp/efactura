@@ -133,7 +133,7 @@ class RecurrenceService:
                 if not is_quotation:
                     try:
                         company = DatabaseService.get_company_profile(owner_uid)
-                        user_email = company.get("companyEmail", "sistema@kodexone.com")
+                        user_email = company.get("companyEmail", "sistema@zentone.com")
                         ecf_short = get_ecf_type_short_code(new_invoice["ecfType"])
                         encf, log_id = DatabaseService.consume_next_sequence(owner_uid, ecf_short, user_email, sandbox=sandbox)
                         new_invoice["encf"] = encf
