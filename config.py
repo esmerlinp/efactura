@@ -58,7 +58,7 @@ class Config:
     DGII_USER_AGENT = os.getenv('DGII_USER_AGENT', 'e-FacturaWeb/1.0')
 
     # Nombre del producto (marca)
-    PRODUCT_NAME = os.getenv('PRODUCT_NAME', 'KodexOne')
+    PRODUCT_NAME = os.getenv('PRODUCT_NAME', 'ZentOne')
 
     # Flask-Caching
     CACHE_TYPE = os.getenv('CACHE_TYPE', 'SimpleCache')
