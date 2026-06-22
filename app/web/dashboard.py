@@ -305,7 +305,7 @@ def dashboard():
         if inv.get('emisionMode') == 'FALLBACK' and not inv.get('isSyncedWithDGII', True):
             emitted_at_str = inv.get('contingencyEmittedAt') or inv.get('date', now_utc.isoformat())
             try:
-                emitted_at = datetime.fromisoformat(emitted_at_str.replace('Z', '+00:00')).replace(tzinfo=None)
+                emitted_at = datetime.fromisoformat(emitted_at_str.replace('Z', '+00:00'))
             except Exception:
                 emitted_at = now_utc
             hours_elapsed = (now_utc - emitted_at).total_seconds() / 3600
