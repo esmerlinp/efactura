@@ -318,7 +318,7 @@ def download_csv_template():
         dest,
         mimetype="text/csv",
         as_attachment=True,
-        download_name="plantilla_items_kodexone.csv"
+        download_name="plantilla_items_zentone.csv"
     )
 
 @web_invoices_bp.route('/inventory/export-stock')

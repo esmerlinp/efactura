@@ -210,7 +210,7 @@ def create_app():
     def inject_global_brand():
         """Inyecta el nombre del producto y la marca de la empresa en todos los templates."""
         from flask import current_app, has_request_context
-        product_name = current_app.config.get('PRODUCT_NAME', 'KodexOne')
+        product_name = current_app.config.get('PRODUCT_NAME', 'ZentOne')
         logo_url = ''
         gradient_enabled = True
         color_marca = ''
