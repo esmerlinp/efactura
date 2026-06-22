@@ -67,6 +67,14 @@ def check_document_limit_exceeded(owner_uid, sandbox=True):
     return False, ""
 
 
+def _company_has_issued_documents(owner_uid, sandbox=True):
+    """Retorna True si la empresa tiene al menos un documento emitido (no borrador, no cotización)."""
+    invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox)
+    for inv in invoices:
+        if not inv.get('isQuotation') and inv.get('status') not in ('Borrador', 'Anulada'):
+            return True
+    return False
+
 
 # =========================================================================
 # CONTROLADORES DE RUTA - AUTENTICACIÓN
@@ -5009,6 +5017,22 @@ def company_settings():
     if request.method == 'POST':
         # Preservar logoUrl y configuraciones de marca existentes
         existing_profile = DatabaseService.get_company_profile(owner_uid)
+
+        # ── Validar cambios en RNC, Razón Social o Nombre Comercial si ya hay documentos emitidos ──
+        new_rnc = request.form.get('companyRNC', '').strip()
+        new_name = request.form.get('companyName', '').strip()
+        new_trade = request.form.get('tradeName', '').strip()
+        old_rnc = (existing_profile.get('companyRNC') or '').strip()
+        old_name = (existing_profile.get('companyName') or '').strip()
+        old_trade = (existing_profile.get('tradeName') or '').strip()
+        if (new_rnc != old_rnc or new_name != old_name or new_trade != old_trade) and _company_has_issued_documents(owner_uid, sandbox=session.get('is_sandbox_mode', True)):
+            flash(
+                'No es posible modificar el RNC ni la Razón Social porque la empresa ya tiene documentos '
+                'fiscales emitidos. Para realizar este cambio, contacta al administrador del portal '
+                'para un proceso de migración controlada con auditoría.',
+                'error'
+            )
+            return redirect(url_for('web_invoices.company_settings'))
         
         # Procesar certificado nuevo si se carga
         cert_file = request.files.get('certificateFile')
@@ -5134,7 +5158,8 @@ def company_settings():
 
     onboarding_success = request.args.get('onboarding_success') == 'true'
     show_wizard = False
-    return render_template('company_settings.html', active_page='settings', profile=profile, branches=branches, show_wizard=show_wizard, onboarding_success=onboarding_success, e_cf_provider=Config.E_CF_PROVIDER.lower())
+    has_issued_documents = _company_has_issued_documents(owner_uid, sandbox=session.get('is_sandbox_mode', True))
+    return render_template('company_settings.html', active_page='settings', profile=profile, branches=branches, show_wizard=show_wizard, onboarding_success=onboarding_success, has_issued_documents=has_issued_documents, e_cf_provider=Config.E_CF_PROVIDER.lower())
 
 @web_invoices_bp.route('/onboarding', methods=['GET', 'POST'])
 def onboarding_wizard():
