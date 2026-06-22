@@ -2960,14 +2960,35 @@ def send_quotation_to_client(invoice_id):
     return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
 
 
-@web_invoices_bp.route('/quotations/<invoice_id>/convert-to-contract', methods=['POST'])
-def convert_quotation_to_contract(invoice_id):
-    """Convierte una Cotización Aprobada en un Contrato Recurrente."""
+@web_invoices_bp.route('/invoices/contract-terms/ai-polish', methods=['POST'])
+def contract_terms_ai_polish():
+    """Mejora términos contractuales o notas comerciales con IA."""
+    if 'user' not in session:
+        return jsonify({"success": False, "message": "No autenticado"}), 401
+    owner_uid = session['user']['ownerUID']
+    data = request.get_json() or {}
+    content = data.get("content", "").strip()
+    context = data.get("context", "")
+    content_type = data.get("type", "terms")
+    if not content:
+        return jsonify({"success": False, "message": "Contenido vacío"}), 400
+
+    from app.services.ai_service import AIService
+    res = AIService.polish_contract_terms(owner_uid, content, context, content_type)
+    if res.get("success"):
+        return jsonify({"success": True, "text": res["text"]})
+    else:
+        return jsonify({"success": False, "message": res.get("message", "Error al procesar con IA")})
+
+
+@web_invoices_bp.route('/quotations/<invoice_id>/prepare-contract', methods=['GET'])
+def prepare_contract_page(invoice_id):
+    """Muestra formulario para preparar un contrato recurrente a partir de una cotización aprobada."""
     if 'user' not in session:
         return redirect(url_for('web_auth.login'))
     if not check_permission('canManageContracts'):
         return render_template('auth/restricted.html',
-                               feature_name="Convertir a Contrato",
+                               feature_name="Preparar Contrato",
                                required_permission="canManageContracts")
 
     owner_uid = session['user']['ownerUID']
@@ -2989,6 +3010,92 @@ def convert_quotation_to_contract(invoice_id):
     if invoice.get('isConvertedToContract'):
         flash('Esta cotización ya fue convertida a un contrato recurrente.', 'info')
         return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
+
+    # Extraer datos profesionales para contexto AI
+    pd = invoice.get('professionalData', {})
+    scope_lines = []
+    if pd.get('subject'):
+        scope_lines.append(f"Proyecto: {pd['subject']}")
+    if pd.get('scopeIncluded'):
+        scope_lines.append("Alcance incluye: " + "; ".join(pd['scopeIncluded']))
+    if pd.get('scopeExcluded'):
+        scope_lines.append("Alcance NO incluye: " + "; ".join(pd['scopeExcluded']))
+    scope_text = "\n".join(scope_lines)
+
+    ai_context_lines = []
+
+    total_amount = sum(
+        round(float(item.get('quantity', 1)) * float(item.get('price', 0)) *
+              (1 + float(item.get('itbisRate', 0.18))), 2)
+        for item in invoice.get('items', [])
+    )
+
+    ai_context_lines = [
+        f"Cliente: {invoice.get('clientName', '')} (RNC: {invoice.get('clientRNC', '')})",
+        f"Cotización: {invoice.get('invoiceNumber', '')}",
+        f"Monto total: RD$ {total_amount:,.2f}",
+    ]
+    if scope_text:
+        ai_context_lines.append(scope_text)
+    ai_context = "\n".join(ai_context_lines)
+
+    # Pre-llenar términos desde professionalData + notes
+    default_terms = ""
+    if pd.get('termsAndConditions'):
+        default_terms += pd['termsAndConditions'] + "\n\n"
+    if pd.get('intellectualProperty'):
+        default_terms += "Propiedad Intelectual:\n" + pd['intellectualProperty'] + "\n\n"
+    if pd.get('confidentiality'):
+        default_terms += "Confidencialidad:\n" + pd['confidentiality'] + "\n\n"
+    if pd.get('supportTerms'):
+        default_terms += "Soporte Post-Entrega:\n" + pd['supportTerms'] + "\n\n"
+    if pd.get('warrantyTerms'):
+        default_terms += "Garantía:\n" + pd['warrantyTerms']
+    if not default_terms.strip():
+        default_terms = invoice.get('notes', '')
+
+    default_notes = invoice.get('notes', '')
+    if default_notes and default_notes.strip() == default_terms.strip():
+        default_notes = ""
+
+    return render_template(
+        'contracts/prepare_contract.html',
+        active_page='quotations',
+        invoice=invoice,
+        default_terms=default_terms,
+        default_notes=default_notes,
+        default_frequency='mensual',
+        default_start_date=datetime.now(timezone.utc).strftime('%Y-%m-%d'),
+        total_amount=total_amount,
+        ai_context=ai_context,
+        pd=pd
+    )
+
+
+@web_invoices_bp.route('/quotations/<invoice_id>/prepare-contract', methods=['POST'])
+def prepare_contract_submit(invoice_id):
+    """Crea el contrato con los términos modificados por el usuario."""
+    if 'user' not in session:
+        return redirect(url_for('web_auth.login'))
+    if not check_permission('canManageContracts'):
+        return render_template('auth/restricted.html',
+                               feature_name="Preparar Contrato",
+                               required_permission="canManageContracts")
+
+    owner_uid = session['user']['ownerUID']
+    sandbox   = session.get('is_sandbox_mode', True)
+
+    invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+    if not invoice or not invoice.get('isQuotation') or invoice.get('status') != 'Aprobada' or invoice.get('isConvertedToContract'):
+        flash('No se puede convertir esta cotización.', 'error')
+        return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
+
+    terms = request.form.get('contract_terms', '').strip()
+    notes = request.form.get('contract_notes', '').strip()
+    frequency = request.form.get('frequency', 'mensual')
+    start_date = request.form.get('start_date', datetime.now(timezone.utc).strftime('%Y-%m-%d'))
+    auto_renew = request.form.get('auto_renew') == 'on'
+    auto_send_email = request.form.get('auto_send_email') == 'on'
 
     # ── Mapear ítems de la cotización a contractLines ─────────────────────────
     contract_lines = []
@@ -3017,37 +3124,38 @@ def convert_quotation_to_contract(invoice_id):
 
     # ── Construir contrato ────────────────────────────────────────────────────
     from app.services.recurrence import RecurrenceService
-    from datetime import datetime
-    import uuid, random
+    import random
 
     now_iso       = datetime.now(timezone.utc).isoformat()
-    today_str     = datetime.now(timezone.utc).strftime('%Y-%m-%d')
     random_num    = f"{random.randint(1, 999999):06d}"
     contract_id   = str(uuid.uuid4())
     contract_num  = f"CONT-{random_num}"
 
-    # Primera factura: en un mes (no inmediata, para dar tiempo de revisión)
-    first_billing = RecurrenceService.calculate_next_date(today_str, 'mensual')
+    first_billing = RecurrenceService.calculate_next_date(start_date, frequency)
+
+    combined_notes = terms
+    if notes:
+        combined_notes += "\n\n--- Notas Comerciales ---\n" + notes
 
     contract_dict = {
         'id':              contract_id,
         'contractNumber':  contract_num,
-        'quotationId':     invoice_id,          # Trazabilidad hacia la cotización
+        'quotationId':     invoice_id,
         'clientId':        invoice.get('clientId', ''),
         'clientName':      invoice.get('clientName', ''),
         'clientRNC':       invoice.get('clientRNC', ''),
         'status':          'Activo',
-        'frequency':       'mensual',
-        'recurrenceInterval': 'mensual',
-        'startDate':       today_str,
+        'frequency':       frequency,
+        'recurrenceInterval': frequency,
+        'startDate':       start_date,
         'nextBillingDate': first_billing,
         'endDate':         '',
-        'autoRenew':       False,
-        'autoSendEmail':   False,
+        'autoRenew':       auto_renew,
+        'autoSendEmail':   auto_send_email,
         'contractLines':   contract_lines,
         'amount':          round(total_amount, 2),
         'itemId':          contract_lines[0]['itemId'] if contract_lines else '',
-        'notes':           invoice.get('notes', ''),
+        'notes':           combined_notes,
         'createdAt':       now_iso,
         'updatedAt':       now_iso,
     }
@@ -3064,6 +3172,18 @@ def convert_quotation_to_contract(invoice_id):
         'success'
     )
     return redirect(url_for('web_operations.contract_detail', contract_id=contract_id))
+
+
+@web_invoices_bp.route('/quotations/<invoice_id>/convert-to-contract', methods=['POST'])
+def convert_quotation_to_contract(invoice_id):
+    """Redirige al formulario de preparación de contrato."""
+    if 'user' not in session:
+        return redirect(url_for('web_auth.login'))
+    if not check_permission('canManageContracts'):
+        return render_template('auth/restricted.html',
+                               feature_name="Convertir a Contrato",
+                               required_permission="canManageContracts")
+    return redirect(url_for('web_invoices.prepare_contract_page', invoice_id=invoice_id))
 
 
 @web_invoices_bp.route('/invoices/<invoice_id>/qr-image')

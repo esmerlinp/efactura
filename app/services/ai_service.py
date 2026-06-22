@@ -426,3 +426,64 @@ Importante:
         except Exception as e:
             return {"success": False, "message": str(e)}
 
+    @classmethod
+    def polish_contract_terms(cls, owner_uid, content, context="", content_type="terms"):
+        """
+        Mejora y completa términos contractuales utilizando GPT-4o-mini con contexto legal.
+        content_type puede ser "terms" (términos legales) o "notes" (notas comerciales).
+        """
+        api_key = cls._get_api_key(owner_uid)
+        if not api_key or api_key == "YOUR_OPENAI_API_KEY_HERE":
+            return {"success": False, "message": "API Key de OpenAI no configurada."}
+
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {api_key}"
+        }
+
+        if content_type == "terms":
+            system_prompt = f"""Eres un asistente legal especializado en redacción de contratos para {get_product_name()}.
+Tu tarea es mejorar y completar los términos y condiciones de un contrato, corrigiendo ortografía, mejorando redacción y haciéndolos más profesionales y completos desde el punto de vista legal.
+
+Contexto del contrato:
+{context}
+
+Importante:
+- Corrige errores gramaticales u ortográficos.
+- Mejora la redacción para que sea clara, profesional y юридически sólida.
+- Mantén el significado original intacto.
+- Si el texto es muy corto o genérico, puedes completarlo con cláusulas estándar apropiadas.
+- Retorna ÚNICAMENTE el texto mejorado, sin explicaciones ni comillas."""
+        else:
+            system_prompt = f"""Eres un asistente inteligente para {get_product_name()}. 
+Tu tarea es mejorar las notas comerciales de un contrato, corrigiendo ortografía, mejorando redacción y haciéndolas más profesionales.
+
+Contexto del contrato:
+{context}
+
+Importante:
+- Corrige errores gramaticales u ortográficos.
+- Mantén el significado original intacto.
+- Retorna ÚNICAMENTE el texto mejorado, sin explicaciones ni comillas."""
+
+        payload = {
+            "model": "gpt-4o-mini",
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": content}
+            ],
+            "temperature": 0.3,
+            "max_tokens": 1200
+        }
+
+        try:
+            url = "https://api.openai.com/v1/chat/completions"
+            response = requests.post(url, headers=headers, json=payload, timeout=20)
+            if response.status_code == 200:
+                polished_text = response.json()["choices"][0]["message"]["content"].strip()
+                return {"success": True, "text": polished_text}
+            else:
+                return {"success": False, "message": f"Error API OpenAI: {response.text}"}
+        except Exception as e:
+            return {"success": False, "message": str(e)}
+

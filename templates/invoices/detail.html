@@ -979,16 +979,12 @@
                 Genera un contrato mensual recurrente a partir de esta cotización aprobada. Las facturas se emitirán
                 automáticamente.
             </p>
-            <form action="{{ url_for('web_invoices.convert_quotation_to_contract', invoice_id=invoice.id) }}"
-                method="POST" style="margin: 0;"
-                onsubmit="return confirm('¿Convertir esta cotización en un Contrato Recurrente mensual?\n\nPodrás editar la frecuencia y configuración desde el detalle del contrato.')">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <button type="submit" class="btn btn-primary"
-                    style="width: 100%; background: linear-gradient(135deg, #059669, #10b981); border: none; color: white; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
-                    <i class="fa-solid fa-file-contract"></i>
-                    <span>Crear Contrato Recurrente</span>
-                </button>
-            </form>
+            <a href="{{ url_for('web_invoices.prepare_contract_page', invoice_id=invoice.id) }}"
+                class="btn btn-primary"
+                style="width: 100%; background: linear-gradient(135deg, #059669, #10b981); border: none; color: white; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; box-sizing: border-box;">
+                <i class="fa-solid fa-file-contract"></i>
+                <span>Crear Contrato Recurrente</span>
+            </a>
         </div>
         {% elif invoice.isConvertedToContract %}
         <div class="card-table-wrapper no-print"
