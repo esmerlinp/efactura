@@ -1,0 +1,174 @@
+{% extends "layout.html" %}
+
+{% block title %}Preparar Contrato - {{ invoice.invoiceNumber }}{% endblock %}
+
+{% block page_header %}Preparar Contrato Recurrente{% endblock %}
+
+{% block content %}
+<div style="max-width: 960px; margin: 0 auto;">
+  <div class="card-table-wrapper" style="padding: 32px 36px;">
+    <!-- Encabezado -->
+    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 20px; margin-bottom: 24px;">
+      <div>
+        <span style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600; display: block; margin-bottom: 4px;">Desde Cotización</span>
+        <h2 style="font-size: 1.4rem; font-weight: 800; font-family: var(--font-heading); margin: 0;">{{ invoice.invoiceNumber }}</h2>
+      </div>
+      <div style="text-align: right;">
+        <span style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); font-weight: 600; display: block; margin-bottom: 4px;">Cliente</span>
+        <strong style="font-size: 1rem;">{{ invoice.clientName }}</strong>
+        <div style="font-size: 0.8rem; color: var(--text-secondary);">RNC: {{ invoice.clientRNC }}</div>
+      </div>
+    </div>
+
+    <!-- Resumen de Items -->
+    <div style="margin-bottom: 28px;">
+      <span style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); font-weight: 700; display: block; margin-bottom: 8px;">Productos / Servicios</span>
+      <table style="width:100%; border-collapse:collapse; font-size: 0.85rem;">
+        <thead>
+          <tr style="border-bottom: 1px solid var(--border-color);">
+            <th style="text-align:left; padding: 6px 8px; font-weight: 600; color: var(--text-secondary);">Descripción</th>
+            <th style="text-align:center; padding: 6px 8px; font-weight: 600; color: var(--text-secondary);">Cant.</th>
+            <th style="text-align:right; padding: 6px 8px; font-weight: 600; color: var(--text-secondary);">Precio</th>
+            <th style="text-align:right; padding: 6px 8px; font-weight: 600; color: var(--text-secondary);">ITBIS</th>
+            <th style="text-align:right; padding: 6px 8px; font-weight: 600; color: var(--text-secondary);">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in invoice.get('items', []) %}
+          <tr style="border-bottom: 1px solid #f1f5f9;">
+            <td style="padding: 6px 8px; font-weight: 600;">{{ item.name }}</td>
+            <td style="padding: 6px 8px; text-align:center;">{{ item.quantity }}</td>
+            <td style="padding: 6px 8px; text-align:right;">RD$ {{ "{:,.2f}".format(item.price) }}</td>
+            <td style="padding: 6px 8px; text-align:right;">RD$ {{ "{:,.2f}".format(item.itbisAmount) }}</td>
+            <td style="padding: 6px 8px; text-align:right; font-weight: 700;">RD$ {{ "{:,.2f}".format(item.total) }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <div style="text-align:right; margin-top: 8px; font-size: 1.05rem; font-weight: 800; color: var(--accent-emerald);">
+        Total: RD$ {{ "{:,.2f}".format(total_amount) }}
+      </div>
+    </div>
+
+    <!-- Formulario de Configuración del Contrato -->
+    <form method="POST" action="{{ url_for('web_invoices.prepare_contract_submit', invoice_id=invoice.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px;">
+        <div>
+          <label style="font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 4px;">Frecuencia de Facturación</label>
+          <select name="frequency" required style="width:100%; padding: 8px 12px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); font-size: 0.9rem;">
+            <option value="semanal" {% if default_frequency == 'semanal' %}selected{% endif %}>Semanal</option>
+            <option value="quincenal" {% if default_frequency == 'quincenal' %}selected{% endif %}>Quincenal</option>
+            <option value="mensual" {% if default_frequency == 'mensual' %}selected{% endif %}>Mensual</option>
+            <option value="trimestral" {% if default_frequency == 'trimestral' %}selected{% endif %}>Trimestral</option>
+            <option value="semestral" {% if default_frequency == 'semestral' %}selected{% endif %}>Semestral</option>
+            <option value="anual" {% if default_frequency == 'anual' %}selected{% endif %}>Anual</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 4px;">Fecha de Inicio</label>
+          <input type="date" name="start_date" value="{{ default_start_date }}" required style="width:100%; padding: 8px 12px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); font-size: 0.9rem;">
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 24px; margin-bottom: 24px;">
+        <label style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--text-secondary); cursor: pointer;">
+          <input type="checkbox" name="auto_renew" style="width:16px;height:16px;">
+          <span><strong>Renovación Automática</strong><br><small style="color: var(--text-muted);">El contrato se renovará al vencimiento</small></span>
+        </label>
+        <label style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--text-secondary); cursor: pointer;">
+          <input type="checkbox" name="auto_send_email" style="width:16px;height:16px;">
+          <span><strong>Enviar Factura por Email</strong><br><small style="color: var(--text-muted);">Cada factura se enviará automáticamente al cliente</small></span>
+        </label>
+      </div>
+
+      <!-- Términos y Condiciones del Contrato con IA -->
+      <div style="margin-bottom: 20px;">
+        <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; display: block; margin-bottom: 4px;">
+          <i class="fa-solid fa-file-signature" style="margin-right: 4px;"></i>Términos y Condiciones del Contrato
+        </label>
+        <div style="position: relative;">
+          <textarea name="contract_terms" id="contract_terms" rows="14" style="width:100%; padding: 10px 12px; padding-bottom: 36px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); font-size: 0.85rem; font-family: inherit; line-height: 1.5; resize:vertical; background:#fff;">{{ default_terms }}</textarea>
+          <button type="button" onclick="polishContractTerms('contract_terms', 'terms', this)" title="Corregir ortografía y mejorar redacción con nuestra IA"
+            style="position: absolute; right: 8px; bottom: 8px; background: rgba(124,58,237,0.1); border: 1px solid rgba(124,58,237,0.3); color: #7c3aed; width: 28px; height: 28px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; padding: 0;">
+            <i class="fa-solid fa-wand-magic-sparkles"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Notas Comerciales con IA -->
+      <div style="margin-bottom: 28px;">
+        <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; display: block; margin-bottom: 4px;">
+          <i class="fa-solid fa-note-sticky" style="margin-right: 4px;"></i>Notas Comerciales
+        </label>
+        <div style="position: relative;">
+          <textarea name="contract_notes" id="contract_notes" rows="8" style="width:100%; padding: 10px 12px; padding-bottom: 36px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); font-size: 0.85rem; font-family: inherit; line-height: 1.5; resize:vertical; background:#fff;">{{ default_notes }}</textarea>
+          <button type="button" onclick="polishContractTerms('contract_notes', 'notes', this)" title="Corregir ortografía y mejorar redacción con nuestra IA"
+            style="position: absolute; right: 8px; bottom: 8px; background: rgba(124,58,237,0.1); border: 1px solid rgba(124,58,237,0.3); color: #7c3aed; width: 28px; height: 28px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; padding: 0;">
+            <i class="fa-solid fa-wand-magic-sparkles"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Acciones -->
+      <div style="display: flex; justify-content: flex-end; gap: 12px; border-top: 1px solid var(--border-color); padding-top: 20px;">
+        <a href="{{ url_for('web_invoices.invoice_detail', invoice_id=invoice.id) }}" class="btn btn-secondary" style="display: inline-flex; align-items: center; gap: 6px;">
+          <i class="fa-solid fa-arrow-left"></i> Cancelar
+        </a>
+        <button type="submit" class="btn btn-primary" style="display: inline-flex; align-items: center; gap: 8px; background: linear-gradient(135deg, #059669, #10b981); border: none; color: white; font-weight: 700; padding: 12px 28px;">
+          <i class="fa-solid fa-file-contract"></i>
+          <span>Crear Contrato Activo</span>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function polishContractTerms(textareaId, type, button) {
+  const textarea = document.getElementById(textareaId);
+  const originalContent = textarea.value.trim();
+  if (!originalContent) {
+    alert("Escribe algo de texto primero para poder mejorarlo con la IA.");
+    return;
+  }
+
+  const originalHtml = button.innerHTML;
+  button.disabled = true;
+  button.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Mejorando...';
+
+  fetch('{{ url_for("web_invoices.contract_terms_ai_polish") }}', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      content: originalContent,
+      context: {{ ai_context | tojson | safe }},
+      type: type
+    })
+  })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        textarea.value = data.text;
+        button.innerHTML = '<i class="fa-solid fa-check" style="color: #10b981;"></i> Mejorado';
+        setTimeout(() => {
+          button.disabled = false;
+          button.innerHTML = originalHtml;
+        }, 2500);
+      } else {
+        alert("Error al mejorar con IA: " + data.message);
+        button.disabled = false;
+        button.innerHTML = originalHtml;
+      }
+    })
+    .catch(error => {
+      alert("Error de red al conectar con la IA: " + error.message);
+      button.disabled = false;
+      button.innerHTML = originalHtml;
+    });
+}
+</script>
+{% endblock %}
