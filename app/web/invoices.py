@@ -871,11 +871,24 @@ def list_quotations():
 @web_invoices_bp.route('/invoices/new', methods=['GET', 'POST'])
 @web_invoices_bp.route('/invoices/<invoice_id>/edit', methods=['GET', 'POST'])
 def new_invoice_route(invoice_id=None):
+    if invoice_id and 'user' in session:
+        owner_uid = session['user']['ownerUID']
+        sandbox = session.get('is_sandbox_mode', True)
+        source = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+        if source and source.get('isProfessional'):
+            return redirect(url_for('web_invoices.professional_quotation_route', clone=invoice_id))
     return _new_document_helper(invoice_id=invoice_id, is_quotation=False)
 
 @web_invoices_bp.route('/quotations/new', methods=['GET', 'POST'])
 @web_invoices_bp.route('/quotations/<invoice_id>/edit', methods=['GET', 'POST'])
 def new_quotation_route(invoice_id=None):
+    # Redirect professional quotations to the professional wizard
+    if invoice_id and 'user' in session:
+        owner_uid = session['user']['ownerUID']
+        sandbox = session.get('is_sandbox_mode', True)
+        source = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+        if source and source.get('isProfessional'):
+            return redirect(url_for('web_invoices.professional_quotation_route', clone=invoice_id))
     return _new_document_helper(invoice_id=invoice_id, is_quotation=True)
 
 @web_invoices_bp.route('/invoices/<invoice_id>/update_status', methods=['POST'])
@@ -897,6 +910,13 @@ def update_invoice_status_ajax(invoice_id):
 
 def _new_document_helper(invoice_id=None, is_quotation=False):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
+    # Redirect professional quotations to the professional wizard
+    if invoice_id:
+        owner_uid = session['user']['ownerUID']
+        sandbox = session.get('is_sandbox_mode', True)
+        source = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+        if source and source.get('isProfessional'):
+            return redirect(url_for('web_invoices.professional_quotation_route', clone=invoice_id))
     if not check_permission('canInvoice'):
         return render_template('auth/restricted.html', feature_name="Emisión de Documentos", required_permission="canInvoice")
     owner_uid = session['user']['ownerUID']
@@ -941,7 +961,22 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
                             "reasonForModification": "Corrección de importes"
                         }
                     }
-
+            
+            # Clone quotation
+            clone_id = request.args.get('clone')
+            if clone_id:
+                source = DatabaseService.get_invoice(owner_uid, clone_id, sandbox=sandbox)
+                if source:
+                    existing_invoice = source.copy()
+                    existing_invoice.pop('id', None)
+                    existing_invoice['isQuotation'] = True
+                    existing_invoice['status'] = 'Borrador'
+                    existing_invoice['encf'] = ''
+                    existing_invoice.pop('convertedToInvoiceId', None)
+                    existing_invoice.pop('convertedInvoiceNumber', None)
+                    existing_invoice.pop('createdAt', None)
+                    existing_invoice.pop('createdBy', None)
+ 
     if existing_invoice:
         is_quotation_route = existing_invoice.get('isQuotation', False)
     else:
@@ -2678,7 +2713,25 @@ def convert_quotation_route(invoice_id):
     new_invoice['isConvertedToInvoice'] = True
     new_invoice['status'] = 'Borrador'  # Queda como borrador hasta firmarse
     
-    # 2. Mantener la cotización original (isQuotation=True) pero actualizar su estado a 'Facturada'
+    # 2. Auto-crear productos en el catálogo si la partida no existe o no tiene catalogId
+    for idx, inv_item in enumerate(new_invoice.get('items', [])):
+        catalog_id = inv_item.get('catalogId', '')
+        if not catalog_id:
+            new_item_id = str(uuid.uuid4())
+            new_item = {
+                "code": inv_item.get('code', ''),
+                "name": inv_item.get('name', 'Partida sin nombre'),
+                "price": float(inv_item.get('price', 0)),
+                "itbisRate": float(inv_item.get('itbisRate', 0.18)),
+                "type": "Servicio",
+                "unit": "Unidad",
+                "isActive": True
+            }
+            DatabaseService.save_item(owner_uid, new_item_id, new_item, sandbox=sandbox)
+            new_invoice['items'][idx]['catalogId'] = new_item_id
+        # If catalogId exists, the item already exists in the catalog — leave as is
+
+    # 3. Mantener la cotización original (isQuotation=True) pero actualizar su estado a 'Facturada'
     before_invoice = invoice.copy()
     invoice['status'] = 'Facturada'
     invoice['convertedToInvoiceId'] = new_invoice_id
@@ -7147,6 +7200,335 @@ def api_toggle_comment_reaction(resource_type, resource_id, comment_id):
         return jsonify(res)
     
     return jsonify({"success": False, "error": "Error al actualizar reacción"}), 500
+
+@web_invoices_bp.route('/quotations/new/professional', methods=['GET', 'POST'])
+def professional_quotation_route():
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
+    if not check_permission('canInvoice'):
+        return render_template('auth/restricted.html', feature_name="Cotización Personalizada", required_permission="canInvoice")
+    
+    if request.method == 'GET':
+        owner_uid = session['user']['ownerUID']
+        sandbox = session.get('is_sandbox_mode', True)
+        catalog = [it for it in DatabaseService.get_items(owner_uid, sandbox=sandbox) if it.get('isActive', True)]
+        
+        initial_data_json = 'null'
+        clone_id = request.args.get('clone')
+        if clone_id:
+            source = DatabaseService.get_invoice(owner_uid, clone_id, sandbox=sandbox)
+            if source and source.get('isProfessional'):
+                pd = source.get('professionalData', {})
+                initial_data = {
+                    "clientId": source.get('clientId', ''),
+                    "clientName": source.get('clientName', ''),
+                    "clientRNC": source.get('clientRNC', ''),
+                    "clientContact": source.get('clientContact', ''),
+                    "clientEmail": source.get('clientEmail', ''),
+                    "clientPhone": source.get('clientPhone', ''),
+                    "clientAddress": source.get('clientAddress', ''),
+                    "subject": pd.get('subject', ''),
+                    "items": [{
+                        "code": i.get('code', ''), "name": i.get('name', ''),
+                        "quantity": i.get('quantity', 1), "price": i.get('price', 0),
+                        "itbisRate": i.get('itbisRate', 0.18), "discountRate": i.get('discountRate', 0),
+                        "catalogId": i.get('catalogId', '')
+                    } for i in source.get('items', [])],
+                    "scopeIncluded": pd.get('scopeIncluded', []),
+                    "scopeExcluded": pd.get('scopeExcluded', []),
+                    "deliverables": pd.get('deliverables', []),
+                    "timeline": pd.get('timeline', []),
+                    "paymentSchedule": pd.get('paymentSchedule', []),
+                    "validityDays": pd.get('validityDays', 15),
+                    "termsAndConditions": pd.get('termsAndConditions', ''),
+                    "intellectualProperty": pd.get('intellectualProperty', ''),
+                    "confidentiality": pd.get('confidentiality', ''),
+                    "supportTerms": pd.get('supportTerms', ''),
+                    "warrantyTerms": pd.get('warrantyTerms', ''),
+                    "observations": pd.get('observations', ''),
+                    "deliveryTimeTotal": pd.get('deliveryTimeTotal', ''),
+                    "currency": pd.get('currency', source.get('currency', 'RD$')),
+                    "paymentType": pd.get('paymentType', source.get('paymentType', 'Transferencia Bancaria')),
+                    "paymentMethod": pd.get('paymentMethod', source.get('paymentMethod', 'Transferencia')),
+                    "notes": source.get('notes', ''),
+                    "discountRate": source.get('discountRate', 0)
+                }
+                initial_data_json = json.dumps(initial_data)
+        
+        return render_template('quotations/professional_new.html', catalog_json=json.dumps(catalog), initial_data_json=initial_data_json)
+    
+    # POST - save
+    if 'user' not in session:
+        return jsonify({"success": False, "message": "No autorizado"}), 401
+    if not check_permission('canInvoice'):
+        return jsonify({"success": False, "message": "Sin permisos"}), 403
+
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+    data = request.json or {}
+    user_display = session['user'].get('displayName', session['user'].get('email', 'Usuario'))
+
+    items = []
+    for item in data.get('items', []):
+        price = float(item.get('price', 0))
+        qty = float(item.get('quantity', 1))
+        itbis_rate = float(item.get('itbisRate', 0.18))
+        discount_rate = float(item.get('discountRate', 0)) / 100.0
+        subtotal = price * qty
+        discount_amt = subtotal * discount_rate
+        itbis_amt = (subtotal - discount_amt) * itbis_rate
+        total = subtotal - discount_amt + itbis_amt
+        items.append({
+            "code": item.get('code', ''),
+            "name": item.get('name', ''),
+            "quantity": qty,
+            "price": price,
+            "itbisRate": itbis_rate,
+            "discountRate": discount_rate,
+            "catalogId": item.get('catalogId', ''),
+            "subtotal": round(subtotal, 2),
+            "discountAmount": round(discount_amt, 2),
+            "itbis_amount": round(itbis_amt, 2),
+            "total": round(total, 2)
+        })
+
+    subtotal = sum(item['subtotal'] for item in items)
+    total_itbis = sum(item['itbis_amount'] for item in items)
+    total_discount = sum(item['discountAmount'] for item in items)
+    total = subtotal + total_itbis - total_discount
+
+    import random
+    inv_number = f"COT-{random.randint(1, 999999):06d}"
+    now = datetime.now(timezone.utc).isoformat()
+
+    professional_data = {
+        "subject": data.get('subject', ''),
+        "scopeIncluded": data.get('scopeIncluded', []),
+        "scopeExcluded": data.get('scopeExcluded', []),
+        "deliverables": data.get('deliverables', []),
+        "timeline": data.get('timeline', []),
+        "paymentSchedule": data.get('paymentSchedule', []),
+        "validityDays": int(data.get('validityDays', 15)),
+        "termsAndConditions": data.get('termsAndConditions', ''),
+        "intellectualProperty": data.get('intellectualProperty', ''),
+        "confidentiality": data.get('confidentiality', ''),
+        "supportTerms": data.get('supportTerms', ''),
+        "warrantyTerms": data.get('warrantyTerms', ''),
+        "observations": data.get('observations', ''),
+        "deliveryTimeTotal": data.get('deliveryTimeTotal', ''),
+        "currency": data.get('currency', 'RD$'),
+        "paymentType": data.get('paymentType', 'Transferencia Bancaria'),
+        "paymentMethod": data.get('paymentMethod', 'Transferencia'),
+    }
+
+    invoice_dict = {
+        "owner_uid": owner_uid,
+        "invoiceNumber": inv_number,
+        "date": now,
+        "dueDate": now,
+        "ecfType": "Cotización",
+        "isQuotation": True,
+        "isProfessional": True,
+        "professionalData": professional_data,
+        "clientId": data.get('clientId', ''),
+        "clientName": data.get('clientName', 'Cliente'),
+        "clientRNC": data.get('clientRNC', ''),
+        "clientContact": data.get('clientContact', ''),
+        "clientEmail": data.get('clientEmail', ''),
+        "clientPhone": data.get('clientPhone', ''),
+        "clientAddress": data.get('clientAddress', ''),
+        "items": items,
+        "subtotal": round(subtotal, 2),
+        "totalITBIS": round(total_itbis, 2),
+        "discountAmount": round(total_discount, 2),
+        "total": round(total, 2),
+        "netPayable": round(total, 2),
+        "currency": data.get('currency', 'RD$'),
+        "paymentType": data.get('paymentType', 'Transferencia Bancaria'),
+        "paymentMethod": data.get('paymentMethod', 'Transferencia'),
+        "notes": data.get('notes', ''),
+        "status": "Borrador",
+        "createdBy": user_display,
+        "createdAt": now,
+        "updatedAt": now,
+        "isConvertedToInvoice": False,
+    }
+
+    try:
+        new_invoice_id = str(uuid.uuid4())
+        invoice_dict['id'] = new_invoice_id
+        result = DatabaseService.save_invoice(owner_uid, new_invoice_id, invoice_dict, sandbox=sandbox)
+        if result and result.get('id'):
+            from app.services.audit_service import AuditService
+            AuditService.log_from_request(
+                owner_uid=owner_uid,
+                action="CREATE",
+                module="Cotizaciones",
+                entity_id=new_invoice_id,
+                entity_label=f"Cotización profesional {inv_number} creada",
+                user_session=session.get('user', {}),
+                sandbox=sandbox
+            )
+            return jsonify({"success": True, "id": new_invoice_id, "redirect": url_for('web_invoices.invoice_detail', invoice_id=new_invoice_id)})
+        return jsonify({"success": False, "message": "Error al guardar la cotización"}), 500
+    except Exception as e:
+        return jsonify({"success": False, "message": f"Error: {str(e)}"}), 500
+
+@web_invoices_bp.route('/api/quotations/ai-generate', methods=['POST'])
+def ai_generate_quotation():
+    if 'user' not in session:
+        return jsonify({"success": False, "message": "No autorizado"}), 401
+    owner_uid = session['user']['ownerUID']
+    data = request.json or {}
+    context = data.get('context', '')
+
+    if not context.strip():
+        return jsonify({"success": False, "message": "Debe proporcionar contexto del proyecto"}), 400
+
+    from app.services.ai_quotation_service import AIQuotationService
+    company = DatabaseService.get_company_profile(owner_uid) or {}
+    result = AIQuotationService.generate_full_quotation(owner_uid, context, company)
+
+    if result.get("success"):
+        return jsonify({"success": True, "data": result["data"]})
+    return jsonify({"success": False, "message": result.get("message", "Error al generar con IA")}), 500
+
+@web_invoices_bp.route('/api/quotations/ai-suggest-section', methods=['POST'])
+def ai_suggest_section():
+    if 'user' not in session:
+        return jsonify({"success": False, "message": "No autorizado"}), 401
+    owner_uid = session['user']['ownerUID']
+    data = request.json or {}
+    section = data.get('section', '')
+    context_data = data.get('contextData', {})
+
+    if not section:
+        return jsonify({"success": False, "message": "Sección requerida"}), 400
+
+    from app.services.ai_quotation_service import AIQuotationService
+    result = AIQuotationService.suggest_section(owner_uid, section, context_data)
+
+    if result.get("success"):
+        try:
+            import json as json_module
+            content = result["content"]
+            if content.startswith("```json"):
+                content = content[7:]
+            if content.startswith("```"):
+                content = content[3:]
+            if content.endswith("```"):
+                content = content[:-3]
+            parsed = json_module.loads(content.strip())
+            return jsonify({"success": True, "data": parsed})
+        except Exception:
+            return jsonify({"success": True, "data": {"raw": result["content"]}})
+    return jsonify({"success": False, "message": result.get("message", "Error")}), 500
+
+@web_invoices_bp.route('/api/quotations/preview', methods=['POST'])
+def quotation_preview():
+    """
+    Renderiza el mismo template PDF con los datos del formulario para vista previa en vivo.
+    Usa el mismo template de PDF que se usará para el documento final.
+    """
+    if 'user' not in session:
+        return jsonify({"error": "No autorizado"}), 401
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+    data = request.json or {}
+
+    company = DatabaseService.get_company_profile(owner_uid) or {}
+    if not company:
+        company = {"companyName": "Mi Empresa", "companyRNC": "", "companyAddress": "", "companyPhone": "", "companyEmail": "", "tradeName": ""}
+
+    items = []
+    for item in data.get('items', []):
+        price = float(item.get('price', 0))
+        qty = float(item.get('quantity', 1))
+        itbis_rate = float(item.get('itbisRate', 0.18) or 0.18)
+        discount_rate = float(item.get('discountRate', 0) or 0) / 100.0
+        subtotal = price * qty
+        discount_amt = subtotal * discount_rate
+        itbis_amt = (subtotal - discount_amt) * itbis_rate
+        total = subtotal - discount_amt + itbis_amt
+        items.append({
+            "code": item.get('code', ''),
+            "name": item.get('name', ''),
+            "quantity": qty,
+            "price": price,
+            "itbisRate": itbis_rate,
+            "discountRate": discount_rate,
+            "catalogId": item.get('catalogId', ''),
+            "subtotal": round(subtotal, 2),
+            "discountAmount": round(discount_amt, 2),
+            "itbis_amount": round(itbis_amt, 2),
+            "total": round(total, 2)
+        })
+
+    subtotal = sum(item['subtotal'] for item in items)
+    total_itbis = sum(item['itbis_amount'] for item in items)
+    total_discount = sum(item['discountAmount'] for item in items)
+    total = subtotal + total_itbis - total_discount
+
+    import random
+    inv_number = f"COT-{random.randint(1, 999999):06d}"
+
+    from datetime import datetime as dt_module
+    now = dt_module.now()
+
+    professional_data = {
+        "subject": data.get('subject', ''),
+        "scopeIncluded": data.get('scopeIncluded', []),
+        "scopeExcluded": data.get('scopeExcluded', []),
+        "deliverables": data.get('deliverables', []),
+        "timeline": data.get('timeline', []),
+        "paymentSchedule": data.get('paymentSchedule', []),
+        "validityDays": int(data.get('validityDays', 15)),
+        "termsAndConditions": data.get('termsAndConditions', ''),
+        "intellectualProperty": data.get('intellectualProperty', ''),
+        "confidentiality": data.get('confidentiality', ''),
+        "supportTerms": data.get('supportTerms', ''),
+        "warrantyTerms": data.get('warrantyTerms', ''),
+        "observations": data.get('observations', ''),
+        "deliveryTimeTotal": data.get('deliveryTimeTotal', ''),
+        "currency": data.get('currency', 'RD$'),
+        "paymentType": data.get('paymentType', 'Transferencia Bancaria'),
+        "paymentMethod": data.get('paymentMethod', 'Transferencia'),
+    }
+
+    invoice = {
+        "invoiceNumber": inv_number,
+        "date": now.isoformat(),
+        "dueDate": now.isoformat(),
+        "isQuotation": True,
+        "isProfessional": True,
+        "professionalData": professional_data,
+        "clientName": data.get('clientName', 'Cliente'),
+        "clientRNC": data.get('clientRNC', ''),
+        "clientContact": data.get('clientContact', ''),
+        "clientEmail": data.get('clientEmail', ''),
+        "clientPhone": data.get('clientPhone', ''),
+        "clientAddress": data.get('clientAddress', ''),
+        "items": items,
+        "subtotal": round(subtotal, 2),
+        "totalITBIS": round(total_itbis, 2),
+        "discountAmount": round(total_discount, 2),
+        "total": round(total, 2),
+        "netPayable": round(total, 2),
+        "currency": data.get('currency', 'RD$'),
+        "paymentType": data.get('paymentType', 'Transferencia Bancaria'),
+        "paymentMethod": data.get('paymentMethod', 'Transferencia'),
+        "notes": data.get('notes', ''),
+        "status": "Borrador",
+        "encf": None,
+        "xmlSignature": None,
+        "comentario": data.get('notes', ''),
+    }
+
+    try:
+        rendered = render_template('invoices/pdf.html', invoice=invoice, company=company, qr_base64=None, sandbox=sandbox, auto_print=False, fecha_firma_str=None)
+        return rendered, 200, {'Content-Type': 'text/html; charset=utf-8'}
+    except Exception as e:
+        return f"<div style='padding:20px;color:red;'>Error en preview: {str(e)}</div>", 200
+
 
 if __name__ == '__main__':
     app.run(debug=True, port=5001)

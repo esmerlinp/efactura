@@ -261,10 +261,45 @@ endblock %}
             </p>
         </div>
         {% if active_page == 'quotations' %}
-        <a href="/quotations/new" class="btn btn-primary">
-            <i class="fa-solid fa-file-signature"></i>
-            <span>Nueva Cotización</span>
-        </a>
+        <div class="btn-group" style="position:relative;display:inline-block;">
+            <button class="btn btn-primary" onclick="toggleQuotationDropdown(event)" style="display:inline-flex;align-items:center;gap:6px;">
+                <i class="fa-solid fa-plus"></i>
+                <span>Nueva Cotización</span>
+                <i class="fa-solid fa-chevron-down" style="font-size:10px;"></i>
+            </button>
+            <div id="quotation-type-dropdown" style="display:none;position:absolute;top:100%;right:0;margin-top:4px;background:white;border-radius:10px;box-shadow:0 8px 32px rgba(0,0,0,0.12);z-index:100;min-width:240px;overflow:hidden;border:1px solid #e2e8f0;">
+                <a href="/quotations/new" style="display:flex;align-items:center;gap:10px;padding:12px 16px;color:#1e293b;text-decoration:none;font-size:13px;font-weight:500;border-bottom:1px solid #f1f5f9;transition:background 0.15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''">
+                    <span style="width:28px;height:28px;border-radius:6px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;font-size:14px;">⚡</span>
+                    <div>
+                        <div style="font-weight:600;">Cotización Rápida</div>
+                        <div style="font-size:11px;color:#94a3b8;">Formulario simple y directo</div>
+                    </div>
+                </a>
+                <a href="/quotations/new/professional" style="display:flex;align-items:center;gap:10px;padding:12px 16px;color:#1e293b;text-decoration:none;font-size:13px;font-weight:500;transition:background 0.15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''">
+                    <span style="width:28px;height:28px;border-radius:6px;background:#ede9fe;display:flex;align-items:center;justify-content:center;font-size:14px;">✨</span>
+                    <div>
+                        <div style="font-weight:600;">Cotización Personalizada</div>
+                        <div style="font-size:11px;color:#94a3b8;">Con IA, cronograma, términos y preview</div>
+                    </div>
+                </a>
+            </div>
+        </div>
+        <script>
+        function toggleQuotationDropdown(e) {
+            e.stopPropagation();
+            const dd = document.getElementById('quotation-type-dropdown');
+            const isVisible = dd.style.display !== 'none';
+            dd.style.display = isVisible ? 'none' : 'block';
+            if (!isVisible) {
+                document.addEventListener('click', function closeHandler(ev) {
+                    if (!ev.target.closest('.btn-group')) {
+                        dd.style.display = 'none';
+                        document.removeEventListener('click', closeHandler);
+                    }
+                });
+            }
+        }
+        </script>
         {% else %}
         <div style="display: flex; gap: 12px; align-items: center;">
             <button class="btn btn-secondary" onclick="openHistoricalImportModal()"
@@ -403,8 +438,12 @@ endblock %}
                 title="Ver Detalle">
                 <i class="fa-solid fa-eye"></i>
             </a>
+            <a href="{% if inv.get('isProfessional') %}{{ url_for('web_invoices.professional_quotation_route') }}?clone={{ inv.id }}{% else %}{{ url_for('web_invoices.new_quotation_route') }}?clone={{ inv.id }}{% endif %}"
+                class="btn-icon" title="Crear copia">
+                <i class="fa-solid fa-copy"></i>
+            </a>
             {% if inv.status == 'Borrador' %}
-            <a href="{{ url_for('web_invoices.new_quotation_route', invoice_id=inv.id) }}" class="btn-icon"
+            <a href="{% if inv.get('isProfessional') %}{{ url_for('web_invoices.professional_quotation_route') }}?clone={{ inv.id }}{% else %}{{ url_for('web_invoices.new_quotation_route', invoice_id=inv.id) }}{% endif %}" class="btn-icon"
                 title="Editar">
                 <i class="fa-solid fa-pen"></i>
             </a>
@@ -607,6 +646,9 @@ endblock %}
                             <span style="font-size: 0.85rem; display: block; margin-bottom: 2px;">{{ inv.invoiceNumber
                                 }}</span>
                         </a>
+                        {% if inv.get('isProfessional') %}
+                        <span style="font-size: 0.6rem; display: inline-block; padding: 1px 6px; border-radius: 4px; background: #ede9fe; color: #7c3aed; font-weight: 600; margin-top: 2px;">Profesional</span>
+                        {% endif %}
                         {% endif %}
                         {% if active_page != 'quotations' %}
                         <span style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase;">
@@ -737,6 +779,13 @@ endblock %}
                                 title="Ver Detalle y QR">
                                 <i class="fa-solid fa-eye"></i>
                             </a>
+                            {% if inv.isQuotation %}
+                            <a href="{% if inv.get('isProfessional') %}{{ url_for('web_invoices.professional_quotation_route') }}?clone={{ inv.id }}{% else %}{{ url_for('web_invoices.new_quotation_route') }}?clone={{ inv.id }}{% endif %}"
+                                class="btn btn-secondary" style="padding: 8px 12px; font-size: 0.8rem;"
+                                title="Crear copia">
+                                <i class="fa-solid fa-copy"></i>
+                            </a>
+                            {% endif %}
                             {% if inv.emisionMode == 'FALLBACK' and not inv.isSyncedWithDGII and inv.status != 'Anulada' %}
                             <form action="{{ url_for('web_invoices.sync_single_invoice_route', invoice_id=inv.id) }}"
                                 method="POST" style="display: inline;">

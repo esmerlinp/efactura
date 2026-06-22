@@ -1,7 +1,7 @@
 import uuid
 import html
 from datetime import datetime, timezone
-from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash, session
+from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash, session, make_response
 from firebase_admin import firestore
 from app.services.db_service import db_firestore, DatabaseService
 from app.services.azul_service import AzulService

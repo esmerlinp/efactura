@@ -27,6 +27,10 @@
     </script>
     {% endif %}
     <style>
+        @page {
+            margin: 8mm 10mm;
+        }
+
         * {
             box-sizing: border-box;
             margin: 0;
@@ -43,41 +47,59 @@
             padding: 0;
         }
 
-        /* ---- Encabezado ---- */
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            padding: 32px 20px 24px;
-
-            border-bottom: 3px solid {
-                    {
-                    company_color_marca or '#1E3A8A'
-                }
-            }
-
-            ;
-            margin-bottom: 28px;
+        .prof-section {
+            page-break-inside: avoid;
+        }
+        .prof-section-title {
+            font-size: 14px;
+            font-weight: 800;
+            color: #1E3A8A;
+            border-bottom: 2px solid #1E3A8A;
+            padding-bottom: 4px;
+            margin-bottom: 4px;
+        }
+        .prof-section ul {
+            margin: 4px 0;
+            padding-left: 20px;
+        }
+        .prof-section ul li {
+            margin-bottom: 2px;
+            line-height: 1.5;
         }
 
+        /* ---- Encabezado ---- */
+        .header {
+            padding: 4px 20px 8px;
+            border-bottom: 3px solid {{ company_color_marca or '#1E3A8A' }};
+            margin-bottom: 8px;
+        }
+        .header::after {
+            content: "";
+            display: table;
+            clear: both;
+        }
+        .company-block {
+            float: left;
+            width: 58%;
+            overflow-wrap: break-word;
+            word-break: break-word;
+        }
+        .document-block {
+            float: right;
+            width: 38%;
+            text-align: right;
+        }
         .company-block h1 {
             font-size: 22px;
             font-weight: 800;
-
-            color: {
-                    {
-                    company_color_marca or '#1E3A8A'
-                }
-            }
-
-            ;
+            color: {{ company_color_marca or '#1E3A8A' }};
             margin-bottom: 4px;
         }
-
         .company-block p {
             font-size: 11px;
             color: #475569;
-            line-height: 1.5;
+            line-height: 1.6;
+            margin: 0 0 3px 0;
         }
 
         .document-block {
@@ -531,13 +553,13 @@
 
         <!-- Encabezado de Empresa y Número de Documento -->
         {% if company.logoUrl %}
-        <div style="padding: 32px 20px 0;">
+        <div style="padding: 6px 20px 4px;">
             <img src="{{ company.logoUrl }}" alt="{{ company.tradeName or company.companyName }}"
                 style="max-height: 80px; max-width: 180px; object-fit: contain; border-radius: 4px;">
         </div>
         {% endif %}
         <div class="header"
-            style="border-bottom: none; padding-top: {% if company.logoUrl %}16px{% else %}32px{% endif %}; padding-bottom: 0; margin-bottom: 16px;">
+            style="border-bottom: none; padding-top: {% if company.logoUrl %}6px{% else %}8px{% endif %}; padding-bottom: 8px; margin-bottom: 12px;">
             <div class="company-block">
                 <h1 style="color: {{ current_color }}; font-size: 18px; margin-bottom: 2px;">{{
                     company.tradeName or company.companyName }}</h1>
@@ -547,8 +569,7 @@
                 <p><strong>RNC:</strong> {{ company.companyRNC }}</p>
                 <p><strong>Dirección:</strong> {{ company.companyAddress }}</p>
                 <p><strong>Tel/Correo:</strong> {{ company.companyPhone }} &nbsp;|&nbsp; {{ company.companyEmail }}</p>
-                <p><strong>Fecha Emisión:</strong> {{ invoice.date | format_date }}{% if invoice.date|length > 10 %} {{
-                    invoice.date[11:16] }}{% endif %}</p>
+                <p style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><strong>Fecha Emisión:</strong> {{ invoice.date | format_date }}{% if invoice.date|length > 10 %} {{ invoice.date[11:16] }}{% endif %}</p>
             </div>
             <div class="document-block" style="text-align: right;">
                 {% if invoice.encf %}
@@ -595,13 +616,20 @@
         {% set is_minor = (invoice.total or 0) < 250000 %} {% set hide_client=is_consumo and is_minor and (not
             invoice.clientRNC or invoice.clientRNC=='999999999' or not invoice.clientName) %} {% if not hide_client %}
             <div
-            style="margin: 0 20px 24px; padding: 12px 0; border-top: 2px solid {{ current_light_color }}; border-bottom: 2px solid {{ current_light_color }};">
-            <div style="font-size: 12px; color: #111827; margin-bottom: 4px;">
+             style="margin: 16px 20px 24px; padding: 18px 0; border-top: 2px solid {{ current_light_color }}; border-bottom: 2px solid {{ current_light_color }}; line-height: 1.7; overflow-wrap: break-word; word-break: break-word;">
+            <div style="font-size: 12px; color: #111827; margin-bottom: 6px;">
                 <strong>Razón Social Cliente:</strong> {{ invoice.clientName or 'Consumidor Final' }}
             </div>
             <div style="font-size: 12px; color: #111827;">
                 <strong>RNC Cliente:</strong> {{ invoice.clientRNC or '999999999' }}
             </div>
+            {% if invoice.clientContact or invoice.clientEmail or invoice.clientPhone %}
+            <div style="font-size: 11px; color: #475569; margin-top: 6px; padding-top: 6px; border-top: 1px dashed #e2e8f0;">
+                {% if invoice.clientContact %}<span><strong>Contacto:</strong> {{ invoice.clientContact }}</span>{% endif %}
+                {% if invoice.clientEmail %}<span style="margin-left: 12px;"><strong>Email:</strong> {{ invoice.clientEmail }}</span>{% endif %}
+                {% if invoice.clientPhone %}<span style="margin-left: 12px;"><strong>Tel:</strong> {{ invoice.clientPhone }}</span>{% endif %}
+            </div>
+            {% endif %}
     </div>
     {% else %}
     <div style="margin: 0 20px 24px; border-top: 2px solid {{ current_light_color }};"></div>
@@ -792,6 +820,229 @@
     </div>
 
     {% if loop.last %}
+
+    {% set pd = invoice.get('professionalData', {}) %}
+    {% if invoice.get('isProfessional') and pd %}
+
+    <!-- ========== SECCIONES PROFESIONALES ========== -->
+
+    {% if pd.get('subject') %}
+    <div class="prof-section" style="margin-top: 24px;">
+        <div class="prof-section-title">Proyecto</div>
+        <div style="font-size: 13px; font-weight: 600; color: #1e293b;">{{ pd.subject }}</div>
+    </div>
+    {% endif %}
+
+    {% if pd.get('scopeIncluded') or pd.get('scopeExcluded') %}
+    <div class="prof-section" style="margin-top: 20px;">
+        <div class="prof-section-title">Alcance del Proyecto</div>
+        <div style="display: flex; gap: 24px; margin-top: 8px;">
+            {% if pd.get('scopeIncluded') %}
+            <div style="flex: 1;">
+                <div style="font-size: 11px; font-weight: 700; color: #16a34a; margin-bottom: 4px; text-transform: uppercase;">✓ Incluye</div>
+                <ul style="margin: 0; padding-left: 16px; font-size: 11px; color: #334155;">
+                    {% for item in pd.scopeIncluded %}
+                    <li style="margin-bottom: 2px;">{{ item }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+            {% if pd.get('scopeExcluded') %}
+            <div style="flex: 1;">
+                <div style="font-size: 11px; font-weight: 700; color: #dc2626; margin-bottom: 4px; text-transform: uppercase;">✗ No Incluye</div>
+                <ul style="margin: 0; padding-left: 16px; font-size: 11px; color: #334155;">
+                    {% for item in pd.scopeExcluded %}
+                    <li style="margin-bottom: 2px;">{{ item }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    {% if pd.get('deliverables') %}
+    <div class="prof-section" style="margin-top: 20px;">
+        <div class="prof-section-title">Entregables</div>
+        <table style="width:100%;border-collapse:collapse;margin-top:6px;font-size:11px;">
+            <thead>
+                <tr style="background:#f8fafc;">
+                    <th style="text-align:left;padding:6px 8px;border-bottom:1px solid #e2e8f0;font-size:10px;text-transform:uppercase;color:#64748b;">Entregable</th>
+                    <th style="text-align:left;padding:6px 8px;border-bottom:1px solid #e2e8f0;font-size:10px;text-transform:uppercase;color:#64748b;">Descripción</th>
+                    <th style="text-align:right;padding:6px 8px;border-bottom:1px solid #e2e8f0;font-size:10px;text-transform:uppercase;color:#64748b;">Tiempo</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for d in pd.deliverables %}
+                <tr>
+                    <td style="padding:5px 8px;border-bottom:1px solid #f1f5f9;font-weight:600;">{{ d.name }}</td>
+                    <td style="padding:5px 8px;border-bottom:1px solid #f1f5f9;">{{ d.description }}</td>
+                    <td style="padding:5px 8px;border-bottom:1px solid #f1f5f9;text-align:right;">{{ d.estimatedDate }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% if pd.get('deliveryTimeTotal') %}
+        <div style="margin-top:6px;font-size:11px;color:#475569;"><strong>Duración total estimada:</strong> {{ pd.deliveryTimeTotal }}</div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    {% if pd.get('timeline') %}
+    <div class="prof-section" style="margin-top: 20px;">
+        <div class="prof-section-title">Cronograma</div>
+        <table style="width:100%;border-collapse:collapse;margin-top:6px;font-size:11px;">
+            <thead>
+                <tr style="background:#f8fafc;">
+                    <th style="text-align:left;padding:6px 8px;border-bottom:1px solid #e2e8f0;font-size:10px;text-transform:uppercase;color:#64748b;">Fase</th>
+                    <th style="text-align:left;padding:6px 8px;border-bottom:1px solid #e2e8f0;font-size:10px;text-transform:uppercase;color:#64748b;">Descripción</th>
+                    <th style="text-align:right;padding:6px 8px;border-bottom:1px solid #e2e8f0;font-size:10px;text-transform:uppercase;color:#64748b;">Duración</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for t in pd.timeline %}
+                <tr>
+                    <td style="padding:5px 8px;border-bottom:1px solid #f1f5f9;font-weight:600;">{{ t.phase }}</td>
+                    <td style="padding:5px 8px;border-bottom:1px solid #f1f5f9;">{{ t.description }}</td>
+                    <td style="padding:5px 8px;border-bottom:1px solid #f1f5f9;text-align:right;">{{ t.duration }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    {% if pd.get('paymentSchedule') %}
+    <div class="prof-section" style="margin-top: 20px;">
+        <div class="prof-section-title">Forma de Pago</div>
+        <table style="width:100%;border-collapse:collapse;margin-top:6px;font-size:11px;">
+            <thead>
+                <tr style="background:#f8fafc;">
+                    <th style="text-align:left;padding:6px 8px;border-bottom:1px solid #e2e8f0;font-size:10px;text-transform:uppercase;color:#64748b;">#</th>
+                    <th style="text-align:left;padding:6px 8px;border-bottom:1px solid #e2e8f0;font-size:10px;text-transform:uppercase;color:#64748b;">Hito</th>
+                    <th style="text-align:right;padding:6px 8px;border-bottom:1px solid #e2e8f0;font-size:10px;text-transform:uppercase;color:#64748b;">%</th>
+                    <th style="text-align:right;padding:6px 8px;border-bottom:1px solid #e2e8f0;font-size:10px;text-transform:uppercase;color:#64748b;">Monto</th>
+                    <th style="text-align:left;padding:6px 8px;border-bottom:1px solid #e2e8f0;font-size:10px;text-transform:uppercase;color:#64748b;">Evento</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% set total_pct = namespace(value=0) %}
+                {% for p in pd.paymentSchedule %}
+                {% set total_pct.value = total_pct.value + (p.percentage|default(0)) %}
+                <tr>
+                    <td style="padding:5px 8px;border-bottom:1px solid #f1f5f9;">{{ p.installment or loop.index }}</td>
+                    <td style="padding:5px 8px;border-bottom:1px solid #f1f5f9;font-weight:600;">{{ p.description }}</td>
+                    <td style="padding:5px 8px;border-bottom:1px solid #f1f5f9;text-align:right;">{{ "%.1f"|format(p.percentage|default(0)) }}%</td>
+                    <td style="padding:5px 8px;border-bottom:1px solid #f1f5f9;text-align:right;">RD$ {{ "{:,.2f}".format(invoice.total * (p.percentage|default(0)) / 100) }}</td>
+                    <td style="padding:5px 8px;border-bottom:1px solid #f1f5f9;">{{ p.trigger }}</td>
+                </tr>
+                {% endfor %}
+                <tr style="font-weight:700;background:#f8fafc;">
+                    <td colspan="2" style="padding:6px 8px;text-align:right;">Total:</td>
+                    <td style="padding:6px 8px;text-align:right;">{{ "%.1f"|format(total_pct.value) }}%</td>
+                    <td style="padding:6px 8px;text-align:right;">RD$ {{ "{:,.2f}".format(invoice.total) }}</td>
+                    <td style="padding:6px 8px;"></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    {% if pd.get('validityDays') %}
+    <div style="margin-top: 12px; font-size: 11px; color: #475569; padding: 8px 12px; background: #fefce8; border-left: 3px solid #f59e0b; border-radius: 2px;">
+        <strong>Vigencia:</strong> Esta cotización tiene una validez de <strong>{{ pd.validityDays }} días calendario</strong> a partir de su fecha de emisión.
+    </div>
+    {% endif %}
+
+    {% if pd.get('termsAndConditions') or pd.get('intellectualProperty') or pd.get('confidentiality') or pd.get('supportTerms') or pd.get('warrantyTerms') %}
+    <div class="prof-section" style="margin-top: 20px;">
+        <div class="prof-section-title">Términos y Condiciones</div>
+        <div style="font-size: 10px; color: #475569; line-height: 1.6; margin-top: 6px;">
+            {% if pd.get('termsAndConditions') %}
+            <div style="margin-bottom: 8px;"><strong>Condiciones Generales:</strong><br>{{ pd.termsAndConditions }}</div>
+            {% endif %}
+            {% if pd.get('intellectualProperty') %}
+            <div style="margin-bottom: 8px;"><strong>Propiedad Intelectual:</strong><br>{{ pd.intellectualProperty }}</div>
+            {% endif %}
+            {% if pd.get('confidentiality') %}
+            <div style="margin-bottom: 8px;"><strong>Confidencialidad:</strong><br>{{ pd.confidentiality }}</div>
+            {% endif %}
+            {% if pd.get('supportTerms') %}
+            <div style="margin-bottom: 8px;"><strong>Soporte Post-Entrega:</strong><br>{{ pd.supportTerms }}</div>
+            {% endif %}
+            {% if pd.get('warrantyTerms') %}
+            <div style="margin-bottom: 8px;"><strong>Garantía:</strong><br>{{ pd.warrantyTerms }}</div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    {% if pd.get('observations') %}
+    <div class="prof-section" style="margin-top: 16px;">
+        <div style="font-size: 10px; color: #64748b; font-style: italic;">{{ pd.observations }}</div>
+    </div>
+    {% endif %}
+
+    <!-- ========== BLOQUE DE FIRMA ========== -->
+    <div class="prof-section" style="margin-top: 28px; border-top: 2px solid #e2e8f0; padding-top: 20px;">
+        <div class="prof-section-title" style="margin-bottom: 12px;">Aceptación de la Cotización</div>
+        {% if invoice.get('signatureInfo') %}
+        <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; padding: 16px;">
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+                <div style="width: 40px; height: 40px; background: #16a34a; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 18px;">✓</div>
+                <div>
+                    <div style="font-weight: 700; color: #166534; font-size: 13px;">Documento Firmado Electrónicamente</div>
+                    <div style="font-size: 11px; color: #16a34a;">Firma electrónica certificada</div>
+                </div>
+            </div>
+            <div style="margin-top: 12px; padding: 12px; background: white; border-radius: 6px; font-size: 12px;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                    <span style="color: #64748b;">Aceptado por:</span>
+                    <span style="font-weight: 600;">{{ invoice.get('signatureInfo', {}).get('signedByName', invoice.clientName) }}</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                    <span style="color: #64748b;">RNC/Cédula:</span>
+                    <span>{{ invoice.clientRNC or 'N/A' }}</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                    <span style="color: #64748b;">Fecha de Firma:</span>
+                    <span>{{ invoice.get('signatureInfo', {}).get('signedAt', '') }}</span>
+                </div>
+                <div style="display: flex; justify-content: space-between;">
+                    <span style="color: #64748b;">ID de Transacción:</span>
+                    <span style="font-family: monospace; font-size: 10px;">{{ invoice.get('signatureInfo', {}).get('transactionId', invoice.get('id', ''))[:16] }}</span>
+                </div>
+            </div>
+            <div style="margin-top: 8px; text-align: center; font-size: 10px; color: #16a34a; border-top: 1px dashed #bbf7d0; padding-top: 8px;">
+                Documento firmado electrónicamente mediante certificado digital. Válido según la legislación dominicana.
+            </div>
+        </div>
+        {% else %}
+        <div style="border: 2px dashed #cbd5e1; border-radius: 6px; padding: 20px;">
+            <table style="width: 100%; font-size: 12px;">
+                <tr>
+                    <td style="padding: 4px 8px; width: 50%;">
+                        <strong>Aceptado por:</strong><br>
+                        <span style="color: #94a3b8;">_________________________</span>
+                    </td>
+                    <td style="padding: 4px 8px; width: 50%;">
+                        <strong>Fecha:</strong><br>
+                        <span style="color: #94a3b8;">_________________________</span>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding: 4px 8px;" colspan="2">
+                        <strong>Firma:</strong><br>
+                        <span style="color: #94a3b8;">_________________________</span>
+                    </td>
+                </tr>
+            </table>
+        </div>
+        {% endif %}
+    </div>
+
+    {% endif %} <!-- end if isProfessional -->
+
     {% if invoice.notes or invoice.comentario %}
     <div class="notes-section" style="margin-top: 20px;">
         {% if invoice.notes %}
@@ -807,11 +1058,16 @@
     <!-- Pie de página -->
     <div class="footer"
         style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #e2e8f0; padding-top: 8px; margin-top: auto;">
-        <div style="text-align: left;">
+        <div style="text-align: left; font-size: 10px;">
+            {% if invoice.isQuotation %}
+            {% if pd and pd.get('validityDays') %}Válido por {{ pd.validityDays }} días desde su emisión.{% endif %}
+            {% if invoice.get('isProfessional') %}Cotización profesional generada en {{ product_name }}.{% endif %}
+            {% else %}
             *Este modelo de RI cumple con la Ley 32-23 de la República Dominicana.<br>
             {% if invoice.encf %}Valide este documento en: <strong>https://dgii.gov.do/validaecf</strong>{% endif %}
+            {% endif %}
         </div>
-        <div style="text-align: right; font-weight: bold;">
+        <div style="text-align: right; font-weight: bold; font-size: 10px;">
             Página No. {{ page_num + 1 }} de {{ total_pages }}
         </div>
     </div>
