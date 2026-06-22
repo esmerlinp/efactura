@@ -18,6 +18,14 @@
         }
     }
 
+    input:disabled, select:disabled, textarea:disabled {
+        background-color: #f1f5f9 !important;
+        color: #94a3b8 !important;
+        cursor: not-allowed !important;
+        border-color: #e2e8f0 !important;
+        opacity: 0.8 !important;
+    }
+
     /* Accordion Styles */
     .settings-accordion {
         display: flex;
@@ -215,14 +223,16 @@
                                 <div class="form-group">
                                     <label for="companyRNC">RNC Comercial del Emisor</label>
                                     <input type="text" id="companyRNC" name="companyRNC" class="form-input"
-                                        placeholder="Ej: 132109122" required value="{{ profile.companyRNC }}">
+                                        placeholder="Ej: 132109122" required value="{{ profile.companyRNC }}"
+                                        {% if has_issued_documents %}disabled title="Bloqueado: la empresa ya tiene documentos emitidos. Contacta a soporte para modificarlo."{% endif %}>
                                     <small style="color: var(--text-muted); font-size: 0.72rem; margin-top: 4px;">RNC de
                                         contribuyente.</small>
                                 </div>
                                 <div class="form-group">
                                     <label for="companyName">Razón Social de la Empresa</label>
                                     <input type="text" id="companyName" name="companyName" class="form-input"
-                                        placeholder="Ej: Mi Empresa SRL" required value="{{ profile.companyName }}">
+                                        placeholder="Ej: Mi Empresa SRL" required value="{{ profile.companyName }}"
+                                        {% if has_issued_documents %}disabled title="Bloqueado: la empresa ya tiene documentos emitidos. Contacta a soporte para modificarlo."{% endif %}>
                                 </div>
                             </div>
                             <div class="form-group" style="max-width: 50%; margin-bottom: 0;">
@@ -276,7 +286,8 @@
                                     <label for="tradeName">Nombre Comercial</label>
                                     <input type="text" id="tradeName" name="tradeName" class="form-input"
                                         placeholder="Ej: Tienda Mi Empresa" required
-                                        value="{{ profile.tradeName or '' }}">
+                                        value="{{ profile.tradeName or '' }}"
+                                        {% if has_issued_documents %}disabled title="Bloqueado: la empresa ya tiene documentos emitidos. Contacta a soporte para modificarlo."{% endif %}>
                                 </div>
                                 <div class="form-group">
                                     <label for="companyPhone">Teléfono Comercial</label>
@@ -579,7 +590,8 @@
                     <div class="form-group">
                         <label for="companyRNC">RNC Comercial del Emisor</label>
                         <input type="text" id="companyRNC" name="companyRNC" class="form-input"
-                            placeholder="Ej: 132109122" required value="{{ profile.companyRNC }}">
+                            placeholder="Ej: 132109122" required value="{{ profile.companyRNC }}"
+                            {% if has_issued_documents %}disabled title="Bloqueado: la empresa ya tiene documentos emitidos. Contacta a soporte para modificarlo."{% endif %}>
                         <small style="color: var(--text-muted); font-size: 0.72rem; margin-top: 4px;">RNC de
                             contribuyente.</small>
                     </div>
@@ -587,7 +599,8 @@
                     <div class="form-group">
                         <label for="companyName">Razón Social de la Empresa</label>
                         <input type="text" id="companyName" name="companyName" class="form-input"
-                            placeholder="Ej: Mi Empresa SRL" required value="{{ profile.companyName }}">
+                            placeholder="Ej: Mi Empresa SRL" required value="{{ profile.companyName }}"
+                            {% if has_issued_documents %}disabled title="Bloqueado: la empresa ya tiene documentos emitidos. Contacta a soporte para modificarlo."{% endif %}>
                     </div>
                 </div>
 
@@ -641,7 +654,8 @@
                     <div class="form-group">
                         <label for="tradeName">Nombre Comercial</label>
                         <input type="text" id="tradeName" name="tradeName" class="form-input"
-                            placeholder="Ej: Tienda Mi Empresa" required value="{{ profile.tradeName or '' }}">
+                            placeholder="Ej: Tienda Mi Empresa" required value="{{ profile.tradeName or '' }}"
+                            {% if has_issued_documents %}disabled title="Bloqueado: la empresa ya tiene documentos emitidos. Contacta a soporte para modificarlo."{% endif %}>
                     </div>
 
                     <div class="form-group">
