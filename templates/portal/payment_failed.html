@@ -120,6 +120,75 @@
         .btn-retry:hover {
             background-color: #172554;
         }
+
+        @media (max-width: 768px) {
+            .failed-card {
+                margin: 16px;
+                padding: 30px 20px;
+            }
+
+            .title {
+                font-size: 1.3rem;
+            }
+
+            .details-box {
+                padding: 16px;
+            }
+
+            .detail-row {
+                font-size: 0.82rem;
+                gap: 8px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .failed-card {
+                padding: 20px 14px;
+                margin: 10px;
+                border-radius: 12px;
+            }
+
+            .failed-icon {
+                width: 60px;
+                height: 60px;
+                margin-bottom: 18px;
+            }
+
+            .failed-icon svg {
+                width: 30px;
+                height: 30px;
+            }
+
+            .title {
+                font-size: 1.1rem;
+            }
+
+            .description {
+                font-size: 0.82rem;
+                margin-bottom: 20px;
+            }
+
+            .details-box {
+                padding: 12px;
+                margin-bottom: 20px;
+            }
+
+            .detail-row {
+                flex-direction: column;
+                gap: 2px;
+                margin-bottom: 10px;
+                font-size: 0.8rem;
+            }
+
+            .detail-label {
+                font-size: 0.72rem;
+            }
+
+            .btn-retry {
+                font-size: 0.82rem;
+                height: 40px;
+            }
+        }
     </style>
 </head>
 
