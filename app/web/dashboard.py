@@ -1,5 +1,5 @@
 # app/web/dashboard.py
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from flask import Blueprint, render_template, redirect, url_for, session, request
 from app.services.db_service import DatabaseService
 from app.services.recurrence import RecurrenceService
@@ -360,6 +360,185 @@ def dashboard():
         "progress_pct": sum([has_company_configured, has_products, has_clients, has_invoices]) * 25
     }
 
+    # 5. BI: Margen por Producto
+    catalog_cost = {}
+    for it in items:
+        cost = float(it.get('costPrice', 0.0))
+        name_key = it.get('name', '').lower().strip()
+        code_key = it.get('code', '').lower().strip()
+        if name_key:
+            catalog_cost[name_key] = cost
+        if code_key:
+            catalog_cost[code_key] = cost
+
+    product_stats = {}
+    for inv in real_invoices:
+        for it in inv.get('items', []):
+            name = it.get('name', '')
+            code = it.get('code', '')
+            price = float(it.get('price', 0.0))
+            qty = int(it.get('quantity', 1))
+            subtotal = float(it.get('subtotal', price * qty))
+            cost = catalog_cost.get(code.lower().strip()) or catalog_cost.get(name.lower().strip()) or 0.0
+            total_cost = cost * qty
+            key = name or code or "Producto Desconocido"
+            if key not in product_stats:
+                product_stats[key] = {"name": key, "qty": 0, "revenue": 0.0, "cost": 0.0}
+            product_stats[key]["qty"] += qty
+            product_stats[key]["revenue"] += subtotal
+            product_stats[key]["cost"] += total_cost
+
+    for key, ps in product_stats.items():
+        rev = ps["revenue"]
+        cst = ps["cost"]
+        ps["profit"] = rev - cst
+        ps["margin"] = ((rev - cst) / rev * 100) if rev > 0 else 0.0
+
+    products_by_profit = sorted(product_stats.values(), key=lambda x: x["profit"], reverse=True)
+
+    # 6. BI: Clientes más rentables
+    client_stats = {}
+    for inv in real_invoices:
+        client_id = inv.get('clientId') or 'Consumidor Final'
+        client_name = inv.get('clientName') or 'Consumidor Final'
+        subtotal = float(inv.get('subtotal', 0.0))
+        inv_cost = 0.0
+        for it in inv.get('items', []):
+            name = it.get('name', '')
+            code = it.get('code', '')
+            qty = int(it.get('quantity', 1))
+            cost = catalog_cost.get(code.lower().strip()) or catalog_cost.get(name.lower().strip()) or 0.0
+            inv_cost += cost * qty
+        if client_id not in client_stats:
+            client_stats[client_id] = {"name": client_name, "revenue": 0.0, "cost": 0.0, "invoice_count": 0}
+        client_stats[client_id]["revenue"] += subtotal
+        client_stats[client_id]["cost"] += inv_cost
+        client_stats[client_id]["invoice_count"] += 1
+
+    for c_id, cs in client_stats.items():
+        rev = cs["revenue"]
+        cst = cs["cost"]
+        cs["profit"] = rev - cst
+        cs["margin"] = (rev - cst) / rev * 100 if rev > 0 else 0.0
+
+    clients_by_profit = sorted(client_stats.values(), key=lambda x: x["profit"], reverse=True)
+
+    # 7. BI: Flujo de Caja Proyectado (4 meses)
+    now = datetime.now(timezone.utc)
+    months_projection = []
+    for i in range(4):
+        future_date = now.replace(day=1) + timedelta(days=30 * i)
+        m_label = future_date.strftime("%Y-%m")
+        months_projection.append({
+            "key": m_label,
+            "label": future_date.strftime("%B %Y").capitalize(),
+            "inflow": 0.0, "outflow": 0.0, "net": 0.0
+        })
+
+    for inv in real_invoices:
+        if inv.get('status') in ['Emitida', 'Vencida', 'Parcialmente Cobrada']:
+            due_str = inv.get('dueDate', '')[:7]
+            for m in months_projection:
+                if m["key"] == due_str:
+                    m["inflow"] += float(inv.get('remainingBalance', 0.0))
+
+    for exp in expenses:
+        if exp.get('paymentType') == 'Crédito' and exp.get('cxpStatus') != 'Pagado':
+            due_str = exp.get('dueDate', '')[:7]
+            for m in months_projection:
+                if m["key"] == due_str:
+                    m["outflow"] += float(exp.get('cxpRemainingBalance', 0.0))
+
+    cumulative = 0.0
+    liquidity_warning_month = None
+    for m in months_projection:
+        m["net"] = m["inflow"] - m["outflow"]
+        cumulative += m["net"]
+        m["cumulative"] = cumulative
+        if cumulative < 0 and not liquidity_warning_month:
+            liquidity_warning_month = m["label"]
+
+    # 8. BI: Indicadores Tributarios
+    total_itbis_sales = sum(float(inv.get('totalITBIS', 0.0)) for inv in real_invoices)
+    total_itbis_expenses = sum(float(exp.get('itbisAmount', 0.0)) for exp in expenses if exp.get('isITBISDeductible', True))
+    itbis_to_pay = total_itbis_sales - total_itbis_expenses
+
+    total_sales_net = sum(inv.get('subtotal', 0.0) for inv in real_invoices)
+    total_expenses_net = sum(exp.get('amount', 0.0) - exp.get('itbisAmount', 0.0) for exp in expenses)
+    isr_base = max(0.0, total_sales_net - total_expenses_net)
+    isr_estimated = isr_base * 0.27
+    anticipos_estimated = isr_estimated / 12.0
+
+    rst_taxable_base = total_sales_net * 0.60
+    def calc_rst_tax(annual_income):
+        if annual_income <= 416220.0:
+            return 0.0
+        elif annual_income <= 624329.0:
+            return (annual_income - 416220.0) * 0.15
+        elif annual_income <= 867123.0:
+            return 31216.0 + (annual_income - 624329.0) * 0.20
+        else:
+            return 79775.0 + (annual_income - 867123.0) * 0.25
+    rst_isr_estimated = calc_rst_tax(rst_taxable_base)
+
+    # 9. Smart Insights IA (Predictivo)
+    insights = []
+
+    client_monthly_sales = {}
+    for inv in real_invoices:
+        client_name = inv.get('clientName') or 'Consumidor Final'
+        if client_name == 'Consumidor Final':
+            continue
+        date_str = inv.get('date', '')[:7]
+        if client_name not in client_monthly_sales:
+            client_monthly_sales[client_name] = {}
+        if date_str not in client_monthly_sales[client_name]:
+            client_monthly_sales[client_name][date_str] = 0.0
+        client_monthly_sales[client_name][date_str] += float(inv.get('subtotal', 0.0))
+
+    current_month_str = now.strftime("%Y-%m")
+    for c_name, monthly_data in client_monthly_sales.items():
+        if len(monthly_data) >= 2:
+            current_sales = monthly_data.get(current_month_str, 0.0)
+            other_months = [v for k, v in monthly_data.items() if k != current_month_str]
+            avg_historical = sum(other_months) / len(other_months)
+            if avg_historical > 10000 and current_sales < (avg_historical * 0.60):
+                drop_pct = int((1 - (current_sales / avg_historical)) * 100)
+                insights.append({
+                    "type": "warning",
+                    "text": f"Atención: El cliente {c_name} ha reducido sus compras un {drop_pct}% este mes comparado con su promedio histórico."
+                })
+
+    overdue_b2b_total = 0.0
+    for inv in real_invoices:
+        if inv.get('status') == 'Vencida' and len(inv.get('clientRNC', '').replace('-', '').strip()) >= 9:
+            overdue_b2b_total += float(inv.get('remainingBalance', 0.0))
+
+    if overdue_b2b_total > 50000:
+        insights.append({
+            "type": "danger",
+            "text": f"Alerta: Tienes RD$ {overdue_b2b_total:,.2f} en facturas vencidas acumuladas de clientes B2B (con RNC)."
+        })
+
+    if liquidity_warning_month:
+        insights.append({
+            "type": "danger",
+            "text": f"Alerta de liquidez: Proyección de flujo de caja neto acumulado negativo detectado para el mes de {liquidity_warning_month}."
+        })
+
+    low_margin_count = sum(1 for ps in product_stats.values() if ps["cost"] > 0 and ps["margin"] < 15.0)
+    if low_margin_count > 0:
+        insights.append({
+            "type": "info",
+            "text": f"Optimización: Detectamos {low_margin_count} productos/servicios con margen de beneficio inferior al 15%."
+        })
+
+    if not insights:
+        insights.append({
+            "type": "success",
+            "text": "Salud financiera estable. No se detectan anomalías en las compras de clientes ni riesgos de liquidez inmediatos."
+        })
+
     return render_template(
         'dashboard.html',
         active_page='dashboard',
@@ -381,6 +560,18 @@ def dashboard():
         plan_name=plan_name,
         docs_used=docs_used,
         docs_limit=docs_limit,
+        onboarding_state=onboarding_state,
         plan_pct=plan_pct,
-        onboarding_state=onboarding_state
+        insights=insights,
+        products_by_profit=products_by_profit[:5],
+        clients_by_profit=clients_by_profit[:5],
+        months_projection=months_projection,
+        total_sales_net=total_sales_net,
+        total_expenses_net=total_expenses_net,
+        total_itbis_sales=total_itbis_sales,
+        total_itbis_expenses=total_itbis_expenses,
+        itbis_to_pay=itbis_to_pay,
+        isr_estimated=isr_estimated,
+        anticipos_estimated=anticipos_estimated,
+        rst_isr_estimated=rst_isr_estimated
     )

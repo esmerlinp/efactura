@@ -915,16 +915,7 @@
                             </a>
                         </li>
                         {% endif %}
-                        {% if session.get('user', {}).get('role') == 'owner' or session.get('user',
-                        {}).get('permissions', {}).get('canViewBI', True) %}
-                        <li class="nav-item {% if active_page == 'bi_dashboard' %}active{% endif %}"
-                            data-tooltip="Inteligencia Financiera (BI)">
-                            <a href="{{ url_for('web_invoices.bi_dashboard') }}">
-                                <i class="fa-solid fa-chart-line"></i>
-                                <span>Inteligencia Financiera (BI)</span>
-                            </a>
-                        </li>
-                        {% endif %}
+
                         {% if session.get('user', {}).get('role') == 'owner' or session.get('user',
                         {}).get('permissions', {}).get('canExpenses', True) %}
                         <li class="nav-item {% if active_page == 'reporte_606' or active_page == 'dashboard_606' %}active{% endif %}"
