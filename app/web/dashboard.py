@@ -306,6 +306,8 @@ def dashboard():
             emitted_at_str = inv.get('contingencyEmittedAt') or inv.get('date', now_utc.isoformat())
             try:
                 emitted_at = datetime.fromisoformat(emitted_at_str.replace('Z', '+00:00'))
+                if emitted_at.tzinfo is None:
+                    emitted_at = emitted_at.replace(tzinfo=timezone.utc)
             except Exception:
                 emitted_at = now_utc
             hours_elapsed = (now_utc - emitted_at).total_seconds() / 3600
