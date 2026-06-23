@@ -322,8 +322,16 @@
                 padding: 15px;
             }
 
+            .kpi-value {
+                font-size: 1.3rem;
+            }
+
             .table-card {
                 padding: 15px;
+            }
+
+            .table-card h3 {
+                font-size: 1rem;
             }
 
             /* Responsive Table (Cards) */
@@ -370,6 +378,10 @@
                 justify-content: center;
             }
 
+            td:last-child div {
+                justify-content: center !important;
+            }
+
             td::before {
                 content: attr(data-label);
                 font-weight: 700;
@@ -389,6 +401,95 @@
                 justify-content: center;
                 padding: 8px 12px;
                 font-size: 0.75rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                margin: 10px auto;
+                padding: 0 8px;
+            }
+
+            .header-card {
+                padding: 12px;
+                gap: 10px;
+            }
+
+            .company-logo {
+                max-height: 50px;
+                max-width: 120px;
+            }
+
+            .company-name {
+                font-size: 1.15rem;
+            }
+
+            .kpi-row {
+                gap: 8px;
+                margin-bottom: 14px;
+            }
+
+            .kpi-card {
+                padding: 12px;
+            }
+
+            .kpi-title {
+                font-size: 0.7rem;
+            }
+
+            .kpi-value {
+                font-size: 1.1rem;
+            }
+
+            .client-info-card {
+                padding: 12px;
+            }
+
+            .client-info-card h3 {
+                font-size: 0.85rem;
+            }
+
+            .client-info-card div[style*="grid-template-columns"] {
+                gap: 10px !important;
+            }
+
+            .table-card {
+                padding: 12px;
+            }
+
+            .table-card h3 {
+                font-size: 0.9rem;
+                margin-bottom: 14px !important;
+            }
+
+            tr {
+                padding: 10px;
+                margin-bottom: 10px;
+            }
+
+            td {
+                font-size: 0.8rem;
+                padding: 6px 0;
+            }
+
+            td::before {
+                font-size: 0.65rem;
+            }
+
+            td:last-child {
+                padding-top: 8px;
+                margin-top: 2px;
+            }
+
+            .btn {
+                font-size: 0.7rem;
+                padding: 6px 10px;
+                gap: 4px;
+            }
+
+            .badge {
+                font-size: 0.65rem;
+                padding: 3px 6px;
             }
         }
     </style>
