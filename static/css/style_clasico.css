@@ -528,6 +528,22 @@ body.sandbox-mode .environment-indicator {
     }
 }
 
+/* Layout responsivo del detalle de factura/cotizacion */
+.detail-grid {
+    display: grid;
+    grid-template-columns: 3fr 1fr;
+    gap: 30px;
+    max-width: 100%;
+    margin: 0 auto;
+}
+
+@media screen and (max-width: 1024px) {
+    .detail-grid {
+        grid-template-columns: 1fr;
+        gap: 20px;
+    }
+}
+
 /* =========================================================================
    TARJETAS Y MÓDULOS (GLASSMORPHISM & PREMIUM LOOK)
    ========================================================================= */
