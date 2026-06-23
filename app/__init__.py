@@ -476,12 +476,14 @@ def create_app():
     from app.api.v1.dgii import api_dgii_bp
     from app.api.v1.auth import api_auth_bp
     from app.api.v1.metadata import metadata_bp
+    from app.api.v1.prospects import api_prospects_bp
     
     app.register_blueprint(api_invoices_bp, url_prefix='/api/v1')
     app.register_blueprint(api_clients_bp, url_prefix='/api/v1')
     app.register_blueprint(api_dgii_bp, url_prefix='/api/v1')
     app.register_blueprint(api_auth_bp, url_prefix='/api/v1')
     app.register_blueprint(metadata_bp, url_prefix='/api/v1')
+    app.register_blueprint(api_prospects_bp, url_prefix='/api/v1')
 
     # 2. Web UI Blueprints
     from app.web.auth import web_auth_bp
