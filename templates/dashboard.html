@@ -6,6 +6,14 @@
 
 {% block content %}
 <style>
+    .dashboard-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+    }
+
     @media (max-width: 1024px) {
 
         .grid-two-cols,
@@ -16,25 +24,171 @@
     }
 
     /* Resumen Financiero: montos compactos en pantallas medianas */
-    @media (max-width: 1280px) {
-        .kpi-amount-value {
-            font-size: 1.25rem !important;
+    .bi-summary-cards {
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-md);
+        box-shadow: var(--shadow-sm);
+        display: flex;
+        margin-bottom: 30px;
+        overflow: hidden;
+        backdrop-filter: blur(20px);
+    }
+
+    .bi-card {
+        flex: 1;
+        padding: 16px 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        border-right: 1px solid var(--border-color);
+    }
+
+    .bi-card:last-child {
+        border-right: none;
+    }
+
+    @media (max-width: 992px) {
+        .bi-summary-cards {
+            flex-direction: column;
+        }
+        .bi-card {
+            border-right: none;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .bi-card:last-child {
+            border-bottom: none;
         }
     }
 
-    @media (max-width: 900px) {
-        .kpi-amount-value {
-            font-size: 1.05rem !important;
-        }
+    .bi-card-title {
+        font-size: 0.72rem;
+        color: var(--text-secondary);
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 4px;
     }
+
+    .bi-card-value {
+        font-size: 1.4rem;
+        font-family: var(--font-heading);
+        font-weight: 700;
+        color: var(--text-primary);
+        line-height: 1.1;
+    }
+
+    .bi-card-trend {
+        font-size: 0.68rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-weight: 500;
+        color: var(--text-muted);
+    }
+
+    .trend-up {
+        color: var(--accent-emerald);
+    }
+
+    .trend-down {
+        color: var(--accent-red);
+    }
+
+    .insight-card {
+        padding: 12px 14px;
+        border-radius: var(--radius-sm);
+        border-left: 4px solid;
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        font-size: 0.85rem;
+        line-height: 1.4;
+        background: var(--bg-card);
+        box-shadow: var(--shadow-sm);
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .insight-card:hover {
+        transform: translateY(-1px);
+        box-shadow: var(--shadow-md);
+    }
+
+    .insight-warning {
+        border-left-color: var(--accent-yellow);
+    }
+
+    .insight-danger {
+        border-left-color: var(--accent-red);
+    }
+
+    .insight-info {
+        border-left-color: var(--accent-purple);
+    }
+
+    .insight-success {
+        border-left-color: var(--accent-emerald);
+    }
+
+    .insight-icon {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        font-size: 0.8rem;
+    }
+
+    .insight-icon-warning {
+        background: rgba(245, 158, 11, 0.12);
+        color: var(--accent-yellow);
+    }
+
+    .insight-icon-danger {
+        background: rgba(239, 68, 68, 0.12);
+        color: var(--accent-red);
+    }
+
+    .insight-icon-info {
+        background: rgba(124, 58, 237, 0.12);
+        color: var(--accent-purple);
+    }
+
+    .insight-icon-success {
+        background: rgba(16, 185, 129, 0.12);
+        color: var(--accent-emerald);
+    }
+
+    .dashboard-tab { display: none; }
+    .dashboard-tab.active { display: block; }
 </style>
 
-<div class="page-title-container" style="margin-bottom: 24px; padding-left: 4px;">
+<div class="dashboard-container">
+<div class="page-title-container" style="margin-bottom: 0; padding-left: 4px;">
     <h1 class="page-title"
         style="font-size: 1.75rem; font-weight: 800; font-family: var(--font-heading); color: var(--text-primary); margin: 0;">
         Dashboard General
     </h1>
 </div>
+
+<div class="dashboard-tab-nav" style="display: flex; gap: 4px; margin-bottom: 24px; border-bottom: 1px solid var(--border-color); padding-bottom: 0;">
+    <button class="dashboard-tab-btn active" onclick="switchDashboardTab(event, 'tab-resumen')" style="border: none; background: none; padding: 10px 16px; font-size: 0.85rem; font-weight: 500; color: var(--text-primary); cursor: pointer; border-bottom: 2px solid var(--accent-purple); margin-bottom: -1px; transition: all 0.2s;">
+        <i class="fa-solid fa-house"></i> Resumen
+    </button>
+    <button class="dashboard-tab-btn" onclick="switchDashboardTab(event, 'tab-rentabilidad')" style="border: none; background: none; padding: 10px 16px; font-size: 0.85rem; font-weight: 500; color: var(--text-muted); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: all 0.2s;">
+        <i class="fa-solid fa-cubes"></i> Rentabilidad
+    </button>
+    <button class="dashboard-tab-btn" onclick="switchDashboardTab(event, 'tab-cash-flow')" style="border: none; background: none; padding: 10px 16px; font-size: 0.85rem; font-weight: 500; color: var(--text-muted); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: all 0.2s;">
+        <i class="fa-solid fa-chart-line"></i> Cash Flow
+    </button>
+    <button class="dashboard-tab-btn" onclick="switchDashboardTab(event, 'tab-tributarios')" style="border: none; background: none; padding: 10px 16px; font-size: 0.85rem; font-weight: 500; color: var(--text-muted); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: all 0.2s;">
+        <i class="fa-solid fa-calculator"></i> Tributarios
+    </button>
+</div>
+
+<div id="tab-resumen" class="dashboard-tab active">
 {% if contingency_invoices %}
 <!-- ALERTA DE CONTINGENCIA OFFLINE -->
 <div id="contingency-alert-banner" style="
@@ -286,56 +440,264 @@
 {% set period_label = " histórico" %}
 {% endif %}
 
-<!-- Tarjeta Única de KPIs -->
-<div class="card-table-wrapper"
-    style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 24px; padding: 24px; margin-bottom: 30px; box-shadow: none;">
+<div class="bi-summary-cards">
 
-    <!-- KPI 1: Ingresos -->
-    <div style="display: flex; flex-direction: column; gap: 4px;">
-        <span style="font-size: 0.8rem; color: var(--text-secondary);">Total Facturado (Ingresos)</span>
-        <div
-            class="kpi-amount-value"
-            style="font-size: 1.6rem; color: var(--accent-emerald); font-weight: 400; font-family: var(--font-heading); display: flex; align-items: center; gap: 8px; white-space: nowrap;">
-            <i class="fa-solid fa-square" style="font-size: 0.4rem; color: var(--accent-emerald); flex-shrink: 0;"></i>
+    <div class="bi-card">
+        <span class="bi-card-title">
+            Total Facturado (Ingresos)
+            <i class="fa-solid fa-chevron-right" style="font-size: 0.6rem; color: var(--text-muted); margin-left: 4px;"></i>
+        </span>
+        <div class="bi-card-value" style="color: var(--accent-emerald);">
             RD$ {{ "{:,.2f}".format(stats.total_invoiced) }}
         </div>
-        <span style="font-size: 0.75rem; color: var(--text-muted);">Facturas emitidas{{ period_label }}</span>
+        <span class="bi-card-trend trend-up" style="font-size: 0.65rem;">
+            <i class="fa-solid fa-file-invoice-dollar"></i> Facturas emitidas{{ period_label }}
+        </span>
+        <div style="margin-top: auto; padding-top: 4px;">
+            <svg viewBox="0 0 120 20" style="width: 100%; height: 20px; display: block;">
+                <path d="M0 18 C 15 18, 25 14, 45 10 C 65 6, 75 16, 95 4 C 105 -1, 112 12, 120 6"
+                      fill="none" stroke="var(--accent-emerald)" stroke-width="1.8" stroke-linecap="round"></path>
+            </svg>
+        </div>
     </div>
 
-    <!-- KPI 2: Egresos -->
-    <div style="display: flex; flex-direction: column; gap: 4px;">
-        <span style="font-size: 0.8rem; color: var(--text-secondary);">Egresos Registrados</span>
-        <div
-            class="kpi-amount-value"
-            style="font-size: 1.6rem; color: var(--accent-red); font-weight: 400; font-family: var(--font-heading); display: flex; align-items: center; gap: 8px; white-space: nowrap;">
-            <i class="fa-solid fa-square" style="font-size: 0.4rem; color: var(--accent-red); flex-shrink: 0;"></i>
+    <div class="bi-card">
+        <span class="bi-card-title">
+            Egresos Registrados
+            <i class="fa-solid fa-chevron-right" style="font-size: 0.6rem; color: var(--text-muted); margin-left: 4px;"></i>
+        </span>
+        <div class="bi-card-value" style="color: var(--accent-red);">
             RD$ {{ "{:,.2f}".format(stats.total_expenses) }}
         </div>
-        <span style="font-size: 0.75rem; color: var(--text-muted);">Gastos{{ period_label }}</span>
+        <span class="bi-card-trend trend-down" style="font-size: 0.65rem;">
+            <i class="fa-solid fa-wallet"></i> Gastos{{ period_label }}
+        </span>
+        <div style="margin-top: auto; padding-top: 4px;">
+            <svg viewBox="0 0 120 20" style="width: 100%; height: 20px; display: block;">
+                <path d="M0 8 C 15 12, 30 5, 45 15 C 60 22, 75 10, 90 18 C 105 10, 112 16, 120 12"
+                      fill="none" stroke="var(--accent-red)" stroke-width="1.8" stroke-linecap="round"></path>
+            </svg>
+        </div>
     </div>
 
-    <!-- KPI 3: Margen -->
-    <div style="display: flex; flex-direction: column; gap: 4px;">
-        <span style="font-size: 0.8rem; color: var(--text-secondary);">Rentabilidad / Margen Neto</span>
-        <div
-            class="kpi-amount-value"
-            style="font-size: 1.6rem; color: var(--accent-yellow); font-weight: 400; font-family: var(--font-heading); display: flex; align-items: center; gap: 8px; white-space: nowrap;">
-            <i class="fa-solid fa-square" style="font-size: 0.4rem; color: var(--accent-yellow); flex-shrink: 0;"></i>
+    <div class="bi-card">
+        <span class="bi-card-title">
+            Rentabilidad / Margen Neto
+            <i class="fa-solid fa-chevron-right" style="font-size: 0.6rem; color: var(--text-muted); margin-left: 4px;"></i>
+        </span>
+        <div class="bi-card-value" style="color: {% if stats.margin_net >= 0 %}var(--accent-emerald){% else %}var(--accent-red){% endif %};">
             {{ "{:.1f}%".format(stats.margin_net) }}
         </div>
-        <span style="font-size: 0.75rem; color: var(--text-muted);">Margen neto{{ period_label }}</span>
+        <span class="bi-card-trend {% if stats.margin_net >= 0 %}trend-up{% else %}trend-down{% endif %}" style="font-size: 0.65rem;">
+            <i class="fa-solid {% if stats.margin_net >= 0 %}fa-arrow-trend-up{% else %}fa-arrow-trend-down{% endif %}"></i>
+            Margen neto{{ period_label }}
+        </span>
+        <div style="margin-top: auto; padding-top: 4px;">
+            <svg viewBox="0 0 120 20" style="width: 100%; height: 20px; display: block;">
+                <g fill="#3b82f6" opacity="0.85">
+                    <rect x="5" y="14" width="4" height="6" rx="1"></rect>
+                    <rect x="15" y="12" width="4" height="8" rx="1"></rect>
+                    <rect x="25" y="15" width="4" height="5" rx="1"></rect>
+                    <rect x="35" y="9" width="4" height="11" rx="1"></rect>
+                    <rect x="45" y="11" width="4" height="9" rx="1"></rect>
+                    <rect x="55" y="16" width="4" height="4" rx="1"></rect>
+                    <rect x="65" y="8" width="4" height="12" rx="1"></rect>
+                    <rect x="75" y="4" width="4" height="16" rx="1"></rect>
+                    <rect x="85" y="10" width="4" height="10" rx="1"></rect>
+                    <rect x="95" y="13" width="4" height="7" rx="1"></rect>
+                    <rect x="105" y="6" width="4" height="14" rx="1"></rect>
+                    <rect x="115" y="9" width="4" height="11" rx="1"></rect>
+                </g>
+            </svg>
+        </div>
     </div>
 
-    <!-- KPI 4: CxC -->
-    <div style="display: flex; flex-direction: column; gap: 4px;">
-        <span style="font-size: 0.8rem; color: var(--text-secondary);">Cuentas por Cobrar (CxC)</span>
-        <div
-            class="kpi-amount-value"
-            style="font-size: 1.6rem; color: var(--accent-purple); font-weight: 400; font-family: var(--font-heading); display: flex; align-items: center; gap: 8px; white-space: nowrap;">
-            <i class="fa-solid fa-square" style="font-size: 0.4rem; color: var(--accent-purple); flex-shrink: 0;"></i>
+    <div class="bi-card">
+        <span class="bi-card-title">
+            Cuentas por Cobrar (CxC)
+            <i class="fa-solid fa-chevron-right" style="font-size: 0.6rem; color: var(--text-muted); margin-left: 4px;"></i>
+        </span>
+        <div class="bi-card-value" style="color: {% if stats.total_cxc > 50000 %}var(--accent-yellow){% else %}var(--accent-emerald){% endif %};">
             RD$ {{ "{:,.2f}".format(stats.total_cxc) }}
         </div>
-        <span style="font-size: 0.75rem; color: var(--text-muted);">Saldo pendiente total</span>
+        <span class="bi-card-trend" style="font-size: 0.65rem;">
+            <i class="fa-solid fa-scale-balanced"></i> Saldo pendiente total
+        </span>
+        <div style="margin-top: auto; padding-top: 4px;">
+            <a href="{{ url_for('web_invoices.cxc_dashboard') }}" class="btn"
+               style="padding: 3px 8px; font-size: 0.68rem; display: inline-flex; align-items: center; gap: 4px; height: 24px; border-radius: 20px; border: 1px solid var(--border-color); background: #ffffff; color: var(--text-primary); cursor: pointer; font-weight: 500; box-shadow: var(--shadow-sm); text-decoration: none;">
+                <i class="fa-solid fa-receipt" style="color: var(--accent-emerald); font-size: 0.7rem;"></i>
+                Gestión de CxC
+            </a>
+        </div>
+    </div>
+
+</div>
+
+<!-- SECCIÓN DE SALUD FISCAL & CONTROL DE REGIMEN (DGII) -->
+<div style="margin-bottom: 30px;">
+    <!-- Título fuera de la tarjeta -->
+    <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 12px;">
+        <h2 style="font-size: 0.95rem; font-weight: 500; color: var(--text-secondary); margin: 0;">
+            Diagnóstico de Salud Fiscal & Regulación DGII
+        </h2>
+        <span class="badge {% if profile.regimenFiscal in ('rst_income', 'rst_purchases', 'RST') %}badge-success{% else %}badge-primary{% endif %}"
+              style="font-size:0.65rem;">
+            {% set r = profile.regimenFiscal|default('ordinary') %}
+            {% if r in ('rst_income', 'RST') %}RST (Ingresos){% elif r == 'rst_purchases' %}RST (Compras){% elif r == 'consumer' %}Consumidor Final{% elif r == 'exempt' %}Exento{% else %}Ordinario{% endif %}
+        </span>
+    </div>
+
+    <div class="card-table-wrapper" style="padding: 24px; box-shadow: none;">
+
+        <div style="display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 30px; align-items: center;">
+            <!-- Lado Izquierdo: Semáforo y Alertas -->
+            <div style="display: flex; gap: 24px; align-items: flex-start;">
+                <!-- Semáforo visual -->
+                <div
+                    style="display: flex; flex-direction: column; gap: 10px; background-color: rgba(0, 0, 0, 0.15); padding: 14px; border-radius: 20px; align-items: center; min-width: 60px;">
+                    <div
+                        style="width: 28px; height: 28px; border-radius: 50%; background-color: var(--accent-red); opacity: {% if stats.total_cxc > 100000 or (profile.regimenFiscal in ('RST', 'rst_income', 'rst_purchases') and rst_income_year >= rst_limit_2026 * 0.9) %}1.0{% else %}0.15{% endif %}; box-shadow: {% if stats.total_cxc > 100000 or (profile.regimenFiscal in ('RST', 'rst_income', 'rst_purchases') and rst_income_year >= rst_limit_2026 * 0.9) %}0 0 12px var(--accent-red){% else %}none{% endif %}; transition: all 0.3s ease;">
+                    </div>
+                    <div
+                        style="width: 28px; height: 28px; border-radius: 50%; background-color: var(--accent-yellow); opacity: {% if (stats.total_cxc > 20000 and stats.total_cxc <= 100000) or (profile.regimenFiscal in ('RST', 'rst_income', 'rst_purchases') and rst_income_year >= rst_limit_2026 * 0.7 and rst_income_year < rst_limit_2026 * 0.9) %}1.0{% else %}0.15{% endif %}; box-shadow: {% if (stats.total_cxc > 20000 and stats.total_cxc <= 100000) or (profile.regimenFiscal in ('RST', 'rst_income', 'rst_purchases') and rst_income_year >= rst_limit_2026 * 0.7 and rst_income_year < rst_limit_2026 * 0.9) %}0 0 12px var(--accent-yellow){% else %}none{% endif %}; transition: all 0.3s ease;">
+                    </div>
+                    <div
+                        style="width: 28px; height: 28px; border-radius: 50%; background-color: var(--accent-emerald); opacity: {% if stats.total_cxc <= 20000 and (profile.regimenFiscal not in ('RST', 'rst_income', 'rst_purchases') or rst_income_year < rst_limit_2026 * 0.7) %}1.0{% else %}0.15{% endif %}; box-shadow: {% if stats.total_cxc <= 20000 and (profile.regimenFiscal not in ('RST', 'rst_income', 'rst_purchases') or rst_income_year < rst_limit_2026 * 0.7) %}0 0 12px var(--accent-emerald){% else %}none{% endif %}; transition: all 0.3s ease;">
+                    </div>
+                </div>
+
+                <!-- Textos y consejos de Salud -->
+                <div style="display: flex; flex-direction: column; gap: 12px;">
+                    <h4 style="font-size: 1.05rem; font-family: var(--font-heading); margin-bottom: 2px;">Análisis de
+                        Contabilidad en Tiempo Real</h4>
+
+                    {% if profile.regimenFiscal in ('RST', 'rst_income', 'rst_purchases') %}
+                    <p style="color: var(--text-secondary); font-size: 0.88rem; line-height: 1.4; margin: 0;">
+                        🟢 <strong>Diagnóstico de Régimen:</strong> Estás operando en el <strong>Régimen Simplificado
+                            (RST)</strong>. Este régimen simplifica tus declaraciones y tu único enfoque es no superar
+                        el límite de facturación anual.
+                    </p>
+                    {% if rst_income_year >= rst_limit_2026 * 0.9 %}
+                    <p
+                        style="color: var(--accent-red); font-size: 0.85rem; font-weight: 500; line-height: 1.4; margin: 0;">
+                        ⚠️ ¡ALERTA CRÍTICA! Has alcanzado el {{ "{:.1f}%".format((rst_income_year / rst_limit_2026) *
+                        100)
+                        }} de tu límite fiscal anual. Si superas los RD$ 12.06M, la DGII te transferirá automáticamente
+                        al
+                        Régimen General.
+                    </p>
+                    {% elif rst_income_year >= rst_limit_2026 * 0.7 %}
+                    <p
+                        style="color: var(--accent-yellow); font-size: 0.85rem; font-weight: 500; line-height: 1.4; margin: 0;">
+                        ⚠️ Cuidado: Has superado el 70% de tus ingresos permitidos para este año. Te recomendamos
+                        moderar
+                        nuevas emisiones para no rebasar el límite anual de RD$ 12.06 millones.
+                    </p>
+                    {% else %}
+                    <p style="color: var(--text-muted); font-size: 0.82rem; line-height: 1.4; margin: 0;">
+                        👍 <strong>Consejo del Mes:</strong> Tus ingresos acumulados se encuentran dentro del rango
+                        seguro.
+                        Sigue disfrutando de la exención de reportar gastos y concéntrate en emitir tus comprobantes
+                        electrónicos fiscales con total normalidad.
+                    </p>
+                    {% endif %}
+                    {% else %}
+                    <p style="color: var(--text-secondary); font-size: 0.88rem; line-height: 1.4; margin: 0;">
+                        🔵 <strong>Diagnóstico de Régimen:</strong> Estás en el <strong>Régimen General</strong>. Tu
+                        facturación electrónica (e-CF) se reporta y autoriza en tiempo real con la DGII para cada una de
+                        tus ventas y comprobantes emitidos.
+                    </p>
+                    <p style="color: var(--text-muted); font-size: 0.82rem; line-height: 1.4; margin: 0;">
+                        💰 <strong>Fondo Tributario Aconsejado:</strong> Has facturado un total de <strong>RD$ {{
+                            "{:,.2f}".format(stats.total_itbis) }}</strong> de ITBIS en este periodo. Te recomendamos
+                        apartar este monto en una cuenta separada para evitar desfalques de caja cuando toque liquidar
+                        el
+                        IT-1 ante la DGII.
+                    </p>
+                    {% endif %}
+
+                    {% if stats.total_cxc > 50000 %}
+                    <div
+                        style="background-color: rgba(245, 158, 11, 0.05); border-left: 3px solid var(--accent-yellow); padding: 8px 12px; border-radius: var(--radius-xs); margin-top: 4px;">
+                        <span
+                            style="font-size: 0.8rem; font-weight: 700; color: var(--accent-yellow); display: block; margin-bottom: 2px;">⚠️
+                            Alta Cartera de Cuentas por Cobrar</span>
+                        <span
+                            style="font-size: 0.78rem; color: var(--text-secondary); line-height: 1.3; display: block;">
+                            Tienes RD$ {{ "{:,.2f}".format(stats.total_cxc) }} pendientes de cobro. Recuerda que la DGII
+                            te
+                            exige pagar el ITBIS de las facturas emitidas, *incluso si tus clientes no te las han pagado
+                            aún*. ¡Prioriza la cobranza de tus facturas!
+                        </span>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Lado Derecho: Barra de Progreso del RST (sólo si aplica) -->
+            <div
+                style="border-left: 1px solid var(--border-color); padding-left: 30px; height: 100%; display: flex; flex-direction: column; justify-content: center; gap: 12px;">
+                {% if profile.regimenFiscal in ('RST', 'rst_income', 'rst_purchases') %}
+                <div
+                    style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-secondary); font-weight: 500;">
+                    <span>Límite Anual RST 2026 (Ingresos)</span>
+                    <span style="font-family: monospace;">{{ "{:.1f}%".format((rst_income_year / rst_limit_2026) * 100)
+                        }}</span>
+                </div>
+
+                <div
+                    style="width: 100%; height: 12px; background-color: var(--bg-input); border-radius: 6px; overflow: hidden; position: relative;">
+                    <div
+                        style="width: {{ min(100.0, (rst_income_year / rst_limit_2026) * 100) }}%; height: 100%; background-color: {% if rst_income_year >= rst_limit_2026 * 0.9 %}var(--accent-red){% elif rst_income_year >= rst_limit_2026 * 0.7 %}var(--accent-yellow){% else %}var(--accent-emerald){% endif %}; border-radius: 6px; transition: width 0.5s ease; box-shadow: 0 0 8px {% if rst_income_year >= rst_limit_2026 * 0.9 %}var(--accent-red){% elif rst_income_year >= rst_limit_2026 * 0.7 %}var(--accent-yellow){% else %}var(--accent-emerald){% endif %};">
+                    </div>
+                </div>
+
+                <div
+                    style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); font-family: monospace;">
+                    <span>Acumulado: RD$ {{ "{:,.2f}".format(rst_income_year) }}</span>
+                    <span>Tope: RD$ {{ "{:,.2f}".format(rst_limit_2026) }}</span>
+                </div>
+                {% else %}
+                <div style="text-align: center; padding: 10px 0;">
+                    <i class="fa-solid fa-circle-nodes"
+                        style="font-size: 2.2rem; color: var(--accent-purple); opacity: 0.25; margin-bottom: 8px; display: block;"></i>
+                    <span style="font-size: 0.8rem; color: var(--text-secondary); line-height: 1.4; display: block;">
+                        ¿Eres profesional independiente o MIPYME y emites comprobantes de servicios? Considera evaluar
+                        con
+                        tu asesor aplicar al <strong>Régimen Simplificado (RST)</strong> para ahorrar costos de
+                        contabilidad.
+                    </span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Módulo de Smart Insights (Predictivo IA) -->
+<div class="card-table-wrapper" style="padding: 16px 20px; display: flex; flex-direction: column; gap: 12px; margin-bottom: 30px;">
+    <div style="display: flex; align-items: center; gap: 8px;">
+        <i class="fa-solid fa-lightbulb" style="color: var(--accent-yellow); font-size: 0.95rem;"></i>
+        <span style="font-size: 0.85rem; font-weight: 600; color: var(--text-primary); font-family: var(--font-heading);">Smart Insights (Predictivo IA)</span>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 10px;">
+        {% for insight in insights %}
+        <div class="insight-card {% if insight.type == 'warning' %}insight-warning{% elif insight.type == 'danger' %}insight-danger{% elif insight.type == 'info' %}insight-info{% else %}insight-success{% endif %}">
+            <div class="insight-icon {% if insight.type == 'warning' %}insight-icon-warning{% elif insight.type == 'danger' %}insight-icon-danger{% elif insight.type == 'info' %}insight-icon-info{% else %}insight-icon-success{% endif %}">
+                {% if insight.type == 'warning' %}
+                <i class="fa-solid fa-circle-exclamation"></i>
+                {% elif insight.type == 'danger' %}
+                <i class="fa-solid fa-triangle-exclamation"></i>
+                {% elif insight.type == 'info' %}
+                <i class="fa-solid fa-circle-info"></i>
+                {% else %}
+                <i class="fa-solid fa-circle-check"></i>
+                {% endif %}
+            </div>
+            <div style="flex: 1; color: var(--text-secondary); line-height: 1.4;">{{ insight.text }}</div>
+        </div>
+        {% endfor %}
     </div>
 </div>
 
@@ -456,146 +818,204 @@
     </div>
 </div>
 
-<!-- SECCIÓN DE SALUD FISCAL & CONTROL DE REGIMEN (DGII) -->
-<div style="margin-bottom: 30px;">
-    <!-- Título fuera de la tarjeta -->
-    <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 12px;">
-        <h2 style="font-size: 0.95rem; font-weight: 500; color: var(--text-secondary); margin: 0;">
-            Diagnóstico de Salud Fiscal & Regulación DGII
-        </h2>
-        <span class="badge {% if profile.regimenFiscal in ('rst_income', 'rst_purchases', 'RST') %}badge-success{% else %}badge-primary{% endif %}"
-              style="font-size:0.65rem;">
-            {% set r = profile.regimenFiscal|default('ordinary') %}
-            {% if r in ('rst_income', 'RST') %}RST (Ingresos){% elif r == 'rst_purchases' %}RST (Compras){% elif r == 'consumer' %}Consumidor Final{% elif r == 'exempt' %}Exento{% else %}Ordinario{% endif %}
-        </span>
+
+</div> <!-- closes tab-resumen -->
+
+<!-- TAB: Rentabilidad -->
+<div id="tab-rentabilidad" class="dashboard-tab">
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+        <div class="card-table-wrapper" style="padding: 24px;">
+            <h4 style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-cubes" style="color: var(--accent-emerald);"></i> Margen por Producto/Servicio
+            </h4>
+            <div style="overflow-x: auto;">
+                <table class="data-table" style="width: 100%;">
+                    <thead>
+                        <tr>
+                            <th>Nombre</th>
+                            <th style="text-align: right;">Ingresos</th>
+                            <th style="text-align: right;">Margen %</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if products_by_profit %}
+                        {% for prod in products_by_profit %}
+                        <tr>
+                            <td>{{ prod.name }}</td>
+                            <td style="text-align: right;">RD$ {{ "{:,.2f}".format(prod.revenue) }}</td>
+                            <td style="text-align: right;">
+                                <span class="badge {% if prod.margin >= 25 %}badge-success{% elif prod.margin >= 10 %}badge-warning{% else %}badge-danger{% endif %}">
+                                    {{ "{:,.1f}".format(prod.margin) }}%
+                                </span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        {% else %}
+                        <tr>
+                            <td colspan="3" style="text-align: center; color: var(--text-muted); padding: 20px;">No hay datos de ventas con costos asociados.</td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="card-table-wrapper" style="padding: 24px;">
+            <h4 style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 16px; display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-users" style="color: var(--accent-emerald);"></i> Clientes Más Rentables
+            </h4>
+            <div style="overflow-x: auto;">
+                <table class="data-table" style="width: 100%;">
+                    <thead>
+                        <tr>
+                            <th>Cliente</th>
+                            <th style="text-align: right;">Ventas Totales</th>
+                            <th style="text-align: right;">Ganancia Neta Est.</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if clients_by_profit %}
+                        {% for cl in clients_by_profit %}
+                        <tr>
+                            <td>{{ cl.name }}</td>
+                            <td style="text-align: right;">RD$ {{ "{:,.2f}".format(cl.revenue) }}</td>
+                            <td style="text-align: right; color: var(--accent-emerald); font-weight: 500;">RD$ {{ "{:,.2f}".format(cl.profit) }}</td>
+                        </tr>
+                        {% endfor %}
+                        {% else %}
+                        <tr>
+                            <td colspan="3" style="text-align: center; color: var(--text-muted); padding: 20px;">No hay datos de clientes registrados.</td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
+</div>
 
-    <div class="card-table-wrapper" style="padding: 24px; box-shadow: none;">
+<!-- TAB: Cash Flow -->
+<div id="tab-cash-flow" class="dashboard-tab">
+    <div class="card-table-wrapper" style="padding: 24px;">
+        <h4 style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between;">
+            <span><i class="fa-solid fa-chart-line" style="color: var(--accent-emerald);"></i> Proyección de Flujo de Caja (Próximos 4 Meses)</span>
+            <span style="font-size: 0.8rem; color: var(--text-secondary); font-weight: normal;">Basado en fechas de vencimiento de CxC y CxP corrientes</span>
+        </h4>
+        <div style="height: 300px; margin-bottom: 30px; position: relative;">
+            <canvas id="cashFlowChart"></canvas>
+        </div>
+        <div style="overflow-x: auto;">
+            <table class="data-table" style="width: 100%;">
+                <thead>
+                    <tr>
+                        <th>Periodo Proyectado</th>
+                        <th style="text-align: right;">Entradas (CxC por Cobrar)</th>
+                        <th style="text-align: right;">Salidas (CxP por Pagar)</th>
+                        <th style="text-align: right;">Flujo Neto del Mes</th>
+                        <th style="text-align: right;">Saldo Acumulado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for month in months_projection %}
+                    <tr>
+                        <td>{{ month.label }}</td>
+                        <td style="text-align: right; color: var(--accent-emerald);">RD$ {{ "{:,.2f}".format(month.inflow) }}</td>
+                        <td style="text-align: right; color: var(--accent-red);">RD$ {{ "{:,.2f}".format(month.outflow) }}</td>
+                        <td style="text-align: right; font-weight: 500; color: {% if month.net >= 0 %}var(--accent-emerald){% else %}var(--accent-red){% endif %};">RD$ {{ "{:,.2f}".format(month.net) }}</td>
+                        <td style="text-align: right; font-weight: 500;">RD$ {{ "{:,.2f}".format(month.cumulative) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
 
-        <div style="display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 30px; align-items: center;">
-            <!-- Lado Izquierdo: Semáforo y Alertas -->
-            <div style="display: flex; gap: 24px; align-items: flex-start;">
-                <!-- Semáforo visual -->
-                <div
-                    style="display: flex; flex-direction: column; gap: 10px; background-color: rgba(0, 0, 0, 0.15); padding: 14px; border-radius: 20px; align-items: center; min-width: 60px;">
-                    <div
-                        style="width: 28px; height: 28px; border-radius: 50%; background-color: var(--accent-red); opacity: {% if stats.total_cxc > 100000 or (profile.regimenFiscal in ('RST', 'rst_income', 'rst_purchases') and rst_income_year >= rst_limit_2026 * 0.9) %}1.0{% else %}0.15{% endif %}; box-shadow: {% if stats.total_cxc > 100000 or (profile.regimenFiscal in ('RST', 'rst_income', 'rst_purchases') and rst_income_year >= rst_limit_2026 * 0.9) %}0 0 12px var(--accent-red){% else %}none{% endif %}; transition: all 0.3s ease;">
-                    </div>
-                    <div
-                        style="width: 28px; height: 28px; border-radius: 50%; background-color: var(--accent-yellow); opacity: {% if (stats.total_cxc > 20000 and stats.total_cxc <= 100000) or (profile.regimenFiscal in ('RST', 'rst_income', 'rst_purchases') and rst_income_year >= rst_limit_2026 * 0.7 and rst_income_year < rst_limit_2026 * 0.9) %}1.0{% else %}0.15{% endif %}; box-shadow: {% if (stats.total_cxc > 20000 and stats.total_cxc <= 100000) or (profile.regimenFiscal in ('RST', 'rst_income', 'rst_purchases') and rst_income_year >= rst_limit_2026 * 0.7 and rst_income_year < rst_limit_2026 * 0.9) %}0 0 12px var(--accent-yellow){% else %}none{% endif %}; transition: all 0.3s ease;">
-                    </div>
-                    <div
-                        style="width: 28px; height: 28px; border-radius: 50%; background-color: var(--accent-emerald); opacity: {% if stats.total_cxc <= 20000 and (profile.regimenFiscal != 'RST' or rst_income_year < rst_limit_2026 * 0.7) %}1.0{% else %}0.15{% endif %}; box-shadow: {% if stats.total_cxc <= 20000 and (profile.regimenFiscal != 'RST' or rst_income_year < rst_limit_2026 * 0.7) %}0 0 12px var(--accent-emerald){% else %}none{% endif %}; transition: all 0.3s ease;">
-                    </div>
+<!-- TAB: Tributarios -->
+<div id="tab-tributarios" class="dashboard-tab">
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+        <div class="card-table-wrapper" style="padding: 24px; display: flex; flex-direction: column; gap: 16px;">
+            <h4 style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 4px; display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-receipt" style="color: var(--accent-emerald);"></i> Régimen General / Ordinario Est.
+            </h4>
+            <p style="color: var(--text-secondary); font-size: 0.8rem; line-height: 1.4; margin-bottom: 8px;">
+                Cálculo proyectado del Impuesto Sobre la Renta (ISR) para sociedades en la República Dominicana (Tasa de 27% sobre la base imponible real).
+            </p>
+            <div style="display: flex; flex-direction: column; gap: 12px; background: rgba(255,255,255,0.01); padding: 16px; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
+                <div style="display: flex; justify-content: space-between; font-size: 0.9rem;">
+                    <span>Ventas del Periodo (Netas):</span>
+                    <span>RD$ {{ "{:,.2f}".format(total_sales_net) }}</span>
                 </div>
-
-                <!-- Textos y consejos de Salud -->
-                <div style="display: flex; flex-direction: column; gap: 12px;">
-                    <h4 style="font-size: 1.05rem; font-family: var(--font-heading); margin-bottom: 2px;">Análisis de
-                        Contabilidad en Tiempo Real</h4>
-
-                    {% if profile.regimenFiscal in ('RST', 'rst_income', 'rst_purchases') %}
-                    <p style="color: var(--text-secondary); font-size: 0.88rem; line-height: 1.4; margin: 0;">
-                        🟢 <strong>Diagnóstico de Régimen:</strong> Estás operando en el <strong>Régimen Simplificado
-                            (RST)</strong>. Este régimen simplifica tus declaraciones y tu único enfoque es no superar
-                        el límite de facturación anual.
-                    </p>
-                    {% if rst_income_year >= rst_limit_2026 * 0.9 %}
-                    <p
-                        style="color: var(--accent-red); font-size: 0.85rem; font-weight: 500; line-height: 1.4; margin: 0;">
-                        ⚠️ ¡ALERTA CRÍTICA! Has alcanzado el {{ "{:.1f}%".format((rst_income_year / rst_limit_2026) *
-                        100)
-                        }} de tu límite fiscal anual. Si superas los RD$ 12.06M, la DGII te transferirá automáticamente
-                        al
-                        Régimen General.
-                    </p>
-                    {% elif rst_income_year >= rst_limit_2026 * 0.7 %}
-                    <p
-                        style="color: var(--accent-yellow); font-size: 0.85rem; font-weight: 500; line-height: 1.4; margin: 0;">
-                        ⚠️ Cuidado: Has superado el 70% de tus ingresos permitidos para este año. Te recomendamos
-                        moderar
-                        nuevas emisiones para no rebasar el límite anual de RD$ 12.06 millones.
-                    </p>
-                    {% else %}
-                    <p style="color: var(--text-muted); font-size: 0.82rem; line-height: 1.4; margin: 0;">
-                        👍 <strong>Consejo del Mes:</strong> Tus ingresos acumulados se encuentran dentro del rango
-                        seguro.
-                        Sigue disfrutando de la exención de reportar gastos y concéntrate en emitir tus comprobantes
-                        electrónicos fiscales con total normalidad.
-                    </p>
-                    {% endif %}
-                    {% else %}
-                    <p style="color: var(--text-secondary); font-size: 0.88rem; line-height: 1.4; margin: 0;">
-                        🔵 <strong>Diagnóstico de Régimen:</strong> Estás en el <strong>Régimen General</strong>. Tu
-                        facturación electrónica (e-CF) se reporta y autoriza en tiempo real con la DGII para cada una de
-                        tus ventas y comprobantes emitidos.
-                    </p>
-                    <p style="color: var(--text-muted); font-size: 0.82rem; line-height: 1.4; margin: 0;">
-                        💰 <strong>Fondo Tributario Aconsejado:</strong> Has facturado un total de <strong>RD$ {{
-                            "{:,.2f}".format(stats.total_itbis) }}</strong> de ITBIS en este periodo. Te recomendamos
-                        apartar este monto en una cuenta separada para evitar desfalques de caja cuando toque liquidar
-                        el
-                        IT-1 ante la DGII.
-                    </p>
-                    {% endif %}
-
-                    {% if stats.total_cxc > 50000 %}
-                    <div
-                        style="background-color: rgba(245, 158, 11, 0.05); border-left: 3px solid var(--accent-yellow); padding: 8px 12px; border-radius: var(--radius-xs); margin-top: 4px;">
-                        <span
-                            style="font-size: 0.8rem; font-weight: 700; color: var(--accent-yellow); display: block; margin-bottom: 2px;">⚠️
-                            Alta Cartera de Cuentas por Cobrar</span>
-                        <span
-                            style="font-size: 0.78rem; color: var(--text-secondary); line-height: 1.3; display: block;">
-                            Tienes RD$ {{ "{:,.2f}".format(stats.total_cxc) }} pendientes de cobro. Recuerda que la DGII
-                            te
-                            exige pagar el ITBIS de las facturas emitidas, *incluso si tus clientes no te las han pagado
-                            aún*. ¡Prioriza la cobranza de tus facturas!
-                        </span>
-                    </div>
-                    {% endif %}
+                <div style="display: flex; justify-content: space-between; font-size: 0.9rem;">
+                    <span>Gastos del Periodo:</span>
+                    <span style="color: var(--text-secondary);">- RD$ {{ "{:,.2f}".format(total_expenses_net) }}</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; font-size: 0.9rem; border-top: 1px dashed var(--border-color); padding-top: 8px;">
+                    <span>Base Imponible Estimada:</span>
+                    <span>RD$ {{ "{:,.2f}".format(total_sales_net - total_expenses_net if total_sales_net - total_expenses_net > 0 else 0.0) }}</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; font-size: 1.05rem; font-weight: 500; color: var(--accent-red); border-top: 1px solid var(--border-color); padding-top: 8px;">
+                    <span>ISR Estimado (27%):</span>
+                    <span>RD$ {{ "{:,.2f}".format(isr_estimated) }}</span>
                 </div>
             </div>
+            <div style="background: rgba(16, 185, 129, 0.05); padding: 14px; border-radius: var(--radius-sm); border: 1px solid rgba(16, 185, 129, 0.1); font-size: 0.8rem; line-height: 1.45;">
+                <span style="color: var(--accent-emerald); display: block; margin-bottom: 4px; font-weight: 500;"><i class="fa-solid fa-calendar-days"></i> Cálculo de Anticipos Mensuales (Próximo Año)</span>
+                Si este fuese el ISR liquidado final, tendrías que pagar 12 anticipos mensuales de aproximadamente:
+                <span style="font-weight: 500;">RD$ {{ "{:,.2f}".format(anticipos_estimated) }}</span> cada uno.
+            </div>
+        </div>
 
-            <!-- Lado Derecho: Barra de Progreso del RST (sólo si aplica) -->
-            <div
-                style="border-left: 1px solid var(--border-color); padding-left: 30px; height: 100%; display: flex; flex-direction: column; justify-content: center; gap: 12px;">
-                {% if profile.regimenFiscal in ('RST', 'rst_income', 'rst_purchases') %}
-                <div
-                    style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-secondary); font-weight: 500;">
-                    <span>Límite Anual RST 2026 (Ingresos)</span>
-                    <span style="font-family: monospace;">{{ "{:.1f}%".format((rst_income_year / rst_limit_2026) * 100)
-                        }}</span>
-                </div>
-
-                <div
-                    style="width: 100%; height: 12px; background-color: var(--bg-input); border-radius: 6px; overflow: hidden; position: relative;">
-                    <div
-                        style="width: {{ min(100.0, (rst_income_year / rst_limit_2026) * 100) }}%; height: 100%; background-color: {% if rst_income_year >= rst_limit_2026 * 0.9 %}var(--accent-red){% elif rst_income_year >= rst_limit_2026 * 0.7 %}var(--accent-yellow){% else %}var(--accent-emerald){% endif %}; border-radius: 6px; transition: width 0.5s ease; box-shadow: 0 0 8px {% if rst_income_year >= rst_limit_2026 * 0.9 %}var(--accent-red){% elif rst_income_year >= rst_limit_2026 * 0.7 %}var(--accent-yellow){% else %}var(--accent-emerald){% endif %};">
+        <div class="card-table-wrapper" style="padding: 24px; display: flex; flex-direction: column; gap: 16px;">
+            <h4 style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 4px; display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-code-compare" style="color: var(--accent-purple);"></i> Simulador Comparador: RST vs Ordinario
+            </h4>
+            <p style="color: var(--text-secondary); font-size: 0.8rem; line-height: 1.4; margin-bottom: 8px;">
+                El RST exime de pagar anticipos e ITBIS en compras bajo ciertas condiciones, y calcula el impuesto de forma simplificada.
+            </p>
+            <div style="display: flex; flex-direction: column; gap: 14px;">
+                <div style="border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 14px; background: rgba(139, 92, 246, 0.03);">
+                    <span style="color: var(--accent-purple); font-size: 0.85rem; display: block; margin-bottom: 6px; font-weight: 500;">RST de Ingresos (Servicios y Profesionales)</span>
+                    <div style="display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 4px; color: var(--text-secondary);">
+                        <span>Deducción Automática (40%):</span>
+                        <span>RD$ {{ "{:,.2f}".format(total_sales_net * 0.40) }}</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 6px; color: var(--text-secondary);">
+                        <span>Base Gravable (60%):</span>
+                        <span>RD$ {{ "{:,.2f}".format(total_sales_net * 0.60) }}</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 0.95rem; font-weight: 500;">
+                        <span>ISR Estimado Simplificado:</span>
+                        <span style="color: var(--accent-purple);">RD$ {{ "{:,.2f}".format(rst_isr_estimated) }}</span>
                     </div>
                 </div>
-
-                <div
-                    style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); font-family: monospace;">
-                    <span>Acumulado: RD$ {{ "{:,.2f}".format(rst_income_year) }}</span>
-                    <span>Tope: RD$ {{ "{:,.2f}".format(rst_limit_2026) }}</span>
+                <div style="border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 14px; background: rgba(139, 92, 246, 0.03);">
+                    <span style="color: var(--accent-purple); font-size: 0.85rem; display: block; margin-bottom: 6px; font-weight: 500;">RST de Compras (Comercio / Importación)</span>
+                    <div style="display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 4px; color: var(--text-secondary);">
+                        <span>Margen Bruto Estimado DGII:</span>
+                        <span>26% Fijo</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 0.82rem; margin-bottom: 6px; color: var(--text-secondary);">
+                        <span>Ingresos Brutos Estimados:</span>
+                        <span>RD$ {{ "{:,.2f}".format(total_expenses_net * 1.35) }}</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 0.95rem; font-weight: 500;">
+                        <span>ISR Estimado RST Compras:</span>
+                        <span style="color: var(--accent-purple);">RD$ {{ "{:,.2f}".format(total_expenses_net * 0.26 * 0.27) }}</span>
+                    </div>
                 </div>
+            </div>
+            <div style="background: rgba(239, 68, 68, 0.03); padding: 10px; border-radius: var(--radius-sm); border: 1px solid rgba(239, 68, 68, 0.1); font-size: 0.72rem; text-align: center; color: var(--text-secondary);">
+                {% if rst_isr_estimated < isr_estimated %}
+                💡 <span style="font-weight: 500;">Recomendación IA:</span> Para este volumen de ingresos, el <span style="font-weight: 500;">RST de Ingresos</span> te ahorraría aproximadamente <span style="font-weight: 500;">RD$ {{ "{:,.2f}".format(isr_estimated - rst_isr_estimated) }}</span>.
                 {% else %}
-                <div style="text-align: center; padding: 10px 0;">
-                    <i class="fa-solid fa-circle-nodes"
-                        style="font-size: 2.2rem; color: var(--accent-purple); opacity: 0.25; margin-bottom: 8px; display: block;"></i>
-                    <span style="font-size: 0.8rem; color: var(--text-secondary); line-height: 1.4; display: block;">
-                        ¿Eres profesional independiente o MIPYME y emites comprobantes de servicios? Considera evaluar
-                        con
-                        tu asesor aplicar al <strong>Régimen Simplificado (RST)</strong> para ahorrar costos de
-                        contabilidad.
-                    </span>
-                </div>
+                💡 <span style="font-weight: 500;">Recomendación IA:</span> El <span style="font-weight: 500;">Régimen General</span> te favorece actualmente debido a un alto nivel de egresos deducibles cargados.
                 {% endif %}
             </div>
         </div>
     </div>
 </div>
+
+</div> <!-- closes dashboard-container -->
 {% endblock %}
 
 {% block extra_scripts %}
@@ -1118,6 +1538,58 @@
     function closeQuickNoteModal() {
         const modal = document.getElementById('quickNoteModal');
         modal.style.display = 'none';
+    }
+
+    // ── Tab Switching ──
+    function switchDashboardTab(evt, tabId) {
+        const tabs = document.querySelectorAll('.dashboard-tab');
+        tabs.forEach(t => t.classList.remove('active'));
+        document.getElementById(tabId).classList.add('active');
+
+        const btns = document.querySelectorAll('.dashboard-tab-btn');
+        btns.forEach(b => {
+            b.style.color = 'var(--text-muted)';
+            b.style.borderBottomColor = 'transparent';
+        });
+        evt.currentTarget.style.color = 'var(--text-primary)';
+        evt.currentTarget.style.borderBottomColor = 'var(--accent-purple)';
+
+        if (tabId === 'tab-cash-flow' && !window.cashFlowChartInitialized) {
+            window.cashFlowChartInitialized = true;
+            initCashFlowChart();
+        }
+    }
+
+    function initCashFlowChart() {
+        const canvas = document.getElementById('cashFlowChart');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        const labels = [{% for m in months_projection %}'{{ m.label }}'{% if not loop.last %},{% endif %}{% endfor %}];
+        const inflows = [{% for m in months_projection %}{{ m.inflow }}{% if not loop.last %},{% endif %}{% endfor %}];
+        const outflows = [{% for m in months_projection %}{{ m.outflow }}{% if not loop.last %},{% endif %}{% endfor %}];
+        const nets = [{% for m in months_projection %}{{ m.net }}{% if not loop.last %},{% endif %}{% endfor %}];
+        const cumulatives = [{% for m in months_projection %}{{ m.cumulative }}{% if not loop.last %},{% endif %}{% endfor %}];
+
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [
+                    { label: 'Entradas (CxC)', data: inflows, backgroundColor: 'rgba(16, 185, 129, 0.7)', borderRadius: 4 },
+                    { label: 'Salidas (CxP)', data: outflows, backgroundColor: 'rgba(239, 68, 68, 0.7)', borderRadius: 4 },
+                    { label: 'Flujo Neto', data: nets, type: 'line', borderColor: '#6366f1', backgroundColor: 'transparent', pointStyle: 'circle', pointRadius: 4, pointBackgroundColor: '#6366f1', borderWidth: 2, tension: 0.3 },
+                    { label: 'Acumulado', data: cumulatives, type: 'line', borderColor: '#f59e0b', backgroundColor: 'transparent', borderDash: [5, 3], pointStyle: 'circle', pointRadius: 3, pointBackgroundColor: '#f59e0b', borderWidth: 1.5, tension: 0.3 }
+                ]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, padding: 16, font: { size: 11 } } } },
+                scales: {
+                    y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.04)' }, ticks: { callback: v => 'RD$ ' + v.toLocaleString() } },
+                    x: { grid: { display: false } }
+                }
+            }
+        });
     }
 
     // Cerrar si se hace clic fuera del contenido de la tarjeta modal
