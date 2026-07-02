@@ -5,7 +5,8 @@ flask_url_for = flask.helpers.url_for
 from flask import Flask, request, session, jsonify, flash, redirect, render_template, url_for
 from flask_wtf.csrf import CSRFError
 from config import Config
-from app.extensions import init_extensions
+from app.extensions import init_extensions, csrf
+from app.cache import cache
 from app.services.db_service import DatabaseService
 
 def create_app():
@@ -99,6 +100,51 @@ def create_app():
                     session['company_sandbox_start_date'] = company_profile.get('sandboxStartDate', '')
                     session['company_sandbox_end_date'] = company_profile.get('sandboxEndDate', '')
                     session['company_plan_id'] = company_profile.get('planId', '')
+
+                    plan_version = company_profile.get('plan_version', 0) or 0
+                    cached_plan_version = session.get('company_plan_version', -1)
+                    if cached_plan_version != plan_version:
+                        plan_id = company_profile.get('planId', '')
+                        if plan_id:
+                            plan_data = DatabaseService.get_plan(plan_id)
+                            if plan_data:
+                                session['company_modules'] = plan_data.get('modules', {})
+                                session['company_plan_version'] = plan_version
+                                plan_limits = {}
+                                for f in ['documentLimit','userLimit','storageLimitMB','monthlyPayment',
+                                          'additionalDocumentCost','additionalUserCost','branchLimit',
+                                          'boxLimit','additionalBoxCost','posEnabled']:
+                                    if f in plan_data:
+                                        plan_limits[f] = plan_data[f]
+                                if plan_limits:
+                                    from app.services.db_service import db_firestore, _cached_company_profile
+                                    db_firestore.collection('users').document(owner_uid)\
+                                        .collection('config').document('profile')\
+                                        .update(plan_limits)
+                                    cache.delete_memoized(_cached_company_profile, owner_uid)
+                                    company_profile.update(plan_limits)
+                            else:
+                                session.pop('company_modules', None)
+                        else:
+                            session.pop('company_modules', None)
+                        session['company_plan_version'] = plan_version
+
+                    # Auto-cancelación: si cancel_at_period_end y la fecha pasó, aplicar cancelación
+                    if company_profile.get('cancel_at_period_end') and company_profile.get('cancel_scheduled_date'):
+                        from datetime import datetime, timezone, timedelta
+                        try:
+                            cancel_date = datetime.strptime(company_profile['cancel_scheduled_date'], '%d/%m/%Y').date()
+                            if datetime.now(timezone.utc).date() >= cancel_date:
+                                from app.services.db_service import db_firestore, _cached_company_profile
+                                company_profile['status'] = 'Cancelado'
+                                company_profile['cancel_at_period_end'] = False
+                                company_profile.pop('cancel_scheduled_date', None)
+                                db_firestore.collection('users').document(owner_uid)\
+                                    .collection('config').document('profile')\
+                                    .update({'status': 'Cancelado', 'cancel_at_period_end': False, 'cancel_scheduled_date': ''})
+                                cache.delete_memoized(_cached_company_profile, owner_uid)
+                        except (ValueError, TypeError):
+                            pass
                 
                 # Lista de páginas permitidas para evitar bucles de redirección
                 allowed_endpoints = [
@@ -144,11 +190,11 @@ def create_app():
                     # Entorno Sandbox
                     if not sandbox_enabled:
                         if request.endpoint not in allowed_endpoints:
-                            return render_template('auth/restricted.html', feature_name="Entorno Sandbox", required_permission="sandboxEnabled", custom_message="El entorno sandbox de pruebas para esta cuenta está desactivado. Por favor, comunícate con el administrador de e-Factura.", force_logout=True)
+                            return render_template('auth/restricted.html', feature_name="Entorno Sandbox", required_permission="sandboxEnabled", custom_message=f"El entorno sandbox de pruebas para esta cuenta está desactivado. Por favor, comunícate con el administrador de {app.config.get('PRODUCT_NAME', 'VykOne')}.", force_logout=True)
                     
                     if sandbox_expired:
                         if request.endpoint not in allowed_endpoints:
-                            return render_template('auth/restricted.html', feature_name="Prueba Sandbox", required_permission="sandboxTrialDate", custom_message="El período de prueba en el entorno Sandbox ha concluido. Si desea solicitar una extensión de su período de prueba, comuníquese con el personal de e-Factura.", force_logout=True)
+                            return render_template('auth/restricted.html', feature_name="Prueba Sandbox", required_permission="sandboxTrialDate", custom_message=f"El período de prueba en el entorno Sandbox ha concluido. Si desea solicitar una extensión de su período de prueba, comuníquese con el personal de {app.config.get('PRODUCT_NAME', 'VykOne')}.", force_logout=True)
                 else:
                     # Entorno de Producción
                     if not prod_enabled:
@@ -186,6 +232,36 @@ def create_app():
                         flash("Tu cuenta está suspendida por falta de pago. No puedes emitir nuevas facturas, cotizaciones ni registrar gastos.", "error")
                         return redirect(flask_url_for('web_dashboard.dashboard'))
 
+                module_restricted = {
+                    'web_notes.credit_notes': 'e_cf',
+                    'web_notes.debit_notes': 'e_cf',
+                    'web_invoices.new_quotation_route': 'cotizaciones',
+                    'web_invoices.quotations_list': 'cotizaciones',
+                    'web_clients.manage_clients': 'crm',
+                    'web_clients.manage_clients_route': 'crm',
+                    'web_clients.ajax_create_client': 'crm',
+                    'web_invoices.inventory_view': 'inventario',
+                    'web_invoices.items': 'catalogo',
+                    'web_invoices.new_item': 'catalogo',
+                    'web_invoices.manage_cxc': 'cxc',
+                    'web_suppliers.manage_suppliers': 'cxp_compras',
+                    'web_purchase_orders.manage_purchase_orders': 'cxp_compras',
+                    'web_operations.contracts': 'contratos',
+                    'web_operations.commissions': 'comisiones',
+                    'web_reports_606.report_606': 'reporte_606',
+                    'web_audit.audit_view': 'auditoria',
+                    'web_dashboard.bi_page': 'ia_bi',
+                    'web_clients.client_insights': 'ia_bi',
+                }
+                ep = request.endpoint
+                if ep in module_restricted:
+                    from app.utils.module_gate import module_enabled as _mod_check
+                    if not _mod_check(module_restricted[ep]):
+                        if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.is_json:
+                            return jsonify({"success": False, "error": "Este módulo no está disponible en tu plan actual."}), 403
+                        flash("Este módulo no está incluido en tu plan actual. Contacta a soporte para información sobre mejoras de plan.", "warning")
+                        return redirect(flask_url_for('web_dashboard.dashboard'))
+
                 if not company_profile.get('configured', False):
                     # Evitar bucle de redirección en páginas esenciales
                     allowed = [
@@ -210,7 +286,7 @@ def create_app():
     def inject_global_brand():
         """Inyecta el nombre del producto y la marca de la empresa en todos los templates."""
         from flask import current_app, has_request_context
-        product_name = current_app.config.get('PRODUCT_NAME', 'ZentOne')
+        product_name = current_app.config.get('PRODUCT_NAME', 'VykOne')
         logo_url = ''
         gradient_enabled = True
         color_marca = ''
@@ -289,7 +365,11 @@ def create_app():
             except OSError:
                 return '0'
 
-        return dict(check_permission=check_permission, static_hash=static_hash)
+        def module_enabled(module_key):
+            from app.utils.module_gate import module_enabled as _me
+            return _me(module_key)
+
+        return dict(check_permission=check_permission, static_hash=static_hash, module_enabled=module_enabled)
 
     @app.context_processor
     def inject_plan_info():
@@ -375,7 +455,12 @@ def create_app():
         csp = (
             "default-src 'self'; "
             "script-src 'self' 'unsafe-inline' "
-            "cdn.jsdelivr.net cdn.tailwindcss.com npmcdn.com "
+            "cdn.jsdelivr.net cdn.tailwindcss.com npmcdn.com unpkg.com "
+            "cdnjs.cloudflare.com "
+            "https://www.googletagmanager.com "
+            "https://www.google-analytics.com; "
+            "script-src-elem 'self' 'unsafe-inline' "
+            "cdn.jsdelivr.net cdn.tailwindcss.com npmcdn.com unpkg.com "
             "cdnjs.cloudflare.com "
             "https://www.googletagmanager.com "
             "https://www.google-analytics.com; "
@@ -501,6 +586,7 @@ def create_app():
     from app.web.reports_606 import web_reports_606_bp
     from app.web.fiscal_notes import web_fiscal_notes_bp
     from app.web.notifications import web_notifications_bp
+    from app.web.vykcore import web_vykcore_bp
 
     app.register_blueprint(web_auth_bp)
     app.register_blueprint(web_dashboard_bp)
@@ -516,7 +602,15 @@ def create_app():
     app.register_blueprint(web_purchase_orders_bp)
     app.register_blueprint(web_reports_606_bp)
     app.register_blueprint(web_fiscal_notes_bp)
+    app.register_blueprint(web_vykcore_bp)
     app.register_blueprint(web_notifications_bp)
+
+    # Eximir rutas /api/ de validación CSRF (los blueprints de API se registraron arriba)
+    for rule in app.url_map.iter_rules():
+        if rule.rule.startswith('/api/'):
+            view_func = app.view_functions.get(rule.endpoint)
+            if view_func:
+                csrf.exempt(view_func)
 
     # =========================================================================
     # RATE LIMITER — inicializar después de registrar todos los blueprints

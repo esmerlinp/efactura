@@ -11,6 +11,7 @@ from datetime import datetime
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify
 from config import Config
 from app.services.db_service import DatabaseService
+from app.services.mailer import Mailer
 from app.utils.decorators import check_permission
 from app.extensions import limiter
 from app.brand import get_product_name
@@ -51,73 +52,63 @@ def api_solicitar_demo():
         
         # Enviar email internamente con la solicitud a dev.esmerlin@gmail.com
         from flask import current_app
-        smtp_server = current_app.config.get("SMTP_SERVER", "smtp.gmail.com")
-        smtp_port = int(current_app.config.get("SMTP_PORT", 587))
-        smtp_user = current_app.config.get("SMTP_USER", "")
-        smtp_password = current_app.config.get("SMTP_PASSWORD", "")
 
-        if smtp_user and smtp_password:
-            import smtplib
-            from email.mime.multipart import MIMEMultipart
-            from email.mime.text import MIMEText
-            from email.utils import formataddr
-            
+        if current_app.config.get("SMTP_USER") and current_app.config.get("SMTP_PASSWORD"):
+            html_body = f"""
+            <html>
+            <body style="font-family: Arial, sans-serif; color: #333; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px;">
+                <div style="text-align: center; margin-bottom: 20px; border-bottom: 2px solid #10b981; padding-bottom: 10px;">
+                    <h2 style="color: #10b981; margin: 0;">Nueva Solicitud de Demo / Cotización</h2>
+                </div>
+                <p>Se ha recibido un nuevo lead desde la página de aterrizaje (Landing Page):</p>
+                <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+                    <tr>
+                        <td style="padding: 8px; border-bottom: 1px solid #eee; font-weight: bold; width: 35%;">Nombre:</td>
+                        <td style="padding: 8px; border-bottom: 1px solid #eee;">{name}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px; border-bottom: 1px solid #eee; font-weight: bold;">Correo:</td>
+                        <td style="padding: 8px; border-bottom: 1px solid #eee;"><a href="mailto:{email}">{email}</a></td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px; border-bottom: 1px solid #eee; font-weight: bold;">Teléfono:</td>
+                        <td style="padding: 8px; border-bottom: 1px solid #eee;">{phone}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px; border-bottom: 1px solid #eee; font-weight: bold;">RNC Comercial:</td>
+                        <td style="padding: 8px; border-bottom: 1px solid #eee;">{rnc if rnc else 'No provisto'}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px; border-bottom: 1px solid #eee; font-weight: bold;">Volumen e-CF/mes:</td>
+                        <td style="padding: 8px; border-bottom: 1px solid #eee;">{volumen}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px; border-bottom: 1px solid #eee; font-weight: bold;">Transacciones/mes:</td>
+                        <td style="padding: 8px; border-bottom: 1px solid #eee;">{transactions_qty}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px; border-bottom: 1px solid #eee; font-weight: bold;">Comentarios:</td>
+                        <td style="padding: 8px; border-bottom: 1px solid #eee;">{comments if comments else 'Sin comentarios'}</td>
+                    </tr>
+                </table>
+                <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
+                <div style="font-size: 0.8rem; color: #999; text-align: center;">
+                    Notificación automática del sistema de Landing Page de {get_product_name()}.
+                </div>
+            </body>
+            </html>
+            """
+
             try:
-                msg = MIMEMultipart('alternative')
-                msg["Subject"] = f"🔔 Nueva Solicitud de Demo: {name}"
-                msg["From"] = formataddr((f"{get_product_name()} Landing", smtp_user))
-                msg["To"] = "dev.esmerlin@gmail.com"
-                
-                html_body = f"""
-                <html>
-                <body style="font-family: Arial, sans-serif; color: #333; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px;">
-                    <div style="text-align: center; margin-bottom: 20px; border-bottom: 2px solid #10b981; padding-bottom: 10px;">
-                        <h2 style="color: #10b981; margin: 0;">Nueva Solicitud de Demo / Cotización</h2>
-                    </div>
-                    <p>Se ha recibido un nuevo lead desde la página de aterrizaje (Landing Page):</p>
-                    <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
-                        <tr>
-                            <td style="padding: 8px; border-bottom: 1px solid #eee; font-weight: bold; width: 35%;">Nombre:</td>
-                            <td style="padding: 8px; border-bottom: 1px solid #eee;">{name}</td>
-                        </tr>
-                        <tr>
-                            <td style="padding: 8px; border-bottom: 1px solid #eee; font-weight: bold;">Correo:</td>
-                            <td style="padding: 8px; border-bottom: 1px solid #eee;"><a href="mailto:{email}">{email}</a></td>
-                        </tr>
-                        <tr>
-                            <td style="padding: 8px; border-bottom: 1px solid #eee; font-weight: bold;">Teléfono:</td>
-                            <td style="padding: 8px; border-bottom: 1px solid #eee;">{phone}</td>
-                        </tr>
-                        <tr>
-                            <td style="padding: 8px; border-bottom: 1px solid #eee; font-weight: bold;">RNC Comercial:</td>
-                            <td style="padding: 8px; border-bottom: 1px solid #eee;">{rnc if rnc else 'No provisto'}</td>
-                        </tr>
-                        <tr>
-                            <td style="padding: 8px; border-bottom: 1px solid #eee; font-weight: bold;">Volumen e-CF/mes:</td>
-                            <td style="padding: 8px; border-bottom: 1px solid #eee;">{volumen}</td>
-                        </tr>
-                        <tr>
-                            <td style="padding: 8px; border-bottom: 1px solid #eee; font-weight: bold;">Transacciones/mes:</td>
-                            <td style="padding: 8px; border-bottom: 1px solid #eee;">{transactions_qty}</td>
-                        </tr>
-                        <tr>
-                            <td style="padding: 8px; border-bottom: 1px solid #eee; font-weight: bold;">Comentarios:</td>
-                            <td style="padding: 8px; border-bottom: 1px solid #eee;">{comments if comments else 'Sin comentarios'}</td>
-                        </tr>
-                    </table>
-                    <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
-                    <div style="font-size: 0.8rem; color: #999; text-align: center;">
-                        Notificación automática del sistema de Landing Page de {get_product_name()}.
-                    </div>
-                </body>
-                </html>
-                """
-                msg.attach(MIMEText(html_body, 'html'))
-                
-                with smtplib.SMTP(smtp_server, smtp_port) as server:
-                    server.starttls()
-                    server.login(smtp_user, smtp_password)
-                    server.sendmail(smtp_user, "dev.esmerlin@gmail.com", msg.as_string())
+                success = Mailer.send(
+                    app=current_app._get_current_object(),
+                    to_email="dev.esmerlin@gmail.com",
+                    subject=f"🔔 Nueva Solicitud de Demo: {name}",
+                    html_body=html_body,
+                    from_name=f"{get_product_name()} Landing",
+                    category='support'
+                )
+                if success:
                     print("INFO [Landing Lead]: Email enviado exitosamente a dev.esmerlin@gmail.com", flush=True)
             except Exception as mail_err:
                 print(f"WARNING [Landing Lead]: Fallo al enviar email a dev.esmerlin@gmail.com: {mail_err}", flush=True)

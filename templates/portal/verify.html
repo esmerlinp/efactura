@@ -241,8 +241,10 @@
                 <label for="rnc_input" class="form-label">RNC o Cédula del Cliente</label>
                 <div class="input-wrapper">
                     <i class="fa-solid fa-id-card input-icon"></i>
-                    <input type="text" id="rnc_input" name="rnc" placeholder="Ej: 101-01234-5 o 224012345" required
-                        class="form-input" autofocus autocomplete="off">
+                    <input type="text" id="rnc_input" name="rnc" placeholder="Ej: 101012345 o 22401234567" required
+                        class="form-input" autofocus autocomplete="off"
+                        inputmode="numeric" oninput="this.value = this.value.replace(/[^0-9]/g, '')"
+                        maxlength="11" minlength="9">
                 </div>
             </div>
 

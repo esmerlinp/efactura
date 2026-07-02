@@ -16,7 +16,7 @@ with app.test_request_context('/'):
             "ownerUID": "TFUN07ZPQaXIiOzFg336NKHhHK33",
             "role": "owner",
             "name": "Propietario Demo",
-            "email": "propietario@efactura.com.do",
+            "email": "propietario@vykcore.com",
             "phone": "1234567890",
             "address": "Santo Domingo",
             "permissions": {
@@ -40,7 +40,7 @@ with app.test_request_context('/'):
             },
             "createdAt": "2026-06-16T12:00:00",
             "two_factor_enabled": False,
-            "profileImageUrl": "https://storage.googleapis.com/e-factura-c2b78.firebasestorage.app/users/TFUN07ZPQaXIiOzFg336NKHhHK33/avatars/4f1b3b24c8b3400ab95a5f1a5f1b3b2_avatar.jpg"
+            "profileImageUrl": "https://storage.googleapis.com/vykcore.firebasestorage.app/users/TFUN07ZPQaXIiOzFg336NKHhHK33/avatars/4f1b3b24c8b3400ab95a5f1a5f1b3b2_avatar.jpg"
         },
         "associated_companies": [
             {

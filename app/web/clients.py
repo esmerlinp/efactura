@@ -4,7 +4,9 @@ import html
 from datetime import datetime, timezone
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify
 from app.services.db_service import DatabaseService
+from app.services.mailer import Mailer
 from app.services.dgii import DGIIService
+from app.services.ai_service import AIService
 from app.utils.decorators import check_permission
 from app.brand import get_product_name
 
@@ -417,15 +419,6 @@ def send_portal_credentials(client_id):
     logo_html = f'<img src="{logo_url}" alt="Logo" style="max-height: 60px; margin-bottom: 15px;"><br>' if logo_url else ''
 
     from flask import current_app
-    import smtplib
-    from email.mime.multipart import MIMEMultipart
-    from email.mime.text import MIMEText
-    from email.utils import formataddr
-
-    smtp_server = current_app.config.get("SMTP_SERVER", "smtp.gmail.com")
-    smtp_port = int(current_app.config.get("SMTP_PORT", 587))
-    smtp_user = current_app.config.get("SMTP_USER", "")
-    smtp_password = current_app.config.get("SMTP_PASSWORD", "")
 
     client_name = client.get('razonSocial', 'Cliente')
     client_rnc = client.get('rnc', '')
@@ -478,7 +471,7 @@ def send_portal_credentials(client_id):
     </html>
     """
 
-    if not smtp_user or not smtp_password:
+    if not current_app.config.get("SMTP_USER") or not current_app.config.get("SMTP_PASSWORD"):
         if sandbox:
             print(f"⚠️ SMTP no configurado. Simulando envío de credenciales a {recipient_email}...")
             import uuid as _uuid
@@ -496,36 +489,34 @@ def send_portal_credentials(client_id):
             return jsonify({"success": True, "message": f"Credenciales simuladas enviadas a {recipient_email} (SMTP no configurado)."})
         return jsonify({"success": False, "error": "Servidor de correo SMTP no configurado."}), 500
 
-    try:
-        msg = MIMEMultipart('alternative')
-        msg["Subject"] = f"🔑 Acceso al Portal de Autoservicio - {company_name}"
-        msg["From"] = formataddr((company_name, smtp_user))
-        msg["To"] = recipient_email
-        msg.attach(MIMEText(html_body, 'html'))
+    subject = f"🔑 Acceso al Portal de Autoservicio - {company_name}"
 
-        with smtplib.SMTP(smtp_server, smtp_port) as server:
-            server.starttls()
-            server.login(smtp_user, smtp_password)
-            server.sendmail(smtp_user, recipient_email, msg.as_string())
+    success = Mailer.send(
+        app=current_app._get_current_object(),
+        to_email=recipient_email,
+        subject=subject,
+        html_body=html_body,
+        from_name=company_name,
+        category='credentials'
+    )
 
-        # Registrar en historial CRM
-        import uuid as _uuid
-        from datetime import datetime as _dt, timezone
-        interaction_id = str(_uuid.uuid4())
-        interaction_dict = {
-            "type": "Email",
-            "title": "Credenciales del Portal enviadas",
-            "content": f"Credenciales de acceso al portal enviadas a {recipient_email}.\nRNC: {client_rnc} | PIN: {access_pin}",
-            "date": _dt.now(timezone.utc).isoformat(),
-            "completed": True,
-            "createdBy": session.get('user', {}).get('email', 'Sistema')
-        }
-        DatabaseService.save_client_interaction(owner_uid, client_id, interaction_id, interaction_dict, sandbox=sandbox)
+    if not success:
+        return jsonify({"success": False, "error": "Error al enviar correo."}), 500
 
-        return jsonify({"success": True, "message": f"Credenciales enviadas exitosamente a {recipient_email}."})
-    except Exception as e:
-        print(f"⚠️ Error al enviar credenciales: {e}")
-        return jsonify({"success": False, "error": f"Error al enviar correo: {str(e)}"}), 500
+    import uuid as _uuid
+    from datetime import datetime as _dt, timezone
+    interaction_id = str(_uuid.uuid4())
+    interaction_dict = {
+        "type": "Email",
+        "title": "Credenciales del Portal enviadas",
+        "content": f"Credenciales de acceso al portal enviadas a {recipient_email}.\nRNC: {client_rnc} | PIN: {access_pin}",
+        "date": _dt.now(timezone.utc).isoformat(),
+        "completed": True,
+        "createdBy": session.get('user', {}).get('email', 'Sistema')
+    }
+    DatabaseService.save_client_interaction(owner_uid, client_id, interaction_id, interaction_dict, sandbox=sandbox)
+
+    return jsonify({"success": True, "message": f"Credenciales enviadas exitosamente a {recipient_email}."})
 
 @web_clients_bp.route('/clients/<client_id>')
 def client_detail(client_id):
@@ -578,6 +569,40 @@ def client_detail(client_id):
             pass
             
     # Generar URL del portal encriptada y segura
+    # Detectar alertas Smart Insights para este cliente
+    client_insight = None
+    now_dt = datetime.now(timezone.utc)
+    current_month = now_dt.strftime("%Y-%m")
+    monthly_data = {}
+    for inv in client_invoices:
+        if inv.get('status') in ('Anulada', 'Borrador'):
+            continue
+        month = (inv.get('date') or '')[:7]
+        if month:
+            monthly_data[month] = monthly_data.get(month, 0.0) + float(inv.get('total', 0.0))
+
+    if len(monthly_data) >= 2:
+        current_sales = monthly_data.get(current_month, 0.0)
+        other = [v for k, v in monthly_data.items() if k != current_month]
+        avg_hist = sum(other) / len(other)
+        if avg_hist > 5000 and current_sales < (avg_hist * 0.60):
+            drop = int((1 - (current_sales / avg_hist)) * 100)
+            client_insight = {
+                "type": "warning",
+                "text": f"Atención: Este cliente ha reducido sus compras un {drop}% este mes comparado con su promedio histórico."
+            }
+
+    if not client_insight:
+        overdue = sum(inv.get('remainingBalance', 0.0) for inv in client_invoices if inv.get('status') == 'Vencida')
+        if overdue > 10000:
+            client_insight = {
+                "type": "danger",
+                "text": f"Alerta: Este cliente acumula RD$ {overdue:,.2f} en facturas vencidas."
+            }
+
+    if not client_insight:
+        client_insight = {"type": "success", "text": "Cliente sin anomalías detectadas. Perfil de compras estable."}
+
     from app.utils.security import generate_portal_token
     token = generate_portal_token(owner_uid, client_id, sandbox=sandbox)
     portal_url = url_for('portal.portal_entry', token=token, _external=True)
@@ -592,7 +617,51 @@ def client_detail(client_id):
         documents=documents,
         payments=client_payments,
         responsible_name=responsible_name,
-        portal_url=portal_url
+        portal_url=portal_url,
+        client_insight=client_insight
+    )
+
+@web_clients_bp.route('/clients/<client_id>/insights')
+def client_insights(client_id):
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
+    if not check_permission('canClients'):
+        return render_template('auth/restricted.html', feature_name="Smart Insights", required_permission="canClients")
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+
+    clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox)
+    client = next((c for c in clients if c['id'] == client_id), None)
+    if not client:
+        flash('Cliente no encontrado.', 'error')
+        return redirect(url_for('web_clients.list_clients'))
+
+    all_invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox)
+    client_invoices = [inv for inv in all_invoices if inv['clientId'] == client_id and not inv.get('isQuotation')]
+
+    total_invoiced = sum(inv['total'] for inv in client_invoices if inv.get('status') not in ('Anulada', 'Borrador'))
+    total_cxc = sum(inv['netPayable'] for inv in client_invoices if inv.get('status') in ('Emitida', 'Vencida', 'Revision de Pago'))
+
+    from collections import Counter
+    product_counter = Counter()
+    for inv in client_invoices:
+        for item in inv.get('items', []):
+            name = item.get('name', 'Producto')
+            qty = float(item.get('quantity', 1))
+            product_counter[name] += qty
+    top_product_names = [name for name, _ in product_counter.most_common(5)]
+
+    strategy = AIService.generate_client_strategy(owner_uid, client, client_invoices)
+
+    return render_template(
+        'clients/insights.html',
+        active_page='clients',
+        client=client,
+        invoices=client_invoices,
+        strategy=strategy,
+        total_invoiced=total_invoiced,
+        total_cxc=total_cxc,
+        invoice_count=len(client_invoices),
+        top_products=top_product_names
     )
 
 @web_clients_bp.route('/clients/<client_id>/interactions/new', methods=['POST'])

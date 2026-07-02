@@ -181,6 +181,28 @@
                     <h2
                         style="font-size: 1.8rem; font-weight: 800; color: var(--text-primary); margin: 0; font-family: var(--font-heading);">
                         {{ plan_name }}</h2>
+                    {% if cancel_scheduled %}
+                    <div style="margin-top:10px;padding:8px 12px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.2);border-radius:var(--radius-sm);font-size:0.8rem;color:#d97706;">
+                        <i class="fa-solid fa-clock"></i> Cancelación programada para el <strong>{{ cancel_date }}</strong>
+                    </div>
+                    {% endif %}
+                    <div style="display:flex;gap:8px;justify-content:center;margin-top:12px;flex-wrap:wrap;">
+                        <a href="{{ url_for('web_invoices.change_plan_page') }}" class="btn btn-secondary" style="padding:6px 16px;font-size:0.8rem;display:inline-flex;align-items:center;gap:6px;">
+                            <i class="fa-solid fa-arrows-rotate"></i> Cambiar Plan
+                        </a>
+                        {% if not cancel_scheduled and profile.status == 'Activo' %}
+                        <button type="button" onclick="openCancelModal()" class="btn btn-secondary" style="padding:6px 16px;font-size:0.8rem;display:inline-flex;align-items:center;gap:6px;border-color:var(--accent-red);color:var(--accent-red);">
+                            <i class="fa-solid fa-ban"></i> Cancelar Suscripción
+                        </button>
+                        {% elif cancel_scheduled %}
+                        <form method="POST" action="{{ url_for('web_invoices.reactivate_subscription') }}" style="display:inline;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn btn-secondary" style="padding:6px 16px;font-size:0.8rem;display:inline-flex;align-items:center;gap:6px;border-color:var(--accent-emerald);color:var(--accent-emerald);">
+                                <i class="fa-solid fa-heart"></i> Reactivar Suscripción
+                            </button>
+                        </form>
+                        {% endif %}
+                    </div>
                 </div>
 
                 <div class="premium-detail-list">
@@ -227,13 +249,31 @@
                 {% set monthly = profile.monthlyPayment | default(0) | float %}
                 {% set extra_cost = profile.additionalDocumentCost | default(0) | float %}
                 {% set excess_total = excess * extra_cost %}
+                {% if proration_current %}
+                {% set total_bill = proration_current.prorated_fee + excess_total %}
+                {% else %}
                 {% set total_bill = monthly + excess_total %}
+                {% endif %}
 
                 <div class="premium-detail-list">
                     <div class="detail-row">
                         <span class="detail-label">Cuota del Servicio:</span>
-                        <span class="detail-value">RD$ {{ monthly | round(2) }}</span>
+                        <span class="detail-value">{% if proration_current %}RD$ {{ proration_current.prorated_fee | round(2) }}{% else %}RD$ {{ monthly | round(2) }}{% endif %}</span>
                     </div>
+                    {% if proration_current %}
+                    <div class="detail-row" style="flex-direction:column;align-items:flex-start;gap:4px;padding:8px 14px;background:rgba(16,185,129,0.04);border-radius:var(--radius-sm);">
+                        <span style="font-size:0.75rem;color:var(--text-muted);display:flex;align-items:center;gap:4px;">
+                            <i class="fa-solid fa-scale-balanced"></i> Prorrateo del ciclo actual
+                        </span>
+                        <div style="font-size:0.78rem;color:var(--text-secondary);line-height:1.6;">
+                            RD$ {{ proration_current.old_rate | round(2) }} × {{ proration_current.days_before }}d +
+                            RD$ {{ proration_current.new_rate | round(2) }} × {{ proration_current.days_after }}d
+                            <span style="color:var(--text-muted);font-size:0.72rem;">
+                                (cambio el {{ proration_current.change_date }})
+                            </span>
+                        </div>
+                    </div>
+                    {% endif %}
                     <div class="detail-row">
                         <span class="detail-label">Excedentes ({{ excess }} docs):</span>
                         <span class="detail-value"
@@ -443,11 +483,31 @@
 
     <!-- Consumo de Meses Anteriores y Estados de Pago -->
     <div class="card-table-wrapper">
-        <div style="border-bottom: 1px solid var(--border-color); padding-bottom: 14px; margin-bottom: 18px;">
+        <div
+            style="border-bottom: 1px solid var(--border-color); padding-bottom: 14px; margin-bottom: 18px; display: flex; justify-content: space-between; align-items: center;">
             <h3
                 style="margin: 0; font-size: 1.1rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 8px;">
                 <i class="fa-solid fa-clock-rotate-left" style="color: #8b5cf6;"></i> Consumo de Meses Anteriores
             </h3>
+            {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canViewSubscription', True) %}
+            <div style="display:flex;gap:8px;">
+                <a href="{{ url_for('web_invoices.change_plan_page') }}" class="btn btn-secondary" style="padding:6px 14px;font-size:0.78rem;display:inline-flex;align-items:center;gap:6px;">
+                    <i class="fa-solid fa-arrows-rotate"></i> Cambiar Plan
+                </a>
+                {% if not cancel_scheduled and profile.status == 'Activo' %}
+                <button type="button" onclick="openCancelModal()" class="btn btn-secondary" style="padding:6px 14px;font-size:0.78rem;display:inline-flex;align-items:center;gap:6px;border-color:var(--accent-red);color:var(--accent-red);">
+                    <i class="fa-solid fa-ban"></i> Cancelar
+                </button>
+                {% elif cancel_scheduled %}
+                <form method="POST" action="{{ url_for('web_invoices.reactivate_subscription') }}" style="display:inline;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-secondary" style="padding:6px 14px;font-size:0.78rem;display:inline-flex;align-items:center;gap:6px;border-color:var(--accent-emerald);color:var(--accent-emerald);">
+                        <i class="fa-solid fa-heart"></i> Reactivar
+                    </button>
+                </form>
+                {% endif %}
+            </div>
+            {% endif %}
         </div>
 
         {% if billing_history %}
@@ -466,7 +526,15 @@
                 <tbody>
                     {% for cycle in billing_history %}
                     <tr style="border-bottom: 1px solid var(--border-color);">
-                        <td style="padding: 10px 8px; font-weight: 500;">{{ cycle.period_label }}</td>
+                        <td style="padding: 10px 8px; font-weight: 500;">
+                            {{ cycle.period_label }}
+                            {% if cycle.is_prorated and cycle.proration_detail %}
+                            <div style="font-size:0.65rem;color:var(--text-muted);margin-top:2px;display:flex;align-items:center;gap:3px;">
+                                <i class="fa-solid fa-scale-balanced" style="font-size:0.55rem;"></i>
+                                prorrateado: RD$ {{ cycle.proration_detail.old_rate | round(2) }} × {{ cycle.proration_detail.days_before }}d + RD$ {{ cycle.proration_detail.new_rate | round(2) }} × {{ cycle.proration_detail.days_after }}d
+                            </div>
+                            {% endif %}
+                        </td>
                         <td style="padding: 10px 8px; text-align: center; font-weight: 700;">{{ cycle.consumed_docs }}
                             docs</td>
                         <td style="padding: 10px 8px; text-align: center;">
@@ -481,6 +549,9 @@
                         <td
                             style="padding: 10px 8px; text-align: right; font-weight: 700; color: var(--text-primary); font-family: var(--font-heading);">
                             RD$ {{ cycle.total_charge | round(2) }}
+                            {% if cycle.is_prorated %}
+                            <div style="font-size:0.65rem;color:var(--text-muted);font-weight:400;">cuota prorrateada</div>
+                            {% endif %}
                         </td>
                         <td style="padding: 10px 8px; text-align: center;">
                             {% if cycle.status == 'Saldado' %}
@@ -515,4 +586,40 @@
     </div>
 
 </div>
+
+<div class="search-modal" id="cancel-subscription-modal"
+    style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;z-index:9999;align-items:center;justify-content:center;">
+    <div class="modal-backdrop" onclick="closeCancelModal()" style="position:absolute;width:100%;height:100%;background:rgba(15,23,42,0.6);backdrop-filter:blur(8px);"></div>
+    <div class="modal-content" style="max-width:440px;width:calc(100% - 32px);background:var(--bg-card);border:1px solid var(--border-color);border-radius:var(--radius-md);padding:30px;position:relative;z-index:2;box-shadow:var(--shadow-lg);color:var(--text-primary);text-align:center;">
+        <div style="font-size:2.5rem;color:var(--accent-red);margin-bottom:12px;"><i class="fa-solid fa-triangle-exclamation"></i></div>
+        <h3 style="font-size:1.1rem;font-family:var(--font-heading);color:var(--text-primary);font-weight:800;margin:0 0 8px;">Cancelar Suscripción</h3>
+        <p style="font-size:0.88rem;color:var(--text-secondary);line-height:1.5;margin:12px 0 24px;">
+            ¿Estás seguro de que deseas cancelar tu suscripción?
+            <br><br>
+            <strong style="color:var(--text-primary);">Tu servicio continuará activo hasta el final del período de facturación actual.</strong>
+            Podrás seguir usando todas las funcionalidades de tu plan con normalidad hasta esa fecha. Al finalizar el período, tu cuenta será desactivada.
+            <br><br>
+            <span style="font-size:0.82rem;color:var(--text-muted);">Si cambias de opinión antes del corte, puedes reactivar tu suscripción desde esta misma página.</span>
+        </p>
+        <form method="POST" action="{{ url_for('web_invoices.cancel_subscription') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div style="display:flex;gap:10px;">
+                <button type="button" onclick="closeCancelModal()" class="btn btn-secondary" style="flex:1;height:44px;justify-content:center;">
+                    <i class="fa-solid fa-xmark"></i> Cancelar
+                </button>
+                <button type="submit" class="btn btn-primary" style="flex:2;height:44px;justify-content:center;background:linear-gradient(135deg,var(--accent-red),#f87171);border:none;color:white;font-weight:700;">
+                    <i class="fa-solid fa-ban"></i> Confirmar Cancelación
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+<script>
+function openCancelModal() {
+    document.getElementById('cancel-subscription-modal').style.display = 'flex';
+}
+function closeCancelModal() {
+    document.getElementById('cancel-subscription-modal').style.display = 'none';
+}
+</script>
 {% endblock %}

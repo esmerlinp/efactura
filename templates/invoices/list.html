@@ -649,6 +649,9 @@ endblock %}
                         {% if inv.get('isProfessional') %}
                         <span style="font-size: 0.6rem; display: inline-block; padding: 1px 6px; border-radius: 4px; background: #ede9fe; color: #7c3aed; font-weight: 600; margin-top: 2px;">Profesional</span>
                         {% endif %}
+                        {% if inv.get('isImported') %}
+                        <span class="badge badge-imported"><i class="fa-solid fa-file-import"></i> Importada</span>
+                        {% endif %}
                         {% endif %}
                         {% if active_page != 'quotations' %}
                         <span style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase;">
@@ -709,6 +712,10 @@ endblock %}
                             <span style="font-size: 0.85rem; display: block; margin-bottom: 2px;">{{ inv.clientName
                                 }}</span>
                         </a>
+                        {% elif inv.get('isImported') and not (inv.clientName and inv.clientName != 'Sin Asignar') %}
+                        <span style="font-size: 0.85rem; display: block; margin-bottom: 2px; color: var(--text-muted);">
+                            <i class="fa-solid fa-user-slash" style="margin-right: 4px;"></i>Sin Asignar
+                        </span>
                         {% else %}
                         <span style="font-size: 0.85rem; display: block; margin-bottom: 2px;">{{ inv.clientName
                             }}</span>

@@ -1,6 +1,6 @@
-# Documentación de la API de e-Factura v1
+# Documentación de la API de VykOne v1
 
-Bienvenido a la API REST de **e-Factura**. Esta API permite a integradores de terceros, sistemas ERP y aplicaciones móviles emitir e-CFs (Comprobantes Fiscales Electrónicos) válidos ante la DGII en República Dominicana, consultar RNCs de clientes, anular facturas y sincronizar catálogos.
+Bienvenido a la API REST de **VykOne**. Esta API permite a integradores de terceros, sistemas ERP y aplicaciones móviles emitir e-CFs (Comprobantes Fiscales Electrónicos) válidos ante la DGII en República Dominicana, consultar RNCs de clientes, anular facturas y sincronizar catálogos.
 
 ---
 
@@ -129,14 +129,14 @@ Consulta el RNC o Cédula directamente en la base de datos de la DGII.
 ### 2.5 Sincronización de Clientes
 `POST /api/v1/clients`
 
-Registra a un cliente de forma externa en la agenda de e-Factura.
+Registra a un cliente de forma externa en la agenda de VykOne.
 
 #### Payload de Ejemplo
 ```json
 {
   "rnc": "132109122",
   "razon_social": "Soluciones Tecnológicas del Caribe SRL",
-  "email": "soporte@solucionescaribe.com",
+  "email": "support@vykcore.com",
   "telefono": "809-555-0144",
   "direccion": "Av. Winston Churchill #102, Santo Domingo"
 }

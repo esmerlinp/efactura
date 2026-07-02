@@ -78,7 +78,7 @@ class ChatbotService:
     @classmethod
     def get_help_kb(cls):
         """Retorna la base de conocimiento estática alimentada por la ayuda fiscal
-        y los flujos del sistema e-Factura.
+        y los flujos del sistema.
         """
         product = get_product_name()
         return f"""
@@ -165,7 +165,7 @@ class ChatbotService:
             if usage_count >= FREE_MONTHLY_LIMIT:
                 return {
                     "success": False,
-                    "message": f"⚠️ **Límite de consultas mensuales alcanzado (Cuota del Servidor).**\n\nHaz consumido tus **{FREE_MONTHLY_LIMIT} consultas de cortesía** de este mes.\n\nPara seguir disfrutando del asistente fiscal IA de forma **ilimitada**, introduce tu propia clave de API de OpenAI en la pantalla de [Configuración de Empresa](file:///Users/esmerlinpaniagua/Develop/e-Factura/e-FacturaWeb/templates/company_settings.html) o solicita una ampliación de cuota a soporte."
+                    "message": f"⚠️ **Límite de consultas mensuales alcanzado (Cuota del Servidor).**\n\nHaz consumido tus **{FREE_MONTHLY_LIMIT} consultas de cortesía** de este mes.\n\nPara seguir disfrutando del asistente fiscal IA de forma **ilimitada**, introduce tu propia clave de API de OpenAI en la pantalla de [Configuración de Empresa](/company/settings) o solicita una ampliación de cuota a soporte."
                 }
             
         # 3. Recopilar contextos

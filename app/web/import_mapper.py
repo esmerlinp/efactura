@@ -168,8 +168,8 @@ def upload_file():
         target_fields = [
             {"id": "invoiceNumber", "name": "Número de Factura / Correlativo", "required": True, "suggestions": ["numero", "invoice", "factura", "id", "correlativo"]},
             {"id": "date", "name": "Fecha Emisión (YYYY-MM-DD)", "required": True, "suggestions": ["fecha", "date", "registro", "emision"]},
-            {"id": "clientRNC", "name": "RNC / Cédula del Cliente", "required": True, "suggestions": ["rnc", "cedula", "cliente_rnc", "client_rnc"]},
-            {"id": "clientName", "name": "Nombre / Razón Social Cliente", "required": True, "suggestions": ["cliente", "client", "nombre", "razon", "nombre_cliente"]},
+            {"id": "clientRNC", "name": "RNC / Cédula del Cliente", "required": False, "suggestions": ["rnc", "cedula", "cliente_rnc", "client_rnc"]},
+            {"id": "clientName", "name": "Nombre / Razón Social Cliente", "required": False, "suggestions": ["cliente", "client", "nombre", "razon", "nombre_cliente"]},
             {"id": "subtotal", "name": "Subtotal Financiero", "required": True, "suggestions": ["subtotal", "sub_total", "neto"]},
             {"id": "totalITBIS", "name": "Total ITBIS", "required": True, "suggestions": ["itbis", "impuesto", "tax", "total_itbis"]},
             {"id": "total", "name": "Total General", "required": True, "suggestions": ["total", "pagar", "monto_total", "netpayable"]},
@@ -348,8 +348,11 @@ def process_import():
                     total_itbis = sanitize_float(get_val('totalITBIS'))
                     total = sanitize_float(get_val('total'))
                     
-                    if not inv_num or not date or not client_name:
+                    if not inv_num or not date:
                         continue
+                    
+                    if not client_name:
+                        client_name = "Sin Asignar"
                         
                     invoice_id = str(uuid.uuid4())
                     
@@ -422,6 +425,7 @@ def process_import():
                         "totalITBIS": total_itbis,
                         "total": total,
                         "isQuotation": False,
+                        "isImported": True,
                         "notes": "Registro de factura histórica importado desde sistema previo.",
                         "createdAt": datetime.now(timezone.utc).isoformat(),
                         "items": items,

@@ -19,6 +19,7 @@ except Exception as e:
 import random
 from config import Config
 from app.services.db_service import DatabaseService
+from app.services.mailer import Mailer
 from app.services.dgii import DGIIService
 from app.utils.currency import CurrencyService
 from app.services.ecf_emission import EcfEmissionService
@@ -326,7 +327,7 @@ def download_csv_template():
         dest,
         mimetype="text/csv",
         as_attachment=True,
-        download_name="plantilla_items_zentone.csv"
+        download_name="plantilla_items_vykone.csv"
     )
 
 @web_invoices_bp.route('/inventory/export-stock')
@@ -1869,19 +1870,14 @@ def send_receipt_email(invoice_id):
     # Build receipt number (short suffix of payment id)
     receipt_no = (payment_id[-8:].upper() if payment_id else "N/A")
 
-    smtp_server   = app.config.get("SMTP_SERVER", "")
-    smtp_port     = int(app.config.get("SMTP_PORT", 587))
-    smtp_user     = app.config.get("SMTP_USER", "")
-    smtp_password = app.config.get("SMTP_PASSWORD", "")
-
-    if not smtp_user or not smtp_password:
+    if not app.config.get("SMTP_USER") or not app.config.get("SMTP_PASSWORD"):
         return jsonify({"success": False, "message": "El servidor de correo no está configurado. Configura SMTP_USER y SMTP_PASSWORD en el servidor."}), 503
 
     company_name    = company.get("tradeName") or company.get("companyName", get_product_name())
     company_rnc     = company.get("companyRNC", "")
     company_address = company.get("companyAddress", "")
     company_phone   = company.get("companyPhone", "")
-    company_email   = company.get("companyEmail", smtp_user)
+    company_email   = company.get("companyEmail", app.config.get("SMTP_USER", ""))
 
     company_name    = company.get("tradeName") or company.get("companyName", get_product_name())
     brand_color     = company.get("colorMarca", "#10b981")
@@ -1964,43 +1960,29 @@ def send_receipt_email(invoice_id):
 </html>
 """
 
-    try:
-        import smtplib
-        from email.mime.text import MIMEText
-        from email.mime.multipart import MIMEMultipart
-        from email.utils import formataddr
+    subject = f"Recibo de Pago - Factura {invoice.get('invoiceNumber', '')} | {company_name}"
 
-        msg = MIMEMultipart("alternative")
-        msg["Subject"] = f"Recibo de Pago - Factura {invoice.get('invoiceNumber', '')} | {company_name}"
-        msg["From"]    = formataddr((company_name, smtp_user))
-        msg["To"]      = recipient_email
+    success = Mailer.send(
+        app=app._get_current_object(),
+        to_email=recipient_email,
+        subject=subject,
+        html_body=html_body,
+        from_name=company_name,
+        category='receipt'
+    )
 
-        msg.attach(MIMEText(html_body, "html", "utf-8"))
-
-        with smtplib.SMTP(smtp_server, smtp_port) as server:
-            server.ehlo()
-            server.starttls()
-            server.login(smtp_user, smtp_password)
-            server.sendmail(smtp_user, recipient_email, msg.as_string())
-
+    if success:
         return jsonify({"success": True, "message": f"Recibo enviado exitosamente a {recipient_email}"})
-    except Exception as e:
-        print(f"⚠️ Error enviando recibo por email: {e}")
-        return jsonify({"success": False, "message": f"Error al enviar el correo: {str(e)}"}), 500
+    else:
+        return jsonify({"success": False, "message": "Error al enviar el correo."}), 500
 
 def send_invoice_email(owner_uid, invoice, recipient_email, sandbox=True, base_url=None):
     """Función auxiliar para enviar factura electrónica por correo usando SMTP y Weasyprint."""
     try:
         company = DatabaseService.get_company_profile(owner_uid)
 
-        # 1. Preparar SMTP
         from flask import current_app as app
-        smtp_server   = app.config.get("SMTP_SERVER", "")
-        smtp_port     = int(app.config.get("SMTP_PORT", 587))
-        smtp_user     = app.config.get("SMTP_USER", "")
-        smtp_password = app.config.get("SMTP_PASSWORD", "")
-
-        if not smtp_server or not smtp_user or not smtp_password:
+        if not app.config.get("SMTP_USER") or not app.config.get("SMTP_PASSWORD"):
             return False, "Servidor de correo no configurado (SMTP)."
 
         # 2. Generar XML
@@ -2096,15 +2078,7 @@ def send_invoice_email(owner_uid, invoice, recipient_email, sandbox=True, base_u
         if WEASYPRINT_AVAILABLE:
             pdf_bytes = WeasyprintHTML(string=rendered_html, base_url=base_url).write_pdf()
             
-        # 4. Construir correo
-        import smtplib
-        from email.mime.text import MIMEText
-        from email.mime.multipart import MIMEMultipart
-        from email.mime.application import MIMEApplication
-        from email.utils import formataddr
-
-        msg = MIMEMultipart()
-        
+        # 4. Construir y enviar correo
         encf = invoice.get('encf', 'N/A')
         company_name = company.get("tradeName") or company.get("companyName", "EMISOR")
         brand_color  = company.get("colorMarca", "#1a365d")
@@ -2112,13 +2086,9 @@ def send_invoice_email(owner_uid, invoice, recipient_email, sandbox=True, base_u
         date_str = invoice.get('date', '')[:10]
         total_str = f"$ {invoice.get('total', 0.0):.2f} {invoice.get('currency', 'DOP')}"
         client_name = invoice.get('clientName') or invoice.get('razonSocial', 'Consumidor Final')
-        
-        msg["Subject"] = f"{ecf_type} No. [{encf}] - [{company_name}]"
-        msg["From"] = formataddr((company_name, smtp_user))
-        msg["To"] = recipient_email
 
         logo_url = company.get('logoUrl', '')
-        
+
         html_body = f"""
         <html>
         <head>
@@ -2155,7 +2125,7 @@ def send_invoice_email(owner_uid, invoice, recipient_email, sandbox=True, base_u
                         Adjunto podrá descargar un archivo XML el cual está firmado electrónicamente y aceptado en la DGII. Adicionalmente su representación impresa en formato PDF.<br><br>
                         En <a href="{qr_url}" class="verify-link">este enlace</a> podrá verificar la aceptación en la DGII del comprobante electrónico adjunto.
                     </div>
-                    
+
                     <div class="summary-box">
                         <div class="summary-title">Resumen del comprobante electrónico</div>
                         <table class="summary-table">
@@ -2190,25 +2160,34 @@ def send_invoice_email(owner_uid, invoice, recipient_email, sandbox=True, base_u
         </html>
         """
 
-        msg.attach(MIMEText(html_body, "html"))
+        subject = f"{ecf_type} No. [{encf}] - [{company_name}]"
 
-        # Adjuntar XML
-        xml_attachment = MIMEApplication(xml_content.encode('utf-8'), _subtype="xml")
-        xml_attachment.add_header('Content-Disposition', 'attachment', filename=f"{encf}.xml")
-        msg.attach(xml_attachment)
-
-        # Adjuntar PDF
+        attachments = []
+        attachments.append({
+            'filename': f"{encf}.xml",
+            'data': xml_content.encode('utf-8'),
+            'mimetype': 'xml'
+        })
         if pdf_bytes:
-            pdf_attachment = MIMEApplication(pdf_bytes, _subtype="pdf")
-            pdf_attachment.add_header('Content-Disposition', 'attachment', filename=f"{encf}.pdf")
-            msg.attach(pdf_attachment)
+            attachments.append({
+                'filename': f"{encf}.pdf",
+                'data': pdf_bytes,
+                'mimetype': 'pdf'
+            })
 
-        # 5. Enviar Correo
-        with smtplib.SMTP(smtp_server, smtp_port) as server:
-            server.starttls()
-            server.login(smtp_user, smtp_password)
-            server.sendmail(smtp_user, recipient_email, msg.as_string())
-        
+        success = Mailer.send(
+            app=app._get_current_object(),
+            to_email=recipient_email,
+            subject=subject,
+            html_body=html_body,
+            from_name=company_name,
+            category='invoice',
+            attachments=attachments
+        )
+
+        if not success:
+            return False, "Error al enviar el correo."
+
         return True, f"Factura enviada exitosamente por correo a {recipient_email}."
     except Exception as e:
         import logging
@@ -2828,7 +2807,7 @@ def approve_quotation_route(invoice_id):
 
 @web_invoices_bp.route('/quotations/<invoice_id>/send-to-client', methods=['POST'])
 def send_quotation_to_client(invoice_id):
-    """Envía el enlace de aprobación de la cotización por correo electrónico."""
+    """Envía cotización al cliente — por portal (con enlace) o por PDF según el plan."""
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canInvoice'):
         return render_template('auth/restricted.html', feature_name="Enviar Cotización", required_permission="canInvoice")
@@ -2852,23 +2831,25 @@ def send_quotation_to_client(invoice_id):
     company = DatabaseService.get_company_profile(owner_uid)
     company_name = company.get("tradeName") or company.get("companyName", get_product_name())
     
-    # Enlace al portal de autoservicio
-    portal_link = url_for('portal.client_portal', owner_uid=owner_uid, client_id=invoice['clientId'], sandbox='true' if sandbox else 'false', _external=True)
-    
-    # Preparar SMTP
     from flask import current_app as app
-    smtp_server   = app.config.get("SMTP_SERVER", "")
-    smtp_port     = int(app.config.get("SMTP_PORT", 587))
-    smtp_user     = app.config.get("SMTP_USER", "")
-    smtp_password = app.config.get("SMTP_PASSWORD", "")
-    
-    if not smtp_server or not smtp_user or not smtp_password:
+    if not app.config.get("SMTP_USER") or not app.config.get("SMTP_PASSWORD"):
         flash('El servidor de correo no está configurado (SMTP).', 'error')
         return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
-        
-    brand_color = company.get("colorMarca", "#1e3a8a")
     
-    html_body = f"""
+    from app.utils.module_gate import module_enabled
+    portal_enabled = module_enabled('portal_cliente')
+    
+    if portal_enabled:
+        # ── RUTA PORTAL: enviar enlace de aprobación ──
+        client = DatabaseService.get_client(owner_uid, invoice['clientId'], sandbox=sandbox)
+        if not client or not client.get('accessPin'):
+            session['pin_missing_client'] = invoice['clientId']
+            return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
+        
+        portal_link = url_for('portal.client_portal', owner_uid=owner_uid, client_id=invoice['clientId'], sandbox='true' if sandbox else 'false', _external=True)
+        brand_color = company.get("colorMarca", "#1e3a8a")
+        
+        html_body = f"""
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -2900,16 +2881,23 @@ def send_quotation_to_client(invoice_id):
       <p style="font-size:0.92rem; color:#475569; line-height: 1.6;">
         Puede revisar la propuesta completa y proceder a su firma y aprobación electrónica certificada haciendo clic en el siguiente botón:
       </p>
-      
+
+      <div style="background:#f1f5f9; border-radius:8px; padding:16px 20px; margin:20px 0; text-align:center;">
+        <p style="font-size:0.82rem; color:#64748b; margin:0 0 8px;">Sus credenciales de acceso al portal:</p>
+        <p style="font-size:1.15rem; font-weight:700; color:#0f172a; margin:0; letter-spacing:0.15em;">
+          RNC/Cédula: {client.get('rnc', '')} &nbsp;·&nbsp; Código: {client.get('accessPin', '')}
+        </p>
+      </div>
+
       <div class="btn-container">
         <a href="{portal_link}" class="btn-link" target="_blank">Revisar y Firmar Cotización</a>
       </div>
-      
+
       <p style="font-size:0.85rem; color:#64748b; text-align: center;">
         Si el botón no funciona, copie y pegue el siguiente enlace en su navegador:<br>
         <a href="{portal_link}" style="color: {brand_color}; word-break: break-all;">{portal_link}</a>
       </p>
-      
+
       <div class="footer-note">
         Para consultas adicionales, comuníquese con nosotros.<br>
         Generado automáticamente por la plataforma {get_product_name()}.
@@ -2919,51 +2907,108 @@ def send_quotation_to_client(invoice_id):
 </body>
 </html>
 """
-    try:
-        import smtplib
-        from email.mime.text import MIMEText
-        from email.mime.multipart import MIMEMultipart
-        from email.utils import formataddr
-        
-        msg = MIMEMultipart("alternative")
-        msg["Subject"] = f"Propuesta Comercial - Cotización {invoice.get('invoiceNumber', '')} | {company_name}"
-        msg["From"]    = formataddr((company_name, smtp_user))
-        msg["To"]      = recipient_email
-        
-        msg.attach(MIMEText(html_body, "html", "utf-8"))
-        
-        with smtplib.SMTP(smtp_server, smtp_port) as server:
-            server.ehlo()
-            server.starttls()
-            server.login(smtp_user, smtp_password)
-            server.sendmail(smtp_user, recipient_email, msg.as_string())
-            
-        # Actualizar el estado del documento a Pendiente Aut. Cliente
+        subject = f"Propuesta Comercial - Cotización {invoice.get('invoiceNumber', '')} | {company_name}"
+        success = Mailer.send(app=app._get_current_object(), to_email=recipient_email, subject=subject, html_body=html_body, from_name=company_name, category='noreply')
+
+        if not success:
+            flash("Error al enviar correo.", "error")
+            return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
+
         before_invoice = invoice.copy()
         invoice['status'] = 'Pendiente Aut. Cliente'
         DatabaseService.save_invoice(owner_uid, invoice_id, invoice, sandbox=sandbox)
-        
-        # Registrar evento de auditoría
+
         try:
             updated_invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
             from app.services.audit_service import AuditService, MODULE_FACTURAS
-            AuditService.log_from_request(
-                owner_uid=owner_uid,
-                action="SEND_EMAIL",
-                module=MODULE_FACTURAS,
-                entity_id=invoice_id,
-                entity_label=f"Cotización enviada al correo {recipient_email} para aprobación",
-                user_session=session.get('user', {}),
-                before=before_invoice,
-                after=updated_invoice,
-                sandbox=sandbox
-            )
+            AuditService.log_from_request(owner_uid=owner_uid, action="SEND_EMAIL", module=MODULE_FACTURAS, entity_id=invoice_id, entity_label=f"Cotización enviada al correo {recipient_email} para aprobación", user_session=session.get('user', {}), before=before_invoice, after=updated_invoice, sandbox=sandbox)
         except Exception as ae:
             print(f"⚠️ Error al registrar auditoría de envío de correo: {ae}")
-            
+
         flash(f"Enlace de aprobación enviado con éxito a {recipient_email}.", "success")
-    except Exception as e:
-        flash(f"Error al enviar correo: {str(e)}", "error")
+    else:
+        # ── RUTA PDF: enviar cotización como PDF adjunto (o HTML inline) ──
+        import io
+        invoice_enriched = _enrich_invoice_totals(invoice.copy())
+        branches = DatabaseService.get_branches(owner_uid, sandbox=sandbox)
+        branch = next((b for b in branches if b['id'] == invoice.get("branchId")), None)
+        if not branch and branches:
+            branch = branches[0]
+        
+        rendered_html = render_template('invoices/pdf.html', invoice=invoice_enriched, company=company, branch=branch, auto_print=False, qr_base64=None, fecha_firma_str='', sandbox=sandbox)
+        
+        pdf_bytes = None
+        if WEASYPRINT_AVAILABLE:
+            try:
+                pdf_bytes = WeasyprintHTML(string=rendered_html, base_url=request.host_url).write_pdf()
+            except Exception as e:
+                print(f"⚠️ WeasyPrint falló para cotización PDF: {e}")
+        
+        brand_color = company.get("colorMarca", "#1e3a8a")
+        total_str = f"RD$ {invoice.get('total', 0.0):,.2f}"
+        
+        html_body = f"""
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body {{ font-family: 'Segoe UI', Arial, sans-serif; background: #f8fafc; color: #1e293b; margin: 0; padding: 0; }}
+    .wrapper {{ max-width: 600px; margin: 30px auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.08); }}
+    .header {{ background: {brand_color}; padding: 32px 36px; text-align: center; }}
+    .header h1 {{ color: #ffffff; font-size: 1.6rem; margin: 0 0 4px; font-weight: 800; }}
+    .header p {{ color: rgba(255,255,255,0.75); font-size: 0.88rem; margin: 0; }}
+    .body {{ padding: 32px 36px; }}
+    .footer-note {{ font-size: 0.78rem; color: #94a3b8; text-align: center; border-top: 1px solid #e2e8f0; padding-top: 20px; margin-top: 24px; }}
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="header">
+      {f'<img src="{company.get("logoUrl")}" alt="Logo" style="max-height: 50px; margin-bottom: 15px;">' if company.get("logoUrl") else ''}
+      <h1>Cotización</h1>
+      <p>{company_name}</p>
+    </div>
+    <div class="body">
+      <p style="font-size:1.05rem; font-weight: 600; color:#0f172a; margin-top:0;">Estimado cliente ({invoice.get('clientName', '')}):</p>
+      <p style="font-size:0.92rem; color:#475569; line-height: 1.6;">
+        Hemos preparado una cotización para usted con el número <strong>{invoice.get('invoiceNumber', '')}</strong> por un monto total de <strong>{total_str}</strong>.
+      </p>
+      <p style="font-size:0.92rem; color:#475569; line-height: 1.6;">
+        Adjunto encontrará el detalle completo de la propuesta en formato PDF.
+      </p>
+      <div class="footer-note">
+        Para consultas adicionales, comuníquese con nosotros.<br>
+        Generado automáticamente por la plataforma {get_product_name()}.
+      </div>
+    </div>
+  </div>
+</body>
+</html>
+"""
+        subject = f"Cotización {invoice.get('invoiceNumber', '')} | {company_name}"
+        
+        attachments = []
+        if pdf_bytes:
+            attachments.append({
+                'filename': f"cotizacion-{invoice.get('invoiceNumber', '')}.pdf",
+                'data': pdf_bytes,
+                'mimetype': 'pdf'
+            })
+        
+        success = Mailer.send(app=app._get_current_object(), to_email=recipient_email, subject=subject, html_body=html_body, from_name=company_name, category='noreply', attachments=attachments if attachments else None)
+        
+        if not success:
+            flash("Error al enviar correo.", "error")
+            return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
+        
+        try:
+            from app.services.audit_service import AuditService, MODULE_FACTURAS
+            AuditService.log_from_request(owner_uid=owner_uid, action="SEND_EMAIL", module=MODULE_FACTURAS, entity_id=invoice_id, entity_label=f"Cotización enviada por PDF al correo {recipient_email}", user_session=session.get('user', {}), before=invoice, after=invoice, sandbox=sandbox)
+        except Exception as ae:
+            print(f"⚠️ Error al registrar auditoría de envío de cotización PDF: {ae}")
+        
+        flash(f"Cotización enviada con éxito a {recipient_email}.", "success")
         
     return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
 
@@ -5330,7 +5375,7 @@ def add_team_member():
     profile = DatabaseService.get_company_profile(owner_uid)
     user_limit = int(profile.get('userLimit', 2)) if profile else 2
     team = DatabaseService.get_team_members(owner_uid)
-    if (len(team) + 1) >= user_limit:
+    if user_limit > 0 and (len(team) + 1) >= user_limit:
         flash(f'Límite de usuarios alcanzado ({user_limit} usuarios en tu plan). Por favor, actualiza tu plan para registrar nuevos colaboradores.', 'error')
         return redirect(url_for('web_invoices.team_settings'))
     
@@ -6080,10 +6125,8 @@ def client_subscription_page():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     owner_uid = session['user']['ownerUID']
     
-    # 1. Obtener perfil de la empresa
     profile = DatabaseService.get_company_profile(owner_uid)
     
-    # 2. Cargar datos del plan
     plan_name = "Plan Personalizado"
     from app.services.db_service import db_firestore
     try:
@@ -6096,44 +6139,252 @@ def client_subscription_page():
     except Exception as e:
         print(f"⚠️ Error al obtener plan en suscripción del cliente: {e}")
 
-    # 3. Obtener estadísticas de consumo
     billing_day = profile.get('billingDay', 1)
     stats = DatabaseService.get_invoice_stats(owner_uid, billing_day)
-    
-    # 4. Obtener historial de pagos
     payments = DatabaseService.get_payments(owner_uid)
-    
-    # 5. Obtener historial de facturación de meses anteriores (filtrado por fecha de registro)
     user_profile = DatabaseService.get_user_profile(session['user']['uid'])
     created_at = user_profile.get('createdAt') if user_profile else None
-    
     monthly_payment = float(profile.get('monthlyPayment', 0))
     additional_cost = float(profile.get('additionalDocumentCost', 0))
     document_limit = int(profile.get('documentLimit', 0)) if profile.get('documentLimit') else 0
-    billing_history = DatabaseService.get_billing_history(
-        owner_uid, 
-        billing_day=billing_day,
-        monthly_payment=monthly_payment,
-        additional_document_cost=additional_cost,
-        document_limit=document_limit,
-        created_at=created_at
-    )
     
-    # 6. Calcular uso de almacenamiento
+    previous_monthly_payment = profile.get('previous_monthlyPayment')
+    previous_additional_document_cost = profile.get('previous_additionalDocumentCost')
+    previous_document_limit = profile.get('previous_documentLimit')
+    plan_change_date = None
+    pcd = profile.get('plan_change_date')
+    if pcd:
+        try:
+            plan_change_date = datetime.strptime(str(pcd)[:10], '%Y-%m-%d')
+        except (ValueError, TypeError):
+            pass
+    
+    billing_history = DatabaseService.get_billing_history(
+        owner_uid, billing_day=billing_day, monthly_payment=monthly_payment,
+        additional_document_cost=additional_cost, document_limit=document_limit, created_at=created_at,
+        previous_monthly_payment=previous_monthly_payment,
+        previous_additional_document_cost=previous_additional_document_cost,
+        previous_document_limit=previous_document_limit,
+        plan_change_date=plan_change_date,
+    )
     storage_used = DatabaseService.get_storage_usage_mb(owner_uid)
     storage_limit = profile.get('storageLimitMB', 512) or 512
 
-    return render_template(
-        'subscription.html', 
-        active_page='subscription',
-        profile=profile,
-        plan_name=plan_name,
-        stats=stats,
-        payments=payments,
-        billing_history=billing_history,
-        storage_used=storage_used,
-        storage_limit=storage_limit
-    )
+    cancel_scheduled = profile.get('cancel_at_period_end', False)
+    cancel_date = profile.get('cancel_scheduled_date', '')
+
+    # Calcular prorrateo para el ciclo actual si aplica
+    proration_current = None
+    if plan_change_date and stats.get('current_cycle_start') and stats.get('current_cycle_end'):
+        try:
+            cs = datetime.strptime(stats['current_cycle_start'], '%Y-%m-%d')
+            ce = datetime.strptime(stats['current_cycle_end'], '%Y-%m-%d')
+            if cs <= plan_change_date <= ce:
+                total_days = (ce - cs).days + 1
+                days_before = max(0, (plan_change_date - cs).days)
+                days_after = total_days - days_before
+                old_rate = float(previous_monthly_payment or monthly_payment)
+                new_rate = monthly_payment
+                prorated = round((old_rate * days_before / total_days) + (new_rate * days_after / total_days), 2)
+                proration_current = {
+                    'old_rate': old_rate,
+                    'new_rate': new_rate,
+                    'days_before': days_before,
+                    'days_after': days_after,
+                    'total_days': total_days,
+                    'prorated_fee': prorated,
+                    'change_date': plan_change_date.strftime('%Y-%m-%d'),
+                }
+        except (ValueError, TypeError):
+            pass
+
+    return render_template('subscription.html', active_page='subscription',
+        profile=profile, plan_name=plan_name, stats=stats, payments=payments,
+        billing_history=billing_history, storage_used=storage_used, storage_limit=storage_limit,
+        cancel_scheduled=cancel_scheduled, cancel_date=cancel_date,
+        proration_current=proration_current)
+
+def _update_profile_fields(owner_uid, updates):
+    """Actualiza campos específicos del perfil de empresa en Firestore sin sobrescribir todo."""
+    from app.services.db_service import db_firestore, _cached_company_profile
+    from app.cache import cache
+    try:
+        db_firestore.collection('users').document(owner_uid)\
+            .collection('config').document('profile').update(updates)
+        cache.delete_memoized(_cached_company_profile, owner_uid)
+    except Exception as e:
+        print(f"⚠️ Error actualizando perfil: {e}")
+
+@web_invoices_bp.route('/cambiar-plan', methods=['GET', 'POST'])
+@require_permission('canViewSubscription', 'Suscripción y Consumo')
+def change_plan_page():
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
+    owner_uid = session['user']['ownerUID']
+    profile = DatabaseService.get_company_profile(owner_uid)
+    billing_day = profile.get('billingDay', 1)
+    
+    if request.method == 'POST':
+        new_plan_id = request.form.get('plan_id', '').strip()
+        if not new_plan_id:
+            flash('Selecciona un plan.', 'error')
+            return redirect(url_for('web_invoices.change_plan_page'))
+        
+        plan_data = DatabaseService.get_plan(new_plan_id)
+        if not plan_data:
+            flash('El plan seleccionado no existe.', 'error')
+            return redirect(url_for('web_invoices.change_plan_page'))
+        
+        if plan_data.get('is_custom', False) or not plan_data.get('visible_on_landing', True):
+            flash('Plan no disponible para cambio.', 'error')
+            return redirect(url_for('web_invoices.change_plan_page'))
+        
+        current_plan_id = profile.get('planId', '')
+        if current_plan_id == new_plan_id:
+            flash('Ya estás en este plan.', 'info')
+            return redirect(url_for('web_invoices.change_plan_page'))
+        
+        # Verificar uso actual vs límites del plan destino (anti-abuso)
+        from datetime import datetime, timezone as _tz
+        stats = DatabaseService.get_invoice_stats(owner_uid, billing_day)
+        current_docs = stats.get('prod_current_cycle', 0)
+        
+        blocked_reasons = []
+        
+        target_doc_limit = plan_data.get('documentLimit', 0)
+        if target_doc_limit > 0 and current_docs > target_doc_limit:
+            blocked_reasons.append(f'tienes {current_docs} documentos emitidos este ciclo (límite: {target_doc_limit})')
+        
+        target_storage = plan_data.get('storageLimitMB', 0)
+        if target_storage > 0:
+            storage_used = DatabaseService.get_storage_usage_mb(owner_uid)
+            if storage_used > target_storage:
+                blocked_reasons.append(f'tienes {storage_used:.1f} MB de almacenamiento (límite: {target_storage} MB)')
+        
+        target_user_limit = plan_data.get('userLimit', 0)
+        if target_user_limit > 0:
+            team = DatabaseService.get_team_members(owner_uid)
+            current_team = len(team) + 1
+            if current_team > target_user_limit:
+                blocked_reasons.append(f'tienes {current_team} miembros del equipo (límite: {target_user_limit})')
+        
+        target_branch_limit = plan_data.get('branchLimit', 0)
+        if target_branch_limit > 0:
+            branches = DatabaseService.get_branches(owner_uid, sandbox=False)
+            current_branches = len(branches)
+            if current_branches > target_branch_limit:
+                blocked_reasons.append(f'tienes {current_branches} sucursales (límite: {target_branch_limit})')
+        
+        target_box_limit = plan_data.get('boxLimit', 0)
+        if target_box_limit > 0:
+            boxes = DatabaseService.get_cash_registers(owner_uid, sandbox=False)
+            current_boxes = len(boxes)
+            if current_boxes > target_box_limit:
+                blocked_reasons.append(f'tienes {current_boxes} cajas registradoras (límite: {target_box_limit})')
+        
+        if blocked_reasons:
+            flash('No puedes cambiar a este plan porque ' + ', '.join(blocked_reasons) + '. Reduce tu consumo antes de cambiar.', 'error')
+            return redirect(url_for('web_invoices.change_plan_page'))
+        
+        new_version = (profile.get('plan_version', 0) or 0) + 1
+        updates = {'planId': new_plan_id, 'plan_version': new_version}
+        for f in ['documentLimit','userLimit','storageLimitMB','monthlyPayment',
+                  'additionalDocumentCost','additionalUserCost','branchLimit',
+                  'boxLimit','additionalBoxCost','posEnabled']:
+            if f in plan_data:
+                updates[f] = plan_data[f]
+        if profile.get('cancel_at_period_end'):
+            updates['cancel_at_period_end'] = False
+            updates['cancel_scheduled_date'] = ''
+        
+        # Guardar valores anteriores para prorrateo
+        if profile.get('monthlyPayment') is not None:
+            updates['previous_monthlyPayment'] = profile.get('monthlyPayment')
+        if profile.get('additionalDocumentCost') is not None:
+            updates['previous_additionalDocumentCost'] = profile.get('additionalDocumentCost')
+        if profile.get('documentLimit') is not None:
+            updates['previous_documentLimit'] = profile.get('documentLimit')
+        updates['plan_change_date'] = datetime.now(_tz.utc).strftime('%Y-%m-%d')
+        
+        _update_profile_fields(owner_uid, updates)
+        new_name = plan_data.get('name', 'Nuevo Plan')
+        flash(f'¡Plan cambiado a {new_name} exitosamente! Los cambios se aplicarán de inmediato.', 'success')
+        return redirect(url_for('web_invoices.client_subscription_page'))
+    
+    # GET: mostrar planes con uso actual para referencia visual
+    plans = DatabaseService.get_visible_plans()
+    current_plan_id = profile.get('planId', '')
+    current_plan = next((p for p in plans if p['id'] == current_plan_id), None)
+    
+    stats = DatabaseService.get_invoice_stats(owner_uid, billing_day)
+    current_usage = {
+        'docs': stats.get('prod_current_cycle', 0),
+        'storage': DatabaseService.get_storage_usage_mb(owner_uid),
+        'team': len(DatabaseService.get_team_members(owner_uid)) + 1,
+        'branches': len(DatabaseService.get_branches(owner_uid, sandbox=False)),
+        'boxes': len(DatabaseService.get_cash_registers(owner_uid, sandbox=False)),
+    }
+    
+    return render_template('change_plan.html', active_page='subscription',
+        plans=plans, current_plan_id=current_plan_id, current_plan=current_plan,
+        profile=profile, current_usage=current_usage)
+
+@web_invoices_bp.route('/cancelar-suscripcion', methods=['POST'])
+@require_permission('canViewSubscription', 'Suscripción y Consumo')
+def cancel_subscription():
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
+    owner_uid = session['user']['ownerUID']
+    profile = DatabaseService.get_company_profile(owner_uid)
+    
+    if profile.get('status') != 'Activo':
+        flash('No puedes cancelar una cuenta que no está activa.', 'error')
+        return redirect(url_for('web_invoices.client_subscription_page'))
+    
+    if profile.get('cancel_at_period_end'):
+        flash('Ya tienes una cancelación programada.', 'info')
+        return redirect(url_for('web_invoices.client_subscription_page'))
+    
+    from datetime import datetime, timezone
+    import calendar
+    billing_day = profile.get('billingDay', 1)
+    now = datetime.now(timezone.utc)
+    if billing_day <= now.day:
+        next_month = now.month + 1
+        year = now.year
+        if next_month > 12:
+            next_month = 1
+            year += 1
+    else:
+        next_month = now.month
+        year = now.year
+    last_day = calendar.monthrange(year, next_month)[1]
+    cancel_day = min(billing_day, last_day)
+    cancel_date = datetime(year, next_month, cancel_day, 23, 59, 59, tzinfo=timezone.utc)
+    cancel_date_str = cancel_date.strftime('%d/%m/%Y')
+    
+    _update_profile_fields(owner_uid, {
+        'cancel_at_period_end': True,
+        'cancel_scheduled_date': cancel_date_str,
+    })
+    flash(f'Cancelación programada para el {cancel_date_str}. Podrás seguir usando el servicio hasta esa fecha.', 'warning')
+    return redirect(url_for('web_invoices.client_subscription_page'))
+
+@web_invoices_bp.route('/reactivar-suscripcion', methods=['POST'])
+@require_permission('canViewSubscription', 'Suscripción y Consumo')
+def reactivate_subscription():
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
+    owner_uid = session['user']['ownerUID']
+    profile = DatabaseService.get_company_profile(owner_uid)
+    
+    if not profile.get('cancel_at_period_end'):
+        flash('No hay cancelación programada.', 'info')
+        return redirect(url_for('web_invoices.client_subscription_page'))
+    
+    _update_profile_fields(owner_uid, {
+        'cancel_at_period_end': False,
+        'cancel_scheduled_date': '',
+    })
+    flash('Suscripción reactivada exitosamente.', 'success')
+    return redirect(url_for('web_invoices.client_subscription_page'))
 
 
 # -------------------------------------------------------------

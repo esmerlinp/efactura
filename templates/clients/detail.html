@@ -141,8 +141,13 @@
             </div>
         </div>
 
-        <!-- Botón Editar Ficha CRM (Derecha, reducido a 34px de alto) -->
-        <div style="display: flex; align-items: center; justify-content: flex-end; flex-shrink: 0; min-width: 140px;">
+        <!-- Botón Editar Ficha CRM + Smart Insights (Derecha) -->
+        <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
+            <a href="{{ url_for('web_clients.client_insights', client_id=client.id) }}" class="btn btn-secondary"
+                style="display: inline-flex; align-items: center; gap: 6px; font-weight: 600; padding: 0 14px; font-size: 0.8rem; height: 34px; border-radius: 6px; transition: all var(--transition-fast) ease; background: linear-gradient(135deg, var(--accent-purple), #a78bfa); border: none; color: white;">
+                <i class="fa-solid fa-brain"></i>
+                <span>Smart Insights</span>
+            </a>
             <a href="{{ url_for('web_clients.edit_client', client_id=client.id) }}" class="btn btn-secondary"
                 style="display: inline-flex; align-items: center; gap: 6px; font-weight: 600; padding: 0 14px; font-size: 0.8rem; height: 34px; border-radius: 6px; transition: all var(--transition-fast) ease;">
                 <i class="fa-solid fa-user-pen"></i>
@@ -152,6 +157,24 @@
 
     </div>
 </div>
+
+<!-- ═══════════════════════════════════════════════════════
+     SMART INSIGHTS — BANNER DE ALERTA DEL CLIENTE
+     ═══════════════════════════════════════════════════════ -->
+{% if client_insight %}
+<div style="display: flex; align-items: center; gap: 12px; padding: 12px 18px; margin-bottom: 16px; border-radius: var(--radius-md); background: {% if client_insight.type == 'warning' %}rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.2);{% elif client_insight.type == 'danger' %}rgba(220,38,38,0.08); border: 1px solid rgba(220,38,38,0.2);{% else %}rgba(22,163,74,0.08); border: 1px solid rgba(22,163,74,0.2);{% endif %}">
+    <div style="flex-shrink:0; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.9rem; background: {% if client_insight.type == 'warning' %}rgba(245,158,11,0.15); color: #d97706;{% elif client_insight.type == 'danger' %}rgba(220,38,38,0.15); color: #dc2626;{% else %}rgba(22,163,74,0.15); color: #16a34a;{% endif %}">
+        <i class="fa-solid {% if client_insight.type == 'warning' %}fa-triangle-exclamation{% elif client_insight.type == 'danger' %}fa-circle-exclamation{% else %}fa-circle-check{% endif %}"></i>
+    </div>
+    <div style="flex:1; font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5;">
+        <span style="font-weight: 600; color: var(--text-primary);">Smart Insights:</span> {{ client_insight.text }}
+    </div>
+    <a href="{{ url_for('web_clients.client_insights', client_id=client.id) }}" class="btn btn-secondary"
+        style="display: inline-flex; align-items: center; gap: 5px; padding: 5px 14px; font-size: 0.75rem; font-weight: 600; border-radius: 20px; flex-shrink: 0; white-space: nowrap;">
+        <i class="fa-solid fa-chart-simple"></i> Ver Estrategia
+    </a>
+</div>
+{% endif %}
 
 <!-- ═══════════════════════════════════════════════════════
      PANEL DE PESTAÑAS — ANCHO COMPLETO (DEBAJO)
@@ -179,11 +202,13 @@
             <i class="fa-solid fa-receipt" style="margin-right: 6px;"></i>
             Historial de Pagos ({{ payments | length }})
         </button>
+        {% if module_enabled('portal_cliente') %}
         <button onclick="changeTab('portal-tab')" id="btn-portal-tab"
             style="background: none; border: none; padding: 10px 16px; font-size: 0.9rem; font-family: var(--font-heading); font-weight: 500; color: var(--text-secondary); border-bottom: 3px solid transparent; cursor: pointer; transition: all var(--transition-fast); white-space: nowrap; margin-bottom: -2px;">
             <i class="fa-solid fa-circle-user" style="margin-right: 6px;"></i>
             Portal de Autoservicio
         </button>
+        {% endif %}
     </div>
 
     <!-- ─── PESTAÑA 1: Historial y Seguimiento ─── -->
@@ -631,6 +656,7 @@
         </div>
     </div>
 
+    {% if module_enabled('portal_cliente') %}
     <!-- ─── PESTAÑA 5: Portal de Autoservicio ─── -->
     <div id="portal-tab" style="display: none; flex-direction: column; gap: 24px; padding-top: 24px;">
         <div class="card-table-wrapper" style="margin-bottom: 0; padding: 24px;">
@@ -727,6 +753,7 @@
             </div>
         </div>
     </div>
+    {% endif %}
 </div>
 
 <!-- ═══ MODAL: Confirmar envío de credenciales ═══ -->

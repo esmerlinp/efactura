@@ -11,6 +11,16 @@
     <meta name="keywords"
         content="facturación electrónica, e-CF, DGII, comprobante fiscal electrónico, República Dominicana, Ley 32-23">
 
+    <!-- Open Graph / Social -->
+    <meta property="og:title" content="{{ product_name }} - Facturación Electrónica DGII">
+    <meta property="og:description" content="Sistema de facturación electrónica certificado por DGII. Cumplimiento Ley 32-23 en República Dominicana.">
+    <meta property="og:url" content="https://vykcore.com">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="{{ product_name }}">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="{{ product_name }} - Facturación Electrónica DGII">
+    <meta name="twitter:description" content="Sistema de facturación electrónica certificado por DGII. Cumplimiento Ley 32-23 en República Dominicana.">
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link
@@ -441,252 +451,306 @@
                             class="billing-btn px-6 py-2 rounded-full text-sm font-medium transition-all bg-amber-500 text-midnight-900">Mensual</button>
                         <button id="annual-btn"
                             class="billing-btn px-6 py-2 rounded-full text-sm font-medium transition-all text-gray-400 hover:text-white">Anual
-                            <span class="text-teal-400 ml-1">-10%</span></button>
-                    </div>
-                    <div class="inline-flex items-center gap-2 p-1.5 rounded-full glass">
-                        <button id="dop-btn"
-                            class="currency-btn px-5 py-2 rounded-full text-sm font-medium transition-all bg-teal-500 text-midnight-900">DOP
-                            (RD$)</button>
-                        <button id="usd-btn"
-                            class="currency-btn px-5 py-2 rounded-full text-sm font-medium transition-all text-gray-400 hover:text-white">USD</button>
+                            <span class="text-teal-400 ml-1">Ahorra hasta 12%</span></button>
                     </div>
                 </div>
             </div>
 
-            <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
+            <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto">
+
                 <div class="glass-card rounded-3xl p-8 fade-in fade-in-delay-1">
                     <div class="mb-8">
-                        <h3 class="font-display text-xl font-semibold mb-2">Starter</h3>
+                        <h3 class="font-display text-xl font-semibold mb-2">Esencial</h3>
                         <p class="text-gray-400">Para comenzar a facturar</p>
                     </div>
-                    <div class="mb-8">
-                        <span class="price-monthly text-4xl whitespace-nowrap font-display font-bold" data-usd="$35"
-                            data-dop="RD$ 2,151">RD$ 2,151</span>
-                        <span class="price-annual text-4xl whitespace-nowrap font-display font-bold hidden"
-                            data-usd="$31" data-dop="RD$ 1,905">RD$ 1,905</span>
+
+                    <div class="price-monthly mb-8">
+                        <span class="text-4xl font-display font-bold">$35</span>
                         <span class="text-gray-400">/mes</span>
                     </div>
-                    <ul class="space-y-4 mb-8">
+                    <div class="price-annual mb-8 hidden">
+                        <span class="text-4xl font-display font-bold">$386</span>
+                        <span class="text-gray-400">/año</span>
+                        <div class="text-sm text-teal-400 mt-1">$32.17/mes &middot; Ahorra 8%</div>
+                    </div>
+
+                    <div class="mb-4">
+                        <span class="text-xs font-semibold uppercase tracking-wider text-gray-500">Incluye</span>
+                    </div>
+                    <ul class="space-y-3 mb-8">
                         <li class="flex items-center gap-3 text-gray-300">
                             <svg class="w-5 h-5 text-teal-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd"
-                                    d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                                    clip-rule="evenodd" />
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
                             </svg>
-                            800 e-CF / mes
+                            e-CF: 300/mes con firma digital
                         </li>
                         <li class="flex items-center gap-3 text-gray-300">
                             <svg class="w-5 h-5 text-teal-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd"
-                                    d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                                    clip-rule="evenodd" />
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
                             </svg>
                             Ventas E31/E32 + Notas E33/E34
                         </li>
                         <li class="flex items-center gap-3 text-gray-300">
                             <svg class="w-5 h-5 text-teal-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd"
-                                    d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                                    clip-rule="evenodd" />
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
                             </svg>
-                            Firma digital automática
+                            Dashboard &amp; KPIs
                         </li>
                         <li class="flex items-center gap-3 text-gray-300">
                             <svg class="w-5 h-5 text-teal-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd"
-                                    d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                                    clip-rule="evenodd" />
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
                             </svg>
-                            Compras/Gastos E41/E43/E47
+                            Catálogo de productos/servicios
                         </li>
                         <li class="flex items-center gap-3 text-gray-300">
                             <svg class="w-5 h-5 text-teal-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd"
-                                    d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                                    clip-rule="evenodd" />
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
                             </svg>
-                            API REST completa
+                            Cotizaciones básicas
                         </li>
                         <li class="flex items-center gap-3 text-gray-300">
                             <svg class="w-5 h-5 text-teal-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd"
-                                    d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                                    clip-rule="evenodd" />
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                            </svg>
+                            Cuentas por Cobrar (CxC)
+                        </li>
+                        <li class="flex items-center gap-3 text-gray-300">
+                            <svg class="w-5 h-5 text-teal-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                            </svg>
+                            Control de Gastos manual
+                        </li>
+                        <li class="flex items-center gap-3 text-gray-300">
+                            <svg class="w-5 h-5 text-teal-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                            </svg>
+                            API REST (lectura)
+                        </li>
+                        <li class="flex items-center gap-3 text-gray-300">
+                            <svg class="w-5 h-5 text-teal-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
                             </svg>
                             Soporte por email
                         </li>
                     </ul>
-                    <a href="#contacto"
-                        class="block w-full text-center py-4 rounded-xl font-semibold border border-white/10 text-white hover:bg-white/5 transition-all">Comenzar</a>
+
+                    <div class="mb-6">
+                        <div class="flex flex-wrap gap-2">
+                            <span class="text-xs px-2.5 py-1 rounded-full bg-white/5 text-gray-400 border border-white/10">1 usuario</span>
+                            <span class="text-xs px-2.5 py-1 rounded-full bg-white/5 text-gray-400 border border-white/10">1 sucursal</span>
+                            <span class="text-xs px-2.5 py-1 rounded-full bg-white/5 text-gray-400 border border-white/10">500 MB</span>
+                        </div>
+                    </div>
+
+                    <a href="#contacto" class="block w-full text-center py-4 rounded-xl font-semibold border border-white/10 text-white hover:bg-white/5 transition-all">Comenzar</a>
                 </div>
 
-                <div class="pricing-featured glass-card rounded-3xl p-8 bg-midnight-700/50 fade-in fade-in-delay-2">
+                <div class="pricing-featured glass-card rounded-3xl p-8 bg-midnight-700/50 fade-in fade-in-delay-2 relative">
                     <div class="flex items-center justify-between mb-8">
                         <div>
-                            <h3 class="font-display text-xl font-semibold mb-2">PyME</h3>
+                            <h3 class="font-display text-xl font-semibold mb-2">Pro</h3>
                             <p class="text-gray-400">Para empresas en crecimiento</p>
                         </div>
-                        <span
-                            class="px-3 py-1 rounded-full text-xs font-semibold bg-gradient-to-r from-amber-500 to-teal-500 text-midnight-900">Popular</span>
+                        <span class="px-3 py-1 rounded-full text-xs font-semibold bg-gradient-to-r from-amber-500 to-teal-500 text-midnight-900">Popular</span>
                     </div>
-                    <div class="mb-8">
-                        <span
-                            class="price-monthly text-4xl whitespace-nowrap font-display font-bold bg-gradient-to-r from-amber-400 to-teal-400 bg-clip-text text-transparent"
-                            data-usd="$55" data-dop="RD$ 3,380">RD$ 3,380</span>
-                        <span
-                            class="price-annual text-4xl whitespace-nowrap font-display font-bold bg-gradient-to-r from-amber-400 to-teal-400 bg-clip-text text-transparent hidden"
-                            data-usd="$49" data-dop="RD$ 3,011">RD$ 3,011</span>
+
+                    <div class="price-monthly mb-8">
+                        <span class="text-4xl font-display font-bold bg-gradient-to-r from-amber-400 to-teal-400 bg-clip-text text-transparent">$80</span>
                         <span class="text-gray-400">/mes</span>
                     </div>
-                    <ul class="space-y-4 mb-8">
+                    <div class="price-annual mb-8 hidden">
+                        <span class="text-4xl font-display font-bold bg-gradient-to-r from-amber-400 to-teal-400 bg-clip-text text-transparent">$864</span>
+                        <span class="text-gray-400">/año</span>
+                        <div class="text-sm text-teal-400 mt-1">$72.00/mes &middot; Ahorra 10%</div>
+                    </div>
+
+                    <div class="mb-4">
+                        <span class="text-xs font-semibold uppercase tracking-wider text-gray-500">Incluye</span>
+                    </div>
+                    <ul class="space-y-3 mb-8">
                         <li class="flex items-center gap-3 text-gray-300">
                             <svg class="w-5 h-5 text-amber-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd"
-                                    d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                                    clip-rule="evenodd" />
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
                             </svg>
-                            2,000 e-CF / mes
+                            e-CF ilimitados con firma digital
                         </li>
                         <li class="flex items-center gap-3 text-gray-300">
                             <svg class="w-5 h-5 text-amber-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd"
-                                    d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                                    clip-rule="evenodd" />
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
                             </svg>
-                            Todo en Starter
+                            Todo en Esencial +
                         </li>
                         <li class="flex items-center gap-3 text-gray-300">
                             <svg class="w-5 h-5 text-amber-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd"
-                                    d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                                    clip-rule="evenodd" />
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                            </svg>
+                            CRM &amp; Agenda (pipeline completo)
+                        </li>
+                        <li class="flex items-center gap-3 text-gray-300">
+                            <svg class="w-5 h-5 text-amber-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                            </svg>
+                            POS Punto de Venta (1 caja)
+                        </li>
+                        <li class="flex items-center gap-3 text-gray-300">
+                            <svg class="w-5 h-5 text-amber-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                            </svg>
+                            Inventario &amp; Almacenes
+                        </li>
+                        <li class="flex items-center gap-3 text-gray-300">
+                            <svg class="w-5 h-5 text-amber-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                            </svg>
+                            CxC completo + recordatorios
+                        </li>
+                        <li class="flex items-center gap-3 text-gray-300">
+                            <svg class="w-5 h-5 text-amber-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                            </svg>
+                            CxP, Proveedores &amp; Compras
+                        </li>
+                        <li class="flex items-center gap-3 text-gray-300">
+                            <svg class="w-5 h-5 text-amber-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                            </svg>
+                            Contratos &amp; Facturaci&oacute;n Recurrente
+                        </li>
+                        <li class="flex items-center gap-3 text-gray-300">
+                            <svg class="w-5 h-5 text-amber-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                            </svg>
+                            Reporte 606 autom&aacute;tico
+                        </li>
+                        <li class="flex items-center gap-3 text-gray-300">
+                            <svg class="w-5 h-5 text-amber-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                            </svg>
+                            Control de Gastos con OCR
+                        </li>
+                        <li class="flex items-center gap-3 text-gray-300">
+                            <svg class="w-5 h-5 text-amber-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                            </svg>
+                            API REST completa (lectura/escritura)
+                        </li>
+                        <li class="flex items-center gap-3 text-gray-300">
+                            <svg class="w-5 h-5 text-amber-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
                             </svg>
                             Soporte prioritario
                         </li>
-                        <li class="flex items-center gap-3 text-gray-300">
-                            <svg class="w-5 h-5 text-amber-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd"
-                                    d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                                    clip-rule="evenodd" />
-                            </svg>
-                            Dashboard de seguimiento
-                        </li>
                     </ul>
-                    <a href="#contacto"
-                        class="btn-primary block w-full text-center py-4 rounded-xl font-semibold bg-gradient-to-r from-amber-500 to-amber-600 text-midnight-900">Comenzar</a>
+
+                    <div class="mb-6">
+                        <div class="flex flex-wrap gap-2">
+                            <span class="text-xs px-2.5 py-1 rounded-full bg-white/5 text-amber-400 border border-amber-400/30">3 usuarios</span>
+                            <span class="text-xs px-2.5 py-1 rounded-full bg-white/5 text-amber-400 border border-amber-400/30">2 sucursales</span>
+                            <span class="text-xs px-2.5 py-1 rounded-full bg-white/5 text-amber-400 border border-amber-400/30">2 GB</span>
+                        </div>
+                    </div>
+
+                    <a href="#contacto" class="btn-primary block w-full text-center py-4 rounded-xl font-semibold bg-gradient-to-r from-amber-500 to-amber-600 text-midnight-900">Comenzar</a>
                 </div>
 
                 <div class="glass-card rounded-3xl p-8 fade-in fade-in-delay-3">
                     <div class="mb-8">
-                        <h3 class="font-display text-xl font-semibold mb-2">Business</h3>
-                        <p class="text-gray-400">Para operaciones de alto volumen</p>
-                    </div>
-                    <div class="mb-8">
-                        <span class="price-monthly text-4xl whitespace-nowrap font-display font-bold" data-usd="$95"
-                            data-dop="RD$ 5,838">RD$ 5,838</span>
-                        <span class="price-annual text-4xl whitespace-nowrap font-display font-bold hidden"
-                            data-usd="$85" data-dop="RD$ 5,223">RD$ 5,223</span>
-                        <span class="text-gray-400">/mes</span>
-                    </div>
-                    <ul class="space-y-4 mb-8">
-                        <li class="flex items-center gap-3 text-gray-300">
-                            <svg class="w-5 h-5 text-teal-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd"
-                                    d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                                    clip-rule="evenodd" />
-                            </svg>
-                            6,000 e-CF / mes
-                        </li>
-                        <li class="flex items-center gap-3 text-gray-300">
-                            <svg class="w-5 h-5 text-teal-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd"
-                                    d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                                    clip-rule="evenodd" />
-                            </svg>
-                            Todo en PyME
-                        </li>
-                        <li class="flex items-center gap-3 text-gray-300">
-                            <svg class="w-5 h-5 text-teal-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd"
-                                    d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                                    clip-rule="evenodd" />
-                            </svg>
-                            Soporte dedicado
-                        </li>
-                        <li class="flex items-center gap-3 text-gray-300">
-                            <svg class="w-5 h-5 text-teal-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd"
-                                    d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                                    clip-rule="evenodd" />
-                            </svg>
-                            Multi-empresa disponible
-                        </li>
-                    </ul>
-                    <a href="#contacto"
-                        class="block w-full text-center py-4 rounded-xl font-semibold border border-white/10 text-white hover:bg-white/5 transition-all">Comenzar</a>
-                </div>
-
-                <div class="glass-card rounded-3xl p-8 fade-in fade-in-delay-4">
-                    <div class="mb-8">
                         <h3 class="font-display text-xl font-semibold mb-2">Enterprise</h3>
                         <p class="text-gray-400">Corporativo a medida</p>
                     </div>
-                    <div class="mb-8">
-                        <span class="text-4xl font-display font-bold">Personalizado</span>
+
+                    <div class="price-monthly mb-8">
+                        <span class="text-4xl font-display font-bold">$160</span>
+                        <span class="text-gray-400">/mes</span>
                     </div>
-                    <ul class="space-y-4 mb-8">
+                    <div class="price-annual mb-8 hidden">
+                        <span class="text-4xl font-display font-bold">$1,690</span>
+                        <span class="text-gray-400">/año</span>
+                        <div class="text-sm text-teal-400 mt-1">$140.83/mes &middot; Ahorra 12%</div>
+                    </div>
+
+                    <div class="mb-4">
+                        <span class="text-xs font-semibold uppercase tracking-wider text-gray-500">Incluye</span>
+                    </div>
+                    <ul class="space-y-3 mb-8">
                         <li class="flex items-center gap-3 text-gray-300">
-                            <svg class="w-5 h-5 text-amber-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd"
-                                    d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                                    clip-rule="evenodd" />
+                            <svg class="w-5 h-5 text-teal-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
                             </svg>
-                            Hasta 40,000+ e-CF / mes
+                            e-CF ilimitados con firma digital
                         </li>
                         <li class="flex items-center gap-3 text-gray-300">
-                            <svg class="w-5 h-5 text-amber-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd"
-                                    d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                                    clip-rule="evenodd" />
+                            <svg class="w-5 h-5 text-teal-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
                             </svg>
-                            SLA garantizado 99.5%
+                            Todo en Pro +
                         </li>
                         <li class="flex items-center gap-3 text-gray-300">
-                            <svg class="w-5 h-5 text-amber-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd"
-                                    d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                                    clip-rule="evenodd" />
+                            <svg class="w-5 h-5 text-teal-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
                             </svg>
-                            Soporte dedicado 24/7
+                            Multi-empresa (RNCs ilimitados)
                         </li>
                         <li class="flex items-center gap-3 text-gray-300">
-                            <svg class="w-5 h-5 text-amber-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd"
-                                    d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                                    clip-rule="evenodd" />
+                            <svg class="w-5 h-5 text-teal-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
                             </svg>
-                            Integración personalizada
+                            Portal del Cliente (autogesti&oacute;n)
                         </li>
                         <li class="flex items-center gap-3 text-gray-300">
-                            <svg class="w-5 h-5 text-amber-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd"
-                                    d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                                    clip-rule="evenodd" />
+                            <svg class="w-5 h-5 text-teal-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
                             </svg>
-                            Multi-empresa nativo
+                            IA &amp; BI (Smart Insights, Chatbot)
+                        </li>
+                        <li class="flex items-center gap-3 text-gray-300">
+                            <svg class="w-5 h-5 text-teal-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                            </svg>
+                            POS multi-caja (ilimitadas)
+                        </li>
+                        <li class="flex items-center gap-3 text-gray-300">
+                            <svg class="w-5 h-5 text-teal-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                            </svg>
+                            Exportaci&oacute;n Contable
+                        </li>
+                        <li class="flex items-center gap-3 text-gray-300">
+                            <svg class="w-5 h-5 text-teal-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                            </svg>
+                            Pasarela de Pago Azul
+                        </li>
+                        <li class="flex items-center gap-3 text-gray-300">
+                            <svg class="w-5 h-5 text-teal-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                            </svg>
+                            Auditor&iacute;a completa
+                        </li>
+                        <li class="flex items-center gap-3 text-gray-300">
+                            <svg class="w-5 h-5 text-teal-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                            </svg>
+                            SLA 99.5% &middot; Soporte 24/7
                         </li>
                     </ul>
-                    <a href="#contacto"
-                        class="block w-full text-center py-4 rounded-xl font-semibold border border-white/10 text-white hover:bg-white/5 transition-all">Contactar
-                        Ventas</a>
+
+                    <div class="mb-6">
+                        <div class="flex flex-wrap gap-2">
+                            <span class="text-xs px-2.5 py-1 rounded-full bg-white/5 text-teal-400 border border-teal-400/30">Usuarios ilimitados</span>
+                            <span class="text-xs px-2.5 py-1 rounded-full bg-white/5 text-teal-400 border border-teal-400/30">Sucursales ilimitadas</span>
+                            <span class="text-xs px-2.5 py-1 rounded-full bg-white/5 text-teal-400 border border-teal-400/30">10 GB</span>
+                        </div>
+                    </div>
+
+                    <a href="#contacto" class="block w-full text-center py-4 rounded-xl font-semibold border border-white/10 text-white hover:bg-white/5 transition-all">Contactar Ventas</a>
                 </div>
+
             </div>
 
             <p class="text-center text-gray-500 text-sm mt-8 max-w-2xl mx-auto">
-                Precios en pesos dominicanos (RD$). También disponibles en USD con referencia al tipo de cambio del
-                día.<br>
-                Los documentos nunca se bloquean - si excedes tu plan, seguimos procesando. 14 días gratis en todos los
-                planes.
+                Precios en USD. No incluyen impuestos aplicables.<br>
+                Los documentos nunca se bloquean &mdash; si excedes tu plan, seguimos procesando. 14 d&iacute;as gratis en todos los planes.
             </p>
         </div>
     </section>
@@ -879,8 +943,8 @@
                     Tu información está protegida
                 </span>
             </div>
-            <p class="mt-4 text-sm text-gray-500">¿Prefieres escribirnos? <a href="mailto:efactura@mdevs.com"
-                    class="text-amber-400 hover:text-amber-300 transition-colors">efactura@mdevs.com</a></p>
+            <p class="mt-4 text-sm text-gray-500">¿Prefieres escribirnos? <a href="mailto:support@vykcore.com"
+                    class="text-amber-400 hover:text-amber-300 transition-colors">support@vykcore.com</a></p>
         </div>
     </section>
 
@@ -924,14 +988,14 @@
                     <h4 class="font-display font-semibold mb-6">Servicio al cliente</h4>
                     <ul class="space-y-3 text-gray-400">
                         <li>
-                            <a href="mailto:efactura@mdevs.com"
+                            <a href="mailto:support@vykcore.com"
                                 class="flex items-center gap-3 hover:text-amber-400 transition-colors">
                                 <svg class="w-5 h-5 text-amber-500 flex-shrink-0" fill="none" stroke="currentColor"
                                     viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                         d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                                 </svg>
-                                efactura@mdevs.com
+                                support@vykcore.com
                             </a>
                         </li>
                         <li>
@@ -961,7 +1025,7 @@
 
             <div class="border-t border-white/5 mt-16 pt-8">
                 <div class="flex flex-col md:flex-row justify-between items-center gap-2 text-xs text-gray-500">
-                    <p>&copy; 2026 ZentCore S.R.L. Todos los derechos reservados.</p>
+                    <p>&copy; 2026 VykCore Automation S.R.L. Todos los derechos reservados.</p>
                     <p>Pagos seguros · Autenticación 3D Secure en cada transacción</p>
                 </div>
             </div>
@@ -1011,25 +1075,6 @@
 
         monthlyBtn.addEventListener('click', setMonthly);
         annualBtn.addEventListener('click', setAnnual);
-
-        const usdBtn = document.getElementById('usd-btn');
-        const dopBtn = document.getElementById('dop-btn');
-        const priceSpans = document.querySelectorAll('[data-usd][data-dop]');
-
-        function setCurrency(currency) {
-            const activeBtn = currency === 'usd' ? usdBtn : dopBtn;
-            const inactiveBtn = currency === 'usd' ? dopBtn : usdBtn;
-            activeBtn.classList.add('bg-teal-500', 'text-midnight-900');
-            activeBtn.classList.remove('text-gray-400');
-            inactiveBtn.classList.remove('bg-teal-500', 'text-midnight-900');
-            inactiveBtn.classList.add('text-gray-400');
-            priceSpans.forEach(el => {
-                el.textContent = el.dataset[currency];
-            });
-        }
-
-        usdBtn.addEventListener('click', () => setCurrency('usd'));
-        dopBtn.addEventListener('click', () => setCurrency('dop'));
 
         document.querySelectorAll('.faq-toggle').forEach(button => {
             button.addEventListener('click', () => {

@@ -1,6 +1,6 @@
-# Evaluación Ejecutiva: e-Factura RD
+# Evaluación Ejecutiva: VykOne
 
-> Análisis estratégico, financiero, fiscal, operativo, técnico y comercial de la aplicación móvil e-Factura RD para freelancers, consultores y MIPYMES dominicanas, bajo cumplimiento de la Ley 32-23 de Facturación Electrónica de República Dominicana.
+> Análisis estratégico, financiero, fiscal, operativo, técnico y comercial de la aplicación móvil VykOne para freelancers, consultores y MIPYMES dominicanas, bajo cumplimiento de la Ley 32-23 de Facturación Electrónica de República Dominicana.
 
 ---
 
@@ -158,7 +158,7 @@ Acierto estratégico. Freelancers trabajan sin conectividad estable. El modelo o
 
 ## 6. Evaluación Comercial y Competitiva
 
-| Competidor | Fortaleza | Debilidad | Gap que explota e-Factura RD |
+| Competidor | Fortaleza | Debilidad | Gap que explota VykOne |
 |---|---|---|---|
 | **QuickBooks** | Marca global, contabilidad completa | Caro (~$15-30/mes USD), no entiende e-CF/NCF, no es mobile-first | Simplicidad + cumplimiento DGII local |
 | **Invoice2go** | UX excelente, marca global | No entiende facturación dominicana, caro en RD$ | Cumplimiento DGII + precio local |
@@ -270,4 +270,4 @@ Bajas en desarrollo de app (cualquiera puede clonar las features principales). A
 
 ---
 
-> **e-Factura RD tiene el potencial de ser el Invoice2go dominicano si ejecuta impecablemente en simplicidad y cumplimiento fiscal. El riesgo más grande no es la competencia ni el mercado — es que el usuario promedio no entiende la facturación electrónica y abandonará si la app no lo guía sin fricción. La app no compite contra Alegra o QuickBooks; compite contra el miedo del freelancer a la DGII. Gana quien haga desaparecer ese miedo.**
+> **VykOne tiene el potencial de ser el Invoice2go dominicano si ejecuta impecablemente en simplicidad y cumplimiento fiscal. El riesgo más grande no es la competencia ni el mercado — es que el usuario promedio no entiende la facturación electrónica y abandonará si la app no lo guía sin fricción. La app no compite contra Alegra o QuickBooks; compite contra el miedo del freelancer a la DGII. Gana quien haga desaparecer ese miedo.**

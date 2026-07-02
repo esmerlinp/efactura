@@ -1083,7 +1083,7 @@
 
                 <div style="margin-bottom: 16px;">
                     <label style="display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 6px;">Comprobante Digital (PDF o Imagen)</label>
-                    <input type="file" id="pay-proof" name="proofFile" accept="image/*,.pdf" required class="form-input">
+                    <input type="file" id="pay-proof" name="paymentProofFile" accept="image/*,.pdf" required class="form-input">
                 </div>
 
                 <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px;">
@@ -1210,7 +1210,7 @@
             formData.append('bank', bank);
             formData.append('referenceNumber', ref);
             formData.append('paymentDate', date);
-            formData.append('proofFile', proofFile);
+            formData.append('paymentProofFile', proofFile);
 
             const url = `/portal/pago/${invoiceId}/reportar?sandbox=${sandbox}`;
             const submitBtn = document.getElementById('pay-submit-btn');

@@ -1,13 +1,10 @@
 # app/services/notifications.py
 import os
-import smtplib
 import uuid
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
-from email.utils import formataddr
 from datetime import datetime, timedelta, timezone
 from flask import current_app
 from app.services.db_service import DatabaseService
+from app.services.mailer import Mailer
 from app.brand import get_product_name
 
 class NotificationService:
@@ -48,14 +45,7 @@ class NotificationService:
             pass
 
         if method == 'email':
-            # Configuración SMTP
-            smtp_server = current_app.config.get("SMTP_SERVER", "smtp.gmail.com")
-            smtp_port = int(current_app.config.get("SMTP_PORT", 587))
-            smtp_user = current_app.config.get("SMTP_USER", "")
-            smtp_password = current_app.config.get("SMTP_PASSWORD", "")
-            
-            if not smtp_user or not smtp_password:
-                # Si no está configurado, simulamos el envío en sandbox para no bloquear el flujo de desarrollo
+            if not current_app.config.get("SMTP_USER") or not current_app.config.get("SMTP_PASSWORD"):
                 if sandbox:
                     print(f"⚠️ SMTP no configurado. Simulando envío de email a {recipient_contact}...")
                     cls._record_interaction(owner_uid, client_id, "Email", 
@@ -69,14 +59,9 @@ class NotificationService:
                 brand_color = company.get('colorMarca', '#10b981')
                 logo_url = company.get('logoUrl', '')
                 logo_html = f'<img src="{logo_url}" alt="Logo" style="max-height: 60px; margin-bottom: 15px;"><br>' if logo_url else ''
-                # Construir el correo HTML
-                msg = MIMEMultipart('alternative')
-                msg["Subject"] = f"⚠️ Recordatorio de Pago - Factura {invoice_number} - {company_name}"
-                msg["From"] = formataddr((company_name, smtp_user))
-                msg["To"] = recipient_contact
-                
+
                 content_html = custom_message.replace("\n", "<br>") if custom_message else f"Le escribimos para recordarle que tiene un balance pendiente de pago correspondiente a la factura <strong>{invoice_number}</strong>."
-                
+
                 html_body = f"""
                 <html>
                 <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #333; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
@@ -136,19 +121,26 @@ class NotificationService:
                 </body>
                 </html>
                 """
-                
-                msg.attach(MIMEText(html_body, 'html'))
-                
-                with smtplib.SMTP(smtp_server, smtp_port) as server:
-                    server.starttls()
-                    server.login(smtp_user, smtp_password)
-                    server.sendmail(smtp_user, recipient_contact, msg.as_string())
-                    
-                cls._record_interaction(owner_uid, client_id, "Email", 
-                                        f"Recordatorio de Pago enviado (Email)",
-                                        f"Enviado recordatorio para factura {invoice_number} al correo {recipient_contact}. Balance pendiente: RD$ {remaining_balance:,.2f}.", 
-                                        sandbox=sandbox)
-                return True, f"Recordatorio enviado exitosamente por correo a {recipient_contact}."
+
+                subject = f"⚠️ Recordatorio de Pago - Factura {invoice_number} - {company_name}"
+
+                success = Mailer.send(
+                    app=current_app._get_current_object(),
+                    to_email=recipient_contact,
+                    subject=subject,
+                    html_body=html_body,
+                    from_name=company_name,
+                    category='reminder'
+                )
+
+                if success:
+                    cls._record_interaction(owner_uid, client_id, "Email", 
+                                            f"Recordatorio de Pago enviado (Email)",
+                                            f"Enviado recordatorio para factura {invoice_number} al correo {recipient_contact}. Balance pendiente: RD$ {remaining_balance:,.2f}.", 
+                                            sandbox=sandbox)
+                    return True, f"Recordatorio enviado exitosamente por correo a {recipient_contact}."
+                else:
+                    return False, "Fallo al enviar correo."
             except Exception as e:
                 print(f"⚠️ Error al enviar email: {e}")
                 return False, f"Fallo al enviar correo: {str(e)}"
@@ -294,27 +286,16 @@ class NotificationService:
     def send_mention_notification(cls, recipient_email, recipient_name, commenter_name, comment_snippet, doc_number, doc_url, issuer_company_name=None, sandbox=True, brand_color="#10b981", logo_url=""):
         """Envía un correo electrónico de notificación cuando un usuario es tagueado en un comentario."""
         issuer_company_name = issuer_company_name or get_product_name()
-        smtp_server = current_app.config.get("SMTP_SERVER", "smtp.gmail.com")
-        smtp_port = int(current_app.config.get("SMTP_PORT", 587))
-        smtp_user = current_app.config.get("SMTP_USER", "")
-        smtp_password = current_app.config.get("SMTP_PASSWORD", "")
-        
-        if not smtp_user or not smtp_password:
-            # Si no está configurado, simulamos el envío en sandbox para no bloquear el flujo de desarrollo
+
+        if not current_app.config.get("SMTP_USER") or not current_app.config.get("SMTP_PASSWORD"):
             if sandbox:
                 print(f"⚠️ [SMTP no configurado] Simulando email de mención a {recipient_email} ({recipient_name}): {commenter_name} te mencionó en {doc_number} ({issuer_company_name})")
                 return True, f"Simulado: Notificación de mención enviada a {recipient_email}."
             return False, "Servidor de correo SMTP no configurado en los ajustes de la aplicación."
             
         try:
-            # Construir el correo HTML
-            msg = MIMEMultipart('alternative')
-            msg["Subject"] = f"💬 Te mencionaron en un comentario — {doc_number}"
-            msg["From"] = formataddr((get_product_name(), smtp_user))
-            msg["To"] = recipient_email
-            
             logo_html = f'<img src="{logo_url}" alt="Logo" style="max-height: 50px; margin-bottom: 15px;"><br>' if logo_url else ''
-            
+
             html_body = f"""
             <html>
             <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #333; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
@@ -323,38 +304,45 @@ class NotificationService:
                     <h2 style="color: {brand_color}; margin: 0;">Nueva Mención</h2>
                     <p style="color: #666; margin: 4px 0 0 0;">Plataforma {get_product_name()} · <strong>{issuer_company_name or get_product_name()}</strong></p>
                 </div>
-                
+
                 <p>Hola <strong>{recipient_name}</strong>,</p>
-                
+
                 <p><strong>{commenter_name}</strong> te ha mencionado en un comentario en el documento <strong>{doc_number}</strong>:</p>
-                
+
                 <div style="background-color: #f3f4f6; border-left: 4px solid {brand_color}; border-radius: 4px; padding: 16px; margin: 20px 0; font-style: italic; color: #4b5563;">
                     "{comment_snippet}"
                 </div>
-                
+
                 <p style="text-align: center; margin: 28px 0;">
                     <a href="{doc_url}" style="background: {brand_color}; color: white; text-decoration: none; padding: 12px 30px; border-radius: 6px; font-weight: bold; display: inline-block; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);">
                         Ver Comentario y Documento
                     </a>
                 </p>
-                
+
                 <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 24px 0;">
-                
+
                 <div style="font-size: 0.8rem; color: #9ca3af; text-align: center;">
                     Enviado de forma automática por la plataforma {get_product_name()}.
                 </div>
             </body>
             </html>
             """
-            
-            msg.attach(MIMEText(html_body, 'html'))
-            
-            with smtplib.SMTP(smtp_server, smtp_port) as server:
-                server.starttls()
-                server.login(smtp_user, smtp_password)
-                server.sendmail(smtp_user, recipient_email, msg.as_string())
-                
-            return True, "Correo enviado correctamente."
+
+            subject = f"💬 Te mencionaron en un comentario — {doc_number}"
+
+            success = Mailer.send(
+                app=current_app._get_current_object(),
+                to_email=recipient_email,
+                subject=subject,
+                html_body=html_body,
+                from_name=get_product_name(),
+                category='notification'
+            )
+
+            if success:
+                return True, "Correo enviado correctamente."
+            else:
+                return False, "Fallo al enviar correo."
         except Exception as e:
             print(f"⚠️ Error al enviar email de mención: {e}")
             return False, str(e)
@@ -369,36 +357,23 @@ class NotificationService:
         brand_color = company.get('colorMarca', '#10b981')
         logo_url = company.get('logoUrl', '')
         
-        smtp_server = current_app.config.get("SMTP_SERVER", "smtp.gmail.com")
-        smtp_port = int(current_app.config.get("SMTP_PORT", 587))
-        smtp_user = current_app.config.get("SMTP_USER", "")
-        smtp_password = current_app.config.get("SMTP_PASSWORD", "")
-        
-        if not smtp_user or not smtp_password:
+        if not current_app.config.get("SMTP_USER") or not current_app.config.get("SMTP_PASSWORD"):
             if sandbox:
                 print(f"⚠️ [SMTP no configurado] Simulando email de asignación de gasto a {recipient_email} ({recipient_name})")
                 return True, f"Simulado: Notificación enviada a {recipient_email}."
             return False, "Servidor de correo SMTP no configurado."
             
         try:
-            from email.mime.multipart import MIMEMultipart
-            from email.mime.text import MIMEText
-            
-            msg = MIMEMultipart('alternative')
-            msg["Subject"] = f"📋 Gasto Pendiente de Aprobación: {expense.get('concept', 'Gasto Interno')}"
-            msg["From"] = formataddr((company_name, smtp_user))
-            msg["To"] = recipient_email
-            
             logo_html = f'<img src="{logo_url}" alt="Logo" style="max-height: 50px; margin-bottom: 15px;"><br>' if logo_url else ''
-            
+
             from flask import request
             try:
                 base_url = request.host_url.rstrip('/')
             except Exception:
                 base_url = os.environ.get("PORTAL_BASE_URL", "http://localhost:5001").rstrip('/')
-                
+
             expense_url = f"{base_url}/expenses"
-            
+
             html_body = f"""
             <html>
             <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #333; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
@@ -407,11 +382,11 @@ class NotificationService:
                     <h2 style="color: {brand_color}; margin: 0;">Asignación de Aprobación</h2>
                     <p style="color: #666; margin: 4px 0 0 0;">Plataforma {get_product_name()} · <strong>{company_name}</strong></p>
                 </div>
-                
+
                 <p>Hola <strong>{recipient_name}</strong>,</p>
-                
+
                 <p>Se te ha asignado un nuevo gasto interno para tu revisión y aprobación en el sistema:</p>
-                
+
                 <div style="background-color: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; padding: 16px; margin: 20px 0;">
                     <table style="width: 100%; border-collapse: collapse;">
                         <tr>
@@ -432,31 +407,37 @@ class NotificationService:
                         </tr>
                     </table>
                 </div>
-                
+
                 <p style="text-align: center; margin: 28px 0;">
                     <a href="{expense_url}" style="background: {brand_color}; color: white; text-decoration: none; padding: 12px 30px; border-radius: 6px; font-weight: bold; display: inline-block; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);">
                         Ver y Aprobar Gasto
                     </a>
                 </p>
-                
+
                 <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 24px 0;">
-                
+
                 <div style="font-size: 0.8rem; color: #9ca3af; text-align: center;">
                     Enviado de forma automática por la plataforma {get_product_name()}.
                 </div>
             </body>
             </html>
             """
-            
-            msg.attach(MIMEText(html_body, 'html'))
-            
-            import smtplib
-            with smtplib.SMTP(smtp_server, smtp_port) as server:
-                server.starttls()
-                server.login(smtp_user, smtp_password)
-                server.sendmail(smtp_user, recipient_email, msg.as_string())
-                
-            return True, "Correo enviado correctamente."
+
+            subject = f"📋 Gasto Pendiente de Aprobación: {expense.get('concept', 'Gasto Interno')}"
+
+            success = Mailer.send(
+                app=current_app._get_current_object(),
+                to_email=recipient_email,
+                subject=subject,
+                html_body=html_body,
+                from_name=company_name,
+                category='notification'
+            )
+
+            if success:
+                return True, "Correo enviado correctamente."
+            else:
+                return False, "Fallo al enviar correo."
         except Exception as e:
             print(f"⚠️ Error al enviar email de asignación: {e}")
             return False, str(e)
@@ -475,12 +456,7 @@ class NotificationService:
         brand_color = company.get('colorMarca', '#10b981')
         logo_url = company.get('logoUrl', '')
 
-        smtp_server = current_app.config.get("SMTP_SERVER", "smtp.gmail.com")
-        smtp_port = int(current_app.config.get("SMTP_PORT", 587))
-        smtp_user = current_app.config.get("SMTP_USER", "")
-        smtp_password = current_app.config.get("SMTP_PASSWORD", "")
-
-        if not smtp_user or not smtp_password:
+        if not current_app.config.get("SMTP_USER") or not current_app.config.get("SMTP_PASSWORD"):
             print(f"⚠️ [Portal Notification] SMTP no configurado. No se notificó a {recipient_email}.")
             return False, "SMTP no configurado."
 
@@ -504,11 +480,6 @@ class NotificationService:
         doc_link_html = f'<p style="text-align: center; margin: 28px 0;"><a href="{document_url}" style="background: {brand_color}; color: white; text-decoration: none; padding: 12px 30px; border-radius: 6px; font-weight: bold; display: inline-block;">Ver {document_type} en el Sistema</a></p>' if document_url else ''
 
         try:
-            msg = MIMEMultipart('alternative')
-            msg["Subject"] = f"{icon} {document_type} {status_label} por el cliente — {document_number}"
-            msg["From"] = formataddr((company_name, smtp_user))
-            msg["To"] = recipient_email
-
             html_body = f"""
             <html>
             <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #333; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
@@ -539,15 +510,22 @@ class NotificationService:
             </html>
             """
 
-            msg.attach(MIMEText(html_body, 'html'))
+            subject = f"{icon} {document_type} {status_label} por el cliente — {document_number}"
 
-            with smtplib.SMTP(smtp_server, smtp_port) as server:
-                server.starttls()
-                server.login(smtp_user, smtp_password)
-                server.sendmail(smtp_user, recipient_email, msg.as_string())
+            success = Mailer.send(
+                app=current_app._get_current_object(),
+                to_email=recipient_email,
+                subject=subject,
+                html_body=html_body,
+                from_name=company_name,
+                category='notification'
+            )
 
-            print(f"✅ [Portal Notification] Email enviado a {recipient_email}: {document_type} {status_label} — {document_number}")
-            return True, "Notificación enviada."
+            if success:
+                print(f"✅ [Portal Notification] Email enviado a {recipient_email}: {document_type} {status_label} — {document_number}")
+                return True, "Notificación enviada."
+            else:
+                return False, "Fallo al enviar correo."
         except Exception as e:
             print(f"⚠️ [Portal Notification] Error al enviar email: {e}")
             return False, str(e)
@@ -563,11 +541,6 @@ class NotificationService:
         brand_color = company.get('colorMarca', '#10b981')
         logo_url = company.get('logoUrl', '')
 
-        smtp_server = current_app.config.get("SMTP_SERVER", "smtp.gmail.com")
-        smtp_port = int(current_app.config.get("SMTP_PORT", 587))
-        smtp_user = current_app.config.get("SMTP_USER", "")
-        smtp_password = current_app.config.get("SMTP_PASSWORD", "")
-
         invoice_number = invoice.get("invoiceNumber", f"ID: {invoice.get('id', '')}")
 
         client_pin = ""
@@ -581,7 +554,7 @@ class NotificationService:
             except Exception:
                 pass
 
-        if not smtp_user or not smtp_password:
+        if not current_app.config.get("SMTP_USER") or not current_app.config.get("SMTP_PASSWORD"):
             if sandbox:
                 print(f"⚠️ [Cliente Pago] SMTP no configurado. Simulando email a {client_email}. Clave: {client_pin}")
                 return True, "Simulado: Notificación enviada al cliente."
@@ -636,11 +609,6 @@ class NotificationService:
         logo_html = f'<img src="{logo_url}" alt="Logo" style="max-height: 60px; margin-bottom: 15px;"><br>' if logo_url else ''
 
         try:
-            msg = MIMEMultipart('alternative')
-            msg["Subject"] = subject
-            msg["From"] = formataddr((company_name, smtp_user))
-            msg["To"] = client_email
-
             html_body = f"""
             <html>
             <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #333; line-height: 1.6; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
@@ -670,15 +638,20 @@ class NotificationService:
             </html>
             """
 
-            msg.attach(MIMEText(html_body, 'html'))
+            success = Mailer.send(
+                app=current_app._get_current_object(),
+                to_email=client_email,
+                subject=subject,
+                html_body=html_body,
+                from_name=company_name,
+                category='notification'
+            )
 
-            with smtplib.SMTP(smtp_server, smtp_port) as server:
-                server.starttls()
-                server.login(smtp_user, smtp_password)
-                server.sendmail(smtp_user, client_email, msg.as_string())
-
-            print(f"✅ [Cliente Pago] Email enviado a {client_email}: Pago {action} — {invoice_number}. Clave: {client_pin}")
-            return True, "Notificación enviada al cliente."
+            if success:
+                print(f"✅ [Cliente Pago] Email enviado a {client_email}: Pago {action} — {invoice_number}. Clave: {client_pin}")
+                return True, "Notificación enviada al cliente."
+            else:
+                return False, "Fallo al enviar correo."
         except Exception as e:
             print(f"⚠️ [Cliente Pago] Error al enviar email: {e}")
             return False, str(e)

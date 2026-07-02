@@ -1,6 +1,6 @@
 # app/services/audit_service.py
 """
-Servicio Central de Auditoría — e-Factura
+Servicio Central de Auditoría del Sistema
 ==========================================
 Registra todas las transacciones realizadas por los usuarios del sistema
 en Firestore bajo: users/{ownerUID}/audit_logs/{log_id}
@@ -51,7 +51,7 @@ MODULE_DOCUMENTOS    = "Documentos de Cliente"
 
 
 class AuditService:
-    """Servicio de Auditoría Central para e-Factura."""
+    """Servicio de Auditoría Central para el sistema."""
 
     @classmethod
     def log(cls,
