@@ -170,6 +170,9 @@
                     {% else %}
                     <span class="badge badge-success" style="margin-bottom: 10px;">{{ invoice.status }}</span>
                     {% endif %}
+                    {% if invoice.get('isImported') %}
+                    <span class="badge badge-imported" style="margin-bottom: 10px; margin-left: 4px;"><i class="fa-solid fa-file-import"></i> Importada</span>
+                    {% endif %}
                     <div style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 4px;">Fecha: <strong>{{
                             invoice.date | format_date }}{% if invoice.date|length > 10 %} {{ invoice.date[11:16] }}{%
                             endif
@@ -186,11 +189,21 @@
                     <span
                         style="font-size: 0.78rem; text-transform: uppercase; color: var(--text-muted); font-weight: 500; display: block; margin-bottom: 6px;">Facturado
                         a (Cliente)</span>
+                    {% if invoice.get('isImported') and not (invoice.clientName and invoice.clientName != 'Sin Asignar') %}
+                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                        <i class="fa-solid fa-user-slash" style="color: var(--text-muted); font-size: 1.1rem;"></i>
+                        <strong style="font-size: 1.05rem; color: var(--text-muted);">Cliente no asignado</strong>
+                    </div>
+                    <span style="font-size: 0.78rem; color: var(--text-muted); display: block;">
+                        Esta factura fue importada sin datos de cliente.
+                    </span>
+                    {% else %}
                     <strong style="font-size: 1.05rem; display: block; margin-bottom: 4px;">{{ invoice.clientName
                         }}</strong>
                     <span
                         style="font-family: monospace; font-size: 0.88rem; color: var(--text-secondary); display: block;">RNC/Cédula:
                         {{ invoice.clientRNC or '999999999 (Consumidor Final)' }}</span>
+                    {% endif %}
                 </div>
 
                 <div style="text-align: right;">
@@ -915,18 +928,20 @@
                 </form>
 
                 {% if invoice.clientId %}
+                {% if module_enabled('portal_cliente') %}
                 <a href="{{ url_for('portal.client_portal', owner_uid=session.get('user', {}).get('ownerUID', 'W2n2BfR1G4eN3K7m7n8b9v0c1x2z'), client_id=invoice.clientId, sandbox='true' if session.get('is_sandbox_mode', True) else 'false') }}"
                     target="_blank" class="btn btn-secondary"
                     style="width:100%; border-color: var(--accent-purple); color: var(--accent-purple); display: inline-flex; align-items: center; justify-content: center; gap: 6px;">
                     <i class="fa-solid fa-up-right-from-square"></i>
                     <span>Ver Portal de Cliente</span>
                 </a>
+                {% endif %}
 
                 <div style="border-top: 1px dashed var(--border-color); padding-top: 15px; margin-top: 5px;">
                     <button type="button" onclick="openSendQuotationModal()" class="btn btn-secondary"
                         style="width: 100%; border-color: var(--accent-purple); color: var(--accent-purple); display: inline-flex; align-items: center; justify-content: center; gap: 6px; font-weight: 600;">
                         <i class="fa-solid fa-envelope"></i>
-                        <span>{% if invoice.status == 'Pendiente Aut. Cliente' %}Re-enviar al Cliente{% else %}Enviar al Cliente Para Aprobación{% endif %}</span>
+                        <span>{% if invoice.status == 'Pendiente Aut. Cliente' %}Re-enviar al Cliente{% else %}Enviar al Cliente{% endif %}</span>
                     </button>
                 </div>
                 {% endif %}
@@ -1663,10 +1678,14 @@ function switchInvoiceTab(tabName) {
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <div class="modal-body">
                         <!-- Info Alert -->
-                        <div
+                        <div id="send-quote-info"
                             style="background: rgba(124, 58, 237, 0.05); border: 1px solid rgba(124, 58, 237, 0.2); border-radius: var(--radius-sm); padding: 14px; margin-bottom: 20px; font-size: 0.8rem; line-height: 1.4; color: var(--text-secondary);">
+                            {% if module_enabled('portal_cliente') %}
                             Se enviará un correo electrónico formal con el enlace de acceso al portal del cliente para
                             que pueda revisar, firmar y aprobar electrónicamente la propuesta.
+                            {% else %}
+                            Se enviará un correo electrónico con la cotización en formato PDF adjunto para que el cliente pueda revisarla.
+                            {% endif %}
                         </div>
 
                         <!-- Email Input -->
@@ -1691,10 +1710,43 @@ function switchInvoiceTab(tabName) {
                         <button type="submit" class="btn btn-primary"
                             style="flex: 2; background: linear-gradient(135deg, var(--accent-purple), #a78bfa); border: none; color: white; height: 44px; justify-content: center; font-weight: 700;">
                             <i class="fa-solid fa-paper-plane"></i>
-                            <span>Enviar Enlace</span>
+                            <span>{% if module_enabled('portal_cliente') %}Enviar Enlace{% else %}Enviar PDF{% endif %}</span>
                         </button>
                     </div>
                 </form>
+            </div>
+        </div>
+
+        <!-- Modal: Clave de Acceso No Asignada -->
+        <div class="search-modal" id="pin-missing-modal"
+            style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1300; align-items: center; justify-content: center;">
+            <div class="modal-backdrop" onclick="closePinMissingModal()"
+                style="position: absolute; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(8px);"></div>
+            <div class="modal-content"
+                style="max-width: 460px; width: calc(100% - 32px); background: var(--bg-card); backdrop-filter: blur(24px); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 30px; position: relative; z-index: 2; box-shadow: var(--shadow-lg); animation: floatIn 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards; color: var(--text-primary); text-align: center;">
+
+                <div style="font-size: 2.5rem; color: var(--accent-yellow); margin-bottom: 12px;">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                </div>
+                <h3 style="font-size: 1.1rem; font-family: var(--font-heading); color: var(--text-primary); font-weight: 800; margin: 0 0 8px;">Clave de Acceso No Asignada</h3>
+
+                <p style="font-size: 0.88rem; color: var(--text-secondary); line-height: 1.5; margin: 12px 0 24px;">
+                    El cliente <strong id="pin-missing-client-name" style="color: var(--text-primary);"></strong>
+                    no tiene una clave de acceso asignada. Para enviarle la cotización,
+                    primero debe asignarle una clave de 6 dígitos en la ficha del cliente.
+                </p>
+
+                <div style="display: flex; gap: 10px; justify-content: center;">
+                    <button type="button" onclick="closePinMissingModal()" class="btn btn-secondary"
+                        style="flex: 1; height: 44px; justify-content: center;">
+                        <span>Cerrar</span>
+                    </button>
+                    <a id="pin-missing-edit-link" href="#" class="btn btn-primary"
+                        style="flex: 2; height: 44px; justify-content: center; text-decoration: none;
+                        background: linear-gradient(135deg, var(--accent-purple), #a78bfa); border: none; color: white; font-weight: 700; display: inline-flex; align-items: center; gap: 8px;">
+                        <i class="fa-solid fa-pen-to-square"></i> Ir a Ficha del Cliente
+                    </a>
+                </div>
             </div>
         </div>
 
@@ -2292,6 +2344,29 @@ function switchInvoiceTab(tabName) {
             if (modal) {
                 modal.style.display = 'none';
             }
+        }
+
+        // =========================================================================
+        // MODAL: CLAVE DE ACCESO NO ASIGNADA
+        // =========================================================================
+        {% set pin_missing_id = session.pop('pin_missing_client', none) %}
+        {% if pin_missing_id %}
+        document.addEventListener('DOMContentLoaded', function() {
+            openPinMissingModal(
+                '{{ pin_missing_id }}',
+                {{ invoice.clientName | tojson }},
+                '{{ url_for('web_clients.edit_client', client_id=pin_missing_id) }}'
+            );
+        });
+        {% endif %}
+
+        function openPinMissingModal(clientId, clientName, editUrl) {
+            document.getElementById('pin-missing-client-name').textContent = clientName;
+            document.getElementById('pin-missing-edit-link').href = editUrl;
+            document.getElementById('pin-missing-modal').style.display = 'flex';
+        }
+        function closePinMissingModal() {
+            document.getElementById('pin-missing-modal').style.display = 'none';
         }
         // =========================================================================
         // APROBACIÓN / RECHAZO DE COMPROBANTE DE PAGO

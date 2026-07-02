@@ -531,7 +531,7 @@ class DatabaseService:
         print("🔥 Firebase Admin SDK verificado exitosamente.")
         
         try:
-            demo_email = "propietario@zentone.com"
+            demo_email = "propietario@vykcore.com"
             try:
                 auth.get_user_by_email(demo_email)
                 print(f"👤 Usuario Administrador Demo '{demo_email}' ya está registrado en Firebase Auth.")
@@ -3148,9 +3148,11 @@ class DatabaseService:
             return []
 
     @classmethod
-    def get_billing_history(cls, owner_uid, billing_day=1, monthly_payment=0, additional_document_cost=0, document_limit=0, created_at=None):
+    def get_billing_history(cls, owner_uid, billing_day=1, monthly_payment=0, additional_document_cost=0, document_limit=0, created_at=None,
+                             previous_monthly_payment=None, previous_additional_document_cost=None, previous_document_limit=None, plan_change_date=None):
         """
         Genera el historial de ciclos de facturación, consumo y pagos de los últimos 6 meses.
+        Si plan_change_date está dentro de un ciclo, prorratea la cuota mensual.
         """
         import datetime
         if not firebase_initialized:
@@ -3250,7 +3252,35 @@ class DatabaseService:
             # Calcular cargos
             excess = max(0, count - document_limit) if document_limit > 0 else 0
             excess_charge = excess * additional_document_cost
-            total_charge = monthly_payment + excess_charge
+            
+            # Prorrateo si el cambio de plan ocurrió dentro de este ciclo
+            is_prorated = False
+            proration_detail = None
+            fee_for_cycle = monthly_payment
+            
+            if (plan_change_date is not None and
+                previous_monthly_payment is not None and
+                cycle_start <= plan_change_date <= cycle_end):
+                is_prorated = True
+                total_days = (cycle_end - cycle_start).days + 1
+                days_before = max(0, (plan_change_date - cycle_start).days)
+                days_after = total_days - days_before
+                
+                old_rate = float(previous_monthly_payment)
+                new_rate = float(monthly_payment)
+                
+                prorated_fee = (old_rate * days_before / total_days) + (new_rate * days_after / total_days)
+                fee_for_cycle = round(prorated_fee, 2)
+                
+                proration_detail = {
+                    'old_rate': old_rate,
+                    'new_rate': new_rate,
+                    'days_before': days_before,
+                    'days_after': days_after,
+                    'total_days': total_days,
+                }
+            
+            total_charge = fee_for_cycle + excess_charge
             
             # Buscar si hay algún pago en este periodo
             paid = False
@@ -3272,9 +3302,11 @@ class DatabaseService:
                 'end_date': cycle_end.strftime('%Y-%m-%d'),
                 'consumed_docs': count,
                 'excess_docs': excess,
-                'monthly_fee': monthly_payment,
+                'monthly_fee': fee_for_cycle,
                 'excess_charge': excess_charge,
                 'total_charge': total_charge,
+                'is_prorated': is_prorated,
+                'proration_detail': proration_detail,
                 'status': 'Saldado' if paid else 'Pendiente',
                 'payment_ref': payment_ref,
                 'payment_date': payment_date
@@ -3480,7 +3512,7 @@ class DatabaseService:
                         "id": doc.id,
                         "registerId": data.get("registerId"),
                         "openedByUserId": data.get("openedByUserId"),
-                        "openedByUserEmail": data.get("openedByUserEmail", "cajero@zentone.com"),
+                        "openedByUserEmail": data.get("openedByUserEmail", "cajero@vykcore.com"),
                         "openingTime": serialize_field(data.get("openingTime")),
                         "closingTime": serialize_field(data.get("closingTime")),
                         "openingAmount": float(data.get("openingAmount", 0.0)),
@@ -4360,7 +4392,7 @@ class DatabaseService:
             return companies
 
         try:
-            # 1. Obtener la propia empresa del usuario si es propietario e-Factura y lo tiene permitido
+            # 1. Obtener la propia empresa del usuario si es propietario de VykOne y lo tiene permitido
             profile = cls.get_user_profile(uid)
             if profile and profile.get("canManageOwnCompany", False):
                 own_owner_uid = profile.get("uid")
@@ -4550,6 +4582,23 @@ class DatabaseService:
         import copy
         p = _cached_plan(plan_id)
         return copy.deepcopy(p) if p else None
+
+    @classmethod
+    def get_visible_plans(cls):
+        """Retorna todos los planes visibles en landing (no custom)."""
+        plans = []
+        if firebase_initialized:
+            try:
+                docs = db_firestore.collection('plans').stream()
+                for doc in docs:
+                    data = doc.to_dict()
+                    if data.get('visible_on_landing', True) and not data.get('is_custom', False):
+                        data['id'] = doc.id
+                        plans.append(data)
+                plans.sort(key=lambda p: p.get('monthlyPrice', 0))
+            except Exception as e:
+                print(f"⚠️ Error al obtener planes visibles: {e}")
+        return plans
 
     @classmethod
     def get_resource_comments(cls, owner_uid, resource_type, resource_id, sandbox=True):

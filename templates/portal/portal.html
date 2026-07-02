@@ -111,6 +111,25 @@
             font-weight: 800;
         }
 
+        /* ─── FILTROS PILLS ─── */
+        .filter-bar { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; align-items: center; }
+        .pill { display: inline-flex; align-items: center; gap: 5px; padding: 5px 14px; border-radius: 20px; font-size: 0.78rem; font-weight: 600; background: #ffffff; color: var(--text-secondary); border: 1px solid var(--border-color); cursor: pointer; transition: all 0.2s; white-space: nowrap; -webkit-tap-highlight-color: transparent; user-select: none; }
+        .pill:hover { border-color: var(--primary); color: var(--primary); }
+        .pill.active { background: var(--primary); color: #ffffff; border-color: var(--primary); }
+        .pill .count { display: inline-flex; align-items: center; justify-content: center; font-size: 0.62rem; font-weight: 700; min-width: 18px; height: 18px; border-radius: 10px; padding: 0 5px; background: rgba(0,0,0,0.06); }
+        .pill.active .count { background: rgba(255,255,255,0.2); }
+        .sub-bar { display: flex; flex-wrap: wrap; gap: 4px; margin: 4px 0 16px; padding-left: 2px; }
+        .pill.sub { font-size: 0.72rem; padding: 3px 10px; background: transparent; border-color: transparent; color: var(--text-muted); font-weight: 500; }
+        .pill.sub:hover { color: var(--primary); background: rgba(30,58,138,0.04); }
+        .pill.sub.active { background: rgba(30,58,138,0.08); color: var(--primary); border-color: transparent; font-weight: 600; }
+        .section-empty { text-align: center; padding: 40px 0; color: var(--text-muted); font-size: 0.85rem; }
+        #filter-info { font-size: 0.75rem; color: var(--text-muted); margin-left: auto; white-space: nowrap; }
+        @media (max-width: 500px) {
+            .filter-bar { gap: 4px; }
+            .pill { font-size: 0.72rem; padding: 4px 10px; }
+            .pill.sub { font-size: 0.68rem; padding: 2px 8px; }
+            #filter-info { font-size: 0.65rem; }
+        }
         .table-card {
             background: #ffffff;
             border: 1px solid var(--border-color);
@@ -538,7 +557,7 @@
             <h3
                 style="margin-top: 0; margin-bottom: 12px; font-size: 1.05rem; text-transform: uppercase; letter-spacing: 0.02em; color: var(--text-muted);">
                 Información de Cliente</h3>
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; overflow-wrap: break-word; word-break: break-word;">
                 <div>
                     <span style="font-size: 0.75rem; color: var(--text-muted); display: block;">Razón Social</span>
                     <strong>{{ client.razonSocial }}</strong>
@@ -557,17 +576,62 @@
                 <div>
                     <span style="font-size: 0.75rem; color: var(--text-muted); display: block;">Correo de
                         Contacto</span>
-                    <strong>{{ client.email }}</strong>
+                    <strong style="overflow-wrap: break-word; word-break: break-all;">{{ client.email }}</strong>
                 </div>
                 {% endif %}
             </div>
         </div>
 
+        <!-- Pills de filtro — siempre visibles (fuera de las secciones) -->
+        <div class="filter-bar" id="filter-bar">
+            <button class="pill active" data-type="all" onclick="setFilter('all')">
+                <i class="fa-solid fa-layer-group"></i> Todos <span class="count" id="count-all">{{ invoices|length + contracts|length }}</span>
+            </button>
+            <button class="pill" data-type="invoice" onclick="setFilter('invoice')">
+                <i class="fa-solid fa-file-invoice"></i> Facturas <span class="count" id="count-invoice">{{ invoices | selectattr('isQuotation', 'equalto', False) | list | length }}</span>
+            </button>
+            <button class="pill" data-type="quotation" onclick="setFilter('quotation')">
+                <i class="fa-solid fa-file-pen"></i> Cotizaciones <span class="count" id="count-quotation">{{ invoices | selectattr('isQuotation', 'equalto', True) | list | length }}</span>
+            </button>
+            <button class="pill" data-type="contract" onclick="setFilter('contract')">
+                <i class="fa-solid fa-file-contract"></i> Contratos <span class="count" id="count-contract">{{ contracts|length }}</span>
+            </button>
+            <span id="filter-info"></span>
+        </div>
+
+        <!-- Sub-pills para Facturas -->
+        <div class="sub-bar" id="sub-invoice" style="display:none;">
+            <button class="pill sub active" data-sub="all" onclick="setSubFilter('invoice','all')">Todas</button>
+            <button class="pill sub" data-sub="Emitida" onclick="setSubFilter('invoice','Emitida')">Pendientes</button>
+            <button class="pill sub" data-sub="Cobrada" onclick="setSubFilter('invoice','Cobrada')">Pagadas</button>
+            <button class="pill sub" data-sub="Vencida" onclick="setSubFilter('invoice','Vencida')">Vencidas</button>
+            <button class="pill sub" data-sub="Parcialmente Cobrada" onclick="setSubFilter('invoice','Parcialmente Cobrada')">Pago Parcial</button>
+            <button class="pill sub" data-sub="Revision de Pago" onclick="setSubFilter('invoice','Revision de Pago')">En Revisión</button>
+            <button class="pill sub" data-sub="Anulada" onclick="setSubFilter('invoice','Anulada')">Anuladas</button>
+        </div>
+
+        <!-- Sub-pills para Cotizaciones -->
+        <div class="sub-bar" id="sub-quotation" style="display:none;">
+            <button class="pill sub active" data-sub="all" onclick="setSubFilter('quotation','all')">Todas</button>
+            <button class="pill sub" data-sub="Pendiente Aut. Cliente" onclick="setSubFilter('quotation','Pendiente Aut. Cliente')">Pendientes</button>
+            <button class="pill sub" data-sub="Aprobada" onclick="setSubFilter('quotation','Aprobada')">Aprobadas</button>
+            <button class="pill sub" data-sub="Rechazada" onclick="setSubFilter('quotation','Rechazada')">Rechazadas</button>
+        </div>
+
+        <!-- Sub-pills para Contratos -->
+        <div class="sub-bar" id="sub-contract" style="display:none;">
+            <button class="pill sub active" data-sub="all" onclick="setSubFilter('contract','all')">Todos</button>
+            <button class="pill sub" data-sub="Activo" onclick="setSubFilter('contract','Activo')">Activos</button>
+            <button class="pill sub" data-sub="Pendiente" onclick="setSubFilter('contract','Pendiente')">Pendientes</button>
+            <button class="pill sub" data-sub="Cancelado" onclick="setSubFilter('contract','Cancelado')">Cancelados</button>
+            <button class="pill sub" data-sub="Expirado" onclick="setSubFilter('contract','Expirado')">Expirados</button>
+        </div>
+
         <!-- Historial de Facturas y Cotizaciones -->
-        <div class="table-card">
-            <h3 style="margin-top: 0; margin-bottom: 20px; font-size: 1.15rem;">Documentos y Cotizaciones</h3>
+        <div class="table-card" id="docs-section">
+            <h3 style="margin-top: 0; margin-bottom: 16px; font-size: 1.15rem;">Documentos y Cotizaciones</h3>
             <div class="table-responsive">
-                <table>
+                <table id="docs-table">
                     <thead>
                         <tr>
                             <th>Número Documento</th>
@@ -581,7 +645,7 @@
                     </thead>
                     <tbody>
                         {% for inv in invoices %}
-                        <tr>
+                        <tr data-doctype="{% if inv.isQuotation %}quotation{% else %}invoice{% endif %}" data-status="{{ inv.status }}">
                             <td data-label="Número Documento">
                                 <strong>{{ inv.invoiceNumber }}</strong>
                             </td>
@@ -633,7 +697,7 @@
                             </td>
                         </tr>
                         {% else %}
-                        <tr>
+                        <tr data-doctype="none">
                             <td colspan="7" style="text-align: center; padding: 40px 0; color: var(--text-muted);">
                                 No hay facturas ni cotizaciones disponibles.
                             </td>
@@ -645,10 +709,10 @@
         </div>
 
         <!-- Contratos de Servicios -->
-        <div class="table-card" style="margin-top: 30px;">
+        <div class="table-card" style="margin-top: 30px;" id="contracts-section">
             <h3 style="margin-top: 0; margin-bottom: 20px; font-size: 1.15rem;">Contratos y Servicios Recurrentes</h3>
             <div class="table-responsive">
-                <table>
+                <table id="contracts-table">
                     <thead>
                         <tr>
                             <th>Número Contrato</th>
@@ -662,7 +726,7 @@
                     </thead>
                     <tbody>
                         {% for contract in contracts %}
-                        <tr>
+                        <tr data-doctype="contract" data-status="{{ contract.status }}">
                             <td data-label="Número Contrato">
                                 <strong>{{ contract.contractNumber }}</strong>
                             </td>
@@ -731,7 +795,7 @@
                             </td>
                         </tr>
                         {% else %}
-                        <tr>
+                        <tr data-doctype="none">
                             <td colspan="7" style="text-align: center; padding: 40px 0; color: var(--text-muted);">
                                 No hay contratos registrados.
                             </td>
@@ -906,6 +970,82 @@
     </div>
 
     <script>
+        /* ─── FILTROS PILLS ─── */
+        let currentType = 'all';
+        let currentSub = 'all';
+
+        function setFilter(type) {
+            currentType = type;
+            currentSub = 'all';
+            document.querySelectorAll('#filter-bar .pill').forEach(p => p.classList.toggle('active', p.dataset.type === type));
+            document.querySelectorAll('.sub-bar').forEach(s => s.style.display = 'none');
+            const subs = document.getElementById('sub-' + type);
+            if (subs) { subs.style.display = 'flex'; subs.querySelectorAll('.pill.sub').forEach(p => p.classList.toggle('active', p.dataset.sub === 'all')); }
+            applyFilters();
+        }
+
+        function setSubFilter(type, sub) {
+            currentSub = sub;
+            const bar = document.getElementById('sub-' + type);
+            if (bar) bar.querySelectorAll('.pill.sub').forEach(p => p.classList.toggle('active', p.dataset.sub === sub));
+            applyFilters();
+        }
+
+        function applyFilters() {
+            const showInvoice = currentType === 'all' || currentType === 'invoice';
+            const showQuotation = currentType === 'all' || currentType === 'quotation';
+            const showContract = currentType === 'all' || currentType === 'contract';
+            const showDocSection = showInvoice || showQuotation;
+            const showContractSection = showContract;
+
+            // Mostrar/ocultar secciones
+            document.getElementById('docs-section').style.display = showDocSection ? '' : 'none';
+            const cs = document.getElementById('contracts-section');
+            if (cs) cs.style.display = showContractSection ? '' : 'none';
+
+            // Actualizar información
+            const info = document.getElementById('filter-info');
+            const total = document.querySelectorAll('tr[data-doctype]').length;
+            let visible = 0;
+
+            // Filtrar filas de documentos
+            document.querySelectorAll('#docs-table tbody tr[data-doctype]').forEach(row => {
+                const dt = row.dataset.doctype;
+                if (dt === 'none') { row.style.display = showDocSection ? '' : 'none'; return; }
+                let v = true;
+                if (currentType !== 'all' && dt !== currentType) v = false;
+                if (v && currentSub !== 'all' && row.dataset.status !== currentSub) v = false;
+                row.style.display = v ? '' : 'none';
+                if (v) visible++;
+            });
+
+            // Filtrar filas de contratos
+            document.querySelectorAll('#contracts-table tbody tr[data-doctype]').forEach(row => {
+                const dt = row.dataset.doctype;
+                if (dt === 'none') { row.style.display = showContractSection ? '' : 'none'; return; }
+                let v = true;
+                if (currentType !== 'all' && dt !== currentType) v = false;
+                if (v && currentSub !== 'all' && row.dataset.status !== currentSub) v = false;
+                row.style.display = v ? '' : 'none';
+                if (v) visible++;
+            });
+
+            // Actualizar contadores de las pills principales
+            ['invoice','quotation','contract'].forEach(t => {
+                const count = document.querySelectorAll('tr[data-doctype="'+t+'"]').length;
+                const el = document.getElementById('count-'+t);
+                if (el) el.textContent = count;
+            });
+            const allEl = document.getElementById('count-all');
+            if (allEl) allEl.textContent = document.querySelectorAll('tr[data-doctype]:not([data-doctype="none"])').length;
+
+            info.textContent = 'Mostrando ' + visible + ' de ' + total + ' elementos';
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            setFilter('all');
+        });
+
         let activeItemId = '';
         let activeItemType = '';
         const ownerUid = {{ owner_uid| tojson | safe }};

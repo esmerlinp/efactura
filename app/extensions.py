@@ -43,11 +43,6 @@ def init_extensions(app):
     from app.web.portal import portal_bp
     csrf.exempt(portal_bp)
 
-    # Eximir rutas /api/ de CSRF (usan autenticación por token)
-    for rule in app.url_map.iter_rules():
-        if rule.rule.startswith('/api/'):
-            csrf.exempt(rule.endpoint)
-
     # Configurar CORS para APIs
     CORS(app, resources={r"/api/*": {"origins": os.getenv('CORS_ORIGINS', '*')}})
 

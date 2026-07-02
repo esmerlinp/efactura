@@ -1,4 +1,4 @@
-Actúa como Antigravity, mi desarrollador experto en Facturación Electrónica en República Dominicana. Ha llegado el momento de activar el motor de emisión directo ("dgii_direct") en mi software "e-Factura" para conectarnos de forma real a la DGII (Dirección General de Impuestos Internos).
+Actúa como VykCore, mi desarrollador experto en Facturación Electrónica en República Dominicana. Ha llegado el momento de activar el motor de emisión directo ("dgii_direct") en mi software "VykOne" para conectarnos de forma real a la DGII (Dirección General de Impuestos Internos).
 
 Actualmente tenemos la arquitectura del API REST y la conmutación en caliente en el `.env` completamente listos. Ahora necesitamos programar de forma real los servicios de firma digital en 'dgii_signer.py' y los conectores de red en 'dgii_direct_service.py' utilizando las credenciales oficiales.
 

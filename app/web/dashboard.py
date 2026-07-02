@@ -489,15 +489,20 @@ def dashboard():
         client_name = inv.get('clientName') or 'Consumidor Final'
         if client_name == 'Consumidor Final':
             continue
+        cid = inv.get('clientId', '')
+        if not cid:
+            continue
         date_str = inv.get('date', '')[:7]
-        if client_name not in client_monthly_sales:
-            client_monthly_sales[client_name] = {}
-        if date_str not in client_monthly_sales[client_name]:
-            client_monthly_sales[client_name][date_str] = 0.0
-        client_monthly_sales[client_name][date_str] += float(inv.get('subtotal', 0.0))
+        if cid not in client_monthly_sales:
+            client_monthly_sales[cid] = {"name": client_name, "months": {}}
+        if date_str not in client_monthly_sales[cid]["months"]:
+            client_monthly_sales[cid]["months"][date_str] = 0.0
+        client_monthly_sales[cid]["months"][date_str] += float(inv.get('subtotal', 0.0))
 
     current_month_str = now.strftime("%Y-%m")
-    for c_name, monthly_data in client_monthly_sales.items():
+    for cid, cdata in client_monthly_sales.items():
+        monthly_data = cdata["months"]
+        c_name = cdata["name"]
         if len(monthly_data) >= 2:
             current_sales = monthly_data.get(current_month_str, 0.0)
             other_months = [v for k, v in monthly_data.items() if k != current_month_str]
@@ -506,7 +511,9 @@ def dashboard():
                 drop_pct = int((1 - (current_sales / avg_historical)) * 100)
                 insights.append({
                     "type": "warning",
-                    "text": f"Atención: El cliente {c_name} ha reducido sus compras un {drop_pct}% este mes comparado con su promedio histórico."
+                    "text": f"Atención: El cliente {c_name} ha reducido sus compras un {drop_pct}% este mes comparado con su promedio histórico.",
+                    "client_id": cid,
+                    "client_name": c_name
                 })
 
     overdue_b2b_total = 0.0

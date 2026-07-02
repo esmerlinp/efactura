@@ -487,3 +487,188 @@ Importante:
         except Exception as e:
             return {"success": False, "message": str(e)}
 
+    @classmethod
+    def generate_client_strategy(cls, owner_uid, client, invoices):
+        """
+        Analiza un cliente y genera un plan de mitigación para evitar su pérdida.
+        Retorna dict con riskLevel, executiveSummary, mitigationSteps, productOffers, campaignSuggestions.
+        """
+        api_key = cls._get_api_key(owner_uid)
+        no_key_fallback = {
+            "success": False,
+            "message": "API Key de OpenAI no configurada. Configúrela en Ajustes → OpenAI API Key."
+        }
+        if not api_key or api_key == "YOUR_OPENAI_API_KEY_HERE":
+            return no_key_fallback
+
+        # Métricas del cliente
+        total_invoiced = sum(inv.get('total', 0) for inv in invoices if inv.get('status') not in ('Anulada', 'Borrador'))
+        total_cxc = sum(inv.get('netPayable', 0) for inv in invoices if inv.get('status') in ('Emitida', 'Vencida', 'Revision de Pago'))
+
+        now = __import__('datetime').datetime.now()
+        created = client.get('createdAt', '')
+        if isinstance(created, str):
+            try:
+                created_dt = __import__('datetime').datetime.fromisoformat(created.replace('Z', '+00:00'))
+                days_active = (now - created_dt).days
+            except:
+                days_active = 0
+        else:
+            days_active = 0
+
+        # Última compra
+        dated_invoices = [inv for inv in invoices if inv.get('date') and inv.get('status') not in ('Anulada', 'Borrador')]
+        dated_invoices.sort(key=lambda x: x.get('date', ''), reverse=True)
+        last_invoice = dated_invoices[0] if dated_invoices else None
+        last_purchase_days = 0
+        if last_invoice and last_invoice.get('date'):
+            try:
+                last_date = __import__('datetime').datetime.fromisoformat(str(last_invoice['date']).replace('Z', '+00:00'))
+                last_purchase_days = (now - last_date).days
+            except:
+                pass
+
+        invoice_count = len(dated_invoices)
+
+        # Productos más comprados (agregar items de todas las facturas)
+        from collections import Counter
+        product_counter = Counter()
+        product_revenue = {}
+        for inv in dated_invoices:
+            for item in inv.get('items', []):
+                name = item.get('name', 'Producto')
+                price = float(item.get('price', 0))
+                qty = float(item.get('quantity', 1))
+                product_counter[name] += qty
+                product_revenue[name] = product_revenue.get(name, 0) + price * qty
+
+        top_products = product_counter.most_common(10)
+        top_products_str = "\n".join(
+            f"- {name}: {qty:.0f} unidades, RD$ {product_revenue[name]:,.2f}"
+            for name, qty in top_products
+        ) or "Sin productos registrados."
+
+        # Resumen de facturas recientes (últimas 10)
+        recent_invoices = dated_invoices[:10]
+        invoices_summary = "\n".join(
+            f"  #{inv.get('invoiceNumber', 'N/A')} | {inv.get('date', '')} | RD$ {inv.get('total', 0):,.2f} | {inv.get('status', '')}"
+            for inv in recent_invoices
+        ) or "Sin facturas."
+
+        # Frecuencia de compra
+        if invoice_count > 1 and days_active > 0:
+            avg_days_between = days_active // invoice_count
+            if avg_days_between <= 30:
+                frequency = "Muy frecuente (menos de 30 días entre compras)"
+            elif avg_days_between <= 60:
+                frequency = "Frecuente (30-60 días)"
+            elif avg_days_between <= 120:
+                frequency = "Ocasional (2-4 meses)"
+            else:
+                frequency = "Esporádico (más de 4 meses)"
+        else:
+            frequency = "Sin suficiente historial"
+
+        # Comportamiento de pago
+        paid_count = sum(1 for inv in dated_invoices if inv.get('status') in ('Pagada', 'Cobrada'))
+        if invoice_count > 0:
+            payment_ratio = paid_count / invoice_count
+            if payment_ratio >= 0.8:
+                payment_behavior = "Excelente (paga puntualmente)"
+            elif payment_ratio >= 0.5:
+                payment_behavior = "Regular (paga con retrasos ocasionales)"
+            else:
+                payment_behavior = "Deficiente (paga con frecuencia fuera de plazo)"
+        else:
+            payment_behavior = "Sin historial de pagos"
+
+        profile = DatabaseService.get_company_profile(owner_uid)
+        brand_name = profile.get("tradeName") or profile.get("companyName", "la empresa")
+
+        system_prompt = f"""Eres un experto en retención de clientes y estrategia comercial para una empresa dominicana ({brand_name}). Tu tarea es analizar el perfil de un cliente y generar un plan de mitigación personalizado para evitar que abandone el servicio.
+
+Genera un análisis con:
+1. **Nivel de riesgo** (Alto/Medio/Bajo) basado en frecuencia de compra, antigüedad, ticket promedio, deuda y tiempo desde última compra.
+2. **Resumen ejecutivo** de la situación del cliente.
+3. **Pasos de mitigación** prioritarios (máximo 5).
+4. **Ofertas personalizadas** en productos que ya compra (máximo 3), con descuento sugerido (%).
+5. **Sugerencias de campaña** (Email/Call/SMS/WhatsApp) con mensaje breve y timing sugerido.
+
+Responde SOLO con JSON válido. Sin markdown, sin bloques ```json. JSON puro.
+
+Estructura requerida:
+{{
+    "riskLevel": "Alto",
+    "riskScore": 75,
+    "executiveSummary": "Resumen ejecutivo en 2-3 oraciones.",
+    "riskJustification": "Por qué este cliente tiene este nivel de riesgo.",
+    "mitigationSteps": [
+        {{"step": "Descripción del paso", "priority": "Alta"}}
+    ],
+    "productOffers": [
+        {{"productName": "Nombre producto", "currentPrice": 1000.0, "suggestedDiscount": 15, "reason": "Por qué este producto"}}
+    ],
+    "campaignSuggestions": [
+        {{"type": "Email", "message": "Mensaje breve para el cliente", "timing": "Día 1 después del análisis"}}
+    ],
+    "clientHealth": {{
+        "purchaseFrequency": "{frequency}",
+        "averageTicket": {total_invoiced / max(invoice_count, 1):.2f},
+        "lastPurchaseDays": {last_purchase_days},
+        "paymentPunctuality": "{payment_behavior}",
+        "totalSpent": {total_invoiced:.2f},
+        "outstandingDebt": {total_cxc:.2f},
+        "daysActive": {days_active},
+        "totalInvoices": {invoice_count}
+    }}
+}}"""
+
+        user_message = f"""Genera el plan de mitigación para el siguiente cliente:
+
+Nombre: {client.get('razonSocial', client.get('name', 'Cliente'))}
+RNC: {client.get('rnc', 'N/A')}
+Pipeline: {client.get('pipelineStage', 'N/A')}
+Antigüedad: {days_active} días
+Total facturado: RD$ {total_invoiced:,.2f}
+Cuentas por cobrar: RD$ {total_cxc:,.2f}
+Última compra: hace {last_purchase_days} días
+Frecuencia: {frequency}
+Comportamiento de pago: {payment_behavior}
+
+Productos más comprados:
+{top_products_str}
+
+Facturas recientes ({len(recent_invoices)}):
+{invoices_summary}"""
+
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {api_key}"
+        }
+
+        payload = {
+            "model": "gpt-4o-mini",
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_message}
+            ],
+            "temperature": 0.3,
+            "max_tokens": 2000
+        }
+
+        try:
+            url = "https://api.openai.com/v1/chat/completions"
+            response = requests.post(url, headers=headers, json=payload, timeout=30)
+            if response.status_code == 200:
+                text = response.json()["choices"][0]["message"]["content"].strip()
+                text = text.replace('```json', '').replace('```', '').strip()
+                data = json.loads(text)
+                data["success"] = True
+                return data
+            else:
+                return {"success": False, "message": f"Error API OpenAI: {response.text}"}
+        except json.JSONDecodeError:
+            return {"success": False, "message": "La respuesta de la IA no fue JSON válido."}
+        except Exception as e:
+            return {"success": False, "message": str(e)}
+

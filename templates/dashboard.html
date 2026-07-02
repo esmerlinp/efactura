@@ -42,6 +42,8 @@
         flex-direction: column;
         gap: 8px;
         border-right: 1px solid var(--border-color);
+        text-align: center;
+        align-items: center;
     }
 
     .bi-card:last-child {
@@ -677,13 +679,18 @@
 
 <!-- Módulo de Smart Insights (Predictivo IA) -->
 <div class="card-table-wrapper" style="padding: 16px 20px; display: flex; flex-direction: column; gap: 12px; margin-bottom: 30px;">
-    <div style="display: flex; align-items: center; gap: 8px;">
-        <i class="fa-solid fa-lightbulb" style="color: var(--accent-yellow); font-size: 0.95rem;"></i>
-        <span style="font-size: 0.85rem; font-weight: 600; color: var(--text-primary); font-family: var(--font-heading);">Smart Insights (Predictivo IA)</span>
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <i class="fa-solid fa-lightbulb" style="color: var(--accent-yellow); font-size: 0.95rem;"></i>
+            <span style="font-size: 0.85rem; font-weight: 600; color: var(--text-primary); font-family: var(--font-heading);">Smart Insights (Predictivo IA)</span>
+        </div>
+        <a href="{{ url_for('web_clients.list_clients') }}" class="btn btn-secondary" style="display: inline-flex; align-items: center; gap: 5px; padding: 4px 12px; font-size: 0.72rem; font-weight: 600; border-radius: 20px;">
+            <i class="fa-solid fa-brain"></i> Ver Estrategias
+        </a>
     </div>
     <div style="display: flex; flex-direction: column; gap: 10px;">
         {% for insight in insights %}
-        <div class="insight-card {% if insight.type == 'warning' %}insight-warning{% elif insight.type == 'danger' %}insight-danger{% elif insight.type == 'info' %}insight-info{% else %}insight-success{% endif %}">
+        <div class="insight-card {% if insight.type == 'warning' %}insight-warning{% elif insight.type == 'danger' %}insight-danger{% elif insight.type == 'info' %}insight-info{% else %}insight-success{% endif %}" style="{% if insight.client_id %}cursor: pointer;{% endif %}">
             <div class="insight-icon {% if insight.type == 'warning' %}insight-icon-warning{% elif insight.type == 'danger' %}insight-icon-danger{% elif insight.type == 'info' %}insight-icon-info{% else %}insight-icon-success{% endif %}">
                 {% if insight.type == 'warning' %}
                 <i class="fa-solid fa-circle-exclamation"></i>
@@ -696,6 +703,11 @@
                 {% endif %}
             </div>
             <div style="flex: 1; color: var(--text-secondary); line-height: 1.4;">{{ insight.text }}</div>
+            {% if insight.client_id %}
+            <a href="{{ url_for('web_clients.client_insights', client_id=insight.client_id) }}" class="btn btn-secondary" style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; font-size: 0.7rem; font-weight: 600; border-radius: 20px; flex-shrink: 0;">
+                <i class="fa-solid fa-chart-simple"></i> Estrategia
+            </a>
+            {% endif %}
         </div>
         {% endfor %}
     </div>

@@ -14,71 +14,338 @@
         gap: 30px;
     }
 
+    .section-header {
+        margin-top: 0;
+        margin-bottom: 24px;
+        font-family: var(--font-heading);
+        font-size: 1.1rem;
+        border-bottom: 1px solid var(--border-color);
+        padding-bottom: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .field-group {
+        margin-bottom: 24px;
+    }
+    .field-group:last-child {
+        margin-bottom: 0;
+    }
+
+    .field-group-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 14px;
+        margin-bottom: 12px;
+        background: var(--bg-table-hover);
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--border-color);
+        font-size: 0.88rem;
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+    .field-group-header.collapsible {
+        cursor: pointer;
+        user-select: none;
+        transition: background var(--transition-fast);
+    }
+    .field-group-header.collapsible:hover {
+        background: var(--bg-brand-translucent);
+    }
+    .field-group-header .field-group-count {
+        font-size: 0.72rem;
+        padding: 1px 10px;
+        border-radius: 10px;
+        background: var(--bg-brand-translucent);
+        color: var(--accent-emerald);
+        font-weight: 500;
+        margin-left: auto;
+    }
+    .field-group-header .toggle-icon {
+        font-size: 0.8rem;
+        color: var(--text-muted);
+        transition: transform var(--transition-smooth);
+    }
+    .field-group-body.collapsed {
+        display: none;
+    }
+
     .mapping-grid {
-        display: grid;
-        grid-template-columns: 1fr;
-        gap: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
         background: rgba(255, 255, 255, 0.02);
         border: 1px solid var(--border-color);
-        padding: 24px;
+        padding: 8px;
         border-radius: var(--radius-md);
     }
 
     .mapping-row {
         display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 20px;
-        padding-bottom: 12px;
+        align-items: flex-start;
+        gap: 14px;
+        padding: 14px 16px;
         border-bottom: 1px solid rgba(0, 0, 0, 0.04);
         flex-wrap: wrap;
+        transition: background var(--transition-fast), border-color var(--transition-fast);
+        border-radius: var(--radius-sm);
+        border-left: 3px solid transparent;
     }
-
     .mapping-row:last-child {
         border-bottom: none;
-        padding-bottom: 0;
+    }
+    .mapping-row:hover {
+        background: var(--bg-table-hover);
+    }
+    .mapping-row.row-matched-ai {
+        border-left-color: var(--accent-success);
+        background: rgba(22, 163, 74, 0.02);
+    }
+    .mapping-row.row-matched-heuristic {
+        border-left-color: var(--accent-yellow);
+        background: rgba(245, 158, 11, 0.02);
+    }
+    .mapping-row.row-unmatched {
+        border-left-color: var(--text-muted);
+    }
+    .mapping-row.row-error {
+        border-left-color: var(--accent-red);
+        background: rgba(220, 38, 38, 0.02);
+    }
+
+    .match-badge {
+        width: 28px;
+        flex-shrink: 0;
+        padding-top: 3px;
+        text-align: center;
+    }
+    .badge-dot {
+        display: inline-block;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        transition: background var(--transition-fast), box-shadow var(--transition-fast);
+    }
+    .badge-dot.dot-ai {
+        background: var(--accent-success);
+        box-shadow: 0 0 6px rgba(22, 163, 74, 0.3);
+    }
+    .badge-dot.dot-heuristic {
+        background: var(--accent-yellow);
+        box-shadow: 0 0 6px rgba(245, 158, 11, 0.3);
+    }
+    .badge-dot.dot-pending {
+        background: var(--text-muted);
+        opacity: 0.4;
+    }
+    .badge-dot.dot-error {
+        background: var(--accent-red);
+        box-shadow: 0 0 6px rgba(220, 38, 38, 0.3);
     }
 
     .field-info {
         flex: 1;
-        min-width: 250px;
+        min-width: 160px;
     }
 
     .field-name {
         font-weight: 500;
-        font-size: 0.95rem;
+        font-size: 0.92rem;
         color: var(--text-primary);
         display: flex;
         align-items: center;
-        gap: 8px;
+        gap: 6px;
+        flex-wrap: wrap;
     }
 
     .field-required {
         color: var(--accent-red);
-        font-size: 0.8rem;
-        font-weight: bold;
-    }
-
-    .field-optional {
-        color: var(--text-muted);
         font-size: 0.75rem;
-        font-style: italic;
+        font-weight: 700;
+        background: rgba(220, 38, 38, 0.08);
+        padding: 0 6px;
+        border-radius: 4px;
+        line-height: 1.5;
     }
 
-    .field-desc {
-        font-size: 0.82rem;
-        color: var(--text-secondary);
-        margin-top: 4px;
+    .field-optional-badge {
+        color: var(--text-muted);
+        font-size: 0.7rem;
+        font-style: italic;
+        font-weight: 400;
+    }
+
+    .match-label {
+        font-size: 0.7rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        margin-top: 3px;
+        padding: 1px 8px;
+        border-radius: 4px;
+        font-weight: 500;
+        letter-spacing: 0.01em;
+    }
+    .match-label.label-ai {
+        color: #15803d;
+        background: rgba(22, 163, 74, 0.08);
+    }
+    .match-label.label-heuristic {
+        color: #b45309;
+        background: rgba(245, 158, 11, 0.08);
+    }
+    .match-label.label-pending {
+        color: var(--text-muted);
+        background: rgba(100, 116, 139, 0.08);
+    }
+    .match-label.label-error {
+        color: #b91c1c;
+        background: rgba(220, 38, 38, 0.08);
+    }
+    [data-theme="dark"] .match-label.label-ai {
+        color: #4ade80;
+        background: rgba(74, 222, 128, 0.1);
+    }
+    [data-theme="dark"] .match-label.label-heuristic {
+        color: #fbbf24;
+        background: rgba(251, 191, 36, 0.1);
+    }
+    [data-theme="dark"] .match-label.label-pending {
+        color: var(--text-muted);
+        background: rgba(148, 163, 184, 0.1);
+    }
+    [data-theme="dark"] .match-label.label-error {
+        color: #f87171;
+        background: rgba(248, 113, 113, 0.1);
     }
 
     .selector-wrapper {
-        min-width: 240px;
-        flex: 1;
+        min-width: 200px;
+        flex: 1.5;
     }
 
     .default-value-wrapper {
-        min-width: 240px;
+        min-width: 150px;
         flex: 1;
+    }
+
+    .mini-preview {
+        margin-top: 6px;
+        font-size: 0.78rem;
+        color: var(--text-secondary);
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        padding: 4px 10px;
+        background: rgba(0, 0, 0, 0.02);
+        border-radius: var(--radius-sm);
+        border: 1px dashed var(--border-color);
+        min-height: 26px;
+        line-height: 1.4;
+        transition: opacity var(--transition-fast);
+    }
+    .mini-preview .mini-preview-label {
+        font-weight: 500;
+        color: var(--text-muted);
+        flex-shrink: 0;
+    }
+    .mini-preview .mini-preview-value {
+        font-weight: 500;
+        color: var(--text-primary);
+        max-width: 240px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-family: var(--font-body);
+    }
+    .mini-preview .mini-preview-empty {
+        color: var(--text-muted);
+        font-style: italic;
+    }
+    .mini-preview.preview-valid {
+        border-color: rgba(22, 163, 74, 0.2);
+        background: rgba(22, 163, 74, 0.03);
+    }
+    .mini-preview.preview-default {
+        border-color: rgba(245, 158, 11, 0.2);
+        background: rgba(245, 158, 11, 0.03);
+    }
+    [data-theme="dark"] .mini-preview {
+        background: rgba(255, 255, 255, 0.03);
+    }
+    [data-theme="dark"] .mini-preview.preview-valid {
+        background: rgba(74, 222, 128, 0.05);
+        border-color: rgba(74, 222, 128, 0.2);
+    }
+    [data-theme="dark"] .mini-preview.preview-default {
+        background: rgba(251, 191, 36, 0.05);
+        border-color: rgba(251, 191, 36, 0.2);
+    }
+
+    .summary-banner {
+        padding: 12px 18px;
+        border-radius: var(--radius-sm);
+        margin-bottom: 20px;
+        font-size: 0.88rem;
+        display: none;
+        align-items: center;
+        gap: 12px;
+        line-height: 1.5;
+    }
+    .summary-banner.show {
+        display: flex;
+    }
+    .summary-banner.banner-success {
+        background: rgba(22, 163, 74, 0.06);
+        border: 1px solid rgba(22, 163, 74, 0.2);
+        color: var(--accent-success);
+    }
+    .summary-banner.banner-warning {
+        background: rgba(245, 158, 11, 0.06);
+        border: 1px solid rgba(245, 158, 11, 0.2);
+        color: #b45309;
+    }
+    .summary-banner.banner-info {
+        background: rgba(99, 102, 241, 0.06);
+        border: 1px solid rgba(99, 102, 241, 0.2);
+        color: var(--accent-emerald);
+    }
+    .summary-banner.banner-error {
+        background: rgba(220, 38, 38, 0.06);
+        border: 1px solid rgba(220, 38, 38, 0.2);
+        color: var(--accent-red);
+    }
+    .summary-banner .banner-icon {
+        font-size: 1.2rem;
+        flex-shrink: 0;
+    }
+    .summary-banner .banner-text {
+        flex: 1;
+    }
+    .summary-banner .banner-text strong {
+        font-weight: 600;
+    }
+    [data-theme="dark"] .summary-banner.banner-success {
+        background: rgba(74, 222, 128, 0.06);
+        border-color: rgba(74, 222, 128, 0.2);
+        color: #4ade80;
+    }
+    [data-theme="dark"] .summary-banner.banner-warning {
+        background: rgba(251, 191, 36, 0.06);
+        border-color: rgba(251, 191, 36, 0.2);
+        color: #fbbf24;
+    }
+    [data-theme="dark"] .summary-banner.banner-info {
+        background: rgba(147, 197, 253, 0.06);
+        border-color: rgba(147, 197, 253, 0.2);
+        color: #93c5fd;
+    }
+    [data-theme="dark"] .summary-banner.banner-error {
+        background: rgba(248, 113, 113, 0.06);
+        border-color: rgba(248, 113, 113, 0.2);
+        color: #f87171;
     }
 
     .preview-card {
@@ -88,7 +355,139 @@
         padding: 24px;
         box-shadow: var(--shadow-sm);
     }
+
+    .required-fields-separator {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin: 16px 0;
+        color: var(--text-muted);
+        font-size: 0.8rem;
+        font-weight: 500;
+    }
+    .required-fields-separator::after {
+        content: '';
+        flex: 1;
+        height: 1px;
+        background: var(--border-color);
+    }
+
+    /* Tom Select overrides to match design system */
+    .ts-wrapper .ts-control {
+        background: var(--bg-input);
+        border: 1px solid #cbd5e1;
+        color: var(--text-primary);
+        border-radius: var(--radius-sm);
+        padding: 5px 12px;
+        font-size: 0.85rem;
+        font-family: var(--font-body);
+        min-height: 34px;
+        box-shadow: none;
+        transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+    }
+    .ts-wrapper .ts-control .item {
+        line-height: 22px;
+    }
+    .ts-wrapper .ts-control input {
+        font-size: 0.85rem;
+        color: var(--text-primary);
+    }
+    .ts-wrapper .ts-control input::placeholder {
+        color: var(--text-muted);
+    }
+    .ts-wrapper.multi .ts-control {
+        padding: 4px 12px;
+    }
+    .ts-wrapper.focus .ts-control {
+        border-color: var(--accent-emerald);
+        box-shadow: var(--shadow-glow);
+    }
+    .ts-wrapper .ts-dropdown {
+        background: #ffffff;
+        border: 1px solid #cbd5e1;
+        border-radius: var(--radius-sm);
+        box-shadow: var(--shadow-md);
+        font-family: var(--font-body);
+        font-size: 0.85rem;
+        color: var(--text-primary);
+        z-index: 100;
+    }
+    .ts-wrapper .ts-dropdown .ts-dropdown-content .option {
+        padding: 8px 12px;
+        color: var(--text-primary);
+    }
+    .ts-wrapper .ts-dropdown .ts-dropdown-content .option.active {
+        background: rgba(30, 58, 138, 0.06);
+        color: var(--text-primary);
+    }
+    .ts-wrapper .ts-dropdown .ts-dropdown-content .option.selected {
+        background: rgba(30, 58, 138, 0.1);
+        font-weight: 500;
+    }
+    .ts-wrapper .ts-dropdown .ts-dropdown-content .no-results {
+        padding: 8px 12px;
+        color: var(--text-muted);
+    }
+
+    [data-theme="dark"] .ts-wrapper .ts-control {
+        background: var(--bg-input);
+        border-color: #475569;
+        color: var(--text-primary);
+    }
+    [data-theme="dark"] .ts-wrapper .ts-dropdown {
+        background: #1e293b;
+        border-color: #475569;
+        color: var(--text-primary);
+    }
+    [data-theme="dark"] .ts-wrapper .ts-dropdown .option.active {
+        background: rgba(96, 165, 250, 0.1);
+    }
+    [data-theme="dark"] .ts-wrapper .ts-dropdown .option.selected {
+        background: rgba(96, 165, 250, 0.15);
+    }
+
+    .ts-wrapper .ts-control .dropdown-active {
+        border-color: var(--accent-emerald);
+    }
+    .ts-wrapper .ts-dropdown .spinner {
+        display: none;
+    }
+
+    /* Row-level validation indicator */
+    .mapping-row .selector-wrapper .ts-wrapper .ts-control {
+        transition: border-color var(--transition-fast);
+    }
+    .mapping-row.row-matched-ai .selector-wrapper .ts-wrapper .ts-control {
+        border-color: rgba(22, 163, 74, 0.4);
+    }
+    .mapping-row.row-matched-heuristic .selector-wrapper .ts-wrapper .ts-control {
+        border-color: rgba(245, 158, 11, 0.4);
+    }
+
+    /* responsive */
+    @media (max-width: 768px) {
+        .mapping-row {
+            flex-direction: column;
+            gap: 10px;
+        }
+        .match-badge {
+            width: 100%;
+            text-align: left;
+            padding-top: 0;
+        }
+        .field-name {
+            font-size: 0.88rem;
+        }
+        .mini-preview .mini-preview-value {
+            max-width: 160px;
+        }
+        .field-group-header {
+            font-size: 0.82rem;
+        }
+    }
 </style>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.min.css">
 
 <div class="mapper-container">
     <!-- Header Informativo -->
@@ -104,9 +503,15 @@
         </p>
     </div>
 
+    <!-- Banner de resumen de matching (se muestra dinámicamente via JS) -->
+    <div id="summary-banner" class="summary-banner" role="alert">
+        <span class="banner-icon" id="banner-icon"></span>
+        <span class="banner-text" id="banner-text"></span>
+    </div>
+
     <!-- Formulario de Mapeo -->
     <form action="{{ url_for('web_import_mapper.process_import') }}" method="POST" id="mapper-form">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <input type="hidden" name="import_type" value="{{ import_type }}">
         <input type="hidden" name="temp_filename" value="{{ temp_filename }}">
 
@@ -129,43 +534,110 @@
             </button>
         </div>
 
+        <!-- Asociación de Columnas -->
         <div class="preview-card">
-            <h3
-                style="margin-top: 0; margin-bottom: 20px; font-family: var(--font-heading); font-size: 1.1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">
-                Asociación de Columnas
+            <h3 class="section-header">
+                <span><i class="fa-solid fa-table-cells" style="margin-right: 8px;"></i>Asociación de Columnas</span>
+                <span id="field-counter" style="font-size: 0.8rem; font-weight: 400; color: var(--text-muted);"></span>
             </h3>
-            <div class="mapping-grid">
-                {% for field in target_fields %}
-                <div class="mapping-row">
-                    <div class="field-info">
-                        <span class="field-name">
-                            {{ field.name }}
-                            {% if field.required %}
-                            <span class="field-required">* Requerido</span>
-                            {% else %}
-                            <span class="field-optional">(Opcional)</span>
-                            {% endif %}
-                        </span>
-                        <div class="field-desc">Campo de destino en {{ product_name }}.</div>
-                    </div>
-                    <div class="selector-wrapper">
-                        <select name="map_{{ field.id }}" id="select_{{ field.id }}" class="form-select column-selector"
-                            data-suggestions='{{ field.suggestions | tojson }}' style="width: 100%;" {% if
-                            field.required %}required{% endif %}>
-                            <option value="">-- Ignorar este campo --</option>
-                            {% for header in headers %}
-                            <option value="{{ loop.index0 }}">{{ header }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div class="default-value-wrapper">
-                        <input type="text" name="default_{{ field.id }}" id="default_{{ field.id }}"
-                            class="form-control default-input" placeholder="Valor por defecto (si queda vacío)"
-                            style="width: 100%;">
-                    </div>
+
+            {% set required_fields = target_fields | selectattr('required') | list %}
+            {% set optional_fields = target_fields | rejectattr('required') | list %}
+
+            <!-- Campos Requeridos -->
+            {% if required_fields %}
+            <div class="field-group">
+                <div class="field-group-header">
+                    <i class="fa-solid fa-asterisk" style="color: var(--accent-red); font-size: 0.7rem;"></i>
+                    <span>Campos Requeridos</span>
+                    <span class="field-group-count">{{ required_fields | length }}</span>
                 </div>
-                {% endfor %}
+                <div class="mapping-grid">
+                    {% for field in required_fields %}
+                    <div class="mapping-row" id="row_{{ field.id }}" data-field-id="{{ field.id }}">
+                        <div class="match-badge">
+                            <span class="badge-dot dot-pending" id="dot_{{ field.id }}"></span>
+                        </div>
+                        <div class="field-info">
+                            <span class="field-name">
+                                {{ field.name }}
+                                <span class="field-required">* Requerido</span>
+                            </span>
+                            <span class="match-label label-pending" id="match-label_{{ field.id }}">Pendiente</span>
+                        </div>
+                        <div class="selector-wrapper">
+                            <select name="map_{{ field.id }}" id="select_{{ field.id }}"
+                                class="form-select column-selector"
+                                data-suggestions='{{ field.suggestions | tojson }}'
+                                style="width: 100%;" required>
+                                <option value="">-- Ignorar este campo --</option>
+                                {% for header in headers %}
+                                <option value="{{ loop.index0 }}">{{ header }}</option>
+                                {% endfor %}
+                            </select>
+                            <div class="mini-preview" id="preview_{{ field.id }}">
+                                <span class="mini-preview-label">Valor:</span>
+                                <span class="mini-preview-value mini-preview-empty" id="preview-val_{{ field.id }}">—</span>
+                            </div>
+                        </div>
+                        <div class="default-value-wrapper">
+                            <input type="text" name="default_{{ field.id }}" id="default_{{ field.id }}"
+                                class="form-control default-input" placeholder="Valor por defecto"
+                                style="width: 100%;">
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
             </div>
+            {% endif %}
+
+            <!-- Campos Opcionales -->
+            {% if optional_fields %}
+            <div class="field-group">
+                <div class="field-group-header collapsible" id="optional-header" onclick="toggleOptionalFields()">
+                    <i class="fa-solid fa-sliders" style="color: var(--text-muted); font-size: 0.75rem;"></i>
+                    <span>Campos Opcionales</span>
+                    <span class="field-group-count">{{ optional_fields | length }}</span>
+                    <i class="fa-solid fa-chevron-down toggle-icon" id="optional-toggle-icon"></i>
+                </div>
+                <div class="mapping-grid field-group-body" id="optional-fields-body">
+                    {% for field in optional_fields %}
+                    <div class="mapping-row" id="row_{{ field.id }}" data-field-id="{{ field.id }}">
+                        <div class="match-badge">
+                            <span class="badge-dot dot-pending" id="dot_{{ field.id }}"></span>
+                        </div>
+                        <div class="field-info">
+                            <span class="field-name">
+                                {{ field.name }}
+                                <span class="field-optional-badge">(Opcional)</span>
+                            </span>
+                            <span class="match-label label-pending" id="match-label_{{ field.id }}">Pendiente</span>
+                        </div>
+                        <div class="selector-wrapper">
+                            <select name="map_{{ field.id }}" id="select_{{ field.id }}"
+                                class="form-select column-selector"
+                                data-suggestions='{{ field.suggestions | tojson }}'
+                                style="width: 100%;">
+                                <option value="">-- Ignorar este campo --</option>
+                                {% for header in headers %}
+                                <option value="{{ loop.index0 }}">{{ header }}</option>
+                                {% endfor %}
+                            </select>
+                            <div class="mini-preview" id="preview_{{ field.id }}">
+                                <span class="mini-preview-label">Valor:</span>
+                                <span class="mini-preview-value mini-preview-empty" id="preview-val_{{ field.id }}">—</span>
+                            </div>
+                        </div>
+                        <div class="default-value-wrapper">
+                            <input type="text" name="default_{{ field.id }}" id="default_{{ field.id }}"
+                                class="form-control default-input" placeholder="Valor por defecto"
+                                style="width: 100%;">
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
         </div>
 
         <!-- Vista Previa de Datos Mapeados -->
@@ -208,185 +680,421 @@
     </form>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
+
 <script>
     document.addEventListener('DOMContentLoaded', async function () {
-        const rawPreviewRows = {{ preview_rows | tojson
-    }};
-    const targetFields = {{ target_fields | tojson }};
-    const headers = {{ headers | tojson }};
+        const rawPreviewRows = {{ preview_rows | tojson }};
+        const targetFields = {{ target_fields | tojson }};
+        const headers = {{ headers | tojson }};
 
-    // Crear banner o notificación de estado de IA
-    const aiStatusBanner = document.createElement('div');
-    aiStatusBanner.style.padding = '10px 15px';
-    aiStatusBanner.style.borderRadius = '8px';
-    aiStatusBanner.style.marginBottom = '20px';
-    aiStatusBanner.style.fontSize = '0.85rem';
-    aiStatusBanner.style.display = 'flex';
-    aiStatusBanner.style.alignItems = 'center';
-    aiStatusBanner.style.gap = '10px';
-    aiStatusBanner.style.background = 'rgba(99, 102, 241, 0.05)';
-    aiStatusBanner.style.border = '1px solid rgba(99, 102, 241, 0.2)';
-    aiStatusBanner.style.color = 'var(--text-main)';
+        // References
+        const summaryBanner = document.getElementById('summary-banner');
+        const bannerIcon = document.getElementById('banner-icon');
+        const bannerText = document.getElementById('banner-text');
+        const fieldCounter = document.getElementById('field-counter');
 
-    aiStatusBanner.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin" style="color: var(--primary-color);"></i> <span>Analizando columnas con Inteligencia Artificial (IA)...</span>`;
+        // Update field counter
+        if (fieldCounter) {
+            fieldCounter.textContent = `${targetFields.length} campos`;
+        }
 
-    const formEl = document.getElementById('mapper-form');
-    if (formEl) {
-        formEl.insertBefore(aiStatusBanner, formEl.firstChild);
-    }
+        // ── Funciones de actualización visual ──
 
-    let aiMatched = false;
+        function setFieldStatus(fieldId, status, labelText) {
+            const row = document.getElementById(`row_${fieldId}`);
+            const dot = document.getElementById(`dot_${fieldId}`);
+            const label = document.getElementById(`match-label_${fieldId}`);
+            if (!row || !dot || !label) return;
 
-    try {
-        const response = await fetch('/import/ai-suggest', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                headers: headers,
-                target_fields: targetFields
-            })
-        });
-        const resData = await response.json();
-        if (resData.success && resData.mapping) {
-            aiMatched = true;
-            aiStatusBanner.style.background = 'rgba(16, 185, 129, 0.05)';
-            aiStatusBanner.style.border = '1px solid rgba(16, 185, 129, 0.2)';
-            aiStatusBanner.innerHTML = `<i class="fa-solid fa-wand-magic-sparkles" style="color: var(--accent-emerald);"></i> <span style="color: var(--accent-emerald); font-weight: 500;">Mapeo asistido por IA aplicado con éxito como primera opción.</span>`;
+            // Remove all status classes
+            row.classList.remove('row-matched-ai', 'row-matched-heuristic', 'row-unmatched', 'row-error');
+            dot.classList.remove('dot-ai', 'dot-heuristic', 'dot-pending', 'dot-error');
+            label.className = 'match-label';
 
-            // Aplicar mapeo de la IA
+            switch (status) {
+                case 'ai':
+                    row.classList.add('row-matched-ai');
+                    dot.classList.add('dot-ai');
+                    label.classList.add('label-ai');
+                    label.textContent = labelText || '🤖 IA';
+                    break;
+                case 'heuristic':
+                    row.classList.add('row-matched-heuristic');
+                    dot.classList.add('dot-heuristic');
+                    label.classList.add('label-heuristic');
+                    label.textContent = labelText || '◎ Heurístico';
+                    break;
+                case 'error':
+                    row.classList.add('row-error');
+                    dot.classList.add('dot-error');
+                    label.classList.add('label-error');
+                    label.textContent = labelText || '✕ Error';
+                    break;
+                default:
+                    row.classList.add('row-unmatched');
+                    dot.classList.add('dot-pending');
+                    label.classList.add('label-pending');
+                    label.textContent = labelText || '✎ Manual';
+                    break;
+            }
+        }
+
+        function updateMiniPreview(fieldId) {
+            const select = document.getElementById(`select_${fieldId}`);
+            const previewVal = document.getElementById(`preview-val_${fieldId}`);
+            const previewContainer = document.getElementById(`preview_${fieldId}`);
+            const defaultInput = document.getElementById(`default_${fieldId}`);
+            if (!select || !previewVal || !previewContainer) return;
+
+            const selectedValue = select.value;
+            const defaultValue = defaultInput ? defaultInput.value.trim() : '';
+
+            previewContainer.classList.remove('preview-valid', 'preview-default');
+            previewVal.classList.remove('mini-preview-empty');
+
+            if (selectedValue) {
+                const colIdx = parseInt(selectedValue);
+                if (!isNaN(colIdx) && rawPreviewRows.length > 0 && rawPreviewRows[0][colIdx] !== undefined) {
+                    const cellVal = rawPreviewRows[0][colIdx].trim();
+                    if (cellVal) {
+                        previewVal.textContent = cellVal;
+                        previewContainer.classList.add('preview-valid');
+                        return;
+                    }
+                }
+            }
+
+            if (defaultValue) {
+                previewVal.textContent = '🔄 ' + defaultValue;
+                previewContainer.classList.add('preview-default');
+                return;
+            }
+
+            previewVal.textContent = '—';
+            previewVal.classList.add('mini-preview-empty');
+        }
+
+        function updateAllMiniPreviews() {
+            targetFields.forEach(field => updateMiniPreview(field.id));
+        }
+
+        function updateCounter() {
+            if (!fieldCounter) return;
+            let matched = 0;
+            const total = targetFields.length;
+            targetFields.forEach(field => {
+                const row = document.getElementById(`row_${field.id}`);
+                if (row && (row.classList.contains('row-matched-ai') || row.classList.contains('row-matched-heuristic'))) {
+                    matched++;
+                }
+            });
+            fieldCounter.textContent = `${matched}/${total} campos mapeados`;
+        }
+
+        function showSummaryBanner(type, icon, message) {
+            summaryBanner.classList.remove('banner-success', 'banner-warning', 'banner-info', 'banner-error', 'show');
+            summaryBanner.classList.add(`banner-${type}`, 'show');
+            bannerIcon.innerHTML = icon;
+            bannerText.innerHTML = message;
+        }
+
+        function hideSummaryBanner() {
+            summaryBanner.classList.remove('show');
+        }
+
+        function updatePreviewTable() {
+            const thead = document.getElementById('preview-thead');
+            const tbody = document.getElementById('preview-tbody');
+            if (!thead || !tbody) return;
+
+            thead.innerHTML = '';
+            tbody.innerHTML = '';
+
+            const activeMappings = [];
             targetFields.forEach(field => {
                 const select = document.getElementById(`select_${field.id}`);
-                if (!select) return;
-                const csvIndex = resData.mapping[field.id];
-                if (csvIndex !== undefined && csvIndex !== null) {
-                    for (let i = 0; i < select.options.length; i++) {
-                        if (select.options[i].value === csvIndex.toString()) {
-                            select.selectedIndex = i;
-                            break;
-                        }
+                const defaultInput = document.getElementById(`default_${field.id}`);
+                const selectValue = select ? select.value : '';
+                const defaultValue = defaultInput ? defaultInput.value.trim() : '';
+
+                if (selectValue !== '' || defaultValue !== '') {
+                    activeMappings.push({
+                        id: field.id,
+                        name: field.name,
+                        csvIndex: selectValue !== '' ? parseInt(selectValue) : null,
+                        defaultValue: defaultValue
+                    });
+                }
+            });
+
+            if (activeMappings.length === 0) {
+                thead.innerHTML = '<th>Ningún campo seleccionado</th>';
+                tbody.innerHTML = '<tr><td style="text-align: center; color: var(--text-muted); padding: 20px;">Por favor, asocia al menos una columna o define un valor por defecto para ver la vista previa.</td></tr>';
+                return;
+            }
+
+            activeMappings.forEach(mapping => {
+                const th = document.createElement('th');
+                th.textContent = mapping.name;
+                thead.appendChild(th);
+            });
+
+            if (rawPreviewRows.length === 0) {
+                const tr = document.createElement('tr');
+                const td = document.createElement('td');
+                td.colSpan = activeMappings.length;
+                td.style.textAlign = 'center';
+                td.style.color = 'var(--text-muted)';
+                td.textContent = 'No hay filas de datos disponibles para mostrar.';
+                tr.appendChild(td);
+                tbody.appendChild(tr);
+                return;
+            }
+
+            rawPreviewRows.forEach(row => {
+                const tr = document.createElement('tr');
+                activeMappings.forEach(mapping => {
+                    const td = document.createElement('td');
+                    let val = '';
+                    if (mapping.csvIndex !== null && mapping.csvIndex < row.length) {
+                        val = row[mapping.csvIndex].trim();
                     }
-                } else {
-                    select.selectedIndex = 0;
+                    if (!val) {
+                        val = mapping.defaultValue;
+                    }
+                    td.textContent = val;
+                    tr.appendChild(td);
+                });
+                tbody.appendChild(tr);
+            });
+        }
+
+        function updateAllViews() {
+            updateAllMiniPreviews();
+            updatePreviewTable();
+            updateCounter();
+        }
+
+        // ── Event listeners para cambios manuales ──
+
+        function attachChangeListeners() {
+            targetFields.forEach(field => {
+                const defaultInput = document.getElementById(`default_${field.id}`);
+                if (defaultInput) {
+                    defaultInput.addEventListener('input', function () {
+                        updateMiniPreview(field.id);
+                        updatePreviewTable();
+                        updateCounter();
+                    });
                 }
             });
         }
-    } catch (err) {
-        console.error("Error al sugerir con IA:", err);
-    }
 
-    if (!aiMatched) {
-        // Fallback local basado en sugerencias estáticas
-        aiStatusBanner.style.background = 'rgba(245, 158, 11, 0.05)';
-        aiStatusBanner.style.border = '1px solid rgba(245, 158, 11, 0.2)';
-        aiStatusBanner.innerHTML = `<i class="fa-solid fa-circle-info" style="color: var(--accent-yellow);"></i> <span>IA no disponible (API Key de OpenAI no configurada). Usando mapeador heurístico.</span>`;
+        // ── Carga inicial: AI + matching ──
+
+        // Show loading state in summary banner
+        showSummaryBanner('info',
+            '<i class="fa-solid fa-circle-notch fa-spin"></i>',
+            'Analizando columnas con <strong>Inteligencia Artificial (IA)</strong>...'
+        );
+
+        let aiMatched = false;
+        const aiMapping = {};
+        let heuristicallyMatched = false;
+
+        try {
+            const response = await fetch('/import/ai-suggest', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ headers: headers, target_fields: targetFields })
+            });
+            const resData = await response.json();
+
+            if (resData.success && resData.mapping) {
+                aiMatched = true;
+                // Apply AI mapping
+                targetFields.forEach(field => {
+                    const select = document.getElementById(`select_${field.id}`);
+                    if (!select) return;
+                    const csvIndex = resData.mapping[field.id];
+                    if (csvIndex !== undefined && csvIndex !== null) {
+                        for (let i = 0; i < select.options.length; i++) {
+                            if (select.options[i].value === csvIndex.toString()) {
+                                select.selectedIndex = i;
+                                aiMapping[field.id] = parseInt(csvIndex);
+                                break;
+                            }
+                        }
+                    } else {
+                        select.selectedIndex = 0;
+                    }
+                });
+            }
+        } catch (err) {
+            console.error('Error al sugerir con IA:', err);
+        }
+
+        if (!aiMatched) {
+            // Fallback local basado en sugerencias estáticas
+            heuristicallyMatched = true;
+            targetFields.forEach(field => {
+                const select = document.getElementById(`select_${field.id}`);
+                if (!select) return;
+
+                const suggestions = JSON.parse(select.getAttribute('data-suggestions') || '[]');
+
+                for (let i = 0; i < select.options.length; i++) {
+                    const optionText = select.options[i].text.toLowerCase().trim();
+                    const matched = suggestions.some(sugg => {
+                        return optionText === sugg.toLowerCase() ||
+                            optionText.includes(sugg.toLowerCase()) ||
+                            sugg.toLowerCase().includes(optionText);
+                    });
+                    if (matched) {
+                        select.selectedIndex = i;
+                        break;
+                    }
+                }
+            });
+        }
+
+        // ── Apply badges and summary ──
+
+        let aiCount = 0;
+        let heuristicCount = 0;
+        let unmatchedCount = 0;
 
         targetFields.forEach(field => {
             const select = document.getElementById(`select_${field.id}`);
             if (!select) return;
 
-            const suggestions = JSON.parse(select.getAttribute('data-suggestions') || '[]');
-
-            for (let i = 0; i < select.options.length; i++) {
-                const optionText = select.options[i].text.toLowerCase().trim();
-                const matched = suggestions.some(sugg => {
-                    return optionText === sugg.toLowerCase() ||
-                        optionText.includes(sugg.toLowerCase()) ||
-                        sugg.toLowerCase().includes(optionText);
-                });
-
-                if (matched) {
-                    select.selectedIndex = i;
-                    break;
+            if (select.value !== '') {
+                if (aiMapping[field.id] !== undefined) {
+                    setFieldStatus(field.id, 'ai', '🤖 IA');
+                    aiCount++;
+                } else {
+                    setFieldStatus(field.id, 'heuristic', '◎ Heurístico');
+                    heuristicCount++;
                 }
-            }
-        });
-    }
-
-    // 2. Renderizar tabla de vista previa basada en las asignaciones actuales
-    function updatePreviewTable() {
-        const thead = document.getElementById('preview-thead');
-        const tbody = document.getElementById('preview-tbody');
-        if (!thead || !tbody) return;
-
-        thead.innerHTML = '';
-        tbody.innerHTML = '';
-
-        // Obtener campos mapeados activos
-        const activeMappings = [];
-        targetFields.forEach(field => {
-            const select = document.getElementById(`select_${field.id}`);
-            const defaultInput = document.getElementById(`default_${field.id}`);
-            const selectValue = select ? select.value : "";
-            const defaultValue = defaultInput ? defaultInput.value.trim() : "";
-
-            if (selectValue !== "" || defaultValue !== "") {
-                activeMappings.push({
-                    id: field.id,
-                    name: field.name,
-                    csvIndex: selectValue !== "" ? parseInt(selectValue) : null,
-                    defaultValue: defaultValue
-                });
+            } else {
+                const isRequired = field.required;
+                if (isRequired) {
+                    setFieldStatus(field.id, 'error', '✕ Pendiente');
+                } else {
+                    setFieldStatus(field.id, 'pending', '✎ Manual');
+                }
+                unmatchedCount++;
             }
         });
 
-        if (activeMappings.length === 0) {
-            thead.innerHTML = '<th>Ningún campo seleccionado</th>';
-            tbody.innerHTML = '<tr><td style="text-align: center; color: var(--text-muted); padding: 20px;">Por favor, asocia al menos una columna o define un valor por defecto para ver la vista previa.</td></tr>';
-            return;
+        // Summary banner
+        if (aiMatched) {
+            const total = targetFields.length;
+            const matched = aiCount + heuristicCount;
+            if (matched === total) {
+                showSummaryBanner('success',
+                    '<i class="fa-solid fa-circle-check"></i>',
+                    `<strong>¡Mapeo completo!</strong> Todos los campos se asignaron automáticamente.`
+                );
+            } else {
+                let parts = [];
+                if (aiCount > 0) parts.push(`${aiCount} por IA`);
+                if (heuristicCount > 0) parts.push(`${heuristicCount} por heurística`);
+                const matchDesc = parts.join(', ');
+                showSummaryBanner('warning',
+                    '<i class="fa-solid fa-triangle-exclamation"></i>',
+                    `Se mapearon <strong>${matched} de ${total}</strong> campos (${matchDesc}). <strong>${unmatchedCount} campo(s)</strong> requieren atención antes de confirmar.`
+                );
+            }
+        } else if (heuristicMatched) {
+            const total = targetFields.length;
+            const matched = aiCount + heuristicCount;
+            showSummaryBanner('warning',
+                '<i class="fa-solid fa-wand-magic-sparkles"></i>',
+                `IA no disponible (API Key de OpenAI no configurada). Se usó <strong>mapeo heurístico</strong> para ${matched} de ${total} campos. Revisa las asignaciones antes de importar.`
+            );
+        } else {
+            showSummaryBanner('info',
+                '<i class="fa-solid fa-circle-info"></i>',
+                'No se pudo realizar el mapeo automático. Asigna manualmente cada campo desde las columnas de tu archivo.'
+            );
         }
 
-        // Render cabecera
-        activeMappings.forEach(mapping => {
-            const th = document.createElement('th');
-            th.textContent = mapping.name;
-            thead.appendChild(th);
-        });
+        // ── RNC Auto-resolve: aviso automático para invoices/expenses ──
 
-        // Render filas de datos
-        if (rawPreviewRows.length === 0) {
-            const tr = document.createElement('tr');
-            const td = document.createElement('td');
-            td.colSpan = activeMappings.length;
-            td.style.textAlign = 'center';
-            td.style.color = 'var(--text-muted)';
-            td.textContent = 'No hay filas de datos disponibles para mostrar.';
-            tr.appendChild(td);
-            tbody.appendChild(tr);
-            return;
+        function setupRncResolveNotice() {
+            const importTypeInput = document.querySelector('[name="import_type"]');
+            if (!importTypeInput) return;
+            const importType = importTypeInput.value;
+
+            const rncTypes = {
+                'invoices': { rncField: 'clientRNC', nameField: 'clientName', entityLabel: 'cliente' },
+                'expenses': { rncField: 'supplierRNC', nameField: 'supplierName', entityLabel: 'proveedor' }
+            };
+
+            const info = rncTypes[importType];
+            if (!info) return;
+
+            const rncSelect = document.getElementById(`select_${info.rncField}`);
+            const nameRow = document.getElementById(`row_${info.nameField}`);
+            if (!rncSelect || !nameRow) return;
+
+            if (rncSelect.value === '') return;
+
+            // Show inline notice in the name field row
+            const notice = document.createElement('div');
+            notice.style.cssText = 'margin-top:6px;font-size:0.75rem;padding:4px 10px;border:1px solid rgba(99,102,241,0.2);background:rgba(99,102,241,0.04);border-radius:6px;display:flex;align-items:center;gap:6px;';
+            notice.innerHTML = '<i class="fa-solid fa-rotate" style="color:var(--accent-emerald);font-size:0.7rem;"></i> <span>El ' + info.entityLabel + ' se resolverá automáticamente por su RNC durante la importación. No es necesario incluir el nombre en el archivo.</span>';
+
+            const fieldInfo = nameRow.querySelector('.field-info');
+            if (fieldInfo) fieldInfo.appendChild(notice);
         }
 
-        rawPreviewRows.forEach(row => {
-            const tr = document.createElement('tr');
-            activeMappings.forEach(mapping => {
-                const td = document.createElement('td');
-                let val = "";
-                if (mapping.csvIndex !== null && mapping.csvIndex < row.length) {
-                    val = row[mapping.csvIndex].trim();
-                }
-                if (!val) {
-                    val = mapping.defaultValue;
-                }
-                td.textContent = val;
-                tr.appendChild(td);
-            });
-            tbody.appendChild(tr);
+        setupRncResolveNotice();
+
+        // ── Inicializar Tom Select ──
+
+        const tomSelectInstances = [];
+
+        document.querySelectorAll('.column-selector').forEach(el => {
+            try {
+                const ts = new TomSelect(el, {
+                    create: false,
+                    sortField: 'text',
+                    placeholder: headers.length > 0 ? 'Buscar columna...' : 'Sin columnas disponibles',
+                    searchField: ['text'],
+                    maxOptions: 100
+                });
+                tomSelectInstances.push(ts);
+
+                // Forward Tom Select change events to our update system
+                ts.on('change', function (value) {
+                    const fieldId = el.id.replace('select_', '');
+                    updateMiniPreview(fieldId);
+                    updatePreviewTable();
+                    updateCounter();
+                });
+            } catch (e) {
+                console.warn('Error initializing Tom Select on', el.id, e);
+            }
         });
-    }
 
-    // Escuchar cambios en los selectores para refrescar la vista previa
-    document.querySelectorAll('.column-selector').forEach(select => {
-        select.addEventListener('change', updatePreviewTable);
+        // ── Attach native change listeners (for default inputs) ──
+        attachChangeListeners();
+
+        // ── Render inicial ──
+        updateAllViews();
+
+        // ── Función toggle para opcionales ──
+        window.toggleOptionalFields = function () {
+            const body = document.getElementById('optional-fields-body');
+            const icon = document.getElementById('optional-toggle-icon');
+            if (!body || !icon) return;
+            body.classList.toggle('collapsed');
+            icon.classList.toggle('fa-chevron-down');
+            icon.classList.toggle('fa-chevron-right');
+        };
     });
-
-    // Escuchar cambios en los inputs de valor por defecto para refrescar la vista previa
-    document.querySelectorAll('.default-input').forEach(input => {
-        input.addEventListener('input', updatePreviewTable);
-    });
-
-    // Carga inicial
-    updatePreviewTable();
-});
 </script>
 {% endblock %}

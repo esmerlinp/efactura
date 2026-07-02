@@ -1,5 +1,5 @@
 /* =========================================================================
-   SISTEMA DE DISEÑO PREMIUM - e-Factura WEB
+   SISTEMA DE DISEÑO PREMIUM - VykOne WEB
    ========================================================================= */
 
 @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Roboto+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap');
@@ -867,6 +867,19 @@ body.sandbox-mode .environment-indicator {
     color: var(--text-secondary);
 }
 
+.badge-imported {
+    background-color: rgba(59, 130, 246, 0.12);
+    color: #2563eb;
+    font-size: 0.6rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 600;
+    margin-top: 2px;
+}
+
 /* =========================================================================
    ANIMACIONES MICRO Y EFECTOS
    ========================================================================= */
@@ -1419,7 +1432,7 @@ body.sandbox-mode .segment-header-icon.emerald {
 }
 
 /* =========================================================================
-   ESTILOS PREMIUM DE LA LANDING PAGE DE PRODUCTO (e-Factura)
+   ESTILOS PREMIUM DE LA LANDING PAGE DE PRODUCTO (VykOne)
    ========================================================================= */
 
 .landing-body {

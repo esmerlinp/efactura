@@ -1,4 +1,4 @@
-# Capturas de Pantalla de e-Factura para la Landing Page
+# Capturas de Pantalla de VykOne para la Landing Page
 
 Para que el **Mockup Interactivo** de la página principal se visualice a la perfección con sus capturas reales, por favor copie y guarde las tres imágenes que adjuntó a la conversación en este directorio (`static/images/`) con los siguientes nombres exactos:
 

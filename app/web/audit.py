@@ -1,6 +1,6 @@
 # app/web/audit.py
 """
-Blueprint de Auditoría Web — e-Factura
+Blueprint de Auditoría Web del Sistema
 ======================================
 Rutas para el panel de auditoría con filtros avanzados,
 vista de detalle before/after, y exportación CSV.

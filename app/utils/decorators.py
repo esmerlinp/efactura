@@ -1,5 +1,6 @@
 # app/utils/decorators.py
 from flask import session, render_template
+from app.utils.module_gate import module_enabled
 
 def check_permission(permission_name):
     """Retorna True si el usuario tiene el rol de propietario o cuenta con el permiso granular solicitado."""
@@ -7,10 +8,11 @@ def check_permission(permission_name):
         return False
     if permission_name == 'canManagePOS' and not session.get('company_profile_pos_enabled', True):
         return False
+    if permission_name == 'canManagePOS' and not module_enabled('pos'):
+        return False
     user = session['user']
     if user.get('role') == 'owner':
         return True
-    # Por seguridad, ciertos permisos de administrador/supervisor de caja deben ser False por defecto
     default_val = False if permission_name in ('isPosSupervisor', 'canSupervisePOS') else True
     return user.get('permissions', {}).get(permission_name, default_val)
 

@@ -15,8 +15,8 @@ class Config:
             _firebase_json = _parent_json
     FIREBASE_SERVICE_ACCOUNT_JSON = _firebase_json
     FIREBASE_API_KEY = os.getenv('FIREBASE_API_KEY')
-    FIREBASE_STORAGE_BUCKET = os.getenv('FIREBASE_STORAGE_BUCKET', 'e-factura-c2b78.firebasestorage.app')
-    FIREBASE_PROJECT_ID = os.getenv('FIREBASE_PROJECT_ID', 'e-factura-c2b78')
+    FIREBASE_STORAGE_BUCKET = os.getenv('FIREBASE_STORAGE_BUCKET', 'vykcore.com')
+    FIREBASE_PROJECT_ID = os.getenv('FIREBASE_PROJECT_ID', 'vykcore')
 
     
     # Servidor de Correo SMTP
@@ -24,6 +24,19 @@ class Config:
     SMTP_PORT = int(os.getenv('SMTP_PORT', 587))
     SMTP_USER = os.getenv('SMTP_USER', '')
     SMTP_PASSWORD = os.getenv('SMTP_PASSWORD', '')
+
+    # Remitentes por tipo de correo (aliases)
+    MAIL_FROM_INVOICE = os.getenv('MAIL_FROM_INVOICE', SMTP_USER)
+    MAIL_FROM_NOTIFICATION = os.getenv('MAIL_FROM_NOTIFICATION', SMTP_USER)
+    MAIL_FROM_NOREPLY = os.getenv('MAIL_FROM_NOREPLY', SMTP_USER)
+    MAIL_FROM_SUPPORT = os.getenv('MAIL_FROM_SUPPORT', SMTP_USER)
+
+    # Microsoft Graph API (reemplaza SMTP)
+    MAIL_USE_GRAPH_API = os.getenv('MAIL_USE_GRAPH_API', 'false').lower() == 'true'
+    MAIL_TENANT_ID = os.getenv('MAIL_TENANT_ID', '')
+    MAIL_CLIENT_ID = os.getenv('MAIL_CLIENT_ID', '')
+    MAIL_CLIENT_SECRET = os.getenv('MAIL_CLIENT_SECRET', '')
+    MAIL_GRAPH_USER = os.getenv('MAIL_GRAPH_USER', SMTP_USER)
 
     # OpenAI API Key para el Chatbot
     OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
@@ -55,10 +68,10 @@ class Config:
     DGII_SIGNING_MODE = os.getenv('DGII_SIGNING_MODE', 'mock')
     DGII_ALLOW_SIMULATION = os.getenv('DGII_ALLOW_SIMULATION', 'true').lower() == 'true'
     DGII_SANDBOX_MODE = os.getenv('DGII_SANDBOX_MODE', 'local').lower()
-    DGII_USER_AGENT = os.getenv('DGII_USER_AGENT', 'e-FacturaWeb/1.0')
+    DGII_USER_AGENT = os.getenv('DGII_USER_AGENT', 'VykOne/1.0')
 
     # Nombre del producto (marca)
-    PRODUCT_NAME = os.getenv('PRODUCT_NAME', 'ZentOne')
+    PRODUCT_NAME = os.getenv('PRODUCT_NAME', 'VykOne')
 
     # Flask-Caching
     CACHE_TYPE = os.getenv('CACHE_TYPE', 'SimpleCache')
@@ -83,7 +96,7 @@ class Config:
     RATELIMIT_STORAGE_URL = os.getenv('RATELIMIT_STORAGE_URL', 'memory://')
     RATELIMIT_STRATEGY = 'moving-window'
     RATELIMIT_HEADERS_ENABLED = True
-    RATELIMIT_DEFAULT = os.getenv('RATELIMIT_DEFAULT', '200/day;50/hour;10/minute')
+    RATELIMIT_DEFAULT = os.getenv('RATELIMIT_DEFAULT', '2000/day;500/hour;200/minute')
     RATELIMIT_SWALLOW_ERRORS = True
 
     # Seguridad de Sesión
