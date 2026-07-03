@@ -804,7 +804,17 @@ endblock %}
                                 </button>
                             </form>
                             {% endif %}
-                            {% if inv.status != 'Anulada' and not inv.isQuotation %}
+                            {% if inv.status == 'Borrador' %}
+                            <form action="{{ url_for('web_invoices.delete_invoice_route', invoice_id=inv.id) }}"
+                                method="POST" style="display: inline;"
+                                onsubmit="return confirm('¿Eliminar este documento en Borrador?\n\nFactura: {{ inv.invoiceNumber }}\nCliente: {{ inv.clientName }}\nTotal: RD$ {{ '{:,.2f}'.format(inv.total) }}\n\nEsta acción no se puede deshacer.');">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="btn btn-danger"
+                                    style="padding: 8px 12px; font-size: 0.8rem;" title="Eliminar Borrador">
+                                    <i class="fa-solid fa-trash-can"></i>
+                                </button>
+                            </form>
+                            {% elif inv.status != 'Anulada' and not inv.isQuotation %}
                             <button type="button" class="btn btn-danger"
                                 onclick="openVoidModal('{{ url_for('web_invoices.void_invoice_route', invoice_id=inv.id) }}', '{{ inv.invoiceNumber }}')"
                                 style="padding: 8px 12px; font-size: 0.8rem;" title="Anular Factura">

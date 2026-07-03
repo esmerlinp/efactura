@@ -686,14 +686,16 @@
         <!-- 1. BARRA DE MENÚ (BARRA LATERAL IZQUIERDA / MENU BAR) -->
         <aside class="menu-bar sidebar">
             <div class="sidebar-logo">
-                <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Logo" class="app-brand-logo">
-                <div class="logo-text-wrapper"
-                    style="display: flex; align-items: center; gap: 8px; overflow: hidden; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); width: auto;">
-                    <span class="logo-title">{{ product_name }}</span>
-                    {% if session.get('is_sandbox_mode', False) %}
-                    <span class="sandbox-tag">Sandbox</span>
-                    {% endif %}
-                </div>
+                <a href="{{ url_for('web_dashboard.dashboard') }}" style="display: flex; align-items: center; gap: 8px; text-decoration: none; color: inherit;">
+                    <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Logo" class="app-brand-logo">
+                    <div class="logo-text-wrapper"
+                        style="display: flex; align-items: center; gap: 8px; overflow: hidden; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); width: auto;">
+                        <span class="logo-title">{{ product_name }}</span>
+                        {% if session.get('is_sandbox_mode', False) %}
+                        <span class="sandbox-tag">Sandbox</span>
+                        {% endif %}
+                    </div>
+                </a>
             </div>
 
             <nav class="nav-menu">

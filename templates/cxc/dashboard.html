@@ -145,6 +145,11 @@
         color: var(--accent-purple);
         border-color: rgba(167, 139, 250, 0.3);
     }
+
+    .btn-pay:hover {
+        color: var(--accent-emerald);
+        border-color: rgba(16, 185, 129, 0.3);
+    }
 </style>
 
 <div id="guide-cxc" style="background: rgba(168, 85, 247, 0.05); border: 1px solid rgba(168, 85, 247, 0.2); border-radius: 8px; padding: 16px; margin-bottom: 24px; display: flex; gap: 16px; align-items: flex-start; position: relative;">
@@ -380,6 +385,11 @@
                         <td style="padding: 14px 16px; align-items: center; justify-content: center;">
                             <div class="action-btn-group" style="justify-content: center;">
                                 <button
+                                    onclick="openQuickPayModal('{{ inv.id }}', {{ inv.remainingBalance }}, '{{ inv.clientName }}', '{{ inv.invoiceNumber }}')"
+                                    class="action-btn btn-pay" title="Registrar Pago">
+                                    <i class="fa-solid fa-hand-holding-dollar"></i>
+                                </button>
+                                <button
                                     onclick="openPromiseModal('{{ inv.id }}', '{{ inv.invoiceNumber }}', '{{ inv.clientName }}', {{ inv.remainingBalance }})"
                                     class="action-btn btn-promise" title="Registrar Promesa de Pago">
                                     <i class="fa-solid fa-calendar-plus"></i>
@@ -589,6 +599,87 @@
                 <button type="submit" class="btn btn-primary"
                     style="font-size: 0.8rem; padding: 8px 16px; background: var(--accent-purple); border-color: var(--accent-purple);">Guardar
                     Compromiso</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- MODAL PAGO RÁPIDO -->
+<div id="quickPayModal"
+    style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 2000; align-items: center; justify-content: center;">
+    <div onclick="closeQuickPayModal()"
+        style="position: absolute; width: 100%; height: 100%; background: rgba(0,0,0,0.4); backdrop-filter: blur(4px);">
+    </div>
+    <div class="card-table-wrapper"
+        style="max-width: 480px; width: 90%; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 24px; z-index: 2001; position: relative;">
+        <h3
+            style="font-size: 1.05rem; font-family: var(--font-heading); margin-bottom: 4px; display: flex; align-items: center; gap: 8px;">
+            <i class="fa-solid fa-hand-holding-dollar" style="color: var(--accent-emerald);"></i>
+            <span>Registrar Cobro</span>
+        </h3>
+        <p style="color: var(--text-secondary); font-size: 0.78rem; line-height: 1.4; margin-bottom: 18px;">
+            Registra un pago o abono recibido del cliente.
+        </p>
+
+        <form id="quick-pay-form" method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+            <div style="margin-bottom: 12px;">
+                <label style="display: block; font-size: 0.78rem; color: var(--text-secondary); margin-bottom: 4px;">Factura</label>
+                <input type="text" id="qp-invoice-number" class="form-control" readonly style="background: rgba(0,0,0,0.03);">
+            </div>
+
+            <div style="margin-bottom: 12px;">
+                <label style="display: block; font-size: 0.78rem; color: var(--text-secondary); margin-bottom: 4px;">Cliente</label>
+                <input type="text" id="qp-client-name" class="form-control" readonly style="background: rgba(0,0,0,0.03);">
+            </div>
+
+            <div style="margin-bottom: 12px;">
+                <label style="display: block; font-size: 0.78rem; color: var(--text-secondary); margin-bottom: 4px;">
+                    Monto a Cobrar <span style="color: var(--accent-red);">*</span>
+                </label>
+                <input type="number" step="0.01" name="amount" id="qp-amount" class="form-control" required
+                    style="font-size: 1.1rem; font-weight: 700; padding: 10px 12px;">
+                <small id="qp-balance-hint" style="color: var(--text-muted); font-size: 0.72rem;"></small>
+            </div>
+
+            <div style="margin-bottom: 12px;">
+                <label style="display: block; font-size: 0.78rem; color: var(--text-secondary); margin-bottom: 4px;">
+                    Forma de Pago <span style="color: var(--accent-red);">*</span>
+                </label>
+                <select name="paymentMethod" id="qp-method" class="form-select"
+                    style="width: 100%; padding: 10px 12px; font-size: 0.9rem; height: 44px;" required>
+                    <option value="Cheque / Transferencia">Cheque / Transferencia Bancaria</option>
+                    <option value="Efectivo">Efectivo</option>
+                    <option value="Tarjeta de Crédito / Débito">Tarjeta de Crédito / Débito</option>
+                </select>
+            </div>
+
+            <div id="qp-bank-group" style="margin-bottom: 12px;">
+                <label style="display: block; font-size: 0.78rem; color: var(--text-secondary); margin-bottom: 4px;">Banco Destino</label>
+                <select name="bank" class="form-select"
+                    style="width: 100%; padding: 10px 12px; font-size: 0.9rem; height: 44px;">
+                    <option value="Banco Popular Dominicano">Banco Popular Dominicano</option>
+                    <option value="Banco BHD">Banco BHD</option>
+                    <option value="Banreservas">Banreservas</option>
+                    <option value="Scotiabank República Dominicana">Scotiabank</option>
+                    <option value="Asociación Popular de Ahorros y Préstamos (APAP)">APAP</option>
+                    <option value="Otro">Otro</option>
+                </select>
+            </div>
+
+            <div id="qp-ref-group" style="margin-bottom: 18px;">
+                <label style="display: block; font-size: 0.78rem; color: var(--text-secondary); margin-bottom: 4px;">Referencia / N° de Depósito</label>
+                <input type="text" name="referenceNumber" class="form-control" placeholder="Opcional">
+            </div>
+
+            <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                <button type="button" onclick="closeQuickPayModal()" class="btn btn-secondary"
+                    style="font-size: 0.8rem; padding: 8px 16px;">Cancelar</button>
+                <button type="submit" class="btn btn-primary"
+                    style="font-size: 0.8rem; padding: 8px 16px; background: var(--accent-emerald); border-color: var(--accent-emerald);">
+                    <i class="fa-solid fa-check"></i> Registrar Cobro
+                </button>
             </div>
         </form>
     </div>
@@ -1069,6 +1160,34 @@
 </div>
 
 <script>
+    // Quick Pay Modal
+    function openQuickPayModal(invoiceId, remainingBalance, clientName, invoiceNumber) {
+        const modal = document.getElementById('quickPayModal');
+        const form = document.getElementById('quick-pay-form');
+        form.action = '/cxc/pay/' + invoiceId;
+        document.getElementById('qp-invoice-number').value = invoiceNumber;
+        document.getElementById('qp-client-name').value = clientName;
+        const amountInput = document.getElementById('qp-amount');
+        amountInput.value = remainingBalance.toFixed(2);
+        document.getElementById('qp-balance-hint').textContent = 'Balance pendiente: RD$ ' + remainingBalance.toFixed(2);
+        modal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+        setTimeout(function () { amountInput.focus(); }, 100);
+    }
+
+    function closeQuickPayModal() {
+        document.getElementById('quickPayModal').style.display = 'none';
+        document.body.style.overflow = 'auto';
+    }
+
+    document.addEventListener('change', function (e) {
+        if (e.target.id === 'qp-method') {
+            const isCash = e.target.value === 'Efectivo';
+            document.getElementById('qp-bank-group').style.display = isCash ? 'none' : '';
+            document.getElementById('qp-ref-group').style.display = isCash ? 'none' : '';
+        }
+    });
+
     function openAutoReminderConfigModal() {
         document.getElementById('autoReminderConfigModal').style.display = 'flex';
     }

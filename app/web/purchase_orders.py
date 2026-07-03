@@ -1092,6 +1092,69 @@ def void_payment(invoice_id, payment_id):
     return redirect(url_for('web_purchase_orders.supplier_invoice_detail', invoice_id=invoice_id))
 
 
+@web_purchase_orders_bp.route('/purchase-orders/invoices/<invoice_id>/delete', methods=['POST'])
+def delete_supplier_invoice(invoice_id):
+    if 'user' not in session:
+        return redirect(url_for('web_auth.login'))
+    if not check_permission('canManagePurchaseCXP'):
+        flash('No tienes permiso para eliminar facturas de proveedor.', 'error')
+        return redirect(url_for('web_purchase_orders.consolidated_cxp'))
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+
+    inv = None
+    try:
+        invoices = SupplierInvoiceService.get_all(owner_uid, sandbox=sandbox)
+        inv = next((i for i in invoices if i['id'] == invoice_id), None)
+    except Exception:
+        pass
+
+    SupplierInvoiceService.delete(owner_uid, invoice_id, sandbox=sandbox)
+
+    AuditService.log_from_request(
+        owner_uid=owner_uid, action=ACTION_DELETE, module=MODULE_SINV,
+        entity_id=invoice_id,
+        entity_label=f"Factura proveedor eliminada: {inv.get('invoiceNumber', 'N/A')} (Proveedor: {inv.get('supplierName', 'N/A')})" if inv else f"Factura proveedor eliminada: {invoice_id}",
+        user_session=session.get('user', {}),
+        before=inv or {},
+        sandbox=sandbox
+    )
+    flash('Factura de proveedor eliminada.', 'success')
+    return redirect(url_for('web_purchase_orders.consolidated_cxp'))
+
+
+@web_purchase_orders_bp.route('/purchase-orders/cxp/delete-expense/<expense_id>', methods=['POST'])
+def delete_cxp_expense(expense_id):
+    if 'user' not in session:
+        return redirect(url_for('web_auth.login'))
+    if not check_permission('canManageCXP'):
+        flash('No tienes permiso para eliminar cuentas por pagar.', 'error')
+        return redirect(url_for('web_purchase_orders.consolidated_cxp'))
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+
+    before_expense = {}
+    try:
+        expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox)
+        before_expense = next((e for e in expenses if e['id'] == expense_id), {})
+    except Exception:
+        pass
+
+    DatabaseService.delete_expense(owner_uid, expense_id, sandbox=sandbox)
+
+    from app.services.audit_service import ACTION_DELETE as AD, MODULE_GASTOS
+    AuditService.log_from_request(
+        owner_uid=owner_uid, action=AD, module=MODULE_GASTOS,
+        entity_id=expense_id,
+        entity_label=f"Gasto eliminado desde CxP: {before_expense.get('concept', 'N/A')}",
+        user_session=session.get('user', {}),
+        before=before_expense,
+        sandbox=sandbox
+    )
+    flash('Gasto eliminado.', 'success')
+    return redirect(url_for('web_purchase_orders.consolidated_cxp'))
+
+
 @web_purchase_orders_bp.route('/api/purchase-orders/invoices/next-number')
 def api_next_supplier_invoice_number():
     if 'user' not in session:
