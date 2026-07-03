@@ -3630,6 +3630,42 @@ def void_invoice_route(invoice_id):
         
     return redirect(url_for('web_invoices.list_invoices'))
 
+
+@web_invoices_bp.route('/invoices/<invoice_id>/delete', methods=['POST'])
+def delete_invoice_route(invoice_id):
+    if 'user' not in session:
+        return redirect(url_for('web_auth.login'))
+    if not check_permission('canInvoice'):
+        return render_template('auth/restricted.html', feature_name="Eliminar Documento", required_permission="canInvoice")
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+
+    invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+    if not invoice:
+        flash('Documento no encontrado.', 'error')
+        return redirect(url_for('web_invoices.list_invoices'))
+
+    if invoice.get('status') not in ['Borrador', 'Rechazada'] and not invoice.get('isQuotation'):
+        flash('Solo se pueden eliminar documentos en Borrador o Rechazados.', 'error')
+        return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
+
+    before_invoice = invoice.copy()
+    DatabaseService.delete_invoice(owner_uid, invoice_id, sandbox=sandbox)
+
+    from app.services.audit_service import AuditService, ACTION_DELETE, MODULE_FACTURAS, MODULE_COTIZACIONES
+    audit_module = MODULE_COTIZACIONES if invoice.get('isQuotation') else MODULE_FACTURAS
+    entity_label = f"Cotización eliminada: {invoice.get('invoiceNumber', 'N/A')}" if invoice.get('isQuotation') else f"Factura eliminada: {invoice.get('invoiceNumber', 'N/A')}"
+    AuditService.log_from_request(
+        owner_uid=owner_uid, action=ACTION_DELETE, module=audit_module,
+        entity_id=invoice_id, entity_label=entity_label,
+        user_session=session.get('user', {}),
+        before=before_invoice, sandbox=sandbox
+    )
+
+    flash('Documento eliminado.', 'success')
+    return redirect(url_for('web_invoices.list_invoices'))
+
+
 @web_invoices_bp.route('/api/invoices/sync-contingency', methods=['POST'])
 def sync_contingency_invoices():
     """
@@ -6486,6 +6522,80 @@ def cxc_dashboard():
         active_promises_count=len(active_promises),
         company=company
     )
+
+
+@web_invoices_bp.route('/cxc/pay/<invoice_id>', methods=['POST'])
+def cxc_quick_pay(invoice_id):
+    if 'user' not in session:
+        return redirect(url_for('web_auth.login'))
+    if not check_permission('canManageCXC'):
+        flash('No tienes permiso para registrar cobros.', 'error')
+        return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+
+    invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+    if not invoice:
+        flash('Factura no encontrada.', 'error')
+        return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
+
+    before_invoice = invoice.copy()
+    remaining_balance = float(invoice.get('remainingBalance', invoice.get('netPayable', 0.0)))
+
+    try:
+        amount = float(request.form.get('amount', remaining_balance))
+    except ValueError:
+        amount = 0.0
+
+    if amount <= 0.0:
+        flash('El monto a cobrar debe ser mayor a cero.', 'error')
+        return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
+    if amount > remaining_balance + 0.01:
+        flash(f'El monto (RD$ {amount:,.2f}) no puede superar el balance pendiente (RD$ {remaining_balance:,.2f}).', 'error')
+        return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
+
+    payment_method = request.form.get('paymentMethod', 'Cheque / Transferencia')
+    if payment_method == 'Efectivo':
+        bank = 'Caja Efectivo'
+        reference_number = 'Pago en Efectivo'
+    else:
+        bank = request.form.get('bank', 'Banco Popular Dominicano')
+        reference_number = request.form.get('referenceNumber', 'Abono Registrado')
+
+    payment_dict = {
+        "paymentMethod": payment_method,
+        "bank": bank,
+        "referenceNumber": reference_number,
+        "paymentDate": datetime.now(timezone.utc).isoformat(),
+        "registeredBy": session['user']['email'],
+        "amount": amount,
+        "moraAction": "perdonado",
+        "moraForgiven": 0,
+    }
+
+    try:
+        DatabaseService.register_invoice_payment(owner_uid, invoice_id, payment_dict, sandbox=sandbox)
+        new_balance = max(0.0, remaining_balance - amount)
+        if new_balance <= 0.01:
+            flash('¡Factura liquidada y saldada al 100% con éxito!', 'success')
+        else:
+            flash(f'¡Abono de RD$ {amount:,.2f} registrado con éxito! Pendiente: RD$ {new_balance:,.2f}.', 'success')
+
+        updated_invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+        from app.services.audit_service import AuditService, MODULE_FACTURAS
+        AuditService.log_from_request(
+            owner_uid=owner_uid, action="PAYMENT", module=MODULE_FACTURAS,
+            entity_id=invoice_id,
+            entity_label=f"Cobro rápido CxC: RD$ {amount:,.2f} - {payment_method}",
+            user_session=session.get('user', {}),
+            before=before_invoice, after=updated_invoice,
+            sandbox=sandbox
+        )
+    except Exception as e:
+        flash(f'Error al registrar el cobro: {str(e)}', 'error')
+
+    return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
+
 
 @web_invoices_bp.route('/cxc/settings/reminders', methods=['POST'])
 def save_cxc_reminders_settings():

@@ -168,7 +168,7 @@
                     <span class="badge" style="background: linear-gradient(135deg,#7c3aed,#a78bfa); color:white; margin-bottom: 10px; margin-left: 4px;">Profesional</span>
                     {% endif %}
                     {% else %}
-                    <span class="badge badge-success" style="margin-bottom: 10px;">{{ invoice.status }}</span>
+                    <span class="badge {% if invoice.status == 'Vencida' %}badge-danger{% elif invoice.status == 'Cobrada' or invoice.status == 'Pagada' %}badge-success{% elif invoice.status in ['Emitida', 'Parcialmente Cobrada', 'Pendiente'] %}badge-warning{% elif invoice.status == 'Borrador' %}badge-secondary{% else %}badge-secondary{% endif %}" style="margin-bottom: 10px;">{{ invoice.status }}</span>
                     {% endif %}
                     {% if invoice.get('isImported') %}
                     <span class="badge badge-imported" style="margin-bottom: 10px; margin-left: 4px;"><i class="fa-solid fa-file-import"></i> Importada</span>
@@ -1137,6 +1137,19 @@
 
         <!-- Acciones Generales -->
         <div class="card-table-wrapper" style="padding: 24px; display: flex; flex-direction: column; gap: 12px;">
+            {% if invoice.status == 'Borrador' or invoice.status == 'Rechazada' or invoice.isQuotation %}
+            <form action="{{ url_for('web_invoices.delete_invoice_route', invoice_id=invoice.id) }}"
+                method="POST" style="width: 100%;"
+                onsubmit="return confirm('¿Eliminar este documento?\n\nDocumento: {{ invoice.invoiceNumber }}\nCliente: {{ invoice.clientName }}\nTotal: RD$ {{ '{:,.2f}'.format(invoice.netPayable) }}\n\nEsta acción no se puede deshacer.');">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-danger"
+                    style="width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
+                    <i class="fa-solid fa-trash-can"></i>
+                    <span>Eliminar {% if invoice.isQuotation %}Cotización{% else %}Borrador{% endif %}</span>
+                </button>
+            </form>
+            {% endif %}
+
             {% if invoice.status == 'Borrador' %}
             <a href="{% if invoice.get('isProfessional') %}{{ url_for('web_invoices.professional_quotation_route') }}?clone={{ invoice.id }}{% else %}{{ url_for('web_invoices.new_invoice_route', invoice_id=invoice.id) }}{% endif %}" class="btn btn-primary"
                 style="width: 100%; {% if company.get('gradientEnabled', True) %}background: linear-gradient(135deg, var(--accent-purple), var(--accent-purple-hover));{% else %}background: var(--accent-purple);{% endif %} border: none; color: white;">

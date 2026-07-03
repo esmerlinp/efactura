@@ -120,10 +120,29 @@
                         <span class="badge-pill badge-gray">{{ status }}</span>
                         {% endif %}
                     </td>
-                    <td style="text-align:right;">
-                        <a href="{{ item.detail_url }}" class="btn btn-secondary" style="padding:6px 10px; font-size:0.78rem;">
+                    <td style="text-align:right; white-space:nowrap;">
+                        <a href="{{ item.detail_url }}" class="btn btn-secondary" style="padding:6px 10px; font-size:0.78rem;" title="Ver detalle">
                             <i class="fa-solid fa-eye"></i>
                         </a>
+                        {% if item.type == 'compra' %}
+                        <form action="{{ url_for('web_purchase_orders.delete_supplier_invoice', invoice_id=item.id) }}"
+                              method="POST" style="display:inline;"
+                              onsubmit="return confirm('¿Eliminar esta cuenta por pagar?\n\nProveedor: {{ item.supplierName }}\nDocumento: {{ item.documentNumber }}\nBalance: RD$ {{ '{:,.2f}'.format(item.balance) }}\n\nEsta acción no se puede deshacer.');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn btn-danger" style="padding:6px 10px; font-size:0.78rem;" title="Eliminar">
+                                <i class="fa-solid fa-trash-can"></i>
+                            </button>
+                        </form>
+                        {% else %}
+                        <form action="{{ url_for('web_purchase_orders.delete_cxp_expense', expense_id=item.id) }}"
+                              method="POST" style="display:inline;"
+                              onsubmit="return confirm('¿Eliminar esta cuenta por pagar?\n\nProveedor: {{ item.supplierName }}\nDocumento: {{ item.documentNumber }}\nBalance: RD$ {{ '{:,.2f}'.format(item.balance) }}\n\nEsta acción no se puede deshacer.');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn btn-danger" style="padding:6px 10px; font-size:0.78rem;" title="Eliminar">
+                                <i class="fa-solid fa-trash-can"></i>
+                            </button>
+                        </form>
+                        {% endif %}
                     </td>
                 </tr>
                 {% endfor %}

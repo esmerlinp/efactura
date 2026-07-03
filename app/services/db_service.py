@@ -254,6 +254,10 @@ def _cached_invoices(owner_uid, sandbox, quotations_only, include_all):
                 total_paid = float(data.get("totalPaid", data.get("netPayable", 0.0) if status == "Cobrada" else 0.0))
                 remaining_balance = float(data.get("remainingBalance", 0.0 if status == "Cobrada" else data.get("netPayable", 0.0)))
 
+                # Si el saldo es cero, forzar estado Cobrada (evita mostrar como Vencida con $0)
+                if remaining_balance <= 0.01:
+                    status = "Cobrada"
+
                 installments = data.get("installments")
                 if not installments:
                     installments = [{
@@ -1839,6 +1843,9 @@ class DatabaseService:
                             
                     total_paid = float(data.get("totalPaid", data.get("netPayable", 0.0) if status == "Cobrada" else 0.0))
                     remaining_balance = float(data.get("remainingBalance", 0.0 if status == "Cobrada" else data.get("netPayable", 0.0)))
+
+                    if remaining_balance <= 0.01:
+                        status = "Cobrada"
                     
                     installments = data.get("installments")
                     if not installments:
@@ -1886,7 +1893,7 @@ class DatabaseService:
                         "clientId": data.get("clientId", ""),
                         "clientName": data.get("clientName", ""),
                         "clientRNC": data.get("clientRNC", ""),
-                        "status": data.get("status", "Borrador"),
+                        "status": status,
                         "ecfType": data.get("ecfType", "Factura de Consumo (E32)"),
                         "encf": data.get("encf", ""),
                         "xmlSignature": data.get("xmlSignature", ""),

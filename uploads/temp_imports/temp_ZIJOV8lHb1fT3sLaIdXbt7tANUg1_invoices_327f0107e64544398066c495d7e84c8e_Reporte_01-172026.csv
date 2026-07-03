@@ -1,0 +1,9 @@
+TipoDocumento,RncReceptor,Encf,NumeroNcfModificado,FechaComprobante,FechaRecepcion,AprobacionComercial,FechaAprobacionComercial,Estado,ItbisFacturado,MontoGravadoTotal,MontoExento,MontoNoFacturable,ImpuestoAdicionalTotal,ItbisRetenidoTotal,IsrRetenidoTotal,MontoTotal,Moneda,TotalOtraMoneda,TipoDeCambio
+Factura de Crédito Fiscal Electrónica,133119072,E310000000001,,01-07-2026 00:00:00,01-07-2026 10:58:47,AC_E310000000001,24-05-2023 00:00:00,Aceptada,360.00,2000.00,0.00,0.00,0.00,0.00,0.00,2360.00,DOP,0,0.00
+Factura de Crédito Fiscal Electrónica,133119072,E310000000002,,01-07-2026 00:00:00,01-07-2026 10:58:58,,,Aceptada,360.00,2000.00,0.00,0.00,0.00,0.00,0.00,2360.00,DOP,0,0.00
+Factura de Crédito Fiscal Electrónica,131120891,E310000000003,,01-07-2026 00:00:00,01-07-2026 11:21:34,,,Aceptada,5310.00,29500.00,0.00,0.00,0.00,0.00,0.00,34810.00,DOP,0,0.00
+Factura de Crédito Fiscal Electrónica,122029818,E310000000004,,01-07-2026 00:00:00,01-07-2026 11:29:31,,,Aceptada,27000.00,150000.00,0.00,0.00,0.00,0.00,0.00,177000.00,DOP,0,0.00
+Factura de Crédito Fiscal Electrónica,133119072,E310000000005,,01-07-2026 00:00:00,01-07-2026 11:41:39,,,Aceptada,4500.00,25000.00,0.00,0.00,0.00,0.00,0.00,29500.00,DOP,0,0.00
+Factura de Crédito Fiscal Electrónica,130427429,E310000000006,,01-07-2026 00:00:00,01-07-2026 11:55:55,,,Aceptada,22500.00,125000.00,0.00,0.00,0.00,0.00,0.00,147500.00,DOP,0,0.00
+Factura de Crédito Fiscal Electrónica,130427429,E310000000007,,01-07-2026 00:00:00,01-07-2026 12:16:01,,,Aceptada,2700.00,15000.00,0.00,0.00,0.00,0.00,0.00,17700.00,DOP,0,0.00
+Nota de Crédito Electrónica,133119072,E340000000001,E310000000002,01-07-2026 00:00:00,01-07-2026 11:16:39,,,Aceptada,360.00,2000.00,0.00,0.00,0.00,0.00,0.00,2360.00,DOP,0,0.00
