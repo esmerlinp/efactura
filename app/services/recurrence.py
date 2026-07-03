@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta, timezone
 import uuid
 import random
+import calendar
 from app.services.db_service import DatabaseService
 from app.services.ecf_emission import EcfEmissionService
 from app.services.dgii import DGIIService
@@ -9,8 +10,17 @@ from app.brand import get_product_name
 
 class RecurrenceService:
     @staticmethod
+    def _add_months(dt, months):
+        """Suma meses a una fecha respetando el fin de mes (31→28/30, bisiestos)."""
+        month = dt.month - 1 + months
+        year = dt.year + month // 12
+        month = month % 12 + 1
+        day = min(dt.day, calendar.monthrange(year, month)[1])
+        return dt.replace(year=year, month=month, day=day)
+
+    @staticmethod
     def calculate_next_date(current_date_str, interval):
-        """Calcula la próxima fecha de recurrencia basándose en el intervalo."""
+        """Calcula la próxima fecha de recurrencia con calendario real (respeta fin de mes, bisiestos)."""
         if not current_date_str:
             return datetime.now(timezone.utc).strftime("%Y-%m-%d")
             
@@ -24,17 +34,74 @@ class RecurrenceService:
         elif interval == "quincenal":
             next_date = current_date + timedelta(days=15)
         elif interval == "mensual":
-            next_date = current_date + timedelta(days=30)
+            next_date = RecurrenceService._add_months(current_date, 1)
         elif interval == "trimestral":
-            next_date = current_date + timedelta(days=90)
+            next_date = RecurrenceService._add_months(current_date, 3)
         elif interval == "semestral":
-            next_date = current_date + timedelta(days=180)
+            next_date = RecurrenceService._add_months(current_date, 6)
         elif interval == "anual":
-            next_date = current_date + timedelta(days=365)
+            next_date = RecurrenceService._add_months(current_date, 12)
         else:
-            next_date = current_date + timedelta(days=30)
+            next_date = RecurrenceService._add_months(current_date, 1)
             
         return next_date.strftime("%Y-%m-%d")
+
+    @staticmethod
+    def calculate_prorated_amount(amount, start_date_str, next_billing_str, interval):
+        """
+        Calcula el monto prorrateado para el primer periodo cuando el contrato
+        inicia a mitad del ciclo de facturación.
+        Ej: contrato mensual de $3,000 que inicia el día 15 → ~$1,500.
+        """
+        if not amount or not start_date_str or not next_billing_str:
+            return amount
+        try:
+            start = datetime.strptime(start_date_str[:10], "%Y-%m-%d").date()
+            next_bill = datetime.strptime(next_billing_str[:10], "%Y-%m-%d").date()
+        except (ValueError, TypeError):
+            return amount
+
+        if start >= next_bill:
+            return amount
+
+        if interval == "semanal":
+            period_days = 7
+        elif interval == "quincenal":
+            period_days = 15
+        elif interval == "mensual":
+            period_days = calendar.monthrange(next_bill.year, next_bill.month)[1]
+        elif interval == "trimestral":
+            period_days = 0
+            m = next_bill.month
+            y = next_bill.year
+            for _ in range(3):
+                period_days += calendar.monthrange(y, m)[1]
+                m += 1
+                if m > 12:
+                    m = 1
+                    y += 1
+        elif interval == "semestral":
+            period_days = 0
+            m = next_bill.month
+            y = next_bill.year
+            for _ in range(6):
+                period_days += calendar.monthrange(y, m)[1]
+                m += 1
+                if m > 12:
+                    m = 1
+                    y += 1
+        elif interval == "anual":
+            y = next_bill.year
+            period_days = 366 if calendar.isleap(y) else 365
+        else:
+            return amount
+
+        used_days = (next_bill - start).days
+        if used_days <= 0 or period_days <= 0:
+            return amount
+
+        ratio = used_days / period_days
+        return round(amount * min(ratio, 1.0), 2)
 
     @classmethod
     def process_pending_recurrences(cls, owner_uid, sandbox=True):
@@ -300,6 +367,10 @@ class RecurrenceService:
             today_str     = datetime.now(timezone.utc).strftime("%Y-%m-%d")
             due_date_str  = (datetime.now(timezone.utc) + timedelta(days=30)).strftime("%Y-%m-%d")
 
+            # ── Prorrateo: usar monto prorrateado si es el primer cobro ──
+            prorated_amount = contract.get("proratedFirstAmount")
+            apply_proration = prorated_amount is not None and contract.get("_prorationApplied") is not True
+
             contract_lines = contract.get("contractLines", [])
 
             if contract_lines:
@@ -308,6 +379,12 @@ class RecurrenceService:
                 subtotal      = 0.0
                 itbis_amount  = 0.0
                 total_invoice = 0.0
+
+                if apply_proration and prorated_amount:
+                    ratio = prorated_amount / float(contract.get("amount", 1))
+                else:
+                    ratio = 1.0
+
                 for line in contract_lines:
                     qty        = float(line.get("quantity", 1))
                     unit_price = float(line.get("unitPrice", 0))
@@ -315,6 +392,10 @@ class RecurrenceService:
                     line_sub   = round(qty * unit_price, 2)
                     line_itbis = round(line_sub * itbis_rate, 2)
                     line_total = round(line_sub + line_itbis, 2)
+                    if apply_proration:
+                        line_sub   = round(line_sub * ratio, 2)
+                        line_itbis = round(line_itbis * ratio, 2)
+                        line_total = round(line_sub + line_itbis, 2)
                     items.append({
                         "id":           str(uuid.uuid4()),
                         "code":         line.get("code", "SERV-REC"),
@@ -342,6 +423,8 @@ class RecurrenceService:
                     )
                 itbis_rate    = selected_item.get("itbisRate", 0.18) if selected_item else 0.18
                 total_invoice = float(contract.get("amount", 0))
+                if apply_proration and prorated_amount:
+                    total_invoice = prorated_amount
                 subtotal      = round(total_invoice / (1 + itbis_rate), 2)
                 itbis_amount  = round(total_invoice - subtotal, 2)
                 item_name     = (
@@ -506,6 +589,11 @@ class RecurrenceService:
                 invoice_id = cls._build_invoice_from_contract(owner_uid, contract, sandbox=sandbox)
                 if not invoice_id:
                     continue
+
+                # ── 2b. Limpiar prorrateo tras el primer cobro ───────────────
+                if contract.get("proratedFirstAmount") is not None:
+                    contract["_prorationApplied"] = True
+                    contract["proratedFirstAmount"] = None
 
                 # ── 3. Reprogramar nextBillingDate ────────────────────────────
                 freq = contract.get("frequency") or contract.get("recurrenceInterval", "mensual")

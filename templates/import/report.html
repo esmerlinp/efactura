@@ -1,0 +1,236 @@
+{% extends "layout.html" %}
+
+{% block title %}Informe de Importación{% endblock %}
+{% block page_header %}Informe de Importación{% endblock %}
+
+{% block content %}
+<style>
+    .report-wrap {
+        max-width: 680px;
+        margin: 0 auto;
+    }
+    .report-svg {
+        display: block;
+        width: 260px;
+        height: 85px;
+        margin: 0 auto 20px;
+    }
+    .report-title {
+        text-align: center;
+        font-size: 1.3rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin-bottom: 2px;
+    }
+    .report-subtitle {
+        text-align: center;
+        font-size: 0.82rem;
+        color: var(--text-muted);
+        margin-bottom: 24px;
+    }
+    .stat-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 14px;
+        margin-bottom: 20px;
+    }
+    .stat-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: 10px;
+        padding: 16px;
+        text-align: center;
+    }
+    .stat-value {
+        font-size: 1.3rem;
+        font-weight: 700;
+        font-family: monospace;
+        color: var(--text-primary);
+    }
+    .stat-label {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        color: var(--text-muted);
+        margin-top: 3px;
+    }
+    .stat-value.green { color: var(--accent-emerald); }
+    .stat-value.amber { color: #f59e0b; }
+    .stat-value.blue  { color: #3b82f6; }
+    .status-banner {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 14px 18px;
+        border-radius: 10px;
+        margin-bottom: 20px;
+    }
+    .status-banner.success {
+        background: rgba(16,185,129,0.07);
+        border: 1px solid rgba(16,185,129,0.2);
+    }
+    .status-banner.warning {
+        background: rgba(245,158,11,0.07);
+        border: 1px solid rgba(245,158,11,0.2);
+    }
+    .status-icon {
+        width: 36px; height: 36px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1rem;
+        flex-shrink: 0;
+    }
+    .status-icon.success { background: rgba(16,185,129,0.12); color: var(--accent-emerald); }
+    .status-icon.warning { background: rgba(245,158,11,0.12); color: #f59e0b; }
+    .status-text {
+        font-weight: 600;
+        font-size: 0.92rem;
+        color: var(--text-primary);
+    }
+    .error-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.8rem;
+        margin-top: 8px;
+    }
+    .error-table th {
+        text-align: left;
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        color: var(--text-muted);
+        padding: 6px 8px;
+        border-bottom: 1px solid var(--border-color);
+    }
+    .error-table td {
+        padding: 6px 8px;
+        border-bottom: 1px solid rgba(255,255,255,0.04);
+        color: var(--text-primary);
+    }
+    .no-errors {
+        text-align: center;
+        padding: 18px;
+        color: var(--text-muted);
+        font-size: 0.85rem;
+    }
+    .action-bar {
+        display: flex;
+        gap: 12px;
+        justify-content: center;
+        margin-top: 28px;
+        padding: 20px 0 4px;
+        border-top: 1px solid var(--border-color);
+        flex-wrap: wrap;
+    }
+    .action-bar .btn { min-width: 180px; justify-content: center; }
+</style>
+
+<div class="report-wrap">
+
+    <!-- SVG Header -->
+    <svg class="report-svg" viewBox="0 0 260 85" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="45" y="8" width="170" height="65" rx="8" stroke="#3b82f6" stroke-width="1.4" fill="rgba(59,130,246,0.04)"/>
+        <polyline points="50,70 90,50 130,56 170,36 210,42" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        <circle cx="210" cy="42" r="3" fill="#10b981"/>
+        <rect x="50" y="70" width="160" height="1" rx="0.5" fill="#d1d5db" opacity="0.5"/>
+    </svg>
+
+    <div class="report-title">Importaci&oacute;n Completada</div>
+    <div class="report-subtitle">{{ report.type_label }} &mdash; {{ report.timestamp[:10] if report.timestamp else '' }}</div>
+
+    <!-- Status Banner -->
+    {% if report.skipped > 0 %}
+    <div class="status-banner warning">
+        <div class="status-icon warning"><i class="fa-solid fa-triangle-exclamation"></i></div>
+        <div>
+            <div class="status-text">Importaci&oacute;n parcial</div>
+            <div style="font-size:0.8rem; color:var(--text-muted); margin-top:2px;">
+                {{ report.imported }} de {{ report.total }} registros se importaron correctamente.
+                {{ report.skipped }} registro(s) fueron omitidos.
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="status-banner success">
+        <div class="status-icon success"><i class="fa-solid fa-check"></i></div>
+        <div>
+            <div class="status-text">Importaci&oacute;n exitosa</div>
+            <div style="font-size:0.8rem; color:var(--text-muted); margin-top:2px;">
+                Todos los {{ report.total }} registros se importaron correctamente.
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Stat Cards -->
+    <div class="stat-grid">
+        <div class="stat-card">
+            <div class="stat-value blue">{{ report.total }}</div>
+            <div class="stat-label">Total</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value green">{{ report.imported }}</div>
+            <div class="stat-label">Importados</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value amber">{{ report.skipped }}</div>
+            <div class="stat-label">Omitidos</div>
+        </div>
+    </div>
+
+    <!-- Errors -->
+    <div style="font-size:0.82rem; font-weight:600; text-transform:uppercase; letter-spacing:0.04em; color:var(--text-muted); margin-bottom:8px; display:flex; align-items:center; gap:7px;">
+        <i class="fa-solid fa-list"></i> Detalle de registros omitidos
+    </div>
+    {% if report.errors %}
+    <div style="background:var(--bg-card); border:1px solid var(--border-color); border-radius:10px; padding:4px 10px 10px;">
+        <table class="error-table">
+            <thead>
+                <tr><th>Fila</th><th>Motivo</th></tr>
+            </thead>
+            <tbody>
+                {% for err in report.errors %}
+                <tr>
+                    <td style="font-family:monospace; font-size:0.78rem;">{{ err.row }}</td>
+                    <td>{{ err.reason }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% if report.errors_truncated %}
+        <div style="text-align:center; font-size:0.78rem; color:var(--text-muted); padding:8px;">
+            <i class="fa-solid fa-ellipsis"></i> Mostrando las primeras 20 filas omitidas
+        </div>
+        {% endif %}
+    </div>
+    {% else %}
+    <div class="no-errors">
+        <i class="fa-solid fa-circle-check" style="color:var(--accent-emerald); font-size:1.1rem; margin-right:5px;"></i>
+        No hubo registros omitidos.
+    </div>
+    {% endif %}
+
+    <!-- Action Bar -->
+    <div class="action-bar">
+        {% if report.import_type == 'clients' %}
+        <a href="{{ url_for('web_clients.list_clients') }}" class="btn btn-primary">
+            <i class="fa-regular fa-eye"></i> Ver Clientes
+        </a>
+        {% elif report.import_type == 'products' %}
+        <a href="{{ url_for('web_invoices.list_items') }}" class="btn btn-primary">
+            <i class="fa-regular fa-eye"></i> Ver Productos
+        </a>
+        {% else %}
+        <a href="{{ url_for('web_invoices.list_invoices') }}" class="btn btn-primary">
+            <i class="fa-regular fa-eye"></i> Ver Facturas
+        </a>
+        {% endif %}
+        <a href="javascript:history.back()" class="btn btn-secondary">
+            <i class="fa-solid fa-upload"></i> Importar Otro Archivo
+        </a>
+    </div>
+
+</div>
+{% endblock %}

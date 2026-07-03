@@ -4249,7 +4249,7 @@ class DatabaseService:
 
     @classmethod
     def save_contract(cls, owner_uid, contract_id, contract_dict, sandbox=True):
-        """Guarda o actualiza un contrato en Firestore."""
+        """Guarda o actualiza un contrato en Firestore con versionado automático."""
         contract_dict["id"] = contract_id
         contract_dict["ownerUID"] = owner_uid
         if "createdAt" not in contract_dict or not contract_dict["createdAt"]:
@@ -4259,7 +4259,30 @@ class DatabaseService:
         if firebase_initialized:
             try:
                 coll_name = "sandbox_contracts" if sandbox else "contracts"
-                db_firestore.collection("users").document(owner_uid).collection(coll_name).document(contract_id).set(contract_dict)
+                doc_ref = db_firestore.collection("users").document(owner_uid).collection(coll_name).document(contract_id)
+                
+                existing = doc_ref.get()
+                if existing.exists:
+                    old_data = existing.to_dict()
+                    if old_data.get("updatedAt") != contract_dict.get("updatedAt"):
+                        version = old_data.get("version", 1)
+                        contract_dict["version"] = version + 1
+                        version_history = old_data.get("versionHistory", [])
+                        old_snapshot = dict(old_data)
+                        old_snapshot.pop("versionHistory", None)
+                        version_history.append({
+                            "version": version,
+                            "archivedAt": datetime.now(timezone.utc).isoformat(),
+                            "data": old_snapshot
+                        })
+                        contract_dict["versionHistory"] = version_history
+                else:
+                    if "version" not in contract_dict:
+                        contract_dict["version"] = 1
+                    if "versionHistory" not in contract_dict:
+                        contract_dict["versionHistory"] = []
+                
+                doc_ref.set(contract_dict)
             except Exception as e:
                 print(f"⚠️ Fallo al guardar contrato: {e}")
         return contract_dict

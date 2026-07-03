@@ -6776,7 +6776,7 @@ def expense_import_preview():
         return jsonify({"success": False, "message": "Errores de validación: " + "; ".join(errors)}), 400
 
     from app.services.supplier_service import SupplierService
-    supplier_id = SupplierService.get_or_create_supplier(
+    supplier_id, _ = SupplierService.get_or_create_supplier(
         owner_uid, parsed["supplierRnc"], parsed["supplierName"],
         parsed.get("supplierAddress", ""), sandbox=sandbox
     )
@@ -6801,6 +6801,7 @@ def expense_import_preview():
         "ai_result": ai_result,
         "supplier_id": supplier_id,
         "items_text": items_text,
+        "duplicate": duplicate,
     }
     if 'expense_import_previews' not in session:
         session['expense_import_previews'] = {}
@@ -6841,6 +6842,7 @@ def expense_import_confirm():
     expense_id = str(uuid.uuid4())
     data = request.get_json(force=True) or {}
 
+    preview_id = data.get("preview_id", "")
     encf = data.get("encf", "")
     ecf_type = data.get("ecfType", "E31")
     supplier_rnc = "".join(filter(str.isdigit, str(data.get("supplierRnc", ""))))
@@ -6858,10 +6860,43 @@ def expense_import_confirm():
     recurrence_interval = data.get("recurrenceInterval", "mensual") if is_recurring else ""
     is_deductible = data.get("isDeductible", True)
 
+    # Recuperar datos del preview para el reporte
+    ai_result = {}
+    duplicate = None
+    preview_data = session.get('expense_import_previews', {}).get(preview_id)
+    if preview_data:
+        ai_result = preview_data.get("ai_result", {})
+        duplicate = preview_data.get("duplicate")
+
     from app.services.supplier_service import SupplierService
-    supplier_id = SupplierService.get_or_create_supplier(
+    supplier_id, supplier_created = SupplierService.get_or_create_supplier(
         owner_uid, supplier_rnc, supplier_name, supplier_address, sandbox=sandbox
     )
+
+    importMeta = {
+        "encf": encf,
+        "ecfType": ecf_type,
+        "supplierName": supplier_name,
+        "supplierRnc": supplier_rnc,
+        "total": total,
+        "itbis": itbis,
+        "subtotal": subtotal,
+        "date": date[:10] if date else "",
+        "concept": concept,
+        "category": category,
+        "tipoGasto": tipo_gasto,
+        "paymentType": payment_type,
+        "isDeductible": is_deductible,
+        "isRecurring": is_recurring,
+        "recurrenceInterval": recurrence_interval,
+        "aiConfidence": ai_result.get("confidence", 0),
+        "aiCategory": ai_result.get("category", ""),
+        "anomalies": ai_result.get("anomalies", []),
+        "duplicate": duplicate,
+        "supplierCreated": supplier_created,
+        "supplierId": supplier_id or "",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
 
     expense_dict = {
         "supplierType": "formal",
@@ -6907,6 +6942,7 @@ def expense_import_confirm():
         "trackId": "",
         "xmlContent": "",
         "supplierId": supplier_id or "",
+        "_importMeta": importMeta,
     }
 
     DatabaseService.save_expense(owner_uid, expense_id, expense_dict, sandbox=sandbox)
@@ -6920,7 +6956,76 @@ def expense_import_confirm():
     )
 
     flash(f'Gasto importado exitosamente. {ecf_type} - {encf}', 'success')
-    return jsonify({"success": True, "expense_id": expense_id})
+    return jsonify({
+        "success": True,
+        "expense_id": expense_id,
+        "redirect": url_for("web_invoices.expense_import_report", expense_id=expense_id),
+    })
+
+
+@web_invoices_bp.route('/expenses/import/report/<expense_id>')
+def expense_import_report(expense_id):
+    if 'user' not in session:
+        return redirect(url_for('web_auth.login'))
+    if not check_permission('canExpenses'):
+        return render_template('auth/restricted.html', feature_name="Informe de Importación", required_permission="canExpenses")
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+
+    from app.services.db_service import DatabaseService
+    expense = DatabaseService.get_expense(owner_uid, expense_id, sandbox=sandbox)
+
+    if not expense:
+        flash('El gasto no fue encontrado.', 'error')
+        return redirect(url_for('web_invoices.expense_import_page'))
+
+    report_data = expense.get("_importMeta", {})
+
+    total = report_data.get("total", 0)
+    itbis = report_data.get("itbis", 0)
+
+    alerts = []
+    if report_data.get("duplicate") and report_data["duplicate"].get("duplicate"):
+        d = report_data["duplicate"]
+        alerts.append({
+            "type": "warning",
+            "icon": "fa-triangle-exclamation",
+            "title": "Posible gasto duplicado",
+            "message": f"Ya existe un gasto similar de {d.get('existingConcept', '')} por RD$ {float(d.get('existingAmount', 0)):,.2f} del {d.get('existingDate', '')}.",
+        })
+    for anomaly in report_data.get("anomalies", []):
+        alerts.append({
+            "type": "warning",
+            "icon": "fa-triangle-exclamation",
+            "title": "Anomalía detectada",
+            "message": anomaly,
+        })
+    ai_conf = report_data.get("aiConfidence", 0)
+    if ai_conf and ai_conf < 0.7:
+        alerts.append({
+            "type": "info",
+            "icon": "fa-circle-info",
+            "title": "Clasificación con poca confianza",
+            "message": f"La IA clasificó este gasto con solo {round(ai_conf * 100)}% de confianza. Revise la categoría y el tipo de gasto asignados.",
+        })
+    if itbis == 0 and total > 100000:
+        alerts.append({
+            "type": "info",
+            "icon": "fa-circle-info",
+            "title": "Monto elevado sin ITBIS",
+            "message": "El monto del documento es superior a RD$ 100,000 pero no incluye ITBIS. Verifique si el proveedor está exento.",
+        })
+    if report_data.get("supplierCreated"):
+        alerts.append({
+            "type": "info",
+            "icon": "fa-building",
+            "title": "Nuevo proveedor registrado",
+            "message": f"El proveedor {report_data.get('supplierName', '')} fue creado automáticamente durante la importación.",
+        })
+
+    return render_template('expenses/import_report.html',
+                           expense=expense, report=report_data, alerts=alerts,
+                           active_page='expenses')
 
 
 @web_invoices_bp.route('/api/ai/receipt-ocr', methods=['POST'])

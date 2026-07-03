@@ -410,28 +410,47 @@
         container.appendChild(prevBtn);
 
         // Páginas Numeradas
-        for (let i = 1; i <= totalPages; i++) {
-            const pageBtn = document.createElement('button');
-            pageBtn.style.padding = '8px 14px';
-            pageBtn.style.fontSize = '0.82rem';
-            pageBtn.style.fontWeight = 'bold';
-            pageBtn.style.borderRadius = 'var(--radius-sm)';
-            pageBtn.style.cursor = 'pointer';
-
-            if (i === currentPage) {
-                pageBtn.className = 'btn btn-primary';
-                pageBtn.style.boxShadow = 'none';
-            } else {
-                pageBtn.className = 'btn btn-secondary';
-            }
-
-            pageBtn.textContent = i;
-            pageBtn.addEventListener('click', () => {
-                currentPage = i;
-                renderTable();
-            });
-            container.appendChild(pageBtn);
+        const pages = [];
+        if (totalPages <= 7) {
+            for (let i = 1; i <= totalPages; i++) pages.push(i);
+        } else {
+            pages.push(1);
+            const start = Math.max(2, currentPage - 2);
+            const end = Math.min(totalPages - 1, currentPage + 2);
+            if (start > 2) pages.push('...');
+            for (let i = start; i <= end; i++) pages.push(i);
+            if (end < totalPages - 1) pages.push('...');
+            if (totalPages > 1) pages.push(totalPages);
         }
+        pages.forEach(p => {
+            if (p === '...') {
+                const span = document.createElement('span');
+                span.textContent = '...';
+                span.style.cssText = 'color: var(--text-muted); align-self: center; padding: 0 6px; font-size: 0.82rem;';
+                container.appendChild(span);
+            } else {
+                const pageBtn = document.createElement('button');
+                pageBtn.style.padding = '8px 14px';
+                pageBtn.style.fontSize = '0.82rem';
+                pageBtn.style.fontWeight = 'bold';
+                pageBtn.style.borderRadius = 'var(--radius-sm)';
+                pageBtn.style.cursor = 'pointer';
+
+                if (p === currentPage) {
+                    pageBtn.className = 'btn btn-primary';
+                    pageBtn.style.boxShadow = 'none';
+                } else {
+                    pageBtn.className = 'btn btn-secondary';
+                }
+
+                pageBtn.textContent = p;
+                pageBtn.addEventListener('click', () => {
+                    currentPage = p;
+                    renderTable();
+                });
+                container.appendChild(pageBtn);
+            }
+        });
 
         // Botón Siguiente
         const nextBtn = document.createElement('button');
