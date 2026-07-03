@@ -43,14 +43,19 @@
     <meta name="author" content="VykCore Automation S.R.L.">
 
     <!-- Open Graph / Social -->
-    <meta property="og:title" content="{{ product_name }} - Facturación Electrónica DGII">
-    <meta property="og:description" content="Sistema de facturación electrónica certificado por DGII. Cumplimiento Ley 32-23 en República Dominicana.">
-    <meta property="og:url" content="https://vykcore.com">
-    <meta property="og:type" content="website">
+    <meta property="og:title" content="{% block og_title %}{{ product_name }} - Facturación Electrónica DGII{% endblock %}">
+    <meta property="og:description" content="{% block og_description %}Sistema de facturación electrónica certificado por DGII. Cumplimiento Ley 32-23 en República Dominicana.{% endblock %}">
+    <meta property="og:image" content="{% block og_image %}{{ url_for('static', filename='images/og-default.png', _external=True) }}{% endblock %}">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="{% block og_image_alt %}{{ product_name }} - Facturación Electrónica DGII{% endblock %}">
+    <meta property="og:url" content="{% block og_url %}https://vykcore.com{% endblock %}">
+    <meta property="og:type" content="{% block og_type %}website{% endblock %}">
     <meta property="og:site_name" content="{{ product_name }}">
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="{{ product_name }} - Facturación Electrónica DGII">
-    <meta name="twitter:description" content="Sistema de facturación electrónica certificado por DGII. Cumplimiento Ley 32-23 en República Dominicana.">
+    <meta name="twitter:title" content="{% block twitter_title %}{{ product_name }} - Facturación Electrónica DGII{% endblock %}">
+    <meta name="twitter:description" content="{% block twitter_description %}Sistema de facturación electrónica certificado por DGII. Cumplimiento Ley 32-23 en República Dominicana.{% endblock %}">
+    <meta name="twitter:image" content="{% block twitter_image %}{{ url_for('static', filename='images/og-default.png', _external=True) }}{% endblock %}">
 
     <!-- FontAwesome para Iconos Modernos -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -483,9 +488,7 @@
             }
 
             .sidebar-section-flyout .flyout-content .nav-item.active a {
-                background-color: var(--bg-brand-translucent);
-                border-left: 3px solid var(--accent-emerald) !important;
-                padding-left: 11px !important;
+                background-color: var(--bg-nav-hover);
                 color: var(--accent-emerald);
             }
         }
@@ -714,6 +717,14 @@
                         </li>
                         {% endif %}
                     </ul>
+                </div>
+
+                <!-- SECCIÓN: ACCESOS RÁPIDOS -->
+                <div class="sidebar-section" id="sidebar-section-quick" style="display: none;">
+                    <div class="sidebar-section-header" style="cursor: default; font-size: 0.78rem; color: var(--text-muted); border-top: none !important; padding-top: 0;">
+                        <span>Accesos Rápidos</span>
+                    </div>
+                    <ul class="sidebar-section-content" id="quick-access-list"></ul>
                 </div>
 
 
@@ -980,6 +991,13 @@
                                     el.classList.add('collapsed');
                                 } else if (stored === 'false') {
                                     el.classList.remove('collapsed');
+                                } else {
+                                    // Sin preferencia: colapsado por defecto, excepto General
+                                    if (id === 'general') {
+                                        el.classList.remove('collapsed');
+                                    } else {
+                                        el.classList.add('collapsed');
+                                    }
                                 }
                             }
                         });
@@ -1039,8 +1057,15 @@
                                             const stored = localStorage.getItem('sidebar-collapsed-' + section.id);
                                             if (stored === 'true') {
                                                 section.classList.add('collapsed');
-                                            } else {
+                                            } else if (stored === 'false') {
                                                 section.classList.remove('collapsed');
+                                            } else {
+                                                // Sin preferencia: colapsado por defecto, excepto General
+                                                if (section.id === 'sidebar-section-general') {
+                                                    section.classList.remove('collapsed');
+                                                } else {
+                                                    section.classList.add('collapsed');
+                                                }
                                             }
                                         }
                                     }

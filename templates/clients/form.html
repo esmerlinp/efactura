@@ -115,7 +115,7 @@
             </div>
 
             <div class="form-group">
-                <label for="access_pin_input">Clave de Acceso Autoservicio (6 dígitos)</label>
+                <label for="access_pin_input">Clave de Acceso Autoservicio</label>
                 <input type="text" id="access_pin_input" name="accessPin" class="form-input"
                     placeholder="Ej: 123456 (Numérico)" maxlength="6" pattern="\d{6}" inputmode="numeric"
                     value="{{ client.accessPin if client and client.accessPin else '' }}">
@@ -166,6 +166,27 @@ function previewImage(input) {
             fallback.style.display = 'none';
         }
         reader.readAsDataURL(input.files[0]);
+    }
+}
+
+// Auto-foco en campo específico desde hash en URL
+if (window.location.hash) {
+    const fieldMap = {
+        'email': 'email',
+        'telefono': 'telefono',
+        'direccion': 'direccion',
+        'accessPin': 'access_pin_input',
+        'pipelineStage': 'pipeline_stage_select',
+        'responsibleId': 'responsible-id-select',
+    };
+    const key = window.location.hash.slice(1);
+    const id = fieldMap[key];
+    if (id) {
+        const input = document.getElementById(id);
+        if (input) {
+            input.focus();
+            input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
     }
 }
 </script>

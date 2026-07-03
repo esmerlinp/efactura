@@ -1,0 +1,234 @@
+{% extends "layout.html" %}
+{% block title %}Smart Insights - {{ client.razonSocial }}{% endblock %}
+{% block page_header %}Smart Insights <span style="font-weight:400;font-size:0.75rem;opacity:0.6;vertical-align:middle;margin-left:8px;">Predictivo IA</span>{% endblock %}
+{% block content %}
+<style>
+  .insight-wrapper { max-width: 900px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+  .insight-card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 28px 32px; box-shadow: var(--shadow-sm); backdrop-filter: blur(20px); transition: box-shadow var(--transition-smooth); }
+  .insight-card:hover { box-shadow: var(--shadow-md); }
+  .insight-card-header { display: flex; align-items: center; gap: 10px; font-family: var(--font-heading); font-weight: 700; font-size: 0.95rem; color: var(--text-primary); margin-bottom: 16px; letter-spacing: -0.01em; }
+  .risk-gauge-outer { width: 100px; height: 100px; border-radius: 50%; position: relative; flex-shrink: 0; }
+  .risk-gauge-bg { width: 100px; height: 100px; border-radius: 50%; background: rgba(0,0,0,0.04); position: absolute; }
+  .risk-gauge-fill { width: 100px; height: 100px; border-radius: 50%; position: absolute; clip: rect(0,100px,100px,50px); }
+  .risk-gauge-inner { width: 80px; height: 80px; border-radius: 50%; background: var(--bg-card); position: absolute; top: 10px; left: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 2; backdrop-filter: blur(4px); }
+  .risk-score-text { font-size: 1.4rem; font-weight: 800; line-height: 1; }
+  .risk-label-text { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.08em; opacity: 0.7; }
+  .metric-chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: var(--radius-sm); background: rgba(30, 58, 138, 0.04); font-size: 0.78rem; font-weight: 500; color: var(--text-secondary); border: 1px solid rgba(30, 58, 138, 0.06); }
+  .priority-badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 10px; border-radius: 20px; font-size: 0.68rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+  .p-high { background: rgba(220,38,38,0.1); color: #dc2626; }
+  .p-medium { background: rgba(245,158,11,0.1); color: #d97706; }
+  .p-low { background: rgba(22,163,74,0.1); color: #16a34a; }
+  .offer-card { background: rgba(30,58,138,0.02); border: 1px solid rgba(30,58,138,0.06); border-radius: var(--radius-sm); padding: 16px 20px; transition: all var(--transition-fast); }
+  .offer-card:hover { background: rgba(30,58,138,0.04); border-color: rgba(30,58,138,0.12); }
+  .campaign-item { padding: 12px 0; border-bottom: 1px solid var(--border-color); display: flex; gap: 14px; align-items: flex-start; }
+  .campaign-item:last-child { border-bottom: none; }
+  .campaign-icon-wrap { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 0.85rem; }
+  .step-num { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 0.75rem; font-weight: 700; border: 1.5px solid; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .error-state { text-align: center; padding: 40px 20px; }
+  .error-state i { font-size: 2rem; color: var(--accent-yellow); margin-bottom: 12px; }
+  .back-link { display: inline-flex; align-items: center; gap: 6px; font-size: 0.82rem; color: var(--text-secondary); text-decoration: none; padding: 6px 0; transition: color var(--transition-fast); }
+  .back-link:hover { color: var(--text-primary); }
+  @media (max-width: 700px) { .grid-2 { grid-template-columns: 1fr; } .grid-4 { grid-template-columns: repeat(2, 1fr); } .insight-card { padding: 20px; } }
+</style>
+
+<div class="insight-wrapper">
+
+  <a href="{{ url_for('web_clients.client_detail', client_id=client.id) }}" class="back-link">
+    <i class="fa-solid fa-arrow-left"></i> Volver a Ficha del Cliente
+  </a>
+
+  {% if not strategy.success %}
+  <div class="insight-card">
+    <div class="error-state">
+      <i class="fa-solid fa-circle-exclamation"></i>
+      <h3 style="font-size:1rem;font-family:var(--font-heading);font-weight:700;margin:0 0 8px;color:var(--text-primary);">Análisis no disponible</h3>
+      <p style="font-size:0.85rem;color:var(--text-secondary);margin:0;">{{ strategy.message }}</p>
+      {% if 'API Key' in strategy.message %}
+      <p style="font-size:0.8rem;color:var(--text-muted);margin-top:12px;">Configure su clave de OpenAI en <strong>Ajustes del Sistema → OpenAI API Key</strong> o en la <strong>Ficha de la Empresa</strong>.</p>
+      {% endif %}
+      <a href="{{ url_for('web_clients.client_detail', client_id=client.id) }}" class="btn btn-secondary" style="display:inline-flex;align-items:center;gap:6px;margin-top:16px;padding:8px 20px;font-size:0.82rem;">
+        <i class="fa-solid fa-arrow-left"></i> Volver
+      </a>
+    </div>
+  </div>
+
+  {% else %}
+
+  <!-- ─── RIESGO ─── -->
+  <div class="insight-card" style="display:flex;align-items:center;gap:24px;flex-wrap:wrap;">
+    <div class="risk-gauge-outer">
+      <div class="risk-gauge-bg"></div>
+      <svg width="100" height="100" style="position:absolute;transform:rotate(-90deg);" id="risk-gauge-svg">
+        <circle cx="50" cy="50" r="44" fill="none" stroke="rgba(0,0,0,0.04)" stroke-width="8"/>
+        <circle id="risk-arc" cx="50" cy="50" r="44" fill="none" stroke-width="8" stroke-linecap="round" stroke-dasharray="276.46" stroke-dashoffset="276.46"/>
+      </svg>
+      <div class="risk-gauge-inner">
+        <span class="risk-score-text" id="risk-score-text">{{ strategy.riskScore }}</span>
+        <span class="risk-label-text">/ 100</span>
+      </div>
+    </div>
+    <div style="flex:1;min-width:200px;">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px;">
+        <span id="risk-level-badge" data-risk="{{ strategy.riskLevel }}" style="display:inline-flex;align-items:center;gap:4px;padding:4px 14px;border-radius:20px;font-size:0.82rem;font-weight:700;
+          {% if strategy.riskLevel == 'Alto' %}background:rgba(220,38,38,0.12);color:#dc2626;
+          {% elif strategy.riskLevel == 'Medio' %}background:rgba(245,158,11,0.12);color:#d97706;
+          {% else %}background:rgba(22,163,74,0.12);color:#16a34a;{% endif %}">
+          <i class="fa-solid {% if strategy.riskLevel == 'Alto' %}fa-circle-exclamation{% elif strategy.riskLevel == 'Medio' %}fa-triangle-exclamation{% else %}fa-circle-check{% endif %}"></i>
+          Riesgo {{ strategy.riskLevel }}
+        </span>
+        <span style="font-size:0.8rem;color:var(--text-muted);">{{ client.razonSocial }}</span>
+      </div>
+      <p style="font-size:0.85rem;color:var(--text-secondary);line-height:1.5;margin:0;">{{ strategy.riskJustification }}</p>
+    </div>
+  </div>
+
+  <!-- ─── RESUMEN EJECUTIVO ─── -->
+  <div class="insight-card">
+    <div class="insight-card-header">
+      <i class="fa-solid fa-file-lines" style="color:var(--accent-emerald);"></i> Resumen Ejecutivo
+    </div>
+    <p style="font-size:0.88rem;color:var(--text-secondary);line-height:1.7;margin:0;">{{ strategy.executiveSummary }}</p>
+  </div>
+
+  <!-- ─── SALUD DEL CLIENTE ─── -->
+  <div class="grid-4">
+    <div class="insight-card" style="padding:16px 18px;text-align:center;">
+      <div style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);margin-bottom:6px;">Total Facturado</div>
+      <div style="font-size:1.1rem;font-weight:700;color:var(--text-primary);">RD$ {{ strategy.clientHealth.totalSpent | default(0) | round }}</div>
+    </div>
+    <div class="insight-card" style="padding:16px 18px;text-align:center;">
+      <div style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);margin-bottom:6px;">Deuda Pendiente</div>
+      <div style="font-size:1.1rem;font-weight:700;color:var(--text-primary);">RD$ {{ strategy.clientHealth.outstandingDebt | default(0) | round }}</div>
+    </div>
+    <div class="insight-card" style="padding:16px 18px;text-align:center;">
+      <div style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);margin-bottom:6px;">Última Compra</div>
+      <div style="font-size:1.1rem;font-weight:700;color:var(--text-primary);">{{ strategy.clientHealth.lastPurchaseDays | default('-') }} días</div>
+    </div>
+    <div class="insight-card" style="padding:16px 18px;text-align:center;">
+      <div style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);margin-bottom:6px;">Antigüedad</div>
+      <div style="font-size:1.1rem;font-weight:700;color:var(--text-primary);">{{ strategy.clientHealth.daysActive | default('-') }} días</div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="insight-card" style="padding:16px 18px;">
+      <div style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);margin-bottom:8px;">Frecuencia de Compra</div>
+      <div style="font-size:0.88rem;font-weight:600;color:var(--text-primary);">{{ strategy.clientHealth.purchaseFrequency }}</div>
+    </div>
+    <div class="insight-card" style="padding:16px 18px;">
+      <div style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);margin-bottom:8px;">Comportamiento de Pago</div>
+      <div style="font-size:0.88rem;font-weight:600;color:var(--text-primary);">{{ strategy.clientHealth.paymentPunctuality }}</div>
+    </div>
+  </div>
+
+  {% if strategy.mitigationSteps %}
+  <!-- ─── PASOS DE MITIGACIÓN ─── -->
+  <div class="insight-card">
+    <div class="insight-card-header">
+      <i class="fa-solid fa-list-check" style="color:var(--accent-purple);"></i> Pasos de Mitigación
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      {% for step in strategy.mitigationSteps %}
+      <div style="display:flex;align-items:flex-start;gap:14px;">
+        <div class="step-num" style="border-color:{% if step.priority == 'Alta' %}#dc2626{% elif step.priority == 'Media' %}#d97706{% else %}#16a34a{% endif %};color:{% if step.priority == 'Alta' %}#dc2626{% elif step.priority == 'Media' %}#d97706{% else %}#16a34a{% endif %};">
+          {{ loop.index }}
+        </div>
+        <div style="flex:1;">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:2px;">
+            <span style="font-size:0.85rem;font-weight:600;color:var(--text-primary);">{{ step.step }}</span>
+            <span class="priority-badge {% if step.priority == 'Alta' %}p-high{% elif step.priority == 'Media' %}p-medium{% else %}p-low{% endif %}">
+              <i class="fa-solid fa-flag"></i> {{ step.priority }}
+            </span>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% if strategy.productOffers %}
+  <!-- ─── OFERTAS RECOMENDADAS ─── -->
+  <div class="insight-card">
+    <div class="insight-card-header">
+      <i class="fa-solid fa-tag" style="color:var(--accent-emerald);"></i> Ofertas Personalizadas
+    </div>
+    <div class="grid-2">
+      {% for offer in strategy.productOffers %}
+      <div class="offer-card">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">
+          <div>
+            <div style="font-size:0.88rem;font-weight:700;color:var(--text-primary);margin-bottom:4px;">{{ offer.productName }}</div>
+            <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:6px;">Precio actual: RD$ {{ offer.currentPrice | round }}</div>
+            <p style="font-size:0.78rem;color:var(--text-secondary);line-height:1.4;margin:0;">{{ offer.reason }}</p>
+          </div>
+          <div style="flex-shrink:0;background:rgba(22,163,74,0.1);color:#16a34a;padding:4px 12px;border-radius:20px;font-size:0.85rem;font-weight:800;white-space:nowrap;">
+            -{{ offer.suggestedDiscount }}%
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% if strategy.campaignSuggestions %}
+  <!-- ─── CAMPAÑAS SUGERIDAS ─── -->
+  <div class="insight-card">
+    <div class="insight-card-header">
+      <i class="fa-solid fa-bullhorn" style="color:var(--accent-yellow);"></i> Campañas Sugeridas
+    </div>
+    <div>
+      {% for camp in strategy.campaignSuggestions %}
+      <div class="campaign-item">
+        <div class="campaign-icon-wrap" style="background:{% if camp.type == 'Email' %}rgba(30,58,138,0.1);color:var(--accent-emerald);{% elif camp.type == 'Call' %}rgba(22,163,74,0.1);color:#16a34a;{% elif camp.type == 'WhatsApp' %}rgba(22,163,74,0.1);color:#16a34a;{% else %}rgba(245,158,11,0.1);color:#d97706;{% endif %}">
+          <i class="fa-solid {% if camp.type == 'Email' %}fa-envelope{% elif camp.type == 'Call' %}fa-phone{% elif camp.type == 'WhatsApp' %}fa-whatsapp{% else %}fa-comment{% endif %}"></i>
+        </div>
+        <div style="flex:1;">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:2px;">
+            <span style="font-size:0.82rem;font-weight:600;color:var(--text-primary);">{{ camp.type }}</span>
+            <span style="font-size:0.7rem;color:var(--text-muted);">{{ camp.timing }}</span>
+          </div>
+          <p style="font-size:0.82rem;color:var(--text-secondary);line-height:1.4;margin:4px 0 0;">{{ camp.message }}</p>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- ─── FOOTER ─── -->
+  <div style="text-align:center;padding:12px 0 24px;">
+    <span style="font-size:0.7rem;color:var(--text-muted);">
+      <i class="fa-solid fa-robot" style="margin-right:4px;"></i>
+      Análisis generado por inteligencia artificial
+    </span>
+  </div>
+
+  {% endif %}
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  var score = parseInt(document.getElementById('risk-score-text')?.textContent) || 50;
+  var badge = document.getElementById('risk-level-badge');
+  if (!badge) return;
+  var level = badge.dataset.risk;
+  var color;
+  if (level === 'Alto') color = '#dc2626';
+  else if (level === 'Medio') color = '#d97706';
+  else color = '#16a34a';
+  var arc = document.getElementById('risk-arc');
+  if (arc) {
+    var r = 44;
+    var c = 2 * Math.PI * r;
+    var offset = c - (score / 100) * c;
+    arc.style.strokeDasharray = c;
+    arc.style.strokeDashoffset = offset;
+    arc.style.stroke = color;
+  }
+});
+</script>
+{% endblock %}

@@ -354,8 +354,7 @@ body.sandbox-mode .sidebar-logo span.logo-title {
 }
 
 .nav-item.active a {
-    /* Indicador minimalista (Mismo color que el fondo general) */
-    background-color: var(--bg-main);
+    background-color: var(--bg-nav-hover);
     color: var(--text-primary);
     font-weight: 500;
 }
@@ -363,6 +362,78 @@ body.sandbox-mode .sidebar-logo span.logo-title {
 .nav-item.active a i {
     color: var(--text-primary);
     opacity: 1;
+}
+
+/* --- Accesos Rápidos (Pines) --- */
+.pin-btn {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    opacity: 0;
+    transition: opacity 0.2s;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    padding: 4px;
+    z-index: 2;
+    line-height: 1;
+}
+.nav-item:hover .pin-btn {
+    opacity: 1;
+}
+.pin-btn:hover,
+.pin-btn.pinned {
+    color: var(--accent-emerald);
+}
+.pin-btn.pinned {
+    opacity: 1;
+}
+
+.unpin-btn {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    opacity: 0;
+    transition: opacity 0.2s;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-muted);
+    font-size: 0.7rem;
+    padding: 2px;
+    z-index: 2;
+    line-height: 1;
+}
+#sidebar-section-quick .nav-item:hover .unpin-btn {
+    opacity: 1;
+}
+.unpin-btn:hover {
+    color: var(--danger);
+}
+
+#sidebar-section-quick {
+    margin-bottom: 8px;
+    padding-bottom: 8px;
+}
+#sidebar-section-quick.collapsed .sidebar-section-content {
+    max-height: none !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+}
+#sidebar-section-quick .sidebar-section-header .section-toggle-icon {
+    display: none;
+}
+
+.app-container.sidebar-collapsed #sidebar-section-quick {
+    display: none !important;
+}
+.app-container.sidebar-collapsed .pin-btn,
+.app-container.sidebar-collapsed .unpin-btn {
+    display: none !important;
 }
 
 .sidebar-footer {

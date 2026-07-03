@@ -177,6 +177,29 @@
 {% endif %}
 
 <!-- ═══════════════════════════════════════════════════════
+     SUGERENCIAS — DATOS FALTANTES DEL CLIENTE
+     ═══════════════════════════════════════════════════════ -->
+{% if missing_fields %}
+<div style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 10px; padding: 12px 16px; margin-bottom: 16px;">
+    <div style="display: flex; align-items: center; gap: 8px; font-size: 0.88rem; font-weight: 600; color: var(--text-primary); margin-bottom: 10px;">
+        <i class="fa-solid fa-circle-info" style="color: #3b82f6;"></i>
+        <span>Completar perfil del cliente</span>
+    </div>
+    <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+        {% for mf in missing_fields %}
+        <a href="{{ url_for('web_clients.edit_client', client_id=client.id) }}#{{ mf.field }}"
+           style="display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 99px; font-size: 0.75rem; font-weight: 500; border: 1px solid var(--border-color); color: var(--text-primary); text-decoration: none; transition: all 0.15s ease; background: rgba(255,255,255,0.02);"
+           onmouseover="this.style.borderColor='#3b82f6'; this.style.background='rgba(59,130,246,0.06)'; this.style.color='#3b82f6';"
+           onmouseout="this.style.borderColor=''; this.style.background=''; this.style.color='';">
+            <i class="fa-solid {{ mf.icon }}"></i>
+            {{ mf.label }}
+        </a>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<!-- ═══════════════════════════════════════════════════════
      PANEL DE PESTAÑAS — ANCHO COMPLETO (DEBAJO)
      ═══════════════════════════════════════════════════════ -->
 <div>

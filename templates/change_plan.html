@@ -1,0 +1,268 @@
+{% extends "layout.html" %}
+{% block title %}Cambiar Plan{% endblock %}
+{% block extra_head %}
+<style>
+.plan-comparison-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 24px;
+    margin-top: 24px;
+}
+.plan-card {
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    background: var(--bg-card);
+    overflow: hidden;
+    transition: all 0.3s ease;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+}
+.plan-card:hover:not(.plan-card-current) {
+    border-color: var(--accent-emerald);
+    box-shadow: 0 8px 32px rgba(16,185,129,0.12);
+    transform: translateY(-2px);
+}
+.plan-card-current {
+    border-color: var(--accent-emerald);
+    box-shadow: 0 0 0 2px var(--accent-emerald);
+}
+.plan-card-header {
+    padding: 24px 24px 16px;
+    text-align: center;
+    border-bottom: 1px solid var(--border-color);
+}
+.plan-card-header h2 {
+    font-size: 1.4rem;
+    font-weight: 800;
+    margin: 0 0 4px;
+    color: var(--text-primary);
+}
+.plan-card-header .price {
+    font-size: 2.2rem;
+    font-weight: 800;
+    color: var(--text-primary);
+    font-family: var(--font-heading);
+}
+.plan-card-header .price-period {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+.plan-card-body {
+    padding: 20px 24px;
+    flex: 1;
+}
+.plan-feature {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 0;
+    font-size: 0.88rem;
+    color: var(--text-primary);
+    border-bottom: 1px solid var(--border-color);
+}
+.plan-feature:last-child {
+    border-bottom: none;
+}
+.plan-feature i {
+    width: 18px;
+    text-align: center;
+    color: var(--accent-emerald);
+    font-size: 0.9rem;
+}
+.plan-feature .feature-label {
+    flex: 1;
+}
+.plan-feature .feature-value {
+    font-weight: 700;
+    text-align: right;
+}
+.plan-card-footer {
+    padding: 16px 24px 24px;
+    text-align: center;
+}
+.current-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 20px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    background: rgba(16,185,129,0.1);
+    color: var(--accent-emerald);
+    border: 1px solid rgba(16,185,129,0.25);
+}
+.module-badge {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    background: rgba(59,130,246,0.08);
+    color: #3b82f6;
+    margin: 2px 2px 0 0;
+}
+.module-badge.muted {
+    background: rgba(148,163,184,0.1);
+    color: var(--text-muted);
+    text-decoration: line-through;
+    opacity: 0.6;
+}
+.module-badges-wrap {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+    margin-top: 10px;
+}
+</style>
+{% endblock %}
+{% block page_header %}
+<div style="display:flex;flex-direction:column;gap:4px;margin-bottom:10px;">
+    <h1 style="font-size:1.6rem;font-weight:800;color:var(--text-primary);margin:0;font-family:var(--font-heading);display:flex;align-items:center;gap:10px;">
+        <i class="fa-solid fa-arrows-rotate" style="background:var(--brand-gradient);-webkit-background-clip:text;-webkit-text-fill-color:transparent;"></i>
+        Cambiar de Plan
+    </h1>
+    <span style="font-size:0.85rem;color:var(--text-muted);font-weight:500;">Selecciona el plan que mejor se adapte a tu negocio</span>
+</div>
+{% endblock %}
+{% block content %}
+<div class="subscription-container">
+    <div style="background:rgba(16,185,129,0.04);border:1px solid rgba(16,185,129,0.15);border-radius:var(--radius-md);padding:16px 20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+        <i class="fa-solid fa-circle-info" style="color:var(--accent-emerald);font-size:1.1rem;"></i>
+        <span style="font-size:0.88rem;color:var(--text-secondary);flex:1;">
+            Los cambios de plan se aplican de inmediato. Tu próximo corte incluirá un prorrateo proporcional entre tu plan anterior y el nuevo.
+        </span>
+    </div>
+    <div class="plan-comparison-grid">
+        {% for plan in plans %}
+        {% set is_current = plan.id == current_plan_id %}
+        {% set btn_disabled = is_current %}
+        <div class="plan-card {% if is_current %}plan-card-current{% endif %}" id="plan-card-{{ loop.index }}">
+            {% if is_current %}
+            <div style="position:absolute;top:12px;right:12px;">
+                <span class="badge badge-success" style="font-size:0.7rem;padding:3px 10px;">Plan Actual</span>
+            </div>
+            {% endif %}
+            <div class="plan-card-header">
+                <h2>{{ plan.name }}</h2>
+                <div class="price">${{ "%.0f"|format(plan.monthlyPrice|float) if plan.monthlyPrice == plan.monthlyPrice|int else "%.2f"|format(plan.monthlyPrice|float) }}</div>
+                <div class="price-period">USD / mes</div>
+                {% if plan.annual_discount_pct %}
+                <div style="font-size:0.75rem;color:var(--accent-emerald);font-weight:600;margin-top:4px;">{{ plan.annual_discount_pct }}% descuento anual</div>
+                {% endif %}
+            </div>
+            <div class="plan-card-body">
+                <div class="plan-feature">
+                    <i class="fa-solid fa-file-invoice"></i>
+                    <span class="feature-label">Documentos e-CF</span>
+                    <span class="feature-value">{% if plan.documentLimit > 0 %}{{ plan.documentLimit }} / mes{% else %}Ilimitados{% endif %}</span>
+                </div>
+                <div class="plan-feature">
+                    <i class="fa-solid fa-users"></i>
+                    <span class="feature-label">Usuarios</span>
+                    <span class="feature-value">{% if plan.userLimit > 0 %}{{ plan.userLimit }}{% else %}Ilimitados{% endif %}</span>
+                </div>
+                <div class="plan-feature">
+                    <i class="fa-solid fa-database"></i>
+                    <span class="feature-label">Almacenamiento</span>
+                    <span class="feature-value">{% if plan.storageLimitMB > 0 %}{{ plan.storageLimitMB }} MB{% else %}Ilimitado{% endif %}</span>
+                </div>
+                {% if plan.branchLimit is defined %}
+                <div class="plan-feature">
+                    <i class="fa-solid fa-code-branch"></i>
+                    <span class="feature-label">Sucursales</span>
+                    <span class="feature-value">{% if plan.branchLimit > 0 %}{{ plan.branchLimit }}{% else %}Ilimitadas{% endif %}</span>
+                </div>
+                {% endif %}
+                <div class="plan-feature">
+                    <i class="fa-solid fa-cubes"></i>
+                    <span class="feature-label">Módulos incluidos</span>
+                    <span class="feature-value" style="font-size:0.75rem;">{{ plan.modules|length if plan.modules else '—' }}</span>
+                </div>
+                {% set all_module_keys = ["e_cf","dashboard","catalogo","cotizaciones","crm","pos","inventario","cxc","cxp_compras","gastos","contratos","comisiones","reporte_606","api","multi_empresa","portal_cliente","ia_bi","auditoria","exportacion_contable","pasarela_azul"] %}
+                {% set plan_module_keys = plan.modules.keys()|list if plan.modules else [] %}
+                <div class="module-badges-wrap">
+                    {% for mod_key in all_module_keys %}
+                    {% set mod = plan.modules.get(mod_key) if plan.modules else None %}
+                    {% set enabled = mod.get('enabled', False) if mod else False %}
+                    {% set label = mod_key|replace('_', ' ')|title %}
+                    <span class="module-badge {% if not enabled %}muted{% endif %}">{{ label[:12] }}{% if label|length > 12 %}…{% endif %}</span>
+                    {% endfor %}
+                </div>
+                {% if not is_current %}
+                {% set blockers = [] %}
+                {% if plan.documentLimit is defined and plan.documentLimit > 0 and current_usage.docs > plan.documentLimit %}
+                    {% set _ = blockers.append('documentos') %}
+                {% endif %}
+                {% if plan.storageLimitMB is defined and plan.storageLimitMB > 0 and current_usage.storage > plan.storageLimitMB %}
+                    {% set _ = blockers.append('almacenamiento') %}
+                {% endif %}
+                {% if plan.userLimit is defined and plan.userLimit > 0 and current_usage.team > plan.userLimit %}
+                    {% set _ = blockers.append('usuarios') %}
+                {% endif %}
+                {% if plan.branchLimit is defined and plan.branchLimit > 0 and current_usage.branches > plan.branchLimit %}
+                    {% set _ = blockers.append('sucursales') %}
+                {% endif %}
+                {% if plan.boxLimit is defined and plan.boxLimit > 0 and current_usage.boxes > plan.boxLimit %}
+                    {% set _ = blockers.append('cajas') %}
+                {% endif %}
+                {% if blockers %}
+                <div style="background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.15);border-radius:var(--radius-sm);padding:10px 14px;margin-top:12px;font-size:0.78rem;color:var(--accent-red);display:flex;align-items:flex-start;gap:6px;">
+                    <i class="fa-solid fa-triangle-exclamation" style="margin-top:1px;flex-shrink:0;"></i>
+                    <span>Tu uso actual excede el límite de <strong>{{ blockers|join(', ') }}</strong> de este plan. Reduce tu consumo antes de cambiar.</span>
+                </div>
+                {% endif %}
+                {% endif %}
+            </div>
+            <div class="plan-card-footer">
+                {% if is_current %}
+                <span class="current-badge"><i class="fa-solid fa-check-circle"></i> Plan Actual</span>
+                {% else %}
+                <button type="button" class="btn btn-primary" style="width:100%;justify-content:center;font-weight:700;padding:12px;{% if blockers %}opacity:0.5;cursor:not-allowed;{% endif %}"
+                    {% if blockers %}disabled{% else %}onclick="openChangeConfirmModal('{{ plan.id }}', '{{ plan.name }}', '${{ "%.0f"|format(plan.monthlyPrice|float) if plan.monthlyPrice == plan.monthlyPrice|int else "%.2f"|format(plan.monthlyPrice|float) }}')"{% endif %}>
+                    <i class="fa-solid fa-arrow-right"></i> {% if blockers %}No disponible{% else %}Seleccionar {{ plan.name }}{% endif %}
+                </button>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+<div class="search-modal" id="change-plan-confirm-modal"
+    style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;z-index:9999;align-items:center;justify-content:center;">
+    <div class="modal-backdrop" onclick="closeChangeConfirmModal()" style="position:absolute;width:100%;height:100%;background:rgba(15,23,42,0.6);backdrop-filter:blur(8px);"></div>
+    <div class="modal-content" style="max-width:440px;width:calc(100% - 32px);background:var(--bg-card);border:1px solid var(--border-color);border-radius:var(--radius-md);padding:30px;position:relative;z-index:2;box-shadow:var(--shadow-lg);color:var(--text-primary);text-align:center;">
+        <div style="font-size:2.5rem;color:var(--accent-emerald);margin-bottom:12px;"><i class="fa-solid fa-arrows-rotate"></i></div>
+        <h3 style="font-size:1.1rem;font-family:var(--font-heading);color:var(--text-primary);font-weight:800;margin:0 0 8px;">Cambiar de Plan</h3>
+        <p style="font-size:0.88rem;color:var(--text-secondary);line-height:1.5;margin:12px 0 24px;">
+            ¿Estás seguro de que deseas cambiar al plan <strong id="confirm-plan-name" style="color:var(--text-primary);"></strong> por <strong id="confirm-plan-price"></strong>/mes?
+            <br><br>
+            <span style="font-size:0.82rem;color:var(--text-muted);">Los cambios aplican de inmediato. La facturación del ciclo actual se prorrateará entre el plan anterior y el nuevo.</span>
+        </p>
+        <form id="change-plan-form" method="POST" action="{{ url_for('web_invoices.change_plan_page') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="plan_id" id="confirm-plan-id" value="">
+            <div style="display:flex;gap:10px;">
+                <button type="button" onclick="closeChangeConfirmModal()" class="btn btn-secondary" style="flex:1;height:44px;justify-content:center;">
+                    <i class="fa-solid fa-xmark"></i> Cancelar
+                </button>
+                <button type="submit" class="btn btn-primary" style="flex:2;height:44px;justify-content:center;background:linear-gradient(135deg,var(--accent-emerald),#34d399);border:none;color:white;font-weight:700;">
+                    <i class="fa-solid fa-check"></i> Confirmar Cambio
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+<script>
+function openChangeConfirmModal(planId, planName, planPrice) {
+    document.getElementById('confirm-plan-id').value = planId;
+    document.getElementById('confirm-plan-name').textContent = planName;
+    document.getElementById('confirm-plan-price').textContent = planPrice;
+    document.getElementById('change-plan-confirm-modal').style.display = 'flex';
+}
+function closeChangeConfirmModal() {
+    document.getElementById('change-plan-confirm-modal').style.display = 'none';
+}
+</script>
+{% endblock %}

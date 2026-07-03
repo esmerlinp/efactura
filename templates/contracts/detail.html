@@ -5,14 +5,53 @@
 {% block page_header %}Detalle de Contrato Recurrente{% endblock %}
 
 {% block content %}
-<div style="display: grid; grid-template-columns: 3fr 1fr; gap: 30px; max-width: 1200px; margin: 0 auto;">
+<style>
+    .document-card-sheet {
+        position: relative;
+        transition: all var(--transition-smooth);
+    }
+    .document-card-sheet.contract-card {
+        background: linear-gradient(135deg, rgba(16, 185, 129, 0.04) 0%, var(--bg-card) 100%) !important;
+        border: 2px solid rgba(16, 185, 129, 0.25) !important;
+        box-shadow: var(--shadow-sm), 0 10px 30px rgba(16, 185, 129, 0.05) !important;
+    }
+    .document-card-sheet.contract-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 6px;
+        background: linear-gradient(90deg, #059669, #34d399);
+        z-index: 10;
+    }
+    [data-theme="dark"] .document-card-sheet.contract-card {
+        background: linear-gradient(135deg, rgba(52, 211, 153, 0.06) 0%, var(--bg-card) 100%) !important;
+        border: 2px solid rgba(52, 211, 153, 0.3) !important;
+        box-shadow: var(--shadow-md), 0 10px 35px rgba(52, 211, 153, 0.08) !important;
+    }
+    .detail-grid {
+        display: grid;
+        grid-template-columns: 3fr 1fr;
+        gap: 30px;
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+    @media screen and (max-width: 1024px) {
+        .detail-grid { grid-template-columns: 1fr; }
+    }
+</style>
+
+<div class="detail-grid">
+    <!-- ===== COLUMNA PRINCIPAL (3fr) ===== -->
     <div style="display: flex; flex-direction: column; gap: 30px;">
-        
+
         <!-- Tarjeta Principal del Contrato -->
-        <div class="card-table-wrapper" style="padding: 40px; position: relative; color: var(--text-primary);">
-            
+        <div class="card-table-wrapper document-card-sheet contract-card"
+             style="padding: 40px; position: relative; color: var(--text-primary); padding-top: 52px;">
+
             {% if session.get('is_sandbox_mode', True) %}
-            <div style="position: absolute; top: 0; right: 0; background-color: var(--accent-purple); color: white; padding: 6px 16px; border-bottom-left-radius: var(--radius-sm); font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">
+            <div style="position: absolute; top: 6px; right: 0; background-color: var(--accent-purple); color: white; padding: 6px 16px; border-bottom-left-radius: var(--radius-sm); font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; z-index: 11;">
                 Sandbox Mode
             </div>
             {% endif %}
@@ -21,14 +60,14 @@
             <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid var(--border-color); padding-bottom: 24px; margin-bottom: 24px;">
                 <div>
                     {% set s = contract.status %}
-                    <span style="font-size: 0.75rem; font-weight: 700; padding: 4px 12px; border-radius: 20px; margin-bottom: 10px; display: inline-block;
-                        {% if s == 'Activo' %}background: rgba(22,163,74,0.12); color: #16a34a;
-                        {% elif s == 'Borrador' %}background: rgba(100,116,139,0.12); color: #64748b;
-                        {% elif s == 'Pendiente de Aprobación' %}background: rgba(245,158,11,0.12); color: #d97706;
-                        {% elif s == 'Suspendido' %}background: rgba(249,115,22,0.12); color: #ea580c;
-                        {% elif s == 'Cancelado' %}background: rgba(220,38,38,0.12); color: #dc2626;
-                        {% elif s == 'Expirado' %}background: rgba(124,58,237,0.12); color: #7c3aed;
-                        {% else %}background: rgba(100,116,139,0.12); color: #64748b;{% endif %}">
+                    <span class="badge" style="font-size: 0.75rem; font-weight: 700; padding: 4px 14px; border-radius: 20px; margin-bottom: 10px; display: inline-block;
+                        {% if s == 'Activo' %}background: linear-gradient(135deg, #059669, #34d399); color: white;
+                        {% elif s == 'Borrador' %}background: linear-gradient(135deg, #64748b, #94a3b8); color: white;
+                        {% elif s == 'Pendiente de Aprobación' %}background: linear-gradient(135deg, #d97706, #f59e0b); color: white;
+                        {% elif s == 'Suspendido' %}background: linear-gradient(135deg, #ea580c, #f97316); color: white;
+                        {% elif s == 'Cancelado' %}background: linear-gradient(135deg, #dc2626, #ef4444); color: white;
+                        {% elif s == 'Expirado' %}background: linear-gradient(135deg, #7c3aed, #a78bfa); color: white;
+                        {% else %}background: linear-gradient(135deg, #64748b, #94a3b8); color: white;{% endif %}">
                         {{ s }}
                     </span>
                     <h2 style="font-size: 1.6rem; font-weight: 800; font-family: var(--font-heading); margin-bottom: 6px; color: var(--text-primary);">
@@ -38,12 +77,17 @@
                         Facturación: <strong>{{ contract.recurrenceInterval | capitalize }}</strong>
                         {% if contract.autoRenew %}
                         <span style="margin-left: 10px; font-size: 0.75rem; color: #16a34a; font-weight: 600;">
-                            <i class="fa-solid fa-rotate"></i> Renovación automática activa
+                            <i class="fa-solid fa-rotate"></i> Renovación automática
                         </span>
                         {% endif %}
                         {% if contract.autoSendEmail %}
                         <span style="margin-left: 10px; font-size: 0.75rem; color: var(--accent-emerald); font-weight: 600;">
-                            <i class="fa-solid fa-paper-plane"></i> Email automático activo
+                            <i class="fa-solid fa-paper-plane"></i> Email automático
+                        </span>
+                        {% endif %}
+                        {% if contract.version %}
+                        <span style="margin-left: 10px; font-size: 0.75rem; color: var(--text-muted); font-weight: 500;">
+                            <i class="fa-solid fa-code-branch"></i> v{{ contract.version }}
                         </span>
                         {% endif %}
                     </span>
@@ -77,7 +121,7 @@
                 </div>
             </div>
 
-            <!-- Líneas del Contrato (Fase 2) -->
+            <!-- Líneas del Contrato -->
             {% set lines = contract.contractLines if contract.contractLines is defined and contract.contractLines else [] %}
             {% if lines %}
             <div style="margin-bottom: 30px;">
@@ -128,7 +172,9 @@
 
             <!-- Notas del Contrato -->
             <div style="margin-bottom: 10px;">
-                <h4 style="font-size: 0.88rem; font-weight: 700; text-transform: uppercase; color: var(--text-secondary); margin-bottom: 8px;">Términos / Notas Comerciales</h4>
+                <h4 style="font-size: 0.88rem; font-weight: 700; text-transform: uppercase; color: var(--text-secondary); margin-bottom: 8px;">
+                    <i class="fa-solid fa-file-lines" style="color: var(--accent-emerald); margin-right: 6px;"></i>Términos / Notas Comerciales
+                </h4>
                 {% if contract.get('notes') %}
                 <p style="font-size: 0.9rem; line-height: 1.6; color: var(--text-secondary); background: rgba(0,0,0,0.015); border: 1px solid var(--border-color); padding: 16px; border-radius: var(--radius-sm); margin: 0; white-space: pre-wrap;">{{ contract.get('notes') }}</p>
                 {% else %}
@@ -142,7 +188,7 @@
             <h3 style="font-size: 1rem; font-weight: 700; font-family: var(--font-heading); margin-bottom: 20px; color: var(--text-primary); display: flex; align-items: center; gap: 10px;">
                 <i class="fa-solid fa-file-invoice" style="color: var(--accent-emerald);"></i>
                 Facturas Generadas desde este Contrato
-                <span style="background: rgba(30,58,138,0.1); color: var(--accent-emerald); font-size: 0.75rem; padding: 2px 10px; border-radius: 20px; font-weight: 700;">{{ contract_invoices|length }}</span>
+                <span style="background: rgba(16,185,129,0.12); color: var(--accent-emerald); font-size: 0.75rem; padding: 2px 10px; border-radius: 20px; font-weight: 700;">{{ contract_invoices|length }}</span>
             </h3>
             {% if contract_invoices %}
             <table style="width: 100%; border-collapse: collapse; font-size: 0.875rem;">
@@ -189,10 +235,304 @@
             {% endif %}
         </div>
 
-        {% set submit_url = "/contracts/" ~ contract.id ~ "/comments/new" %}
-        {% set edit_url_prefix = "/contracts/" ~ contract.id ~ "/comments" %}
-        {% set delete_url_prefix = "/contracts/" ~ contract.id ~ "/comments" %}
-        {% include 'components/_comments.html' %}
+        <!-- Tabs: Comentarios / Historial -->
+        <div style="display: flex; gap: 12px; border-bottom: 2px solid var(--border-color); padding-bottom: 6px;">
+            <button class="tab-btn active" id="btn-tab-comments" onclick="switchContractTab('comments')"
+                style="padding: 8px 16px; font-weight: 700; font-size: 0.88rem; border: none; background: transparent; color: var(--accent-emerald); cursor: pointer; border-bottom: 3px solid var(--accent-emerald); outline: none; transition: all 0.2s ease-in-out; display: flex; align-items: center; gap: 6px; margin-bottom: -8px;">
+                <i class="fa-solid fa-comments"></i>
+                <span>Comentarios y Notas Internas</span>
+            </button>
+            <button class="tab-btn" id="btn-tab-history" onclick="switchContractTab('history')"
+                style="padding: 8px 16px; font-weight: 700; font-size: 0.88rem; border: none; background: transparent; color: var(--text-secondary); cursor: pointer; border-bottom: 3px solid transparent; outline: none; transition: all 0.2s ease-in-out; display: flex; align-items: center; gap: 6px; margin-bottom: -8px;">
+                <i class="fa-solid fa-clock-rotate-left"></i>
+                <span>Historial de Cambios</span>
+            </button>
+        </div>
+
+        <!-- Tab: Comments -->
+        <div id="pane-tab-comments" class="tab-pane-content" style="display: block;">
+            {% set submit_url = "/contracts/" ~ contract.id ~ "/comments/new" %}
+            {% set edit_url_prefix = "/contracts/" ~ contract.id ~ "/comments" %}
+            {% set delete_url_prefix = "/contracts/" ~ contract.id ~ "/comments" %}
+            {% include 'components/_comments.html' %}
+        </div>
+
+        <!-- Tab: History -->
+        <div id="pane-tab-history" class="tab-pane-content" style="display: none;">
+            <div class="card-table-wrapper" style="margin-top: 0; padding: 20px; color: var(--text-primary); background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md);">
+                <h3 style="font-size: 1.05rem; font-family: var(--font-heading); font-weight: 700; display: flex; align-items: center; gap: 8px; margin-bottom: 16px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px;">
+                    <i class="fa-solid fa-clock-rotate-left" style="color: var(--accent-emerald);"></i>
+                    <span>Historial de Cambios y Auditoría</span>
+                </h3>
+                {% if history_logs %}
+                <div class="timeline-container" style="position: relative; padding-left: 28px; margin-top: 12px; margin-left: 8px;">
+                    <div style="position: absolute; left: 10px; top: 6px; bottom: 6px; width: 2px; background-color: var(--border-color);"></div>
+                    {% for log in history_logs %}
+                    <div class="timeline-item" style="position: relative; margin-bottom: 16px;">
+                        <div style="position: absolute; left: -28px; top: 2px; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; z-index: 2; font-size: 0.7rem;
+                            {% if log.action in ['CREATE'] %}
+                                background-color: rgba(16, 185, 129, 0.15); color: #10b981; border: 1.5px solid #10b981;
+                            {% elif log.action in ['UPDATE'] %}
+                                background-color: rgba(59, 130, 246, 0.15); color: #3b82f6; border: 1.5px solid #3b82f6;
+                            {% elif log.action in ['SEND_EMAIL'] %}
+                                background-color: rgba(245, 158, 11, 0.15); color: #d97706; border: 1.5px solid #d97706;
+                            {% elif log.action in ['SIGN'] %}
+                                background-color: rgba(139, 92, 246, 0.15); color: #8b5cf6; border: 1.5px solid #8b5cf6;
+                            {% elif log.action in ['REJECT'] %}
+                                background-color: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1.5px solid #ef4444;
+                            {% else %}
+                                background-color: rgba(100, 116, 139, 0.15); color: #64748b; border: 1.5px solid #64748b;
+                            {% endif %}
+                        ">
+                            {% if log.action in ['CREATE'] %}
+                                <i class="fa-solid fa-plus"></i>
+                            {% elif log.action in ['UPDATE'] %}
+                                <i class="fa-solid fa-pen"></i>
+                            {% elif log.action in ['SEND_EMAIL'] %}
+                                <i class="fa-solid fa-paper-plane"></i>
+                            {% elif log.action in ['SIGN'] %}
+                                <i class="fa-solid fa-signature"></i>
+                            {% elif log.action in ['REJECT'] %}
+                                <i class="fa-solid fa-circle-xmark"></i>
+                            {% else %}
+                                <i class="fa-solid fa-info"></i>
+                            {% endif %}
+                        </div>
+                        <div style="background: rgba(0, 0, 0, 0.01); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 12px; margin-left: 8px;">
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 6px; margin-bottom: 6px;">
+                                <div>
+                                    <strong style="font-size: 0.88rem; color: var(--text-primary);">{{ log.entityLabel }}</strong>
+                                    <div style="font-size: 0.78rem; color: var(--text-secondary); margin-top: 2px;">
+                                        Por: <strong>{{ log.performedBy }}</strong> ({{ log.performedByEmail }})
+                                    </div>
+                                </div>
+                                <div style="font-size: 0.78rem; color: var(--text-muted); font-weight: 500; white-space: nowrap;">
+                                    {{ log.timestamp[:10] }}{% if log.timestamp|length > 10 %} {{ log.timestamp[11:16] }}{% endif %}
+                                </div>
+                            </div>
+                            {% if log.before and log.after %}
+                                {% set status_before = log.before.get('status') %}
+                                {% set status_after = log.after.get('status') %}
+                                {% if status_before and status_after and status_before != status_after %}
+                                <div style="margin-top: 6px; display: flex; align-items: center; gap: 6px; font-size: 0.78rem;">
+                                    <span style="font-weight: 600; color: var(--text-secondary);">Cambio de estado:</span>
+                                    <span style="background: rgba(0, 0, 0, 0.04); padding: 1px 6px; border-radius: 4px; color: var(--text-muted);">{{ status_before }}</span>
+                                    <i class="fa-solid fa-arrow-right" style="font-size: 0.72rem; color: var(--text-muted);"></i>
+                                    <span style="background: rgba(16, 185, 129, 0.1); padding: 1px 6px; border-radius: 4px; color: var(--accent-emerald); font-weight: 600;">{{ status_after }}</span>
+                                </div>
+                                {% endif %}
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div style="text-align: center; padding: 30px 20px; color: var(--text-secondary);">
+                    <i class="fa-solid fa-timeline" style="font-size: 1.5rem; color: var(--text-muted); margin-bottom: 8px; display: block;"></i>
+                    <p style="margin: 0; font-size: 0.85rem;">No hay registros en el historial de este contrato.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ===== SIDEBAR (1fr) ===== -->
+    <div style="display: flex; flex-direction: column; gap: 24px;">
+
+        <!-- Panel: Estado del Contrato -->
+        <div class="card-table-wrapper" style="padding: 24px; text-align: center;">
+            {% set s = contract.status %}
+            <div style="font-size: 2.2rem; margin-bottom: 8px;
+                {% if s == 'Activo' %}color: #10b981;
+                {% elif s == 'Borrador' %}color: #64748b;
+                {% elif s == 'Pendiente de Aprobación' %}color: #f59e0b;
+                {% elif s == 'Suspendido' %}color: #f97316;
+                {% elif s == 'Cancelado' %}color: #ef4444;
+                {% elif s == 'Expirado' %}color: #8b5cf6;
+                {% else %}color: #64748b;{% endif %}">
+                {% if s == 'Activo' %}<i class="fa-solid fa-circle-check"></i>
+                {% elif s == 'Borrador' %}<i class="fa-solid fa-file-pen"></i>
+                {% elif s == 'Pendiente de Aprobación' %}<i class="fa-solid fa-hourglass-half"></i>
+                {% elif s == 'Suspendido' %}<i class="fa-solid fa-pause-circle"></i>
+                {% elif s == 'Cancelado' %}<i class="fa-solid fa-ban"></i>
+                {% elif s == 'Expirado' %}<i class="fa-solid fa-calendar-xmark"></i>
+                {% else %}<i class="fa-solid fa-circle-question"></i>{% endif %}
+            </div>
+            <div style="font-size: 0.9rem; font-weight: 700; color: var(--text-primary); margin-bottom: 4px;">
+                {% if s == 'Activo' %}Contrato Activo
+                {% elif s == 'Borrador' %}Contrato en Borrador
+                {% elif s == 'Pendiente de Aprobación' %}Pendiente de Aprobación
+                {% elif s == 'Suspendido' %}Contrato Suspendido
+                {% elif s == 'Cancelado' %}Contrato Cancelado
+                {% elif s == 'Expirado' %}Contrato Expirado
+                {% else %}{{ s }}{% endif %}
+            </div>
+            <div style="font-size: 0.78rem; color: var(--text-muted);">
+                {% if s == 'Activo' %}
+                Generando facturas cada <strong style="color: var(--text-secondary);">{{ contract.recurrenceInterval }}</strong>
+                {% elif s == 'Borrador' %}
+                Completa la configuración y actívalo para iniciar la facturación
+                {% elif s == 'Pendiente de Aprobación' %}
+                Esperando aprobación final para activar
+                {% elif s == 'Suspendido' %}
+                Facturación pausada. Reactívalo para continuar
+                {% elif s == 'Cancelado' %}
+                Facturación detenida definitivamente
+                {% elif s == 'Expirado' %}
+                El período de vigencia ha finalizado
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Panel: Generar Factura (solo si activo) -->
+        {% if s == 'Activo' %}
+        <div class="card-table-wrapper" style="padding: 24px;">
+            <div style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 12px;">
+                <i class="fa-solid fa-calendar-check" style="color: var(--accent-emerald); margin-right: 6px;"></i>
+                Próxima factura programada:
+            </div>
+            <div style="font-size: 1.2rem; font-weight: 700; color: var(--accent-emerald); font-family: var(--font-heading); text-align: center; margin-bottom: 16px;">
+                {{ contract.nextBillingDate }}
+            </div>
+            <form action="{{ url_for('web_operations.trigger_contract_billing', contract_id=contract.id) }}" method="POST" style="margin: 0;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-primary"
+                    style="width: 100%; padding: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 8px;"
+                    onclick="return confirm('¿Emitir factura ahora para este contrato? Se generará un comprobante fiscal electrónico (e-CF).');">
+                    <i class="fa-solid fa-bolt"></i>
+                    Emitir Factura Ahora
+                </button>
+            </form>
+        </div>
+        {% endif %}
+
+        <!-- Panel: Acciones -->
+        <div class="card-table-wrapper" style="padding: 20px; display: flex; flex-direction: column; gap: 10px;">
+            <div style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 4px;">
+                <i class="fa-solid fa-sliders"></i> Acciones
+            </div>
+
+            <!-- Cambiar estado -->
+            <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                {% if s == 'Activo' %}
+                <button class="btn btn-secondary" style="flex:1; padding: 8px; font-size: 0.78rem; display: flex; align-items: center; justify-content: center; gap: 4px;"
+                    onclick="confirmStatusChange('{{ contract.id }}', 'Suspendido')">
+                    <i class="fa-solid fa-pause"></i> Suspender
+                </button>
+                <button class="btn btn-secondary" style="flex:1; padding: 8px; font-size: 0.78rem; display: flex; align-items: center; justify-content: center; gap: 4px; color: var(--accent-red);"
+                    onclick="confirmStatusChange('{{ contract.id }}', 'Cancelado')">
+                    <i class="fa-solid fa-ban"></i> Cancelar
+                </button>
+                {% elif s == 'Suspendido' %}
+                <button class="btn btn-primary" style="flex:1; padding: 8px; font-size: 0.78rem; display: flex; align-items: center; justify-content: center; gap: 4px;"
+                    onclick="confirmStatusChange('{{ contract.id }}', 'Activo')">
+                    <i class="fa-solid fa-play"></i> Reactivar
+                </button>
+                <button class="btn btn-secondary" style="flex:1; padding: 8px; font-size: 0.78rem; display: flex; align-items: center; justify-content: center; gap: 4px; color: var(--accent-red);"
+                    onclick="confirmStatusChange('{{ contract.id }}', 'Cancelado')">
+                    <i class="fa-solid fa-ban"></i> Cancelar
+                </button>
+                {% elif s == 'Borrador' or s == 'Pendiente de Aprobación' %}
+                <button class="btn btn-primary" style="flex:1; padding: 8px; font-size: 0.78rem; display: flex; align-items: center; justify-content: center; gap: 4px;"
+                    onclick="confirmStatusChange('{{ contract.id }}', 'Activo')">
+                    <i class="fa-solid fa-play"></i> Activar
+                </button>
+                {% endif %}
+            </div>
+
+            <hr style="border: none; border-top: 1px solid var(--border-color); margin: 6px 0;">
+
+            <!-- Administrar -->
+            <a href="{{ url_for('web_operations.list_contracts') }}" class="btn btn-secondary"
+                style="padding: 10px; font-size: 0.82rem; display: flex; align-items: center; gap: 8px; text-decoration: none;">
+                <i class="fa-solid fa-gear"></i> Administrar Contratos
+            </a>
+
+            <!-- Botón de correo (si hay email) -->
+            {% if client_email %}
+            <a href="mailto:{{ client_email }}?subject=Contrato%20{{ contract.contractNumber }}" class="btn btn-secondary"
+                style="padding: 10px; font-size: 0.82rem; display: flex; align-items: center; gap: 8px; text-decoration: none;">
+                <i class="fa-solid fa-envelope"></i> Enviar al Cliente
+            </a>
+            {% endif %}
+
+            <!-- Volver al listado -->
+            <a href="{{ url_for('web_operations.list_contracts') }}" class="btn btn-secondary"
+                style="padding: 10px; font-size: 0.82rem; display: flex; align-items: center; gap: 8px; text-decoration: none;">
+                <i class="fa-solid fa-arrow-left"></i> Volver a Contratos
+            </a>
+        </div>
+
+        <!-- Panel: Información del Contrato -->
+        <div class="card-table-wrapper" style="padding: 20px;">
+            <div style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 12px;">
+                <i class="fa-solid fa-circle-info"></i> Información
+            </div>
+            <div style="font-size: 0.82rem; color: var(--text-secondary); display: flex; flex-direction: column; gap: 8px;">
+                <div style="display: flex; justify-content: space-between;">
+                    <span>Versión:</span>
+                    <strong style="color: var(--text-primary);">v{{ contract.version or 1 }}</strong>
+                </div>
+                <div style="display: flex; justify-content: space-between;">
+                    <span>Creado:</span>
+                    <strong style="color: var(--text-primary);">{{ contract.createdAt[:10] if contract.createdAt else '-' }}</strong>
+                </div>
+                <div style="display: flex; justify-content: space-between;">
+                    <span>Actualizado:</span>
+                    <strong style="color: var(--text-primary);">{{ contract.updatedAt[:10] if contract.updatedAt else '-' }}</strong>
+                </div>
+                <div style="display: flex; justify-content: space-between;">
+                    <span>Facturas generadas:</span>
+                    <strong style="color: var(--accent-emerald);">{{ contract_invoices|length }}</strong>
+                </div>
+                {% if contract.get('proratedFirstAmount') %}
+                <div style="display: flex; justify-content: space-between; color: var(--accent-purple);">
+                    <span>Primer cobro prorrateado:</span>
+                    <strong>RD$ {{ "{:,.2f}".format(contract.proratedFirstAmount) }}</strong>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
     </div>
 </div>
+
+<script>
+function switchContractTab(tabName) {
+    document.getElementById('pane-tab-comments').style.display = 'none';
+    document.getElementById('pane-tab-history').style.display = 'none';
+    const btnComments = document.getElementById('btn-tab-comments');
+    const btnHistory = document.getElementById('btn-tab-history');
+    [btnComments, btnHistory].forEach(b => {
+        b.style.color = 'var(--text-secondary)';
+        b.style.borderBottomColor = 'transparent';
+    });
+    if (tabName === 'comments') {
+        document.getElementById('pane-tab-comments').style.display = 'block';
+        btnComments.style.color = 'var(--accent-emerald)';
+        btnComments.style.borderBottomColor = 'var(--accent-emerald)';
+    } else {
+        document.getElementById('pane-tab-history').style.display = 'block';
+        btnHistory.style.color = 'var(--accent-emerald)';
+        btnHistory.style.borderBottomColor = 'var(--accent-emerald)';
+    }
+}
+
+function confirmStatusChange(contractId, newStatus) {
+    const labels = { 'Activo': 'Activar', 'Suspendido': 'Suspender', 'Cancelado': 'Cancelar' };
+    if (!confirm('¿Estás seguro de que deseas ' + (labels[newStatus] || newStatus) + ' este contrato?')) return;
+    fetch('/operations/contracts/' + contractId + '/status', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': document.querySelector('input[name="csrf_token"]')?.value},
+        body: JSON.stringify({status: newStatus})
+    })
+    .then(r => r.json())
+    .then(d => {
+        if (d.success) { location.reload(); }
+        else { alert('Error: ' + (d.error || 'No se pudo cambiar el estado.')); }
+    })
+    .catch(e => alert('Error de conexión: ' + e.message));
+}
+</script>
 {% endblock %}

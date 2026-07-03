@@ -282,8 +282,15 @@
         <!-- Sección 6: Notas -->
         <div class="section-card">
             <div class="section-title"><i class="fa-solid fa-file-lines"></i> Términos y Notas Comerciales</div>
-            <textarea id="notes" name="notes" class="field-input" rows="4"
-                placeholder="Ej: Iguala mensual de soporte técnico. Incluye: respuesta en menos de 4 horas, actualizaciones de software y backup semanal..."></textarea>
+            <div style="display:flex;gap:12px;flex-direction:column;">
+                <textarea id="notes" name="notes" class="field-input" rows="4"
+                    placeholder="Ej: Iguala mensual de soporte técnico. Incluye: respuesta en menos de 4 horas, actualizaciones de software y backup semanal..."></textarea>
+                <button type="button" id="btn-ai-terms" style="display:inline-flex;align-items:center;gap:8px;padding:10px 20px;border:1px solid rgba(124,58,237,0.3);border-radius:var(--radius-sm);background:rgba(124,58,237,0.06);color:var(--accent-purple);font-size:0.85rem;font-weight:600;cursor:pointer;transition:all 0.15s;align-self:flex-end;"
+                    onmouseover="this.style.borderColor='var(--accent-purple)';this.style.background='rgba(124,58,237,0.12)';"
+                    onmouseout="this.style.borderColor='rgba(124,58,237,0.3)';this.style.background='rgba(124,58,237,0.06)';">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i> Mejorar términos con IA
+                </button>
+            </div>
         </div>
 
         <!-- Sección 7: Automatizaciones -->
@@ -541,6 +548,54 @@ document.getElementById('contract-form').addEventListener('submit', function(e) 
         e.preventDefault();
         alert('Todas las líneas deben tener un ítem del catálogo seleccionado.');
         return;
+    }
+});
+
+// ─── AI Terms Generator ──────────────────────────────────────────────────────
+document.getElementById('btn-ai-terms').addEventListener('click', async function() {
+    const lines = document.querySelectorAll('.line-row');
+    let description = '';
+    lines.forEach(row => {
+        const idx = row.dataset.idx;
+        const name = document.getElementById(`lineName_${idx}`)?.value || '';
+        const qty = document.getElementById(`lineQty_${idx}`)?.value || '';
+        if (name) description += `- ${qty}x ${name}\n`;
+    });
+    if (!description) {
+        description = document.getElementById('notes').value.trim();
+    }
+    if (!description) {
+        description = prompt('Describe brevemente el servicio a contratar para que la IA genere los términos:');
+        if (!description) return;
+    }
+
+    const btn = this;
+    const originalHtml = btn.innerHTML;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Generando...';
+    btn.disabled = true;
+
+    try {
+        const csrf = document.querySelector('input[name="csrf_token"]')?.value;
+        const resp = await fetch('/operations/contracts/ai-terms', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrf},
+            body: JSON.stringify({description})
+        });
+        const result = await resp.json();
+        if (result.success) {
+            const terms = result.data.terms || '';
+            const obs = result.data.observations || '';
+            let full = terms;
+            if (obs) full += '\n\n---\n' + obs;
+            document.getElementById('notes').value = full;
+        } else {
+            alert('Error: ' + (result.error || 'No se pudieron generar los términos.'));
+        }
+    } catch (err) {
+        alert('Error de conexión: ' + err.message);
+    } finally {
+        btn.innerHTML = originalHtml;
+        btn.disabled = false;
     }
 });
 

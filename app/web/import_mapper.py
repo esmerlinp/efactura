@@ -250,8 +250,15 @@ def process_import():
         if key.startswith('map_') and value:
             field_id = key.replace('map_', '')
             mapping[field_id] = int(value)
-            
-    count = 0
+
+    results = {
+        "import_type": import_type,
+        "total": 0,
+        "imported": 0,
+        "skipped": 0,
+        "errors": [],
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
     try:
         with open(temp_path, 'r', encoding='utf-8-sig', errors='ignore') as f:
             first_line = f.readline()
@@ -261,9 +268,10 @@ def process_import():
             reader = csv.reader(f, delimiter=delimiter)
             next(reader, None) # Saltar cabecera
             
-            for row in reader:
+            for row_index, row in enumerate(reader, start=2):
                 if not row:
                     continue
+                results["total"] += 1
                 
                 # Helper local para extraer valores del CSV basados en el mapa
                 def get_val(field_id, default=""):
@@ -276,10 +284,15 @@ def process_import():
                         return user_default if user_default != '' else default
                     return val
                 
+                row_ok = True
+                reason = ""
+                
                 if import_type == 'clients':
                     rnc = get_val('rnc')
                     razon_social = get_val('razonSocial')
                     if not rnc or not razon_social:
+                        results["skipped"] += 1
+                        results["errors"].append({"row": row_index, "reason": "Falta RNC o Razón Social"})
                         continue
                         
                     client_id = str(uuid.uuid4())
@@ -295,12 +308,14 @@ def process_import():
                         "createdAt": datetime.now(timezone.utc).isoformat()
                     }
                     DatabaseService.save_client(owner_uid, client_id, client_dict, sandbox=sandbox)
-                    count += 1
+                    results["imported"] += 1
                     
                 elif import_type == 'products':
                     name = get_val('name')
                     price = sanitize_float(get_val('price'))
                     if not name:
+                        results["skipped"] += 1
+                        results["errors"].append({"row": row_index, "reason": "Falta nombre del producto"})
                         continue
                         
                     cat_name = get_val('categoryId')
@@ -337,7 +352,7 @@ def process_import():
                         "imageUrl": get_val('imageUrl')
                     }
                     DatabaseService.save_item(owner_uid, item_id, item_dict, sandbox=sandbox)
-                    count += 1
+                    results["imported"] += 1
                     
                 elif import_type == 'invoices':
                     inv_num = get_val('invoiceNumber')
@@ -349,6 +364,8 @@ def process_import():
                     total = sanitize_float(get_val('total'))
                     
                     if not inv_num or not date:
+                        results["skipped"] += 1
+                        results["errors"].append({"row": row_index, "reason": "Falta número de factura o fecha"})
                         continue
                     
                     if not client_name:
@@ -434,11 +451,23 @@ def process_import():
                     if warehouse_id:
                         inv_dict["warehouseId"] = warehouse_id
                     DatabaseService.save_invoice(owner_uid, invoice_id, inv_dict, sandbox=sandbox)
-                    count += 1
-                    
+                    results["imported"] += 1
+
+        # Guardar resultados en sesión para el reporte
+        import_id = str(uuid.uuid4())
+        if 'import_reports' not in session:
+            session['import_reports'] = {}
+        session['import_reports'][import_id] = results
+        session.modified = True
+
         if is_ajax:
-            return jsonify({"success": True, "message": f"¡Éxito! Se importaron {count} registros correctamente."})
-        flash(f'¡Éxito! Se importaron {count} registros correctamente.', 'success')
+            return jsonify({
+                "success": True,
+                "message": f"¡Éxito! Se importaron {results['imported']} registros correctamente.",
+                "import_id": import_id,
+                "redirect": url_for("web_import_mapper.import_report", import_id=import_id),
+            })
+        flash(f'¡Éxito! Se importaron {results["imported"]} registros correctamente.', 'success')
     except Exception as e:
         if is_ajax:
             return jsonify({"success": False, "error": f"Error al procesar la importación: {html.escape(str(e))}"}), 500
@@ -453,3 +482,36 @@ def process_import():
         return redirect(url_for('web_invoices.list_items'))
     else:
         return redirect(url_for('web_invoices.list_invoices'))
+
+
+@web_import_mapper_bp.route('/import/report/<import_id>')
+def import_report(import_id):
+    if 'user' not in session:
+        return redirect(url_for('web_auth.login'))
+
+    results = session.get('import_reports', {}).get(import_id, {})
+
+    if not results:
+        flash('Reporte de importación no encontrado.', 'error')
+        return redirect(url_for('web_dashboard.dashboard'))
+
+    type_labels = {
+        'clients': 'Clientes',
+        'products': 'Productos',
+        'invoices': 'Facturas',
+    }
+    results['type_label'] = type_labels.get(results.get('import_type', ''), 'Registros')
+
+    # Máximo 20 errores en el reporte para no abrumar
+    if len(results.get('errors', [])) > 20:
+        results['errors'] = results['errors'][:20]
+        results['errors_truncated'] = True
+    else:
+        results['errors_truncated'] = False
+
+    active_page_map = {
+        'clients': 'clients',
+        'products': 'items',
+        'invoices': 'invoices',
+    }
+    return render_template('import/report.html', report=results, active_page=active_page_map.get(results.get('import_type', ''), ''))

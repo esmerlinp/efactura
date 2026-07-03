@@ -2,10 +2,12 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from app.services.db_service import DatabaseService
 from app.services.recurrence import RecurrenceService
 from app.utils.decorators import check_permission
+from config import Config
 from app.brand import get_product_name
 from datetime import datetime, timedelta, timezone
 import uuid
 import random
+import json
 
 web_operations_bp = Blueprint('web_operations', __name__)
 
@@ -88,28 +90,49 @@ def list_contracts():
         if not contract_lines:
             total_amount = float(request.form.get('amount', 0.0))
 
+        full_amount = round(total_amount, 2)
+
+        # ── Prorrateo: si el contrato inicia a mitad del ciclo ─────────────
+        start_date_str = request.form.get('startDate', '')
+        next_billing_str = request.form.get('nextBillingDate', '')
+        freq = request.form.get('recurrenceInterval', 'mensual')
+        prorated_first = None
+        if start_date_str and next_billing_str and start_date_str < next_billing_str:
+            prorated_first = RecurrenceService.calculate_prorated_amount(
+                full_amount, start_date_str, next_billing_str, freq
+            )
+
         contract_dict = {
+            "id":                contract_id,
             "contractNumber":   request.form.get('contractNumber') or f"CON-{random.randint(1000, 9999)}",
             "clientId":         client_id,
             "clientName":       client.get("razonSocial", ""),
             "clientRNC":        client.get("rnc", ""),
             "itemId":           contract_lines[0]["itemId"] if contract_lines else "",
             "contractLines":    contract_lines,
-            "amount":           round(total_amount, 2),
+            "amount":           full_amount,
             "totalSubtotal":    round(total_subtotal, 2),
             "totalITBIS":       round(total_itbis, 2),
-            "recurrenceInterval": request.form.get('recurrenceInterval', 'mensual'),
+            "recurrenceInterval": freq,
             "status":           request.form.get('status', 'Activo'),
-            "startDate":        request.form.get('startDate', datetime.now(timezone.utc).strftime("%Y-%m-%d")),
+            "startDate":        start_date_str or datetime.now(timezone.utc).strftime("%Y-%m-%d"),
             "endDate":          request.form.get('endDate', ""),
-            "nextBillingDate":  request.form.get('nextBillingDate', datetime.now(timezone.utc).strftime("%Y-%m-%d")),
+            "nextBillingDate":  next_billing_str or datetime.now(timezone.utc).strftime("%Y-%m-%d"),
             "notes":            request.form.get('notes', ""),
             "autoSendEmail":    request.form.get('autoSendEmail') == 'on',
-            "autoRenew":        request.form.get('autoRenew') == 'on'
+            "autoRenew":        request.form.get('autoRenew') == 'on',
+            "proratedFirstAmount": prorated_first,
+            "version":          1,
+            "versionHistory":   [],
+            "createdAt":        datetime.now(timezone.utc).isoformat(),
+            "updatedAt":        datetime.now(timezone.utc).isoformat(),
         }
 
         DatabaseService.save_contract(owner_uid, contract_id, contract_dict, sandbox=sandbox)
-        flash("Contrato guardado exitosamente.", "success")
+        if prorated_first and prorated_first < full_amount:
+            flash(f"Contrato guardado con éxito. El primer cobro será prorrateado: RD$ {prorated_first:,.2f} (periodo completo: RD$ {full_amount:,.2f}).", "info")
+        else:
+            flash("Contrato guardado exitosamente.", "success")
         return redirect(url_for('web_operations.list_contracts'))
 
     contracts = DatabaseService.get_contracts(owner_uid, sandbox=sandbox)
@@ -248,8 +271,6 @@ def trigger_contract_billing(contract_id):
     
     if end_date and next_billing and next_billing > end_date:
         if contract.get('autoRenew'):
-            # Calcular nueva fecha de vencimiento extendiendo por el mismo intervalo
-            from app.services.recurrence import RecurrenceService
             new_end = RecurrenceService.calculate_next_date(end_date, contract.get('recurrenceInterval', 'mensual'))
             contract['endDate'] = new_end
             DatabaseService.save_contract(owner_uid, contract_id, contract, sandbox=sandbox)
@@ -400,6 +421,86 @@ def trigger_contract_billing(contract_id):
             
     flash(f"¡Factura {invoice_number} por RD$ {contract['amount']:,.2f} generada y programada con éxito!", "success")
     return redirect(url_for('web_operations.list_contracts'))
+
+# =========================================================================
+# IA — GENERACIÓN DE TÉRMINOS DE CONTRATO
+# =========================================================================
+
+@web_operations_bp.route('/operations/contracts/ai-terms', methods=['POST'])
+def ai_contract_terms():
+    if 'user' not in session: return jsonify({"success": False, "error": "No autorizado"}), 401
+    if not check_permission('canManageContracts'):
+        return jsonify({"success": False, "error": "Sin permisos"}), 403
+
+    data = request.get_json() or {}
+    description = (data.get('description') or '').strip()
+    if not description:
+        return jsonify({"success": False, "error": "Describe el servicio para generar términos."}), 400
+
+    owner_uid = session['user']['ownerUID']
+    company = DatabaseService.get_company_profile(owner_uid)
+    product_name = get_product_name()
+
+    system_prompt = f"""Eres un experto en redacción de contratos de servicios para la República Dominicana.
+Trabajas para {product_name}, una plataforma de facturación electrónica certificada por la DGII.
+
+Genera ÚNICAMENTE texto en formato JSON sin explicaciones ni markdown.
+El JSON debe tener esta estructura:
+{{
+  "terms": "Términos y condiciones comerciales completos, en español, redactados profesionalmente. Incluye: forma de pago, plazo de facturación, mora por retraso, resolución.",
+  "observations": "Observaciones adicionales relevantes para este tipo de contrato."
+}}
+
+Usa un tono profesional pero accesible. No uses jerga legal excesiva.
+Personaliza los términos basándote en la descripción del servicio proporcionada."""
+
+    user_message = f"Descripción del servicio a contratar:\n\n{description}\n\nRedacta los términos comerciales del contrato recurrente."
+
+    try:
+        api_key = Config.OPENAI_API_KEY.strip()
+        if not api_key or api_key == "YOUR_OPENAI_API_KEY_HERE":
+            profile = DatabaseService.get_company_profile(owner_uid)
+            api_key = (profile.get("openaiApiKey") or "").strip()
+        if not api_key:
+            return jsonify({"success": False, "error": "API Key de OpenAI no configurada."}), 400
+
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "model": "gpt-4o-mini",
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_message}
+            ],
+            "temperature": 0.3,
+            "max_tokens": 2000
+        }
+
+        import requests as http_req
+        resp = http_req.post(
+            "https://api.openai.com/v1/chat/completions",
+            headers=headers,
+            json=payload,
+            timeout=30
+        )
+        resp.raise_for_status()
+        result = resp.json()
+        content = result["choices"][0]["message"]["content"]
+
+        # Parsear JSON de la respuesta
+        import re
+        json_match = re.search(r'\{.*\}', content, re.DOTALL)
+        if json_match:
+            parsed = json.loads(json_match.group())
+        else:
+            parsed = {"terms": content, "observations": ""}
+
+        return jsonify({"success": True, "data": parsed})
+
+    except Exception as e:
+        return jsonify({"success": False, "error": f"Error de IA: {str(e)}"}), 500
 
 # =========================================================================
 # CONTROL DE COMISIONES Y RENDIMIENTO (GAMIFICACIÓN)
@@ -706,9 +807,15 @@ def contract_detail(contract_id):
     comments = DatabaseService.get_resource_comments(owner_uid, "contracts", contract_id, sandbox=sandbox)
     taggable_users = _get_taggable_users(owner_uid)
     contract_invoices = DatabaseService.get_invoices_by_contract(owner_uid, contract_id, sandbox=sandbox)
-    # Ordenar por fecha descendente
     contract_invoices.sort(key=lambda x: x.get('date', ''), reverse=True)
-    
+
+    from app.services.audit_service import AuditService
+    history_logs = AuditService.get_entity_logs(owner_uid, contract_id)
+
+    clients_all = DatabaseService.get_clients(owner_uid, sandbox=sandbox)
+    client = next((c for c in clients_all if c['id'] == contract.get('clientId')), None)
+    client_email = (client.get('email') or '').strip() if client else ''
+
     return render_template(
         'contracts/detail.html',
         active_page='contracts',
@@ -716,7 +823,9 @@ def contract_detail(contract_id):
         comments=comments,
         taggable_users=taggable_users,
         format_mentions=format_mentions,
-        contract_invoices=contract_invoices
+        contract_invoices=contract_invoices,
+        history_logs=history_logs,
+        client_email=client_email
     )
 
 
@@ -859,7 +968,6 @@ def trigger_contract_billing_route():
         return redirect(url_for('web_operations.contracts_list'))
         
     owner_uid = session['user']['uid']
-    from app.services.recurrence import RecurrenceService
     
     try:
         # Ejecutar facturación para el owner actual

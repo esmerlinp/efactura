@@ -607,6 +607,21 @@ def client_detail(client_id):
     token = generate_portal_token(owner_uid, client_id, sandbox=sandbox)
     portal_url = url_for('portal.portal_entry', token=token, _external=True)
 
+    # Detectar campos relevantes faltantes para operaciones
+    operational_fields = [
+        ("email",         "Correo Electrónico",   "fa-envelope"),
+        ("telefono",      "Teléfono",             "fa-phone"),
+        ("direccion",     "Dirección Física",     "fa-location-dot"),
+        ("accessPin",     "PIN de Acceso (Portal)","fa-key"),
+        ("pipelineStage", "Etapa de Seguimiento",  "fa-chart-simple"),
+        ("responsibleId", "Responsable Asignado",  "fa-user-tie"),
+    ]
+    missing_fields = [
+        {"field": f, "label": lbl, "icon": ic}
+        for f, lbl, ic in operational_fields
+        if not client.get(f)
+    ]
+
     return render_template(
         'clients/detail.html',
         active_page='clients',
@@ -618,7 +633,8 @@ def client_detail(client_id):
         payments=client_payments,
         responsible_name=responsible_name,
         portal_url=portal_url,
-        client_insight=client_insight
+        client_insight=client_insight,
+        missing_fields=missing_fields
     )
 
 @web_clients_bp.route('/clients/<client_id>/insights')

@@ -129,7 +129,7 @@ class SupplierService:
     def get_or_create_supplier(cls, owner_uid, rnc, name, address="", sandbox=True):
         existing = cls.get_supplier_by_rnc(owner_uid, rnc, sandbox=sandbox)
         if existing:
-            return existing["id"]
+            return (existing["id"], False)
         supplier_id = str(uuid.uuid4())
         supplier_dict = {
             "rnc": rnc,
@@ -137,7 +137,7 @@ class SupplierService:
             "address": address,
         }
         cls.save_supplier(owner_uid, supplier_id, supplier_dict, sandbox=sandbox)
-        return supplier_id
+        return (supplier_id, True)
 
     @classmethod
     def update_last_import(cls, owner_uid, supplier_id, sandbox=True):

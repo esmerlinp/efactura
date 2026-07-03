@@ -145,47 +145,93 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 6.1. Control de Secciones de Barra Lateral Colapsables (Dropdowns de Grupos)
     const sidebarHeaders = document.querySelectorAll('.sidebar-section-header');
-    
+
+    // Función helper para colapsar una sección programáticamente
+    function collapseSidebarSection(section) {
+        if (section.getAttribute('id') === 'sidebar-section-quick') return;
+        const content = section.querySelector('.sidebar-section-content');
+        if (!content) return;
+
+        if (content.dataset.transitioning === 'true') return;
+        if (section.classList.contains('collapsed')) return;
+
+        const sectionId = section.getAttribute('id');
+        content.dataset.transitioning = 'true';
+
+        const height = content.scrollHeight;
+        content.style.maxHeight = height + 'px';
+        content.style.opacity = '1';
+
+        content.offsetHeight;
+
+        section.classList.add('collapsed');
+        content.style.maxHeight = '0px';
+        content.style.opacity = '0';
+
+        if (sectionId) {
+            localStorage.setItem('sidebar-collapsed-' + sectionId, 'true');
+        }
+
+        content.addEventListener('transitionend', function onEnd(e) {
+            if (e.propertyName === 'max-height') {
+                content.style.maxHeight = '';
+                content.style.opacity = '';
+                content.removeAttribute('data-transitioning');
+                content.removeEventListener('transitionend', onEnd);
+            }
+        });
+    }
+
     sidebarHeaders.forEach(header => {
         header.addEventListener('click', () => {
             // Si la barra lateral entera está colapsada (minimizada), no hacer nada
             if (mainAppContainer && mainAppContainer.classList.contains('sidebar-collapsed')) {
                 return;
             }
-            
+
             const section = header.closest('.sidebar-section');
             if (!section) return;
-            
+            if (section.getAttribute('id') === 'sidebar-section-quick') return;
+
             const content = section.querySelector('.sidebar-section-content');
             if (!content) return;
-            
+
             // Evitar spam de clicks durante la animación
             if (content.dataset.transitioning === 'true') {
                 return;
             }
-            
+
             const isCurrentlyCollapsed = section.classList.contains('collapsed');
             const sectionId = section.getAttribute('id');
-            
+
             content.dataset.transitioning = 'true';
-            
+
             if (isCurrentlyCollapsed) {
-                // EXPANDIR
+                // EXPANDIR — antes de expandir, colapsar automáticamente otras secciones no-General
+                if (sectionId !== 'sidebar-section-general') {
+                    document.querySelectorAll('.sidebar-section').forEach(otherSection => {
+                        const otherId = otherSection.getAttribute('id');
+                        if (otherId && otherId !== sectionId && otherId !== 'sidebar-section-general') {
+                            collapseSidebarSection(otherSection);
+                        }
+                    });
+                }
+
                 content.style.maxHeight = '0px';
                 content.style.opacity = '0';
                 section.classList.remove('collapsed');
-                
+
                 // Forzar reflow para que el navegador reconozca el estado inicial
                 const height = content.scrollHeight;
                 content.offsetHeight;
-                
+
                 content.style.maxHeight = height + 'px';
                 content.style.opacity = '1';
-                
+
                 if (sectionId) {
                     localStorage.setItem('sidebar-collapsed-' + sectionId, 'false');
                 }
-                
+
                 const onEnd = (e) => {
                     if (e.propertyName === 'max-height') {
                         content.style.maxHeight = '';
@@ -200,18 +246,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 const height = content.scrollHeight;
                 content.style.maxHeight = height + 'px';
                 content.style.opacity = '1';
-                
+
                 // Forzar reflow
                 content.offsetHeight;
-                
+
                 section.classList.add('collapsed');
                 content.style.maxHeight = '0px';
                 content.style.opacity = '0';
-                
+
                 if (sectionId) {
                     localStorage.setItem('sidebar-collapsed-' + sectionId, 'true');
                 }
-                
+
                 const onEnd = (e) => {
                     if (e.propertyName === 'max-height') {
                         content.style.maxHeight = '';
@@ -279,6 +325,132 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
     }, true); // Usar fase de captura ya que 'blur' no burbujea
+
+    // ====== 8. Accesos Rápidos (Pines del menú lateral) ======
+    const PINNED_KEY = 'sidebar-quick-access';
+    const MAX_PINNED = 3;
+
+    function getPinnedHrefs() {
+        try {
+            return JSON.parse(localStorage.getItem(PINNED_KEY)) || [];
+        } catch {
+            return [];
+        }
+    }
+
+    function setPinnedHrefs(hrefs) {
+        if (hrefs.length === 0) {
+            localStorage.removeItem(PINNED_KEY);
+        } else {
+            localStorage.setItem(PINNED_KEY, JSON.stringify(hrefs));
+        }
+        renderQuickAccess();
+        updatePinIcons();
+    }
+
+    function renderQuickAccess() {
+        const section = document.getElementById('sidebar-section-quick');
+        const list = document.getElementById('quick-access-list');
+        if (!section || !list) return;
+
+        const hrefs = getPinnedHrefs();
+        const validHrefs = [];
+
+        list.innerHTML = '';
+
+        hrefs.slice(0, MAX_PINNED).forEach(href => {
+            const originalLink = document.querySelector(`.nav-item a[href="${href}"]`);
+            if (!originalLink) return;
+            validHrefs.push(href);
+
+            const originalItem = originalLink.closest('.nav-item');
+            if (!originalItem) return;
+
+            const iconClass = originalLink.querySelector('i')?.className || 'fa-solid fa-link';
+            const label = originalLink.querySelector('span')?.textContent || 'Sin etiqueta';
+            const tooltip = originalItem.dataset.tooltip || label;
+
+            const item = document.createElement('li');
+            item.className = 'nav-item';
+            item.dataset.tooltip = tooltip;
+
+            const a = document.createElement('a');
+            a.href = href;
+            a.innerHTML = `<i class="${iconClass}"></i><span>${label}</span>`;
+
+            const unpinBtn = document.createElement('button');
+            unpinBtn.className = 'unpin-btn';
+            unpinBtn.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+            unpinBtn.dataset.href = href;
+            unpinBtn.title = 'Quitar de accesos rápidos';
+            unpinBtn.addEventListener('click', function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                setPinnedHrefs(getPinnedHrefs().filter(h => h !== href));
+            });
+
+            item.style.position = 'relative';
+            item.appendChild(a);
+            item.appendChild(unpinBtn);
+            list.appendChild(item);
+        });
+
+        if (validHrefs.length !== hrefs.length) {
+            setPinnedHrefs(validHrefs);
+        }
+
+        section.style.display = validHrefs.length === 0 ? 'none' : '';
+    }
+
+    function updatePinIcons() {
+        const pinned = getPinnedHrefs();
+        document.querySelectorAll('.pin-btn').forEach(btn => {
+            const isPinned = pinned.includes(btn.dataset.href);
+            btn.classList.toggle('pinned', isPinned);
+            btn.title = isPinned ? 'Quitar de accesos rápidos' : 'Agregar a accesos rápidos';
+        });
+    }
+
+    function addPinButtons() {
+        document.querySelectorAll('.nav-item').forEach(item => {
+            if (item.closest('#sidebar-section-quick')) return;
+            if (item.querySelector('.pin-btn')) return;
+
+            const link = item.querySelector('a');
+            if (!link) return;
+
+            const btn = document.createElement('button');
+            btn.className = 'pin-btn';
+            btn.innerHTML = '<i class="fa-solid fa-thumbtack"></i>';
+            btn.dataset.href = link.getAttribute('href');
+            btn.title = 'Agregar a accesos rápidos';
+
+            btn.addEventListener('click', function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+
+                const href = btn.dataset.href;
+                const pinned = getPinnedHrefs();
+
+                if (pinned.includes(href)) {
+                    setPinnedHrefs(pinned.filter(h => h !== href));
+                } else if (pinned.length < MAX_PINNED) {
+                    setPinnedHrefs([...pinned, href]);
+                } else {
+                    btn.style.color = 'var(--danger)';
+                    setTimeout(() => btn.style.color = '', 800);
+                }
+            });
+
+            item.style.position = 'relative';
+            item.appendChild(btn);
+        });
+
+        updatePinIcons();
+    }
+
+    renderQuickAccess();
+    addPinButtons();
 });
 
 // Helper para formatear valores monetarios de DOP en la UI

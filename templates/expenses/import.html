@@ -395,6 +395,7 @@
 <script>
     let xmlFile = null;
     let pdfFile = null;
+    let currentPreviewId = null;
 
     // ── Drag & Drop for XML ────────────────────────────────────────
     const xmlDropZone = document.getElementById('xml-drop-zone');
@@ -501,6 +502,7 @@
     function renderPreview(data) {
         const p = data.parsed;
         const ai = data.ai;
+        currentPreviewId = data.preview_id;
 
         // Hidden fields
         document.getElementById('input-encf').value = p.encf || '';
@@ -599,11 +601,12 @@
     async function confirmImport() {
         if (!confirm('¿Estás seguro de que deseas registrar este gasto?')) return;
 
-        const btn = document.getElementById('btn-confirm');
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Registrando...';
+        const loading = document.getElementById('loading-overlay');
+        loading.querySelector('p').textContent = 'Registrando gasto en el sistema...';
+        loading.style.display = 'flex';
 
         const payload = {
+            preview_id: currentPreviewId,
             encf: document.getElementById('input-encf').value,
             ecfType: document.getElementById('input-ecf-type').value,
             supplierRnc: document.getElementById('input-supplier-rnc').value,
@@ -631,16 +634,14 @@
             const data = await res.json();
 
             if (data.success) {
-                window.location.href = '/expenses/' + data.expense_id;
+                window.location.href = data.redirect;
             } else {
+                loading.style.display = 'none';
                 alert(data.message || 'Error al registrar el gasto');
-                btn.disabled = false;
-                btn.innerHTML = '<i class="fa-solid fa-check-circle"></i> Confirmar y Registrar Gasto';
             }
         } catch (err) {
+            loading.style.display = 'none';
             alert('Error de conexión: ' + err.message);
-            btn.disabled = false;
-            btn.innerHTML = '<i class="fa-solid fa-check-circle"></i> Confirmar y Registrar Gasto';
         }
     }
 </script>
