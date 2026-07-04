@@ -1,0 +1,72 @@
+{% extends "layout.html" %}
+
+{% block title %}Nueva Conciliación{% endblock %}
+
+{% block page_header %}Nueva Conciliación Bancaria{% endblock %}
+
+{% block content %}
+<div class="card-table-wrapper" style="max-width:650px; margin:0 auto;">
+    <h3 style="font-size:1.25rem; font-family:var(--font-heading); margin-bottom:24px; border-bottom:1px solid var(--border-color); padding-bottom:14px;">
+        <i class="fa-solid fa-check-double" style="color:var(--accent-emerald);"></i>
+        <span>Conciliar: {{ account.name }}</span>
+    </h3>
+
+    <div style="background:rgba(59,130,246,0.05); border:1px solid rgba(59,130,246,0.15); border-radius:var(--radius-sm); padding:14px; margin-bottom:20px; font-size:0.85rem; color:var(--text-secondary); line-height:1.5;">
+        <i class="fa-solid fa-circle-info" style="color:#3b82f6; margin-right:6px;"></i>
+        Saldo actual de la cuenta: <strong>RD$ {{ "{:,.2f}".format(account.currentBalance) }}</strong>
+        <br>
+        <span style="font-size:0.78rem;">La conciliación comparará los movimientos del período contra tu estado de cuenta bancario.</span>
+    </div>
+
+    <form method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="form-grid">
+            <div class="form-group">
+                <label for="startDate">Fecha inicial <span style="color:var(--accent-red);">*</span></label>
+                <input type="date" id="startDate" name="startDate" class="form-input" required
+                    value="{{ request.form.get('startDate', '') }}">
+            </div>
+
+            <div class="form-group">
+                <label for="endDate">Fecha final <span style="color:var(--accent-red);">*</span></label>
+                <input type="date" id="endDate" name="endDate" class="form-input" required
+                    value="{{ request.form.get('endDate', '') }}">
+            </div>
+
+            <div class="form-group">
+                <label for="initialBalance">Saldo inicial del período</label>
+                <div style="display:flex; gap:8px; align-items:center;">
+                    <span style="font-weight:600; color:var(--text-secondary);">RD$</span>
+                    <input type="number" id="initialBalance" name="initialBalance" class="form-input" step="0.01"
+                        value="{{ account.currentBalance }}" style="flex:1;">
+                </div>
+                <small style="color:var(--text-muted); font-size:0.72rem;">Saldo de la cuenta al inicio del período. Por defecto se usa el saldo actual.</small>
+            </div>
+
+            <div class="form-group">
+                <label for="endBalance">Saldo según estado de cuenta <span style="color:var(--accent-red);">*</span></label>
+                <div style="display:flex; gap:8px; align-items:center;">
+                    <span style="font-weight:600; color:var(--text-secondary);">RD$</span>
+                    <input type="number" id="endBalance" name="endBalance" class="form-input" step="0.01" required
+                        placeholder="0.00" style="flex:1;">
+                </div>
+                <small style="color:var(--text-muted); font-size:0.72rem;">Saldo final que aparece en tu estado de cuenta bancario.</small>
+            </div>
+        </div>
+
+        <div style="background:rgba(16,185,129,0.04); border:1px solid rgba(16,185,129,0.15); border-radius:var(--radius-sm); padding:14px; margin:16px 0; font-size:0.82rem; color:var(--text-secondary); line-height:1.5;">
+            <i class="fa-solid fa-lightbulb" style="color:var(--accent-emerald); margin-right:6px;"></i>
+            El sistema buscará automáticamente los pagos y transferencias asociados a esta cuenta en el rango de fechas seleccionado.
+        </div>
+
+        <div style="display:flex; gap:12px; margin-top:24px; padding-top:20px; border-top:1px solid var(--border-color);">
+            <button type="submit" class="btn btn-primary">
+                <i class="fa-solid fa-play"></i> Iniciar conciliación
+            </button>
+            <a href="{{ url_for('web_banks.reconcile_list') }}" class="btn btn-secondary">
+                <i class="fa-solid fa-xmark"></i> Cancelar
+            </a>
+        </div>
+    </form>
+</div>
+{% endblock %}

@@ -1,0 +1,296 @@
+{% extends "layout.html" %}
+{% block title %}Transacciones{% endblock %}
+{% block page_header %}Transacciones{% endblock %}
+{% block content %}
+<style>
+    .breadcrumb {
+        display: flex; align-items: center; gap: 6px;
+        font-size: 0.8rem; color: var(--text-muted); margin-bottom: 16px;
+    }
+    .breadcrumb a { color: var(--text-muted); text-decoration: none; font-weight: 500; }
+    .breadcrumb a:hover { color: var(--accent-emerald); }
+    .breadcrumb .sep { color: #cbd5e1; }
+
+    .page-subtitle {
+        font-size: 0.85rem; color: var(--text-muted); margin: -8px 0 18px 0;
+        line-height: 1.5; max-width: 640px;
+    }
+
+    .tx-filters {
+        background: #fff; border: 1px solid #e2e8f0; border-radius: 14px;
+        padding: 18px 22px; margin-bottom: 24px;
+        display: flex; align-items: flex-end; gap: 14px; flex-wrap: wrap;
+    }
+    .tx-filters .filter-group {
+        display: flex; flex-direction: column; gap: 4px;
+    }
+    .tx-filters .filter-group label {
+        font-size: 0.72rem; font-weight: 600; color: var(--text-muted);
+        text-transform: uppercase; letter-spacing: 0.04em;
+    }
+    .tx-filters .filter-group select, .tx-filters .filter-group input {
+        height: 40px; padding: 0 12px; border: 1px solid #e2e8f0;
+        border-radius: 8px; font-size: 0.86rem; background: #fff;
+        outline: none; min-width: 140px; transition: border-color 0.15s;
+    }
+    .tx-filters .filter-group select:focus, .tx-filters .filter-group input:focus {
+        border-color: var(--accent-emerald);
+    }
+    
+    .tx-filters .btn-group {
+        display: flex; gap: 8px; margin-left: auto;
+    }
+    .tx-filters .btn-group .btn {
+        height: 40px; padding: 0 20px; font-size: 0.86rem;
+        border-radius: 8px; font-weight: 600;
+        display: inline-flex; align-items: center; gap: 6px;
+        cursor: pointer; border: none; transition: all 0.15s;
+    }
+    .tx-filters .btn-group .btn-primary {
+        background: var(--accent-emerald); color: #fff;
+    }
+    .tx-filters .btn-group .btn-primary:hover { opacity: 0.9; }
+    .tx-filters .btn-group .btn-secondary {
+        background: #f8fafc; color: var(--text-primary);
+        border: 1px solid #e2e8f0; text-decoration: none;
+    }
+    .tx-filters .btn-group .btn-secondary:hover { background: #f1f5f9; }
+
+    .tx-summary-cards {
+        display: flex; gap: 16px; margin-bottom: 24px; flex-wrap: wrap;
+    }
+    .tx-summary-card {
+        background: #fff; border: 1px solid #e2e8f0; border-radius: 14px;
+        padding: 18px 22px; display: inline-flex; flex-grow: 1;
+        flex-direction: column; gap: 6px; min-width: 200px;
+    }
+    .tx-summary-card .card-label {
+        font-size: 0.72rem; font-weight: 700; color: var(--text-muted);
+        text-transform: uppercase; letter-spacing: 0.04em;
+    }
+    .tx-summary-card .card-value {
+        font-size: 1.5rem; font-weight: 800;
+    }
+    .tx-summary-card.inflow .card-value { color: var(--accent-emerald); }
+    .tx-summary-card.outflow .card-value { color: #ef4444; }
+
+    .tx-table-wrap {
+        background: #fff; border: 1px solid #e2e8f0; border-radius: 14px;
+        overflow: hidden; margin-bottom: 20px;
+    }
+    .tx-table-wrap table {
+        width: 100%; border-collapse: collapse; font-size: 0.85rem;
+    }
+    .tx-table-wrap thead th {
+        background: #f8fafc; text-align: left; padding: 12px 16px;
+        font-size: 0.72rem; font-weight: 700; color: var(--text-muted);
+        text-transform: uppercase; letter-spacing: 0.04em;
+        border-bottom: 1px solid #e2e8f0;
+    }
+    .tx-table-wrap tbody td {
+        padding: 12px 16px; border-bottom: 1px solid #f1f5f9;
+        color: var(--text-primary);
+    }
+    .tx-table-wrap tbody tr:last-child td { border-bottom: none; }
+    .tx-table-wrap tbody tr:hover { background: #f8fafc; }
+    .tx-table-wrap .text-right { text-align: right; }
+
+    .tx-badge {
+        padding: 4px 8px; border-radius: 6px; font-size: 0.7rem; font-weight: 700;
+        text-transform: uppercase; letter-spacing: 0.02em; display: inline-flex; align-items: center; gap: 4px;
+    }
+    .tx-badge.inflow { background: #ecfdf5; color: #047857; }
+    .tx-badge.outflow { background: #fef2f2; color: #b91c1c; }
+
+    .tx-pagination {
+        display: flex; justify-content: space-between; align-items: center;
+        padding: 14px 16px; background: #fff;
+        border: 1px solid #e2e8f0; border-radius: 12px; gap: 12px;
+        flex-wrap: wrap;
+    }
+    .tx-pagination .info {
+        font-size: 0.82rem; color: var(--text-muted);
+    }
+    .tx-pagination .pages {
+        display: flex; gap: 4px; align-items: center;
+    }
+    .tx-pagination .pages .btn-page {
+        padding: 6px 12px; border-radius: 6px; font-size: 0.82rem;
+        font-weight: 600; border: 1px solid #e2e8f0; color: var(--text-primary);
+        background: #fff; text-decoration: none; transition: all 0.15s;
+    }
+    .tx-pagination .pages .btn-page:hover { background: #f1f5f9; }
+    .tx-pagination .pages .btn-page.active {
+        background: var(--accent-emerald); color: #fff; border-color: var(--accent-emerald);
+    }
+    .tx-pagination .pages .btn-page[disabled] {
+        opacity: 0.4; cursor: default;
+    }
+    .tx-pagination .pages .dots {
+        padding: 6px 4px; color: var(--text-muted);
+    }
+    .tx-pagination .per-page {
+        display: flex; align-items: center; gap: 6px;
+        font-size: 0.82rem; color: var(--text-muted);
+    }
+    .tx-pagination .per-page select {
+        height: 32px; padding: 0 8px; border: 1px solid #e2e8f0;
+        border-radius: 6px; font-size: 0.82rem; background: #fff;
+        outline: none;
+    }
+
+    .tx-empty {
+        text-align: center; padding: 60px 24px; color: var(--text-muted);
+    }
+    .tx-empty h3 { font-size: 1.1rem; margin: 0 0 8px 0; color: var(--text-primary); }
+
+    @media (max-width: 992px) {
+        .tx-table-wrap { overflow-x: auto; }
+    }
+</style>
+
+<div class="breadcrumb">
+    <a href="{{ url_for('web_invoices.reports_dashboard') }}">Reportes</a>
+    <span class="sep">/</span>
+    <a href="{{ url_for('web_invoices.reports_category', category_key='administrativos') }}">Administrativos</a>
+    <span class="sep">/</span>
+    <span>Transacciones</span>
+</div>
+
+<p class="page-subtitle">Consulta los movimientos de dinero asociados a tus transacciones, sin incluir las transferencias entre bancos.</p>
+
+<div class="tx-filters">
+    <form method="GET" style="display:contents;" id="filter-form">
+        <div class="filter-group">
+            <label for="year-select">Año</label>
+            <select id="year-select" name="year">
+                {% for y in years_range %}
+                <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-group">
+            <label for="month-select">Periodo</label>
+            <select id="month-select" name="month">
+                <option value="0" {% if month == 0 %}selected{% endif %}>Todo el año</option>
+                {% for m_val, m_name in months_list %}
+                <option value="{{ m_val }}" {% if m_val == month %}selected{% endif %}>{{ m_name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-group" style="min-width: 240px;">
+            <label for="q-input">Filtrar</label>
+            <input type="text" id="q-input" name="q" value="{{ q }}" placeholder="Buscar concepto o cuenta...">
+        </div>
+        <div class="btn-group">
+            <button type="submit" class="btn btn-primary">
+                <i class="fa-solid fa-rotate"></i> Actualizar
+            </button>
+            <a href="{{ url_for('web_reports_sales.transactions_export', year=year, month=month, q=q) }}" class="btn btn-secondary">
+                <i class="fa-solid fa-download"></i> Descargar
+            </a>
+        </div>
+    </form>
+</div>
+
+<div class="tx-summary-cards">
+    <div class="tx-summary-card inflow">
+        <span class="card-label">Total entradas</span>
+        <div class="card-value">RD$ {{ "{:,.2f}".format(total_inflow) }}</div>
+    </div>
+    <div class="tx-summary-card outflow">
+        <span class="card-label">Total salidas</span>
+        <div class="card-value">RD$ {{ "{:,.2f}".format(total_outflow) }}</div>
+    </div>
+</div>
+
+{% if rows %}
+<div class="tx-table-wrap">
+    <table>
+        <thead>
+            <tr>
+                <th>Fecha</th>
+                <th>Detalle / Concepto</th>
+                <th>Método / Cuenta</th>
+                <th>Tipo</th>
+                <th class="text-right">Monto</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for r in rows %}
+            <tr>
+                <td style="color: var(--text-muted); font-weight: 500;">{{ r.date }}</td>
+                <td style="font-weight: 600;">{{ r.description }}</td>
+                <td>
+                    <span style="font-weight: 500;">{{ r.method }}</span>
+                    <small style="display: block; color: var(--text-muted); font-size: 0.75rem;">{{ r.bank }}</small>
+                </td>
+                <td>
+                    {% if r.type == 'ENTRADA' %}
+                    <span class="tx-badge inflow"><i class="fa-solid fa-circle-arrow-down"></i> Entrada</span>
+                    {% else %}
+                    <span class="tx-badge outflow"><i class="fa-solid fa-circle-arrow-up"></i> Salida</span>
+                    {% endif %}
+                </td>
+                <td class="text-right" style="font-weight: 700; color: {% if r.type == 'ENTRADA' %}var(--accent-emerald){% else %}#ef4444{% endif %};">
+                    RD$ {{ "{:,.2f}".format(r.amount) }}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div class="tx-pagination">
+    <div class="info">
+        Mostrando <strong>{{ start_count }}</strong> a <strong>{{ end_count }}</strong> de <strong>{{ total_items }}</strong> transacci{% if total_items != 1 %}ones{% else %}ón{% endif %}
+    </div>
+    <div class="pages">
+        {% if page > 1 %}
+        <a href="?year={{ year }}&month={{ month }}&q={{ q }}&page={{ page - 1 }}&per_page={{ per_page }}" class="btn-page">Anterior</a>
+        {% else %}
+        <span class="btn-page" disabled>Anterior</span>
+        {% endif %}
+
+        {% for p in range(1, total_pages + 1) %}
+            {% if p == page %}
+            <span class="btn-page active">{{ p }}</span>
+            {% elif p <= 3 or p >= total_pages - 2 or (p >= page - 2 and p <= page + 2) %}
+            <a href="?year={{ year }}&month={{ month }}&q={{ q }}&page={{ p }}&per_page={{ per_page }}" class="btn-page">{{ p }}</a>
+            {% elif p == 4 or p == total_pages - 3 %}
+            <span class="dots">...</span>
+            {% endif %}
+        {% endfor %}
+
+        {% if page < total_pages %}
+        <a href="?year={{ year }}&month={{ month }}&q={{ q }}&page={{ page + 1 }}&per_page={{ per_page }}" class="btn-page">Siguiente</a>
+        {% else %}
+        <span class="btn-page" disabled>Siguiente</span>
+        {% endif %}
+    </div>
+    <div class="per-page">
+        <span>Ítems por página</span>
+        <select onchange="var p=new URLSearchParams(location.search);p.set('per_page',this.value);p.set('page','1');window.location.search=p.toString()">
+            {% for val in [5, 10, 20, 50] %}
+            <option value="{{ val }}" {% if per_page == val %}selected{% endif %}>{{ val }}</option>
+            {% endfor %}
+        </select>
+    </div>
+</div>
+{% else %}
+<div class="tx-empty">
+    <i class="fa-solid fa-magnifying-glass" style="font-size: 3rem; opacity: 0.3; margin-bottom: 16px; display: block;"></i>
+    <h3>¡No tienes transacciones registradas en este periodo!</h3>
+</div>
+<div class="tx-pagination" style="justify-content: flex-end;">
+    <div class="per-page">
+        <span>Ítems por página</span>
+        <select onchange="var p=new URLSearchParams(location.search);p.set('per_page',this.value);p.set('page','1');window.location.search=p.toString()">
+            {% for val in [5, 10, 20, 50] %}
+            <option value="{{ val }}" {% if per_page == val %}selected{% endif %}>{{ val }}</option>
+            {% endfor %}
+        </select>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

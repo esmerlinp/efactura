@@ -1,0 +1,268 @@
+{% extends "layout.html" %}
+{% block title %}Ventas generales{% endblock %}
+{% block page_header %}Ventas generales{% endblock %}
+{% block content %}
+<style>
+    .breadcrumb {
+        display: flex; align-items: center; gap: 6px;
+        font-size: 0.8rem; color: var(--text-muted); margin-bottom: 16px;
+    }
+    .breadcrumb a { color: var(--text-muted); text-decoration: none; font-weight: 500; }
+    .breadcrumb a:hover { color: var(--accent-emerald); }
+    .breadcrumb .sep { color: #cbd5e1; }
+
+    .page-subtitle {
+        font-size: 0.85rem; color: var(--text-muted); margin: -8px 0 18px 0;
+        line-height: 1.5; max-width: 600px;
+    }
+
+    .ventas-filters {
+        background: #fff; border: 1px solid #e2e8f0; border-radius: 14px;
+        padding: 18px 22px; margin-bottom: 24px;
+        display: flex; align-items: flex-end; gap: 14px; flex-wrap: wrap;
+    }
+    .ventas-filters .filter-group {
+        display: flex; flex-direction: column; gap: 4px;
+    }
+    .ventas-filters .filter-group label {
+        font-size: 0.72rem; font-weight: 600; color: var(--text-muted);
+        text-transform: uppercase; letter-spacing: 0.04em;
+    }
+    .ventas-filters .filter-group select,
+    .ventas-filters .filter-group input {
+        height: 40px; padding: 0 12px; border: 1px solid #e2e8f0;
+        border-radius: 8px; font-size: 0.86rem; background: #fff;
+        outline: none; min-width: 140px; transition: border-color 0.15s;
+    }
+    .ventas-filters .filter-group select:focus,
+    .ventas-filters .filter-group input:focus {
+        border-color: var(--accent-emerald);
+    }
+    .ventas-filters .btn-group {
+        display: flex; gap: 8px; margin-left: auto;
+    }
+    .ventas-filters .btn-group .btn {
+        height: 40px; padding: 0 20px; font-size: 0.86rem;
+        border-radius: 8px; font-weight: 600;
+        display: inline-flex; align-items: center; gap: 6px;
+        cursor: pointer; border: none; transition: all 0.15s;
+    }
+    .ventas-filters .btn-group .btn-primary {
+        background: var(--accent-emerald); color: #fff;
+    }
+    .ventas-filters .btn-group .btn-primary:hover { opacity: 0.9; }
+    .ventas-filters .btn-group .btn-secondary {
+        background: #f8fafc; color: var(--text-primary);
+        border: 1px solid #e2e8f0;
+    }
+    .ventas-filters .btn-group .btn-secondary:hover { background: #f1f5f9; }
+
+    .ventas-summary-cards {
+        background: #fff; border: 1px solid #e2e8f0; border-radius: 14px;
+        display: flex; margin-bottom: 28px; overflow: hidden;
+    }
+    .ventas-summary-cards .bi-card {
+        flex: 1; padding: 16px 18px; display: flex; flex-direction: column;
+        gap: 6px; text-align: center; align-items: center;
+        border-right: 1px solid #e2e8f0;
+    }
+    .ventas-summary-cards .bi-card:last-child { border-right: none; }
+    .ventas-summary-cards .bi-card .bi-card-title {
+        font-size: 0.7rem; font-weight: 600; color: var(--text-muted);
+        text-transform: uppercase; letter-spacing: 0.03em;
+    }
+    .ventas-summary-cards .bi-card .bi-card-value {
+        font-size: 1.2rem; font-weight: 800;
+    }
+    .ventas-summary-cards .bi-card .bi-card-value.emerald { color: var(--accent-emerald); }
+    .ventas-summary-cards .bi-card .bi-card-value.red { color: var(--accent-red); }
+    .ventas-summary-cards .bi-card .bi-card-value.blue { color: #3b82f6; }
+    @media (max-width: 992px) {
+        .ventas-summary-cards { flex-direction: column; }
+        .ventas-summary-cards .bi-card { border-right: none; border-bottom: 1px solid #e2e8f0; }
+        .ventas-summary-cards .bi-card:last-child { border-bottom: none; }
+    }
+
+    .ventas-chart-wrapper {
+        background: #fff; border: 1px solid #e2e8f0; border-radius: 14px;
+        padding: 24px; margin-bottom: 24px;
+    }
+    .ventas-chart-wrapper .chart-title {
+        font-size: 0.9rem; font-weight: 700; color: var(--text-primary);
+        margin-bottom: 16px;
+    }
+    .ventas-chart-wrapper canvas {
+        max-height: 320px;
+    }
+
+    .ventas-empty {
+        text-align: center; padding: 60px 24px; color: var(--text-muted);
+    }
+    .ventas-empty i { font-size: 3rem; opacity: 0.3; margin-bottom: 16px; }
+    .ventas-empty h3 { font-size: 1.1rem; margin: 0 0 8px 0; color: var(--text-primary); }
+    .ventas-empty p { font-size: 0.88rem; margin: 0 0 18px 0; }
+</style>
+
+<div class="breadcrumb">
+    <a href="{{ url_for('web_invoices.reports_dashboard') }}">Reportes</a>
+    <span class="sep">/</span>
+    <a href="{{ url_for('web_invoices.reports_category', category_key='ventas') }}">Ventas</a>
+    <span class="sep">/</span>
+    <span>Ventas generales</span>
+</div>
+
+<p class="page-subtitle">Obtén una visión detallada de tus ventas y devoluciones para diseñar estrategias comerciales.</p>
+
+<div class="ventas-filters">
+    <form method="GET" style="display:contents;">
+        <div class="filter-group">
+            <label>Año</label>
+            <select name="year">
+                {% for y in years_range %}
+                <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>Mes</label>
+            <select name="month">
+                {% for m_val, m_label in months_list %}
+                <option value="{{ m_val }}" {% if m_val == month %}selected{% endif %}>{{ m_label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        {% if warehouses %}
+        <div class="filter-group">
+            <label>Almacén</label>
+            <select name="warehouse">
+                <option value="">Todos</option>
+                {% for w in warehouses %}
+                <option value="{{ w.id }}" {% if w.id == warehouse_id %}selected{% endif %}>{{ w.name or w.code or w.id }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        {% endif %}
+        {% if invoice_sequences %}
+        <div class="filter-group">
+            <label>Numeración</label>
+            <select name="series">
+                <option value="">Todas</option>
+                {% for s in invoice_sequences %}
+                <option value="{{ s.id }}" {% if s.id == series %}selected{% endif %}>{{ s.tipoComprobante or s.prefijo or s.id }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        {% endif %}
+        <div class="btn-group">
+            <button type="submit" class="btn btn-primary">
+                <i class="fa-solid fa-rotate"></i> Actualizar
+            </button>
+            <a href="{{ url_for('web_reports_sales.ventas_generales_export', year=year, month=month) }}"
+               class="btn btn-secondary" style="text-decoration:none;">
+                <i class="fa-solid fa-download"></i> Descargar
+            </a>
+        </div>
+    </form>
+</div>
+
+{% if data %}
+<div class="ventas-summary-cards">
+    <div class="bi-card">
+        <span class="bi-card-title">Ventas brutas</span>
+        <div class="bi-card-value emerald">RD$ {{ "{:,.2f}".format(data.total_bruto) }}</div>
+    </div>
+    <div class="bi-card">
+        <span class="bi-card-title">Notas crédito</span>
+        <div class="bi-card-value red">RD$ {{ "{:,.2f}".format(data.total_credit_notes) }}</div>
+    </div>
+    <div class="bi-card">
+        <span class="bi-card-title">Antes de impuestos</span>
+        <div class="bi-card-value">RD$ {{ "{:,.2f}".format(data.antes_impuestos) }}</div>
+    </div>
+    <div class="bi-card">
+        <span class="bi-card-title">Impuestos</span>
+        <div class="bi-card-value blue">RD$ {{ "{:,.2f}".format(data.total_impuestos) }}</div>
+    </div>
+    <div class="bi-card">
+        <span class="bi-card-title">Después de impuestos</span>
+        <div class="bi-card-value emerald">RD$ {{ "{:,.2f}".format(data.despues_impuestos) }}</div>
+    </div>
+    <div class="bi-card">
+        <span class="bi-card-title">Total ventas</span>
+        <div class="bi-card-value emerald">RD$ {{ "{:,.2f}".format(data.total_neto) }}</div>
+    </div>
+</div>
+
+<div class="ventas-chart-wrapper">
+    <div class="chart-title">Ventas mensuales</div>
+    <canvas id="ventasChart"></canvas>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+const ctx = document.getElementById('ventasChart').getContext('2d');
+new Chart(ctx, {
+    type: 'bar',
+    data: {
+        labels: {{ data.chart_labels | tojson }},
+        datasets: [
+            {
+                label: 'Ventas brutas',
+                data: {{ data.chart_bruto | tojson }},
+                backgroundColor: 'rgba(16, 185, 129, 0.7)',
+                borderColor: 'rgba(16, 185, 129, 1)',
+                borderWidth: 1,
+                borderRadius: 4,
+            },
+            {
+                label: 'Impuestos',
+                data: {{ data.chart_impuestos | tojson }},
+                backgroundColor: 'rgba(59, 130, 246, 0.7)',
+                borderColor: 'rgba(59, 130, 246, 1)',
+                borderWidth: 1,
+                borderRadius: 4,
+            },
+            {
+                label: 'Total',
+                data: {{ data.chart_neto | tojson }},
+                backgroundColor: 'rgba(30, 58, 138, 0.7)',
+                borderColor: 'rgba(30, 58, 138, 1)',
+                borderWidth: 1,
+                borderRadius: 4,
+            }
+        ]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                position: 'bottom',
+                labels: { boxWidth: 12, padding: 16, font: { size: 12 } }
+            }
+        },
+        scales: {
+            y: {
+                beginAtZero: true,
+                ticks: {
+                    callback: v => 'RD$ ' + v.toLocaleString('es-DO')
+                }
+            },
+            x: {
+                grid: { display: false }
+            }
+        }
+    }
+});
+</script>
+{% else %}
+<div class="ventas-empty">
+    <i class="fa-solid fa-chart-line"></i>
+    <h3>Aún no hay datos en tu cuenta</h3>
+    <p>Registra tu primera venta y empieza a conocer el desempeño de tu negocio.</p>
+    <a href="{{ url_for('web_invoices.new_invoice_route') }}" class="btn btn-primary" style="display:inline-flex;gap:6px;">
+        <i class="fa-solid fa-plus"></i> Nueva venta
+    </a>
+</div>
+{% endif %}
+{% endblock %}

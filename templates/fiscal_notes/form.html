@@ -3,7 +3,9 @@
 {% block page_header %}{% if note_type == 'E34' %}Nota de Crédito (E34){% else %}Nota de Débito (E33){% endif %}{% endblock %}
 
 {% block content %}
-<div class="page-title-container" style="margin-bottom:24px; padding-left:4px; display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px;">
+<div id="catalog-data-json" style="display:none;">{{ catalog_json }}</div>
+
+<div class="page-title-container" style="margin-bottom:24px; display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px;">
     <div>
         <h1 style="font-size:1.75rem; font-weight:800; font-family:var(--font-heading); color:var(--text-primary); margin:0;">
             <i class="fa-solid {% if note_type == 'E34' %}fa-minus-circle{% else %}fa-plus-circle{% endif %}" style="color:var(--accent-purple); margin-right:10px;"></i>
@@ -13,122 +15,789 @@
             {{ 'E34: Reduce el monto de una factura ya emitida' if note_type == 'E34' else 'E33: Incrementa el monto de una factura ya emitida' }}
         </p>
     </div>
-    <div>
+    <div style="display:flex; gap:8px;">
+        <button type="button" onclick="toggleSettingsSidebar()" class="btn btn-secondary">
+            <i class="fa-solid fa-sliders"></i> Más ajustes
+        </button>
         <a href="{{ url_for('web_fiscal_notes.list_fiscal_notes') }}" class="btn btn-secondary">
             <i class="fa-solid fa-arrow-left"></i> Volver
         </a>
     </div>
 </div>
 
-<div class="card-form-body" style="padding:24px; max-width:700px;">
-    <form method="POST" action="{{ url_for('web_fiscal_notes.save_fiscal_note') }}">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <input type="hidden" name="noteType" value="{{ note_type }}">
+<form method="POST" action="{{ url_for('web_fiscal_notes.save_fiscal_note') }}" id="fiscal-note-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="noteType" value="{{ note_type }}">
 
-        <div class="form-group" style="margin-bottom:16px;">
-            <label style="font-size:0.82rem; font-weight:600; display:block; margin-bottom:4px; color:var(--text-secondary);">
-                Factura de Referencia <span style="color:var(--accent-red);">*</span>
-                <i class="fa-solid fa-question-circle" style="color:var(--text-muted); cursor:help;" title="La factura original que se está ajustando"></i>
-            </label>
-            {% if ref_invoice %}
-            <div style="padding:10px; background:var(--bg-nav-hover); border-radius:var(--radius-sm); border:1px solid var(--border-color);">
-                <input type="hidden" name="referenceInvoiceId" value="{{ ref_invoice.id }}">
-                <strong>{{ ref_invoice.clientName or ref_invoice.razonSocial or '—' }}</strong>
-                <span style="color:var(--text-muted); font-size:0.82rem; margin-left:8px;">
-                    {{ ref_invoice.invoiceNumber or '' }} — RD$ {{ "{:,.2f}".format(ref_invoice.netPayable|default(ref_invoice.total|default(0))) }}
-                </span>
-                <a href="{{ url_for('web_fiscal_notes.create_fiscal_note', type=note_type) }}" style="font-size:0.78rem; margin-left:8px; color:var(--accent-blue);">Cambiar</a>
+    <!-- SECTION 1: ENCABEZADO DEL DOCUMENTO -->
+    <div class="card-segment" style="margin-bottom:18px;">
+        <div class="segment-header">
+            <div class="segment-header-icon emerald">
+                <i class="fa-solid fa-file-pen"></i>
             </div>
-            {% else %}
-            <div class="select-search-container">
-                <input type="text" class="form-input select-search" placeholder="Buscar factura..." style="width:100%; margin-bottom:4px;">
-                <select name="referenceInvoiceId" class="form-select" required style="width:100%;">
-                    <option value="">Seleccionar factura...</option>
-                    {% for inv in invoices %}
-                    <option value="{{ inv.id }}">
-                        {{ inv.invoiceNumber or inv.id[:8] }} — {{ inv.clientName or inv.razonSocial or 'Sin cliente' }} — RD$ {{ "{:,.2f}".format(inv.netPayable|default(inv.total|default(0))) }}
-                    </option>
+            <h3>Encabezado del Documento</h3>
+        </div>
+        <div class="form-grid">
+            <div class="form-group" style="grid-column:span 2;">
+                <label style="font-size:0.82rem; font-weight:600; display:block; margin-bottom:4px; color:var(--text-secondary);">
+                    Factura de Referencia <span style="color:var(--accent-red);">*</span>
+                </label>
+                {% if ref_invoice %}
+                <div style="padding:10px; background:var(--bg-nav-hover); border-radius:var(--radius-sm); border:1px solid var(--border-color); display:flex; align-items:center; gap:12px;">
+                    <input type="hidden" name="referenceInvoiceId" value="{{ ref_invoice.id }}">
+                    <i class="fa-solid fa-file-invoice" style="color:var(--accent-purple);"></i>
+                    <div style="flex:1;">
+                        <strong>{{ ref_invoice.clientName or ref_invoice.razonSocial or '—' }}</strong>
+                        <span style="color:var(--text-muted); font-size:0.82rem; margin-left:8px;">
+                            {{ ref_invoice.invoiceNumber or '' }} — RD$ {{ "{:,.2f}".format(ref_invoice.netPayable|default(ref_invoice.total|default(0))) }}
+                        </span>
+                    </div>
+                    <a href="{{ url_for('web_fiscal_notes.create_fiscal_note', type=note_type) }}" style="font-size:0.78rem; color:var(--accent-blue); white-space:nowrap;">Cambiar</a>
+                </div>
+                {% else %}
+                <div class="select-search-container">
+                    <input type="text" class="form-input select-search" placeholder="Buscar factura por cliente o número..." style="width:100%; margin-bottom:4px;">
+                    <select name="referenceInvoiceId" class="form-select" required style="width:100%;">
+                        <option value="">Seleccionar factura emitida...</option>
+                        {% for inv in invoices %}
+                        <option value="{{ inv.id }}">
+                            {{ inv.invoiceNumber or inv.id[:8] }} — {{ inv.clientName or inv.razonSocial or 'Sin cliente' }} — RD$ {{ "{:,.2f}".format(inv.netPayable|default(inv.total|default(0))) }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <script>
+                (function(){
+                    var input = document.querySelector('.select-search');
+                    if (!input) return;
+                    input.addEventListener('input', function(){
+                        var filter = this.value.toLowerCase();
+                        var select = this.nextElementSibling;
+                        for (var i = 0; i < select.options.length; i++) {
+                            var opt = select.options[i];
+                            opt.style.display = opt.text.toLowerCase().includes(filter) ? '' : 'none';
+                        }
+                    });
+                })();
+                </script>
+                {% endif %}
+            </div>
+
+            <div class="form-group">
+                <label style="font-size:0.82rem; font-weight:600; display:block; margin-bottom:4px; color:var(--text-secondary);">
+                    {% if note_type == 'E34' %}Código de Modificación{% else %}Tipo de Nota de Débito{% endif %} <span style="color:var(--accent-red);">*</span>
+                </label>
+                <select name="modificationCode" class="form-select" style="width:100%;">
+                    <option value="1">Devolución</option>
+                    <option value="2">Corrección de texto</option>
+                    <option value="3">Descuento</option>
+                    <option value="4">Descuento por volumen</option>
+                    <option value="5">Otros</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label style="font-size:0.82rem; font-weight:600; display:block; margin-bottom:4px; color:var(--text-secondary);">Fecha de Emisión</label>
+                <input type="date" name="date" class="form-input" value="{{ datetime.utcnow().strftime('%Y-%m-%d') }}" style="width:100%;">
+            </div>
+
+            {% if note_type == 'E33' %}
+            <div class="form-group">
+                <label style="font-size:0.82rem; font-weight:600; display:block; margin-bottom:4px; color:var(--text-secondary);">
+                    Numeración <span style="color:var(--accent-red);">*</span>
+                </label>
+                <select name="sequenceId" class="form-select" style="width:100%;">
+                    <option value="">Seleccionar secuencia...</option>
+                    {% for seq in sequences %}
+                    <option value="{{ seq.id }}">{{ seq.tipoComprobante }} — {{ seq.prefijo or seq.tipoComprobante }} (disp. {{ seq.cantidadDisponible or 0 }})</option>
                     {% endfor %}
                 </select>
             </div>
-            <script>
-            (function(){
-                var input = document.querySelector('.select-search');
-                if (!input) return;
-                input.addEventListener('input', function(){
-                    var filter = this.value.toLowerCase();
-                    var select = this.nextElementSibling;
-                    for (var i = 0; i < select.options.length; i++) {
-                        var opt = select.options[i];
-                        opt.style.display = opt.text.toLowerCase().includes(filter) ? '' : 'none';
-                    }
-                });
-            })();
-            </script>
             {% endif %}
+
+            <div class="form-group" style="grid-column:span 2;">
+                <label style="font-size:0.82rem; font-weight:600; display:block; margin-bottom:4px; color:var(--text-secondary);">Razón / Detalle</label>
+                <textarea name="reason" class="form-input" rows="2" style="width:100%; resize:vertical;" placeholder="Describe el motivo del ajuste..."></textarea>
+            </div>
+        </div>
+    </div>
+
+    <!-- SECTION 2: PRODUCTOS/SERVICIOS -->
+    <div class="card-segment" style="margin-bottom:18px;">
+        <div class="segment-header">
+            <div class="segment-header-icon purple">
+                <i class="fa-solid fa-list-check"></i>
+            </div>
+            <h3 style="flex-grow:1;">Productos / Servicios</h3>
+            <button type="button" id="btn-add-item" class="btn btn-secondary" style="padding:6px 14px; font-size:0.82rem;">
+                <i class="fa-solid fa-plus"></i> Agregar Línea
+            </button>
+        </div>
+        <div class="table-responsive">
+            <table class="table-premium" id="items-table" style="min-width:1050px;">
+                <thead>
+                    <tr>
+                        <th style="width:18%;">Referencia</th>
+                        <th style="width:24%;">Descripción <span style="color:var(--accent-red);">*</span></th>
+                        <th style="width:11%; text-align:right;">Precio <span style="color:var(--accent-red);">*</span></th>
+                        <th style="width:8%; text-align:center;">Cant. <span style="color:var(--accent-red);">*</span></th>
+                        <th style="width:9%; text-align:right;">Desc. %</th>
+                        <th style="width:10%;">ITBIS</th>
+                        <th style="width:13%; text-align:right;">Total</th>
+                        <th style="width:7%; text-align:center;"></th>
+                    </tr>
+                </thead>
+                <tbody id="items-body">
+                    <tr class="item-row">
+                        <td>
+                            <div style="display:flex; gap:4px;">
+                                <input type="text" class="form-input item-ref-input" name="items[0][code]" placeholder="Código" style="width:100%;">
+                                <button type="button" class="btn btn-secondary btn-search-product" style="padding:6px 8px;" title="Buscar en Catálogo">
+                                    <i class="fa-solid fa-magnifying-glass" style="font-size:0.75rem;"></i>
+                                </button>
+                            </div>
+                        </td>
+                        <td>
+                            <input type="text" class="form-input item-name-input" name="items[0][name]" required style="width:100%;">
+                        </td>
+                        <td>
+                            <input type="number" class="form-input item-price-input" name="items[0][price]" step="0.01" min="0" value="0.00" required style="width:100%; text-align:right;">
+                        </td>
+                        <td>
+                            <input type="number" class="form-input item-qty-input" name="items[0][quantity]" min="1" value="1" required style="width:100%; text-align:center;">
+                        </td>
+                        <td>
+                            <input type="number" class="form-input item-discount-input" name="items[0][discountRate]" step="0.01" min="0" max="100" value="0" style="width:100%; text-align:right;">
+                        </td>
+                        <td>
+                            <select class="form-select item-itbis-select" name="items[0][itbisRate]" style="width:100%;">
+                                <option value="0.18">18%</option>
+                                <option value="0.16">16%</option>
+                                <option value="0.0">Exento (0%)</option>
+                            </select>
+                        </td>
+                        <td style="text-align:right; vertical-align:middle;">
+                            <strong class="item-total-label">RD$ 0.00</strong>
+                        </td>
+                        <td style="text-align:center; vertical-align:middle;">
+                            <button type="button" class="btn btn-danger btn-remove-row" style="padding:6px 10px; display:none;">
+                                <i class="fa-solid fa-trash-can"></i>
+                            </button>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
 
-        <div class="form-group" style="margin-bottom:16px;">
-            <label style="font-size:0.82rem; font-weight:600; display:block; margin-bottom:4px; color:var(--text-secondary);">
-                Código de Modificación <span style="color:var(--accent-red);">*</span>
-                <i class="fa-solid fa-question-circle" style="color:var(--text-muted); cursor:help;" title="Razón del ajuste según catálogo DGII"></i>
-            </label>
-            <select name="modificationCode" class="form-select" style="width:100%;">
-                <option value="1">Devolución</option>
-                <option value="2">Corrección de texto</option>
-                <option value="3">Descuento</option>
-                <option value="4">Descuento por volumen</option>
-                <option value="5">Otros</option>
-            </select>
+        <!-- Totales de items -->
+        <div class="card-totals-highlight" style="margin-top:12px; padding:12px 18px; display:flex; justify-content:flex-end; gap:32px;">
+            <div style="text-align:right;">
+                <span style="font-size:0.78rem; color:var(--text-muted); display:block;">Subtotal</span>
+                <span id="lbl-subtotal" style="font-size:1rem; font-weight:700; color:var(--text-primary);">RD$ 0.00</span>
+            </div>
+            <div style="text-align:right;">
+                <span style="font-size:0.78rem; color:var(--text-muted); display:block;">ITBIS</span>
+                <span id="lbl-itbis" style="font-size:1rem; font-weight:700; color:var(--text-primary);">RD$ 0.00</span>
+            </div>
+            <div style="text-align:right;">
+                <span style="font-size:0.78rem; color:var(--text-muted); display:block;">Total</span>
+                <span id="lbl-total" style="font-size:1.15rem; font-weight:800; color:var(--accent-emerald);">RD$ 0.00</span>
+            </div>
         </div>
+    </div>
 
-        <div class="form-group" style="margin-bottom:16px;">
-            <label style="font-size:0.82rem; font-weight:600; display:block; margin-bottom:4px; color:var(--text-secondary);">Razón / Detalle</label>
-            <textarea name="reason" class="form-input" rows="2" style="width:100%; resize:vertical;" placeholder="Describe el motivo del ajuste..."></textarea>
+    <!-- SECTION 3: DEVOLUCIONES DE DINERO (solo E34) -->
+    {% if note_type == 'E34' %}
+    <div class="card-segment" style="margin-bottom:18px;">
+        <div class="segment-header">
+            <div class="segment-header-icon" style="background-color:rgba(16,185,129,0.08); color:#10b981;">
+                <i class="fa-solid fa-money-bill-transfer"></i>
+            </div>
+            <h3 style="flex-grow:1;">Devoluciones de Dinero</h3>
+            <button type="button" id="btn-add-refund" class="btn btn-secondary" style="padding:6px 14px; font-size:0.82rem;">
+                <i class="fa-solid fa-plus"></i> Agregar Devolución
+            </button>
         </div>
+        <p style="font-size:0.82rem; color:var(--text-muted); margin:0 0 12px 0;">
+            Registra los reembolsos en efectivo o depósitos asociados a esta nota de crédito.
+        </p>
+        <div id="refunds-container">
+            <div class="refund-row" style="background:var(--bg-nav-hover); border-radius:var(--radius-sm); border:1px solid var(--border-color); padding:14px; margin-bottom:10px;">
+                <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px;">
+                    <div class="form-group" style="margin-bottom:0;">
+                        <label style="font-size:0.75rem; font-weight:600; display:block; margin-bottom:3px; color:var(--text-secondary);">Banco</label>
+                        <select class="form-select refund-bank" name="refunds[0][bank]" style="width:100%;">
+                            <option value="">Seleccionar banco...</option>
+                            <option value="Banco de Reservas">Banco de Reservas</option>
+                            <option value="Banco Popular">Banco Popular</option>
+                            <option value="Banco BHD">Banco BHD</option>
+                            <option value="Scotiabank">Scotiabank</option>
+                            <option value="Banco Santa Cruz">Banco Santa Cruz</option>
+                            <option value="Banco Caribe">Banco Caribe</option>
+                            <option value="Banco Vimenca">Banco Vimenca</option>
+                            <option value="Banco Lafise">Banco Lafise</option>
+                            <option value="Banco Promerica">Banco Promerica</option>
+                            <option value="Banco Ademi">Banco Ademi</option>
+                            <option value="Banco BDI">Banco BDI</option>
+                            <option value="Otro">Otro</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="margin-bottom:0;">
+                        <label style="font-size:0.75rem; font-weight:600; display:block; margin-bottom:3px; color:var(--text-secondary);">Número de Cuenta</label>
+                        <input type="text" class="form-input refund-account" name="refunds[0][accountNumber]" placeholder="Cuenta o referencia" style="width:100%;">
+                    </div>
+                    <div class="form-group" style="margin-bottom:0;">
+                        <label style="font-size:0.75rem; font-weight:600; display:block; margin-bottom:3px; color:var(--text-secondary);">Fecha</label>
+                        <input type="date" class="form-input refund-date" name="refunds[0][date]" value="{{ datetime.utcnow().strftime('%Y-%m-%d') }}" style="width:100%;">
+                    </div>
+                    <div class="form-group" style="margin-bottom:0;">
+                        <label style="font-size:0.75rem; font-weight:600; display:block; margin-bottom:3px; color:var(--text-secondary);">Monto (RD$)</label>
+                        <input type="number" class="form-input refund-amount" name="refunds[0][amount]" step="0.01" min="0" value="0.00" style="width:100%;">
+                    </div>
+                    <div class="form-group" style="margin-bottom:0; grid-column:span 2;">
+                        <label style="font-size:0.75rem; font-weight:600; display:block; margin-bottom:3px; color:var(--text-secondary);">Observaciones</label>
+                        <input type="text" class="form-input refund-obs" name="refunds[0][observations]" placeholder="Opcional" style="width:100%;">
+                    </div>
+                </div>
+                <button type="button" class="btn btn-danger btn-remove-refund" style="padding:4px 10px; font-size:0.75rem; margin-top:8px; display:none;">
+                    <i class="fa-solid fa-trash-can"></i> Eliminar devolución
+                </button>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 
-        <div class="form-group" style="margin-bottom:16px;">
-            <label style="font-size:0.82rem; font-weight:600; display:block; margin-bottom:4px; color:var(--text-secondary);">Fecha de Emisión</label>
-            <input type="date" name="date" class="form-input" value="{{ datetime.utcnow().strftime('%Y-%m-%d') }}" style="width:100%;">
+    <!-- SECTION 4: COMENTARIOS -->
+    <div class="card-segment" style="margin-bottom:18px;">
+        <div class="segment-header">
+            <div class="segment-header-icon" style="background-color:rgba(245,158,11,0.08); color:#f59e0b;">
+                <i class="fa-solid fa-comment"></i>
+            </div>
+            <h3>Comentarios</h3>
         </div>
+        <div class="collapse-field form-group" style="margin-bottom:0;">
+            <div class="collapse-field-header" onclick="toggleCollapseField(this)" style="display:flex; align-items:center; gap:10px; padding:8px 0; cursor:pointer; user-select:none;">
+                <span class="collapse-field-preview" style="font-size:0.82rem; color:var(--text-muted); flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Agrega comentarios para información importante. No son visibles en la impresión.</span>
+                <i class="fa-solid fa-chevron-down" style="font-size:0.7rem; color:var(--text-muted); transition:transform 0.2s;"></i>
+            </div>
+            <div class="collapse-field-body" style="max-height:0; overflow:hidden; transition:max-height 0.25s ease;">
+                <textarea name="comentario" class="form-textarea" rows="3" oninput="updateCollapsePreview(this)" placeholder="Utiliza los comentarios para agregar información importante. No son visibles en la impresión." style="font-family:inherit; font-size:0.92rem; min-height:80px; width:100%; resize:vertical; border-radius:var(--radius-sm); margin-bottom:8px;"></textarea>
+            </div>
+        </div>
+    </div>
 
-        {% if note_type == 'E34' %}
-        <div class="form-group" style="margin-bottom:20px;">
-            <label style="font-size:0.82rem; font-weight:600; display:block; margin-bottom:4px; color:var(--text-secondary);">
-                Monto a Acreditar (RD$)
-                <i class="fa-solid fa-question-circle" style="color:var(--text-muted); cursor:help;" title="No puede exceder el total de la factura original. La DGII permite hasta el 100%."></i>
-            </label>
-            <input type="number" name="creditedAmount" class="form-input" step="0.01" min="0.01" style="width:100%;">
-            <small style="color:var(--text-muted); font-size:0.72rem;">
-                Debe ser ≥ 0.01. Máximo: el total de la factura de referencia.
-            </small>
-        </div>
-        {% else %}
-        <div class="form-group" style="margin-bottom:20px;">
-            <label style="font-size:0.82rem; font-weight:600; display:block; margin-bottom:4px; color:var(--text-secondary);">
-                Monto a Debitar (RD$)
-            </label>
-            <input type="number" name="debitedAmount" class="form-input" step="0.01" min="0.01" style="width:100%;">
-        </div>
-        {% endif %}
-
-        <div class="form-group" style="margin-bottom:20px;">
-            <label style="font-size:0.82rem; font-weight:600; display:block; margin-bottom:4px; color:var(--text-secondary);">Notas Internas</label>
-            <textarea name="notes" class="form-input" rows="2" style="width:100%; resize:vertical;" placeholder="Notas opcionales..."></textarea>
-        </div>
-
-        <div style="color:var(--text-muted); font-size:0.78rem; margin-bottom:16px; background:var(--bg-nav-hover); padding:10px; border-radius:var(--radius-sm); border:1px solid var(--border-color);">
-            <i class="fa-solid fa-info-circle"></i>
-            {% if note_type == 'E34' %}
-            La nota de crédito se creará como Borrador. Deberás emitirla formalmente desde el módulo de facturación para que tenga validez fiscal (firma digital y envío DGII).
-            {% else %}
-            La nota de débito se creará como Borrador. Deberás emitirla formalmente desde el módulo de facturación.
-            {% endif %}
-        </div>
-
-        <button type="submit" class="btn btn-primary">
-            <i class="fa-solid fa-check"></i> Crear {{ 'Nota de Crédito' if note_type == 'E34' else 'Nota de Débito' }}
+    <!-- BARRA DE ACCIONES -->
+    <div style="display:flex; justify-content:flex-end; gap:15px; border-top:1px solid var(--border-color); padding-top:24px; margin-bottom:40px;">
+        <a href="{{ url_for('web_fiscal_notes.list_fiscal_notes') }}" class="btn btn-secondary" style="padding:12px 24px;">
+            <span>Cancelar</span>
+        </a>
+        <button type="submit" class="btn btn-primary" style="padding:12px 28px;">
+            <i class="fa-solid fa-check"></i>
+            <span>{% if note_type == 'E34' %}Guardar Nota de Crédito{% else %}Guardar Nota de Débito{% endif %}</span>
         </button>
-    </form>
+    </div>
+
+    <div style="color:var(--text-muted); font-size:0.78rem; margin-bottom:16px; background:var(--bg-nav-hover); padding:10px; border-radius:var(--radius-sm); border:1px solid var(--border-color);">
+        <i class="fa-solid fa-info-circle"></i>
+        {% if note_type == 'E34' %}
+        La nota de crédito se creará como Borrador. Deberás emitirla formalmente desde el módulo de facturación para que tenga validez fiscal (firma digital y envío DGII).
+        {% else %}
+        La nota de débito se creará como Borrador. Deberás emitirla formalmente desde el módulo de facturación.
+        {% endif %}
+    </div>
+
+    <!-- SIDEBAR: MÁS AJUSTES (dentro del form para enviar campos) -->
+    <div id="settings-sidebar" class="settings-sidebar" style="display:none;">
+        <div class="sidebar-backdrop" onclick="toggleSettingsSidebar()"></div>
+        <div class="sidebar-panel">
+            <div class="sidebar-header" style="display:flex; justify-content:space-between; align-items:center; padding:18px 20px; border-bottom:1px solid var(--border-color);">
+                <h4 style="margin:0; font-family:var(--font-heading); font-size:1rem;">
+                    <i class="fa-solid fa-sliders" style="color:var(--accent-purple); margin-right:8px;"></i>
+                    Más ajustes
+                </h4>
+                <button type="button" onclick="toggleSettingsSidebar()" class="btn btn-secondary" style="padding:6px 12px; font-size:0.78rem;">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="sidebar-body" style="padding:20px; overflow-y:auto; flex:1;">
+                <div class="form-group" style="margin-bottom:18px;">
+                    <label style="font-size:0.82rem; font-weight:600; display:block; margin-bottom:4px; color:var(--text-secondary);">Almacén</label>
+                    <select name="warehouseId" class="form-select" style="width:100%;">
+                        <option value="">Sin asignar...</option>
+                        {% for w in warehouses %}
+                        <option value="{{ w.id }}">{{ w.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group" style="margin-bottom:18px;">
+                    <label style="font-size:0.82rem; font-weight:600; display:block; margin-bottom:4px; color:var(--text-secondary);">Lista de Precio</label>
+                    <select name="priceListId" class="form-select" style="width:100%;">
+                        <option value="">Sin asignar...</option>
+                        {% for p in price_lists %}
+                        <option value="{{ p.id }}">{{ p.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group" style="margin-bottom:18px;">
+                    <label style="font-size:0.82rem; font-weight:600; display:block; margin-bottom:4px; color:var(--text-secondary);">Vendedor</label>
+                    <select name="sellerId" class="form-select" style="width:100%;">
+                        <option value="">Sin asignar...</option>
+                        {% for s in sellers %}
+                        <option value="{{ s.uid }}">{{ s.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div style="padding:16px 20px; border-top:1px solid var(--border-color);">
+                <button type="button" onclick="toggleSettingsSidebar()" class="btn btn-primary" style="width:100%;">
+                    <i class="fa-solid fa-check"></i> Listo
+                </button>
+            </div>
+        </div>
+    </div>
+</form>
+
+<!-- MODAL DE BÚSQUEDA DE PRODUCTOS -->
+<div id="product-modal" class="search-modal" style="display:none;">
+    <div class="modal-backdrop" onclick="closeProductModal()"></div>
+    <div class="modal-content" style="max-width:720px; width:90%; max-height:80vh; display:flex; flex-direction:column;">
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:16px 20px; border-bottom:1px solid var(--border-color);">
+            <h4 style="margin:0; font-family:var(--font-heading); font-size:1rem;">
+                <i class="fa-solid fa-boxes-stacked" style="color:var(--accent-purple); margin-right:8px;"></i>
+                Catálogo de Productos / Servicios
+            </h4>
+            <button type="button" onclick="closeProductModal()" class="btn btn-secondary" style="padding:6px 12px; font-size:0.78rem;">
+                <i class="fa-solid fa-xmark"></i> Cerrar
+            </button>
+        </div>
+        <div style="padding:12px 20px; border-bottom:1px solid var(--border-color);">
+            <input type="text" id="modal-product-filter" class="form-input" placeholder="Buscar por nombre o código..." style="width:100%;">
+        </div>
+        <div style="flex:1; overflow-y:auto; padding:12px 20px;">
+            <table class="table-premium" style="width:100%;">
+                <thead>
+                    <tr>
+                        <th style="width:20%;">Código</th>
+                        <th style="width:35%;">Nombre</th>
+                        <th style="width:15%; text-align:right;">Precio</th>
+                        <th style="width:12%;">ITBIS</th>
+                        <th style="width:18%;"></th>
+                    </tr>
+                </thead>
+                <tbody id="modal-product-tbody"></tbody>
+            </table>
+            <div id="modal-product-empty" style="text-align:center; padding:40px 20px; color:var(--text-muted); display:none;">
+                <i class="fa-solid fa-box-open" style="font-size:2rem; opacity:0.4; margin-bottom:12px; display:block;"></i>
+                No se encontraron productos.
+            </div>
+        </div>
+    </div>
 </div>
+
+<script>
+// =========================================================================
+// CATALOG PRODUCT MODAL
+// =========================================================================
+var catalogItems = [];
+var catalogDataElement = document.getElementById('catalog-data-json');
+if (catalogDataElement) {
+    try { catalogItems = JSON.parse(catalogDataElement.textContent) || []; } catch(e) { catalogItems = []; }
+}
+
+var activeItemRow = null;
+
+function openProductModal(row) {
+    activeItemRow = row;
+    var modal = document.getElementById('product-modal');
+    if (modal) modal.style.display = 'flex';
+    renderProducts('');
+    var filter = document.getElementById('modal-product-filter');
+    if (filter) { filter.value = ''; filter.focus(); }
+}
+
+function closeProductModal() {
+    var modal = document.getElementById('product-modal');
+    if (modal) modal.style.display = 'none';
+    activeItemRow = null;
+}
+
+function renderProducts(filter) {
+    var tbody = document.getElementById('modal-product-tbody');
+    var empty = document.getElementById('modal-product-empty');
+    if (!tbody) return;
+    var f = (filter || '').toLowerCase().trim();
+    var filtered = catalogItems.filter(function(p) {
+        var n = (p.name || '').toLowerCase();
+        var c = (p.code || '').toLowerCase();
+        return !f || n.indexOf(f) !== -1 || c.indexOf(f) !== -1;
+    });
+    tbody.innerHTML = '';
+    if (filtered.length === 0) {
+        if (empty) empty.style.display = 'block';
+        return;
+    }
+    if (empty) empty.style.display = 'none';
+    filtered.forEach(function(p) {
+        var price = parseFloat(p.salePrice || p.price || 0);
+        var itbisRate = parseFloat(p.itbisRate || 0.18);
+        var itbisLabel = itbisRate >= 0.18 ? '18%' : (itbisRate >= 0.16 ? '16%' : 'Exento');
+        var tr = document.createElement('tr');
+        tr.innerHTML = '<td style="font-family:monospace; font-weight:500;">' + (p.code || '—') + '</td>' +
+            '<td><strong>' + (p.name || '') + '</strong></td>' +
+            '<td style="text-align:right; font-weight:500;">RD$ ' + price.toFixed(2) + '</td>' +
+            '<td>' + itbisLabel + '</td>' +
+            '<td style="text-align:center;"><button type="button" class="btn btn-primary btn-select-product" style="padding:4px 12px; font-size:0.75rem;"><i class="fa-solid fa-check"></i> Seleccionar</button></td>';
+        var btn = tr.querySelector('.btn-select-product');
+        if (btn) {
+            btn.addEventListener('click', function() { selectProduct(p); });
+        }
+        tbody.appendChild(tr);
+    });
+}
+
+function selectProduct(product) {
+    var row = activeItemRow;
+    if (!row) return;
+    var refInput = row.querySelector('.item-ref-input');
+    var nameInput = row.querySelector('.item-name-input');
+    var priceInput = row.querySelector('.item-price-input');
+    var itbisSelect = row.querySelector('.item-itbis-select');
+    if (refInput) refInput.value = product.code || '';
+    if (nameInput) nameInput.value = product.name || '';
+    if (priceInput) priceInput.value = parseFloat(product.salePrice || product.price || 0).toFixed(2);
+    if (itbisSelect) {
+        var rate = parseFloat(product.itbisRate || 0.18);
+        for (var i = 0; i < itbisSelect.options.length; i++) {
+            if (Math.abs(parseFloat(itbisSelect.options[i].value) - rate) < 0.01) {
+                itbisSelect.selectedIndex = i;
+                break;
+            }
+        }
+    }
+    closeProductModal();
+    recalculateItemRow(row);
+    recalculateTotals();
+}
+
+// =========================================================================
+// LINE ITEMS
+// =========================================================================
+var itemsBody = document.getElementById('items-body');
+var btnAddItem = document.getElementById('btn-add-item');
+
+function createItemRow(index) {
+    var tr = document.createElement('tr');
+    tr.className = 'item-row animate-fade-in';
+    tr.innerHTML =
+        '<td><div style="display:flex; gap:4px;">' +
+            '<input type="text" class="form-input item-ref-input" name="items[' + index + '][code]" placeholder="Código" style="width:100%;">' +
+            '<button type="button" class="btn btn-secondary btn-search-product" style="padding:6px 8px;" title="Buscar en Catálogo"><i class="fa-solid fa-magnifying-glass" style="font-size:0.75rem;"></i></button>' +
+        '</div></td>' +
+        '<td><input type="text" class="form-input item-name-input" name="items[' + index + '][name]" required style="width:100%;"></td>' +
+        '<td><input type="number" class="form-input item-price-input" name="items[' + index + '][price]" step="0.01" min="0" value="0.00" required style="width:100%; text-align:right;"></td>' +
+        '<td><input type="number" class="form-input item-qty-input" name="items[' + index + '][quantity]" min="1" value="1" required style="width:100%; text-align:center;"></td>' +
+        '<td><input type="number" class="form-input item-discount-input" name="items[' + index + '][discountRate]" step="0.01" min="0" max="100" value="0" style="width:100%; text-align:right;"></td>' +
+        '<td><select class="form-select item-itbis-select" name="items[' + index + '][itbisRate]" style="width:100%;">' +
+            '<option value="0.18">18%</option>' +
+            '<option value="0.16">16%</option>' +
+            '<option value="0.0">Exento (0%)</option>' +
+        '</select></td>' +
+        '<td style="text-align:right; vertical-align:middle;"><strong class="item-total-label">RD$ 0.00</strong></td>' +
+        '<td style="text-align:center; vertical-align:middle;"><button type="button" class="btn btn-danger btn-remove-row" style="padding:6px 10px;"><i class="fa-solid fa-trash-can"></i></button></td>';
+    return tr;
+}
+
+function bindItemRowEvents(row) {
+    var searchBtns = row.querySelectorAll('.btn-search-product');
+    searchBtns.forEach(function(btn) {
+        btn.addEventListener('click', function(e) { e.stopPropagation(); openProductModal(row); });
+    });
+    var refInput = row.querySelector('.item-ref-input');
+    if (refInput) {
+        refInput.addEventListener('focus', function() { this.select(); });
+    }
+    var calcInputs = row.querySelectorAll('.item-price-input, .item-qty-input, .item-discount-input, .item-itbis-select');
+    calcInputs.forEach(function(inp) {
+        inp.addEventListener('input', function() { recalculateItemRow(row); recalculateTotals(); });
+        inp.addEventListener('change', function() { recalculateItemRow(row); recalculateTotals(); });
+    });
+    var removeBtn = row.querySelector('.btn-remove-row');
+    if (removeBtn) {
+        removeBtn.addEventListener('click', function() {
+            row.remove();
+            realignItemIndexes();
+            recalculateTotals();
+        });
+    }
+}
+
+function recalculateItemRow(row) {
+    var price = parseFloat(row.querySelector('.item-price-input').value) || 0;
+    var qty = parseInt(row.querySelector('.item-qty-input').value) || 1;
+    var disc = parseFloat(row.querySelector('.item-discount-input').value) || 0;
+    var itbisRate = parseFloat(row.querySelector('.item-itbis-select').value) || 0;
+    var subtotal = price * qty;
+    var discountAmt = subtotal * (disc / 100);
+    var taxable = subtotal - discountAmt;
+    var itbis = taxable * itbisRate;
+    var total = taxable + itbis;
+    var label = row.querySelector('.item-total-label');
+    if (label) label.textContent = 'RD$ ' + total.toFixed(2);
+}
+
+function recalculateTotals() {
+    var rows = itemsBody.querySelectorAll('.item-row');
+    var subtotal = 0, itbis = 0, total = 0;
+    rows.forEach(function(row) {
+        var price = parseFloat(row.querySelector('.item-price-input').value) || 0;
+        var qty = parseInt(row.querySelector('.item-qty-input').value) || 1;
+        var disc = parseFloat(row.querySelector('.item-discount-input').value) || 0;
+        var itbisRate = parseFloat(row.querySelector('.item-itbis-select').value) || 0;
+        var rowSub = price * qty;
+        var rowDisc = rowSub * (disc / 100);
+        var rowTaxable = rowSub - rowDisc;
+        var rowItbis = rowTaxable * itbisRate;
+        subtotal += rowSub - rowDisc;
+        itbis += rowItbis;
+        total += rowTaxable + rowItbis;
+    });
+    var lblSub = document.getElementById('lbl-subtotal');
+    var lblItbis = document.getElementById('lbl-itbis');
+    var lblTotal = document.getElementById('lbl-total');
+    if (lblSub) lblSub.textContent = 'RD$ ' + subtotal.toFixed(2);
+    if (lblItbis) lblItbis.textContent = 'RD$ ' + itbis.toFixed(2);
+    if (lblTotal) lblTotal.textContent = 'RD$ ' + total.toFixed(2);
+}
+
+function realignItemIndexes() {
+    var rows = itemsBody.querySelectorAll('.item-row');
+    rows.forEach(function(row, i) {
+        row.querySelector('.item-ref-input').name = 'items[' + i + '][code]';
+        row.querySelector('.item-name-input').name = 'items[' + i + '][name]';
+        row.querySelector('.item-price-input').name = 'items[' + i + '][price]';
+        row.querySelector('.item-qty-input').name = 'items[' + i + '][quantity]';
+        row.querySelector('.item-discount-input').name = 'items[' + i + '][discountRate]';
+        row.querySelector('.item-itbis-select').name = 'items[' + i + '][itbisRate]';
+    });
+}
+
+if (btnAddItem) {
+    btnAddItem.addEventListener('click', function() {
+        var index = itemsBody.querySelectorAll('.item-row').length;
+        var row = createItemRow(index);
+        itemsBody.appendChild(row);
+        bindItemRowEvents(row);
+        recalculateTotals();
+    });
+}
+
+// =========================================================================
+// REFUNDS (Devoluciones de Dinero)
+// =========================================================================
+var refundsContainer = document.getElementById('refunds-container');
+var btnAddRefund = document.getElementById('btn-add-refund');
+
+function createRefundRow(index) {
+    var div = document.createElement('div');
+    div.className = 'refund-row';
+    div.style.cssText = 'background:var(--bg-nav-hover); border-radius:var(--radius-sm); border:1px solid var(--border-color); padding:14px; margin-bottom:10px;';
+    var today = new Date().toISOString().split('T')[0];
+    div.innerHTML =
+        '<div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px;">' +
+            '<div class="form-group" style="margin-bottom:0;">' +
+                '<label style="font-size:0.75rem; font-weight:600; display:block; margin-bottom:3px; color:var(--text-secondary);">Banco</label>' +
+                '<select class="form-select refund-bank" name="refunds[' + index + '][bank]" style="width:100%;">' +
+                    '<option value="">Seleccionar banco...</option>' +
+                    '<option value="Banco de Reservas">Banco de Reservas</option>' +
+                    '<option value="Banco Popular">Banco Popular</option>' +
+                    '<option value="Banco BHD">Banco BHD</option>' +
+                    '<option value="Scotiabank">Scotiabank</option>' +
+                    '<option value="Banco Santa Cruz">Banco Santa Cruz</option>' +
+                    '<option value="Banco Caribe">Banco Caribe</option>' +
+                    '<option value="Banco Vimenca">Banco Vimenca</option>' +
+                    '<option value="Banco Lafise">Banco Lafise</option>' +
+                    '<option value="Banco Promerica">Banco Promerica</option>' +
+                    '<option value="Banco Ademi">Banco Ademi</option>' +
+                    '<option value="Banco BDI">Banco BDI</option>' +
+                    '<option value="Otro">Otro</option>' +
+                '</select>' +
+            '</div>' +
+            '<div class="form-group" style="margin-bottom:0;">' +
+                '<label style="font-size:0.75rem; font-weight:600; display:block; margin-bottom:3px; color:var(--text-secondary);">Número de Cuenta</label>' +
+                '<input type="text" class="form-input refund-account" name="refunds[' + index + '][accountNumber]" placeholder="Cuenta o referencia" style="width:100%;">' +
+            '</div>' +
+            '<div class="form-group" style="margin-bottom:0;">' +
+                '<label style="font-size:0.75rem; font-weight:600; display:block; margin-bottom:3px; color:var(--text-secondary);">Fecha</label>' +
+                '<input type="date" class="form-input refund-date" name="refunds[' + index + '][date]" value="' + today + '" style="width:100%;">' +
+            '</div>' +
+            '<div class="form-group" style="margin-bottom:0;">' +
+                '<label style="font-size:0.75rem; font-weight:600; display:block; margin-bottom:3px; color:var(--text-secondary);">Monto (RD$)</label>' +
+                '<input type="number" class="form-input refund-amount" name="refunds[' + index + '][amount]" step="0.01" min="0" value="0.00" style="width:100%;">' +
+            '</div>' +
+            '<div class="form-group" style="margin-bottom:0; grid-column:span 2;">' +
+                '<label style="font-size:0.75rem; font-weight:600; display:block; margin-bottom:3px; color:var(--text-secondary);">Observaciones</label>' +
+                '<input type="text" class="form-input refund-obs" name="refunds[' + index + '][observations]" placeholder="Opcional" style="width:100%;">' +
+            '</div>' +
+        '</div>' +
+        '<button type="button" class="btn btn-danger btn-remove-refund" style="padding:4px 10px; font-size:0.75rem; margin-top:8px;"><i class="fa-solid fa-trash-can"></i> Eliminar devolución</button>';
+    return div;
+}
+
+function bindRefundEvents(row) {
+    var removeBtn = row.querySelector('.btn-remove-refund');
+    if (removeBtn) {
+        removeBtn.addEventListener('click', function() {
+            row.remove();
+            realignRefundIndexes();
+        });
+    }
+}
+
+function realignRefundIndexes() {
+    var rows = refundsContainer.querySelectorAll('.refund-row');
+    rows.forEach(function(row, i) {
+        row.querySelector('.refund-bank').name = 'refunds[' + i + '][bank]';
+        row.querySelector('.refund-account').name = 'refunds[' + i + '][accountNumber]';
+        row.querySelector('.refund-date').name = 'refunds[' + i + '][date]';
+        row.querySelector('.refund-amount').name = 'refunds[' + i + '][amount]';
+        row.querySelector('.refund-obs').name = 'refunds[' + i + '][observations]';
+    });
+}
+
+if (btnAddRefund) {
+    btnAddRefund.addEventListener('click', function() {
+        var index = refundsContainer.querySelectorAll('.refund-row').length;
+        var row = createRefundRow(index);
+        refundsContainer.appendChild(row);
+        bindRefundEvents(row);
+    });
+}
+
+// La primera fila de devolución debe tener botón eliminar solo si hay más de 1
+function updateFirstRefundRemoveBtn() {
+    var rows = refundsContainer.querySelectorAll('.refund-row');
+    rows.forEach(function(row, i) {
+        var btn = row.querySelector('.btn-remove-refund');
+        if (btn) btn.style.display = rows.length > 1 ? '' : 'none';
+    });
+}
+
+if (refundsContainer) {
+    var observer = new MutationObserver(function() { updateFirstRefundRemoveBtn(); });
+    observer.observe(refundsContainer, { childList: true });
+    updateFirstRefundRemoveBtn();
+}
+
+// =========================================================================
+// COLLAPSE FIELDS
+// =========================================================================
+function toggleCollapseField(header) {
+    var body = header.nextElementSibling;
+    var chevron = header.querySelector('.fa-chevron-down');
+    if (body.style.maxHeight && body.style.maxHeight !== '0px') {
+        body.style.maxHeight = '0';
+        if (chevron) chevron.style.transform = '';
+    } else {
+        body.style.maxHeight = body.scrollHeight + 'px';
+        if (chevron) chevron.style.transform = 'rotate(180deg)';
+    }
+}
+
+function updateCollapsePreview(textarea) {
+    var field = textarea.closest('.collapse-field');
+    if (!field) return;
+    var header = field.querySelector('.collapse-field-preview');
+    if (header) {
+        header.textContent = textarea.value || textarea.placeholder;
+    }
+}
+
+// =========================================================================
+// SETTINGS SIDEBAR (MÁS AJUSTES)
+// =========================================================================
+function toggleSettingsSidebar() {
+    var sidebar = document.getElementById('settings-sidebar');
+    if (!sidebar) return;
+    var isVisible = sidebar.style.display !== 'none';
+    sidebar.style.display = isVisible ? 'none' : 'flex';
+}
+
+// =========================================================================
+// INITIALIZATION
+// =========================================================================
+document.addEventListener('DOMContentLoaded', function() {
+    // Bind existing first row
+    var firstRow = itemsBody.querySelector('.item-row');
+    if (firstRow) {
+        bindItemRowEvents(firstRow);
+        var firstRemoveBtn = firstRow.querySelector('.btn-remove-row');
+        if (firstRemoveBtn) firstRemoveBtn.style.display = 'none';
+        recalculateItemRow(firstRow);
+        recalculateTotals();
+    }
+
+    // Bind first refund row
+    var firstRefund = refundsContainer ? refundsContainer.querySelector('.refund-row') : null;
+    if (firstRefund) {
+        bindRefundEvents(firstRefund);
+        var firstRefundBtn = firstRefund.querySelector('.btn-remove-refund');
+        if (firstRefundBtn) firstRefundBtn.style.display = 'none';
+    }
+
+    // Product modal filter
+    var filterInput = document.getElementById('modal-product-filter');
+    if (filterInput) {
+        filterInput.addEventListener('input', function() { renderProducts(this.value); });
+        filterInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') closeProductModal();
+        });
+    }
+
+    // Close modals on Escape
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            closeProductModal();
+            var sb = document.getElementById('settings-sidebar');
+            if (sb) sb.style.display = 'none';
+        }
+    });
+});
+</script>
+
+<style>
+.search-modal {
+    position:fixed; top:0; left:0; width:100%; height:100%; z-index:9999;
+    display:flex; align-items:center; justify-content:center;
+}
+.modal-backdrop {
+    position:absolute; top:0; left:0; width:100%; height:100%;
+    background:rgba(0,0,0,0.4); backdrop-filter:blur(4px);
+}
+.item-row.animate-fade-in {
+    animation: fadeIn 0.2s ease;
+}
+@keyframes fadeIn {
+    from { opacity:0; transform:translateY(-6px); }
+    to { opacity:1; transform:translateY(0); }
+}
+.settings-sidebar {
+    position:fixed; top:0; left:0; width:100%; height:100%; z-index:9998;
+    display:flex; justify-content:flex-end;
+}
+.settings-sidebar .sidebar-backdrop {
+    position:absolute; top:0; left:0; width:100%; height:100%;
+    background:rgba(0,0,0,0.3); backdrop-filter:blur(3px);
+}
+.settings-sidebar .sidebar-panel {
+    position:relative; width:380px; max-width:90vw; height:100%;
+    background:var(--bg-main); border-left:1px solid var(--border-color);
+    box-shadow:-8px 0 32px rgba(0,0,0,0.1);
+    display:flex; flex-direction:column;
+    animation:slideInRight 0.25s ease;
+}
+@keyframes slideInRight {
+    from { transform:translateX(100%); }
+    to { transform:translateX(0); }
+}
+</style>
 {% endblock %}

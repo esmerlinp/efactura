@@ -1,0 +1,382 @@
+{% extends "layout.html" %}
+{% block title %}{% if contact %}Editar Contacto{% else %}Nuevo Contacto{% endif %}{% endblock %}
+{% block page_header %}{% if contact %}Editar Contacto{% else %}Nuevo Contacto{% endif %}{% endblock %}
+
+{% block content %}
+<style>
+    .type-checkboxes { display:flex; gap:12px; padding:8px 0; }
+    .type-btn { display:flex; align-items:center; gap:8px; padding:10px 20px; border:2px solid var(--border-color); border-radius:var(--radius-md); cursor:pointer; font-weight:500; font-size:0.88rem; transition:all 0.2s ease; user-select:none; background:var(--bg-card); color:var(--text-secondary); }
+    .type-btn:hover { border-color:var(--accent-emerald); background:rgba(16,185,129,0.04); }
+    .type-btn.active { border-color:var(--accent-emerald); background:rgba(16,185,129,0.08); color:var(--accent-emerald); }
+    .type-btn input { display:none; }
+    .type-btn i { font-size:1rem; }
+
+    .people-table { width:100%; border-collapse:collapse; margin-top:10px; }
+    .people-table th { text-align:left; padding:8px 10px; font-size:0.75rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-secondary); border-bottom:2px solid var(--border-color); }
+    .people-table td { padding:6px 10px; border-bottom:1px solid var(--border-color); }
+    .people-table input { width:100%; padding:6px 8px; font-size:0.8rem; border:1px solid var(--border-color); border-radius:var(--radius-sm); background:var(--bg-card); color:var(--text-primary); }
+
+    .segment-header { cursor:pointer; user-select:none; }
+    .segment-header .collapse-icon { margin-left:auto; transition:transform 0.25s ease; font-size:0.8rem; color:var(--text-muted); }
+    .card-segment.collapsed .collapse-icon { transform:rotate(-90deg); }
+    .collapsible-content { overflow:hidden; max-height:2000px; transition:max-height 0.3s ease, padding 0.25s ease, margin 0.25s ease; }
+    .card-segment.collapsed .collapsible-content { max-height:0; padding-top:0 !important; padding-bottom:0 !important; margin-top:0 !important; margin-bottom:0 !important; }
+</style>
+
+<div class="card-table-wrapper" style="max-width: 900px; margin: 0 auto;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+        <div>
+            <h2 style="font-size:1.2rem; font-family:var(--font-heading); margin:0;">
+                <i class="fa-solid fa-address-card" style="color:var(--accent-emerald); margin-right:8px;"></i>
+                {% if contact %}Editar Contacto{% else %}Nuevo Contacto{% endif %}
+            </h2>
+            <p style="color:var(--text-secondary); font-size:0.82rem; margin:4px 0 0;">Un contacto puede ser cliente, proveedor o ambos.</p>
+        </div>
+        <a href="{{ url_for('web_contacts.list_contacts') }}" class="btn btn-secondary"><i class="fa-solid fa-arrow-left"></i> Volver</a>
+    </div>
+
+    <form action="{% if contact %}{{ url_for('web_contacts.edit_contact', contact_id=contact.id) }}{% else %}{{ url_for('web_contacts.new_contact') }}{% endif %}" method="POST" enctype="multipart/form-data">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+        <!-- SECCIÓN 1: DATOS GENERALES (abierta) -->
+        <div class="card-segment" id="sec-datos-generales">
+            <div class="segment-header" onclick="toggleCollapse(this)">
+                <i class="fa-solid fa-building" style="color:var(--accent-emerald);"></i> Datos Generales
+                <i class="fa-solid fa-chevron-down collapse-icon"></i>
+            </div>
+            <div class="collapsible-content">
+                <div class="form-grid" style="padding-top:8px;">
+                    <div class="form-group" style="grid-column: 1 / -1;">
+                        <div class="type-checkboxes">
+                            <div class="type-btn {% if not contact or 'cliente' in contact.get('types', []) %}active{% endif %}" onclick="toggleTypeBtn(this, 'cliente')">
+                                <input type="checkbox" name="types" value="cliente" {% if not contact or 'cliente' in contact.get('types', []) %}checked{% endif %}>
+                                <i class="fa-solid fa-user"></i> Es Cliente
+                            </div>
+                            <div class="type-btn {% if contact and 'proveedor' in contact.get('types', []) %}active{% endif %}" onclick="toggleTypeBtn(this, 'proveedor')">
+                                <input type="checkbox" name="types" value="proveedor" {% if contact and 'proveedor' in contact.get('types', []) %}checked{% endif %}>
+                                <i class="fa-solid fa-truck"></i> Es Proveedor
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group" style="grid-column: 1 / -1;">
+                        <label>RNC / Cédula <span style="color:var(--accent-red);">*</span></label>
+                        <input type="text" name="rnc" class="form-input" placeholder="Ingresa RNC (9 dígitos) o Cédula (11 dígitos)" value="{{ contact.rnc if contact else '' }}">
+                    </div>
+
+                    <div class="form-group" style="grid-column: 1 / -1;">
+                        <label>Nombre o Razón Social <span style="color:var(--accent-red);">*</span></label>
+                        <input type="text" name="razonSocial" class="form-input" placeholder="Nombre completo o razón social" required value="{{ contact.razonSocial if contact else '' }}">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Municipio</label>
+                        <input type="text" name="municipio" class="form-input" placeholder="Ej: Santo Domingo" value="{{ contact.municipio if contact else '' }}">
+                    </div>
+                    <div class="form-group">
+                        <label>Provincia</label>
+                        <input type="text" name="provincia" class="form-input" placeholder="Ej: Distrito Nacional" value="{{ contact.provincia if contact else '' }}">
+                    </div>
+
+                    <div class="form-group" style="grid-column: 1 / -1;">
+                        <label>Dirección</label>
+                        <input type="text" name="direccion" class="form-input" placeholder="Calle, Número, Sector" value="{{ contact.direccion if contact else '' }}">
+                    </div>
+
+                    <div class="form-group">
+                        <label>País</label>
+                        <select name="pais" class="form-input">
+                            <option value="República Dominicana" {% if not contact or contact.pais == 'República Dominicana' %}selected{% endif %}>República Dominicana</option>
+                            <option value="Estados Unidos" {% if contact and contact.pais == 'Estados Unidos' %}selected{% endif %}>Estados Unidos</option>
+                            <option value="Otro" {% if contact and contact.pais not in ['República Dominicana','Estados Unidos'] %}selected{% endif %}>Otro</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SECCIÓN 2: INFORMACIÓN DE CONTACTO (abierta) -->
+        <div class="card-segment" id="sec-info-contacto">
+            <div class="segment-header" onclick="toggleCollapse(this)">
+                <i class="fa-solid fa-phone" style="color:var(--accent-blue);"></i> Información de Contacto
+                <i class="fa-solid fa-chevron-down collapse-icon"></i>
+            </div>
+            <div class="collapsible-content">
+                <div class="form-grid" style="padding-top:8px;">
+                    <div class="form-group" style="grid-column: 1 / -1;">
+                        <label>Correo Electrónico</label>
+                        <input type="email" name="email" class="form-input" placeholder="correo@ejemplo.com" value="{{ contact.email if contact else '' }}">
+                    </div>
+                    <div class="form-group">
+                        <label>Teléfono</label>
+                        <input type="text" name="telefono" class="form-input" placeholder="809-555-0100" value="{{ contact.telefono if contact else '' }}">
+                    </div>
+                    <div class="form-group">
+                        <label>Teléfono 2</label>
+                        <input type="text" name="telefono2" class="form-input" placeholder="809-555-0101" value="{{ contact.telefono2 if contact else '' }}">
+                    </div>
+                    <div class="form-group" style="grid-column: 1 / -1;">
+                        <label>Celular</label>
+                        <input type="text" name="celular" class="form-input" placeholder="809-555-0102" value="{{ contact.celular if contact else '' }}">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SECCIÓN 3: PERSONAS ASOCIADAS (cerrada) -->
+        <div class="card-segment collapsed" id="sec-personas">
+            <div class="segment-header" onclick="toggleCollapse(this)">
+                <i class="fa-solid fa-users" style="color:var(--accent-purple);"></i> Personas Asociadas
+                <i class="fa-solid fa-chevron-down collapse-icon"></i>
+            </div>
+            <div class="collapsible-content">
+                <table class="people-table" id="people-table">
+                    <thead>
+                        <tr>
+                            <th style="width:30%;">Nombre</th>
+                            <th style="width:25%;">Email</th>
+                            <th style="width:20%;">Teléfono</th>
+                            <th style="width:15%;">Notificar Venc.</th>
+                            <th style="width:10%;"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if contact and contact.get('associatedPeople') %}
+                            {% for p in contact.associatedPeople %}
+                            <tr>
+                                <td><input type="text" name="people_name[]" value="{{ p.name }}" placeholder="Nombre"></td>
+                                <td><input type="email" name="people_email[]" value="{{ p.email }}" placeholder="Email"></td>
+                                <td><input type="text" name="people_phone[]" value="{{ p.phone }}" placeholder="Teléfono"></td>
+                                <td style="text-align:center;"><input type="checkbox" name="people_notify[]" {% if p.get('notifyOnExpiry') %}checked{% endif %}></td>
+                                <td><button type="button" class="btn btn-ghost btn-xs" onclick="this.closest('tr').remove()" style="color:var(--danger);"><i class="fa-solid fa-xmark"></i></button></td>
+                            </tr>
+                            {% endfor %}
+                        {% endif %}
+                    </tbody>
+                </table>
+                <button type="button" class="btn btn-ghost btn-sm" onclick="addPersonRow()" style="margin:12px 0 4px;">
+                    <i class="fa-solid fa-plus"></i> Asociar persona
+                </button>
+                <small style="display:block; color:var(--text-muted); font-size:0.75rem; margin-top:4px;">Personas de contacto adicionales asociadas a este cliente/proveedor.</small>
+            </div>
+        </div>
+
+        <!-- SECCIÓN 4: INFORMACIÓN COMERCIAL (Cliente) (cerrada) -->
+        <div class="card-segment collapsed" id="sec-comercial-cliente">
+            <div class="segment-header" onclick="toggleCollapse(this)">
+                <i class="fa-solid fa-chart-simple" style="color:var(--accent-orange);"></i> Información Comercial (Cliente)
+                <i class="fa-solid fa-chevron-down collapse-icon"></i>
+            </div>
+            <div class="collapsible-content">
+                <div class="form-grid" style="padding-top:8px;">
+                    <div class="form-group">
+                        <label>Etapa del Pipeline</label>
+                        <select name="pipelineStage" class="form-input">
+                            <option value="Prospecto" {% if not contact or contact.pipelineStage == 'Prospecto' %}selected{% endif %}>Prospecto</option>
+                            <option value="Contactado" {% if contact and contact.pipelineStage == 'Contactado' %}selected{% endif %}>Contactado</option>
+                            <option value="En Negociación" {% if contact and contact.pipelineStage == 'En Negociación' %}selected{% endif %}>En Negociación</option>
+                            <option value="Cliente Activo" {% if contact and contact.pipelineStage == 'Cliente Activo' %}selected{% endif %}>Cliente Activo</option>
+                            <option value="Periodo de Prueba" {% if contact and contact.pipelineStage == 'Periodo de Prueba' %}selected{% endif %}>Periodo de Prueba</option>
+                            <option value="Expirado" {% if contact and contact.pipelineStage == 'Expirado' %}selected{% endif %}>Expirado</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Lista de Precios</label>
+                        <select name="priceListId" class="form-input">
+                            <option value="">Precio por defecto</option>
+                            {% for pl in price_lists %}
+                            <option value="{{ pl.id }}" {% if contact and contact.priceListId == pl.id %}selected{% endif %}>{{ pl.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Responsable de Cuenta</label>
+                        <select name="responsibleId" class="form-input">
+                            <option value="">Owner / Propietario</option>
+                            {% for colab in collaborators %}
+                            <option value="{{ colab.uid }}" {% if contact and contact.responsibleId == colab.uid %}selected{% endif %}>{{ colab.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Fecha Próximo Contacto</label>
+                        <input type="date" name="nextContactDate" class="form-input" value="{{ contact.nextContactDate[:10] if contact and contact.nextContactDate else '' }}">
+                    </div>
+                    <div class="form-group">
+                        <label>PIN Portal Autoservicio</label>
+                        <input type="text" name="accessPin" class="form-input" maxlength="6" pattern="\d{6}" inputmode="numeric" placeholder="123456" value="{{ contact.accessPin if contact and contact.accessPin else '' }}">
+                    </div>
+                    <div class="form-group" style="display:flex; align-items:center; gap:8px; padding-top:16px;">
+                        <input type="checkbox" id="disableAutoReminders" name="disableAutoReminders" {% if contact and contact.disableAutoReminders %}checked{% endif %} style="width:18px;height:18px;cursor:pointer;">
+                        <label for="disableAutoReminders" style="cursor:pointer; margin:0; font-weight:500; font-size:0.85rem;">Pausar recordatorios automáticos</label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SECCIÓN 5: INFORMACIÓN COMERCIAL (Proveedor) (cerrada) -->
+        <div class="card-segment collapsed" id="sec-comercial-proveedor">
+            <div class="segment-header" onclick="toggleCollapse(this)">
+                <i class="fa-solid fa-truck" style="color:var(--accent-blue);"></i> Información Comercial (Proveedor)
+                <i class="fa-solid fa-chevron-down collapse-icon"></i>
+            </div>
+            <div class="collapsible-content">
+                <div class="form-grid" style="padding-top:8px;">
+                    <div class="form-group">
+                        <label>Tipo de Persona</label>
+                        <select name="tipoPersona" class="form-input">
+                            <option value="fisica" {% if not contact or contact.tipoPersona == 'fisica' %}selected{% endif %}>Física</option>
+                            <option value="juridica" {% if contact and contact.tipoPersona == 'juridica' %}selected{% endif %}>Jurídica</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Tipo de Proveedor</label>
+                        <select name="supplierType" class="form-input">
+                            <option value="formal" {% if not contact or contact.supplierType == 'formal' %}selected{% endif %}>Formal</option>
+                            <option value="informal" {% if contact and contact.supplierType == 'informal' %}selected{% endif %}>Informal</option>
+                            <option value="minorista" {% if contact and contact.supplierType == 'minorista' %}selected{% endif %}>Minorista</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Días de Crédito</label>
+                        <input type="number" name="creditDays" class="form-input" min="0" value="{{ contact.creditDays if contact else 0 }}">
+                    </div>
+                    <div class="form-group">
+                        <label>Límite de Crédito (RD$)</label>
+                        <input type="number" name="creditLimit" class="form-input" min="0" step="0.01" value="{{ contact.creditLimit if contact else 0 }}">
+                    </div>
+                    <div class="form-group">
+                        <label>Método de Pago</label>
+                        <select name="paymentMethod" class="form-input">
+                            <option value="Efectivo" {% if not contact or contact.paymentMethod == 'Efectivo' %}selected{% endif %}>Efectivo</option>
+                            <option value="Transferencia" {% if contact and contact.paymentMethod == 'Transferencia' %}selected{% endif %}>Transferencia</option>
+                            <option value="Cheque" {% if contact and contact.paymentMethod == 'Cheque' %}selected{% endif %}>Cheque</option>
+                            <option value="Tarjeta" {% if contact and contact.paymentMethod == 'Tarjeta' %}selected{% endif %}>Tarjeta</option>
+                            <option value="Crédito" {% if contact and contact.paymentMethod == 'Crédito' %}selected{% endif %}>Crédito</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Moneda</label>
+                        <select name="currency" class="form-input">
+                            <option value="DOP" {% if not contact or contact.currency == 'DOP' %}selected{% endif %}>DOP</option>
+                            <option value="USD" {% if contact and contact.currency == 'USD' %}selected{% endif %}>USD</option>
+                            <option value="EUR" {% if contact and contact.currency == 'EUR' %}selected{% endif %}>EUR</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>e-CF que Emite</label>
+                        <select name="ecfTypeEmits" class="form-input">
+                            <option value="E31" {% if not contact or contact.ecfTypeEmits == 'E31' %}selected{% endif %}>E31 (Factura de Crédito)</option>
+                            <option value="E33" {% if contact and contact.ecfTypeEmits == 'E33' %}selected{% endif %}>E33 (Nota de Débito)</option>
+                            <option value="E34" {% if contact and contact.ecfTypeEmits == 'E34' %}selected{% endif %}>E34 (Nota de Crédito)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Tipo de Gasto DGII</label>
+                        <select name="tipoGastoDGII" class="form-input">
+                            <option value="02" {% if not contact or contact.tipoGastoDGII == '02' %}selected{% endif %}>02 — Gastos de Personal</option>
+                            <option value="03" {% if contact and contact.tipoGastoDGII == '03' %}selected{% endif %}>03 — Arrendamiento</option>
+                            <option value="04" {% if contact and contact.tipoGastoDGII == '04' %}selected{% endif %}>04 — Honorarios</option>
+                            <option value="05" {% if contact and contact.tipoGastoDGII == '05' %}selected{% endif %}>05 — Compras</option>
+                            <option value="06" {% if contact and contact.tipoGastoDGII == '06' %}selected{% endif %}>06 — Otros</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Estado</label>
+                        <select name="estado" class="form-input">
+                            <option value="Activo" {% if not contact or contact.estado == 'Activo' %}selected{% endif %}>Activo</option>
+                            <option value="Inactivo" {% if contact and contact.estado == 'Inactivo' %}selected{% endif %}>Inactivo</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="grid-column: 1 / -1; display:flex; gap:20px; padding-top:8px;">
+                        <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-size:0.85rem;">
+                            <input type="checkbox" name="itbisWithholding" {% if contact and contact.itbisWithholding %}checked{% endif %} style="width:16px;height:16px;">
+                            Retención ITBIS
+                        </label>
+                        <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-size:0.85rem;">
+                            <input type="checkbox" name="isrWithholding" {% if contact and contact.isrWithholding %}checked{% endif %} style="width:16px;height:16px;">
+                            Retención ISR
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SECCIÓN 6: COMENTARIOS (cerrada) -->
+        <div class="card-segment collapsed" id="sec-comentarios">
+            <div class="segment-header" onclick="toggleCollapse(this)">
+                <i class="fa-solid fa-comment" style="color:var(--text-muted);"></i> Comentarios
+                <i class="fa-solid fa-chevron-down collapse-icon"></i>
+            </div>
+            <div class="collapsible-content">
+                <div class="form-grid" style="padding-top:8px;">
+                    <div class="form-group" style="grid-column: 1 / -1;">
+                        <textarea name="notes" class="form-textarea" rows="4" placeholder="Notas internas sobre este contacto...">{{ contact.notes if contact else '' }}</textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Acciones -->
+        <div style="display:flex; justify-content:flex-end; gap:12px; padding-top:20px; border-top:1px solid var(--border-color); margin-top:16px;">
+            <a href="{{ url_for('web_contacts.list_contacts') }}" class="btn btn-secondary">Cancelar</a>
+            <button type="submit" class="btn btn-primary">
+                <i class="fa-solid fa-floppy-disk"></i>
+                {% if contact %}Guardar Cambios{% else %}Registrar Contacto{% endif %}
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function toggleCollapse(header) {
+    const segment = header.closest('.card-segment');
+    segment.classList.toggle('collapsed');
+}
+
+function toggleTypeBtn(btn, type) {
+    const checkbox = btn.querySelector('input[type="checkbox"]');
+    checkbox.checked = !checkbox.checked;
+    btn.classList.toggle('active');
+
+    const sec = document.getElementById('sec-comercial-' + (type === 'cliente' ? 'cliente' : 'proveedor'));
+    if (checkbox.checked) {
+        sec.classList.remove('collapsed');
+        sec.style.display = '';
+    } else {
+        sec.classList.add('collapsed');
+        sec.style.display = 'none';
+    }
+}
+
+function addPersonRow() {
+    const tbody = document.querySelector('#people-table tbody');
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+        <td><input type="text" name="people_name[]" placeholder="Nombre"></td>
+        <td><input type="email" name="people_email[]" placeholder="Email"></td>
+        <td><input type="text" name="people_phone[]" placeholder="Teléfono"></td>
+        <td style="text-align:center;"><input type="checkbox" name="people_notify[]"></td>
+        <td><button type="button" class="btn btn-ghost btn-xs" onclick="this.closest('tr').remove()" style="color:var(--danger);"><i class="fa-solid fa-xmark"></i></button></td>
+    `;
+    tbody.appendChild(tr);
+}
+
+{% if contact %}
+document.addEventListener('DOMContentLoaded', function() {
+    {% if 'cliente' not in (contact.get('types') or ['cliente']) %}
+    document.getElementById('sec-comercial-cliente').style.display = 'none';
+    {% endif %}
+    {% if 'proveedor' not in (contact.get('types') or []) %}
+    document.getElementById('sec-comercial-proveedor').style.display = 'none';
+    {% endif %}
+});
+{% else %}
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('sec-comercial-proveedor').style.display = 'none';
+});
+{% endif %}
+</script>
+{% endblock %}

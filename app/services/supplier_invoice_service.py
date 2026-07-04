@@ -242,7 +242,7 @@ class SupplierInvoiceService:
 
     @classmethod
     def save_payment(cls, owner_uid, invoice_id, payment_amount, registered_by="Usuario",
-                     sandbox=True, payment_method="", payment_reference=""):
+                     sandbox=True, payment_method="", payment_reference="", bank_account_id=""):
         if not firebase_initialized or db_firestore is None:
             return False, "Firebase no inicializado."
         try:
@@ -273,6 +273,7 @@ class SupplierInvoiceService:
                 "createdAt": datetime.now(timezone.utc).isoformat(),
                 "method": payment_method or "",
                 "reference": payment_reference or "",
+                "bankAccountId": bank_account_id,
             }
             doc_ref.collection("cxp_payments").document(payment_id).set(payment_doc)
             doc_ref.update({
@@ -280,6 +281,21 @@ class SupplierInvoiceService:
                 "cxpStatus": new_status,
                 "updatedAt": serialize_field(datetime.now(timezone.utc)),
             })
+
+            # Actualizar saldo de la cuenta bancaria si se especificó
+            if bank_account_id:
+                try:
+                    from app.services.db_service import DatabaseService
+                    bank_acc = DatabaseService.get_bank_account(owner_uid, bank_account_id, sandbox=sandbox)
+                    if bank_acc:
+                        new_balance = bank_acc["currentBalance"] - payment_amount
+                        DatabaseService.save_bank_account(owner_uid, bank_account_id, {
+                            **bank_acc,
+                            "currentBalance": new_balance
+                        }, sandbox=sandbox)
+                except Exception as bank_err:
+                    print(f"⚠️ Error al actualizar saldo de cuenta bancaria en pago a proveedor: {bank_err}")
+
             msg = f"Pago de RD$ {payment_amount:,.2f} registrado con éxito. Nuevo balance: RD$ {new_rem:,.2f}."
             return True, msg
         except Exception as e:

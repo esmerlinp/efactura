@@ -13,7 +13,7 @@ def check_permission(permission_name):
     user = session['user']
     if user.get('role') == 'owner':
         return True
-    default_val = False if permission_name in ('isPosSupervisor', 'canSupervisePOS') else True
+    default_val = False if permission_name in ('isPosSupervisor', 'canSupervisePOS', 'canUseChatbot') else True
     return user.get('permissions', {}).get(permission_name, default_val)
 
 def require_permission(permission_name, feature_name="esta sección"):

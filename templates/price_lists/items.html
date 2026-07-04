@@ -1,0 +1,164 @@
+{% extends "layout.html" %}
+
+{% block title %}Precios - {{ price_list.name }}{% endblock %}
+
+{% block page_header %}Precios: {{ price_list.name }}{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 16px;">
+    <a href="{{ url_for('web_invoices.list_price_lists') }}" class="btn btn-secondary"
+        style="display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px; font-size: 0.85rem;">
+        <i class="fa-solid fa-arrow-left"></i>
+        <span>Volver a Listas de Precios</span>
+    </a>
+</div>
+
+<div class="card-table-wrapper">
+    <div style="display: flex; justify-content: space-between; align-items: center; gap: 20px; flex-wrap: wrap; margin-bottom: 24px;">
+        <div>
+            <h3 style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 4px;">
+                Asignar Precios a Productos
+            </h3>
+            <p style="color: var(--text-secondary); font-size: 0.85rem;">
+                Define el precio de cada producto para esta lista. Los productos sin precio asignado usarán el precio
+                base del catálogo.
+            </p>
+        </div>
+    </div>
+
+    <div style="display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; align-items: center; border-bottom: 1px solid rgba(0, 0, 0, 0.05); padding-bottom: 12px;">
+        <div style="position: relative; flex-grow: 1; min-width: 220px; max-width: 260px;">
+            <i class="fa-solid fa-magnifying-glass"
+                style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.85rem;"></i>
+            <input type="text" id="search-input" placeholder="Buscar producto..."
+                style="width: 100%; height: 34px; padding: 0 16px 0 38px; background-color: var(--bg-input); border: 1px solid transparent; border-radius: 20px; color: var(--text-primary); font-size: 0.85rem;"
+                oninput="applyFilters()">
+        </div>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table-premium" id="prices-table">
+            <thead>
+                <tr>
+                    <th>Código</th>
+                    <th>Producto</th>
+                    <th>Tipo</th>
+                    <th>Precio Base</th>
+                    <th>Precio Lista</th>
+                    <th>Costo Lista</th>
+                    <th style="text-align: right; width: 50px;"></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if catalog %}
+                {% for item in catalog %}
+                <tr class="item-row" data-name="{{ item.name or '' }}" data-code="{{ item.code or '' }}"
+                    data-type="{{ item.type or 'Bien' }}">
+                    <td>
+                        <span style="font-family: monospace; font-size: 0.78rem;">
+                            {{ item.code or 'S/C' }}
+                        </span>
+                    </td>
+                    <td>
+                        <strong>{{ item.name }}</strong>
+                        {% if item.hasPrice %}
+                        <span class="badge badge-success"
+                            style="margin-left: 6px; font-size: 0.7rem; padding: 1px 6px;">Asignado</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <span style="font-size: 0.78rem; color: var(--text-secondary);">{{ item.type or 'Bien' }}</span>
+                    </td>
+                    <td>
+                        <span style="color: var(--text-muted); font-size: 0.85rem;">
+                            RD$ {{ "{:,.2f}".format(item.price) }}
+                        </span>
+                    </td>
+                    <td>
+                        <form action="{{ url_for('web_invoices.manage_price_list_items', list_id=price_list.id) }}"
+                            method="POST" style="display: flex; align-items: center; gap: 6px;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <input type="hidden" name="item_id" value="{{ item.id }}">
+                            <input type="number" name="price" step="0.01" min="0"
+                                value="{{ item.listPrice if item.hasPrice else '' }}"
+                                placeholder="Precio"
+                                style="width: 100px; padding: 6px 8px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 0.8rem; background: var(--bg-card); color: var(--text-primary);">
+                            <input type="number" name="costPrice" step="0.01" min="0"
+                                value="{{ item.listCostPrice if item.hasPrice else '' }}"
+                                placeholder="Costo"
+                                style="width: 90px; padding: 6px 8px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 0.8rem; background: var(--bg-card); color: var(--text-primary);">
+                            <input type="number" name="wholesalePrice" step="0.01" min="0"
+                                value="{{ item.listWholesalePrice if item.hasPrice else '' }}"
+                                placeholder="Mayoreo"
+                                style="width: 90px; padding: 6px 8px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 0.8rem; background: var(--bg-card); color: var(--text-primary);">
+                            <button type="submit" class="btn btn-primary"
+                                style="padding: 6px 12px; font-size: 0.78rem;">
+                                <i class="fa-solid fa-save"></i>
+                            </button>
+                        </form>
+                    </td>
+                    <td>
+                        {% if item.hasPrice %}
+                        <span style="font-size: 0.78rem; color: var(--text-secondary);">
+                            RD$ {{ "{:,.2f}".format(item.listCostPrice) }}
+                        </span>
+                        {% else %}
+                        <span style="color: var(--text-muted); font-size: 0.75rem;">—</span>
+                        {% endif %}
+                    </td>
+                    <td style="text-align: right;">
+                        <div class="action-menu">
+                            <button type="button" class="action-menu-btn" onclick="toggleActionMenu(event)" title="Acciones">
+                                <i class="fa-solid fa-ellipsis-vertical"></i>
+                            </button>
+                            <div class="action-menu-dropdown">
+                                {% if item.hasPrice %}
+                                <form action="{{ url_for('web_invoices.manage_price_list_items', list_id=price_list.id) }}"
+                                    method="POST" style="display:contents;"
+                                    onsubmit="return confirm('¿Eliminar el precio asignado para este producto?');">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <input type="hidden" name="item_id" value="{{ item.id }}">
+                                    <input type="hidden" name="delete_price" value="1">
+                                    <button type="submit" class="action-menu-item text-danger">
+                                        <i class="fa-solid fa-xmark"></i> Quitar precio
+                                    </button>
+                                </form>
+                                {% else %}
+                                <span class="action-menu-item" style="color: var(--text-muted); cursor: default;">
+                                    <i class="fa-solid fa-ban"></i> Sin acciones
+                                </span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+                {% else %}
+                <tr>
+                    <td colspan="7" style="text-align: center; padding: 60px 0; color: var(--text-secondary);">
+                        <i class="fa-solid fa-box-open"
+                            style="font-size: 3rem; color: var(--text-muted); margin-bottom: 16px; opacity: 0.5; display: block;"></i>
+                        <span>No hay productos en el catálogo. Crea productos primero.</span>
+                    </td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+function applyFilters() {
+    const query = (document.getElementById('search-input')?.value || '').toLowerCase();
+    const rows = document.querySelectorAll('.item-row');
+    let visibleCount = 0;
+    rows.forEach(row => {
+        const name = (row.getAttribute('data-name') || '').toLowerCase();
+        const code = (row.getAttribute('data-code') || '').toLowerCase();
+        const matches = !query || name.includes(query) || code.includes(query);
+        row.style.display = matches ? '' : 'none';
+        if (matches) visibleCount++;
+    });
+}
+</script>
+{% endblock %}

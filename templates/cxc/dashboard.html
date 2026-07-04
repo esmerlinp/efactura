@@ -345,8 +345,7 @@
                             style="padding: 14px 16px; font-size: 0.78rem; color: var(--text-secondary); text-transform: uppercase;">
                             Estado</th>
                         <th
-                            style="padding: 14px 16px; font-size: 0.78rem; color: var(--text-secondary); text-transform: uppercase; text-align: center;">
-                            Acciones</th>
+                            style="padding: 14px 16px; font-size: 0.78rem; color: var(--text-secondary); text-transform: uppercase; text-align: center; width: 50px;"></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -382,32 +381,33 @@
                                 {% if inv.status == 'Emitida' %}Pendiente{% else %}{{ inv.status }}{% endif %}
                             </span>
                         </td>
-                        <td style="padding: 14px 16px; align-items: center; justify-content: center;">
-                            <div class="action-btn-group" style="justify-content: center;">
-                                <button
-                                    onclick="openQuickPayModal('{{ inv.id }}', {{ inv.remainingBalance }}, '{{ inv.clientName }}', '{{ inv.invoiceNumber }}')"
-                                    class="action-btn btn-pay" title="Registrar Pago">
-                                    <i class="fa-solid fa-hand-holding-dollar"></i>
+                        <td style="padding: 14px 16px; text-align: center;">
+                            <div class="action-menu">
+                                <button type="button" class="action-menu-btn" onclick="toggleActionMenu(event)" title="Acciones">
+                                    <i class="fa-solid fa-ellipsis-vertical"></i>
                                 </button>
-                                <button
-                                    onclick="openPromiseModal('{{ inv.id }}', '{{ inv.invoiceNumber }}', '{{ inv.clientName }}', {{ inv.remainingBalance }})"
-                                    class="action-btn btn-promise" title="Registrar Promesa de Pago">
-                                    <i class="fa-solid fa-calendar-plus"></i>
-                                </button>
-                                <button
-                                    onclick="openAiReminderModal('{{ inv.id }}', 'email', '{{ inv.clientEmail }}', '{{ inv.clientName }}', {{ inv.remainingBalance }}, '{{ inv.dueDate }}', '{{ inv.status }}')"
-                                    class="action-btn btn-remind-email" title="Enviar recordatorio por Email con IA">
-                                    <i class="fa-solid fa-envelope"></i>
-                                </button>
-                                <button
-                                    onclick="openAiReminderModal('{{ inv.id }}', 'whatsapp', '{{ inv.clientPhone }}', '{{ inv.clientName }}', {{ inv.remainingBalance }}, '{{ inv.dueDate }}', '{{ inv.status }}')"
-                                    class="action-btn btn-remind-wa" title="Enviar recordatorio por WhatsApp con IA">
-                                    <i class="fa-solid fa-phone"></i>
-                                </button>
-                                <a href="{{ url_for('portal.client_portal', owner_uid=session.get('user', {}).get('ownerUID', 'W2n2BfR1G4eN3K7m7n8b9v0c1x2z'), client_id=inv.clientId, sandbox='true' if session.get('is_sandbox_mode', True) else 'false') }}"
-                                    target="_blank" class="action-btn" title="Ir al Portal de Cliente">
-                                    <i class="fa-solid fa-arrow-up-right-from-square"></i>
-                                </a>
+                                <div class="action-menu-dropdown">
+                                    <button type="button" class="action-menu-item"
+                                        onclick="openQuickPayModal('{{ inv.id }}', {{ inv.remainingBalance }}, '{{ inv.clientName }}', '{{ inv.invoiceNumber }}')">
+                                        <i class="fa-solid fa-hand-holding-dollar"></i> Registrar Pago
+                                    </button>
+                                    <button type="button" class="action-menu-item"
+                                        onclick="openPromiseModal('{{ inv.id }}', '{{ inv.invoiceNumber }}', '{{ inv.clientName }}', {{ inv.remainingBalance }})">
+                                        <i class="fa-solid fa-calendar-plus"></i> Promesa de Pago
+                                    </button>
+                                    <button type="button" class="action-menu-item"
+                                        onclick="openAiReminderModal('{{ inv.id }}', 'email', '{{ inv.clientEmail }}', '{{ inv.clientName }}', {{ inv.remainingBalance }}, '{{ inv.dueDate }}', '{{ inv.status }}')">
+                                        <i class="fa-solid fa-envelope"></i> Recordatorio Email
+                                    </button>
+                                    <button type="button" class="action-menu-item"
+                                        onclick="openAiReminderModal('{{ inv.id }}', 'whatsapp', '{{ inv.clientPhone }}', '{{ inv.clientName }}', {{ inv.remainingBalance }}, '{{ inv.dueDate }}', '{{ inv.status }}')">
+                                        <i class="fa-solid fa-phone"></i> Recordatorio WhatsApp
+                                    </button>
+                                    <a href="{{ url_for('portal.client_portal', owner_uid=session.get('user', {}).get('ownerUID', 'W2n2BfR1G4eN3K7m7n8b9v0c1x2z'), client_id=inv.clientId, sandbox='true' if session.get('is_sandbox_mode', True) else 'false') }}"
+                                        target="_blank" class="action-menu-item">
+                                        <i class="fa-solid fa-arrow-up-right-from-square"></i> Portal Cliente
+                                    </a>
+                                </div>
                             </div>
                         </td>
                     </tr>
@@ -655,16 +655,14 @@
                 </select>
             </div>
 
-            <div id="qp-bank-group" style="margin-bottom: 12px;">
-                <label style="display: block; font-size: 0.78rem; color: var(--text-secondary); margin-bottom: 4px;">Banco Destino</label>
-                <select name="bank" class="form-select"
-                    style="width: 100%; padding: 10px 12px; font-size: 0.9rem; height: 44px;">
-                    <option value="Banco Popular Dominicano">Banco Popular Dominicano</option>
-                    <option value="Banco BHD">Banco BHD</option>
-                    <option value="Banreservas">Banreservas</option>
-                    <option value="Scotiabank República Dominicana">Scotiabank</option>
-                    <option value="Asociación Popular de Ahorros y Préstamos (APAP)">APAP</option>
-                    <option value="Otro">Otro</option>
+            <div id="qp-bank-account-group" style="margin-bottom: 12px;">
+                <label style="display: block; font-size: 0.78rem; color: var(--text-secondary); margin-bottom: 4px;">Cuenta bancaria <span style="color:var(--accent-red);">*</span></label>
+                <select name="bankAccountId" class="form-select"
+                    style="width: 100%; padding: 10px 12px; font-size: 0.9rem; height: 44px;" required>
+                    <option value="">Seleccionar cuenta</option>
+                    {% for acc in bank_accounts %}
+                    <option value="{{ acc.id }}">{{ acc.name }} — RD$ {{ "{:,.2f}".format(acc.currentBalance) }}</option>
+                    {% endfor %}
                 </select>
             </div>
 
@@ -1183,7 +1181,6 @@
     document.addEventListener('change', function (e) {
         if (e.target.id === 'qp-method') {
             const isCash = e.target.value === 'Efectivo';
-            document.getElementById('qp-bank-group').style.display = isCash ? 'none' : '';
             document.getElementById('qp-ref-group').style.display = isCash ? 'none' : '';
         }
     });

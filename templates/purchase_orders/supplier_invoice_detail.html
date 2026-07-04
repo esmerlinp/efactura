@@ -181,6 +181,15 @@
             <input type="text" name="paymentReference" class="form-input" placeholder="N° cheque / transf."
                    style="width:150px; font-size:0.82rem; height:36px; padding:6px 10px;">
         </div>
+        <div class="form-group" style="margin-bottom:0;">
+            <label style="font-size:0.72rem; margin-bottom:4px; display:block; color:var(--text-secondary);">Cuenta Bancaria</label>
+            <select name="bankAccountId" class="form-input" style="width:180px; font-size:0.82rem; height:36px; padding:6px 10px;">
+                <option value="">-- Seleccionar --</option>
+                {% for acc in bank_accounts %}
+                <option value="{{ acc.id }}">{{ acc.name }} ({{ acc.type }})</option>
+                {% endfor %}
+            </select>
+        </div>
         <button type="submit" class="btn btn-primary" style="height:36px;">
             <i class="fa-solid fa-check"></i> Pagar
         </button>

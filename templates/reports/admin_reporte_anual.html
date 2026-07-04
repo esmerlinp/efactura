@@ -1,0 +1,471 @@
+{% extends "layout.html" %}
+{% block title %}Reporte anual{% endblock %}
+{% block page_header %}Reporte anual{% endblock %}
+{% block content %}
+<style>
+    .breadcrumb {
+        display: flex; align-items: center; gap: 6px;
+        font-size: 0.8rem; color: var(--text-muted); margin-bottom: 16px;
+    }
+    .breadcrumb a { color: var(--text-muted); text-decoration: none; font-weight: 500; }
+    .breadcrumb a:hover { color: var(--accent-emerald); }
+    .breadcrumb .sep { color: #cbd5e1; }
+
+    .page-subtitle {
+        font-size: 0.85rem; color: var(--text-muted); margin: -8px 0 18px 0;
+        line-height: 1.5; max-width: 640px;
+    }
+
+    .an-filters {
+        background: #fff; border: 1px solid #e2e8f0; border-radius: 14px;
+        padding: 18px 22px; margin-bottom: 24px;
+        display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+    }
+    .an-filters .filter-group {
+        display: flex; align-items: center; gap: 8px;
+    }
+    .an-filters .filter-group label {
+        font-size: 0.85rem; font-weight: 600; color: var(--text-secondary);
+    }
+    .an-filters select {
+        height: 38px; padding: 0 12px; border: 1px solid #e2e8f0;
+        border-radius: 8px; font-size: 0.86rem; background: #fff;
+        outline: none; min-width: 100px; transition: border-color 0.15s;
+    }
+    .an-filters select:focus { border-color: var(--accent-emerald); }
+    
+    .an-filters .compare-group {
+        display: flex; align-items: center; gap: 8px; font-size: 0.85rem;
+        color: var(--text-secondary); cursor: pointer; user-select: none;
+    }
+    .an-filters .compare-group input {
+        width: 16px; height: 16px; accent-color: var(--accent-emerald);
+        cursor: pointer;
+    }
+
+    .an-filters .btn-group {
+        display: flex; gap: 8px; margin-left: auto;
+    }
+    .an-filters .btn-group .btn {
+        height: 38px; padding: 0 18px; font-size: 0.86rem;
+        border-radius: 8px; font-weight: 600;
+        display: inline-flex; align-items: center; gap: 6px;
+        cursor: pointer; border: none; transition: all 0.15s;
+    }
+    .an-filters .btn-group .btn-primary {
+        background: var(--accent-emerald); color: #fff;
+    }
+    .an-filters .btn-group .btn-primary:hover { opacity: 0.9; }
+    .an-filters .btn-group .btn-secondary {
+        background: #f8fafc; color: var(--text-primary);
+        border: 1px solid #e2e8f0; text-decoration: none;
+    }
+    .an-filters .btn-group .btn-secondary:hover { background: #f1f5f9; }
+
+    .an-cards-row {
+        display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 16px; margin-bottom: 24px;
+    }
+    .an-card {
+        background: #fff; border: 1px solid #e2e8f0; border-radius: 14px;
+        padding: 20px 22px; display: flex; flex-direction: column; gap: 6px;
+        position: relative;
+    }
+    .an-card .card-label {
+        font-size: 0.72rem; font-weight: 700; color: var(--text-muted);
+        text-transform: uppercase; letter-spacing: 0.04em;
+    }
+    .an-card .card-value {
+        font-size: 1.5rem; font-weight: 800; color: var(--text-primary);
+    }
+    .an-card .comp-badge {
+        display: inline-flex; align-items: center; gap: 4px;
+        font-size: 0.72rem; font-weight: 700; padding: 3px 6px; border-radius: 6px;
+        width: fit-content; margin-top: 2px;
+    }
+    .an-card .comp-badge.pos { background: #ecfdf5; color: #047857; }
+    .an-card .comp-badge.neg { background: #fef2f2; color: #b91c1c; }
+    .an-card .comp-badge.neutral { background: #f1f5f9; color: #475569; }
+
+    .ver-mas-link {
+        font-size: 0.78rem; font-weight: 700; color: var(--accent-emerald);
+        text-decoration: none; display: inline-flex; align-items: center; gap: 4px;
+        margin-top: auto; padding-top: 8px; width: fit-content;
+    }
+    .ver-mas-link:hover { text-decoration: underline; }
+
+    .an-widgets-grid {
+        display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+        gap: 24px; margin-bottom: 30px;
+    }
+    .an-widget {
+        background: #fff; border: 1px solid #e2e8f0; border-radius: 14px;
+        padding: 20px 22px; display: flex; flex-direction: column; min-height: 280px;
+    }
+    .an-widget.full-width {
+        grid-column: 1 / -1;
+    }
+    .an-widget h3 {
+        margin: 0 0 14px 0; font-size: 1rem; font-weight: 800;
+        color: var(--text-primary); display: flex; align-items: center; gap: 8px;
+    }
+    .an-widget h3 i { color: var(--accent-emerald); }
+
+    .widget-empty {
+        margin: auto; text-align: center; color: var(--text-muted);
+        padding: 40px 16px; max-width: 320px;
+    }
+    .widget-empty i { font-size: 2.2rem; opacity: 0.3; margin-bottom: 12px; display: block; }
+    .widget-empty p { font-size: 0.8rem; margin: 0 0 6px 0; font-weight: 600; color: var(--text-primary); }
+    .widget-empty span { font-size: 0.78rem; line-height: 1.4; display: block; }
+
+    .widget-table {
+        width: 100%; border-collapse: collapse; font-size: 0.82rem; margin-top: 4px;
+    }
+    .widget-table th {
+        text-align: left; padding: 8px 12px; background: #f8fafc;
+        font-size: 0.7rem; font-weight: 700; color: var(--text-muted);
+        text-transform: uppercase; letter-spacing: 0.02em; border-bottom: 1px solid #e2e8f0;
+    }
+    .widget-table td {
+        padding: 10px 12px; border-bottom: 1px solid #f1f5f9; color: var(--text-primary);
+    }
+    .widget-table tr:last-child td { border-bottom: none; }
+    .widget-table .text-right { text-align: right; }
+
+    .chart-bar-list {
+        display: flex; flex-direction: column; gap: 10px; margin-top: 8px;
+    }
+    .chart-bar-row {
+        display: flex; align-items: center; gap: 12px;
+    }
+    .chart-bar-row .bar-label {
+        width: 70px; font-size: 0.78rem; font-weight: 600; color: var(--text-muted);
+    }
+    .chart-bar-track {
+        flex: 1; background: #f1f5f9; height: 10px; border-radius: 999px;
+        overflow: hidden;
+    }
+    .chart-bar-fill {
+        height: 100%; border-radius: 999px; background: var(--accent-emerald);
+        transition: width 0.3s;
+    }
+    .chart-bar-val {
+        width: 100px; text-align: right; font-size: 0.76rem; font-weight: 600; color: var(--text-secondary);
+    }
+
+    @media (max-width: 768px) {
+        .an-filters { flex-direction: column; align-items: stretch; gap: 12px; }
+        .an-filters .btn-group { width: 100%; margin-left: 0; }
+        .an-filters .btn-group .btn { flex: 1; justify-content: center; }
+        .an-widgets-grid { grid-template-columns: 1fr; }
+    }
+</style>
+
+<div class="breadcrumb">
+    <a href="{{ url_for('web_invoices.reports_dashboard') }}">Reportes</a>
+    <span class="sep">/</span>
+    <a href="{{ url_for('web_invoices.reports_category', category_key='administrativos') }}">Administrativos</a>
+    <span class="sep">/</span>
+    <span>Reporte anual</span>
+</div>
+
+<p class="page-subtitle">Analiza el desempeño de tu negocio anualmente y toma decisiones estratégicas basadas en datos.</p>
+
+<div class="an-filters">
+    <form method="GET" style="display:contents;">
+        <div class="filter-group">
+            <label for="year-select">Año:</label>
+            <select id="year-select" name="year">
+                {% for y in years_range %}
+                <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <label class="compare-group">
+            <input type="checkbox" name="compare" value="1" {% if compare %}checked{% endif %}>
+            Comparar con año anterior
+        </label>
+        <div class="btn-group">
+            <button type="submit" class="btn btn-primary">
+                <i class="fa-solid fa-rotate"></i> Actualizar
+            </button>
+            <button type="button" onclick="shareReport()" class="btn btn-secondary">
+                <i class="fa-solid fa-share-nodes"></i> Compartir
+            </button>
+            <a class="btn btn-secondary" href="{{ url_for('web_reports_sales.admin_reporte_anual_export', year=year) }}">
+                <i class="fa-solid fa-download"></i> Descargar
+            </a>
+        </div>
+    </form>
+</div>
+
+<div class="an-cards-row">
+    <!-- Promedio Mensual -->
+    <div class="an-card">
+        <span class="card-label">Promedio mensual de ventas</span>
+        <div class="card-value">RD$ {{ "{:,.2f}".format(avg_monthly) }}</div>
+        {% if compare and prev_data %}
+            {% set prev_val = prev_data.avg_monthly %}
+            {% if prev_val > 0 %}
+                {% set pct = ((avg_monthly - prev_val) / prev_val * 100) %}
+                {% if pct >= 0 %}
+                <span class="comp-badge pos"><i class="fa-solid fa-arrow-up"></i> +{{ "%.1f"|format(pct) }}% vs {{ year - 1 }}</span>
+                {% else %}
+                <span class="comp-badge neg"><i class="fa-solid fa-arrow-down"></i> {{ "%.1f"|format(pct) }}% vs {{ year - 1 }}</span>
+                {% endif %}
+            {% else %}
+                <span class="comp-badge neutral">N/D vs {{ year - 1 }}</span>
+            {% endif %}
+        {% endif %}
+        <a href="#monthly-detail" onclick="document.getElementById('monthly-detail-section').scrollIntoView({behavior: 'smooth'})" class="ver-mas-link">Ver más</a>
+    </div>
+
+    <!-- Promedio Semanal -->
+    <div class="an-card">
+        <span class="card-label">Promedio semanal de ventas</span>
+        <div class="card-value">RD$ {{ "{:,.2f}".format(avg_weekly) }}</div>
+        {% if compare and prev_data %}
+            {% set prev_val = prev_data.avg_weekly %}
+            {% if prev_val > 0 %}
+                {% set pct = ((avg_weekly - prev_val) / prev_val * 100) %}
+                {% if pct >= 0 %}
+                <span class="comp-badge pos"><i class="fa-solid fa-arrow-up"></i> +{{ "%.1f"|format(pct) }}% vs {{ year - 1 }}</span>
+                {% else %}
+                <span class="comp-badge neg"><i class="fa-solid fa-arrow-down"></i> {{ "%.1f"|format(pct) }}% vs {{ year - 1 }}</span>
+                {% endif %}
+            {% else %}
+                <span class="comp-badge neutral">N/D vs {{ year - 1 }}</span>
+            {% endif %}
+        {% endif %}
+        <a href="#monthly-detail" onclick="document.getElementById('monthly-detail-section').scrollIntoView({behavior: 'smooth'})" class="ver-mas-link">Ver más</a>
+    </div>
+
+    <!-- Promedio Diario -->
+    <div class="an-card">
+        <span class="card-label">Promedio diario de ventas</span>
+        <div class="card-value">RD$ {{ "{:,.2f}".format(avg_daily) }}</div>
+        {% if compare and prev_data %}
+            {% set prev_val = prev_data.avg_daily %}
+            {% if prev_val > 0 %}
+                {% set pct = ((avg_daily - prev_val) / prev_val * 100) %}
+                {% if pct >= 0 %}
+                <span class="comp-badge pos"><i class="fa-solid fa-arrow-up"></i> +{{ "%.1f"|format(pct) }}% vs {{ year - 1 }}</span>
+                {% else %}
+                <span class="comp-badge neg"><i class="fa-solid fa-arrow-down"></i> {{ "%.1f"|format(pct) }}% vs {{ year - 1 }}</span>
+                {% endif %}
+            {% else %}
+                <span class="comp-badge neutral">N/D vs {{ year - 1 }}</span>
+            {% endif %}
+        {% endif %}
+        <a href="#monthly-detail" onclick="document.getElementById('monthly-detail-section').scrollIntoView({behavior: 'smooth'})" class="ver-mas-link">Ver más</a>
+    </div>
+</div>
+
+<div class="an-widgets-grid">
+    <!-- Total de ventas -->
+    <div class="an-widget">
+        <h3><i class="fa-solid fa-chart-line"></i> Total de ventas</h3>
+        {% if has_sales %}
+            {% set combined_vals = [] %}
+            {% for m in months_data %}
+                {% set _ = combined_vals.append(m.ingresos_total) %}
+            {% endfor %}
+            {% set max_monthly_sale = combined_vals|max if combined_vals else 1.0 %}
+            <div class="chart-bar-list">
+                {% for m in months_data %}
+                    {% set pct_width = 0.0 if max_monthly_sale == 0.0 else (m.ingresos_total / max_monthly_sale * 100.0) %}
+                    <div class="chart-bar-row">
+                        <span class="bar-label">{{ m.label }}</span>
+                        <div class="chart-bar-track">
+                            <div class="chart-bar-fill" style="width: {{ '%.2f' % pct_width }}%;"></div>
+                        </div>
+                        <span class="chart-bar-val">RD$ {{ "{:,.2f}".format(m.ingresos_total) }}</span>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="widget-empty">
+                <i class="fa-solid fa-chart-bar"></i>
+                <p>No se registraron ventas en este periodo.</p>
+                <span>Selecciona un año diferente para visualizar la información.</span>
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Productos/Servicios más vendidos -->
+    <div class="an-widget">
+        <h3><i class="fa-solid fa-box-open"></i> Productos/Servicios más vendidos</h3>
+        {% if top_products %}
+            <table class="widget-table">
+                <thead>
+                    <tr>
+                        <th>Producto / Servicio</th>
+                        <th>Ref</th>
+                        <th class="text-right">Cant</th>
+                        <th class="text-right">Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in top_products %}
+                    <tr>
+                        <td style="font-weight: 600;">{{ p.name }}</td>
+                        <td style="color: var(--text-muted);">{{ p.reference }}</td>
+                        <td class="text-right">{{ p.quantity }}</td>
+                        <td class="text-right" style="font-weight: 600; color: var(--accent-emerald);">RD$ {{ "{:,.2f}".format(p.total) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <div class="widget-empty">
+                <i class="fa-solid fa-tags"></i>
+                <p>No hay información de ventas para este periodo.</p>
+                <span>Selecciona un año diferente para visualizar la información.</span>
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Mejores vendedores -->
+    <div class="an-widget">
+        <h3><i class="fa-solid fa-users"></i> Mejores vendedores</h3>
+        {% if top_sellers %}
+            <table class="widget-table">
+                <thead>
+                    <tr>
+                        <th>Vendedor</th>
+                        <th class="text-right">Facturas</th>
+                        <th class="text-right">Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in top_sellers %}
+                    <tr>
+                        <td style="font-weight: 600;">{{ s.name }}</td>
+                        <td class="text-right">{{ s.count }}</td>
+                        <td class="text-right" style="font-weight: 600; color: var(--accent-emerald);">RD$ {{ "{:,.2f}".format(s.total) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <div class="widget-empty">
+                <i class="fa-solid fa-user-tag"></i>
+                <p>No hay ventas asociadas a vendedores en este periodo.</p>
+                <span>Selecciona un año diferente para visualizar la información.</span>
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Mejores clientes -->
+    <div class="an-widget">
+        <h3><i class="fa-solid fa-handshake"></i> Mejores clientes</h3>
+        {% if top_clients %}
+            <table class="widget-table">
+                <thead>
+                    <tr>
+                        <th>Cliente</th>
+                        <th>RNC</th>
+                        <th class="text-right">Facturas</th>
+                        <th class="text-right">Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for c in top_clients %}
+                    <tr>
+                        <td style="font-weight: 600;">{{ c.name }}</td>
+                        <td style="color: var(--text-muted);">{{ c.rnc }}</td>
+                        <td class="text-right">{{ c.count }}</td>
+                        <td class="text-right" style="font-weight: 600; color: var(--accent-emerald);">RD$ {{ "{:,.2f}".format(c.total) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <div class="widget-empty">
+                <i class="fa-solid fa-address-book"></i>
+                <p>No se registraron ventas a clientes en este periodo.</p>
+                <span>Selecciona un año diferente para visualizar la información.</span>
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Principales gastos -->
+    <div class="an-widget" style="grid-column: 1 / -1; min-height: auto;">
+        <h3><i class="fa-solid fa-receipt"></i> Principales gastos</h3>
+        {% if top_expenses %}
+            <table class="widget-table">
+                <thead>
+                    <tr>
+                        <th>Categoría / Concepto</th>
+                        <th class="text-right">Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for e in top_expenses %}
+                    <tr>
+                        <td style="font-weight: 600;">{{ e.name }}</td>
+                        <td class="text-right" style="font-weight: 600; color: var(--accent-red);">RD$ {{ "{:,.2f}".format(e.total) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <div class="widget-empty">
+                <i class="fa-solid fa-wallet"></i>
+                <p>No se registraron gastos en el año seleccionado.</p>
+                <span>Selecciona un año diferente para visualizar la información.</span>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="annual-table-section" id="monthly-detail-section" style="background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 20px 22px; margin-bottom: 30px;">
+    <h3 style="margin: 0 0 4px 0; font-size: 0.95rem; font-weight: 800; color: var(--text-primary);">Detalle mensual</h3>
+    <p style="margin: 0 0 18px 0; font-size: 0.8rem; color: var(--text-muted);">Resumen numérico de facturación y compras por mes.</p>
+    <table class="annual-table" style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+        <thead>
+            <tr>
+                <th style="text-align: left; padding: 12px 16px; background: #f8fafc; font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; border-bottom: 1px solid #e2e8f0;">Mes</th>
+                <th style="text-align: left; padding: 12px 16px; background: #f8fafc; font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; border-bottom: 1px solid #e2e8f0;">Facturas</th>
+                <th style="text-align: right; padding: 12px 16px; background: #f8fafc; font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; border-bottom: 1px solid #e2e8f0;">Subtotal</th>
+                <th style="text-align: right; padding: 12px 16px; background: #f8fafc; font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; border-bottom: 1px solid #e2e8f0;">ITBIS</th>
+                <th style="text-align: right; padding: 12px 16px; background: #f8fafc; font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; border-bottom: 1px solid #e2e8f0;">Ingresos</th>
+                <th style="text-align: left; padding: 12px 16px; background: #f8fafc; font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; border-bottom: 1px solid #e2e8f0;">Compras</th>
+                <th style="text-align: right; padding: 12px 16px; background: #f8fafc; font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; border-bottom: 1px solid #e2e8f0;">Total compras</th>
+                <th style="text-align: right; padding: 12px 16px; background: #f8fafc; font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; border-bottom: 1px solid #e2e8f0;">Resultado</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in months_data %}
+            <tr>
+                <td style="padding: 12px 16px; border-bottom: 1px solid #f1f5f9;">{{ row.label }}</td>
+                <td style="padding: 12px 16px; border-bottom: 1px solid #f1f5f9;">{{ row.ingresos_count }}</td>
+                <td style="padding: 12px 16px; border-bottom: 1px solid #f1f5f9; text-align: right;">RD$ {{ "{:,.2f}".format(row.ingresos_subtotal) }}</td>
+                <td style="padding: 12px 16px; border-bottom: 1px solid #f1f5f9; text-align: right;">RD$ {{ "{:,.2f}".format(row.ingresos_itbis) }}</td>
+                <td style="padding: 12px 16px; border-bottom: 1px solid #f1f5f9; text-align: right; font-weight: 600;">RD$ {{ "{:,.2f}".format(row.ingresos_total) }}</td>
+                <td style="padding: 12px 16px; border-bottom: 1px solid #f1f5f9;">{{ row.gastos_count }}</td>
+                <td style="padding: 12px 16px; border-bottom: 1px solid #f1f5f9; text-align: right;">RD$ {{ "{:,.2f}".format(row.gastos_total) }}</td>
+                <td style="padding: 12px 16px; border-bottom: 1px solid #f1f5f9; text-align: right; font-weight: 600; color:{% if row.resultado >= 0 %}var(--accent-emerald){% else %}var(--accent-red){% endif %};">
+                    RD$ {{ "{:,.2f}".format(row.resultado) }}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<script>
+    function shareReport() {
+        if (navigator.share) {
+            navigator.share({
+                title: 'Reporte Anual e-Factura',
+                url: window.location.href
+            }).catch(console.error);
+        } else {
+            navigator.clipboard.writeText(window.location.href);
+            alert('¡Enlace del reporte copiado al portapapeles!');
+        }
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,267 @@
+{% extends "layout.html" %}
+{% block title %}Reporte IT1{% endblock %}
+{% block page_header %}Reporte IT1{% endblock %}
+{% block content %}
+<style>
+    .breadcrumb {
+        display: flex; align-items: center; gap: 6px;
+        font-size: 0.8rem; color: var(--text-muted); margin-bottom: 16px;
+    }
+    .breadcrumb a { color: var(--text-muted); text-decoration: none; font-weight: 500; }
+    .breadcrumb a:hover { color: var(--accent-emerald); }
+    .breadcrumb .sep { color: #cbd5e1; }
+
+    .page-subtitle {
+        font-size: 0.85rem; color: var(--text-muted); margin: -8px 0 18px 0;
+        line-height: 1.5; max-width: 640px;
+    }
+
+    .it-header-row {
+        display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;
+    }
+    .btn-new-report {
+        height: 40px; padding: 0 20px; background: var(--accent-emerald); color: #fff;
+        font-weight: 600; border-radius: 8px; border: none; text-decoration: none;
+        display: inline-flex; align-items: center; gap: 8px; cursor: pointer; transition: opacity 0.15s;
+    }
+    .btn-new-report:hover { opacity: 0.9; }
+
+    .it-filters {
+        background: #fff; border: 1px solid #e2e8f0; border-radius: 14px;
+        padding: 18px 22px; margin-bottom: 24px;
+        display: flex; align-items: flex-end; gap: 14px; flex-wrap: wrap;
+    }
+    .it-filters .filter-group {
+        display: flex; flex-direction: column; gap: 4px;
+    }
+    .it-filters .filter-group label {
+        font-size: 0.72rem; font-weight: 600; color: var(--text-muted);
+        text-transform: uppercase; letter-spacing: 0.04em;
+    }
+    .it-filters select {
+        height: 40px; padding: 0 12px; border: 1px solid #e2e8f0;
+        border-radius: 8px; font-size: 0.86rem; background: #fff;
+        outline: none; min-width: 140px; transition: border-color 0.15s;
+    }
+    .it-filters select:focus {
+        border-color: var(--accent-emerald);
+    }
+    .it-filters .btn-filter {
+        height: 40px; padding: 0 20px; font-size: 0.86rem; font-weight: 600;
+        background: #f8fafc; border: 1px solid #e2e8f0; color: var(--text-primary);
+        border-radius: 8px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+    }
+    .it-filters .btn-filter:hover { background: #f1f5f9; }
+
+    .it-table-wrap {
+        background: #fff; border: 1px solid #e2e8f0; border-radius: 14px;
+        overflow: hidden; margin-bottom: 20px;
+    }
+    .it-table {
+        width: 100%; border-collapse: collapse; font-size: 0.85rem;
+    }
+    .it-table th {
+        background: #f8fafc; text-align: left; padding: 12px 16px;
+        font-size: 0.72rem; font-weight: 700; color: var(--text-muted);
+        text-transform: uppercase; letter-spacing: 0.04em;
+        border-bottom: 1px solid #e2e8f0;
+    }
+    .it-table td {
+        padding: 12px 16px; border-bottom: 1px solid #f1f5f9;
+        color: var(--text-primary);
+    }
+    .it-table tr:last-child td { border-bottom: none; }
+    .it-table tr:hover { background: #f8fafc; }
+    .it-table .text-right { text-align: right; }
+
+    .it-badge {
+        padding: 4px 8px; border-radius: 6px; font-size: 0.7rem; font-weight: 700;
+        text-transform: uppercase; letter-spacing: 0.02em; display: inline-flex; align-items: center; gap: 4px;
+    }
+    .it-badge.draft { background: #f1f5f9; color: #475569; }
+    .it-badge.submitted { background: #ecfdf5; color: #047857; }
+
+    .it-pagination {
+        display: flex; justify-content: space-between; align-items: center;
+        padding: 14px 16px; background: #fff;
+        border: 1px solid #e2e8f0; border-radius: 12px; gap: 12px;
+        flex-wrap: wrap;
+    }
+    .it-pagination .info {
+        font-size: 0.82rem; color: var(--text-muted);
+    }
+    .it-pagination .pages {
+        display: flex; gap: 4px; align-items: center;
+    }
+    .it-pagination .pages .btn-page {
+        padding: 6px 12px; border-radius: 6px; font-size: 0.82rem;
+        font-weight: 600; border: 1px solid #e2e8f0; color: var(--text-primary);
+        background: #fff; text-decoration: none; transition: all 0.15s;
+    }
+    .it-pagination .pages .btn-page:hover { background: #f1f5f9; }
+    .it-pagination .pages .btn-page.active {
+        background: var(--accent-emerald); color: #fff; border-color: var(--accent-emerald);
+    }
+    .it-pagination .pages .btn-page[disabled] {
+        opacity: 0.4; cursor: default;
+    }
+    .it-pagination .per-page {
+        display: flex; align-items: center; gap: 6px;
+        font-size: 0.82rem; color: var(--text-muted);
+    }
+    .it-pagination .per-page select {
+        height: 32px; padding: 0 8px; border: 1px solid #e2e8f0;
+        border-radius: 6px; font-size: 0.82rem; background: #fff;
+        outline: none;
+    }
+
+    .it-empty {
+        text-align: center; padding: 60px 24px; color: var(--text-muted);
+        background: #fff; border: 1px solid #e2e8f0; border-radius: 14px;
+        margin-bottom: 20px;
+    }
+    .it-empty i { font-size: 3rem; opacity: 0.3; margin-bottom: 16px; display: block; }
+    .it-empty h3 { font-size: 1.1rem; margin: 0 0 8px 0; color: var(--text-primary); }
+    .it-empty p { font-size: 0.88rem; margin: 0; }
+</style>
+
+<div class="breadcrumb">
+    <a href="{{ url_for('web_invoices.reports_dashboard') }}">Reportes</a>
+    <span class="sep">/</span>
+    <a href="{{ url_for('web_invoices.reports_category', category_key='fiscales') }}">Fiscales</a>
+    <span class="sep">/</span>
+    <span>Reporte IT1</span>
+</div>
+
+<div class="it-header-row">
+    <div>
+        <h1 style="font-size:1.75rem; font-weight:800; font-family:var(--font-heading); color:var(--text-primary); margin:0;">Reporte IT1</h1>
+        <p class="page-subtitle" style="margin-top: 6px; margin-bottom: 0;">Crea un reporte con los datos de tu IT-1 y Anexo A para presentarlo en la oficina virtual de la DGII.</p>
+    </div>
+    <a href="{{ url_for('web_reports_sales.it1_new_report') }}" class="btn-new-report">
+        <i class="fa-solid fa-plus"></i> Nuevo Reporte
+    </a>
+</div>
+
+<div class="it-filters">
+    <form method="GET" style="display:contents;">
+        <div class="filter-group">
+            <label for="year-select">Año</label>
+            <select id="year-select" name="year">
+                <option value="">Todos</option>
+                {% for y in years_range %}
+                <option value="{{ y }}" {% if year == y|string %}selected{% endif %}>{{ y }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-group">
+            <label for="month-select">Mes</label>
+            <select id="month-select" name="month">
+                <option value="">Todos</option>
+                {% for m_val, m_name in months_list %}
+                <option value="{{ m_val }}" {% if month == m_val|string %}selected{% endif %}>{{ m_name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <button type="submit" class="it-filters class btn-filter" style="margin-bottom:0;">
+            <i class="fa-solid fa-filter"></i> Filtrar
+        </button>
+    </form>
+</div>
+
+{% if rows %}
+<div class="it-table-wrap">
+    <table class="it-table">
+        <thead>
+            <tr>
+                <th>Mes</th>
+                <th>Año</th>
+                <th>Estado</th>
+                <th class="text-right">Importe en compras</th>
+                <th class="text-right">Importe en retenciones</th>
+                <th style="width: 120px; text-align: center;">Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for r in rows %}
+            {% set month_names = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"] %}
+            <tr>
+                <td style="font-weight: 700;">{{ month_names[r.month - 1] }}</td>
+                <td style="font-weight: 600; color: var(--text-muted);">{{ r.year }}</td>
+                <td>
+                    {% if r.status == 'Presentado' %}
+                    <span class="it-badge submitted"><i class="fa-solid fa-circle-check"></i> Presentado</span>
+                    {% else %}
+                    <span class="it-badge draft"><i class="fa-solid fa-pen-to-square"></i> Borrador</span>
+                    {% endif %}
+                </td>
+                <td class="text-right" style="font-weight: 600;">RD$ {{ "{:,.2f}".format(r.expenses_subtotal) }}</td>
+                <td class="text-right" style="font-weight: 600;">RD$ {{ "{:,.2f}".format(r.total_retained_itbis + r.total_retained_isr) }}</td>
+                <td style="text-align: center; display: flex; gap: 8px; justify-content: center;">
+                    <a href="{{ url_for('web_reports_sales.it1_report_detail', report_id=r.id) }}" class="btn btn-secondary" style="padding: 6px 10px; font-size: 0.78rem; display: inline-flex; align-items: center; gap: 4px;" title="Ver detalle">
+                        <i class="fa-solid fa-eye"></i> Ver
+                    </a>
+                    <form method="POST" action="{{ url_for('web_reports_sales.it1_report_delete', report_id=r.id) }}" onsubmit="return confirm('¿Seguro que deseas eliminar este reporte IT-1?');" style="display: inline;">
+                        <button type="submit" class="btn btn-danger" style="padding: 6px 10px; font-size: 0.78rem; display: inline-flex; align-items: center; border-radius: 6px;" title="Eliminar">
+                            <i class="fa-solid fa-trash"></i>
+                        </button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div class="it-pagination">
+    <div class="info">
+        Mostrando <strong>{{ start_count }}</strong> a <strong>{{ end_count }}</strong> de <strong>{{ total_items }}</strong> reporte{% if total_items != 1 %}s{% endif %}
+    </div>
+    <div class="pages">
+        {% if page > 1 %}
+        <a href="?year={{ year }}&month={{ month }}&page={{ page - 1 }}&per_page={{ per_page }}" class="btn-page">Anterior</a>
+        {% else %}
+        <span class="btn-page" disabled>Anterior</span>
+        {% endif %}
+
+        {% for p in range(1, total_pages + 1) %}
+            {% if p == page %}
+            <span class="btn-page active">{{ p }}</span>
+            {% else %}
+            <a href="?year={{ year }}&month={{ month }}&page={{ p }}&per_page={{ per_page }}" class="btn-page">{{ p }}</a>
+            {% endif %}
+        {% endfor %}
+
+        {% if page < total_pages %}
+        <a href="?year={{ year }}&month={{ month }}&page={{ page + 1 }}&per_page={{ per_page }}" class="btn-page">Siguiente</a>
+        {% else %}
+        <span class="btn-page" disabled>Siguiente</span>
+        {% endif %}
+    </div>
+    <div class="per-page">
+        <span>Ítems por página</span>
+        <select onchange="var p=new URLSearchParams(location.search);p.set('per_page',this.value);p.set('page','1');window.location.search=p.toString()">
+            {% for val in [5, 10, 20, 50] %}
+            <option value="{{ val }}" {% if per_page == val %}selected{% endif %}>{{ val }}</option>
+            {% endfor %}
+        </select>
+    </div>
+</div>
+{% else %}
+<div class="it-empty">
+    <i class="fa-solid fa-file-excel"></i>
+    <h3>No se encontraron reportes</h3>
+    <p>Haz clic en "Nuevo Reporte" en la esquina superior derecha para generar una declaración para un periodo.</p>
+</div>
+<div class="it-pagination" style="justify-content: flex-end;">
+    <div class="per-page">
+        <span>Ítems por página</span>
+        <select onchange="var p=new URLSearchParams(location.search);p.set('per_page',this.value);p.set('page','1');window.location.search=p.toString()">
+            {% for val in [5, 10, 20, 50] %}
+            <option value="{{ val }}" {% if per_page == val %}selected{% endif %}>{{ val }}</option>
+            {% endfor %}
+        </select>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

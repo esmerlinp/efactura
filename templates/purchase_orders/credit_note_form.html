@@ -1,0 +1,92 @@
+{% extends "layout.html" %}
+{% block title %}Nueva Nota de Crédito en Compras{% endblock %}
+{% block page_header %}Nueva Nota de Crédito{% endblock %}
+
+{% block content %}
+<div class="page-title-container" style="margin-bottom:24px; padding-left:4px;">
+    <h1 style="font-size:1.75rem; font-weight:800; font-family:var(--font-heading); color:var(--text-primary); margin:0;">
+        <i class="fa-solid fa-file-circle-minus" style="color:var(--accent-purple); margin-right:10px;"></i>
+        Nueva Nota de Crédito en Compras
+    </h1>
+    <p style="color:var(--text-secondary); font-size:0.88rem; margin:6px 0 0 2px;">
+        Reduce el saldo pendiente de una factura de proveedor por devolución, descuento o ajuste.
+    </p>
+</div>
+
+<div class="card-form-body" style="max-width:720px;">
+    <form method="POST" action="{{ url_for('web_purchase_orders.new_credit_note') }}">
+        <div class="form-inner-grid">
+            <div class="form-group span-full">
+                <label for="creditedInvoiceId">Factura de Proveedor *</label>
+                <select id="creditedInvoiceId" name="creditedInvoiceId" class="form-select" required style="width:100%;" onchange="updateInvoiceInfo(this)">
+                    <option value="">-- Seleccionar Factura con Saldo Pendiente --</option>
+                    {% for inv in invoices %}
+                    {% set rem = inv.get('cxpRemainingBalance', inv.get('total', 0)) %}
+                    {% if rem > 0 %}
+                    <option value="{{ inv.id }}"
+                        data-supplier="{{ inv.supplierName }}"
+                        data-invoice="{{ inv.invoiceNumber }}"
+                        data-balance="{{ rem }}">
+                        {{ inv.invoiceNumber }} — {{ inv.supplierName }} (RD$ {{ "{:,.2f}".format(rem) }})
+                    </option>
+                    {% endif %}
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div id="invoice-info" style="display:none;" class="span-full">
+                <div style="background:rgba(16,185,129,0.05); border:1px solid rgba(16,185,129,0.2); border-radius:8px; padding:12px 16px; font-size:0.85rem;">
+                    <strong>Proveedor:</strong> <span id="info-supplier"></span><br>
+                    <strong>Factura:</strong> <span id="info-invoice"></span><br>
+                    <strong>Saldo Pendiente:</strong> RD$ <span id="info-balance"></span>
+                </div>
+            </div>
+
+            <div class="form-group span-full">
+                <label for="concept">Concepto / Motivo de la Nota de Crédito *</label>
+                <input type="text" id="concept" name="concept" class="form-input" required placeholder="Ej: Devolución de mercancía, Descuento por volumen, Ajuste de precio..." style="width:100%;">
+            </div>
+
+            <div class="form-group">
+                <label for="date">Fecha *</label>
+                <input type="date" id="date" name="date" class="form-input" value="{{ today_str }}" required style="width:100%;">
+            </div>
+
+            <div class="form-group">
+                <label for="amount">Monto (RD$) *</label>
+                <input type="number" id="amount" name="amount" class="form-input" step="0.01" min="0.01" required placeholder="0.00" style="width:100%;">
+                <small style="color:var(--text-muted); font-size:0.72rem;">No puede exceder el saldo pendiente de la factura.</small>
+            </div>
+
+            <div class="form-group span-full">
+                <label for="notes">Notas Internas</label>
+                <textarea id="notes" name="notes" class="form-input" rows="3" style="width:100%; resize:vertical;" placeholder="Notas opcionales..."></textarea>
+            </div>
+
+            <div class="span-full" style="display:flex; gap:12px; justify-content:flex-end; padding-top:16px; border-top:1px solid var(--border-color); margin-top:8px;">
+                <a href="{{ url_for('web_purchase_orders.list_credit_notes') }}" class="btn btn-secondary">
+                    <i class="fa-solid fa-xmark"></i> Cancelar
+                </a>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fa-solid fa-check"></i> Crear Nota de Crédito
+                </button>
+            </div>
+        </div>
+    </form>
+</div>
+
+<script>
+function updateInvoiceInfo(select) {
+    const option = select.options[select.selectedIndex];
+    const info = document.getElementById('invoice-info');
+    if (option.value && option.dataset) {
+        document.getElementById('info-supplier').textContent = option.dataset.supplier || '';
+        document.getElementById('info-invoice').textContent = option.dataset.invoice || '';
+        document.getElementById('info-balance').textContent = option.dataset.balance ? parseFloat(option.dataset.balance).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : '';
+        info.style.display = 'block';
+    } else {
+        info.style.display = 'none';
+    }
+}
+</script>
+{% endblock %}

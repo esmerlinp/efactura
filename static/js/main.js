@@ -453,6 +453,34 @@ document.addEventListener('DOMContentLoaded', () => {
     addPinButtons();
 });
 
+// =========================================================================
+// ACTION MENU (3 DOTS DROPDOWN)
+// =========================================================================
+function toggleActionMenu(event) {
+    event.stopPropagation();
+    const btn = event.currentTarget;
+    const menu = btn.nextElementSibling;
+    if (!menu || !menu.classList.contains('action-menu-dropdown')) return;
+
+    const isOpen = menu.classList.contains('show');
+    closeAllActionMenus();
+    if (!isOpen) {
+        menu.classList.add('show');
+        btn.classList.add('active');
+    }
+}
+
+function closeAllActionMenus() {
+    document.querySelectorAll('.action-menu-dropdown.show').forEach(m => m.classList.remove('show'));
+    document.querySelectorAll('.action-menu-btn.active').forEach(b => b.classList.remove('active'));
+}
+
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('.action-menu')) {
+        closeAllActionMenus();
+    }
+});
+
 // Helper para formatear valores monetarios de DOP en la UI
 function formatCurrencyDOP(amount) {
     return new Intl.NumberFormat('es-DO', {

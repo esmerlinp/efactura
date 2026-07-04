@@ -1124,6 +1124,13 @@
                         <div style="font-size:0.72rem; color: var(--text-muted);">Ajustes de empresa</div>
                     </div>
                 </div>
+                <div class="perm-item">
+                    <div class="perm-dot {{ 'on' if perms.get('canUseChatbot', False) else 'off' }}"></div>
+                    <div>
+                        <div class="perm-label">Asistente IA</div>
+                        <div style="font-size:0.72rem; color: var(--text-muted);">Consultas sobre datos y fiscal</div>
+                    </div>
+                </div>
             </div>
             <p
                 style="font-size: 0.78rem; color: var(--text-muted); margin-top: 16px; display: flex; align-items: center; gap: 6px;">

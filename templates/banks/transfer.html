@@ -1,0 +1,88 @@
+{% extends "layout.html" %}
+
+{% block title %}Transferir entre cuentas{% endblock %}
+
+{% block page_header %}Transferir{% endblock %}
+
+{% block content %}
+<div class="card-table-wrapper" style="max-width:700px; margin:0 auto;">
+    <h3 style="font-size:1.25rem; font-family:var(--font-heading); margin-bottom:24px; border-bottom:1px solid var(--border-color); padding-bottom:14px;">
+        <i class="fa-solid fa-arrow-right-arrow-left" style="color:var(--accent-emerald);"></i>
+        <span>Información de la transferencia</span>
+    </h3>
+
+    <form method="POST" action="{{ url_for('web_banks.new_transfer') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="form-grid">
+            <div class="form-group">
+                <label for="fromAccountId">Cuenta de origen <span style="color:var(--accent-red);">*</span></label>
+                <select id="fromAccountId" name="fromAccountId" class="form-input" required>
+                    <option value="">Seleccionar cuenta</option>
+                    {% for acc in accounts %}
+                    <option value="{{ acc.id }}">{{ acc.name }} — RD$ {{ "{:,.2f}".format(acc.currentBalance) }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="toAccountId">Cuenta de destino <span style="color:var(--accent-red);">*</span></label>
+                <select id="toAccountId" name="toAccountId" class="form-input" required>
+                    <option value="">Seleccionar cuenta</option>
+                    {% for acc in accounts %}
+                    <option value="{{ acc.id }}">{{ acc.name }} — RD$ {{ "{:,.2f}".format(acc.currentBalance) }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="amount">Monto <span style="color:var(--accent-red);">*</span></label>
+                <div style="display:flex; gap:8px; align-items:center;">
+                    <span style="font-weight:600; color:var(--text-secondary);">RD$</span>
+                    <input type="number" id="amount" name="amount" class="form-input" step="0.01" min="0.01" required
+                        placeholder="0.00" style="flex:1;">
+                    <span style="font-weight:600; color:var(--text-secondary);">DOP</span>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="date">Fecha de transferencia</label>
+                <input type="date" id="date" name="date" class="form-input"
+                    value="{{ today }}">
+            </div>
+
+            <div class="form-group" style="grid-column:1/-1;">
+                <label for="description">Descripción</label>
+                <textarea id="description" name="description" class="form-textarea" rows="2" placeholder="Motivo de la transferencia"></textarea>
+            </div>
+
+            <div class="form-group" style="grid-column:1/-1; border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:16px;">
+                <details>
+                    <summary style="cursor:pointer; font-weight:600; color:var(--text-secondary);">
+                        <i class="fa-solid fa-chevron-down" style="margin-right:8px; font-size:0.75rem;"></i>
+                        Mostrar campos adicionales
+                    </summary>
+                    <div style="margin-top:16px; display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+                        <div class="form-group">
+                            <label for="incomeNumbering">Numeración ingreso</label>
+                            <input type="text" id="incomeNumbering" name="incomeNumbering" class="form-input" placeholder="Opcional">
+                        </div>
+                        <div class="form-group">
+                            <label for="expenseNumbering">Numeración egreso</label>
+                            <input type="text" id="expenseNumbering" name="expenseNumbering" class="form-input" placeholder="Opcional">
+                        </div>
+                    </div>
+                </details>
+            </div>
+        </div>
+
+        <div style="display:flex; gap:12px; margin-top:24px; padding-top:20px; border-top:1px solid var(--border-color);">
+            <button type="submit" class="btn btn-primary">
+                <i class="fa-solid fa-arrow-right-arrow-left"></i> Realizar transferencia
+            </button>
+            <a href="{{ url_for('web_banks.list_banks') }}" class="btn btn-secondary">
+                <i class="fa-solid fa-xmark"></i> Cancelar
+            </a>
+        </div>
+    </form>
+</div>
+{% endblock %}

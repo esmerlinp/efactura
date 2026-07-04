@@ -1,0 +1,326 @@
+{% extends "layout.html" %}
+{% block title %}Reporte detallado de impuestos{% endblock %}
+{% block page_header %}Reporte detallado de impuestos{% endblock %}
+{% block content %}
+<style>
+    .breadcrumb {
+        display: flex; align-items: center; gap: 6px;
+        font-size: 0.8rem; color: var(--text-muted); margin-bottom: 16px;
+    }
+    .breadcrumb a { color: var(--text-muted); text-decoration: none; font-weight: 500; }
+    .breadcrumb a:hover { color: var(--accent-emerald); }
+    .breadcrumb .sep { color: #cbd5e1; }
+    .page-subtitle {
+        font-size: 0.85rem; color: var(--text-muted); margin: -8px 0 22px 0;
+        line-height: 1.5; max-width: 640px;
+    }
+    .dt-filters {
+        background: #fff; border: 1px solid #e2e8f0; border-radius: 14px;
+        padding: 18px 22px; margin-bottom: 24px;
+        display: flex; align-items: flex-end; gap: 14px; flex-wrap: wrap;
+    }
+    .dt-filters .fg { display: flex; flex-direction: column; gap: 4px; }
+    .dt-filters .fg label {
+        font-size: 0.72rem; font-weight: 600; color: var(--text-muted);
+        text-transform: uppercase; letter-spacing: 0.04em;
+    }
+    .dt-filters select {
+        height: 40px; padding: 0 12px; border: 1px solid #e2e8f0;
+        border-radius: 8px; font-size: 0.86rem; background: #fff;
+        outline: none; min-width: 150px; transition: border-color 0.15s;
+    }
+    .dt-filters select:focus { border-color: var(--accent-emerald); }
+    .dt-filters .btn-gen {
+        height: 40px; padding: 0 22px; font-size: 0.86rem; font-weight: 600;
+        background: var(--accent-emerald); color: #fff; border: none;
+        border-radius: 8px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+        transition: opacity .15s;
+    }
+    .dt-filters .btn-gen:hover { opacity: .9; }
+    .kpi-row {
+        display: flex; align-items: center; gap: 10px;
+        flex-wrap: wrap; margin-bottom: 28px;
+    }
+    .kpi-card {
+        background: #fff; border: 1px solid #e2e8f0; border-radius: 14px;
+        padding: 16px 20px; flex: 1; min-width: 150px; text-align: center;
+    }
+    .kpi-card .kpi-label {
+        font-size: 0.72rem; font-weight: 600; color: var(--text-muted);
+        text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px;
+    }
+    .kpi-card .kpi-value { font-size: 1.18rem; font-weight: 700; color: var(--text-primary); }
+    .kpi-card.kpi-pos .kpi-value { color: #059669; }
+    .kpi-card.kpi-neg .kpi-value { color: #dc2626; }
+    .kpi-op { font-size: 1.4rem; font-weight: 700; color: #94a3b8; flex-shrink: 0; align-self: center; }
+    .section-grid {
+        display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 28px;
+    }
+    @media (max-width: 900px) { .section-grid { grid-template-columns: 1fr; } }
+    .bd-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; overflow: hidden; }
+    .bd-card-title {
+        background: #f8fafc; border-bottom: 1px solid #e2e8f0;
+        padding: 12px 18px; font-size: 0.83rem; font-weight: 700; color: var(--text-primary);
+    }
+    .bd-table { width: 100%; border-collapse: collapse; }
+    .bd-table thead th {
+        font-size: 0.7rem; font-weight: 700; text-transform: uppercase;
+        letter-spacing: 0.05em; color: var(--text-muted);
+        background: #f8fafc; padding: 9px 16px; border-bottom: 1px solid #e2e8f0; text-align: right;
+    }
+    .bd-table thead th:first-child { text-align: left; }
+    .bd-table tbody tr { border-bottom: 1px solid #f1f5f9; }
+    .bd-table tbody tr:last-child { border-bottom: none; }
+    .bd-table tbody tr:hover { background: #f8fafc; }
+    .bd-table td { font-size: 0.82rem; padding: 9px 16px; text-align: right; }
+    .bd-table td:first-child { text-align: left; }
+    .bd-table tfoot td {
+        font-size: 0.82rem; font-weight: 700; padding: 10px 16px;
+        background: #f8fafc; border-top: 2px solid #e2e8f0; text-align: right;
+    }
+    .bd-table tfoot td:first-child { text-align: left; }
+    .detail-wrap { background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; overflow: hidden; margin-bottom: 24px; }
+    .detail-header {
+        background: #f8fafc; border-bottom: 1px solid #e2e8f0;
+        padding: 14px 20px; display: flex; align-items: center; justify-content: space-between;
+    }
+    .detail-header h3 { font-size: 0.9rem; font-weight: 700; margin: 0; }
+    .tab-nav { display: flex; gap: 6px; flex-wrap: wrap; padding: 12px 18px; border-bottom: 1px solid #e2e8f0; }
+    .tab-link {
+        padding: 6px 14px; font-size: 0.8rem; font-weight: 600; border-radius: 8px;
+        text-decoration: none; color: var(--text-muted); background: #f1f5f9;
+        border: 1px solid transparent; transition: all .15s;
+    }
+    .tab-link:hover { background: #e2e8f0; color: var(--text-primary); }
+    .tab-link.active { background: var(--accent-emerald); color: #fff; border-color: var(--accent-emerald); }
+    .detail-table { width: 100%; border-collapse: collapse; }
+    .detail-table thead th {
+        font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+        color: var(--text-muted); background: #f8fafc; padding: 9px 16px;
+        border-bottom: 1px solid #e2e8f0; text-align: right;
+    }
+    .detail-table thead th:first-child,
+    .detail-table thead th:nth-child(2),
+    .detail-table thead th:nth-child(3) { text-align: left; }
+    .detail-table tbody tr { border-bottom: 1px solid #f1f5f9; }
+    .detail-table tbody tr:last-child { border-bottom: none; }
+    .detail-table tbody tr:hover { background: #f8fafc; }
+    .detail-table td { font-size: 0.82rem; padding: 9px 16px; text-align: right; }
+    .detail-table td:first-child,
+    .detail-table td:nth-child(2),
+    .detail-table td:nth-child(3) { text-align: left; }
+    .empty-msg { text-align: center; padding: 48px 20px; color: var(--text-muted); font-size: 0.88rem; }
+    .empty-msg i { font-size: 2rem; margin-bottom: 10px; display: block; opacity: .4; }
+    .pag-bar {
+        display: flex; align-items: center; gap: 8px; padding: 12px 18px;
+        border-top: 1px solid #e2e8f0; flex-wrap: wrap; justify-content: space-between;
+    }
+    .pag-info { font-size: 0.78rem; color: var(--text-muted); }
+    .pag-btns { display: flex; gap: 4px; flex-wrap: wrap; }
+    .pag-btn {
+        min-width: 34px; height: 32px; padding: 0 8px; border: 1px solid #e2e8f0;
+        border-radius: 7px; background: #fff; font-size: 0.8rem; cursor: pointer;
+        color: var(--text-primary); display: inline-flex; align-items: center;
+        justify-content: center; text-decoration: none; transition: all .12s;
+    }
+    .pag-btn:hover { background: #f1f5f9; }
+    .pag-btn.active { background: var(--accent-emerald); border-color: var(--accent-emerald); color: #fff; }
+    .pag-btn.disabled { opacity: .4; pointer-events: none; }
+    .per-page-sel { height: 32px; padding: 0 8px; border: 1px solid #e2e8f0; border-radius: 7px; font-size: 0.8rem; background: #fff; outline: none; }
+    .tax-badge { display: inline-block; padding: 2px 8px; border-radius: 5px; font-size: 0.72rem; font-weight: 700; background: #f1f5f9; color: #475569; }
+</style>
+
+<div class="breadcrumb">
+    <a href="{{ url_for('web_invoices.reports_dashboard') }}">Reportes</a>
+    <span class="sep">›</span>
+    <a href="{{ url_for('web_invoices.reports_category', category_key='fiscales') }}">Fiscales</a>
+    <span class="sep">›</span>
+    <span>Reporte detallado de impuestos</span>
+</div>
+<p class="page-subtitle">Consulta la base y el valor de tus impuestos generados por cada transacción.</p>
+
+<form method="GET" action="{{ url_for('web_reports_sales.detailed_taxes_report') }}" class="dt-filters">
+    <div class="fg">
+        <label>Periodo</label>
+        <select name="year">
+            {% for y in years_range|reverse %}
+            <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="fg">
+        <label>Mes</label>
+        <select name="month">
+            {% for m_val, m_name in months_list %}
+            <option value="{{ m_val }}" {% if m_val == month %}selected{% endif %}>{{ m_name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="fg">
+        <label>Impuesto</label>
+        <select name="tax">
+            <option value="">Todos</option>
+            {% for lbl in tax_labels %}
+            <option value="{{ lbl }}" {% if lbl == tax_filter %}selected{% endif %}>{{ lbl }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <input type="hidden" name="tab" value="{{ active_tab }}">
+    <button type="submit" class="btn-gen"><i class="fa-solid fa-rotate-right"></i> Generar Reporte</button>
+</form>
+
+<div class="kpi-row">
+    <div class="kpi-card kpi-pos">
+        <div class="kpi-label">Impuestos en ventas</div>
+        <div class="kpi-value">RD${{ "{:,.2f}".format(total_tax_sales) }}</div>
+    </div>
+    <div class="kpi-op">-</div>
+    <div class="kpi-card kpi-neg">
+        <div class="kpi-label">Impuestos en compras</div>
+        <div class="kpi-value">RD${{ "{:,.2f}".format(total_tax_purchases) }}</div>
+    </div>
+    <div class="kpi-op">-</div>
+    <div class="kpi-card kpi-neg">
+        <div class="kpi-label">Devoluciones de ventas</div>
+        <div class="kpi-value">RD${{ "{:,.2f}".format(total_tax_sales_returns) }}</div>
+    </div>
+    <div class="kpi-op">+</div>
+    <div class="kpi-card kpi-pos">
+        <div class="kpi-label">Devoluciones de compras</div>
+        <div class="kpi-value">RD${{ "{:,.2f}".format(total_tax_purchase_returns) }}</div>
+    </div>
+    <div class="kpi-op">=</div>
+    <div class="kpi-card {% if diferencia >= 0 %}kpi-pos{% else %}kpi-neg{% endif %}">
+        <div class="kpi-label">DIFERENCIA</div>
+        <div class="kpi-value">RD${{ "{:,.2f}".format(diferencia) }}</div>
+    </div>
+</div>
+
+{% macro bd_table(title, breakdown) %}
+<div class="bd-card">
+    <div class="bd-card-title">{{ title }}</div>
+    <table class="bd-table">
+        <thead>
+            <tr>
+                <th>Impuesto</th>
+                <th>Total base imponible</th>
+                <th>Total impuesto</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% set ns = namespace(tb=0, tt=0) %}
+            {% for lbl in tax_labels %}
+            {% set row = breakdown[lbl] %}
+            {% set ns.tb = ns.tb + row.base %}
+            {% set ns.tt = ns.tt + row.tax %}
+            <tr>
+                <td>{{ lbl }}</td>
+                <td>RD${{ "{:,.2f}".format(row.base) }}</td>
+                <td>RD${{ "{:,.2f}".format(row.tax) }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        <tfoot>
+            <tr>
+                <td></td>
+                <td>RD${{ "{:,.2f}".format(ns.tb) }}</td>
+                <td>RD${{ "{:,.2f}".format(ns.tt) }}</td>
+            </tr>
+        </tfoot>
+    </table>
+</div>
+{% endmacro %}
+
+<div class="section-grid">
+    {{ bd_table("Impuestos en ventas con NCF", sales_breakdown) }}
+    {{ bd_table("Impuestos en compras con NCF", purchases_breakdown) }}
+    {{ bd_table("Devoluciones en ventas", sales_returns_breakdown) }}
+    {{ bd_table("Devoluciones en compras", purchase_returns_breakdown) }}
+</div>
+
+<div class="detail-wrap">
+    <div class="detail-header">
+        <h3><i class="fa-solid fa-list-ul" style="color:var(--accent-emerald);margin-right:6px;"></i>Detalle de transacciones</h3>
+        <span style="font-size:0.78rem;color:var(--text-muted);">{{ total_detail }} registro{% if total_detail != 1 %}s{% endif %}</span>
+    </div>
+    {% set base_url = url_for('web_reports_sales.detailed_taxes_report', year=year, month=month, tax=tax_filter, per_page=per_page) %}
+    <div class="tab-nav">
+        <a href="{{ base_url }}&tab=sales" class="tab-link {% if active_tab == 'sales' %}active{% endif %}">Impuestos en ventas</a>
+        <a href="{{ base_url }}&tab=sales_returns" class="tab-link {% if active_tab == 'sales_returns' %}active{% endif %}">Devoluciones de ventas</a>
+        <a href="{{ base_url }}&tab=purchases" class="tab-link {% if active_tab == 'purchases' %}active{% endif %}">Impuestos en compras</a>
+        <a href="{{ base_url }}&tab=purchase_returns" class="tab-link {% if active_tab == 'purchase_returns' %}active{% endif %}">Devoluciones de compras</a>
+    </div>
+    {% if detail_rows %}
+    <table class="detail-table">
+        <thead>
+            <tr>
+                <th>NCF / Número</th>
+                <th>Tipo de documento</th>
+                <th>Proveedor / Cliente</th>
+                <th>Fecha</th>
+                <th>Impuesto</th>
+                <th>Base imponible</th>
+                <th>Valor impuesto</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in detail_rows %}
+            <tr>
+                <td style="font-family:monospace;font-size:0.78rem;">{{ row.ncf }}</td>
+                <td style="font-size:0.78rem;">{{ row.doc_type }}</td>
+                <td>{{ row.entity }}</td>
+                <td>{{ row.date }}</td>
+                <td><span class="tax-badge">{{ row.tax_label }}</span></td>
+                <td>RD${{ "{:,.2f}".format(row.base) }}</td>
+                <td>RD${{ "{:,.2f}".format(row.tax) }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <div class="pag-bar">
+        <div class="pag-info">
+            Mostrando {{ ((page - 1) * per_page) + 1 }}–{{ [page * per_page, total_detail] | min }} de {{ total_detail }}
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            <label style="font-size:0.78rem;color:var(--text-muted);">
+                Ítems por página:
+                <select class="per-page-sel" onchange="changePerPage(this.value)">
+                    {% for opt in [10, 25, 50, 100] %}
+                    <option value="{{ opt }}" {% if opt == per_page %}selected{% endif %}>{{ opt }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <div class="pag-btns">
+                <a href="{{ url_for('web_reports_sales.detailed_taxes_report', year=year, month=month, tax=tax_filter, tab=active_tab, per_page=per_page, page=1) }}"
+                   class="pag-btn {% if page == 1 %}disabled{% endif %}">«</a>
+                <a href="{{ url_for('web_reports_sales.detailed_taxes_report', year=year, month=month, tax=tax_filter, tab=active_tab, per_page=per_page, page=[page-1,1]|max) }}"
+                   class="pag-btn {% if page == 1 %}disabled{% endif %}">‹</a>
+                {% for p in range([1, page-2]|max, [total_pages+1, page+3]|min) %}
+                <a href="{{ url_for('web_reports_sales.detailed_taxes_report', year=year, month=month, tax=tax_filter, tab=active_tab, per_page=per_page, page=p) }}"
+                   class="pag-btn {% if p == page %}active{% endif %}">{{ p }}</a>
+                {% endfor %}
+                <a href="{{ url_for('web_reports_sales.detailed_taxes_report', year=year, month=month, tax=tax_filter, tab=active_tab, per_page=per_page, page=[page+1,total_pages]|min) }}"
+                   class="pag-btn {% if page == total_pages %}disabled{% endif %}">›</a>
+                <a href="{{ url_for('web_reports_sales.detailed_taxes_report', year=year, month=month, tax=tax_filter, tab=active_tab, per_page=per_page, page=total_pages) }}"
+                   class="pag-btn {% if page == total_pages %}disabled{% endif %}">»</a>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="empty-msg">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        No hay transacciones con impuestos en el periodo seleccionado.<br>
+        <small>Selecciona otro periodo o impuesto para visualizar la información.</small>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+function changePerPage(val) {
+    const url = new URL(window.location.href);
+    url.searchParams.set('per_page', val);
+    url.searchParams.set('page', '1');
+    window.location.href = url.toString();
+}
+</script>
+{% endblock %}

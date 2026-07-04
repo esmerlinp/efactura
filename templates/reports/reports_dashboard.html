@@ -1,57 +1,207 @@
 {% extends "layout.html" %}
-
-{% block title %}Módulo de Reportería Fiscal{% endblock %}
-
-{% block page_header %}Reportería Fiscal & Simuladores DGII{% endblock %}
-
+{% block title %}Reportes{% endblock %}
+{% block page_header %}Reportes{% endblock %}
 {% block content %}
-<div style="max-width: 1000px; margin: 0 auto;">
-    <p style="color: var(--text-secondary); font-size: 1rem; line-height: 1.5; margin-bottom: 30px;">
-        Bienvenido al módulo de reportería y cumplimiento tributario. Aquí podrás evaluar de forma predictiva y en tiempo real el comportamiento fiscal de tu empresa conforme a la Ley 32-23 de Facturación Electrónica.
-    </p>
+<style>
+    .breadcrumb {
+        display: flex; align-items: center; gap: 6px;
+        font-size: 0.8rem; color: var(--text-muted); margin-bottom: 16px;
+    }
+    .breadcrumb a { color: var(--text-muted); text-decoration: none; font-weight: 500; }
+    .breadcrumb a:hover { color: var(--accent-emerald); }
+    .breadcrumb .sep { color: #cbd5e1; }
 
-    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; max-width: 1000px; margin: 0 auto;">
-        <!-- Card IT-1 -->
-        <div class="card-table-wrapper" style="padding: 24px; display: flex; flex-direction: column; gap: 14px; transition: border-color var(--transition-fast);" onmouseover="this.style.borderColor='var(--accent-emerald)'" onmouseout="this.style.borderColor='var(--border-color)'">
-            <h3 style="font-size: 1.25rem; font-family: var(--font-heading); display: flex; align-items: center; gap: 10px;">
-                <i class="fa-solid fa-file-invoice" style="color: var(--accent-emerald); font-size: 1.45rem;"></i>
-                <span>Diagnóstico IT-1</span>
-            </h3>
-            <p style="color: var(--text-secondary); font-size: 0.82rem; line-height: 1.45; flex-grow: 1;">
-                Calcula automáticamente una estimación de tu declaración de ITBIS del periodo. Mapea el ITBIS devengado frente al ITBIS deducible registrado.
-            </p>
-            <a href="{{ url_for('web_invoices.it1_diagnostic') }}" class="btn btn-primary" style="width: 100%; margin-top: 10px;">
-                <span>Ver Diagnóstico IT-1</span>
-            </a>
-        </div>
+    .reports-banner {
+        background: linear-gradient(135deg, #1e3a8a, #3b82f6);
+        border-radius: 12px; padding: 14px 20px; margin-bottom: 16px;
+        display: flex; align-items: center; justify-content: space-between;
+        color: #fff; gap: 12px; flex-wrap: wrap;
+    }
+    .reports-banner .banner-text {
+        font-size: 0.85rem; line-height: 1.4; font-weight: 500;
+    }
+    .reports-banner .banner-text strong { font-weight: 700; }
+    .reports-banner .banner-btn {
+        display: inline-flex; align-items: center; gap: 6px;
+        background: rgba(255,255,255,0.2); color: #fff;
+        padding: 7px 16px; border-radius: 8px; font-weight: 600;
+        font-size: 0.8rem; text-decoration: none; white-space: nowrap;
+        border: 1px solid rgba(255,255,255,0.3);
+        transition: background 0.2s;
+    }
+    .reports-banner .banner-btn:hover { background: rgba(255,255,255,0.3); }
 
-        <!-- Card BI & Proyecciones -->
-        <div class="card-table-wrapper" style="padding: 24px; display: flex; flex-direction: column; gap: 14px; transition: border-color var(--transition-fast); border-color: var(--border-color);" onmouseover="this.style.borderColor='var(--accent-emerald)'" onmouseout="this.style.borderColor='var(--border-color)'">
-            <h3 style="font-size: 1.25rem; font-family: var(--font-heading); display: flex; align-items: center; gap: 10px;">
-                <i class="fa-solid fa-chart-line" style="color: var(--accent-emerald); font-size: 1.45rem;"></i>
-                <span>BI & Proyecciones</span>
-            </h3>
-            <p style="color: var(--text-secondary); font-size: 0.82rem; line-height: 1.45; flex-grow: 1;">
-                Análisis de rentabilidad por producto/cliente, flujos de caja futuros y simulador comparativo interactivo de regímenes fiscales (RST vs Ordinario).
-            </p>
-            <a href="{{ url_for('web_invoices.bi_dashboard') }}" class="btn btn-primary" style="width: 100%; margin-top: 10px; background: linear-gradient(135deg, var(--accent-emerald), var(--accent-emerald-hover)); color: white; border: none;">
-                <span>Inteligencia de Negocio</span>
-            </a>
-        </div>
+    .reports-header {
+        display: flex; justify-content: space-between; align-items: center;
+        margin-bottom: 16px; flex-wrap: wrap; gap: 8px;
+    }
+    .reports-header .subtitle {
+        font-size: 0.82rem; color: var(--text-muted); max-width: 450px;
+    }
+    .reports-header .top-links {
+        display: flex; gap: 4px; flex-wrap: wrap;
+    }
+    .reports-header .top-links a {
+        display: inline-flex; align-items: center; gap: 4px;
+        padding: 6px 12px; border-radius: 6px; font-size: 0.78rem;
+        font-weight: 500; text-decoration: none;
+        border: 1px solid #e2e8f0; color: var(--text-secondary);
+        background: #fff; transition: all 0.15s;
+    }
+    .reports-header .top-links a:hover {
+        border-color: var(--accent-emerald); color: var(--accent-emerald);
+    }
 
-        <!-- Card Consultas DGII (Directorio & Estado) -->
-        <div class="card-table-wrapper" style="padding: 24px; display: flex; flex-direction: column; gap: 14px; transition: border-color var(--transition-fast); border-color: var(--border-color);" onmouseover="this.style.borderColor='var(--accent-emerald)'" onmouseout="this.style.borderColor='var(--border-color)'">
-            <h3 style="font-size: 1.25rem; font-family: var(--font-heading); display: flex; align-items: center; gap: 10px;">
-                <i class="fa-solid fa-server" style="color: var(--accent-emerald); font-size: 1.45rem;"></i>
-                <span>Consultas DGII</span>
-            </h3>
-            <p style="color: var(--text-secondary); font-size: 0.82rem; line-height: 1.45; flex-grow: 1;">
-                Verifica RNCs homologados en facturación electrónica y consulta el estado/mantenimiento en vivo de los servidores de la DGII.
-            </p>
-            <a href="{{ url_for('web_invoices.dgii_tools') }}" class="btn btn-primary" style="width: 100%; margin-top: 10px; background: transparent; border: 1px solid var(--border-color); color: var(--text-primary);">
-                <span>Herramientas DGII</span>
-            </a>
-        </div>
+    .report-category-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+        gap: 12px;
+    }
+    @media (min-width: 1400px) {
+        .report-category-grid { grid-template-columns: repeat(5, 1fr); }
+    }
+    .report-category-card {
+        background: #fff; border-radius: 12px; border: 1px solid #e2e8f0;
+        padding: 14px 16px; transition: box-shadow 0.2s, border-color 0.2s;
+        display: flex; flex-direction: column; cursor: pointer;
+        text-decoration: none; color: inherit; overflow: hidden;
+    }
+    .report-category-card:hover {
+        box-shadow: 0 3px 12px rgba(0,0,0,0.06);
+        border-color: var(--accent-emerald);
+    }
+    .report-category-card .card-header {
+        display: flex; justify-content: space-between; align-items: center;
+        margin-bottom: 6px;
+    }
+    .report-category-card .card-header .icon {
+        width: 32px; height: 32px; border-radius: 8px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 0.95rem; flex-shrink: 0;
+    }
+    .report-category-card .card-header .icon.ventas { background: #f0fdf4; color: #10b981; }
+    .report-category-card .card-header .icon.administrativos { background: #eff6ff; color: #3b82f6; }
+    .report-category-card .card-header .icon.financieros { background: #fefce8; color: #eab308; }
+    .report-category-card .card-header .icon.contables { background: #f5f3ff; color: #8b5cf6; }
+    .report-category-card .card-header .icon.fiscales { background: #fef2f2; color: #ef4444; }
+    .report-category-card .card-header .icon.para_trabajar { background: #f8fafc; color: #64748b; }
+    .report-category-card .card-header .icon.favoritos { background: #fffbeb; color: #f59e0b; }
+    .report-category-card .card-header .badge {
+        font-size: 0.65rem; font-weight: 600; color: var(--text-muted);
+        background: #f8fafc; padding: 2px 8px; border-radius: 12px;
+        white-space: nowrap;
+    }
+    .report-category-card .card-title {
+        font-size: 0.9rem; font-weight: 700; color: var(--text-primary);
+        margin-bottom: 3px;
+    }
+    .report-category-card .card-desc {
+        font-size: 0.72rem; color: var(--text-muted); line-height: 1.4;
+        margin-bottom: 8px;
+        display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+    .report-category-card .report-list {
+        list-style: none; padding: 0; margin: 0;
+        display: flex; flex-direction: column;
+    }
+    .report-category-card .report-list li {
+        display: flex; align-items: center; gap: 5px;
+        font-size: 0.75rem; padding: 2px 0;
+        line-height: 1.3; min-width: 0;
+    }
+    .report-category-card .report-list li::before {
+        content: ''; width: 5px; height: 5px; border-radius: 50%;
+        flex-shrink: 0;
+    }
+    .report-category-card .report-list li.done::before { background: #10b981; }
+    .report-category-card .report-list li.pending::before { background: #e2e8f0; }
+    .report-category-card .report-list li a {
+        color: var(--text-primary); text-decoration: none;
+        font-weight: 500; transition: color 0.15s; white-space: nowrap;
+        overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 1;
+    }
+    .report-category-card .report-list li a:hover { color: var(--accent-emerald); }
+    .report-category-card .report-list li .report-title-pending {
+        color: #94a3b8; white-space: nowrap; overflow: hidden;
+        text-overflow: ellipsis; min-width: 0; flex: 1;
+    }
+    .report-category-card .report-list li .coming-soon {
+        font-size: 0.6rem; color: #94a3b8; background: #f8fafc;
+        padding: 1px 6px; border-radius: 8px; font-weight: 500;
+        flex-shrink: 0;
+    }
+
+    @media (max-width: 768px) {
+        .report-category-grid { grid-template-columns: 1fr; }
+    }
+</style>
+
+<div class="breadcrumb"><span>Reportes</span></div>
+
+<div class="reports-banner">
+    <div class="banner-text">
+        ¿Necesitas ayuda con tus reportes?<br>
+        <strong>Invita gratis a tu contador</strong> y deja tus reportes en manos expertas. 🤝💼
+    </div>
+    <a href="{{ url_for('web_invoices.team_settings') }}" class="banner-btn">
+        <i class="fa-solid fa-user-plus"></i> Invitar a mi contador/a
+    </a>
+</div>
+
+<div class="reports-header">
+    <div>
+        <div class="subtitle">Obtén una visión completa de la información contable, administrativa y fiscal de tu empresa.</div>
+    </div>
+    <div class="top-links">
+        <a href="{{ url_for('web_invoices.accounting_export_page') }}">
+            <i class="fa-solid fa-file-export"></i> Historial de exportables
+        </a>
+        <a href="#">
+            <i class="fa-solid fa-tags"></i> Clasificación por categoría
+        </a>
+        <a href="{{ url_for('web_invoices.it1_diagnostic') }}" title="Ayuda" style="border:none;background:#f8fafc;">
+            <i class="fa-solid fa-circle-question" style="font-size:1.1rem;"></i>
+        </a>
     </div>
 </div>
+
+<div class="report-category-grid">
+    {% for cat in report_categories %}
+    <div class="report-category-card"{% if cat.category_url %} data-url="{{ cat.category_url }}"{% endif %}>
+        <div class="card-header">
+            <div class="icon {{ cat.key }}">
+                <i class="{{ cat.icon }}"></i>
+            </div>
+            <span class="badge">{{ cat.count }} Reporte{% if cat.count != 1 %}s{% endif %}</span>
+        </div>
+        <div class="card-title">{{ cat.title }}</div>
+        <div class="card-desc">{{ cat.description }}</div>
+        {% if cat.reports %}
+        <ul class="report-list">
+            {% for r in cat.reports %}
+            <li class="{% if r.enabled %}done{% else %}pending{% endif %}">
+                {% if r.enabled and r.url %}
+                <a href="{{ url_for(r.url) }}">{{ r.title }}</a>
+                {% else %}
+                <span class="report-title-pending">{{ r.title }}</span>
+                <span class="coming-soon">Pronto</span>
+                {% endif %}
+            </li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+
+<script>
+document.querySelectorAll('.report-category-card').forEach(card => {
+    card.addEventListener('click', function(e) {
+        if (e.target.closest('a')) return;
+        var url = this.dataset.url;
+        if (url) window.location.href = url;
+    });
+});
+</script>
 {% endblock %}

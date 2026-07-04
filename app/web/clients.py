@@ -151,7 +151,8 @@ def new_client():
             "disableAutoReminders": request.form.get('disableAutoReminders') == 'on' or request.form.get('disableAutoReminders') == 'true',
             "responsibleId": request.form.get('responsibleId', ''),
             "imageUrl": image_url,
-            "accessPin": access_pin
+            "accessPin": access_pin,
+            "priceListId": request.form.get('priceListId', '')
         }
         
         DatabaseService.save_client(owner_uid, client_id, client_dict, sandbox=sandbox)
@@ -171,7 +172,8 @@ def new_client():
         return redirect(url_for('web_clients.list_clients'))
         
     collaborators = DatabaseService.get_team_members(owner_uid) or []
-    return render_template('clients/form.html', active_page='clients', client=None, collaborators=collaborators)
+    price_lists = DatabaseService.get_price_lists(owner_uid, sandbox=sandbox)
+    return render_template('clients/form.html', active_page='clients', client=None, collaborators=collaborators, price_lists=price_lists)
 
 @web_clients_bp.route('/clients/ajax_create', methods=['POST'])
 def ajax_create_client():
@@ -288,7 +290,8 @@ def edit_client(client_id):
             "disableAutoReminders": request.form.get('disableAutoReminders') == 'on' or request.form.get('disableAutoReminders') == 'true',
             "responsibleId": request.form.get('responsibleId', ''),
             "imageUrl": image_url,
-            "accessPin": access_pin
+            "accessPin": access_pin,
+            "priceListId": request.form.get('priceListId', '')
         }
         DatabaseService.save_client(owner_uid, client_id, client_dict, sandbox=sandbox)
         
@@ -308,7 +311,8 @@ def edit_client(client_id):
         return redirect(url_for('web_clients.list_clients'))
         
     collaborators = DatabaseService.get_team_members(owner_uid) or []
-    return render_template('clients/form.html', active_page='clients', client=client, collaborators=collaborators)
+    price_lists = DatabaseService.get_price_lists(owner_uid, sandbox=sandbox)
+    return render_template('clients/form.html', active_page='clients', client=client, collaborators=collaborators, price_lists=price_lists)
 
 @web_clients_bp.route('/clients/<client_id>/delete', methods=['POST'])
 def delete_client_route(client_id):

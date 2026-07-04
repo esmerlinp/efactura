@@ -74,8 +74,11 @@
 
     <!-- Pestañas (Tabs) -->
     <div style="display: flex; gap: 10px; margin: 0 20px 20px 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">
-        <a href="{{ url_for('web_invoices.list_expenses', tab='all') }}" style="text-decoration: none; padding: 8px 16px; border-radius: var(--radius-sm); font-size: 0.9rem; font-weight: 500; {% if tab == 'all' %}background: var(--accent-purple); color: white;{% else %}color: var(--text-secondary); background: transparent;{% endif %}; transition: background 0.2s;">
+        <a href="{{ url_for('web_invoices.list_expenses', tab='all') }}" style="text-decoration: none; padding: 8px 16px; border-radius: var(--radius-sm); font-size: 0.9rem; font-weight: 500; {% if tab == 'all' or not tab %}background: var(--accent-purple); color: white;{% else %}color: var(--text-secondary); background: transparent;{% endif %}; transition: background 0.2s;">
             <i class="fa-solid fa-list" style="margin-right: 6px;"></i> Historial General
+        </a>
+        <a href="{{ url_for('web_invoices.list_expenses', tab='minor') }}" style="text-decoration: none; padding: 8px 16px; border-radius: var(--radius-sm); font-size: 0.9rem; font-weight: 500; {% if tab == 'minor' %}background: var(--accent-purple); color: white;{% else %}color: var(--text-secondary); background: transparent;{% endif %}; transition: background 0.2s;">
+            <i class="fa-solid fa-receipt" style="margin-right: 6px;"></i> Gastos Menores (E43)
         </a>
         <a href="{{ url_for('web_invoices.list_expenses', tab='recurring') }}" style="text-decoration: none; padding: 8px 16px; border-radius: var(--radius-sm); font-size: 0.9rem; font-weight: 500; {% if tab == 'recurring' %}background: var(--accent-purple); color: white;{% else %}color: var(--text-secondary); background: transparent;{% endif %}; transition: background 0.2s;">
             <i class="fa-solid fa-arrows-spin" style="margin-right: 6px;"></i> Gastos Recurrentes
@@ -151,7 +154,7 @@
                     <th>NCF / RNC Emisor</th>
                     <th>Costo Gasto</th>
                     <th>Imputación a Factura / Margen</th>
-                    <th style="text-align: right;">Acciones</th>
+                    <th style="text-align: right; width: 50px;"></th>
                 </tr>
             </thead>
             <tbody>
@@ -247,43 +250,33 @@
                         {% endif %}
                     </td>
                     <td style="text-align: right;">
-                        <div style="display: inline-flex; gap: 6px;">
-                            <a href="{{ url_for('web_invoices.expense_detail', expense_id=exp.id) }}" class="btn btn-secondary"
-                                style="padding: 8px 12px; font-size: 0.75rem; border-color: var(--accent-purple); color: var(--accent-purple);"
-                                title="Ver Detalle y Comentarios">
-                                <i class="fa-solid fa-eye"></i>
-                            </a>
-                            {% if exp.approvalStatus == 'Pendiente' %}
-                            <button type="button" class="btn btn-secondary"
-                                style="padding: 8px 12px; font-size: 0.75rem; border-color: var(--accent-emerald); color: var(--accent-emerald);"
-                                title="Aprobar Gasto"
-                                onclick="approveExpense('{{ exp.id }}')">
-                                <i class="fa-solid fa-check-double"></i>
+                        <div class="action-menu">
+                            <button type="button" class="action-menu-btn" onclick="toggleActionMenu(event)" title="Acciones">
+                                <i class="fa-solid fa-ellipsis-vertical"></i>
                             </button>
-                            {% endif %}
-                            <a href="{{ url_for('web_invoices.edit_expense_route', expense_id=exp.id) }}" class="btn btn-secondary"
-                                style="padding: 8px 12px; font-size: 0.75rem; border-color: var(--accent-blue); color: var(--accent-blue);"
-                                title="Ver Detalle y Editar">
-                                <i class="fa-solid fa-pen-to-square"></i>
-                            </a>
-                            {% if exp.firebaseAttachmentURLs and exp.firebaseAttachmentURLs[0] %}
-                            <a href="{{ exp.firebaseAttachmentURLs[0] }}" target="_blank" class="btn btn-secondary"
-                                style="padding: 8px 12px; font-size: 0.75rem;" title="Ver Soporte / Ticket">
-                                <i class="fa-solid fa-paperclip"></i>
-                            </a>
-                            {% else %}
-                            <button type="button" class="btn btn-secondary"
-                                style="padding: 8px 12px; font-size: 0.75rem; opacity: 0.35; cursor: not-allowed; border-color: var(--border-color); color: var(--text-muted);"
-                                disabled title="Sin Soporte Adjunto">
-                                <i class="fa-solid fa-paperclip"></i>
-                            </button>
-                            {% endif %}
-                            <button type="submit" class="btn btn-danger"
-                                formaction="{{ url_for('web_invoices.delete_expense_route', expense_id=exp.id) }}"
-                                onclick="return confirm('¿Seguro que deseas eliminar este gasto?');"
-                                style="padding: 8px 12px; font-size: 0.75rem;" title="Eliminar Gasto">
-                                <i class="fa-solid fa-trash-can"></i>
-                            </button>
+                            <div class="action-menu-dropdown">
+                                <a href="{{ url_for('web_invoices.expense_detail', expense_id=exp.id) }}" class="action-menu-item">
+                                    <i class="fa-solid fa-eye"></i> Ver Detalle
+                                </a>
+                                {% if exp.approvalStatus == 'Pendiente' %}
+                                <button type="button" class="action-menu-item" onclick="approveExpense('{{ exp.id }}')">
+                                    <i class="fa-solid fa-check-double"></i> Aprobar Gasto
+                                </button>
+                                {% endif %}
+                                <a href="{{ url_for('web_invoices.edit_expense_route', expense_id=exp.id) }}" class="action-menu-item">
+                                    <i class="fa-solid fa-pen-to-square"></i> Editar
+                                </a>
+                                {% if exp.firebaseAttachmentURLs and exp.firebaseAttachmentURLs[0] %}
+                                <a href="{{ exp.firebaseAttachmentURLs[0] }}" target="_blank" class="action-menu-item">
+                                    <i class="fa-solid fa-paperclip"></i> Ver Soporte
+                                </a>
+                                {% endif %}
+                                <button type="submit" class="action-menu-item text-danger"
+                                    formaction="{{ url_for('web_invoices.delete_expense_route', expense_id=exp.id) }}"
+                                    onclick="return confirm('¿Seguro que deseas eliminar este gasto?');">
+                                    <i class="fa-solid fa-trash-can"></i> Eliminar
+                                </button>
+                            </div>
                         </div>
                     </td>
                 </tr>

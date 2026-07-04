@@ -87,6 +87,7 @@
                             data-can-notes="{{ 'true' if member.permissions.canManageNotes else 'false' }}"
                             data-can-suppliers="{{ 'true' if member.permissions.canManageSuppliers else 'false' }}"
                             data-can-purchase-cxp="{{ 'true' if member.permissions.canManagePurchaseCXP else 'false' }}"
+                            data-can-chatbot="{{ 'true' if member.permissions.canUseChatbot else 'false' }}"
                             data-avatar-url="{{ member.profileImageUrl or '' }}"
                             title="Editar Permisos Granulares">
                             <i class="fa-solid fa-user-gear"></i>
@@ -269,6 +270,12 @@
                                 style="width: 16px; height: 16px; accent-color: var(--accent-emerald);">
                             <span>Gestión de Cuentas por Pagar de Compras (CxP Compras)</span>
                         </label>
+                        <label
+                            style="display: flex; align-items: center; gap: 10px; font-size: 0.85rem; cursor: pointer;">
+                            <input type="checkbox" name="canUseChatbot"
+                                style="width: 16px; height: 16px; accent-color: var(--accent-emerald);">
+                            <span>Acceso al Asistente IA — responder preguntas sobre datos fiscales y de gestión</span>
+                        </label>
                     </div>
                 </div>
 
@@ -431,6 +438,12 @@
                                 style="width: 16px; height: 16px; accent-color: var(--accent-emerald);">
                             <span>Gestión de Cuentas por Pagar de Compras (CxP Compras)</span>
                         </label>
+                        <label
+                            style="display: flex; align-items: center; gap: 10px; font-size: 0.85rem; cursor: pointer;">
+                            <input type="checkbox" id="perms-can-chatbot" name="canUseChatbot"
+                                style="width: 16px; height: 16px; accent-color: var(--accent-emerald);">
+                            <span>Acceso al Asistente IA — responder preguntas sobre datos fiscales y de gestión</span>
+                        </label>
                     </div>
                 </div>
 
@@ -494,6 +507,7 @@
                 const canNotes = this.getAttribute('data-can-notes') === 'true';
                 const canSuppliers = this.getAttribute('data-can-suppliers') === 'true';
                 const canPurchaseCXP = this.getAttribute('data-can-purchase-cxp') === 'true';
+                const canChatbot = this.getAttribute('data-can-chatbot') === 'true';
                 const avatarUrl = this.getAttribute('data-avatar-url');
 
                 document.getElementById('perms-member-name').textContent = name;
@@ -531,6 +545,7 @@
                 document.getElementById('perms-can-notes').checked = canNotes;
                 document.getElementById('perms-can-suppliers').checked = canSuppliers;
                 document.getElementById('perms-can-purchase-cxp').checked = canPurchaseCXP;
+                document.getElementById('perms-can-chatbot').checked = canChatbot;
 
                 editPermsForm.setAttribute('action', '/settings/team/' + uid + '/permissions');
 

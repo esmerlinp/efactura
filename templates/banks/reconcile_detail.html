@@ -1,0 +1,221 @@
+{% extends "layout.html" %}
+
+{% block title %}Conciliación: {{ recon.accountName }}{% endblock %}
+
+{% block page_header %}Conciliación Bancaria{% endblock %}
+
+{% block content %}
+<style>
+    .status-badge-lg {
+        display: inline-block;
+        padding: 4px 16px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+    .status-pendiente { background: rgba(107,114,128,0.1); color: #6b7280; }
+    .status-en_curso { background: rgba(59,130,246,0.1); color: #3b82f6; }
+    .status-conciliada { background: rgba(16,185,129,0.1); color: #10b981; }
+    .status-con_diferencias { background: rgba(239,68,68,0.1); color: #ef4444; }
+    .tx-row {
+        transition: background 0.2s;
+        cursor: pointer;
+    }
+    .tx-row:hover { background: rgba(0,0,0,0.02); }
+    .tx-row.reconciled { background: rgba(16,185,129,0.04); }
+    .tx-row.reconciled td { color: var(--text-muted); }
+    .tx-row.reconciled .tx-desc { text-decoration: line-through; }
+    .summary-box {
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-md);
+        padding: 20px;
+        text-align: center;
+    }
+    .summary-box .label {
+        font-size: 0.78rem;
+        color: var(--text-secondary);
+        margin-bottom: 4px;
+    }
+    .summary-box .value {
+        font-size: 1.3rem;
+        font-weight: 700;
+        font-family: var(--font-heading);
+    }
+    .summary-box .value.match { color: var(--accent-emerald); }
+    .summary-box .value.mismatch { color: var(--accent-red); }
+</style>
+
+<div class="page-title-container" style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px; margin-bottom:24px;">
+    <div>
+        <h1 style="font-size:1.75rem; font-weight:800; font-family:var(--font-heading); color:var(--text-primary); margin:0;">
+            <i class="fa-solid fa-check-double" style="color:var(--accent-emerald); margin-right:10px;"></i>
+            Conciliación: {{ recon.accountName }}
+        </h1>
+        <p style="color:var(--text-secondary); font-size:0.88rem; margin:6px 0 0 2px;">
+            {{ recon.startDate }} → {{ recon.endDate }}
+            <span class="status-badge-lg status-{{ recon.status }}" style="margin-left:10px;">
+                {{ {'pendiente': 'Pendiente', 'en_curso': 'En curso', 'conciliada': 'Conciliada', 'con_diferencias': 'Con diferencias'}.get(recon.status, recon.status) }}
+            </span>
+        </p>
+    </div>
+    <div style="display:flex; gap:8px;">
+        <form method="POST" action="{{ url_for('web_banks.reconcile_complete', recon_id=recon.id) }}" style="display:inline;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-primary">
+                <i class="fa-solid fa-check"></i> Finalizar conciliación
+            </button>
+        </form>
+        <a href="{{ url_for('web_banks.reconcile_list') }}" class="btn btn-secondary">
+            <i class="fa-solid fa-arrow-left"></i> Volver
+        </a>
+    </div>
+</div>
+
+<div class="summary-cards" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px,1fr)); gap:16px; margin-bottom:24px;">
+    <div class="summary-box">
+        <div class="label">Saldo inicial</div>
+        <div class="value">RD$ {{ "{:,.2f}".format(recon.startBalance) }}</div>
+    </div>
+    <div class="summary-box">
+        <div class="label">Saldo calculado (VykOne)</div>
+        <div class="value">RD$ {{ "{:,.2f}".format(recon.calculatedBalance) }}</div>
+    </div>
+    <div class="summary-box">
+        <div class="label">Saldo según banco</div>
+        <div class="value">RD$ {{ "{:,.2f}".format(recon.endBalance) }}</div>
+    </div>
+    <div class="summary-box">
+        <div class="label">Diferencia</div>
+        <div class="value {% if recon.difference == 0 %}match{% else %}mismatch{% endif %}">
+            {% if recon.difference == 0 %}
+            <i class="fa-solid fa-circle-check" style="margin-right:4px;"></i> RD$ 0.00
+            {% else %}
+            RD$ {{ "{:,.2f}".format(recon.difference) }}
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{% if recon.transactions %}
+<div class="card-table-wrapper">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+        <h3 style="font-size:1rem; font-family:var(--font-heading); margin:0;">
+            Movimientos del período
+            <span style="font-size:0.78rem; color:var(--text-muted); font-weight:400;">
+                ({{ recon.reconciledCount }}/{{ recon.transactionCount }} conciliados)
+            </span>
+        </h3>
+        <div style="display:flex; gap:8px; align-items:center;">
+            <span style="font-size:0.78rem; color:var(--text-secondary);">Marcar:</span>
+            <button class="btn btn-secondary" style="font-size:0.75rem; padding:4px 12px;" onclick="toggleAll(true)">Todos</button>
+            <button class="btn btn-secondary" style="font-size:0.75rem; padding:4px 12px;" onclick="toggleAll(false)">Ninguno</button>
+        </div>
+    </div>
+
+    <div style="margin-bottom:12px; display:flex; gap:8px;">
+        <button class="btn btn-secondary" style="font-size:0.75rem; padding:4px 12px;" onclick="filterType('all')">Todos</button>
+        <button class="btn btn-secondary" style="font-size:0.75rem; padding:4px 12px;" onclick="filterType('income')">Ingresos</button>
+        <button class="btn btn-secondary" style="font-size:0.75rem; padding:4px 12px;" onclick="filterType('expense')">Egresos</button>
+        <button class="btn btn-secondary" style="font-size:0.75rem; padding:4px 12px;" onclick="filterReconciled('pending')">Pendientes</button>
+        <button class="btn btn-secondary" style="font-size:0.75rem; padding:4px 12px;" onclick="filterReconciled('done')">Conciliados</button>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table-premium" id="tx-table">
+            <thead>
+                <tr>
+                    <th style="width:40px;"></th>
+                    <th>Fecha</th>
+                    <th>Descripción</th>
+                    <th>Referencia</th>
+                    <th>Tipo</th>
+                    <th>Monto</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for tx in recon.transactions %}
+                <tr class="tx-row {% if tx.reconciled %}reconciled{% endif %}" data-tx-id="{{ tx.id }}" data-type="{{ tx.type }}" data-reconciled="{{ tx.reconciled|lower }}">
+                    <td>
+                        <input type="checkbox" class="tx-checkbox" data-tx-id="{{ tx.id }}"
+                            {% if tx.reconciled %}checked{% endif %}
+                            onchange="toggleTransaction('{{ tx.id }}')">
+                    </td>
+                    <td style="white-space:nowrap;">{{ tx.date }}</td>
+                    <td class="tx-desc" style="max-width:300px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                        {{ tx.description }}
+                    </td>
+                    <td style="font-size:0.78rem; color:var(--text-muted);">{{ tx.referenceNumber or '—' }}</td>
+                    <td>
+                        <span class="badge-type {% if tx.type == 'income' %}badge-ingreso{% else %}badge-egreso{% endif %}"
+                            style="display:inline-block; padding:2px 10px; border-radius:20px; font-size:0.72rem; font-weight:500;
+                            {% if tx.type == 'income' %}background:rgba(16,185,129,0.1); color:#10b981;{% else %}background:rgba(239,68,68,0.1); color:#ef4444;{% endif %}">
+                            {{ 'Ingreso' if tx.type == 'income' else 'Egreso' }}
+                        </span>
+                    </td>
+                    <td style="font-weight:600; {% if tx.type == 'income' %}color:var(--accent-emerald);{% else %}color:var(--accent-red);{% endif %}">
+                        {% if tx.type == 'expense' %}-{% endif %}RD$ {{ "{:,.2f}".format(tx.amount) }}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% else %}
+<div class="card-table-wrapper" style="text-align:center; padding:40px; color:var(--text-muted);">
+    <i class="fa-solid fa-receipt" style="font-size:2rem; display:block; margin-bottom:12px;"></i>
+    No se encontraron movimientos en este período para esta cuenta.
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    function toggleTransaction(txId) {
+        const formData = new FormData();
+        formData.append('transactionId', txId);
+        formData.append('csrf_token', '{{ csrf_token() }}');
+
+        fetch('{{ url_for("web_banks.reconcile_toggle", recon_id=recon.id) }}', {
+            method: 'POST',
+            body: formData
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            }
+        })
+        .catch(() => {});
+    }
+
+    function toggleAll(checked) {
+        document.querySelectorAll('.tx-checkbox').forEach(cb => {
+            if (cb.checked !== checked) {
+                cb.checked = checked;
+                toggleTransaction(cb.dataset.txId);
+            }
+        });
+    }
+
+    function filterType(type) {
+        document.querySelectorAll('#tx-table tbody tr.tx-row').forEach(row => {
+            if (type === 'all') { row.style.display = ''; return; }
+            row.style.display = row.dataset.type === type ? '' : 'none';
+        });
+    }
+
+    function filterReconciled(state) {
+        document.querySelectorAll('#tx-table tbody tr.tx-row').forEach(row => {
+            if (state === 'pending') {
+                row.style.display = row.dataset.reconciled === 'false' ? '' : 'none';
+            } else if (state === 'done') {
+                row.style.display = row.dataset.reconciled === 'true' ? '' : 'none';
+            } else {
+                row.style.display = '';
+            }
+        });
+    }
+</script>
+{% endblock %}

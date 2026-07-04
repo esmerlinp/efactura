@@ -1,0 +1,56 @@
+{% extends "layout.html" %}
+
+{% block title %}{% if price_list %}Editar Lista de Precios{% else %}Nueva Lista de Precios{% endif %}{% endblock %}
+
+{% block page_header %}{% if price_list %}Editar Lista de Precios{% else %}Nueva Lista de Precios{% endif %}{% endblock %}
+
+{% block content %}
+<div class="card-table-wrapper" style="max-width: 600px; margin: 0 auto;">
+    <form
+        action="{% if price_list %}{{ url_for('web_invoices.edit_price_list', list_id=price_list.id) }}{% else %}{{ url_for('web_invoices.new_price_list') }}{% endif %}"
+        method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="form-grid">
+            <div class="form-group" style="grid-column: 1 / -1;">
+                <label for="name">Nombre de la Lista *</label>
+                <input type="text" id="name" name="name" class="form-input" placeholder="Ej: Mayorista, VIP, Distribuidor"
+                    required value="{{ price_list.name if price_list else '' }}">
+            </div>
+
+            <div class="form-group" style="grid-column: 1 / -1;">
+                <label for="description">Descripción</label>
+                <textarea id="description" name="description" class="form-textarea" rows="3"
+                    placeholder="Descripción opcional de esta lista de precios">{{ price_list.description if price_list else '' }}</textarea>
+            </div>
+
+            <div class="form-group" style="grid-column: 1 / -1; display: flex; align-items: center; gap: 8px;">
+                <input type="checkbox" id="isDefault" name="isDefault" {% if price_list and price_list.isDefault %}checked{% endif %}
+                    style="width: 18px; height: 18px; cursor: pointer;">
+                <label for="isDefault" style="cursor: pointer; margin: 0; font-weight: 500;">
+                    Lista de precios por defecto
+                </label>
+            </div>
+
+            {% if price_list %}
+            <div class="form-group" style="grid-column: 1 / -1; display: flex; align-items: center; gap: 8px;">
+                <input type="checkbox" id="isActive" name="isActive" {% if price_list.isActive %}checked{% endif %}
+                    style="width: 18px; height: 18px; cursor: pointer;">
+                <label for="isActive" style="cursor: pointer; margin: 0; font-weight: 500;">
+                    Lista activa
+                </label>
+            </div>
+            {% endif %}
+        </div>
+
+        <div style="margin-top: 36px; display: flex; justify-content: flex-end; gap: 15px; border-top: 1px solid var(--border-color); padding-top: 24px;">
+            <a href="{{ url_for('web_invoices.list_price_lists') }}" class="btn btn-secondary">
+                <span>Cancelar</span>
+            </a>
+            <button type="submit" class="btn btn-primary">
+                <i class="fa-solid fa-floppy-disk"></i>
+                <span>{% if price_list %}Guardar Cambios{% else %}Crear Lista{% endif %}</span>
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}

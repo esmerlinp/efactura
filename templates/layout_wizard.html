@@ -22,6 +22,8 @@
     <!-- Estilos según Tema -->
     {% if company_theme == 'moderno' %}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style_moderno.css') }}?v={{ static_hash('css/style_moderno.css') }}">
+    {% elif company_theme == 'alegra' %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style_alegra.css') }}?v={{ static_hash('css/style_alegra.css') }}">
     {% elif company_theme == 'landing' %}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style_landing.css') }}?v={{ static_hash('css/style_landing.css') }}">
     {% else %}

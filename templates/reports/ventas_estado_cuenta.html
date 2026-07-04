@@ -1,0 +1,437 @@
+{% extends "layout.html" %}
+{% block title %}Estado de cuenta por cliente{% endblock %}
+{% block page_header %}Estado de cuenta por cliente{% endblock %}
+{% block content %}
+<style>
+    .breadcrumb {
+        display: flex; align-items: center; gap: 6px;
+        font-size: 0.8rem; color: var(--text-muted); margin-bottom: 16px;
+    }
+    .breadcrumb a { color: var(--text-muted); text-decoration: none; font-weight: 500; }
+    .breadcrumb a:hover { color: var(--accent-emerald); }
+    .breadcrumb .sep { color: #cbd5e1; }
+
+    .page-subtitle {
+        font-size: 0.85rem; color: var(--text-muted); margin: -8px 0 18px 0;
+        line-height: 1.5; max-width: 600px;
+    }
+
+    .ec-filters {
+        background: #fff; border: 1px solid #e2e8f0; border-radius: 14px;
+        padding: 18px 22px; margin-bottom: 24px;
+        display: flex; align-items: flex-end; gap: 14px; flex-wrap: wrap;
+    }
+    .ec-filters .filter-group {
+        display: flex; flex-direction: column; gap: 4px;
+    }
+    .ec-filters .filter-group label {
+        font-size: 0.72rem; font-weight: 600; color: var(--text-muted);
+        text-transform: uppercase; letter-spacing: 0.04em;
+    }
+    .ec-filters .filter-group select,
+    .ec-filters .filter-group input {
+        height: 40px; padding: 0 12px; border: 1px solid #e2e8f0;
+        border-radius: 8px; font-size: 0.86rem; background: #fff;
+        outline: none; min-width: 140px; transition: border-color 0.15s;
+    }
+    .ec-filters .filter-group select:focus,
+    .ec-filters .filter-group input:focus {
+        border-color: var(--accent-emerald);
+    }
+    .ec-filters .btn-group {
+        display: flex; gap: 8px; margin-left: auto;
+    }
+    .ec-filters .btn-group .btn {
+        height: 40px; padding: 0 20px; font-size: 0.86rem;
+        border-radius: 8px; font-weight: 600;
+        display: inline-flex; align-items: center; gap: 6px;
+        cursor: pointer; border: none; transition: all 0.15s;
+    }
+    .ec-filters .btn-group .btn-primary {
+        background: var(--accent-emerald); color: #fff;
+    }
+    .ec-filters .btn-group .btn-primary:hover { opacity: 0.9; }
+    .ec-filters .btn-group .btn-secondary {
+        background: #f8fafc; color: var(--text-primary);
+        border: 1px solid #e2e8f0; text-decoration: none;
+    }
+    .ec-filters .btn-group .btn-secondary:hover { background: #f1f5f9; }
+    .ec-filters .btn-group .btn-outline {
+        background: transparent; color: var(--text-secondary);
+        border: 1px solid #e2e8f0;
+    }
+    .ec-filters .btn-group .btn-outline:hover { background: #f8fafc; }
+    .ec-filters .btn-group .btn-emerald {
+        background: var(--accent-emerald); color: #fff;
+    }
+    .ec-filters .btn-group .btn-emerald:hover { opacity: 0.9; }
+
+    .ec-summary-cards {
+        background: #fff; border: 1px solid #e2e8f0; border-radius: 14px;
+        display: flex; margin-bottom: 24px; overflow: hidden;
+    }
+    .ec-summary-cards .bi-card {
+        flex: 1; padding: 14px 16px; display: flex; flex-direction: column;
+        gap: 4px; text-align: center; align-items: center;
+        border-right: 1px solid #e2e8f0;
+    }
+    .ec-summary-cards .bi-card:last-child { border-right: none; }
+    .ec-summary-cards .bi-card .bi-card-title {
+        font-size: 0.68rem; font-weight: 600; color: var(--text-muted);
+        text-transform: uppercase; letter-spacing: 0.03em;
+    }
+    .ec-summary-cards .bi-card .bi-card-value {
+        font-size: 1.15rem; font-weight: 800; color: var(--text-primary);
+    }
+    .ec-summary-cards .bi-card .bi-card-value.emerald { color: var(--accent-emerald); }
+    .ec-summary-cards .bi-card .bi-card-value.red { color: var(--accent-red); }
+    .ec-summary-cards .bi-card .bi-card-currency {
+        font-size: 0.68rem; color: var(--text-muted);
+    }
+
+    .ec-section {
+        background: #fff; border: 1px solid #e2e8f0; border-radius: 14px;
+        padding: 20px 22px; margin-bottom: 24px;
+    }
+    .ec-section .section-title {
+        font-size: 0.85rem; font-weight: 700; color: var(--text-primary);
+        margin-bottom: 14px;
+    }
+    .ec-section .section-sub {
+        font-size: 0.72rem; color: var(--text-muted); margin-top: -10px;
+        margin-bottom: 14px;
+    }
+
+    .ec-aging-grid {
+        display: flex; gap: 10px; flex-wrap: wrap;
+    }
+    .ec-aging-item {
+        flex: 1; min-width: 100px; padding: 12px 14px;
+        border: 1px solid #e2e8f0; border-radius: 10px; text-align: center;
+    }
+    .ec-aging-item .label {
+        font-size: 0.7rem; font-weight: 600; color: var(--text-muted);
+        text-transform: uppercase; letter-spacing: 0.03em; margin-bottom: 6px;
+    }
+    .ec-aging-item .value {
+        font-size: 1rem; font-weight: 800;
+    }
+    .ec-aging-item .value.danger { color: var(--accent-red); }
+    .ec-aging-item .value.warning { color: #f59e0b; }
+    .ec-aging-item .value.ok { color: var(--accent-emerald); }
+
+    .ec-table-wrap {
+        background: #fff; border: 1px solid #e2e8f0; border-radius: 14px;
+        overflow: hidden; margin-bottom: 20px;
+    }
+    .ec-table-wrap table {
+        width: 100%; border-collapse: collapse; font-size: 0.85rem;
+    }
+    .ec-table-wrap thead th {
+        background: #f8fafc; text-align: left; padding: 12px 16px;
+        font-size: 0.72rem; font-weight: 700; color: var(--text-muted);
+        text-transform: uppercase; letter-spacing: 0.04em;
+        border-bottom: 1px solid #e2e8f0;
+    }
+    .ec-table-wrap tbody td {
+        padding: 12px 16px; border-bottom: 1px solid #f1f5f9;
+        color: var(--text-primary);
+    }
+    .ec-table-wrap tbody tr:last-child td { border-bottom: none; }
+    .ec-table-wrap tbody tr:hover { background: #f8fafc; }
+    .ec-table-wrap .text-right { text-align: right; }
+
+    .ec-pagination {
+        display: flex; justify-content: space-between; align-items: center;
+        padding: 14px 16px; background: #fff;
+        border: 1px solid #e2e8f0; border-radius: 12px; gap: 12px;
+        flex-wrap: wrap;
+    }
+    .ec-pagination .info {
+        font-size: 0.82rem; color: var(--text-muted);
+    }
+    .ec-pagination .pages {
+        display: flex; gap: 4px; align-items: center;
+    }
+    .ec-pagination .pages .btn-page {
+        padding: 6px 12px; border-radius: 6px; font-size: 0.82rem;
+        font-weight: 600; border: 1px solid #e2e8f0; color: var(--text-primary);
+        background: #fff; text-decoration: none; transition: all 0.15s;
+    }
+    .ec-pagination .pages .btn-page:hover { background: #f1f5f9; }
+    .ec-pagination .pages .btn-page.active {
+        background: var(--accent-emerald); color: #fff; border-color: var(--accent-emerald);
+    }
+    .ec-pagination .pages .btn-page[disabled] {
+        opacity: 0.4; cursor: default;
+    }
+    .ec-pagination .pages .dots { padding: 6px 4px; color: var(--text-muted); }
+
+    .ec-empty {
+        text-align: center; padding: 60px 24px; color: var(--text-muted);
+    }
+    .ec-empty i { font-size: 2.5rem; opacity: 0.3; margin-bottom: 16px; }
+    .ec-empty h3 { font-size: 1.05rem; margin: 0 0 8px 0; color: var(--text-primary); }
+    .ec-empty p { font-size: 0.85rem; margin: 0 0 4px 0; }
+
+    @media (max-width: 992px) {
+        .ec-summary-cards { flex-direction: column; }
+        .ec-summary-cards .bi-card { border-right: none; border-bottom: 1px solid #e2e8f0; }
+        .ec-summary-cards .bi-card:last-child { border-bottom: none; }
+        .ec-aging-grid { flex-direction: column; }
+        .ec-table-wrap { overflow-x: auto; }
+    }
+</style>
+
+<div class="breadcrumb">
+    <a href="{{ url_for('web_invoices.reports_dashboard') }}">Reportes</a>
+    <span class="sep">/</span>
+    <a href="{{ url_for('web_invoices.reports_category', category_key='ventas') }}">Ventas</a>
+    <span class="sep">/</span>
+    <span>Estado de cuenta por cliente</span>
+</div>
+
+<p class="page-subtitle">Revisa el detalle de las ventas asociadas a cada cliente y hazle seguimiento a sus facturas vencidas.</p>
+
+<div class="ec-filters">
+    <form method="GET" style="display:contents;">
+        <div class="filter-group" style="flex:2;min-width:200px;">
+            <label>Cliente</label>
+            <select name="client_id" onchange="this.form.submit()">
+                <option value="">-- Seleccionar cliente --</option>
+                {% for c in clients %}
+                <option value="{{ c.id }}" {% if c.id == client_id %}selected{% endif %}>{{ c.name }}{% if c.rnc %} ({{ c.rnc }}){% endif %}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>Año</label>
+            <select name="year">
+                {% for y in years_range %}
+                <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>Mes</label>
+            <select name="month">
+                {% for m_val, m_label in months_list %}
+                <option value="{{ m_val }}" {% if m_val == month %}selected{% endif %}>{{ m_label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>Estado de vencimiento</label>
+            <select name="aging">
+                <option value="">Todos</option>
+                <option value="sin_vencer" {% if aging_filter == 'sin_vencer' %}selected{% endif %}>Sin vencer</option>
+                <option value="1_30" {% if aging_filter == '1_30' %}selected{% endif %}>1 - 30 días</option>
+                <option value="31_60" {% if aging_filter == '31_60' %}selected{% endif %}>31 - 60 días</option>
+                <option value="61_90" {% if aging_filter == '61_90' %}selected{% endif %}>61 - 90 días</option>
+                <option value="91_plus" {% if aging_filter == '91_plus' %}selected{% endif %}>+91 días</option>
+            </select>
+        </div>
+        <div class="btn-group">
+            <button type="submit" class="btn btn-primary">
+                <i class="fa-solid fa-rotate"></i> Actualizar
+            </button>
+            <a href="{{ url_for('web_reports_sales.ventas_estado_cuenta_export', client_id=client_id, year=year, month=month) }}" class="btn btn-secondary">
+                <i class="fa-solid fa-download"></i> Descargar
+            </a>
+        </div>
+    </form>
+</div>
+
+{% if client_id and summary %}
+<div class="ec-summary-cards">
+    <div class="bi-card">
+        <span class="bi-card-title">Total en ventas</span>
+        <div class="bi-card-value">RD$ {{ "{:,.2f}".format(total_ventas) }}</div>
+        <div class="bi-card-currency">DOP</div>
+    </div>
+    <div class="bi-card">
+        <span class="bi-card-title">Retenciones</span>
+        <div class="bi-card-value">RD$ {{ "{:,.2f}".format(total_retenciones) }}</div>
+        <div class="bi-card-currency">DOP</div>
+    </div>
+    <div class="bi-card">
+        <span class="bi-card-title">Total cobrado</span>
+        <div class="bi-card-value emerald">RD$ {{ "{:,.2f}".format(total_cobrado) }}</div>
+        <div class="bi-card-currency">DOP</div>
+    </div>
+    <div class="bi-card">
+        <span class="bi-card-title">Saldo por cobrar</span>
+        <div class="bi-card-value {% if total_saldo > 0 %}red{% else %}emerald{% endif %}">RD$ {{ "{:,.2f}".format(total_saldo) }}</div>
+        <div class="bi-card-currency">DOP</div>
+    </div>
+</div>
+
+<div class="ec-section">
+    <div class="section-title">Deuda por vencimiento</div>
+    <div class="section-sub">Expresado en la moneda principal (DOP)</div>
+    <div class="ec-aging-grid">
+        <div class="ec-aging-item">
+            <div class="label">Sin vencer</div>
+            <div class="value ok">RD$ {{ "{:,.2f}".format(aging.sin_vencer) }}</div>
+        </div>
+        <div class="ec-aging-item">
+            <div class="label">1 - 30 días</div>
+            <div class="value warning">RD$ {{ "{:,.2f}".format(aging['1_30']) }}</div>
+        </div>
+        <div class="ec-aging-item">
+            <div class="label">31 - 60 días</div>
+            <div class="value warning">RD$ {{ "{:,.2f}".format(aging['31_60']) }}</div>
+        </div>
+        <div class="ec-aging-item">
+            <div class="label">61 - 90 días</div>
+            <div class="value danger">RD$ {{ "{:,.2f}".format(aging['61_90']) }}</div>
+        </div>
+        <div class="ec-aging-item">
+            <div class="label">+91 días</div>
+            <div class="value danger">RD$ {{ "{:,.2f}".format(aging['91_plus']) }}</div>
+        </div>
+    </div>
+</div>
+
+<div class="ec-section">
+    <div class="section-title">Pagos recientes</div>
+    <div class="section-sub">Expresado en la moneda principal (DOP)</div>
+    {% if recent_payments %}
+    <table style="width:100%;border-collapse:collapse;font-size:0.85rem;">
+        <thead>
+            <tr>
+                <th style="text-align:left;padding:8px 12px;font-size:0.7rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;border-bottom:1px solid #e2e8f0;">Factura</th>
+                <th style="text-align:left;padding:8px 12px;font-size:0.7rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;border-bottom:1px solid #e2e8f0;">Fecha</th>
+                <th style="text-align:right;padding:8px 12px;font-size:0.7rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;border-bottom:1px solid #e2e8f0;">Monto</th>
+                <th style="text-align:right;padding:8px 12px;font-size:0.7rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;border-bottom:1px solid #e2e8f0;">Saldo</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for p in recent_payments[:10] %}
+            <tr>
+                <td style="padding:8px 12px;border-bottom:1px solid #f1f5f9;">{{ p.invoice_number }}</td>
+                <td style="padding:8px 12px;border-bottom:1px solid #f1f5f9;">{{ p.date }}</td>
+                <td style="padding:8px 12px;text-align:right;border-bottom:1px solid #f1f5f9;">RD$ {{ "{:,.2f}".format(p.amount) }}</td>
+                <td style="padding:8px 12px;text-align:right;border-bottom:1px solid #f1f5f9;color:{% if p.remaining > 0 %}var(--accent-red){% else %}var(--accent-emerald){% endif %};">RD$ {{ "{:,.2f}".format(p.remaining) }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="ec-empty" style="padding:30px 0;">
+        <p style="margin:0;">Sin pagos en los últimos 90 días</p>
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
+{% if client_id %}
+<div class="ec-filters" style="margin-bottom:20px;">
+    <form method="GET" style="display:contents;width:100%;">
+        <input type="hidden" name="client_id" value="{{ client_id }}">
+        <input type="hidden" name="year" value="{{ year }}">
+        <input type="hidden" name="month" value="{{ month }}">
+        <input type="hidden" name="aging" value="{{ aging_filter }}">
+        <div class="filter-group" style="flex:1;">
+            <label>Filtrar</label>
+            <input type="text" name="search" placeholder="Buscar por factura, tipo o monto..." value="{{ search }}" style="width:100%;min-width:200px;">
+        </div>
+        <div class="btn-group">
+            <button type="submit" class="btn btn-primary">
+                <i class="fa-solid fa-search"></i> Buscar
+            </button>
+            {% if search %}
+            <a href="?client_id={{ client_id }}&year={{ year }}&month={{ month }}&aging={{ aging_filter }}" class="btn btn-secondary">
+                <i class="fa-solid fa-times"></i> Limpiar
+            </a>
+            {% endif %}
+        </div>
+    </form>
+</div>
+{% endif %}
+
+{% if invoices %}
+<div class="ec-table-wrap">
+    <table>
+        <thead>
+            <tr>
+                <th>Factura</th>
+                <th>Fecha</th>
+                <th>Vence</th>
+                <th class="text-right">Total</th>
+                <th class="text-right">Pagado</th>
+                <th class="text-right">Saldo</th>
+                <th>Vencimiento</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for inv in invoices %}
+            {% set days = inv._days_overdue %}
+            <tr>
+                <td>{{ inv.invoiceNumber or inv.encf or '-' }}</td>
+                <td>{{ (inv.date or '')[:10] }}</td>
+                <td>{{ (inv.dueDate or '')[:10] }}</td>
+                <td class="text-right">RD$ {{ "{:,.2f}".format(inv.total) }}</td>
+                <td class="text-right">RD$ {{ "{:,.2f}".format(inv._total_paid) }}</td>
+                <td class="text-right" style="color:{% if inv._remaining > 0 %}var(--accent-red){% else %}var(--accent-emerald){% endif %};">RD$ {{ "{:,.2f}".format(inv._remaining) }}</td>
+                <td>
+                    {% if days <= 0 %}
+                    <span style="color:var(--accent-emerald);font-weight:600;">Al día</span>
+                    {% elif days <= 30 %}
+                    <span style="color:#f59e0b;font-weight:600;">{{ days }} días</span>
+                    {% else %}
+                    <span style="color:var(--accent-red);font-weight:600;">{{ days }} días</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div class="ec-pagination">
+    <div class="info">
+        <strong>{{ start_count }}</strong>-<strong>{{ end_count }}</strong> de <strong>{{ total_items }}</strong> registro{% if total_items != 1 %}s{% endif %}
+    </div>
+    <div class="pages">
+        {% if page > 1 %}
+        <a href="?client_id={{ client_id }}&year={{ year }}&month={{ month }}&aging={{ aging_filter }}&search={{ search }}&page={{ page - 1 }}&per_page={{ per_page }}" class="btn-page">Anterior</a>
+        {% else %}
+        <span class="btn-page" disabled>Anterior</span>
+        {% endif %}
+
+        {% for p in range(1, total_pages + 1) %}
+            {% if p == page %}
+            <span class="btn-page active">{{ p }}</span>
+            {% elif p <= 3 or p >= total_pages - 2 or (p >= page - 2 and p <= page + 2) %}
+            <a href="?client_id={{ client_id }}&year={{ year }}&month={{ month }}&aging={{ aging_filter }}&search={{ search }}&page={{ p }}&per_page={{ per_page }}" class="btn-page">{{ p }}</a>
+            {% elif p == 4 or p == total_pages - 3 %}
+            <span class="dots">...</span>
+            {% endif %}
+        {% endfor %}
+
+        {% if page < total_pages %}
+        <a href="?client_id={{ client_id }}&year={{ year }}&month={{ month }}&aging={{ aging_filter }}&search={{ search }}&page={{ page + 1 }}&per_page={{ per_page }}" class="btn-page">Siguiente</a>
+        {% else %}
+        <span class="btn-page" disabled>Siguiente</span>
+        {% endif %}
+    </div>
+</div>
+{% elif client_id %}
+<div class="ec-table-wrap">
+    <div class="ec-empty">
+        <i class="fa-solid fa-file-invoice"></i>
+        <h3>No encontramos facturas que coincidan con tu búsqueda</h3>
+        <p>Prueba ajustando los filtros o ampliando el rango de fechas.</p>
+    </div>
+</div>
+{% else %}
+<div class="ec-table-wrap">
+    <div class="ec-empty">
+        <i class="fa-solid fa-hand-pointer"></i>
+        <h3>Selecciona un cliente</h3>
+        <p>Elige un cliente del listado para ver su estado de cuenta.</p>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

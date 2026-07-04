@@ -7,6 +7,8 @@ from app.services.db_service import db_firestore, DatabaseService
 from app.services.azul_service import AzulService
 from cryptography.hazmat.primitives.serialization import pkcs12
 from app.brand import get_product_name
+from app.utils.decorators import check_permission
+from app.utils.module_gate import module_enabled
 
 portal_bp = Blueprint('portal', __name__, template_folder='templates')
 
@@ -1230,5 +1232,40 @@ def portal_document_pdf(invoice_id):
         return response
     else:
         return rendered_html
+
+
+@portal_bp.route('/portal/admin')
+def portal_admin():
+    if 'user' not in session:
+        flash('Debe iniciar sesión para acceder a esta página.', 'error')
+        return redirect(url_for('web_auth.login'))
+    if not check_permission('canClients'):
+        return render_template('auth/restricted.html', feature_name='Portal de Clientes',
+                               required_permission='canClients')
+
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+    company = DatabaseService.get_company_profile(owner_uid) or {}
+
+    clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox)
+    portal_clients = []
+    for c in clients:
+        if c.get('accessPin'):
+            from app.utils.security import generate_portal_token
+            token = generate_portal_token(owner_uid, c['id'], sandbox=sandbox)
+            portal_url = url_for('portal.portal_entry', token=token, _external=True)
+            portal_clients.append({
+                'id': c['id'],
+                'razonSocial': c.get('razonSocial', ''),
+                'rnc': c.get('rnc', ''),
+                'email': c.get('email', ''),
+                'telefono': c.get('telefono', ''),
+                'accessPin': c.get('accessPin', ''),
+                'portalUrl': portal_url
+            })
+    portal_clients.sort(key=lambda x: x['razonSocial'].lower())
+
+    return render_template('portal/admin.html', active_page='portal_admin',
+                           clients=portal_clients, company=company, sandbox=sandbox)
 
 

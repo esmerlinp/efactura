@@ -289,8 +289,7 @@
                     style="padding: 14px 16px; font-size: 0.78rem; color: var(--text-secondary); text-transform: uppercase;">
                     Estatus</th>
                 <th
-                    style="padding: 14px 16px; font-size: 0.78rem; color: var(--text-secondary); text-transform: uppercase; text-align: center;">
-                    Acciones</th>
+                    style="padding: 14px 16px; font-size: 0.78rem; color: var(--text-secondary); text-transform: uppercase; text-align: center; width: 50px;"></th>
             </tr>
         </thead>
         <tbody>
@@ -330,31 +329,26 @@
                         {{ cxp.cxpStatus }}
                     </span>
                 </td>
-                <td style="padding: 14px 16px; align-items: center;">
-                    <div class="action-btn-group">
-                        <a href="{{ url_for('web_invoices.expense_detail', expense_id=cxp.id) }}" class="action-btn"
-                            title="Ver Detalle y Comentarios" style="color: var(--accent-purple); border-color: rgba(124, 58, 237, 0.3);">
-                            <i class="fa-solid fa-eye"></i>
-                        </a>
-                        {% if cxp.cxpStatus != 'Pagado' %}
-                            {% if cxp.approvalStatus == 'Pendiente' %}
-                            <button type="button" class="action-btn" title="Gasto Pendiente de Aprobación" style="opacity: 0.4; cursor: not-allowed; color: var(--accent-red); border-color: rgba(239, 68, 68, 0.3);">
-                                <i class="fa-solid fa-lock"></i>
-                            </button>
-                            {% else %}
-                            <button
-                                onclick="openPayModal('{{ cxp.id }}', '{{ cxp.concept }}', {{ cxp.cxpRemainingBalance }})"
-                                class="action-btn btn-pay" title="Registrar Pago/Abono">
-                                <i class="fa-solid fa-hand-holding-dollar"></i>
+                <td style="padding: 14px 16px; text-align: center;">
+                    <div class="action-menu">
+                        <button type="button" class="action-menu-btn" onclick="toggleActionMenu(event)" title="Acciones">
+                            <i class="fa-solid fa-ellipsis-vertical"></i>
+                        </button>
+                        <div class="action-menu-dropdown">
+                            <a href="{{ url_for('web_invoices.expense_detail', expense_id=cxp.id) }}" class="action-menu-item">
+                                <i class="fa-solid fa-eye"></i> Ver Detalle
+                            </a>
+                            {% if cxp.cxpStatus != 'Pagado' and cxp.approvalStatus != 'Pendiente' %}
+                            <button type="button" class="action-menu-item" onclick="openPayModal('{{ cxp.id }}', '{{ cxp.concept }}', {{ cxp.cxpRemainingBalance }})">
+                                <i class="fa-solid fa-hand-holding-dollar"></i> Registrar Pago/Abono
                             </button>
                             {% endif %}
-                        {% endif %}
-                        {% if cxp.firebaseAttachmentURLs and cxp.firebaseAttachmentURLs|length > 0 %}
-                        <a href="{{ cxp.firebaseAttachmentURLs[0] }}" target="_blank" class="action-btn"
-                            title="Ver Soporte Digital">
-                            <i class="fa-solid fa-paperclip"></i>
-                        </a>
-                        {% endif %}
+                            {% if cxp.firebaseAttachmentURLs and cxp.firebaseAttachmentURLs|length > 0 %}
+                            <a href="{{ cxp.firebaseAttachmentURLs[0] }}" target="_blank" class="action-menu-item">
+                                <i class="fa-solid fa-paperclip"></i> Ver Soporte
+                            </a>
+                            {% endif %}
+                        </div>
                     </div>
                 </td>
             </tr>

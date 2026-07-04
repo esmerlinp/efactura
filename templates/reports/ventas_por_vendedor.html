@@ -1,0 +1,288 @@
+{% extends "layout.html" %}
+{% block title %}Ventas por vendedor{% endblock %}
+{% block page_header %}Ventas por vendedor{% endblock %}
+{% block content %}
+<style>
+    .breadcrumb {
+        display: flex; align-items: center; gap: 6px;
+        font-size: 0.8rem; color: var(--text-muted); margin-bottom: 16px;
+    }
+    .breadcrumb a { color: var(--text-muted); text-decoration: none; font-weight: 500; }
+    .breadcrumb a:hover { color: var(--accent-emerald); }
+    .breadcrumb .sep { color: #cbd5e1; }
+
+    .page-subtitle {
+        font-size: 0.85rem; color: var(--text-muted); margin: -8px 0 18px 0;
+        line-height: 1.5; max-width: 600px;
+    }
+
+    .vv-filters {
+        background: #fff; border: 1px solid #e2e8f0; border-radius: 14px;
+        padding: 18px 22px; margin-bottom: 24px;
+        display: flex; align-items: flex-end; gap: 14px; flex-wrap: wrap;
+    }
+    .vv-filters .filter-group {
+        display: flex; flex-direction: column; gap: 4px;
+    }
+    .vv-filters .filter-group label {
+        font-size: 0.72rem; font-weight: 600; color: var(--text-muted);
+        text-transform: uppercase; letter-spacing: 0.04em;
+    }
+    .vv-filters .filter-group select {
+        height: 40px; padding: 0 12px; border: 1px solid #e2e8f0;
+        border-radius: 8px; font-size: 0.86rem; background: #fff;
+        outline: none; min-width: 140px; transition: border-color 0.15s;
+    }
+    .vv-filters .filter-group select:focus {
+        border-color: var(--accent-emerald);
+    }
+    .vv-filters .btn-group {
+        display: flex; gap: 8px; margin-left: auto;
+    }
+    .vv-filters .btn-group .btn {
+        height: 40px; padding: 0 20px; font-size: 0.86rem;
+        border-radius: 8px; font-weight: 600;
+        display: inline-flex; align-items: center; gap: 6px;
+        cursor: pointer; border: none; transition: all 0.15s;
+    }
+    .vv-filters .btn-group .btn-primary {
+        background: var(--accent-emerald); color: #fff;
+    }
+    .vv-filters .btn-group .btn-primary:hover { opacity: 0.9; }
+    .vv-filters .btn-group .btn-secondary {
+        background: #f8fafc; color: var(--text-primary);
+        border: 1px solid #e2e8f0; text-decoration: none;
+    }
+    .vv-filters .btn-group .btn-secondary:hover { background: #f1f5f9; }
+
+    .vv-summary-cards {
+        background: #fff; border: 1px solid #e2e8f0; border-radius: 14px;
+        display: flex; margin-bottom: 24px; overflow: hidden;
+    }
+    .vv-summary-cards .bi-card {
+        flex: 1; padding: 16px 18px; display: flex; flex-direction: column;
+        gap: 6px; text-align: center; align-items: center;
+        border-right: 1px solid #e2e8f0;
+    }
+    .vv-summary-cards .bi-card:last-child { border-right: none; }
+    .vv-summary-cards .bi-card .bi-card-title {
+        font-size: 0.7rem; font-weight: 600; color: var(--text-muted);
+        text-transform: uppercase; letter-spacing: 0.03em;
+    }
+    .vv-summary-cards .bi-card .bi-card-value {
+        font-size: 1.2rem; font-weight: 800; color: var(--text-primary);
+    }
+    .vv-summary-cards .bi-card .bi-card-value.emerald { color: var(--accent-emerald); }
+
+    .vv-table-wrap {
+        background: #fff; border: 1px solid #e2e8f0; border-radius: 14px;
+        overflow: hidden; margin-bottom: 20px;
+    }
+    .vv-table-wrap table {
+        width: 100%; border-collapse: collapse; font-size: 0.85rem;
+    }
+    .vv-table-wrap thead th {
+        background: #f8fafc; text-align: left; padding: 12px 16px;
+        font-size: 0.72rem; font-weight: 700; color: var(--text-muted);
+        text-transform: uppercase; letter-spacing: 0.04em;
+        border-bottom: 1px solid #e2e8f0;
+    }
+    .vv-table-wrap tbody td {
+        padding: 12px 16px; border-bottom: 1px solid #f1f5f9;
+        color: var(--text-primary);
+    }
+    .vv-table-wrap tbody tr:last-child td { border-bottom: none; }
+    .vv-table-wrap tbody tr:hover { background: #f8fafc; }
+    .vv-table-wrap .text-right { text-align: right; }
+
+    .vv-pagination {
+        display: flex; justify-content: space-between; align-items: center;
+        padding: 14px 16px; background: #fff;
+        border: 1px solid #e2e8f0; border-radius: 12px; gap: 12px;
+        flex-wrap: wrap;
+    }
+    .vv-pagination .info {
+        font-size: 0.82rem; color: var(--text-muted);
+    }
+    .vv-pagination .pages {
+        display: flex; gap: 4px; align-items: center;
+    }
+    .vv-pagination .pages .btn-page {
+        padding: 6px 12px; border-radius: 6px; font-size: 0.82rem;
+        font-weight: 600; border: 1px solid #e2e8f0; color: var(--text-primary);
+        background: #fff; text-decoration: none; transition: all 0.15s;
+    }
+    .vv-pagination .pages .btn-page:hover { background: #f1f5f9; }
+    .vv-pagination .pages .btn-page.active {
+        background: var(--accent-emerald); color: #fff; border-color: var(--accent-emerald);
+    }
+    .vv-pagination .pages .btn-page[disabled] {
+        opacity: 0.4; cursor: default;
+    }
+    .vv-pagination .pages .dots {
+        padding: 6px 4px; color: var(--text-muted);
+    }
+    .vv-pagination .per-page {
+        display: flex; align-items: center; gap: 6px;
+        font-size: 0.82rem; color: var(--text-muted);
+    }
+    .vv-pagination .per-page select {
+        height: 32px; padding: 0 8px; border: 1px solid #e2e8f0;
+        border-radius: 6px; font-size: 0.82rem; background: #fff;
+        outline: none;
+    }
+
+    .vv-empty {
+        text-align: center; padding: 60px 24px; color: var(--text-muted);
+    }
+    .vv-empty i { font-size: 3rem; opacity: 0.3; margin-bottom: 16px; }
+    .vv-empty h3 { font-size: 1.1rem; margin: 0 0 8px 0; color: var(--text-primary); }
+    .vv-empty p { font-size: 0.88rem; margin: 0 0 18px 0; }
+
+    @media (max-width: 992px) {
+        .vv-summary-cards { flex-direction: column; }
+        .vv-summary-cards .bi-card { border-right: none; border-bottom: 1px solid #e2e8f0; }
+        .vv-summary-cards .bi-card:last-child { border-bottom: none; }
+        .vv-table-wrap { overflow-x: auto; }
+    }
+</style>
+
+<div class="breadcrumb">
+    <a href="{{ url_for('web_invoices.reports_dashboard') }}">Reportes</a>
+    <span class="sep">/</span>
+    <a href="{{ url_for('web_invoices.reports_category', category_key='ventas') }}">Ventas</a>
+    <span class="sep">/</span>
+    <span>Ventas por vendedor</span>
+</div>
+
+<p class="page-subtitle">Revisa el resumen de las ventas asociadas a cada persona de tu equipo comercial.</p>
+
+<div class="vv-filters">
+    <form method="GET" style="display:contents;">
+        <div class="filter-group">
+            <label>Periodo</label>
+            <select name="year">
+                {% for y in years_range %}
+                <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>Mes</label>
+            <select name="month">
+                {% for m_val, m_label in months_list %}
+                <option value="{{ m_val }}" {% if m_val == month %}selected{% endif %}>{{ m_label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        {% if seller_options %}
+        <div class="filter-group">
+            <label>Vendedor</label>
+            <select name="seller">
+                <option value="">Todos</option>
+                {% for s in seller_options %}
+                <option value="{{ s.email }}" {% if s.email == seller_filter %}selected{% endif %}>{{ s.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        {% endif %}
+        <div class="btn-group">
+            <button type="submit" class="btn btn-primary">
+                <i class="fa-solid fa-rotate"></i> Generar Reporte
+            </button>
+            <a href="{{ url_for('web_reports_sales.ventas_por_vendedor_export', year=year, month=month, seller=seller_filter) }}"
+               class="btn btn-secondary">
+                <i class="fa-solid fa-download"></i> Descargar
+            </a>
+        </div>
+    </form>
+</div>
+
+{% if sellers %}
+<div class="vv-summary-cards">
+    <div class="bi-card">
+        <span class="bi-card-title">Total pagado</span>
+        <div class="bi-card-value">RD$ {{ "{:,.2f}".format(total_paid) }}</div>
+    </div>
+    <div class="bi-card">
+        <span class="bi-card-title">Antes de impuestos</span>
+        <div class="bi-card-value">RD$ {{ "{:,.2f}".format(total_antes) }}</div>
+    </div>
+    <div class="bi-card">
+        <span class="bi-card-title">Después de impuestos</span>
+        <div class="bi-card-value emerald">RD$ {{ "{:,.2f}".format(total_despues) }}</div>
+    </div>
+</div>
+
+<div class="vv-table-wrap">
+    <table>
+        <thead>
+            <tr>
+                <th>Vendedor</th>
+                <th class="text-right">Número de documentos</th>
+                <th class="text-right">Pagado</th>
+                <th class="text-right">Antes de impuestos</th>
+                <th class="text-right">Después de impuestos</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for s in sellers %}
+            <tr>
+                <td>{{ s.name }}</td>
+                <td class="text-right">{{ s.count }}</td>
+                <td class="text-right">RD$ {{ "{:,.2f}".format(s.total_paid) }}</td>
+                <td class="text-right">RD$ {{ "{:,.2f}".format(s.subtotal) }}</td>
+                <td class="text-right">RD$ {{ "{:,.2f}".format(s.total) }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div class="vv-pagination">
+    <div class="info">
+        <strong>{{ start_count }}</strong>-<strong>{{ end_count }}</strong> de <strong>{{ total_items }}</strong> registro{% if total_items != 1 %}s{% endif %}
+    </div>
+    <div class="pages">
+        {% if page > 1 %}
+        <a href="?year={{ year }}&month={{ month }}&seller={{ seller_filter }}&page={{ page - 1 }}&per_page={{ per_page }}" class="btn-page">Anterior</a>
+        {% else %}
+        <span class="btn-page" disabled>Anterior</span>
+        {% endif %}
+
+        {% for p in range(1, total_pages + 1) %}
+            {% if p == page %}
+            <span class="btn-page active">{{ p }}</span>
+            {% elif p <= 3 or p >= total_pages - 2 or (p >= page - 2 and p <= page + 2) %}
+            <a href="?year={{ year }}&month={{ month }}&seller={{ seller_filter }}&page={{ p }}&per_page={{ per_page }}" class="btn-page">{{ p }}</a>
+            {% elif p == 4 or p == total_pages - 3 %}
+            <span class="dots">...</span>
+            {% endif %}
+        {% endfor %}
+
+        {% if page < total_pages %}
+        <a href="?year={{ year }}&month={{ month }}&seller={{ seller_filter }}&page={{ page + 1 }}&per_page={{ per_page }}" class="btn-page">Siguiente</a>
+        {% else %}
+        <span class="btn-page" disabled>Siguiente</span>
+        {% endif %}
+    </div>
+    <div class="per-page">
+        <span>Resultados por página</span>
+        <select onchange="var p=new URLSearchParams(location.search);p.set('per_page',this.value);p.set('page','1');window.location.search=p.toString()">
+            {% for val in [5, 10, 20, 50] %}
+            <option value="{{ val }}" {% if per_page == val %}selected{% endif %}>{{ val }}</option>
+            {% endfor %}
+        </select>
+    </div>
+</div>
+{% else %}
+<div class="vv-empty">
+    <i class="fa-solid fa-user-tie"></i>
+    <h3>¡No se encontraron ventas en este periodo!</h3>
+    <p>Las ventas asociadas a vendedores aparecerán aquí una vez que realices transacciones en el período seleccionado.</p>
+    <a href="{{ url_for('web_invoices.new_invoice_route') }}" class="btn btn-primary" style="display:inline-flex;gap:6px;">
+        <i class="fa-solid fa-plus"></i> Nueva venta
+    </a>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,296 @@
+{% extends "layout.html" %}
+{% block title %}Flujo de caja{% endblock %}
+{% block page_header %}Flujo de caja{% endblock %}
+{% block content %}
+<style>
+    .breadcrumb {
+        display: flex; align-items: center; gap: 6px;
+        font-size: 0.8rem; color: var(--text-muted); margin-bottom: 16px;
+    }
+    .breadcrumb a { color: var(--text-muted); text-decoration: none; font-weight: 500; }
+    .breadcrumb a:hover { color: var(--accent-emerald); }
+    .breadcrumb .sep { color: #cbd5e1; }
+
+    .page-subtitle {
+        font-size: 0.85rem; color: var(--text-muted); margin: -8px 0 18px 0;
+        line-height: 1.5; max-width: 640px;
+    }
+
+    .cf-filters {
+        background: #fff; border: 1px solid #e2e8f0; border-radius: 14px;
+        padding: 18px 22px; margin-bottom: 24px;
+        display: flex; align-items: flex-end; gap: 14px; flex-wrap: wrap;
+    }
+    .cf-filters .filter-group {
+        display: flex; flex-direction: column; gap: 4px;
+    }
+    .cf-filters .filter-group label {
+        font-size: 0.72rem; font-weight: 600; color: var(--text-muted);
+        text-transform: uppercase; letter-spacing: 0.04em;
+    }
+    .cf-filters .filter-group select {
+        height: 40px; padding: 0 12px; border: 1px solid #e2e8f0;
+        border-radius: 8px; font-size: 0.86rem; background: #fff;
+        outline: none; min-width: 140px; transition: border-color 0.15s;
+    }
+    .cf-filters .filter-group select:focus {
+        border-color: var(--accent-emerald);
+    }
+    
+    .cf-filters .btn-group {
+        display: flex; gap: 8px; margin-left: auto;
+    }
+    .cf-filters .btn-group .btn {
+        height: 40px; padding: 0 20px; font-size: 0.86rem;
+        border-radius: 8px; font-weight: 600;
+        display: inline-flex; align-items: center; gap: 6px;
+        cursor: pointer; border: none; transition: all 0.15s;
+    }
+    .cf-filters .btn-group .btn-primary {
+        background: var(--accent-emerald); color: #fff;
+    }
+    .cf-filters .btn-group .btn-primary:hover { opacity: 0.9; }
+    .cf-filters .btn-group .btn-secondary {
+        background: #f8fafc; color: var(--text-primary);
+        border: 1px solid #e2e8f0; text-decoration: none;
+    }
+    .cf-filters .btn-group .btn-secondary:hover { background: #f1f5f9; }
+
+    .cf-alert {
+        background: rgba(245, 158, 11, 0.05); border: 1px solid rgba(245, 158, 11, 0.2);
+        border-radius: 8px; padding: 16px; margin-bottom: 24px; color: var(--text-primary);
+        display: flex; align-items: center; gap: 12px;
+    }
+
+    .cf-chart-card {
+        background: #fff; border: 1px solid #e2e8f0; border-radius: 14px;
+        padding: 20px 22px; margin-bottom: 24px;
+    }
+    .cf-chart-card h3 {
+        margin: 0 0 16px 0; font-size: 1rem; font-weight: 800; color: var(--text-primary);
+    }
+
+    .cf-table-card {
+        background: #fff; border: 1px solid #e2e8f0; border-radius: 14px;
+        padding: 20px 22px; overflow-x: auto;
+    }
+    .cf-table {
+        width: 100%; border-collapse: collapse; font-size: 0.88rem;
+    }
+    .cf-table th, .cf-table td {
+        padding: 12px 16px; border-bottom: 1px solid #f1f5f9;
+    }
+    .cf-table thead th {
+        background: #f8fafc; text-align: right;
+        font-size: 0.76rem; font-weight: 700; color: var(--text-muted);
+        text-transform: uppercase; letter-spacing: 0.04em;
+        border-bottom: 1px solid #e2e8f0;
+    }
+    .cf-table thead th:first-child {
+        text-align: left;
+    }
+    .cf-table tbody td {
+        color: var(--text-primary); text-align: right;
+    }
+    .cf-table tbody td:first-child {
+        text-align: left; font-weight: 600; color: var(--text-secondary);
+    }
+    .cf-table tbody tr.highlight-row td {
+        background: #f8fafc; font-weight: 700; color: var(--text-primary);
+    }
+    .cf-table tbody tr.total-row td {
+        background: rgba(16, 185, 129, 0.05); font-weight: 800; color: var(--accent-emerald);
+        border-bottom: 2px solid var(--accent-emerald);
+    }
+</style>
+
+<div class="breadcrumb">
+    <a href="{{ url_for('web_invoices.reports_dashboard') }}">Reportes</a>
+    <span class="sep">/</span>
+    <a href="{{ url_for('web_invoices.reports_category', category_key='financieros') }}">Financieros</a>
+    <span class="sep">/</span>
+    <span>Flujo de caja</span>
+</div>
+
+<p class="page-subtitle">Revisa la evolución de tus movimientos de efectivo y conoce la liquidez de tu empresa.</p>
+
+<div class="cf-filters">
+    <form method="GET" style="display:contents;">
+        <div class="filter-group">
+            <label for="year-select">Año</label>
+            <select id="year-select" name="year">
+                {% for y in years_range %}
+                <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-group">
+            <label for="month-select">Hasta mes</label>
+            <select id="month-select" name="month">
+                {% for m_val, m_name in months_list %}
+                <option value="{{ m_val }}" {% if m_val == month %}selected{% endif %}>{{ m_name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="btn-group">
+            <button type="submit" class="btn btn-primary">
+                <i class="fa-solid fa-rotate"></i> Actualizar
+            </button>
+            <a href="{{ url_for('web_reports_sales.cash_flow_export', year=year, month=month) }}" class="btn btn-secondary">
+                <i class="fa-solid fa-download"></i> Descargar
+            </a>
+        </div>
+    </form>
+</div>
+
+{% if not has_movements %}
+<div class="cf-alert">
+    <i class="fa-solid fa-circle-info" style="color: var(--accent-amber); font-size: 1.2rem;"></i>
+    <span style="font-size: 0.88rem;">Sin movimientos de efectivo en este periodo. Prueba eligiendo otro para conocer tu flujo de caja.</span>
+</div>
+{% endif %}
+
+<div class="cf-chart-card">
+    <h3>Flujo de caja</h3>
+    <div style="height: 300px; position: relative; width: 100%;">
+        <canvas id="cashFlowChart"></canvas>
+    </div>
+</div>
+
+<div class="cf-table-card">
+    <table class="cf-table">
+        <thead>
+            <tr>
+                <th></th>
+                {% for col in columns %}
+                <th>{{ col.label }}</th>
+                {% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Saldo inicial en caja y bancos</td>
+                {% for col in columns %}
+                <td>RD$ {{ "{:,.2f}".format(col.initial) }}</td>
+                {% endfor %}
+            </tr>
+            <tr style="color: var(--accent-emerald);">
+                <td>Entradas</td>
+                {% for col in columns %}
+                <td>RD$ {{ "{:,.2f}".format(col.inflow) }}</td>
+                {% endfor %}
+            </tr>
+            <tr style="color: var(--accent-red);">
+                <td>Salidas</td>
+                {% for col in columns %}
+                <td>RD$ {{ "{:,.2f}".format(col.outflow) }}</td>
+                {% endfor %}
+            </tr>
+            <tr class="highlight-row">
+                <td>Saldo del periodo</td>
+                {% for col in columns %}
+                <td style="color: {% if col.net >= 0 %}var(--accent-emerald){% else %}var(--accent-red){% endif %};">
+                    RD$ {{ "{:,.2f}".format(col.net) }}
+                </td>
+                {% endfor %}
+            </tr>
+            <tr class="total-row">
+                <td>Saldo final en caja y bancos</td>
+                {% for col in columns %}
+                <td>RD$ {{ "{:,.2f}".format(col.final) }}</td>
+                {% endfor %}
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const ctx = document.getElementById('cashFlowChart').getContext('2d');
+        
+        const labels = [{% for col in columns %}'{{ col.chart_label }}',{% endfor %}];
+        const inflows = [{% for col in columns %}{{ col.inflow }},{% endfor %}];
+        const outflows = [{% for col in columns %}{{ col.outflow }},{% endfor %}];
+        const finals = [{% for col in columns %}{{ col.final }},{% endfor %}];
+        
+        new Chart(ctx, {
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        type: 'bar',
+                        label: 'Entradas',
+                        data: inflows,
+                        backgroundColor: 'rgba(16, 185, 129, 0.8)',
+                        borderColor: '#10b981',
+                        borderWidth: 1,
+                        borderRadius: 4
+                    },
+                    {
+                        type: 'bar',
+                        label: 'Salidas',
+                        data: outflows,
+                        backgroundColor: 'rgba(239, 68, 68, 0.8)',
+                        borderColor: '#ef4444',
+                        borderWidth: 1,
+                        borderRadius: 4
+                    },
+                    {
+                        type: 'line',
+                        label: 'Saldo Final',
+                        data: finals,
+                        borderColor: '#6366f1',
+                        backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                        borderWidth: 3,
+                        pointBackgroundColor: '#6366f1',
+                        pointRadius: 5,
+                        tension: 0.3,
+                        fill: false
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: {
+                            font: {
+                                family: 'Outfit, sans-serif',
+                                size: 12
+                            }
+                        }
+                    },
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false,
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.dataset.label || '';
+                                if (label) {
+                                    label += ': ';
+                                }
+                                if (context.parsed.y !== null) {
+                                    label += new Intl.NumberFormat('es-DO', { style: 'currency', currency: 'DOP' }).format(context.parsed.y);
+                                }
+                                return label;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return 'RD$ ' + value.toLocaleString();
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    });
+</script>
+{% endblock %}

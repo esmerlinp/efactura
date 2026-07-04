@@ -1,0 +1,90 @@
+{% extends "layout.html" %}
+{% block title %}NC {{ note.creditNoteNumber }}{% endblock %}
+{% block page_header %}Detalle de Nota de Crédito{% endblock %}
+
+{% block content %}
+<div class="page-title-container" style="margin-bottom:24px; padding-left:4px; display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px;">
+    <div>
+        <h1 style="font-size:1.75rem; font-weight:800; font-family:var(--font-heading); color:var(--text-primary); margin:0;">
+            <i class="fa-solid fa-file-circle-minus" style="color:var(--accent-purple); margin-right:10px;"></i>
+            {{ note.creditNoteNumber }}
+        </h1>
+        <p style="color:var(--text-secondary); font-size:0.88rem; margin:6px 0 0 2px;">
+            {{ note.creditedSupplierName or '—' }} · {{ note.date[:10] if note.date else '' }}
+        </p>
+    </div>
+    <div style="display:flex; gap:8px;">
+        {% if note.status == 'activa' %}
+        <form method="POST" action="{{ url_for('web_purchase_orders.void_credit_note', note_id=note.id) }}" onsubmit="return confirm('¿Anular esta nota de crédito? Se restaurará el saldo de la factura original.');">
+            <button type="submit" class="btn btn-danger">
+                <i class="fa-solid fa-ban"></i> Anular
+            </button>
+        </form>
+        {% endif %}
+        <a href="{{ url_for('web_purchase_orders.list_credit_notes') }}" class="btn btn-secondary">
+            <i class="fa-solid fa-arrow-left"></i> Volver
+        </a>
+    </div>
+</div>
+
+<div style="display:grid; grid-template-columns:2fr 1fr; gap:24px; margin-bottom:24px;">
+    <div class="card-form-body" style="padding:20px;">
+        <h4 style="font-size:0.9rem; font-weight:700; font-family:var(--font-heading); margin-bottom:14px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.03em;">
+            <i class="fa-solid fa-info-circle"></i> Información General
+        </h4>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; font-size:0.88rem;">
+            <div><span style="color:var(--text-muted);">Número NC:</span></div>
+            <div style="font-weight:600;">{{ note.creditNoteNumber }}</div>
+            <div><span style="color:var(--text-muted);">Fecha:</span></div>
+            <div>{{ note.date[:10] if note.date else '—' }}</div>
+            <div><span style="color:var(--text-muted);">Proveedor:</span></div>
+            <div style="font-weight:600;">{{ note.creditedSupplierName or '—' }}</div>
+            <div><span style="color:var(--text-muted);">RNC Proveedor:</span></div>
+            <div>{{ note.creditedSupplierRnc or '—' }}</div>
+            <div><span style="color:var(--text-muted);">Factura Afectada:</span></div>
+            <div style="font-weight:600;">{{ note.creditedInvoiceNumber or '—' }}</div>
+            <div><span style="color:var(--text-muted);">Monto:</span></div>
+            <div style="font-weight:700; color:var(--accent-emerald);">RD$ {{ "{:,.2f}".format(note.amount) }}</div>
+            <div><span style="color:var(--text-muted);">Estado:</span></div>
+            <div>
+                {% if note.status == 'activa' %}
+                <span class="badge-pill badge-green">Activa</span>
+                {% elif note.status == 'anulada' %}
+                <span class="badge-pill badge-red">Anulada</span>
+                {% else %}
+                <span class="badge-pill badge-gray">{{ note.status }}</span>
+                {% endif %}
+            </div>
+            <div><span style="color:var(--text-muted);">Concepto:</span></div>
+            <div style="grid-column:span 1;">{{ note.concept or '—' }}</div>
+            <div><span style="color:var(--text-muted);">Notas:</span></div>
+            <div style="grid-column:span 1;">{{ note.notes or '—' }}</div>
+            <div><span style="color:var(--text-muted);">Creado por:</span></div>
+            <div>{{ note.createdBy or '—' }}</div>
+            <div><span style="color:var(--text-muted);">Creado el:</span></div>
+            <div>{{ note.createdAt[:19]|replace('T', ' ') if note.createdAt else '—' }}</div>
+        </div>
+    </div>
+
+    <div class="card-form-body" style="padding:20px;">
+        <h4 style="font-size:0.9rem; font-weight:700; font-family:var(--font-heading); margin-bottom:14px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.03em;">
+            <i class="fa-solid fa-chart-simple"></i> Resumen del Efecto
+        </h4>
+        <div style="background:rgba(16,185,129,0.05); border:1px solid rgba(16,185,129,0.2); border-radius:8px; padding:16px; text-align:center;">
+            <div style="font-size:0.78rem; color:var(--text-muted); margin-bottom:4px;">Reducción de CxP</div>
+            <div style="font-size:1.8rem; font-weight:800; color:var(--accent-emerald);">
+                -RD$ {{ "{:,.2f}".format(note.amount) }}
+            </div>
+            {% if note.status == 'activa' %}
+            <div style="margin-top:8px; font-size:0.82rem; color:var(--text-secondary);">
+                <i class="fa-solid fa-check-circle" style="color:var(--accent-emerald);"></i> Este saldo ya fue descontado de la factura del proveedor.
+            </div>
+            {% elif note.status == 'anulada' %}
+            <div style="margin-top:8px; font-size:0.82rem; color:var(--text-secondary);">
+                <i class="fa-solid fa-clock-rotate-left" style="color:var(--accent-red);"></i> NC anulada. El saldo fue restaurado.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

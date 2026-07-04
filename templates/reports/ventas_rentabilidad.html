@@ -1,0 +1,292 @@
+{% extends "layout.html" %}
+{% block title %}Rentabilidad por producto/servicio{% endblock %}
+{% block page_header %}Rentabilidad por producto/servicio{% endblock %}
+{% block content %}
+<style>
+    .breadcrumb {
+        display: flex; align-items: center; gap: 6px;
+        font-size: 0.8rem; color: var(--text-muted); margin-bottom: 16px;
+    }
+    .breadcrumb a { color: var(--text-muted); text-decoration: none; font-weight: 500; }
+    .breadcrumb a:hover { color: var(--accent-emerald); }
+    .breadcrumb .sep { color: #cbd5e1; }
+
+    .page-subtitle {
+        font-size: 0.85rem; color: var(--text-muted); margin: -8px 0 18px 0;
+        line-height: 1.5; max-width: 600px;
+    }
+
+    .rt-filters {
+        background: #fff; border: 1px solid #e2e8f0; border-radius: 14px;
+        padding: 18px 22px; margin-bottom: 24px;
+        display: flex; align-items: flex-end; gap: 14px; flex-wrap: wrap;
+    }
+    .rt-filters .filter-group {
+        display: flex; flex-direction: column; gap: 4px;
+    }
+    .rt-filters .filter-group label {
+        font-size: 0.72rem; font-weight: 600; color: var(--text-muted);
+        text-transform: uppercase; letter-spacing: 0.04em;
+    }
+    .rt-filters .filter-group select {
+        height: 40px; padding: 0 12px; border: 1px solid #e2e8f0;
+        border-radius: 8px; font-size: 0.86rem; background: #fff;
+        outline: none; min-width: 140px; transition: border-color 0.15s;
+    }
+    .rt-filters .filter-group select:focus {
+        border-color: var(--accent-emerald);
+    }
+    .rt-filters .btn-group {
+        display: flex; gap: 8px; margin-left: auto;
+    }
+    .rt-filters .btn-group .btn {
+        height: 40px; padding: 0 20px; font-size: 0.86rem;
+        border-radius: 8px; font-weight: 600;
+        display: inline-flex; align-items: center; gap: 6px;
+        cursor: pointer; border: none; transition: all 0.15s;
+    }
+    .rt-filters .btn-group .btn-primary {
+        background: var(--accent-emerald); color: #fff;
+    }
+    .rt-filters .btn-group .btn-primary:hover { opacity: 0.9; }
+    .rt-filters .btn-group .btn-secondary {
+        background: #f8fafc; color: var(--text-primary);
+        border: 1px solid #e2e8f0; text-decoration: none;
+    }
+    .rt-filters .btn-group .btn-secondary:hover { background: #f1f5f9; }
+
+    .rt-summary-cards {
+        background: #fff; border: 1px solid #e2e8f0; border-radius: 14px;
+        display: flex; align-items: center; margin-bottom: 24px; overflow: hidden;
+    }
+    .rt-summary-cards .bi-card {
+        flex: 1; padding: 16px 18px; display: flex; flex-direction: column;
+        gap: 6px; text-align: center; align-items: center;
+        border-right: 1px solid #e2e8f0;
+    }
+    .rt-summary-cards .bi-card:last-child { border-right: none; }
+    .rt-summary-cards .bi-card .bi-card-title {
+        font-size: 0.7rem; font-weight: 600; color: var(--text-muted);
+        text-transform: uppercase; letter-spacing: 0.03em;
+    }
+    .rt-summary-cards .bi-card .bi-card-value {
+        font-size: 1.2rem; font-weight: 800; color: var(--text-primary);
+    }
+    .rt-summary-cards .bi-card .bi-card-value.emerald { color: var(--accent-emerald); }
+    .rt-summary-cards .bi-card .bi-card-value.red { color: var(--accent-red); }
+    .rt-summary-cards .eq-sign {
+        font-size: 1.5rem; font-weight: 300; color: #cbd5e1;
+        padding: 0 8px; flex-shrink: 0;
+    }
+
+    .rt-table-wrap {
+        background: #fff; border: 1px solid #e2e8f0; border-radius: 14px;
+        overflow: hidden; margin-bottom: 20px;
+    }
+    .rt-table-wrap table {
+        width: 100%; border-collapse: collapse; font-size: 0.85rem;
+    }
+    .rt-table-wrap thead th {
+        background: #f8fafc; text-align: left; padding: 12px 16px;
+        font-size: 0.72rem; font-weight: 700; color: var(--text-muted);
+        text-transform: uppercase; letter-spacing: 0.04em;
+        border-bottom: 1px solid #e2e8f0;
+    }
+    .rt-table-wrap tbody td {
+        padding: 12px 16px; border-bottom: 1px solid #f1f5f9;
+        color: var(--text-primary);
+    }
+    .rt-table-wrap tbody tr:last-child td { border-bottom: none; }
+    .rt-table-wrap tbody tr:hover { background: #f8fafc; }
+    .rt-table-wrap .text-right { text-align: right; }
+
+    .rt-pagination {
+        display: flex; justify-content: space-between; align-items: center;
+        padding: 14px 16px; background: #fff;
+        border: 1px solid #e2e8f0; border-radius: 12px; gap: 12px;
+        flex-wrap: wrap;
+    }
+    .rt-pagination .info {
+        font-size: 0.82rem; color: var(--text-muted);
+    }
+    .rt-pagination .pages {
+        display: flex; gap: 4px; align-items: center;
+    }
+    .rt-pagination .pages .btn-page {
+        padding: 6px 12px; border-radius: 6px; font-size: 0.82rem;
+        font-weight: 600; border: 1px solid #e2e8f0; color: var(--text-primary);
+        background: #fff; text-decoration: none; transition: all 0.15s;
+    }
+    .rt-pagination .pages .btn-page:hover { background: #f1f5f9; }
+    .rt-pagination .pages .btn-page.active {
+        background: var(--accent-emerald); color: #fff; border-color: var(--accent-emerald);
+    }
+    .rt-pagination .pages .btn-page[disabled] {
+        opacity: 0.4; cursor: default;
+    }
+    .rt-pagination .pages .dots {
+        padding: 6px 4px; color: var(--text-muted);
+    }
+    .rt-pagination .per-page {
+        display: flex; align-items: center; gap: 6px;
+        font-size: 0.82rem; color: var(--text-muted);
+    }
+    .rt-pagination .per-page select {
+        height: 32px; padding: 0 8px; border: 1px solid #e2e8f0;
+        border-radius: 6px; font-size: 0.82rem; background: #fff;
+        outline: none;
+    }
+
+    .rt-empty {
+        text-align: center; padding: 60px 24px; color: var(--text-muted);
+    }
+    .rt-empty i { font-size: 3rem; opacity: 0.3; margin-bottom: 16px; }
+    .rt-empty h3 { font-size: 1.1rem; margin: 0 0 8px 0; color: var(--text-primary); }
+    .rt-empty p { font-size: 0.88rem; margin: 0 0 18px 0; }
+
+    @media (max-width: 992px) {
+        .rt-summary-cards { flex-wrap: wrap; }
+        .rt-summary-cards .bi-card { border-right: none; border-bottom: 1px solid #e2e8f0; flex: 1 1 100%; }
+        .rt-summary-cards .bi-card:last-child { border-bottom: none; }
+        .rt-summary-cards .eq-sign { display: none; }
+        .rt-table-wrap { overflow-x: auto; }
+    }
+</style>
+
+<div class="breadcrumb">
+    <a href="{{ url_for('web_invoices.reports_dashboard') }}">Reportes</a>
+    <span class="sep">/</span>
+    <a href="{{ url_for('web_invoices.reports_category', category_key='ventas') }}">Ventas</a>
+    <span class="sep">/</span>
+    <span>Rentabilidad por producto/servicio</span>
+</div>
+
+<p class="page-subtitle">Conoce la utilidad que generan tus productos inventariables en valor monetario y porcentaje.</p>
+
+<div class="rt-filters">
+    <form method="GET" style="display:contents;">
+        <div class="filter-group">
+            <label>Año</label>
+            <select name="year">
+                {% for y in years_range %}
+                <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>Mes</label>
+            <select name="month">
+                {% for m_val, m_label in months_list %}
+                <option value="{{ m_val }}" {% if m_val == month %}selected{% endif %}>{{ m_label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-group">
+            <label>Tipo</label>
+            <select name="type">
+                <option value="">Todos</option>
+                <option value="Bien" {% if item_type == 'Bien' %}selected{% endif %}>Producto</option>
+                <option value="Servicio" {% if item_type == 'Servicio' %}selected{% endif %}>Servicio</option>
+            </select>
+        </div>
+        <div class="btn-group">
+            <button type="submit" class="btn btn-primary">
+                <i class="fa-solid fa-rotate"></i> Actualizar
+            </button>
+            <a href="{{ url_for('web_reports_sales.ventas_rentabilidad_export', year=year, month=month, type=item_type) }}"
+               class="btn btn-secondary">
+                <i class="fa-solid fa-download"></i> Descargar
+            </a>
+        </div>
+    </form>
+</div>
+
+{% if products %}
+<div class="rt-summary-cards">
+    <div class="bi-card">
+        <span class="bi-card-title">Total vendido</span>
+        <div class="bi-card-value">RD$ {{ "{:,.2f}".format(total_sold) }}</div>
+    </div>
+    <div class="bi-card">
+        <span class="bi-card-title">Costo total</span>
+        <div class="bi-card-value">RD$ {{ "{:,.2f}".format(total_cost) }}</div>
+    </div>
+    <div class="eq-sign">=</div>
+    <div class="bi-card">
+        <span class="bi-card-title">Rentabilidad total</span>
+        <div class="bi-card-value {% if total_profit >= 0 %}emerald{% else %}red{% endif %}">RD$ {{ "{:,.2f}".format(total_profit) }}</div>
+    </div>
+</div>
+
+<div class="rt-table-wrap">
+    <table>
+        <thead>
+            <tr>
+                <th>Producto/servicio</th>
+                <th class="text-right">Total vendido</th>
+                <th class="text-right">Costo total</th>
+                <th class="text-right">Rentabilidad</th>
+                <th class="text-right">Margen</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for p in products %}
+            <tr>
+                <td>{{ p.name }}{% if p.code %} <span style="color:var(--text-muted);font-size:0.8rem;">({{ p.code }})</span>{% endif %}</td>
+                <td class="text-right">RD$ {{ "{:,.2f}".format(p.total_sold) }}</td>
+                <td class="text-right">RD$ {{ "{:,.2f}".format(p.total_cost) }}</td>
+                <td class="text-right" style="color:{% if p.profit >= 0 %}var(--accent-emerald){% else %}var(--accent-red){% endif %};">RD$ {{ "{:,.2f}".format(p.profit) }}</td>
+                <td class="text-right" style="color:{% if p.margin >= 0 %}var(--accent-emerald){% else %}var(--accent-red){% endif %};">{{ "{:,.2f}".format(p.margin) }}%</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div class="rt-pagination">
+    <div class="info">
+        <strong>{{ start_count }}</strong>-<strong>{{ end_count }}</strong> de <strong>{{ total_items }}</strong>
+    </div>
+    <div class="pages">
+        {% if page > 1 %}
+        <a href="?year={{ year }}&month={{ month }}&type={{ item_type }}&page={{ page - 1 }}&per_page={{ per_page }}" class="btn-page">Anterior</a>
+        {% else %}
+        <span class="btn-page" disabled>Anterior</span>
+        {% endif %}
+
+        {% for p in range(1, total_pages + 1) %}
+            {% if p == page %}
+            <span class="btn-page active">{{ p }}</span>
+            {% elif p <= 3 or p >= total_pages - 2 or (p >= page - 2 and p <= page + 2) %}
+            <a href="?year={{ year }}&month={{ month }}&type={{ item_type }}&page={{ p }}&per_page={{ per_page }}" class="btn-page">{{ p }}</a>
+            {% elif p == 4 or p == total_pages - 3 %}
+            <span class="dots">...</span>
+            {% endif %}
+        {% endfor %}
+
+        {% if page < total_pages %}
+        <a href="?year={{ year }}&month={{ month }}&type={{ item_type }}&page={{ page + 1 }}&per_page={{ per_page }}" class="btn-page">Siguiente</a>
+        {% else %}
+        <span class="btn-page" disabled>Siguiente</span>
+        {% endif %}
+    </div>
+    <div class="per-page">
+        <span>Ítems por página</span>
+        <select onchange="var p=new URLSearchParams(location.search);p.set('per_page',this.value);p.set('page','1');window.location.search=p.toString()">
+            {% for val in [5, 10, 20, 50] %}
+            <option value="{{ val }}" {% if per_page == val %}selected{% endif %}>{{ val }}</option>
+            {% endfor %}
+        </select>
+    </div>
+</div>
+{% else %}
+<div class="rt-empty">
+    <i class="fa-solid fa-chart-line"></i>
+    <h3>No se encontraron productos/servicios con los filtros aplicados</h3>
+    <p>Los productos aparecerán aquí una vez que realices ventas con costo registrado en el catálogo.</p>
+    <a href="{{ url_for('web_invoices.new_invoice_route') }}" class="btn btn-primary" style="display:inline-flex;gap:6px;">
+        <i class="fa-solid fa-plus"></i> Nueva venta
+    </a>
+</div>
+{% endif %}
+{% endblock %}

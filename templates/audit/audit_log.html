@@ -354,7 +354,7 @@
                     <th>Descripción de la Operación</th>
                     <th style="width: 220px;">Realizado por</th>
                     <th style="width: 120px;">IP Address</th>
-                    <th style="width: 70px; text-align: center;">Acción</th>
+                    <th style="width: 50px; text-align: center;"></th>
                 </tr>
             </thead>
             <tbody>
@@ -416,9 +416,16 @@
                         <span style="font-family: monospace; font-size: 0.8rem; color: var(--text-secondary);">{{ log.ipAddress or 'N/A' }}</span>
                     </td>
                     <td style="text-align: center;">
-                        <a href="{{ url_for('web_audit.audit_detail', log_id=log.id) }}" class="btn-icon" title="Ver Detalles de Auditoría">
-                            <i class="fa-solid fa-arrow-right"></i>
-                        </a>
+                        <div class="action-menu">
+                            <button type="button" class="action-menu-btn" onclick="toggleActionMenu(event)" title="Acciones">
+                                <i class="fa-solid fa-ellipsis-vertical"></i>
+                            </button>
+                            <div class="action-menu-dropdown">
+                                <a href="{{ url_for('web_audit.audit_detail', log_id=log.id) }}" class="action-menu-item">
+                                    <i class="fa-solid fa-arrow-right"></i> Ver Detalle
+                                </a>
+                            </div>
+                        </div>
                     </td>
                 </tr>
                 {% endfor %}

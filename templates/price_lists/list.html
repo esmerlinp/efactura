@@ -1,0 +1,110 @@
+{% extends "layout.html" %}
+
+{% block title %}Listas de Precios{% endblock %}
+
+{% block page_header %}Listas de Precios{% endblock %}
+
+{% block content %}
+<div style="display: flex; flex-direction: column; gap: 30px; width: 100%;">
+    <div class="card-table-wrapper" style="margin-bottom: 0;">
+        <div class="table-header-row"
+            style="display: flex; justify-content: space-between; align-items: center; gap: 20px; flex-wrap: wrap; margin-bottom: 24px;">
+            <div>
+                <h3 style="font-size: 1.25rem; font-family: var(--font-heading); margin-bottom: 6px;">Listas de Precios
+                </h3>
+                <p style="color: var(--text-secondary); font-size: 0.88rem;">Define precios diferenciados por cliente o
+                    segmento.</p>
+            </div>
+            <div style="display: flex; gap: 12px; align-items: center;">
+                <a href="{{ url_for('web_invoices.new_price_list') }}" class="btn btn-primary"
+                    style="display: inline-flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-plus"></i>
+                    <span>Nueva Lista de Precios</span>
+                </a>
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table-premium">
+                <thead>
+                    <tr>
+                        <th>Nombre</th>
+                        <th>Descripción</th>
+                        <th>Estado</th>
+                        <th>Default</th>
+                        <th style="text-align: right; width: 50px;"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if price_lists %}
+                    {% for pl in price_lists %}
+                    <tr>
+                        <td>
+                            <strong>{{ pl.name }}</strong>
+                        </td>
+                        <td>
+                            <span style="color: var(--text-secondary);">{{ pl.description or '—' }}</span>
+                        </td>
+                        <td>
+                            {% if pl.isActive %}
+                            <span class="badge badge-success">Activa</span>
+                            {% else %}
+                            <span class="badge badge-danger">Inactiva</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if pl.isDefault %}
+                            <span class="badge badge-primary"
+                                style="background: rgba(16, 185, 129, 0.1); color: var(--accent-emerald); border: 1px solid rgba(16, 185, 129, 0.2);">
+                                <i class="fa-solid fa-check"></i> Default
+                            </span>
+                            {% else %}
+                            <span style="color: var(--text-muted);">—</span>
+                            {% endif %}
+                        </td>
+                        <td style="text-align: right;">
+                            <div class="action-menu">
+                                <button type="button" class="action-menu-btn" onclick="toggleActionMenu(event)" title="Acciones">
+                                    <i class="fa-solid fa-ellipsis-vertical"></i>
+                                </button>
+                                <div class="action-menu-dropdown">
+                                    <a href="{{ url_for('web_invoices.manage_price_list_items', list_id=pl.id) }}"
+                                        class="action-menu-item">
+                                        <i class="fa-solid fa-dollar-sign"></i> Asignar precios
+                                    </a>
+                                    <a href="{{ url_for('web_invoices.edit_price_list', list_id=pl.id) }}"
+                                        class="action-menu-item">
+                                        <i class="fa-solid fa-pen-to-square"></i> Editar lista
+                                    </a>
+                                    <form action="{{ url_for('web_invoices.delete_price_list', list_id=pl.id) }}"
+                                        method="POST"
+                                        onsubmit="return confirm('¿Seguro que deseas eliminar esta lista de precios? Los precios asignados también se eliminarán.');"
+                                        style="display:contents;">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <button type="submit" class="action-menu-item text-danger">
+                                            <i class="fa-solid fa-trash-can"></i> Eliminar lista
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% else %}
+                    <tr>
+                        <td colspan="5" style="text-align: center; padding: 60px 0; color: var(--text-secondary);">
+                            <i class="fa-solid fa-tags"
+                                style="font-size: 3rem; color: var(--text-muted); margin-bottom: 16px; opacity: 0.5; display: block;"></i>
+                            <span>No hay listas de precios creadas aún.</span>
+                            <a href="{{ url_for('web_invoices.new_price_list') }}" class="btn btn-primary"
+                                style="display: inline-block; margin-top: 16px; padding: 10px 20px;">Crear primera lista
+                                de precios</a>
+                        </td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

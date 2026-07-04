@@ -1,0 +1,83 @@
+{% extends "layout.html" %}
+{% block title %}Notas de Crédito en Compras{% endblock %}
+{% block page_header %}Notas de Crédito en Compras{% endblock %}
+
+{% block content %}
+<div class="page-title-container" style="margin-bottom:24px; padding-left:4px; display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px;">
+    <div>
+        <h1 style="font-size:1.75rem; font-weight:800; font-family:var(--font-heading); color:var(--text-primary); margin:0;">
+            <i class="fa-solid fa-file-circle-minus" style="color:var(--accent-purple); margin-right:10px;"></i>
+            Notas de Crédito en Compras
+        </h1>
+        <p style="color:var(--text-secondary); font-size:0.88rem; margin:6px 0 0 2px;">
+            Documentos que reducen el saldo por pagar a proveedores (devoluciones, descuentos).
+        </p>
+    </div>
+    <a href="{{ url_for('web_purchase_orders.new_credit_note') }}" class="btn btn-primary">
+        <i class="fa-solid fa-plus"></i> Nueva Nota de Crédito
+    </a>
+</div>
+
+<div class="card-table-wrapper">
+    <form method="GET" action="{{ url_for('web_purchase_orders.list_credit_notes') }}" style="padding:15px; border-bottom:1px solid var(--border-color); display:flex; gap:12px; align-items:flex-end;">
+        <div class="form-group" style="margin-bottom:0; flex:1;">
+            <label style="font-size:0.72rem; margin-bottom:4px; display:block; color:var(--text-secondary);">Buscar</label>
+            <input type="text" name="search" class="form-input" placeholder="Número, proveedor, factura..." value="{{ search_query or '' }}" style="width:100%; font-size:0.82rem; height:36px; padding:6px 10px;">
+        </div>
+        <button type="submit" class="btn btn-secondary" style="height:36px;"><i class="fa-solid fa-search"></i> Buscar</button>
+    </form>
+
+    {% if notes %}
+    <div style="overflow-x:auto;">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th># NC</th>
+                    <th>Fecha</th>
+                    <th>Proveedor</th>
+                    <th>Factura Afectada</th>
+                    <th>Concepto</th>
+                    <th style="text-align:right;">Monto (RD$)</th>
+                    <th>Estado</th>
+                    <th style="text-align:center;">Acción</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for n in notes %}
+                <tr>
+                    <td><a href="{{ url_for('web_purchase_orders.credit_note_detail', note_id=n.id) }}" style="font-weight:600; color:var(--accent-purple);">{{ n.creditNoteNumber }}</a></td>
+                    <td style="font-size:0.82rem;">{{ n.date[:10] if n.date else '—' }}</td>
+                    <td>{{ n.creditedSupplierName or '—' }}</td>
+                    <td style="font-size:0.82rem;">{{ n.creditedInvoiceNumber or '—' }}</td>
+                    <td style="max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ n.concept or '—' }}</td>
+                    <td style="text-align:right; font-weight:600; color:var(--accent-emerald);">RD$ {{ "{:,.2f}".format(n.amount) }}</td>
+                    <td>
+                        {% if n.status == 'activa' %}
+                        <span class="badge-pill badge-green">Activa</span>
+                        {% elif n.status == 'anulada' %}
+                        <span class="badge-pill badge-red">Anulada</span>
+                        {% else %}
+                        <span class="badge-pill badge-gray">{{ n.status }}</span>
+                        {% endif %}
+                    </td>
+                    <td style="text-align:center;">
+                        <a href="{{ url_for('web_purchase_orders.credit_note_detail', note_id=n.id) }}" class="btn btn-secondary" style="padding:4px 10px; font-size:0.75rem; height:auto;">
+                            <i class="fa-solid fa-eye"></i>
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div style="padding:60px 20px; text-align:center; color:var(--text-muted);">
+        <i class="fa-solid fa-file-circle-minus" style="font-size:3rem; margin-bottom:16px; opacity:0.4;"></i>
+        <p style="font-size:1rem;">No hay notas de crédito registradas.</p>
+        <a href="{{ url_for('web_purchase_orders.new_credit_note') }}" class="btn btn-primary" style="margin-top:12px;">
+            <i class="fa-solid fa-plus"></i> Crear Primera
+        </a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,245 @@
+{% extends "layout.html" %}
+
+{% block title %}Conciliaciones Bancarias{% endblock %}
+
+{% block page_header %}Conciliaciones Bancarias{% endblock %}
+
+{% block content %}
+<style>
+    .guide-banner {
+        background: rgba(16, 185, 129, 0.05);
+        border: 1px solid rgba(16, 185, 129, 0.2);
+        border-radius: 12px;
+        padding: 20px 24px;
+        margin-bottom: 24px;
+        display: flex;
+        gap: 16px;
+        align-items: flex-start;
+        position: relative;
+    }
+    .guide-banner .icon {
+        background: rgba(16, 185, 129, 0.1);
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+    .guide-banner .icon i {
+        color: var(--accent-emerald);
+        font-size: 1.2rem;
+    }
+    .guide-banner h4 {
+        margin: 0 0 6px 0;
+        color: var(--text-primary);
+        font-family: var(--font-heading);
+        font-size: 1rem;
+    }
+    .guide-banner p {
+        margin: 0;
+        color: var(--text-secondary);
+        font-size: 0.85rem;
+        line-height: 1.5;
+    }
+    .status-badge {
+        display: inline-block;
+        padding: 3px 12px;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    .status-pendiente { background: rgba(107, 114, 128, 0.1); color: #6b7280; }
+    .status-en_curso { background: rgba(59, 130, 246, 0.1); color: #3b82f6; }
+    .status-conciliada { background: rgba(16, 185, 129, 0.1); color: #10b981; }
+    .status-con_diferencias { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
+</style>
+
+<div class="guide-banner" id="guide-reconcile">
+    <button onclick="document.getElementById('guide-reconcile').style.display='none'; sessionStorage.setItem('closed_guide_reconcile','true');"
+        style="position:absolute; top:12px; right:12px; background:transparent; border:none; color:var(--text-muted); cursor:pointer; padding:4px;">
+        <i class="fa-solid fa-xmark"></i>
+    </button>
+    <div class="icon">
+        <i class="fa-solid fa-check-double"></i>
+    </div>
+    <div>
+        <h4>💡 Guía: Conciliación Bancaria</h4>
+        <p>
+            La <strong>conciliación bancaria</strong> compara los movimientos registrados en VykOne contra el estado de cuenta de tu banco.
+            Selecciona una cuenta y un rango de fechas, marca las transacciones que coinciden con tu estado de cuenta bancario,
+            y ajusta las diferencias. Cuando el saldo contable coincida con el saldo bancario, la conciliación estará completa.
+        </p>
+    </div>
+</div>
+
+<script>
+    if (sessionStorage.getItem('closed_guide_reconcile')) {
+        document.getElementById('guide-reconcile').style.display = 'none';
+    }
+</script>
+
+<div class="page-title-container" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:24px;">
+    <div>
+        <h1 style="font-size:1.75rem; font-weight:800; font-family:var(--font-heading); color:var(--text-primary); margin:0;">
+            <i class="fa-solid fa-check-double" style="color:var(--accent-emerald); margin-right:10px;"></i> Conciliaciones Bancarias
+        </h1>
+        <p style="color:var(--text-secondary); font-size:0.88rem; margin:6px 0 0 2px;">
+            Accede fácilmente a tu listado conciliaciones y mantén un control preciso de tus cuentas bancarias.
+        </p>
+    </div>
+    <div style="display:flex; gap:8px;">
+        <button onclick="openReconModal()" class="btn btn-primary">
+            <i class="fa-solid fa-plus"></i> Nueva conciliación
+        </button>
+    </div>
+</div>
+
+<div class="card-table-wrapper">
+    <div style="display:flex; gap:12px; margin-bottom:20px;">
+        <div style="position:relative; flex:1; max-width:260px;">
+            <i class="fa-solid fa-magnifying-glass" style="position:absolute; left:14px; top:50%; transform:translateY(-50%); color:var(--text-muted); font-size:0.85rem;"></i>
+            <input type="text" id="search-input" placeholder="Buscar por cuenta..."
+                style="width:100%; height:34px; padding:0 16px 0 38px; background:var(--bg-input); border:1px solid transparent; border-radius:20px; color:var(--text-primary); font-size:0.85rem;"
+                oninput="filterTable()">
+        </div>
+        <select id="status-filter" style="height:34px; padding:0 10px; background:transparent; border:none; border-bottom:1px solid var(--border-color); color:var(--text-secondary); font-size:0.85rem; cursor:pointer; outline:none;" onchange="filterTable()">
+            <option value="all">Todos los estados</option>
+            <option value="pendiente">Pendiente</option>
+            <option value="en_curso">En curso</option>
+            <option value="conciliada">Conciliada</option>
+            <option value="con_diferencias">Con diferencias</option>
+        </select>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table-premium" id="reconcile-table">
+            <thead>
+                <tr>
+                    <th>Cuenta</th>
+                    <th>Período</th>
+                    <th>Saldo inicial</th>
+                    <th>Saldo final (banco)</th>
+                    <th>Saldo calculado</th>
+                    <th>Diferencia</th>
+                    <th>Avance</th>
+                    <th>Estado</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in reconciliations %}
+                <tr>
+                    <td><strong>{{ r.accountName }}</strong></td>
+                    <td>{{ r.startDate }} → {{ r.endDate }}</td>
+                    <td>RD$ {{ "{:,.2f}".format(r.startBalance) }}</td>
+                    <td>RD$ {{ "{:,.2f}".format(r.endBalance) }}</td>
+                    <td>RD$ {{ "{:,.2f}".format(r.calculatedBalance) }}</td>
+                    <td><strong style="color:{% if r.difference == 0 %}#10b981{% else %}#ef4444{% endif %};">RD$ {{ "{:,.2f}".format(r.difference) }}</strong></td>
+                    <td>
+                        {% if r.transactionCount > 0 %}
+                        <div style="display:flex; align-items:center; gap:6px;">
+                            <div style="flex:1; height:6px; background:rgba(0,0,0,0.05); border-radius:3px; overflow:hidden; min-width:60px;">
+                                <div style="height:100%; width:{{ (r.reconciledCount / r.transactionCount * 100)|round }}%; background:var(--accent-emerald); border-radius:3px; transition:width 0.3s;"></div>
+                            </div>
+                            <span style="font-size:0.75rem; color:var(--text-muted);">{{ r.reconciledCount }}/{{ r.transactionCount }}</span>
+                        </div>
+                        {% else %}
+                        <span style="color:var(--text-muted); font-size:0.78rem;">Sin movimientos</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <span class="status-badge status-{{ r.status }}">
+                            {{ {'pendiente': 'Pendiente', 'en_curso': 'En curso', 'conciliada': 'Conciliada', 'con_diferencias': 'Con diferencias'}.get(r.status, r.status) }}
+                        </span>
+                    </td>
+                    <td>
+                        <div class="action-menu">
+                            <button class="action-menu-trigger" onclick="toggleActionMenu(this)">
+                                <i class="fa-solid fa-ellipsis-vertical"></i>
+                            </button>
+                            <div class="action-menu-dropdown">
+                                <a href="{{ url_for('web_banks.reconcile_detail', recon_id=r.id) }}">
+                                    <i class="fa-regular fa-eye"></i> Ver detalle
+                                </a>
+                                <form method="POST" action="{{ url_for('web_banks.reconcile_delete', recon_id=r.id) }}" style="display:inline;">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="action-delete" onclick="return confirm('¿Eliminar esta conciliación?')">
+                                        <i class="fa-regular fa-trash-can"></i> Eliminar
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="9" style="text-align:center; padding:60px 20px; color:var(--text-muted);">
+                        <i class="fa-solid fa-check-double" style="font-size:2.5rem; display:block; margin-bottom:16px;"></i>
+                        No se encontraron conciliaciones. Crea una desde la lista de cuentas bancarias.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    function filterTable() {
+        const search = (document.getElementById('search-input').value || '').toLowerCase();
+        const status = document.getElementById('status-filter').value;
+        document.querySelectorAll('#reconcile-table tbody tr').forEach(row => {
+            let show = true;
+            if (search && !row.cells[0].textContent.toLowerCase().includes(search)) show = false;
+            if (status !== 'all') {
+                const statusCell = row.querySelector('.status-badge');
+                if (!statusCell || !statusCell.classList.contains('status-' + status)) show = false;
+            }
+            row.style.display = show ? '' : 'none';
+        });
+    }
+</script>
+
+<!-- MODAL: Seleccionar cuenta para conciliar -->
+<div id="select-account-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; z-index:2000; align-items:center; justify-content:center;">
+    <div class="modal-backdrop" onclick="closeReconModal()" style="position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); backdrop-filter:blur(4px);"></div>
+    <div class="modal-content" style="max-width:450px; width:90%; padding:24px; border-radius:var(--radius-md); position:relative; z-index:2001; background:#ffffff; box-shadow:var(--shadow-lg);">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:4px;">
+            <h3 style="margin:0; font-family:var(--font-heading); font-size:1.1rem;">¿Qué cuenta deseas conciliar?</h3>
+            <button onclick="closeReconModal()" style="background:transparent; border:none; color:var(--text-muted); cursor:pointer; font-size:1.25rem; padding:4px;"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <p style="color:var(--text-secondary); font-size:0.85rem; margin:6px 0 20px 0;">
+            Elige la cuenta bancaria para empezar a conciliar tus movimientos.
+        </p>
+        <label style="display:block; font-size:0.82rem; font-weight:600; margin-bottom:6px; color:var(--text-primary);">Cuenta bancaria</label>
+        <select id="recon-account-select" class="form-input" style="width:100%; margin-bottom:24px; padding:10px 12px; font-size:0.9rem; height:44px;">
+            <option value="">Seleccionar cuenta</option>
+            {% for acc in accounts %}
+            <option value="{{ acc.id }}">{{ acc.name }} — RD$ {{ "{:,.2f}".format(acc.currentBalance) }}</option>
+            {% endfor %}
+        </select>
+        <div style="display:flex; gap:10px; justify-content:flex-end;">
+            <button class="btn btn-secondary" onclick="closeReconModal()">Cancelar</button>
+            <button class="btn btn-primary" onclick="startReconciliation()">Comenzar</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    function openReconModal() {
+        document.getElementById('select-account-modal').style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+    }
+    function closeReconModal() {
+        document.getElementById('select-account-modal').style.display = 'none';
+        document.body.style.overflow = '';
+    }
+    function startReconciliation() {
+        const id = document.getElementById('recon-account-select').value;
+        if (!id) { alert('Selecciona una cuenta bancaria.'); return; }
+        window.location.href = '/banks/reconcile/' + id + '/new';
+    }
+</script>
+{% endblock %}

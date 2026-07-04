@@ -53,7 +53,7 @@
                     <th>Partidas</th>
                     <th>Items Catálogo</th>
                     <th>Estado</th>
-                    <th style="text-align:right;">Acciones</th>
+                    <th style="text-align:right; width: 50px;"></th>
                 </tr>
             </thead>
             <tbody>
@@ -82,9 +82,16 @@
                         {% endif %}
                     </td>
                     <td style="text-align:right;">
-                        <a href="{{ url_for('web_purchase_orders.receipt_detail', receipt_id=r.id) }}" class="btn btn-secondary btn-sm" style="padding:6px 10px; font-size:0.75rem;">
-                            <i class="fa-solid fa-eye"></i>
-                        </a>
+                        <div class="action-menu">
+                            <button type="button" class="action-menu-btn" onclick="toggleActionMenu(event)" title="Acciones">
+                                <i class="fa-solid fa-ellipsis-vertical"></i>
+                            </button>
+                            <div class="action-menu-dropdown">
+                                <a href="{{ url_for('web_purchase_orders.receipt_detail', receipt_id=r.id) }}" class="action-menu-item">
+                                    <i class="fa-solid fa-eye"></i> Ver Detalle
+                                </a>
+                            </div>
+                        </div>
                     </td>
                 </tr>
                 {% endfor %}

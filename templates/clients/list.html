@@ -372,7 +372,7 @@
                     <th>Teléfono</th>
                     <th>Etapa (Pipeline)</th>
                     <th>Próximo Contacto</th>
-                    <th style="text-align: right;">Acciones</th>
+                    <th style="text-align: right; width: 50px;"></th>
                 </tr>
             </thead>
             <tbody>
@@ -419,13 +419,20 @@
                         {% endif %}
                     </td>
                     <td style="text-align: right;">
-                        <div style="display: inline-flex; gap: 8px;">
-                            <a href="{{ url_for('web_clients.client_detail', client_id=client.id) }}"
-                                class="btn btn-secondary" style="padding: 8px 12px; font-size: 0.8rem;"
-                                title="Ver Ficha"><i class="fa-solid fa-eye"></i></a>
-                            <a href="{{ url_for('web_clients.edit_client', client_id=client.id) }}"
-                                class="btn btn-secondary" style="padding: 8px 12px; font-size: 0.8rem;"
-                                title="Editar"><i class="fa-solid fa-pen"></i></a>
+                        <div class="action-menu">
+                            <button type="button" class="action-menu-btn" onclick="toggleActionMenu(event)" title="Acciones">
+                                <i class="fa-solid fa-ellipsis-vertical"></i>
+                            </button>
+                            <div class="action-menu-dropdown">
+                                <a href="{{ url_for('web_clients.client_detail', client_id=client.id) }}"
+                                    class="action-menu-item">
+                                    <i class="fa-solid fa-eye"></i> Ver ficha
+                                </a>
+                                <a href="{{ url_for('web_clients.edit_client', client_id=client.id) }}"
+                                    class="action-menu-item">
+                                    <i class="fa-solid fa-pen"></i> Editar
+                                </a>
+                            </div>
                         </div>
                     </td>
                 </tr>
