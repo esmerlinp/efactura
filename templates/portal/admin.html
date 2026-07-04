@@ -1,0 +1,325 @@
+{% extends "layout.html" %}
+{% block title %}Portal de Clientes{% endblock %}
+{% block page_header %}Portal de Clientes{% endblock %}
+{% block content %}
+<style>
+    .portal-admin-grid { display: grid; grid-template-columns: 1fr 380px; gap: 24px; align-items: start; }
+    .portal-admin-search { position: relative; margin-bottom: 20px; }
+    .portal-admin-search input {
+        width: 100%; height: 48px; padding: 12px 16px 12px 44px;
+        border: 1px solid #e2e8f0; border-radius: 12px;
+        font-size: 0.95rem; outline: none; box-sizing: border-box;
+        transition: border-color 0.2s, box-shadow 0.2s;
+        background: #fff;
+    }
+    .portal-admin-search input:focus { border-color: var(--accent-emerald); box-shadow: 0 0 0 3px rgba(16,185,129,0.1); }
+    .portal-admin-search .search-icon {
+        position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
+        color: #94a3b8; font-size: 1rem;
+    }
+    .portal-admin-list { background: #fff; border-radius: 14px; border: 1px solid #e2e8f0; overflow: hidden; }
+    .portal-admin-list-header {
+        padding: 14px 18px; border-bottom: 1px solid #e2e8f0;
+        font-size: 0.78rem; font-weight: 600; color: var(--text-muted);
+        text-transform: uppercase; letter-spacing: 0.04em;
+        display: flex; justify-content: space-between; align-items: center;
+        background: #f8fafc;
+    }
+    .portal-client-item {
+        display: flex; align-items: center; gap: 14px;
+        padding: 14px 18px; cursor: pointer;
+        border-bottom: 1px solid #f1f5f9;
+        transition: background 0.15s;
+    }
+    .portal-client-item:last-child { border-bottom: none; }
+    .portal-client-item:hover, .portal-client-item.selected { background: #f0fdf4; }
+    .portal-client-item .avatar {
+        width: 40px; height: 40px; border-radius: 10px;
+        background: linear-gradient(135deg, #1e3a8a, #3b82f6);
+        color: #fff; display: flex; align-items: center; justify-content: center;
+        font-weight: 700; font-size: 0.95rem; flex-shrink: 0;
+    }
+    .portal-client-item .info { flex: 1; min-width: 0; }
+    .portal-client-item .info .name { font-weight: 600; font-size: 0.9rem; color: var(--text-primary); }
+    .portal-client-item .info .sub { font-size: 0.78rem; color: var(--text-muted); margin-top: 2px; }
+    .portal-client-item .status-dot {
+        width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+    }
+    .portal-client-item .status-dot.active { background: #10b981; }
+    .portal-client-item .status-dot.inactive { background: #cbd5e1; }
+
+    .portal-admin-detail { display: none; }
+    .portal-admin-detail.visible { display: block; }
+    .portal-admin-detail .card {
+        background: #fff; border-radius: 14px; border: 1px solid #e2e8f0; padding: 24px;
+    }
+    .portal-admin-detail .card h3 {
+        font-size: 1rem; font-weight: 700; color: var(--text-primary);
+        margin: 0 0 18px 0; padding-bottom: 14px;
+        border-bottom: 1px solid #e2e8f0;
+    }
+    .portal-admin-detail .info-row {
+        display: flex; justify-content: space-between; align-items: center;
+        padding: 10px 0; border-bottom: 1px solid #f8fafc;
+        font-size: 0.86rem;
+    }
+    .portal-admin-detail .info-row:last-child { border-bottom: none; }
+    .portal-admin-detail .info-row .label { color: var(--text-muted); }
+    .portal-admin-detail .info-row .value { font-weight: 500; color: var(--text-primary); }
+
+    .portal-admin-detail .portal-url-box {
+        background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px;
+        padding: 12px 14px; margin: 14px 0;
+        display: flex; align-items: center; gap: 10px;
+        font-size: 0.78rem; color: var(--text-primary);
+    }
+    .portal-admin-detail .portal-url-box .url-text {
+        display: none;
+    }
+    .portal-pin-wrapper {
+        display: flex; align-items: center; gap: 8px;
+        font-family: 'Courier New', monospace; font-size: 1.4rem;
+        font-weight: 700; letter-spacing: 6px; color: var(--accent-emerald);
+        padding: 12px; background: #f0fdf4; border-radius: 8px; margin: 10px 0;
+    }
+    .portal-pin-wrapper .pin-hidden {
+        letter-spacing: 4px; -webkit-text-security: disc;
+    }
+    .portal-pin-wrapper .pin-visible {
+        letter-spacing: 6px; -webkit-text-security: none;
+    }
+    .portal-pin-toggle {
+        background: none; border: none; cursor: pointer;
+        color: #94a3b8; font-size: 1.1rem; padding: 4px;
+        flex-shrink: 0; transition: color 0.15s;
+    }
+    .portal-pin-toggle:hover { color: var(--accent-emerald); }
+    .portal-admin-detail .btn-group { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 18px; }
+    .portal-admin-detail .btn-group .btn { flex: 1; min-width: 120px; justify-content: center; }
+
+    .portal-admin-empty {
+        text-align: center; padding: 48px 24px; color: var(--text-muted);
+    }
+    .portal-admin-empty i { font-size: 2.5rem; margin-bottom: 12px; opacity: 0.4; }
+    .portal-admin-empty p { font-size: 0.9rem; margin: 0; }
+    .toast-copy {
+        position: fixed; bottom: 24px; right: 24px;
+        background: #1e293b; color: #fff; padding: 10px 20px;
+        border-radius: 8px; font-size: 0.85rem; z-index: 9999;
+        animation: fadeInUp 0.3s ease;
+    }
+    @keyframes fadeInUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    @media (max-width: 900px) {
+        .portal-admin-grid { grid-template-columns: 1fr; }
+    }
+
+    .portal-admin-detail .help-link {
+        display: inline-flex; align-items: center; gap: 6px;
+        font-size: 0.82rem; color: #3b82f6; text-decoration: none;
+        margin-top: 12px;
+    }
+    .portal-admin-detail .help-link:hover { text-decoration: underline; }
+
+    .empty-portal-state {
+        text-align: center; padding: 60px 24px; color: var(--text-muted);
+    }
+    .empty-portal-state i { font-size: 3rem; opacity: 0.3; margin-bottom: 16px; }
+    .empty-portal-state h3 { font-size: 1.1rem; margin: 0 0 8px 0; color: var(--text-primary); }
+    .empty-portal-state p { font-size: 0.88rem; margin: 0; max-width: 400px; margin: 0 auto; }
+</style>
+
+<script>
+    const PORTAL_CLIENTS = {{ clients | tojson }};
+</script>
+
+<div class="portal-admin-grid">
+    <div>
+        <div class="portal-admin-search">
+            <i class="fa-solid fa-magnifying-glass search-icon"></i>
+            <input type="text" id="portalClientSearch" placeholder="Buscar cliente por nombre o RNC..." autocomplete="off">
+        </div>
+        {% if clients %}
+        <div class="portal-admin-list">
+            <div class="portal-admin-list-header">
+                <span>Clientes con Acceso al Portal</span>
+                <span style="font-weight:400;text-transform:none;">{{ clients|length }} cliente(s)</span>
+            </div>
+            <div id="portalClientList">
+                {% for c in clients %}
+                <div class="portal-client-item" data-client-id="{{ c.id }}" onclick="selectClient('{{ c.id }}')">
+                    <div class="avatar">{{ c.razonSocial[:2]|upper }}</div>
+                    <div class="info">
+                        <div class="name">{{ c.razonSocial }}</div>
+                        <div class="sub">RNC: {{ c.rnc or '—' }} &middot; {{ c.email or 'Sin email' }}</div>
+                    </div>
+                    <div class="status-dot active"></div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% else %}
+        <div class="empty-portal-state">
+            <i class="fa-solid fa-globe"></i>
+            <h3>Ningún cliente tiene acceso al portal</h3>
+            <p>Para habilitar el portal, edita un cliente y asígnale un PIN de acceso en la sección "Portal de Autoservicio".</p>
+            <a href="{{ url_for('web_clients.list_clients') }}" class="btn btn-primary" style="margin-top:18px;display:inline-flex;">
+                <i class="fa-solid fa-address-book"></i> Ir a Clientes
+            </a>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="portal-admin-detail {% if clients %}visible{% endif %}" id="portalDetail">
+        <div class="card" id="detailCard">
+            {% if clients %}
+            <h3 id="detailTitle">Selecciona un cliente</h3>
+            <div id="detailContent" style="color:var(--text-muted);font-size:0.88rem;text-align:center;padding:24px 0;">
+                <i class="fa-solid fa-hand-pointer" style="font-size:1.8rem;opacity:0.3;display:block;margin-bottom:10px;"></i>
+                Haz clic en un cliente de la lista para ver sus credenciales del portal
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+const searchInput = document.getElementById('portalClientSearch');
+const clientItems = document.querySelectorAll('.portal-client-item');
+
+let allClients = PORTAL_CLIENTS;
+
+searchInput.addEventListener('input', function() {
+    const q = this.value.toLowerCase().trim();
+    clientItems.forEach(item => {
+        const name = item.querySelector('.name').textContent.toLowerCase();
+        const rnc = item.querySelector('.sub').textContent.toLowerCase();
+        const match = !q || name.includes(q) || rnc.includes(q);
+        item.style.display = match ? '' : 'none';
+    });
+});
+
+function selectClient(clientId) {
+    document.querySelectorAll('.portal-client-item').forEach(el => el.classList.remove('selected'));
+    const el = document.querySelector(`.portal-client-item[data-client-id="${clientId}"]`);
+    if (el) el.classList.add('selected');
+
+    const client = allClients.find(c => c.id === clientId);
+    if (!client) return;
+
+    const detail = document.getElementById('portalDetail');
+    detail.classList.add('visible');
+
+    const title = document.getElementById('detailTitle');
+    const content = document.getElementById('detailContent');
+
+    title.textContent = client.razonSocial;
+
+    content.innerHTML = `
+        <div class="info-row">
+            <span class="label">RNC/Cédula</span>
+            <span class="value">${client.rnc || '—'}</span>
+        </div>
+        <div class="info-row">
+            <span class="label">Email</span>
+            <span class="value">${client.email || '—'}</span>
+        </div>
+        <div class="info-row">
+            <span class="label">Teléfono</span>
+            <span class="value">${client.telefono || '—'}</span>
+        </div>
+        <div style="margin-top:16px;">
+            <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:4px;">PIN de Acceso</div>
+            <div class="portal-pin-wrapper">
+                <span id="pinDisplay" class="pin-hidden" data-pin="${client.accessPin}">${client.accessPin}</span>
+                <button class="portal-pin-toggle" onclick="togglePin()" title="Mostrar/ocultar PIN">
+                    <i class="fa-regular fa-eye"></i>
+                </button>
+            </div>
+        </div>
+        <div style="margin-top:16px;">
+            <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:6px;">Enlace del Portal</div>
+            <div class="portal-url-box">
+                <span class="url-text">${client.portalUrl}</span>
+            </div>
+        </div>
+        <div class="btn-group">
+            <button class="btn btn-primary" onclick="copyPortalUrl('${client.portalUrl}')">
+                <i class="fa-solid fa-copy"></i> Copiar Enlace
+            </button>
+            <button class="btn btn-secondary" onclick="sendCredentials(this, '${client.id}')">
+                <i class="fa-solid fa-envelope"></i> Enviar Credenciales
+            </button>
+            <a href="${client.portalUrl}" target="_blank" class="btn btn-outline" style="text-decoration:none;display:inline-flex;align-items:center;gap:6px;padding:10px 18px;border:1px solid #e2e8f0;border-radius:8px;font-size:0.86rem;font-weight:500;color:var(--text-primary);transition:background 0.15s;">
+                <i class="fa-solid fa-external-link-alt"></i> Abrir Portal
+            </a>
+        </div>
+        <div style="margin-top:14px;font-size:0.78rem;color:var(--text-muted);">
+            <i class="fa-solid fa-circle-info"></i> El portal permite al cliente ver facturas, cotizaciones, contratos y realizar pagos en línea.
+        </div>
+    `;
+}
+
+function togglePin() {
+    const el = document.getElementById('pinDisplay');
+    const btn = el.nextElementSibling.querySelector('i');
+    if (el.classList.contains('pin-hidden')) {
+        el.classList.remove('pin-hidden');
+        el.classList.add('pin-visible');
+        el.textContent = el.dataset.pin;
+        btn.className = 'fa-regular fa-eye-slash';
+    } else {
+        el.classList.remove('pin-visible');
+        el.classList.add('pin-hidden');
+        el.textContent = el.dataset.pin;
+        btn.className = 'fa-regular fa-eye';
+    }
+}
+
+function copyPortalUrl(url) {
+    navigator.clipboard.writeText(url).then(() => {
+        showToast('✅ Enlace copiado al portapapeles');
+    }).catch(() => {
+        const textarea = document.createElement('textarea');
+        textarea.value = url;
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+        showToast('✅ Enlace copiado al portapapeles');
+    });
+}
+
+function showToast(msg) {
+    const existing = document.querySelector('.toast-copy');
+    if (existing) existing.remove();
+    const toast = document.createElement('div');
+    toast.className = 'toast-copy';
+    toast.textContent = msg;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 2500);
+}
+
+function sendCredentials(btn, clientId) {
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Enviando...';
+
+    fetch('{{ url_for("web_clients.send_portal_credentials", client_id="CLIENT_ID_PLACEHOLDER") }}'.replace('CLIENT_ID_PLACEHOLDER', clientId), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            showToast('✅ Credenciales enviadas al cliente');
+        } else {
+            showToast('❌ ' + (data.error || 'Error al enviar'));
+        }
+    })
+    .catch(() => showToast('❌ Error de conexión'))
+    .finally(() => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-envelope"></i> Enviar Credenciales';
+    });
+}
+</script>
+{% endblock %}

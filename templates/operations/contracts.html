@@ -148,7 +148,7 @@
                     <th>Intervalo</th>
                     <th>Próximo Disparo</th>
                     <th>Estado</th>
-                    <th style="text-align: right;">Acciones</th>
+                    <th style="text-align: right; width: 50px;"></th>
                 </tr>
             </thead>
             <tbody>
@@ -186,45 +186,34 @@
                         </span>
                     </td>
                     <td style="text-align: right;">
-                        <div style="display: inline-flex; gap: 8px; justify-content: flex-end; align-items: center;">
-                            <!-- Ver Detalle y Comentarios -->
-                            <a href="{{ url_for('web_operations.contract_detail', contract_id=contract.id) }}" class="btn btn-secondary"
-                                style="padding: 6px 10px; font-size: 0.78rem; border-color: var(--accent-purple); color: var(--accent-purple);"
-                                title="Ver Detalle y Comentarios">
-                                <i class="fa-solid fa-eye"></i>
-                            </a>
-
-                            <!-- Cambiar Estado -->
-                            <button type="button" onclick="openStatusModal('{{ contract.id }}', '{{ contract.status }}')" class="btn btn-secondary"
-                                style="padding: 6px 10px; font-size: 0.78rem;" title="Cambiar Estado">
-                                <i class="fa-solid fa-sliders"></i>
+                        <div class="action-menu">
+                            <button type="button" class="action-menu-btn" onclick="toggleActionMenu(event)" title="Acciones">
+                                <i class="fa-solid fa-ellipsis-vertical"></i>
                             </button>
-
-                            <!-- Disparo manual de factura -->
-                            <form
-                                action="{{ url_for('web_operations.trigger_contract_billing', contract_id=contract.id) }}"
-                                method="POST" style="margin: 0;"
-                                onsubmit="return confirm('¿Deseas emitir manualmente la factura de consumo e-CF para este contrato hoy?');">
-                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                <button type="submit" class="btn btn-primary"
-                                    style="padding: 6px 10px; font-size: 0.78rem; background: var(--accent-purple); border-color: var(--accent-purple);"
-                                    title="Emitir Factura Ahora">
-                                    <i class="fa-solid fa-bolt"></i>
+                            <div class="action-menu-dropdown">
+                                <a href="{{ url_for('web_operations.contract_detail', contract_id=contract.id) }}" class="action-menu-item">
+                                    <i class="fa-solid fa-eye"></i> Ver Detalle
+                                </a>
+                                <button type="button" class="action-menu-item" onclick="openStatusModal('{{ contract.id }}', '{{ contract.status }}')">
+                                    <i class="fa-solid fa-sliders"></i> Cambiar Estado
                                 </button>
-                            </form>
-
-                            <!-- Borrar Contrato -->
-                            <form
-                                action="{{ url_for('web_operations.delete_contract_route', contract_id=contract.id) }}"
-                                method="POST" style="margin: 0;"
-                                onsubmit="return confirm('¿Seguro que deseas eliminar este contrato? Esta acción no se puede deshacer.');">
-                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                <button type="submit" class="btn btn-secondary"
-                                    style="padding: 6px 10px; font-size: 0.78rem; color: var(--accent-red);"
-                                    title="Eliminar Contrato">
-                                    <i class="fa-solid fa-trash-can"></i>
-                                </button>
-                            </form>
+                                <form action="{{ url_for('web_operations.trigger_contract_billing', contract_id=contract.id) }}"
+                                    method="POST" style="display:contents;"
+                                    onsubmit="return confirm('¿Deseas emitir manualmente la factura de consumo e-CF para este contrato hoy?');">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="action-menu-item">
+                                        <i class="fa-solid fa-bolt"></i> Emitir Factura
+                                    </button>
+                                </form>
+                                <form action="{{ url_for('web_operations.delete_contract_route', contract_id=contract.id) }}"
+                                    method="POST" style="display:contents;"
+                                    onsubmit="return confirm('¿Seguro que deseas eliminar este contrato? Esta acción no se puede deshacer.');">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="action-menu-item text-danger">
+                                        <i class="fa-solid fa-trash-can"></i> Eliminar
+                                    </button>
+                                </form>
+                            </div>
                         </div>
                     </td>
                 </tr>

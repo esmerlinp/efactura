@@ -1,4 +1,5 @@
 import uuid
+import json
 from datetime import datetime, timezone
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify
 from app.services.db_service import DatabaseService
@@ -49,10 +50,27 @@ def create_fiscal_note():
     real_invoices = [inv for inv in invoices if not inv.get('isQuotation') and inv.get('status') not in ('Anulada', 'Borrador')
                      and inv.get('ecfType') not in ('Nota de Crédito (E34)', 'Nota de Débito (E33)', 'Cotización')]
 
+    catalog = DatabaseService.get_items(owner_uid, sandbox=sandbox) or []
+    catalog_json = json.dumps(catalog, default=str)
+
+    # Data for "Más ajustes" sidebar
+    all_sequences = DatabaseService.get_sequences(owner_uid, sandbox=sandbox) or []
+    note_sequences = [s for s in all_sequences if s.get('tipoComprobante') == note_type
+                      and s.get('estado', '').upper() == 'ACTIVA'
+                      and not s.get('bloqueadaManualmente', False)]
+    warehouses = DatabaseService.get_warehouses(owner_uid, sandbox=sandbox) or []
+    price_lists = DatabaseService.get_price_lists(owner_uid, sandbox=sandbox) or []
+    sellers = DatabaseService.get_team_members(owner_uid) or []
+
     return render_template('fiscal_notes/form.html',
                            note_type=note_type,
                            ref_invoice=ref_invoice,
                            invoices=real_invoices,
+                           catalog_json=catalog_json,
+                           sequences=note_sequences,
+                           warehouses=warehouses,
+                           price_lists=price_lists,
+                           sellers=sellers,
                            active_page='fiscal_notes')
 
 
@@ -70,8 +88,12 @@ def save_fiscal_note():
     ref_invoice_id = request.form.get('referenceInvoiceId', '').strip()
     modification_code = request.form.get('modificationCode', '1')
     reason = request.form.get('reason', '').strip()
-    notes = request.form.get('notes', '').strip()
     date = request.form.get('date', datetime.now(timezone.utc).strftime('%Y-%m-%d'))
+    comentario = request.form.get('comentario', '').strip()
+    warehouse_id = request.form.get('warehouseId', '').strip()
+    price_list_id = request.form.get('priceListId', '').strip()
+    seller_id = request.form.get('sellerId', '').strip()
+    sequence_id = request.form.get('sequenceId', '').strip()
 
     if not ref_invoice_id:
         flash('❌ Debes seleccionar una factura de referencia.', 'error')
@@ -83,9 +105,8 @@ def save_fiscal_note():
         return redirect(url_for('web_fiscal_notes.list_fiscal_notes'))
 
     ref_total = float(ref_invoice.get('netPayable', ref_invoice.get('total', 0)))
-    ref_subtotal = float(ref_invoice.get('subtotal', 0.0))
-    ref_itbis = float(ref_invoice.get('totalITBIS', ref_invoice.get('itbis', 0.0)))
-    itbis_rate = (ref_itbis / ref_subtotal) if ref_subtotal > 0 else 0.0
+
+    ecf_type_label = 'Nota de Crédito (E34)' if note_type == 'E34' else 'Nota de Débito (E33)'
 
     if ref_invoice.get('status') in ('Borrador', 'Anulada'):
         flash('❌ No puedes crear una nota basada en un documento no emitido o anulado.', 'error')
@@ -95,21 +116,74 @@ def save_fiscal_note():
         flash('❌ La factura de referencia está en contingencia y no ha sido aceptada por la DGII.', 'error')
         return redirect(url_for('web_fiscal_notes.list_fiscal_notes'))
 
+    # Parse items from dynamic form
+    parsed_items = []
+    form_keys = request.form.keys()
+    item_indices = set()
+    for k in form_keys:
+        if k.startswith('items['):
+            parts = k.split(']')
+            idx = parts[0].replace('items[', '')
+            if idx.isdigit():
+                item_indices.add(int(idx))
+
+    catalog = DatabaseService.get_items(owner_uid, sandbox=sandbox) or []
+    catalog_types = {it['name'].lower().strip(): it.get('type', 'Bien') for it in catalog}
+
+    for idx in sorted(item_indices):
+        name = request.form.get(f'items[{idx}][name]', '').strip()
+        price = float(request.form.get(f'items[{idx}][price]', 0.0))
+        qty = int(float(request.form.get(f'items[{idx}][quantity]', 1)))
+        itbis_rate = float(request.form.get(f'items[{idx}][itbisRate]', 0.18))
+        item_disc = float(request.form.get(f'items[{idx}][discountRate]', 0.0))
+        code = request.form.get(f'items[{idx}][code]', '').strip()
+
+        if name and price > 0:
+            item_type = catalog_types.get(name.lower().strip())
+            if not item_type:
+                item_type = 'Servicio' if any(x in name.lower() for x in ['servicio', 'honorarios', 'consultoria', 'asesoria', 'soporte', 'mantenimiento']) else 'Bien'
+            parsed_items.append({
+                "id": str(uuid.uuid4()),
+                "code": code or f"ITEM-{idx + 1}",
+                "type": item_type,
+                "name": name,
+                "price": price,
+                "quantity": qty,
+                "itbisRate": itbis_rate,
+                "discountRate": item_disc / 100.0,  # Convert % to decimal
+            })
+
+    if not parsed_items:
+        flash('❌ Debes añadir al menos una línea con producto/servicio, precio y descripción.', 'error')
+        return redirect(url_for('web_fiscal_notes.create_fiscal_note', type=note_type, reference_invoice_id=ref_invoice_id))
+
+    # Validate E34 total does not exceed reference total
     if note_type == 'E34':
-        credited_amount = float(request.form.get('creditedAmount', ref_total))
-        if credited_amount <= 0:
-            flash('❌ El monto a acreditar debe ser mayor a 0.', 'error')
+        temp_calcs = DGIIService.calculate_invoice_totals(parsed_items, discount_rate=0.0, retained_isr_rate=0.0, retained_itbis_rate=0.0)
+        if temp_calcs["net_payable"] > ref_total:
+            flash(f'❌ El total de la nota (RD$ {temp_calcs["net_payable"]:,.2f}) excede el total de la factura original (RD$ {ref_total:,.2f}).', 'error')
             return redirect(url_for('web_fiscal_notes.create_fiscal_note', type=note_type, reference_invoice_id=ref_invoice_id))
-        if credited_amount > ref_total:
-            flash(f'❌ El monto a acreditar (RD$ {credited_amount:,.2f}) no puede exceder el total de la factura original (RD$ {ref_total:,.2f}).', 'error')
-            return redirect(url_for('web_fiscal_notes.create_fiscal_note', type=note_type, reference_invoice_id=ref_invoice_id))
-        note_amount = credited_amount
-    else:
-        debited_amount = float(request.form.get('debitedAmount', 0))
-        if debited_amount <= 0:
-            flash('❌ El monto a debitar debe ser mayor a 0.', 'error')
-            return redirect(url_for('web_fiscal_notes.create_fiscal_note', type=note_type, reference_invoice_id=ref_invoice_id))
-        note_amount = debited_amount
+
+    # Parse refunds (cash returns)
+    cash_refunds = []
+    refund_indices = set()
+    for k in form_keys:
+        if k.startswith('refunds['):
+            parts = k.split(']')
+            idx = parts[0].replace('refunds[', '')
+            if idx.isdigit():
+                refund_indices.add(int(idx))
+    for idx in sorted(refund_indices):
+        bank = request.form.get(f'refunds[{idx}][bank]', '').strip()
+        amt = float(request.form.get(f'refunds[{idx}][amount]', 0.0))
+        if bank and amt > 0:
+            cash_refunds.append({
+                "bank": bank,
+                "accountNumber": request.form.get(f'refunds[{idx}][accountNumber]', '').strip(),
+                "date": request.form.get(f'refunds[{idx}][date]', date),
+                "amount": amt,
+                "observations": request.form.get(f'refunds[{idx}][observations]', '').strip(),
+            })
 
     modification_codes = {
         '1': 'Devolución',
@@ -120,23 +194,10 @@ def save_fiscal_note():
     }
     modification_label = modification_codes.get(modification_code, 'Otros')
 
-    ecf_type_label = 'Nota de Crédito (E34)' if note_type == 'E34' else 'Nota de Débito (E33)'
     inv_id = str(uuid.uuid4())
     inv_number = f"NC-{ref_invoice.get('invoiceNumber', ref_invoice_id)[-6:]}" if note_type == 'E34' else f"ND-{ref_invoice.get('invoiceNumber', ref_invoice_id)[-6:]}"
 
-    unit_price = round(note_amount / (1.0 + itbis_rate), 2) if itbis_rate > 0 else round(note_amount, 2)
-    items = [{
-        "id": str(uuid.uuid4()),
-        "code": "AJUSTE-NC" if note_type == 'E34' else "AJUSTE-ND",
-        "type": "Servicio",
-        "name": f"Ajuste {ecf_type_label} {ref_invoice.get('invoiceNumber', ref_invoice_id)}",
-        "price": unit_price,
-        "quantity": 1,
-        "itbisRate": itbis_rate,
-        "discountRate": 0.0
-    }]
-
-    calcs = DGIIService.calculate_invoice_totals(items, discount_rate=0.0, retained_isr_rate=0.0, retained_itbis_rate=0.0)
+    calcs = DGIIService.calculate_invoice_totals(parsed_items, discount_rate=0.0, retained_isr_rate=0.0, retained_itbis_rate=0.0)
 
     inv_data = {
         "id": inv_id,
@@ -163,11 +224,17 @@ def save_fiscal_note():
             "reasonForModification": f"{modification_label}: {reason}" if reason else modification_label,
         },
         "isQuotation": False,
-        "notes": notes,
+        "notes": "",
+        "comentario": comentario,
+        "cashRefunds": cash_refunds,
+        "warehouseId": warehouse_id,
+        "priceListId": price_list_id,
+        "sellerId": seller_id,
+        "sequenceId": sequence_id,
         "createdBy": user.get('displayName', 'Usuario'),
         "createdAt": datetime.now(timezone.utc).isoformat(),
-        "creditedAmount": note_amount if note_type == 'E34' else 0.0,
-        "debitedAmount": note_amount if note_type == 'E33' else 0.0,
+        "creditedAmount": calcs["net_payable"] if note_type == 'E34' else 0.0,
+        "debitedAmount": calcs["net_payable"] if note_type == 'E33' else 0.0,
     }
 
     DatabaseService.save_invoice(owner_uid, inv_id, inv_data, sandbox=sandbox)

@@ -87,7 +87,7 @@
                     <th>Total (RD$)</th>
                     <th>Estado</th>
                     <th>Ítems</th>
-                    <th style="text-align:right;">Acciones</th>
+                    <th style="text-align:right; width: 50px;"></th>
                 </tr>
             </thead>
             <tbody>
@@ -124,21 +124,26 @@
                     </td>
                     <td style="text-align:center;">{{ o.get('items')|length if o.get('items') else 0 }}</td>
                     <td style="text-align:right;">
-                        <div style="display:inline-flex; gap:6px;">
-                            <a href="{{ url_for('web_purchase_orders.purchase_order_detail', po_id=o.id) }}" class="btn btn-secondary btn-sm" style="padding:6px 10px; font-size:0.75rem;" title="Ver Detalle">
-                                <i class="fa-solid fa-eye"></i>
-                            </a>
-                            {% if o.status in ('borrador', 'pendiente_aprobacion') %}
-                            <a href="{{ url_for('web_purchase_orders.edit_purchase_order', po_id=o.id) }}" class="btn btn-secondary btn-sm" style="padding:6px 10px; font-size:0.75rem;" title="Editar">
-                                <i class="fa-solid fa-pen-to-square"></i>
-                            </a>
-                            {% endif %}
-                            <form action="{{ url_for('web_purchase_orders.delete_purchase_order', po_id=o.id) }}" method="POST" style="display:inline;" onsubmit="return confirm('¿Eliminar esta orden de compra?');">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                <button type="submit" class="btn btn-danger btn-sm" style="padding:6px 10px; font-size:0.75rem;" title="Eliminar">
-                                    <i class="fa-solid fa-trash-can"></i>
-                                </button>
-                            </form>
+                        <div class="action-menu">
+                            <button type="button" class="action-menu-btn" onclick="toggleActionMenu(event)" title="Acciones">
+                                <i class="fa-solid fa-ellipsis-vertical"></i>
+                            </button>
+                            <div class="action-menu-dropdown">
+                                <a href="{{ url_for('web_purchase_orders.purchase_order_detail', po_id=o.id) }}" class="action-menu-item">
+                                    <i class="fa-solid fa-eye"></i> Ver Detalle
+                                </a>
+                                {% if o.status in ('borrador', 'pendiente_aprobacion') %}
+                                <a href="{{ url_for('web_purchase_orders.edit_purchase_order', po_id=o.id) }}" class="action-menu-item">
+                                    <i class="fa-solid fa-pen-to-square"></i> Editar
+                                </a>
+                                {% endif %}
+                                <form action="{{ url_for('web_purchase_orders.delete_purchase_order', po_id=o.id) }}" method="POST" style="display:contents;" onsubmit="return confirm('¿Eliminar esta orden de compra?');">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="action-menu-item text-danger">
+                                        <i class="fa-solid fa-trash-can"></i> Eliminar
+                                    </button>
+                                </form>
+                            </div>
                         </div>
                     </td>
                 </tr>

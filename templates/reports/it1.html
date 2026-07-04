@@ -1,22 +1,53 @@
 {% extends "layout.html" %}
 
-{% block title %}Diagnóstico Fiscal IT-1{% endblock %}
+{% block title %}Reporte IT1{% endblock %}
 
-{% block page_header %}Diagnóstico Fiscal Formulario IT-1 (Estimado){% endblock %}
+{% block page_header %}Reporte IT1{% endblock %}
 
 {% block content %}
+<style>
+    .breadcrumb {
+        display: flex; align-items: center; gap: 6px;
+        font-size: 0.8rem; color: var(--text-muted); margin-bottom: 16px;
+    }
+    .breadcrumb a { color: var(--text-muted); text-decoration: none; font-weight: 500; }
+    .breadcrumb a:hover { color: var(--accent-emerald); }
+    .breadcrumb .sep { color: #cbd5e1; }
+    
+    .status-badge {
+        padding: 4px 8px; border-radius: 6px; font-size: 0.72rem; font-weight: 700;
+        text-transform: uppercase; display: inline-flex; align-items: center; gap: 4px;
+    }
+    .status-badge.draft { background: #f1f5f9; color: #475569; }
+    .status-badge.submitted { background: #ecfdf5; color: #047857; }
+</style>
+<div class="breadcrumb">
+    <a href="{{ url_for('web_invoices.reports_dashboard') }}">Reportes</a>
+    <span class="sep">/</span>
+    <a href="{{ url_for('web_invoices.reports_category', category_key='fiscales') }}">Fiscales</a>
+    <span class="sep">/</span>
+    <a href="{{ url_for('web_reports_sales.it1_reports_list') }}">Reporte IT1</a>
+    <span class="sep">/</span>
+    <span>Detalle</span>
+</div>
+
 <div class="card-table-wrapper" style="max-width: 900px; margin: 0 auto; padding: 40px; position: relative;">
     <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 20px; margin-bottom: 30px;">
         <div>
-            <h3 style="font-size: 1.45rem; font-family: var(--font-heading); display: flex; align-items: center; gap: 10px;">
+            <h3 style="font-size: 1.45rem; font-family: var(--font-heading); display: flex; align-items: center; gap: 10px; margin: 0;">
                 <i class="fa-solid fa-file-invoice" style="color: var(--accent-emerald);"></i>
-                <span>Declaración Estimada de ITBIS</span>
+                <span>Declaración de ITBIS</span>
             </h3>
-            <p style="color: var(--text-secondary); font-size: 0.88rem; margin-top: 4px;">Determinación del ITBIS devengado versus deducible para el período actual.</p>
+            <p style="color: var(--text-secondary); font-size: 0.88rem; margin: 6px 0 0 0;">Determinación del ITBIS devengado versus deducible para el período.</p>
         </div>
         
-        <div style="text-align: right;">
-            <span class="badge badge-primary">Periodo: {{ current_period }}</span>
+        <div style="text-align: right; display: flex; flex-direction: column; gap: 6px; align-items: flex-end;">
+            <span class="badge badge-primary" style="font-size: 0.85rem; padding: 6px 12px; font-weight:700;">Periodo: {{ current_period }}</span>
+            {% if report.status == 'Presentado' %}
+            <span class="status-badge submitted"><i class="fa-solid fa-circle-check"></i> Presentado</span>
+            {% else %}
+            <span class="status-badge draft"><i class="fa-solid fa-pen-to-square"></i> Borrador</span>
+            {% endif %}
         </div>
     </div>
 
@@ -60,7 +91,7 @@
         <span>Casillas Estimadas del IT-1 (DGII)</span>
     </h4>
     
-    <div style="display: flex; flex-direction: column; gap: 14px;">
+    <div style="display: flex; flex-direction: column; gap: 14px; margin-bottom: 30px;">
         <!-- Operaciones en Ventas -->
         <div style="background-color: rgba(255, 255, 255, 0.01); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 16px;">
             <h5 style="font-size: 0.9rem; font-family: var(--font-heading); color: var(--accent-emerald); margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.02em;">I. Operaciones Declaradas (Ventas)</h5>
@@ -108,6 +139,21 @@
                 </div>
             </div>
         </div>
+    </div>
+
+    <!-- Controles de Administración del Reporte -->
+    <div style="border-top: 1px solid var(--border-color); padding-top: 24px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+        <a href="{{ url_for('web_reports_sales.it1_reports_list') }}" class="btn btn-secondary" style="height:40px; padding: 0 20px; font-size:0.86rem; border-radius: 8px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; text-decoration: none;">
+            <i class="fa-solid fa-arrow-left"></i> Volver al listado
+        </a>
+        
+        <form method="POST" style="display: inline-flex; align-items: center; gap: 10px;">
+            <label style="font-size:0.86rem; font-weight:700; color:var(--text-secondary);">Marcar estado:</label>
+            <select name="status" class="form-select" onchange="this.form.submit()" style="height:40px; font-size:0.86rem; border-radius: 8px; padding: 0 12px; width:140px; background:#fff; border:1px solid #e2e8f0; outline:none; font-weight: 600; cursor: pointer; transition: border-color 0.15s;">
+                <option value="Borrador" {% if report.status == 'Borrador' %}selected{% endif %}>Borrador</option>
+                <option value="Presentado" {% if report.status == 'Presentado' %}selected{% endif %}>Presentado</option>
+            </select>
+        </form>
     </div>
 </div>
 {% endblock %}

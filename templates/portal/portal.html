@@ -640,7 +640,7 @@
                             <th>Total</th>
                             <th>Saldo Pendiente</th>
                             <th>Estado</th>
-                            <th style="text-align: right;">Acciones</th>
+                            <th style="text-align: right; width: 50px;"></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -687,12 +687,15 @@
                                 {% endif %}
                             </td>
                             <td style="text-align: right;">
-                                <div style="display: inline-flex; gap: 8px;">
-                                    <a href="/portal/documento/{{ inv.id }}" class="btn btn-secondary"
-                                        title="Ver Detalle">
-                                        <i class="fa-solid fa-eye"></i>
-                                        <span>Ver</span>
-                                    </a>
+                                <div class="action-menu">
+                                    <button type="button" class="action-menu-btn" onclick="toggleActionMenu(event)" title="Acciones">
+                                        <i class="fa-solid fa-ellipsis-vertical"></i>
+                                    </button>
+                                    <div class="action-menu-dropdown">
+                                        <a href="/portal/documento/{{ inv.id }}" class="action-menu-item">
+                                            <i class="fa-solid fa-eye"></i> Ver
+                                        </a>
+                                    </div>
                                 </div>
                             </td>
                         </tr>
@@ -721,7 +724,7 @@
                             <th>Monto Recurrente</th>
                             <th>Frecuencia</th>
                             <th>Estado</th>
-                            <th style="text-align: right;">Acciones</th>
+                            <th style="text-align: right; width: 50px;"></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -762,35 +765,28 @@
                                 {% endif %}
                             </td>
                             <td style="text-align: right;">
-                                <div
-                                    style="display: inline-flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end;">
-                                    <button class="btn btn-secondary"
-                                        data-contract="{{ contract | tojson | forceescape }}"
-                                        onclick="showContractDetail(this)" title="Ver">
-                                        <i class="fa-solid fa-eye"></i>
+                                <div class="action-menu">
+                                    <button type="button" class="action-menu-btn" onclick="toggleActionMenu(event)" title="Acciones">
+                                        <i class="fa-solid fa-ellipsis-vertical"></i>
                                     </button>
-                                    {% if contract.status != 'Activo' and contract.status != 'Inactivo' and not
-                                    contract.cancelRequest %}
-                                    <button class="btn btn-primary"
-                                        onclick="openSignatureModal('{{ contract.id }}', 'contrato')">
-                                        <i class="fa-solid fa-signature"></i>
-                                        <span>Firmar Contrato</span>
-                                    </button>
-                                    {% elif contract.status == 'Activo' and not contract.cancelRequest %}
-                                    <button class="btn btn-secondary" style="border-color: #ef4444; color: #ef4444;"
-                                        onclick="openCancelContractModal('{{ contract.id }}', '{{ contract.contractNumber }}', '{{ contract.concept or contract.description or '' }}')">
-                                        <i class="fa-solid fa-ban"></i>
-                                        <span>Solicitar Cancelación</span>
-                                    </button>
-                                    {% elif contract.cancelRequest %}
-                                    <span
-                                        style="font-size: 0.8rem; color: #d97706; display: inline-flex; align-items: center; gap: 4px;">
-                                        <i class="fa-solid fa-circle-check"></i> Cancelación solicitada
-                                    </span>
-                                    {% else %}
-                                    <span class="badge badge-success"><i class="fa-solid fa-circle-check"></i> {{
-                                        contract.status }}</span>
-                                    {% endif %}
+                                    <div class="action-menu-dropdown">
+                                        <button type="button" class="action-menu-item"
+                                            data-contract="{{ contract | tojson | forceescape }}"
+                                            onclick="showContractDetail(this)">
+                                            <i class="fa-solid fa-eye"></i> Ver
+                                        </button>
+                                        {% if contract.status != 'Activo' and contract.status != 'Inactivo' and not contract.cancelRequest %}
+                                        <button type="button" class="action-menu-item"
+                                            onclick="openSignatureModal('{{ contract.id }}', 'contrato')">
+                                            <i class="fa-solid fa-signature"></i> Firmar Contrato
+                                        </button>
+                                        {% elif contract.status == 'Activo' and not contract.cancelRequest %}
+                                        <button type="button" class="action-menu-item text-danger"
+                                            onclick="openCancelContractModal('{{ contract.id }}', '{{ contract.contractNumber }}', '{{ contract.concept or contract.description or '' }}')">
+                                            <i class="fa-solid fa-ban"></i> Solicitar Cancelación
+                                        </button>
+                                        {% endif %}
+                                    </div>
                                 </div>
                             </td>
                         </tr>

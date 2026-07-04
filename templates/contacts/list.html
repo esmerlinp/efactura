@@ -1,0 +1,196 @@
+{% extends "layout.html" %}
+{% block title %}Contactos{% endblock %}
+{% block page_header %}Contactos{% endblock %}
+
+{% block content %}
+<style>
+    .contacts-tabs { display: flex; gap: 0; margin-bottom: 20px; border-bottom: 2px solid var(--border-color); }
+    .contacts-tabs .tab-btn { padding: 10px 20px; cursor: pointer; border: none; background: none; font-size: 0.9rem; color: var(--text-secondary); border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.2s; font-family: var(--font-heading); }
+    .contacts-tabs .tab-btn:hover { color: var(--text-primary); }
+    .contacts-tabs .tab-btn.active { color: var(--accent-emerald); border-bottom-color: var(--accent-emerald); font-weight: 600; }
+    .contacts-tabs .tab-btn .badge { margin-left: 6px; font-size: 0.75rem; padding: 2px 8px; border-radius: 10px; background: var(--bg-muted); color: var(--text-secondary); }
+    .contacts-tabs .tab-btn.active .badge { background: rgba(16,185,129,0.12); color: var(--accent-emerald); }
+
+    .contacts-toolbar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 20px; }
+    .contacts-toolbar .search-box { flex: 1; min-width: 200px; position: relative; }
+    .contacts-toolbar .search-box input { width: 100%; padding: 8px 12px 8px 36px; border: 1px solid var(--border-color); border-radius: var(--radius-md); background: var(--card-bg); color: var(--text-primary); font-size: 0.85rem; }
+    .contacts-toolbar .search-box i { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-secondary); font-size: 0.85rem; }
+
+    .badge-type { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: 500; }
+    .badge-cliente { background: rgba(16,185,129,0.12); color: #059669; }
+    .badge-proveedor { background: rgba(59,130,246,0.12); color: #2563eb; }
+    .badge-ambos { background: rgba(139,92,246,0.12); color: #7c3aed; }
+
+    .pipeline-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+    .pipeline-Prospecto { background: #9ca3af; }
+    .pipeline-Contactado { background: #60a5fa; }
+    .pipeline-Negociacion, .pipeline-En\ Negociación { background: #f59e0b; }
+    .pipeline-Cliente\ Activo { background: #10b981; }
+    .pipeline-Periodo\ de\ Prueba { background: #8b5cf6; }
+    .pipeline-Expirado { background: #ef4444; }
+</style>
+
+<!-- Tabs -->
+<div class="contacts-tabs">
+    <a href="{{ url_for('web_contacts.list_contacts', tab='todos', q=q, stage=stage) }}" class="tab-btn {% if tab == 'todos' %}active{% endif %}">
+        Todos <span class="badge">{{ total_contacts_count }}</span>
+    </a>
+    <a href="{{ url_for('web_contacts.list_contacts', tab='clientes', q=q, stage=stage) }}" class="tab-btn {% if tab == 'clientes' %}active{% endif %}">
+        Clientes <span class="badge">{{ count_clientes }}</span>
+    </a>
+    <a href="{{ url_for('web_contacts.list_contacts', tab='proveedores', q=q, stage=stage) }}" class="tab-btn {% if tab == 'proveedores' %}active{% endif %}">
+        Proveedores <span class="badge">{{ count_proveedores }}</span>
+    </a>
+</div>
+
+<!-- Toolbar -->
+<div class="contacts-toolbar">
+    <div class="search-box">
+        <i class="fa-solid fa-search"></i>
+        <input type="text" id="searchInput" placeholder="Buscar por nombre, RNC, teléfono..." value="{{ q }}" onkeydown="if(event.key=='Enter'){window.location.href='{{ url_for('web_contacts.list_contacts', tab=tab, stage=stage) }}&q='+encodeURIComponent(this.value)}">
+    </div>
+    <select onchange="window.location.href='{{ url_for('web_contacts.list_contacts', tab=tab, q=q) }}&stage='+this.value" style="padding:8px 12px; border:1px solid var(--border-color); border-radius:var(--radius-md); background:var(--card-bg); color:var(--text-primary); font-size:0.85rem; min-width:150px;">
+        <option value="">Todas las etapas</option>
+        <option value="Prospecto" {% if stage == 'Prospecto' %}selected{% endif %}>Prospecto</option>
+        <option value="Contactado" {% if stage == 'Contactado' %}selected{% endif %}>Contactado</option>
+        <option value="En Negociación" {% if stage == 'En Negociación' %}selected{% endif %}>En Negociación</option>
+        <option value="Cliente Activo" {% if stage == 'Cliente Activo' %}selected{% endif %}>Cliente Activo</option>
+        <option value="Periodo de Prueba" {% if stage == 'Periodo de Prueba' %}selected{% endif %}>Periodo de Prueba</option>
+        <option value="Expirado" {% if stage == 'Expirado' %}selected{% endif %}>Expirado</option>
+    </select>
+    <div class="btn-group">
+        <a href="{{ url_for('web_contacts.new_contact') }}" class="btn btn-primary btn-sm">
+            <i class="fa-solid fa-plus"></i> Nuevo Contacto
+        </a>
+        <button class="btn btn-ghost btn-sm" onclick="document.getElementById('exportForm').submit()">
+            <i class="fa-solid fa-download"></i> Exportar CSV
+        </button>
+    </div>
+</div>
+
+<form id="exportForm" method="GET" action="{{ url_for('web_contacts.list_contacts') }}" style="display:none">
+    <input type="hidden" name="export" value="csv">
+    <input type="hidden" name="tab" value="{{ tab }}">
+    {% if q %}<input type="hidden" name="q" value="{{ q }}">{% endif %}
+</form>
+
+<!-- Table -->
+<div class="card-segment" style="overflow-x: auto;">
+    <table class="data-table" style="width:100%; border-collapse: collapse;">
+        <thead>
+            <tr>
+                <th style="text-align:left; padding:12px 16px; border-bottom:2px solid var(--border-color); font-size:0.8rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-secondary);">RNC / ID</th>
+                <th style="text-align:left; padding:12px 16px; border-bottom:2px solid var(--border-color); font-size:0.8rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-secondary);">Nombre / Razón Social</th>
+                <th style="text-align:left; padding:12px 16px; border-bottom:2px solid var(--border-color); font-size:0.8rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-secondary);">Teléfono</th>
+                <th style="text-align:left; padding:12px 16px; border-bottom:2px solid var(--border-color); font-size:0.8rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-secondary);">Email</th>
+                <th style="text-align:left; padding:12px 16px; border-bottom:2px solid var(--border-color); font-size:0.8rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-secondary);">Tipo</th>
+                <th style="text-align:left; padding:12px 16px; border-bottom:2px solid var(--border-color); font-size:0.8rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-secondary);">Pipeline</th>
+                <th style="text-align:right; padding:12px 16px; border-bottom:2px solid var(--border-color); font-size:0.8rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-secondary);">Total Facturado</th>
+                <th style="text-align:center; padding:12px 16px; border-bottom:2px solid var(--border-color); font-size:0.8rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-secondary);">Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for c in contacts %}
+            <tr style="border-bottom:1px solid var(--border-color); transition:background 0.15s;" onmouseover="this.style.background='var(--bg-muted)'" onmouseout="this.style.background='transparent'">
+                <td style="padding:12px 16px;">
+                    <span style="font-family:monospace; font-size:0.85rem;">{{ c.rnc or '—' }}</span>
+                </td>
+                <td style="padding:12px 16px;">
+                    <a href="{{ url_for('web_contacts.contact_detail', contact_id=c.id) }}" style="font-weight:500; color:var(--text-primary); text-decoration:none;">
+                        {{ c.razonSocial or 'Sin nombre' }}
+                    </a>
+                </td>
+                <td style="padding:12px 16px; color:var(--text-secondary); font-size:0.85rem;">{{ c.telefono or '—' }}</td>
+                <td style="padding:12px 16px; color:var(--text-secondary); font-size:0.85rem;">{{ c.email or '—' }}</td>
+                <td style="padding:12px 16px;">
+                    {% set types = c.get('types', []) %}
+                    {% if 'cliente' in types and 'proveedor' in types %}
+                        <span class="badge-type badge-ambos"><i class="fa-solid fa-address-card"></i> Ambos</span>
+                    {% elif 'cliente' in types %}
+                        <span class="badge-type badge-cliente"><i class="fa-solid fa-user"></i> Cliente</span>
+                    {% elif 'proveedor' in types %}
+                        <span class="badge-type badge-proveedor"><i class="fa-solid fa-truck"></i> Proveedor</span>
+                    {% else %}
+                        <span class="badge-type" style="background:var(--bg-muted); color:var(--text-secondary);">—</span>
+                    {% endif %}
+                </td>
+                <td style="padding:12px 16px;">
+                    {% set stage = c.get('pipelineStage', 'Prospecto') %}
+                    <span class="pipeline-dot pipeline-{{ stage|replace(' ', '_') }}"></span>
+                    <span style="font-size:0.8rem; color:var(--text-secondary);">{{ stage }}</span>
+                </td>
+                <td style="padding:12px 16px; text-align:right; font-size:0.85rem;">
+                    {% if 'cliente' in c.get('types', []) %}
+                        <span style="font-weight:500;">RD$ {{ c.get('total_invoiced', 0)|round(2) }}</span>
+                    {% else %}
+                        <span style="color:var(--text-secondary);">—</span>
+                    {% endif %}
+                </td>
+                <td style="padding:12px 16px; text-align:center;">
+                    <div class="btn-group" style="justify-content:center;">
+                        <a href="{{ url_for('web_contacts.contact_detail', contact_id=c.id) }}" class="btn btn-ghost btn-xs" title="Ver">
+                            <i class="fa-solid fa-eye"></i>
+                        </a>
+                        <a href="{{ url_for('web_contacts.edit_contact', contact_id=c.id) }}" class="btn btn-ghost btn-xs" title="Editar">
+                            <i class="fa-solid fa-pen"></i>
+                        </a>
+                        <form method="POST" action="{{ url_for('web_contacts.delete_contact_route', contact_id=c.id) }}" style="display:inline" onsubmit="return confirm('¿Eliminar este contacto?')">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn btn-ghost btn-xs" title="Eliminar" style="color:var(--danger);">
+                                <i class="fa-solid fa-trash"></i>
+                            </button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="8" style="padding:40px 16px; text-align:center; color:var(--text-secondary);">
+                    <i class="fa-solid fa-address-card" style="font-size:2rem; margin-bottom:12px; display:block; opacity:0.4;"></i>
+                    No se encontraron contactos.
+                    <br><br>
+                    <a href="{{ url_for('web_contacts.new_contact') }}" class="btn btn-primary btn-sm">
+                        <i class="fa-solid fa-plus"></i> Crear primer contacto
+                    </a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Pagination -->
+{% if total_pages > 1 %}
+<div style="display:flex; justify-content:space-between; align-items:center; margin-top:16px; padding:12px 0;">
+    <div style="display:flex; align-items:center; gap:12px;">
+        <span style="font-size:0.8rem; color:var(--text-secondary);">
+            Mostrando {{ start_count }}-{{ end_count }} de {{ total_items }}
+        </span>
+        <select onchange="window.location.href='{{ url_for('web_contacts.list_contacts', tab=tab, q=q, page=1) }}&per_page='+this.value" style="padding:4px 8px; border:1px solid var(--border-color); border-radius:var(--radius-sm); font-size:0.8rem;">
+            <option value="10" {% if per_page == '10' or (per_page not in ['25','50','100','all'] and per_page != 'all') %}selected{% endif %}>10</option>
+            <option value="25" {% if per_page == '25' %}selected{% endif %}>25</option>
+            <option value="50" {% if per_page == '50' %}selected{% endif %}>50</option>
+            <option value="100" {% if per_page == '100' %}selected{% endif %}>100</option>
+            <option value="all" {% if per_page == 'all' %}selected{% endif %}>Todos</option>
+        </select>
+    </div>
+    <div class="pagination" style="display:flex; gap:4px;">
+        {% if has_prev %}
+        <a href="{{ url_for('web_contacts.list_contacts', tab=tab, q=q, page=page-1, per_page=per_page) }}" class="btn btn-ghost btn-xs"><i class="fa-solid fa-chevron-left"></i></a>
+        {% endif %}
+        {% for p in pages_range %}
+            {% if p == page %}
+            <span style="padding:6px 12px; background:var(--accent-emerald); color:white; border-radius:var(--radius-sm); font-size:0.8rem; font-weight:600;">{{ p }}</span>
+            {% elif p == 1 or p == total_pages or (p >= page-2 and p <= page+2) %}
+            <a href="{{ url_for('web_contacts.list_contacts', tab=tab, q=q, page=p, per_page=per_page) }}" class="btn btn-ghost btn-xs" style="padding:6px 12px;">{{ p }}</a>
+            {% elif p == page-3 or p == page+3 %}
+            <span style="padding:6px 8px; color:var(--text-secondary);">...</span>
+            {% endif %}
+        {% endfor %}
+        {% if has_next %}
+        <a href="{{ url_for('web_contacts.list_contacts', tab=tab, q=q, page=page+1, per_page=per_page) }}" class="btn btn-ghost btn-xs"><i class="fa-solid fa-chevron-right"></i></a>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+{% endblock %}

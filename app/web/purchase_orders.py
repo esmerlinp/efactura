@@ -591,6 +591,7 @@ def receipt_detail(receipt_id):
 # ═════════════════════════════════════════════════════════════════════
 
 from app.services.supplier_invoice_service import SupplierInvoiceService, ALLOWED_MIME_TYPES, MAX_FILE_SIZE
+from app.services.purchase_credit_note_service import PurchaseCreditNoteService
 
 MODULE_SINV = "Facturas de Proveedor"
 
@@ -951,8 +952,10 @@ def supplier_invoice_detail(invoice_id):
         invoice['cxpStatus'] = 'Vencido'
 
     payments = SupplierInvoiceService.get_payments(owner_uid, invoice_id, sandbox=sandbox)
+    bank_accounts = DatabaseService.get_bank_accounts(owner_uid, sandbox=sandbox)
     return render_template('purchase_orders/supplier_invoice_detail.html',
                            invoice=invoice, payments=payments,
+                           bank_accounts=bank_accounts,
                            active_page='purchase_cxp')
 
 
@@ -976,12 +979,14 @@ def pay_supplier_invoice(invoice_id):
 
     payment_method = request.form.get('paymentMethod', '').strip()
     payment_reference = request.form.get('paymentReference', '').strip()
+    bank_account_id = request.form.get('bankAccountId', '').strip()
     registered_by = session['user'].get('displayName', 'Usuario')
 
     success, message = SupplierInvoiceService.save_payment(
         owner_uid, invoice_id, amount, registered_by=registered_by,
         sandbox=sandbox, payment_method=payment_method,
-        payment_reference=payment_reference
+        payment_reference=payment_reference,
+        bank_account_id=bank_account_id
     )
 
     if success:
@@ -1163,3 +1168,140 @@ def api_next_supplier_invoice_number():
     sandbox = session.get('is_sandbox_mode', True)
     number = SupplierInvoiceService.get_next_invoice_number(owner_uid, sandbox=sandbox)
     return jsonify(success=True, invoiceNumber=number)
+
+
+# ═════════════════════════════════════════════════════════════════════
+# NOTAS DE CRÉDITO EN COMPRAS
+# ═════════════════════════════════════════════════════════════════════
+
+MODULE_CN = "Notas de Crédito en Compras"
+
+
+@web_purchase_orders_bp.route('/purchase-orders/credit-notes')
+def list_credit_notes():
+    if 'user' not in session:
+        return redirect(url_for('web_auth.login'))
+    if not check_permission('canManagePurchaseCXP'):
+        return render_template('auth/restricted.html', feature_name=MODULE_CN, required_permission="canManagePurchaseCXP")
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+
+    notes = PurchaseCreditNoteService.get_all(owner_uid, sandbox=sandbox)
+
+    search_query = request.args.get('search', '').strip().lower()
+    if search_query:
+        filtered = []
+        for n in notes:
+            haystack = f"{n.get('creditNoteNumber', '')} {n.get('creditedSupplierName', '')} {n.get('creditedInvoiceNumber', '')} {n.get('concept', '')}".lower()
+            if search_query in haystack:
+                filtered.append(n)
+        notes = filtered
+
+    return render_template('purchase_orders/credit_notes_list.html',
+                           notes=notes, search_query=search_query,
+                           active_page='purchase_credit_notes')
+
+
+@web_purchase_orders_bp.route('/purchase-orders/credit-notes/new', methods=['GET', 'POST'])
+def new_credit_note():
+    if 'user' not in session:
+        return redirect(url_for('web_auth.login'))
+    if not check_permission('canManagePurchaseCXP'):
+        return render_template('auth/restricted.html', feature_name=MODULE_CN, required_permission="canManagePurchaseCXP")
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+
+    if request.method == 'POST':
+        credited_invoice_id = request.form.get('creditedInvoiceId', '')
+        if not credited_invoice_id:
+            flash('❌ Debes seleccionar una factura de proveedor.', 'error')
+            return redirect(url_for('web_purchase_orders.new_credit_note'))
+
+        try:
+            amount = float(request.form.get('amount', 0))
+        except (ValueError, TypeError):
+            amount = 0
+        if amount <= 0:
+            flash('❌ El monto debe ser mayor a 0.', 'error')
+            return redirect(url_for('web_purchase_orders.new_credit_note'))
+
+        inv = SupplierInvoiceService.get(owner_uid, credited_invoice_id, sandbox=sandbox)
+        if not inv:
+            flash('❌ Factura de proveedor no encontrada.', 'error')
+            return redirect(url_for('web_purchase_orders.new_credit_note'))
+
+        rem_bal = float(inv.get('cxpRemainingBalance', inv.get('total', 0)))
+        if amount > rem_bal:
+            flash(f'❌ El monto (RD$ {amount:,.2f}) excede el saldo pendiente (RD$ {rem_bal:,.2f}).', 'error')
+            return redirect(url_for('web_purchase_orders.new_credit_note'))
+
+        created_by = session['user'].get('displayName', 'Usuario')
+        note_data = {
+            "creditedInvoiceId": credited_invoice_id,
+            "creditedInvoiceNumber": inv.get('invoiceNumber', ''),
+            "creditedSupplierName": inv.get('supplierName', ''),
+            "creditedSupplierRnc": inv.get('supplierRnc', ''),
+            "amount": amount,
+            "date": request.form.get('date', datetime.now(timezone.utc).strftime('%Y-%m-%d')),
+            "concept": request.form.get('concept', '').strip(),
+            "notes": request.form.get('notes', '').strip(),
+            "createdBy": created_by,
+        }
+
+        success, message = PurchaseCreditNoteService.create(owner_uid, note_data, sandbox=sandbox)
+        flash(message, 'success' if success else 'error')
+
+        if success:
+            AuditService.log_from_request(
+                owner_uid=owner_uid, action=ACTION_CREATE, module=MODULE_CN,
+                entity_id=note_data.get("id", ""),
+                entity_label=f"NC Compra {note_data.get('creditNoteNumber', '')} - {note_data.get('creditedSupplierName', '')}",
+                sandbox=sandbox
+            )
+        return redirect(url_for('web_purchase_orders.list_credit_notes'))
+
+    invoices = SupplierInvoiceService.get_all(owner_uid, sandbox=sandbox)
+    today_str = datetime.now(timezone.utc).strftime('%Y-%m-%d')
+    return render_template('purchase_orders/credit_note_form.html',
+                           invoices=invoices, today_str=today_str,
+                           active_page='purchase_credit_notes')
+
+
+@web_purchase_orders_bp.route('/purchase-orders/credit-notes/<note_id>')
+def credit_note_detail(note_id):
+    if 'user' not in session:
+        return redirect(url_for('web_auth.login'))
+    if not check_permission('canManagePurchaseCXP'):
+        return render_template('auth/restricted.html', feature_name=MODULE_CN, required_permission="canManagePurchaseCXP")
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+
+    note = PurchaseCreditNoteService.get(owner_uid, note_id, sandbox=sandbox)
+    if not note:
+        flash('❌ Nota de crédito no encontrada.', 'error')
+        return redirect(url_for('web_purchase_orders.list_credit_notes'))
+    return render_template('purchase_orders/credit_note_detail.html',
+                           note=note, active_page='purchase_credit_notes')
+
+
+@web_purchase_orders_bp.route('/purchase-orders/credit-notes/<note_id>/void', methods=['POST'])
+def void_credit_note(note_id):
+    if 'user' not in session:
+        return redirect(url_for('web_auth.login'))
+    if not check_permission('canManagePurchaseCXP'):
+        flash('❌ No tienes permiso para anular notas de crédito.', 'error')
+        return redirect(url_for('web_purchase_orders.list_credit_notes'))
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+
+    note = PurchaseCreditNoteService.get(owner_uid, note_id, sandbox=sandbox)
+    success, message = PurchaseCreditNoteService.void(owner_uid, note_id, sandbox=sandbox)
+    if success:
+        AuditService.log_from_request(
+            owner_uid=owner_uid, action=ACTION_UPDATE, module=MODULE_CN,
+            entity_id=note_id,
+            entity_label=f"NC Compra anulada: {note.get('creditNoteNumber', '')}" if note else f"NC {note_id}",
+            sandbox=sandbox
+        )
+    flash(message, 'success' if success else 'error')
+    return redirect(url_for('web_purchase_orders.list_credit_notes'))

@@ -2,7 +2,7 @@
    SISTEMA DE DISEÑO PREMIUM - VykOne WEB
    ========================================================================= */
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Roboto:wght@400;500;700&display=swap');
 
 :root {
     /* Paleta de Colores (Modo Claro Premium - Basado en app iOS) */
@@ -42,9 +42,9 @@
     --shadow-glow: 0 0 15px rgba(30, 58, 138, 0.15);
     --shadow-glow-purple: 0 0 15px rgba(124, 58, 237, 0.15);
 
-    /* Tipografía y Tamaños */
-    --font-heading: 'Outfit', 'Inter', sans-serif;
-    --font-body: 'Inter', sans-serif;
+    /* Tipografía y Tamaños - Alineada con Alegra */
+    --font-heading: 'Inter', 'Roboto', sans-serif;
+    --font-body: 'Inter', 'Roboto', sans-serif;
 
     /* Bordes y Transiciones */
     --radius-sm: 8px;
@@ -285,7 +285,7 @@ body:not(.sidebar-collapsed) .sidebar-logo .logo-text-wrapper {
 .sidebar-logo span.logo-title {
     font-family: var(--font-heading);
     font-size: 1.2rem;
-    font-weight: 800;
+    font-weight: 700;
     background: var(--brand-gradient);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -2470,4 +2470,105 @@ body.sandbox-mode .segment-header-icon.emerald {
 @keyframes slideInUp {
     from { transform: translateY(20px); opacity: 0; }
     to { transform: translateY(0); opacity: 1; }
+}
+
+/* =========================================================================
+   ACTION MENU (3 DOTS DROPDOWN)
+   ========================================================================= */
+.action-menu {
+    position: relative;
+    display: inline-block;
+}
+
+.action-menu-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-size: 1rem;
+    line-height: 1;
+    transition: background 0.15s, color 0.15s;
+}
+
+.action-menu-btn:hover {
+    background: rgba(0,0,0,0.05);
+    color: var(--text-primary);
+}
+
+.action-menu-dropdown {
+    display: none !important;
+    position: absolute;
+    right: 0;
+    top: 100%;
+    z-index: 1000;
+    min-width: 180px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+    padding: 4px;
+    margin-top: 4px;
+}
+
+.action-menu-dropdown.show {
+    display: block !important;
+}
+
+.action-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 8px 12px;
+    background: none;
+    border: none;
+    color: var(--text-primary);
+    font-size: 0.84rem;
+    font-family: inherit;
+    cursor: pointer;
+    border-radius: 4px;
+    text-decoration: none;
+    text-align: left;
+    white-space: nowrap;
+    transition: background 0.12s;
+}
+
+.action-menu-item:hover {
+    background: rgba(0,0,0,0.04);
+    color: var(--text-primary);
+    text-decoration: none;
+}
+
+.action-menu-item i {
+    width: 16px;
+    font-size: 0.88rem;
+    color: var(--text-muted);
+    text-align: center;
+}
+
+.action-menu-item.text-danger {
+    color: var(--accent-red);
+}
+
+.action-menu-item.text-danger i {
+    color: var(--accent-red);
+}
+
+.action-menu-item.text-danger:hover {
+    background: rgba(239, 68, 68, 0.08);
+}
+
+[data-theme="dark"] .action-menu-btn:hover {
+    background: rgba(255,255,255,0.08);
+}
+
+[data-theme="dark"] .action-menu-dropdown {
+    background: var(--bg-card);
+    border-color: var(--border-color);
+}
+
+[data-theme="dark"] .action-menu-item:hover {
+    background: rgba(255,255,255,0.06);
 }

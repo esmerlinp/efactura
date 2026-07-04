@@ -496,7 +496,7 @@
                             <th>Tasa ITBIS</th>
                             <th>Total Facturado</th>
                             <th>Estado</th>
-                            <th style="text-align: right;">Acciones</th>
+                            <th style="text-align: right; width: 50px;"></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -522,19 +522,26 @@
                                 </span>
                             </td>
                             <td style="text-align: right; white-space: nowrap;">
-                                <a href="{{ url_for('web_invoices.invoice_detail', invoice_id=inv.id) }}" class="btn btn-secondary" style="padding: 0 8px; font-size: 0.75rem; height: 26px; display: inline-flex; align-items: center; justify-content: center;" title="Ver Detalle de Factura">
-                                    <i class="fa-solid fa-eye"></i>
-                                </a>
-                                {% if inv.status == 'Borrador' or inv.status == 'Rechazada' or inv.isQuotation %}
-                                <form action="{{ url_for('web_invoices.delete_invoice_route', invoice_id=inv.id) }}"
-                                    method="POST" style="display: inline;"
-                                    onsubmit="return confirm('¿Eliminar este documento?\n\nFactura: {{ inv.invoiceNumber }}\nTotal: RD$ {{ '{:,.2f}'.format(inv.total) }}\n\nEsta acción no se puede deshacer.');">
-                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                    <button type="submit" class="btn btn-danger" style="padding: 0 8px; font-size: 0.75rem; height: 26px; display: inline-flex; align-items: center; justify-content: center;" title="Eliminar Borrador">
-                                        <i class="fa-solid fa-trash-can"></i>
+                                <div class="action-menu">
+                                    <button type="button" class="action-menu-btn" onclick="toggleActionMenu(event)" title="Acciones">
+                                        <i class="fa-solid fa-ellipsis-vertical"></i>
                                     </button>
-                                </form>
-                                {% endif %}
+                                    <div class="action-menu-dropdown">
+                                        <a href="{{ url_for('web_invoices.invoice_detail', invoice_id=inv.id) }}" class="action-menu-item">
+                                            <i class="fa-solid fa-eye"></i> Ver Detalle
+                                        </a>
+                                        {% if inv.status == 'Borrador' or inv.status == 'Rechazada' or inv.isQuotation %}
+                                        <form action="{{ url_for('web_invoices.delete_invoice_route', invoice_id=inv.id) }}"
+                                            method="POST" style="display:contents;"
+                                            onsubmit="return confirm('¿Eliminar este documento?\n\nFactura: {{ inv.invoiceNumber }}\nTotal: RD$ {{ '{:,.2f}'.format(inv.total) }}\n\nEsta acción no se puede deshacer.');">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                            <button type="submit" class="action-menu-item text-danger">
+                                                <i class="fa-solid fa-trash-can"></i> Eliminar Borrador
+                                            </button>
+                                        </form>
+                                        {% endif %}
+                                    </div>
+                                </div>
                             </td>
                         </tr>
                         {% endfor %}

@@ -19,6 +19,8 @@ MODULE_DEFS = [
     {"key": "auditoria", "label": "Auditoría", "category": "enterprise"},
     {"key": "exportacion_contable", "label": "Exportación Contable", "category": "enterprise"},
     {"key": "pasarela_azul", "label": "Pasarela de Pago Azul", "category": "enterprise"},
+    {"key": "price_lists", "label": "Listas de Precios", "category": "ventas"},
+    {"key": "banks", "label": "Bancos & Conciliación", "category": "finanzas"},
 ]
 
 def get_enabled_modules():

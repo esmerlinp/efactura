@@ -10,6 +10,7 @@ Documento Electrónico{% endif %}{% endblock %}
 <!-- Elementos ocultos con datos serializados para buscadores avanzados -->
 <div id="catalog-data-json" style="display: none;">{{ catalog_json }}</div>
 <div id="clients-data-json" style="display: none;">{{ clients_json }}</div>
+<div id="price-list-prices-json" style="display: none;">{{ price_list_prices_json }}</div>
 
 <form method="POST" id="invoice-form">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -508,27 +509,98 @@ Documento Electrónico{% endif %}{% endblock %}
         </div>
     </div>
 
-    <!-- TARJETA: COMENTARIOS ADICIONALES (ANCHO COMPLETO) -->
+    <!-- TARJETA: NOTAS, TÉRMINOS Y PIE DE FACTURA -->
     <div class="card-segment">
         <div class="segment-header">
             <div class="segment-header-icon purple">
-                <i class="fa-solid fa-comment-dots"></i>
+                <i class="fa-solid fa-pen"></i>
             </div>
-            <h3>{% if active_page == 'quotations' %}Comentarios de la Cotización{% else %}Comentarios de la Factura{%
-                endif %}</h3>
+            <h3>Información Adicional del Documento</h3>
         </div>
-        <div class="form-group" style="margin-bottom: 0;">
-            <div style="position: relative; display: flex; align-items: stretch; width: 100%; margin-top: 8px;">
-                <span
-                    style="position: absolute; left: 14px; top: 12px; color: var(--text-muted); font-size: 1.1rem; pointer-events: none;">
-                    <i class="fa-regular fa-comment"></i>
-                </span>
-                <textarea id="invoice-comentario" name="comentario" class="form-textarea" rows="3"
-                    placeholder="Escribe aquí algún comentario, observación o instrucción adicional para este documento..."
-                    style="padding-left: 42px; font-family: inherit; font-size: 0.92rem; min-height: 80px; width: 100%; resize: vertical; border-radius: var(--radius-sm);">{% if invoice %}{{ invoice.comentario or '' }}{% endif %}</textarea>
+        <div id="additional-info-container" style="margin-top: 4px;">
+
+        <!-- Notas -->
+        <div class="collapse-field form-group" style="margin-bottom: 0; border-bottom: 1px solid rgba(0,0,0,0.04);">
+            <div class="collapse-field-header" onclick="toggleCollapseField(this)"
+                style="display: flex; align-items: center; gap: 10px; padding: 12px 0; cursor: pointer; user-select: none;">
+                <i class="fa-regular fa-note-sticky" style="color: var(--accent-emerald); font-size: 1rem; width: 20px;"></i>
+                <span style="font-weight: 600; font-size: 0.88rem; color: var(--text-primary);">Notas</span>
+                <span class="collapse-field-preview" style="font-size: 0.82rem; color: var(--text-muted); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{% if invoice and invoice.comentario %}{{ invoice.comentario }}{% else %}Agrega comentarios para aclarar datos de la factura, serán visibles en el PDF...{% endif %}</span>
+                <i class="fa-solid fa-chevron-down" style="font-size: 0.7rem; color: var(--text-muted); transition: transform 0.2s;"></i>
             </div>
+            <div class="collapse-field-body" style="max-height: 0; overflow: hidden; transition: max-height 0.25s ease;">
+                <textarea id="invoice-comentario" name="comentario" class="form-textarea" rows="3" oninput="updateCollapsePreview(this)"
+                    placeholder="Agrega comentarios para aclarar datos de la factura, serán visibles en el PDF..."
+                    style="font-family: inherit; font-size: 0.92rem; min-height: 80px; width: 100%; resize: vertical; border-radius: var(--radius-sm); margin-bottom: 12px;">{% if invoice %}{{ invoice.comentario or '' }}{% endif %}</textarea>
+            </div>
+        </div>
+
+        <!-- Términos y condiciones -->
+        <div class="collapse-field form-group" style="margin-bottom: 0; border-bottom: 1px solid rgba(0,0,0,0.04);">
+            <div class="collapse-field-header" onclick="toggleCollapseField(this)"
+                style="display: flex; align-items: center; gap: 10px; padding: 12px 0; cursor: pointer; user-select: none;">
+                <i class="fa-regular fa-file-lines" style="color: var(--accent-purple); font-size: 1rem; width: 20px;"></i>
+                <span style="font-weight: 600; font-size: 0.88rem; color: var(--text-primary);">Términos y condiciones</span>
+                <span class="collapse-field-preview" style="font-size: 0.82rem; color: var(--text-muted); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{% if invoice and invoice.notes %}{{ invoice.notes }}{% else %}Agregue condiciones o cláusulas relacionadas con esta factura que serán visibles en el PDF...{% endif %}</span>
+                <i class="fa-solid fa-chevron-down" style="font-size: 0.7rem; color: var(--text-muted); transition: transform 0.2s;"></i>
+            </div>
+            <div class="collapse-field-body" style="max-height: 0; overflow: hidden; transition: max-height 0.25s ease;">
+                <textarea id="invoice-notes" name="notes" class="form-textarea" rows="3" oninput="updateCollapsePreview(this)"
+                    placeholder="Agregue condiciones o cláusulas relacionadas con esta factura que serán visibles en el PDF..."
+                    style="font-family: inherit; font-size: 0.92rem; min-height: 80px; width: 100%; resize: vertical; border-radius: var(--radius-sm); margin-bottom: 12px;">{% if invoice %}{{ invoice.notes or '' }}{% endif %}</textarea>
+            </div>
+        </div>
+
+        <!-- Pie de factura -->
+        <div class="collapse-field form-group" style="margin-bottom: 0;">
+            <div class="collapse-field-header" onclick="toggleCollapseField(this)"
+                style="display: flex; align-items: center; gap: 10px; padding: 12px 0; cursor: pointer; user-select: none;">
+                <i class="fa-regular fa-rectangle-ad" style="color: var(--accent-blue); font-size: 1rem; width: 20px;"></i>
+                <span style="font-weight: 600; font-size: 0.88rem; color: var(--text-primary);">Pie de factura</span>
+                <span class="collapse-field-preview" style="font-size: 0.82rem; color: var(--text-muted); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{% if invoice and invoice.footer %}{{ invoice.footer }}{% else %}Agregue información adicional que será visible en el pie del PDF...{% endif %}</span>
+                <i class="fa-solid fa-chevron-down" style="font-size: 0.7rem; color: var(--text-muted); transition: transform 0.2s;"></i>
+            </div>
+            <div class="collapse-field-body" style="max-height: 0; overflow: hidden; transition: max-height 0.25s ease;">
+                <textarea id="invoice-footer" name="footer" class="form-textarea" rows="2" oninput="updateCollapsePreview(this)"
+                    placeholder="Agregue información adicional que será visible en el pie del PDF..."
+                    style="font-family: inherit; font-size: 0.92rem; min-height: 60px; width: 100%; resize: vertical; border-radius: var(--radius-sm); margin-bottom: 12px;">{% if invoice %}{{ invoice.footer or '' }}{% endif %}</textarea>
+            </div>
+        </div>
+
         </div>
     </div>
+
+    <script>
+    function toggleCollapseField(header) {
+        const body = header.nextElementSibling;
+        const chevron = header.querySelector('.fa-chevron-down');
+        if (body.style.maxHeight && body.style.maxHeight !== '0px') {
+            body.style.maxHeight = '0';
+            if (chevron) chevron.style.transform = '';
+        } else {
+            body.style.maxHeight = body.scrollHeight + 'px';
+            if (chevron) chevron.style.transform = 'rotate(180deg)';
+        }
+    }
+
+    function updateCollapsePreview(textarea) {
+        const header = textarea.closest('.collapse-field').querySelector('.collapse-field-preview');
+        if (header) {
+            header.textContent = textarea.value || textarea.placeholder;
+        }
+    }
+
+    // Expandir campos si tienen contenido al cargar
+    document.addEventListener('DOMContentLoaded', function() {
+        document.querySelectorAll('#additional-info-container .collapse-field').forEach(function(field) {
+            const textarea = field.querySelector('textarea');
+            if (textarea && textarea.value.trim()) {
+                const header = field.querySelector('.collapse-field-header');
+                if (header) toggleCollapseField(header);
+            }
+        });
+    });
+    </script>
 
     <!-- TARJETA 4: RESUMEN FINANCIERO DE TOTALES (ANCHO COMPLETO) -->
     <div class="card-totals-highlight"

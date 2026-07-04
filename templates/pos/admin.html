@@ -135,7 +135,7 @@
                         <th style="text-align: right;">Esperado</th>
                         <th style="text-align: right;">Declarado</th>
                         <th style="text-align: right;">Diferencia</th>
-                        <th style="text-align: center;">Acciones</th>
+                        <th style="text-align: center; width: 50px;"></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -194,18 +194,20 @@
                                 {% endif %}
                         </td>
                         <td style="text-align: center;">
-                            {% if shift.status == 'PENDING_AUDIT' %}
-                            <a href="{{ url_for('web_pos.pos_admin_shift_detail', shift_id=shift.id) }}" class="btn"
-                                style="padding: 4px 10px; font-size: 0.78rem; font-weight: 700; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; background-color: #ff9800; color: white; border: none; border-radius: 4px;">
-                                <i class="fa-solid fa-calculator"></i> Auditar
-                            </a>
-                            {% else %}
-                            <a href="{{ url_for('web_pos.pos_admin_shift_detail', shift_id=shift.id) }}"
-                                class="btn btn-secondary"
-                                style="padding: 4px 10px; font-size: 0.78rem; font-weight: 500; text-decoration: none; display: inline-flex; align-items: center; gap: 4px;">
-                                <i class="fa-solid fa-magnifying-glass"></i> Ver Detalle
-                            </a>
-                            {% endif %}
+                            <div class="action-menu">
+                                <button type="button" class="action-menu-btn" onclick="toggleActionMenu(event)" title="Acciones">
+                                    <i class="fa-solid fa-ellipsis-vertical"></i>
+                                </button>
+                                <div class="action-menu-dropdown">
+                                    <a href="{{ url_for('web_pos.pos_admin_shift_detail', shift_id=shift.id) }}" class="action-menu-item">
+                                        {% if shift.status == 'PENDING_AUDIT' %}
+                                        <i class="fa-solid fa-calculator"></i> Auditar
+                                        {% else %}
+                                        <i class="fa-solid fa-magnifying-glass"></i> Ver Detalle
+                                        {% endif %}
+                                    </a>
+                                </div>
+                            </div>
                         </td>
                     </tr>
                     {% endfor %}

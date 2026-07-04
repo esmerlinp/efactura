@@ -1045,11 +1045,11 @@
 
     {% if invoice.notes or invoice.comentario %}
     <div class="notes-section" style="margin-top: 20px;">
-        {% if invoice.notes %}
-        <div><strong>Observaciones:</strong> {{ invoice.notes }}</div>
-        {% endif %}
         {% if invoice.comentario %}
-        <div style="margin-top: 4px;"><strong>Comentario Adicional:</strong> {{ invoice.comentario }}</div>
+        <div><strong>Notas:</strong> {{ invoice.comentario }}</div>
+        {% endif %}
+        {% if invoice.notes %}
+        <div style="margin-top: 4px;"><strong>Términos y condiciones:</strong> {{ invoice.notes }}</div>
         {% endif %}
     </div>
     {% endif %}
@@ -1059,6 +1059,9 @@
     <div class="footer"
         style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #e2e8f0; padding-top: 8px; margin-top: auto;">
         <div style="text-align: left; font-size: 10px;">
+            {% if invoice.footer %}
+            <div style="margin-bottom: 4px;">{{ invoice.footer }}</div>
+            {% endif %}
             {% if invoice.isQuotation %}
             {% if pd and pd.get('validityDays') %}Válido por {{ pd.validityDays }} días desde su emisión.{% endif %}
             {% if invoice.get('isProfessional') %}Cotización profesional generada en {{ product_name }}.{% endif %}

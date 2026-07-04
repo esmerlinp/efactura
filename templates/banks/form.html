@@ -1,0 +1,89 @@
+{% extends "layout.html" %}
+
+{% block title %}{% if account %}Editar Cuenta{% else %}Nueva Cuenta{% endif %}{% endblock %}
+
+{% block page_header %}{% if account %}Editar Cuenta Bancaria{% else %}Nueva Cuenta Bancaria{% endif %}{% endblock %}
+
+{% block content %}
+<div class="card-table-wrapper" style="max-width:700px; margin:0 auto;">
+    <h3 style="font-size:1.25rem; font-family:var(--font-heading); margin-bottom:24px; border-bottom:1px solid var(--border-color); padding-bottom:14px;">
+        <i class="fa-solid fa-building-columns" style="color:var(--accent-emerald);"></i>
+        <span>Crea tus cuentas de banco, efectivo o tarjetas de crédito.</span>
+    </h3>
+
+    <form action="{% if account %}{{ url_for('web_banks.edit_bank', account_id=account.id) }}{% else %}{{ url_for('web_banks.new_bank') }}{% endif %}" method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="form-grid">
+            <div class="form-group" style="grid-column:1/-1;">
+                <label for="name">Nombre de la cuenta <span style="color:var(--accent-red);">*</span></label>
+                <input type="text" id="name" name="name" class="form-input" placeholder="Ej: Banco Popular, Caja chica, Tarjeta empresarial" required
+                    value="{{ account.name if account else '' }}">
+            </div>
+
+            <div class="form-group">
+                <label for="type">Tipo de cuenta <span style="color:var(--accent-red);">*</span></label>
+                <select id="type" name="type" class="form-input" required onchange="toggleCreditLimit()">
+                    {% for key, label in account_types.items() %}
+                    <option value="{{ key }}" {% if account and account.type == key %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="accountNumber">Número de cuenta</label>
+                <input type="text" id="accountNumber" name="accountNumber" class="form-input" placeholder="Opcional"
+                    value="{{ account.accountNumber if account else '' }}">
+            </div>
+
+            <div class="form-group">
+                <label for="initialBalance">Saldo inicial <span style="color:var(--accent-red);">*</span></label>
+                <div style="display:flex; gap:8px; align-items:center;">
+                    <span style="font-weight:600; color:var(--text-secondary);">RD$</span>
+                    <input type="number" id="initialBalance" name="initialBalance" class="form-input" step="0.01" min="0" required
+                        value="{{ account.initialBalance if account else '0' }}" style="flex:1;">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="balanceDate">Fecha de saldo inicial</label>
+                <input type="date" id="balanceDate" name="balanceDate" class="form-input"
+                    value="{{ account.balanceDate if account else '' }}">
+            </div>
+
+            <div class="form-group" id="credit-limit-group" style="display:none;">
+                <label for="creditLimit">Límite de crédito</label>
+                <div style="display:flex; gap:8px; align-items:center;">
+                    <span style="font-weight:600; color:var(--text-secondary);">RD$</span>
+                    <input type="number" id="creditLimit" name="creditLimit" class="form-input" step="0.01" min="0"
+                        value="{{ account.creditLimit if account else '0' }}" style="flex:1;">
+                </div>
+            </div>
+
+            <div class="form-group" style="grid-column:1/-1;">
+                <label for="description">Descripción</label>
+                <textarea id="description" name="description" class="form-textarea" rows="3" placeholder="Descripción opcional de la cuenta">{{ account.description if account else '' }}</textarea>
+            </div>
+        </div>
+
+        <div style="display:flex; gap:12px; margin-top:24px; padding-top:20px; border-top:1px solid var(--border-color);">
+            <button type="submit" class="btn btn-primary">
+                <i class="fa-solid fa-floppy-disk"></i> {% if account %}Guardar cambios{% else %}Crear cuenta{% endif %}
+            </button>
+            <a href="{{ url_for('web_banks.list_banks') }}" class="btn btn-secondary">
+                <i class="fa-solid fa-xmark"></i> Cancelar
+            </a>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    function toggleCreditLimit() {
+        const type = document.getElementById('type').value;
+        const group = document.getElementById('credit-limit-group');
+        group.style.display = type === 'tarjeta' ? 'block' : 'none';
+    }
+    toggleCreditLimit();
+</script>
+{% endblock %}

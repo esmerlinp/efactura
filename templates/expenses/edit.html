@@ -501,6 +501,17 @@
                                 </select>
                             </div>
 
+                            <div class="form-group span-full">
+                                <label for="bankAccountId">Cuenta Bancaria / Efectivo</label>
+                                <select id="bankAccountId" name="bankAccountId" class="form-select" style="width: 100%;">
+                                    <option value="">-- Seleccionar Cuenta --</option>
+                                    {% for acc in bank_accounts %}
+                                    <option value="{{ acc.id }}" {% if expense.bankAccountId == acc.id %}selected{% endif %}>{{ acc.name }} ({{ acc.type|capitalize }}) — RD$ {{ "{:,.2f}".format(acc.currentBalance) }}</option>
+                                    {% endfor %}
+                                </select>
+                                <small style="color: var(--text-muted); font-size: 0.72rem;">Selecciona la cuenta desde la cual se realizó o realizará el pago.</small>
+                            </div>
+
                             <div class="span-full">
                                 <div class="credit-box" id="cxp-fields" style="{% if expense.paymentType == 'Crédito' %}display:flex;{% endif %}">
                                     <div class="form-group" style="margin-bottom: 0;">

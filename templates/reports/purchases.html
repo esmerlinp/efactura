@@ -1,0 +1,320 @@
+{% extends "layout.html" %}
+{% block title %}Compras{% endblock %}
+{% block page_header %}Compras{% endblock %}
+{% block content %}
+<style>
+    .breadcrumb {
+        display: flex; align-items: center; gap: 6px;
+        font-size: 0.8rem; color: var(--text-muted); margin-bottom: 16px;
+    }
+    .breadcrumb a { color: var(--text-muted); text-decoration: none; font-weight: 500; }
+    .breadcrumb a:hover { color: var(--accent-emerald); }
+    .breadcrumb .sep { color: #cbd5e1; }
+
+    .page-subtitle {
+        font-size: 0.85rem; color: var(--text-muted); margin: -8px 0 18px 0;
+        line-height: 1.5; max-width: 640px;
+    }
+
+    .pur-filters {
+        background: #fff; border: 1px solid #e2e8f0; border-radius: 14px;
+        padding: 18px 22px; margin-bottom: 24px;
+        display: flex; align-items: flex-end; gap: 14px; flex-wrap: wrap;
+    }
+    .pur-filters .filter-group {
+        display: flex; flex-direction: column; gap: 4px;
+    }
+    .pur-filters .filter-group label {
+        font-size: 0.72rem; font-weight: 600; color: var(--text-muted);
+        text-transform: uppercase; letter-spacing: 0.04em;
+    }
+    .pur-filters .filter-group select, .pur-filters .filter-group input {
+        height: 40px; padding: 0 12px; border: 1px solid #e2e8f0;
+        border-radius: 8px; font-size: 0.86rem; background: #fff;
+        outline: none; min-width: 140px; transition: border-color 0.15s;
+    }
+    .pur-filters .filter-group select:focus, .pur-filters .filter-group input:focus {
+        border-color: var(--accent-emerald);
+    }
+    
+    .pur-filters .btn-group {
+        display: flex; gap: 8px; margin-left: auto;
+    }
+    .pur-filters .btn-group .btn {
+        height: 40px; padding: 0 20px; font-size: 0.86rem;
+        border-radius: 8px; font-weight: 600;
+        display: inline-flex; align-items: center; gap: 6px;
+        cursor: pointer; border: none; transition: all 0.15s;
+    }
+    .pur-filters .btn-group .btn-primary {
+        background: var(--accent-emerald); color: #fff;
+    }
+    .pur-filters .btn-group .btn-primary:hover { opacity: 0.9; }
+    .pur-filters .btn-group .btn-secondary {
+        background: #f8fafc; color: var(--text-primary);
+        border: 1px solid #e2e8f0; text-decoration: none;
+    }
+    .pur-filters .btn-group .btn-secondary:hover { background: #f1f5f9; }
+
+    .pur-summary-cards {
+        display: flex; gap: 16px; margin-bottom: 24px; flex-wrap: wrap;
+    }
+    .pur-summary-card {
+        background: #fff; border: 1px solid #e2e8f0; border-radius: 14px;
+        padding: 18px 22px; display: inline-flex; flex-grow: 1;
+        flex-direction: column; gap: 6px; min-width: 220px;
+    }
+    .pur-summary-card .card-label {
+        font-size: 0.72rem; font-weight: 700; color: var(--text-muted);
+        text-transform: uppercase; letter-spacing: 0.04em;
+    }
+    .pur-summary-card .card-value {
+        font-size: 1.5rem; font-weight: 800; color: var(--text-primary);
+    }
+
+    .pur-table-wrap {
+        background: #fff; border: 1px solid #e2e8f0; border-radius: 14px;
+        overflow: hidden; margin-bottom: 20px;
+    }
+    .pur-table-wrap table {
+        width: 100%; border-collapse: collapse; font-size: 0.85rem;
+    }
+    .pur-table-wrap thead th {
+        background: #f8fafc; text-align: left; padding: 12px 16px;
+        font-size: 0.72rem; font-weight: 700; color: var(--text-muted);
+        text-transform: uppercase; letter-spacing: 0.04em;
+        border-bottom: 1px solid #e2e8f0;
+    }
+    .pur-table-wrap tbody td {
+        padding: 12px 16px; border-bottom: 1px solid #f1f5f9;
+        color: var(--text-primary);
+    }
+    .pur-table-wrap tbody tr:last-child td { border-bottom: none; }
+    .pur-table-wrap tbody tr:hover { background: #f8fafc; }
+    .pur-table-wrap .text-right { text-align: right; }
+
+    .pur-badge {
+        padding: 4px 8px; border-radius: 6px; font-size: 0.7rem; font-weight: 700;
+        text-transform: uppercase; letter-spacing: 0.02em; display: inline-flex; align-items: center; gap: 4px;
+    }
+    .pur-badge.paid { background: #ecfdf5; color: #047857; }
+    .pur-badge.pending { background: #fffbeb; color: #b45309; }
+    .pur-badge.overdue { background: #fef2f2; color: #b91c1c; }
+
+    .pur-pagination {
+        display: flex; justify-content: space-between; align-items: center;
+        padding: 14px 16px; background: #fff;
+        border: 1px solid #e2e8f0; border-radius: 12px; gap: 12px;
+        flex-wrap: wrap;
+    }
+    .pur-pagination .info {
+        font-size: 0.82rem; color: var(--text-muted);
+    }
+    .pur-pagination .pages {
+        display: flex; gap: 4px; align-items: center;
+    }
+    .pur-pagination .pages .btn-page {
+        padding: 6px 12px; border-radius: 6px; font-size: 0.82rem;
+        font-weight: 600; border: 1px solid #e2e8f0; color: var(--text-primary);
+        background: #fff; text-decoration: none; transition: all 0.15s;
+    }
+    .pur-pagination .pages .btn-page:hover { background: #f1f5f9; }
+    .pur-pagination .pages .btn-page.active {
+        background: var(--accent-emerald); color: #fff; border-color: var(--accent-emerald);
+    }
+    .pur-pagination .pages .btn-page[disabled] {
+        opacity: 0.4; cursor: default;
+    }
+    .pur-pagination .pages .dots {
+        padding: 6px 4px; color: var(--text-muted);
+    }
+    .pur-pagination .per-page {
+        display: flex; align-items: center; gap: 6px;
+        font-size: 0.82rem; color: var(--text-muted);
+    }
+    .pur-pagination .per-page select {
+        height: 32px; padding: 0 8px; border: 1px solid #e2e8f0;
+        border-radius: 6px; font-size: 0.82rem; background: #fff;
+        outline: none;
+    }
+
+    .pur-empty {
+        text-align: center; padding: 60px 24px; color: var(--text-muted);
+    }
+    .pur-empty h3 { font-size: 1.1rem; margin: 0 0 8px 0; color: var(--text-primary); }
+    .pur-empty p { font-size: 0.88rem; margin: 0 0 20px 0; }
+    
+    .pur-empty .btn-new {
+        height: 40px; padding: 0 24px; font-size: 0.88rem; font-weight: 600;
+        background: var(--accent-emerald); color: #fff; border-radius: 8px;
+        border: none; cursor: pointer; display: inline-flex; align-items: center; gap: 8px;
+        text-decoration: none; transition: opacity 0.15s;
+    }
+    .pur-empty .btn-new:hover { opacity: 0.9; }
+
+    @media (max-width: 992px) {
+        .pur-table-wrap { overflow-x: auto; }
+    }
+</style>
+
+<div class="breadcrumb">
+    <a href="{{ url_for('web_invoices.reports_dashboard') }}">Reportes</a>
+    <span class="sep">/</span>
+    <a href="{{ url_for('web_invoices.reports_category', category_key='administrativos') }}">Administrativos</a>
+    <span class="sep">/</span>
+    <span>Compras</span>
+</div>
+
+<p class="page-subtitle">Consulta el detalle de las facturas de compra que tienes registradas en tu contabilidad.</p>
+
+<div class="pur-filters">
+    <form method="GET" style="display:contents;" id="filter-form">
+        <div class="filter-group">
+            <label for="year-select">Año</label>
+            <select id="year-select" name="year">
+                {% for y in years_range %}
+                <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-group">
+            <label for="month-select">Periodo</label>
+            <select id="month-select" name="month">
+                <option value="0" {% if month == 0 %}selected{% endif %}>Todo el año</option>
+                {% for m_val, m_name in months_list %}
+                <option value="{{ m_val }}" {% if m_val == month %}selected{% endif %}>{{ m_name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="filter-group" style="min-width: 240px;">
+            <label for="q-input">Filtrar</label>
+            <input type="text" id="q-input" name="q" value="{{ q }}" placeholder="Buscar por proveedor o NCF...">
+        </div>
+        <div class="btn-group">
+            <button type="submit" class="btn btn-primary">
+                <i class="fa-solid fa-rotate"></i> Actualizar
+            </button>
+            <a href="{{ url_for('web_reports_sales.purchases_export', year=year, month=month, q=q) }}" class="btn btn-secondary">
+                <i class="fa-solid fa-download"></i> Descargar
+            </a>
+        </div>
+    </form>
+</div>
+
+<div class="pur-summary-cards">
+    <div class="pur-summary-card">
+        <span class="card-label">Antes de impuestos</span>
+        <div class="card-value">RD$ {{ "{:,.2f}".format(total_before_tax) }}</div>
+    </div>
+    <div class="pur-summary-card">
+        <span class="card-label">Después de impuestos</span>
+        <div class="card-value">RD$ {{ "{:,.2f}".format(total_after_tax) }}</div>
+    </div>
+</div>
+
+{% if rows %}
+<div class="pur-table-wrap">
+    <table>
+        <thead>
+            <tr>
+                <th>Factura #</th>
+                <th>Factura Proveedor</th>
+                <th>Proveedor</th>
+                <th>Emisión</th>
+                <th>Vencimiento</th>
+                <th class="text-right">Antes de impuestos</th>
+                <th class="text-right">Impuesto</th>
+                <th class="text-right">Después de impuestos</th>
+                <th>Estado</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for r in rows %}
+            <tr>
+                <td>
+                    <a href="{{ url_for('web_purchase_orders.supplier_invoice_detail', invoice_id=r.id) }}" style="font-weight: 700; color: var(--accent-emerald); text-decoration: none;">
+                        {{ r.invoice_number }}
+                    </a>
+                </td>
+                <td style="font-weight: 600; color: var(--text-muted);">{{ r.supplier_invoice_number }}</td>
+                <td>
+                    <strong style="display: block;">{{ r.supplier_name }}</strong>
+                    <small style="color: var(--text-muted); font-size: 0.75rem;">RNC: {{ r.supplier_rnc }}</small>
+                </td>
+                <td style="color: var(--text-muted);">{{ r.date }}</td>
+                <td style="color: var(--text-muted);">{{ r.due_date }}</td>
+                <td class="text-right" style="font-weight: 500;">RD$ {{ "{:,.2f}".format(r.before_tax) }}</td>
+                <td class="text-right" style="color: var(--text-muted);">RD$ {{ "{:,.2f}".format(r.tax) }}</td>
+                <td class="text-right" style="font-weight: 600; color: var(--accent-emerald);">RD$ {{ "{:,.2f}".format(r.after_tax) }}</td>
+                <td>
+                    {% if r.status == 'Pagado' %}
+                    <span class="pur-badge paid"><i class="fa-solid fa-circle-check"></i> Pagado</span>
+                    {% elif r.status == 'Vencido' %}
+                    <span class="pur-badge overdue"><i class="fa-solid fa-triangle-exclamation"></i> Vencido</span>
+                    {% else %}
+                    <span class="pur-badge pending"><i class="fa-solid fa-clock"></i> {{ r.status }}</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div class="pur-pagination">
+    <div class="info">
+        Mostrando <strong>{{ start_count }}</strong> a <strong>{{ end_count }}</strong> de <strong>{{ total_items }}</strong> factura{% if total_items != 1 %}s{% endif %}
+    </div>
+    <div class="pages">
+        {% if page > 1 %}
+        <a href="?year={{ year }}&month={{ month }}&q={{ q }}&page={{ page - 1 }}&per_page={{ per_page }}" class="btn-page">Anterior</a>
+        {% else %}
+        <span class="btn-page" disabled>Anterior</span>
+        {% endif %}
+
+        {% for p in range(1, total_pages + 1) %}
+            {% if p == page %}
+            <span class="btn-page active">{{ p }}</span>
+            {% elif p <= 3 or p >= total_pages - 2 or (p >= page - 2 and p <= page + 2) %}
+            <a href="?year={{ year }}&month={{ month }}&q={{ q }}&page={{ p }}&per_page={{ per_page }}" class="btn-page">{{ p }}</a>
+            {% elif p == 4 or p == total_pages - 3 %}
+            <span class="dots">...</span>
+            {% endif %}
+        {% endfor %}
+
+        {% if page < total_pages %}
+        <a href="?year={{ year }}&month={{ month }}&q={{ q }}&page={{ page + 1 }}&per_page={{ per_page }}" class="btn-page">Siguiente</a>
+        {% else %}
+        <span class="btn-page" disabled>Siguiente</span>
+        {% endif %}
+    </div>
+    <div class="per-page">
+        <span>Ítems por página</span>
+        <select onchange="var p=new URLSearchParams(location.search);p.set('per_page',this.value);p.set('page','1');window.location.search=p.toString()">
+            {% for val in [5, 10, 20, 50] %}
+            <option value="{{ val }}" {% if per_page == val %}selected{% endif %}>{{ val }}</option>
+            {% endfor %}
+        </select>
+    </div>
+</div>
+{% else %}
+<div class="pur-empty">
+    <i class="fa-solid fa-magnifying-glass" style="font-size: 3rem; opacity: 0.3; margin-bottom: 16px; display: block;"></i>
+    <h3>¡No hay registros que cumplan con los filtros especificados!</h3>
+    <p>Registra facturas recibidas de tus proveedores para poblar esta sección.</p>
+    <a href="{{ url_for('web_purchase_orders.list_purchase_orders') }}" class="btn-new">
+        <i class="fa-solid fa-plus"></i> Nueva factura de compra
+    </a>
+</div>
+<div class="pur-pagination" style="justify-content: flex-end;">
+    <div class="per-page">
+        <span>Ítems por página</span>
+        <select onchange="var p=new URLSearchParams(location.search);p.set('per_page',this.value);p.set('page','1');window.location.search=p.toString()">
+            {% for val in [5, 10, 20, 50] %}
+            <option value="{{ val }}" {% if per_page == val %}selected{% endif %}>{{ val }}</option>
+            {% endfor %}
+        </select>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

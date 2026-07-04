@@ -142,7 +142,8 @@ def _cached_user_profile(uid):
                     "canToggleSandbox": bool(perms.get("canToggleSandbox", True)),
                     "canManageNotes": bool(perms.get("canManageNotes", True)),
                     "canManageSuppliers": bool(perms.get("canManageSuppliers", True)),
-                    "canManagePurchaseCXP": bool(perms.get("canManagePurchaseCXP", True))
+                    "canManagePurchaseCXP": bool(perms.get("canManagePurchaseCXP", True)),
+                    "canUseChatbot": bool(perms.get("canUseChatbot", False))
                 },
                 "createdAt": serialize_field(data.get("createdAt")),
                 "two_factor_enabled": bool(data.get("two_factor_enabled", False)),
@@ -322,6 +323,7 @@ def _cached_invoices(owner_uid, sandbox, quotations_only, include_all):
                     "isConvertedToInvoice": bool(data.get("isConvertedToInvoice", False)),
                     "notes": data.get("notes", ""),
                     "comentario": data.get("comentario", ""),
+                    "footer": data.get("footer", ""),
                     "isRecurring": bool(data.get("isRecurring", False)),
                     "recurrenceInterval": data.get("recurrenceInterval", "mensual"),
                     "nextOccurrenceDate": serialize_field(data.get("nextOccurrenceDate")),
@@ -345,7 +347,8 @@ def _cached_invoices(owner_uid, sandbox, quotations_only, include_all):
                     "items": items,
                     "pendingPaymentProof": data.get("pendingPaymentProof"),
                     "isProfessional": data.get("isProfessional", False),
-                    "professionalData": data.get("professionalData", {})
+                    "professionalData": data.get("professionalData", {}),
+                    "registeredBy": data.get("registeredBy", "")
                 })
             invoices.sort(key=lambda x: x["date"] or "", reverse=True)
         except Exception as e:
@@ -717,7 +720,8 @@ class DatabaseService:
                     "canToggleSandbox": True,
                     "canManageNotes": True,
                     "canManageSuppliers": True,
-                    "canManagePurchaseCXP": True
+                    "canManagePurchaseCXP": True,
+                    "canUseChatbot": False
                 },
                 "createdAt": created_at,
                 "associated_companies": [],
@@ -842,7 +846,8 @@ class DatabaseService:
                         "canToggleSandbox": bool(perms.get("canToggleSandbox", True)),
                         "canManageNotes": bool(perms.get("canManageNotes", True)),
                         "canManageSuppliers": bool(perms.get("canManageSuppliers", True)),
-                        "canManagePurchaseCXP": bool(perms.get("canManagePurchaseCXP", True))
+                        "canManagePurchaseCXP": bool(perms.get("canManagePurchaseCXP", True)),
+                        "canUseChatbot": bool(perms.get("canUseChatbot", False))
                     },
                     "createdAt": created_at,
                     "two_factor_enabled": bool(data.get("two_factor_enabled", False)),
@@ -880,7 +885,8 @@ class DatabaseService:
                         "canToggleSandbox": True,
                         "canManageNotes": True,
                         "canManageSuppliers": True,
-                        "canManagePurchaseCXP": True
+                        "canManagePurchaseCXP": True,
+                        "canUseChatbot": False
                     },
                     "createdAt": datetime.now(timezone.utc).isoformat(),
                     "two_factor_enabled": False,
@@ -978,7 +984,8 @@ class DatabaseService:
                                 "canToggleSandbox": bool(emp_data.get("permissions", {}).get("canToggleSandbox", True)),
                                 "canManageNotes": bool(emp_data.get("permissions", {}).get("canManageNotes", True)),
                                 "canManageSuppliers": bool(emp_data.get("permissions", {}).get("canManageSuppliers", True)),
-                                "canManagePurchaseCXP": bool(emp_data.get("permissions", {}).get("canManagePurchaseCXP", True))
+                                "canManagePurchaseCXP": bool(emp_data.get("permissions", {}).get("canManagePurchaseCXP", True)),
+                                "canUseChatbot": bool(emp_data.get("permissions", {}).get("canUseChatbot", False))
                             }
                         })
             except Exception as e:
@@ -1152,7 +1159,8 @@ class DatabaseService:
                         "createdAt": serialize_field(data.get("createdAt")),
                         "imageUrl": data.get("imageUrl", ""),
                         "accessPin": data.get("accessPin", ""),
-                        "disableAutoReminders": data.get("disableAutoReminders", False)
+                        "disableAutoReminders": data.get("disableAutoReminders", False),
+                        "priceListId": data.get("priceListId", "")
                     }
                     for k, v in data.items():
                         if k not in client_dict:
@@ -1518,6 +1526,141 @@ class DatabaseService:
         }
         cls.save_category(owner_uid, slug, new_cat, sandbox=sandbox)
         return slug
+
+    # =========================================================================
+    # LISTAS DE PRECIOS (PRICE LISTS)
+    # =========================================================================
+    @classmethod
+    def get_price_lists(cls, owner_uid, sandbox=True):
+        """Retorna la lista de listas de precios."""
+        lists = []
+        if firebase_initialized:
+            try:
+                coll_name = "sandbox_price_lists" if sandbox else "price_lists"
+                docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).get()
+                for doc in docs:
+                    data = doc.to_dict()
+                    lists.append({
+                        "id": doc.id,
+                        "name": data.get("name", ""),
+                        "description": data.get("description", ""),
+                        "isDefault": bool(data.get("isDefault", False)),
+                        "isActive": bool(data.get("isActive", True)),
+                        "createdAt": serialize_field(data.get("createdAt"))
+                    })
+                lists.sort(key=lambda x: x["name"].lower())
+            except Exception as e:
+                print(f"⚠️ Error al obtener listas de precios desde Firestore: {e}")
+        return lists
+
+    @classmethod
+    def get_price_list(cls, owner_uid, list_id, sandbox=True):
+        """Retorna una lista de precios específica por su ID."""
+        if firebase_initialized:
+            try:
+                coll_name = "sandbox_price_lists" if sandbox else "price_lists"
+                doc = db_firestore.collection("users").document(owner_uid).collection(coll_name).document(list_id).get()
+                if doc.exists:
+                    data = doc.to_dict()
+                    return {
+                        "id": doc.id,
+                        "name": data.get("name", ""),
+                        "description": data.get("description", ""),
+                        "isDefault": bool(data.get("isDefault", False)),
+                        "isActive": bool(data.get("isActive", True)),
+                        "createdAt": serialize_field(data.get("createdAt"))
+                    }
+            except Exception as e:
+                print(f"⚠️ Error al obtener lista de precios desde Firestore: {e}")
+        return None
+
+    @classmethod
+    def save_price_list(cls, owner_uid, list_id, list_dict, sandbox=True):
+        """Guarda o actualiza una lista de precios en Firestore."""
+        list_dict["id"] = list_id
+        list_dict["ownerUID"] = owner_uid
+        if "createdAt" not in list_dict or not list_dict["createdAt"]:
+            list_dict["createdAt"] = datetime.now(timezone.utc).isoformat()
+        list_dict["createdAt"] = serialize_field(list_dict["createdAt"])
+
+        if firebase_initialized:
+            try:
+                coll_name = "sandbox_price_lists" if sandbox else "price_lists"
+                # Si se marca como default, quitar default de las demás
+                if list_dict.get("isDefault"):
+                    existing = cls.get_price_lists(owner_uid, sandbox=sandbox)
+                    for pl in existing:
+                        if pl["id"] != list_id and pl["isDefault"]:
+                            db_firestore.collection("users").document(owner_uid).collection(coll_name).document(pl["id"]).update({"isDefault": False})
+                db_firestore.collection("users").document(owner_uid).collection(coll_name).document(list_id).set(list_dict)
+            except Exception as e:
+                print(f"⚠️ Fallo al guardar lista de precios en Firestore: {e}")
+        return list_dict
+
+    @classmethod
+    def delete_price_list(cls, owner_uid, list_id, sandbox=True):
+        """Elimina una lista de precios y sus precios asociados en Firestore."""
+        if firebase_initialized:
+            try:
+                coll_name = "sandbox_price_lists" if sandbox else "price_lists"
+                # Eliminar precios de items asociados
+                items_coll = coll_name + "_items"
+                item_docs = db_firestore.collection("users").document(owner_uid).collection(items_coll).where("priceListId", "==", list_id).get()
+                for idoc in item_docs:
+                    idoc.reference.delete()
+                # Eliminar la lista
+                db_firestore.collection("users").document(owner_uid).collection(coll_name).document(list_id).delete()
+            except Exception as e:
+                print(f"⚠️ Fallo al borrar lista de precios de Firestore: {e}")
+
+    @classmethod
+    def get_price_list_items(cls, owner_uid, price_list_id, sandbox=True):
+        """Retorna los precios de todos los items en una lista de precios."""
+        prices = {}
+        if firebase_initialized:
+            try:
+                coll_name = "sandbox_price_lists" if sandbox else "price_lists"
+                items_coll = coll_name + "_items"
+                docs = db_firestore.collection("users").document(owner_uid).collection(items_coll).where("priceListId", "==", price_list_id).get()
+                for doc in docs:
+                    data = doc.to_dict()
+                    prices[data.get("itemId")] = {
+                        "id": doc.id,
+                        "price": float(data.get("price", 0.0)),
+                        "costPrice": float(data.get("costPrice", 0.0)),
+                        "wholesalePrice": float(data.get("wholesalePrice", 0.0))
+                    }
+            except Exception as e:
+                print(f"⚠️ Error al obtener precios de lista desde Firestore: {e}")
+        return prices
+
+    @classmethod
+    def save_price_list_item(cls, owner_uid, price_list_id, item_id, price_dict, sandbox=True):
+        """Guarda o actualiza el precio de un item en una lista de precios."""
+        if firebase_initialized:
+            try:
+                coll_name = "sandbox_price_lists" if sandbox else "price_lists"
+                items_coll = coll_name + "_items"
+                doc_id = f"{price_list_id}_{item_id}"
+                price_dict["priceListId"] = price_list_id
+                price_dict["itemId"] = item_id
+                db_firestore.collection("users").document(owner_uid).collection(items_coll).document(doc_id).set(price_dict)
+                return doc_id
+            except Exception as e:
+                print(f"⚠️ Fallo al guardar precio de item en lista: {e}")
+        return None
+
+    @classmethod
+    def delete_price_list_item(cls, owner_uid, price_list_id, item_id, sandbox=True):
+        """Elimina el precio de un item en una lista de precios."""
+        if firebase_initialized:
+            try:
+                coll_name = "sandbox_price_lists" if sandbox else "price_lists"
+                items_coll = coll_name + "_items"
+                doc_id = f"{price_list_id}_{item_id}"
+                db_firestore.collection("users").document(owner_uid).collection(items_coll).document(doc_id).delete()
+            except Exception as e:
+                print(f"⚠️ Fallo al borrar precio de item en lista: {e}")
 
     # =========================================================================
     # GESTIÓN DE SECUENCIAS FISCALES
@@ -1913,6 +2056,7 @@ class DatabaseService:
                         "isConvertedToInvoice": bool(data.get("isConvertedToInvoice", False)),
                         "notes": data.get("notes", ""),
                         "comentario": data.get("comentario", ""),
+                        "footer": data.get("footer", ""),
                         "isRecurring": bool(data.get("isRecurring", False)),
                         "recurrenceInterval": data.get("recurrenceInterval", "mensual"),
                         "nextOccurrenceDate": serialize_field(data.get("nextOccurrenceDate")),
@@ -1943,6 +2087,7 @@ class DatabaseService:
                         "pendingPaymentProof": data.get("pendingPaymentProof"),
                         "isProfessional": data.get("isProfessional", False),
                         "professionalData": data.get("professionalData", {}),
+                        "registeredBy": data.get("registeredBy", ""),
                         "signatureInfo": data.get("signatureInfo")
                     }
             except Exception as e:
@@ -2346,6 +2491,20 @@ class DatabaseService:
             except Exception as inv_err:
                 print(f"⚠️ Error al aplicar inventario en pago: {inv_err}")
             
+            # Actualizar saldo de la cuenta bancaria si se especificó bankAccountId
+            bank_account_id = payment_dict.get("bankAccountId")
+            if bank_account_id:
+                try:
+                    bank_acc = cls.get_bank_account(owner_uid, bank_account_id, sandbox=sandbox)
+                    if bank_acc:
+                        new_balance = bank_acc["currentBalance"] + amount
+                        cls.save_bank_account(owner_uid, bank_account_id, {
+                            **bank_acc,
+                            "currentBalance": new_balance
+                        }, sandbox=sandbox)
+                except Exception as bank_err:
+                    print(f"⚠️ Error al actualizar saldo de cuenta bancaria: {bank_err}")
+
             _invalidate_invoices(owner_uid)
             _invalidate_crm_contacts(owner_uid)
             return payment_dict
@@ -4748,3 +4907,272 @@ class DatabaseService:
                     db_firestore.collection("users").document(owner_uid).collection(coll_name).document(resource_id).collection("comments").document(comment_id).delete()
             except Exception as e:
                 print(f"⚠️ Fallo al borrar comentario de {resource_type} de Firestore: {e}")
+
+    # =========================================================================
+    # GESTIÓN DE BANCOS (BANK ACCOUNTS)
+    # =========================================================================
+
+    @classmethod
+    def get_bank_accounts(cls, owner_uid, sandbox=True):
+        """Retorna la lista de cuentas bancarias, efectivo y tarjetas."""
+        accounts = []
+        if firebase_initialized:
+            try:
+                coll_name = "sandbox_bank_accounts" if sandbox else "bank_accounts"
+                docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).get()
+                for doc in docs:
+                    data = doc.to_dict()
+                    accounts.append({
+                        "id": doc.id,
+                        "name": data.get("name", ""),
+                        "type": data.get("type", "banco"),
+                        "accountNumber": data.get("accountNumber", ""),
+                        "initialBalance": float(data.get("initialBalance", 0.0)),
+                        "balanceDate": data.get("balanceDate", ""),
+                        "currentBalance": float(data.get("currentBalance", 0.0)),
+                        "creditLimit": float(data.get("creditLimit", 0.0)),
+                        "description": data.get("description", ""),
+                        "createdAt": serialize_field(data.get("createdAt")),
+                        "updatedAt": serialize_field(data.get("updatedAt"))
+                    })
+                accounts.sort(key=lambda x: x["name"].lower())
+            except Exception as e:
+                print(f"⚠️ Error al obtener cuentas bancarias desde Firestore: {e}")
+        return accounts
+
+    @classmethod
+    def get_bank_account(cls, owner_uid, account_id, sandbox=True):
+        """Retorna una cuenta bancaria por ID."""
+        if firebase_initialized:
+            try:
+                coll_name = "sandbox_bank_accounts" if sandbox else "bank_accounts"
+                doc = db_firestore.collection("users").document(owner_uid).collection(coll_name).document(account_id).get()
+                if doc.exists:
+                    data = doc.to_dict()
+                    return {
+                        "id": doc.id,
+                        "name": data.get("name", ""),
+                        "type": data.get("type", "banco"),
+                        "accountNumber": data.get("accountNumber", ""),
+                        "initialBalance": float(data.get("initialBalance", 0.0)),
+                        "balanceDate": data.get("balanceDate", ""),
+                        "currentBalance": float(data.get("currentBalance", 0.0)),
+                        "creditLimit": float(data.get("creditLimit", 0.0)),
+                        "description": data.get("description", ""),
+                        "createdAt": serialize_field(data.get("createdAt")),
+                        "updatedAt": serialize_field(data.get("updatedAt"))
+                    }
+            except Exception as e:
+                print(f"⚠️ Error al obtener cuenta bancaria desde Firestore: {e}")
+        return None
+
+    @classmethod
+    def save_bank_account(cls, owner_uid, account_id, account_dict, sandbox=True):
+        """Guarda o actualiza una cuenta bancaria en Firestore."""
+        account_dict["id"] = account_id
+        account_dict["ownerUID"] = owner_uid
+        if "createdAt" not in account_dict or not account_dict["createdAt"]:
+            account_dict["createdAt"] = datetime.now(timezone.utc).isoformat()
+        account_dict["updatedAt"] = datetime.now(timezone.utc).isoformat()
+        account_dict["name"] = account_dict.get("name", "")
+        account_dict["type"] = account_dict.get("type", "banco")
+        account_dict["accountNumber"] = account_dict.get("accountNumber", "")
+        account_dict["initialBalance"] = float(account_dict.get("initialBalance", 0.0))
+        account_dict["balanceDate"] = account_dict.get("balanceDate", "")
+        account_dict["currentBalance"] = float(account_dict.get("currentBalance", account_dict["initialBalance"]))
+        account_dict["creditLimit"] = float(account_dict.get("creditLimit", 0.0))
+        account_dict["description"] = account_dict.get("description", "")
+        account_dict["createdAt"] = serialize_field(account_dict["createdAt"])
+        account_dict["updatedAt"] = serialize_field(account_dict["updatedAt"])
+
+        if firebase_initialized:
+            try:
+                coll_name = "sandbox_bank_accounts" if sandbox else "bank_accounts"
+                db_firestore.collection("users").document(owner_uid).collection(coll_name).document(account_id).set(account_dict)
+            except Exception as e:
+                print(f"⚠️ Fallo al guardar cuenta bancaria en Firestore: {e}")
+        return account_dict
+
+    @classmethod
+    def delete_bank_account(cls, owner_uid, account_id, sandbox=True):
+        """Elimina una cuenta bancaria de Firestore."""
+        if firebase_initialized:
+            try:
+                coll_name = "sandbox_bank_accounts" if sandbox else "bank_accounts"
+                db_firestore.collection("users").document(owner_uid).collection(coll_name).document(account_id).delete()
+            except Exception as e:
+                print(f"⚠️ Fallo al borrar cuenta bancaria de Firestore: {e}")
+
+    # =========================================================================
+    # TRANSFERENCIAS ENTRE CUENTAS (BANK TRANSFERS)
+    # =========================================================================
+
+    @classmethod
+    def get_bank_transfers(cls, owner_uid, sandbox=True):
+        """Retorna la lista de transferencias entre cuentas."""
+        transfers = []
+        if firebase_initialized:
+            try:
+                coll_name = "sandbox_bank_transfers" if sandbox else "bank_transfers"
+                docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).order_by("date", direction=firestore.Query.DESCENDING).get()
+                for doc in docs:
+                    data = doc.to_dict()
+                    transfers.append({
+                        "id": doc.id,
+                        "fromAccountId": data.get("fromAccountId", ""),
+                        "toAccountId": data.get("toAccountId", ""),
+                        "amount": float(data.get("amount", 0.0)),
+                        "date": data.get("date", ""),
+                        "description": data.get("description", ""),
+                        "incomeNumbering": data.get("incomeNumbering", ""),
+                        "expenseNumbering": data.get("expenseNumbering", ""),
+                        "createdAt": serialize_field(data.get("createdAt"))
+                    })
+            except Exception as e:
+                print(f"⚠️ Error al obtener transferencias desde Firestore: {e}")
+        return transfers
+
+    @classmethod
+    def save_bank_transfer(cls, owner_uid, transfer_id, transfer_dict, sandbox=True):
+        """Guarda una transferencia y ajusta los balances de las cuentas."""
+        transfer_dict["id"] = transfer_id
+        transfer_dict["ownerUID"] = owner_uid
+        if "createdAt" not in transfer_dict or not transfer_dict["createdAt"]:
+            transfer_dict["createdAt"] = datetime.now(timezone.utc).isoformat()
+        transfer_dict["amount"] = float(transfer_dict.get("amount", 0.0))
+        transfer_dict["date"] = transfer_dict.get("date", "")
+        transfer_dict["description"] = transfer_dict.get("description", "")
+        transfer_dict["incomeNumbering"] = transfer_dict.get("incomeNumbering", "")
+        transfer_dict["expenseNumbering"] = transfer_dict.get("expenseNumbering", "")
+
+        if firebase_initialized:
+            try:
+                coll_name = "sandbox_bank_transfers" if sandbox else "bank_transfers"
+                db_firestore.collection("users").document(owner_uid).collection(coll_name).document(transfer_id).set(transfer_dict)
+
+                # Ajustar balances de cuentas origen y destino
+                from_account = cls.get_bank_account(owner_uid, transfer_dict["fromAccountId"], sandbox=sandbox)
+                to_account = cls.get_bank_account(owner_uid, transfer_dict["toAccountId"], sandbox=sandbox)
+                if from_account:
+                    cls.save_bank_account(owner_uid, transfer_dict["fromAccountId"], {
+                        **from_account,
+                        "currentBalance": from_account["currentBalance"] - transfer_dict["amount"]
+                    }, sandbox=sandbox)
+                if to_account:
+                    cls.save_bank_account(owner_uid, transfer_dict["toAccountId"], {
+                        **to_account,
+                        "currentBalance": to_account["currentBalance"] + transfer_dict["amount"]
+                    }, sandbox=sandbox)
+            except Exception as e:
+                print(f"⚠️ Fallo al guardar transferencia en Firestore: {e}")
+        return transfer_dict
+
+    @classmethod
+    def get_bank_summary(cls, owner_uid, sandbox=True):
+        """Retorna resumen de saldos: bancos+efectivo, deuda tarjetas, saldo total."""
+        accounts = cls.get_bank_accounts(owner_uid, sandbox=sandbox)
+        bank_cash_balance = 0.0
+        credit_debt = 0.0
+        for acc in accounts:
+            if acc["type"] in ("banco", "efectivo"):
+                bank_cash_balance += acc["currentBalance"]
+            elif acc["type"] == "tarjeta":
+                credit_debt += abs(acc["currentBalance"]) if acc["currentBalance"] < 0 else acc["currentBalance"]
+        return {
+            "bankCashBalance": round(bank_cash_balance, 2),
+            "creditDebt": round(credit_debt, 2),
+            "totalBalance": round(bank_cash_balance - credit_debt, 2)
+        }
+
+    # =========================================================================
+    # CONCILIACIÓN BANCARIA (BANK RECONCILIATIONS)
+    # =========================================================================
+
+    @classmethod
+    def get_reconciliations(cls, owner_uid, sandbox=True):
+        """Retorna la lista de conciliaciones bancarias."""
+        reconciliations = []
+        if firebase_initialized:
+            try:
+                coll_name = "sandbox_bank_reconciliations" if sandbox else "bank_reconciliations"
+                docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).order_by("createdAt", direction=firestore.Query.DESCENDING).get()
+                for doc in docs:
+                    data = doc.to_dict()
+                    reconciliations.append({
+                        "id": doc.id,
+                        "accountId": data.get("accountId", ""),
+                        "accountName": data.get("accountName", ""),
+                        "startDate": data.get("startDate", ""),
+                        "endDate": data.get("endDate", ""),
+                        "startBalance": float(data.get("startBalance", 0.0)),
+                        "endBalance": float(data.get("endBalance", 0.0)),
+                        "calculatedBalance": float(data.get("calculatedBalance", 0.0)),
+                        "difference": float(data.get("difference", 0.0)),
+                        "status": data.get("status", "pendiente"),
+                        "transactionCount": int(data.get("transactionCount", 0)),
+                        "reconciledCount": int(data.get("reconciledCount", 0)),
+                        "createdAt": serialize_field(data.get("createdAt")),
+                        "updatedAt": serialize_field(data.get("updatedAt"))
+                    })
+            except Exception as e:
+                print(f"⚠️ Error al obtener conciliaciones desde Firestore: {e}")
+        return reconciliations
+
+    @classmethod
+    def get_reconciliation(cls, owner_uid, recon_id, sandbox=True):
+        """Retorna una conciliación completa con sus transacciones."""
+        if firebase_initialized:
+            try:
+                coll_name = "sandbox_bank_reconciliations" if sandbox else "bank_reconciliations"
+                doc = db_firestore.collection("users").document(owner_uid).collection(coll_name).document(recon_id).get()
+                if doc.exists:
+                    data = doc.to_dict()
+                    return {
+                        "id": doc.id,
+                        "accountId": data.get("accountId", ""),
+                        "accountName": data.get("accountName", ""),
+                        "startDate": data.get("startDate", ""),
+                        "endDate": data.get("endDate", ""),
+                        "startBalance": float(data.get("startBalance", 0.0)),
+                        "endBalance": float(data.get("endBalance", 0.0)),
+                        "calculatedBalance": float(data.get("calculatedBalance", 0.0)),
+                        "difference": float(data.get("difference", 0.0)),
+                        "status": data.get("status", "pendiente"),
+                        "transactions": data.get("transactions", []),
+                        "transactionCount": int(data.get("transactionCount", 0)),
+                        "reconciledCount": int(data.get("reconciledCount", 0)),
+                        "createdAt": serialize_field(data.get("createdAt")),
+                        "updatedAt": serialize_field(data.get("updatedAt"))
+                    }
+            except Exception as e:
+                print(f"⚠️ Error al obtener conciliación desde Firestore: {e}")
+        return None
+
+    @classmethod
+    def save_reconciliation(cls, owner_uid, recon_id, recon_dict, sandbox=True):
+        """Guarda o actualiza una conciliación bancaria."""
+        recon_dict["id"] = recon_id
+        recon_dict["ownerUID"] = owner_uid
+        if "createdAt" not in recon_dict or not recon_dict["createdAt"]:
+            recon_dict["createdAt"] = datetime.now(timezone.utc).isoformat()
+        recon_dict["updatedAt"] = datetime.now(timezone.utc).isoformat()
+        recon_dict["createdAt"] = serialize_field(recon_dict["createdAt"])
+        recon_dict["updatedAt"] = serialize_field(recon_dict["updatedAt"])
+
+        if firebase_initialized:
+            try:
+                coll_name = "sandbox_bank_reconciliations" if sandbox else "bank_reconciliations"
+                db_firestore.collection("users").document(owner_uid).collection(coll_name).document(recon_id).set(recon_dict)
+            except Exception as e:
+                print(f"⚠️ Fallo al guardar conciliación en Firestore: {e}")
+        return recon_dict
+
+    @classmethod
+    def delete_reconciliation(cls, owner_uid, recon_id, sandbox=True):
+        """Elimina una conciliación bancaria."""
+        if firebase_initialized:
+            try:
+                coll_name = "sandbox_bank_reconciliations" if sandbox else "bank_reconciliations"
+                db_firestore.collection("users").document(owner_uid).collection(coll_name).document(recon_id).delete()
+            except Exception as e:
+                print(f"⚠️ Fallo al borrar conciliación de Firestore: {e}")

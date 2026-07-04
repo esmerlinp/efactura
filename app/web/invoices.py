@@ -26,6 +26,7 @@ from app.services.ecf_emission import EcfEmissionService
 from app.services.dgii_direct import DgiiDirectService
 from app.services.recurrence import RecurrenceService
 from app.utils.decorators import check_permission, require_permission
+from app.utils.module_gate import require_module
 from app.utils.ecf_utils import get_ecf_type_short_code
 from app.brand import get_product_name
 
@@ -400,6 +401,152 @@ def export_stock_report():
         as_attachment=True,
         download_name=f"inventario_almacen_{timestamp}.csv"
     )
+
+
+# =========================================================================
+# LISTAS DE PRECIOS (PRICE LISTS)
+# =========================================================================
+@web_invoices_bp.route('/price-lists')
+def list_price_lists():
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+    price_lists = DatabaseService.get_price_lists(owner_uid, sandbox=sandbox)
+    return render_template('price_lists/list.html', active_page='price_lists', price_lists=price_lists)
+
+@web_invoices_bp.route('/price-lists/new', methods=['GET', 'POST'])
+def new_price_list():
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+
+    if request.method == 'POST':
+        list_id = str(uuid.uuid4())
+        list_dict = {
+            "name": request.form.get('name', '').strip(),
+            "description": request.form.get('description', '').strip(),
+            "isDefault": 'isDefault' in request.form,
+            "isActive": True
+        }
+        if not list_dict["name"]:
+            flash('El nombre de la lista de precios es obligatorio.', 'error')
+            return render_template('price_lists/form.html', active_page='price_lists', price_list=None)
+
+        DatabaseService.save_price_list(owner_uid, list_id, list_dict, sandbox=sandbox)
+        flash('Lista de precios creada exitosamente.', 'success')
+        return redirect(url_for('web_invoices.list_price_lists'))
+
+    return render_template('price_lists/form.html', active_page='price_lists', price_list=None)
+
+@web_invoices_bp.route('/price-lists/<list_id>/edit', methods=['GET', 'POST'])
+def edit_price_list(list_id):
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+
+    price_list = DatabaseService.get_price_list(owner_uid, list_id, sandbox=sandbox)
+    if not price_list:
+        flash('Lista de precios no encontrada.', 'error')
+        return redirect(url_for('web_invoices.list_price_lists'))
+
+    if request.method == 'POST':
+        list_dict = {
+            "name": request.form.get('name', '').strip(),
+            "description": request.form.get('description', '').strip(),
+            "isDefault": 'isDefault' in request.form,
+            "isActive": 'isActive' in request.form,
+            "createdAt": price_list.get("createdAt")
+        }
+        if not list_dict["name"]:
+            flash('El nombre de la lista de precios es obligatorio.', 'error')
+            return render_template('price_lists/form.html', active_page='price_lists', price_list=price_list)
+
+        DatabaseService.save_price_list(owner_uid, list_id, list_dict, sandbox=sandbox)
+        flash('Lista de precios actualizada exitosamente.', 'success')
+        return redirect(url_for('web_invoices.list_price_lists'))
+
+    return render_template('price_lists/form.html', active_page='price_lists', price_list=price_list)
+
+@web_invoices_bp.route('/price-lists/<list_id>/delete', methods=['POST'])
+def delete_price_list(list_id):
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+
+    DatabaseService.delete_price_list(owner_uid, list_id, sandbox=sandbox)
+    flash('Lista de precios eliminada.', 'success')
+    return redirect(url_for('web_invoices.list_price_lists'))
+
+@web_invoices_bp.route('/price-lists/<list_id>/items', methods=['GET', 'POST'])
+def manage_price_list_items(list_id):
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+
+    price_list = DatabaseService.get_price_list(owner_uid, list_id, sandbox=sandbox)
+    if not price_list:
+        flash('Lista de precios no encontrada.', 'error')
+        return redirect(url_for('web_invoices.list_price_lists'))
+
+    if request.method == 'POST':
+        item_id = request.form.get('item_id', '')
+
+        if not item_id:
+            flash('Debes seleccionar un producto.', 'error')
+        elif request.form.get('delete_price') == '1':
+            DatabaseService.delete_price_list_item(owner_uid, list_id, item_id, sandbox=sandbox)
+            flash('Precio eliminado de la lista.', 'success')
+        else:
+            price = float(request.form.get('price') or 0.0)
+            cost_price = float(request.form.get('costPrice') or 0.0)
+            wholesale_price = float(request.form.get('wholesalePrice') or 0.0)
+            price_dict = {
+                "price": price,
+                "costPrice": cost_price,
+                "wholesalePrice": wholesale_price
+            }
+            DatabaseService.save_price_list_item(owner_uid, list_id, item_id, price_dict, sandbox=sandbox)
+            flash('Precio asignado exitosamente.', 'success')
+        return redirect(url_for('web_invoices.manage_price_list_items', list_id=list_id))
+
+    items = DatabaseService.get_items(owner_uid, sandbox=sandbox)
+    price_list_items = DatabaseService.get_price_list_items(owner_uid, list_id, sandbox=sandbox)
+
+    # Combinar items con sus precios en la lista
+    catalog = []
+    for item in items:
+        item_copy = dict(item)
+        price_data = price_list_items.get(item['id'], {})
+        item_copy['listPrice'] = price_data.get('price', 0.0)
+        item_copy['listCostPrice'] = price_data.get('costPrice', 0.0)
+        item_copy['listWholesalePrice'] = price_data.get('wholesalePrice', 0.0)
+        item_copy['hasPrice'] = item['id'] in price_list_items
+        catalog.append(item_copy)
+
+    return render_template('price_lists/items.html', active_page='price_lists',
+                          price_list=price_list, catalog=catalog)
+
+@web_invoices_bp.route('/price-lists/ajax_get_price', methods=['POST'])
+def ajax_get_price_list_price():
+    if 'user' not in session: return jsonify({"success": False, "error": "No autorizado"}), 401
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+
+    price_list_id = request.form.get('price_list_id', '')
+    item_id = request.form.get('item_id', '')
+
+    if not price_list_id or not item_id:
+        return jsonify({"success": False, "error": "Faltan parámetros"}), 400
+
+    price_list_items = DatabaseService.get_price_list_items(owner_uid, price_list_id, sandbox=sandbox)
+    price_data = price_list_items.get(item_id, {})
+
+    return jsonify({
+        "success": True,
+        "price": price_data.get('price', 0.0),
+        "costPrice": price_data.get('costPrice', 0.0),
+        "wholesalePrice": price_data.get('wholesalePrice', 0.0)
+    })
 
 
 # =========================================================================
@@ -1201,6 +1348,7 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
             invoice_dict["isQuotation"] = is_quotation
             invoice_dict["notes"] = request.form.get('notes', '')
             invoice_dict["comentario"] = comentario
+            invoice_dict["footer"] = request.form.get('footer', '')
             invoice_dict["isRecurring"] = is_recurring
             invoice_dict["recurrenceInterval"] = recurrence_interval
             invoice_dict["nextOccurrenceDate"] = next_occurrence if is_recurring else None
@@ -1247,6 +1395,7 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
                 "isConvertedToInvoice": False,
                 "notes": request.form.get('notes', ''),
                 "comentario": comentario,
+                "footer": request.form.get('footer', ''),
                 "isRecurring": is_recurring,
                 "recurrenceInterval": recurrence_interval,
                 "nextOccurrenceDate": next_occurrence if is_recurring else None,
@@ -1415,6 +1564,22 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
     branches = DatabaseService.get_branches(owner_uid, sandbox=sandbox)
     catalog_json = json.dumps(catalog)
     clients_json = json.dumps(clients)
+
+    # Cargar listas de precios para integración en facturación
+    price_lists = DatabaseService.get_price_lists(owner_uid, sandbox=sandbox)
+    price_list_prices = {}
+    for pl in price_lists:
+        if pl.get('isActive', True):
+            prices = DatabaseService.get_price_list_items(owner_uid, pl['id'], sandbox=sandbox)
+            if prices:
+                price_list_prices[pl['id']] = {}
+                for item_id, price_data in prices.items():
+                    price_list_prices[pl['id']][item_id] = {
+                        "price": price_data.get('price', 0.0),
+                        "costPrice": price_data.get('costPrice', 0.0),
+                        "wholesalePrice": price_data.get('wholesalePrice', 0.0)
+                    }
+    price_list_prices_json = json.dumps(price_list_prices)
     
     default_due_date = existing_invoice.get('dueDate', (datetime.now(timezone.utc) + timedelta(days=30)).strftime("%Y-%m-%d")) if existing_invoice else (datetime.now(timezone.utc) + timedelta(days=30)).strftime("%Y-%m-%d")
     
@@ -1427,7 +1592,8 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
         default_due_date=default_due_date,
         warehouses=warehouses,
         branches=branches,
-        invoice=existing_invoice
+        invoice=existing_invoice,
+        price_list_prices_json=price_list_prices_json
     )
 
 def _get_client_email(owner_uid, invoice, sandbox):
@@ -1678,7 +1844,9 @@ def invoice_detail(invoice_id):
             "role": member.get("role", "collaborator")
         })
         
-    return render_template('invoices/detail.html', active_page='quotations' if invoice.get('isQuotation') else 'invoices', invoice=invoice, company=company, branch=branch, payments=payments, client_email=_get_client_email(owner_uid, invoice, sandbox), comments=comments, taggable_users=taggable_users, format_mentions=format_mentions, history_logs=history_logs)
+    bank_accounts = DatabaseService.get_bank_accounts(owner_uid, sandbox=sandbox)
+
+    return render_template('invoices/detail.html', active_page='quotations' if invoice.get('isQuotation') else 'invoices', invoice=invoice, company=company, branch=branch, payments=payments, client_email=_get_client_email(owner_uid, invoice, sandbox), comments=comments, taggable_users=taggable_users, format_mentions=format_mentions, history_logs=history_logs, bank_accounts=bank_accounts)
 
 @web_invoices_bp.route('/invoices/<invoice_id>/comments/new', methods=['POST'])
 def add_invoice_comment(invoice_id):
@@ -2259,12 +2427,15 @@ def pay_invoice_route(invoice_id):
     except ValueError:
         mora_amount = 0.0
 
+    bank_account_id = request.form.get('bankAccountId', '')
+
     payment_dict = {
         "paymentMethod": payment_method,
         "bank": bank,
         "referenceNumber": reference_number,
         "paymentDate": datetime.now(timezone.utc).isoformat(),
-        "registeredBy": session['user']['email']
+        "registeredBy": session['user']['email'],
+        "bankAccountId": bank_account_id
     }
 
     if mora_action == 'cobrar' and mora_amount > 0:
@@ -2376,6 +2547,7 @@ def approve_payment_proof(invoice_id):
     bank = request.form.get('bank', 'Banco Popular Dominicano')
     reference_number = request.form.get('referenceNumber', 'Abono Registrado')
     payment_date = request.form.get('paymentDate') or datetime.now(timezone.utc).isoformat()
+    bank_account_id = request.form.get('bankAccountId', '')
     
     payment_dict = {
         "amount": amount,
@@ -2383,7 +2555,8 @@ def approve_payment_proof(invoice_id):
         "bank": bank,
         "referenceNumber": reference_number,
         "paymentDate": payment_date,
-        "registeredBy": session['user']['email']
+        "registeredBy": session['user']['email'],
+        "bankAccountId": bank_account_id
     }
     
     try:
@@ -3890,6 +4063,8 @@ def list_expenses():
                 continue
         if tab == 'recurring' and not exp.get('isRecurring'):
             continue
+        if tab == 'minor' and exp.get('ecfType') != 'E43':
+            continue
         filtered_expenses.append(exp)
 
     # Exportar a CSV si se solicita
@@ -4241,10 +4416,25 @@ def new_expense_route():
             "approvalStatus": request.form.get('approvalStatus', 'Aprobado'),
             "requestedBy": session['user'].get('name', 'Usuario'),
             "approvedBy": session['user'].get('name', 'Usuario') if request.form.get('approvalStatus', 'Aprobado') == 'Aprobado' else '',
-            "dueDate": due_date
+            "dueDate": due_date,
+            "bankAccountId": request.form.get('bankAccountId', '')
         }
         
         DatabaseService.save_expense(owner_uid, expense_id, expense_dict, sandbox=sandbox)
+
+        # Actualizar saldo de la cuenta bancaria si se especificó bankAccountId
+        bank_account_id = expense_dict.get("bankAccountId")
+        if bank_account_id:
+            try:
+                bank_acc = DatabaseService.get_bank_account(owner_uid, bank_account_id, sandbox=sandbox)
+                if bank_acc:
+                    new_balance = bank_acc["currentBalance"] - amount
+                    DatabaseService.save_bank_account(owner_uid, bank_account_id, {
+                        **bank_acc,
+                        "currentBalance": new_balance
+                    }, sandbox=sandbox)
+            except Exception as bank_err:
+                print(f"⚠️ Error al actualizar saldo de cuenta bancaria en gasto: {bank_err}")
 
         # === EMISIÓN e-CF PARA E41 (Comprobante de Compras) / E43 (Gastos Menores) ===
         # Solo aplica cuando el usuario opera bajo e-CF y selecciona estos tipos.
@@ -4390,13 +4580,15 @@ def new_expense_route():
         and s.get('estado', '').upper() == 'ACTIVA'
         and not s.get('bloqueadaManualmente', False)
     }
+    bank_accounts = DatabaseService.get_bank_accounts(owner_uid, sandbox=sandbox)
     return render_template(
         'expenses/new.html',
         active_page='expenses',
         team_members=team_members,
         invoices=[],
         today_str=today_str,
-        expense_sequences=expense_sequences
+        expense_sequences=expense_sequences,
+        bank_accounts=bank_accounts
     )
 
 @web_invoices_bp.route('/expenses/<expense_id>/delete', methods=['POST'])
@@ -4611,7 +4803,8 @@ def edit_expense_route(expense_id):
             "requestedBy": expense.get('requestedBy', session['user'].get('name', 'Usuario')),
             "approvedBy": session['user'].get('name', 'Usuario') if request.form.get('approvalStatus', 'Aprobado') == 'Aprobado' else '',
             "dueDate": due_date,
-            "createdAt": expense.get('createdAt')
+            "createdAt": expense.get('createdAt'),
+            "bankAccountId": request.form.get('bankAccountId', expense.get('bankAccountId', ''))
         }
         
         DatabaseService.save_expense(owner_uid, expense_id, expense_dict, sandbox=sandbox)
@@ -4727,13 +4920,15 @@ def edit_expense_route(expense_id):
         and s.get('estado', '').upper() == 'ACTIVA'
         and not s.get('bloqueadaManualmente', False)
     }
+    bank_accounts = DatabaseService.get_bank_accounts(owner_uid, sandbox=sandbox)
     return render_template(
         'expenses/edit.html',
         active_page='expenses',
         team_members=team_members,
         expense=expense,
         invoices=invoices,
-        expense_sequences=expense_sequences
+        expense_sequences=expense_sequences,
+        bank_accounts=bank_accounts
     )
 
 @web_invoices_bp.route('/expenses/<expense_id>/sync', methods=['POST'])
@@ -5438,7 +5633,8 @@ def add_team_member():
         "canToggleSandbox": 'canToggleSandbox' in request.form,
         "canManageNotes": 'canManageNotes' in request.form,
         "canManageSuppliers": 'canManageSuppliers' in request.form,
-        "canManagePurchaseCXP": 'canManagePurchaseCXP' in request.form
+        "canManagePurchaseCXP": 'canManagePurchaseCXP' in request.form,
+        "canUseChatbot": 'canUseChatbot' in request.form
     }
 
     try:
@@ -5547,7 +5743,8 @@ def update_team_member_permissions(employee_uid):
         "canToggleSandbox": 'canToggleSandbox' in request.form,
         "canManageNotes": 'canManageNotes' in request.form,
         "canManageSuppliers": 'canManageSuppliers' in request.form,
-        "canManagePurchaseCXP": 'canManagePurchaseCXP' in request.form
+        "canManagePurchaseCXP": 'canManagePurchaseCXP' in request.form,
+        "canUseChatbot": 'canUseChatbot' in request.form
     }
 
     avatar_file = request.files.get('avatar')
@@ -5814,8 +6011,181 @@ def export_company_data():
 def reports_dashboard():
     if 'user' not in session: return redirect(url_for('web_auth.login'))
     if not check_permission('canInvoice'):
-        return render_template('auth/restricted.html', feature_name="Reportería DGII", required_permission="canInvoice")
-    return render_template('reports/reports_dashboard.html', active_page='reports')
+        return render_template('auth/restricted.html', feature_name="Reportes", required_permission="canInvoice")
+
+    report_categories = get_report_categories()
+
+    return render_template('reports/reports_dashboard.html', active_page='reports',
+                           report_categories=report_categories)
+
+
+def get_report_categories():
+    from app.utils.module_gate import module_enabled
+    from flask import url_for
+    return [
+        {
+            "key": "ventas",
+            "icon": "fa-solid fa-chart-simple",
+            "title": "Ventas",
+            "count": 6,
+            "description": "Monitorea la distribución de tus ventas y obtén información para gestionar tus operaciones comerciales.",
+            "category_url": url_for('web_invoices.reports_category', category_key='ventas'),
+            "reports": [
+                {"title": "Ventas generales", "url": "web_reports_sales.ventas_generales",
+                 "enabled": module_enabled('e_cf'),
+                 "desc": "Revisa el desempeño de tus ventas para crear estrategias comerciales."},
+                {"title": "Ventas por producto/servicio", "url": "web_reports_sales.ventas_por_producto",
+                 "enabled": module_enabled('e_cf'),
+                 "desc": "Consulta tus ventas detalladas por cada ítem o servicio."},
+                {"title": "Ventas por cliente", "url": "web_reports_sales.ventas_por_cliente",
+                 "enabled": module_enabled('e_cf'),
+                 "desc": "Conoce las ventas asociadas a cada uno de tus clientes."},
+                {"title": "Rentabilidad por producto", "url": "web_reports_sales.ventas_rentabilidad",
+                 "enabled": module_enabled('e_cf'),
+                 "desc": "Conoce la utilidad que generan tus ítems inventariables."},
+                {"title": "Ventas por vendedor", "url": "web_reports_sales.ventas_por_vendedor",
+                 "enabled": module_enabled('e_cf'),
+                 "desc": "Revisa el resumen de las ventas asociadas a cada vendedor/a."},
+                {"title": "Estado de cuenta por cliente", "url": "web_reports_sales.ventas_estado_cuenta",
+                 "enabled": module_enabled('e_cf'),
+                 "desc": "Revisa el detalle de las ventas asociadas a cada cliente."},
+            ]
+        },
+        {
+            "key": "administrativos",
+            "icon": "fa-solid fa-clipboard-list",
+            "title": "Administrativos",
+            "count": 7,
+            "description": "Haz seguimiento a tus transacciones y obtén información para controlar la salud financiera de tu empresa.",
+            "category_url": url_for('web_invoices.reports_category', category_key='administrativos'),
+            "reports": [
+                {"title": "Cuentas por cobrar", "url": "web_reports_sales.cxc_report",
+                 "enabled": module_enabled('cxc'),
+                 "desc": "Conoce lo que te deben tus clientes y lleva un control del vencimiento de sus facturas."},
+                {"title": "Cuentas por pagar", "url": "web_reports_sales.cxp_report",
+                 "enabled": module_enabled('cxp_compras'),
+                 "desc": "Conoce las deudas que tienes registradas y lleva un control de tus pagos pendientes."},
+                {"title": "Ingresos y compras", "url": "web_reports_sales.admin_ingresos_compras",
+                 "enabled": module_enabled('e_cf'),
+                 "desc": "Conoce los valores asociados a tus cuentas de ingresos y egresos."},
+                {"title": "Valor de inventario", "url": "web_reports_sales.inventory_value_report",
+                 "enabled": module_enabled('inventario'),
+                 "desc": "Consulta el valor actual, cantidad y costo promedio de tu inventario."},
+                {"title": "Transacciones", "url": "web_reports_sales.transactions_report",
+                 "enabled": module_enabled('e_cf'),
+                 "desc": "Consulta los movimientos de dinero asociados a tus transacciones, sin incluir las transferencias entre bancos."},
+                {"title": "Compras", "url": "web_reports_sales.purchases_report",
+                 "enabled": module_enabled('cxp_compras'),
+                 "desc": "Consulta el detalle de las facturas de compra que tienes registradas en tu contabilidad."},
+                {"title": "Reporte anual", "url": "web_reports_sales.admin_reporte_anual",
+                 "enabled": module_enabled('e_cf'),
+                 "desc": "Conoce el rendimiento que ha tenido tu negocio en cada año."},
+            ]
+        },
+        {
+            "key": "financieros",
+            "icon": "fa-solid fa-coins",
+            "title": "Financieros",
+            "count": 2,
+            "description": "Analiza los resultados financieros de tu empresa, incluyendo entradas y salidas de efectivo.",
+            "category_url": url_for('web_invoices.reports_category', category_key='financieros'),
+            "reports": [
+                {"title": "Flujo de caja", "url": "web_reports_sales.cash_flow_report",
+                 "enabled": module_enabled('e_cf'),
+                 "desc": "Revisa la evolución de tus movimientos de efectivo y conoce la liquidez de tu empresa."},
+                {"title": "Estado de resultados", "enabled": False,
+                 "desc": "Conoce la utilidad o pérdida de tu empresa en un período."},
+            ]
+        },
+        {
+            "key": "contables",
+            "icon": "fa-solid fa-book",
+            "title": "Contables",
+            "count": 7,
+            "description": "Conoce el desempeño contable y el estado económico de tu empresa en todo momento.",
+            "category_url": url_for('web_invoices.reports_category', category_key='contables'),
+            "reports": [
+                {"title": "Exportación contable", "url": "web_invoices.accounting_export_page",
+                 "enabled": module_enabled('exportacion_contable'),
+                 "desc": "Exporta tu información contable para tu sistema externo."},
+                {"title": "Libro de ventas", "enabled": False, "desc": ""},
+                {"title": "Libro de compras", "enabled": False, "desc": ""},
+                {"title": "Balance general", "enabled": False, "desc": ""},
+                {"title": "Diario general", "enabled": False, "desc": ""},
+                {"title": "Mayor general", "enabled": False, "desc": ""},
+                {"title": "Informe de cuentas", "enabled": False, "desc": ""},
+            ]
+        },
+        {
+            "key": "fiscales",
+            "icon": "fa-solid fa-file-shield",
+            "title": "Fiscales",
+            "count": 7,
+            "description": "Revisa el detalle de tus impuestos y retenciones para cumplir con tus obligaciones tributarias.",
+            "category_url": url_for('web_invoices.reports_category', category_key='fiscales'),
+            "reports": [
+                {"title": "Reporte 606", "url": "web_reports_606.reporte_606",
+                 "enabled": module_enabled('reporte_606'),
+                 "desc": "Compras y gastos del período para tu declaración DGII."},
+                {"title": "Reporte 607", "url": "web_invoices.report_607_export",
+                 "enabled": module_enabled('reporte_606'),
+                 "desc": "Ventas del período para tu declaración DGII."},
+                {"title": "Reporte IT1", "url": "web_reports_sales.it1_reports_list",
+                 "enabled": module_enabled('e_cf'),
+                 "desc": "Crea un reporte con los datos de tu IT-1 y Anexo A para presentarlo en la oficina virtual de la DGII."},
+                {"title": "Reporte detallado de impuestos", "url": "web_reports_sales.detailed_taxes_report",
+                 "enabled": module_enabled('e_cf'),
+                 "desc": "Consulta la base y el valor de tus impuestos generados por cada transacción."},
+                {"title": "Reporte 608", "enabled": False, "desc": ""},
+                {"title": "Conciliación fiscal", "enabled": False, "desc": ""},
+                {"title": "Impuestos y retenciones", "url": "web_reports_sales.taxes_retentions_report",
+                 "enabled": True,
+                 "desc": "Conoce el detalle de los impuestos y retenciones asociados a tus compras, ventas y devoluciones."},
+                {"title": "Impuestos mensuales", "enabled": False, "desc": ""},
+            ]
+        },
+        {
+            "key": "para_trabajar",
+            "icon": "fa-solid fa-briefcase",
+            "title": "Para trabajar",
+            "count": 2,
+            "description": "Exporta la información clave de tu negocio para realizar análisis adicionales.",
+            "category_url": url_for('web_invoices.reports_category', category_key='para_trabajar'),
+            "reports": [
+                {"title": "Importar gastos", "url": "web_invoices.expense_import_page",
+                 "enabled": True,
+                 "desc": "Importa gastos desde archivos CSV."},
+                {"title": "Exportar respaldo", "enabled": False, "desc": ""},
+            ]
+        },
+        {
+            "key": "favoritos",
+            "icon": "fa-solid fa-star",
+            "title": "Favoritos",
+            "count": 0,
+            "description": "En este espacio vas a encontrar todos los reportes que has marcado como favoritos.",
+            "reports": []
+        },
+    ]
+
+
+@web_invoices_bp.route('/reports/categoria/<category_key>')
+def reports_category(category_key):
+    if 'user' not in session:
+        return redirect(url_for('web_auth.login'))
+    if not check_permission('canInvoice'):
+        return render_template('auth/restricted.html', feature_name="Reportes",
+                               required_permission="canInvoice")
+
+    categories = get_report_categories()
+    category = next((c for c in categories if c['key'] == category_key), None)
+    if not category:
+        flash('Categoría de reportes no encontrada.', 'error')
+        return redirect(url_for('web_invoices.reports_dashboard'))
+
+    return render_template('reports/categoria.html', active_page='reports',
+                           category=category)
+
 
 @web_invoices_bp.route('/reports/it1')
 def it1_diagnostic():
@@ -6137,6 +6507,8 @@ def help_center():
     return render_template('help.html', active_page='help')
 
 @web_invoices_bp.route('/api/chatbot', methods=['POST'])
+@require_module('ia_bi')
+@require_permission('canUseChatbot', 'Asistente IA')
 def chatbot_api():
     if 'user' not in session:
         return jsonify({"success": False, "message": "Debes iniciar sesión para interactuar con el chatbot."}), 401
@@ -6151,7 +6523,7 @@ def chatbot_api():
     if not message:
         return jsonify({"success": False, "message": "El mensaje no puede estar vacío."}), 400
         
-    from chatbot_service import ChatbotService
+    from app.services.chatbot import ChatbotService
     result = ChatbotService.ask_chatbot(owner_uid, message, history, sandbox=sandbox)
     return jsonify(result)
 
@@ -6509,6 +6881,8 @@ def cxc_dashboard():
             download_name=filename
         )
 
+    bank_accounts = DatabaseService.get_bank_accounts(owner_uid, sandbox=sandbox)
+
     return render_template(
         'cxc/dashboard.html',
         active_page='cxc',
@@ -6520,7 +6894,8 @@ def cxc_dashboard():
         total_cobrado=total_cobrado_periodo,
         total_prometido=total_prometido,
         active_promises_count=len(active_promises),
-        company=company
+        company=company,
+        bank_accounts=bank_accounts
     )
 
 
@@ -6562,6 +6937,8 @@ def cxc_quick_pay(invoice_id):
         bank = request.form.get('bank', 'Banco Popular Dominicano')
         reference_number = request.form.get('referenceNumber', 'Abono Registrado')
 
+    bank_account_id = request.form.get('bankAccountId', '')
+
     payment_dict = {
         "paymentMethod": payment_method,
         "bank": bank,
@@ -6571,6 +6948,7 @@ def cxc_quick_pay(invoice_id):
         "amount": amount,
         "moraAction": "perdonado",
         "moraForgiven": 0,
+        "bankAccountId": bank_account_id
     }
 
     try:
@@ -7875,7 +8253,8 @@ def quotation_preview():
         "status": "Borrador",
         "encf": None,
         "xmlSignature": None,
-        "comentario": data.get('notes', ''),
+        "comentario": data.get('comentario', ''),
+        "footer": data.get('footer', ''),
     }
 
     try:

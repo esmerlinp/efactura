@@ -41,6 +41,18 @@ document.addEventListener('DOMContentLoaded', () => {
         crmClients = JSON.parse(clientsDataElement.textContent);
     }
 
+    let priceListPrices = {};
+    const priceListDataElement = document.getElementById('price-list-prices-json');
+    if (priceListDataElement) {
+        try {
+            priceListPrices = JSON.parse(priceListDataElement.textContent);
+        } catch(e) {
+            priceListPrices = {};
+        }
+    }
+
+    let activePriceListId = '';
+
     // =========================================================================
     // GESTIÓN DEL MODAL DE CLIENTES
     // =========================================================================
@@ -101,6 +113,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 clientIdHidden.value = id;
                 clientSearchInput.value = `${name} (${rnc || 'Consumidor Final'})`;
                 if (clientRncInput) clientRncInput.value = rnc;
+
+                // Establecer la lista de precios activa según el cliente seleccionado
+                const client = crmClients.find(c => c.id === id);
+                activePriceListId = (client && client.priceListId) || '';
 
                 closeClientModal();
                 validateTaxConstraints();
@@ -247,6 +263,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const modalProductFilter = document.getElementById('modal-product-filter');
     const modalProductListBody = document.getElementById('modal-product-list-body');
 
+    const getPriceListPrice = (itemId) => {
+        if (!activePriceListId) return null;
+        const listPrices = priceListPrices[activePriceListId];
+        if (!listPrices) return null;
+        const itemPrice = listPrices[itemId];
+        return itemPrice ? itemPrice.price : null;
+    };
+
     const renderProducts = (filterText = '') => {
         const query = filterText.toLowerCase().trim();
         const filtered = catalogItems.filter(p =>
@@ -254,22 +278,28 @@ document.addEventListener('DOMContentLoaded', () => {
             (p.code || '').toLowerCase().includes(query)
         );
 
-        modalProductListBody.innerHTML = filtered.map(p => `
+        modalProductListBody.innerHTML = filtered.map(p => {
+            const listPrice = getPriceListPrice(p.id);
+            const displayPrice = listPrice !== null ? listPrice : p.price;
+            const priceLabel = listPrice !== null
+                ? formatCurrencyDOP(listPrice) + ' <span style="font-size:0.7rem;color:var(--accent-emerald);font-weight:400;">(Lista)</span>'
+                : formatCurrencyDOP(p.price);
+            return `
             <tr>
                 <td style="font-family: monospace; font-weight: 500;">${p.code || 'N/A'}</td>
                 <td>
                     <div style="font-weight: 500;">${p.name}</div>
                     <div style="font-size: 0.75rem; color: var(--text-muted);">${p.type === 'service' ? 'Servicio' : 'Producto'}</div>
                 </td>
-                <td style="text-align: right; font-weight: 500;">${formatCurrencyDOP(p.price)}</td>
+                <td style="text-align: right; font-weight: 500;">${priceLabel}</td>
                 <td>${parseFloat(p.itbisRate * 100)}%</td>
                 <td style="text-align: center;">
-                    <button type="button" class="btn btn-primary modal-row-btn btn-select-product" data-id="${p.id}" data-name="${p.name}" data-price="${p.price}" data-itbis="${p.itbisRate}" data-code="${p.code}">
+                    <button type="button" class="btn btn-primary modal-row-btn btn-select-product" data-id="${p.id}" data-name="${p.name}" data-price="${displayPrice}" data-itbis="${p.itbisRate}" data-code="${p.code}">
                         <i class="fa-solid fa-check"></i> Seleccionar
                     </button>
                 </td>
             </tr>
-        `).join('');
+        `}).join('');
 
         modalProductListBody.querySelectorAll('.btn-select-product').forEach(btn => {
             btn.addEventListener('click', () => {

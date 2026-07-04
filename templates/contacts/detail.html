@@ -1,0 +1,472 @@
+{% extends "layout.html" %}
+{% block title %}Perfil - {{ contact.razonSocial }}{% endblock %}
+{% block page_header %}Perfil del Contacto{% endblock %}
+
+{% block content %}
+<style>
+    .switch-premium { position:relative; display:inline-block; width:46px; height:24px; }
+    .switch-premium input { opacity:0; width:0; height:0; }
+    .slider-premium { position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background-color:var(--border-color); transition:.3s; border-radius:24px; }
+    .slider-premium:before { position:absolute; content:""; height:16px; width:16px; left:4px; bottom:4px; background-color:white; transition:.3s; border-radius:50%; box-shadow:0 1px 3px rgba(0,0,0,0.15); }
+    .switch-premium input:checked + .slider-premium { background-color:var(--accent-emerald); }
+    .switch-premium input:checked + .slider-premium:before { transform:translateX(22px); }
+    .badge-type { display:inline-flex; align-items:center; gap:4px; padding:3px 10px; border-radius:12px; font-size:0.75rem; font-weight:500; }
+    .badge-cliente { background:rgba(16,185,129,0.12); color:#059669; }
+    .badge-proveedor { background:rgba(59,130,246,0.12); color:#2563eb; }
+    .badge-ambos { background:rgba(139,92,246,0.12); color:#7c3aed; }
+</style>
+
+<div style="margin-bottom:20px;">
+    <a href="{{ url_for('web_contacts.list_contacts') }}" style="display:inline-flex; align-items:center; gap:8px; color:var(--text-secondary); text-decoration:none; font-size:0.9rem; font-weight:500; transition:color 0.2s;" onmouseover="this.style.color='var(--accent-emerald)'" onmouseout="this.style.color='var(--text-secondary)'">
+        <i class="fa-solid fa-arrow-left"></i>
+        <span>Volver a Contactos</span>
+    </a>
+</div>
+
+<!-- TARJETA PRINCIPAL -->
+<div class="card-table-wrapper" style="margin-bottom:24px; padding:24px; box-shadow:0 10px 30px -10px rgba(0,0,0,0.08); border:1px solid var(--border-color); border-radius:12px; background:var(--bg-card);">
+    <div style="display:flex; align-items:center; justify-content:space-between; gap:24px; flex-wrap:wrap;">
+        <div style="display:flex; align-items:center; gap:20px; flex:1.2; min-width:300px;">
+            {% if contact.imageUrl %}
+            <div style="width:72px; height:72px; border-radius:50%; overflow:hidden; border:2px solid var(--border-color); flex-shrink:0; box-shadow:0 4px 12px rgba(0,0,0,0.08);">
+                <img src="{{ contact.imageUrl }}" alt="{{ contact.razonSocial }}" style="width:100%; height:100%; object-fit:cover;">
+            </div>
+            {% else %}
+            <div style="width:72px; height:72px; border-radius:50%; background:linear-gradient(135deg, var(--accent-emerald), #059669); color:white; display:flex; align-items:center; justify-content:center; font-size:1.8rem; font-weight:bold; flex-shrink:0; font-family:var(--font-heading); box-shadow:0 4px 12px rgba(16,185,129,0.2);">
+                {{ contact.razonSocial[:2].upper() }}
+            </div>
+            {% endif %}
+            <div>
+                <h2 style="font-size:1.45rem; font-family:var(--font-heading); margin:0 0 6px 0; line-height:1.2; font-weight:700; color:var(--text-primary);">
+                    {{ contact.razonSocial }}
+                </h2>
+                <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap; font-size:0.88rem; color:var(--text-secondary);">
+                    <span><strong>RNC:</strong> {{ contact.rnc }}</span>
+                    <span style="color:var(--border-color);">|</span>
+                    {% set types = contact.get('types', []) %}
+                    {% if 'cliente' in types and 'proveedor' in types %}
+                        <span class="badge-type badge-ambos"><i class="fa-solid fa-address-card"></i> Cliente / Proveedor</span>
+                    {% elif 'cliente' in types %}
+                        <span class="badge-type badge-cliente"><i class="fa-solid fa-user"></i> Cliente</span>
+                    {% elif 'proveedor' in types %}
+                        <span class="badge-type badge-proveedor"><i class="fa-solid fa-truck"></i> Proveedor</span>
+                    {% endif %}
+                    {% if is_client %}
+                    <span style="color:var(--border-color);">|</span>
+                    <div style="display:inline-flex; align-items:center; gap:4px;">
+                        <strong>Pipeline:</strong>
+                        <select id="detail-pipeline-stage" onchange="updateContactStage('{{ contact.id }}', this.value)" style="border:none; background:transparent; color:var(--accent-emerald); font-size:0.88rem; font-weight:bold; outline:none; cursor:pointer; padding:0; font-family:var(--font-main);">
+                            <option value="Prospecto" {% if contact.pipelineStage == 'Prospecto' %}selected{% endif %}>Prospecto</option>
+                            <option value="Contactado" {% if contact.pipelineStage == 'Contactado' %}selected{% endif %}>Contactado</option>
+                            <option value="En Negociación" {% if contact.pipelineStage == 'En Negociación' %}selected{% endif %}>En Negociación</option>
+                            <option value="Cliente Activo" {% if contact.pipelineStage == 'Cliente Activo' or not contact.pipelineStage %}selected{% endif %}>Cliente Activo</option>
+                            <option value="Periodo de Prueba" {% if contact.pipelineStage == 'Periodo de Prueba' %}selected{% endif %}>Periodo de Prueba</option>
+                            <option value="Expirado" {% if contact.pipelineStage == 'Expirado' %}selected{% endif %}>Expirado</option>
+                        </select>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div style="display:grid; grid-template-columns:repeat(2, 1fr); gap:12px 24px; flex:1.8; min-width:320px; padding:4px 0 4px 24px; border-left:1px solid var(--border-color);">
+            <div>
+                <span style="color:var(--text-secondary); display:block; font-size:0.72rem; text-transform:uppercase; font-weight:600; margin-bottom:2px; letter-spacing:0.05em;">Teléfono</span>
+                {% if contact.telefono %}
+                <a href="tel:{{ contact.telefono }}" style="color:var(--text-primary); text-decoration:none; display:flex; align-items:center; gap:6px; font-size:0.9rem; font-weight:500;">
+                    <i class="fa-solid fa-phone" style="color:var(--accent-emerald); font-size:0.8rem;"></i> {{ contact.telefono }}
+                </a>
+                {% else %}<span style="color:var(--text-muted); font-style:italic; font-size:0.85rem;">No registrado</span>{% endif %}
+            </div>
+            <div>
+                <span style="color:var(--text-secondary); display:block; font-size:0.72rem; text-transform:uppercase; font-weight:600; margin-bottom:2px; letter-spacing:0.05em;">Email</span>
+                {% if contact.email %}
+                <a href="mailto:{{ contact.email }}" style="color:var(--text-primary); text-decoration:none; display:flex; align-items:center; gap:6px; font-size:0.9rem; font-weight:500; word-break:break-all;">
+                    <i class="fa-solid fa-envelope" style="color:var(--accent-emerald); font-size:0.8rem; flex-shrink:0;"></i> {{ contact.email }}
+                </a>
+                {% else %}<span style="color:var(--text-muted); font-style:italic; font-size:0.85rem;">No registrado</span>{% endif %}
+            </div>
+            <div>
+                <span style="color:var(--text-secondary); display:block; font-size:0.72rem; text-transform:uppercase; font-weight:600; margin-bottom:2px; letter-spacing:0.05em;">Dirección</span>
+                <div style="display:flex; align-items:flex-start; gap:6px; color:var(--text-primary); font-size:0.9rem; font-weight:500;">
+                    <i class="fa-solid fa-map-location-dot" style="color:var(--accent-emerald); margin-top:2px; font-size:0.8rem; flex-shrink:0;"></i>
+                    <span>{{ contact.direccion or 'República Dominicana' }}</span>
+                </div>
+            </div>
+            <div>
+                <span style="color:var(--text-secondary); display:block; font-size:0.72rem; text-transform:uppercase; font-weight:600; margin-bottom:2px; letter-spacing:0.05em;">Responsable</span>
+                <div style="display:flex; align-items:center; gap:6px; color:var(--text-primary); font-size:0.9rem; font-weight:500;">
+                    <i class="fa-solid fa-user-tie" style="color:var(--accent-emerald); font-size:0.8rem;"></i>
+                    <span>{{ responsible_name or 'Propietario / Owner' }}</span>
+                </div>
+            </div>
+        </div>
+
+        <div style="display:flex; align-items:center; gap:8px; flex-shrink:0;">
+            <a href="{{ url_for('web_contacts.edit_contact', contact_id=contact.id) }}" class="btn btn-secondary" style="display:inline-flex; align-items:center; gap:6px; font-weight:600; padding:0 14px; font-size:0.8rem; height:34px; border-radius:6px;">
+                <i class="fa-solid fa-user-pen"></i>
+                <span>Editar Ficha</span>
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- INSIGHT BANNER -->
+{% if client_insight %}
+<div style="margin-bottom:20px; padding:12px 18px; border-radius:var(--radius-md); display:flex; align-items:center; gap:10px; font-size:0.85rem; {% if client_insight.type == 'warning' %}background:rgba(245,158,11,0.1); border:1px solid rgba(245,158,11,0.2); color:#92400e;{% elif client_insight.type == 'danger' %}background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.2); color:#991b1b;{% else %}background:rgba(16,185,129,0.08); border:1px solid rgba(16,185,129,0.15); color:#065f46;{% endif %}">
+    <i class="fa-solid {% if client_insight.type == 'warning' %}fa-triangle-exclamation{% elif client_insight.type == 'danger' %}fa-circle-exclamation{% else %}fa-circle-check{% endif %}"></i>
+    <span>{{ client_insight.text }}</span>
+</div>
+{% endif %}
+
+<!-- MISSING FIELDS -->
+{% if missing_fields %}
+<div class="card-segment" style="margin-bottom:20px; padding:14px 18px;">
+    <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+        <span style="font-size:0.8rem; font-weight:600; color:var(--text-secondary);"><i class="fa-solid fa-circle-info" style="color:var(--accent-amber);"></i> Campos pendientes:</span>
+        {% for f in missing_fields %}
+        <a href="{{ url_for('web_contacts.edit_contact', contact_id=contact.id) }}#{{ f.field }}" style="display:inline-flex; align-items:center; gap:4px; padding:4px 10px; border-radius:20px; background:rgba(245,158,11,0.1); color:#92400e; font-size:0.75rem; text-decoration:none;">
+            <i class="fa-solid {{ f.icon }}"></i> {{ f.label }}
+        </a>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<!-- STATS ROW -->
+<div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:16px; margin-bottom:24px;">
+    {% if is_client %}
+    <div class="card-segment" style="padding:16px; text-align:center;">
+        <div style="font-size:0.72rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-secondary); margin-bottom:6px;">Total Facturado</div>
+        <div style="font-size:1.3rem; font-weight:700; color:var(--accent-emerald);">RD$ {{ contact.get('total_invoiced', 0)|round(2) }}</div>
+    </div>
+    <div class="card-segment" style="padding:16px; text-align:center;">
+        <div style="font-size:0.72rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-secondary); margin-bottom:6px;">Pendiente CxC</div>
+        <div style="font-size:1.3rem; font-weight:700; color:var(--accent-amber);">RD$ {{ contact.get('total_cxc', 0)|round(2) }}</div>
+    </div>
+    {% endif %}
+    {% if is_supplier %}
+    <div class="card-segment" style="padding:16px; text-align:center;">
+        <div style="font-size:0.72rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-secondary); margin-bottom:6px;">Total Compras</div>
+        <div style="font-size:1.3rem; font-weight:700; color:var(--accent-blue);">RD$ {{ contact.get('total_purchases', 0)|round(2) }}</div>
+    </div>
+    <div class="card-segment" style="padding:16px; text-align:center;">
+        <div style="font-size:0.72rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-secondary); margin-bottom:6px;">Pendiente CxP</div>
+        <div style="font-size:1.3rem; font-weight:700; color:var(--accent-red);">RD$ {{ contact.get('cxp_balance', 0)|round(2) }}</div>
+    </div>
+    {% endif %}
+    <div class="card-segment" style="padding:16px; text-align:center;">
+        <div style="font-size:0.72rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-secondary); margin-bottom:6px;">Días Crédito</div>
+        <div style="font-size:1.3rem; font-weight:700; color:var(--text-primary);">{{ contact.get('creditDays', 0) }} días</div>
+    </div>
+</div>
+
+<!-- TABS -->
+<div style="display:flex; gap:0; margin-bottom:20px; border-bottom:2px solid var(--border-color);">
+    <a href="#tab-resumen" class="detail-tab active" onclick="switchTab(event, 'resumen')" style="padding:10px 20px; cursor:pointer; border:none; background:none; font-size:0.9rem; color:var(--accent-emerald); border-bottom:2px solid var(--accent-emerald); margin-bottom:-2px; font-weight:600; font-family:var(--font-heading); text-decoration:none;">
+        <i class="fa-solid fa-chart-pie"></i> Resumen
+    </a>
+    <a href="#tab-interacciones" class="detail-tab" onclick="switchTab(event, 'interacciones')" style="padding:10px 20px; cursor:pointer; border:none; background:none; font-size:0.9rem; color:var(--text-secondary); border-bottom:2px solid transparent; margin-bottom:-2px; font-family:var(--font-heading); text-decoration:none;">
+        <i class="fa-solid fa-comments"></i> Interacciones ({{ interactions|length }})
+    </a>
+    {% if is_client %}
+    <a href="#tab-facturas" class="detail-tab" onclick="switchTab(event, 'facturas')" style="padding:10px 20px; cursor:pointer; border:none; background:none; font-size:0.9rem; color:var(--text-secondary); border-bottom:2px solid transparent; margin-bottom:-2px; font-family:var(--font-heading); text-decoration:none;">
+        <i class="fa-solid fa-file-invoice"></i> Facturas ({{ invoices|length }})
+    </a>
+    <a href="#tab-pagos" class="detail-tab" onclick="switchTab(event, 'pagos')" style="padding:10px 20px; cursor:pointer; border:none; background:none; font-size:0.9rem; color:var(--text-secondary); border-bottom:2px solid transparent; margin-bottom:-2px; font-family:var(--font-heading); text-decoration:none;">
+        <i class="fa-solid fa-money-bill-wave"></i> Pagos ({{ payments|length }})
+    </a>
+    {% endif %}
+    {% if is_supplier %}
+    <a href="#tab-gastos" class="detail-tab" onclick="switchTab(event, 'gastos')" style="padding:10px 20px; cursor:pointer; border:none; background:none; font-size:0.9rem; color:var(--text-secondary); border-bottom:2px solid transparent; margin-bottom:-2px; font-family:var(--font-heading); text-decoration:none;">
+        <i class="fa-solid fa-receipt"></i> Gastos ({{ expenses|length }})
+    </a>
+    {% endif %}
+</div>
+
+<!-- TAB: RESUMEN -->
+<div id="tab-resumen" class="tab-content">
+    <div class="card-segment" style="margin-bottom:20px;">
+        <div class="segment-header"><i class="fa-solid fa-circle-info"></i> Información del Contacto</div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; padding:16px;">
+            <div>
+                <strong style="font-size:0.75rem; color:var(--text-secondary); text-transform:uppercase;">RNC / Cédula</strong>
+                <div style="font-family:monospace; margin-top:2px;">{{ contact.rnc or '—' }}</div>
+            </div>
+            <div>
+                <strong style="font-size:0.75rem; color:var(--text-secondary); text-transform:uppercase;">Razón Social</strong>
+                <div style="margin-top:2px;">{{ contact.razonSocial or '—' }}</div>
+            </div>
+            <div>
+                <strong style="font-size:0.75rem; color:var(--text-secondary); text-transform:uppercase;">Email</strong>
+                <div style="margin-top:2px;">{{ contact.email or '—' }}</div>
+            </div>
+            <div>
+                <strong style="font-size:0.75rem; color:var(--text-secondary); text-transform:uppercase;">Teléfono</strong>
+                <div style="margin-top:2px;">{{ contact.telefono or '—' }}</div>
+            </div>
+            <div>
+                <strong style="font-size:0.75rem; color:var(--text-secondary); text-transform:uppercase;">Celular</strong>
+                <div style="margin-top:2px;">{{ contact.celular or '—' }}</div>
+            </div>
+            <div>
+                <strong style="font-size:0.75rem; color:var(--text-secondary); text-transform:uppercase;">Dirección</strong>
+                <div style="margin-top:2px;">{{ contact.direccion or '—' }}</div>
+            </div>
+            <div>
+                <strong style="font-size:0.75rem; color:var(--text-secondary); text-transform:uppercase;">Municipio</strong>
+                <div style="margin-top:2px;">{{ contact.municipio or '—' }}</div>
+            </div>
+            <div>
+                <strong style="font-size:0.75rem; color:var(--text-secondary); text-transform:uppercase;">Provincia</strong>
+                <div style="margin-top:2px;">{{ contact.provincia or '—' }}</div>
+            </div>
+        </div>
+        {% if is_supplier %}
+        <div class="segment-header" style="margin-top:16px;"><i class="fa-solid fa-truck"></i> Datos de Proveedor</div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; padding:16px;">
+            <div><strong style="font-size:0.75rem; color:var(--text-secondary); text-transform:uppercase;">Tipo Persona</strong><div style="margin-top:2px;">{{ contact.tipoPersona or 'fisica' }}</div></div>
+            <div><strong style="font-size:0.75rem; color:var(--text-secondary); text-transform:uppercase;">Tipo Proveedor</strong><div style="margin-top:2px;">{{ contact.supplierType or 'formal' }}</div></div>
+            <div><strong style="font-size:0.75rem; color:var(--text-secondary); text-transform:uppercase;">Días Crédito</strong><div style="margin-top:2px;">{{ contact.creditDays or 0 }}</div></div>
+            <div><strong style="font-size:0.75rem; color:var(--text-secondary); text-transform:uppercase;">Límite Crédito</strong><div style="margin-top:2px;">RD$ {{ contact.creditLimit or 0 }}</div></div>
+            <div><strong style="font-size:0.75rem; color:var(--text-secondary); text-transform:uppercase;">Método Pago</strong><div style="margin-top:2px;">{{ contact.paymentMethod or 'Efectivo' }}</div></div>
+            <div><strong style="font-size:0.75rem; color:var(--text-secondary); text-transform:uppercase;">e-CF Emite</strong><div style="margin-top:2px;">{{ contact.ecfTypeEmits or 'E31' }}</div></div>
+            <div><strong style="font-size:0.75rem; color:var(--text-secondary); text-transform:uppercase;">Retención ITBIS</strong><div style="margin-top:2px;">{{ 'Sí' if contact.itbisWithholding else 'No' }}</div></div>
+            <div><strong style="font-size:0.75rem; color:var(--text-secondary); text-transform:uppercase;">Retención ISR</strong><div style="margin-top:2px;">{{ 'Sí' if contact.isrWithholding else 'No' }}</div></div>
+        </div>
+        {% endif %}
+        {% if contact.notes %}
+        <div class="segment-header" style="margin-top:16px;"><i class="fa-solid fa-comment"></i> Notas</div>
+        <div style="padding:16px; color:var(--text-secondary); font-size:0.85rem; white-space:pre-wrap;">{{ contact.notes }}</div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- TAB: INTERACCIONES -->
+<div id="tab-interacciones" class="tab-content" style="display:none;">
+    <div class="card-segment" style="margin-bottom:20px;">
+        <div class="segment-header"><i class="fa-solid fa-plus-circle"></i> Nueva Interacción</div>
+        <form method="POST" action="{{ url_for('web_contacts.add_contact_interaction', contact_id=contact.id) }}" enctype="multipart/form-data" style="padding:16px;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px;">
+                <div>
+                    <label style="font-size:0.78rem; font-weight:600; display:block; margin-bottom:4px;">Tipo</label>
+                    <select name="type" style="width:100%; padding:8px; border:1px solid var(--border-color); border-radius:var(--radius-sm); background:var(--bg-card); color:var(--text-primary);">
+                        <option value="Nota">Nota</option>
+                        <option value="Llamada">Llamada</option>
+                        <option value="Email">Email</option>
+                        <option value="Reunión">Reunión</option>
+                        <option value="Recordatorio">Recordatorio</option>
+                        <option value="Tarea">Tarea</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="font-size:0.78rem; font-weight:600; display:block; margin-bottom:4px;">Próximo Contacto</label>
+                    <input type="date" name="nextContactDate" style="width:100%; padding:8px; border:1px solid var(--border-color); border-radius:var(--radius-sm); background:var(--bg-card); color:var(--text-primary);">
+                </div>
+            </div>
+            <div style="margin-bottom:12px;">
+                <label style="font-size:0.78rem; font-weight:600; display:block; margin-bottom:4px;">Contenido</label>
+                <textarea name="content" rows="3" style="width:100%; padding:8px; border:1px solid var(--border-color); border-radius:var(--radius-sm); background:var(--bg-card); color:var(--text-primary);" placeholder="Escribe un comentario, nota o resumen de la interacción..." required></textarea>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                    <label style="cursor:pointer; font-size:0.85rem;">
+                        <i class="fa-solid fa-paperclip"></i> Adjuntar archivo
+                        <input type="file" name="attachment" style="display:inline; margin-left:8px; font-size:0.8rem;">
+                    </label>
+                </div>
+                <button type="submit" class="btn btn-primary btn-sm"><i class="fa-solid fa-floppy-disk"></i> Guardar</button>
+            </div>
+        </form>
+    </div>
+
+    <div class="card-segment">
+        <div class="segment-header"><i class="fa-solid fa-timeline"></i> Historial de Interacciones</div>
+        {% if interactions %}
+        <div style="padding:16px;">
+            {% for inter in interactions|sort(attribute='date', reverse=True) %}
+            <div style="padding:14px; border-left:3px solid {% if inter.completed %}var(--accent-emerald){% else %}var(--accent-amber){% endif %}; margin-bottom:12px; background:rgba(0,0,0,0.01); border-radius:0 var(--radius-sm) var(--radius-sm) 0;">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px;">
+                    <div style="flex:1;">
+                        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                            <span style="font-size:0.75rem; padding:2px 8px; border-radius:10px; background:rgba(16,185,129,0.1); color:var(--accent-emerald); font-weight:500;">{{ inter.type }}</span>
+                            <span style="font-size:0.75rem; color:var(--text-muted);">{{ inter.date }}</span>
+                            {% if inter.completed %}<span style="font-size:0.75rem; color:var(--accent-emerald);"><i class="fa-solid fa-check-circle"></i> Completado</span>{% endif %}
+                        </div>
+                        <div style="margin-top:8px; font-size:0.85rem; color:var(--text-primary); white-space:pre-wrap;">{{ inter.content }}</div>
+                        {% if inter.attachmentUrl %}
+                        <div style="margin-top:6px;">
+                            <a href="{{ inter.attachmentUrl }}" target="_blank" style="font-size:0.8rem; color:var(--accent-emerald);"><i class="fa-solid fa-paperclip"></i> {{ inter.attachmentName or 'Ver archivo' }}</a>
+                        </div>
+                        {% endif %}
+                        <div style="margin-top:4px; font-size:0.75rem; color:var(--text-muted);">Por {{ inter.createdBy or 'Sistema' }}</div>
+                        {% if inter.nextContactDate %}
+                        <div style="margin-top:4px; font-size:0.75rem; color:var(--accent-amber);"><i class="fa-solid fa-bell"></i> Próximo contacto: {{ inter.nextContactDate }}</div>
+                        {% endif %}
+                    </div>
+                    <div style="display:flex; gap:4px; flex-shrink:0;">
+                        {% if not inter.completed %}
+                        <form method="POST" action="{{ url_for('web_contacts.complete_contact_interaction', contact_id=contact.id, interaction_id=inter.id) }}" style="display:inline;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn btn-ghost btn-xs" title="Marcar completado"><i class="fa-solid fa-check" style="color:var(--accent-emerald);"></i></button>
+                        </form>
+                        {% endif %}
+                        <form method="POST" action="{{ url_for('web_contacts.delete_contact_interaction', contact_id=contact.id, interaction_id=inter.id) }}" style="display:inline;" onsubmit="return confirm('¿Eliminar esta interacción?')">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn btn-ghost btn-xs" title="Eliminar"><i class="fa-solid fa-trash" style="color:var(--danger);"></i></button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div style="padding:40px; text-align:center; color:var(--text-secondary);">
+            <i class="fa-solid fa-comments" style="font-size:2rem; display:block; margin-bottom:12px; opacity:0.4;"></i>
+            No hay interacciones registradas. Usa el formulario de arriba para añadir una.
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- TAB: FACTURAS -->
+{% if is_client %}
+<div id="tab-facturas" class="tab-content" style="display:none;">
+    <div class="card-segment">
+        <div class="segment-header"><i class="fa-solid fa-file-invoice"></i> Facturas ({{ invoices|length }})</div>
+        {% if invoices %}
+        <table style="width:100%; border-collapse:collapse;">
+            <thead>
+                <tr>
+                    <th style="text-align:left; padding:10px 16px; border-bottom:2px solid var(--border-color); font-size:0.75rem; text-transform:uppercase; color:var(--text-secondary);">NCF</th>
+                    <th style="text-align:left; padding:10px 16px; border-bottom:2px solid var(--border-color); font-size:0.75rem; text-transform:uppercase; color:var(--text-secondary);">Fecha</th>
+                    <th style="text-align:left; padding:10px 16px; border-bottom:2px solid var(--border-color); font-size:0.75rem; text-transform:uppercase; color:var(--text-secondary);">Estado</th>
+                    <th style="text-align:right; padding:10px 16px; border-bottom:2px solid var(--border-color); font-size:0.75rem; text-transform:uppercase; color:var(--text-secondary);">Total</th>
+                    <th style="text-align:right; padding:10px 16px; border-bottom:2px solid var(--border-color); font-size:0.75rem; text-transform:uppercase; color:var(--text-secondary);">Pendiente</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for inv in invoices[:20] %}
+                <tr style="border-bottom:1px solid var(--border-color);">
+                    <td style="padding:10px 16px; font-family:monospace; font-size:0.85rem;">{{ inv.invoiceNumber or inv.id[:8] }}</td>
+                    <td style="padding:10px 16px; font-size:0.85rem;">{{ inv.date[:10] if inv.date else '—' }}</td>
+                    <td style="padding:10px 16px;">
+                        <span style="padding:2px 8px; border-radius:10px; font-size:0.75rem; {% if inv.status == 'Emitida' %}background:rgba(16,185,129,0.1); color:#059669;{% elif inv.status == 'Pagada' %}background:rgba(59,130,246,0.1); color:#2563eb;{% elif inv.status == 'Vencida' %}background:rgba(239,68,68,0.1); color:#dc2626;{% else %}background:rgba(156,163,175,0.1); color:#6b7280;{% endif %}">
+                            {{ inv.status }}
+                        </span>
+                    </td>
+                    <td style="padding:10px 16px; text-align:right; font-size:0.85rem;">RD$ {{ inv.total|round(2) }}</td>
+                    <td style="padding:10px 16px; text-align:right; font-size:0.85rem;">RD$ {{ inv.netPayable or inv.remainingBalance or 0 }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div style="padding:40px; text-align:center; color:var(--text-secondary);">
+            <i class="fa-solid fa-file-invoice" style="font-size:2rem; display:block; margin-bottom:12px; opacity:0.4;"></i>
+            No hay facturas asociadas a este cliente.
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- TAB: PAGOS -->
+<div id="tab-pagos" class="tab-content" style="display:none;">
+    <div class="card-segment">
+        <div class="segment-header"><i class="fa-solid fa-money-bill-wave"></i> Pagos Recibidos ({{ payments|length }})</div>
+        {% if payments %}
+        <table style="width:100%; border-collapse:collapse;">
+            <thead>
+                <tr>
+                    <th style="text-align:left; padding:10px 16px; border-bottom:2px solid var(--border-color); font-size:0.75rem; text-transform:uppercase; color:var(--text-secondary);">Factura</th>
+                    <th style="text-align:left; padding:10px 16px; border-bottom:2px solid var(--border-color); font-size:0.75rem; text-transform:uppercase; color:var(--text-secondary);">Fecha</th>
+                    <th style="text-align:left; padding:10px 16px; border-bottom:2px solid var(--border-color); font-size:0.75rem; text-transform:uppercase; color:var(--text-secondary);">Método</th>
+                    <th style="text-align:right; padding:10px 16px; border-bottom:2px solid var(--border-color); font-size:0.75rem; text-transform:uppercase; color:var(--text-secondary);">Monto</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for pay in payments[:20] %}
+                <tr style="border-bottom:1px solid var(--border-color);">
+                    <td style="padding:10px 16px; font-family:monospace; font-size:0.85rem;">{{ pay.invoiceNumber }}</td>
+                    <td style="padding:10px 16px; font-size:0.85rem;">{{ pay.paymentDate[:10] if pay.paymentDate else '—' }}</td>
+                    <td style="padding:10px 16px; font-size:0.85rem;">{{ pay.paymentMethod or '—' }}</td>
+                    <td style="padding:10px 16px; text-align:right; font-size:0.85rem;">RD$ {{ pay.amount|round(2) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div style="padding:40px; text-align:center; color:var(--text-secondary);">
+            <i class="fa-solid fa-money-bill-wave" style="font-size:2rem; display:block; margin-bottom:12px; opacity:0.4;"></i>
+            No hay pagos registrados.
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+<!-- TAB: GASTOS -->
+{% if is_supplier %}
+<div id="tab-gastos" class="tab-content" style="display:none;">
+    <div class="card-segment">
+        <div class="segment-header"><i class="fa-solid fa-receipt"></i> Gastos / Compras ({{ expenses|length }})</div>
+        {% if expenses %}
+        <table style="width:100%; border-collapse:collapse;">
+            <thead>
+                <tr>
+                    <th style="text-align:left; padding:10px 16px; border-bottom:2px solid var(--border-color); font-size:0.75rem; text-transform:uppercase; color:var(--text-secondary);">#</th>
+                    <th style="text-align:left; padding:10px 16px; border-bottom:2px solid var(--border-color); font-size:0.75rem; text-transform:uppercase; color:var(--text-secondary);">Fecha</th>
+                    <th style="text-align:left; padding:10px 16px; border-bottom:2px solid var(--border-color); font-size:0.75rem; text-transform:uppercase; color:var(--text-secondary);">Concepto</th>
+                    <th style="text-align:right; padding:10px 16px; border-bottom:2px solid var(--border-color); font-size:0.75rem; text-transform:uppercase; color:var(--text-secondary);">Monto</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for exp in expenses[:20] %}
+                <tr style="border-bottom:1px solid var(--border-color);">
+                    <td style="padding:10px 16px; font-family:monospace; font-size:0.85rem;">{{ exp.invoiceNumber or exp.id[:8] }}</td>
+                    <td style="padding:10px 16px; font-size:0.85rem;">{{ exp.date[:10] if exp.date else '—' }}</td>
+                    <td style="padding:10px 16px; font-size:0.85rem;">{{ exp.description or exp.concept or '—' }}</td>
+                    <td style="padding:10px 16px; text-align:right; font-size:0.85rem;">RD$ {{ exp.amount|round(2) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div style="padding:40px; text-align:center; color:var(--text-secondary);">
+            <i class="fa-solid fa-receipt" style="font-size:2rem; display:block; margin-bottom:12px; opacity:0.4;"></i>
+            No hay gastos asociados a este proveedor.
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function switchTab(event, tabId) {
+    event.preventDefault();
+    document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
+    document.getElementById('tab-' + tabId).style.display = 'block';
+    document.querySelectorAll('.detail-tab').forEach(el => {
+        el.style.color = 'var(--text-secondary)';
+        el.style.borderBottomColor = 'transparent';
+        el.style.fontWeight = '400';
+    });
+    event.target.style.color = 'var(--accent-emerald)';
+    event.target.style.borderBottomColor = 'var(--accent-emerald)';
+    event.target.style.fontWeight = '600';
+}
+
+function updateContactStage(contactId, stage) {
+    fetch('/contacts/' + contactId + '/update_pipeline', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token() }}'},
+        body: JSON.stringify({pipelineStage: stage})
+    }).then(r => r.json()).then(d => {
+        if (!d.success) alert('Error al actualizar pipeline');
+    }).catch(() => alert('Error de red'));
+}
+</script>
+{% endblock %}

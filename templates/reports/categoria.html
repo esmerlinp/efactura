@@ -1,0 +1,138 @@
+{% extends "layout.html" %}
+{% block title %}{{ category.title }} - Reportes{% endblock %}
+{% block page_header %}{{ category.title }}{% endblock %}
+{% block content %}
+<style>
+    .breadcrumb {
+        display: flex; align-items: center; gap: 6px;
+        font-size: 0.8rem; color: var(--text-muted); margin-bottom: 16px;
+    }
+    .breadcrumb a { color: var(--text-muted); text-decoration: none; font-weight: 500; }
+    .breadcrumb a:hover { color: var(--accent-emerald); }
+    .breadcrumb .sep { color: #cbd5e1; }
+
+    .cat-header {
+        display: flex; align-items: flex-start; gap: 12px;
+        margin-bottom: 18px;
+    }
+    .cat-header .icon {
+        width: 40px; height: 40px; border-radius: 10px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.1rem; flex-shrink: 0;
+    }
+    .cat-header .icon.ventas { background: #f0fdf4; color: #10b981; }
+    .cat-header .icon.administrativos { background: #eff6ff; color: #3b82f6; }
+    .cat-header .icon.financieros { background: #fefce8; color: #eab308; }
+    .cat-header .icon.contables { background: #f5f3ff; color: #8b5cf6; }
+    .cat-header .icon.fiscales { background: #fef2f2; color: #ef4444; }
+    .cat-header .icon.para_trabajar { background: #f8fafc; color: #64748b; }
+    .cat-header .icon.favoritos { background: #fffbeb; color: #f59e0b; }
+    .cat-header .info h1 {
+        font-size: 1.15rem; font-weight: 800; color: var(--text-primary);
+        margin: 0 0 3px 0;
+    }
+    .cat-header .info p { font-size: 0.82rem; color: var(--text-muted); margin: 0; }
+    .cat-header .info .badge-count {
+        font-size: 0.68rem; font-weight: 600; color: var(--text-muted);
+        background: #f8fafc; padding: 2px 8px; border-radius: 16px;
+        display: inline-block; margin-top: 4px;
+    }
+
+    .cat-reports-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+        gap: 12px;
+    }
+    @media (min-width: 1400px) {
+        .cat-reports-grid { grid-template-columns: repeat(5, 1fr); }
+    }
+    .cat-report-card {
+        background: #fff; border-radius: 10px; border: 1px solid #e2e8f0;
+        padding: 12px 14px; transition: box-shadow 0.2s, border-color 0.2s;
+        display: flex; flex-direction: column;
+        text-decoration: none; color: inherit; overflow: hidden;
+    }
+    .cat-report-card:hover {
+        box-shadow: 0 3px 12px rgba(0,0,0,0.05);
+        border-color: var(--accent-emerald);
+    }
+    .cat-report-card.enabled { cursor: pointer; }
+    .cat-report-card.disabled { opacity: 0.55; cursor: default; }
+    .cat-report-card .report-title {
+        font-size: 0.86rem; font-weight: 600; color: var(--text-primary);
+        margin-bottom: 4px; display: flex; align-items: center; gap: 6px;
+    }
+    .cat-report-card .report-title .status-badge {
+        font-size: 0.55rem; font-weight: 600; text-transform: uppercase;
+        padding: 1px 6px; border-radius: 8px;
+    }
+    .cat-report-card .report-title .status-badge.ready { background: #f0fdf4; color: #10b981; }
+    .cat-report-card .report-title .status-badge.soon { background: #f8fafc; color: #94a3b8; }
+    .cat-report-card .report-desc {
+        font-size: 0.75rem; color: var(--text-muted); line-height: 1.4;
+        flex: 1;
+    }
+    .cat-report-card .report-footer { margin-top: 8px; display: flex; align-items: center; }
+    .cat-report-card .report-footer .btn-go {
+        font-size: 0.75rem; font-weight: 600;
+        padding: 4px 12px; border-radius: 6px;
+        border: none; cursor: pointer; transition: all 0.15s;
+    }
+    .cat-report-card.enabled .report-footer .btn-go { background: var(--accent-emerald); color: #fff; }
+    .cat-report-card.enabled .report-footer .btn-go:hover { opacity: 0.9; }
+    .cat-report-card.disabled .report-footer .btn-go { background: #f1f5f9; color: #94a3b8; cursor: default; }
+
+    @media (max-width: 768px) {
+        .cat-reports-grid { grid-template-columns: 1fr; }
+    }
+</style>
+
+<div class="breadcrumb">
+    <a href="{{ url_for('web_invoices.reports_dashboard') }}">Reportes</a>
+    <span class="sep">/</span>
+    <span>{{ category.title }}</span>
+</div>
+
+<div class="cat-header">
+    <div class="icon {{ category.key }}">
+        <i class="{{ category.icon }}"></i>
+    </div>
+    <div class="info">
+        <h1>{{ category.title }}</h1>
+        <p>{{ category.description }}</p>
+        <span class="badge-count">{{ category.count }} Reporte{% if category.count != 1 %}s{% endif %}</span>
+    </div>
+</div>
+
+<div class="cat-reports-grid">
+    {% for r in category.reports %}
+    {% if r.enabled and r.url %}
+    <a href="{{ url_for(r.url) }}" class="cat-report-card enabled">
+        <div class="report-title">
+            {{ r.title }}
+            <span class="status-badge ready">Listo</span>
+        </div>
+        {% if r.desc %}
+        <div class="report-desc">{{ r.desc }}</div>
+        {% endif %}
+        <div class="report-footer">
+            <span class="btn-go">Ver reporte</span>
+        </div>
+    </a>
+    {% else %}
+    <div class="cat-report-card disabled">
+        <div class="report-title">
+            {{ r.title }}
+            <span class="status-badge soon">Pronto</span>
+        </div>
+        {% if r.desc %}
+        <div class="report-desc">{{ r.desc }}</div>
+        {% endif %}
+        <div class="report-footer">
+            <span class="btn-go">Próximamente</span>
+        </div>
+    </div>
+    {% endif %}
+    {% endfor %}
+</div>
+{% endblock %}

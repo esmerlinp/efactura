@@ -207,6 +207,7 @@ def create_app():
                         restricted_ops = [
                             'web_invoices.new_invoice_route', 'web_invoices.new_quotation_route',
                             'web_invoices.new_expense_route', 'web_clients.ajax_create_client',
+                            'web_contacts.ajax_create_contact', 'web_contacts.new_contact',
                             'web_invoices.delete_expense_route', 'web_invoices.delete_multiple_expenses_route', 'web_pos.pos_dashboard',
                             'web_pos.create_pos_invoice', 'web_import_mapper.process_import',
                             'web_operations.register_payment_route', 'web_notes.create_credit_note_route',
@@ -233,6 +234,9 @@ def create_app():
                         return redirect(flask_url_for('web_dashboard.dashboard'))
 
                 module_restricted = {
+                    'web_contacts.list_contacts': 'crm',
+                    'web_contacts.new_contact': 'crm',
+                    'web_contacts.ajax_create_contact': 'crm',
                     'web_notes.credit_notes': 'e_cf',
                     'web_notes.debit_notes': 'e_cf',
                     'web_invoices.new_quotation_route': 'cotizaciones',
@@ -351,6 +355,8 @@ def create_app():
             user = session['user']
             if user.get('role') == 'owner':
                 return True
+            if permission_name == 'canUseChatbot':
+                return user.get('permissions', {}).get(permission_name, False)
             return user.get('permissions', {}).get(permission_name, True)
 
         import os as _os
@@ -427,7 +433,7 @@ def create_app():
                 return flask_url_for(endpoint, **values)
             except Exception:
                 # Si falla, intentar buscar agregando el prefijo de nuestros Blueprints web
-                for bp_name in ['web_auth', 'web_dashboard', 'web_clients', 'web_invoices', 'web_suppliers', 'web_purchase_orders', 'web_reports_606', 'web_pos', 'web_operations', 'portal', 'web_audit']:
+                for bp_name in ['web_auth', 'web_dashboard', 'web_clients', 'web_contacts', 'web_invoices', 'web_suppliers', 'web_purchase_orders', 'web_reports_606', 'web_pos', 'web_operations', 'portal', 'web_audit']:
                     try:
                         return flask_url_for(f"{bp_name}.{endpoint}", **values)
                     except Exception:
@@ -587,6 +593,9 @@ def create_app():
     from app.web.fiscal_notes import web_fiscal_notes_bp
     from app.web.notifications import web_notifications_bp
     from app.web.vykcore import web_vykcore_bp
+    from app.web.banks import web_banks_bp
+    from app.web.contacts import web_contacts_bp
+    from app.web.reports_sales import web_reports_sales_bp
 
     app.register_blueprint(web_auth_bp)
     app.register_blueprint(web_dashboard_bp)
@@ -604,6 +613,9 @@ def create_app():
     app.register_blueprint(web_fiscal_notes_bp)
     app.register_blueprint(web_vykcore_bp)
     app.register_blueprint(web_notifications_bp)
+    app.register_blueprint(web_banks_bp)
+    app.register_blueprint(web_contacts_bp)
+    app.register_blueprint(web_reports_sales_bp)
 
     # Eximir rutas /api/ de validación CSRF (los blueprints de API se registraron arriba)
     for rule in app.url_map.iter_rules():

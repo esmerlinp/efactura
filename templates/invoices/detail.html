@@ -326,20 +326,27 @@
             <div
                 style="display: flex; justify-content: space-between; align-items: flex-start; border-top: 1px solid var(--border-color); padding-top: 30px;">
                 <div>
-                    {% if invoice.notes %}
-                    <span
-                        style="font-size: 0.78rem; text-transform: uppercase; color: var(--text-muted); font-weight: 500; display: block; margin-bottom: 6px;">Términos
-                        y Observaciones</span>
-                    <p style="color: var(--text-secondary); font-size: 0.85rem; max-width: 400px; line-height: 1.4;">{{
-                        invoice.notes }}</p>
-                    {% endif %}
                     {% if invoice.comentario %}
                     <span
-                        style="font-size: 0.78rem; text-transform: uppercase; color: var(--text-muted); font-weight: 500; display: block; margin-bottom: 6px; margin-top: 15px;">Comentarios
-                        Adicionales</span>
-                    <p style="color: var(--text-secondary); font-size: 0.85rem; max-width: 400px; line-height: 1.4;"><i
-                            class="fa-regular fa-comment" style="margin-right: 6px; color: var(--accent-purple);"></i>{{
+                        style="font-size: 0.78rem; text-transform: uppercase; color: var(--text-muted); font-weight: 500; display: block; margin-bottom: 6px;">Notas</span>
+                    <p style="color: var(--text-secondary); font-size: 0.85rem; max-width: 400px; line-height: 1.4;">{{
                         invoice.comentario }}</p>
+                    {% endif %}
+                    {% if invoice.notes %}
+                    <span
+                        style="font-size: 0.78rem; text-transform: uppercase; color: var(--text-muted); font-weight: 500; display: block; margin-bottom: 6px; margin-top: 15px;">Términos
+                        y condiciones</span>
+                    <p style="color: var(--text-secondary); font-size: 0.85rem; max-width: 400px; line-height: 1.4;"><i
+                            class="fa-regular fa-file-lines" style="margin-right: 6px; color: var(--accent-purple);"></i>{{
+                        invoice.notes }}</p>
+                    {% endif %}
+                    {% if invoice.footer %}
+                    <span
+                        style="font-size: 0.78rem; text-transform: uppercase; color: var(--text-muted); font-weight: 500; display: block; margin-bottom: 6px; margin-top: 15px;">Pie
+                        de factura</span>
+                    <p style="color: var(--text-secondary); font-size: 0.85rem; max-width: 400px; line-height: 1.4;"><i
+                            class="fa-regular fa-rectangle-ad" style="margin-right: 6px; color: var(--accent-blue);"></i>{{
+                        invoice.footer }}</p>
                     {% endif %}
                 </div>
 
@@ -1492,23 +1499,19 @@ function switchInvoiceTab(tabName) {
                     </select>
                 </div>
 
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label for="bank-account-select"
+                        style="font-size: 0.8rem; font-weight: 500; margin-bottom: 6px; display: block; color: var(--text-secondary);">Cuenta bancaria <span style="color:var(--accent-red);">*</span></label>
+                    <select id="bank-account-select" name="bankAccountId" class="form-select"
+                        style="width: 100%; padding: 10px 12px; font-size: 0.9rem; height: 44px;" required>
+                        <option value="">Seleccionar cuenta</option>
+                        {% for acc in bank_accounts %}
+                        <option value="{{ acc.id }}">{{ acc.name }} — RD$ {{ "{:,.2f}".format(acc.currentBalance) }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
                 <div id="bank-transfer-fields" style="display: flex; flex-direction: column; gap: 16px;">
-                    <div class="form-group" style="margin-bottom: 0;">
-                        <label for="bank-select"
-                            style="font-size: 0.8rem; font-weight: 500; margin-bottom: 6px; display: block; color: var(--text-secondary);">Banco
-                            Local Destino</label>
-                        <select id="bank-select" name="bank" class="form-select"
-                            style="width: 100%; padding: 10px 12px; font-size: 0.9rem; height: 44px;">
-                            <option value="Banco Popular Dominicano">Banco Popular Dominicano</option>
-                            <option value="Banco BHD">Banco BHD</option>
-                            <option value="Banreservas">Banreservas</option>
-                            <option value="Scotiabank República Dominicana">Scotiabank</option>
-                            <option value="Asociación Popular de Ahorros y Préstamos (APAP)">APAP</option>
-                            <option value="Banco Promerica">Banco Promerica</option>
-                            <option value="Banco Santa Cruz">Banco Santa Cruz</option>
-                            <option value="Asociación Cibao de Ahorros y Préstamos (ACAP)">ACAP</option>
-                        </select>
-                    </div>
                     <div class="form-group" style="margin-bottom: 0;">
                         <label for="ref-input"
                             style="font-size: 0.8rem; font-weight: 500; margin-bottom: 6px; display: block; color: var(--text-secondary);">Referencia
@@ -1823,6 +1826,16 @@ function switchInvoiceTab(tabName) {
                             style="width: 100%; height: 38px; padding: 0 10px; border: 1px solid var(--border-color); border-radius: 6px; box-sizing: border-box;"
                             value="{{ invoice.pendingPaymentProof.paymentDate if invoice.pendingPaymentProof else '' }}">
                     </div>
+                    <div style="margin-bottom: 16px;">
+                        <label style="display: block; font-size: 0.8rem; font-weight: 600; margin-bottom: 4px; color: var(--text-primary);">Cuenta bancaria <span style="color:var(--accent-red);">*</span></label>
+                        <select name="bankAccountId" required
+                            style="width: 100%; height: 38px; padding: 0 10px; border: 1px solid var(--border-color); border-radius: 6px; box-sizing: border-box;">
+                            <option value="">Seleccionar cuenta</option>
+                            {% for acc in bank_accounts %}
+                            <option value="{{ acc.id }}">{{ acc.name }} — RD$ {{ "{:,.2f}".format(acc.currentBalance) }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
 
                     <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px;">
                         <button type="button" class="btn btn-secondary" onclick="closeApproveProofModal()">Cancelar</button>
@@ -1865,25 +1878,21 @@ function switchInvoiceTab(tabName) {
         document.addEventListener('DOMContentLoaded', () => {
             const payMethodSelect = document.getElementById('payment-method-select-pay');
             const bankTransferFields = document.getElementById('bank-transfer-fields');
-            const bankSelect = document.getElementById('bank-select');
             const refInput = document.getElementById('ref-input');
 
             function togglePayFields() {
                 if (!payMethodSelect || !bankTransferFields) return;
                 if (payMethodSelect.value === 'Efectivo') {
                     bankTransferFields.style.display = 'none';
-                    if (bankSelect) bankSelect.removeAttribute('required');
                     if (refInput) refInput.removeAttribute('required');
                 } else {
                     bankTransferFields.style.display = 'flex';
-                    if (bankSelect) bankSelect.setAttribute('required', 'required');
                     if (refInput) refInput.setAttribute('required', 'required');
                 }
             }
 
             if (payMethodSelect) {
                 payMethodSelect.addEventListener('change', togglePayFields);
-                // Run initially to match initial select value
                 togglePayFields();
             }
         });
