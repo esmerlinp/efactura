@@ -1,0 +1,134 @@
+{% extends "layout.html" %}
+{% block title %}Balanza de Comprobación{% endblock %}
+{% block page_header %}Balanza de Comprobación{% endblock %}
+{% block content %}
+<style>
+    .breadcrumb {
+        display: flex; align-items: center; gap: 6px;
+        font-size: 0.8rem; color: var(--text-muted); margin-bottom: 16px;
+    }
+    .breadcrumb a { color: var(--text-muted); text-decoration: none; font-weight: 500; }
+    .breadcrumb a:hover { color: var(--accent-emerald); }
+    .breadcrumb .sep { color: #cbd5e1; }
+
+    .rpt-filters {
+        background: #fff; border: 1px solid #e2e8f0; border-radius: 14px;
+        padding: 18px 22px; margin-bottom: 24px;
+        display: flex; align-items: flex-end; gap: 14px; flex-wrap: wrap;
+    }
+    .rpt-filters .filter-group {
+        display: flex; flex-direction: column; gap: 4px;
+    }
+    .rpt-filters .filter-group label {
+        font-size: 0.72rem; font-weight: 600; color: var(--text-muted);
+        text-transform: uppercase; letter-spacing: 0.04em;
+    }
+    .rpt-filters .filter-group input {
+        height: 40px; padding: 0 12px; border: 1px solid #e2e8f0;
+        border-radius: 8px; font-size: 0.86rem; background: #fff;
+        outline: none; min-width: 140px; transition: border-color 0.15s;
+    }
+    .rpt-filters .filter-group input:focus {
+        border-color: var(--accent-emerald);
+    }
+    .rpt-filters .btn-group {
+        display: flex; gap: 8px; margin-left: auto;
+    }
+    .rpt-filters .btn-group .btn {
+        height: 40px; padding: 0 20px; font-size: 0.86rem;
+        border-radius: 8px; font-weight: 600;
+        display: inline-flex; align-items: center; gap: 6px;
+        cursor: pointer; border: none; transition: all 0.15s;
+    }
+    .rpt-table {
+        width: 100%; border-collapse: collapse; font-size: 0.82rem;
+    }
+    .rpt-table th, .rpt-table td {
+        padding: 12px 16px; border-bottom: 1px solid #f1f5f9;
+    }
+    .rpt-table thead th {
+        background: #f8fafc; text-align: right;
+        font-size: 0.76rem; font-weight: 700; color: var(--text-muted);
+        text-transform: uppercase; letter-spacing: 0.04em;
+        border-bottom: 1px solid #e2e8f0;
+    }
+    .rpt-table thead th:first-child { text-align: left; }
+    .rpt-table thead th:nth-child(2) { text-align: left; }
+    .rpt-table thead th:nth-child(3) { text-align: left; }
+    .rpt-table tbody td { color: var(--text-primary); text-align: right; }
+    .rpt-table tbody td:nth-child(2) { text-align: left; }
+    .rpt-table tbody td:nth-child(3) { text-align: left; }
+    .rpt-table tbody tr.total-row td {
+        background: rgba(16, 185, 129, 0.05); font-weight: 800; color: var(--accent-emerald);
+        border-bottom: 2px solid var(--accent-emerald);
+    }
+</style>
+
+<div class="breadcrumb">
+    <a href="{{ url_for('web_invoices.reports_dashboard') }}">Reportes</a>
+    <span class="sep">/</span>
+    <a href="{{ url_for('web_accounting.dashboard') }}">Contabilidad</a>
+    <span class="sep">/</span>
+    <span>Balanza de Comprobación</span>
+</div>
+
+<p style="font-size:0.85rem; color:var(--text-muted); margin:-8px 0 18px 0; line-height:1.5; max-width:640px;">
+    Reporte que resume los débitos, créditos y saldos de cada cuenta contable en una fecha determinada.
+</p>
+
+<div class="rpt-filters">
+    <form method="GET" style="display:contents;">
+        <div class="filter-group">
+            <label for="date-input">Fecha de corte</label>
+            <input id="date-input" type="date" name="date" class="form-input" value="{{ date }}">
+        </div>
+        <div class="btn-group">
+            <button type="submit" class="btn btn-primary">
+                <i class="fa-solid fa-rotate"></i> Generar
+            </button>
+            {% if date %}<a href="{{ url_for('web_accounting.trial_balance') }}" class="btn btn-secondary" style="text-decoration:none;">Limpiar</a>{% endif %}
+        </div>
+    </form>
+</div>
+
+<div class="card-form-body" style="padding:0; overflow-x:auto;">
+    <table class="rpt-table">
+        <thead>
+            <tr>
+                <th>Código</th>
+                <th>Cuenta</th>
+                <th>Grupo</th>
+                <th>Débito</th>
+                <th>Crédito</th>
+                <th>Saldo</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% if rows %}
+            {% for r in rows %}
+            <tr>
+                <td style="font-family:monospace; color:var(--text-secondary);">{{ r.code }}</td>
+                <td>{{ r.name }}</td>
+                <td>{{ r.group }}</td>
+                <td>{{ "{:,.2f}".format(r.debit) }}</td>
+                <td>{{ "{:,.2f}".format(r.credit) }}</td>
+                <td style="font-weight:500;">{{ "{:,.2f}".format(r.balance) }}</td>
+            </tr>
+            {% endfor %}
+            {% else %}
+            <tr>
+                <td colspan="6" style="padding:24px; text-align:center; color:var(--text-muted);">No hay movimientos registrados.</td>
+            </tr>
+            {% endif %}
+        </tbody>
+        <tfoot>
+            <tr class="total-row">
+                <td colspan="3">Totales</td>
+                <td>{{ "{:,.2f}".format(total_debit) }}</td>
+                <td>{{ "{:,.2f}".format(total_credit) }}</td>
+                <td>—</td>
+            </tr>
+        </tfoot>
+    </table>
+</div>
+{% endblock %}

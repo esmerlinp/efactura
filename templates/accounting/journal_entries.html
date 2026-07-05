@@ -1,0 +1,116 @@
+{% extends "layout.html" %}
+{% block title %}Entradas de Diario{% endblock %}
+{% block page_header %}Entradas de Diario{% endblock %}
+{% block content %}
+<div class="page-title-container" style="margin-bottom:16px; padding-left:4px; display:flex; align-items:center; justify-content:space-between;">
+    <div>
+        <h1 style="font-size:1.75rem; font-weight:800; font-family:var(--font-heading); color:var(--text-primary); margin:0;">
+            <i class="fa-solid fa-pen-to-square" style="color:var(--accent-purple); margin-right:10px;"></i>
+            Entradas de Diario
+        </h1>
+        <p style="color:var(--text-secondary); font-size:0.88rem; margin:6px 0 0 2px;">
+            Asientos contables manuales. Total: {{ entries|length }}
+        </p>
+    </div>
+    <a href="{{ url_for('web_accounting.new_journal_entry') }}" class="btn btn-primary">
+        <i class="fa-solid fa-plus"></i> Nueva Entrada de Diario
+    </a>
+</div>
+
+<div class="card-form-body" style="padding:0; overflow-x:auto;">
+    <table class="table" style="width:100%; border-collapse:collapse; font-size:0.82rem;">
+        <thead>
+            <tr style="background:var(--bg-nav-hover);">
+                <th style="padding:10px 12px; text-align:left;">N°</th>
+                <th style="padding:10px 12px; text-align:left;">Fecha</th>
+                <th style="padding:10px 12px; text-align:left;">Concepto</th>
+                <th style="padding:10px 12px; text-align:left;">Tipo</th>
+                <th style="padding:10px 12px; text-align:right;">Débito</th>
+                <th style="padding:10px 12px; text-align:right;">Crédito</th>
+                <th style="padding:10px 12px; text-align:center;">Estado</th>
+                <th style="padding:10px 12px; text-align:center;">Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% if entries %}
+            {% for e in entries %}
+            <tr style="border-bottom:1px solid var(--border-color); {% if e.status == 'voided' %}opacity:0.5;{% endif %}">
+                <td style="padding:8px 12px; font-family:monospace;">{{ e.number }}</td>
+                <td style="padding:8px 12px;">{{ e.date[:10] }}</td>
+                <td style="padding:8px 12px; max-width:250px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ e.concept or '' }}</td>
+                <td style="padding:8px 12px;">{% if e.entryType == 'initial_balance' %}Saldos Iniciales{% elif e.entryType == 'depreciation' %}Depreciación{% elif e.entryType == 'disposal' %}Baja{% else %}Estándar{% endif %}</td>
+                <td style="padding:8px 12px; text-align:right;">{{ "{:,.2f}".format(e.totalDebit) }}</td>
+                <td style="padding:8px 12px; text-align:right;">{{ "{:,.2f}".format(e.totalCredit) }}</td>
+                <td style="padding:8px 12px; text-align:center;">
+                    {% if e.status == 'voided' %}
+                    <span class="badge badge-danger">Anulada</span>
+                    {% else %}
+                    <span class="badge badge-success">Activa</span>
+                    {% endif %}
+                </td>
+                <td style="padding:8px 12px; text-align:center;">
+                    <div style="display:flex; gap:4px; justify-content:center;">
+                        <a href="{{ url_for('web_accounting.journal_entry_detail', entry_id=e.id) }}" class="btn btn-secondary" style="padding:2px 8px; font-size:0.75rem;">
+                            <i class="fa-solid fa-eye"></i>
+                        </a>
+                        {% if e.status != 'voided' %}
+                        <form method="POST" action="{{ url_for('web_accounting.clone_journal_entry', entry_id=e.id) }}" style="display:inline;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn btn-secondary" style="padding:2px 8px; font-size:0.75rem;" title="Clonar">
+                                <i class="fa-solid fa-copy"></i>
+                            </button>
+                        </form>
+                        <button onclick="voidEntry('{{ e.id }}', '{{ e.number }}')" class="btn btn-secondary" style="padding:2px 8px; font-size:0.75rem; color:var(--accent-red);" title="Anular">
+                            <i class="fa-solid fa-ban"></i>
+                        </button>
+                        {% endif %}
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+            {% else %}
+            <tr>
+                <td colspan="8" style="padding:24px; text-align:center; color:var(--text-muted);">
+                    No hay entradas de diario registradas.
+                    <a href="{{ url_for('web_accounting.new_journal_entry') }}">Crear la primera</a>.
+                </td>
+            </tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Modal Anular -->
+<div id="void-modal" class="modal-overlay" style="display:none; position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:9999;align-items:center;justify-content:center;">
+    <div class="card-form-body" style="max-width:440px;width:90%;padding:24px;">
+        <h3 style="font-size:1.1rem; font-weight:700; margin-bottom:8px; color:var(--accent-red);">
+            <i class="fa-solid fa-ban"></i> Anular Entrada
+        </h3>
+        <p style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:16px;">
+            ¿Anular <strong id="void-entry-number"></strong>? Esta acción no se puede deshacer.
+        </p>
+        <form method="POST" id="void-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="form-group">
+                <label>Motivo de anulación</label>
+                <input type="text" name="reason" class="form-input" placeholder="Opcional" style="font-size:0.82rem;">
+            </div>
+            <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:16px;">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('void-modal')">Cancelar</button>
+                <button type="submit" class="btn btn-danger">Anular</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function voidEntry(entryId, number) {
+    document.getElementById('void-entry-number').textContent = number;
+    document.getElementById('void-form').action = '{{ url_for("web_accounting.void_journal_entry", entry_id="") }}' + entryId;
+    document.getElementById('void-modal').style.display = 'flex';
+}
+function closeModal(id) {
+    document.getElementById(id).style.display = 'none';
+}
+</script>
+{% endblock %}

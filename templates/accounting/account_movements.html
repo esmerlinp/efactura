@@ -1,0 +1,76 @@
+{% extends "layout.html" %}
+{% block title %}Movimientos — {{ account.name }}{% endblock %}
+{% block page_header %}Movimientos de Cuenta{% endblock %}
+{% block content %}
+<div class="page-title-container" style="margin-bottom:16px; padding-left:4px;">
+    <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+        <a href="{{ url_for('web_accounting.chart_of_accounts') }}" style="color:var(--text-muted); font-size:0.82rem; text-decoration:none;">
+            <i class="fa-solid fa-arrow-left"></i> Catálogo
+        </a>
+    </div>
+    <h1 style="font-size:1.5rem; font-weight:800; font-family:var(--font-heading); color:var(--text-primary); margin:0;">
+        <i class="fa-solid fa-list" style="color:var(--accent-purple); margin-right:10px;"></i>
+        {{ account.code }} — {{ account.name }}
+    </h1>
+    <p style="color:var(--text-secondary); font-size:0.85rem; margin:4px 0 0 2px;">
+        Naturaleza: {{ account.nature }} | Tipo: {{ account.type }}
+        {% if account.isSystem %}| 🔒 Cuenta regla{% endif %}
+    </p>
+</div>
+
+<div style="display:flex; gap:12px; align-items:center; margin-bottom:16px; flex-wrap:wrap;">
+    <form method="GET" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;" id="filter-form">
+        <input type="date" name="dateFrom" class="form-input" value="{{ date_from }}" style="font-size:0.82rem;">
+        <input type="date" name="dateTo" class="form-input" value="{{ date_to }}" style="font-size:0.82rem;">
+        <button type="submit" class="btn btn-secondary" style="font-size:0.8rem;"><i class="fa-solid fa-filter"></i> Filtrar</button>
+        {% if date_from or date_to %}
+        <a href="{{ url_for('web_accounting.account_movements', account_id=account.id) }}" class="btn btn-secondary" style="font-size:0.8rem;">Limpiar</a>
+        {% endif %}
+    </form>
+    <div style="margin-left:auto; font-size:0.9rem;">
+        <strong>Saldo actual:</strong>
+        <span style="color:{% if balance >= 0 %}var(--accent-emerald){% else %}var(--accent-red){% endif %}; font-weight:700;">
+            {{ "{:,.2f}".format(balance) }}
+        </span>
+    </div>
+</div>
+
+<div class="card-form-body" style="padding:0; overflow-x:auto;">
+    <table class="table" style="width:100%; border-collapse:collapse; font-size:0.82rem;">
+        <thead>
+            <tr style="background:var(--bg-nav-hover);">
+                <th style="padding:10px 12px; text-align:left;">Fecha</th>
+                <th style="padding:10px 12px; text-align:left;">Asiento</th>
+                <th style="padding:10px 12px; text-align:left;">Concepto</th>
+                <th style="padding:10px 12px; text-align:left;">Referencia</th>
+                <th style="padding:10px 12px; text-align:left;">Contacto</th>
+                <th style="padding:10px 12px; text-align:right;">Débito</th>
+                <th style="padding:10px 12px; text-align:right;">Crédito</th>
+                <th style="padding:10px 12px; text-align:right;">Saldo</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% if movements %}
+            {% for m in movements %}
+            <tr style="border-bottom:1px solid var(--border-color);">
+                <td style="padding:8px 12px;">{{ m.date[:10] }}</td>
+                <td style="padding:8px 12px; font-family:monospace;">{{ m.entryNumber }}</td>
+                <td style="padding:8px 12px;">{{ m.concept }}{% if m.description %} — {{ m.description }}{% endif %}</td>
+                <td style="padding:8px 12px;">{% if m.referenceNumber %}{{ m.referenceNumber }}{% endif %}</td>
+                <td style="padding:8px 12px;">{{ m.contactName }}</td>
+                <td style="padding:8px 12px; text-align:right;">{% if m.debit > 0 %}{{ "{:,.2f}".format(m.debit) }}{% endif %}</td>
+                <td style="padding:8px 12px; text-align:right;">{% if m.credit > 0 %}{{ "{:,.2f}".format(m.credit) }}{% endif %}</td>
+                <td style="padding:8px 12px; text-align:right; font-weight:600; color:{% if m.balance >= 0 %}var(--accent-emerald){% else %}var(--accent-red){% endif %};">
+                    {{ "{:,.2f}".format(m.balance) }}
+                </td>
+            </tr>
+            {% endfor %}
+            {% else %}
+            <tr>
+                <td colspan="8" style="padding:24px; text-align:center; color:var(--text-muted);">No hay movimientos registrados para esta cuenta.</td>
+            </tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

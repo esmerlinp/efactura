@@ -13,10 +13,19 @@
     </p>
 </div>
 
-<div class="card-form-body" style="max-width:720px;">
-    <form method="POST" action="{{ url_for('web_purchase_orders.new_credit_note') }}">
-        <div class="form-inner-grid">
-            <div class="form-group span-full">
+<form method="POST" action="{{ url_for('web_purchase_orders.new_credit_note') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <div class="card-segment" style="max-width: 800px;">
+        <div class="segment-header">
+            <div class="segment-header-icon purple">
+                <i class="fa-solid fa-file-circle-minus"></i>
+            </div>
+            <h3>Datos de la Nota de Crédito</h3>
+        </div>
+
+        <div class="form-grid">
+            <div class="form-group" style="grid-column: 1 / -1;">
                 <label for="creditedInvoiceId">Factura de Proveedor *</label>
                 <select id="creditedInvoiceId" name="creditedInvoiceId" class="form-select" required style="width:100%;" onchange="updateInvoiceInfo(this)">
                     <option value="">-- Seleccionar Factura con Saldo Pendiente --</option>
@@ -34,7 +43,7 @@
                 </select>
             </div>
 
-            <div id="invoice-info" style="display:none;" class="span-full">
+            <div id="invoice-info" style="display:none; grid-column: 1 / -1;">
                 <div style="background:rgba(16,185,129,0.05); border:1px solid rgba(16,185,129,0.2); border-radius:8px; padding:12px 16px; font-size:0.85rem;">
                     <strong>Proveedor:</strong> <span id="info-supplier"></span><br>
                     <strong>Factura:</strong> <span id="info-invoice"></span><br>
@@ -42,7 +51,7 @@
                 </div>
             </div>
 
-            <div class="form-group span-full">
+            <div class="form-group" style="grid-column: 1 / -1;">
                 <label for="concept">Concepto / Motivo de la Nota de Crédito *</label>
                 <input type="text" id="concept" name="concept" class="form-input" required placeholder="Ej: Devolución de mercancía, Descuento por volumen, Ajuste de precio..." style="width:100%;">
             </div>
@@ -58,22 +67,23 @@
                 <small style="color:var(--text-muted); font-size:0.72rem;">No puede exceder el saldo pendiente de la factura.</small>
             </div>
 
-            <div class="form-group span-full">
+            <div class="form-group" style="grid-column: 1 / -1;">
                 <label for="notes">Notas Internas</label>
                 <textarea id="notes" name="notes" class="form-input" rows="3" style="width:100%; resize:vertical;" placeholder="Notas opcionales..."></textarea>
             </div>
-
-            <div class="span-full" style="display:flex; gap:12px; justify-content:flex-end; padding-top:16px; border-top:1px solid var(--border-color); margin-top:8px;">
-                <a href="{{ url_for('web_purchase_orders.list_credit_notes') }}" class="btn btn-secondary">
-                    <i class="fa-solid fa-xmark"></i> Cancelar
-                </a>
-                <button type="submit" class="btn btn-primary">
-                    <i class="fa-solid fa-check"></i> Crear Nota de Crédito
-                </button>
-            </div>
         </div>
-    </form>
-</div>
+    </div>
+
+    <!-- BARRA DE ACCIONES FINAL -->
+    <div style="display: flex; justify-content: flex-end; gap: 15px; border-top: 1px solid var(--border-color); padding-top: 24px; margin-bottom: 12px;">
+        <a href="{{ url_for('web_purchase_orders.list_credit_notes') }}" class="btn btn-secondary">
+            <span>Cancelar</span>
+        </a>
+        <button type="submit" class="btn btn-primary" style="padding: 14px 28px;">
+            <i class="fa-solid fa-check"></i> Crear Nota de Crédito
+        </button>
+    </div>
+</form>
 
 <script>
 function updateInvoiceInfo(select) {

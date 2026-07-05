@@ -256,6 +256,13 @@ def create_app():
                     'web_audit.audit_view': 'auditoria',
                     'web_dashboard.bi_page': 'ia_bi',
                     'web_clients.client_insights': 'ia_bi',
+                    'web_accounting.dashboard': 'contabilidad',
+                    'web_accounting.chart_of_accounts': 'contabilidad',
+                    'web_accounting.journal_entries': 'contabilidad',
+                    'web_accounting.general_journal': 'contabilidad',
+                    'web_accounting.fixed_assets': 'contabilidad',
+                    'web_accounting.balance_sheet': 'contabilidad',
+                    'web_accounting.income_statement': 'contabilidad',
                 }
                 ep = request.endpoint
                 if ep in module_restricted:
@@ -375,7 +382,7 @@ def create_app():
             from app.utils.module_gate import module_enabled as _me
             return _me(module_key)
 
-        return dict(check_permission=check_permission, static_hash=static_hash, module_enabled=module_enabled)
+        return dict(check_permission=check_permission, static_hash=static_hash, module_enabled=module_enabled, abs=abs)
 
     @app.context_processor
     def inject_plan_info():
@@ -568,6 +575,7 @@ def create_app():
     from app.api.v1.auth import api_auth_bp
     from app.api.v1.metadata import metadata_bp
     from app.api.v1.prospects import api_prospects_bp
+    from app.api.v1.accounting import api_accounting_bp
     
     app.register_blueprint(api_invoices_bp, url_prefix='/api/v1')
     app.register_blueprint(api_clients_bp, url_prefix='/api/v1')
@@ -575,6 +583,7 @@ def create_app():
     app.register_blueprint(api_auth_bp, url_prefix='/api/v1')
     app.register_blueprint(metadata_bp, url_prefix='/api/v1')
     app.register_blueprint(api_prospects_bp, url_prefix='/api/v1')
+    app.register_blueprint(api_accounting_bp, url_prefix='/api/v1')
 
     # 2. Web UI Blueprints
     from app.web.auth import web_auth_bp
@@ -596,6 +605,7 @@ def create_app():
     from app.web.banks import web_banks_bp
     from app.web.contacts import web_contacts_bp
     from app.web.reports_sales import web_reports_sales_bp
+    from app.web.accounting import web_accounting_bp
 
     app.register_blueprint(web_auth_bp)
     app.register_blueprint(web_dashboard_bp)
@@ -616,6 +626,7 @@ def create_app():
     app.register_blueprint(web_banks_bp)
     app.register_blueprint(web_contacts_bp)
     app.register_blueprint(web_reports_sales_bp)
+    app.register_blueprint(web_accounting_bp)
 
     # Eximir rutas /api/ de validación CSRF (los blueprints de API se registraron arriba)
     for rule in app.url_map.iter_rules():

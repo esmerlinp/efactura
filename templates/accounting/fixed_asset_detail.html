@@ -1,0 +1,118 @@
+{% extends "layout.html" %}
+{% block title %}{{ asset.name }}{% endblock %}
+{% block page_header %}Activo Fijo{% endblock %}
+{% block content %}
+<div class="page-title-container" style="margin-bottom:16px; padding-left:4px;">
+    <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+        <a href="{{ url_for('web_accounting.fixed_assets') }}" style="color:var(--text-muted); font-size:0.82rem; text-decoration:none;">
+            <i class="fa-solid fa-arrow-left"></i> Activos Fijos
+        </a>
+    </div>
+    <h1 style="font-size:1.5rem; font-weight:800; font-family:var(--font-heading); color:var(--text-primary); margin:0;">
+        <i class="fa-solid fa-industry" style="color:var(--accent-purple); margin-right:10px;"></i>
+        {{ asset.code }} — {{ asset.name }}
+    </h1>
+</div>
+
+<div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px;">
+    <div class="card-form-body" style="padding:16px;">
+        <h4 style="font-size:0.85rem; font-weight:700; margin-bottom:12px; color:var(--text-secondary);"><i class="fa-solid fa-circle-info"></i> Información General</h4>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; font-size:0.85rem;">
+            <div><strong>Tipo:</strong> {{ asset.assetType }}</div>
+            <div><strong>Categoría:</strong> {{ asset.category }}</div>
+            <div><strong>Proveedor:</strong> {{ asset.supplierName or '—' }}</div>
+            <div><strong>Ubicación:</strong> {{ asset.location or '—' }}</div>
+            <div><strong>Responsable:</strong> {{ asset.responsible or '—' }}</div>
+            <div><strong>Estado:</strong>
+                {% if asset.status == 'active' %}<span class="badge badge-success">Activo</span>{% elif asset.status == 'disposed' %}<span class="badge badge-danger">Dado de baja</span>{% else %}<span class="badge badge-warning">Totalmente depreciado</span>{% endif %}
+            </div>
+        </div>
+        {% if asset.description %}<p style="font-size:0.82rem; color:var(--text-secondary); margin-top:8px;">{{ asset.description }}</p>{% endif %}
+    </div>
+
+    <div class="card-form-body" style="padding:16px;">
+        <h4 style="font-size:0.85rem; font-weight:700; margin-bottom:12px; color:var(--text-secondary);"><i class="fa-solid fa-calculator"></i> Depreciación</h4>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; font-size:0.85rem;">
+            <div><strong>Costo:</strong> {{ "{:,.2f}".format(asset.purchaseAmount) }}</div>
+            <div><strong>Valor residual:</strong> {{ "{:,.2f}".format(asset.residualValue) }}</div>
+            <div><strong>Vida útil:</strong> {{ asset.usefulLife }} meses</div>
+            <div><strong>Método:</strong> Lineal ({{ asset.depreciationRate }}%/mes)</div>
+            <div><strong>Dep. Acumulada:</strong> <span style="color:var(--accent-red);">{{ "{:,.2f}".format(asset.accumulatedDepreciation) }}</span></div>
+            <div><strong>Valor actual:</strong> <span style="font-weight:700;">{{ "{:,.2f}".format(asset.currentValue) }}</span></div>
+            <div><strong>Última depreciación:</strong> {{ (asset.lastDepreciationDate or '—')[:10] }}</div>
+            <div><strong>Próxima depreciación:</strong> {{ (asset.nextDepreciationDate or '—')[:10] }}</div>
+        </div>
+        {% set pct = (asset.accumulatedDepreciation / asset.purchaseAmount * 100) if asset.purchaseAmount > 0 else 0 %}
+        <div style="margin-top:12px; background:var(--bg-nav-hover); border-radius:6px; height:8px; overflow:hidden;">
+            <div style="height:100%; width:{{ pct|min(100) }}%; background:var(--accent-purple); border-radius:6px;"></div>
+        </div>
+        <div style="font-size:0.75rem; color:var(--text-muted); margin-top:4px;">{{ "%.1f"|format(pct) }}% depreciado</div>
+    </div>
+</div>
+
+{% if asset.status == 'active' %}
+<div style="display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap;">
+    <button class="btn btn-primary" onclick="document.getElementById('depreciate-form').style.display='block'">
+        <i class="fa-solid fa-calculator"></i> Registrar Depreciación
+    </button>
+    <button class="btn btn-danger" onclick="document.getElementById('dispose-form').style.display='block'">
+        <i class="fa-solid fa-arrow-right-from-bracket"></i> Dar de Baja
+    </button>
+</div>
+
+<div id="depreciate-form" style="display:none; margin-bottom:16px;">
+    <div class="card-form-body" style="padding:16px;">
+        <h4 style="font-size:0.9rem; font-weight:700; margin-bottom:8px;"><i class="fa-solid fa-calculator"></i> Registrar Depreciación</h4>
+        <form method="POST" action="{{ url_for('web_accounting.depreciate_asset', asset_id=asset.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div style="display:flex; gap:12px; align-items:flex-end;">
+                <div class="form-group" style="flex:1;">
+                    <label>Períodos (meses)</label>
+                    <input type="number" name="periods" class="form-input" value="1" min="1" max="60">
+                </div>
+                <button type="submit" class="btn btn-primary">Depreciar</button>
+            </div>
+            <div style="font-size:0.78rem; color:var(--text-muted); margin-top:4px;">
+                Se generará un asiento contable automático.
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="dispose-form" style="display:none; margin-bottom:16px;">
+    <div class="card-form-body" style="padding:16px;">
+        <h4 style="font-size:0.9rem; font-weight:700; margin-bottom:8px; color:var(--accent-red);"><i class="fa-solid fa-arrow-right-from-bracket"></i> Dar de Baja</h4>
+        <form method="POST" action="{{ url_for('web_accounting.dispose_asset', asset_id=asset.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px;">
+                <div class="form-group">
+                    <label>Fecha de baja</label>
+                    <input type="date" name="disposalDate" class="form-input">
+                </div>
+                <div class="form-group">
+                    <label>Valor de venta/desecho</label>
+                    <input type="number" name="disposalAmount" class="form-input" step="0.01" min="0" value="0">
+                </div>
+                <div class="form-group">
+                    <label>Motivo</label>
+                    <select name="disposalReason" class="form-select">
+                        <option value="Venta">Venta</option>
+                        <option value="Donación">Donación</option>
+                        <option value="Pérdida">Pérdida / Robo</option>
+                        <option value="Retiro">Retiro / Desecho</option>
+                    </select>
+                </div>
+            </div>
+            <button type="submit" class="btn btn-danger" style="margin-top:8px;">Confirmar Baja</button>
+        </form>
+    </div>
+</div>
+{% endif %}
+
+{% if asset.status == 'disposed' %}
+<div class="card-form-body" style="padding:16px; margin-bottom:16px; border-left:3px solid var(--accent-red);">
+    <h4 style="font-size:0.85rem; font-weight:700; color:var(--accent-red);"><i class="fa-solid fa-arrow-right-from-bracket"></i> Activo Dado de Baja</h4>
+    <p style="font-size:0.82rem;">Fecha: {{ asset.disposalDate }} — Motivo: {{ asset.disposalReason }} — Valor: {{ "{:,.2f}".format(asset.disposalAmount) }}</p>
+</div>
+{% endif %}
+{% endblock %}

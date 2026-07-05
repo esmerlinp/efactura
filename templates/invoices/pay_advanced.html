@@ -1,0 +1,319 @@
+{% extends "layout.html" %}
+{% block title %}Nuevo pago recibido{% endblock %}
+{% block content %}
+<style>
+    .advanced-pay-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-md);
+        padding: 30px;
+        color: var(--text-primary);
+        max-width: 800px;
+        margin: 20px auto;
+        box-shadow: var(--shadow-sm);
+    }
+    .header-section {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        border-bottom: 2px solid var(--border-color);
+        padding-bottom: 20px;
+        margin-bottom: 24px;
+    }
+    .company-info h2 {
+        font-size: 1.4rem;
+        font-weight: 800;
+        margin: 0 0 4px 0;
+        color: var(--text-primary);
+    }
+    .company-info p {
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+        margin: 0;
+    }
+    .receipt-title {
+        text-align: right;
+    }
+    .receipt-title h3 {
+        font-size: 1.25rem;
+        font-weight: 700;
+        margin: 0 0 4px 0;
+        color: var(--accent-purple);
+    }
+    .receipt-title p {
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: var(--text-muted);
+        margin: 0;
+    }
+    .form-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+        margin-bottom: 24px;
+    }
+    @media (max-width: 600px) {
+        .form-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+    .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+    .form-group label {
+        font-size: 0.82rem;
+        font-weight: 600;
+        color: var(--text-secondary);
+    }
+    .form-group input, .form-group select, .form-group textarea {
+        padding: 10px 12px;
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-sm);
+        background: var(--bg-input);
+        color: var(--text-primary);
+        font-family: inherit;
+        font-size: 0.88rem;
+        outline: none;
+    }
+    .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+        border-color: var(--accent-purple);
+    }
+    .radio-group {
+        display: flex;
+        gap: 16px;
+        align-items: center;
+        margin-top: 8px;
+    }
+    .radio-option {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.88rem;
+        cursor: pointer;
+    }
+    .radio-option input {
+        cursor: pointer;
+    }
+    .section-title {
+        font-size: 1.05rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin: 24px 0 8px 0;
+        border-bottom: 1px solid var(--border-color);
+        padding-bottom: 6px;
+    }
+    .section-subtitle {
+        font-size: 0.8rem;
+        color: var(--text-muted);
+        margin: 0 0 16px 0;
+    }
+    .cxc-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 20px;
+    }
+    .cxc-table th {
+        text-align: left;
+        padding: 12px;
+        background: rgba(0,0,0,0.02);
+        font-size: 0.76rem;
+        font-weight: 700;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        border-bottom: 2px solid var(--border-color);
+    }
+    .cxc-table td {
+        padding: 12px;
+        border-bottom: 1px solid var(--border-color);
+        font-size: 0.85rem;
+        vertical-align: middle;
+    }
+    .cxc-table input {
+        padding: 6px 10px;
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-sm);
+        background: var(--bg-input);
+        color: var(--text-primary);
+        width: 120px;
+        font-size: 0.85rem;
+    }
+    .total-box {
+        display: flex;
+        justify-content: flex-end;
+        align-items: center;
+        gap: 12px;
+        font-size: 1.1rem;
+        font-weight: 700;
+        margin-top: 12px;
+        border-top: 1px solid var(--border-color);
+        padding-top: 12px;
+    }
+    .action-buttons {
+        display: flex;
+        gap: 12px;
+        margin-top: 30px;
+        justify-content: flex-end;
+    }
+</style>
+
+<div class="advanced-pay-card">
+    <form method="POST" id="advanced-payment-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        
+        <div class="header-section">
+            <div class="company-info">
+                <h2>{{ company.companyName or 'vykcore' }}</h2>
+                <p>RNC: {{ company.companyRNC or '22900013305' }}</p>
+            </div>
+            <div class="receipt-title">
+                <h3>Recibo de caja</h3>
+                <p>No. {{ receipt_no }}</p>
+            </div>
+        </div>
+
+        <div class="form-grid">
+            <div class="form-group">
+                <label>Cliente</label>
+                <input type="text" value="{{ invoice.clientName or 'Cliente General' }}" readonly style="background: rgba(0,0,0,0.03); cursor: not-allowed;">
+            </div>
+            <div class="form-group">
+                <label>Cuenta bancaria *</label>
+                <select name="bankAccountId" required>
+                    <option value="">Seleccionar cuenta...</option>
+                    {% for acc in bank_accounts %}
+                    <option value="{{ acc.id }}">{{ acc.name }} — RD$ {{ "{:,.2f}".format(acc.currentBalance) }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Fecha de pago *</label>
+                <input type="date" name="paymentDate" value="{{ default_date }}" required>
+            </div>
+            <div class="form-group">
+                <label>Forma de pago *</label>
+                <select name="paymentMethod" required>
+                    <option value="Transferencia">Transferencia</option>
+                    <option value="Efectivo">Efectivo</option>
+                    <option value="Cheque">Cheque</option>
+                    <option value="Tarjeta">Tarjeta</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Centro de costo</label>
+                <select name="costCenterId">
+                    <option value="">— Sin centro de costo —</option>
+                    {% for cc in cost_centers %}
+                    <option value="{{ cc.id }}">{{ cc.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Tipo de ingreso</label>
+                <div class="radio-group">
+                    <label class="radio-option">
+                        <input type="radio" name="incomeType" value="Pago a factura de cliente" checked>
+                        <span>Pago a factura de cliente</span>
+                    </label>
+                    <label class="radio-option">
+                        <input type="radio" name="incomeType" value="Otros ingresos">
+                        <span>Otros ingresos</span>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <div id="fxc-section">
+            <div class="section-title">Facturas por cobrar</div>
+            <p class="section-subtitle">Agrega el monto recibido a las facturas relacionadas con este ingreso.</p>
+            
+            <table class="cxc-table">
+                <thead>
+                    <tr>
+                        <th>Número</th>
+                        <th>Vencimiento</th>
+                        <th>Total</th>
+                        <th>Retenciones</th>
+                        <th>Por cobrar</th>
+                        <th>Monto recibido</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>{{ invoice.invoiceNumber or 'B0100000002' }}</strong></td>
+                        <td>{{ invoice.dueDate | format_date }}</td>
+                        <td>RD$ {{ "{:,.2f}".format(invoice.total) }}</td>
+                        <td>
+                            <div style="display:flex; align-items:center; gap:4px;">
+                                <span style="font-size:0.8rem; color:var(--text-muted);">RD$</span>
+                                <input type="number" step="0.01" min="0" name="retenciones" id="retenciones-input" value="0.00" oninput="calculateTotals()">
+                            </div>
+                        </td>
+                        <td><span id="por-cobrar-display">RD$ {{ "{:,.2f}".format(invoice.remainingBalance) }}</span></td>
+                        <td>
+                            <div style="display:flex; align-items:center; gap:4px;">
+                                <span style="font-size:0.8rem; color:var(--text-muted);">RD$</span>
+                                <input type="number" step="0.01" min="0.01" max="{{ invoice.remainingBalance }}" name="monto_recibido" id="monto-recibido-input" value="{{ invoice.remainingBalance }}" oninput="calculateTotals()">
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+            
+            <div class="total-box">
+                <span>Total:</span>
+                <span id="total-display" style="color: var(--accent-emerald);">RD$ {{ "{:,.2f}".format(invoice.remainingBalance) }}</span>
+            </div>
+        </div>
+
+        <div class="form-group" style="margin-top: 20px;">
+            <label>Notas</label>
+            <textarea name="notes" rows="3" placeholder="Detalles o comentarios adicionales del pago..."></textarea>
+        </div>
+
+        <div class="action-buttons">
+            <a href="{{ url_for('web_invoices.invoice_detail', invoice_id=invoice.id) }}" class="btn btn-secondary">Cancelar</a>
+            <button type="submit" class="btn btn-primary" style="background: var(--accent-purple); border-color: var(--accent-purple); font-weight:700;">
+                <i class="fa-solid fa-floppy-disk"></i> Guardar
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+    const baseRemainingBalance = parseFloat("{{ invoice.remainingBalance }}") || 0.0;
+    
+    function calculateTotals() {
+        const montoInput = document.getElementById('monto-recibido-input');
+        const retInput = document.getElementById('retenciones-input');
+        const totalDisplay = document.getElementById('total-display');
+        
+        let monto = parseFloat(montoInput.value) || 0.0;
+        let ret = parseFloat(retInput.value) || 0.0;
+        
+        if (monto > baseRemainingBalance) {
+            monto = baseRemainingBalance;
+            montoInput.value = baseRemainingBalance.toFixed(2);
+        }
+        
+        const total = monto;
+        totalDisplay.innerText = 'RD$ ' + total.toLocaleString('es-DO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+    
+    const radioIncomeType = document.getElementsByName('incomeType');
+    const fxcSection = document.getElementById('fxc-section');
+    
+    for (let i = 0; i < radioIncomeType.length; i++) {
+        radioIncomeType[i].addEventListener('change', function() {
+            if (this.value === 'Otros ingresos') {
+                fxcSection.style.display = 'none';
+                document.getElementById('monto-recibido-input').removeAttribute('required');
+            } else {
+                fxcSection.style.display = 'block';
+                document.getElementById('monto-recibido-input').setAttribute('required', 'required');
+            }
+        });
+    }
+</script>
+{% endblock %}

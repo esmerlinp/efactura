@@ -1,0 +1,91 @@
+{% extends "layout.html" %}
+{% block title %}Activos Fijos{% endblock %}
+{% block page_header %}Activos Fijos{% endblock %}
+{% block content %}
+<div class="page-title-container" style="margin-bottom:16px; padding-left:4px; display:flex; align-items:center; justify-content:space-between;">
+    <div>
+        <h1 style="font-size:1.75rem; font-weight:800; font-family:var(--font-heading); color:var(--text-primary); margin:0;">
+            <i class="fa-solid fa-industry" style="color:var(--accent-purple); margin-right:10px;"></i>
+            Activos Fijos
+        </h1>
+        <p style="color:var(--text-secondary); font-size:0.88rem; margin:6px 0 0 2px;">
+            Propiedades, planta y equipo. Control de depreciación.
+        </p>
+    </div>
+    <a href="{{ url_for('web_accounting.new_fixed_asset') }}" class="btn btn-primary">
+        <i class="fa-solid fa-plus"></i> Nuevo Activo
+    </a>
+</div>
+
+<div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(150px,1fr)); gap:12px; margin-bottom:20px;">
+    <div class="card-form-body" style="padding:12px; text-align:center;">
+        <div style="font-size:1.4rem; font-weight:800;">{{ summary.activeCount }}</div>
+        <div style="font-size:0.75rem; color:var(--text-muted);">Activos</div>
+    </div>
+    <div class="card-form-body" style="padding:12px; text-align:center;">
+        <div style="font-size:1.4rem; font-weight:800; color:var(--accent-emerald);">{{ "{:,.2f}".format(summary.totalCost) }}</div>
+        <div style="font-size:0.75rem; color:var(--text-muted);">Costo Total</div>
+    </div>
+    <div class="card-form-body" style="padding:12px; text-align:center;">
+        <div style="font-size:1.4rem; font-weight:800; color:var(--accent-red);">{{ "{:,.2f}".format(summary.totalDepreciation) }}</div>
+        <div style="font-size:0.75rem; color:var(--text-muted);">Dep. Acumulada</div>
+    </div>
+    <div class="card-form-body" style="padding:12px; text-align:center;">
+        <div style="font-size:1.4rem; font-weight:800; color:var(--accent-purple);">{{ "{:,.2f}".format(summary.totalCurrentValue) }}</div>
+        <div style="font-size:0.75rem; color:var(--text-muted);">Valor Actual</div>
+    </div>
+</div>
+
+<div class="card-form-body" style="padding:0; overflow-x:auto;">
+    <table class="table" style="width:100%; border-collapse:collapse; font-size:0.82rem;">
+        <thead>
+            <tr style="background:var(--bg-nav-hover);">
+                <th style="padding:8px 10px;">Código</th>
+                <th style="padding:8px 10px;">Nombre</th>
+                <th style="padding:8px 10px;">Categoría</th>
+                <th style="padding:8px 10px; text-align:right;">Costo</th>
+                <th style="padding:8px 10px; text-align:right;">Dep. Acum.</th>
+                <th style="padding:8px 10px; text-align:right;">Valor Actual</th>
+                <th style="padding:8px 10px; text-align:center;">Estado</th>
+                <th style="padding:8px 10px; text-align:center;">Próx. Dep.</th>
+                <th style="padding:8px 10px; text-align:center;">Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for asset in assets %}
+            <tr style="border-bottom:1px solid var(--border-color);">
+                <td style="padding:6px 10px; font-family:monospace;">{{ asset.code }}</td>
+                <td style="padding:6px 10px;">
+                    <a href="{{ url_for('web_accounting.fixed_asset_detail', asset_id=asset.id) }}">{{ asset.name }}</a>
+                </td>
+                <td style="padding:6px 10px;">{{ asset_categories.get(asset.category, {}).label or asset.category }}</td>
+                <td style="padding:6px 10px; text-align:right;">{{ "{:,.2f}".format(asset.purchaseAmount) }}</td>
+                <td style="padding:6px 10px; text-align:right;">{{ "{:,.2f}".format(asset.accumulatedDepreciation) }}</td>
+                <td style="padding:6px 10px; text-align:right; font-weight:600;">{{ "{:,.2f}".format(asset.currentValue) }}</td>
+                <td style="padding:6px 10px; text-align:center;">
+                    {% if asset.status == 'active' %}
+                    <span class="badge badge-success">Activo</span>
+                    {% elif asset.status == 'disposed' %}
+                    <span class="badge badge-danger">Dado de baja</span>
+                    {% elif asset.status == 'fully_depreciated' %}
+                    <span class="badge badge-warning">Totalmente depreciado</span>
+                    {% endif %}
+                </td>
+                <td style="padding:6px 10px; text-align:center; font-size:0.75rem;">{{ (asset.nextDepreciationDate or '')[:10] }}</td>
+                <td style="padding:6px 10px; text-align:center;">
+                    <a href="{{ url_for('web_accounting.fixed_asset_detail', asset_id=asset.id) }}" class="btn btn-secondary" style="padding:2px 8px; font-size:0.75rem;">
+                        <i class="fa-solid fa-eye"></i>
+                    </a>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="9" style="padding:24px; text-align:center; color:var(--text-muted);">
+                    No hay activos fijos registrados. <a href="{{ url_for('web_accounting.new_fixed_asset') }}">Registrar el primero</a>.
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

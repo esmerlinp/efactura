@@ -143,7 +143,8 @@ def _cached_user_profile(uid):
                     "canManageNotes": bool(perms.get("canManageNotes", True)),
                     "canManageSuppliers": bool(perms.get("canManageSuppliers", True)),
                     "canManagePurchaseCXP": bool(perms.get("canManagePurchaseCXP", True)),
-                    "canUseChatbot": bool(perms.get("canUseChatbot", False))
+                    "canUseChatbot": bool(perms.get("canUseChatbot", False)),
+                    "canAccounting": bool(perms.get("canAccounting", False))
                 },
                 "createdAt": serialize_field(data.get("createdAt")),
                 "two_factor_enabled": bool(data.get("two_factor_enabled", False)),
@@ -454,7 +455,7 @@ def _cached_crm_contacts(owner_uid, sandbox):
     clients = _cached_clients(owner_uid, sandbox)
     invoices = _cached_invoices(owner_uid, sandbox, quotations_only=False, include_all=False)
     
-    real_invoices = [inv for inv in invoices if not inv.get('isQuotation') and inv.get('status') not in ['Anulada', 'Borrador']]
+    real_invoices = [inv for inv in invoices if not inv.get('isQuotation') and inv.get('status') not in ['Anulada', 'Borrador', 'Pagado pero no emitido']]
     
     today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     crm_contacts = []
@@ -721,7 +722,8 @@ class DatabaseService:
                     "canManageNotes": True,
                     "canManageSuppliers": True,
                     "canManagePurchaseCXP": True,
-                    "canUseChatbot": False
+                    "canUseChatbot": False,
+                    "canAccounting": True
                 },
                 "createdAt": created_at,
                 "associated_companies": [],
@@ -886,7 +888,8 @@ class DatabaseService:
                         "canManageNotes": True,
                         "canManageSuppliers": True,
                         "canManagePurchaseCXP": True,
-                        "canUseChatbot": False
+                        "canUseChatbot": False,
+                        "canAccounting": True
                     },
                     "createdAt": datetime.now(timezone.utc).isoformat(),
                     "two_factor_enabled": False,
@@ -985,7 +988,8 @@ class DatabaseService:
                                 "canManageNotes": bool(emp_data.get("permissions", {}).get("canManageNotes", True)),
                                 "canManageSuppliers": bool(emp_data.get("permissions", {}).get("canManageSuppliers", True)),
                                 "canManagePurchaseCXP": bool(emp_data.get("permissions", {}).get("canManagePurchaseCXP", True)),
-                                "canUseChatbot": bool(emp_data.get("permissions", {}).get("canUseChatbot", False))
+                                "canUseChatbot": bool(emp_data.get("permissions", {}).get("canUseChatbot", False)),
+                                "canAccounting": bool(emp_data.get("permissions", {}).get("canAccounting", False))
                             }
                         })
             except Exception as e:
@@ -2343,7 +2347,8 @@ class DatabaseService:
                         "bank": data.get("bank", ""),
                         "referenceNumber": data.get("referenceNumber", ""),
                         "paymentDate": serialize_field(data.get("paymentDate")),
-                        "registeredBy": data.get("registeredBy", "")
+                        "registeredBy": data.get("registeredBy", ""),
+                        "bankAccountId": data.get("bankAccountId", "")
                     })
                 # Ordenar por fecha de pago ascendente
                 payments.sort(key=lambda x: x["paymentDate"] or "")
@@ -2432,18 +2437,22 @@ class DatabaseService:
             inv_ref.collection("payments").document(payment_id).set(payment_dict)
             
             # Determinar nuevo estado de factura
-            if new_remaining_balance <= 0.01:  # tolerancia de centavos
-                new_status = "Cobrada"
-                new_remaining_balance = 0.0
+            if current_status in ("Borrador", "Pagado pero no emitido"):
+                new_status = "Pagado pero no emitido"
             else:
-                new_status = "Parcialmente Cobrada"
+                if new_remaining_balance <= 0.01:  # tolerancia de centavos
+                    new_status = "Cobrada"
+                    new_remaining_balance = 0.0
+                else:
+                    new_status = "Parcialmente Cobrada"
 
-            fiscal_pending = (
-                inv_data.get("dgiiStatus") in ["PENDING", "CONTINGENCY"]
-                or (inv_data.get("emisionMode") == "FALLBACK" and not inv_data.get("isSyncedWithDGII", False))
-            )
-            if fiscal_pending:
-                new_status = "Pendiente DGII"
+                fiscal_pending = (
+                    inv_data.get("dgiiStatus") in ["PENDING", "CONTINGENCY"]
+                    or (inv_data.get("emisionMode") == "FALLBACK" and not inv_data.get("isSyncedWithDGII", False))
+                )
+                if fiscal_pending:
+                    new_status = "Pendiente DGII"
+
                 
             # Actualizar ficha principal
             inv_ref.update({
@@ -3270,7 +3279,7 @@ class DatabaseService:
                 .where(filter=firestore.FieldFilter('isQuotation', '==', False)).stream()
             for doc in prod_docs:
                 data = doc.to_dict()
-                if data.get('status') == 'Borrador':
+                if data.get('status') in ('Borrador', 'Pagado pero no emitido'):
                     continue
                 stats['prod_total'] += 1
                 doc_date = parse_date(data.get('date') or data.get('createdAt'))
@@ -3285,7 +3294,7 @@ class DatabaseService:
                 .where(filter=firestore.FieldFilter('isQuotation', '==', False)).stream()
             for doc in sandbox_docs:
                 data = doc.to_dict()
-                if data.get('status') == 'Borrador':
+                if data.get('status') in ('Borrador', 'Pagado pero no emitido'):
                     continue
                 stats['sandbox_total'] += 1
                 doc_date = parse_date(data.get('date') or data.get('createdAt'))
@@ -3334,7 +3343,7 @@ class DatabaseService:
                 .where(filter=firestore.FieldFilter('isQuotation', '==', False)).stream()
             for doc in prod_docs:
                 data = doc.to_dict()
-                if data.get('status') == 'Borrador':
+                if data.get('status') in ('Borrador', 'Pagado pero no emitido'):
                     continue
                 invoices.append(data)
         except Exception as e:
@@ -5176,3 +5185,301 @@ class DatabaseService:
                 db_firestore.collection("users").document(owner_uid).collection(coll_name).document(recon_id).delete()
             except Exception as e:
                 print(f"⚠️ Fallo al borrar conciliación de Firestore: {e}")
+
+    # =========================================================================
+    # CONTABILIDAD — CHART OF ACCOUNTS
+    # =========================================================================
+    @classmethod
+    def get_chart_of_accounts(cls, owner_uid):
+        accounts = []
+        if firebase_initialized:
+            try:
+                docs = db_firestore.collection("users").document(owner_uid).collection("config").document("chart_of_accounts").collection("accounts").get()
+                for doc in docs:
+                    data = doc.to_dict()
+                    data["id"] = doc.id
+                    accounts.append(data)
+            except Exception as e:
+                print(f"⚠️ Error al obtener catálogo de cuentas: {e}")
+        return accounts
+
+    @classmethod
+    def get_account(cls, owner_uid, account_id):
+        if firebase_initialized:
+            try:
+                doc = db_firestore.collection("users").document(owner_uid).collection("config").document("chart_of_accounts").collection("accounts").document(account_id).get()
+                if doc.exists:
+                    data = doc.to_dict()
+                    data["id"] = doc.id
+                    return data
+            except Exception as e:
+                print(f"⚠️ Error al obtener cuenta contable: {e}")
+        return None
+
+    @classmethod
+    def save_account(cls, owner_uid, account_id, account_dict):
+        if firebase_initialized:
+            try:
+                if "createdAt" not in account_dict or not account_dict["createdAt"]:
+                    account_dict["createdAt"] = serialize_field(datetime.now(timezone.utc).isoformat())
+                account_dict["updatedAt"] = serialize_field(datetime.now(timezone.utc).isoformat())
+                db_firestore.collection("users").document(owner_uid).collection("config").document("chart_of_accounts").collection("accounts").document(account_id).set(account_dict)
+                return account_id
+            except Exception as e:
+                print(f"⚠️ Fallo al guardar cuenta contable: {e}")
+        return None
+
+    @classmethod
+    def delete_account(cls, owner_uid, account_id):
+        if firebase_initialized:
+            try:
+                db_firestore.collection("users").document(owner_uid).collection("config").document("chart_of_accounts").collection("accounts").document(account_id).delete()
+                return True
+            except Exception as e:
+                print(f"⚠️ Fallo al eliminar cuenta contable: {e}")
+        return False
+
+    # =========================================================================
+    # CONTABILIDAD — ACCOUNTING ENTRIES (ASIENTOS CONTABLES)
+    # =========================================================================
+    @classmethod
+    def get_accounting_entries(cls, owner_uid, sandbox=True):
+        entries = []
+        if firebase_initialized:
+            try:
+                coll_name = "sandbox_accounting_entries" if sandbox else "accounting_entries"
+                docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).order_by("number", direction=firestore.Query.DESCENDING).get()
+                for doc in docs:
+                    data = doc.to_dict()
+                    data["id"] = doc.id
+                    entries.append(data)
+            except Exception as e:
+                print(f"⚠️ Error al obtener asientos contables: {e}")
+        return entries
+
+    @classmethod
+    def get_accounting_entry(cls, owner_uid, entry_id, sandbox=True):
+        if firebase_initialized:
+            try:
+                coll_name = "sandbox_accounting_entries" if sandbox else "accounting_entries"
+                doc = db_firestore.collection("users").document(owner_uid).collection(coll_name).document(entry_id).get()
+                if doc.exists:
+                    data = doc.to_dict()
+                    data["id"] = doc.id
+                    return data
+            except Exception as e:
+                print(f"⚠️ Error al obtener asiento contable: {e}")
+        return None
+
+    @classmethod
+    def save_accounting_entry(cls, owner_uid, entry_id, entry_dict, sandbox=True):
+        if firebase_initialized:
+            try:
+                coll_name = "sandbox_accounting_entries" if sandbox else "accounting_entries"
+                if "createdAt" not in entry_dict or not entry_dict["createdAt"]:
+                    entry_dict["createdAt"] = serialize_field(datetime.now(timezone.utc).isoformat())
+                entry_dict["updatedAt"] = serialize_field(datetime.now(timezone.utc).isoformat())
+                db_firestore.collection("users").document(owner_uid).collection(coll_name).document(entry_id).set(entry_dict)
+                return entry_id
+            except Exception as e:
+                print(f"⚠️ Fallo al guardar asiento contable: {e}")
+        return None
+
+    @classmethod
+    def delete_accounting_entry(cls, owner_uid, entry_id, sandbox=True):
+        if firebase_initialized:
+            try:
+                coll_name = "sandbox_accounting_entries" if sandbox else "accounting_entries"
+                db_firestore.collection("users").document(owner_uid).collection(coll_name).document(entry_id).delete()
+                return True
+            except Exception as e:
+                print(f"⚠️ Fallo al eliminar asiento contable: {e}")
+        return False
+
+    @classmethod
+    def get_next_entry_number(cls, owner_uid, prefix="A", sandbox=True):
+        """Obtiene el siguiente número de asiento contable usando un contador atómico."""
+        if firebase_initialized:
+            try:
+                coll_name = "sandbox_accounting_entries" if sandbox else "accounting_entries"
+                counter_ref = db_firestore.collection("users").document(owner_uid).collection("config").document("entry_counter")
+                counter = counter_ref.get()
+                if counter.exists:
+                    data = counter.to_dict()
+                    next_num = data.get("nextNumber", 1)
+                else:
+                    next_num = 1
+                counter_ref.set({"nextNumber": next_num + 1})
+                return f"{prefix}-{next_num:05d}"
+            except Exception as e:
+                print(f"⚠️ Error al obtener siguiente número de asiento: {e}")
+        return f"{prefix}-{int(datetime.now().timestamp())}"
+
+    # =========================================================================
+    # CONTABILIDAD — FIXED ASSETS (ACTIVOS FIJOS)
+    # =========================================================================
+    @classmethod
+    def get_fixed_assets(cls, owner_uid, sandbox=True):
+        assets = []
+        if firebase_initialized:
+            try:
+                coll_name = "sandbox_fixed_assets" if sandbox else "fixed_assets"
+                docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).get()
+                for doc in docs:
+                    data = doc.to_dict()
+                    data["id"] = doc.id
+                    assets.append(data)
+            except Exception as e:
+                print(f"⚠️ Error al obtener activos fijos: {e}")
+        return assets
+
+    @classmethod
+    def get_fixed_asset(cls, owner_uid, asset_id, sandbox=True):
+        if firebase_initialized:
+            try:
+                coll_name = "sandbox_fixed_assets" if sandbox else "fixed_assets"
+                doc = db_firestore.collection("users").document(owner_uid).collection(coll_name).document(asset_id).get()
+                if doc.exists:
+                    data = doc.to_dict()
+                    data["id"] = doc.id
+                    return data
+            except Exception as e:
+                print(f"⚠️ Error al obtener activo fijo: {e}")
+        return None
+
+    @classmethod
+    def save_fixed_asset(cls, owner_uid, asset_id, asset_dict, sandbox=True):
+        if firebase_initialized:
+            try:
+                coll_name = "sandbox_fixed_assets" if sandbox else "fixed_assets"
+                if "createdAt" not in asset_dict or not asset_dict["createdAt"]:
+                    asset_dict["createdAt"] = serialize_field(datetime.now(timezone.utc).isoformat())
+                asset_dict["updatedAt"] = serialize_field(datetime.now(timezone.utc).isoformat())
+                db_firestore.collection("users").document(owner_uid).collection(coll_name).document(asset_id).set(asset_dict)
+                return asset_id
+            except Exception as e:
+                print(f"⚠️ Fallo al guardar activo fijo: {e}")
+        return None
+
+    @classmethod
+    def delete_fixed_asset(cls, owner_uid, asset_id, sandbox=True):
+        if firebase_initialized:
+            try:
+                coll_name = "sandbox_fixed_assets" if sandbox else "fixed_assets"
+                db_firestore.collection("users").document(owner_uid).collection(coll_name).document(asset_id).delete()
+                return True
+            except Exception as e:
+                print(f"⚠️ Fallo al eliminar activo fijo: {e}")
+        return False
+
+    # =========================================================================
+    # CONTABILIDAD — ENTRY TYPES (TIPOS DE ENTRADA DE DIARIO)
+    # =========================================================================
+    @classmethod
+    def get_entry_types(cls, owner_uid):
+        types = []
+        if firebase_initialized:
+            try:
+                docs = db_firestore.collection("users").document(owner_uid).collection("config").document("entry_types").collection("types").get()
+                for doc in docs:
+                    data = doc.to_dict()
+                    data["id"] = doc.id
+                    types.append(data)
+            except Exception as e:
+                print(f"⚠️ Error al obtener tipos de entrada: {e}")
+        return types
+
+    @classmethod
+    def save_entry_type(cls, owner_uid, type_id, type_dict):
+        if firebase_initialized:
+            try:
+                db_firestore.collection("users").document(owner_uid).collection("config").document("entry_types").collection("types").document(type_id).set(type_dict)
+                return type_id
+            except Exception as e:
+                print(f"⚠️ Fallo al guardar tipo de entrada: {e}")
+        return None
+
+    @classmethod
+    def delete_entry_type(cls, owner_uid, type_id):
+        if firebase_initialized:
+            try:
+                db_firestore.collection("users").document(owner_uid).collection("config").document("entry_types").collection("types").document(type_id).delete()
+                return True
+            except Exception as e:
+                print(f"⚠️ Fallo al eliminar tipo de entrada: {e}")
+        return False
+
+    # =========================================================================
+    # CENTROS DE COSTO (COST CENTERS)
+    # =========================================================================
+    @classmethod
+    def get_cost_centers(cls, owner_uid, sandbox=True):
+        """Retorna la lista de centros de costo de la empresa."""
+        centers = []
+        if firebase_initialized:
+            try:
+                coll_name = "sandbox_cost_centers" if sandbox else "cost_centers"
+                docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).get()
+                for doc in docs:
+                    data = doc.to_dict()
+                    centers.append({
+                        "id": doc.id,
+                        "name": data.get("name", ""),
+                        "code": data.get("code", ""),
+                        "description": data.get("description", ""),
+                        "isActive": bool(data.get("isActive", True)),
+                        "createdAt": serialize_field(data.get("createdAt")),
+                    })
+                centers.sort(key=lambda x: x.get("name", "").lower())
+            except Exception as e:
+                print(f"⚠️ Error al obtener centros de costo desde Firestore: {e}")
+        return centers
+
+    @classmethod
+    def get_cost_center(cls, owner_uid, center_id, sandbox=True):
+        """Retorna un centro de costo específico por su ID."""
+        if firebase_initialized:
+            try:
+                coll_name = "sandbox_cost_centers" if sandbox else "cost_centers"
+                doc = db_firestore.collection("users").document(owner_uid).collection(coll_name).document(center_id).get()
+                if doc.exists:
+                    data = doc.to_dict()
+                    return {
+                        "id": doc.id,
+                        "name": data.get("name", ""),
+                        "code": data.get("code", ""),
+                        "description": data.get("description", ""),
+                        "isActive": bool(data.get("isActive", True)),
+                        "createdAt": serialize_field(data.get("createdAt")),
+                    }
+            except Exception as e:
+                print(f"⚠️ Error al obtener centro de costo desde Firestore: {e}")
+        return None
+
+    @classmethod
+    def save_cost_center(cls, owner_uid, center_id, center_dict, sandbox=True):
+        """Guarda o actualiza un centro de costo en Firestore."""
+        center_dict["id"] = center_id
+        center_dict["ownerUID"] = owner_uid
+        if "createdAt" not in center_dict or not center_dict.get("createdAt"):
+            center_dict["createdAt"] = datetime.now(timezone.utc).isoformat()
+        center_dict["createdAt"] = serialize_field(center_dict["createdAt"])
+        if firebase_initialized:
+            try:
+                coll_name = "sandbox_cost_centers" if sandbox else "cost_centers"
+                db_firestore.collection("users").document(owner_uid).collection(coll_name).document(center_id).set(center_dict)
+            except Exception as e:
+                print(f"⚠️ Fallo al guardar centro de costo en Firestore: {e}")
+        return center_dict
+
+    @classmethod
+    def delete_cost_center(cls, owner_uid, center_id, sandbox=True):
+        """Elimina un centro de costo en Firestore."""
+        if firebase_initialized:
+            try:
+                coll_name = "sandbox_cost_centers" if sandbox else "cost_centers"
+                db_firestore.collection("users").document(owner_uid).collection(coll_name).document(center_id).delete()
+                return True
+            except Exception as e:
+                print(f"⚠️ Fallo al eliminar centro de costo de Firestore: {e}")
+        return False

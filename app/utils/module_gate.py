@@ -21,6 +21,7 @@ MODULE_DEFS = [
     {"key": "pasarela_azul", "label": "Pasarela de Pago Azul", "category": "enterprise"},
     {"key": "price_lists", "label": "Listas de Precios", "category": "ventas"},
     {"key": "banks", "label": "Bancos & Conciliación", "category": "finanzas"},
+    {"key": "contabilidad", "label": "Contabilidad & Catálogo de Cuentas", "category": "finanzas"},
 ]
 
 def get_enabled_modules():
@@ -36,6 +37,10 @@ def module_enabled(module_key):
         return modules[module_key].get('enabled', False)
     if module_key == 'pos' and module_key not in modules:
         return session.get('company_profile_pos_enabled', True)
+    if module_key == 'contabilidad' and module_key not in modules:
+        user = session.get('user', {})
+        if user.get('role') == 'owner' or user.get('permissions', {}).get('canAccounting', False):
+            return True
     if modules:
         return False
     return True

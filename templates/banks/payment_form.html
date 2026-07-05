@@ -1,0 +1,142 @@
+{% extends "layout.html" %}
+{% block title %}{% if mode == 'expense' %}Nuevo pago{% else %}Pago recibido{% endif %}{% endblock %}
+{% block content %}
+<style>
+    .breadcrumb {
+        display: flex; align-items: center; gap: 6px;
+        font-size: 0.8rem; color: var(--text-muted); margin-bottom: 16px;
+    }
+    .breadcrumb a { color: var(--text-muted); text-decoration: none; font-weight: 500; }
+    .breadcrumb a:hover { color: var(--accent-emerald); }
+    .breadcrumb .sep { color: #cbd5e1; }
+
+    .page-title {
+        font-size: 1.5rem; font-weight: 800; color: var(--text-primary);
+        margin: 0 0 20px 0;
+    }
+
+    .form-card {
+        background: #fff; border: 1px solid #e2e8f0; border-radius: 14px;
+        padding: 24px; max-width: 640px;
+    }
+    .form-card .form-row {
+        margin-bottom: 16px;
+    }
+    .form-card label {
+        display: block; font-size: 0.78rem; font-weight: 600;
+        color: var(--text-muted); text-transform: uppercase;
+        letter-spacing: 0.04em; margin-bottom: 4px;
+    }
+    .form-card .form-input, .form-card select.form-input {
+        width: 100%; padding: 10px 12px; border: 1px solid #e2e8f0;
+        border-radius: 8px; font-size: 0.85rem; color: var(--text-primary);
+        background: #fff; outline: none; transition: border-color 0.15s;
+        box-sizing: border-box; font-family: inherit;
+    }
+    .form-card .form-input:focus { border-color: var(--accent-emerald); }
+
+    .badge-type {
+        display: inline-block;
+        padding: 3px 10px;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 500;
+    }
+    .badge-banco { background: rgba(59, 130, 246, 0.1); color: #3b82f6; }
+    .badge-efectivo { background: rgba(16, 185, 129, 0.1); color: #10b981; }
+    .badge-tarjeta { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
+
+    .bank-badge {
+        margin-bottom: 20px;
+    }
+</style>
+
+<div class="breadcrumb">
+    <a href="{{ url_for('web_banks.list_banks') }}">Bancos</a>
+    <span class="sep">/</span>
+    <a href="{{ url_for('web_banks.bank_detail', account_id=account.id) }}">{{ account.name }}</a>
+    <span class="sep">/</span>
+    <span>{% if mode == 'expense' %}Nuevo pago{% else %}Pago recibido{% endif %}</span>
+</div>
+
+<h1 class="page-title">
+    <i class="fa-solid fa-{% if mode == 'expense' %}arrow-right-from-bracket{% else %}arrow-left-to-bracket{% endif %}" style="color:var(--accent-emerald); margin-right:10px;"></i>
+    {% if mode == 'expense' %}Nuevo pago{% else %}Pago recibido{% endif %}
+</h1>
+
+<div class="bank-badge">
+    <span class="badge-type badge-{{ account.type }}">{{ account_types.get(account.type, account.type) }}</span>
+    <strong style="font-size:1rem; margin-left:8px;">{{ account.name }}</strong>
+    <span style="color:var(--text-muted); margin-left:8px; font-size:0.85rem;">
+        Saldo: <strong>RD$ {{ "{:,.2f}".format(account.currentBalance) }}</strong>
+    </span>
+</div>
+
+<div class="form-card">
+    <form method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+        {% if mode == 'expense' %}
+        <div class="form-row">
+            <label>Gasto / Cuenta por pagar</label>
+            <select name="expenseId" class="form-input" required>
+                <option value="">Seleccionar gasto...</option>
+                {% for e in expenses %}
+                <option value="{{ e.id }}">
+                    {{ e.concept or e.ecfNumber or 'Gasto' }} — RD$ {{ "{:,.2f}".format(e.cxpRemainingBalance) }}
+                </option>
+                {% endfor %}
+            </select>
+            {% if not expenses %}
+            <div style="font-size:0.78rem; color:var(--text-muted); margin-top:4px;">
+                No hay cuentas por pagar pendientes.
+            </div>
+            {% endif %}
+        </div>
+        {% else %}
+        <div class="form-row">
+            <label>Factura / Cliente</label>
+            <select name="invoiceId" class="form-input" required>
+                <option value="">Seleccionar factura...</option>
+                {% for inv in invoices %}
+                <option value="{{ inv.id }}">
+                    {{ inv.invoiceNumber or 'Factura' }} — {{ inv.clientName or '' }} — RD$ {{ "{:,.2f}".format(inv.remainingBalance) }}
+                </option>
+                {% endfor %}
+            </select>
+            {% if not invoices %}
+            <div style="font-size:0.78rem; color:var(--text-muted); margin-top:4px;">
+                No hay facturas pendientes de cobro.
+            </div>
+            {% endif %}
+        </div>
+        <div class="form-row">
+            <label>Método de pago</label>
+            <select name="paymentMethod" class="form-input">
+                <option value="transferencia">Transferencia</option>
+                <option value="efectivo">Efectivo</option>
+                <option value="cheque">Cheque</option>
+                <option value="tarjeta">Tarjeta</option>
+            </select>
+        </div>
+        {% endif %}
+
+        <div class="form-row">
+            <label>Monto (RD$)</label>
+            <input type="number" step="0.01" min="0.01" name="amount" class="form-input" required placeholder="0.00">
+        </div>
+
+        <div class="form-row">
+            <label>Número de referencia</label>
+            <input type="text" name="referenceNumber" class="form-input" placeholder="{% if mode == 'expense' %}N° cheque, transferencia...{% else %}N° de referencia del depósito...{% endif %}">
+        </div>
+
+        <div class="form-row" style="display:flex; gap:8px; margin-top:24px;">
+            <button type="submit" class="btn btn-primary">
+                <i class="fa-solid fa-check"></i> {% if mode == 'expense' %}Registrar pago{% else %}Registrar cobro{% endif %}
+            </button>
+            <a href="{{ url_for('web_banks.bank_detail', account_id=account.id) }}" class="btn btn-secondary">Cancelar</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

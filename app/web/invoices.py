@@ -73,7 +73,7 @@ def _company_has_issued_documents(owner_uid, sandbox=True):
     """Retorna True si la empresa tiene al menos un documento emitido (no borrador, no cotización)."""
     invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox)
     for inv in invoices:
-        if not inv.get('isQuotation') and inv.get('status') not in ('Borrador', 'Anulada'):
+        if not inv.get('isQuotation') and inv.get('status') not in ('Borrador', 'Anulada', 'Pagado pero no emitido'):
             return True
     return False
 
@@ -549,6 +549,32 @@ def ajax_get_price_list_price():
     })
 
 
+@web_invoices_bp.route('/price-lists/ajax_create', methods=['POST'])
+def ajax_create_price_list():
+    """Endpoint AJAX para crear una lista de precios desde el formulario de documento."""
+    if 'user' not in session:
+        return jsonify({'success': False, 'error': 'No autorizado'}), 401
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+    data = request.get_json(silent=True) or {}
+    name = (data.get('name') or '').strip()
+    tipo = (data.get('tipo') or '').strip()
+    if not name:
+        return jsonify({'success': False, 'error': 'El nombre es obligatorio'}), 400
+    if not tipo:
+        return jsonify({'success': False, 'error': 'El tipo es obligatorio'}), 400
+    list_id = str(uuid.uuid4())
+    list_dict = {
+        'name': name,
+        'tipo': tipo,
+        'description': (data.get('description') or '').strip(),
+        'isDefault': False,
+        'isActive': True,
+    }
+    DatabaseService.save_price_list(owner_uid, list_id, list_dict, sandbox=sandbox)
+    return jsonify({'success': True, 'id': list_id, 'name': name, 'tipo': tipo})
+
+
 # =========================================================================
 # GESTIÓN DE INVENTARIO Y ALMACENES
 # =========================================================================
@@ -829,7 +855,7 @@ def list_invoices():
                 ):
                     continue
             elif status == "Con Saldo Pendiente":
-                if not (inv.get('netPayable', 0.0) > 0.0 and inv.get('status') not in ['Anulada', 'Borrador', 'Cobrada']):
+                if not (inv.get('netPayable', 0.0) > 0.0 and inv.get('status') not in ['Anulada', 'Borrador', 'Cobrada', 'Pagado pero no emitido']):
                     continue
             elif inv.get('status') != status:
                 continue
@@ -1084,7 +1110,7 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
         if not existing_invoice:
             flash('Documento no encontrado.', 'error')
             return redirect(url_for('web_invoices.list_invoices'))
-        if existing_invoice.get('status') not in ['Borrador', 'Rechazada']:
+        if existing_invoice.get('status') not in ['Borrador', 'Rechazada', 'Pagado pero no emitido']:
             flash('Solo se pueden editar documentos en estado Borrador.', 'error')
             return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
     else:
@@ -1364,6 +1390,8 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
             invoice_dict["remainingBalance"] = float(existing_invoice.get("remainingBalance", 0.0 if existing_invoice.get("status") == "Cobrada" else calcs["net_payable"]))
             invoice_dict["paymentAgreement"] = agreement
             invoice_dict["installments"] = installments
+            invoice_dict["costCenterId"] = request.form.get('costCenterId', '') or ''
+            invoice_dict["priceListId"] = request.form.get('priceListId', '') or ''
         else:
             random_num = f"{random.randint(1, 999999):06d}"
             inv_number = f"COT-{random_num}" if is_quotation else f"FAC-{random_num}"
@@ -1413,7 +1441,9 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
                 "totalPaid": 0.0,
                 "remainingBalance": calcs["net_payable"],
                 "paymentAgreement": agreement,
-                "installments": installments
+                "installments": installments,
+                "costCenterId": request.form.get('costCenterId', '') or '',
+                "priceListId": request.form.get('priceListId', '') or '',
             }
         
         # Guardar información de referencia para Notas de Crédito / Débito (Ley 32-23)
@@ -1519,11 +1549,23 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
                         }
                         # La factura se guardará al registrar el pago
                         DatabaseService.register_invoice_payment(owner_uid, target_invoice_id, payment_dict, sandbox=sandbox)
+                        # Generar asiento contable automático
+                        try:
+                            from app.services.accounting_service import AccountingService
+                            AccountingService.auto_generate_invoice_entry(owner_uid, invoice_dict, sandbox=sandbox)
+                        except Exception:
+                            pass
                     else:
                         invoice_dict["status"] = "Pendiente DGII" if pending_dgii else "Emitida"
                         invoice_dict["totalPaid"] = 0.0
                         invoice_dict["remainingBalance"] = invoice_dict["netPayable"]
                         DatabaseService.save_invoice(owner_uid, target_invoice_id, invoice_dict, sandbox=sandbox)
+                        # Generar asiento contable automático
+                        try:
+                            from app.services.accounting_service import AccountingService
+                            AccountingService.auto_generate_invoice_entry(owner_uid, invoice_dict, sandbox=sandbox)
+                        except Exception:
+                            pass
                     
                     logs = DatabaseService.get_sequence_logs(owner_uid, sandbox=sandbox)
                     log = next((l for l in logs if l["encf"] == res.get("encf")), None)
@@ -1567,6 +1609,7 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
 
     # Cargar listas de precios para integración en facturación
     price_lists = DatabaseService.get_price_lists(owner_uid, sandbox=sandbox)
+    active_price_lists = [pl for pl in price_lists if pl.get('isActive', True)]
     price_list_prices = {}
     for pl in price_lists:
         if pl.get('isActive', True):
@@ -1580,9 +1623,13 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
                         "wholesalePrice": price_data.get('wholesalePrice', 0.0)
                     }
     price_list_prices_json = json.dumps(price_list_prices)
-    
+
+    # Cargar centros de costo para el formulario de documento
+    cost_centers = DatabaseService.get_cost_centers(owner_uid, sandbox=sandbox)
+    active_cost_centers = [cc for cc in cost_centers if cc.get('isActive', True)]
+
     default_due_date = existing_invoice.get('dueDate', (datetime.now(timezone.utc) + timedelta(days=30)).strftime("%Y-%m-%d")) if existing_invoice else (datetime.now(timezone.utc) + timedelta(days=30)).strftime("%Y-%m-%d")
-    
+
     return render_template(
         'invoices/new.html',
         active_page=active_page,
@@ -1593,8 +1640,11 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
         warehouses=warehouses,
         branches=branches,
         invoice=existing_invoice,
-        price_list_prices_json=price_list_prices_json
+        price_list_prices_json=price_list_prices_json,
+        price_lists=active_price_lists,
+        cost_centers=active_cost_centers,
     )
+
 
 def _get_client_email(owner_uid, invoice, sandbox):
     """Retorna el email del cliente de la factura, si está disponible."""
@@ -2520,6 +2570,108 @@ def pay_invoice_route(invoice_id):
             
     return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
 
+@web_invoices_bp.route('/invoices/<invoice_id>/pay/advanced', methods=['GET', 'POST'])
+def pay_advanced_route(invoice_id):
+    if 'user' not in session: return redirect(url_for('web_auth.login'))
+    if not check_permission('canInvoice'):
+        return render_template('auth/restricted.html', feature_name="Registrar Pago", required_permission="canInvoice")
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+    
+    invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+    if not invoice:
+        flash('Factura no encontrada.', 'error')
+        return redirect(url_for('web_invoices.list_invoices'))
+        
+    company = DatabaseService.get_company_profile(owner_uid) or {}
+    bank_accounts = DatabaseService.get_bank_accounts(owner_uid, sandbox=sandbox)
+    cost_centers = DatabaseService.get_cost_centers(owner_uid, sandbox=sandbox)
+    payments = DatabaseService.get_invoice_payments(owner_uid, invoice_id, sandbox=sandbox) or []
+    
+    receipt_no = len(payments) + 1
+    
+    if request.method == 'POST':
+        bank_account_id = request.form.get('bankAccountId', '')
+        payment_date = request.form.get('paymentDate') or datetime.now(timezone.utc).isoformat()
+        payment_method = request.form.get('paymentMethod', 'Transferencia')
+        cost_center_id = request.form.get('costCenterId', '')
+        income_type = request.form.get('incomeType', 'Pago a factura de cliente')
+        notes = request.form.get('notes', '')
+        
+        try:
+            monto_recibido = float(request.form.get('monto_recibido', invoice.get('remainingBalance', 0.0)))
+            retenciones = float(request.form.get('retenciones', 0.0))
+        except ValueError:
+            monto_recibido = 0.0
+            retenciones = 0.0
+            
+        remaining_balance = float(invoice.get('remainingBalance', invoice.get('netPayable', 0.0)))
+        
+        if monto_recibido <= 0:
+            flash('El monto recibido debe ser mayor a cero.', 'error')
+            return redirect(url_for('web_invoices.pay_advanced_route', invoice_id=invoice_id))
+            
+        account = next((acc for acc in bank_accounts if acc['id'] == bank_account_id), None)
+        bank_name = account['name'] if account else 'Banco General'
+        
+        payment_dict = {
+            "paymentMethod": payment_method,
+            "bank": bank_name,
+            "referenceNumber": f"Recibo de Caja No. {receipt_no}",
+            "paymentDate": payment_date,
+            "registeredBy": session['user']['email'],
+            "bankAccountId": bank_account_id,
+            "amount": monto_recibido,
+            "moraAction": "perdonado",
+            "moraForgiven": 0.0,
+            "costCenterId": cost_center_id,
+            "incomeType": income_type,
+            "retenciones": retenciones,
+            "notes": notes
+        }
+        
+        before_invoice = invoice.copy()
+        
+        try:
+            DatabaseService.register_invoice_payment(owner_uid, invoice_id, payment_dict, sandbox=sandbox)
+            
+            try:
+                updated_invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+                from app.services.audit_service import AuditService, MODULE_FACTURAS
+                AuditService.log_from_request(
+                    owner_uid=owner_uid,
+                    action="PAYMENT",
+                    module=MODULE_FACTURAS,
+                    entity_id=invoice_id,
+                    entity_label=f"Cobro avanzado registrado: RD$ {monto_recibido:,.2f} - Recibo No. {receipt_no}",
+                    user_session=session.get('user', {}),
+                    before=before_invoice,
+                    after=updated_invoice,
+                    sandbox=sandbox
+                )
+            except Exception as ae:
+                print(f"⚠️ Error al registrar auditoría de cobro avanzado: {ae}")
+                
+            flash(f"✅ ¡Pago de RD$ {monto_recibido:,.2f} recibido con éxito! Recibo de caja No. {receipt_no} guardado.", "success")
+        except Exception as e:
+            flash(f"❌ Error al registrar el pago: {str(e)}", "error")
+            
+        return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
+        
+    default_date = datetime.now(timezone(timedelta(hours=-4))).strftime("%Y-%m-%d")
+    
+    return render_template(
+        'invoices/pay_advanced.html',
+        active_page='invoices',
+        invoice=invoice,
+        company=company,
+        bank_accounts=bank_accounts,
+        cost_centers=cost_centers,
+        receipt_no=receipt_no,
+        default_date=default_date
+    )
+
+
 @web_invoices_bp.route('/invoices/<invoice_id>/approve_payment_proof', methods=['POST'])
 def approve_payment_proof(invoice_id):
     if 'user' not in session: return redirect(url_for('web_auth.login'))
@@ -2775,7 +2927,14 @@ def sign_invoice_route(invoice_id):
         
         if res.get("success"):
             pending_dgii = res.get("status") == "PENDING" or res.get("mode") == "FALLBACK"
-            invoice["status"] = "Pendiente DGII" if pending_dgii else "Emitida"
+            rem_bal = float(invoice.get("remainingBalance", 0.0))
+            tot_paid = float(invoice.get("totalPaid", 0.0))
+            if rem_bal <= 0.01 and tot_paid > 0.0:
+                invoice["status"] = "Cobrada"
+            elif tot_paid > 0.0:
+                invoice["status"] = "Parcialmente Cobrada"
+            else:
+                invoice["status"] = "Pendiente DGII" if pending_dgii else "Emitida"
             invoice["encf"] = res.get("encf", invoice.get("encf", ""))
             invoice["xmlSignature"] = res.get("xmlSignature", "")
             invoice["qrCodeURL"] = res.get("qrCodeURL", "")
@@ -3560,6 +3719,197 @@ def invoice_pdf_download(invoice_id):
         response.headers['Content-Type'] = 'text/html; charset=utf-8'
         return response
 
+@web_invoices_bp.route('/invoices/preview', methods=['POST'])
+def invoice_preview_route():
+    if 'user' not in session: return "No autorizado", 401
+    if not check_permission('canInvoice'):
+        return "Acceso denegado: requiere permiso de facturación", 403
+        
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+    company = DatabaseService.get_company_profile(owner_uid) or {}
+    branch_id = request.form.get('branchId')
+    branch = {}
+    if branch_id:
+        branches = DatabaseService.get_branches(owner_uid, sandbox=sandbox) or []
+        branch = next((b for b in branches if b['id'] == branch_id), {})
+        
+    client_id = request.form.get('clientId')
+    ecf_type = request.form.get('ecfType', 'Factura de Consumo (E32)')
+    
+    is_quotation = ecf_type == "Cotización"
+        
+    currency = request.form.get('currency', 'DOP')
+    payment_method = request.form.get('paymentMethod', 'Efectivo')
+    payment_type = request.form.get('paymentType', 'Crédito')
+    due_date = request.form.get('dueDate')
+    discount_rate = float(request.form.get('discountRate', 0.0) or 0.0)
+    retained_isr_rate = float(request.form.get('retainedISRRate', 0.0) or 0.0)
+    retained_itbis_rate = float(request.form.get('retainedITBISRate', 0.0) or 0.0)
+    notes = request.form.get('notes', '').strip()
+    comentario = request.form.get('comentario', '').strip()
+    footer = request.form.get('footer', '').strip()
+    
+    client_name = "Consumidor Final"
+    client_rnc = request.form.get('clientRNC', '')
+    client_contact = ""
+    client_email = ""
+    client_phone = ""
+    client_address = ""
+    if client_id:
+        clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox)
+        client = next((c for c in clients if c['id'] == client_id), None)
+        if client:
+            client_name = client.get('razonSocial', 'Consumidor Final')
+            client_rnc = client.get('rnc', '')
+            client_contact = client.get('contactName', '')
+            client_email = client.get('email', '')
+            client_phone = client.get('phone', '')
+            client_address = client.get('address', '')
+            
+    parsed_items = []
+    form_keys = request.form.keys()
+    item_indices = set()
+    for k in form_keys:
+        if k.startswith('items['):
+            parts = k.split(']')
+            idx = parts[0].replace('items[', '')
+            if idx.isdigit():
+                item_indices.add(int(idx))
+                
+    catalog = DatabaseService.get_items(owner_uid, sandbox=sandbox) or []
+    catalog_types = {it['name'].lower().strip(): it.get('type', 'Bien') for it in catalog}
+    catalog_tax_data = {
+        it['name'].lower().strip(): {
+            "codigoImpuesto": it.get("codigoImpuesto", ""),
+            "tasaImpuestoAdicional": float(it.get("tasaImpuestoAdicional") or 0.0),
+            "gradosAlcohol": float(it.get("gradosAlcohol") or 0.0),
+            "cantidadReferencia": float(it.get("cantidadReferencia") or 0.0),
+            "subcantidad": float(it.get("subcantidad") or 1.0),
+            "precioReferencia": float(it.get("precioReferencia") or 0.0),
+            "unit": it.get("unit", "Unidad")
+        } for it in catalog
+    }
+
+    regimen = DGIIService.normalize_regimen(company.get("regimenFiscal", "ordinary")) if company else "ordinary"
+    regimen_rules = DGIIService.get_regimen_rules(regimen)
+
+    for idx in sorted(item_indices):
+        name = request.form.get(f'items[{idx}][name]')
+        price = float(request.form.get(f'items[{idx}][price]', 0.0) or 0.0)
+        qty = int(request.form.get(f'items[{idx}][quantity]', 1) or 1)
+        itbis_rate = float(request.form.get(f'items[{idx}][itbisRate]', 0.18) or 0.18)
+        if not regimen_rules.get("itbis_enabled", True):
+            itbis_rate = 0.0
+        item_disc = float(request.form.get(f'items[{idx}][discountRate]', 0.0) or 0.0)
+        
+        if name:
+            item_type = catalog_types.get(name.lower().strip())
+            if not item_type:
+                if any(x in name.lower() for x in ['asesoria', 'asesoría', 'consultoria', 'consultoría', 'servicio', 'honorarios', 'soporte', 'mantenimiento']):
+                    item_type = 'Servicio'
+                else:
+                    item_type = 'Bien'
+            
+            tax_data = catalog_tax_data.get(name.lower().strip(), {})
+            parsed_items.append({
+                "name": name,
+                "price": price,
+                "quantity": qty,
+                "itbisRate": itbis_rate,
+                "discountRate": item_disc,
+                "type": item_type,
+                "codigoImpuesto": tax_data.get("codigoImpuesto", ""),
+                "tasaImpuestoAdicional": tax_data.get("tasaImpuestoAdicional", 0.0),
+                "gradosAlcohol": tax_data.get("gradosAlcohol", 0.0),
+                "cantidadReferencia": tax_data.get("cantidadReferencia", 0.0),
+                "subcantidad": tax_data.get("subcantidad", 1.0),
+                "precioReferencia": tax_data.get("precioReferencia", 0.0),
+                "unit": tax_data.get("unit", "Unidad")
+            })
+
+    if not parsed_items:
+        return "<h3>Debes añadir al menos una partida a la factura para ver la vista previa.</h3>", 400
+
+    calcs = DGIIService.calculate_invoice_totals(
+        parsed_items,
+        discount_rate=discount_rate,
+        retained_isr_rate=retained_isr_rate,
+        retained_itbis_rate=retained_itbis_rate
+    )
+    
+    invoice_number = "VISTA-PREVIA"
+    from datetime import datetime
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+    invoice = {
+        "invoiceNumber": invoice_number,
+        "date": now_str,
+        "dueDate": due_date,
+        "isQuotation": is_quotation,
+        "clientName": client_name,
+        "clientRNC": client_rnc,
+        "clientContact": client_contact,
+        "clientEmail": client_email,
+        "clientPhone": client_phone,
+        "clientAddress": client_address,
+        "currency": currency,
+        "paymentMethod": payment_method,
+        "paymentType": payment_type,
+        "items": calcs["items"],
+        "subtotal": calcs["subtotal"],
+        "totalITBIS": calcs["total_itbis"],
+        "totalISCEspecifico": calcs["total_isc_especifico"],
+        "totalISCAdValorem": calcs["total_isc_advalorem"],
+        "totalOtrosImpuestos": calcs["total_otros_impuestos"],
+        "discountAmount": calcs["global_discount"],
+        "retainedISR": calcs["retained_isr"],
+        "retainedITBIS": calcs["retained_itbis"],
+        "total": calcs["total"],
+        "netPayable": calcs["net_payable"],
+        "notes": notes,
+        "comentario": comentario,
+        "footer": footer,
+        "status": "Borrador",
+        "encf": "",
+        "xmlSignature": "",
+        "emisionMode": "API"
+    }
+
+    if WEASYPRINT_AVAILABLE:
+        try:
+            rendered_html = render_template(
+                'invoices/pdf.html',
+                invoice=invoice,
+                company=company,
+                branch=branch,
+                auto_print=False,
+                qr_base64=None,
+                fecha_firma_str=None,
+                sandbox=sandbox
+            )
+            pdf_bytes = WeasyprintHTML(string=rendered_html, base_url=request.host_url).write_pdf()
+            response = make_response(pdf_bytes)
+            response.headers['Content-Type'] = 'application/pdf'
+            response.headers['Content-Disposition'] = 'inline; filename="preview.pdf"'
+            return response
+        except Exception as e:
+            print(f"⚠️ Error al generar preview de PDF con WeasyPrint: {e}")
+
+    rendered_html = render_template(
+        'invoices/pdf.html',
+        invoice=invoice,
+        company=company,
+        branch=branch,
+        auto_print=True,
+        qr_base64=None,
+        fecha_firma_str=None,
+        sandbox=sandbox
+    )
+    response = make_response(rendered_html)
+    response.headers['Content-Type'] = 'text/html; charset=utf-8'
+    return response
+
 @web_invoices_bp.route('/invoices/<invoice_id>/xml')
 def invoice_xml_download(invoice_id):
     """Descarga el XML firmado de la factura electrónica (e-CF)."""
@@ -3818,7 +4168,7 @@ def delete_invoice_route(invoice_id):
         flash('Documento no encontrado.', 'error')
         return redirect(url_for('web_invoices.list_invoices'))
 
-    if invoice.get('status') not in ['Borrador', 'Rechazada'] and not invoice.get('isQuotation'):
+    if invoice.get('status') not in ['Borrador', 'Rechazada', 'Pagado pero no emitido'] and not invoice.get('isQuotation'):
         flash('Solo se pueden eliminar documentos en Borrador o Rechazados.', 'error')
         return redirect(url_for('web_invoices.invoice_detail', invoice_id=invoice_id))
 
@@ -6086,34 +6436,43 @@ def get_report_categories():
             "key": "financieros",
             "icon": "fa-solid fa-coins",
             "title": "Financieros",
-            "count": 2,
+            "count": 1,
             "description": "Analiza los resultados financieros de tu empresa, incluyendo entradas y salidas de efectivo.",
             "category_url": url_for('web_invoices.reports_category', category_key='financieros'),
             "reports": [
                 {"title": "Flujo de caja", "url": "web_reports_sales.cash_flow_report",
                  "enabled": module_enabled('e_cf'),
                  "desc": "Revisa la evolución de tus movimientos de efectivo y conoce la liquidez de tu empresa."},
-                {"title": "Estado de resultados", "enabled": False,
-                 "desc": "Conoce la utilidad o pérdida de tu empresa en un período."},
             ]
         },
         {
             "key": "contables",
             "icon": "fa-solid fa-book",
             "title": "Contables",
-            "count": 7,
+            "count": 9,
             "description": "Conoce el desempeño contable y el estado económico de tu empresa en todo momento.",
             "category_url": url_for('web_invoices.reports_category', category_key='contables'),
             "reports": [
                 {"title": "Exportación contable", "url": "web_invoices.accounting_export_page",
                  "enabled": module_enabled('exportacion_contable'),
                  "desc": "Exporta tu información contable para tu sistema externo."},
-                {"title": "Libro de ventas", "enabled": False, "desc": ""},
-                {"title": "Libro de compras", "enabled": False, "desc": ""},
-                {"title": "Balance general", "enabled": False, "desc": ""},
-                {"title": "Diario general", "enabled": False, "desc": ""},
-                {"title": "Mayor general", "enabled": False, "desc": ""},
-                {"title": "Informe de cuentas", "enabled": False, "desc": ""},
+                {"title": "Estado de resultados", "url": "web_accounting.income_statement",
+                 "enabled": module_enabled('contabilidad'),
+                 "desc": "Conoce la utilidad o pérdida de tu empresa en un período."},
+                {"title": "Estado de situación financiera", "url": "web_accounting.balance_sheet",
+                 "enabled": module_enabled('contabilidad'),
+                 "desc": "Conoce la situación financiera de tu empresa en un momento dado."},
+                {"title": "Balanza de comprobación", "url": "web_accounting.trial_balance",
+                 "enabled": module_enabled('contabilidad'),
+                 "desc": "Resume los débitos, créditos y saldos de cada cuenta contable."},
+                {"title": "Libro Diario", "url": "web_accounting.general_journal",
+                 "enabled": module_enabled('contabilidad'),
+                 "desc": "Todas las transacciones contables ordenadas cronológicamente."},
+                {"title": "Informe de cuentas", "url": "web_accounting.chart_of_accounts",
+                 "enabled": module_enabled('contabilidad'),
+                 "desc": "Explora el catálogo de cuentas y sus saldos actuales."},
+                {"title": "Mayor general", "enabled": False,
+                 "desc": "Consulta los movimientos y saldos de cada cuenta contable."},
             ]
         },
         {
@@ -6198,8 +6557,7 @@ def it1_diagnostic():
     invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox)
     expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox)
     
-    # Filtrar reales (excluyendo cotizaciones y borradores)
-    real_invoices = [inv for inv in invoices if not inv.get('isQuotation') and inv.get('status') not in ['Anulada', 'Borrador']]
+    real_invoices = [inv for inv in invoices if not inv.get('isQuotation') and inv.get('status') not in ['Anulada', 'Borrador', 'Pagado pero no emitido']]
     
     sales_subtotal = sum(inv['subtotal'] for inv in real_invoices)
     total_itbis_sales = sum(inv['totalITBIS'] for inv in real_invoices)
@@ -6261,7 +6619,7 @@ def report_607_export():
     invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox, quotations_only=False)
     real_invoices = [
         inv for inv in invoices
-        if inv.get('status') not in ['Borrador', 'Anulada', 'Consolidada']
+        if inv.get('status') not in ['Borrador', 'Anulada', 'Consolidada', 'Pagado pero no emitido']
         and inv.get('dgiiStatus') in ['ACCEPTED', 'ACCEPTED_CONDITIONAL']
     ]
     filtered = _filter_docs_by_period(real_invoices, year, month)
@@ -7164,8 +7522,7 @@ def accounting_export_download():
     date_from = request.form.get('dateFrom', '')
     date_to = request.form.get('dateTo', '')
 
-    all_invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox)
-    real = [inv for inv in all_invoices if not inv.get('isQuotation') and inv.get('status') not in ('Anulada', 'Borrador')]
+    real = [inv for inv in all_invoices if not inv.get('isQuotation') and inv.get('status') not in ('Anulada', 'Borrador', 'Pagado pero no emitido')]
 
     if date_from:
         real = [inv for inv in real if (inv.get('date') or '')[:10] >= date_from]

@@ -3,24 +3,11 @@
 {% block page_header %}Notas de Crédito y Débito{% endblock %}
 
 {% block content %}
-<div class="page-title-container" style="margin-bottom:24px; padding-left:4px; display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px;">
-    <div>
-        <h1 style="font-size:1.75rem; font-weight:800; font-family:var(--font-heading); color:var(--text-primary); margin:0;">
-            <i class="fa-solid fa-notes-medical" style="color:var(--accent-purple); margin-right:10px;"></i>
-            Notas Fiscales
-        </h1>
-        <p style="color:var(--text-secondary); font-size:0.88rem; margin:6px 0 0 2px;">
-            E34 (Crédito) y E33 (Débito) — AJUSTES FISCALES DGII
-        </p>
-    </div>
-    <div style="display:flex; gap:8px;">
-        <a href="{{ url_for('web_fiscal_notes.create_fiscal_note', type='E34') }}" class="btn btn-primary">
-            <i class="fa-solid fa-minus-circle"></i> Nueva Nota de Crédito
-        </a>
-        <a href="{{ url_for('web_fiscal_notes.create_fiscal_note', type='E33') }}" class="btn btn-secondary">
-            <i class="fa-solid fa-plus-circle"></i> Nueva Nota de Débito
-        </a>
-    </div>
+<div class="page-title-container" style="margin-bottom: 24px; padding-left: 4px;">
+    <h1 style="font-size:1.75rem; font-weight:800; font-family:var(--font-heading); color:var(--text-primary); margin:0;">
+        <i class="fa-solid fa-notes-medical" style="color:var(--accent-purple); margin-right:10px;"></i>
+        Notas Fiscales
+    </h1>
 </div>
 
 <div id="guide-fiscal-notes" style="background: rgba(168, 85, 247, 0.05); border: 1px solid rgba(168, 85, 247, 0.2); border-radius: 8px; padding: 16px; margin-bottom: 24px; display: flex; gap: 16px; align-items: flex-start; position: relative;">
@@ -45,50 +32,104 @@
     if (sessionStorage.getItem('closed_guide-fiscal-notes')) { document.getElementById('guide-fiscal-notes').style.display = 'none'; }
 </script>
 
-<div class="card-form-body" style="padding:20px;">
+<div class="card-table-wrapper">
+    <div class="table-header-row">
+        <div>
+            <h3 style="font-size: 1.25rem; font-family: var(--font-heading); margin-bottom: 6px;">
+                Notas Fiscales Emitidas
+            </h3>
+            <p style="color: var(--text-secondary); font-size: 0.88rem;">
+                Registro de Notas de Crédito (E34) y Notas de Débito (E33) para ajustes fiscales ante la DGII.
+            </p>
+        </div>
+        <div style="display:flex; gap:8px;">
+            <a href="{{ url_for('web_fiscal_notes.create_fiscal_note', type='E34') }}" class="btn btn-primary">
+                <i class="fa-solid fa-minus-circle"></i> Nueva Nota de Crédito
+            </a>
+            <a href="{{ url_for('web_fiscal_notes.create_fiscal_note', type='E33') }}" class="btn btn-secondary" style="border-color: var(--accent-purple); color: var(--accent-purple);">
+                <i class="fa-solid fa-plus-circle"></i> Nueva Nota de Débito
+            </a>
+        </div>
+    </div>
+
     {% if notes %}
     <div class="table-responsive">
         <table class="table-premium">
             <thead>
                 <tr>
-                    <th>#</th>
-                    <th>Tipo</th>
-                    <th>Número</th>
+                    <th style="width: 40px; text-align: center;"><input type="checkbox" id="select-all-notes" style="cursor: pointer; width: 16px; height: 16px; accent-color: var(--accent-purple);"></th>
+                    <th># Interno</th>
+                    <th>NCF/Número</th>
                     <th>Cliente</th>
                     <th>NCF Ref.</th>
-                    <th>Monto</th>
+                    <th>Creación</th>
+                    <th>Total</th>
                     <th>Estado</th>
-                    <th>Fecha</th>
-                    <th></th>
+                    <th style="text-align: right; width: 50px;"></th>
                 </tr>
             </thead>
             <tbody>
                 {% for n in notes %}
                 <tr>
-                    <td>{{ loop.index }}</td>
+                    <td style="text-align: center;">
+                        <input type="checkbox" class="note-checkbox" value="{{ n.id }}" style="cursor: pointer; width: 16px; height: 16px; accent-color: var(--accent-purple);">
+                    </td>
                     <td>
-                        {% if 'E34' in (n.ecfType or '') %}
-                        <span class="badge-pill" style="background:rgba(239,68,68,0.1); color:#ef4444; border:1px solid rgba(239,68,68,0.2);">E34 Crédito</span>
+                        <a href="{{ url_for('web_invoices.invoice_detail', invoice_id=n.id) }}" class="invoice-link">
+                            {{ n.invoiceNumber if n.encf else '---' }}
+                        </a>
+                    </td>
+                    <td>
+                        {% if n.encf %}
+                        <span style="font-family: monospace; font-size: 0.85rem; color: var(--accent-purple);">{{ n.encf }}</span>
                         {% else %}
-                        <span class="badge-pill" style="background:rgba(59,130,246,0.1); color:#3b82f6; border:1px solid rgba(59,130,246,0.2);">E33 Débito</span>
+                        <span class="invoice-link">{{ n.invoiceNumber or n.id[:8] }}</span>
                         {% endif %}
                     </td>
-                    <td><a href="{{ url_for('web_invoices.invoice_detail', invoice_id=n.id) }}" style="color:var(--accent-blue);">{{ n.invoiceNumber or n.id[:8] }}</a></td>
-                    <td>{{ n.clientName or n.razonSocial or '—' }}</td>
-                    <td style="font-family:monospace; font-size:0.82rem;">{{ (n.informationReference or {}).get('ncfModified', '—') }}</td>
-                    <td style="font-weight:600;">{{ "{:,.2f}".format(n.netPayable|default(n.total|default(0))) }}</td>
+                    <td>
+                        {{ n.clientName or n.razonSocial or 'Consumidor Final' }}
+                    </td>
+                    <td style="font-family: monospace; font-size: 0.82rem;">
+                        {{ (n.informationReference or {}).get('ncfModified', '—') }}
+                    </td>
+                    <td>
+                        {{ (n.date or '')[:10] | format_date }}
+                    </td>
+                    <td>
+                        RD$ {{ "{:,.2f}".format(n.netPayable|default(n.total|default(0))) }}
+                    </td>
                     <td>
                         {% set s = n.status|default('Borrador') %}
                         {% if s == 'Emitida' %}
-                        <span class="badge-pill badge-green">Emitida</span>
+                        <span class="badge badge-success" style="font-size: 0.65rem; background-color: rgba(16, 185, 129, 0.15); color: #10b981; padding: 4px 8px; border-radius: 4px; font-weight: 600;">Emitida</span>
                         {% elif s == 'Anulada' %}
-                        <span class="badge-pill badge-red">Anulada</span>
+                        <span class="badge badge-danger" style="font-size: 0.65rem; background-color: rgba(239, 68, 68, 0.15); color: #ef4444; padding: 4px 8px; border-radius: 4px; font-weight: 600;">Anulada</span>
                         {% else %}
-                        <span class="badge-pill badge-amber">Borrador</span>
+                        <span class="badge badge-warning" style="font-size: 0.65rem; background-color: rgba(245, 158, 11, 0.15); color: #d97706; padding: 4px 8px; border-radius: 4px; font-weight: 600;">Borrador</span>
                         {% endif %}
                     </td>
-                    <td>{{ (n.date or '')[:10] }}</td>
-                    <td><a href="{{ url_for('web_invoices.invoice_detail', invoice_id=n.id) }}" class="btn btn-sm btn-secondary" style="font-size:0.72rem;">Ver</a></td>
+                    <td style="text-align: right;">
+                        <div class="action-menu">
+                            <button type="button" class="action-menu-btn" onclick="toggleActionMenu(event)" title="Acciones">
+                                <i class="fa-solid fa-ellipsis-vertical"></i>
+                            </button>
+                            <div class="action-menu-dropdown">
+                                <a href="{{ url_for('web_invoices.invoice_detail', invoice_id=n.id) }}" class="action-menu-item">
+                                    <i class="fa-solid fa-eye"></i> Ver Detalle y QR
+                                </a>
+                                {% if s == 'Borrador' %}
+                                <form action="{{ url_for('web_invoices.delete_invoice_route', invoice_id=n.id) }}"
+                                    method="POST" style="display:contents;"
+                                    onsubmit="return confirm('¿Eliminar esta Nota en Borrador?\n\nNota: {{ n.invoiceNumber }}\nCliente: {{ n.clientName }}\n\nEsta acción no se puede deshacer.');">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="action-menu-item text-danger">
+                                        <i class="fa-solid fa-trash-can"></i> Eliminar Borrador
+                                    </button>
+                                </form>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -102,6 +143,20 @@
     </div>
     {% endif %}
 </div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const selectAllCheckbox = document.getElementById('select-all-notes');
+        if (selectAllCheckbox) {
+            selectAllCheckbox.addEventListener('change', function() {
+                const checkboxes = document.querySelectorAll('.note-checkbox');
+                checkboxes.forEach(cb => {
+                    cb.checked = selectAllCheckbox.checked;
+                });
+            });
+        }
+    });
+</script>
 
 <style>
 .badge-pill { display:inline-flex; align-items:center; gap:4px; padding:2px 8px; border-radius:99px; font-size:0.68rem; font-weight:600; }

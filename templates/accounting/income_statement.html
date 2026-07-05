@@ -1,0 +1,628 @@
+{% extends "layout.html" %}
+{% block title %}Estado de Resultados{% endblock %}
+{% block content %}
+<style>
+    .breadcrumb {
+        display: flex; align-items: center; gap: 6px;
+        font-size: 0.8rem; color: var(--text-muted); margin-bottom: 16px;
+    }
+    .breadcrumb a { color: var(--text-muted); text-decoration: none; font-weight: 500; }
+    .breadcrumb a:hover { color: var(--accent-emerald); }
+    .breadcrumb .sep { color: #cbd5e1; }
+
+    .page-title {
+        font-size: 1.5rem; font-weight: 800; color: var(--text-primary);
+        margin: 0 0 4px 0;
+    }
+    .page-desc {
+        font-size: 0.85rem; color: var(--text-muted);
+        margin: 0 0 20px 0; line-height: 1.5; max-width: 640px;
+    }
+
+    .ai-card {
+        background: #fff; border: 1px solid #e2e8f0; border-radius: 14px;
+        padding: 16px 20px; margin-bottom: 20px;
+        display: flex; align-items: flex-start; gap: 12px;
+    }
+    .ai-card .ai-icon {
+        width: 36px; height: 36px; border-radius: 10px;
+        background: var(--accent-purple); color: #fff;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1rem; flex-shrink: 0;
+    }
+    .ai-card .ai-content { flex: 1; }
+    .ai-card .ai-content .ai-label {
+        font-size: 0.7rem; font-weight: 700; color: var(--accent-purple);
+        text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;
+    }
+    .ai-card .ai-content p {
+        font-size: 0.84rem; color: var(--text-primary); line-height: 1.6; margin: 0;
+    }
+
+    .rpt-filters {
+        background: #fff; border: 1px solid #e2e8f0; border-radius: 14px;
+        padding: 14px 20px; margin-bottom: 24px;
+        display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    }
+
+    .filter-pills {
+        display: flex; gap: 6px; flex-wrap: wrap; align-items: center;
+    }
+    .filter-pills .pill {
+        padding: 5px 14px; border-radius: 20px; font-size: 0.78rem;
+        font-weight: 600; border: 1px solid #e2e8f0; background: #fff;
+        color: var(--text-muted); cursor: pointer; transition: all 0.15s;
+        text-decoration: none;
+    }
+    .filter-pills .pill:hover { border-color: var(--accent-emerald); color: var(--accent-emerald); }
+    .filter-pills .pill.active { background: var(--accent-emerald); color: #fff; border-color: var(--accent-emerald); }
+
+    .pill-date-group {
+        display: flex; align-items: center; gap: 6px;
+    }
+    .pill-date-group .pill-date-label {
+        font-size: 0.72rem; font-weight: 600; color: var(--text-muted);
+        text-transform: uppercase; letter-spacing: 0.04em;
+    }
+    input.pill-date {
+        padding: 5px 12px; border-radius: 20px; font-size: 0.78rem;
+        font-weight: 500; border: 1px solid #e2e8f0; background: #fff;
+        color: var(--text-primary); outline: none;
+        transition: border-color 0.15s; min-width: 145px;
+        cursor: pointer; font-family: inherit; height: 32px;
+        box-sizing: border-box;
+    }
+    input.pill-date:focus { border-color: var(--accent-emerald); }
+    input.pill-date::-webkit-calendar-picker-indicator { opacity: 0.5; cursor: pointer; }
+
+    .pill-dropdown {
+        position: relative; display: inline-block;
+    }
+    .pill-dropdown .pill {
+        display: inline-flex; align-items: center; gap: 4px;
+        padding: 5px 14px; border-radius: 20px; font-size: 0.78rem;
+        font-weight: 600; border: 1px solid #e2e8f0; background: #fff;
+        color: var(--text-muted); cursor: pointer; transition: all 0.15s;
+        white-space: nowrap; height: 32px; box-sizing: border-box; font-family: inherit;
+    }
+    .pill-dropdown .pill:hover { border-color: var(--accent-emerald); color: var(--accent-emerald); }
+    .pill-dropdown .pill-dd-menu {
+        position: absolute; top: calc(100% + 4px); left: 0;
+        min-width: 160px; background: #fff; border: 1px solid #e2e8f0;
+        border-radius: 10px; box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+        z-index: 100; display: none; overflow: hidden;
+    }
+    .pill-dropdown .pill-dd-menu.open { display: block; }
+    .pill-dropdown .pill-dd-item {
+        padding: 8px 14px; font-size: 0.82rem; font-weight: 500;
+        color: var(--text-primary); cursor: pointer; transition: background 0.1s;
+    }
+    .pill-dropdown .pill-dd-item:hover { background: #f1f5f9; color: var(--accent-emerald); }
+    .pill-dropdown .pill-dd-item.selected { background: #f0fdf4; color: var(--accent-emerald); font-weight: 600; }
+
+    .view-toggle {
+        display: flex; gap: 4px; background: #f1f5f9; border-radius: 8px;
+        padding: 3px; margin-left: auto;
+    }
+    .view-toggle .toggle-btn {
+        padding: 6px 14px; border-radius: 6px; font-size: 0.78rem;
+        font-weight: 600; border: none; background: transparent;
+        color: var(--text-muted); cursor: pointer; transition: all 0.15s;
+    }
+    .view-toggle .toggle-btn.active { background: #fff; color: var(--text-primary); box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+
+    .rpt-table-card {
+        background: #fff; border: 1px solid #e2e8f0; border-radius: 14px;
+        overflow: hidden; margin-bottom: 24px;
+    }
+    .rpt-period-header {
+        font-size: 0.82rem; font-weight: 600; color: var(--text-muted);
+        padding: 12px 16px; border-bottom: 1px solid #e2e8f0; background: #fff;
+        display: flex; align-items: center; justify-content: space-between;
+    }
+    .rpt-period-header .title { display: flex; align-items: center; gap: 6px; }
+    .rpt-period-header .title i { color: var(--accent-emerald); }
+
+    .rpt-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+    .rpt-table th {
+        padding: 10px 14px; font-size: 0.72rem; font-weight: 700;
+        color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em;
+        background: #f8fafc; border-bottom: 1px solid #e2e8f0; white-space: nowrap;
+    }
+    .rpt-table th:first-child { text-align: left; padding-left: 16px; }
+    .rpt-table th:not(:first-child) { text-align: right; }
+    .rpt-table td {
+        padding: 8px 14px; border-bottom: 1px solid #f1f5f9;
+        color: var(--text-primary); white-space: nowrap;
+    }
+    .rpt-table td:first-child { text-align: left; padding-left: 16px; }
+    .rpt-table td:not(:first-child) { text-align: right; }
+    .rpt-table tr:last-child td { border-bottom: none; }
+
+    .rpt-table .line-section td {
+        padding: 6px 14px; font-weight: 700; font-size: 0.8rem;
+        color: var(--text-secondary); background: #fafbfc;
+        border-bottom: 1px solid #e2e8f0; cursor: pointer; user-select: none;
+    }
+    .rpt-table .line-section td .collapse-icon {
+        display: inline-block; width: 16px; text-align: center; margin-right: 4px;
+        transition: transform 0.15s; font-size: 0.7rem; color: var(--text-muted);
+    }
+    .rpt-table .line-section td .collapse-icon.collapsed { transform: rotate(-90deg); }
+    .rpt-table .line-subtotal td {
+        font-weight: 700; background: #f8fafc;
+        border-top: 1px solid #e2e8f0; border-bottom: 2px solid #e2e8f0;
+    }
+    .rpt-table .line-calculated td {
+        font-weight: 800; font-size: 0.88rem;
+        border-top: 2px solid var(--accent-emerald);
+        border-bottom: 2px solid var(--accent-emerald); color: var(--accent-emerald);
+    }
+    .rpt-table .line-calculated.net-loss td { color: var(--accent-red); border-top-color: var(--accent-red); border-bottom-color: var(--accent-red); }
+    .indent-1 td:first-child { padding-left: 32px !important; }
+    .indent-2 td:first-child { padding-left: 48px !important; }
+    .indent-3 td:first-child { padding-left: 64px !important; }
+
+    .rpt-help-bar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 20px; }
+    .rpt-help-bar .btn-link {
+        background: none; border: none; color: var(--accent-emerald);
+        font-size: 0.82rem; font-weight: 600; cursor: pointer;
+        display: inline-flex; align-items: center; gap: 4px; padding: 6px 0;
+    }
+    .rpt-help-bar .btn-link:hover { text-decoration: underline; }
+
+    .interpret-card {
+        background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 12px;
+        padding: 16px 20px; margin-bottom: 24px; display: none;
+    }
+    .interpret-card.visible { display: block; }
+    .interpret-card h4 { font-size: 0.85rem; font-weight: 700; color: var(--accent-emerald); margin: 0 0 6px 0; }
+    .interpret-card p { font-size: 0.8rem; color: #166534; line-height: 1.5; margin: 0; }
+
+    .section-collapsible { display: table-row-group; }
+
+    .graph-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 24px; }
+    .graph-kpi {
+        background: #fff; border: 1px solid #e2e8f0; border-radius: 14px;
+        padding: 18px; text-align: center;
+    }
+    .graph-kpi .kpi-val { font-size: 1.4rem; font-weight: 800; }
+    .graph-kpi .kpi-pct { font-size: 0.78rem; color: var(--text-muted); margin-top: 2px; }
+    .graph-kpi .kpi-lbl { font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin-top: 4px; }
+
+    .graph-chart-card {
+        background: #fff; border: 1px solid #e2e8f0; border-radius: 14px;
+        padding: 20px; margin-bottom: 24px;
+    }
+    .graph-chart-card h3 { font-size: 0.9rem; font-weight: 700; margin: 0 0 12px 0; }
+
+    .indicators-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+    .indicator-card {
+        background: #fff; border: 1px solid #e2e8f0; border-radius: 14px;
+        padding: 14px 16px;
+    }
+    .indicator-card .ind-lbl { font-size: 0.75rem; color: var(--text-muted); margin-bottom: 6px; }
+    .indicator-card .ind-values { display: flex; gap: 16px; }
+    .indicator-card .ind-values .val-item { text-align: center; }
+    .indicator-card .ind-values .val-item .val { font-size: 1.1rem; font-weight: 700; }
+    .indicator-card .ind-values .val-item .year { font-size: 0.68rem; color: var(--text-muted); }
+
+    @media (max-width: 768px) {
+        .rpt-table { font-size: 0.72rem; }
+        .rpt-table th, .rpt-table td { padding: 6px 8px; }
+        .indent-1 td:first-child { padding-left: 20px !important; }
+        .indent-2 td:first-child { padding-left: 32px !important; }
+        .indent-3 td:first-child { padding-left: 44px !important; }
+        .graph-grid { grid-template-columns: 1fr; }
+    }
+</style>
+
+<div class="breadcrumb">
+    <a href="{{ url_for('web_invoices.reports_dashboard') }}">Reportes</a>
+    <span class="sep">/</span>
+    <a href="{{ url_for('web_accounting.dashboard') }}">Contabilidad</a>
+    <span class="sep">/</span>
+    <span>Estado de Resultados</span>
+</div>
+
+<h1 class="page-title">Estado de Resultados</h1>
+<p class="page-desc">Conoce tu desempeño financiero y obtén insumos para tomar decisiones inteligentes.</p>
+
+{% if ai_summary %}
+<div class="ai-card">
+    <div class="ai-icon"><i class="fa-solid fa-sparkles"></i></div>
+    <div class="ai-content">
+        <div class="ai-label"><i class="fa-solid fa-sparkles"></i> Resumen IA</div>
+        <p>{{ ai_summary }}</p>
+    </div>
+</div>
+{% endif %}
+
+{% set _now = datetime.now() %}
+{% set _y = _now.year %}
+{% set _m = _now.month %}
+{% set _d = _now.day %}
+{% set _this_from = "%04d-%02d-01"|format(_y, _m) %}
+{% set _this_to = "%04d-%02d-%02d"|format(_y, _m, _d) %}
+{% set _q_start = ((_m - 1) // 3) * 3 + 1 %}
+{% set _q_end = _q_start + 2 %}
+{% set _q_from = "%04d-%02d-01"|format(_y, _q_start) %}
+{% if _q_end == 12 %}
+    {% set _q_to = "%04d-12-31"|format(_y) %}
+{% elif _q_end == 2 %}
+    {% set _q_to = "%04d-%02d-28"|format(_y, _q_end) %}
+{% else %}
+    {% set _q_to = "%04d-%02d-30"|format(_y, _q_end) %}
+{% endif %}
+{% set _year_from = "%04d-01-01"|format(_y) %}
+{% set _year_to = "%04d-12-31"|format(_y) %}
+
+<div class="rpt-filters">
+    <form method="GET" id="filter-form" style="display:contents;">
+        <div class="filter-pills">
+            <a href="?date_from={{ _this_from }}&date_to={{ _this_to }}" class="pill{% if date_from == _this_from and date_to == _this_to %} active{% endif %}">Este mes</a>
+            <a href="?date_from={{ _q_from }}&date_to={{ _q_to }}" class="pill{% if date_from == _q_from and date_to == _q_to %} active{% endif %}">Trimestre actual</a>
+            <a href="?date_from={{ _year_from }}&date_to={{ _year_to }}" class="pill{% if date_from == _year_from and date_to == _year_to %} active{% endif %}">Año actual</a>
+        </div>
+        <div class="pill-date-group">
+            <span class="pill-date-label">Desde</span>
+            <input type="date" class="pill-date" name="date_from" value="{{ date_from }}" onchange="this.form.submit()">
+        </div>
+        <div class="pill-date-group">
+            <span class="pill-date-label">Hasta</span>
+            <input type="date" class="pill-date" name="date_to" value="{{ date_to }}" onchange="this.form.submit()">
+        </div>
+        <div class="pill-dropdown" data-name="cost_center">
+            <button type="button" class="pill" onclick="togglePillDropdown(this)">
+                <span class="pill-label">Todos</span>
+                <i class="fa-solid fa-chevron-down" style="font-size:0.6rem;"></i>
+            </button>
+            <div class="pill-dd-menu">
+                <div class="pill-dd-item" data-value="">Todos</div>
+                <div class="pill-dd-item" data-value="ventas">Ventas</div>
+                <div class="pill-dd-item" data-value="administracion">Administración</div>
+            </div>
+        </div>
+        <button type="submit" class="btn btn-primary" style="height:32px; padding:0 16px; font-size:0.78rem; border-radius:20px; font-weight:600; display:inline-flex; align-items:center; gap:6px; cursor:pointer; border:none; background:var(--accent-emerald); color:#fff;">
+            <i class="fa-solid fa-rotate"></i> Actualizar
+        </button>
+    </form>
+</div>
+
+<div class="rpt-help-bar">
+    <button class="btn-link" onclick="toggleInterpret()">
+        <i class="fa-solid fa-circle-question"></i> Ayuda
+    </button>
+    <button class="btn-link" onclick="alert('Descarga en desarrollo')">
+        <i class="fa-solid fa-download"></i> Descargar
+    </button>
+    <div class="view-toggle">
+        <button class="toggle-btn active" onclick="setView('detallado')" id="view-detallado">
+            <i class="fa-solid fa-table"></i> Reporte detallado
+        </button>
+        <button class="toggle-btn" onclick="setView('grafico')" id="view-grafico">
+            <i class="fa-solid fa-chart-bar"></i> Resumen gráfico
+        </button>
+    </div>
+</div>
+
+<div class="interpret-card" id="interpret-card">
+    <h4><i class="fa-solid fa-lightbulb"></i> Interpretando tu reporte</h4>
+    <p>Este reporte muestra los ingresos, costos y gastos del período seleccionado comparado con el mismo período del año anterior. La <strong>Utilidad bruta</strong> es el resultado de restar los costos de ventas a los ingresos ordinarios. La <strong>Utilidad operativa</strong> descuenta además los gastos de venta y administración. Finalmente la <strong>Utilidad neta</strong> es el resultado después de todos los gastos, incluyendo impuestos.</p>
+</div>
+
+<div id="view-detallado-content">
+<div class="rpt-table-card">
+    <div class="rpt-period-header">
+        <div class="title">
+            <i class="fa-solid fa-calendar"></i>
+            Del {{ date_from }} al {{ date_to }}: Comparativo {{ y }} - {{ prev_year }} ({{ date_prev_display }})
+        </div>
+    </div>
+    <div style="overflow-x:auto;">
+        <table class="rpt-table">
+            <thead>
+                <tr>
+                    <th></th>
+                    <th>{{ date_from_display }}</th>
+                    <th>% de Ingresos</th>
+                    <th>{{ date_prev_display }}</th>
+                    <th>% de Ingresos</th>
+                    <th>Var. Absoluta</th>
+                    <th>Var. Relativa (%)</th>
+                </tr>
+            </thead>
+            <tbody id="pl-table-body">
+                {% set section_idx = namespace(val=-1) %}
+
+                {% for line in lines %}
+                {% if line.is_section %}
+                    {% set section_idx.val = section_idx.val + 1 %}
+                <tr class="line-section indent-{{ line.indent }}" onclick="toggleSection(this)" data-section="{{ section_idx.val }}">
+                    <td colspan="7">
+                        <span class="collapse-icon">▼</span>
+                        {{ line.label }}
+                    </td>
+                </tr>
+                {% elif line.is_calculated %}
+                <tr class="line-calculated {% if line.curr < 0 %}net-loss{% endif %} indent-{{ line.indent }}" data-section="{{ section_idx.val }}">
+                    <td>{{ line.label }}</td>
+                    <td>RD$ {{ "{:,.2f}".format(line.curr) }}</td>
+                    <td>{{ "%.2f"|format(line.curr_pct) }}%</td>
+                    <td>RD$ {{ "{:,.2f}".format(line.prev) }}</td>
+                    <td>{{ "%.2f"|format(line.prev_pct) }}%</td>
+                    <td>RD$ {{ "{:,.2f}".format(line.abs_var) }}</td>
+                    <td>{{ "%.2f"|format(line.rel_var) }}%</td>
+                </tr>
+                {% elif line.is_subtotal %}
+                <tr class="line-subtotal indent-{{ line.indent }}" data-section="{{ section_idx.val }}">
+                    <td>{{ line.label }}</td>
+                    <td>RD$ {{ "{:,.2f}".format(line.curr) }}</td>
+                    <td>{{ "%.2f"|format(line.curr_pct) }}%</td>
+                    <td>RD$ {{ "{:,.2f}".format(line.prev) }}</td>
+                    <td>{{ "%.2f"|format(line.prev_pct) }}%</td>
+                    <td>RD$ {{ "{:,.2f}".format(line.abs_var) }}</td>
+                    <td>{{ "%.2f"|format(line.rel_var) }}%</td>
+                </tr>
+                {% else %}
+                <tr class="line-account indent-{{ line.indent }}" data-section="{{ section_idx.val }}">
+                    <td>{{ line.label }}</td>
+                    <td>RD$ {{ "{:,.2f}".format(line.curr) }}</td>
+                    <td>{{ "%.2f"|format(line.curr_pct) }}%</td>
+                    <td>RD$ {{ "{:,.2f}".format(line.prev) }}</td>
+                    <td>{{ "%.2f"|format(line.prev_pct) }}%</td>
+                    <td>RD$ {{ "{:,.2f}".format(line.abs_var) }}</td>
+                    <td>{{ "%.2f"|format(line.rel_var) }}%</td>
+                </tr>
+                {% endif %}
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+</div>
+
+<div id="view-grafico-content" style="display:none;">
+    <div class="graph-grid">
+        <div class="graph-kpi">
+            <div class="kpi-val" style="color:var(--accent-emerald);">RD$ {{ "{:,.2f}".format(ingresos_ordinarios_curr) }}</div>
+            <div class="kpi-pct">100%</div>
+            <div class="kpi-lbl">Ingresos</div>
+        </div>
+        <div class="graph-kpi">
+            <div class="kpi-val" style="color:var(--accent-orange);">RD$ {{ "{:,.2f}".format(costos_ventas_curr) }}</div>
+            <div class="kpi-pct">{{ "%.2f"|format(margen_bruto_curr) }}% margen</div>
+            <div class="kpi-lbl">Costo de ventas</div>
+        </div>
+        <div class="graph-kpi">
+            <div class="kpi-val" style="color:var(--accent-red);">RD$ {{ "{:,.2f}".format(total_gastos_curr) }}</div>
+            <div class="kpi-pct">operativos</div>
+            <div class="kpi-lbl">Egresos</div>
+        </div>
+    </div>
+
+    <div class="graph-chart-card">
+        <h3>Evolución de la utilidad</h3>
+        <div style="height:260px; position:relative;">
+            <canvas id="profitChart"></canvas>
+        </div>
+    </div>
+
+    <div class="graph-chart-card">
+        <h3>Indicadores de rentabilidad</h3>
+        <div class="indicators-grid">
+            <div class="indicator-card">
+                <div class="ind-lbl">Margen bruto</div>
+                <div class="ind-values">
+                    <div class="val-item">
+                        <div class="val" style="color:var(--accent-emerald);">{{ "%.2f"|format(margen_bruto_curr) }}%</div>
+                        <div class="year">{{ y }}</div>
+                    </div>
+                    <div class="val-item">
+                        <div class="val" style="color:var(--text-muted);">{{ "%.2f"|format(margen_bruto_prev) }}%</div>
+                        <div class="year">{{ prev_year }}</div>
+                    </div>
+                </div>
+            </div>
+            <div class="indicator-card">
+                <div class="ind-lbl">Margen operativo</div>
+                <div class="ind-values">
+                    <div class="val-item">
+                        <div class="val" style="color:var(--accent-emerald);">{{ "%.2f"|format(margen_operativo_curr) }}%</div>
+                        <div class="year">{{ y }}</div>
+                    </div>
+                    <div class="val-item">
+                        <div class="val" style="color:var(--text-muted);">{{ "%.2f"|format(margen_operativo_prev) }}%</div>
+                        <div class="year">{{ prev_year }}</div>
+                    </div>
+                </div>
+            </div>
+            <div class="indicator-card">
+                <div class="ind-lbl">Margen neto</div>
+                <div class="ind-values">
+                    <div class="val-item">
+                        <div class="val" style="color:var(--accent-emerald);">{{ "%.2f"|format(margen_neto_curr) }}%</div>
+                        <div class="year">{{ y }}</div>
+                    </div>
+                    <div class="val-item">
+                        <div class="val" style="color:var(--text-muted);">{{ "%.2f"|format(margen_neto_prev) }}%</div>
+                        <div class="year">{{ prev_year }}</div>
+                    </div>
+                </div>
+            </div>
+            <div class="indicator-card">
+                <div class="ind-lbl">Rentabilidad sobre activos (ROA)</div>
+                <div class="ind-values">
+                    <div class="val-item">
+                        <div class="val" style="color:var(--accent-purple);">{{ "%.2f"|format(roa_curr) }}%</div>
+                        <div class="year">{{ y }}</div>
+                    </div>
+                    <div class="val-item">
+                        <div class="val" style="color:var(--text-muted);">{{ "%.2f"|format(roa_prev) }}%</div>
+                        <div class="year">{{ prev_year }}</div>
+                    </div>
+                </div>
+            </div>
+            <div class="indicator-card">
+                <div class="ind-lbl">Rentabilidad sobre patrimonio (ROE)</div>
+                <div class="ind-values">
+                    <div class="val-item">
+                        <div class="val" style="color:var(--accent-purple);">{{ "%.2f"|format(roe_curr) }}%</div>
+                        <div class="year">{{ y }}</div>
+                    </div>
+                    <div class="val-item">
+                        <div class="val" style="color:var(--text-muted);">{{ "%.2f"|format(roe_prev) }}%</div>
+                        <div class="year">{{ prev_year }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function togglePillDropdown(btn) {
+    const menu = btn.nextElementSibling;
+    const isOpen = menu.classList.contains('open');
+    document.querySelectorAll('.pill-dd-menu.open').forEach(m => m.classList.remove('open'));
+    if (!isOpen) menu.classList.add('open');
+}
+
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('.pill-dropdown')) {
+        document.querySelectorAll('.pill-dd-menu.open').forEach(m => m.classList.remove('open'));
+    }
+});
+
+document.querySelectorAll('.pill-dd-item').forEach(item => {
+    item.addEventListener('click', function() {
+        const dropdown = this.closest('.pill-dropdown');
+        const label = dropdown.querySelector('.pill-label');
+        const name = dropdown.dataset.name;
+        const value = this.dataset.value;
+        label.textContent = this.textContent.trim();
+        dropdown.querySelectorAll('.pill-dd-item').forEach(i => i.classList.remove('selected'));
+        this.classList.add('selected');
+        let hidden = dropdown.querySelector('input[type="hidden"]');
+        if (!hidden) {
+            hidden = document.createElement('input');
+            hidden.type = 'hidden';
+            hidden.name = name;
+            dropdown.appendChild(hidden);
+        }
+        hidden.value = value;
+        dropdown.querySelector('.pill-dd-menu').classList.remove('open');
+        document.getElementById('filter-form').submit();
+    });
+});
+
+function toggleInterpret() {
+    document.getElementById('interpret-card').classList.toggle('visible');
+}
+
+function toggleSection(el) {
+    const sectionIdx = el.dataset.section;
+    const rows = document.querySelectorAll(`#pl-table-body tr[data-section="${sectionIdx}"]`);
+    const icon = el.querySelector('.collapse-icon');
+    let hidden = false;
+    rows.forEach(r => {
+        if (r.style.display === 'none') {
+            r.style.display = '';
+        } else {
+            r.style.display = 'none';
+            hidden = true;
+        }
+    });
+    if (hidden) {
+        icon.classList.add('collapsed');
+    } else {
+        icon.classList.remove('collapsed');
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const sections = document.querySelectorAll('.line-section');
+    sections.forEach((s, i) => {
+        if (i > 0) {
+            const idx = s.dataset.section;
+            const rows = document.querySelectorAll(`#pl-table-body tr[data-section="${idx}"]`);
+            rows.forEach(r => r.style.display = 'none');
+            s.querySelector('.collapse-icon').classList.add('collapsed');
+        }
+    });
+});
+
+function setView(view) {
+    const detBtn = document.getElementById('view-detallado');
+    const grafBtn = document.getElementById('view-grafico');
+    const detContent = document.getElementById('view-detallado-content');
+    const grafContent = document.getElementById('view-grafico-content');
+    if (view === 'detallado') {
+        detBtn.classList.add('active');
+        grafBtn.classList.remove('active');
+        detContent.style.display = '';
+        grafContent.style.display = 'none';
+    } else {
+        grafBtn.classList.add('active');
+        detBtn.classList.remove('active');
+        grafContent.style.display = '';
+        detContent.style.display = 'none';
+        setTimeout(initChart, 100);
+    }
+}
+
+function initChart() {
+    const canvas = document.getElementById('profitChart');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (window._profitChart) { window._profitChart.destroy(); }
+
+    const labels = [{% for s in chart_series %}'{{ s.label }}',{% endfor %}];
+    const currData = [{% for s in chart_series %}{{ s.curr }},{% endfor %}];
+    const prevData = [{% for s in chart_series %}{{ s.prev }},{% endfor %}];
+
+    window._profitChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: '{{ date_from_display }}',
+                    data: currData,
+                    backgroundColor: 'rgba(16,185,129,0.7)',
+                    borderColor: 'rgba(16,185,129,1)',
+                    borderWidth: 1,
+                    borderRadius: 6,
+                },
+                {
+                    label: '{{ date_prev_display }}',
+                    data: prevData,
+                    backgroundColor: 'rgba(148,163,184,0.5)',
+                    borderColor: 'rgba(148,163,184,0.8)',
+                    borderWidth: 1,
+                    borderRadius: 6,
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'bottom', labels: { boxWidth: 12, padding: 16, font: { size: 11 } } },
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: { callback: function(v) { return 'RD$ ' + (v/1000).toFixed(0) + ' K'; }, font: { size: 11 } },
+                    grid: { color: 'rgba(0,0,0,0.04)' },
+                },
+                x: {
+                    grid: { display: false },
+                    ticks: { font: { size: 11 } },
+                }
+            }
+        }
+    });
+}
+</script>
+{% endblock %}

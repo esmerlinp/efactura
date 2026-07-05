@@ -354,13 +354,16 @@ body.sandbox-mode .sidebar-logo span.logo-title {
     z-index: 2;
     line-height: 1;
 }
+
 .nav-item:hover .pin-btn {
     opacity: 1;
 }
+
 .pin-btn:hover,
 .pin-btn.pinned {
     color: var(--accent-emerald);
 }
+
 .pin-btn.pinned {
     opacity: 1;
 }
@@ -381,9 +384,11 @@ body.sandbox-mode .sidebar-logo span.logo-title {
     z-index: 2;
     line-height: 1;
 }
+
 #sidebar-section-quick .nav-item:hover .unpin-btn {
     opacity: 1;
 }
+
 .unpin-btn:hover {
     color: var(--danger);
 }
@@ -392,11 +397,13 @@ body.sandbox-mode .sidebar-logo span.logo-title {
     margin-bottom: 8px;
     padding-bottom: 8px;
 }
+
 #sidebar-section-quick.collapsed .sidebar-section-content {
     max-height: none !important;
     opacity: 1 !important;
     pointer-events: auto !important;
 }
+
 #sidebar-section-quick .sidebar-section-header .section-toggle-icon {
     display: none;
 }
@@ -404,6 +411,7 @@ body.sandbox-mode .sidebar-logo span.logo-title {
 .app-container.sidebar-collapsed #sidebar-section-quick {
     display: none !important;
 }
+
 .app-container.sidebar-collapsed .pin-btn,
 .app-container.sidebar-collapsed .unpin-btn {
     display: none !important;
@@ -2461,6 +2469,13 @@ body.sandbox-mode .segment-header-icon.emerald {
    QUOTATION WIZARD - ANIMATIONS
    ========================================================================= */
 @keyframes slideInUp {
-    from { transform: translateY(20px); opacity: 0; }
-    to { transform: translateY(0); opacity: 1; }
+    from {
+        transform: translateY(20px);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
 }

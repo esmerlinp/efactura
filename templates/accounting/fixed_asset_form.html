@@ -1,0 +1,201 @@
+{% extends "layout.html" %}
+{% block title %}Nuevo Activo Fijo{% endblock %}
+{% block page_header %}Nuevo Activo Fijo{% endblock %}
+{% block content %}
+<style>
+    .field-label {
+        display: block;
+        font-size: 0.83rem;
+        font-weight: 600;
+        margin-bottom: 6px;
+        color: var(--text-secondary);
+        letter-spacing: 0.01em;
+    }
+    .field-input {
+        width: 100%;
+        border-radius: var(--radius-sm);
+        border: 1px solid #e2e8f0;
+        background-color: #ffffff;
+        color: var(--text-primary);
+        padding: 10px 14px;
+        height: 44px;
+        box-sizing: border-box;
+        font-size: 0.9rem;
+        font-family: var(--font-body);
+        transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        outline: none;
+    }
+    .field-input:focus {
+        border-color: var(--accent-emerald);
+        box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.08);
+    }
+    textarea.field-input { height: auto; resize: vertical; }
+    .section-card {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: var(--radius-md);
+        padding: 28px 32px;
+        margin-bottom: 20px;
+    }
+    .section-title {
+        font-size: 0.78rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--text-muted);
+        margin-bottom: 20px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid #f1f5f9;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .section-title i { color: var(--accent-emerald); font-size: 0.85rem; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
+    @media (max-width: 768px) {
+        .grid-2, .grid-3 { grid-template-columns: 1fr; }
+    }
+</style>
+
+<div class="page-title-container" style="margin-bottom:16px; padding-left:4px;">
+    <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+        <a href="{{ url_for('web_accounting.fixed_assets') }}" style="color:var(--text-muted); font-size:0.82rem; text-decoration:none;">
+            <i class="fa-solid fa-arrow-left"></i> Activos Fijos
+        </a>
+    </div>
+    <h1 style="font-size:1.5rem; font-weight:800; font-family:var(--font-heading); color:var(--text-primary); margin:0;">
+        <i class="fa-solid fa-plus-circle" style="color:var(--accent-purple); margin-right:10px;"></i>
+        Registrar Activo Fijo
+    </h1>
+</div>
+
+<div style="max-width: 920px; margin: 0 auto;">
+    <form method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+        <div class="section-card">
+            <div class="section-title"><i class="fa-solid fa-circle-info"></i> Información General</div>
+            <div class="grid-2">
+                <div>
+                    <label class="field-label">Nombre del activo *</label>
+                    <input type="text" name="name" class="field-input" required>
+                </div>
+                <div>
+                    <label class="field-label">Tipo</label>
+                    <select name="assetType" class="field-input">
+                        <option value="tangible">Tangible</option>
+                        <option value="intangible">Intangible</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="field-label">Categoría</label>
+                    <select name="category" class="field-input" id="category-select" onchange="updateUsefulLife()">
+                        {% for k, v in asset_categories.items() %}
+                        <option value="{{ k }}" data-life="{{ v.useful_life_months or 36 }}">{{ v.label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="field-label">Cuenta contable del activo *</label>
+                    <select name="accountId" class="field-input" required>
+                        <option value="">Seleccionar...</option>
+                        {% for acc in accounts %}
+                        {% if acc.type == 'movimiento' and acc.group == 'activos' %}
+                        <option value="{{ acc.id }}">{{ acc.code }} — {{ acc.name }}</option>
+                        {% endif %}
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="field-label">Cuenta de depreciación acumulada *</label>
+                    <select name="depreciationAccountId" class="field-input" required>
+                        <option value="">Seleccionar...</option>
+                        {% for acc in accounts %}
+                        {% if acc.type == 'movimiento' and acc.usage == 'depreciacion_acumulada' %}
+                        <option value="{{ acc.id }}">{{ acc.code }} — {{ acc.name }}</option>
+                        {% endif %}
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="field-label">Cuenta de gasto por depreciación *</label>
+                    <select name="depreciationExpenseAccountId" class="field-input" required>
+                        <option value="">Seleccionar...</option>
+                        {% for acc in accounts %}
+                        {% if acc.type == 'movimiento' and acc.usage == 'depreciacion' %}
+                        <option value="{{ acc.id }}">{{ acc.code }} — {{ acc.name }}</option>
+                        {% endif %}
+                        {% endfor %}
+                    </select>
+                </div>
+                <div style="grid-column:1/-1;">
+                    <label class="field-label">Descripción</label>
+                    <textarea name="description" class="field-input" rows="2"></textarea>
+                </div>
+            </div>
+        </div>
+
+        <div class="section-card">
+            <div class="section-title"><i class="fa-solid fa-calculator"></i> Datos de Adquisición y Depreciación</div>
+            <div class="grid-3">
+                <div>
+                    <label class="field-label">Fecha de compra *</label>
+                    <input type="date" name="purchaseDate" class="field-input" required>
+                </div>
+                <div>
+                    <label class="field-label">Costo de adquisición *</label>
+                    <input type="number" name="purchaseAmount" class="field-input" step="0.01" min="0" required>
+                </div>
+                <div>
+                    <label class="field-label">Valor residual</label>
+                    <input type="number" name="residualValue" class="field-input" step="0.01" min="0" value="0">
+                </div>
+                <div>
+                    <label class="field-label">Vida útil (meses) *</label>
+                    <input type="number" name="usefulLife" class="field-input" id="useful-life" min="1" required>
+                </div>
+                <div>
+                    <label class="field-label">Período de depreciación</label>
+                    <select name="depreciationPeriod" class="field-input">
+                        <option value="mensual">Mensual</option>
+                        <option value="anual">Anual</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="field-label">Proveedor</label>
+                    <input type="text" name="supplierName" class="field-input">
+                </div>
+                <div>
+                    <label class="field-label">Ubicación</label>
+                    <input type="text" name="location" class="field-input">
+                </div>
+                <div>
+                    <label class="field-label">Responsable</label>
+                    <input type="text" name="responsible" class="field-input">
+                </div>
+            </div>
+        </div>
+
+        <!-- Botones -->
+        <div style="display:flex;justify-content:flex-end;gap:12px;margin-top:8px;padding-bottom:32px;">
+            <a href="{{ url_for('web_accounting.fixed_assets') }}" class="btn btn-secondary" style="padding:11px 24px;">
+                <i class="fa-solid fa-arrow-left" style="margin-right:6px;"></i>Cancelar
+            </a>
+            <button type="submit" class="btn btn-primary" style="padding:11px 28px;font-weight:700;">
+                <i class="fa-solid fa-floppy-disk" style="margin-right:6px;"></i>Guardar Activo
+            </button>
+        </div>
+    </form>
+</div>
+
+<script>
+function updateUsefulLife() {
+    const sel = document.getElementById('category-select');
+    const opt = sel.options[sel.selectedIndex];
+    const life = opt.getAttribute('data-life');
+    if (life) document.getElementById('useful-life').value = life;
+}
+updateUsefulLife();
+</script>
+{% endblock %}

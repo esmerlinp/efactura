@@ -12,6 +12,8 @@ from app.brand import get_product_name
 
 web_pos_bp = Blueprint('web_pos', __name__)
 
+
+
 @web_pos_bp.after_request
 def add_header(response):
     response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
