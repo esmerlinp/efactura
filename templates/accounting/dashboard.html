@@ -1,0 +1,118 @@
+{% extends "layout.html" %}
+{% block title %}Dashboard Contable{% endblock %}
+{% block page_header %}Dashboard Contable{% endblock %}
+{% block content %}
+<style>
+    .breadcrumb {
+        display: flex; align-items: center; gap: 6px;
+        font-size: 0.8rem; color: var(--text-muted); margin-bottom: 16px;
+    }
+    .breadcrumb a { color: var(--text-muted); text-decoration: none; font-weight: 500; }
+    .breadcrumb a:hover { color: var(--accent-emerald); }
+    .breadcrumb .sep { color: #cbd5e1; }
+
+    .kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 12px;
+        margin-bottom: 24px;
+    }
+    .kpi-card {
+        background: #fff; border: 1px solid #e2e8f0; border-radius: 14px;
+        padding: 18px 16px; text-align: center; transition: box-shadow 0.2s;
+    }
+    .kpi-card:hover { box-shadow: 0 3px 12px rgba(0,0,0,0.05); }
+    .kpi-card .kpi-value {
+        font-size: 1.6rem; font-weight: 800;
+    }
+    .kpi-card .kpi-label {
+        font-size: 0.72rem; color: var(--text-muted); margin-top: 4px;
+        text-transform: uppercase; letter-spacing: 0.04em;
+    }
+</style>
+
+<div class="breadcrumb">
+    <a href="{{ url_for('web_accounting.dashboard') }}">Contabilidad</a>
+    <span class="sep">/</span>
+    <span>Dashboard</span>
+</div>
+
+<p style="font-size:0.85rem; color:var(--text-muted); margin:-8px 0 18px 0; line-height:1.5; max-width:640px;">
+    Indicadores financieros y contables de tu empresa.
+</p>
+
+<div class="kpi-grid">
+    <div class="kpi-card">
+        <div class="kpi-value" style="color:var(--accent-emerald);">{{ "{:,.2f}".format(total_assets) }}</div>
+        <div class="kpi-label">Total Activos</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-value" style="color:var(--accent-red);">{{ "{:,.2f}".format(total_liabilities) }}</div>
+        <div class="kpi-label">Total Pasivos</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-value" style="color:var(--accent-purple);">{{ "{:,.2f}".format(total_equity) }}</div>
+        <div class="kpi-label">Total Patrimonio</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-value" style="color:{% if net_income >= 0 %}var(--accent-emerald){% else %}var(--accent-red){% endif %};">{{ "{:,.2f}".format(net_income) }}</div>
+        <div class="kpi-label">Resultado Neto</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-value" style="color:var(--text-primary);">{{ entries_count }}</div>
+        <div class="kpi-label">Asientos Contables</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-value" style="color:var(--text-primary);">{{ accounts_count }}</div>
+        <div class="kpi-label">Cuentas Contables</div>
+    </div>
+</div>
+
+<div style="display:grid; grid-template-columns:1fr 1fr; gap:24px;">
+    <div class="card-form-body" style="padding:20px;">
+        <h4 style="font-size:0.9rem; font-weight:700; margin-bottom:14px; color:var(--text-secondary); text-transform:uppercase;">
+            <i class="fa-solid fa-bolt"></i> Acciones Rápidas
+        </h4>
+        <div style="display:flex; flex-direction:column; gap:8px;">
+            <a href="{{ url_for('web_accounting.chart_of_accounts') }}" class="btn btn-secondary" style="text-align:left;">
+                <i class="fa-solid fa-book"></i> Ir al Catálogo de Cuentas
+            </a>
+            <a href="{{ url_for('web_accounting.journal_entries') }}" class="btn btn-secondary" style="text-align:left;">
+                <i class="fa-solid fa-pen-to-square"></i> Entradas de Diario
+            </a>
+            <a href="{{ url_for('web_accounting.new_journal_entry') }}" class="btn btn-primary" style="text-align:left;">
+                <i class="fa-solid fa-plus"></i> Nueva Entrada de Diario
+            </a>
+        </div>
+    </div>
+    <div class="card-form-body" style="padding:20px;">
+        <h4 style="font-size:0.9rem; font-weight:700; margin-bottom:14px; color:var(--text-secondary); text-transform:uppercase;">
+            <i class="fa-solid fa-scale-balanced"></i> Ecuación Contable
+        </h4>
+        <div style="font-size:1.1rem; line-height:2;">
+            <div style="display:flex; justify-content:space-between;">
+                <span>Activos</span>
+                <span style="font-weight:700; color:var(--accent-emerald);">{{ "{:,.2f}".format(total_assets) }}</span>
+            </div>
+            <div style="display:flex; justify-content:space-between;">
+                <span>Pasivos</span>
+                <span style="font-weight:700; color:var(--accent-red);">{{ "{:,.2f}".format(total_liabilities) }}</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; border-top:1px solid var(--border-color); padding-top:8px;">
+                <span>Patrimonio (A - P)</span>
+                <span style="font-weight:700; color:var(--accent-purple);">{{ "{:,.2f}".format(total_assets - total_liabilities) }}</span>
+            </div>
+            <hr>
+            <div style="display:flex; justify-content:space-between; font-weight:800;">
+                <span>¿Balanceado?</span>
+                {% set diff = total_assets - total_liabilities - total_equity %}
+                {% if abs(diff) < 0.01 %}
+                <span style="color:var(--accent-emerald);">✅ Sí</span>
+                {% else %}
+                <span style="color:var(--accent-red);">❌ No (diferencia: {{ "{:,.2f}".format(diff) }})</span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

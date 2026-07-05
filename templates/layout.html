@@ -188,25 +188,19 @@
         }
 
         .sidebar-section-header {
-            font-size: 0.7rem;
+            font-size: 0.85rem;
             font-weight: 500;
             color: var(--text-secondary);
-            margin: 10px 0 6px 0;
-            padding: 10px 10px 0 10px;
-            border-top: 1px solid var(--border-color);
+            margin: 2px 0;
+            padding: 8px 12px;
             opacity: 1;
-            transition: opacity 0.3s ease, margin 0.3s ease, height 0.3s ease, color 0.3s ease;
+            transition: all var(--transition-fast);
             user-select: none;
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: space-between;
-        }
-
-        .sidebar-section:first-child .sidebar-section-header {
-            border-top: none;
-            margin-top: 4px;
-            padding-top: 0;
+            border-radius: var(--radius-sm);
         }
 
         .sidebar-collapsed .sidebar-section-header span {
@@ -218,8 +212,9 @@
         }
 
         .sidebar-section-header:hover {
-            opacity: 1;
+            background-color: var(--bg-nav-hover);
             color: var(--text-primary);
+            opacity: 1;
         }
 
         .sidebar-section-header .section-toggle-icon {
@@ -280,11 +275,17 @@
         }
 
         .sidebar-section-header .header-left .section-icon {
-            font-size: 1rem;
+            font-size: 0.95rem;
             color: var(--text-secondary);
             transition: color 0.2s ease;
-            width: 16px;
+            width: 18px;
             text-align: center;
+            flex-shrink: 0;
+        }
+
+        /* Indentar sub-ítems para alinear con el texto del encabezado de sección */
+        .sidebar-section:not(.sidebar-section-flyout) .sidebar-section-content .nav-item a {
+            padding-left: 30px;
         }
 
         .nav-item a i {
@@ -499,8 +500,151 @@
         .sidebar-divider {
             height: 1px;
             background-color: var(--border-color);
-            margin: 12px 10px;
+            margin: 6px 10px !important;
             opacity: 0.8;
+        }
+
+        .sidebar {
+            background-color: #f8fafc !important; /* Fondo claro gris/azul de la imagen */
+            border-right: 1px solid #e2e8f0 !important;
+        }
+
+        .sidebar-divider {
+            height: 1px;
+            background-color: #e2e8f0;
+            margin: 8px 10px !important;
+            opacity: 0.8;
+        }
+
+        /* Estilo del Sidebar según la Imagen de Referencia */
+        .sidebar-section {
+            margin-bottom: 4px !important;
+        }
+
+        .sidebar-section-header {
+            padding: 8px 12px !important;
+            font-weight: 400 !important;
+            color: #475569 !important; /* Slate-600 */
+            transition: all 0.2s ease;
+        }
+
+        .sidebar-section-header .header-left .section-icon {
+            color: #64748b !important; /* Íconos en slate-500 suave */
+            font-size: 1.05rem !important;
+        }
+
+        .sidebar-section-header .section-toggle-icon {
+            color: #94a3b8 !important; /* Flecha gris suave */
+            font-size: 0.65rem !important;
+        }
+
+        .sidebar-section-header:hover {
+            background-color: #f1f5f9 !important;
+            color: #1e293b !important;
+        }
+
+        /* Línea conectora vertical para los sub-ítems */
+        .sidebar-section-content {
+            border-left: 1px solid #cbd5e1 !important; /* Línea gris delgada a la izquierda */
+            margin-left: 20px !important; /* Alineado verticalmente bajo el ícono del encabezado */
+            padding-left: 6px !important; /* Espacio entre la línea y el texto del item */
+            gap: 2px !important;
+            list-style: none !important;
+            margin-top: 2px !important;
+            margin-bottom: 4px !important;
+        }
+
+        /* Sub-ítems de navegación */
+        .sidebar-section:not(.sidebar-section-flyout) .sidebar-section-content .nav-item a {
+            padding-left: 10px !important; /* Reducir sangría ya que la línea y margin-left se encargan */
+            padding-top: 6px !important;
+            padding-bottom: 6px !important;
+            font-weight: 400 !important;
+            color: #475569 !important; /* Slate-600 */
+            border-radius: 6px !important;
+            font-size: 0.85rem !important;
+            transition: all 0.2s ease;
+        }
+
+        .sidebar-section-content .nav-item a:hover {
+            background-color: #f1f5f9 !important;
+            color: #1e293b !important;
+        }
+
+        /* Ítem Activo (con fondo gris-azul suave e indicador teal a la izquierda) */
+        .sidebar-section-content .nav-item.active a {
+            background-color: #f1f5f9 !important; /* Fondo del item activo */
+            color: #0f172a !important; /* Texto oscuro/carbón para el activo */
+            border-left: 3px solid #0d9488 !important; /* Indicador teal vertical en el borde izquierdo */
+            border-top-left-radius: 0 !important;
+            border-bottom-left-radius: 0 !important;
+            padding-left: 7px !important; /* Compensa el borde izquierdo */
+            font-weight: 400 !important;
+        }
+
+        /* Cabecera Activa (Inicio y Reportes) */
+        .sidebar-section.active-parent .sidebar-section-header {
+            background-color: #f1f5f9 !important;
+            color: #0f172a !important;
+            border-left: 3px solid #0d9488 !important;
+            border-top-left-radius: 0 !important;
+            border-bottom-left-radius: 0 !important;
+            padding-left: 9px !important; /* Compensa el indicador */
+        }
+        .sidebar-section.active-parent .sidebar-section-header .header-left .section-icon {
+            color: #0d9488 !important; /* Resalta icono en teal */
+        }
+
+        /* Grupo "Descubre más soluciones" al final del sidebar */
+        .sidebar-discover-group {
+            margin-top: 4px;
+            padding-bottom: 8px;
+        }
+
+        .sidebar-discover-title {
+            font-size: 0.65rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.07em;
+            padding: 8px 12px 4px 12px;
+            display: block;
+            opacity: 0.8;
+        }
+
+        .sidebar-discover-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 12px;
+            border-radius: var(--radius-sm);
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            font-weight: 500;
+            text-decoration: none;
+            transition: all var(--transition-fast);
+            margin-bottom: 2px;
+        }
+
+        .sidebar-discover-item:hover {
+            background: var(--bg-nav-hover);
+            color: var(--accent-emerald);
+        }
+
+        .sidebar-discover-item.active {
+            background: var(--bg-nav-hover);
+            color: var(--accent-emerald);
+        }
+
+        .sidebar-discover-item i {
+            font-size: 0.95rem;
+            width: 18px;
+            text-align: center;
+            flex-shrink: 0;
+        }
+
+        .sidebar-collapsed .sidebar-discover-group {
+            display: none;
         }
 
         /* Ocultar buscador cuando el sidebar está colapsado */
@@ -652,12 +796,9 @@
             }
         }
 
-        /* Reducir espacio entre Dashboard en barra izquierda */
+        /* Espacio reducido para sección General */
         #sidebar-section-general {
-            margin-bottom: 0px !important;
-        }
-        #sidebar-section-general .sidebar-section-header {
-            margin-bottom: 0px !important;
+            margin-bottom: 2px;
         }
     </style>
 
@@ -700,50 +841,37 @@
                     </div>
                 </a>
             </div>
+            <div class="sidebar-divider" style="margin: 8px 0 !important;"></div>
 
             <nav class="nav-menu">
 
-
-                <!-- SECCIÓN: GENERAL -->
-                <div class="sidebar-section" id="sidebar-section-general">
-                    <div class="sidebar-section-header">
-                        <span>General</span>
-                        <i class="fa-solid fa-chevron-down section-toggle-icon"></i>
-                    </div>
-                    <ul class="sidebar-section-content">
-                        {% if session.get('user', {}).get('role') == 'owner' or session.get('user',
-                        {}).get('permissions', {}).get('canViewDashboard', True) %}
-                        <li class="nav-item {% if active_page == 'dashboard' %}active{% endif %}"
-                            data-tooltip="Dashboard">
-                            <a href="{{ url_for('web_dashboard.dashboard') }}">
-                                <i class="fa-solid fa-chart-pie"></i>
-                                <span>Dashboard</span>
-                            </a>
-                        </li>
-                        {% endif %}
-                        {% if session.get('user', {}).get('role') == 'owner' or session.get('user',
-                        {}).get('permissions', {}).get('canManageNotes', True) %}
-                        <li class="nav-item {% if active_page == 'notes' %}active{% endif %}"
-                            data-tooltip="Gestor de Notas">
-                            <a href="{{ url_for('web_notes.list_notes') }}">
-                                <i class="fa-solid fa-clipboard-check"></i>
-                                <span>Mis Tareas</span>
-                            </a>
-                        </li>
-                        {% endif %}
-                        {% if session.get('user', {}).get('role') == 'owner' or session.get('user',
-                        {}).get('permissions', {}).get('canInvoice', True) or session.get('user',
-                        {}).get('permissions', {}).get('canExpenses', True) %}
-                        <li class="nav-item {% if active_page == 'reports' or active_page == 'ventas_generales' or active_page == 'ventas_por_producto' or active_page == 'ventas_por_cliente' or active_page == 'ventas_rentabilidad' or active_page == 'ventas_por_vendedor' or active_page == 'ventas_estado_cuenta' or active_page == 'admin_ingresos_compras' or active_page == 'admin_reporte_anual' or active_page == 'reporte_606' or active_page == 'dashboard_606' or active_page == 'accounting_export' %}active{% endif %}"
-                            data-tooltip="Reportes">
-                            <a href="{{ url_for('web_invoices.reports_dashboard') }}">
-                                <i class="fa-solid fa-chart-bar"></i>
-                                <span>Reportes</span>
-                            </a>
-                        </li>
-                        {% endif %}
-                    </ul>
+                <!-- OPCIONES FIJAS (ANTERIOR GENERAL) -->
+                {% if session.get('user', {}).get('role') == 'owner' or session.get('user',
+                {}).get('permissions', {}).get('canViewDashboard', True) %}
+                <div class="sidebar-section {% if active_page == 'dashboard' %}active-parent{% endif %}" id="sidebar-section-inicio">
+                    <a href="{{ url_for('web_dashboard.dashboard') }}" class="sidebar-section-header" style="text-decoration: none;">
+                        <div class="header-left">
+                            <i class="fa-regular fa-house section-icon"></i>
+                            <span>Inicio</span>
+                        </div>
+                    </a>
                 </div>
+                {% endif %}
+
+                {% if session.get('user', {}).get('role') == 'owner' or session.get('user',
+                {}).get('permissions', {}).get('canInvoice', True) or session.get('user',
+                {}).get('permissions', {}).get('canExpenses', True) %}
+                <div class="sidebar-section {% if active_page in ('reports', 'ventas_generales', 'ventas_por_producto', 'ventas_por_cliente', 'ventas_rentabilidad', 'ventas_por_vendedor', 'ventas_estado_cuenta', 'admin_ingresos_compras', 'admin_reporte_anual', 'reporte_606', 'dashboard_606', 'accounting_export') %}active-parent{% endif %}" id="sidebar-section-reports">
+                    <a href="{{ url_for('web_invoices.reports_dashboard') }}" class="sidebar-section-header" style="text-decoration: none;">
+                        <div class="header-left">
+                            <i class="fa-regular fa-chart-pie section-icon"></i>
+                            <span>Reportes</span>
+                        </div>
+                    </a>
+                </div>
+                {% endif %}
+
+                <div class="sidebar-divider"></div>
 
                 <!-- SECCIÓN: ACCESOS RÁPIDOS -->
                 <div class="sidebar-section" id="sidebar-section-quick" style="display: none;">
@@ -761,7 +889,10 @@
                 {}).get('permissions', {}).get('canManageCXC', True) %}
                 <div class="sidebar-section" id="sidebar-section-ingresos">
                     <div class="sidebar-section-header">
-                        <span>Ingresos</span>
+                        <div class="header-left">
+                            <i class="fa-regular fa-chart-bar section-icon"></i>
+                            <span>Ingresos</span>
+                        </div>
                         <i class="fa-solid fa-chevron-down section-toggle-icon"></i>
                     </div>
                     <ul class="sidebar-section-content">
@@ -770,7 +901,6 @@
                         <li class="nav-item {% if active_page == 'invoices' %}active{% endif %}"
                             data-tooltip="Facturas de Venta">
                             <a href="{{ url_for('web_invoices.list_invoices') }}">
-                                <i class="fa-solid fa-file-invoice-dollar"></i>
                                 <span>Facturas de Venta</span>
                             </a>
                         </li>
@@ -779,7 +909,6 @@
                         <li class="nav-item {% if active_page == 'contracts' %}active{% endif %}"
                             data-tooltip="Facturas Recurrentes">
                             <a href="{{ url_for('web_operations.list_contracts') }}">
-                                <i class="fa-solid fa-file-contract"></i>
                                 <span>Facturas Recurrentes</span>
                             </a>
                         </li>
@@ -788,7 +917,6 @@
                         <li class="nav-item {% if active_page == 'quotations' %}active{% endif %}"
                             data-tooltip="Cotizaciones">
                             <a href="{{ url_for('web_invoices.list_quotations') }}">
-                                <i class="fa-solid fa-file-signature"></i>
                                 <span>Cotizaciones</span>
                             </a>
                         </li>
@@ -796,7 +924,6 @@
                         <li class="nav-item {% if active_page == 'fiscal_notes' %}active{% endif %}"
                             data-tooltip="Notas de Crédito/Débito">
                             <a href="{{ url_for('web_fiscal_notes.list_fiscal_notes') }}">
-                                <i class="fa-solid fa-notes-medical"></i>
                                 <span>Notas de Crédito/Débito</span>
                             </a>
                         </li>
@@ -806,7 +933,6 @@
                         <li class="nav-item {% if active_page == 'cxc' %}active{% endif %}"
                             data-tooltip="Pagos Recibidos">
                             <a href="{{ url_for('web_invoices.cxc_dashboard') }}">
-                                <i class="fa-solid fa-hand-holding-dollar"></i>
                                 <span>Pagos Recibidos</span>
                             </a>
                         </li>
@@ -816,7 +942,6 @@
                         <li class="nav-item {% if active_page == 'price_lists' %}active{% endif %}"
                             data-tooltip="Listas de Precios">
                             <a href="{{ url_for('web_invoices.list_price_lists') }}">
-                                <i class="fa-solid fa-tags"></i>
                                 <span>Listas de Precios</span>
                             </a>
                         </li>
@@ -832,7 +957,10 @@
                 {}).get('permissions', {}).get('canManageSuppliers', True) %}
                 <div class="sidebar-section" id="sidebar-section-compras">
                     <div class="sidebar-section-header">
-                        <span>Compras</span>
+                        <div class="header-left">
+                            <i class="fa-regular fa-credit-card section-icon"></i>
+                            <span>Compras</span>
+                        </div>
                         <i class="fa-solid fa-chevron-down section-toggle-icon"></i>
                     </div>
                     <ul class="sidebar-section-content">
@@ -841,7 +969,6 @@
                         <li class="nav-item {% if active_page == 'purchase_cxp' %}active{% endif %}"
                             data-tooltip="Facturas de Proveedores">
                             <a href="{{ url_for('web_purchase_orders.list_purchase_cxp') }}">
-                                <i class="fa-solid fa-file-invoice"></i>
                                 <span>Facturas de Proveedores</span>
                             </a>
                         </li>
@@ -851,7 +978,6 @@
                         <li class="nav-item {% if active_page == 'purchase_orders' %}active{% endif %}"
                             data-tooltip="Órdenes de Compra">
                             <a href="{{ url_for('web_purchase_orders.list_purchase_orders') }}">
-                                <i class="fa-solid fa-cart-shopping"></i>
                                 <span>Órdenes de Compra</span>
                             </a>
                         </li>
@@ -861,21 +987,18 @@
                         <li class="nav-item {% if active_page == 'expenses' and request.args.get('tab') != 'minor' and request.args.get('tab') != 'recurring' %}active{% endif %}"
                             data-tooltip="Pagos y Gastos operativos">
                             <a href="{{ url_for('web_invoices.list_expenses', tab='all') }}">
-                                <i class="fa-solid fa-wallet"></i>
                                 <span>Pagos / Gastos</span>
                             </a>
                         </li>
                         <li class="nav-item {% if active_page == 'expenses' and request.args.get('tab') == 'minor' %}active{% endif %}"
                             data-tooltip="Gastos Menores E43">
                             <a href="{{ url_for('web_invoices.list_expenses', tab='minor') }}">
-                                <i class="fa-solid fa-receipt"></i>
                                 <span>Gastos Menores (E43)</span>
                             </a>
                         </li>
                         <li class="nav-item {% if active_page == 'expenses' and request.args.get('tab') == 'recurring' %}active{% endif %}"
                             data-tooltip="Pagos Recurrentes">
                             <a href="{{ url_for('web_invoices.list_expenses', tab='recurring') }}">
-                                <i class="fa-solid fa-arrows-spin"></i>
                                 <span>Pagos Recurrentes</span>
                             </a>
                         </li>
@@ -885,7 +1008,6 @@
                         <li class="nav-item {% if active_page == 'purchase_credit_notes' %}active{% endif %}"
                             data-tooltip="Notas de Crédito en Compras">
                             <a href="{{ url_for('web_purchase_orders.list_credit_notes') }}">
-                                <i class="fa-solid fa-file-circle-minus"></i>
                                 <span>Notas de Crédito Compras</span>
                             </a>
                         </li>
@@ -895,7 +1017,6 @@
                         <li class="nav-item {% if active_page == 'receipts' %}active{% endif %}"
                             data-tooltip="Recepción de Comprobantes">
                             <a href="{{ url_for('web_purchase_orders.list_receipts') }}">
-                                <i class="fa-solid fa-truck-loading"></i>
                                 <span>Recepción de Comprobantes</span>
                             </a>
                         </li>
@@ -905,22 +1026,11 @@
                         <li class="nav-item {% if active_page == 'suppliers' %}active{% endif %}"
                             data-tooltip="Contactos (Proveedores)">
                             <a href="{{ url_for('web_contacts.list_contacts', tab='proveedores') }}">
-                                <i class="fa-solid fa-truck"></i>
                                 <span>Proveedores</span>
                             </a>
                         </li>
                         {% endif %}
-                        {% if module_enabled('cxp_compras') and (session.get('user', {}).get('role') == 'owner' or
-                        session.get('user', {}).get('permissions', {}).get('canManagePurchaseCXP', True) or
-                        session.get('user', {}).get('permissions', {}).get('canManageCXP', True)) %}
-                        <li class="nav-item {% if active_page == 'consolidated_cxp' %}active{% endif %}"
-                            data-tooltip="Cuentas por Pagar">
-                            <a href="{{ url_for('web_purchase_orders.consolidated_cxp') }}">
-                                <i class="fa-solid fa-credit-card"></i>
-                                <span>Cuentas por Pagar (CxP)</span>
-                            </a>
-                        </li>
-                        {% endif %}
+
                     </ul>
                 </div>
                 {% endif %}
@@ -931,7 +1041,10 @@
                 {}).get('permissions', {}).get('canClients', True) %}
                 <div class="sidebar-section" id="sidebar-section-inventario">
                     <div class="sidebar-section-header">
-                        <span>Inventario</span>
+                        <div class="header-left">
+                            <i class="fa-regular fa-folder section-icon"></i>
+                            <span>Inventario</span>
+                        </div>
                         <i class="fa-solid fa-chevron-down section-toggle-icon"></i>
                     </div>
                     <ul class="sidebar-section-content">
@@ -940,7 +1053,6 @@
                         <li class="nav-item {% if active_page == 'items' %}active{% endif %}"
                             data-tooltip="Productos y Servicios">
                             <a href="{{ url_for('web_invoices.list_items') }}">
-                                <i class="fa-solid fa-boxes-stacked"></i>
                                 <span>Productos y Servicios</span>
                             </a>
                         </li>
@@ -950,7 +1062,6 @@
                         <li class="nav-item {% if active_page == 'inventory' %}active{% endif %}"
                             data-tooltip="Inventario">
                             <a href="{{ url_for('web_invoices.inventory_dashboard') }}">
-                                <i class="fa-solid fa-warehouse"></i>
                                 <span>Inventario</span>
                             </a>
                         </li>
@@ -964,21 +1075,22 @@
                 {}).get('permissions', {}).get('canExpenses', True) %}
                 <div class="sidebar-section" id="sidebar-section-bancos">
                     <div class="sidebar-section-header">
-                        <span>Bancos</span>
+                        <div class="header-left">
+                            <i class="fa-regular fa-building section-icon"></i>
+                            <span>Bancos</span>
+                        </div>
                         <i class="fa-solid fa-chevron-down section-toggle-icon"></i>
                     </div>
                     <ul class="sidebar-section-content">
                         <li class="nav-item {% if active_page == 'banks' %}active{% endif %}"
                             data-tooltip="Bancos y Cajas">
                             <a href="{{ url_for('web_banks.list_banks') }}">
-                                <i class="fa-solid fa-building-columns"></i>
                                 <span>Bancos y Cajas</span>
                             </a>
                         </li>
                         <li class="nav-item {% if active_page == 'bank_reconcile' %}active{% endif %}"
                             data-tooltip="Conciliación Bancaria">
                             <a href="{{ url_for('web_banks.reconcile_list') }}">
-                                <i class="fa-solid fa-check-double"></i>
                                 <span>Conciliación Bancaria</span>
                             </a>
                         </li>
@@ -986,35 +1098,7 @@
                 </div>
                 {% endif %}
 
-                <!-- SECCIÓN: POS -->
-                {% if module_enabled('pos') and (session.get('user', {}).get('role') == 'owner' or
-                session.get('user', {}).get('permissions', {}).get('canManagePOS', True)) and
-                session.get('company_profile_pos_enabled', True) %}
-                <div class="sidebar-section" id="sidebar-section-pos">
-                    <div class="sidebar-section-header">
-                        <span>POS</span>
-                        <i class="fa-solid fa-chevron-down section-toggle-icon"></i>
-                    </div>
-                    <ul class="sidebar-section-content">
-                        <li class="nav-item {% if active_page == 'pos' %}active{% endif %}" data-tooltip="Caja / POS">
-                            <a href="{{ url_for('web_pos.pos_dashboard') }}">
-                                <i class="fa-solid fa-cash-register"></i>
-                                <span>Caja Registradora</span>
-                            </a>
-                        </li>
-                        {% if session.get('user', {}).get('role') == 'owner' or session.get('user',
-                        {}).get('permissions', {}).get('isPosSupervisor', False) %}
-                        <li class="nav-item {% if active_page == 'pos_admin' %}active{% endif %}"
-                            data-tooltip="Admin Cajas">
-                            <a href="{{ url_for('web_pos.pos_admin_dashboard') }}">
-                                <i class="fa-solid fa-shield-halved"></i>
-                                <span>Administración de Cajas</span>
-                            </a>
-                        </li>
-                        {% endif %}
-                    </ul>
-                </div>
-                {% endif %}
+
 
                 <!-- SECCIÓN: CRM -->
                 {% if module_enabled('crm') and (session.get('user', {}).get('role') == 'owner' or
@@ -1022,7 +1106,10 @@
                 {}).get('permissions', {}).get('canManageCommissions', True)) %}
                 <div class="sidebar-section" id="sidebar-section-crm">
                     <div class="sidebar-section-header">
-                        <span>CRM</span>
+                        <div class="header-left">
+                            <i class="fa-regular fa-address-book section-icon"></i>
+                            <span>CRM</span>
+                        </div>
                         <i class="fa-solid fa-chevron-down section-toggle-icon"></i>
                     </div>
                     <ul class="sidebar-section-content">
@@ -1031,7 +1118,6 @@
                         <li class="nav-item {% if active_page == 'contacts' %}active{% endif %}"
                             data-tooltip="Contactos">
                             <a href="{{ url_for('web_contacts.list_contacts') }}">
-                                <i class="fa-solid fa-address-card"></i>
                                 <span>Contactos</span>
                             </a>
                         </li>
@@ -1041,18 +1127,7 @@
                         <li class="nav-item {% if active_page == 'commissions' %}active{% endif %}"
                             data-tooltip="Comisiones y Metas">
                             <a href="{{ url_for('web_operations.list_commissions') }}">
-                                <i class="fa-solid fa-award"></i>
                                 <span>Comisiones y Metas</span>
-                            </a>
-                        </li>
-                        {% endif %}
-                        {% if module_enabled('portal_cliente') and (session.get('user', {}).get('role') == 'owner' or
-                        session.get('user', {}).get('permissions', {}).get('canClients', True)) %}
-                        <li class="nav-item {% if active_page == 'portal_admin' %}active{% endif %}"
-                            data-tooltip="Portal de Clientes">
-                            <a href="{{ url_for('portal.portal_admin') }}">
-                                <i class="fa-solid fa-external-link-alt"></i>
-                                <span>Portal de Clientes</span>
                             </a>
                         </li>
                         {% endif %}
@@ -1060,12 +1135,96 @@
                 </div>
                 {% endif %}
 
+                <!-- SECCIÓN: CONTABILIDAD -->
+                {% if module_enabled('contabilidad') and (session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canAccounting', True)) %}
+                <div class="sidebar-section" id="sidebar-section-contabilidad">
+                    <div class="sidebar-section-header">
+                        <div class="header-left">
+                            <i class="fa-regular fa-newspaper section-icon"></i>
+                            <span>Contabilidad</span>
+                        </div>
+                        <i class="fa-solid fa-chevron-down section-toggle-icon"></i>
+                    </div>
+                    <ul class="sidebar-section-content">
+                        <li class="nav-item {% if active_page == 'accounting' and request.path == '/accounting' %}active{% endif %}"
+                            data-tooltip="Dashboard Contable">
+                            <a href="{{ url_for('web_accounting.dashboard') }}">
+                                <span>Dashboard Contable</span>
+                            </a>
+                        </li>
+                        <li class="nav-item {% if active_page == 'accounting' and request.path.startswith('/accounting/chart-of-accounts') %}active{% endif %}"
+                            data-tooltip="Catálogo de Cuentas">
+                            <a href="{{ url_for('web_accounting.chart_of_accounts') }}">
+                                <span>Catálogo de Cuentas</span>
+                            </a>
+                        </li>
+                        <li class="nav-item {% if active_page == 'accounting' and request.path.startswith('/accounting/journal-entries') %}active{% endif %}"
+                            data-tooltip="Entradas de Diario">
+                            <a href="{{ url_for('web_accounting.journal_entries') }}">
+                                <span>Entradas de Diario</span>
+                            </a>
+                        </li>
+                        <li class="nav-item {% if active_page == 'accounting' and request.path == '/accounting/general-journal' %}active{% endif %}"
+                            data-tooltip="Libro Diario">
+                            <a href="{{ url_for('web_accounting.general_journal') }}">
+                                <span>Libro Diario</span>
+                            </a>
+                        </li>
+                        <li class="nav-item {% if active_page == 'accounting' and request.path.startswith('/accounting/fixed-assets') %}active{% endif %}"
+                            data-tooltip="Activos Fijos">
+                            <a href="{{ url_for('web_accounting.fixed_assets') }}">
+                                <span>Activos Fijos</span>
+                            </a>
+                        </li>
+                        <li class="nav-item {% if active_page == 'accounting' and request.path.startswith('/accounting/cost-centers') %}active{% endif %}"
+                            data-tooltip="Centros de Costo">
+                            <a href="{{ url_for('web_accounting.list_cost_centers') }}">
+                                <span>Centros de Costo</span>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+                {% endif %}
 
+
+                <!-- GRUPO: DESCUBRE MÁS SOLUCIONES -->
+                <div class="sidebar-discover-group">
+                    <div class="sidebar-divider"></div>
+                    <span class="sidebar-discover-title">Descubre más soluciones</span>
+                    {% if session.get('user', {}).get('role') == 'owner' or session.get('user',
+                    {}).get('permissions', {}).get('canManageNotes', True) %}
+                    <a href="{{ url_for('web_notes.list_notes') }}"
+                        class="sidebar-discover-item {% if active_page == 'notes' %}active{% endif %}"
+                        data-tooltip="Mis Tareas">
+                        <i class="fa-regular fa-square-check"></i>
+                        <span>Mis Tareas</span>
+                    </a>
+                    {% endif %}
+                    {% if module_enabled('pos') and (session.get('user', {}).get('role') == 'owner' or
+                    session.get('user', {}).get('permissions', {}).get('canManagePOS', True)) and
+                    session.get('company_profile_pos_enabled', True) %}
+                    <a href="{{ url_for('web_pos.pos_dashboard') }}"
+                        class="sidebar-discover-item {% if active_page == 'pos' or active_page == 'pos_admin' %}active{% endif %}"
+                        data-tooltip="Caja / POS">
+                        <i class="fa-solid fa-cash-register"></i>
+                        <span>Punto de Venta (POS)</span>
+                    </a>
+                    {% endif %}
+                    {% if module_enabled('portal_cliente') and (session.get('user', {}).get('role') == 'owner' or
+                    session.get('user', {}).get('permissions', {}).get('canClients', True)) %}
+                    <a href="{{ url_for('portal.portal_admin') }}"
+                        class="sidebar-discover-item {% if active_page == 'portal_admin' %}active{% endif %}"
+                        data-tooltip="Portal de Clientes">
+                        <i class="fa-solid fa-globe"></i>
+                        <span>Portal de Clientes</span>
+                    </a>
+                    {% endif %}
+                </div>
 
                 <!-- Inicializar estado de secciones colapsables para evitar visual layout shift -->
                 <script>
                     (function () {
-                        const sections = ['general', 'ingresos', 'compras', 'inventario', 'bancos', 'pos', 'crm', 'configuracion'];
+                        const sections = ['ingresos', 'compras', 'inventario', 'bancos', 'crm', 'configuracion', 'contabilidad'];
                         sections.forEach(id => {
                             const el = document.getElementById('sidebar-section-' + id);
                             if (!el) return;

@@ -1,0 +1,198 @@
+{% extends "layout.html" %}
+{% block title %}Saldos Iniciales{% endblock %}
+{% block page_header %}Saldos Iniciales{% endblock %}
+{% block content %}
+<div class="page-title-container" style="margin-bottom:16px; padding-left:4px;">
+    <h1 style="font-size:1.75rem; font-weight:800; font-family:var(--font-heading); color:var(--text-primary); margin:0;">
+        <i class="fa-solid fa-hand-holding-dollar" style="color:var(--accent-purple); margin-right:10px;"></i>
+        Saldos Iniciales
+    </h1>
+    <p style="color:var(--text-secondary); font-size:0.88rem; margin:6px 0 0 2px;">
+        Registra los saldos de apertura de tus cuentas contables. Esto creará una entrada de diario tipo "Saldo Inicial".
+    </p>
+</div>
+
+<form method="POST">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="card-segment">
+        <div class="segment-header">
+            <div class="segment-header-icon purple">
+                <i class="fa-solid fa-hand-holding-dollar"></i>
+            </div>
+            <h3 style="flex-grow:1;">Saldos de Apertura</h3>
+            <div style="display:flex; gap:8px; align-items:center;">
+                <div class="form-group" style="margin-bottom:0;">
+                    <input type="date" name="date" class="form-input" value="{{ datetime.now().strftime('%Y-%m-%d')  }}" style="font-size:0.82rem;">
+                </div>
+                <button type="button" class="btn btn-secondary" onclick="addBalanceLine()" style="padding:6px 14px; font-size:0.82rem;"><i class="fa-solid fa-plus"></i> Agregar cuenta</button>
+                <a href="{{ url_for('web_accounting.import_initial_balances') }}" class="btn btn-primary" style="padding:6px 14px; font-size:0.82rem;">
+                    <i class="fa-solid fa-file-import"></i> Importar Excel
+                </a>
+            </div>
+        </div>
+        <div style="overflow-x:auto;">
+            <table class="table" style="width:100%; border-collapse:collapse; font-size:0.82rem;">
+                <thead>
+                    <tr style="background:var(--bg-nav-hover);">
+                        <th style="padding:8px 10px; text-align:left;">Cuenta Contable</th>
+                        <th style="padding:8px 10px; text-align:right;">Débito (Saldo Deudor)</th>
+                        <th style="padding:8px 10px; text-align:right;">Crédito (Saldo Acreedor)</th>
+                        <th style="padding:8px 10px; text-align:center;"></th>
+                    </tr>
+                </thead>
+                <tbody id="lines-body">
+                    <tr class="line-row">
+                        <td style="padding:6px 8px; position:relative;">
+                            <div class="ac-search-wrap" style="position:relative;">
+                                <input type="text" class="form-input ac-input" style="width:100%; font-size:0.8rem;" placeholder="Buscar cuenta…" autocomplete="off" required>
+                                <input type="hidden" name="line_account[]" class="ac-hidden" value="">
+                                <div class="ac-dropdown" style="display:none; position:absolute; top:100%; left:0; right:0; background:#fff; border:1px solid #e2e8f0; border-radius:8px; max-height:220px; overflow-y:auto; z-index:100; box-shadow:0 4px 12px rgba(0,0,0,0.1);"></div>
+                            </div>
+                        </td>
+                        <td style="padding:6px 8px;">
+                            <input type="number" name="line_debit[]" class="form-input line-debit" style="text-align:right; font-size:0.8rem;" step="0.01" min="0" value="0.00" oninput="updateTotals()">
+                        </td>
+                        <td style="padding:6px 8px;">
+                            <input type="number" name="line_credit[]" class="form-input line-credit" style="text-align:right; font-size:0.8rem;" step="0.01" min="0" value="0.00" oninput="updateTotals()">
+                        </td>
+                        <td style="padding:6px 8px; text-align:center;">
+                            <button type="button" class="btn btn-secondary" style="padding:2px 6px; font-size:0.7rem; color:var(--accent-red);" onclick="this.closest('tr').remove(); updateTotals();">
+                                <i class="fa-solid fa-xmark"></i>
+                            </button>
+                        </td>
+                    </tr>
+                </tbody>
+                <tfoot>
+                    <tr style="background:var(--bg-nav-hover); font-weight:700;">
+                        <td style="padding:8px 10px; text-align:right;">Totales:</td>
+                        <td style="padding:8px 10px; text-align:right;" id="total-debit">0.00</td>
+                        <td style="padding:8px 10px; text-align:right;" id="total-credit">0.00</td>
+                        <td></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+
+    <!-- BARRA DE ACCIONES FINAL -->
+    <div style="display:flex; justify-content:flex-end; gap:15px; border-top:1px solid var(--border-color); padding-top:24px; margin-bottom:12px;">
+        <a href="{{ url_for('web_accounting.chart_of_accounts') }}" class="btn btn-secondary">
+            <span>Cancelar</span>
+        </a>
+        <button type="submit" class="btn btn-primary" id="submit-btn" style="padding:14px 28px;">
+            <i class="fa-solid fa-save"></i> Guardar Saldos Iniciales
+        </button>
+    </div>
+</form>
+
+<script>
+const ACCOUNTS = [
+    {% for acc in accounts %}
+    {% if acc.type == 'movimiento' %}
+    { id: "{{ acc.id }}", code: "{{ acc.code }}", name: "{{ acc.name|e }}" },
+    {% endif %}
+    {% endfor %}
+];
+
+function setupAcSearch(wrap) {
+    const input = wrap.querySelector('.ac-input');
+    const hidden = wrap.querySelector('.ac-hidden');
+    const dropdown = wrap.querySelector('.ac-dropdown');
+
+    function filterAccounts(q) {
+        const lower = q.toLowerCase();
+        return ACCOUNTS.filter(a => a.code.toLowerCase().includes(lower) || a.name.toLowerCase().includes(lower));
+    }
+
+    function renderDropdown(results) {
+        if (!results.length) { dropdown.style.display = 'none'; return; }
+        dropdown.innerHTML = results.map(a =>
+            `<div class="ac-item" data-id="${a.id}" style="padding:7px 10px; cursor:pointer; font-size:0.8rem; border-bottom:1px solid #f1f5f9; display:flex; gap:8px;">
+                <span style="font-family:monospace; color:var(--text-muted);">${a.code}</span>
+                <span>${a.name}</span>
+            </div>`
+        ).join('');
+        dropdown.style.display = 'block';
+    }
+
+    input.addEventListener('input', function() {
+        const q = this.value;
+        if (!q) { dropdown.style.display = 'none'; hidden.value = ''; return; }
+        renderDropdown(filterAccounts(q));
+    });
+
+    dropdown.addEventListener('click', function(e) {
+        const item = e.target.closest('.ac-item');
+        if (!item) return;
+        const account = ACCOUNTS.find(a => a.id === item.dataset.id);
+        if (account) {
+            input.value = account.code + ' — ' + account.name;
+            hidden.value = account.id;
+        }
+        dropdown.style.display = 'none';
+    });
+
+    input.addEventListener('blur', function() {
+        setTimeout(() => { dropdown.style.display = 'none'; }, 200);
+    });
+
+    input.addEventListener('focus', function() {
+        if (this.value) {
+            const results = filterAccounts(this.value);
+            if (results.length) renderDropdown(results);
+        }
+    });
+
+    input.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') dropdown.style.display = 'none';
+    });
+}
+
+document.querySelectorAll('.ac-search-wrap').forEach(setupAcSearch);
+
+function updateTotals() {
+    let td = 0, tc = 0;
+    document.querySelectorAll('.line-debit').forEach(el => td += parseFloat(el.value) || 0);
+    document.querySelectorAll('.line-credit').forEach(el => tc += parseFloat(el.value) || 0);
+    document.getElementById('total-debit').textContent = td.toFixed(2);
+    document.getElementById('total-credit').textContent = tc.toFixed(2);
+}
+
+function addBalanceLine() {
+    const tbody = document.getElementById('lines-body');
+    const row = document.createElement('tr');
+    row.className = 'line-row';
+    row.innerHTML = `
+        <td style="padding:6px 8px; position:relative;">
+            <div class="ac-search-wrap" style="position:relative;">
+                <input type="text" class="form-input ac-input" style="width:100%; font-size:0.8rem;" placeholder="Buscar cuenta…" autocomplete="off" required>
+                <input type="hidden" name="line_account[]" class="ac-hidden" value="">
+                <div class="ac-dropdown" style="display:none; position:absolute; top:100%; left:0; right:0; background:#fff; border:1px solid #e2e8f0; border-radius:8px; max-height:220px; overflow-y:auto; z-index:100; box-shadow:0 4px 12px rgba(0,0,0,0.1);"></div>
+            </div>
+        </td>
+        <td style="padding:6px 8px;">
+            <input type="number" name="line_debit[]" class="form-input line-debit" style="text-align:right; font-size:0.8rem;" step="0.01" min="0" value="0.00" oninput="updateTotals()">
+        </td>
+        <td style="padding:6px 8px;">
+            <input type="number" name="line_credit[]" class="form-input line-credit" style="text-align:right; font-size:0.8rem;" step="0.01" min="0" value="0.00" oninput="updateTotals()">
+        </td>
+        <td style="padding:6px 8px; text-align:center;">
+            <button type="button" class="btn btn-secondary" style="padding:2px 6px; font-size:0.7rem; color:var(--accent-red);" onclick="this.closest('tr').remove(); updateTotals();">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </td>
+    `;
+    tbody.appendChild(row);
+    setupAcSearch(row.querySelector('.ac-search-wrap'));
+}
+
+document.querySelector('form').addEventListener('submit', function(e) {
+    const td = parseFloat(document.getElementById('total-debit').textContent) || 0;
+    const tc = parseFloat(document.getElementById('total-credit').textContent) || 0;
+    if (Math.abs(td - tc) > 0.01) {
+        e.preventDefault();
+        alert('Los totales de débito y crédito deben ser iguales.');
+    }
+});
+</script>
+{% endblock %}

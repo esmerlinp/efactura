@@ -68,6 +68,51 @@ def run_daily_contract_billing():
 
 
 
+def run_daily_depreciation():
+    """Job diario (2:00 AM RD): recorre todos los dueños con activos fijos
+    y ejecuta depreciación automática para los activos cuya nextDepreciationDate <= hoy."""
+    from app.services.db_service import db_firestore
+    from app.services.fixed_asset_service import FixedAssetService
+
+    logger.info("⏰ APScheduler — Iniciando depreciación automática de activos fijos...")
+
+    collections = [
+        ("sandbox_fixed_assets", True),
+        ("fixed_assets",         False),
+    ]
+
+    for coll_name, is_sandbox in collections:
+        try:
+            docs = db_firestore.collection_group(coll_name).stream()
+            owner_uids_seen = set()
+            for doc in docs:
+                parent_path = doc.reference.parent.parent.parent.path
+                uid = parent_path.split("/")[1] if "/" in parent_path else ""
+                if uid:
+                    owner_uids_seen.add(uid)
+
+            for owner_uid in owner_uids_seen:
+                try:
+                    results = FixedAssetService.run_auto_depreciation(owner_uid, sandbox=is_sandbox)
+                    success_count = sum(1 for r in results if r["success"])
+                    if success_count > 0:
+                        logger.info(
+                            f"✅ {success_count} activo(s) depreciado(s) para owner "
+                            f"{owner_uid} (sandbox={is_sandbox})"
+                        )
+                except Exception as exc:
+                    logger.error(
+                        f"❌ Error depreciando activos de {owner_uid} "
+                        f"(sandbox={is_sandbox}): {exc}"
+                    )
+        except Exception as exc:
+            logger.error(
+                f"❌ Error accediendo a colección '{coll_name}': {exc}"
+            )
+
+    logger.info("✅ APScheduler — Depreciación automática finalizada.")
+
+
 def cleanup_expired_idempotency_keys():
     """Job diario: elimina idempotency keys con expireAt anterior a hoy."""
     from app.services.db_service import DatabaseService
@@ -124,6 +169,14 @@ def init_scheduler(app):
         trigger=CronTrigger(minute="*/30"),      # Cada 30 minutos
         id="contingency_sync",
         name="Sincronización Automática de Contingencia DGII",
+        replace_existing=True,
+    )
+
+    _scheduler.add_job(
+        func=run_daily_depreciation,
+        trigger=CronTrigger(hour=2, minute=0),   # 2:00 AM RD cada día
+        id="daily_depreciation",
+        name="Depreciación Automática de Activos Fijos",
         replace_existing=True,
     )
 

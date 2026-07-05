@@ -3,6 +3,61 @@
 {% block page_header %}{% if note_type == 'E34' %}Nota de Crédito (E34){% else %}Nota de Débito (E33){% endif %}{% endblock %}
 
 {% block content %}
+<style>
+    .field-label {
+        display: block;
+        font-size: 0.83rem;
+        font-weight: 600;
+        margin-bottom: 6px;
+        color: var(--text-secondary);
+        letter-spacing: 0.01em;
+    }
+    .field-input {
+        width: 100%;
+        border-radius: var(--radius-sm);
+        border: 1px solid #e2e8f0;
+        background-color: #ffffff;
+        color: var(--text-primary);
+        padding: 10px 14px;
+        height: 44px;
+        box-sizing: border-box;
+        font-size: 0.9rem;
+        font-family: var(--font-body);
+        transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        outline: none;
+    }
+    .field-input:focus {
+        border-color: var(--accent-emerald);
+        box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.08);
+    }
+    textarea.field-input { height: auto; resize: vertical; }
+    .section-card {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: var(--radius-md);
+        padding: 28px 32px;
+        margin-bottom: 20px;
+    }
+    .section-title {
+        font-size: 0.78rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--text-muted);
+        margin-bottom: 20px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid #f1f5f9;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .section-title i { color: var(--accent-emerald); font-size: 0.85rem; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
+    @media (max-width: 768px) {
+        .grid-2, .grid-3 { grid-template-columns: 1fr; }
+    }
+</style>
 <div id="catalog-data-json" style="display:none;">{{ catalog_json }}</div>
 
 <div class="page-title-container" style="margin-bottom:24px; display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px;">
@@ -30,16 +85,11 @@
     <input type="hidden" name="noteType" value="{{ note_type }}">
 
     <!-- SECTION 1: ENCABEZADO DEL DOCUMENTO -->
-    <div class="card-segment" style="margin-bottom:18px;">
-        <div class="segment-header">
-            <div class="segment-header-icon emerald">
-                <i class="fa-solid fa-file-pen"></i>
-            </div>
-            <h3>Encabezado del Documento</h3>
-        </div>
-        <div class="form-grid">
-            <div class="form-group" style="grid-column:span 2;">
-                <label style="font-size:0.82rem; font-weight:600; display:block; margin-bottom:4px; color:var(--text-secondary);">
+    <div class="section-card">
+        <div class="section-title"><i class="fa-solid fa-file-pen"></i> Encabezado del Documento</div>
+        <div class="grid-2">
+            <div style="grid-column:span 2;">
+                <label class="field-label">
                     Factura de Referencia <span style="color:var(--accent-red);">*</span>
                 </label>
                 {% if ref_invoice %}
@@ -83,11 +133,11 @@
                 {% endif %}
             </div>
 
-            <div class="form-group">
-                <label style="font-size:0.82rem; font-weight:600; display:block; margin-bottom:4px; color:var(--text-secondary);">
+            <div>
+                <label class="field-label">
                     {% if note_type == 'E34' %}Código de Modificación{% else %}Tipo de Nota de Débito{% endif %} <span style="color:var(--accent-red);">*</span>
                 </label>
-                <select name="modificationCode" class="form-select" style="width:100%;">
+                <select name="modificationCode" class="field-input">
                     <option value="1">Devolución</option>
                     <option value="2">Corrección de texto</option>
                     <option value="3">Descuento</option>
@@ -96,17 +146,17 @@
                 </select>
             </div>
 
-            <div class="form-group">
-                <label style="font-size:0.82rem; font-weight:600; display:block; margin-bottom:4px; color:var(--text-secondary);">Fecha de Emisión</label>
-                <input type="date" name="date" class="form-input" value="{{ datetime.utcnow().strftime('%Y-%m-%d') }}" style="width:100%;">
+            <div>
+                <label class="field-label">Fecha de Emisión</label>
+                <input type="date" name="date" class="field-input" value="{{ datetime.utcnow().strftime('%Y-%m-%d') }}">
             </div>
 
             {% if note_type == 'E33' %}
-            <div class="form-group">
-                <label style="font-size:0.82rem; font-weight:600; display:block; margin-bottom:4px; color:var(--text-secondary);">
+            <div>
+                <label class="field-label">
                     Numeración <span style="color:var(--accent-red);">*</span>
                 </label>
-                <select name="sequenceId" class="form-select" style="width:100%;">
+                <select name="sequenceId" class="field-input">
                     <option value="">Seleccionar secuencia...</option>
                     {% for seq in sequences %}
                     <option value="{{ seq.id }}">{{ seq.tipoComprobante }} — {{ seq.prefijo or seq.tipoComprobante }} (disp. {{ seq.cantidadDisponible or 0 }})</option>
@@ -115,20 +165,18 @@
             </div>
             {% endif %}
 
-            <div class="form-group" style="grid-column:span 2;">
-                <label style="font-size:0.82rem; font-weight:600; display:block; margin-bottom:4px; color:var(--text-secondary);">Razón / Detalle</label>
-                <textarea name="reason" class="form-input" rows="2" style="width:100%; resize:vertical;" placeholder="Describe el motivo del ajuste..."></textarea>
+            <div style="grid-column:span 2;">
+                <label class="field-label">Razón / Detalle</label>
+                <textarea name="reason" class="field-input" rows="2" placeholder="Describe el motivo del ajuste..."></textarea>
             </div>
         </div>
     </div>
 
     <!-- SECTION 2: PRODUCTOS/SERVICIOS -->
-    <div class="card-segment" style="margin-bottom:18px;">
-        <div class="segment-header">
-            <div class="segment-header-icon purple">
-                <i class="fa-solid fa-list-check"></i>
-            </div>
-            <h3 style="flex-grow:1;">Productos / Servicios</h3>
+    <div class="section-card">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;padding-bottom:10px;border-bottom:1px solid #f1f5f9;">
+            <i class="fa-solid fa-list-check" style="color:var(--accent-emerald);font-size:0.85rem;"></i>
+            <h3 style="flex-grow:1;font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);margin:0;">Productos / Servicios</h3>
             <button type="button" id="btn-add-item" class="btn btn-secondary" style="padding:6px 14px; font-size:0.82rem;">
                 <i class="fa-solid fa-plus"></i> Agregar Línea
             </button>
@@ -190,7 +238,7 @@
         </div>
 
         <!-- Totales de items -->
-        <div class="card-totals-highlight" style="margin-top:12px; padding:12px 18px; display:flex; justify-content:flex-end; gap:32px;">
+        <div style="margin-top:16px;padding-top:16px;border-top:2px solid #e2e8f0;display:flex;justify-content:flex-end;gap:32px;">
             <div style="text-align:right;">
                 <span style="font-size:0.78rem; color:var(--text-muted); display:block;">Subtotal</span>
                 <span id="lbl-subtotal" style="font-size:1rem; font-weight:700; color:var(--text-primary);">RD$ 0.00</span>
@@ -208,12 +256,10 @@
 
     <!-- SECTION 3: DEVOLUCIONES DE DINERO (solo E34) -->
     {% if note_type == 'E34' %}
-    <div class="card-segment" style="margin-bottom:18px;">
-        <div class="segment-header">
-            <div class="segment-header-icon" style="background-color:rgba(16,185,129,0.08); color:#10b981;">
-                <i class="fa-solid fa-money-bill-transfer"></i>
-            </div>
-            <h3 style="flex-grow:1;">Devoluciones de Dinero</h3>
+    <div class="section-card">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;padding-bottom:10px;border-bottom:1px solid #f1f5f9;">
+            <i class="fa-solid fa-money-bill-transfer" style="color:var(--accent-emerald);font-size:0.85rem;"></i>
+            <h3 style="flex-grow:1;font-size:0.78rem;font-weight:700;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);margin:0;">Devoluciones de Dinero</h3>
             <button type="button" id="btn-add-refund" class="btn btn-secondary" style="padding:6px 14px; font-size:0.82rem;">
                 <i class="fa-solid fa-plus"></i> Agregar Devolución
             </button>
@@ -268,14 +314,9 @@
     {% endif %}
 
     <!-- SECTION 4: COMENTARIOS -->
-    <div class="card-segment" style="margin-bottom:18px;">
-        <div class="segment-header">
-            <div class="segment-header-icon" style="background-color:rgba(245,158,11,0.08); color:#f59e0b;">
-                <i class="fa-solid fa-comment"></i>
-            </div>
-            <h3>Comentarios</h3>
-        </div>
-        <div class="collapse-field form-group" style="margin-bottom:0;">
+    <div class="section-card">
+        <div class="section-title"><i class="fa-solid fa-comment"></i> Comentarios</div>
+        <div class="collapse-field" style="margin-bottom:0;">
             <div class="collapse-field-header" onclick="toggleCollapseField(this)" style="display:flex; align-items:center; gap:10px; padding:8px 0; cursor:pointer; user-select:none;">
                 <span class="collapse-field-preview" style="font-size:0.82rem; color:var(--text-muted); flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Agrega comentarios para información importante. No son visibles en la impresión.</span>
                 <i class="fa-solid fa-chevron-down" style="font-size:0.7rem; color:var(--text-muted); transition:transform 0.2s;"></i>
@@ -286,14 +327,14 @@
         </div>
     </div>
 
-    <!-- BARRA DE ACCIONES -->
-    <div style="display:flex; justify-content:flex-end; gap:15px; border-top:1px solid var(--border-color); padding-top:24px; margin-bottom:40px;">
-        <a href="{{ url_for('web_fiscal_notes.list_fiscal_notes') }}" class="btn btn-secondary" style="padding:12px 24px;">
-            <span>Cancelar</span>
+    <!-- Botones -->
+    <div style="display:flex;justify-content:flex-end;gap:12px;margin-top:8px;padding-bottom:32px;">
+        <a href="{{ url_for('web_fiscal_notes.list_fiscal_notes') }}" class="btn btn-secondary" style="padding:11px 24px;">
+            <i class="fa-solid fa-arrow-left" style="margin-right:6px;"></i>Cancelar
         </a>
-        <button type="submit" class="btn btn-primary" style="padding:12px 28px;">
-            <i class="fa-solid fa-check"></i>
-            <span>{% if note_type == 'E34' %}Guardar Nota de Crédito{% else %}Guardar Nota de Débito{% endif %}</span>
+        <button type="submit" class="btn btn-primary" style="padding:11px 28px;font-weight:700;">
+            <i class="fa-solid fa-floppy-disk" style="margin-right:6px;"></i>
+            {% if note_type == 'E34' %}Guardar Nota de Crédito{% else %}Guardar Nota de Débito{% endif %}
         </button>
     </div>
 

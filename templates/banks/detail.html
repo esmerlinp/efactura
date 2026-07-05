@@ -1,0 +1,186 @@
+{% extends "layout.html" %}
+{% block title %}{{ account.name }}{% endblock %}
+{% block content %}
+<style>
+    .breadcrumb {
+        display: flex; align-items: center; gap: 6px;
+        font-size: 0.8rem; color: var(--text-muted); margin-bottom: 16px;
+    }
+    .breadcrumb a { color: var(--text-muted); text-decoration: none; font-weight: 500; }
+    .breadcrumb a:hover { color: var(--accent-emerald); }
+    .breadcrumb .sep { color: #cbd5e1; }
+
+    .page-title {
+        font-size: 1.5rem; font-weight: 800; color: var(--text-primary);
+        margin: 0 0 20px 0;
+    }
+
+    .badge-type {
+        display: inline-block;
+        padding: 3px 10px;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 500;
+    }
+    .badge-banco { background: rgba(59, 130, 246, 0.1); color: #3b82f6; }
+    .badge-efectivo { background: rgba(16, 185, 129, 0.1); color: #10b981; }
+    .badge-tarjeta { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
+
+    .account-card {
+        background: #fff; border: 1px solid #e2e8f0; border-radius: 14px;
+        padding: 24px; margin-bottom: 20px;
+        display: flex; flex-wrap: wrap; gap: 24px;
+    }
+    .account-card .acc-info { flex: 1; min-width: 240px; }
+    .account-card .acc-info .acc-name {
+        font-size: 1.2rem; font-weight: 700; margin-bottom: 8px;
+    }
+    .account-card .acc-info .acc-meta {
+        font-size: 0.85rem; color: var(--text-muted); line-height: 1.7;
+    }
+    .account-card .acc-info .acc-meta span { color: var(--text-primary); font-weight: 500; }
+    .account-card .acc-balance { text-align: right; min-width: 160px; }
+    .account-card .acc-balance .bal-label {
+        font-size: 0.72rem; font-weight: 600; color: var(--text-muted);
+        text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 4px;
+    }
+    .account-card .acc-balance .bal-value {
+        font-size: 1.8rem; font-weight: 800;
+    }
+    .account-card .acc-balance .bal-value.positive { color: var(--accent-emerald); }
+    .account-card .acc-balance .bal-value.negative { color: var(--accent-red); }
+
+    .action-bar {
+        display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 24px;
+    }
+
+    .rpt-table-card {
+        background: #fff; border: 1px solid #e2e8f0; border-radius: 14px;
+        overflow: hidden; margin-bottom: 24px;
+    }
+    .rpt-table-card .card-header {
+        padding: 14px 16px; border-bottom: 1px solid #e2e8f0;
+        font-size: 0.9rem; font-weight: 700; display: flex; align-items: center; gap: 8px;
+    }
+    .rpt-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+    .rpt-table th {
+        padding: 10px 14px; font-size: 0.72rem; font-weight: 700;
+        color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em;
+        background: #f8fafc; border-bottom: 1px solid #e2e8f0; white-space: nowrap;
+    }
+    .rpt-table th:first-child { text-align: left; padding-left: 16px; }
+    .rpt-table th:not(:first-child) { text-align: right; }
+    .rpt-table td {
+        padding: 8px 14px; border-bottom: 1px solid #f1f5f9;
+        color: var(--text-primary); white-space: nowrap;
+    }
+    .rpt-table td:first-child { text-align: left; padding-left: 16px; }
+    .rpt-table td:not(:first-child) { text-align: right; }
+    .rpt-table tr:last-child td { border-bottom: none; }
+
+    .tx-income { color: var(--accent-emerald); font-weight: 600; }
+    .tx-expense { color: var(--accent-red); font-weight: 600; }
+</style>
+
+<div class="breadcrumb">
+    <a href="{{ url_for('web_banks.list_banks') }}">Bancos</a>
+    <span class="sep">/</span>
+    <span>{{ account.name }}</span>
+</div>
+
+<h1 class="page-title">
+    <i class="fa-solid fa-building-columns" style="color:var(--accent-emerald); margin-right:10px;"></i>
+    {{ account.name }}
+</h1>
+
+<div class="account-card">
+    <div class="acc-info">
+        <div class="acc-name">
+            <span class="badge-type badge-{{ account.type }}">{{ account_types.get(account.type, account.type) }}</span>
+        </div>
+        <div class="acc-meta">
+            {% if account.accountNumber %}
+            <div>Número de cuenta: <span>{{ account.accountNumber }}</span></div>
+            {% endif %}
+            {% if account.description %}
+            <div>Descripción: <span>{{ account.description }}</span></div>
+            {% endif %}
+            {% if account.creditLimit and account.type == 'tarjeta' %}
+            <div>Límite de crédito: <span>RD$ {{ "{:,.2f}".format(account.creditLimit) }}</span></div>
+            {% endif %}
+            <div style="margin-top:4px; font-size:0.78rem; color:var(--text-muted);">
+                Creada: {{ account.createdAt[:10] if account.createdAt else '—' }}
+                {% if account.balanceDate %} | Saldo inicial al {{ account.balanceDate }}{% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="acc-balance">
+        <div class="bal-label">Saldo actual</div>
+        <div class="bal-value {% if account.currentBalance >= 0 %}positive{% else %}negative{% endif %}">
+            RD$ {{ "{:,.2f}".format(account.currentBalance) }}
+        </div>
+    </div>
+</div>
+
+<div class="action-bar">
+    <a href="{{ url_for('web_banks.edit_bank', account_id=account.id) }}" class="btn btn-secondary">
+        <i class="fa-regular fa-pen-to-square"></i> Editar
+    </a>
+    <a href="{{ url_for('web_banks.reconcile_new', account_id=account.id) }}" class="btn btn-secondary">
+        <i class="fa-solid fa-check-double"></i> Conciliar
+    </a>
+    <a href="{{ url_for('web_banks.new_transfer') }}?from={{ account.id }}" class="btn btn-secondary">
+        <i class="fa-solid fa-arrow-right-arrow-left"></i> Transferir desde aquí
+    </a>
+    <a href="{{ url_for('web_banks.new_bank_payment', account_id=account.id) }}" class="btn btn-primary">
+        <i class="fa-solid fa-arrow-right-from-bracket"></i> Nuevo pago
+    </a>
+    <a href="{{ url_for('web_banks.new_bank_receipt', account_id=account.id) }}" class="btn btn-primary">
+        <i class="fa-solid fa-arrow-left-to-bracket"></i> Pago recibido
+    </a>
+</div>
+
+<div class="rpt-table-card">
+    <div class="card-header">
+        <i class="fa-solid fa-arrow-right-arrow-left"></i> Movimientos recientes
+    </div>
+    <div style="overflow-x:auto;">
+        <table class="rpt-table">
+            <thead>
+                <tr>
+                    <th>Fecha</th>
+                    <th>Concepto</th>
+                    <th>Referencia</th>
+                    <th>Monto</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% if transactions %}
+                {% for tx in transactions %}
+                <tr>
+                    <td>{{ tx.date }}</td>
+                    <td>
+                        {% if tx.invoiceId and tx.type == 'income' %}
+                        <a href="{{ url_for('web_invoices.invoice_detail', invoice_id=tx.invoiceId) }}">{{ tx.concept }}</a>
+                        {% else %}
+                        {{ tx.concept }}
+                        {% endif %}
+                    </td>
+                    <td>{{ tx.reference or '—' }}</td>
+                    <td class="{% if tx.amount >= 0 %}tx-income{% else %}tx-expense{% endif %}">
+                        {% if tx.amount >= 0 %}+{% endif %}RD$ {{ "{:,.2f}".format(tx.amount) }}
+                    </td>
+                </tr>
+                {% endfor %}
+                {% else %}
+                <tr>
+                    <td colspan="4" style="padding:24px; text-align:center; color:var(--text-muted);">
+                        No hay movimientos registrados para esta cuenta.
+                    </td>
+                </tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

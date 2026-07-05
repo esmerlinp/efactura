@@ -168,7 +168,7 @@
                     <span class="badge" style="background: linear-gradient(135deg,#7c3aed,#a78bfa); color:white; margin-bottom: 10px; margin-left: 4px;">Profesional</span>
                     {% endif %}
                     {% else %}
-                    <span class="badge {% if invoice.status == 'Vencida' %}badge-danger{% elif invoice.status == 'Cobrada' or invoice.status == 'Pagada' %}badge-success{% elif invoice.status in ['Emitida', 'Parcialmente Cobrada', 'Pendiente'] %}badge-warning{% elif invoice.status == 'Borrador' %}badge-secondary{% else %}badge-secondary{% endif %}" style="margin-bottom: 10px;">{{ invoice.status }}</span>
+                    <span class="badge {% if invoice.status == 'Vencida' %}badge-danger{% elif invoice.status == 'Cobrada' or invoice.status == 'Pagada' or invoice.status == 'Pagado pero no emitido' %}badge-success{% elif invoice.status in ['Emitida', 'Parcialmente Cobrada', 'Pendiente'] %}badge-warning{% elif invoice.status == 'Borrador' %}badge-secondary{% else %}badge-secondary{% endif %}" style="margin-bottom: 10px;">{{ invoice.status }}</span>
                     {% endif %}
                     {% if invoice.get('isImported') %}
                     <span class="badge badge-imported" style="margin-bottom: 10px; margin-left: 4px;"><i class="fa-solid fa-file-import"></i> Importada</span>
@@ -1109,18 +1109,32 @@
                 </button>
             </div>
             {% else %}
-            <span class="badge badge-secondary" style="margin-bottom: 16px; font-size: 0.78rem;">Documento
-                Borrador</span>
+            {% if invoice.status == 'Pagado pero no emitido' %}
+            <span class="badge badge-success" style="margin-bottom: 16px; font-size: 0.78rem; background-color: rgba(16, 185, 129, 0.15); color: #10b981; padding: 4px 8px; border-radius: 4px; font-weight: 600;">Pagado pero no emitido</span>
+            <p style="color: var(--text-secondary); font-size: 0.82rem; line-height: 1.4; margin-bottom: 20px;">
+                Esta factura se encuentra pagada pero guardada como borrador. Emite el documento para firmarlo digitalmente.
+            </p>
+            {% else %}
+            <span class="badge badge-secondary" style="margin-bottom: 16px; font-size: 0.78rem;">Documento Borrador</span>
             <p style="color: var(--text-secondary); font-size: 0.82rem; line-height: 1.4; margin-bottom: 20px;">
                 Esta factura se encuentra guardada como borrador. Emite el documento para firmarlo digitalmente.
             </p>
-            <form id="sign-invoice-form" action="{{ url_for('web_invoices.sign_invoice_route', invoice_id=invoice.id) }}" method="POST">
+            {% endif %}
+            
+            <form id="sign-invoice-form" action="{{ url_for('web_invoices.sign_invoice_route', invoice_id=invoice.id) }}" method="POST" style="margin-bottom: 8px;">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="button" onclick="confirmSignInvoice()" class="btn btn-primary" style="width: 100%;">
                     <i class="fa-solid fa-signature"></i>
                     <span>Firmar y Emitir Documento</span>
                 </button>
             </form>
+            
+            {% if invoice.remainingBalance > 0.01 %}
+            <button type="button" onclick="openDraftPaymentModal()" class="btn btn-secondary" style="width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 8px; border-color: var(--accent-emerald); color: var(--accent-emerald);">
+                <i class="fa-solid fa-money-bill-wave"></i>
+                <span>Añadir Pago</span>
+            </button>
+            {% endif %}
             {% endif %}
         </div>
         {% endif %}
@@ -1358,7 +1372,118 @@ function switchInvoiceTab(tabName) {
         btnHistory.style.borderBottomColor = 'var(--accent-purple)';
     }
 }
+
+function openDraftPaymentModal() {
+    const modal = document.getElementById('draft-payment-modal');
+    const dateInput = document.getElementById('draft-payment-date');
+    if (dateInput) {
+        const today = new Date();
+        const yyyy = today.getFullYear();
+        let mm = today.getMonth() + 1;
+        let dd = today.getDate();
+        if (dd < 10) dd = '0' + dd;
+        if (mm < 10) mm = '0' + mm;
+        dateInput.value = yyyy + '-' + mm + '-' + dd;
+    }
+    if (modal) {
+        modal.style.display = 'flex';
+    }
+}
+
+function closeDraftPaymentModal() {
+    const modal = document.getElementById('draft-payment-modal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
 </script>
+
+<!-- =========================================================================
+     MODAL PARA REGISTRAR PAGO A UN DOCUMENTO BORRADOR (NUEVO PAGO)
+     ========================================================================= -->
+<div class="search-modal" id="draft-payment-modal"
+    style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1100; align-items: center; justify-content: center;">
+    <div class="modal-backdrop" onclick="closeDraftPaymentModal()"
+        style="position: absolute; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(8px);">
+    </div>
+    <div class="modal-content"
+        style="max-width: 500px; background: var(--bg-card); backdrop-filter: blur(20px); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 30px; position: relative; z-index: 2; box-shadow: var(--shadow-lg); animation: floatIn 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards; color: var(--text-primary); text-align: left; width: calc(100% - 32px);">
+        <div class="modal-header"
+            style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 16px; margin-bottom: 20px;">
+            <h3
+                style="font-size: 1.25rem; font-family: var(--font-heading); display: flex; align-items: center; gap: 8px; color: var(--text-primary); font-weight: 800; margin: 0;">
+                <i class="fa-solid fa-money-bill-wave" style="color: var(--accent-emerald);"></i>
+                <span>Nuevo pago</span>
+            </h3>
+            <button type="button" onclick="closeDraftPaymentModal()" class="btn-close-modal"
+                style="cursor: pointer; font-size: 1.25rem; opacity: 0.7; background: transparent; border: none; color: var(--text-primary);"><i
+                    class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body">
+            <form action="/invoices/{{ invoice.id }}/pay" method="POST" id="draft-pay-form"
+                style="display: flex; flex-direction: column; gap: 14px;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                <div style="display: grid; grid-template-columns: 1fr; gap: 12px; background: rgba(0,0,0,0.02); padding: 12px; border-radius: 6px; border: 1px solid var(--border-color);">
+                    <div>
+                        <span style="font-size: 0.7rem; color: var(--text-secondary); display: block; font-weight: 700; text-transform: uppercase;">Contacto:</span>
+                        <strong style="font-size: 0.85rem; color: var(--text-primary);">{{ invoice.clientName or 'Consumidor Final' }}</strong>
+                    </div>
+                    <div>
+                        <span style="font-size: 0.7rem; color: var(--text-secondary); display: block; font-weight: 700; text-transform: uppercase;">Número de venta:</span>
+                        <strong style="font-size: 0.85rem; color: var(--text-primary);">{{ invoice.invoiceNumber or 'N/A' }}</strong>
+                    </div>
+                    <div>
+                        <span style="font-size: 0.7rem; color: var(--text-secondary); display: block; font-weight: 700; text-transform: uppercase;">Valor por cobrar:</span>
+                        <strong style="font-size: 0.85rem; color: var(--accent-red);">RD$ {{ "{:,.2f}".format(invoice.remainingBalance) }}</strong>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="draft-payment-date" style="font-size: 0.8rem; font-weight: 500; margin-bottom: 6px; display: block; color: var(--text-secondary); font-weight: 600;">Fecha</label>
+                    <input type="date" id="draft-payment-date" name="paymentDate" class="form-input" required style="width: 100%; padding: 10px 12px; font-size: 0.9rem; height: 44px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); background: var(--bg-input); color: var(--text-primary);">
+                </div>
+
+                <div class="form-group">
+                    <label for="draft-bank-account" style="font-size: 0.8rem; font-weight: 500; margin-bottom: 6px; display: block; color: var(--text-secondary); font-weight: 600;">Cuenta bancaria *</label>
+                    <select id="draft-bank-account" name="bankAccountId" class="form-select" required style="width: 100%; padding: 10px 12px; font-size: 0.9rem; height: 44px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); background: var(--bg-input); color: var(--text-primary);">
+                        <option value="">Seleccionar cuenta</option>
+                        {% for acc in bank_accounts %}
+                        <option value="{{ acc.id }}">{{ acc.name }} — RD$ {{ "{:,.2f}".format(acc.currentBalance) }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="draft-amount-input" style="font-size: 0.8rem; font-weight: 500; margin-bottom: 6px; display: block; color: var(--text-secondary); font-weight: 600;">Valor (RD$)</label>
+                    <input type="number" id="draft-amount-input" name="amount" class="form-input" min="0.01" max="{{ invoice.remainingBalance }}" step="0.01" value="{{ invoice.remainingBalance }}" required style="width: 100%; padding: 10px 12px; font-size: 0.9rem; height: 44px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); background: var(--bg-input); color: var(--text-primary);">
+                </div>
+
+                <div class="form-group">
+                    <label for="draft-payment-method" style="font-size: 0.8rem; font-weight: 500; margin-bottom: 6px; display: block; color: var(--text-secondary); font-weight: 600;">Método de pago</label>
+                    <select id="draft-payment-method" name="paymentMethod" class="form-select" required style="width: 100%; padding: 10px 12px; font-size: 0.9rem; height: 44px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); background: var(--bg-input); color: var(--text-primary);">
+                        <option value="Cheque / Transferencia">Cheque / Transferencia Bancaria</option>
+                        <option value="Efectivo">Efectivo</option>
+                        <option value="Tarjeta de Crédito / Débito">Tarjeta de Crédito / Débito</option>
+                    </select>
+                </div>
+
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; font-size: 0.82rem;">
+                    <a href="/invoices/{{ invoice.id }}/pay/advanced" id="draft-advanced-link" style="color: var(--accent-purple); font-weight: 600; text-decoration: none; display: flex; align-items: center; gap: 4px;">
+                        <i class="fa-solid fa-up-right-from-square"></i> Ir al formulario avanzado
+                    </a>
+                </div>
+
+                <button type="submit" class="btn"
+                    style="width: 100%; font-size: 0.92rem; padding: 12px 20px; margin-top: 10px; background: linear-gradient(135deg, #059669, #10b981); border: none; color: white; font-weight: 700; cursor: pointer; border-radius: var(--radius-sm);">
+                    <i class="fa-solid fa-square-check"></i>
+                    <span>Agregar pago</span>
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
 
 <!-- =========================================================================
      MODAL PREMIUM PARA REGISTRAR COBRO / ABONO EN CASCADA

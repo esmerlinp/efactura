@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime, timezone
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify
 from app.services.db_service import DatabaseService
 from app.utils.decorators import check_permission
@@ -27,6 +28,70 @@ def list_banks():
     return render_template('banks/list.html', active_page='banks',
                            accounts=accounts, summary=summary,
                            account_types=ACCOUNT_TYPES)
+
+@web_banks_bp.route('/banks/<account_id>')
+def bank_detail(account_id):
+    if 'user' not in session:
+        return redirect(url_for('web_auth.login'))
+    if not check_permission('canExpenses'):
+        return render_template('auth/restricted.html', feature_name="Bancos", required_permission="canExpenses")
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+
+    account = DatabaseService.get_bank_account(owner_uid, account_id, sandbox=sandbox)
+    if not account:
+        flash('Cuenta no encontrada.', 'error')
+        return redirect(url_for('web_banks.list_banks'))
+
+    transactions = []
+    try:
+        invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox)
+        for inv in invoices:
+            inv_payments = DatabaseService.get_invoice_payments(owner_uid, inv.get('id'), sandbox=sandbox)
+            for pmt in inv_payments:
+                if pmt.get('bankAccountId') == account_id:
+                    transactions.append({
+                        "date": str(pmt.get('paymentDate', ''))[:10],
+                        "type": "income",
+                        "concept": f"Pago {inv.get('invoiceNumber', '')} — {inv.get('clientName', '')}",
+                        "amount": float(pmt.get('amount', 0)),
+                        "reference": pmt.get('referenceNumber', ''),
+                        "invoiceId": inv.get('id', '')
+                    })
+    except Exception as e:
+        print(f"⚠️ Error al cargar pagos de facturas: {e}")
+
+    try:
+        transfers = DatabaseService.get_bank_transfers(owner_uid, sandbox=sandbox)
+        for t in transfers:
+            t_date = str(t.get('date', ''))[:10]
+            if t.get('fromAccountId') == account_id:
+                transactions.append({
+                    "date": t_date,
+                    "type": "transfer_out",
+                    "concept": f"Transferencia enviada: {t.get('description', '')}",
+                    "amount": -float(t.get('amount', 0)),
+                    "reference": t.get('expenseNumbering', ''),
+                    "invoiceId": ''
+                })
+            elif t.get('toAccountId') == account_id:
+                transactions.append({
+                    "date": t_date,
+                    "type": "transfer_in",
+                    "concept": f"Transferencia recibida: {t.get('description', '')}",
+                    "amount": float(t.get('amount', 0)),
+                    "reference": t.get('incomeNumbering', ''),
+                    "invoiceId": ''
+                })
+    except Exception as e:
+        print(f"⚠️ Error al cargar transferencias: {e}")
+
+    transactions.sort(key=lambda x: x.get('date', ''), reverse=True)
+
+    return render_template('banks/detail.html', active_page='banks',
+                           account=account, account_types=ACCOUNT_TYPES,
+                           transactions=transactions)
+
 
 @web_banks_bp.route('/banks/new', methods=['GET', 'POST'])
 def new_bank():
@@ -102,6 +167,115 @@ def delete_bank(account_id):
     DatabaseService.delete_bank_account(owner_uid, account_id, sandbox=sandbox)
     flash('Cuenta eliminada.', 'success')
     return redirect(url_for('web_banks.list_banks'))
+
+@web_banks_bp.route('/banks/<account_id>/payment/new', methods=['GET', 'POST'])
+def new_bank_payment(account_id):
+    if 'user' not in session:
+        return redirect(url_for('web_auth.login'))
+    if not check_permission('canExpenses'):
+        return render_template('auth/restricted.html', feature_name="Bancos", required_permission="canExpenses")
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+
+    account = DatabaseService.get_bank_account(owner_uid, account_id, sandbox=sandbox)
+    if not account:
+        flash('Cuenta no encontrada.', 'error')
+        return redirect(url_for('web_banks.list_banks'))
+
+    expenses = [e for e in DatabaseService.get_expenses(owner_uid, sandbox=sandbox)
+                if e.get('cxpStatus') in ('Pendiente', 'Abonado') and e.get('cxpRemainingBalance', 0) > 0]
+
+    if request.method == 'POST':
+        expense_id = request.form.get('expenseId', '')
+        amount = float(request.form.get('amount', 0))
+        concept = request.form.get('concept', '')
+        ref_number = request.form.get('referenceNumber', '')
+
+        if not expense_id or amount <= 0:
+            flash('Selecciona un gasto e ingresa un monto válido.', 'error')
+            return render_template('banks/payment_form.html', active_page='banks',
+                                   account=account, account_types=ACCOUNT_TYPES,
+                                   expenses=expenses, mode='expense')
+
+        try:
+            success, msg = DatabaseService.save_cxp_payment(owner_uid, expense_id, amount,
+                                                            registered_by=session['user']['email'],
+                                                            sandbox=sandbox)
+            if success:
+                flash(f'✅ Pago registrado: RD$ {amount:,.2f} desde {account["name"]}. {msg}', 'success')
+            else:
+                flash(f'❌ {msg}', 'error')
+                return render_template('banks/payment_form.html', active_page='banks',
+                                       account=account, account_types=ACCOUNT_TYPES,
+                                       expenses=expenses, mode='expense')
+        except Exception as e:
+            flash(f'❌ Error al registrar pago: {e}', 'error')
+            return render_template('banks/payment_form.html', active_page='banks',
+                                   account=account, account_types=ACCOUNT_TYPES,
+                                   expenses=expenses, mode='expense')
+
+        return redirect(url_for('web_banks.bank_detail', account_id=account_id))
+
+    return render_template('banks/payment_form.html', active_page='banks',
+                           account=account, account_types=ACCOUNT_TYPES,
+                           expenses=expenses, mode='expense')
+
+
+@web_banks_bp.route('/banks/<account_id>/payment/receive', methods=['GET', 'POST'])
+def new_bank_receipt(account_id):
+    if 'user' not in session:
+        return redirect(url_for('web_auth.login'))
+    if not check_permission('canExpenses'):
+        return render_template('auth/restricted.html', feature_name="Bancos", required_permission="canExpenses")
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+
+    account = DatabaseService.get_bank_account(owner_uid, account_id, sandbox=sandbox)
+    if not account:
+        flash('Cuenta no encontrada.', 'error')
+        return redirect(url_for('web_banks.list_banks'))
+
+    invoices = [inv for inv in DatabaseService.get_invoices(owner_uid, sandbox=sandbox)
+                if inv.get('status') in ('Emitida', 'Parcialmente Cobrada', 'Vencida')
+                and inv.get('remainingBalance', 0) > 0
+                and not inv.get('isQuotation')]
+
+    if request.method == 'POST':
+        invoice_id = request.form.get('invoiceId', '')
+        amount = float(request.form.get('amount', 0))
+        ref_number = request.form.get('referenceNumber', '')
+        payment_method = request.form.get('paymentMethod', 'transferencia')
+
+        if not invoice_id or amount <= 0:
+            flash('Selecciona una factura e ingresa un monto válido.', 'error')
+            return render_template('banks/payment_form.html', active_page='banks',
+                                   account=account, account_types=ACCOUNT_TYPES,
+                                   invoices=invoices, mode='income')
+
+        try:
+            payment_dict = {
+                "paymentMethod": payment_method,
+                "bank": account['name'],
+                "referenceNumber": ref_number,
+                "amount": amount,
+                "paymentDate": datetime.now(timezone.utc).isoformat(),
+                "registeredBy": session['user']['email'],
+                "bankAccountId": account_id
+            }
+            DatabaseService.register_invoice_payment(owner_uid, invoice_id, payment_dict, sandbox=sandbox)
+            flash(f'✅ Pago recibido: RD$ {amount:,.2f} depositado en {account["name"]}.', 'success')
+        except Exception as e:
+            flash(f'❌ Error al registrar pago recibido: {e}', 'error')
+            return render_template('banks/payment_form.html', active_page='banks',
+                                   account=account, account_types=ACCOUNT_TYPES,
+                                   invoices=invoices, mode='income')
+
+        return redirect(url_for('web_banks.bank_detail', account_id=account_id))
+
+    return render_template('banks/payment_form.html', active_page='banks',
+                           account=account, account_types=ACCOUNT_TYPES,
+                           invoices=invoices, mode='income')
+
 
 @web_banks_bp.route('/banks/transfer', methods=['GET', 'POST'])
 def new_transfer():

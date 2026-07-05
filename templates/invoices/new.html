@@ -137,6 +137,44 @@ Documento Electrónico{% endif %}{% endblock %}
                     </div>
                 </div>
 
+                <!-- Centro de Costo -->
+                <div class="form-group">
+                    <label for="cost-center-select" style="display:flex; align-items:center; justify-content:space-between;">
+                        <span>Centro de Costo</span>
+                        <button type="button" id="btn-new-cost-center" onclick="openInvoiceCostCenterModal()"
+                            style="font-size:0.75rem; color:var(--accent-emerald); background:none; border:none; cursor:pointer; padding:0; display:flex; align-items:center; gap:3px; font-weight:600;">
+                            <i class="fa-solid fa-plus-circle"></i> Nuevo
+                        </button>
+                    </label>
+                    <select id="cost-center-select" name="costCenterId" class="form-select">
+                        <option value="">— Sin centro de costo —</option>
+                        {% for cc in cost_centers %}
+                        <option value="{{ cc.id }}" {% if invoice and invoice.costCenterId == cc.id %}selected{% endif %}>
+                            {% if cc.code %}[{{ cc.code }}] {% endif %}{{ cc.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Lista de Precios -->
+                <div class="form-group">
+                    <label for="price-list-select" style="display:flex; align-items:center; justify-content:space-between;">
+                        <span>Lista de Precios</span>
+                        <button type="button" id="btn-new-price-list" onclick="openInvoicePriceListModal()"
+                            style="font-size:0.75rem; color:var(--accent-emerald); background:none; border:none; cursor:pointer; padding:0; display:flex; align-items:center; gap:3px; font-weight:600;">
+                            <i class="fa-solid fa-plus-circle"></i> Nueva
+                        </button>
+                    </label>
+                    <select id="price-list-select" name="priceListId" class="form-select">
+                        <option value="">— Sin lista de precios —</option>
+                        {% for pl in price_lists %}
+                        <option value="{{ pl.id }}" {% if invoice and invoice.priceListId == pl.id %}selected{% endif %}>
+                            {{ pl.name }}{% if pl.tipo %} ({{ pl.tipo }}){% endif %}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
                 <div class="form-group">
                     <label for="payment-type-select">Condición de Pago
                         <i class="fa-solid fa-question-circle" style="color:var(--text-muted); cursor:help;" title="'Contado' para pago inmediato (la factura se marca como cobrada). 'Crédito' activa el acuerdo de pago y CxC. Afecta la fecha de declaración del ITBIS ante la DGII."></i>
@@ -713,7 +751,11 @@ Documento Electrónico{% endif %}{% endblock %}
             class="btn btn-secondary">
             <span>Cancelar</span>
         </a>
-        <!-- Se ha eliminado el botón "Emitir y Cobrar" por solicitud del usuario para evitar confusiones. Todo se emite como borrador. -->
+        <button type="submit" formaction="/invoices/preview" formtarget="_blank" class="btn btn-secondary" id="preview-invoice-btn"
+            style="padding: 14px 28px; border-color: var(--accent-purple); color: var(--accent-purple); display: inline-flex; align-items: center; gap: 8px; font-weight: 600;">
+            <i class="fa-solid fa-eye"></i>
+            <span>Vista Previa</span>
+        </button>
         <button type="submit" name="action" value="guardar" class="btn btn-primary" id="submit-invoice-btn"
             style="padding: 14px 28px;">
             <i class="fa-solid fa-paper-plane"></i>
@@ -1335,5 +1377,215 @@ Documento Electrónico{% endif %}{% endblock %}
             });
         }
     });
+</script>
+
+<!-- ============================================================ -->
+<!-- MODAL: NUEVO CENTRO DE COSTO                                 -->
+<!-- ============================================================ -->
+<div id="invoice-cc-modal" class="modal-overlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:9999; align-items:center; justify-content:center;">
+    <div class="modal-container" style="max-width:480px; width:95%; background:var(--bg-card); border-radius:var(--radius-md); padding:0; box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+        <div class="modal-header" style="padding:20px 24px 0; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--border-color); padding-bottom:14px; margin-bottom:0;">
+            <h3 style="margin:0; font-size:1rem; display:flex; align-items:center; gap:8px;">
+                <i class="fa-solid fa-layer-group" style="color:var(--accent-emerald);"></i>
+                Nuevo Centro de Costo
+            </h3>
+            <button type="button" onclick="closeInvoiceCostCenterModal()" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:1.1rem;">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div style="padding:20px 24px;">
+            <div class="form-group">
+                <label for="icc-name">Nombre <span style="color:var(--accent-red);">*</span></label>
+                <input type="text" id="icc-name" class="form-input" placeholder="Ej: Ventas, Administración, Proyecto Alpha">
+            </div>
+            <div class="form-group">
+                <label for="icc-code">Código</label>
+                <input type="text" id="icc-code" class="form-input" placeholder="Ej: CC-001, ADM" style="font-family:monospace;">
+            </div>
+            <div class="form-group">
+                <label for="icc-description">Descripción</label>
+                <textarea id="icc-description" class="form-textarea" rows="2" placeholder="Descripción opcional"></textarea>
+            </div>
+            <div id="icc-error" style="display:none; color:var(--accent-red); font-size:0.82rem; margin-bottom:10px;"></div>
+            <div style="display:flex; justify-content:flex-end; gap:10px; padding-top:14px; border-top:1px solid var(--border-color); margin-top:4px;">
+                <button type="button" onclick="closeInvoiceCostCenterModal()" class="btn btn-secondary">Cancelar</button>
+                <button type="button" onclick="saveInvoiceCostCenter()" id="icc-save-btn" class="btn btn-primary">
+                    <i class="fa-solid fa-floppy-disk"></i> Guardar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- MODAL: NUEVA LISTA DE PRECIOS                                -->
+<!-- ============================================================ -->
+<div id="invoice-pl-modal" class="modal-overlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:9999; align-items:center; justify-content:center;">
+    <div class="modal-container" style="max-width:480px; width:95%; background:var(--bg-card); border-radius:var(--radius-md); padding:0; box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+        <div class="modal-header" style="padding:20px 24px 0; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--border-color); padding-bottom:14px; margin-bottom:0;">
+            <h3 style="margin:0; font-size:1rem; display:flex; align-items:center; gap:8px;">
+                <i class="fa-solid fa-tags" style="color:var(--accent-emerald);"></i>
+                Nueva Lista de Precios
+            </h3>
+            <button type="button" onclick="closeInvoicePriceListModal()" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:1.1rem;">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div style="padding:20px 24px;">
+            <div class="form-group">
+                <label for="ipl-name">Nombre <span style="color:var(--accent-red);">*</span></label>
+                <input type="text" id="ipl-name" class="form-input" placeholder="Ej: Mayorista, VIP, Distribuidor">
+            </div>
+            <div class="form-group">
+                <label for="ipl-tipo">Tipo <span style="color:var(--accent-red);">*</span></label>
+                <select id="ipl-tipo" class="form-select">
+                    <option value="">— Seleccionar tipo —</option>
+                    <option value="Minorista">Minorista</option>
+                    <option value="Mayorista">Mayorista</option>
+                    <option value="VIP">VIP</option>
+                    <option value="Distribuidor">Distribuidor</option>
+                    <option value="Otro">Otro</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="ipl-description">Descripción</label>
+                <textarea id="ipl-description" class="form-textarea" rows="2" placeholder="Descripción opcional"></textarea>
+            </div>
+            <div id="ipl-error" style="display:none; color:var(--accent-red); font-size:0.82rem; margin-bottom:10px;"></div>
+            <div style="display:flex; justify-content:flex-end; gap:10px; padding-top:14px; border-top:1px solid var(--border-color); margin-top:4px;">
+                <button type="button" onclick="closeInvoicePriceListModal()" class="btn btn-secondary">Cancelar</button>
+                <button type="button" onclick="saveInvoicePriceList()" id="ipl-save-btn" class="btn btn-primary">
+                    <i class="fa-solid fa-floppy-disk"></i> Guardar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// ── MODAL CENTRO DE COSTO (desde formulario de documento) ──────────────────
+function openInvoiceCostCenterModal() {
+    document.getElementById('icc-name').value = '';
+    document.getElementById('icc-code').value = '';
+    document.getElementById('icc-description').value = '';
+    document.getElementById('icc-error').style.display = 'none';
+    document.getElementById('invoice-cc-modal').style.display = 'flex';
+    setTimeout(() => document.getElementById('icc-name').focus(), 100);
+}
+function closeInvoiceCostCenterModal() {
+    document.getElementById('invoice-cc-modal').style.display = 'none';
+}
+function saveInvoiceCostCenter() {
+    const name = document.getElementById('icc-name').value.trim();
+    const code = document.getElementById('icc-code').value.trim();
+    const description = document.getElementById('icc-description').value.trim();
+    const errEl = document.getElementById('icc-error');
+    const btn = document.getElementById('icc-save-btn');
+
+    if (!name) {
+        errEl.textContent = 'El nombre es obligatorio.';
+        errEl.style.display = 'block';
+        return;
+    }
+    errEl.style.display = 'none';
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Guardando...';
+
+    fetch('/accounting/ajax/cost-centers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': document.querySelector('[name=csrf_token]').value },
+        body: JSON.stringify({ name, code, description })
+    })
+    .then(r => r.json())
+    .then(data => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Guardar';
+        if (data.success) {
+            const sel = document.getElementById('cost-center-select');
+            const label = code ? `[${code}] ${name}` : name;
+            const opt = new Option(label, data.id, true, true);
+            sel.appendChild(opt);
+            sel.value = data.id;
+            closeInvoiceCostCenterModal();
+        } else {
+            errEl.textContent = data.error || 'Error al crear el centro de costo.';
+            errEl.style.display = 'block';
+        }
+    })
+    .catch(() => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Guardar';
+        errEl.textContent = 'Error de conexión. Intenta de nuevo.';
+        errEl.style.display = 'block';
+    });
+}
+document.getElementById('invoice-cc-modal').addEventListener('click', function(e) {
+    if (e.target === this) closeInvoiceCostCenterModal();
+});
+
+// ── MODAL LISTA DE PRECIOS (desde formulario de documento) ─────────────────
+function openInvoicePriceListModal() {
+    document.getElementById('ipl-name').value = '';
+    document.getElementById('ipl-tipo').value = '';
+    document.getElementById('ipl-description').value = '';
+    document.getElementById('ipl-error').style.display = 'none';
+    document.getElementById('invoice-pl-modal').style.display = 'flex';
+    setTimeout(() => document.getElementById('ipl-name').focus(), 100);
+}
+function closeInvoicePriceListModal() {
+    document.getElementById('invoice-pl-modal').style.display = 'none';
+}
+function saveInvoicePriceList() {
+    const name = document.getElementById('ipl-name').value.trim();
+    const tipo = document.getElementById('ipl-tipo').value.trim();
+    const description = document.getElementById('ipl-description').value.trim();
+    const errEl = document.getElementById('ipl-error');
+    const btn = document.getElementById('ipl-save-btn');
+
+    if (!name) {
+        errEl.textContent = 'El nombre es obligatorio.';
+        errEl.style.display = 'block';
+        return;
+    }
+    if (!tipo) {
+        errEl.textContent = 'El tipo es obligatorio.';
+        errEl.style.display = 'block';
+        return;
+    }
+    errEl.style.display = 'none';
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Guardando...';
+
+    fetch('/price-lists/ajax_create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': document.querySelector('[name=csrf_token]').value },
+        body: JSON.stringify({ name, tipo, description })
+    })
+    .then(r => r.json())
+    .then(data => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Guardar';
+        if (data.success) {
+            const sel = document.getElementById('price-list-select');
+            const label = `${name} (${tipo})`;
+            const opt = new Option(label, data.id, true, true);
+            sel.appendChild(opt);
+            sel.value = data.id;
+            closeInvoicePriceListModal();
+        } else {
+            errEl.textContent = data.error || 'Error al crear la lista de precios.';
+            errEl.style.display = 'block';
+        }
+    })
+    .catch(() => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Guardar';
+        errEl.textContent = 'Error de conexión. Intenta de nuevo.';
+        errEl.style.display = 'block';
+    });
+}
+document.getElementById('invoice-pl-modal').addEventListener('click', function(e) {
+    if (e.target === this) closeInvoicePriceListModal();
+});
 </script>
 {% endblock %}

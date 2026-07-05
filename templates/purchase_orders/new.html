@@ -16,8 +16,14 @@
 
 <form method="POST" action="{{ url_for('web_purchase_orders.new_purchase_order') }}" id="po-form" enctype="multipart/form-data">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <div class="card-form-body" style="padding:24px; margin-bottom:24px;">
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px;">
+    <div class="card-segment">
+        <div class="segment-header">
+            <div class="segment-header-icon purple">
+                <i class="fa-solid fa-file-lines"></i>
+            </div>
+            <h3>Encabezado</h3>
+        </div>
+        <div class="form-grid">
             <div class="form-group">
                 <label>OC # <span style="color:var(--text-muted); font-size:0.72rem;">(auto-generado)</span></label>
                 <input type="text" class="form-input" value="{{ po_number }}" readonly style="font-family:monospace; font-weight:700; background:rgba(0,0,0,0.03);">
@@ -37,12 +43,15 @@
         </div>
     </div>
 
-    <div class="card-form-body" style="padding:24px; margin-bottom:24px;">
-        <h4 style="font-size:1rem; font-weight:700; font-family:var(--font-heading); margin-bottom:16px;">
-            <i class="fa-solid fa-truck" style="margin-right:8px; color:var(--accent-purple);"></i> Proveedor
-        </h4>
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px;">
-            <div class="form-group span-full" style="position:relative;">
+    <div class="card-segment">
+        <div class="segment-header">
+            <div class="segment-header-icon purple">
+                <i class="fa-solid fa-truck"></i>
+            </div>
+            <h3>Proveedor</h3>
+        </div>
+        <div class="form-grid">
+            <div class="form-group" style="grid-column:1/-1; position:relative;">
                 <label for="supplier-search">Buscar Proveedor <span style="font-size:0.7rem; color:var(--text-muted);">(opcional — escribe nombre o RNC)</span></label>
                 <input type="text" id="supplier-search" class="form-input" placeholder="Buscar proveedor..." autocomplete="off" style="width:100%;">
                 <div id="supplier-search-results" style="display:none; position:absolute; top:100%; left:0; right:0; background:var(--bg-card); border:1px solid var(--border-color); border-radius:8px; box-shadow:var(--shadow-lg); z-index:999; max-height:250px; overflow-y:auto; margin-top:4px;"></div>
@@ -88,12 +97,13 @@
         </div>
     </div>
 
-    <div class="card-form-body" style="padding:24px; margin-bottom:24px;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
-            <h4 style="font-size:1rem; font-weight:700; font-family:var(--font-heading); margin:0;">
-                <i class="fa-solid fa-box" style="margin-right:8px; color:var(--accent-purple);"></i> Productos / Servicios
-            </h4>
-            <button type="button" id="btn-add-item" class="btn btn-secondary">
+    <div class="card-segment">
+        <div class="segment-header">
+            <div class="segment-header-icon purple">
+                <i class="fa-solid fa-box"></i>
+            </div>
+            <h3 style="flex-grow:1;">Productos / Servicios</h3>
+            <button type="button" id="btn-add-item" class="btn btn-secondary" style="padding:6px 14px; font-size:0.82rem;">
                 <i class="fa-solid fa-plus"></i> Añadir Partida
             </button>
         </div>
@@ -181,25 +191,31 @@
         </div>
     </div>
 
-    <div class="card-form-body" style="padding:24px; margin-bottom:24px;">
-        <h4 style="font-size:1rem; font-weight:700; font-family:var(--font-heading); margin-bottom:16px;">
-            <i class="fa-solid fa-note-sticky" style="margin-right:8px; color:var(--accent-purple);"></i> Notas
-        </h4>
-        <div class="form-group">
-            <label for="notes">Notas (visibles para el proveedor)</label>
-            <textarea id="notes" name="notes" class="form-input" rows="3" placeholder="Condiciones especiales, instrucciones de entrega, etc."></textarea>
+    <div class="card-segment">
+        <div class="segment-header">
+            <div class="segment-header-icon purple">
+                <i class="fa-solid fa-note-sticky"></i>
+            </div>
+            <h3>Notas</h3>
         </div>
-        <div class="form-group">
-            <label for="internalNotes">Notas Internas</label>
-            <textarea id="internalNotes" name="internalNotes" class="form-input" rows="2" placeholder="Notas visibles solo internamente."></textarea>
+        <div class="form-grid">
+            <div class="form-group" style="grid-column:1/-1;">
+                <label for="notes">Notas (visibles para el proveedor)</label>
+                <textarea id="notes" name="notes" class="form-input" rows="3" placeholder="Condiciones especiales, instrucciones de entrega, etc."></textarea>
+            </div>
+            <div class="form-group" style="grid-column:1/-1;">
+                <label for="internalNotes">Notas Internas</label>
+                <textarea id="internalNotes" name="internalNotes" class="form-input" rows="2" placeholder="Notas visibles solo internamente."></textarea>
+            </div>
         </div>
     </div>
 
-    <div style="display:flex; gap:12px; justify-content:flex-end; margin-top:24px; padding:16px 0;">
+    <!-- BARRA DE ACCIONES FINAL -->
+    <div style="display:flex; justify-content:flex-end; gap:15px; border-top:1px solid var(--border-color); padding-top:24px; margin-bottom:12px;">
         <a href="{{ url_for('web_purchase_orders.list_purchase_orders') }}" class="btn btn-secondary">
-            <i class="fa-solid fa-xmark"></i> Cancelar
+            <span>Cancelar</span>
         </a>
-        <button type="submit" class="btn btn-primary">
+        <button type="submit" class="btn btn-primary" style="padding:14px 28px;">
             <i class="fa-solid fa-floppy-disk"></i> Guardar Orden de Compra
         </button>
     </div>

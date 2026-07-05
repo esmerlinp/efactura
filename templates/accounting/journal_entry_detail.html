@@ -1,0 +1,185 @@
+{% extends "layout.html" %}
+{% block title %}Entrada {{ entry.number }}{% endblock %}
+{% block content %}
+<style>
+    .breadcrumb {
+        display: flex; align-items: center; gap: 6px;
+        font-size: 0.8rem; color: var(--text-muted); margin-bottom: 16px;
+    }
+    .breadcrumb a { color: var(--text-muted); text-decoration: none; font-weight: 500; }
+    .breadcrumb a:hover { color: var(--accent-emerald); }
+    .breadcrumb .sep { color: #cbd5e1; }
+
+    .page-title {
+        font-size: 1.5rem; font-weight: 800; color: var(--text-primary);
+        margin: 0 0 20px 0;
+    }
+
+    .detail-card {
+        background: #fff; border: 1px solid #e2e8f0; border-radius: 14px;
+        padding: 20px; margin-bottom: 20px;
+    }
+
+    .detail-grid {
+        display: grid; grid-template-columns: 1fr 1fr 1fr;
+        gap: 12px; margin-bottom: 16px;
+    }
+    .detail-grid .field-label {
+        font-size: 0.72rem; font-weight: 600; color: var(--text-muted);
+        text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 2px;
+    }
+    .detail-grid .field-value {
+        font-size: 0.9rem; color: var(--text-primary); font-weight: 500;
+    }
+
+    .rpt-table-card {
+        background: #fff; border: 1px solid #e2e8f0; border-radius: 14px;
+        overflow: hidden; margin-bottom: 24px;
+    }
+
+    .rpt-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+    .rpt-table th {
+        padding: 10px 14px; font-size: 0.72rem; font-weight: 700;
+        color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em;
+        background: #f8fafc; border-bottom: 1px solid #e2e8f0; white-space: nowrap;
+    }
+    .rpt-table th:first-child { text-align: left; padding-left: 16px; }
+    .rpt-table th:not(:first-child) { text-align: right; }
+    .rpt-table td {
+        padding: 8px 14px; border-bottom: 1px solid #f1f5f9;
+        color: var(--text-primary); white-space: nowrap;
+    }
+    .rpt-table td:first-child { text-align: left; padding-left: 16px; }
+    .rpt-table td:not(:first-child) { text-align: right; }
+    .rpt-table tr:last-child td { border-bottom: none; }
+    .rpt-table tfoot td {
+        padding: 10px 14px; font-weight: 700; background: #f8fafc;
+        border-top: 2px solid #e2e8f0;
+    }
+
+    .action-bar {
+        display: flex; gap: 8px; margin-top: 20px; flex-wrap: wrap;
+    }
+</style>
+
+<div class="breadcrumb">
+    <a href="{{ url_for('web_invoices.reports_dashboard') }}">Reportes</a>
+    <span class="sep">/</span>
+    <a href="{{ url_for('web_accounting.dashboard') }}">Contabilidad</a>
+    <span class="sep">/</span>
+    <a href="{{ url_for('web_accounting.journal_entries') }}">Entradas de Diario</a>
+    <span class="sep">/</span>
+    <span>{{ entry.number }}</span>
+</div>
+
+<h1 class="page-title">
+    <i class="fa-solid fa-file-invoice" style="color:var(--accent-purple); margin-right:10px;"></i>
+    {{ entry.number }}
+</h1>
+
+<div class="detail-card">
+    <div class="detail-grid">
+        <div>
+            <div class="field-label">Fecha</div>
+            <div class="field-value">{{ entry.date[:10] }}</div>
+        </div>
+        <div>
+            <div class="field-label">Tipo</div>
+            <div class="field-value">
+                {% if entry.entryType == 'initial_balance' %}Saldos Iniciales
+                {% elif entry.entryType == 'depreciation' %}Depreciación
+                {% elif entry.entryType == 'disposal' %}Baja
+                {% else %}Estándar{% endif %}
+            </div>
+        </div>
+        <div>
+            <div class="field-label">Estado</div>
+            <div class="field-value">
+                {% if entry.status == 'voided' %}
+                <span class="badge badge-danger">Anulada</span>
+                {% else %}
+                <span class="badge badge-success">Activa</span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <div style="margin-top:4px;">
+        <div class="field-label" style="font-size:0.72rem; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.04em; margin-bottom:2px;">Concepto</div>
+        <div class="field-value" style="font-size:0.9rem;">{{ entry.concept or '—' }}</div>
+    </div>
+    {% if entry.referenceNumber %}
+    <div style="margin-top:8px; font-size:0.85rem; color:var(--text-muted);">
+        Referencia: {{ entry.referenceNumber }} ({{ entry.referenceType }})
+    </div>
+    {% endif %}
+    {% if entry.voidReason %}
+    <div style="margin-top:8px; font-size:0.85rem; color:var(--accent-red);">
+        <i class="fa-solid fa-ban"></i> Motivo de anulación: {{ entry.voidReason }}
+    </div>
+    {% endif %}
+</div>
+
+<div class="rpt-table-card">
+    <div style="overflow-x:auto;">
+        <table class="rpt-table">
+            <thead>
+                <tr>
+                    <th>Cuenta</th>
+                    <th>Código</th>
+                    <th>Descripción</th>
+                    <th>Débito</th>
+                    <th>Crédito</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for line in entry.lines %}
+                <tr>
+                    <td>{{ line.accountName }}</td>
+                    <td style="font-family:monospace;">{{ line.accountCode }}</td>
+                    <td>{{ line.description or '' }}</td>
+                    <td>{% if line.debit > 0 %}{{ "{:,.2f}".format(line.debit) }}{% endif %}</td>
+                    <td>{% if line.credit > 0 %}{{ "{:,.2f}".format(line.credit) }}{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td colspan="3" style="text-align:right;">Totales:</td>
+                    <td>{{ "{:,.2f}".format(entry.totalDebit) }}</td>
+                    <td>{{ "{:,.2f}".format(entry.totalCredit) }}</td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+</div>
+
+<div class="action-bar">
+    <button class="btn btn-secondary" onclick="window.print()">
+        <i class="fa-solid fa-print"></i> Imprimir
+    </button>
+    {% if entry.status != 'voided' %}
+    <button class="btn btn-danger" onclick="document.getElementById('void-entry-form').style.display='block'">
+        <i class="fa-solid fa-ban"></i> Anular
+    </button>
+    <form method="POST" action="{{ url_for('web_accounting.clone_journal_entry', entry_id=entry.id) }}" style="display:inline;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn btn-secondary"><i class="fa-solid fa-copy"></i> Clonar</button>
+    </form>
+    {% endif %}
+    <a href="{{ url_for('web_accounting.journal_entries') }}" class="btn btn-secondary"><i class="fa-solid fa-arrow-left"></i> Volver</a>
+</div>
+
+<div id="void-entry-form" style="display:none; margin-top:16px;">
+    <div class="detail-card">
+        <h4 style="font-size:0.9rem; font-weight:700; color:var(--accent-red);"><i class="fa-solid fa-ban"></i> Anular Esta Entrada</h4>
+        <form method="POST" action="{{ url_for('web_accounting.void_journal_entry', entry_id=entry.id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="form-group">
+                <label>Motivo</label>
+                <input type="text" name="reason" class="form-input" placeholder="Ej: Error en registro">
+            </div>
+            <button type="submit" class="btn btn-danger">Confirmar Anulación</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

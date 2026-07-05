@@ -42,6 +42,7 @@ lxml==6.1.1
 MarkupSafe==3.0.3
 msal>=1.28.0
 msgpack==1.2.1
+openpyxl==3.1.5
 ordered-set==4.1.0
 packaging==26.2
 pdfkit==1.0.0
