@@ -91,7 +91,7 @@
                     <div class="hr-info-item"><span class="hr-info-label">Días de vacaciones</span><span class="hr-info-value">{{ vacation_days }} días</span></div>
                     <div class="hr-info-item"><span class="hr-info-label">Preaviso</span><span class="hr-info-value">{{ "RD$ {:,.2f}".format(severance.preaviso|float) if severance else '—' }}</span></div>
                     <div class="hr-info-item"><span class="hr-info-label">Cesantía</span><span class="hr-info-value">{{ "RD$ {:,.2f}".format(severance.cesantia|float) if severance else '—' }}</span></div>
-                    <div class="hr-info-item"><span class="hr-info-label">Vacaciones pendientes</span><span class="hr-info-value">{{ "RD$ {:,.2f}".format(severance.vacacion_pending|float) if severance else '—' }}</span></div>
+                    <div class="hr-info-item"><span class="hr-info-label">Vacaciones pendientes</span><span class="hr-info-value">{{ "RD$ {:,.2f}".format(severance.vacaciones_pendientes|float) if severance else '—' }}</span></div>
                     {% if severance %}
                     <div class="hr-info-item" style="grid-column:1/-1; border-style:dashed; border-color:var(--accent-emerald); background:rgba(16,185,129,0.06);">
                         <span class="hr-info-label">Total liquidación estimada</span>

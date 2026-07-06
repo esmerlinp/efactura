@@ -192,9 +192,17 @@
                 </select>
             </div>
             <div class="form-group">
-                <label>Valor salario <span style="color:var(--danger);">*</span></label>
-                <input type="number" step="0.01" name="salary" class="form-input" required
+                <label>Valor salario {% if not employee %}<span style="color:var(--danger);">*</span>{% endif %}</label>
+                <input type="number" step="0.01" name="salary" class="form-input"
+                       {% if not employee %}required{% endif %}
+                       {% if employee %}readonly style="background:var(--bg-nav-hover); cursor:not-allowed; opacity:0.8;"{% endif %}
                        value="{{ employee.salary or employee.baseSalary if employee else '' }}">
+                {% if employee %}
+                <span style="font-size:0.75rem; color:var(--text-muted);">
+                    <i class="fa-solid fa-circle-info"></i> El cambio de salario se realiza desde
+                    <a href="{{ url_for('web_rrhh.employee_salary_history', employee_id=employee.id) }}" style="color:var(--accent-emerald);">Historial Salarial</a>
+                </span>
+                {% endif %}
             </div>
             <div class="form-group">
                 <label>Jornada <span style="color:var(--danger);">*</span></label>

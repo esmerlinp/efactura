@@ -7,9 +7,47 @@
         <h1 class="page-title"><i class="fa-solid fa-chart-line"></i> Historial Salarial</h1>
         <p style="color:var(--text-secondary); margin:4px 0 0; font-size:0.9rem;">{{ employee.fullName or employee.firstName + ' ' + (employee.firstLastName or employee.lastName) }}</p>
     </div>
-    <a href="{{ url_for('web_rrhh.employee_view', employee_id=employee.id) }}" class="btn btn-ghost">
-        <i class="fa-solid fa-arrow-left"></i> Volver al empleado
-    </a>
+    <div style="display:flex; gap:8px;">
+        <button class="btn btn-primary" onclick="document.getElementById('newSalaryForm').style.display=''; this.style.display='none';">
+            <i class="fa-solid fa-plus"></i> Nuevo salario
+        </button>
+        <a href="{{ url_for('web_rrhh.employee_view', employee_id=employee.id) }}" class="btn btn-ghost">
+            <i class="fa-solid fa-arrow-left"></i> Volver
+        </a>
+    </div>
+</div>
+
+<div id="newSalaryForm" style="display:none;" class="hr-section-card" >
+    <h3><i class="fa-solid fa-pen-to-square"></i> Registrar nuevo salario</h3>
+    <form method="POST" action="{{ url_for('web_rrhh.employee_salary_add', employee_id=employee.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="hr-form-grid">
+            <div class="form-group">
+                <label>Nuevo salario (RD$) <span style="color:var(--danger);">*</span></label>
+                <input type="number" step="0.01" name="amount" class="form-input" required
+                       placeholder="{{ employee.baseSalary }}">
+            </div>
+            <div class="form-group">
+                <label>Fecha de vigencia <span style="color:var(--danger);">*</span></label>
+                <input type="date" name="effective_date" class="form-input" required value="{{ today }}">
+            </div>
+            <div class="form-group">
+                <label>Motivo</label>
+                <select name="reason" class="form-select">
+                    <option value="Aumento por desempeño">Aumento por desempeño</option>
+                    <option value="Aumento por inflación">Aumento por inflación</option>
+                    <option value="Promoción">Promoción</option>
+                    <option value="Ajuste salarial">Ajuste salarial</option>
+                    <option value="Corrección">Corrección</option>
+                    <option value="Reducción">Reducción</option>
+                </select>
+            </div>
+        </div>
+        <div style="display:flex; gap:8px; margin-top:12px; justify-content:flex-end;">
+            <button type="button" class="btn btn-ghost" onclick="document.getElementById('newSalaryForm').style.display='none'; document.querySelector('.btn-primary').style.display='';">Cancelar</button>
+            <button type="submit" class="btn btn-primary">Guardar</button>
+        </div>
+    </form>
 </div>
 
 <div class="hr-section-card" style="margin-bottom:20px;">

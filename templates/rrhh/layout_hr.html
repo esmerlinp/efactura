@@ -161,9 +161,15 @@
                     </div>
                     <ul class="sidebar-section-content">
                         <li class="nav-item {% if active_page == 'rrhh_catalogs' %}active{% endif %}"
-                            data-tooltip="Catálogos">
+                            data-tooltip="Posiciones">
                             <a href="{{ url_for('web_rrhh.catalog_list', catalog_name='positions') }}">
-                                <span>Catálogos</span>
+                                <span>Posiciones</span>
+                            </a>
+                        </li>
+                        <li class="nav-item {% if active_page == 'rrhh_catalogs' %}active{% endif %}"
+                            data-tooltip="Departamentos">
+                            <a href="{{ url_for('web_rrhh.catalog_list', catalog_name='departments') }}">
+                                <span>Departamentos</span>
                             </a>
                         </li>
                         <li class="nav-item {% if active_page == 'rrhh_concepts' %}active{% endif %}"
