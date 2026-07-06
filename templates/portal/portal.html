@@ -124,6 +124,18 @@
         .pill.sub.active { background: rgba(30,58,138,0.08); color: var(--primary); border-color: transparent; font-weight: 600; }
         .section-empty { text-align: center; padding: 40px 0; color: var(--text-muted); font-size: 0.85rem; }
         #filter-info { font-size: 0.75rem; color: var(--text-muted); margin-left: auto; white-space: nowrap; }
+        /* ─── BARRA DE BÚSQUEDA ─── */
+        .search-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 14px; }
+        .search-input-wrap { position: relative; flex: 1; min-width: 180px; }
+        .search-input-wrap i { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.78rem; }
+        .search-input { width: 100%; height: 34px; padding: 0 12px 0 32px; border: 1px solid var(--border-color); border-radius: 8px; font-size: 0.8rem; font-family: var(--font-main); background: #fff; color: var(--text-primary); box-sizing: border-box; transition: border-color 0.2s; }
+        .search-input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(30,58,138,0.08); }
+        .search-date { height: 34px; padding: 0 10px; border: 1px solid var(--border-color); border-radius: 8px; font-size: 0.78rem; font-family: var(--font-main); background: #fff; color: var(--text-primary); box-sizing: border-box; min-width: 130px; transition: border-color 0.2s; }
+        .search-date:focus { outline: none; border-color: var(--primary); }
+        .search-date::placeholder { color: var(--text-muted); font-size: 0.72rem; }
+        .btn-clear-search { height: 34px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--border-color); background: #fff; color: var(--text-muted); cursor: pointer; font-size: 0.75rem; font-family: var(--font-main); white-space: nowrap; transition: all 0.2s; display: flex; align-items: center; gap: 4px; }
+        .btn-clear-search:hover { border-color: var(--accent-red); color: var(--accent-red); background: rgba(239,68,68,0.04); }
+        @media (max-width: 600px) { .search-bar { gap: 6px; } .search-date { min-width: 0; flex: 1; } }
         @media (max-width: 500px) {
             .filter-bar { gap: 4px; }
             .pill { font-size: 0.72rem; padding: 4px 10px; }
@@ -134,7 +146,7 @@
             background: #ffffff;
             border: 1px solid var(--border-color);
             border-radius: 12px;
-            padding: 24px;
+            padding: 18px;
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
         }
 
@@ -149,18 +161,18 @@
         }
 
         th {
-            padding: 14px 16px;
+            padding: 10px 14px;
             font-weight: 700;
-            font-size: 0.82rem;
+            font-size: 0.78rem;
             text-transform: uppercase;
             color: var(--text-muted);
             border-bottom: 2px solid var(--border-color);
         }
 
         td {
-            padding: 14px 16px;
+            padding: 10px 14px;
             border-bottom: 1px solid #e2e8f0;
-            font-size: 0.88rem;
+            font-size: 0.82rem;
             vertical-align: middle;
         }
 
@@ -582,6 +594,19 @@
             </div>
         </div>
 
+        <!-- Barra de búsqueda y filtro por fecha -->
+        <div class="search-bar">
+            <div class="search-input-wrap">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" id="search-input" class="search-input" placeholder="Buscar por número, e-NCF o concepto..." oninput="onSearchChange()">
+            </div>
+            <input type="date" id="date-from" class="search-date" placeholder="Desde" onchange="applyFilters()">
+            <input type="date" id="date-to" class="search-date" placeholder="Hasta" onchange="applyFilters()">
+            <button type="button" class="btn-clear-search" onclick="clearSearchFilters()" title="Limpiar filtros">
+                <i class="fa-solid fa-xmark"></i> Limpiar
+            </button>
+        </div>
+
         <!-- Pills de filtro — siempre visibles (fuera de las secciones) -->
         <div class="filter-bar" id="filter-bar">
             <button class="pill active" data-type="all" onclick="setFilter('all')">
@@ -629,7 +654,7 @@
 
         <!-- Historial de Facturas y Cotizaciones -->
         <div class="table-card" id="docs-section">
-            <h3 style="margin-top: 0; margin-bottom: 16px; font-size: 1.15rem;">Documentos y Cotizaciones</h3>
+            <h3 style="margin-top: 0; margin-bottom: 14px; font-size: 1.0rem;">Documentos y Cotizaciones</h3>
             <div class="table-responsive">
                 <table id="docs-table">
                     <thead>
@@ -645,7 +670,7 @@
                     </thead>
                     <tbody>
                         {% for inv in invoices %}
-                        <tr data-doctype="{% if inv.isQuotation %}quotation{% else %}invoice{% endif %}" data-status="{{ inv.status }}">
+                        <tr data-doctype="{% if inv.isQuotation %}quotation{% else %}invoice{% endif %}" data-status="{{ inv.status }}" data-date="{{ inv.date }}">
                             <td data-label="Número Documento">
                                 <strong>{{ inv.invoiceNumber }}</strong>
                             </td>
@@ -687,16 +712,9 @@
                                 {% endif %}
                             </td>
                             <td style="text-align: right;">
-                                <div class="action-menu">
-                                    <button type="button" class="action-menu-btn" onclick="toggleActionMenu(event)" title="Acciones">
-                                        <i class="fa-solid fa-ellipsis-vertical"></i>
-                                    </button>
-                                    <div class="action-menu-dropdown">
-                                        <a href="/portal/documento/{{ inv.id }}" class="action-menu-item">
-                                            <i class="fa-solid fa-eye"></i> Ver
-                                        </a>
-                                    </div>
-                                </div>
+                                <a href="/portal/documento/{{ inv.id }}" class="btn btn-secondary" title="Ver" style="padding: 5px 8px; font-size: 0.75rem;">
+                                    <i class="fa-solid fa-eye"></i>
+                                </a>
                             </td>
                         </tr>
                         {% else %}
@@ -713,7 +731,7 @@
 
         <!-- Contratos de Servicios -->
         <div class="table-card" style="margin-top: 30px;" id="contracts-section">
-            <h3 style="margin-top: 0; margin-bottom: 20px; font-size: 1.15rem;">Contratos y Servicios Recurrentes</h3>
+            <h3 style="margin-top: 0; margin-bottom: 14px; font-size: 1.0rem;">Contratos y Servicios Recurrentes</h3>
             <div class="table-responsive">
                 <table id="contracts-table">
                     <thead>
@@ -729,7 +747,7 @@
                     </thead>
                     <tbody>
                         {% for contract in contracts %}
-                        <tr data-doctype="contract" data-status="{{ contract.status }}">
+                        <tr data-doctype="contract" data-status="{{ contract.status }}" data-date="{{ contract.startDate or '' }}">
                             <td data-label="Número Contrato">
                                 <strong>{{ contract.contractNumber }}</strong>
                             </td>
@@ -765,29 +783,12 @@
                                 {% endif %}
                             </td>
                             <td style="text-align: right;">
-                                <div class="action-menu">
-                                    <button type="button" class="action-menu-btn" onclick="toggleActionMenu(event)" title="Acciones">
-                                        <i class="fa-solid fa-ellipsis-vertical"></i>
-                                    </button>
-                                    <div class="action-menu-dropdown">
-                                        <button type="button" class="action-menu-item"
-                                            data-contract="{{ contract | tojson | forceescape }}"
-                                            onclick="showContractDetail(this)">
-                                            <i class="fa-solid fa-eye"></i> Ver
-                                        </button>
-                                        {% if contract.status != 'Activo' and contract.status != 'Inactivo' and not contract.cancelRequest %}
-                                        <button type="button" class="action-menu-item"
-                                            onclick="openSignatureModal('{{ contract.id }}', 'contrato')">
-                                            <i class="fa-solid fa-signature"></i> Firmar Contrato
-                                        </button>
-                                        {% elif contract.status == 'Activo' and not contract.cancelRequest %}
-                                        <button type="button" class="action-menu-item text-danger"
-                                            onclick="openCancelContractModal('{{ contract.id }}', '{{ contract.contractNumber }}', '{{ contract.concept or contract.description or '' }}')">
-                                            <i class="fa-solid fa-ban"></i> Solicitar Cancelación
-                                        </button>
-                                        {% endif %}
-                                    </div>
-                                </div>
+                                <button type="button" class="btn btn-secondary" title="Ver"
+                                    data-contract="{{ contract | tojson | forceescape }}"
+                                    onclick="showContractDetail(this)"
+                                    style="padding: 5px 8px; font-size: 0.75rem;">
+                                    <i class="fa-solid fa-eye"></i>
+                                </button>
                             </td>
                         </tr>
                         {% else %}
@@ -987,6 +988,35 @@
             applyFilters();
         }
 
+        // ─── BÚSQUEDA Y FECHAS ───
+        let searchDebounce = null;
+        function onSearchChange() {
+            clearTimeout(searchDebounce);
+            searchDebounce = setTimeout(applyFilters, 250);
+        }
+        function clearSearchFilters() {
+            document.getElementById('search-input').value = '';
+            document.getElementById('date-from').value = '';
+            document.getElementById('date-to').value = '';
+            applyFilters();
+        }
+        function rowMatchesSearch(row) {
+            const query = document.getElementById('search-input').value.trim().toLowerCase();
+            if (!query) return true;
+            const text = (row.textContent || '').toLowerCase();
+            return text.includes(query);
+        }
+        function rowMatchesDateRange(row) {
+            const fromVal = document.getElementById('date-from').value;
+            const toVal = document.getElementById('date-to').value;
+            if (!fromVal && !toVal) return true;
+            const rowDate = (row.dataset.date || '').substring(0, 10);
+            if (!rowDate) return true;
+            if (fromVal && rowDate < fromVal) return false;
+            if (toVal && rowDate > toVal) return false;
+            return true;
+        }
+
         function applyFilters() {
             const showInvoice = currentType === 'all' || currentType === 'invoice';
             const showQuotation = currentType === 'all' || currentType === 'quotation';
@@ -1011,6 +1041,8 @@
                 let v = true;
                 if (currentType !== 'all' && dt !== currentType) v = false;
                 if (v && currentSub !== 'all' && row.dataset.status !== currentSub) v = false;
+                if (v) v = rowMatchesSearch(row);
+                if (v) v = rowMatchesDateRange(row);
                 row.style.display = v ? '' : 'none';
                 if (v) visible++;
             });
@@ -1022,6 +1054,8 @@
                 let v = true;
                 if (currentType !== 'all' && dt !== currentType) v = false;
                 if (v && currentSub !== 'all' && row.dataset.status !== currentSub) v = false;
+                if (v) v = rowMatchesSearch(row);
+                if (v) v = rowMatchesDateRange(row);
                 row.style.display = v ? '' : 'none';
                 if (v) visible++;
             });
