@@ -81,6 +81,7 @@
                             data-can-commissions="{{ 'true' if member.permissions.canManageCommissions else 'false' }}"
                             data-can-bi="{{ 'true' if member.permissions.canViewBI else 'false' }}"
                             data-can-audit="{{ 'true' if member.permissions.canViewAuditLog else 'false' }}"
+                            data-can-accounting="{{ 'true' if member.permissions.canAccounting else 'false' }}"
                             data-is-supervisor="{{ 'true' if member.permissions.isPosSupervisor else 'false' }}"
                             data-can-subscription="{{ 'true' if member.permissions.canViewSubscription else 'false' }}"
                             data-can-sandbox="{{ 'true' if member.permissions.canToggleSandbox else 'false' }}"
@@ -227,6 +228,12 @@
                             <input type="checkbox" name="canViewBI" checked
                                 style="width: 16px; height: 16px; accent-color: var(--accent-emerald);">
                             <span>Inteligencia Financiera (Métricas y Smart Insights BI)</span>
+                        </label>
+                        <label
+                            style="display: flex; align-items: center; gap: 10px; font-size: 0.85rem; cursor: pointer;">
+                            <input type="checkbox" name="canAccounting"
+                                style="width: 16px; height: 16px; accent-color: var(--accent-emerald);">
+                            <span>Contabilidad (Catálogo, Asientos, Reportes Financieros)</span>
                         </label>
                         <label
                             style="display: flex; align-items: center; gap: 10px; font-size: 0.85rem; cursor: pointer;">
@@ -398,6 +405,12 @@
                         </label>
                         <label
                             style="display: flex; align-items: center; gap: 10px; font-size: 0.85rem; cursor: pointer;">
+                            <input type="checkbox" id="perms-can-accounting" name="canAccounting"
+                                style="width: 16px; height: 16px; accent-color: var(--accent-emerald);">
+                            <span>Contabilidad (Catálogo, Asientos, Reportes Financieros)</span>
+                        </label>
+                        <label
+                            style="display: flex; align-items: center; gap: 10px; font-size: 0.85rem; cursor: pointer;">
                             <input type="checkbox" id="perms-can-audit" name="canViewAuditLog"
                                 style="width: 16px; height: 16px; accent-color: var(--accent-emerald);">
                             <span>Ver Registro de Auditoría (Trazabilidad y Bitácora)</span>
@@ -501,6 +514,7 @@
                 const canCommissions = this.getAttribute('data-can-commissions') === 'true';
                 const canBI = this.getAttribute('data-can-bi') === 'true';
                 const canAudit = this.getAttribute('data-can-audit') === 'true';
+                const canAccounting = this.getAttribute('data-can-accounting') === 'true';
                 const isSupervisor = this.getAttribute('data-is-supervisor') === 'true';
                 const canSubscription = this.getAttribute('data-can-subscription') === 'true';
                 const canSandbox = this.getAttribute('data-can-sandbox') === 'true';
@@ -539,6 +553,7 @@
                 document.getElementById('perms-can-commissions').checked = canCommissions;
                 document.getElementById('perms-can-bi').checked = canBI;
                 document.getElementById('perms-can-audit').checked = canAudit;
+                document.getElementById('perms-can-accounting').checked = canAccounting;
                 document.getElementById('perms-is-supervisor').checked = isSupervisor;
                 document.getElementById('perms-can-subscription').checked = canSubscription;
                 document.getElementById('perms-can-sandbox').checked = canSandbox;

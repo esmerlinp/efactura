@@ -6,7 +6,6 @@
 {% block content %}
 <div class="page-title-container" style="margin-bottom: 24px; padding-left: 4px;">
     <h1 style="font-size:1.75rem; font-weight:800; font-family:var(--font-heading); color:var(--text-primary); margin:0;">
-        <i class="fa-solid fa-cart-shopping" style="color:var(--accent-purple); margin-right:10px;"></i>
         Órdenes de Compra
     </h1>
 </div>
@@ -33,78 +32,97 @@
     if (sessionStorage.getItem('closed_guide-purchase-orders')) { document.getElementById('guide-purchase-orders').style.display = 'none'; }
 </script>
 
-<div class="card-table-wrapper" style="margin-bottom:30px;">
-    <div class="table-header-row">
-        <div>
-            <h3 style="font-size:1.25rem; font-family:var(--font-heading); margin-bottom:6px;">Órdenes de Compra</h3>
-            <p style="color:var(--text-secondary); font-size:0.88rem;">Gestión de órdenes de compra a proveedores.</p>
+<!-- KPI SUMMARY STRIP -->
+{% set total_po_amount = namespace(val=0) %}
+{% set total_pending_po = namespace(val=0) %}
+{% set total_approved_po = namespace(val=0) %}
+{% for o in orders %}
+    {% set _ = total_po_amount.__setattr__('val', total_po_amount.val + (o.total|default(0)|float)) %}
+    {% if o.status|default('borrador') in ('borrador', 'pendiente_aprobacion') %}
+        {% set _ = total_pending_po.__setattr__('val', total_pending_po.val + 1) %}
+    {% endif %}
+    {% if o.status|default('borrador') == 'aprobada' %}
+        {% set _ = total_approved_po.__setattr__('val', total_approved_po.val + 1) %}
+    {% endif %}
+{% endfor %}
+<div class="summary-strip">
+    <div class="summary-strip-item">
+        <div class="summary-strip-label">Total Órdenes</div>
+        <div class="summary-strip-value">{{ total_items }}</div>
+    </div>
+    <div class="summary-strip-item">
+        <div class="summary-strip-label">Monto Total</div>
+        <div class="summary-strip-value" style="color: var(--accent-emerald);">RD$ {{ "{:,.2f}".format(total_po_amount.val) }}</div>
+    </div>
+    <div class="summary-strip-item">
+        <div class="summary-strip-label">Pendientes</div>
+        <div class="summary-strip-value" style="color: #f59e0b;">{{ total_pending_po.val }}</div>
+    </div>
+    <div class="summary-strip-item">
+        <div class="summary-strip-label">Aprobadas</div>
+        <div class="summary-strip-value" style="color: var(--accent-purple);">{{ total_approved_po.val }}</div>
+    </div>
+</div>
+
+<div class="card-table-wrapper" style="box-shadow: none; padding: 0; overflow: hidden;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding: 0 0 12px 0; flex-wrap: wrap; gap: 10px;">
+        <h2 style="font-size: 0.95rem; font-weight: 500; color: var(--text-secondary); margin: 0;">
+            Listado de Órdenes de Compra
+        </h2>
+        <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+            <a href="{{ url_for('web_purchase_orders.new_purchase_order') }}" class="btn btn-primary" style="height: 32px; font-size: 0.78rem; padding: 0 12px; display: inline-flex; align-items: center; gap: 4px;">
+                <i class="fa-solid fa-plus"></i> Nueva Orden
+            </a>
+            <div style="position: relative; width: 180px;">
+                <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.78rem;"></i>
+                <input type="text" id="po-search" placeholder="Buscar OC#, Proveedor..."
+                    style="width: 100%; height: 32px; padding: 0 10px 0 28px; background-color: var(--bg-input); border: 1px solid var(--border-color); border-radius: var(--radius-sm); color: var(--text-primary); font-size: 0.78rem;"
+                    oninput="filterPO()">
+            </div>
+            <select id="po-status-filter" onchange="filterPO()"
+                style="height: 32px; padding: 0 8px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-sm); color: var(--text-primary); font-size: 0.78rem; cursor: pointer; outline: none;">
+                <option value="">Todos los Estados</option>
+                <option value="borrador">Borrador</option>
+                <option value="pendiente_aprobacion">Pendiente</option>
+                <option value="aprobada">Aprobada</option>
+                <option value="recibida_parcial">Rec. Parcial</option>
+                <option value="recibida_completa">Recibida</option>
+                <option value="cancelada">Cancelada</option>
+                <option value="rechazada">Rechazada</option>
+            </select>
         </div>
-        <a href="{{ url_for('web_purchase_orders.new_purchase_order') }}" class="btn btn-primary">
-            <i class="fa-solid fa-plus"></i>
-            <span>Nueva Orden de Compra</span>
-        </a>
     </div>
 
-    <form method="GET" action="{{ url_for('web_purchase_orders.list_purchase_orders') }}" style="margin-bottom:24px; padding:15px; background:rgba(0,0,0,0.02); border:1px solid var(--border-color); border-radius:8px; margin-left:20px; margin-right:20px;">
-        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(140px,1fr)); gap:12px; align-items:flex-end;">
-            <div class="form-group" style="margin-bottom:0;">
-                <label style="font-size:0.72rem; margin-bottom:4px; display:block; color:var(--text-secondary);">Buscar</label>
-                <input type="text" name="q" class="form-input" placeholder="OC#, Proveedor, RNC..." value="{{ q }}" style="width:100%; font-size:0.78rem; height:36px; padding:6px 10px;">
-            </div>
-            <div class="form-group" style="margin-bottom:0;">
-                <label style="font-size:0.72rem; margin-bottom:4px; display:block; color:var(--text-secondary);">Estado</label>
-                <select name="estado" class="form-select" style="width:100%; font-size:0.78rem; height:36px; padding:6px 10px;">
-                    <option value="">Todos</option>
-                    <option value="borrador" {% if estado == 'borrador' %}selected{% endif %}>Borrador</option>
-                    <option value="pendiente_aprobacion" {% if estado == 'pendiente_aprobacion' %}selected{% endif %}>Pendiente</option>
-                    <option value="aprobada" {% if estado == 'aprobada' %}selected{% endif %}>Aprobada</option>
-                    <option value="recibida_parcial" {% if estado == 'recibida_parcial' %}selected{% endif %}>Rec. Parcial</option>
-                    <option value="recibida_completa" {% if estado == 'recibida_completa' %}selected{% endif %}>Recibida</option>
-                    <option value="cancelada" {% if estado == 'cancelada' %}selected{% endif %}>Cancelada</option>
-                    <option value="rechazada" {% if estado == 'rechazada' %}selected{% endif %}>Rechazada</option>
-                </select>
-            </div>
-            <div style="display:flex; gap:8px;">
-                <button type="submit" class="btn btn-secondary" style="flex:1; justify-content:center; height:36px; font-size:0.78rem; border-color:var(--accent-emerald); color:var(--accent-emerald);">
-                    <i class="fa-solid fa-filter"></i> Filtrar
-                </button>
-                <a href="{{ url_for('web_purchase_orders.list_purchase_orders') }}" class="btn btn-secondary" style="height:36px; font-size:0.78rem; padding:0 10px; border-color:var(--border-color); color:var(--text-muted);">
-                    <i class="fa-solid fa-filter-circle-xmark"></i>
-                </a>
-            </div>
-        </div>
-    </form>
-
     <div class="table-responsive">
-        <table class="table-premium">
+        <table class="table-premium" style="width: 100%; border-collapse: collapse;">
             <thead>
-                <tr>
-                    <th>OC #</th>
-                    <th>Proveedor</th>
-                    <th>RNC</th>
-                    <th>Fecha</th>
-                    <th>Vence</th>
-                    <th>Total (RD$)</th>
-                    <th>Estado</th>
-                    <th>Ítems</th>
-                    <th style="text-align:right; width: 50px;"></th>
+                <tr style="text-align: left; background: rgba(0,0,0,0.02); border-bottom: 1px solid var(--border-color);">
+                    <th style="padding: 14px 16px; font-size: 0.78rem; color: var(--text-secondary); text-transform: uppercase;">OC #</th>
+                    <th style="padding: 14px 16px; font-size: 0.78rem; color: var(--text-secondary); text-transform: uppercase;">Proveedor</th>
+                    <th style="padding: 14px 16px; font-size: 0.78rem; color: var(--text-secondary); text-transform: uppercase;">RNC</th>
+                    <th style="padding: 14px 16px; font-size: 0.78rem; color: var(--text-secondary); text-transform: uppercase;">Fecha</th>
+                    <th style="padding: 14px 16px; font-size: 0.78rem; color: var(--text-secondary); text-transform: uppercase;">Vence</th>
+                    <th style="padding: 14px 16px; font-size: 0.78rem; color: var(--text-secondary); text-transform: uppercase; text-align: right;">Total (RD$)</th>
+                    <th style="padding: 14px 16px; font-size: 0.78rem; color: var(--text-secondary); text-transform: uppercase;">Estado</th>
+                    <th style="padding: 14px 16px; font-size: 0.78rem; color: var(--text-secondary); text-transform: uppercase; text-align: center;">Ítems</th>
+                    <th style="padding: 14px 16px; font-size: 0.78rem; color: var(--text-secondary); text-transform: uppercase; text-align: center; width: 50px;"></th>
                 </tr>
             </thead>
             <tbody>
                 {% if orders %}
                 {% for o in orders %}
-                <tr>
-                    <td><span class="mono" style="font-weight:600; color:var(--accent-blue);">{{ o.poNumber or '—' }}</span></td>
-                    <td>
-                        <a href="{{ url_for('web_purchase_orders.purchase_order_detail', po_id=o.id) }}" style="color:var(--accent-blue); text-decoration:none; font-weight:600;">
+                <tr style="border-bottom: 1px solid var(--border-color);" class="po-row" data-status="{{ o.status|default('borrador') }}">
+                    <td style="padding: 14px 16px;"><span class="mono" style="font-weight:600; color:var(--accent-blue);">{{ o.poNumber or '—' }}</span></td>
+                    <td style="padding: 14px 16px;">
+                        <a href="{{ url_for('web_purchase_orders.purchase_order_detail', po_id=o.id) }}" style="color:var(--text-primary); text-decoration:none; font-weight:normal;">
                             {{ o.supplierName or '—' }}
                         </a>
                     </td>
-                    <td><span class="mono">{{ o.supplierRnc or '—' }}</span></td>
-                    <td style="font-size:0.82rem;">{{ o.orderDate or '—' }}</td>
-                    <td style="font-size:0.82rem;">{{ o.expectedDate or '—' }}</td>
-                    <td style="font-weight:600;">RD$ {{ "{:,.2f}".format(o.total|default(0)) }}</td>
-                    <td>
+                    <td style="padding: 14px 16px;"><span class="mono">{{ o.supplierRnc or '—' }}</span></td>
+                    <td style="padding: 14px 16px; font-size:0.82rem;">{{ o.orderDate or '—' }}</td>
+                    <td style="padding: 14px 16px; font-size:0.82rem;">{{ o.expectedDate or '—' }}</td>
+                    <td style="padding: 14px 16px; text-align: right; font-weight:600;">RD$ {{ "{:,.2f}".format(o.total|default(0)) }}</td>
+                    <td style="padding: 14px 16px;">
                         {% set status = o.status|default('borrador') %}
                         {% if status == 'borrador' %}
                         <span class="badge-pill badge-gray">Borrador</span>
@@ -122,8 +140,8 @@
                         <span class="badge-pill badge-red">Rechazada</span>
                         {% endif %}
                     </td>
-                    <td style="text-align:center;">{{ o.get('items')|length if o.get('items') else 0 }}</td>
-                    <td style="text-align:right;">
+                    <td style="padding: 14px 16px; text-align:center;">{{ o.get('items')|length if o.get('items') else 0 }}</td>
+                    <td style="padding: 14px 16px; text-align:center;">
                         <div class="action-menu">
                             <button type="button" class="action-menu-btn" onclick="toggleActionMenu(event)" title="Acciones">
                                 <i class="fa-solid fa-ellipsis-vertical"></i>
@@ -161,31 +179,32 @@
         </table>
     </div>
 
-    {% if total_items > 0 %}
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border-color); flex-wrap: wrap; gap: 16px; padding-left: 4px; padding-right: 4px;">
-        <div style="color: var(--text-secondary); font-size: 0.85rem;">
-            Mostrando <strong style="color: var(--text-primary);">{{ start_count }}</strong> a <strong style="color: var(--text-primary);">{{ end_count }}</strong> de <strong style="color: var(--text-primary);">{{ total_items }}</strong> registros
+    <!-- PAGINACIÓN CLIENT-SIDE -->
+    {% if orders %}
+    <div style="display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; border-top: 1px solid var(--border-color); background: rgba(0,0,0,0.01); flex-wrap: wrap; gap: 15px;">
+        <div style="display: flex; align-items: center; gap: 8px; font-size: 0.82rem; color: var(--text-secondary);">
+            <span>Mostrar</span>
+            <select id="po-page-size" onchange="changePOPageSize(this.value)"
+                style="padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary); font-weight: 500; outline: none; cursor: pointer;">
+                <option value="5">5</option>
+                <option value="10" selected>10</option>
+                <option value="20">20</option>
+                <option value="50">50</option>
+            </select>
+            <span>registros por página</span>
         </div>
-        <div style="display: flex; gap: 6px;">
-            {% if has_prev %}
-            <a href="?page={{ page - 1 }}&per_page={{ per_page or '10' }}" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.82rem; display: inline-flex; align-items: center; gap: 6px; border-radius: var(--radius-sm);"><i class="fa-solid fa-chevron-left" style="font-size: 0.75rem;"></i> <span>Anterior</span></a>
-            {% else %}
-            <button class="btn btn-secondary" disabled style="padding: 6px 12px; font-size: 0.82rem; display: inline-flex; align-items: center; gap: 6px; opacity: 0.5; cursor: not-allowed; border-radius: var(--radius-sm);"><i class="fa-solid fa-chevron-left" style="font-size: 0.75rem;"></i> <span>Anterior</span></button>
-            {% endif %}
-            {% for p in range(1, total_pages + 1) %}
-                {% if p == page %}
-            <button class="btn btn-primary" style="padding: 6px 12px; font-size: 0.82rem; min-width: 34px; text-align: center; border-radius: var(--radius-sm);">{{ p }}</button>
-                {% elif p <= 3 or p >= total_pages - 2 or (p >= page - 1 and p <= page + 1) %}
-            <a href="?page={{ p }}&per_page={{ per_page or '10' }}" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.82rem; min-width: 34px; text-align: center; border-radius: var(--radius-sm);">{{ p }}</a>
-                {% elif p == 4 or p == total_pages - 3 %}
-            <span style="color: var(--text-muted); align-self: center; padding: 0 4px; font-size: 0.82rem;">...</span>
-                {% endif %}
-            {% endfor %}
-            {% if has_next %}
-            <a href="?page={{ page + 1 }}&per_page={{ per_page or '10' }}" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.82rem; display: inline-flex; align-items: center; gap: 6px; border-radius: var(--radius-sm);"><span>Siguiente</span> <i class="fa-solid fa-chevron-right" style="font-size: 0.75rem;"></i></a>
-            {% else %}
-            <button class="btn btn-secondary" disabled style="padding: 6px 12px; font-size: 0.82rem; display: inline-flex; align-items: center; gap: 6px; opacity: 0.5; cursor: not-allowed; border-radius: var(--radius-sm);"><span>Siguiente</span> <i class="fa-solid fa-chevron-right" style="font-size: 0.75rem;"></i></button>
-            {% endif %}
+        <div style="display: flex; align-items: center; gap: 5px;">
+            <button onclick="prevPOPage()" id="btn-po-prev-page" class="btn btn-secondary"
+                style="padding: 6px 12px; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 4px; height: 32px; border-radius: 4px; font-weight: 500;" disabled>
+                <i class="fa-solid fa-chevron-left"></i> Anterior
+            </button>
+            <span id="po-page-info" style="font-size: 0.82rem; color: var(--text-secondary); margin: 0 10px; font-weight: 500;">
+                Página 1 de 1
+            </span>
+            <button onclick="nextPOPage()" id="btn-po-next-page" class="btn btn-secondary"
+                style="padding: 6px 12px; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 4px; height: 32px; border-radius: 4px; font-weight: 500;">
+                Siguiente <i class="fa-solid fa-chevron-right"></i>
+            </button>
         </div>
     </div>
     {% endif %}
@@ -205,4 +224,110 @@
 .badge-red    { background:rgba(239,68,68,0.1);    color:#ef4444;              border:1px solid rgba(239,68,68,0.2);   }
 .mono { font-family:monospace; font-size:0.82rem; }
 </style>
+
+<script>
+    // --- LÓGICA DE PAGINACIÓN Y FILTRADO CLIENT-SIDE ---
+    let poCurrentPage = 1;
+    let poPageSize = 10;
+    let poAllRows = [];
+    let poRows = [];
+
+    document.addEventListener('DOMContentLoaded', () => {
+        poAllRows = Array.from(document.querySelectorAll('.po-row'));
+        poRows = [...poAllRows];
+        updatePOPagination();
+    });
+
+    function filterPO() {
+        const query = document.getElementById('po-search').value.toLowerCase().trim();
+        const statusFilter = document.getElementById('po-status-filter').value;
+
+        poRows = poAllRows.filter(row => {
+            const cells = row.querySelectorAll('td');
+            const poNumber = cells[0] ? cells[0].textContent : '';
+            const supplierLink = cells[1] ? cells[1].querySelector('a') : null;
+            const supplierName = supplierLink ? supplierLink.textContent : '';
+            const textContent = poNumber + " " + supplierName;
+            const matchesQuery = !query || textContent.toLowerCase().includes(query);
+
+            const rowStatus = row.getAttribute('data-status');
+            const matchesStatus = !statusFilter || rowStatus === statusFilter;
+
+            if (matchesQuery && matchesStatus) {
+                return true;
+            } else {
+                row.style.display = 'none';
+                return false;
+            }
+        });
+
+        poCurrentPage = 1;
+        updatePOPagination();
+    }
+
+    function updatePOPagination() {
+        const totalRows = poRows.length;
+
+        poAllRows.forEach(row => {
+            if (!poRows.includes(row)) {
+                row.style.display = 'none';
+            }
+        });
+
+        if (totalRows === 0) {
+            const pageInfo = document.getElementById('po-page-info');
+            if (pageInfo) pageInfo.textContent = 'Página 0 de 0';
+            const btnPrev = document.getElementById('btn-po-prev-page');
+            if (btnPrev) btnPrev.disabled = true;
+            const btnNext = document.getElementById('btn-po-next-page');
+            if (btnNext) btnNext.disabled = true;
+            return;
+        }
+
+        const totalPages = Math.ceil(totalRows / poPageSize);
+        if (poCurrentPage > totalPages) poCurrentPage = totalPages;
+        if (poCurrentPage < 1) poCurrentPage = 1;
+
+        const startIndex = (poCurrentPage - 1) * poPageSize;
+        const endIndex = startIndex + poPageSize;
+
+        poRows.forEach((row, index) => {
+            if (index >= startIndex && index < endIndex) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+
+        const pageInfo = document.getElementById('po-page-info');
+        if (pageInfo) pageInfo.textContent = `Página ${poCurrentPage} de ${totalPages}`;
+
+        const btnPrev = document.getElementById('btn-po-prev-page');
+        if (btnPrev) btnPrev.disabled = (poCurrentPage === 1);
+
+        const btnNext = document.getElementById('btn-po-next-page');
+        if (btnNext) btnNext.disabled = (poCurrentPage === totalPages);
+    }
+
+    function changePOPageSize(size) {
+        poPageSize = parseInt(size) || 10;
+        poCurrentPage = 1;
+        updatePOPagination();
+    }
+
+    function prevPOPage() {
+        if (poCurrentPage > 1) {
+            poCurrentPage--;
+            updatePOPagination();
+        }
+    }
+
+    function nextPOPage() {
+        const totalPages = Math.ceil(poRows.length / poPageSize);
+        if (poCurrentPage < totalPages) {
+            poCurrentPage++;
+            updatePOPagination();
+        }
+    }
+</script>
 {% endblock %}

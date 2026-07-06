@@ -6,94 +6,7 @@
 
 {% block content %}
 <style>
-    /* Accordion Styles matching templates/items/form.html */
-    .settings-accordion {
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-        margin-bottom: 24px;
-        width: 100%;
-    }
-
-    .accordion-item {
-        border: 1px solid var(--border-color);
-        border-radius: 12px;
-        background: var(--bg-card);
-        overflow: hidden;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-
-    .accordion-item.active {
-        border-color: var(--accent-emerald);
-        box-shadow: 0 4px 20px rgba(16, 185, 129, 0.05);
-    }
-
-    .accordion-header {
-        width: 100%;
-        padding: 14px 18px;
-        background: rgba(255, 255, 255, 0.01);
-        border: none;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        cursor: pointer;
-        text-align: left;
-        transition: background 0.2s ease;
-    }
-
-    .accordion-header:hover {
-        background: rgba(255, 255, 255, 0.03);
-    }
-
-    .accordion-title {
-        font-size: 0.95rem;
-        font-family: var(--font-heading);
-        font-weight: 500;
-        color: var(--text-main);
-        display: flex;
-        align-items: center;
-        gap: 10px;
-    }
-
-    .accordion-title i {
-        font-size: 1.05rem;
-        color: var(--accent-emerald);
-        width: 24px;
-        text-align: center;
-    }
-
-    .accordion-chevron {
-        color: var(--text-muted);
-        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        font-size: 0.85rem;
-    }
-
-    .accordion-item.active .accordion-chevron {
-        transform: rotate(180deg);
-        color: var(--accent-emerald);
-    }
-
-    .accordion-content {
-        max-height: 0;
-        overflow: hidden;
-        transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-
-    .accordion-body {
-        padding: 20px;
-        border-top: 1px solid var(--border-color);
-        background: rgba(0, 0, 0, 0.02);
-    }
-
-    .form-inner-grid {
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        gap: 18px 20px;
-    }
-
-    .span-full {
-        grid-column: 1 / -1;
-    }
+    {% include 'components/_accordion_css.html' %}
 
     .uploader-zone {
         border: 2px dashed var(--border-color);
@@ -588,35 +501,7 @@
 </div>
 
 <script>
-    // Behavior of Accordion (matching items/form.html)
-    window.toggleAccordionSection = function (header) {
-        const item = header.parentElement;
-        const content = item.querySelector('.accordion-content');
-        const isActive = item.classList.contains('active');
-
-        // Close all sections first
-        document.querySelectorAll('.accordion-item').forEach(el => {
-            el.classList.remove('active');
-            const c = el.querySelector('.accordion-content');
-            if (c) c.style.maxHeight = null;
-        });
-
-        // Open target if it wasn't active
-        if (!isActive) {
-            item.classList.add('active');
-            content.style.maxHeight = content.scrollHeight + 'px';
-        }
-    };
-
-    function adjustActiveAccordionHeight() {
-        const activeItem = document.querySelector('.accordion-item.active');
-        if (activeItem) {
-            const content = activeItem.querySelector('.accordion-content');
-            if (content) {
-                content.style.maxHeight = content.scrollHeight + 'px';
-            }
-        }
-    }
+    {% include 'components/_accordion_js.html' %}
 
     // ── Multi-File Drop Zone ──────────────────────────────────────────────
     const dropZone = document.getElementById('drop-zone');

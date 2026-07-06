@@ -1,0 +1,88 @@
+{# Shared Form Field Macro
+   Usage:
+     {% from 'components/_form_field.html' import form_field with context %}
+     {{ form_field('Nombre', 'text', 'name', value=item.name, required=True) }}
+     {{ form_field('Descripción', 'textarea', 'description', value=item.desc, rows=3) }}
+     {{ form_field('Categoría', 'select', 'category', options=categories, selected=item.cat) }}
+     {{ form_field('Monto', 'number', 'amount', value=item.amount, step='0.01', min='0') }}
+     {{ form_field('Fecha', 'date', 'doc_date', value=item.date) }}
+     {{ form_field('Activo', 'checkbox', 'is_active', checked=item.active) }}
+     {{ form_field('Archivo', 'file', 'attachment', accept='.pdf,.xml') }}
+#}
+
+{% macro form_field(label, type='text', name='', id='', value='', placeholder='', required=False, 
+                    options=None, selected='', step='', min='', max='', rows=3, cols='',
+                    accept='', checked=False, readonly=False, disabled=False, 
+                    help_text='', class='', span='span-full', icon='', hint='') -%}
+{% set field_id = id if id else name %}
+<div class="form-group {% if span %}{{ span }}{% endif %} {% if class %}{{ class }}{% endif %}">
+    {% if label and type != 'checkbox' %}
+    <label for="{{ field_id }}">
+        {% if icon %}<i class="fa-solid {{ icon }}" style="margin-right:4px; opacity:0.5;"></i>{% endif %}
+        {{ label }}
+        {% if required %}<span style="color: var(--accent-red);">*</span>{% endif %}
+    </label>
+    {% endif %}
+    
+    {% if type == 'textarea' %}
+    <textarea id="{{ field_id }}" name="{{ name }}" class="form-textarea"
+        placeholder="{{ placeholder }}" rows="{{ rows }}" cols="{{ cols }}"
+        {% if required %}required{% endif %}
+        {% if readonly %}readonly{% endif %}
+        {% if disabled %}disabled{% endif %}
+        aria-label="{{ label }}">{{ value }}</textarea>
+    
+    {% elif type == 'select' %}
+    <select id="{{ field_id }}" name="{{ name }}" class="form-select"
+        {% if required %}required{% endif %}
+        {% if readonly %}readonly{% endif %}
+        {% if disabled %}disabled{% endif %}
+        aria-label="{{ label }}">
+        {% if placeholder %}
+        <option value="">{{ placeholder }}</option>
+        {% endif %}
+        {% for opt in options %}
+        {% if opt is mapping %}
+        <option value="{{ opt.value }}" {% if opt.value|string == selected|string %}selected{% endif %}>{{ opt.label }}</option>
+        {% else %}
+        <option value="{{ opt }}" {% if opt|string == selected|string %}selected{% endif %}>{{ opt }}</option>
+        {% endif %}
+        {% endfor %}
+    </select>
+    
+    {% elif type == 'checkbox' %}
+    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-weight: normal;">
+        <input type="checkbox" id="{{ field_id }}" name="{{ name }}" class="form-checkbox"
+            value="{{ value }}" {% if checked %}checked{% endif %}
+            {% if readonly %}readonly{% endif %}
+            {% if disabled %}disabled{% endif %}>
+        {{ label }}
+        {% if required %}<span style="color: var(--accent-red);">*</span>{% endif %}
+    </label>
+    
+    {% elif type == 'file' %}
+    <input type="file" id="{{ field_id }}" name="{{ name }}" class="form-input"
+        accept="{{ accept }}"
+        {% if required %}required{% endif %}
+        aria-label="{{ label }}">
+    
+    {% else %}
+    <input type="{{ type }}" id="{{ field_id }}" name="{{ name }}" class="form-input"
+        value="{{ value }}" placeholder="{{ placeholder }}"
+        {% if step %}step="{{ step }}"{% endif %}
+        {% if min %}min="{{ min }}"{% endif %}
+        {% if max %}max="{{ max }}"{% endif %}
+        {% if required %}required{% endif %}
+        {% if readonly %}readonly{% endif %}
+        {% if disabled %}disabled{% endif %}
+        aria-label="{{ label }}">
+    {% endif %}
+    
+    {% if help_text %}
+    <small style="display:block; font-size:0.72rem; color:var(--text-muted); margin-top:4px;">{{ help_text }}</small>
+    {% endif %}
+    {% if hint %}
+    <small style="display:block; font-size:0.7rem; color:var(--text-muted); margin-top:2px; font-style:italic;">{{ hint }}</small>
+    {% endif %}
+</div>
+{%- endmacro %}

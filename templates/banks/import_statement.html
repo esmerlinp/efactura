@@ -1,0 +1,77 @@
+{% extends "layout.html" %}
+{% block title %}Importar Estado de Cuenta{% endblock %}
+{% block page_header %}Importar Estado de Cuenta — {{ account.name }}{% endblock %}
+{% block content %}
+<style>
+    .match-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+    .match-table th { text-align: left; padding: 8px 10px; background: var(--bg-input); color: var(--text-secondary); font-weight: 600; border-bottom: 1px solid var(--border-color); }
+    .match-table td { padding: 6px 10px; border-bottom: 1px solid var(--border-color); }
+    .match-table tr.matched { background: rgba(16,185,129,0.04); }
+    .match-table tr.unmatched { background: rgba(239,68,68,0.03); }
+</style>
+
+<div style="max-width:900px;margin:0 auto;">
+    <div style="background:var(--bg-card);border:1px solid var(--border-color);border-radius:var(--radius-md);padding:20px;margin-bottom:16px;">
+        <h3 style="margin:0 0 12px 0;">Subir Archivo CSV del Banco</h3>
+        <form method="POST" enctype="multipart/form-data" style="display:flex;flex-direction:column;gap:12px;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div style="display:flex;gap:12px;align-items:center;">
+                <select name="bank" style="height:36px;border-radius:6px;border:1px solid var(--border-color);background:var(--bg-input);color:var(--text-primary);padding:0 10px;">
+                    <option value="generic">Genérico (auto-detectar)</option>
+                    <option value="popular" {% if bank == 'popular' %}selected{% endif %}>Banco Popular</option>
+                    <option value="bhd" {% if bank == 'bhd' %}selected{% endif %}>BHD</option>
+                    <option value="banreservas" {% if bank == 'banreservas' %}selected{% endif %}>Banreservas</option>
+                </select>
+                <select name="transaction_type" style="height:36px;border-radius:6px;border:1px solid var(--border-color);background:var(--bg-input);color:var(--text-primary);padding:0 10px;">
+                    <option value="invoice_payments">Pagos de facturas (CxC)</option>
+                    <option value="expense_payments">Pagos de gastos (CxP)</option>
+                </select>
+                <input type="file" name="statement_file" accept=".csv" required style="flex:1;">
+                <button type="submit" class="btn btn-primary" style="padding:8px 20px;">Procesar</button>
+            </div>
+            <span style="font-size:0.7rem;color:var(--text-muted);">El archivo CSV debe contener columnas: Fecha, Descripción, Monto.</span>
+        </form>
+    </div>
+
+    {% if results %}
+    <div style="background:var(--bg-card);border:1px solid var(--border-color);border-radius:var(--radius-md);padding:16px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+            <h3 style="margin:0;">Resultados del Match</h3>
+            <span style="font-size:0.78rem;color:var(--text-muted);">
+                {{ statement_count }} transacciones · {{ matched_count }} coincidencias automáticas
+            </span>
+        </div>
+        <div style="overflow-x:auto;">
+            <table class="match-table">
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Descripción</th>
+                        <th>Monto</th>
+                        <th>Estado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in results %}
+                    <tr class="{{ 'matched' if r.matched else 'unmatched' }}">
+                        <td>{{ r.date }}</td>
+                        <td>{{ r.description }}</td>
+                        <td style="text-align:right;">RD$ {{ "{:,.2f}".format(r.amount) }}</td>
+                        <td>
+                            {% if r.matched %}
+                            <span style="color:var(--accent-emerald);">✓ Coincide</span>
+                            {% elif r.unmatched_book %}
+                            <span style="color:var(--accent-yellow);">⚠ Solo en libros</span>
+                            {% else %}
+                            <span style="color:var(--accent-red);">✗ Sin coincidencia</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

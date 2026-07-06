@@ -2,75 +2,143 @@
 {% block title %}Entradas de Diario{% endblock %}
 {% block page_header %}Entradas de Diario{% endblock %}
 {% block content %}
-<div class="page-title-container" style="margin-bottom:16px; padding-left:4px; display:flex; align-items:center; justify-content:space-between;">
-    <div>
-        <h1 style="font-size:1.75rem; font-weight:800; font-family:var(--font-heading); color:var(--text-primary); margin:0;">
-            <i class="fa-solid fa-pen-to-square" style="color:var(--accent-purple); margin-right:10px;"></i>
-            Entradas de Diario
-        </h1>
-        <p style="color:var(--text-secondary); font-size:0.88rem; margin:6px 0 0 2px;">
-            Asientos contables manuales. Total: {{ entries|length }}
-        </p>
-    </div>
-    <a href="{{ url_for('web_accounting.new_journal_entry') }}" class="btn btn-primary">
-        <i class="fa-solid fa-plus"></i> Nueva Entrada de Diario
-    </a>
+<div class="page-title-container" style="margin-bottom: 24px; padding-left: 4px;">
+    <h1 style="font-size: 1.75rem; font-weight: 800; font-family: var(--font-heading); color: var(--text-primary); margin: 0;">
+        Entradas de Diario
+    </h1>
 </div>
 
-<div class="card-form-body" style="padding:0; overflow-x:auto;">
-    <table class="table" style="width:100%; border-collapse:collapse; font-size:0.82rem;">
+<div id="guide-journal-entries" style="background: rgba(168, 85, 247, 0.05); border: 1px solid rgba(168, 85, 247, 0.2); border-radius: 8px; padding: 16px; margin-bottom: 24px; display: flex; gap: 16px; align-items: flex-start; position: relative;">
+    <button onclick="closeGuide('guide-journal-entries')" style="position: absolute; top: 12px; right: 12px; background: transparent; border: none; color: var(--text-muted); cursor: pointer; padding: 4px; border-radius: 50%; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; transition: background 0.2s, color 0.2s;" onmouseover="this.style.background='rgba(0,0,0,0.05)'; this.style.color='var(--text-primary)';" onmouseout="this.style.background='transparent'; this.style.color='var(--text-muted)';" title="Cerrar guía"><i class="fa-solid fa-xmark"></i></button>
+    <div style="background: rgba(168, 85, 247, 0.1); width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+        <i class="fa-solid fa-lightbulb" style="color: var(--accent-purple); font-size: 1.2rem;"></i>
+    </div>
+    <div>
+        <h4 style="margin: 0 0 8px 0; color: var(--text-primary); font-family: var(--font-heading); font-size: 1rem;">Guía de Uso: Entradas de Diario</h4>
+        <p style="margin: 0 0 8px 0; color: var(--text-secondary); font-size: 0.85rem; line-height: 1.5;">
+            Aquí registras asientos contables manuales para ajustes, correcciones y operaciones especiales que requieren intervención directa.
+        </p>
+        <ul style="margin: 0; padding-left: 20px; color: var(--text-secondary); font-size: 0.85rem; line-height: 1.5;">
+            <li><strong>Asientos Manuales:</strong> Crea entradas de diario con múltiples líneas de débito y crédito para registrar operaciones contables.</li>
+            <li><strong>Clonación:</strong> Puedes clonar una entrada existente para agilizar la creación de asientos similares.</li>
+            <li><strong>Anulación:</strong> Las entradas pueden anularse con un motivo, manteniendo la trazabilidad de los cambios.</li>
+        </ul>
+    </div>
+</div>
+<script>
+    if (!window.closeGuide) { window.closeGuide = function(id) { document.getElementById(id).style.display = 'none'; sessionStorage.setItem('closed_' + id, 'true'); }; }
+    if (sessionStorage.getItem('closed_guide-journal-entries')) { document.getElementById('guide-journal-entries').style.display = 'none'; }
+</script>
+
+<!-- KPI SUMMARY STRIP -->
+{% set total_debit = namespace(val=0) %}
+{% set total_credit = namespace(val=0) %}
+{% for e in entries %}
+    {% set _ = total_debit.__setattr__('val', total_debit.val + (e.totalDebit|default(0)|float)) %}
+    {% set _ = total_credit.__setattr__('val', total_credit.val + (e.totalCredit|default(0)|float)) %}
+{% endfor %}
+<div class="summary-strip">
+    <div class="summary-strip-item">
+        <div class="summary-strip-label">Total Entradas</div>
+        <div class="summary-strip-value">{{ entries|length }}</div>
+    </div>
+    <div class="summary-strip-item">
+        <div class="summary-strip-label">Total Débitos</div>
+        <div class="summary-strip-value" style="color: var(--accent-blue, #3b82f6);">RD$ {{ "{:,.2f}".format(total_debit.val) }}</div>
+    </div>
+    <div class="summary-strip-item">
+        <div class="summary-strip-label">Total Créditos</div>
+        <div class="summary-strip-value" style="color: var(--accent-emerald);">RD$ {{ "{:,.2f}".format(total_credit.val) }}</div>
+    </div>
+</div>
+
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
+    <h2 style="font-size: 0.95rem; font-weight: 500; color: var(--text-secondary); margin: 0;">
+        Listado de Entradas de Diario
+    </h2>
+    <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+        <a href="{{ url_for('web_accounting.new_journal_entry') }}" class="btn btn-primary" style="height: 32px; font-size: 0.78rem; padding: 0 12px; display: inline-flex; align-items: center; gap: 4px;">
+            <i class="fa-solid fa-plus"></i> Nueva Entrada
+        </a>
+        <div style="position: relative; width: 180px;">
+            <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.78rem;"></i>
+            <input type="text" id="je-search" placeholder="Buscar N° o concepto..."
+                style="width: 100%; height: 32px; padding: 0 10px 0 28px; background-color: var(--bg-input); border: 1px solid var(--border-color); border-radius: var(--radius-sm); color: var(--text-primary); font-size: 0.78rem;"
+                oninput="filterJE()">
+        </div>
+        <select id="je-status-filter" onchange="filterJE()"
+            style="height: 32px; padding: 0 8px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-sm); color: var(--text-primary); font-size: 0.78rem; cursor: pointer; outline: none;">
+            <option value="">Todos los Estados</option>
+            <option value="active">Activa</option>
+            <option value="voided">Anulada</option>
+        </select>
+    </div>
+</div>
+
+<div class="card-table-wrapper" style="box-shadow: none; padding: 0; overflow: hidden;">
+    <table class="table-premium" style="width: 100%; border-collapse: collapse;">
         <thead>
-            <tr style="background:var(--bg-nav-hover);">
-                <th style="padding:10px 12px; text-align:left;">N°</th>
-                <th style="padding:10px 12px; text-align:left;">Fecha</th>
-                <th style="padding:10px 12px; text-align:left;">Concepto</th>
-                <th style="padding:10px 12px; text-align:left;">Tipo</th>
-                <th style="padding:10px 12px; text-align:right;">Débito</th>
-                <th style="padding:10px 12px; text-align:right;">Crédito</th>
-                <th style="padding:10px 12px; text-align:center;">Estado</th>
-                <th style="padding:10px 12px; text-align:center;">Acciones</th>
+            <tr style="text-align: left; background: rgba(0,0,0,0.02); border-bottom: 1px solid var(--border-color);">
+                <th style="padding: 14px 16px; font-size: 0.78rem; color: var(--text-secondary); text-transform: uppercase;">N°</th>
+                <th style="padding: 14px 16px; font-size: 0.78rem; color: var(--text-secondary); text-transform: uppercase;">Fecha</th>
+                <th style="padding: 14px 16px; font-size: 0.78rem; color: var(--text-secondary); text-transform: uppercase;">Concepto</th>
+                <th style="padding: 14px 16px; font-size: 0.78rem; color: var(--text-secondary); text-transform: uppercase;">Tipo</th>
+                <th style="padding: 14px 16px; font-size: 0.78rem; color: var(--text-secondary); text-transform: uppercase; text-align: right;">Débito</th>
+                <th style="padding: 14px 16px; font-size: 0.78rem; color: var(--text-secondary); text-transform: uppercase; text-align: right;">Crédito</th>
+                <th style="padding: 14px 16px; font-size: 0.78rem; color: var(--text-secondary); text-transform: uppercase; text-align: center;">Estado</th>
+                <th style="padding: 14px 16px; font-size: 0.78rem; color: var(--text-secondary); text-transform: uppercase; text-align: center; width: 50px;"></th>
             </tr>
         </thead>
         <tbody>
             {% if entries %}
             {% for e in entries %}
-            <tr style="border-bottom:1px solid var(--border-color); {% if e.status == 'voided' %}opacity:0.5;{% endif %}">
-                <td style="padding:8px 12px; font-family:monospace;">{{ e.number }}</td>
-                <td style="padding:8px 12px;">{{ e.date[:10] }}</td>
-                <td style="padding:8px 12px; max-width:250px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">{{ e.concept or '' }}</td>
-                <td style="padding:8px 12px;">{% if e.entryType == 'initial_balance' %}Saldos Iniciales{% elif e.entryType == 'depreciation' %}Depreciación{% elif e.entryType == 'disposal' %}Baja{% else %}Estándar{% endif %}</td>
-                <td style="padding:8px 12px; text-align:right;">{{ "{:,.2f}".format(e.totalDebit) }}</td>
-                <td style="padding:8px 12px; text-align:right;">{{ "{:,.2f}".format(e.totalCredit) }}</td>
-                <td style="padding:8px 12px; text-align:center;">
+            <tr style="border-bottom: 1px solid var(--border-color); {% if e.status == 'voided' %}opacity: 0.5;{% endif %}" class="je-row" data-status="{{ 'voided' if e.status == 'voided' else 'active' }}">
+                <td style="padding: 14px 16px; font-family: monospace; font-weight: 600; color: var(--accent-blue);">{{ e.number }}</td>
+                <td style="padding: 14px 16px;">{{ e.date[:10] }}</td>
+                <td style="padding: 14px 16px; max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ e.concept or '' }}</td>
+                <td style="padding: 14px 16px;">{% if e.entryType == 'initial_balance' %}Saldos Iniciales{% elif e.entryType == 'depreciation' %}Depreciación{% elif e.entryType == 'disposal' %}Baja{% else %}Estándar{% endif %}</td>
+                <td style="padding: 14px 16px; text-align: right; font-size: 0.85rem;">RD$ {{ "{:,.2f}".format(e.totalDebit) }}</td>
+                <td style="padding: 14px 16px; text-align: right; font-size: 0.85rem;">RD$ {{ "{:,.2f}".format(e.totalCredit) }}</td>
+                <td style="padding: 14px 16px; text-align: center;">
                     {% if e.status == 'voided' %}
-                    <span class="badge badge-danger">Anulada</span>
+                    <span class="status-badge badge-je-voided">
+                        <i class="fa-solid fa-ban"></i> Anulada
+                    </span>
                     {% else %}
-                    <span class="badge badge-success">Activa</span>
+                    <span class="status-badge badge-je-active">
+                        <i class="fa-solid fa-circle-check"></i> Activa
+                    </span>
                     {% endif %}
                 </td>
-                <td style="padding:8px 12px; text-align:center;">
-                    <div style="display:flex; gap:4px; justify-content:center;">
-                        <a href="{{ url_for('web_accounting.journal_entry_detail', entry_id=e.id) }}" class="btn btn-secondary" style="padding:2px 8px; font-size:0.75rem;">
-                            <i class="fa-solid fa-eye"></i>
-                        </a>
-                        {% if e.status != 'voided' %}
-                        <form method="POST" action="{{ url_for('web_accounting.clone_journal_entry', entry_id=e.id) }}" style="display:inline;">
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <button type="submit" class="btn btn-secondary" style="padding:2px 8px; font-size:0.75rem;" title="Clonar">
-                                <i class="fa-solid fa-copy"></i>
-                            </button>
-                        </form>
-                        <button onclick="voidEntry('{{ e.id }}', '{{ e.number }}')" class="btn btn-secondary" style="padding:2px 8px; font-size:0.75rem; color:var(--accent-red);" title="Anular">
-                            <i class="fa-solid fa-ban"></i>
+                <td style="padding: 14px 16px; text-align: center;">
+                    <div class="action-menu">
+                        <button type="button" class="action-menu-btn" onclick="toggleActionMenu(event)" title="Acciones">
+                            <i class="fa-solid fa-ellipsis-vertical"></i>
                         </button>
-                        {% endif %}
+                        <div class="action-menu-dropdown">
+                            <a href="{{ url_for('web_accounting.journal_entry_detail', entry_id=e.id) }}" class="action-menu-item">
+                                <i class="fa-solid fa-eye"></i> Ver Detalle
+                            </a>
+                            {% if e.status != 'voided' %}
+                            <form method="POST" action="{{ url_for('web_accounting.clone_journal_entry', entry_id=e.id) }}" style="display: contents;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="action-menu-item">
+                                    <i class="fa-solid fa-copy"></i> Clonar
+                                </button>
+                            </form>
+                            <button type="button" class="action-menu-item text-danger" onclick="voidEntry('{{ e.id }}', '{{ e.number }}')">
+                                <i class="fa-solid fa-ban"></i> Anular
+                            </button>
+                            {% endif %}
+                        </div>
                     </div>
                 </td>
             </tr>
             {% endfor %}
             {% else %}
             <tr>
-                <td colspan="8" style="padding:24px; text-align:center; color:var(--text-muted);">
+                <td colspan="8" style="padding: 30px; text-align: center; color: var(--text-muted);">
+                    <i class="fa-solid fa-pen-to-square" style="font-size: 2rem; opacity: 0.3; margin-bottom: 8px; display: block;"></i>
                     No hay entradas de diario registradas.
                     <a href="{{ url_for('web_accounting.new_journal_entry') }}">Crear la primera</a>.
                 </td>
@@ -78,39 +146,198 @@
             {% endif %}
         </tbody>
     </table>
+
+    <!-- PAGINACIÓN -->
+    {% if entries %}
+    <div style="display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; border-top: 1px solid var(--border-color); background: rgba(0,0,0,0.01); flex-wrap: wrap; gap: 15px;">
+        <div style="display: flex; align-items: center; gap: 8px; font-size: 0.82rem; color: var(--text-secondary);">
+            <span>Mostrar</span>
+            <select id="je-page-size" onchange="changeJEPageSize(this.value)"
+                style="padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary); font-weight: 500; outline: none; cursor: pointer;">
+                <option value="5">5</option>
+                <option value="10" selected>10</option>
+                <option value="20">20</option>
+                <option value="50">50</option>
+            </select>
+            <span>registros por página</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 5px;">
+            <button onclick="prevJEPage()" id="btn-je-prev-page" class="btn btn-secondary"
+                style="padding: 6px 12px; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 4px; height: 32px; border-radius: 4px; font-weight: 500;" disabled>
+                <i class="fa-solid fa-chevron-left"></i> Anterior
+            </button>
+            <span id="je-page-info" style="font-size: 0.82rem; color: var(--text-secondary); margin: 0 10px; font-weight: 500;">
+                Página 1 de 1
+            </span>
+            <button onclick="nextJEPage()" id="btn-je-next-page" class="btn btn-secondary"
+                style="padding: 6px 12px; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 4px; height: 32px; border-radius: 4px; font-weight: 500;">
+                Siguiente <i class="fa-solid fa-chevron-right"></i>
+            </button>
+        </div>
+    </div>
+    {% endif %}
 </div>
 
+<style>
+    .status-badge {
+        font-size: 0.75rem;
+        font-weight: 500;
+        padding: 3px 8px;
+        border-radius: 12px;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+    }
+    .badge-je-active {
+        background: rgba(16, 185, 129, 0.12);
+        color: var(--accent-emerald);
+    }
+    .badge-je-voided {
+        background: rgba(239, 68, 68, 0.12);
+        color: var(--accent-red);
+    }
+</style>
+
 <!-- Modal Anular -->
-<div id="void-modal" class="modal-overlay" style="display:none; position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:9999;align-items:center;justify-content:center;">
-    <div class="card-form-body" style="max-width:440px;width:90%;padding:24px;">
-        <h3 style="font-size:1.1rem; font-weight:700; margin-bottom:8px; color:var(--accent-red);">
-            <i class="fa-solid fa-ban"></i> Anular Entrada
+<div id="void-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 2000; align-items: center; justify-content: center;">
+    <div onclick="closeModal('void-modal')" style="position: absolute; width: 100%; height: 100%; background: rgba(0,0,0,0.4); backdrop-filter: blur(4px);"></div>
+    <div class="card-table-wrapper" style="max-width: 440px; width: 90%; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 24px; z-index: 2001; position: relative;">
+        <h3 style="font-size: 1.05rem; font-family: var(--font-heading); margin-bottom: 4px; display: flex; align-items: center; gap: 8px;">
+            <i class="fa-solid fa-ban" style="color: var(--accent-red);"></i>
+            <span>Anular Entrada de Diario</span>
         </h3>
-        <p style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:16px;">
+        <p style="color: var(--text-secondary); font-size: 0.78rem; line-height: 1.4; margin-bottom: 18px;">
             ¿Anular <strong id="void-entry-number"></strong>? Esta acción no se puede deshacer.
         </p>
         <form method="POST" id="void-form">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <div class="form-group">
-                <label>Motivo de anulación</label>
-                <input type="text" name="reason" class="form-input" placeholder="Opcional" style="font-size:0.82rem;">
+            <div class="form-group" style="margin-bottom: 12px;">
+                <label style="display: block; font-size: 0.78rem; color: var(--text-secondary); margin-bottom: 4px;">Motivo de anulación</label>
+                <input type="text" name="reason" class="form-input" placeholder="Opcional" style="font-size: 0.82rem;">
             </div>
-            <div style="display:flex; gap:8px; justify-content:flex-end; margin-top:16px;">
-                <button type="button" class="btn btn-secondary" onclick="closeModal('void-modal')">Cancelar</button>
-                <button type="submit" class="btn btn-danger">Anular</button>
+            <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 16px;">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('void-modal')" style="font-size: 0.8rem; padding: 8px 16px;">Cancelar</button>
+                <button type="submit" class="btn btn-primary" style="font-size: 0.8rem; padding: 8px 16px; background: var(--accent-red); border-color: var(--accent-red);">
+                    <i class="fa-solid fa-ban"></i> Anular
+                </button>
             </div>
         </form>
     </div>
 </div>
 
 <script>
-function voidEntry(entryId, number) {
-    document.getElementById('void-entry-number').textContent = number;
-    document.getElementById('void-form').action = '{{ url_for("web_accounting.void_journal_entry", entry_id="") }}' + entryId;
-    document.getElementById('void-modal').style.display = 'flex';
-}
-function closeModal(id) {
-    document.getElementById(id).style.display = 'none';
-}
+    function voidEntry(entryId, number) {
+        document.getElementById('void-entry-number').textContent = number;
+        document.getElementById('void-form').action = '{{ url_for("web_accounting.void_journal_entry", entry_id="") }}' + entryId;
+        document.getElementById('void-modal').style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeModal(id) {
+        document.getElementById(id).style.display = 'none';
+        document.body.style.overflow = 'auto';
+    }
+
+    // --- LÓGICA DE PAGINACIÓN Y FILTRADO ---
+    let jeCurrentPage = 1;
+    let jePageSize = 10;
+    let jeAllRows = [];
+    let jeRows = [];
+
+    document.addEventListener('DOMContentLoaded', () => {
+        jeAllRows = Array.from(document.querySelectorAll('.je-row'));
+        jeRows = [...jeAllRows];
+        updateJEPagination();
+    });
+
+    function filterJE() {
+        const query = document.getElementById('je-search').value.toLowerCase().trim();
+        const statusFilter = document.getElementById('je-status-filter').value;
+
+        jeRows = jeAllRows.filter(row => {
+            const numberCell = row.querySelector('td:first-child');
+            const conceptCell = row.querySelector('td:nth-child(3)');
+            const textContent = (numberCell ? numberCell.textContent : "") + " " + (conceptCell ? conceptCell.textContent : "");
+            const matchesQuery = !query || textContent.toLowerCase().includes(query);
+
+            const rowStatus = row.getAttribute('data-status');
+            const matchesStatus = !statusFilter || rowStatus === statusFilter;
+
+            if (matchesQuery && matchesStatus) {
+                return true;
+            } else {
+                row.style.display = 'none';
+                return false;
+            }
+        });
+
+        jeCurrentPage = 1;
+        updateJEPagination();
+    }
+
+    function updateJEPagination() {
+        const totalRows = jeRows.length;
+
+        jeAllRows.forEach(row => {
+            if (!jeRows.includes(row)) {
+                row.style.display = 'none';
+            }
+        });
+
+        if (totalRows === 0) {
+            const pageInfo = document.getElementById('je-page-info');
+            if (pageInfo) pageInfo.textContent = 'Página 0 de 0';
+            const btnPrev = document.getElementById('btn-je-prev-page');
+            if (btnPrev) btnPrev.disabled = true;
+            const btnNext = document.getElementById('btn-je-next-page');
+            if (btnNext) btnNext.disabled = true;
+            return;
+        }
+
+        const totalPages = Math.ceil(totalRows / jePageSize);
+        if (jeCurrentPage > totalPages) jeCurrentPage = totalPages;
+        if (jeCurrentPage < 1) jeCurrentPage = 1;
+
+        const startIndex = (jeCurrentPage - 1) * jePageSize;
+        const endIndex = startIndex + jePageSize;
+
+        jeRows.forEach((row, index) => {
+            if (index >= startIndex && index < endIndex) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+
+        const pageInfo = document.getElementById('je-page-info');
+        if (pageInfo) pageInfo.textContent = `Página ${jeCurrentPage} de ${totalPages}`;
+
+        const btnPrev = document.getElementById('btn-je-prev-page');
+        if (btnPrev) btnPrev.disabled = (jeCurrentPage === 1);
+
+        const btnNext = document.getElementById('btn-je-next-page');
+        if (btnNext) btnNext.disabled = (jeCurrentPage === totalPages);
+    }
+
+    function changeJEPageSize(size) {
+        jePageSize = parseInt(size) || 10;
+        jeCurrentPage = 1;
+        updateJEPagination();
+    }
+
+    function prevJEPage() {
+        if (jeCurrentPage > 1) {
+            jeCurrentPage--;
+            updateJEPagination();
+        }
+    }
+
+    function nextJEPage() {
+        const totalPages = Math.ceil(jeRows.length / jePageSize);
+        if (jeCurrentPage < totalPages) {
+            jeCurrentPage++;
+            updateJEPagination();
+        }
+    }
 </script>
 {% endblock %}

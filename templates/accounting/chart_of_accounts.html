@@ -1,6 +1,12 @@
 {% extends "layout.html" %}
 {% block title %}Catálogo de Cuentas{% endblock %}
 {% block page_header %}Catálogo de Cuentas{% endblock %}
+{% block app_loader %}
+<script>
+    if (window.showAppLoader) { showAppLoader(); }
+    window.addEventListener('load', function() { setTimeout(function() { if (window.hideAppLoader) hideAppLoader(); }, 400); });
+</script>
+{% endblock %}
 {% block content %}
 <style>
     .coa-card { background:#fff; border-radius:12px; box-shadow:0 1px 3px rgba(0,0,0,0.08); width:100%; overflow:hidden; }

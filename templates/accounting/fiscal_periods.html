@@ -1,0 +1,274 @@
+{% extends "layout.html" %}
+{% block title %}Períodos Fiscales{% endblock %}
+{% block page_header %}Períodos Fiscales{% endblock %}
+{% block content %}
+<style>
+    .period-summary-strip {
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-md);
+        box-shadow: var(--shadow-sm);
+        display: flex;
+        margin-bottom: 24px;
+        overflow: hidden;
+        backdrop-filter: blur(20px);
+    }
+    .period-summary-col {
+        flex: 1;
+        padding: 16px 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        border-right: 1px solid var(--border-color);
+    }
+    .period-summary-col:last-child { border-right: none; }
+    @media (max-width: 768px) {
+        .period-summary-strip { flex-direction: column; }
+        .period-summary-col { border-right: none; border-bottom: 1px solid var(--border-color); }
+        .period-summary-col:last-child { border-bottom: none; }
+    }
+    .period-summary-label {
+        font-size: 0.72rem;
+        color: var(--text-secondary);
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+    .period-summary-value {
+        font-size: 1.4rem;
+        font-weight: 700;
+        font-family: var(--font-heading);
+        color: var(--text-primary);
+        line-height: 1.1;
+    }
+
+    .period-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+        gap: 12px;
+    }
+    @media (min-width: 1400px) {
+        .period-grid { grid-template-columns: repeat(4, 1fr); }
+    }
+    @media (max-width: 768px) {
+        .period-grid { grid-template-columns: 1fr; }
+    }
+
+    .period-card {
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        padding: 12px 14px;
+        transition: box-shadow 0.2s, border-color 0.2s;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+    .period-card.open { cursor: default; }
+    .period-card.closed {
+        opacity: 0.55;
+        cursor: default;
+    }
+    .period-card:hover {
+        box-shadow: 0 3px 12px rgba(0,0,0,0.05);
+        border-color: var(--accent-emerald);
+    }
+
+    .period-card .card-title {
+        font-size: 0.86rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: 4px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .period-card .card-title .status-badge {
+        font-size: 0.55rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        padding: 1px 6px;
+        border-radius: 8px;
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+    }
+    .status-badge.open {
+        background: #f0fdf4;
+        color: #10b981;
+    }
+    .status-badge.closed {
+        background: #f8fafc;
+        color: #94a3b8;
+    }
+
+    .period-card .card-desc {
+        font-size: 0.75rem;
+        color: var(--text-muted);
+        line-height: 1.4;
+        flex: 1;
+    }
+
+    .period-card .card-footer {
+        margin-top: 8px;
+        display: flex;
+        align-items: center;
+    }
+    .period-card .btn-period {
+        font-size: 0.75rem;
+        font-weight: 600;
+        padding: 4px 12px;
+        border-radius: 6px;
+        border: none;
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+    .period-card.open .btn-period {
+        background: var(--accent-emerald);
+        color: #fff;
+    }
+    .period-card.open .btn-period:hover { opacity: 0.9; }
+    .period-card.closed .btn-period {
+        background: #f1f5f9;
+        color: #94a3b8;
+    }
+    .period-card.closed .btn-period:hover { background: #e2e8f0; }
+</style>
+
+{% set ns = namespace(open_count=0, closed_count=0) %}
+{% set months = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'] %}
+{% set period_map = {} %}
+{% for p in periods %}{% set _ = period_map.update({(p.month|string + '-' + p.year|string): p}) %}{% endfor %}
+{% for m in range(1, 13) %}
+{% set key = m|string + '-' + selected_year|string %}
+{% set p = period_map.get(key, {'status': 'open'}) %}
+{% if p.status == 'open' %}{% set ns.open_count = ns.open_count + 1 %}{% else %}{% set ns.closed_count = ns.closed_count + 1 %}{% endif %}
+{% endfor %}
+
+<div style="max-width:1100px;margin:0 auto;">
+
+    <!-- GUIDE BANNER -->
+    <div id="guide-fiscal-periods" style="background: rgba(168, 85, 247, 0.05); border: 1px solid rgba(168, 85, 247, 0.2); border-radius: 8px; padding: 16px; margin-bottom: 24px; display: flex; gap: 16px; align-items: flex-start; position: relative;">
+        <button onclick="closeGuide('guide-fiscal-periods')" style="position: absolute; top: 12px; right: 12px; background: transparent; border: none; color: var(--text-muted); cursor: pointer; padding: 4px; border-radius: 50%; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; transition: background 0.2s, color 0.2s;" onmouseover="this.style.background='rgba(0,0,0,0.05)'; this.style.color='var(--text-primary)';" onmouseout="this.style.background='transparent'; this.style.color='var(--text-muted)';" title="Cerrar guía"><i class="fa-solid fa-xmark"></i></button>
+        <div style="background: rgba(168, 85, 247, 0.1); width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+            <i class="fa-solid fa-lightbulb" style="color: var(--accent-purple); font-size: 1.2rem;"></i>
+        </div>
+        <div>
+            <h4 style="margin: 0 0 8px 0; color: var(--text-primary); font-family: var(--font-heading); font-size: 1rem;">Guía de Uso: Períodos Fiscales</h4>
+            <p style="margin: 0 0 8px 0; color: var(--text-secondary); font-size: 0.85rem; line-height: 1.5;">
+                Los períodos fiscales mensuales te permiten bloquear asientos contables y facturas con fechas en meses ya cerrados para mantener la integridad de tu contabilidad.
+            </p>
+            <ul style="margin: 0; padding-left: 20px; color: var(--text-secondary); font-size: 0.85rem; line-height: 1.5;">
+                <li><strong>Cerrar período:</strong> Impide registrar nuevas transacciones en ese mes. Solo usuarios con permiso de contabilidad pueden cerrar.</li>
+                <li><strong>Reabrir período:</strong> Solo el propietario de la cuenta puede reabrir un período previamente cerrado.</li>
+                <li><strong>Año fiscal:</strong> Usa el selector superior para navegar entre años y ver el estado de cada período.</li>
+            </ul>
+        </div>
+    </div>
+    <script>
+        if (!window.closeGuide) { window.closeGuide = function(id) { document.getElementById(id).style.display = 'none'; sessionStorage.setItem('closed_' + id, 'true'); }; }
+        if (sessionStorage.getItem('closed_guide-fiscal-periods')) { document.getElementById('guide-fiscal-periods').style.display = 'none'; }
+    </script>
+
+    <!-- SUMMARY STRIP -->
+    <div class="period-summary-strip">
+        <div class="period-summary-col">
+            <span class="period-summary-label">
+                Total Períodos <i class="fa-solid fa-calendar-days" style="font-size: 0.6rem; color: var(--text-muted);"></i>
+            </span>
+            <div class="period-summary-value">12</div>
+            <div style="font-size: 0.68rem; color: var(--text-muted);">Meses del año {{ selected_year }}</div>
+        </div>
+        <div class="period-summary-col">
+            <span class="period-summary-label">
+                Abiertos <i class="fa-solid fa-lock-open" style="font-size: 0.6rem; color: var(--accent-emerald);"></i>
+            </span>
+            <div class="period-summary-value" style="color: var(--accent-emerald);">{{ ns.open_count }}</div>
+            <div style="font-size: 0.68rem; color: var(--text-muted);">Disponibles para registrar</div>
+        </div>
+        <div class="period-summary-col">
+            <span class="period-summary-label">
+                Cerrados <i class="fa-solid fa-lock" style="font-size: 0.6rem; color: var(--accent-red);"></i>
+            </span>
+            <div class="period-summary-value" style="color: var(--accent-red);">{{ ns.closed_count }}</div>
+            <div style="font-size: 0.68rem; color: var(--text-muted);">Bloqueados para edición</div>
+        </div>
+    </div>
+
+    <!-- TOOLBAR -->
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <h2 style="margin:0;font-size:1.15rem;font-weight:700;font-family:var(--font-heading);">Períodos Fiscales {{ selected_year }}</h2>
+        <select onchange="window.location.href='?year='+this.value" style="height:34px;border-radius:6px;border:1px solid var(--border-color);background:var(--bg-input);color:var(--text-primary);padding:0 10px;font-size:0.85rem;cursor:pointer;">
+            {% for y in range(selected_year - 3, selected_year + 2) %}
+            <option value="{{ y }}" {% if y == selected_year %}selected{% endif %}>{{ y }}</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <!-- PERIOD CARDS GRID -->
+    <div class="period-grid">
+        {% for m in range(1, 13) %}
+        {% set key = m|string + '-' + selected_year|string %}
+        {% set p = period_map.get(key, {'status': 'open'}) %}
+        <div class="period-card {{ p.status }}">
+            <div class="card-title">
+                {{ months[m-1] }} {{ selected_year }}
+                <span class="status-badge {{ p.status }}">
+                    {% if p.status == 'open' %}Abierto{% else %}Cerrado{% endif %}
+                </span>
+            </div>
+            <div class="card-desc">
+                {% if p.status == 'closed' and p.get('closedBy') %}
+                Cerrado por {{ p.closedBy }}{% if p.get('closedAt') %} el {{ p.closedAt[:10] }}{% endif %}.
+                {% elif p.status == 'closed' %}
+                Período cerrado — no se permiten nuevos registros.
+                {% else %}
+                Período activo para registro de asientos y facturas.
+                {% endif %}
+            </div>
+            <div class="card-footer">
+                {% if p.status == 'open' %}
+                <button onclick="togglePeriod({{ selected_year }}, {{ m }}, 'close')" class="btn-period">
+                    Cerrar período
+                </button>
+                {% else %}
+                <button onclick="togglePeriod({{ selected_year }}, {{ m }}, 'open')" class="btn-period">
+                    Reabrir período
+                </button>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- INFO FOOTER -->
+    <div style="margin-top:24px;padding:12px 16px;background:var(--bg-card);border:1px solid var(--border-color);border-radius:var(--radius-md);">
+        <span style="font-size:0.78rem;color:var(--text-secondary);">
+            <i class="fa-solid fa-circle-info" style="margin-right:4px;color:var(--accent-purple);"></i>
+            Los períodos cerrados bloquean nuevos asientos contables y facturas con fecha en ese mes. Solo el propietario puede reabrir períodos.
+        </span>
+    </div>
+</div>
+
+<script>
+function togglePeriod(year, month, action) {
+    const endpoint = action === 'close'
+        ? '/accounting/fiscal-periods/close'
+        : '/accounting/fiscal-periods/open';
+    const formData = new FormData();
+    formData.append('year', year);
+    formData.append('month', month);
+    fetch(endpoint, {
+        method: 'POST',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        body: formData,
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) location.reload();
+        else alert(data.error || 'Error');
+    });
+}
+</script>
+{% endblock %}

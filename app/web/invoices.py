@@ -575,6 +575,42 @@ def ajax_create_price_list():
     return jsonify({'success': True, 'id': list_id, 'name': name, 'tipo': tipo})
 
 
+@web_invoices_bp.route('/api/quick-create-product', methods=['POST'])
+def quick_create_product():
+    """Endpoint AJAX para crear un producto rápido desde el formulario de documento."""
+    if 'user' not in session:
+        return jsonify({'success': False, 'error': 'No autorizado'}), 401
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+    data = request.get_json(silent=True) or {}
+    name = (data.get('name') or '').strip()
+    if not name:
+        return jsonify({'success': False, 'error': 'El nombre es obligatorio'}), 400
+    price = float(data.get('price', 0))
+    if price < 0:
+        return jsonify({'success': False, 'error': 'El precio no puede ser negativo'}), 400
+    item_type = data.get('type', 'Bien')
+    itbis_rate = float(data.get('itbisRate', 0.18))
+    cost_price = float(data.get('costPrice', 0))
+    item_id = str(uuid.uuid4())
+    code = data.get('code') or ('ITEM-' + item_id[:6].upper())
+    item_dict = {
+        'code': code,
+        'type': item_type,
+        'name': name,
+        'price': price,
+        'unit': data.get('unit', 'Unidad'),
+        'itbisRate': itbis_rate,
+        'costPrice': cost_price,
+        'categoryId': data.get('categoryId', 'general'),
+        'totalStock': 0.0,
+        'minStock': 0.0,
+        'isActive': True,
+    }
+    DatabaseService.save_item(owner_uid, item_id, item_dict, sandbox=sandbox)
+    return jsonify({'success': True, 'item': {'id': item_id, 'code': code, 'name': name, 'price': price, 'type': item_type, 'itbisRate': itbis_rate, 'costPrice': cost_price}})
+
+
 # =========================================================================
 # GESTIÓN DE INVENTARIO Y ALMACENES
 # =========================================================================
@@ -1550,22 +1586,29 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
                         # La factura se guardará al registrar el pago
                         DatabaseService.register_invoice_payment(owner_uid, target_invoice_id, payment_dict, sandbox=sandbox)
                         # Generar asiento contable automático
-                        try:
-                            from app.services.accounting_service import AccountingService
-                            AccountingService.auto_generate_invoice_entry(owner_uid, invoice_dict, sandbox=sandbox)
-                        except Exception:
-                            pass
+                        from app.services.accounting_service import AccountingService
+                        entry = AccountingService.auto_generate_invoice_entry(owner_uid, invoice_dict, sandbox=sandbox)
+                        if entry:
+                            flash(f'✅ Asiento contable {entry["number"]} generado automáticamente.', 'info')
+                        else:
+                            import logging
+                            logging.getLogger(__name__).warning(f"Asiento contable no generado para factura {invoice_dict.get('invoiceNumber')}")
                     else:
                         invoice_dict["status"] = "Pendiente DGII" if pending_dgii else "Emitida"
                         invoice_dict["totalPaid"] = 0.0
                         invoice_dict["remainingBalance"] = invoice_dict["netPayable"]
                         DatabaseService.save_invoice(owner_uid, target_invoice_id, invoice_dict, sandbox=sandbox)
-                        # Generar asiento contable automático
-                        try:
-                            from app.services.accounting_service import AccountingService
-                            AccountingService.auto_generate_invoice_entry(owner_uid, invoice_dict, sandbox=sandbox)
-                        except Exception:
-                            pass
+                        # Generar asiento contable automático para notas de crédito/débito
+                        from app.services.accounting_service import AccountingService
+                        if ecf_type in ["Nota de Crédito (E34)", "Nota de Débito (E33)"]:
+                            entry = AccountingService.auto_generate_credit_note_entry(owner_uid, invoice_dict, sandbox=sandbox)
+                        else:
+                            entry = AccountingService.auto_generate_invoice_entry(owner_uid, invoice_dict, sandbox=sandbox)
+                        if entry:
+                            flash(f'✅ Asiento contable {entry["number"]} generado automáticamente.', 'info')
+                        else:
+                            import logging
+                            logging.getLogger(__name__).warning(f"Asiento contable no generado para {invoice_dict.get('invoiceNumber')}")
                     
                     logs = DatabaseService.get_sequence_logs(owner_uid, sandbox=sandbox)
                     log = next((l for l in logs if l["encf"] == res.get("encf")), None)
@@ -4103,7 +4146,26 @@ def void_invoice_route(invoice_id):
             before_invoice = invoice.copy()
             invoice["status"] = "Anulada"
             DatabaseService.save_invoice(owner_uid, invoice_id, invoice, sandbox=sandbox)
-            
+
+            # Generar asiento contable reverso automático
+            try:
+                from app.services.accounting_service import AccountingService
+                rev_entry = AccountingService.auto_reverse_invoice_entry(
+                    owner_uid, before_invoice,
+                    reason="Anulación de comprobante DGII",
+                    user_id=session.get('user', {}).get('uid', 'system'),
+                    sandbox=sandbox
+                )
+                if rev_entry:
+                    flash(f'✅ Asiento reverso {rev_entry["number"]} generado.', 'info')
+                else:
+                    import logging
+                    logging.getLogger(__name__).warning(f"No se generó reverso contable para {before_invoice.get('invoiceNumber')}")
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).error(f"Error al generar reverso contable: {e}")
+                flash('⚠️ No se pudo generar el asiento contable reverso. Revise el diario manualmente.', 'warning')
+
             from app.services.audit_service import AuditService, ACTION_UPDATE, MODULE_FACTURAS
             AuditService.log_from_request(
                 owner_uid=owner_uid,
@@ -4136,7 +4198,23 @@ def void_invoice_route(invoice_id):
         before_invoice = invoice.copy()
         invoice["status"] = "Anulada"
         DatabaseService.save_invoice(owner_uid, invoice_id, invoice, sandbox=sandbox)
-        
+
+        # Generar asiento contable reverso para borradores si fueron emitidos previamente
+        if before_invoice.get("status") not in ("Borrador", "Rechazada", "Pagado pero no emitido"):
+            try:
+                from app.services.accounting_service import AccountingService
+                rev_entry = AccountingService.auto_reverse_invoice_entry(
+                    owner_uid, before_invoice,
+                    reason="Anulación manual",
+                    user_id=session.get('user', {}).get('uid', 'system'),
+                    sandbox=sandbox
+                )
+                if rev_entry:
+                    flash(f'✅ Asiento reverso {rev_entry["number"]} generado.', 'info')
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).error(f"Error al generar reverso contable: {e}")
+
         from app.services.audit_service import AuditService, ACTION_UPDATE, MODULE_FACTURAS
         AuditService.log_from_request(
             owner_uid=owner_uid,
@@ -5978,6 +6056,7 @@ def add_team_member():
         "canManageCommissions": 'canManageCommissions' in request.form,
         "canViewBI": 'canViewBI' in request.form,
         "canViewAuditLog": 'canViewAuditLog' in request.form,
+        "canAccounting": 'canAccounting' in request.form,
         "isPosSupervisor": 'isPosSupervisor' in request.form,
         "canViewSubscription": 'canViewSubscription' in request.form,
         "canToggleSandbox": 'canToggleSandbox' in request.form,
@@ -6088,6 +6167,7 @@ def update_team_member_permissions(employee_uid):
         "canManageCommissions": 'canManageCommissions' in request.form,
         "canViewBI": 'canViewBI' in request.form,
         "canViewAuditLog": 'canViewAuditLog' in request.form,
+        "canAccounting": 'canAccounting' in request.form,
         "isPosSupervisor": 'isPosSupervisor' in request.form,
         "canViewSubscription": 'canViewSubscription' in request.form,
         "canToggleSandbox": 'canToggleSandbox' in request.form,
@@ -7491,7 +7571,64 @@ def send_invoice_cxc_reminder(invoice_id, method):
         return jsonify({"success": False, "message": message}), 500
 
 
-# =========================================================================================
+@web_invoices_bp.route('/cxc/write-off/<invoice_id>', methods=['POST'])
+def cxc_write_off(invoice_id):
+    if 'user' not in session:
+        return jsonify({"success": False, "message": "No autorizado"}), 401
+    if not check_permission('canManageCXC'):
+        return jsonify({"success": False, "message": "Permiso insuficiente"}), 403
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+    invoice = DatabaseService.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+    if not invoice:
+        return jsonify({"success": False, "message": "Factura no encontrada"}), 404
+    if invoice.get('status') not in ('Vencida', 'Emitida'):
+        return jsonify({"success": False, "message": "Solo se pueden castigar facturas vencidas o emitidas"}), 400
+    reason = request.form.get('reason', '')
+    amount = float(request.form.get('amount', invoice.get('remainingBalance', 0)))
+    try:
+        from app.services.accounting_service import AccountingService
+        accounts = DatabaseService.get_chart_of_accounts(owner_uid)
+        bad_debt = next((a for a in accounts if 'incobrable' in a.get('name','').lower()), None)
+        lines = [{"accountId": bad_debt['id'], "accountCode": bad_debt.get('code',''), "accountName": bad_debt.get('name',''), "debit": amount, "credit": 0, "description": f"Castigo {invoice.get('invoiceNumber','')}"}]
+        cxc = next((a for a in accounts if a.get('usage') == 'cxc'), None)
+        if cxc:
+            lines.append({"accountId": cxc['id'], "accountCode": cxc.get('code',''), "accountName": cxc.get('name',''), "debit": 0, "credit": amount, "description": f"Castigo {invoice.get('invoiceNumber','')}"})
+        AccountingService.generate_entry(owner_uid, {"entryType":"standard","date":datetime.now(timezone.utc).strftime("%Y-%m-%d"),"concept":f"Castigo factura {invoice.get('invoiceNumber','')}","lines":lines,"createdBy":session.get('user',{}).get('name','')}, sandbox=sandbox)
+    except (ImportError, StopIteration):
+        pass
+    invoice['status'] = 'Castigada'
+    invoice['remainingBalance'] = 0.0
+    invoice['writeOffReason'] = reason
+    invoice['writeOffDate'] = datetime.now(timezone.utc).isoformat()
+    DatabaseService.save_invoice(owner_uid, invoice_id, invoice, sandbox=sandbox)
+    return jsonify({"success": True, "message": "Factura castigada"})
+
+
+@web_invoices_bp.route('/expenses/cxp/batch-pay', methods=['POST'])
+def cxp_batch_pay():
+    if 'user' not in session:
+        return jsonify({"success": False, "message": "No autorizado"}), 401
+    if not check_permission('canManageCXP'):
+        return jsonify({"success": False, "message": "Permiso insuficiente"}), 403
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+    eids = request.form.getlist('expense_ids')
+    if not eids:
+        return jsonify({"success": False, "message": "Selecciona al menos un gasto"}), 400
+    total, paid = 0.0, 0
+    for eid in eids:
+        try:
+            exp = DatabaseService.get_expense(owner_uid, eid, sandbox=sandbox)
+            if not exp:
+                continue
+            rem = float(exp.get('cxpRemainingBalance', exp.get('amount', 0)))
+            total += rem
+            DatabaseService.save_cxp_payment(owner_uid, eid, rem, registered_by=session.get('user',{}).get('name',''), sandbox=sandbox)
+            paid += 1
+        except Exception:
+            pass
+    return jsonify({"success": True, "paid": paid, "total": total})
 # EXPORTACIÓN CONTABLE
 # =========================================================================================
 from app.services.accounting_export_service import AccountingExportService, EXPORT_FORMATS, DEFAULT_CHART_OF_ACCOUNTS

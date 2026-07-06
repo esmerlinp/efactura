@@ -6,83 +6,7 @@
 
 {% block content %}
 <style>
-    /* Accordion Styles matching company_settings.html */
-    .settings-accordion {
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-        margin-bottom: 24px;
-    }
-
-    .accordion-item {
-        border: 1px solid var(--border-color);
-        border-radius: 12px;
-        background: var(--bg-card);
-        overflow: hidden;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-
-    .accordion-item.active {
-        border-color: var(--accent-emerald);
-        box-shadow: 0 4px 20px rgba(16, 185, 129, 0.05);
-    }
-
-    .accordion-header {
-        width: 100%;
-        padding: 10px 14px;
-        background: rgba(255, 255, 255, 0.01);
-        border: none;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        cursor: pointer;
-        text-align: left;
-        transition: background 0.2s ease;
-    }
-
-    .accordion-header:hover {
-        background: rgba(255, 255, 255, 0.03);
-    }
-
-    .accordion-title {
-        font-size: 0.85rem;
-        font-family: var(--font-heading);
-        font-weight: 500;
-        color: var(--text-main);
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-
-    .accordion-title i {
-        font-size: 0.95rem;
-        color: var(--accent-emerald);
-        width: 20px;
-        text-align: center;
-    }
-
-    .accordion-chevron {
-        color: var(--text-muted);
-        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        font-size: 0.8rem;
-    }
-
-    .accordion-item.active .accordion-chevron {
-        transform: rotate(180deg);
-        color: var(--accent-emerald);
-    }
-
-    .accordion-content {
-        max-height: 0;
-        overflow: hidden;
-        transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-
-    .accordion-body {
-        padding: 14px;
-        border-top: 1px solid var(--border-color);
-        background: rgba(0, 0, 0, 0.02);
-    }
+    {% include 'components/_accordion_css.html' %}
 
     /* Toggle switch style matching company_settings.html */
     .toggle-switch {
@@ -511,39 +435,16 @@
 </div>
 
 <script>
+    {% include 'components/_accordion_js.html' %}
+
     document.addEventListener('DOMContentLoaded', function () {
-        // Inicializar el acordeón para la sección activa por defecto
         const activeItem = document.querySelector('.accordion-item.active');
         if (activeItem) {
             const content = activeItem.querySelector('.accordion-content');
-            if (content) {
-                content.style.maxHeight = content.scrollHeight + 'px';
-            }
+            if (content) content.style.maxHeight = content.scrollHeight + 'px';
         }
-
-        // Inicializar el toggle de impuestos
         toggleIscFields();
     });
-
-    // Comportamiento del Acordeón calcando company_settings.html
-    window.toggleAccordionSection = function (header) {
-        const item = header.parentElement;
-        const content = item.querySelector('.accordion-content');
-        const isActive = item.classList.contains('active');
-
-        // Cerrar todas las secciones primero
-        document.querySelectorAll('.accordion-item').forEach(el => {
-            el.classList.remove('active');
-            const c = el.querySelector('.accordion-content');
-            if (c) c.style.maxHeight = null;
-        });
-
-        // Abrir la seleccionada si no estaba activa
-        if (!isActive) {
-            item.classList.add('active');
-            content.style.maxHeight = content.scrollHeight + 'px';
-        }
-    };
 
     function previewImage() {
         const url = document.getElementById('image_url').value.trim();

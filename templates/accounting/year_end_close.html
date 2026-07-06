@@ -1,0 +1,117 @@
+{% extends "layout.html" %}
+{% block title %}Cierre de Año Fiscal{% endblock %}
+{% block page_header %}Cierre de Año Fiscal {{ selected_year }}{% endblock %}
+{% block content %}
+<style>
+    .close-summary { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 20px; margin-bottom: 16px; }
+    .close-summary h3 { margin: 0 0 12px 0; font-size: 1.1rem; }
+    .line-item { display: flex; justify-content: space-between; padding: 6px 0; font-size: 0.85rem; border-bottom: 1px solid var(--border-color); }
+    .line-item:last-child { border-bottom: none; }
+    .line-item .debit { color: var(--accent-red); font-family: monospace; }
+    .line-item .credit { color: var(--accent-emerald); font-family: monospace; }
+</style>
+
+<div style="max-width:800px;margin:0 auto;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+        <h2 style="margin:0;">Previsualización del Cierre</h2>
+        <select onchange="window.location.href='?year='+this.value" style="height:32px;border-radius:6px;border:1px solid var(--border-color);background:var(--bg-input);color:var(--text-primary);padding:0 10px;">
+            {% for y in range(selected_year - 2, selected_year + 2) %}
+            <option value="{{ y }}" {% if y == selected_year %}selected{% endif %}>{{ y }}</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <div class="close-summary">
+        <h3>Resultado Neto del Ejercicio</h3>
+        <div style="font-size:2rem;font-weight:800;font-family:var(--font-heading);color:{{ 'var(--accent-emerald)' if preview.net_income >= 0 else 'var(--accent-red)' }};">
+            RD$ {{ "{:,.2f}".format(preview.net_income) }}
+            <span style="font-size:0.8rem;font-weight:500;color:var(--text-secondary);">
+                ({{ 'Utilidad' if preview.net_income >= 0 else 'Pérdida' }})
+            </span>
+        </div>
+        <div style="font-size:0.78rem;color:var(--text-muted);margin-top:4px;">
+            {{ preview.total_income_accounts }} cuentas de ingreso · {{ preview.total_expense_accounts }} cuentas de gasto/costo
+            {% if preview.retained_earnings_account %}
+            · Destino: <strong>{{ preview.retained_earnings_account }}</strong>
+            {% endif %}
+        </div>
+    </div>
+
+    {% if preview.income_lines %}
+    <div class="close-summary">
+        <h3>Cuentas de Ingreso a Cerrar ({{ preview.income_lines|length }})</h3>
+        {% for line in preview.income_lines %}
+        <div class="line-item">
+            <span>{{ line.accountCode }} — {{ line.accountName }}</span>
+            <span class="{{ 'debit' if line.debit > 0 else 'credit' }}">RD$ {{ "{:,.2f}".format(line.debit + line.credit) }}</span>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if preview.expense_lines %}
+    <div class="close-summary">
+        <h3>Cuentas de Gasto/Costo a Cerrar ({{ preview.expense_lines|length }})</h3>
+        {% for line in preview.expense_lines %}
+        <div class="line-item">
+            <span>{{ line.accountCode }} — {{ line.accountName }}</span>
+            <span class="{{ 'debit' if line.debit > 0 else 'credit' }}">RD$ {{ "{:,.2f}".format(line.debit + line.credit) }}</span>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if preview.retained_line %}
+    <div class="close-summary">
+        <h3>Asiento de Resultados Acumulados</h3>
+        <div class="line-item">
+            <span>{{ preview.retained_line.accountCode }} — {{ preview.retained_line.accountName }}</span>
+            <span class="{{ 'debit' if preview.retained_line.debit > 0 else 'credit' }}">RD$ {{ "{:,.2f}".format(preview.retained_line.debit + preview.retained_line.credit) }}</span>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if preview.income_lines or preview.expense_lines %}
+    <form id="close-form" method="POST" action="{{ url_for('web_accounting.execute_year_end_close') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="year" value="{{ selected_year }}">
+        <button type="button" onclick="executeClose()" class="btn btn-primary" style="width:100%;padding:14px;font-size:1rem;font-weight:600;">
+            Ejecutar Cierre del Año {{ selected_year }}
+        </button>
+    </form>
+    <p style="text-align:center;font-size:0.75rem;color:var(--text-muted);margin-top:12px;">
+        Esto generará un asiento de cierre, transferirá el resultado a resultados acumulados y cerrará todos los períodos del año.
+    </p>
+    {% else %}
+    <div class="close-summary" style="text-align:center;padding:40px;">
+        <p style="color:var(--text-muted);">No hay movimientos en cuentas de ingreso o gasto para este año.</p>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+function executeClose() {
+    if (!confirm('¿Estás seguro de ejecutar el cierre del año {{ selected_year }}? Esta acción no se puede deshacer.')) return;
+    const form = document.getElementById('close-form');
+    const btn = form.querySelector('button');
+    btn.disabled = true;
+    btn.textContent = 'Ejecutando cierre...';
+    const formData = new FormData(form);
+    fetch(form.action, {
+        method: 'POST',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        body: formData,
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.status === 'success') {
+            alert('Cierre ejecutado exitosamente. Asiento #' + data.entry_number + '\nResultado neto: RD$ ' + data.net_income.toLocaleString());
+            location.reload();
+        } else {
+            alert(data.message || data.error || 'Error al ejecutar cierre');
+        }
+    })
+    .catch(() => alert('Error de red'));
+}
+</script>
+{% endblock %}

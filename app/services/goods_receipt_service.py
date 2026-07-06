@@ -119,6 +119,29 @@ class GoodsReceiptService:
         registered = []
         if DatabaseService is None:
             return registered
+
+        po_id = receipt_data.get("purchaseOrderId", "")
+        if po_id:
+            try:
+                po = DatabaseService.get_purchase_order(owner_uid, po_id, sandbox=sandbox)
+                if po:
+                    for item in receipt_data.get("items", []):
+                        po_items = po.get("items", [])
+                        po_item = next((i for i in po_items if i.get("itemId") == item.get("itemId")), None)
+                        if po_item:
+                            ordered_qty = float(po_item.get("quantity", 0))
+                            received_qty = float(po_item.get("receivedQuantity", 0))
+                            new_qty = float(item.get("receivedQuantity", 0))
+                            if received_qty + new_qty > ordered_qty:
+                                raise ValueError(
+                                    f"Cantidad excede la orden de compra para {po_item.get('itemName','')}: "
+                                    f"ordenado {ordered_qty}, recibido {received_qty}, nuevo {new_qty}"
+                                )
+            except Exception as e:
+                if "Cantidad excede" in str(e):
+                    raise
+                pass
+
         items = receipt_data.get("items", [])
         warehouse_id = receipt_data.get("warehouseId", "")
         receipt_number = receipt_data.get("receiptNumber", "")

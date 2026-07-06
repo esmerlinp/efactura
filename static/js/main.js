@@ -488,3 +488,302 @@ function formatCurrencyDOP(amount) {
         currency: 'DOP'
     }).format(amount);
 }
+
+// =========================================================================
+// DIALOG SYSTEM (replaces native alert/confirm)
+// =========================================================================
+
+/**
+ * Show a custom alert dialog (replaces native alert())
+ * @param {string} title - Modal title
+ * @param {string} message - Message body
+ * @param {string} type - 'info' | 'success' | 'warning' | 'danger' (default 'info')
+ * @returns {Promise<boolean>} Always resolves to true (acknowledged)
+ */
+function showAlert(title, message, type) {
+    type = type || 'info';
+    var icons = {
+        info: { icon: 'fa-circle-info', cls: 'info' },
+        success: { icon: 'fa-circle-check', cls: 'success' },
+        warning: { icon: 'fa-triangle-exclamation', cls: 'warning' },
+        danger: { icon: 'fa-circle-exclamation', cls: 'danger' }
+    };
+    var iconDef = icons[type] || icons.info;
+    return new Promise(function(resolve) {
+        var overlay = document.createElement('div');
+        overlay.className = 'dialog-overlay';
+        overlay.setAttribute('role', 'dialog');
+        overlay.setAttribute('aria-modal', 'true');
+        overlay.setAttribute('aria-label', title);
+        overlay.innerHTML =
+            '<div class="dialog-box">' +
+            '  <div class="dialog-icon-row">' +
+            '    <div class="dialog-icon-circle ' + iconDef.cls + '"><i class="fa-solid ' + iconDef.icon + '"></i></div>' +
+            '  </div>' +
+            '  <div class="dialog-body">' +
+            '    <div class="dialog-title">' + title + '</div>' +
+            '    <div class="dialog-message">' + message + '</div>' +
+            '  </div>' +
+            '  <div class="dialog-footer">' +
+            '    <button class="btn btn-primary dialog-ok-btn">Aceptar</button>' +
+            '  </div>' +
+            '</div>';
+        document.body.appendChild(overlay);
+        document.body.style.overflow = 'hidden';
+
+        var closeDialog = function() {
+            overlay.classList.add('closing');
+            setTimeout(function() {
+                if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+                document.body.style.overflow = '';
+                resolve(true);
+            }, 150);
+        };
+
+        overlay.addEventListener('click', function(e) {
+            if (e.target === overlay) closeDialog();
+        });
+        overlay.querySelector('.dialog-ok-btn').addEventListener('click', closeDialog);
+
+        document.addEventListener('keydown', function escHandler(e) {
+            if (e.key === 'Escape') {
+                closeDialog();
+                document.removeEventListener('keydown', escHandler);
+            }
+        });
+
+        setTimeout(function() {
+            var btn = overlay.querySelector('.dialog-ok-btn');
+            if (btn) btn.focus();
+        }, 100);
+    });
+}
+
+/**
+ * Show a custom confirm dialog (replaces native confirm())
+ * @param {string} title - Modal title
+ * @param {string} message - Confirmation message
+ * @param {string} type - 'warning' | 'danger' (default 'warning')
+ * @param {string} confirmText - Text for confirm button (default 'Confirmar')
+ * @param {string} cancelText - Text for cancel button (default 'Cancelar')
+ * @returns {Promise<boolean>} true if confirmed, false if cancelled
+ */
+function showConfirm(title, message, type, confirmText, cancelText) {
+    type = type || 'warning';
+    confirmText = confirmText || 'Confirmar';
+    cancelText = cancelText || 'Cancelar';
+    var icons = {
+        warning: { icon: 'fa-triangle-exclamation', cls: 'warning' },
+        danger: { icon: 'fa-circle-exclamation', cls: 'danger' },
+        info: { icon: 'fa-circle-question', cls: 'info' }
+    };
+    var iconDef = icons[type] || icons.warning;
+    var btnClass = type === 'danger' ? 'btn-danger' : 'btn-primary';
+
+    return new Promise(function(resolve) {
+        var overlay = document.createElement('div');
+        overlay.className = 'dialog-overlay';
+        overlay.setAttribute('role', 'dialog');
+        overlay.setAttribute('aria-modal', 'true');
+        overlay.setAttribute('aria-label', title);
+        overlay.innerHTML =
+            '<div class="dialog-box">' +
+            '  <div class="dialog-icon-row">' +
+            '    <div class="dialog-icon-circle ' + iconDef.cls + '"><i class="fa-solid ' + iconDef.icon + '"></i></div>' +
+            '  </div>' +
+            '  <div class="dialog-body">' +
+            '    <div class="dialog-title">' + title + '</div>' +
+            '    <div class="dialog-message">' + message + '</div>' +
+            '  </div>' +
+            '  <div class="dialog-footer">' +
+            '    <button class="btn btn-secondary dialog-cancel-btn">' + cancelText + '</button>' +
+            '    <button class="btn ' + btnClass + ' dialog-confirm-btn">' + confirmText + '</button>' +
+            '  </div>' +
+            '</div>';
+        document.body.appendChild(overlay);
+        document.body.style.overflow = 'hidden';
+
+        var closeDialog = function(result) {
+            overlay.classList.add('closing');
+            setTimeout(function() {
+                if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+                document.body.style.overflow = '';
+                resolve(result);
+            }, 150);
+        };
+
+        overlay.addEventListener('click', function(e) {
+            if (e.target === overlay) closeDialog(false);
+        });
+        overlay.querySelector('.dialog-cancel-btn').addEventListener('click', function() { closeDialog(false); });
+        overlay.querySelector('.dialog-confirm-btn').addEventListener('click', function() { closeDialog(true); });
+
+        document.addEventListener('keydown', function escHandler(e) {
+            if (e.key === 'Escape') {
+                closeDialog(false);
+                document.removeEventListener('keydown', escHandler);
+            }
+        });
+
+        setTimeout(function() {
+            var btn = overlay.querySelector('.dialog-confirm-btn');
+            if (btn) btn.focus();
+        }, 100);
+    });
+}
+
+document.addEventListener('keydown', function(e) {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') {
+        if (e.ctrlKey && e.key === 'k') {
+            e.preventDefault();
+            showCommandPalette();
+        }
+        if (e.ctrlKey && e.key === 's') {
+            var form = e.target.closest('form');
+            if (form) { e.preventDefault(); form.dispatchEvent(new Event('submit', {cancelable: true})); }
+        }
+        return;
+    }
+    if (e.ctrlKey && e.key === 'k') { e.preventDefault(); showCommandPalette(); }
+    if (e.ctrlKey && e.key === 'n') {
+        e.preventDefault();
+        if (window.location.pathname.includes('/invoices')) window.location.href = '/invoices/new';
+    }
+    if (e.ctrlKey && e.key === 'e') { e.preventDefault(); window.location.href = '/expenses/new'; }
+    if (e.key === 'Escape') {
+        closeAllActionMenus();
+    }
+});
+
+// =========================================================================
+// ACCORDION TOGGLE (shared component)
+// =========================================================================
+function toggleAccordionSection(header) {
+    var item = header.parentElement;
+    var content = item.querySelector('.accordion-content');
+    if (!content) return;
+    var isActive = item.classList.contains('active');
+
+    var allItems = document.querySelectorAll('.accordion-item');
+    for (var i = 0; i < allItems.length; i++) {
+        allItems[i].classList.remove('active');
+        var c = allItems[i].querySelector('.accordion-content');
+        if (c) c.style.maxHeight = null;
+    }
+
+    if (!isActive) {
+        item.classList.add('active');
+        content.style.maxHeight = content.scrollHeight + 'px';
+    }
+}
+
+// =========================================================================
+// UNIFIED TOAST NOTIFICATION SERVICE
+// =========================================================================
+function ensureToastContainer() {
+    var container = document.getElementById('toast-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'toast-container';
+        container.className = 'toast-container';
+        document.body.appendChild(container);
+    }
+    return container;
+}
+
+/**
+ * Show a toast notification
+ * @param {string} message - Message text
+ * @param {string} type - 'success' | 'error' | 'warning' | 'info' (default 'info')
+ * @param {string} title - Optional title
+ * @param {number} duration - Duration in ms (default 5000)
+ */
+function showToast(message, type, title, duration) {
+    type = type || 'info';
+    title = title || '';
+    duration = duration || 5000;
+    var typeMap = {
+        success: { icon: 'fa-circle-check', color: 'var(--accent-success)', cls: 'toast-success' },
+        error:   { icon: 'fa-circle-exclamation', color: 'var(--accent-red)', cls: 'toast-error' },
+        warning: { icon: 'fa-triangle-exclamation', color: 'var(--accent-yellow)', cls: 'toast-warning' },
+        info:    { icon: 'fa-circle-info', color: 'var(--accent-emerald)', cls: '' }
+    };
+    var def = typeMap[type] || typeMap.info;
+
+    var container = ensureToastContainer();
+    var toast = document.createElement('div');
+    toast.className = 'toast-item ' + def.cls;
+    toast.style.borderLeftColor = def.color;
+    toast.innerHTML =
+        '<div class="toast-icon"><i class="fa-solid ' + def.icon + '" style="color:' + def.color + ';"></i></div>' +
+        '<div class="toast-content">' +
+        (title ? '<div class="toast-title-text">' + title + '</div>' : '') +
+        '<div class="toast-message-text">' + message + '</div>' +
+        '</div>' +
+        '<button class="toast-close-btn" onclick="this.closest(\'.toast-item\').remove()"><i class="fa-solid fa-xmark"></i></button>';
+
+    container.appendChild(toast);
+
+    setTimeout(function() {
+        if (toast.parentNode) {
+            toast.classList.add('removing');
+            setTimeout(function() {
+                if (toast.parentNode) toast.parentNode.removeChild(toast);
+            }, 250);
+        }
+    }, duration);
+}
+
+function showCommandPalette() {
+    var existing = document.getElementById('command-palette');
+    if (existing) { existing.remove(); return; }
+    var backdrop = document.createElement('div');
+    backdrop.id = 'command-palette';
+    backdrop.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:9999;display:flex;align-items:flex-start;justify-content:center;padding-top:15vh;backdrop-filter:blur(4px);';
+    backdrop.onclick = function(e) { if (e.target === backdrop) backdrop.remove(); };
+
+    var modal = document.createElement('div');
+    modal.style.cssText = 'background:var(--bg-card);border:1px solid var(--border-color);border-radius:12px;width:500px;max-width:90vw;box-shadow:var(--shadow-lg);overflow:hidden;';
+    modal.innerHTML = '<input id="palette-input" type="text" placeholder="Buscar página o acción..." style="width:100%;padding:14px 16px;border:none;border-bottom:1px solid var(--border-color);background:transparent;color:var(--text-primary);font-size:0.95rem;outline:none;box-sizing:border-box;" autofocus><div id="palette-results" style="max-height:300px;overflow-y:auto;padding:4px;"></div>';
+
+    var commands = [
+        { label: 'Nueva Factura', icon: 'fa-file-invoice', url: '/invoices/new', keys: 'Ctrl+N' },
+        { label: 'Lista de Facturas', icon: 'fa-list', url: '/invoices' },
+        { label: 'Nueva Cotización', icon: 'fa-file-signature', url: '/quotations/new' },
+        { label: 'Nuevo Gasto', icon: 'fa-receipt', url: '/expenses/new', keys: 'Ctrl+E' },
+        { label: 'Dashboard', icon: 'fa-house', url: '/dashboard' },
+        { label: 'Lista de Clientes', icon: 'fa-users', url: '/clients' },
+        { label: 'Catálogo de Cuentas', icon: 'fa-book', url: '/accounting/chart-of-accounts' },
+        { label: 'Entradas de Diario', icon: 'fa-pen', url: '/accounting/journal-entries' },
+        { label: 'Períodos Fiscales', icon: 'fa-calendar', url: '/accounting/fiscal-periods' },
+        { label: 'Ratios Financieros', icon: 'fa-chart-pie', url: '/reports/financial-ratios' },
+        { label: 'POS', icon: 'fa-cash-register', url: '/pos' },
+    ];
+
+    backdrop.appendChild(modal);
+    document.body.appendChild(backdrop);
+
+    var input = document.getElementById('palette-input');
+    var results = document.getElementById('palette-results');
+
+    function renderResults(filter) {
+        var filtered = commands.filter(function(c) {
+            return !filter || c.label.toLowerCase().includes(filter.toLowerCase());
+        });
+        results.innerHTML = filtered.map(function(c) {
+            return '<div class="palette-item" style="display:flex;align-items:center;gap:10px;padding:8px 14px;cursor:pointer;font-size:0.85rem;color:var(--text-primary);border-radius:6px;" data-url="'+c.url+'" onmouseover="this.style.background=\'var(--bg-nav-hover)\'" onmouseout="this.style.background=\'transparent\'">' +
+                '<i class="fa-solid '+c.icon+'" style="width:18px;text-align:center;opacity:0.6;"></i>' +
+                '<span style="flex:1;">'+c.label+'</span>' +
+                (c.keys ? '<span style="font-size:0.65rem;color:var(--text-muted);">'+c.keys+'</span>' : '') +
+                '</div>';
+        }).join('');
+        results.querySelectorAll('.palette-item').forEach(function(item) {
+            item.onclick = function() { window.location.href = this.dataset.url; };
+        });
+    }
+    renderResults('');
+    input.addEventListener('input', function() { renderResults(this.value); });
+    input.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') backdrop.remove();
+    });
+}

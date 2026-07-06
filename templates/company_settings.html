@@ -7,12 +7,10 @@
 {% block content %}
 <style>
     @keyframes bounce {
-
         0%,
         100% {
             transform: translateY(0) scale(1);
         }
-
         50% {
             transform: translateY(-15px) scale(1.1);
         }
@@ -26,83 +24,7 @@
         opacity: 0.8 !important;
     }
 
-    /* Accordion Styles */
-    .settings-accordion {
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-        margin-bottom: 24px;
-    }
-
-    .accordion-item {
-        border: 1px solid var(--border-color);
-        border-radius: 12px;
-        background: var(--bg-card);
-        overflow: hidden;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-
-    .accordion-item.active {
-        border-color: var(--accent-emerald);
-        box-shadow: 0 4px 20px rgba(16, 185, 129, 0.05);
-    }
-
-    .accordion-header {
-        width: 100%;
-        padding: 10px 14px;
-        background: rgba(255, 255, 255, 0.01);
-        border: none;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        cursor: pointer;
-        text-align: left;
-        transition: background 0.2s ease;
-    }
-
-    .accordion-header:hover {
-        background: rgba(255, 255, 255, 0.03);
-    }
-
-    .accordion-title {
-        font-size: 0.85rem;
-        font-family: var(--font-heading);
-        font-weight: 500;
-        color: var(--text-main);
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-
-    .accordion-title i {
-        font-size: 0.95rem;
-        color: var(--accent-emerald);
-        width: 20px;
-        text-align: center;
-    }
-
-    .accordion-chevron {
-        color: var(--text-muted);
-        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        font-size: 0.8rem;
-    }
-
-    .accordion-item.active .accordion-chevron {
-        transform: rotate(180deg);
-        color: var(--accent-emerald);
-    }
-
-    .accordion-content {
-        max-height: 0;
-        overflow: hidden;
-        transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-
-    .accordion-body {
-        padding: 14px;
-        border-top: 1px solid var(--border-color);
-        background: rgba(0, 0, 0, 0.02);
-    }
+    {% include 'components/_accordion_css.html' %}
 </style>
 
 <div class="page-title-container" style="margin-bottom: 24px; padding-left: 4px;">
@@ -1106,24 +1028,7 @@
 
         {% block extra_scripts %}
         <script>
-            window.toggleAccordionSection = function (header) {
-                const item = header.parentElement;
-                const content = item.querySelector('.accordion-content');
-                const isActive = item.classList.contains('active');
-
-                // Collapse all items
-                document.querySelectorAll('.accordion-item').forEach(el => {
-                    el.classList.remove('active');
-                    const c = el.querySelector('.accordion-content');
-                    if (c) c.style.maxHeight = null;
-                });
-
-                // If it wasn't active, activate it and set its maxHeight
-                if (!isActive) {
-                    item.classList.add('active');
-                    content.style.maxHeight = content.scrollHeight + 'px';
-                }
-            };
+            {% include 'components/_accordion_js.html' %}
 
             window.toggleApiKeyVisibility = function () {
                 const input = document.getElementById('api-key-input');

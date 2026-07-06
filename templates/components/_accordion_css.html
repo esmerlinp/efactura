@@ -1,0 +1,108 @@
+<style>
+    .settings-accordion {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        margin-bottom: 24px;
+        width: 100%;
+    }
+
+    .accordion-item {
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        background: var(--bg-card);
+        overflow: hidden;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .accordion-item.active {
+        border-color: var(--accent-emerald);
+        box-shadow: 0 4px 20px rgba(16, 185, 129, 0.05);
+    }
+
+    .accordion-header {
+        width: 100%;
+        padding: 14px 18px;
+        background: rgba(255, 255, 255, 0.01);
+        border: none;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        cursor: pointer;
+        text-align: left;
+        transition: background 0.2s ease;
+        font-family: var(--font-body);
+    }
+
+    .accordion-header:hover {
+        background: rgba(255, 255, 255, 0.03);
+    }
+
+    .accordion-title {
+        font-size: 0.95rem;
+        font-family: var(--font-heading);
+        font-weight: 500;
+        color: var(--text-primary);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .accordion-title i {
+        font-size: 1.05rem;
+        color: var(--accent-emerald);
+        width: 24px;
+        text-align: center;
+    }
+
+    .accordion-chevron {
+        color: var(--text-muted);
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        font-size: 0.85rem;
+    }
+
+    .accordion-item.active .accordion-chevron {
+        transform: rotate(180deg);
+        color: var(--accent-emerald);
+    }
+
+    .accordion-content {
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .accordion-body {
+        padding: 20px;
+        border-top: 1px solid var(--border-color);
+        background: rgba(0, 0, 0, 0.02);
+    }
+
+    [data-theme="dark"] .accordion-header {
+        background: rgba(255, 255, 255, 0.01);
+    }
+
+    [data-theme="dark"] .accordion-header:hover {
+        background: rgba(255, 255, 255, 0.03);
+    }
+
+    [data-theme="dark"] .accordion-body {
+        background: rgba(255, 255, 255, 0.02);
+    }
+
+    .form-inner-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 18px 20px;
+    }
+
+    .span-full {
+        grid-column: 1 / -1;
+    }
+
+    @media (max-width: 768px) {
+        .form-inner-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>

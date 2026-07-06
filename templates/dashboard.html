@@ -11,7 +11,7 @@
         margin: 0 auto;
         display: flex;
         flex-direction: column;
-        gap: 24px;
+        gap: 12px;
     }
 
     @media (max-width: 1024px) {
@@ -165,6 +165,206 @@
 
     .dashboard-tab { display: none; }
     .dashboard-tab.active { display: block; }
+
+    /* Compact Metric Cards Grid */
+    .metrics-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+        margin-bottom: 12px;
+    }
+    .metrics-grid.cols-2 { grid-template-columns: repeat(2, 1fr); }
+
+    @media (max-width: 900px) {
+        .metrics-grid { grid-template-columns: 1fr; }
+    }
+
+    .metric-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-md);
+        padding: 14px 16px;
+        box-shadow: var(--shadow-sm);
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+    .metric-card-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+    }
+    .metric-card-title {
+        font-size: 0.78rem;
+        font-weight: 500;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+    }
+    .metric-card-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        font-family: var(--font-heading);
+        color: var(--text-primary);
+        line-height: 1;
+    }
+    .metric-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 0.75rem;
+        color: var(--text-muted);
+        padding: 4px 0;
+        border-top: 1px solid var(--border-color);
+    }
+    .metric-row:first-child { border-top: none; }
+    .metric-row .label { color: var(--text-secondary); }
+    .metric-row .value { font-weight: 600; color: var(--text-primary); }
+    .metric-row .danger { color: var(--accent-red); }
+    .metric-row .count { font-size: 0.7rem; color: var(--text-muted); }
+
+    /* Small Metric Cards (4-col) */
+    .small-metrics-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 12px;
+        margin-bottom: 12px;
+    }
+    @media (max-width: 900px) {
+        .small-metrics-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    .small-metric {
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-md);
+        padding: 12px 14px;
+        text-align: center;
+        box-shadow: var(--shadow-sm);
+    }
+    .small-metric .label {
+        font-size: 0.7rem;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        margin-bottom: 4px;
+    }
+    .small-metric .value {
+        font-size: 1.35rem;
+        font-weight: 700;
+        font-family: var(--font-heading);
+        color: var(--text-primary);
+        line-height: 1.1;
+    }
+    .small-metric .sub {
+        font-size: 0.65rem;
+        color: var(--text-muted);
+        margin-top: 2px;
+    }
+
+    /* Onboarding CTA Banner */
+    .onboarding-cta {
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-md);
+        padding: 14px 18px;
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        box-shadow: var(--shadow-sm);
+    }
+    .onboarding-cta .step-dots {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+    }
+    .onboarding-cta .step-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: var(--border-color);
+    }
+    .onboarding-cta .step-dot.done { background: var(--accent-emerald); }
+    .onboarding-cta .step-dot.current { background: var(--accent-emerald); box-shadow: 0 0 8px var(--accent-emerald); }
+
+    /* First Invoice CTA */
+    .first-invoice-cta {
+        background: linear-gradient(135deg, rgba(16,185,129,0.06), rgba(16,185,129,0.02));
+        border: 1px solid rgba(16,185,129,0.2);
+        border-radius: var(--radius-md);
+        padding: 16px 20px;
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 20px;
+    }
+    .first-invoice-cta .cta-text h4 {
+        font-family: var(--font-heading);
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin: 0 0 2px 0;
+    }
+    .first-invoice-cta .cta-text p {
+        font-size: 0.78rem;
+        color: var(--text-secondary);
+        margin: 0;
+    }
+
+    /* Sales Chart Card */
+    .sales-chart-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-md);
+        padding: 16px 20px;
+        margin-bottom: 12px;
+        box-shadow: var(--shadow-sm);
+    }
+
+    /* Minimal Smart Insights */
+    .insights-minimal {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        margin-bottom: 12px;
+    }
+    .insight-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 7px 12px;
+        border-radius: var(--radius-sm);
+        font-size: 0.78rem;
+        color: var(--text-secondary);
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        text-decoration: none;
+        transition: border-color 0.15s;
+    }
+    .insight-row:hover { border-color: var(--border-glow); }
+    .insight-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        flex-shrink: 0;
+    }
+    .insight-dot.warning { background: var(--accent-yellow); }
+    .insight-dot.danger { background: var(--accent-red); }
+    .insight-dot.info { background: var(--accent-purple); }
+    .insight-dot.success { background: var(--accent-emerald); }
+
+    .insights-title {
+        font-size: 0.7rem;
+        font-weight: 600;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        margin-bottom: 4px;
+    }
 </style>
 
 <div class="dashboard-container">
@@ -291,543 +491,158 @@
 {% endif %}
 <!-- FIN ALERTA DE CONTINGENCIA -->
 
+{% set onboarding_count = (1 if onboarding_state.has_company_configured else 0) + (1 if onboarding_state.has_products else 0) + (1 if onboarding_state.has_clients else 0) + (1 if onboarding_state.has_invoices else 0) %}
+
 {% if onboarding_state and not onboarding_state.is_complete %}
-<!-- ONBOARDING CHECKLIST WIDGET -->
-<div style="background-color: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 24px; margin-bottom: 30px; box-shadow: var(--shadow-sm);">
-    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px;">
+<div class="onboarding-cta" id="onboarding-banner" style="cursor: default;">
+    <div style="display: flex; align-items: center; gap: 14px;">
+        <div class="step-dots">
+            <div class="step-dot {{ 'done' if onboarding_state.has_company_configured else 'current' if onboarding_count == 0 else '' }}"></div>
+            <div class="step-dot {{ 'done' if onboarding_state.has_products else 'current' if onboarding_count == 1 else '' }}"></div>
+            <div class="step-dot {{ 'done' if onboarding_state.has_clients else 'current' if onboarding_count == 2 else '' }}"></div>
+            <div class="step-dot {{ 'done' if onboarding_state.has_invoices else 'current' if onboarding_count == 3 else '' }}"></div>
+        </div>
+        <span style="font-weight: 600; font-size: 0.85rem; color: var(--text-primary);">{{ onboarding_count }} de 4 funcionalidades completadas</span>
+    </div>
+    <button onclick="document.getElementById('onboarding-banner').style.display='none'" style="background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.78rem;">Ocultar</button>
+</div>
+
+{% if onboarding_state.has_company_configured %}
+<div class="first-invoice-cta">
+    <div class="cta-text">
+        <h4>Crea tu primera factura de venta</h4>
+        <p>Genera tu primera factura en minutos y lleva el control de tus ventas fácilmente.</p>
+    </div>
+    <a href="{{ url_for('web_invoices.new_invoice_route') }}" class="btn btn-primary" style="padding: 8px 18px; font-size: 0.8rem; font-weight: 600; border-radius: var(--radius-sm); white-space: nowrap; text-decoration: none;">Crear factura</a>
+</div>
+{% endif %}
+{% endif %}
+
+<!-- METRICS GRID -->
+<div class="metrics-grid">
+    <div class="metric-card">
+        <div class="metric-card-header">
+            <span class="metric-card-title">Resumen del negocio</span>
+            <span style="font-size: 0.68rem; color: var(--text-muted);">Mes actual</span>
+        </div>
+        <div style="display: flex; align-items: flex-end; gap: 3px; height: 50px; padding: 4px 0;">
+            {% set max_val = [stats.total_invoiced, stats.total_expenses, 1]|max %}
+            {% set bar_h_inv = (stats.total_invoiced / max_val * 100)|int %}
+            {% set bar_h_exp = (stats.total_expenses / max_val * 100)|int %}
+            <div style="flex: 1; display: flex; flex-direction: column; justify-content: flex-end;">
+                <div style="height: {{ bar_h_inv if bar_h_inv > 0 else 4 }}%; background: var(--accent-emerald); border-radius: 4px 4px 0 0; min-height: 4px;"></div>
+            </div>
+            <div style="flex: 1; display: flex; flex-direction: column; justify-content: flex-end;">
+                <div style="height: {{ bar_h_exp if bar_h_exp > 0 else 4 }}%; background: var(--accent-red); border-radius: 4px 4px 0 0; min-height: 4px;"></div>
+            </div>
+        </div>
+        <div style="display: flex; justify-content: space-between; font-size: 0.68rem; color: var(--text-muted); margin-top: 4px;">
+            <span><span style="color: var(--accent-emerald); font-weight: 600;">Ingresos</span> RD$ {{ "{:,.0f}".format(stats.total_invoiced) }}</span>
+            <span><span style="color: var(--accent-red); font-weight: 600;">Gastos</span> RD$ {{ "{:,.0f}".format(stats.total_expenses) }}</span>
+        </div>
+    </div>
+
+    <div class="metric-card">
+        <div class="metric-card-header">
+            <span class="metric-card-title">Cuentas por cobrar</span>
+        </div>
+        <div class="metric-card-value">RD$ {{ "{:,.2f}".format(stats.total_cxc) }}</div>
+        <div class="metric-row">
+            <span class="label">Vigentes</span>
+            <span class="value">RD$ {{ "{:,.2f}".format(cxc_vigentes) }}</span>
+            <span class="count">{{ cxc_docs_vigentes }} documentos</span>
+        </div>
+        <div class="metric-row">
+            <span class="label">Vencidas</span>
+            <span class="value danger">RD$ {{ "{:,.2f}".format(cxc_vencidas) }}</span>
+            <span class="count">{{ cxc_docs_vencidas }} documento</span>
+        </div>
+    </div>
+
+    <div class="metric-card">
+        <div class="metric-card-header">
+            <span class="metric-card-title">Cuentas por pagar</span>
+        </div>
+        <div class="metric-card-value">RD$ {{ "{:,.2f}".format(total_cxp) }}</div>
+        <div class="metric-row">
+            <span class="label">Vigentes</span>
+            <span class="value">RD$ {{ "{:,.2f}".format(cxp_vigentes) }}</span>
+            <span class="count">{{ cxp_docs_vigentes }} documentos</span>
+        </div>
+        <div class="metric-row">
+            <span class="label">Vencidas</span>
+            <span class="value danger">RD$ {{ "{:,.2f}".format(cxp_vencidas) }}</span>
+            <span class="count">{{ cxp_docs_vencidas }} documentos</span>
+        </div>
+    </div>
+</div>
+
+<!-- SMALL METRICS -->
+<div class="small-metrics-grid">
+    <div class="small-metric">
+        <div class="label">Impuestos en venta</div>
+        <div class="value">RD$ {{ "{:,.2f}".format(impuestos_venta) }}</div>
+    </div>
+    <div class="small-metric">
+        <div class="label">Productos vendidos</div>
+        <div class="value">{{ productos_vendidos_count }}</div>
+    </div>
+    <div class="small-metric">
+        <div class="label">Devoluciones de clientes</div>
+        <div class="sub">Incluye impuestos</div>
+        <div class="value">RD$ 0.00</div>
+    </div>
+    <div class="small-metric">
+        <div class="label">Clientes con ventas</div>
+        <div class="value">{{ clientes_con_ventas }}</div>
+    </div>
+</div>
+
+<!-- TOTAL DE VENTAS -->
+<div class="sales-chart-card">
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; flex-wrap: wrap; gap: 12px;">
         <div>
-            <h3 style="font-family: var(--font-heading); font-size: 1.15rem; color: var(--text-primary); margin: 0 0 4px 0;">Configuración Inicial</h3>
-            <p style="color: var(--text-secondary); font-size: 0.85rem; margin: 0;">Completa estos pasos básicos para empezar a facturar como todo un profesional.</p>
-        </div>
-        <div style="text-align: right;">
-            <span style="font-size: 0.9rem; font-weight: bold; color: var(--accent-emerald);">{{ "{:.0f}".format(onboarding_state.progress_pct) }}%</span>
-            <div style="width: 120px; height: 8px; background: var(--bg-input); border-radius: 4px; margin-top: 4px; overflow: hidden;">
-                <div style="width: {{ onboarding_state.progress_pct }}%; height: 100%; background: var(--accent-emerald); border-radius: 4px; transition: width 0.5s ease;"></div>
+            <div class="metric-card-title">Total de ventas</div>
+            <div style="font-size: 1.4rem; font-weight: 700; font-family: var(--font-heading); color: var(--text-primary); line-height: 1.1;">
+                RD$ {{ "{:,.2f}".format(stats.total_invoiced) }}
+                <span style="font-size: 0.7rem; color: var(--text-muted); font-weight: 500;">0%</span>
             </div>
+            <div style="font-size: 0.68rem; color: var(--text-muted);">{{ date_str }}</div>
         </div>
-    </div>
-    
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px;">
-        <!-- Paso 1 -->
-        <a href="{{ url_for('web_invoices.company_settings') }}" style="display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: var(--radius-sm); border: 1px solid {% if onboarding_state.has_company_configured %}var(--border-color){% else %}var(--accent-blue){% endif %}; text-decoration: none; background: {% if onboarding_state.has_company_configured %}rgba(16, 185, 129, 0.04){% else %}var(--bg-input){% endif %};">
-            {% if onboarding_state.has_company_configured %}
-            <i class="fa-solid fa-circle-check" style="color: var(--accent-emerald); font-size: 1.2rem;"></i>
-            {% else %}
-            <div style="width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--accent-blue); display: flex; align-items: center; justify-content: center;"><div style="width: 8px; height: 8px; background: var(--accent-blue); border-radius: 50%;"></div></div>
-            {% endif %}
-            <span style="color: var(--text-primary); font-size: 0.85rem; font-weight: 500;">Perfil de Empresa</span>
-        </a>
-        
-        <!-- Paso 2 -->
-        <a href="{{ url_for('web_invoices.inventory_dashboard') }}" style="display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: var(--radius-sm); border: 1px solid {% if onboarding_state.has_products %}var(--border-color){% else %}var(--accent-blue){% endif %}; text-decoration: none; background: {% if onboarding_state.has_products %}rgba(16, 185, 129, 0.04){% else %}var(--bg-input){% endif %};">
-            {% if onboarding_state.has_products %}
-            <i class="fa-solid fa-circle-check" style="color: var(--accent-emerald); font-size: 1.2rem;"></i>
-            {% else %}
-            <div style="width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--accent-blue); display: flex; align-items: center; justify-content: center;"><div style="width: 8px; height: 8px; background: var(--accent-blue); border-radius: 50%;"></div></div>
-            {% endif %}
-            <span style="color: var(--text-primary); font-size: 0.85rem; font-weight: 500;">Crear tu primer producto</span>
-        </a>
-
-        <!-- Paso 3 -->
-        <a href="{{ url_for('web_clients.list_clients') }}" style="display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: var(--radius-sm); border: 1px solid {% if onboarding_state.has_clients %}var(--border-color){% else %}var(--accent-blue){% endif %}; text-decoration: none; background: {% if onboarding_state.has_clients %}rgba(16, 185, 129, 0.04){% else %}var(--bg-input){% endif %};">
-            {% if onboarding_state.has_clients %}
-            <i class="fa-solid fa-circle-check" style="color: var(--accent-emerald); font-size: 1.2rem;"></i>
-            {% else %}
-            <div style="width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--text-muted);"></div>
-            {% endif %}
-            <span style="color: var(--text-primary); font-size: 0.85rem; font-weight: 500;">Registrar un cliente</span>
-        </a>
-
-        <!-- Paso 4 -->
-        <a href="{{ url_for('web_invoices.new_invoice_route') }}" style="display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: var(--radius-sm); border: 1px solid {% if onboarding_state.has_invoices %}var(--border-color){% else %}var(--accent-blue){% endif %}; text-decoration: none; background: {% if onboarding_state.has_invoices %}rgba(16, 185, 129, 0.04){% else %}var(--bg-input){% endif %};">
-            {% if onboarding_state.has_invoices %}
-            <i class="fa-solid fa-circle-check" style="color: var(--accent-emerald); font-size: 1.2rem;"></i>
-            {% else %}
-            <div style="width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--text-muted);"></div>
-            {% endif %}
-            <span style="color: var(--text-primary); font-size: 0.85rem; font-weight: 500;">Emitir primera factura</span>
-        </a>
-    </div>
-</div>
-{% endif %}
-
-{% if onboarding_state and onboarding_state.has_company_configured and not onboarding_state.has_products %}
-<!-- ONBOARDING MODAL PRIMER PRODUCTO -->
-<div id="product-onboarding-modal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 9999; align-items: center; justify-content: center; backdrop-filter: blur(4px);">
-    <div style="background: #ffffff; width: 90%; max-width: 480px; border-radius: 16px; padding: 32px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); position: relative; text-align: center; animation: modalPop 0.3s ease-out forwards;">
-        <button onclick="dismissProductModal()" style="position: absolute; top: 16px; right: 16px; background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.2rem; padding: 4px;"><i class="fa-solid fa-xmark"></i></button>
-        
-        <div style="width: 80px; height: 80px; background: rgba(16, 185, 129, 0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px auto;">
-            <i class="fa-solid fa-box-open" style="font-size: 2.5rem; color: var(--accent-emerald);"></i>
-        </div>
-        
-        <h2 style="font-family: var(--font-heading); font-size: 1.5rem; color: var(--text-primary); margin: 0 0 12px 0;">¡Estás a un paso de empezar!</h2>
-        <p style="color: var(--text-secondary); font-size: 0.95rem; line-height: 1.5; margin: 0 0 24px 0;">
-            Tu empresa ya está configurada. Para poder utilizar el Punto de Venta (POS) y empezar a facturar, necesitas crear tu primer producto o servicio.
-        </p>
-        
-        <a href="{{ url_for('web_invoices.new_item') }}" style="display: block; width: 100%; background: var(--accent-emerald); color: white; border: none; padding: 14px; border-radius: var(--radius-md); font-weight: 600; font-size: 1rem; text-decoration: none; margin-bottom: 16px; box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.2); transition: transform 0.2s, box-shadow 0.2s;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 8px -1px rgba(16, 185, 129, 0.3)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 6px -1px rgba(16, 185, 129, 0.2)'">
-            <i class="fa-solid fa-plus" style="margin-right: 8px;"></i> Crear mi primer producto
-        </a>
-        
-        <button onclick="dontShowProductModalAgain()" style="background: transparent; border: none; color: var(--text-muted); font-size: 0.85rem; cursor: pointer; text-decoration: underline;">No volver a mostrar</button>
-    </div>
-</div>
-
-<style>
-@keyframes modalPop {
-    0% { opacity: 0; transform: scale(0.95) translateY(10px); }
-    100% { opacity: 1; transform: scale(1) translateY(0); }
-}
-</style>
-
-<script>
-    document.addEventListener('DOMContentLoaded', () => {
-        const hideModal = localStorage.getItem('hideProductOnboarding');
-        if (!hideModal) {
-            const modal = document.getElementById('product-onboarding-modal');
-            if (modal) {
-                // Pequeño delay para que no sea tan brusco
-                setTimeout(() => {
-                    modal.style.display = 'flex';
-                }, 500);
-            }
-        }
-    });
-
-    function dismissProductModal() {
-        const modal = document.getElementById('product-onboarding-modal');
-        if(modal) modal.style.display = 'none';
-    }
-
-    function dontShowProductModalAgain() {
-        localStorage.setItem('hideProductOnboarding', 'true');
-        dismissProductModal();
-    }
-</script>
-{% endif %}
-
-<!-- Título y Filtros fuera de la tarjeta (Estilo Firebase Firestore) -->
-<div
-    style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 12px; margin-top: 10px;">
-    <h2 style="font-size: 0.95rem; font-weight: 500; color: var(--text-secondary); margin: 0;">
-        Resumen Financiero
-    </h2>
-    <form action="{{ url_for('web_dashboard.dashboard') }}" method="GET" id="kpi-filter-form"
-        style="margin: 0; display: flex; align-items: center; gap: 8px;">
-        <input type="hidden" name="scale" value="{{ scale }}">
-        <input type="hidden" name="date" value="{{ date_str }}">
-
-        <i class="fa-regular fa-calendar" style="font-size: 0.85rem; color: var(--text-muted);"></i>
-        <select name="kpi_period" class="form-select"
-            style="height: 28px; width: auto; padding: 0 24px 0 0; font-size: 0.85rem; font-weight: 500; border: none; background-color: transparent; color: var(--text-primary); cursor: pointer; display: inline-flex; outline: none; margin: 0;"
-            onchange="document.getElementById('kpi-filter-form').submit()">
-            <option value="month" {% if kpi_period=='month' %}selected{% endif %}>Este Mes ({{ current_month_name }})
-            </option>
-            <option value="prev_month" {% if kpi_period=='prev_month' %}selected{% endif %}>Mes Anterior</option>
-            <option value="year" {% if kpi_period=='year' %}selected{% endif %}>Este Año ({{ selected_year }})</option>
-            <option value="all" {% if kpi_period=='all' %}selected{% endif %}>Todo el Tiempo</option>
-        </select>
-    </form>
-</div>
-
-{% set period_label = "" %}
-{% if kpi_period == 'month' %}
-{% set period_label = " este mes" %}
-{% elif kpi_period == 'prev_month' %}
-{% set period_label = " mes anterior" %}
-{% elif kpi_period == 'year' %}
-{% set period_label = " este año" %}
-{% else %}
-{% set period_label = " histórico" %}
-{% endif %}
-
-<div class="bi-summary-cards">
-
-    <div class="bi-card">
-        <span class="bi-card-title">
-            Total Facturado (Ingresos)
-            <i class="fa-solid fa-chevron-right" style="font-size: 0.6rem; color: var(--text-muted); margin-left: 4px;"></i>
-        </span>
-        <div class="bi-card-value" style="color: var(--accent-emerald);">
-            RD$ {{ "{:,.2f}".format(stats.total_invoiced) }}
-        </div>
-        <span class="bi-card-trend trend-up" style="font-size: 0.65rem;">
-            <i class="fa-solid fa-file-invoice-dollar"></i> Facturas emitidas{{ period_label }}
-        </span>
-        <div style="margin-top: auto; padding-top: 4px;">
-            <svg viewBox="0 0 120 20" style="width: 100%; height: 20px; display: block;">
-                <path d="M0 18 C 15 18, 25 14, 45 10 C 65 6, 75 16, 95 4 C 105 -1, 112 12, 120 6"
-                      fill="none" stroke="var(--accent-emerald)" stroke-width="1.8" stroke-linecap="round"></path>
-            </svg>
-        </div>
-    </div>
-
-    <div class="bi-card">
-        <span class="bi-card-title">
-            Egresos Registrados
-            <i class="fa-solid fa-chevron-right" style="font-size: 0.6rem; color: var(--text-muted); margin-left: 4px;"></i>
-        </span>
-        <div class="bi-card-value" style="color: var(--accent-red);">
-            RD$ {{ "{:,.2f}".format(stats.total_expenses) }}
-        </div>
-        <span class="bi-card-trend trend-down" style="font-size: 0.65rem;">
-            <i class="fa-solid fa-wallet"></i> Gastos{{ period_label }}
-        </span>
-        <div style="margin-top: auto; padding-top: 4px;">
-            <svg viewBox="0 0 120 20" style="width: 100%; height: 20px; display: block;">
-                <path d="M0 8 C 15 12, 30 5, 45 15 C 60 22, 75 10, 90 18 C 105 10, 112 16, 120 12"
-                      fill="none" stroke="var(--accent-red)" stroke-width="1.8" stroke-linecap="round"></path>
-            </svg>
-        </div>
-    </div>
-
-    <div class="bi-card">
-        <span class="bi-card-title">
-            Rentabilidad / Margen Neto
-            <i class="fa-solid fa-chevron-right" style="font-size: 0.6rem; color: var(--text-muted); margin-left: 4px;"></i>
-        </span>
-        <div class="bi-card-value" style="color: {% if stats.margin_net >= 0 %}var(--accent-emerald){% else %}var(--accent-red){% endif %};">
-            {{ "{:.1f}%".format(stats.margin_net) }}
-        </div>
-        <span class="bi-card-trend {% if stats.margin_net >= 0 %}trend-up{% else %}trend-down{% endif %}" style="font-size: 0.65rem;">
-            <i class="fa-solid {% if stats.margin_net >= 0 %}fa-arrow-trend-up{% else %}fa-arrow-trend-down{% endif %}"></i>
-            Margen neto{{ period_label }}
-        </span>
-        <div style="margin-top: auto; padding-top: 4px;">
-            <svg viewBox="0 0 120 20" style="width: 100%; height: 20px; display: block;">
-                <g fill="#3b82f6" opacity="0.85">
-                    <rect x="5" y="14" width="4" height="6" rx="1"></rect>
-                    <rect x="15" y="12" width="4" height="8" rx="1"></rect>
-                    <rect x="25" y="15" width="4" height="5" rx="1"></rect>
-                    <rect x="35" y="9" width="4" height="11" rx="1"></rect>
-                    <rect x="45" y="11" width="4" height="9" rx="1"></rect>
-                    <rect x="55" y="16" width="4" height="4" rx="1"></rect>
-                    <rect x="65" y="8" width="4" height="12" rx="1"></rect>
-                    <rect x="75" y="4" width="4" height="16" rx="1"></rect>
-                    <rect x="85" y="10" width="4" height="10" rx="1"></rect>
-                    <rect x="95" y="13" width="4" height="7" rx="1"></rect>
-                    <rect x="105" y="6" width="4" height="14" rx="1"></rect>
-                    <rect x="115" y="9" width="4" height="11" rx="1"></rect>
-                </g>
-            </svg>
-        </div>
-    </div>
-
-    <div class="bi-card">
-        <span class="bi-card-title">
-            Cuentas por Cobrar (CxC)
-            <i class="fa-solid fa-chevron-right" style="font-size: 0.6rem; color: var(--text-muted); margin-left: 4px;"></i>
-        </span>
-        <div class="bi-card-value" style="color: {% if stats.total_cxc > 50000 %}var(--accent-yellow){% else %}var(--accent-emerald){% endif %};">
-            RD$ {{ "{:,.2f}".format(stats.total_cxc) }}
-        </div>
-        <span class="bi-card-trend" style="font-size: 0.65rem;">
-            <i class="fa-solid fa-scale-balanced"></i> Saldo pendiente total
-        </span>
-        <div style="margin-top: auto; padding-top: 4px;">
-            <a href="{{ url_for('web_invoices.cxc_dashboard') }}" class="btn"
-               style="padding: 3px 8px; font-size: 0.68rem; display: inline-flex; align-items: center; gap: 4px; height: 24px; border-radius: 20px; border: 1px solid var(--border-color); background: #ffffff; color: var(--text-primary); cursor: pointer; font-weight: 500; box-shadow: var(--shadow-sm); text-decoration: none;">
-                <i class="fa-solid fa-receipt" style="color: var(--accent-emerald); font-size: 0.7rem;"></i>
-                Gestión de CxC
-            </a>
-        </div>
-    </div>
-
-</div>
-
-<!-- SECCIÓN DE SALUD FISCAL & CONTROL DE REGIMEN (DGII) -->
-<div style="margin-bottom: 30px;">
-    <!-- Título fuera de la tarjeta -->
-    <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 12px;">
-        <h2 style="font-size: 0.95rem; font-weight: 500; color: var(--text-secondary); margin: 0;">
-            Diagnóstico de Salud Fiscal & Regulación DGII
-        </h2>
-        <span class="badge {% if profile.regimenFiscal in ('rst_income', 'rst_purchases', 'RST') %}badge-success{% else %}badge-primary{% endif %}"
-              style="font-size:0.65rem;">
-            {% set r = profile.regimenFiscal|default('ordinary') %}
-            {% if r in ('rst_income', 'RST') %}RST (Ingresos){% elif r == 'rst_purchases' %}RST (Compras){% elif r == 'consumer' %}Consumidor Final{% elif r == 'exempt' %}Exento{% else %}Ordinario{% endif %}
-        </span>
-    </div>
-
-    <div class="card-table-wrapper" style="padding: 24px; box-shadow: none;">
-
-        <div style="display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 30px; align-items: center;">
-            <!-- Lado Izquierdo: Semáforo y Alertas -->
-            <div style="display: flex; gap: 24px; align-items: flex-start;">
-                <!-- Semáforo visual -->
-                <div
-                    style="display: flex; flex-direction: column; gap: 10px; background-color: rgba(0, 0, 0, 0.15); padding: 14px; border-radius: 20px; align-items: center; min-width: 60px;">
-                    <div
-                        style="width: 28px; height: 28px; border-radius: 50%; background-color: var(--accent-red); opacity: {% if stats.total_cxc > 100000 or (profile.regimenFiscal in ('RST', 'rst_income', 'rst_purchases') and rst_income_year >= rst_limit_2026 * 0.9) %}1.0{% else %}0.15{% endif %}; box-shadow: {% if stats.total_cxc > 100000 or (profile.regimenFiscal in ('RST', 'rst_income', 'rst_purchases') and rst_income_year >= rst_limit_2026 * 0.9) %}0 0 12px var(--accent-red){% else %}none{% endif %}; transition: all 0.3s ease;">
-                    </div>
-                    <div
-                        style="width: 28px; height: 28px; border-radius: 50%; background-color: var(--accent-yellow); opacity: {% if (stats.total_cxc > 20000 and stats.total_cxc <= 100000) or (profile.regimenFiscal in ('RST', 'rst_income', 'rst_purchases') and rst_income_year >= rst_limit_2026 * 0.7 and rst_income_year < rst_limit_2026 * 0.9) %}1.0{% else %}0.15{% endif %}; box-shadow: {% if (stats.total_cxc > 20000 and stats.total_cxc <= 100000) or (profile.regimenFiscal in ('RST', 'rst_income', 'rst_purchases') and rst_income_year >= rst_limit_2026 * 0.7 and rst_income_year < rst_limit_2026 * 0.9) %}0 0 12px var(--accent-yellow){% else %}none{% endif %}; transition: all 0.3s ease;">
-                    </div>
-                    <div
-                        style="width: 28px; height: 28px; border-radius: 50%; background-color: var(--accent-emerald); opacity: {% if stats.total_cxc <= 20000 and (profile.regimenFiscal not in ('RST', 'rst_income', 'rst_purchases') or rst_income_year < rst_limit_2026 * 0.7) %}1.0{% else %}0.15{% endif %}; box-shadow: {% if stats.total_cxc <= 20000 and (profile.regimenFiscal not in ('RST', 'rst_income', 'rst_purchases') or rst_income_year < rst_limit_2026 * 0.7) %}0 0 12px var(--accent-emerald){% else %}none{% endif %}; transition: all 0.3s ease;">
-                    </div>
-                </div>
-
-                <!-- Textos y consejos de Salud -->
-                <div style="display: flex; flex-direction: column; gap: 12px;">
-                    <h4 style="font-size: 1.05rem; font-family: var(--font-heading); margin-bottom: 2px;">Análisis de
-                        Contabilidad en Tiempo Real</h4>
-
-                    {% if profile.regimenFiscal in ('RST', 'rst_income', 'rst_purchases') %}
-                    <p style="color: var(--text-secondary); font-size: 0.88rem; line-height: 1.4; margin: 0;">
-                        🟢 <strong>Diagnóstico de Régimen:</strong> Estás operando en el <strong>Régimen Simplificado
-                            (RST)</strong>. Este régimen simplifica tus declaraciones y tu único enfoque es no superar
-                        el límite de facturación anual.
-                    </p>
-                    {% if rst_income_year >= rst_limit_2026 * 0.9 %}
-                    <p
-                        style="color: var(--accent-red); font-size: 0.85rem; font-weight: 500; line-height: 1.4; margin: 0;">
-                        ⚠️ ¡ALERTA CRÍTICA! Has alcanzado el {{ "{:.1f}%".format((rst_income_year / rst_limit_2026) *
-                        100)
-                        }} de tu límite fiscal anual. Si superas los RD$ 12.06M, la DGII te transferirá automáticamente
-                        al
-                        Régimen General.
-                    </p>
-                    {% elif rst_income_year >= rst_limit_2026 * 0.7 %}
-                    <p
-                        style="color: var(--accent-yellow); font-size: 0.85rem; font-weight: 500; line-height: 1.4; margin: 0;">
-                        ⚠️ Cuidado: Has superado el 70% de tus ingresos permitidos para este año. Te recomendamos
-                        moderar
-                        nuevas emisiones para no rebasar el límite anual de RD$ 12.06 millones.
-                    </p>
-                    {% else %}
-                    <p style="color: var(--text-muted); font-size: 0.82rem; line-height: 1.4; margin: 0;">
-                        👍 <strong>Consejo del Mes:</strong> Tus ingresos acumulados se encuentran dentro del rango
-                        seguro.
-                        Sigue disfrutando de la exención de reportar gastos y concéntrate en emitir tus comprobantes
-                        electrónicos fiscales con total normalidad.
-                    </p>
-                    {% endif %}
-                    {% else %}
-                    <p style="color: var(--text-secondary); font-size: 0.88rem; line-height: 1.4; margin: 0;">
-                        🔵 <strong>Diagnóstico de Régimen:</strong> Estás en el <strong>Régimen General</strong>. Tu
-                        facturación electrónica (e-CF) se reporta y autoriza en tiempo real con la DGII para cada una de
-                        tus ventas y comprobantes emitidos.
-                    </p>
-                    <p style="color: var(--text-muted); font-size: 0.82rem; line-height: 1.4; margin: 0;">
-                        💰 <strong>Fondo Tributario Aconsejado:</strong> Has facturado un total de <strong>RD$ {{
-                            "{:,.2f}".format(stats.total_itbis) }}</strong> de ITBIS en este periodo. Te recomendamos
-                        apartar este monto en una cuenta separada para evitar desfalques de caja cuando toque liquidar
-                        el
-                        IT-1 ante la DGII.
-                    </p>
-                    {% endif %}
-
-                    {% if stats.total_cxc > 50000 %}
-                    <div
-                        style="background-color: rgba(245, 158, 11, 0.05); border-left: 3px solid var(--accent-yellow); padding: 8px 12px; border-radius: var(--radius-xs); margin-top: 4px;">
-                        <span
-                            style="font-size: 0.8rem; font-weight: 700; color: var(--accent-yellow); display: block; margin-bottom: 2px;">⚠️
-                            Alta Cartera de Cuentas por Cobrar</span>
-                        <span
-                            style="font-size: 0.78rem; color: var(--text-secondary); line-height: 1.3; display: block;">
-                            Tienes RD$ {{ "{:,.2f}".format(stats.total_cxc) }} pendientes de cobro. Recuerda que la DGII
-                            te
-                            exige pagar el ITBIS de las facturas emitidas, *incluso si tus clientes no te las han pagado
-                            aún*. ¡Prioriza la cobranza de tus facturas!
-                        </span>
-                    </div>
-                    {% endif %}
-                </div>
+        <form action="{{ url_for('web_dashboard.dashboard') }}" method="GET" id="filter-form" style="display: flex; align-items: center; gap: 8px; margin: 0;">
+            <div style="display: flex; align-items: center; gap: 4px; background: rgba(0,0,0,0.05); padding: 3px; border-radius: var(--radius-md);">
+                <button type="button" id="btn-chart-bar" onclick="switchChartType('bar')" style="border: none; background: #ffffff; padding: 5px 8px; border-radius: var(--radius-sm); cursor: pointer; color: var(--text-primary); font-size: 0.78rem; box-shadow: 0 1px 2px rgba(0,0,0,0.1);" title="Barras"><i class="fa-solid fa-chart-column"></i></button>
+                <button type="button" id="btn-chart-line" onclick="switchChartType('line')" style="border: none; background: transparent; padding: 5px 8px; border-radius: var(--radius-sm); cursor: pointer; color: var(--text-secondary); font-size: 0.78rem;" title="Líneas"><i class="fa-solid fa-chart-line"></i></button>
             </div>
-
-            <!-- Lado Derecho: Barra de Progreso del RST (sólo si aplica) -->
-            <div
-                style="border-left: 1px solid var(--border-color); padding-left: 30px; height: 100%; display: flex; flex-direction: column; justify-content: center; gap: 12px;">
-                {% if profile.regimenFiscal in ('RST', 'rst_income', 'rst_purchases') %}
-                <div
-                    style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-secondary); font-weight: 500;">
-                    <span>Límite Anual RST 2026 (Ingresos)</span>
-                    <span style="font-family: monospace;">{{ "{:.1f}%".format((rst_income_year / rst_limit_2026) * 100)
-                        }}</span>
-                </div>
-
-                <div
-                    style="width: 100%; height: 12px; background-color: var(--bg-input); border-radius: 6px; overflow: hidden; position: relative;">
-                    <div
-                        style="width: {{ min(100.0, (rst_income_year / rst_limit_2026) * 100) }}%; height: 100%; background-color: {% if rst_income_year >= rst_limit_2026 * 0.9 %}var(--accent-red){% elif rst_income_year >= rst_limit_2026 * 0.7 %}var(--accent-yellow){% else %}var(--accent-emerald){% endif %}; border-radius: 6px; transition: width 0.5s ease; box-shadow: 0 0 8px {% if rst_income_year >= rst_limit_2026 * 0.9 %}var(--accent-red){% elif rst_income_year >= rst_limit_2026 * 0.7 %}var(--accent-yellow){% else %}var(--accent-emerald){% endif %};">
-                    </div>
-                </div>
-
-                <div
-                    style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); font-family: monospace;">
-                    <span>Acumulado: RD$ {{ "{:,.2f}".format(rst_income_year) }}</span>
-                    <span>Tope: RD$ {{ "{:,.2f}".format(rst_limit_2026) }}</span>
-                </div>
-                {% else %}
-                <div style="text-align: center; padding: 10px 0;">
-                    <i class="fa-solid fa-circle-nodes"
-                        style="font-size: 2.2rem; color: var(--accent-purple); opacity: 0.25; margin-bottom: 8px; display: block;"></i>
-                    <span style="font-size: 0.8rem; color: var(--text-secondary); line-height: 1.4; display: block;">
-                        ¿Eres profesional independiente o MIPYME y emites comprobantes de servicios? Considera evaluar
-                        con
-                        tu asesor aplicar al <strong>Régimen Simplificado (RST)</strong> para ahorrar costos de
-                        contabilidad.
-                    </span>
-                </div>
-                {% endif %}
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Módulo de Smart Insights (Predictivo IA) -->
-<div class="card-table-wrapper" style="padding: 16px 20px; display: flex; flex-direction: column; gap: 12px; margin-bottom: 30px;">
-    <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;">
-        <div style="display: flex; align-items: center; gap: 8px;">
-            <i class="fa-solid fa-lightbulb" style="color: var(--accent-yellow); font-size: 0.95rem;"></i>
-            <span style="font-size: 0.85rem; font-weight: 600; color: var(--text-primary); font-family: var(--font-heading);">Smart Insights (Predictivo IA)</span>
-        </div>
-        <a href="{{ url_for('web_clients.list_clients') }}" class="btn btn-secondary" style="display: inline-flex; align-items: center; gap: 5px; padding: 4px 12px; font-size: 0.72rem; font-weight: 600; border-radius: 20px;">
-            <i class="fa-solid fa-brain"></i> Ver Estrategias
-        </a>
-    </div>
-    <div style="display: flex; flex-direction: column; gap: 10px;">
-        {% for insight in insights %}
-        <div class="insight-card {% if insight.type == 'warning' %}insight-warning{% elif insight.type == 'danger' %}insight-danger{% elif insight.type == 'info' %}insight-info{% else %}insight-success{% endif %}" style="{% if insight.client_id %}cursor: pointer;{% endif %}">
-            <div class="insight-icon {% if insight.type == 'warning' %}insight-icon-warning{% elif insight.type == 'danger' %}insight-icon-danger{% elif insight.type == 'info' %}insight-icon-info{% else %}insight-icon-success{% endif %}">
-                {% if insight.type == 'warning' %}
-                <i class="fa-solid fa-circle-exclamation"></i>
-                {% elif insight.type == 'danger' %}
-                <i class="fa-solid fa-triangle-exclamation"></i>
-                {% elif insight.type == 'info' %}
-                <i class="fa-solid fa-circle-info"></i>
-                {% else %}
-                <i class="fa-solid fa-circle-check"></i>
-                {% endif %}
-            </div>
-            <div style="flex: 1; color: var(--text-secondary); line-height: 1.4;">{{ insight.text }}</div>
-            {% if insight.client_id %}
-            <a href="{{ url_for('web_clients.client_insights', client_id=insight.client_id) }}" class="btn btn-secondary" style="display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; font-size: 0.7rem; font-weight: 600; border-radius: 20px; flex-shrink: 0;">
-                <i class="fa-solid fa-chart-simple"></i> Estrategia
-            </a>
-            {% endif %}
-        </div>
-        {% endfor %}
-    </div>
-</div>
-
-<!-- Reporte de Desempeño Mensual (Fila Independiente) -->
-<div style="margin-bottom: 30px;">
-    <!-- Título y Filtros fuera de la tarjeta -->
-    <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 12px;">
-        <h2 style="font-size: 0.95rem; font-weight: 500; color: var(--text-secondary); margin: 0;">
-            {{ chart_title }}
-        </h2>
-
-        <form action="{{ url_for('web_dashboard.dashboard') }}" method="GET" id="filter-form"
-            style="display: flex; align-items: center; gap: 16px; margin: 0;">
-
-            <!-- Switcher de Bar/Line -->
-            <div
-                style="display: flex; align-items: center; gap: 4px; background: rgba(0,0,0,0.05); padding: 4px; border-radius: var(--radius-md);">
-                <button type="button" id="btn-chart-bar" onclick="switchChartType('bar')"
-                    style="border: none; background: #ffffff; padding: 6px 10px; border-radius: var(--radius-sm); cursor: pointer; color: var(--text-primary); font-size: 0.85rem; box-shadow: 0 1px 2px rgba(0,0,0,0.1);"
-                    title="Gráfico de Barras"><i class="fa-solid fa-chart-column"></i></button>
-                <button type="button" id="btn-chart-line" onclick="switchChartType('line')"
-                    style="border: none; background: transparent; padding: 6px 10px; border-radius: var(--radius-sm); cursor: pointer; color: var(--text-secondary); font-size: 0.85rem;"
-                    title="Gráfico de Líneas"><i class="fa-solid fa-chart-line"></i></button>
-            </div>
-
-            {% if scale != 'year' %}
-            <div style="display: flex; align-items: center; gap: 6px;">
-                <i class="fa-regular fa-calendar" style="font-size: 0.85rem; color: var(--text-muted);"></i>
-                <input type="date" name="date" value="{{ date_str }}"
-                    style="height: 28px; width: auto; padding: 0 4px; font-size: 0.85rem; font-weight: 500; border: none; background-color: transparent; color: var(--text-primary); cursor: pointer; display: inline-flex; outline: none; margin: 0;"
-                    onchange="document.getElementById('filter-form').submit()">
-            </div>
-            {% endif %}
-
-            <div style="display: flex; align-items: center; gap: 6px;">
-                <span style="font-size: 0.85rem; color: var(--text-muted);">Escala:</span>
-                <select name="scale" class="form-select"
-                    style="height: 28px; width: auto; padding: 0 16px 0 0; font-size: 0.85rem; font-weight: 500; border: none; background-color: transparent; color: var(--text-primary); cursor: pointer; display: inline-flex; outline: none; margin: 0;"
-                    onchange="document.getElementById('filter-form').submit()">
-                    <option value="hour" {% if scale=='hour' %}selected{% endif %}>Hora</option>
-                    <option value="day" {% if scale=='day' %}selected{% endif %}>Día</option>
-                    <option value="week" {% if scale=='week' %}selected{% endif %}>Semana</option>
-                    <option value="month" {% if scale=='month' %}selected{% endif %}>Mes</option>
-                    <option value="quarter" {% if scale=='quarter' %}selected{% endif %}>Trimestre</option>
-                    <option value="year" {% if scale=='year' %}selected{% endif %}>Año</option>
-                </select>
-            </div>
+            <select name="scale" class="form-select" style="height: 26px; width: auto; padding: 0 16px 0 0; font-size: 0.78rem; font-weight: 500; border: none; background-color: transparent; color: var(--text-primary); cursor: pointer; outline: none;" onchange="document.getElementById('filter-form').submit()">
+                <option value="day" {% if scale=='day' %}selected{% endif %}>Día</option>
+                <option value="week" {% if scale=='week' %}selected{% endif %}>Semana</option>
+                <option value="month" {% if scale=='month' %}selected{% endif %}>Mes</option>
+            </select>
         </form>
     </div>
-
-    <!-- Gráficos Analíticos -->
-    <div class="card-table-wrapper"
-        style="display: flex; flex-direction: column; box-sizing: border-box; width: 100%; padding: 24px; box-shadow: none;">
-        <div style="position: relative; height: 350px; width: 100%;">
-            <canvas id="flowChart"></canvas>
-        </div>
+    <div style="position: relative; height: 220px; width: 100%;">
+        <canvas id="flowChart"></canvas>
     </div>
 </div>
 
-<!-- Fila de Gráficos Secundarios: Consumo y Tipos -->
-<div
-    style="display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 30px; margin-bottom: 30px; align-items: stretch;">
+<!-- SMART INSIGHTS MINIMAL -->
+<div class="insights-minimal">
+    <div class="insights-title">Smart Insights</div>
+    {% for insight in insights %}
+    <a href="{% if insight.client_id %}{{ url_for('web_clients.client_insights', client_id=insight.client_id) }}{% else %}#{% endif %}" class="insight-row" {% if not insight.client_id %}onclick="return false;" style="cursor:default;"{% endif %}>
+        <span class="insight-dot {{ insight.type }}"></span>
+        <span style="flex:1;">{{ insight.text }}</span>
+        {% if insight.client_id %}
+        <i class="fa-solid fa-arrow-right" style="font-size: 0.65rem; opacity: 0.4; flex-shrink: 0;"></i>
+        {% endif %}
+    </a>
+    {% endfor %}
+</div>
 
-    <!-- Consumo del Plan de Facturación -->
-    <div style="display: flex; flex-direction: column;">
-        <!-- Título fuera de la tarjeta -->
-        <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 12px;">
-            <h2 style="font-size: 0.95rem; font-weight: 500; color: var(--text-secondary); margin: 0;">
-                Consumo del Plan
-            </h2>
-        </div>
-
-        <div class="card-table-wrapper"
-            style="flex: 1; display: flex; flex-direction: column; box-sizing: border-box; width: 100%; padding: 24px; box-shadow: none;">
-            <div
-                style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%;">
-                <div
-                    style="position: relative; height: 220px; width: 220px; display: flex; align-items: center; justify-content: center; margin: 0 auto;">
-                    <canvas id="planChart"></canvas>
-                    <!-- Texto en el centro de la rosca -->
-                    <div style="position: absolute; text-align: center; margin-top: 25px;">
-                        <span
-                            style="font-size: 1.8rem; font-weight: 400; color: var(--text-primary); display: block; font-family: var(--font-heading);">{{
-                            docs_used }}</span>
-                        <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 500;">de {{ docs_limit
-                            }} e-CF</span>
-                    </div>
-                </div>
-                <div style="text-align: center; margin-top: 24px;">
-                    <span
-                        class="badge {% if plan_pct >= 90 %}badge-danger{% elif plan_pct >= 70 %}badge-warning{% else %}badge-success{% endif %}"
-                        style="font-size: 0.8rem; padding: 4px 12px; border: none; background-color: var(--bg-input); color: var(--text-primary);">
-                        {{ plan_name }} ({{ "{:.1f}%".format(plan_pct) }})
-                    </span>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Distribución de Ventas por Tipo de Documento -->
-    <div style="display: flex; flex-direction: column;">
-        <!-- Título fuera de la tarjeta -->
-        <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 12px;">
-            <h2 style="font-size: 0.95rem; font-weight: 500; color: var(--text-secondary); margin: 0;">
-                Ventas por Tipo de Documento
-            </h2>
-        </div>
-
-        <div class="card-table-wrapper"
-            style="flex: 1; display: flex; flex-direction: column; box-sizing: border-box; width: 100%; padding: 24px; box-shadow: none;">
-            <div style="flex: 1; display: flex; align-items: center; justify-content: center; width: 100%;">
-                <div
-                    style="position: relative; height: 350px; width: 350px; display: flex; justify-content: center; margin: 0 auto;">
-                    <canvas id="typeChart"></canvas>
-                </div>
-            </div>
-        </div>
-    </div>
+<div style="display: none;">
+    <canvas id="planChart"></canvas>
+    <canvas id="typeChart"></canvas>
 </div>
 
 

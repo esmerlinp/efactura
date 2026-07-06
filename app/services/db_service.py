@@ -2136,6 +2136,16 @@ class DatabaseService:
     @classmethod
     def update_invoice_status_simple(cls, owner_uid, invoice_id, new_status, sandbox=True):
         """Actualiza únicamente el estado de una factura (usado en Kanban de Cotizaciones)."""
+        try:
+            from app.services.state_machine import StateMachineValidator
+            validator = StateMachineValidator.for_invoices()
+            current = cls.get_invoice(owner_uid, invoice_id, sandbox=sandbox)
+            if current:
+                current_status = current.get("status", "Borrador")
+                if current_status != new_status:
+                    validator.validate_transition(current_status, new_status, "factura")
+        except ImportError:
+            pass
         if firebase_initialized:
             try:
                 coll_name = "sandbox_invoices" if sandbox else "invoices"
@@ -2170,6 +2180,15 @@ class DatabaseService:
         """Guarda o actualiza una factura y sus partidas en Firestore."""
         inv_dict["id"] = invoice_id
         inv_dict["ownerUID"] = owner_uid
+
+        if inv_dict.get("status") not in ("Borrador", "Anulada"):
+            try:
+                from app.services.fiscal_period_service import FiscalPeriodService
+                inv_date = inv_dict.get("date", "")
+                if inv_date:
+                    FiscalPeriodService.validate_period_open(owner_uid, inv_date)
+            except ImportError:
+                pass
         
         if "createdAt" not in inv_dict or not inv_dict["createdAt"]:
             inv_dict["createdAt"] = datetime.now(timezone.utc).isoformat()
@@ -2328,6 +2347,8 @@ class DatabaseService:
                 _invalidate_crm_contacts(owner_uid)
             except Exception as e:
                 print(f"⚠️ Fallo al respaldar factura en Firestore: {e}")
+        from app.services.cache_service import CacheService
+        CacheService.invalidate_dashboard(owner_uid)
         return inv_dict
 
     @classmethod
@@ -2659,6 +2680,16 @@ class DatabaseService:
         """Guarda o actualiza un gasto en Firestore."""
         exp_dict["id"] = expense_id
         exp_dict["ownerUID"] = owner_uid
+
+        if exp_dict.get("status") not in ("Borrador", "Anulada", None) and exp_dict.get("approvalStatus") != "Borrador":
+            try:
+                from app.services.fiscal_period_service import FiscalPeriodService
+                exp_date = exp_dict.get("date", "")
+                if exp_date:
+                    FiscalPeriodService.validate_period_open(owner_uid, exp_date)
+            except ImportError:
+                pass
+
         if "createdAt" not in exp_dict or not exp_dict["createdAt"]:
             exp_dict["createdAt"] = datetime.now(timezone.utc).isoformat()
         
@@ -2709,6 +2740,8 @@ class DatabaseService:
             except Exception as e:
                 print(f"⚠️ Fallo al respaldar gasto en Firestore: {e}")
 
+        from app.services.cache_service import CacheService
+        CacheService.invalidate_dashboard(owner_uid)
         return exp_dict
 
     @classmethod

@@ -2,1590 +2,505 @@
 
 {% block title %}{% if active_page == 'quotations' %}Nueva Cotización{% else %}Nuevo Documento{% endif %}{% endblock %}
 
-{% block page_header %}{% if active_page == 'quotations' %}Creación de Cotización Comercial{% else %}Generación de
-Documento Electrónico{% endif %}{% endblock %}
+{% block page_header %}{% if active_page == 'quotations' %}Creación de Cotización Comercial{% else %}Generación de Documento Electrónico{% endif %}{% endblock %}
 
 {% block content %}
 {% set is_referencing = invoice and invoice.informationReference is defined and invoice.informationReference %}
-<!-- Elementos ocultos con datos serializados para buscadores avanzados -->
-<div id="catalog-data-json" style="display: none;">{{ catalog_json }}</div>
-<div id="clients-data-json" style="display: none;">{{ clients_json }}</div>
-<div id="price-list-prices-json" style="display: none;">{{ price_list_prices_json }}</div>
+<style>
+    .doc-main-col { max-width:960px; margin:0 auto; display:flex; flex-direction:column; gap:16px; }
+    .section-card { background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-md); padding:22px 24px; }
+    .section-card h3 { font-size:0.95rem; font-weight:700; color:var(--text-primary); margin:0 0 16px 0; display:flex; align-items:center; gap:10px; }
+    .section-card h3 i { color:var(--accent-emerald); font-size:0.95rem; }
+    .inp-row { display:flex; gap:14px; flex-wrap:wrap; align-items:flex-end; }
+    .inp-row > .inp-group { flex:1; min-width:150px; }
+    .inp-group.wide { flex:2; min-width:220px; }
+    .inp-group label { font-size:0.78rem; color:var(--text-secondary); display:block; margin-bottom:4px; font-weight:500; }
+
+    .product-table { width:100%; border-collapse:collapse; font-size:0.85rem; }
+    .product-table th { padding:8px 12px; text-align:left; font-size:0.72rem; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; border-bottom:2px solid var(--border-color); white-space:nowrap; }
+    .product-table td { padding:8px 12px; border-bottom:1px solid var(--border-color); vertical-align:middle; }
+    .product-table td:last-child { text-align:center; width:40px; padding:6px 8px; }
+
+    .row-menu-btn { background:none; border:none; color:var(--text-muted); cursor:pointer; padding:6px 8px; border-radius:6px; transition:all 0.15s; }
+    .row-menu-btn:hover { background:rgba(0,0,0,0.05); color:var(--text-primary); }
+    .row-menu-dropdown { display:none; position:absolute; right:0; top:100%; z-index:500; min-width:170px; background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-md); box-shadow:0 8px 30px rgba(0,0,0,0.12); padding:6px; margin-top:4px; }
+    .row-menu-dropdown.show { display:block; }
+    .row-menu-item { display:flex; align-items:center; gap:8px; width:100%; padding:8px 12px; background:none; border:none; color:var(--text-primary); font-size:0.8rem; cursor:pointer; border-radius:6px; text-align:left; }
+    .row-menu-item:hover { background:rgba(0,0,0,0.04); }
+    .row-menu-item.danger { color:var(--accent-red); }
+    .row-menu-item.danger:hover { background:rgba(239,68,68,0.08); }
+
+    .totals-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:24px; }
+    .totals-grid .t-col h4 { font-size:0.78rem; font-weight:700; text-transform:uppercase; color:var(--text-secondary); margin:0 0 8px 0; letter-spacing:0.4px; }
+    .totals-grid .t-row { display:flex; justify-content:space-between; padding:4px 0; font-size:0.82rem; color:var(--text-secondary); }
+    .totals-grid .t-big { text-align:right; display:flex; flex-direction:column; justify-content:center; }
+    .totals-grid .t-big .t-label { font-size:0.75rem; color:var(--text-muted); }
+    .totals-grid .t-big .t-value { font-size:1.5rem; font-weight:800; color:var(--text-primary); }
+    .totals-grid .t-big .t-net { font-size:1rem; font-weight:700; color:var(--accent-emerald); }
+
+    .actions-bar { display:flex; justify-content:flex-end; align-items:center; gap:12px; padding-top:0; }
+    .btn-link { font-size:0.82rem; color:var(--text-muted); text-decoration:none; }
+    .btn-link:hover { color:var(--text-primary); }
+    .btn-subtle { background:none; border:1.5px solid var(--accent-purple); color:var(--accent-purple); border-radius:8px; padding:9px 18px; font-size:0.82rem; cursor:pointer; font-weight:600; }
+    .btn-subtle:hover { opacity:0.85; }
+
+    .more-settings-panel { position:fixed; top:0; right:-440px; width:420px; height:100vh; background:var(--bg-card); border-left:1px solid var(--border-color); box-shadow:-10px 0 40px rgba(0,0,0,0.1); z-index:2000; transition:right 0.3s cubic-bezier(0.22,1,0.36,1); overflow-y:auto; padding:28px; }
+    .more-settings-panel.open { right:0; }
+    .more-settings-backdrop { position:fixed; inset:0; background:rgba(0,0,0,0.25); z-index:1999; display:none; }
+    .more-settings-backdrop.show { display:block; }
+    .ret-badge { display:inline-flex; align-items:center; gap:4px; padding:3px 10px; border-radius:12px; font-size:0.72rem; font-weight:600; background:rgba(245,158,11,0.1); color:#d97706; border:1px solid rgba(245,158,11,0.25); cursor:pointer; }
+    .ret-badge.has-values { background:rgba(16,185,129,0.1); color:var(--accent-emerald); border-color:rgba(16,185,129,0.25); }
+</style>
+
+<div id="catalog-data-json" style="display:none;">{{ catalog_json }}</div>
+<div id="clients-data-json" style="display:none;">{{ clients_json }}</div>
+<div id="price-list-prices-json" style="display:none;">{{ price_list_prices_json }}</div>
 
 <form method="POST" id="invoice-form">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<input type="hidden" name="incomeType" value="{% if invoice %}{{ invoice.incomeType or '01 - Ingresos por operaciones' }}{% else %}01 - Ingresos por operaciones{% endif %}">
+<input type="hidden" name="branchId" value="{% if invoice %}{{ invoice.branchId }}{% else %}{% for b in branches %}{% if b.isDefault %}{{ b.id }}{% endif %}{% endfor %}{% endif %}">
+<input type="hidden" name="warehouseId" value="{% if invoice %}{{ invoice.warehouseId }}{% else %}{% if warehouses %}{{ warehouses[0].id }}{% endif %}{% endif %}">
+<input type="hidden" name="currency" value="{% if is_referencing %}{{ invoice.currency }}{% elif invoice %}{{ invoice.currency or 'DOP' }}{% else %}DOP{% endif %}">
+<input type="hidden" name="exchangeRate" value="{% if invoice %}{{ invoice.exchangeRate or 1.0 }}{% else %}1.0{% endif %}">
+{% if active_page == 'quotations' %}<input type="hidden" name="ecfType" value="Cotización">{% endif %}
+<input type="hidden" name="costCenterId" value="{% if invoice %}{{ invoice.costCenterId or '' }}{% endif %}">
+<input type="hidden" name="priceListId" value="{% if invoice %}{{ invoice.priceListId or '' }}{% endif %}">
 
-    <!-- FILA SUPERIOR: ENCABEZADO + CLIENTE LADO A LADO -->
-    <div
-        style="display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 18px; margin-bottom: 18px; align-items: stretch;">
+<div class="doc-main-col">
 
-        <!-- TARJETA 1: ENCABEZADO DEL DOCUMENTO -->
-        <div class="card-segment" style="margin-bottom: 0;">
-            <div class="segment-header">
-                <div class="segment-header-icon emerald">
-                    <i class="fa-solid fa-file-signature"></i>
-                </div>
-                <h3>Encabezado del Documento</h3>
-            </div>
+  <!-- TÍTULO + TIPO DOC (un mismo card) -->
+  <div class="section-card" style="display:flex;align-items:center;gap:16px;padding-top:18px;padding-bottom:18px;">
+    <i class="fa-solid fa-file-invoice" style="color:var(--accent-emerald);font-size:1.2rem;"></i>
+    <h2 style="font-size:1.2rem;font-weight:800;color:var(--text-primary);margin:0;white-space:nowrap;">
+      {% if active_page == 'quotations' %}Nueva Cotización{% elif invoice %}Editar {{ invoice.invoiceNumber }}{% else %}Nuevo Documento{% endif %}
+    </h2>
+    {% if invoice and invoice.encf %}
+    <span style="font-family:monospace;font-size:0.85rem;color:var(--accent-purple);font-weight:700;">{{ invoice.encf }}</span>
+    {% endif %}
+    {% if active_page != 'quotations' %}
+    <select id="ecf-type-select" name="{% if is_referencing %}ecfTypeDisabled{% else %}ecfType{% endif %}" class="form-select" style="max-width:220px;" {% if is_referencing %}disabled style="opacity:0.75;"{% endif %}>
+      <option value="Factura de Consumo (E32)" {% if invoice and invoice.ecfType=='Factura de Consumo (E32)' %}selected{% endif %}>E32 — Consumo</option>
+      <option value="Factura de Crédito Fiscal (E31)" {% if invoice and invoice.ecfType=='Factura de Crédito Fiscal (E31)' %}selected{% endif %}>E31 — Crédito Fiscal</option>
+      <option value="Nota de Débito (E33)" {% if invoice and invoice.ecfType=='Nota de Débito (E33)' %}selected{% endif %}>E33 — Nota de Débito</option>
+      <option value="Nota de Crédito (E34)" {% if invoice and invoice.ecfType=='Nota de Crédito (E34)' %}selected{% endif %}>E34 — Nota de Crédito</option>
+    </select>
+    {% if is_referencing %}<input type="hidden" name="ecfType" value="{{ invoice.ecfType }}">{% endif %}
+    {% endif %}
+    <button type="button" class="btn btn-sm btn-secondary" onclick="toggleMoreSettings()" style="margin-left:auto;">
+      <i class="fa-solid fa-sliders"></i> Más ajustes
+    </button>
+  </div>
 
-            <div class="form-grid">
-                {% if active_page == 'quotations' %}
-                <input type="hidden" name="ecfType" value="Cotización">
-                {% else %}
-                <!-- 1. Clasificación del Documento -->
-                <div class="form-group">
-                    <label for="ecf-type-select">Tipo de Documento <span
-                            style="color: var(--accent-red); font-weight: bold; margin-left: 2px;">*</span>
-                        <i class="fa-solid fa-question-circle" style="color:var(--text-muted); cursor:help;" title="E31: Credito Fiscal (B2B corporativo). E32: Consumo (publico general). E33/E34: Notas de Debito/Credito (ajustes). El tipo determina el formato del e-NCF y la validacion DGII."></i>
-                    </label>
-                    <select id="ecf-type-select"
-                        name="{% if is_referencing %}ecfTypeDisabled{% else %}ecfType{% endif %}" class="form-select"
-                        required {% if is_referencing %}disabled style="opacity: 0.85; cursor: not-allowed;" {% endif
-                        %}>
-                        <option value="Factura de Consumo (E32)" {% if invoice and
-                            invoice.ecfType=='Factura de Consumo (E32)' %}selected{% endif %}>E32 - Factura de Consumo
-                            (Público General)</option>
-                        <option value="Factura de Crédito Fiscal (E31)" {% if invoice and
-                            invoice.ecfType=='Factura de Crédito Fiscal (E31)' %}selected{% endif %}>E31 - Crédito
-                            Fiscal (RNC Corporativo)</option>
-                        <option value="Nota de Débito (E33)" {% if invoice and invoice.ecfType=='Nota de Débito (E33)'
-                            %}selected{% endif %}>E33 - Nota de Débito</option>
-                        <option value="Nota de Crédito (E34)" {% if invoice and invoice.ecfType=='Nota de Crédito (E34)'
-                            %}selected{% endif %}>E34 - Nota de Crédito</option>
-                    </select>
-                    {% if is_referencing %}
-                    <input type="hidden" name="ecfType" value="{{ invoice.ecfType }}">
-                    {% endif %}
-                </div>
-
-                <div class="form-group">
-                    <label for="income-type-select">Tipo de Ingreso (DGII) <span
-                            style="color: var(--accent-red); font-weight: bold; margin-left: 2px;">*</span>
-                        <i class="fa-solid fa-question-circle" style="color:var(--text-muted); cursor:help;" title="Clasificación DGII del ingreso: 01=Operaciones, 02=Financieros, 03=Extraordinarios, 04=Arrendamientos, 05=Venta activo fijo, 06=Otros. Esta clasificación se reporta en el informe 606."></i>
-                    </label>
-                    <select id="income-type-select" name="incomeType" class="form-select" required>
-                        <option value="01 - Ingresos por operaciones" {% if not invoice or
-                            invoice.incomeType=='01 - Ingresos por operaciones' %}selected{% endif %}>01 - Ingresos por
-                            operaciones</option>
-                        <option value="02 - Ingresos Financieros" {% if invoice and
-                            invoice.incomeType=='02 - Ingresos Financieros' %}selected{% endif %}>02 - Ingresos
-                            Financieros</option>
-                        <option value="03 - Ingresos Extraordinarios" {% if invoice and
-                            invoice.incomeType=='03 - Ingresos Extraordinarios' %}selected{% endif %}>03 - Ingresos
-                            Extraordinarios</option>
-                        <option value="04 - Arrendamientos" {% if invoice and invoice.incomeType=='04 - Arrendamientos'
-                            %}selected{% endif %}>04 - Arrendamientos</option>
-                        <option value="05 - Venta de Activo Depreciable" {% if invoice and
-                            invoice.incomeType=='05 - Venta de Activo Depreciable' %}selected{% endif %}>05 - Venta de
-                            Activo Depreciable</option>
-                        <option value="06 - Otros Ingresos" {% if invoice and invoice.incomeType=='06 - Otros Ingresos'
-                            %}selected{% endif %}>06 - Otros Ingresos</option>
-                    </select>
-                </div>
-
-                <!-- 2. Emisión y Logística -->
-                <div class="form-group">
-                    <label for="branch-select">Sucursal Emisora <span
-                            style="color: var(--accent-red); font-weight: bold; margin-left: 2px;">*</span></label>
-                    <select id="branch-select" name="branchId" class="form-select" required>
-                        {% for branch in branches %}
-                        <option value="{{ branch.id }}" {% if invoice and invoice.branchId==branch.id %}selected{% elif
-                            not invoice and branch.isDefault %}selected{% endif %}>{{ branch.name }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label for="warehouse-select">Almacén Despacho <span
-                            style="color: var(--accent-red); font-weight: bold; margin-left: 2px;">*</span></label>
-                    <select id="warehouse-select" name="warehouseId" class="form-select" required>
-                        {% for wh in warehouses %}
-                        <option value="{{ wh.id }}" {% if invoice and invoice.warehouseId==wh.id %}selected{% elif not
-                            invoice and loop.first %}selected{% endif %}>{{ wh.name }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                {% endif %}
-
-                <!-- 3. Condiciones Financieras -->
-                <div class="form-group">
-                    <label for="currency-select">Moneda</label>
-                    <select id="currency-select"
-                        name="{% if is_referencing %}currencyDisabled{% else %}currency{% endif %}" class="form-select"
-                        {% if is_referencing %}disabled style="opacity: 0.85; cursor: not-allowed;" {% endif %}>
-                        <option value="DOP" {% if not invoice or invoice.currency=='DOP' %}selected{% endif %}>Pesos
-                            Dominicanos (DOP)</option>
-                        <option value="USD" {% if invoice and invoice.currency=='USD' %}selected{% endif %}>Dólares
-                            Estadounidenses (USD)</option>
-                        <option value="EUR" {% if invoice and invoice.currency=='EUR' %}selected{% endif %}>Euros (EUR)
-                        </option>
-                    </select>
-                    {% if is_referencing %}
-                    <input type="hidden" name="currency" value="{{ invoice.currency }}">
-                    {% endif %}
-                </div>
-
-                <div class="form-group" id="exchange-rate-container" style="display: none;">
-                    <label for="exchangeRate">Tasa de Cambio (Venta)
-                        <i class="fa-solid fa-question-circle" style="color:var(--text-muted); cursor:help;" title="Tasa de cambio del día para convertir a DOP. Se auto-obtiene del Banco Popular. Puedes ajustarla manualmente."></i>
-                    </label>
-                    <div style="position: relative;">
-                        <input type="number" id="exchangeRate" name="exchangeRate" class="form-input" placeholder="0.00" step="0.01" style="width: 100%;">
-                        <div id="rate-loading" style="display: none; position: absolute; right: 10px; top: 8px;">
-                            <i class="fa-solid fa-spinner fa-spin" style="color: var(--accent-emerald);"></i>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Centro de Costo -->
-                <div class="form-group">
-                    <label for="cost-center-select" style="display:flex; align-items:center; justify-content:space-between;">
-                        <span>Centro de Costo</span>
-                        <button type="button" id="btn-new-cost-center" onclick="openInvoiceCostCenterModal()"
-                            style="font-size:0.75rem; color:var(--accent-emerald); background:none; border:none; cursor:pointer; padding:0; display:flex; align-items:center; gap:3px; font-weight:600;">
-                            <i class="fa-solid fa-plus-circle"></i> Nuevo
-                        </button>
-                    </label>
-                    <select id="cost-center-select" name="costCenterId" class="form-select">
-                        <option value="">— Sin centro de costo —</option>
-                        {% for cc in cost_centers %}
-                        <option value="{{ cc.id }}" {% if invoice and invoice.costCenterId == cc.id %}selected{% endif %}>
-                            {% if cc.code %}[{{ cc.code }}] {% endif %}{{ cc.name }}
-                        </option>
-                        {% endfor %}
-                    </select>
-                </div>
-
-                <!-- Lista de Precios -->
-                <div class="form-group">
-                    <label for="price-list-select" style="display:flex; align-items:center; justify-content:space-between;">
-                        <span>Lista de Precios</span>
-                        <button type="button" id="btn-new-price-list" onclick="openInvoicePriceListModal()"
-                            style="font-size:0.75rem; color:var(--accent-emerald); background:none; border:none; cursor:pointer; padding:0; display:flex; align-items:center; gap:3px; font-weight:600;">
-                            <i class="fa-solid fa-plus-circle"></i> Nueva
-                        </button>
-                    </label>
-                    <select id="price-list-select" name="priceListId" class="form-select">
-                        <option value="">— Sin lista de precios —</option>
-                        {% for pl in price_lists %}
-                        <option value="{{ pl.id }}" {% if invoice and invoice.priceListId == pl.id %}selected{% endif %}>
-                            {{ pl.name }}{% if pl.tipo %} ({{ pl.tipo }}){% endif %}
-                        </option>
-                        {% endfor %}
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label for="payment-type-select">Condición de Pago
-                        <i class="fa-solid fa-question-circle" style="color:var(--text-muted); cursor:help;" title="'Contado' para pago inmediato (la factura se marca como cobrada). 'Crédito' activa el acuerdo de pago y CxC. Afecta la fecha de declaración del ITBIS ante la DGII."></i>
-                    </label>
-                    <select id="payment-type-select" name="paymentType" class="form-select">
-                        <option value="Contado" {% if not invoice or invoice.paymentType=='Contado' %}selected{% endif
-                            %}>Contado (Inmediato)</option>
-                        <option value="Crédito" {% if invoice and invoice.paymentType=='Crédito' %}selected{% endif %}>
-                            Crédito (A Plazo)</option>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label for="due-date">Fecha de Vencimiento / Pago <span
-                            style="color: var(--accent-red); font-weight: bold; margin-left: 2px;">*</span></label>
-                    <input type="date" id="due-date" name="dueDate" class="form-input" required
-                        value="{{ default_due_date }}">
-                </div>
-
-                <div class="form-group" id="payment-method-group">
-                    <label for="payment-method-select">Forma de Pago
-                        <i class="fa-solid fa-question-circle" style="color:var(--text-muted); cursor:help;" title="Método usado para recibir el pago. Se reporta en la DGII para conciliación. 'Cheque/Transferencia' y 'Tarjeta' generan registros bancarios rastreables para la declaración de ITBIS."></i>
-                    </label>
-                    <select id="payment-method-select" name="paymentMethod" class="form-select">
-                        <option value="Efectivo" {% if not invoice or invoice.paymentMethod=='Efectivo' %}selected{%
-                            endif %}>Efectivo</option>
-                        <option value="Cheque / Transferencia" {% if invoice and
-                            invoice.paymentMethod=='Cheque / Transferencia' %}selected{% endif %}>Cheque / Transferencia
-                            Bancaria</option>
-                        <option value="Tarjeta de Crédito / Débito" {% if invoice and
-                            invoice.paymentMethod=='Tarjeta de Crédito / Débito' %}selected{% endif %}>Tarjeta de
-                            Crédito / Débito</option>
-                        <option value="Crédito" {% if invoice and invoice.paymentMethod=='Crédito' %}selected{% endif
-                            %}>Crédito (Cuentas por Cobrar)</option>
-                    </select>
-                </div>
-
-                <!-- Configurar Acuerdo de Pago (Solo Crédito) -->
-                <div id="payment-agreement-group"
-                    style="display: none; grid-column: 1 / -1; background-color: rgba(255, 255, 255, 0.01); border: 1px dashed var(--border-color); border-radius: var(--radius-sm); padding: 16px; margin-top: 4px;">
-                    <h4
-                        style="font-size: 0.88rem; font-family: var(--font-heading); margin-top: 0; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; color: var(--accent-purple);">
-                        <i class="fa-solid fa-calendar-days"></i>
-                        <span>Estructurar Acuerdo de Pago (Cuotas)</span>
-                    </h4>
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px;">
-                        <div class="form-group" style="margin-bottom: 0;">
-                            <label for="agreement-enabled-select">¿Dividir en Cuotas?</label>
-                            <select id="agreement-enabled-select" name="agreementEnabled" class="form-select">
-                                <option value="false">No, pago único</option>
-                                <option value="true">Sí, calendario de cuotas</option>
-                            </select>
-                        </div>
-                        <div id="agreement-details-fields"
-                            style="display: none; grid-column: span 3; grid-template-columns: repeat(3, 1fr); gap: 12px;">
-                            <div class="form-group" style="margin-bottom: 0;">
-                                <label for="installments-count-select">Cantidad de Cuotas</label>
-                                <select id="installments-count-select" name="installmentsCount" class="form-select">
-                                    <option value="2">2 Cuotas</option>
-                                    <option value="3">3 Cuotas</option>
-                                    <option value="4">4 Cuotas</option>
-                                    <option value="6">6 Cuotas</option>
-                                    <option value="12">12 Cuotas</option>
-                                </select>
-                            </div>
-                            <div class="form-group" style="margin-bottom: 0;">
-                                <label for="agreement-frequency-select">Frecuencia de Pago</label>
-                                <select id="agreement-frequency-select" name="agreementFrequency" class="form-select">
-                                    <option value="mensual">Mensual (30 días)</option>
-                                    <option value="quincenal">Quincenal (15 días)</option>
-                                    <option value="semanal">Semanal (7 días)</option>
-                                </select>
-                            </div>
-                            <div class="form-group" style="margin-bottom: 0;">
-                                <label for="late-fee-input">Tasa de Mora Mensual (%)</label>
-                                <input type="number" id="late-fee-input" name="lateFeePercentage" class="form-input"
-                                    min="0" max="100" step="0.1" value="5.0" style="width: 100%;">
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Información de Referencia para Notas de Crédito / Débito -->
-                <div id="reference-info-group"
-                    style="display: none; grid-column: 1 / -1; background-color: rgba(255, 255, 255, 0.01); border: 1px dashed var(--border-color); border-radius: var(--radius-sm); padding: 16px; margin-top: 4px;">
-                    <h4
-                        style="font-size: 0.88rem; font-family: var(--font-heading); margin-top: 0; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; color: var(--accent-purple);">
-                        <i class="fa-solid fa-circle-info"></i>
-                        <span>Información de Referencia (Documento Modificado)</span>
-                    </h4>
-
-                    <!-- Banner de Orientación / Propósito de Uso (Ley 32-23) -->
-                    <div id="note-helper-banner"
-                        style="display: none; border-left: 4px solid var(--accent-purple); padding: 12px 16px; border-radius: var(--radius-sm); margin-bottom: 16px; font-size: 0.82rem; line-height: 1.45; color: var(--text-primary);">
-                        <div
-                            style="font-weight: 800; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
-                            <i id="note-banner-icon" class="fa-solid fa-circle-question"></i>
-                            <span id="note-banner-title">Guía de Comprobante</span>
-                        </div>
-                        <span id="note-banner-text">Cargando orientación...</span>
-                    </div>
-
-                    {% if invoice and invoice.referencedInvoiceTotal %}
-                    <input type="hidden" name="referencedInvoiceTotal" id="referenced-invoice-total"
-                        value="{{ invoice.referencedInvoiceTotal }}">
-                    {% endif %}
-
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px;">
-                        <div class="form-group" style="margin-bottom: 0;">
-                            <label for="ref-ncf-modified">e-CF / NCF Modificado <span
-                                    style="color: var(--accent-red); font-weight: bold;">*</span></label>
-                            <input type="text" id="ref-ncf-modified" name="refNcfModified" class="form-input"
-                                placeholder="Ej: E310000000001"
-                                style="font-family: monospace; {% if is_referencing %}cursor: not-allowed; opacity: 0.85;{% endif %}"
-                                value="{% if invoice and invoice.informationReference %}{{ invoice.informationReference.ncfModified }}{% elif invoice %}{{ invoice.ncfModified or '' }}{% endif %}"
-                                {% if is_referencing %}readonly{% endif %}>
-                        </div>
-                        <div class="form-group" style="margin-bottom: 0;">
-                            <label for="ref-ncf-modified-date">Fecha de Emisión NCF <span
-                                    style="color: var(--accent-red); font-weight: bold;">*</span></label>
-                            <input type="date" id="ref-ncf-modified-date" name="refNcfModifiedDate" class="form-input"
-                                style="{% if is_referencing %}cursor: not-allowed; opacity: 0.85;{% endif %}"
-                                value="{% if invoice and invoice.informationReference %}{{ invoice.informationReference.ncfModifiedDate }}{% elif invoice %}{{ invoice.ncfModifiedDate or '' }}{% endif %}"
-                                {% if is_referencing %}readonly{% endif %}>
-                        </div>
-                        <div class="form-group" style="margin-bottom: 0;">
-                            <label for="ref-modification-code">Código de Modificación <span
-                                    style="color: var(--accent-red); font-weight: bold;">*</span></label>
-                            <select id="ref-modification-code" name="refModificationCode" class="form-select">
-                                <option value="1" {% if invoice and ((invoice.informationReference and
-                                    invoice.informationReference.modificationCode==1) or invoice.modificationCode==1)
-                                    %}selected{% endif %}>01 - Anulación de Documento</option>
-                                <option value="2" {% if invoice and ((invoice.informationReference and
-                                    invoice.informationReference.modificationCode==2) or invoice.modificationCode==2)
-                                    %}selected{% endif %}>02 - Corrección de Texto</option>
-                                <option value="3" {% if not invoice or ((invoice.informationReference and
-                                    invoice.informationReference.modificationCode==3) or invoice.modificationCode==3 or
-                                    not invoice.modificationCode) %}selected{% endif %}>03 - Devolución de Mercancías /
-                                    Ajuste de importes</option>
-                                <option value="4" {% if invoice and ((invoice.informationReference and
-                                    invoice.informationReference.modificationCode==4) or invoice.modificationCode==4)
-                                    %}selected{% endif %}>04 - Reemplazo de e-CF Activo</option>
-                            </select>
-                        </div>
-                        <div class="form-group" style="margin-bottom: 0; grid-column: span 2;">
-                            <label for="ref-reason-modification">Motivo de Modificación <span
-                                    style="color: var(--accent-red); font-weight: bold;">*</span></label>
-                            <input type="text" id="ref-reason-modification" name="refReasonForModification"
-                                class="form-input" placeholder="Ej: Devolución de mercancía dañada o error en precio"
-                                value="{% if invoice and invoice.informationReference %}{{ invoice.informationReference.reasonForModification }}{% elif invoice and invoice.reasonForModification %}{{ invoice.reasonForModification }}{% else %}Corrección de importes{% endif %}">
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- TARJETA 1B: DATOS DEL CLIENTE / RECEPTOR -->
-        <div class="card-segment" style="margin-bottom: 0;">
-            <div class="segment-header">
-                <div class="segment-header-icon" style="background-color: rgba(59, 130, 246, 0.08); color: #3b82f6;">
-                    <i class="fa-solid fa-address-card"></i>
-                </div>
-                <h3 style="flex-grow: 1;">Datos del Cliente / Receptor</h3>
-                <button type="button" id="btn-create-client-modal" class="btn btn-primary"
-                    style="padding: 6px 12px; font-size: 0.8rem; gap: 5px; {% if is_referencing %}opacity: 0.65; cursor: not-allowed;{% endif %}"
-                    {% if is_referencing %}disabled{% endif %}>
-                    <i class="fa-solid fa-user-plus"></i>
-                    <span>Nuevo Cliente</span>
-                </button>
-            </div>
-            <div style="display: flex; flex-direction: column; gap: 12px;">
-                <!-- Buscador CRM -->
-                <div class="form-group" style="margin-bottom: 0;">
-                    <label for="client-search-input">Buscar en Agenda CRM</label>
-                    <div style="display: flex; gap: 8px;">
-                        <input type="text" id="client-search-input" class="form-input" readonly
-                            placeholder="-- Clic para buscar en CRM --"
-                            style="flex-grow: 1; text-overflow: ellipsis; white-space: nowrap; overflow: hidden; {% if is_referencing %}cursor: not-allowed; opacity: 0.85;{% else %}cursor: pointer;{% endif %}"
-                            value="{% if invoice and invoice.clientName %}{{ invoice.clientName }} ({{ invoice.clientRNC or 'Consumidor Final' }}){% endif %}"
-                            {% if is_referencing %}disabled{% endif %}>
-                        <input type="hidden" id="client-id-hidden" name="clientId"
-                            value="{% if invoice %}{{ invoice.clientId or '' }}{% endif %}">
-                        <button type="button" id="btn-open-client-modal" class="btn btn-secondary"
-                            style="padding: 8px 14px; white-space: nowrap; {% if is_referencing %}opacity: 0.65; cursor: not-allowed;{% endif %}"
-                            title="Buscar Cliente" {% if is_referencing %}disabled{% endif %}>
-                            <i class="fa-solid fa-magnifying-glass"></i>
-                        </button>
-                    </div>
-                </div>
-                <!-- RNC del Receptor -->
-                <div class="form-group" style="margin-bottom: 0;">
-                    <label for="client-rnc-input">RNC / Cédula del Receptor</label>
-                    <input type="text" id="client-rnc-input" name="clientRNC" class="form-input"
-                        placeholder="Ej: 101234567 (vacío = Consumidor Final)"
-                        style="font-family: monospace; {% if is_referencing %}cursor: not-allowed; opacity: 0.85;{% endif %}"
-                        value="{% if invoice %}{{ invoice.clientRNC or '' }}{% endif %}" {% if is_referencing
-                        %}readonly{% endif %}>
-                    <small id="client-warning"
-                        style="color: var(--accent-red); font-size: 0.75rem; margin-top: 2px; display: none;"></small>
-                </div>
-            </div>
-        </div>
-
-    </div><!-- / fin fila superior -->
-
-    <!-- TARJETA 2: PARTIDAS -->
-
-    <div class="card-segment">
-        <div class="segment-header">
-            <div class="segment-header-icon purple">
-                <i class="fa-solid fa-list-check"></i>
-            </div>
-            <h3 style="flex-grow: 1;">{% if active_page == 'quotations' %}Partidas de la Cotización{% else %}Partidas de
-                la Factura{% endif %}</h3>
-            <button type="button" id="btn-add-item" class="btn btn-secondary"
-                style="padding: 6px 14px; font-size: 0.82rem;">
-                <i class="fa-solid fa-cart-plus"></i>
-                <span>Añadir Partida</span>
-            </button>
-        </div>
-
-        <div class="table-responsive">
-            <table class="table-premium" id="items-table" style="min-width: 1150px;">
-                <thead>
-                    <tr>
-                        <th style="width: 22%; white-space: nowrap;">Artículo / Catálogo</th>
-                        <th style="width: 25%; white-space: nowrap;">Descripción <span
-                                style="color: var(--accent-red); font-weight: bold;">*</span></th>
-                        <th style="width: 12%; text-align: right; white-space: nowrap;">Precio Unit. <span
-                                style="color: var(--accent-red); font-weight: bold;">*</span></th>
-                        <th style="width: 8%; text-align: center; white-space: nowrap;">Cant. <span
-                                style="color: var(--accent-red); font-weight: bold;">*</span></th>
-                        <th style="width: 10%; white-space: nowrap;">ITBIS</th>
-                        <th style="width: 10%; text-align: right; white-space: nowrap;">Desc. %</th>
-                        <th style="width: 13%; text-align: right; white-space: nowrap;">Monto</th>
-                        <th style="width: 5%; text-align: center;"></th>
-                    </tr>
-                </thead>
-                <tbody id="invoice-items-body">
-                    {% if invoice and invoice['items'] %}
-                    {% for item in invoice['items'] %}
-                    <tr class="item-row animate-fade-in">
-                        <td>
-                            <div style="position: relative; display: flex; gap: 6px; width: 100%;">
-                                <input type="text" class="form-input item-catalog-search-input"
-                                    value="{{ item.name }} ({{ item.code or 'S/C' }})"
-                                    placeholder="-- Buscar en Catálogo --" readonly
-                                    style="cursor: pointer; width: 100%; text-overflow: ellipsis; white-space: nowrap; overflow: hidden;">
-                                <input type="hidden" class="item-catalog-id-hidden"
-                                    name="items[{{ loop.index0 }}][catalog_id]" value="{{ item.code or '' }}">
-                                <button type="button" class="btn btn-secondary btn-search-product"
-                                    style="padding: 8px 10px;" title="Buscar Producto">
-                                    <i class="fa-solid fa-magnifying-glass" style="font-size: 0.8rem;"></i>
-                                </button>
-                            </div>
-                        </td>
-                        <td>
-                            <input type="text" class="form-input item-name-input" name="items[{{ loop.index0 }}][name]"
-                                value="{{ item.name }}" required readonly
-                                style="width: 100%; background-color: var(--bg-input-readonly, rgba(0,0,0,0.02));">
-                        </td>
-                        <td>
-                            <input type="number" class="form-input item-price-input"
-                                name="items[{{ loop.index0 }}][price]" step="0.01" value="{{ item.price }}" required
-                                style="width: 100%; text-align: right;">
-                        </td>
-                        <td>
-                            <input type="number" class="form-input item-qty-input"
-                                name="items[{{ loop.index0 }}][quantity]" min="1" value="{{ item.quantity }}" required
-                                style="width: 100%; text-align: center;">
-                        </td>
-                        <td>
-                            <select class="form-select item-itbis-select" name="items[{{ loop.index0 }}][itbisRate]"
-                                style="width: 100%;">
-                                <option value="0.18" {% if item.itbisRate==0.18 %}selected{% endif %}>18%</option>
-                                <option value="0.16" {% if item.itbisRate==0.16 %}selected{% endif %}>16%</option>
-                                <option value="0.0" {% if item.itbisRate==0.0 %}selected{% endif %}>Exento (0%)</option>
-                            </select>
-                        </td>
-                        <td>
-                            <input type="number" class="form-input item-discount-input"
-                                name="items[{{ loop.index0 }}][discountRate]" step="0.01" min="0" max="1"
-                                value="{{ item.discountRate }}" style="width: 100%; text-align: right;">
-                        </td>
-                        <td style="text-align: right; vertical-align: middle;">
-                            <strong class="item-total-label">RD$ {{ "{:,.2f}".format(item.total) }}</strong>
-                        </td>
-                        <td style="text-align: center; vertical-align: middle;">
-                            <button type="button" class="btn btn-danger btn-remove-row" style="padding: 8px 12px;"><i
-                                    class="fa-solid fa-trash-can"></i></button>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                    {% else %}
-                    <!-- Filas dinámicas añadidas por invoicing.js -->
-                    {% endif %}
-                </tbody>
-            </table>
-        </div>
+  <!-- REFERENCIA NOTAS E33/E34 -->
+  <div id="reference-info-group" class="section-card" style="display:none;">
+    <h3><i class="fa-solid fa-circle-info"></i> Documento Modificado</h3>
+    <div id="note-helper-banner" style="display:none;border-left:3px solid var(--accent-purple);padding:8px 14px;border-radius:6px;margin-bottom:14px;font-size:0.8rem;background:rgba(124,58,237,0.04);">
+      <strong id="note-banner-title"></strong><br><span id="note-banner-text"></span>
     </div>
-
-    <!-- TARJETA 3: AJUSTES GLOBALES Y RETENCIONES (ANCHO COMPLETO) -->
-    <div class="card-segment">
-        <div class="segment-header">
-            <div class="segment-header-icon yellow">
-                <i class="fa-solid fa-percent"></i>
-            </div>
-            <h3>Ajustes Globales y Retenciones (RD)</h3>
-        </div>
-
-        <!-- Grid de 4 columnas: aprovecha el ancho completo -->
-        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; align-items: end;">
-            <div class="form-group" style="margin-bottom: 0;">
-                <label for="discount-global">Descuento Global (%)</label>
-                <input type="number" id="discount-global" name="discountRate" class="form-input" min="0" max="1"
-                    step="0.01" value="0.00" placeholder="Ej: 0.10 = 10%">
-            </div>
-            <div class="form-group" style="margin-bottom: 0;">
-                <label for="isr-rate-select">Retención ISR
-                    <i class="fa-solid fa-question-circle" style="color:var(--text-muted); cursor:help;" title="La DGII exige retener ISR al pagar a proveedores: 2% sobre bienes y servicios (RNC válido), 10% sobre honorarios profesionales y alquileres. Se declara en el reporte 607."></i>
-                </label>
-                <select id="isr-rate-select" name="retainedISRRate" class="form-select">
-                    <option value="0.0" selected>Sin retención (0%)</option>
-                    <option value="0.02">2% — Bienes y servicios</option>
-                    <option value="0.10">10% — Honorarios / Alquiler</option>
-                </select>
-            </div>
-            <div class="form-group" style="margin-bottom: 0;">
-                <label for="itbis-rate-select">Retención ITBIS
-                    <i class="fa-solid fa-question-circle" style="color:var(--text-muted); cursor:help;" title="Retención ITBIS al pagar a proveedores según régimen DGII: 30% para bienes corporativos, 75% para servicios jurídicos, 100% para profesionales independientes. Se declara en el reporte 607."></i>
-                </label>
-                <select id="itbis-rate-select" name="retainedITBISRate" class="form-select">
-                    <option value="0.0" selected>Sin retención (0%)</option>
-                    <option value="0.30">30% — Bienes corporativos</option>
-                    <option value="0.75">75% — Servicios jurídicos</option>
-                    <option value="1.00">100% — Profesionales independientes</option>
-                </select>
-            </div>
-            <div class="form-group" style="margin-bottom: 0;">
-                <label for="is-recurring">¿Factura Recurrente?</label>
-                <select id="is-recurring" name="isRecurring" class="form-select"
-                    onchange="document.getElementById('recurrence-fields').style.display=this.value==='true'?'grid':'none'">
-                    <option value="false" {% if not invoice or not invoice.isRecurring %}selected{% endif %}>No, emisión
-                        única</option>
-                    <option value="true" {% if invoice and invoice.isRecurring %}selected{% endif %}>Sí, programar
-                        recurrencia</option>
-                </select>
-            </div>
-        </div>
-
-        <!-- Sub-campos de Recurrencia (se expanden si se selecciona "Sí") -->
-        <div id="recurrence-fields"
-            style="display: {% if invoice and invoice.isRecurring %}grid{% else %}none{% endif %}; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-top: 14px; padding-top: 14px; border-top: 1px dashed var(--border-color);">
-            <div class="form-group" style="margin-bottom: 0;">
-                <label for="recurrence-interval">Frecuencia de Recurrencia</label>
-                <select id="recurrence-interval" name="recurrenceInterval" class="form-select">
-                    <option value="semanal" {% if invoice and invoice.recurrenceInterval=='semanal' %}selected{% endif
-                        %}>Semanal</option>
-                    <option value="quincenal" {% if invoice and invoice.recurrenceInterval=='quincenal' %}selected{%
-                        endif %}>Quincenal</option>
-                    <option value="mensual" {% if not invoice or invoice.recurrenceInterval=='mensual' %}selected{%
-                        endif %}>Mensual</option>
-                </select>
-            </div>
-            <div class="form-group" style="margin-bottom: 0;">
-                <label for="next-recurrence">Primera Ocurrencia Programada</label>
-                <input type="date" id="next-recurrence" name="nextOccurrenceDate" class="form-input"
-                    value="{% if invoice %}{{ invoice.nextOccurrenceDate or '' }}{% endif %}">
-            </div>
-        </div>
+    {% if invoice and invoice.referencedInvoiceTotal %}
+    <input type="hidden" name="referencedInvoiceTotal" id="referenced-invoice-total" value="{{ invoice.referencedInvoiceTotal }}">
+    {% endif %}
+    <div class="inp-row">
+      <div class="inp-group"><label>e-CF Modificado</label><input type="text" id="ref-ncf-modified" name="refNcfModified" class="form-input" placeholder="E310000000001" style="font-family:monospace;" value="{{ invoice.informationReference.ncfModified if invoice and invoice.informationReference else invoice.ncfModified if invoice else '' }}" {% if is_referencing %}readonly{% endif %}></div>
+      <div class="inp-group" style="max-width:150px;"><label>Fecha</label><input type="date" id="ref-ncf-modified-date" name="refNcfModifiedDate" class="form-input" value="{{ invoice.informationReference.ncfModifiedDate if invoice and invoice.informationReference else invoice.ncfModifiedDate if invoice else '' }}" {% if is_referencing %}readonly{% endif %}></div>
+      <div class="inp-group" style="max-width:180px;"><label>Código</label><select id="ref-modification-code" name="refModificationCode" class="form-select"><option value="1">01 — Anulación</option><option value="2">02 — Corrección Texto</option><option value="3" selected>03 — Devolución</option><option value="4">04 — Reemplazo</option></select></div>
+      <div class="inp-group wide"><label>Motivo</label><input type="text" id="ref-reason-modification" name="refReasonForModification" class="form-input" value="{{ invoice.informationReference.reasonForModification if invoice and invoice.informationReference else invoice.reasonForModification if invoice else 'Corrección de importes' }}"></div>
     </div>
+  </div>
 
-    <!-- TARJETA: NOTAS, TÉRMINOS Y PIE DE FACTURA -->
-    <div class="card-segment">
-        <div class="segment-header">
-            <div class="segment-header-icon purple">
-                <i class="fa-solid fa-pen"></i>
-            </div>
-            <h3>Información Adicional del Documento</h3>
-        </div>
-        <div id="additional-info-container" style="margin-top: 4px;">
-
-        <!-- Notas -->
-        <div class="collapse-field form-group" style="margin-bottom: 0; border-bottom: 1px solid rgba(0,0,0,0.04);">
-            <div class="collapse-field-header" onclick="toggleCollapseField(this)"
-                style="display: flex; align-items: center; gap: 10px; padding: 12px 0; cursor: pointer; user-select: none;">
-                <i class="fa-regular fa-note-sticky" style="color: var(--accent-emerald); font-size: 1rem; width: 20px;"></i>
-                <span style="font-weight: 600; font-size: 0.88rem; color: var(--text-primary);">Notas</span>
-                <span class="collapse-field-preview" style="font-size: 0.82rem; color: var(--text-muted); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{% if invoice and invoice.comentario %}{{ invoice.comentario }}{% else %}Agrega comentarios para aclarar datos de la factura, serán visibles en el PDF...{% endif %}</span>
-                <i class="fa-solid fa-chevron-down" style="font-size: 0.7rem; color: var(--text-muted); transition: transform 0.2s;"></i>
-            </div>
-            <div class="collapse-field-body" style="max-height: 0; overflow: hidden; transition: max-height 0.25s ease;">
-                <textarea id="invoice-comentario" name="comentario" class="form-textarea" rows="3" oninput="updateCollapsePreview(this)"
-                    placeholder="Agrega comentarios para aclarar datos de la factura, serán visibles en el PDF..."
-                    style="font-family: inherit; font-size: 0.92rem; min-height: 80px; width: 100%; resize: vertical; border-radius: var(--radius-sm); margin-bottom: 12px;">{% if invoice %}{{ invoice.comentario or '' }}{% endif %}</textarea>
-            </div>
-        </div>
-
-        <!-- Términos y condiciones -->
-        <div class="collapse-field form-group" style="margin-bottom: 0; border-bottom: 1px solid rgba(0,0,0,0.04);">
-            <div class="collapse-field-header" onclick="toggleCollapseField(this)"
-                style="display: flex; align-items: center; gap: 10px; padding: 12px 0; cursor: pointer; user-select: none;">
-                <i class="fa-regular fa-file-lines" style="color: var(--accent-purple); font-size: 1rem; width: 20px;"></i>
-                <span style="font-weight: 600; font-size: 0.88rem; color: var(--text-primary);">Términos y condiciones</span>
-                <span class="collapse-field-preview" style="font-size: 0.82rem; color: var(--text-muted); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{% if invoice and invoice.notes %}{{ invoice.notes }}{% else %}Agregue condiciones o cláusulas relacionadas con esta factura que serán visibles en el PDF...{% endif %}</span>
-                <i class="fa-solid fa-chevron-down" style="font-size: 0.7rem; color: var(--text-muted); transition: transform 0.2s;"></i>
-            </div>
-            <div class="collapse-field-body" style="max-height: 0; overflow: hidden; transition: max-height 0.25s ease;">
-                <textarea id="invoice-notes" name="notes" class="form-textarea" rows="3" oninput="updateCollapsePreview(this)"
-                    placeholder="Agregue condiciones o cláusulas relacionadas con esta factura que serán visibles en el PDF..."
-                    style="font-family: inherit; font-size: 0.92rem; min-height: 80px; width: 100%; resize: vertical; border-radius: var(--radius-sm); margin-bottom: 12px;">{% if invoice %}{{ invoice.notes or '' }}{% endif %}</textarea>
-            </div>
-        </div>
-
-        <!-- Pie de factura -->
-        <div class="collapse-field form-group" style="margin-bottom: 0;">
-            <div class="collapse-field-header" onclick="toggleCollapseField(this)"
-                style="display: flex; align-items: center; gap: 10px; padding: 12px 0; cursor: pointer; user-select: none;">
-                <i class="fa-regular fa-rectangle-ad" style="color: var(--accent-blue); font-size: 1rem; width: 20px;"></i>
-                <span style="font-weight: 600; font-size: 0.88rem; color: var(--text-primary);">Pie de factura</span>
-                <span class="collapse-field-preview" style="font-size: 0.82rem; color: var(--text-muted); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{% if invoice and invoice.footer %}{{ invoice.footer }}{% else %}Agregue información adicional que será visible en el pie del PDF...{% endif %}</span>
-                <i class="fa-solid fa-chevron-down" style="font-size: 0.7rem; color: var(--text-muted); transition: transform 0.2s;"></i>
-            </div>
-            <div class="collapse-field-body" style="max-height: 0; overflow: hidden; transition: max-height 0.25s ease;">
-                <textarea id="invoice-footer" name="footer" class="form-textarea" rows="2" oninput="updateCollapsePreview(this)"
-                    placeholder="Agregue información adicional que será visible en el pie del PDF..."
-                    style="font-family: inherit; font-size: 0.92rem; min-height: 60px; width: 100%; resize: vertical; border-radius: var(--radius-sm); margin-bottom: 12px;">{% if invoice %}{{ invoice.footer or '' }}{% endif %}</textarea>
-            </div>
-        </div>
-
-        </div>
+  <!-- INFORMACIÓN DE LA FACTURA -->
+  <div class="section-card">
+    <h3><i class="fa-solid fa-address-card"></i> Información de la factura</h3>
+    <div class="inp-row">
+      <div class="inp-group wide" style="position:relative;">
+        <label for="client-search-input">Cliente <span style="color:var(--accent-red);">*</span></label>
+        <input type="text" id="client-search-input" class="form-input" placeholder="Buscar cliente por nombre, RNC o email…" autocomplete="off"
+          value="{% if invoice and invoice.clientName %}{{ invoice.clientName }} ({{ invoice.clientRNC or 'Consumidor Final' }}){% endif %}" {% if is_referencing %}readonly{% endif %}>
+        <input type="hidden" id="client-id-hidden" name="clientId" value="{% if invoice %}{{ invoice.clientId or '' }}{% endif %}">
+        <button type="button" id="btn-create-client-modal" style="position:absolute;top:0;right:0;background:none;border:none;color:var(--accent-emerald);font-size:0.72rem;font-weight:600;cursor:pointer;padding:0;">+ Nuevo</button>
+      </div>
+      <div class="inp-group" style="max-width:180px;"><label>RNC / Cédula</label><input type="text" id="client-rnc-input" name="clientRNC" class="form-input" placeholder="Opcional" style="font-family:monospace;" value="{{ invoice.clientRNC if invoice else '' }}" {% if is_referencing %}readonly{% endif %}></div>
+      <div class="inp-group" style="max-width:160px;"><label>Fecha creación</label><input type="date" id="due-date" name="dueDate" class="form-input" required value="{{ default_due_date }}"></div>
+      <div class="inp-group" style="max-width:160px;"><label>Condición</label><select id="payment-type-select" name="paymentType" class="form-select"><option value="Contado" {% if not invoice or invoice.paymentType=='Contado' %}selected{% endif %}>Contado</option><option value="Crédito" {% if invoice and invoice.paymentType=='Crédito' %}selected{% endif %}>Crédito</option></select></div>
     </div>
-
-    <script>
-    function toggleCollapseField(header) {
-        const body = header.nextElementSibling;
-        const chevron = header.querySelector('.fa-chevron-down');
-        if (body.style.maxHeight && body.style.maxHeight !== '0px') {
-            body.style.maxHeight = '0';
-            if (chevron) chevron.style.transform = '';
-        } else {
-            body.style.maxHeight = body.scrollHeight + 'px';
-            if (chevron) chevron.style.transform = 'rotate(180deg)';
-        }
-    }
-
-    function updateCollapsePreview(textarea) {
-        const header = textarea.closest('.collapse-field').querySelector('.collapse-field-preview');
-        if (header) {
-            header.textContent = textarea.value || textarea.placeholder;
-        }
-    }
-
-    // Expandir campos si tienen contenido al cargar
-    document.addEventListener('DOMContentLoaded', function() {
-        document.querySelectorAll('#additional-info-container .collapse-field').forEach(function(field) {
-            const textarea = field.querySelector('textarea');
-            if (textarea && textarea.value.trim()) {
-                const header = field.querySelector('.collapse-field-header');
-                if (header) toggleCollapseField(header);
-            }
-        });
-    });
-    </script>
-
-    <!-- TARJETA 4: RESUMEN FINANCIERO DE TOTALES (ANCHO COMPLETO) -->
-    <div class="card-totals-highlight"
-        style="margin-bottom: 18px; display: flex; flex-direction: column; padding: 18px 22px; gap: 0;">
-        <!-- Elementos de compatibilidad ocultos fuera del flujo del grid -->
-        <div style="display: none !important;">
-            <span id="lbl-total">RD$ 0.00</span>
-            <div id="lbl-isc-container"><span id="lbl-isc">RD$ 0.00</span></div>
+    <div class="inp-row" style="margin-top:10px;" id="payment-method-group">
+      <div class="inp-group" style="max-width:200px;"><label>Forma de Pago</label><select id="payment-method-select" name="paymentMethod" class="form-select"><option value="Efectivo" {% if not invoice or invoice.paymentMethod=='Efectivo' %}selected{% endif %}>Efectivo</option><option value="Cheque / Transferencia" {% if invoice and invoice.paymentMethod=='Cheque / Transferencia' %}selected{% endif %}>Cheque / Transferencia</option><option value="Tarjeta de Crédito / Débito" {% if invoice and invoice.paymentMethod=='Tarjeta de Crédito / Débito' %}selected{% endif %}>Tarjeta</option><option value="Crédito" {% if invoice and invoice.paymentMethod=='Crédito' %}selected{% endif %}>Crédito</option></select></div>
+      <div id="payment-agreement-group" style="display:none;align-items:center;gap:10px;">
+        <div class="inp-group" style="max-width:140px;"><label>Cuotas</label><select id="agreement-enabled-select" name="agreementEnabled" class="form-select"><option value="false">Pago único</option><option value="true">Dividir</option></select></div>
+        <div id="agreement-details-fields" style="display:none;align-items:center;gap:8px;">
+          <select id="installments-count-select" name="installmentsCount" class="form-select" style="width:70px;"><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="6">6</option><option value="12">12</option></select>
+          <select id="agreement-frequency-select" name="agreementFrequency" class="form-select" style="width:100px;"><option value="mensual">Mensual</option><option value="quincenal">Quincenal</option><option value="semanal">Semanal</option></select>
+          <input type="number" id="late-fee-input" name="lateFeePercentage" class="form-input" style="width:65px;text-align:center;" min="0" max="100" step="0.1" value="5.0" title="Mora %">
         </div>
-
-        <!-- Grid interno: Impuestos | Totales -->
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 18px;">
-
-            <!-- Col Izquierda: TOTAL IMPUESTOS -->
-            <div>
-                <h4
-                    style="font-size: 0.82rem; font-family: var(--font-heading); margin-bottom: 10px; border-bottom: 2px solid #3b82f6; padding-bottom: 6px; color: var(--text-primary); text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px;">
-                    <i class="fa-solid fa-receipt" style="color: #3b82f6;"></i>
-                    <span>Impuestos</span>
-                </h4>
-                <div
-                    style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 6px;">
-                    <span>Propina (10%):</span>
-                    <span id="lbl-total-propina" style="font-weight: 500; color: var(--text-primary);">RD$ 0.00</span>
-                </div>
-                <div
-                    style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 6px;">
-                    <span>CDT (2%):</span>
-                    <span id="lbl-total-cdt" style="font-weight: 500; color: var(--text-primary);">RD$ 0.00</span>
-                </div>
-                <div
-                    style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 6px;">
-                    <span>ITBIS:</span>
-                    <span id="lbl-itbis" style="font-weight: 500; color: var(--text-primary);">RD$ 0.00</span>
-                </div>
-                <div
-                    style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 6px;">
-                    <span>ISC Total:</span>
-                    <span id="lbl-total-isc" style="font-weight: 500; color: var(--text-primary);">RD$ 0.00</span>
-                </div>
-                <div
-                    style="display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 4px; padding-left: 8px;">
-                    <span style="color: var(--text-muted);">↳ Específico:</span>
-                    <span id="lbl-total-isc-especifico" style="font-weight: 500; color: var(--text-primary);">RD$
-                        0.00</span>
-                </div>
-                <div
-                    style="display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 8px; padding-left: 8px;">
-                    <span style="color: var(--text-muted);">↳ AdValorem:</span>
-                    <span id="lbl-total-isc-advalorem" style="font-weight: 500; color: var(--text-primary);">RD$
-                        0.00</span>
-                </div>
-                <div
-                    style="display: flex; justify-content: space-between; font-size: 0.9rem; font-weight: 700; border-top: 1px solid var(--border-color); padding-top: 8px; color: #3b82f6;">
-                    <span>TOTAL IMPUESTOS:</span>
-                    <span id="lbl-total-impuestos">RD$ 0.00</span>
-                </div>
-            </div>
-
-            <!-- Col Derecha: TOTALES -->
-            <div style="display: flex; flex-direction: column; justify-content: space-between;">
-                <div>
-                    <h4
-                        style="font-size: 0.82rem; font-family: var(--font-heading); margin-bottom: 10px; border-bottom: 2px solid var(--accent-emerald); padding-bottom: 6px; color: var(--text-primary); text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px;">
-                        <i class="fa-solid fa-coins" style="color: var(--accent-emerald);"></i>
-                        <span>Totales</span>
-                    </h4>
-                    <div
-                        style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 6px;">
-                        <span>Subtotal Neto:</span>
-                        <span id="lbl-subtotal" style="font-weight: 500; color: var(--text-primary);">RD$ 0.00</span>
-                    </div>
-                    <div
-                        style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 6px;">
-                        <span>Total Ítems:</span>
-                        <span id="lbl-total-items-qty" style="font-weight: 500; color: var(--text-primary);">0</span>
-                    </div>
-                    <div
-                        style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 6px;">
-                        <span>ITBIS Retenido:</span>
-                        <span id="lbl-retained-itbis" style="font-weight: 500; color: var(--text-primary);">RD$
-                            0.00</span>
-                    </div>
-                    <div
-                        style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 6px;">
-                        <span>ISR Retenido:</span>
-                        <span id="lbl-retained-isr" style="font-weight: 500; color: var(--text-primary);">RD$
-                            0.00</span>
-                    </div>
-                    <div
-                        style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 8px;">
-                        <span>Descuentos:</span>
-                        <span id="lbl-discount" style="font-weight: 500; color: var(--accent-red);">RD$ 0.00</span>
-                    </div>
-                </div>
-                <div
-                    style="display: flex; justify-content: space-between; font-size: 1.2rem; font-weight: 800; border-top: 2px dashed var(--border-color); padding-top: 10px; color: var(--accent-emerald); margin-top: 4px;">
-                    <span>TOTAL FACTURA:</span>
-                    <span id="lbl-net-payable">RD$ 0.00</span>
-                </div>
-            </div>
-
-        </div><!-- /grid interno -->
-    </div><!-- /card-totals-highlight -->
-
-    <!-- BARRA DE ACCIONES FINAL -->
-    <div
-        style="display: flex; justify-content: flex-end; gap: 15px; border-top: 1px solid var(--border-color); padding-top: 24px; margin-bottom: 12px;">
-        <a href="{% if active_page == 'quotations' %}/quotations{% else %}{{ url_for('web_invoices.list_invoices') }}{% endif %}"
-            class="btn btn-secondary">
-            <span>Cancelar</span>
-        </a>
-        <button type="submit" formaction="/invoices/preview" formtarget="_blank" class="btn btn-secondary" id="preview-invoice-btn"
-            style="padding: 14px 28px; border-color: var(--accent-purple); color: var(--accent-purple); display: inline-flex; align-items: center; gap: 8px; font-weight: 600;">
-            <i class="fa-solid fa-eye"></i>
-            <span>Vista Previa</span>
-        </button>
-        <button type="submit" name="action" value="guardar" class="btn btn-primary" id="submit-invoice-btn"
-            style="padding: 14px 28px;">
-            <i class="fa-solid fa-paper-plane"></i>
-            <span>{% if active_page == 'quotations' %}Guardar Cotización{% else %}Emitir Borrador{% endif %}</span>
-        </button>
+      </div>
     </div>
+    <small id="client-warning" style="color:var(--accent-red);font-size:0.72rem;margin-top:6px;display:none;"></small>
+  </div>
 
-    <!-- CONTENEDOR PARA LEYENDAS Y AYUDAS DE EMISIÓN (PIE DE PÁGINA) -->
-    <div id="payment-helper-container"
-        style="display: flex; justify-content: flex-end; margin-bottom: 40px; min-height: 20px;"></div>
+  <!-- PRODUCTOS Y SERVICIOS -->
+  <div class="section-card">
+    <h3 style="display:flex;justify-content:space-between;">
+      <span><i class="fa-solid fa-list-check"></i> Productos y servicios</span>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span id="ret-badge" class="ret-badge" onclick="openRetentionsModal()" title="Agregar retenciones">
+          <i class="fa-solid fa-percent"></i> Retenciones
+        </span>
+        <button type="button" id="btn-add-item" class="btn btn-sm btn-secondary"><i class="fa-solid fa-plus"></i> Agregar línea</button>
+      </div>
+    </h3>
+    <div style="overflow-x:auto;">
+      <table class="product-table" id="items-table">
+        <thead><tr>
+          <th style="width:32%;">Producto o servicio</th>
+          <th style="width:9%;text-align:center;">Cant.</th>
+          <th style="width:14%;text-align:right;">Precio</th>
+          <th style="width:11%;text-align:right;">Desc.%</th>
+          <th style="width:11%;text-align:center;">ITBIS</th>
+          <th style="width:18%;text-align:right;">Subtotal</th>
+          <th style="width:5%;"></th>
+        </tr></thead>
+        <tbody id="invoice-items-body">
+          {% if invoice and invoice['items'] %}
+          {% for item in invoice['items'] %}
+          <tr class="item-row">
+            <td>
+              <div style="position:relative;">
+                <input type="text" class="form-input item-catalog-search-input" value="{{ item.name }} ({{ item.code or 'S/C' }})" placeholder="Escriba nombre o código…" autocomplete="off" style="padding-right:30px;">
+                <input type="hidden" class="item-catalog-id-hidden" name="items[{{ loop.index0 }}][catalog_id]" value="{{ item.code or '' }}">
+                <input type="hidden" class="item-name-input" name="items[{{ loop.index0 }}][name]" value="{{ item.name }}">
+                <button type="button" class="btn-search-product" style="position:absolute;right:4px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text-muted);cursor:pointer;padding:4px;"><i class="fa-solid fa-magnifying-glass" style="font-size:0.65rem;"></i></button>
+              </div>
+            </td>
+            <td style="text-align:center;"><input type="number" class="form-input item-qty-input" name="items[{{ loop.index0 }}][quantity]" min="1" value="{{ item.quantity }}" style="width:60px;text-align:center;" required></td>
+            <td style="text-align:right;"><input type="number" class="form-input item-price-input" name="items[{{ loop.index0 }}][price]" step="0.01" value="{{ item.price }}" style="width:110px;" required></td>
+            <td style="text-align:right;"><input type="number" class="form-input item-discount-input" name="items[{{ loop.index0 }}][discountRate]" step="0.01" min="0" max="1" value="{{ item.discountRate }}" style="width:75px;"></td>
+            <td style="text-align:center;"><select class="form-select item-itbis-select" name="items[{{ loop.index0 }}][itbisRate]" style="width:75px;"><option value="0.18" {% if item.itbisRate==0.18 %}selected{% endif %}>18%</option><option value="0.16" {% if item.itbisRate==0.16 %}selected{% endif %}>16%</option><option value="0.0" {% if item.itbisRate==0.0 %}selected{% endif %}>0%</option></select></td>
+            <td style="text-align:right;font-weight:600;"><span class="item-total-label">RD$ {{ "{:,.2f}".format(item.total) }}</span></td>
+            <td>
+              <div style="position:relative;">
+                <button type="button" class="row-menu-btn" onclick="toggleRowMenu(this)"><i class="fa-solid fa-ellipsis" style="font-size:0.9rem;"></i></button>
+                <div class="row-menu-dropdown">
+                  <button type="button" class="row-menu-item danger" onclick="removeRowFromMenu(this)"><i class="fa-solid fa-trash-can" style="font-size:0.7rem;"></i> Eliminar de la lista</button>
+                </div>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- NOTAS -->
+  <div class="section-card">
+    {% set comment_val = invoice.comentario if invoice else '' %}
+    {% set notes_val = invoice.notes if invoice else '' %}
+    {% set footer_val = invoice.footer if invoice else '' %}
+    <div id="additional-info-container">
+      <div class="collapse-field" style="border-bottom:1px solid var(--border-color);">
+        <div class="collapse-field-header" onclick="toggleCollapseField(this)" style="display:flex;align-items:center;gap:8px;padding:10px 0;cursor:pointer;">
+          <i class="fa-regular fa-note-sticky" style="color:var(--accent-emerald);"></i><span style="font-weight:600;font-size:0.85rem;">Notas</span><span class="collapse-field-preview" style="color:var(--text-muted);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:0.78rem;">{{ comment_val or 'Agrega comentarios visibles en el PDF…' }}</span><i class="fa-solid fa-chevron-down" style="font-size:0.65rem;color:var(--text-muted);"></i>
+        </div>
+        <div class="collapse-field-body" style="max-height:0;overflow:hidden;transition:max-height 0.25s ease;">
+          <textarea name="comentario" class="form-textarea" rows="2" oninput="updateCollapsePreview(this)" placeholder="Agrega comentarios para aclarar datos de la factura, serán visibles en el PDF…" style="min-height:60px;width:100%;resize:vertical;margin-bottom:8px;">{{ comment_val }}</textarea>
+        </div>
+      </div>
+      <div class="collapse-field" style="border-bottom:1px solid var(--border-color);">
+        <div class="collapse-field-header" onclick="toggleCollapseField(this)" style="display:flex;align-items:center;gap:8px;padding:10px 0;cursor:pointer;">
+          <i class="fa-regular fa-file-lines" style="color:var(--accent-purple);"></i><span style="font-weight:600;font-size:0.85rem;">Términos y condiciones</span><span class="collapse-field-preview" style="color:var(--text-muted);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:0.78rem;">{{ notes_val or 'Agregue condiciones o cláusulas…' }}</span><i class="fa-solid fa-chevron-down" style="font-size:0.65rem;color:var(--text-muted);"></i>
+        </div>
+        <div class="collapse-field-body" style="max-height:0;overflow:hidden;transition:max-height 0.25s ease;">
+          <textarea name="notes" class="form-textarea" rows="2" oninput="updateCollapsePreview(this)" placeholder="Agregue condiciones o cláusulas relacionadas con esta factura que serán visibles en el PDF…" style="min-height:60px;width:100%;resize:vertical;margin-bottom:8px;">{{ notes_val }}</textarea>
+        </div>
+      </div>
+      <div class="collapse-field">
+        <div class="collapse-field-header" onclick="toggleCollapseField(this)" style="display:flex;align-items:center;gap:8px;padding:10px 0;cursor:pointer;">
+          <i class="fa-regular fa-rectangle-ad" style="color:#3b82f6;"></i><span style="font-weight:600;font-size:0.85rem;">Pie de factura</span><span class="collapse-field-preview" style="color:var(--text-muted);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:0.78rem;">{{ footer_val or 'Información visible en el pie del PDF…' }}</span><i class="fa-solid fa-chevron-down" style="font-size:0.65rem;color:var(--text-muted);"></i>
+        </div>
+        <div class="collapse-field-body" style="max-height:0;overflow:hidden;transition:max-height 0.25s ease;">
+          <textarea name="footer" class="form-textarea" rows="2" oninput="updateCollapsePreview(this)" placeholder="Agregue información adicional que será visible en el pie del PDF…" style="min-height:50px;width:100%;resize:vertical;margin-bottom:8px;">{{ footer_val }}</textarea>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOTALES (3 COLUMNAS) -->
+  <div class="section-card">
+    <div class="totals-grid">
+      <div class="t-col">
+        <h4><i class="fa-solid fa-calculator"></i> Resumen</h4>
+        <div class="t-row"><span>Subtotal</span><span id="lbl-subtotal" style="font-weight:500;">RD$ 0.00</span></div>
+        <div class="t-row"><span>ITBIS</span><span id="lbl-itbis">RD$ 0.00</span></div>
+        <div class="t-row" style="color:var(--accent-red);"><span>Descuentos</span><span id="lbl-discount">− RD$ 0.00</span></div>
+        <div class="t-row" id="lbl-isc-container" style="display:none;"><span>ISC Total</span><span id="lbl-isc">RD$ 0.00</span></div>
+      </div>
+      <div class="t-col">
+        <h4><i class="fa-solid fa-file-invoice-dollar"></i> Impuestos</h4>
+        <div class="t-row" id="lbl-total-propina-row" style="display:none;"><span>Propina (10%)</span><span id="lbl-total-propina">RD$ 0.00</span></div>
+        <div class="t-row" id="lbl-total-cdt-row" style="display:none;"><span>CDT (2%)</span><span id="lbl-total-cdt">RD$ 0.00</span></div>
+        <div class="t-row" id="lbl-isc-especifico-row" style="display:none;"><span>ISC Específico</span><span id="lbl-isc-especifico">RD$ 0.00</span></div>
+        <div class="t-row" id="lbl-isc-advalorem-row" style="display:none;"><span>ISC Ad-Valorem</span><span id="lbl-isc-advalorem">RD$ 0.00</span></div>
+        <div class="t-row" id="lbl-otros-impuestos-row" style="display:none;"><span>Otros impuestos</span><span id="lbl-otros-impuestos">RD$ 0.00</span></div>
+        <div class="t-row"><span>ITBIS retenido</span><span id="lbl-retained-itbis">RD$ 0.00</span></div>
+        <div class="t-row"><span>ISR retenido</span><span id="lbl-retained-isr">RD$ 0.00</span></div>
+      </div>
+      <div class="t-big">
+        <div class="t-label">TOTAL</div>
+        <span id="lbl-total" class="t-value">RD$ 0.00</span>
+        <span id="lbl-net-payable" class="t-net">RD$ 0.00</span>
+        <div style="font-size:0.68rem;color:var(--text-muted);">Neto a recibir</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BARRA DE ACCIONES -->
+  <div class="actions-bar">
+    <a href="{% if active_page == 'quotations' %}/quotations{% else %}{{ url_for('web_invoices.list_invoices') }}{% endif %}" class="btn-link">Cancelar</a>
+    <button type="submit" formaction="/invoices/preview" formtarget="_blank" id="preview-invoice-btn" class="btn-subtle"><i class="fa-solid fa-eye"></i> Vista Previa</button>
+    <button type="submit" name="action" value="guardar" id="submit-invoice-btn" class="btn btn-secondary" style="padding:9px 20px;font-size:0.85rem;"><i class="fa-solid fa-floppy-disk"></i> Guardar Borrador</button>
+    <button type="submit" id="submit-invoice-cobrar-btn" name="action" value="emitir_cobrar" class="btn btn-primary" style="padding:10px 28px;font-size:0.9rem;"><i class="fa-solid fa-paper-plane"></i> Emitir Documento</button>
+  </div>
+  <div id="payment-helper-container" style="text-align:right;font-size:0.72rem;color:var(--text-muted);margin-top:0;"></div>
+
+</div><!-- /doc-main-col -->
 </form>
 
-<!-- =========================================================================
-     MODALES PREMIUM DE BÚSQUEDA AVANZADA (CLIENTES Y PRODUCTOS)
-     ========================================================================= -->
-
-<!-- Modal Registrar Nuevo Cliente (AJAX - sin recargar) -->
-<div class="search-modal" id="client-create-modal" style="display: none;">
-    <div class="modal-backdrop" id="client-create-modal-backdrop"></div>
-    <div class="modal-content" style="max-width: 600px;">
-        <div class="modal-header">
-            <h3><i class="fa-solid fa-user-plus" style="color: var(--accent-emerald);"></i> Registrar Nuevo Cliente</h3>
-            <button type="button" class="btn-close-modal" id="btn-close-create-client-modal"><i
-                    class="fa-solid fa-xmark"></i></button>
-        </div>
-        <div class="modal-body">
-            <div id="create-client-alert"
-                style="display:none; padding: 10px 16px; border-radius: var(--radius-sm); margin-bottom: 16px; font-size: 0.87rem; font-weight: 500;">
-            </div>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-                <div class="form-group">
-                    <label for="new-client-rnc">RNC / Cédula <span
-                            style="font-size: 0.75rem; color: var(--text-muted);">(opcional para
-                            consumidor)</span></label>
-                    <input type="text" id="new-client-rnc" class="form-input" placeholder="Ej: 101234567"
-                        style="font-family: monospace;">
-                </div>
-                <div class="form-group">
-                    <label for="new-client-razon">Razón Social / Nombre <span
-                            style="color: var(--accent-red);">*</span></label>
-                    <input type="text" id="new-client-razon" class="form-input" placeholder="Nombre completo o empresa">
-                </div>
-                <div class="form-group">
-                    <label for="new-client-email">Correo Electrónico</label>
-                    <input type="email" id="new-client-email" class="form-input" placeholder="cliente@empresa.com">
-                </div>
-                <div class="form-group">
-                    <label for="new-client-telefono">Teléfono</label>
-                    <input type="tel" id="new-client-telefono" class="form-input" placeholder="809-000-0000">
-                </div>
-                <div class="form-group" style="grid-column: 1 / -1;">
-                    <label for="new-client-direccion">Dirección</label>
-                    <input type="text" id="new-client-direccion" class="form-input"
-                        placeholder="Calle, sector, ciudad, provincia">
-                </div>
-            </div>
-        </div>
-        <div class="modal-footer"
-            style="display: flex; justify-content: flex-end; gap: 10px; padding: 16px 24px; border-top: 1px solid var(--border-color);">
-            <button type="button" id="btn-cancel-create-client" class="btn btn-secondary">
-                <i class="fa-solid fa-xmark"></i> Cancelar
-            </button>
-            <button type="button" id="btn-save-new-client" class="btn btn-primary" style="min-width: 160px;">
-                <i class="fa-solid fa-floppy-disk"></i> <span id="btn-save-new-client-label">Guardar Cliente</span>
-            </button>
-        </div>
+<!-- MODAL: RETENCIONES Y RECURRENCIA -->
+<div class="search-modal" id="retentions-modal" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;align-items:center;justify-content:center;z-index:1050;">
+  <div class="modal-content" style="max-width:460px;position:relative;background:var(--bg-card);border:1px solid var(--border-color);border-radius:var(--radius-lg);box-shadow:0 20px 60px rgba(0,0,0,0.15);overflow:hidden;">
+    <div class="modal-header" style="padding:20px 24px;border-bottom:1px solid var(--border-color);"><h3 style="font-size:0.95rem;"><i class="fa-solid fa-sliders" style="color:var(--accent-emerald);margin-right:8px;"></i>Retenciones y Ajustes</h3><button type="button" id="btn-close-retentions-modal" class="btn-close-modal"><i class="fa-solid fa-xmark"></i></button></div>
+    <div class="modal-body" style="padding:22px 24px;">
+      <div class="inp-group" style="margin-bottom:16px;"><label>Descuento Global (%)</label><input type="number" id="discount-global-modal" class="form-input" min="0" max="1" step="0.01" value="" placeholder="Ej: 0.10 = 10%" oninput="document.getElementById('discount-global').value=this.value;recalculateRetBadge();"></div>
+      <div class="inp-group" style="margin-bottom:16px;"><label>Retención ISR</label><select id="isr-rate-select-modal" class="form-select" onchange="document.getElementById('isr-rate-select').value=this.value;recalculateRetBadge();"><option value="0.0">Sin retención (0%)</option><option value="0.02">2% — Bienes y servicios</option><option value="0.10">10% — Honorarios / Alquiler</option></select></div>
+      <div class="inp-group" style="margin-bottom:16px;"><label>Retención ITBIS</label><select id="itbis-rate-select-modal" class="form-select" onchange="document.getElementById('itbis-rate-select').value=this.value;recalculateRetBadge();"><option value="0.0">Sin retención (0%)</option><option value="0.30">30% — Bienes corporativos</option><option value="0.75">75% — Servicios jurídicos</option><option value="1.00">100% — Profesionales independientes</option></select></div>
+      <div class="inp-group" style="margin-bottom:16px;"><label>Factura Recurrente</label><select id="is-recurring-modal" class="form-select" onchange="document.getElementById('is-recurring').value=this.value;document.getElementById('recurrence-fields-modal').style.display=this.value==='true'?'flex':'none';recalculateRetBadge();"><option value="false">No, emisión única</option><option value="true">Sí, programar recurrencia</option></select></div>
+      <div id="recurrence-fields-modal" style="display:none;align-items:center;gap:10px;">
+        <select id="recurrence-interval-modal" class="form-select" style="width:110px;" onchange="document.getElementById('recurrence-interval').value=this.value;"><option value="semanal">Semanal</option><option value="quincenal">Quincenal</option><option value="mensual" selected>Mensual</option></select>
+        <input type="date" id="next-recurrence-modal" class="form-input" style="width:140px;" onchange="document.getElementById('next-recurrence').value=this.value">
+      </div>
     </div>
+    <div class="modal-footer" style="display:flex;justify-content:flex-end;gap:10px;padding:16px 24px;border-top:1px solid var(--border-color);"><button type="button" id="btn-close-retentions-ok" class="btn btn-primary">Listo</button></div>
+  </div>
+</div>
+<!-- Hidden fields para que invoicing.js los encuentre -->
+<div style="display:none !important;">
+  <input type="number" id="discount-global" name="discountRate" min="0" max="1" step="0.01" value="0.00">
+  <select id="isr-rate-select" name="retainedISRRate"><option value="0.0" selected>0%</option><option value="0.02">2%</option><option value="0.10">10%</option></select>
+  <select id="itbis-rate-select" name="retainedITBISRate"><option value="0.0" selected>0%</option><option value="0.30">30%</option><option value="0.75">75%</option><option value="1.00">100%</option></select>
+  <select id="is-recurring" name="isRecurring"><option value="false" selected>No</option><option value="true">Sí</option></select>
+  <select id="recurrence-interval" name="recurrenceInterval"><option value="semanal">Semanal</option><option value="quincenal">Quincenal</option><option value="mensual" selected>Mensual</option></select>
+  <input type="date" id="next-recurrence" name="nextOccurrenceDate">
+  <span id="lbl-subtotal-raw" style="display:none !important;">RD$ 0.00</span>
 </div>
 
-<!-- Modal Buscar Cliente CRM -->
-<div class="search-modal" id="client-search-modal" style="display: none;">
-    <div class="modal-backdrop" id="client-modal-backdrop"></div>
-    <div class="modal-content" style="max-width: 750px;">
-        <div class="modal-header">
-            <h3><i class="fa-solid fa-address-book" style="color: var(--accent-emerald);"></i> Buscar Cliente CRM</h3>
-            <button type="button" class="btn-close-modal" id="btn-close-client-modal"><i
-                    class="fa-solid fa-xmark"></i></button>
-        </div>
-        <div class="modal-body">
-            <div class="form-group" style="margin-bottom: 20px;">
-                <div style="position: relative;">
-                    <i class="fa-solid fa-magnifying-glass"
-                        style="position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: var(--text-secondary);"></i>
-                    <input type="text" id="modal-client-filter" class="form-input"
-                        placeholder="Filtrar por Nombre, RNC, Correo o Teléfono..."
-                        style="padding-left: 45px; width: 100%;">
-                </div>
-            </div>
-            <div class="table-responsive" style="max-height: 350px; overflow-y: auto;">
-                <table class="table-premium" style="width: 100%; border-collapse: collapse;">
-                    <thead>
-                        <tr>
-                            <th style="padding: 12px 16px;">Cliente / Identificación</th>
-                            <th style="padding: 12px 16px;">Datos de Contacto</th>
-                            <th style="text-align: center; width: 140px; padding: 12px 16px;">Acción</th>
-                        </tr>
-                    </thead>
-                    <tbody id="modal-client-list-body">
-                        <!-- Clientes dinámicos cargados por JS -->
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
+<!-- PANEL LATERAL: MÁS AJUSTES -->
+<div class="more-settings-backdrop" id="more-settings-backdrop" onclick="toggleMoreSettings()"></div>
+<div class="more-settings-panel" id="more-settings-panel">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+    <h4 style="margin:0;font-size:0.95rem;font-weight:700;"><i class="fa-solid fa-sliders" style="color:var(--accent-emerald);margin-right:8px;"></i> Más ajustes</h4>
+    <button type="button" onclick="toggleMoreSettings()" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:1.2rem;"><i class="fa-solid fa-xmark"></i></button>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:16px;">
+    <div class="inp-group"><label>Sucursal</label><select id="branch-select-side" class="form-select" onchange="document.querySelector('[name=branchId]').value=this.value">{% for b in branches %}<option value="{{ b.id }}" {% if invoice and invoice.branchId==b.id %}selected{% elif not invoice and b.isDefault %}selected{% endif %}>{{ b.name }}</option>{% endfor %}</select></div>
+    <div class="inp-group"><label>Almacén</label><select id="warehouse-select-side" class="form-select" onchange="document.querySelector('[name=warehouseId]').value=this.value">{% for w in warehouses %}<option value="{{ w.id }}" {% if invoice and invoice.warehouseId==w.id %}selected{% elif not invoice and loop.first %}selected{% endif %}>{{ w.name }}</option>{% endfor %}</select></div>
+    <div class="inp-group"><label>Moneda</label><select id="currency-select-side" class="form-select" onchange="document.querySelector('[name=currency]').value=this.value;handleCurrencySideChange(this.value)"><option value="DOP" {% if not invoice or invoice.currency=='DOP' %}selected{% endif %}>Pesos Dominicanos (DOP)</option><option value="USD" {% if invoice and invoice.currency=='USD' %}selected{% endif %}>Dólares (USD)</option><option value="EUR" {% if invoice and invoice.currency=='EUR' %}selected{% endif %}>Euros (EUR)</option></select></div>
+    <div class="inp-group" id="exchange-rate-container-side" style="display:none;"><label>Tasa de Cambio</label><input type="number" id="exchangeRate-side" class="form-input" step="0.01" placeholder="0.00" oninput="document.querySelector('[name=exchangeRate]').value=this.value" value="{{ invoice.exchangeRate if invoice else 1.0 }}"></div>
+    <div class="inp-group"><label style="display:flex;justify-content:space-between;"><span>Centro de Costo</span><button type="button" onclick="openInvoiceCostCenterModal()" style="font-size:0.72rem;color:var(--accent-emerald);background:none;border:none;cursor:pointer;">+ Nuevo</button></label><select id="cost-center-select-side" class="form-select" onchange="document.querySelector('[name=costCenterId]').value=this.value"><option value="">— Sin centro de costo —</option>{% for cc in cost_centers %}<option value="{{ cc.id }}" {% if invoice and invoice.costCenterId==cc.id %}selected{% endif %}>{% if cc.code %}[{{ cc.code }}] {% endif %}{{ cc.name }}</option>{% endfor %}</select></div>
+    <div class="inp-group"><label style="display:flex;justify-content:space-between;"><span>Lista de Precios</span><button type="button" onclick="openInvoicePriceListModal()" style="font-size:0.72rem;color:var(--accent-emerald);background:none;border:none;cursor:pointer;">+ Nueva</button></label><select id="price-list-select-side" class="form-select" onchange="document.querySelector('[name=priceListId]').value=this.value"><option value="">— Sin lista —</option>{% for pl in price_lists %}<option value="{{ pl.id }}" {% if invoice and invoice.priceListId==pl.id %}selected{% endif %}>{{ pl.name }}{% if pl.tipo %} ({{ pl.tipo }}){% endif %}</option>{% endfor %}</select></div>
+    <div class="inp-group"><label>Tipo de Ingreso (DGII)</label><select id="income-type-select-side" class="form-select" onchange="document.querySelector('[name=incomeType]').value=this.value"><option value="01 - Ingresos por operaciones" selected>01 — Operaciones</option><option value="02 - Ingresos Financieros">02 — Financieros</option><option value="03 - Ingresos Extraordinarios">03 — Extraordinarios</option><option value="04 - Arrendamientos">04 — Arrendamientos</option><option value="05 - Venta de Activo Depreciable">05 — Activo Depreciable</option><option value="06 - Otros Ingresos">06 — Otros</option></select></div>
+  </div>
+  <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border-color);display:flex;gap:10px;">
+    <button type="button" onclick="toggleMoreSettings()" class="btn btn-secondary" style="flex:1;">Cancelar</button>
+    <button type="button" onclick="toggleMoreSettings()" class="btn btn-primary" style="flex:1;">Guardar</button>
+  </div>
 </div>
 
-
-<!-- Modal Buscar Producto / Catálogo -->
-<div class="search-modal" id="product-search-modal" style="display: none;">
-    <div class="modal-backdrop" id="product-modal-backdrop"></div>
-    <div class="modal-content" style="max-width: 750px;">
-        <div class="modal-header">
-            <h3><i class="fa-solid fa-boxes-stacked" style="color: var(--accent-emerald);"></i> Buscar Producto /
-                Servicio</h3>
-            <button type="button" class="btn-close-modal" id="btn-close-product-modal"><i
-                    class="fa-solid fa-xmark"></i></button>
-        </div>
-        <div class="modal-body">
-            <div class="form-group" style="margin-bottom: 20px;">
-                <div style="position: relative;">
-                    <i class="fa-solid fa-magnifying-glass"
-                        style="position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: var(--text-secondary);"></i>
-                    <input type="text" id="modal-product-filter" class="form-input"
-                        placeholder="Filtrar por Nombre, Código de barra o SKU..."
-                        style="padding-left: 45px; width: 100%;">
-                </div>
-            </div>
-            <div class="table-responsive" style="max-height: 350px; overflow-y: auto;">
-                <table class="table-premium" style="width: 100%;">
-                    <thead>
-                        <tr>
-                            <th>Código</th>
-                            <th>Nombre</th>
-                            <th style="text-align: right;">Precio</th>
-                            <th>Tasa ITBIS</th>
-                            <th style="text-align: center;">Acción</th>
-                        </tr>
-                    </thead>
-                    <tbody id="modal-product-list-body">
-                        <!-- Productos dinámicos cargados por JS -->
-                    </tbody>
-                </table>
-            </div>
-        </div>
+<!-- MODALES EXISTENTES -->
+<div class="search-modal" id="client-create-modal" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;align-items:center;justify-content:center;z-index:1050;">
+  <div class="modal-content" style="max-width:560px;position:relative;background:var(--bg-card);border:1px solid var(--border-color);border-radius:var(--radius-lg);box-shadow:0 20px 60px rgba(0,0,0,0.15);overflow:hidden;">
+    <div class="modal-header" style="padding:20px 24px;border-bottom:1px solid var(--border-color);"><h3 style="font-size:0.95rem;"><i class="fa-solid fa-user-plus" style="color:var(--accent-emerald);margin-right:8px;"></i>Registrar Nuevo Cliente</h3><button type="button" class="btn-close-modal" id="btn-close-create-client-modal"><i class="fa-solid fa-xmark"></i></button></div>
+    <div class="modal-body" style="padding:22px 24px;">
+      <div id="create-client-alert" style="display:none;padding:10px 16px;border-radius:6px;margin-bottom:16px;font-size:0.85rem;"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div class="inp-group"><label>RNC / Cédula</label><input type="text" id="new-client-rnc" class="form-input" placeholder="Ej: 101234567" style="font-family:monospace;"></div>
+        <div class="inp-group"><label>Razón Social / Nombre <span style="color:var(--accent-red);">*</span></label><input type="text" id="new-client-razon" class="form-input" placeholder="Nombre completo o empresa"></div>
+        <div class="inp-group"><label>Correo Electrónico</label><input type="email" id="new-client-email" class="form-input" placeholder="cliente@empresa.com"></div>
+        <div class="inp-group"><label>Teléfono</label><input type="tel" id="new-client-telefono" class="form-input" placeholder="809-000-0000"></div>
+        <div class="inp-group" style="grid-column:1/-1;"><label>Dirección</label><input type="text" id="new-client-direccion" class="form-input" placeholder="Calle, sector, ciudad, provincia"></div>
+      </div>
     </div>
+    <div class="modal-footer" style="display:flex;justify-content:flex-end;gap:10px;padding:16px 24px;border-top:1px solid var(--border-color);"><button type="button" id="btn-cancel-create-client" class="btn btn-secondary">Cancelar</button><button type="button" id="btn-save-new-client" class="btn btn-primary">Guardar Cliente</button></div>
+  </div>
 </div>
 
-<!-- Modal de Confirmación Tipo Borrador -->
-<div class="search-modal" id="confirmation-draft-modal" style="display: none;">
-    <div class="modal-backdrop" id="confirmation-modal-backdrop"
-        style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background-color: rgba(0, 0, 0, 0.6); z-index: 1000; backdrop-filter: blur(4px);">
+<div class="search-modal" id="client-search-modal" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;align-items:center;justify-content:center;z-index:1050;">
+  <div class="modal-content" style="max-width:720px;position:relative;background:var(--bg-card);border:1px solid var(--border-color);border-radius:var(--radius-lg);box-shadow:0 20px 60px rgba(0,0,0,0.15);overflow:hidden;">
+    <div class="modal-header" style="padding:20px 24px;border-bottom:1px solid var(--border-color);"><h3 style="font-size:0.95rem;"><i class="fa-solid fa-address-book" style="color:var(--accent-emerald);margin-right:8px;"></i>Buscar Cliente CRM</h3><button type="button" class="btn-close-modal" id="btn-close-client-modal"><i class="fa-solid fa-xmark"></i></button></div>
+    <div class="modal-body" style="padding:22px 24px;">
+      <div style="margin-bottom:16px;"><div style="position:relative;"><i class="fa-solid fa-magnifying-glass" style="position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--text-muted);"></i><input type="text" id="modal-client-filter" class="form-input" placeholder="Filtrar por Nombre, RNC, Correo o Teléfono…" style="padding-left:40px;"></div></div>
+      <div style="max-height:320px;overflow-y:auto;"><table style="width:100%;border-collapse:collapse;font-size:0.85rem;"><thead><tr style="border-bottom:2px solid var(--border-color);"><th style="padding:10px 14px;text-align:left;font-weight:600;color:var(--text-muted);">Cliente</th><th style="padding:10px 14px;text-align:left;color:var(--text-muted);">Contacto</th><th style="padding:10px 14px;text-align:center;width:120px;"></th></tr></thead><tbody id="modal-client-list-body"></tbody></table></div>
     </div>
-    <div class="modal-content"
-        style="max-width: 900px; width: 95%; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1001; background: #ffffff; border: 1px solid #e2e8f0; border-radius: var(--radius-md); box-shadow: var(--shadow-lg); display: flex; flex-direction: column; overflow: hidden; max-height: 90vh; --text-primary: #1e293b; --text-secondary: #475569; --text-muted: #64748b; --border-color: #e2e8f0; --bg-table-hover: rgba(0, 0, 0, 0.02);">
-        <div class="modal-header"
-            style="border-bottom: 1px solid var(--border-color); padding: 20px 24px; display: flex; justify-content: space-between; align-items: center;">
-            <h3
-                style="font-size: 1.2rem; font-family: var(--font-heading); margin: 0; display: flex; align-items: center; gap: 8px; color: var(--text-primary);">
-                <i class="fa-solid fa-file-invoice" style="color: var(--accent-emerald);"></i> Vista Previa de
-                Validación (Borrador)
-            </h3>
-            <button type="button" class="btn-close-modal" id="btn-close-confirm-modal"
-                style="background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.25rem;"><i
-                    class="fa-solid fa-xmark"></i></button>
-        </div>
-        <div class="modal-body" style="padding: 24px; overflow-y: auto;">
-            <!-- Alerta informativa -->
-            <div
-                style="background-color: rgba(16, 185, 129, 0.05); border-left: 4px solid var(--accent-emerald); border-radius: var(--radius-sm); padding: 14px 18px; margin-bottom: 24px; display: flex; align-items: center; gap: 12px;">
-                <i class="fa-solid fa-circle-exclamation" style="color: var(--accent-emerald); font-size: 1.2rem;"></i>
-                <div style="font-size: 0.88rem; color: var(--text-secondary);">
-                    Por favor, valide detalladamente las partidas y montos del comprobante. Al presionar
-                    <strong>Confirmar Emisión</strong>, el documento será emitido formalmente.
-                </div>
-            </div>
-
-            <!-- Grid de datos clave -->
-            <div
-                style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; background-color: #f8fafc; border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 20px; margin-bottom: 24px;">
-                <div>
-                    <span
-                        style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: bold; display: block; margin-bottom: 4px;">Tipo
-                        de Comprobante</span>
-                    <strong id="confirm-doc-type" style="font-size: 0.95rem; color: var(--text-primary);">Factura de
-                        Consumo (E32)</strong>
-                </div>
-                <div>
-                    <span
-                        style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: bold; display: block; margin-bottom: 4px;">Cliente
-                        Receptor</span>
-                    <strong id="confirm-client-name" style="font-size: 0.95rem; color: var(--text-primary);">Público
-                        General</strong>
-                </div>
-                <div>
-                    <span
-                        style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: bold; display: block; margin-bottom: 4px;">RNC
-                        / Cédula Receptor</span>
-                    <strong id="confirm-client-rnc"
-                        style="font-size: 0.95rem; color: var(--text-primary);">999999999</strong>
-                </div>
-                <div>
-                    <span
-                        style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: bold; display: block; margin-bottom: 4px;">Condición
-                        de Pago</span>
-                    <strong id="confirm-payment-type"
-                        style="font-size: 0.95rem; color: var(--text-primary);">Contado</strong>
-                </div>
-                <div>
-                    <span
-                        style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: bold; display: block; margin-bottom: 4px;">Fecha
-                        Límite</span>
-                    <strong id="confirm-due-date"
-                        style="font-size: 0.95rem; color: var(--text-primary);">2026-05-29</strong>
-                </div>
-                <div>
-                    <span
-                        style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: bold; display: block; margin-bottom: 4px;">Moneda</span>
-                    <strong id="confirm-currency" style="font-size: 0.95rem; color: var(--text-primary);">DOP</strong>
-                </div>
-            </div>
-
-            <!-- Tabla de partidas del borrador -->
-            <h4
-                style="font-size: 0.95rem; font-family: var(--font-heading); margin-bottom: 12px; font-weight: 500; color: var(--text-primary);">
-                Detalle de Partidas</h4>
-            <div class="table-responsive"
-                style="max-height: 200px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: var(--radius-sm); margin-bottom: 24px;">
-                <table class="table-premium" style="width: 100%; border-collapse: collapse;">
-                    <thead>
-                        <tr>
-                            <th
-                                style="padding: 10px 12px; font-size: 0.8rem; text-align: left; background-color: #f8fafc;">
-                                Item / Descripción</th>
-                            <th
-                                style="padding: 10px 12px; text-align: right; font-size: 0.8rem; background-color: #f8fafc;">
-                                Precio</th>
-                            <th
-                                style="padding: 10px 12px; text-align: center; font-size: 0.8rem; background-color: #f8fafc;">
-                                Cant.</th>
-                            <th
-                                style="padding: 10px 12px; text-align: right; font-size: 0.8rem; background-color: #f8fafc;">
-                                ITBIS</th>
-                            <th
-                                style="padding: 10px 12px; text-align: right; font-size: 0.8rem; background-color: #f8fafc;">
-                                Total</th>
-                        </tr>
-                    </thead>
-                    <tbody id="confirm-items-tbody">
-                        <!-- Cargar dinámicamente -->
-                    </tbody>
-                </table>
-            </div>
-
-            <!-- Totales Destacados en el Modal -->
-            <div style="display: flex; justify-content: flex-end; margin-bottom: 24px;">
-                <div
-                    style="width: 320px; background-color: #f8fafc; border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 16px;">
-                    <div
-                        style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 8px;">
-                        <span>Subtotal:</span>
-                        <span id="confirm-subtotal">RD$ 0.00</span>
-                    </div>
-                    <div
-                        style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 8px;">
-                        <span>ITBIS:</span>
-                        <span id="confirm-itbis">RD$ 0.00</span>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 8px; display: none;"
-                        id="confirm-isc-container">
-                        <span>Impuesto Adicional (ISC):</span>
-                        <span id="confirm-isc">RD$ 0.00</span>
-                    </div>
-                    <div
-                        style="display: flex; justify-content: space-between; font-size: 1.15rem; font-weight: bold; color: var(--accent-emerald); border-top: 1px solid var(--border-color); padding-top: 10px;">
-                        <span>Neto a Pagar:</span>
-                        <span id="confirm-total">RD$ 0.00</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Acciones de confirmación -->
-            <div
-                style="display: flex; justify-content: flex-end; gap: 15px; border-top: 1px solid var(--border-color); padding-top: 20px;">
-                <button type="button" class="btn btn-secondary" id="btn-cancel-confirm" style="padding: 12px 24px;">
-                    <span>Seguir Editando</span>
-                </button>
-                <button type="button" class="btn btn-success" id="btn-final-emit"
-                    style="padding: 12px 28px; background: linear-gradient(135deg, #064e3b 0%, #059669 100%); border: none; color: white; display: flex; align-items: center; gap: 8px; font-weight: 500; cursor: pointer;">
-                    <i class="fa-solid fa-circle-check"></i>
-                    <span>Confirmar Emisión</span>
-                </button>
-            </div>
-        </div>
-    </div>
+  </div>
 </div>
+
+<div class="search-modal" id="product-search-modal" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;align-items:center;justify-content:center;z-index:1050;">
+  <div class="modal-content" style="max-width:720px;position:relative;background:var(--bg-card);border:1px solid var(--border-color);border-radius:var(--radius-lg);box-shadow:0 20px 60px rgba(0,0,0,0.15);overflow:hidden;">
+    <div class="modal-header" style="padding:20px 24px;border-bottom:1px solid var(--border-color);"><h3 style="font-size:0.95rem;"><i class="fa-solid fa-boxes-stacked" style="color:var(--accent-emerald);margin-right:8px;"></i>Buscar Producto / Servicio</h3><button type="button" class="btn-close-modal" id="btn-close-product-modal"><i class="fa-solid fa-xmark"></i></button></div>
+    <div class="modal-body" style="padding:22px 24px;">
+      <div style="margin-bottom:16px;"><div style="position:relative;"><i class="fa-solid fa-magnifying-glass" style="position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--text-muted);"></i><input type="text" id="modal-product-filter" class="form-input" placeholder="Filtrar por Nombre, Código…" style="padding-left:40px;"></div></div>
+      <div style="max-height:320px;overflow-y:auto;"><table style="width:100%;border-collapse:collapse;font-size:0.85rem;"><thead><tr style="border-bottom:2px solid var(--border-color);"><th style="padding:10px 14px;text-align:left;font-weight:600;color:var(--text-muted);">Código</th><th style="padding:10px 14px;text-align:left;color:var(--text-muted);">Nombre</th><th style="padding:10px 14px;text-align:right;color:var(--text-muted);">Precio</th><th style="padding:10px 14px;text-align:center;width:70px;color:var(--text-muted);">ITBIS</th><th style="padding:10px 14px;text-align:center;width:110px;"></th></tr></thead><tbody id="modal-product-list-body"></tbody></table></div>
+    </div>
+  </div>
+</div>
+
+<div class="search-modal" id="product-create-modal" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;align-items:center;justify-content:center;z-index:1050;">
+  <div class="modal-content" style="max-width:500px;position:relative;background:var(--bg-card);border:1px solid var(--border-color);border-radius:var(--radius-lg);box-shadow:0 20px 60px rgba(0,0,0,0.15);overflow:hidden;">
+    <div class="modal-header" style="padding:20px 24px;border-bottom:1px solid var(--border-color);"><h3 style="font-size:0.95rem;"><i class="fa-solid fa-box-open" style="color:var(--accent-emerald);margin-right:8px;"></i>Nuevo Producto Rápido</h3><button type="button" class="btn-close-modal" id="btn-close-product-create-modal"><i class="fa-solid fa-xmark"></i></button></div>
+    <div class="modal-body" style="padding:22px 24px;">
+      <div id="product-create-alert" style="display:none;padding:10px 16px;border-radius:6px;margin-bottom:16px;font-size:0.85rem;"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div class="inp-group" style="grid-column:1/-1;"><label>Nombre <span style="color:var(--accent-red);">*</span></label><input type="text" id="new-product-name" class="form-input" placeholder="Ej: Laptop Dell Latitude"></div>
+        <div class="inp-group"><label>Precio <span style="color:var(--accent-red);">*</span></label><input type="number" id="new-product-price" class="form-input" step="0.01" value="0.00" style="text-align:right;"></div>
+        <div class="inp-group"><label>Tipo</label><select id="new-product-type" class="form-select"><option value="Bien">Bien</option><option value="Servicio">Servicio</option></select></div>
+        <div class="inp-group"><label>ITBIS</label><select id="new-product-itbis" class="form-select"><option value="0.18" selected>18%</option><option value="0.16">16%</option><option value="0.0">0%</option></select></div>
+        <div class="inp-group"><label>Costo</label><input type="number" id="new-product-cost" class="form-input" step="0.01" value="0.00" style="text-align:right;"></div>
+      </div>
+    </div>
+    <div class="modal-footer" style="display:flex;justify-content:flex-end;gap:10px;padding:16px 24px;border-top:1px solid var(--border-color);"><button type="button" id="btn-cancel-product-create" class="btn btn-secondary">Cancelar</button><button type="button" id="btn-save-new-product" class="btn btn-primary">Guardar y Seleccionar</button></div>
+  </div>
+</div>
+
+<div id="invoice-cc-modal" class="modal-overlay" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.4);z-index:1050;align-items:center;justify-content:center;flex-direction:column;">
+  <div class="modal-container" style="max-width:440px;width:95%;background:var(--bg-card);border:1px solid var(--border-color);border-radius:var(--radius-md);padding:0;box-shadow:0 20px 60px rgba(0,0,0,0.15);">
+    <div style="padding:18px 22px 0;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border-color);padding-bottom:12px;"><h3 style="margin:0;font-size:0.9rem;display:flex;align-items:center;gap:8px;"><i class="fa-solid fa-layer-group" style="color:var(--accent-emerald);"></i>Nuevo Centro de Costo</h3><button type="button" onclick="closeInvoiceCostCenterModal()" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:1.1rem;"><i class="fa-solid fa-xmark"></i></button></div>
+    <div style="padding:18px 22px;">
+      <div class="inp-group" style="margin-bottom:12px;"><label>Nombre <span style="color:var(--accent-red);">*</span></label><input type="text" id="icc-name" class="form-input" placeholder="Ej: Ventas, Administración"></div>
+      <div class="inp-group" style="margin-bottom:12px;"><label>Código</label><input type="text" id="icc-code" class="form-input" placeholder="CC-001" style="font-family:monospace;"></div>
+      <div class="inp-group" style="margin-bottom:12px;"><label>Descripción</label><textarea id="icc-description" class="form-textarea" rows="2" placeholder="Opcional" style="resize:vertical;"></textarea></div>
+      <div id="icc-error" style="display:none;color:var(--accent-red);font-size:0.8rem;margin-bottom:10px;"></div>
+      <div style="display:flex;justify-content:flex-end;gap:10px;padding-top:12px;border-top:1px solid var(--border-color);"><button type="button" onclick="closeInvoiceCostCenterModal()" class="btn btn-secondary">Cancelar</button><button type="button" onclick="saveInvoiceCostCenter()" id="icc-save-btn" class="btn btn-primary">Guardar</button></div>
+    </div>
+  </div>
+</div>
+
+<div id="invoice-pl-modal" class="modal-overlay" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.4);z-index:1050;align-items:center;justify-content:center;flex-direction:column;">
+  <div class="modal-container" style="max-width:440px;width:95%;background:var(--bg-card);border:1px solid var(--border-color);border-radius:var(--radius-md);padding:0;box-shadow:0 20px 60px rgba(0,0,0,0.15);">
+    <div style="padding:18px 22px 0;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border-color);padding-bottom:12px;"><h3 style="margin:0;font-size:0.9rem;display:flex;align-items:center;gap:8px;"><i class="fa-solid fa-tags" style="color:var(--accent-emerald);"></i>Nueva Lista de Precios</h3><button type="button" onclick="closeInvoicePriceListModal()" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:1.1rem;"><i class="fa-solid fa-xmark"></i></button></div>
+    <div style="padding:18px 22px;">
+      <div class="inp-group" style="margin-bottom:12px;"><label>Nombre <span style="color:var(--accent-red);">*</span></label><input type="text" id="ipl-name" class="form-input" placeholder="Ej: Mayorista, VIP"></div>
+      <div class="inp-group" style="margin-bottom:12px;"><label>Tipo <span style="color:var(--accent-red);">*</span></label><select id="ipl-tipo" class="form-select"><option value="">— Seleccionar —</option><option value="Minorista">Minorista</option><option value="Mayorista">Mayorista</option><option value="VIP">VIP</option><option value="Distribuidor">Distribuidor</option><option value="Otro">Otro</option></select></div>
+      <div class="inp-group" style="margin-bottom:12px;"><label>Descripción</label><textarea id="ipl-description" class="form-textarea" rows="2" placeholder="Opcional" style="resize:vertical;"></textarea></div>
+      <div id="ipl-error" style="display:none;color:var(--accent-red);font-size:0.8rem;margin-bottom:10px;"></div>
+      <div style="display:flex;justify-content:flex-end;gap:10px;padding-top:12px;border-top:1px solid var(--border-color);"><button type="button" onclick="closeInvoicePriceListModal()" class="btn btn-secondary">Cancelar</button><button type="button" onclick="saveInvoicePriceList()" id="ipl-save-btn" class="btn btn-primary">Guardar</button></div>
+    </div>
+  </div>
+</div>
+
 {% endblock %}
 
 {% block extra_scripts %}
 <script src="{{ url_for('static', filename='js/invoicing.js') }}?v={{ static_hash('js/invoicing.js') }}"></script>
 <script>
-    document.addEventListener('DOMContentLoaded', () => {
-        const paymentTypeSelect = document.getElementById('payment-type-select');
-        const paymentMethodSelect = document.getElementById('payment-method-select');
-        const paymentMethodGroup = document.getElementById('payment-method-group');
-        const dueDateInput = document.getElementById('due-date');
-        const submitCobrarBtn = document.getElementById('submit-invoice-cobrar-btn');
+document.addEventListener('DOMContentLoaded', () => {
+    const paymentTypeSelect = document.getElementById('payment-type-select');
+    const paymentMethodSelect = document.getElementById('payment-method-select');
+    const paymentMethodGroup = document.getElementById('payment-method-group');
+    const dueDateInput = document.getElementById('due-date');
+    const submitCobrarBtn = document.getElementById('submit-invoice-cobrar-btn');
+    const paymentAgreementGroup = document.getElementById('payment-agreement-group');
+    const agreementEnabledSelect = document.getElementById('agreement-enabled-select');
+    const agreementDetailsFields = document.getElementById('agreement-details-fields');
+    const ecfTypeSelect = document.getElementById('ecf-type-select');
+    const referenceInfoGroup = document.getElementById('reference-info-group');
 
-        // Referencias para el Acuerdo de Pago
-        const paymentAgreementGroup = document.getElementById('payment-agreement-group');
-        const agreementEnabledSelect = document.getElementById('agreement-enabled-select');
-        const agreementDetailsFields = document.getElementById('agreement-details-fields');
-
-        function handlePaymentTypeChange() {
-            if (!paymentTypeSelect || !paymentMethodSelect) return;
-            const isCredit = paymentTypeSelect.value === 'Crédito';
-
-            // Show/Hide options inside paymentMethodSelect
-            const creditOption = paymentMethodSelect.querySelector('option[value="Crédito"]');
-            const cashOptions = Array.from(paymentMethodSelect.querySelectorAll('option:not([value="Crédito"])'));
-
-            if (isCredit) {
-                // If Credit, hide the payment method dropdown completely because there is no payment yet
-                if (paymentMethodGroup) paymentMethodGroup.style.display = 'none';
-                if (creditOption) creditOption.style.display = 'block';
-                paymentMethodSelect.value = 'Crédito';
-                cashOptions.forEach(opt => opt.style.display = 'none');
-
-                // Mostrar sección de Acuerdos de Pago
-                if (paymentAgreementGroup) paymentAgreementGroup.style.display = 'grid';
-
-                // If dueDate is today or in the past, default it to 30 days from now for credit convenience
-                if (dueDateInput) {
-                    const today = new Date().toISOString().split('T')[0];
-                    if (dueDateInput.value <= today) {
-                        const futureDate = new Date();
-                        futureDate.setDate(futureDate.getDate() + 30);
-                        dueDateInput.value = futureDate.toISOString().split('T')[0];
-                    }
-                }
-
-                // Update Emitir y Cobrar button to Firmar y Emitir (Crédito)
-                if (submitCobrarBtn) {
-                    submitCobrarBtn.setAttribute('value', 'emitir_credito');
-                    submitCobrarBtn.style.background = 'linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%)';
-                    submitCobrarBtn.innerHTML = '<i class="fa-solid fa-file-signature"></i> <span>Firmar y Emitir (Crédito)</span>';
-
-                    // Show a subtle help text under the button
-                    let helperText = document.getElementById('payment-helper-text');
-                    if (!helperText) {
-                        helperText = document.createElement('small');
-                        helperText.id = 'payment-helper-text';
-                        helperText.style.display = 'block';
-                        helperText.style.color = '#3b82f6';
-                        helperText.style.fontWeight = '500';
-                        helperText.style.fontSize = '0.85rem';
-
-                        const container = document.getElementById('payment-helper-container');
-                        if (container) {
-                            container.appendChild(helperText);
-                        } else {
-                            helperText.style.marginTop = '8px';
-                            submitCobrarBtn.parentNode.insertBefore(helperText, submitCobrarBtn.nextSibling);
-                        }
-                    }
-                    helperText.innerHTML = 'ℹ️ La factura se emitirá a la DGII y quedará <strong>Pendiente de Cobro (Cuentas por Cobrar)</strong>.';
-                }
-            } else {
-                // If Contado (Cash), show the payment method selector since we must record how it's paid
-                if (paymentMethodGroup) paymentMethodGroup.style.display = 'block';
-                if (creditOption) creditOption.style.display = 'none';
-                cashOptions.forEach(opt => opt.style.display = 'block');
-
-                // Ocultar sección de Acuerdos de Pago
-                if (paymentAgreementGroup) paymentAgreementGroup.style.display = 'none';
-                if (agreementEnabledSelect) agreementEnabledSelect.value = 'false';
-                if (agreementDetailsFields) agreementDetailsFields.style.display = 'none';
-
-                // If it was "Crédito", select "Efectivo"
-                if (paymentMethodSelect.value === 'Crédito') {
-                    paymentMethodSelect.value = 'Efectivo';
-                }
-
-                // Update button back to Emitir y Cobrar
-                if (submitCobrarBtn) {
-                    submitCobrarBtn.setAttribute('value', 'emitir_cobrar');
-                    submitCobrarBtn.style.background = 'linear-gradient(135deg, #064e3b 0%, #059669 100%)';
-                    submitCobrarBtn.innerHTML = '<i class="fa-solid fa-money-bill-wave"></i> <span>Emitir y Cobrar</span>';
-
-                    let helperText = document.getElementById('payment-helper-text');
-                    if (helperText) {
-                        helperText.remove();
-                    }
-                }
-            }
-        }
-
-        function handleAgreementToggle() {
-            if (!agreementEnabledSelect || !agreementDetailsFields) return;
-            if (agreementEnabledSelect.value === 'true') {
-                agreementDetailsFields.style.display = 'grid';
-            } else {
-                agreementDetailsFields.style.display = 'none';
-            }
-        }
-
-        if (paymentTypeSelect && paymentMethodSelect) {
-            paymentTypeSelect.addEventListener('change', handlePaymentTypeChange);
-            // Run initially to set the correct state based on loaded invoice data
-            handlePaymentTypeChange();
-        }
-
-        if (agreementEnabledSelect) {
-            agreementEnabledSelect.addEventListener('change', handleAgreementToggle);
-            handleAgreementToggle();
-        }
-
-        // Auto-fetch exchange rate on currency change
-        function handleCurrencyChange() {
-            const currency = document.getElementById('currency-select').value;
-            const rateContainer = document.getElementById('exchange-rate-container');
-            const rateInput = document.getElementById('exchangeRate');
-            const loadingIcon = document.getElementById('rate-loading');
-            if (!rateContainer || !rateInput) return;
-
-            if (currency === 'DOP') {
-                rateContainer.style.display = 'none';
-                rateInput.value = 1.0;
-            } else {
-                rateContainer.style.display = 'block';
-                loadingIcon.style.display = 'block';
-                fetch('/api/currency/rate/' + currency)
-                    .then(function(res){ return res.json(); })
-                    .then(function(data){
-                        loadingIcon.style.display = 'none';
-                        if (data.success && data.rate) {
-                            rateInput.value = data.rate.toFixed(2);
-                            rateInput.classList.add('field-highlighted');
-                            setTimeout(function(){ rateInput.classList.remove('field-highlighted'); }, 3000);
-                        } else {
-                            rateInput.value = '';
-                        }
-                    })
-                    .catch(function(){
-                        loadingIcon.style.display = 'none';
-                    });
-            }
-        }
-        var currencySelect = document.getElementById('currency-select');
-        if (currencySelect) {
-            currencySelect.addEventListener('change', handleCurrencyChange);
-            handleCurrencyChange();
-        }
-
-        // Lógica de Notas de Crédito / Débito (Ley 32-23)
-        const ecfTypeSelect = document.getElementById('ecf-type-select');
-        const referenceInfoGroup = document.getElementById('reference-info-group');
-        const refNcfModified = document.getElementById('ref-ncf-modified');
-        const refNcfModifiedDate = document.getElementById('ref-ncf-modified-date');
-        const refReasonModification = document.getElementById('ref-reason-modification');
-
-        // Banners
-        const noteHelperBanner = document.getElementById('note-helper-banner');
-        const noteBannerIcon = document.getElementById('note-banner-icon');
-        const noteBannerTitle = document.getElementById('note-banner-title');
-        const noteBannerText = document.getElementById('note-banner-text');
-
-        function handleEcfTypeChange() {
-            if (!ecfTypeSelect || !referenceInfoGroup) return;
-            const val = ecfTypeSelect.value;
-            const isNote = val === 'Nota de Débito (E33)' || val === 'Nota de Crédito (E34)';
-
-            if (isNote) {
-                referenceInfoGroup.style.display = 'grid';
-                if (refNcfModified) refNcfModified.setAttribute('required', 'true');
-                if (refNcfModifiedDate) refNcfModifiedDate.setAttribute('required', 'true');
-                if (refReasonModification) refReasonModification.setAttribute('required', 'true');
-
-                // Actualizar Banner de Ayuda / Orientación DGII
-                if (noteHelperBanner) {
-                    noteHelperBanner.style.display = 'block';
-                    if (val === 'Nota de Crédito (E34)') {
-                        noteHelperBanner.style.borderColor = 'var(--accent-red)';
-                        noteHelperBanner.style.backgroundColor = 'rgba(239, 68, 68, 0.05)';
-                        if (noteBannerIcon) noteBannerIcon.className = 'fa-solid fa-file-circle-minus';
-                        if (noteBannerTitle) noteBannerTitle.innerText = 'E34 - Nota de Crédito Electrónica';
-                        if (noteBannerText) noteBannerText.innerHTML = '<strong>Objetivo de uso:</strong> Se emite para <strong>restar, anular o aplicar devoluciones/descuentos</strong> a un comprobante fiscal emitido previamente. Reduce la deuda del cliente o genera un saldo a su favor. <br><small style="opacity: 0.85; display: inline-block; margin-top: 4px;">ℹ️ Los datos del receptor, la moneda y el documento original están bloqueados por consistencia fiscal.</small>';
-                    } else {
-                        noteHelperBanner.style.borderColor = 'var(--accent-purple)';
-                        noteHelperBanner.style.backgroundColor = 'rgba(167, 139, 250, 0.05)';
-                        if (noteBannerIcon) noteBannerIcon.className = 'fa-solid fa-file-circle-plus';
-                        if (noteBannerTitle) noteBannerTitle.innerText = 'E33 - Nota de Débito Electrónica';
-                        if (noteBannerText) noteBannerText.innerHTML = '<strong>Objetivo de uso:</strong> Se emite para <strong>sumar o incrementar</strong> el valor facturado anteriormente (por ejemplo, por cargos de mora, gastos de transporte u omisiones). Aumenta la cuenta por cobrar. <br><small style="opacity: 0.85; display: inline-block; margin-top: 4px;">ℹ️ Los datos del receptor, la moneda y el documento original están bloqueados por consistencia fiscal.</small>';
-                    }
-                }
-            } else {
-                referenceInfoGroup.style.display = 'none';
-                if (refNcfModified) refNcfModified.removeAttribute('required');
-                if (refNcfModifiedDate) refNcfModifiedDate.removeAttribute('required');
-                if (refReasonModification) refReasonModification.removeAttribute('required');
-                if (noteHelperBanner) noteHelperBanner.style.display = 'none';
-            }
-        }
-
-        if (ecfTypeSelect) {
-            ecfTypeSelect.addEventListener('change', handleEcfTypeChange);
-            handleEcfTypeChange();
-        }
-
-        // =========================================================================
-        // LÓGICA DEL MODAL DE CONFIRMACIÓN TIPO BORRADOR (VALIDACIÓN PREVIA)
-        // =========================================================================
-        const confirmationModal = document.getElementById('confirmation-draft-modal');
-        const btnCloseConfirmModal = document.getElementById('btn-close-confirm-modal');
-        const btnCancelConfirm = document.getElementById('btn-cancel-confirm');
-        const btnFinalEmit = document.getElementById('btn-final-emit');
-        const invoiceForm = document.getElementById('invoice-form');
-
-        if (submitCobrarBtn) {
-            submitCobrarBtn.addEventListener('click', (e) => {
-                // 1. Validar requeridos del formulario HTML5 antes de abrir
-                if (!invoiceForm.checkValidity()) {
-                    invoiceForm.reportValidity();
-                    return;
-                }
-
-                // Asegurar que haya al menos una partida agregada
-                const rows = document.querySelectorAll('#items-table tbody tr.item-row');
-                if (rows.length === 0) {
-                    alert('Por favor, añada al menos una partida a la factura antes de emitirla.');
-                    return;
-                }
-
-                // Validar que una Nota de Crédito (E34) no exceda el monto de la factura original
-                const refTotalInput = document.getElementById('referenced-invoice-total');
-                if (refTotalInput && ecfTypeSelect && ecfTypeSelect.value === 'Nota de Crédito (E34)') {
-                    const refTotal = parseFloat(refTotalInput.value) || 0;
-                    const noteTotalText = document.getElementById('lbl-net-payable').innerText;
-                    const noteTotal = parseFloat(noteTotalText.replace(/[^0-9.]/g, '')) || 0;
-                    if (noteTotal > refTotal) {
-                        alert(`⚠️ Error de Validación Fiscal:\n\nEl monto de la Nota de Crédito (RD$ ${noteTotal.toLocaleString('es-DO', { minimumFractionDigits: 2 })}) excede el total del comprobante modificado (RD$ ${refTotal.toLocaleString('es-DO', { minimumFractionDigits: 2 })}).\n\nSi desea incrementar el valor del documento original, debe emitir una Nota de Débito (E33).`);
-                        return;
-                    }
-                }
-
-                e.preventDefault();
-
-                // 2. Extraer y mapear encabezados en el Modal
-                const ecfTypeSelect = document.getElementById('ecf-type-select');
-                document.getElementById('confirm-doc-type').innerText = ecfTypeSelect ? ecfTypeSelect.options[ecfTypeSelect.selectedIndex].text : 'Cotización / Venta';
-                document.getElementById('confirm-client-name').innerText = document.getElementById('client-search-input').value || 'Consumidor Final';
-                document.getElementById('confirm-client-rnc').innerText = document.getElementById('client-rnc-input').value || '999999999';
-                document.getElementById('confirm-payment-type').innerText = document.getElementById('payment-type-select').value;
-                document.getElementById('confirm-due-date').innerText = document.getElementById('due-date').value;
-                document.getElementById('confirm-currency').innerText = document.getElementById('currency-select').value;
-                // 3. Extraer montos
-                document.getElementById('confirm-subtotal').innerText = document.getElementById('lbl-subtotal').innerText;
-                document.getElementById('confirm-itbis').innerText = document.getElementById('lbl-itbis').innerText;
-
-                const iscVal = document.getElementById('lbl-isc').innerText;
-                const iscContainer = document.getElementById('confirm-isc-container');
-                if (parseFloat(iscVal.replace(/[^0-9.]/g, '')) > 0) {
-                    document.getElementById('confirm-isc').innerText = iscVal;
-                    iscContainer.style.display = 'flex';
-                } else {
-                    iscContainer.style.display = 'none';
-                }
-
-                document.getElementById('confirm-total').innerText = document.getElementById('lbl-net-payable').innerText;
-                // 4. Poblar partidas en la tabla del borrador
-                const confirmTbody = document.getElementById('confirm-items-tbody');
-                confirmTbody.innerHTML = '';
-
-                rows.forEach(row => {
-                    const itemName = row.querySelector('.item-name-input').value;
-                    const price = parseFloat(row.querySelector('.item-price-input').value) || 0;
-                    const qty = parseFloat(row.querySelector('.item-qty-input').value) || 0;
-                    const itbisVal = row.querySelector('.item-itbis-select').value;
-                    const totalLabel = row.querySelector('.item-total-label').innerText;
-
-                    const tr = document.createElement('tr');
-                    tr.style.borderBottom = '1px solid var(--border-color)';
-                    tr.innerHTML = `
-                        <td style="padding: 12px; font-size: 0.85rem; color: var(--text-primary); text-align: left;">${itemName}</td>
-                        <td style="padding: 12px; font-size: 0.85rem; color: var(--text-secondary); text-align: right;">RD$ ${price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                        <td style="padding: 12px; font-size: 0.85rem; color: var(--text-primary); text-align: center;">${qty}</td>
-                        <td style="padding: 12px; font-size: 0.85rem; color: var(--text-secondary); text-align: right;">${(parseFloat(itbisVal) * 100)}%</td>
-                        <td style="padding: 12px; font-size: 0.85rem; color: var(--text-primary); font-weight: bold; text-align: right;">${totalLabel}</td>
-                    `;
-                    confirmTbody.appendChild(tr);
-                });
-
-                // 5. Mostrar Modal con animación
-                if (confirmationModal) {
-                    confirmationModal.style.display = 'flex';
-                }
-            });
-        }
-
-        // Funciones para cerrar modal
-        const closeModal = () => {
-            if (confirmationModal) confirmationModal.style.display = 'none';
-        };
-
-        if (btnCloseConfirmModal) btnCloseConfirmModal.addEventListener('click', closeModal);
-        if (btnCancelConfirm) btnCancelConfirm.addEventListener('click', closeModal);
-
-        // Envío final confirmado
-        if (btnFinalEmit) {
-            btnFinalEmit.addEventListener('click', () => {
-                // Insertar dinámicamente el valor de la acción en un campo hidden
-                const actionInput = document.createElement('input');
-                actionInput.type = 'hidden';
-                actionInput.name = 'action';
-                actionInput.value = submitCobrarBtn.getAttribute('value') || 'emitir_cobrar';
-                invoiceForm.appendChild(actionInput);
-
-                closeModal();
-                invoiceForm.submit();
-            });
-        }
-    });
-</script>
-
-<!-- ============================================================ -->
-<!-- MODAL: NUEVO CENTRO DE COSTO                                 -->
-<!-- ============================================================ -->
-<div id="invoice-cc-modal" class="modal-overlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:9999; align-items:center; justify-content:center;">
-    <div class="modal-container" style="max-width:480px; width:95%; background:var(--bg-card); border-radius:var(--radius-md); padding:0; box-shadow:0 20px 60px rgba(0,0,0,0.3);">
-        <div class="modal-header" style="padding:20px 24px 0; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--border-color); padding-bottom:14px; margin-bottom:0;">
-            <h3 style="margin:0; font-size:1rem; display:flex; align-items:center; gap:8px;">
-                <i class="fa-solid fa-layer-group" style="color:var(--accent-emerald);"></i>
-                Nuevo Centro de Costo
-            </h3>
-            <button type="button" onclick="closeInvoiceCostCenterModal()" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:1.1rem;">
-                <i class="fa-solid fa-xmark"></i>
-            </button>
-        </div>
-        <div style="padding:20px 24px;">
-            <div class="form-group">
-                <label for="icc-name">Nombre <span style="color:var(--accent-red);">*</span></label>
-                <input type="text" id="icc-name" class="form-input" placeholder="Ej: Ventas, Administración, Proyecto Alpha">
-            </div>
-            <div class="form-group">
-                <label for="icc-code">Código</label>
-                <input type="text" id="icc-code" class="form-input" placeholder="Ej: CC-001, ADM" style="font-family:monospace;">
-            </div>
-            <div class="form-group">
-                <label for="icc-description">Descripción</label>
-                <textarea id="icc-description" class="form-textarea" rows="2" placeholder="Descripción opcional"></textarea>
-            </div>
-            <div id="icc-error" style="display:none; color:var(--accent-red); font-size:0.82rem; margin-bottom:10px;"></div>
-            <div style="display:flex; justify-content:flex-end; gap:10px; padding-top:14px; border-top:1px solid var(--border-color); margin-top:4px;">
-                <button type="button" onclick="closeInvoiceCostCenterModal()" class="btn btn-secondary">Cancelar</button>
-                <button type="button" onclick="saveInvoiceCostCenter()" id="icc-save-btn" class="btn btn-primary">
-                    <i class="fa-solid fa-floppy-disk"></i> Guardar
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- ============================================================ -->
-<!-- MODAL: NUEVA LISTA DE PRECIOS                                -->
-<!-- ============================================================ -->
-<div id="invoice-pl-modal" class="modal-overlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:9999; align-items:center; justify-content:center;">
-    <div class="modal-container" style="max-width:480px; width:95%; background:var(--bg-card); border-radius:var(--radius-md); padding:0; box-shadow:0 20px 60px rgba(0,0,0,0.3);">
-        <div class="modal-header" style="padding:20px 24px 0; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--border-color); padding-bottom:14px; margin-bottom:0;">
-            <h3 style="margin:0; font-size:1rem; display:flex; align-items:center; gap:8px;">
-                <i class="fa-solid fa-tags" style="color:var(--accent-emerald);"></i>
-                Nueva Lista de Precios
-            </h3>
-            <button type="button" onclick="closeInvoicePriceListModal()" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:1.1rem;">
-                <i class="fa-solid fa-xmark"></i>
-            </button>
-        </div>
-        <div style="padding:20px 24px;">
-            <div class="form-group">
-                <label for="ipl-name">Nombre <span style="color:var(--accent-red);">*</span></label>
-                <input type="text" id="ipl-name" class="form-input" placeholder="Ej: Mayorista, VIP, Distribuidor">
-            </div>
-            <div class="form-group">
-                <label for="ipl-tipo">Tipo <span style="color:var(--accent-red);">*</span></label>
-                <select id="ipl-tipo" class="form-select">
-                    <option value="">— Seleccionar tipo —</option>
-                    <option value="Minorista">Minorista</option>
-                    <option value="Mayorista">Mayorista</option>
-                    <option value="VIP">VIP</option>
-                    <option value="Distribuidor">Distribuidor</option>
-                    <option value="Otro">Otro</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label for="ipl-description">Descripción</label>
-                <textarea id="ipl-description" class="form-textarea" rows="2" placeholder="Descripción opcional"></textarea>
-            </div>
-            <div id="ipl-error" style="display:none; color:var(--accent-red); font-size:0.82rem; margin-bottom:10px;"></div>
-            <div style="display:flex; justify-content:flex-end; gap:10px; padding-top:14px; border-top:1px solid var(--border-color); margin-top:4px;">
-                <button type="button" onclick="closeInvoicePriceListModal()" class="btn btn-secondary">Cancelar</button>
-                <button type="button" onclick="saveInvoicePriceList()" id="ipl-save-btn" class="btn btn-primary">
-                    <i class="fa-solid fa-floppy-disk"></i> Guardar
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<script>
-// ── MODAL CENTRO DE COSTO (desde formulario de documento) ──────────────────
-function openInvoiceCostCenterModal() {
-    document.getElementById('icc-name').value = '';
-    document.getElementById('icc-code').value = '';
-    document.getElementById('icc-description').value = '';
-    document.getElementById('icc-error').style.display = 'none';
-    document.getElementById('invoice-cc-modal').style.display = 'flex';
-    setTimeout(() => document.getElementById('icc-name').focus(), 100);
-}
-function closeInvoiceCostCenterModal() {
-    document.getElementById('invoice-cc-modal').style.display = 'none';
-}
-function saveInvoiceCostCenter() {
-    const name = document.getElementById('icc-name').value.trim();
-    const code = document.getElementById('icc-code').value.trim();
-    const description = document.getElementById('icc-description').value.trim();
-    const errEl = document.getElementById('icc-error');
-    const btn = document.getElementById('icc-save-btn');
-
-    if (!name) {
-        errEl.textContent = 'El nombre es obligatorio.';
-        errEl.style.display = 'block';
-        return;
-    }
-    errEl.style.display = 'none';
-    btn.disabled = true;
-    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Guardando...';
-
-    fetch('/accounting/ajax/cost-centers', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': document.querySelector('[name=csrf_token]').value },
-        body: JSON.stringify({ name, code, description })
-    })
-    .then(r => r.json())
-    .then(data => {
-        btn.disabled = false;
-        btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Guardar';
-        if (data.success) {
-            const sel = document.getElementById('cost-center-select');
-            const label = code ? `[${code}] ${name}` : name;
-            const opt = new Option(label, data.id, true, true);
-            sel.appendChild(opt);
-            sel.value = data.id;
-            closeInvoiceCostCenterModal();
+    function handlePaymentTypeChange() {
+        if (!paymentTypeSelect || !paymentMethodSelect) return;
+        const isCredit = paymentTypeSelect.value === 'Crédito';
+        const creditOption = paymentMethodSelect.querySelector('option[value="Crédito"]');
+        const cashOptions = Array.from(paymentMethodSelect.querySelectorAll('option:not([value="Crédito"])'));
+        if (isCredit) {
+            if (paymentMethodGroup) paymentMethodGroup.style.display = 'none';
+            if (creditOption) creditOption.style.display = 'block';
+            paymentMethodSelect.value = 'Crédito';
+            cashOptions.forEach(opt => opt.style.display = 'none');
+            if (paymentAgreementGroup) paymentAgreementGroup.style.display = 'flex';
+            if (dueDateInput) { const today = new Date().toISOString().split('T')[0]; if (dueDateInput.value <= today) { const d = new Date(); d.setDate(d.getDate()+30); dueDateInput.value = d.toISOString().split('T')[0]; } }
+            if (submitCobrarBtn) { submitCobrarBtn.setAttribute('value','emitir_credito'); }
         } else {
-            errEl.textContent = data.error || 'Error al crear el centro de costo.';
-            errEl.style.display = 'block';
+            if (paymentMethodGroup) paymentMethodGroup.style.display = 'flex';
+            if (creditOption) creditOption.style.display = 'none';
+            cashOptions.forEach(opt => opt.style.display = 'block');
+            if (paymentAgreementGroup) paymentAgreementGroup.style.display = 'none';
+            if (agreementEnabledSelect) agreementEnabledSelect.value = 'false';
+            if (agreementDetailsFields) agreementDetailsFields.style.display = 'none';
+            if (paymentMethodSelect.value === 'Crédito') paymentMethodSelect.value = 'Efectivo';
+            if (submitCobrarBtn) { submitCobrarBtn.setAttribute('value','emitir_cobrar'); }
         }
-    })
-    .catch(() => {
-        btn.disabled = false;
-        btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Guardar';
-        errEl.textContent = 'Error de conexión. Intenta de nuevo.';
-        errEl.style.display = 'block';
-    });
-}
-document.getElementById('invoice-cc-modal').addEventListener('click', function(e) {
-    if (e.target === this) closeInvoiceCostCenterModal();
+    }
+    function handleAgreementToggle() { if (!agreementEnabledSelect || !agreementDetailsFields) return; agreementDetailsFields.style.display = agreementEnabledSelect.value === 'true' ? 'flex' : 'none'; }
+    if (paymentTypeSelect && paymentMethodSelect) { paymentTypeSelect.addEventListener('change', handlePaymentTypeChange); handlePaymentTypeChange(); }
+    if (agreementEnabledSelect) { agreementEnabledSelect.addEventListener('change', handleAgreementToggle); handleAgreementToggle(); }
+
+    function handleEcfTypeChange() {
+        if (!ecfTypeSelect || !referenceInfoGroup) return;
+        const val = ecfTypeSelect.value, isNote = val === 'Nota de Débito (E33)' || val === 'Nota de Crédito (E34)';
+        if (isNote) { referenceInfoGroup.style.display = 'block'; document.getElementById('ref-ncf-modified')?.setAttribute('required','true'); document.getElementById('ref-ncf-modified-date')?.setAttribute('required','true'); document.getElementById('ref-reason-modification')?.setAttribute('required','true'); const nb = document.getElementById('note-helper-banner'); if (nb) { nb.style.display = 'block'; if (val === 'Nota de Crédito (E34)') { nb.style.borderColor = 'var(--accent-red)'; document.getElementById('note-banner-icon').className = 'fa-solid fa-file-circle-minus'; document.getElementById('note-banner-title').innerText = 'E34 - Nota de Crédito'; document.getElementById('note-banner-text').innerText = 'Resta, anula o aplica devolución a un comprobante previo.'; } else { nb.style.borderColor = 'var(--accent-purple)'; document.getElementById('note-banner-icon').className = 'fa-solid fa-file-circle-plus'; document.getElementById('note-banner-title').innerText = 'E33 - Nota de Débito'; document.getElementById('note-banner-text').innerText = 'Incrementa el valor de un comprobante previo.'; } } }
+        else { referenceInfoGroup.style.display = 'none'; document.getElementById('ref-ncf-modified')?.removeAttribute('required'); document.getElementById('ref-ncf-modified-date')?.removeAttribute('required'); document.getElementById('ref-reason-modification')?.removeAttribute('required'); const nb = document.getElementById('note-helper-banner'); if (nb) nb.style.display = 'none'; }
+    }
+    if (ecfTypeSelect) { ecfTypeSelect.addEventListener('change', handleEcfTypeChange); handleEcfTypeChange(); }
+
+    function inferEcfTypeFromRNC(rncValue) {
+        if (!ecfTypeSelect || ecfTypeSelect.hasAttribute('data-manual-override')) return;
+        const val = ecfTypeSelect.value; if (val === 'Nota de Débito (E33)' || val === 'Nota de Crédito (E34)') return;
+        ecfTypeSelect.value = (!rncValue || rncValue === '999999999' || rncValue === 'Consumidor Final') ? 'Factura de Consumo (E32)' : 'Factura de Crédito Fiscal (E31)'; handleEcfTypeChange();
+    }
+    const clientRncInput = document.getElementById('client-rnc-input');
+    if (clientRncInput && ecfTypeSelect) { const obs = new MutationObserver(() => { inferEcfTypeFromRNC(clientRncInput.value); }); obs.observe(clientRncInput, { attributes: true, attributeFilter: ['value'] }); clientRncInput.addEventListener('input', () => { inferEcfTypeFromRNC(clientRncInput.value); }); ecfTypeSelect.addEventListener('change', () => { ecfTypeSelect.setAttribute('data-manual-override','true'); }); }
+
+    if (submitCobrarBtn) {
+        submitCobrarBtn.addEventListener('click', (e) => {
+            const invoiceForm = document.getElementById('invoice-form');
+            if (!invoiceForm.checkValidity()) { invoiceForm.reportValidity(); e.preventDefault(); return; }
+            const rows = document.querySelectorAll('#invoice-items-body .item-row'); if (rows.length === 0) { alert('Añada al menos una partida.'); e.preventDefault(); return; }
+            const refTotalInput = document.getElementById('referenced-invoice-total');
+            if (refTotalInput && ecfTypeSelect && ecfTypeSelect.value === 'Nota de Crédito (E34)') { const refTotal = parseFloat(refTotalInput.value) || 0; const nt = parseFloat((document.getElementById('lbl-net-payable')?.innerText || '0').replace(/[^0-9.]/g,'')) || 0; if (nt > refTotal) { alert('La Nota de Crédito excede el monto del documento original.'); e.preventDefault(); return; } }
+        });
+    }
+    document.addEventListener('keydown', (e) => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); if (submitCobrarBtn) { submitCobrarBtn.focus(); submitCobrarBtn.click(); } } });
 });
 
-// ── MODAL LISTA DE PRECIOS (desde formulario de documento) ─────────────────
-function openInvoicePriceListModal() {
-    document.getElementById('ipl-name').value = '';
-    document.getElementById('ipl-tipo').value = '';
-    document.getElementById('ipl-description').value = '';
-    document.getElementById('ipl-error').style.display = 'none';
-    document.getElementById('invoice-pl-modal').style.display = 'flex';
-    setTimeout(() => document.getElementById('ipl-name').focus(), 100);
-}
-function closeInvoicePriceListModal() {
-    document.getElementById('invoice-pl-modal').style.display = 'none';
-}
-function saveInvoicePriceList() {
-    const name = document.getElementById('ipl-name').value.trim();
-    const tipo = document.getElementById('ipl-tipo').value.trim();
-    const description = document.getElementById('ipl-description').value.trim();
-    const errEl = document.getElementById('ipl-error');
-    const btn = document.getElementById('ipl-save-btn');
+function toggleMoreSettings() { const p = document.getElementById('more-settings-panel'), b = document.getElementById('more-settings-backdrop'), is = p.classList.contains('open'); p.classList.toggle('open',!is); b.classList.toggle('show',!is); }
+function handleCurrencySideChange(val) { const c = document.getElementById('exchange-rate-container-side'), r = document.getElementById('exchangeRate-side'); if (!c||!r) return; if (val==='DOP') { c.style.display='none'; r.value=1.0; document.querySelector('[name=exchangeRate]').value=1.0; } else { c.style.display='block'; fetch('/api/currency/rate/'+val).then(x=>x.json()).then(d=>{ if(d.success&&d.rate){ r.value=d.rate.toFixed(2); document.querySelector('[name=exchangeRate]').value=d.rate.toFixed(2); } }); } }
 
-    if (!name) {
-        errEl.textContent = 'El nombre es obligatorio.';
-        errEl.style.display = 'block';
-        return;
-    }
-    if (!tipo) {
-        errEl.textContent = 'El tipo es obligatorio.';
-        errEl.style.display = 'block';
-        return;
-    }
-    errEl.style.display = 'none';
-    btn.disabled = true;
-    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Guardando...';
+// Modal de retenciones
+function openRetentionsModal() { var m = document.getElementById('retentions-modal'); if (!m) return; document.getElementById('discount-global-modal').value = document.getElementById('discount-global').value; document.getElementById('isr-rate-select-modal').value = document.getElementById('isr-rate-select').value; document.getElementById('itbis-rate-select-modal').value = document.getElementById('itbis-rate-select').value; document.getElementById('is-recurring-modal').value = document.getElementById('is-recurring').value; document.getElementById('recurrence-interval-modal').value = document.getElementById('recurrence-interval').value; document.getElementById('next-recurrence-modal').value = document.getElementById('next-recurrence').value; document.getElementById('recurrence-fields-modal').style.display = document.getElementById('is-recurring-modal').value === 'true' ? 'flex' : 'none'; recalculateRetBadge(); m.style.display = 'flex'; }
+function closeRetentionsModal() { var m = document.getElementById('retentions-modal'); if (m) m.style.display = 'none'; }
+function recalculateRetBadge() { var d = parseFloat(document.getElementById('discount-global').value) || 0, i = document.getElementById('isr-rate-select').value, b = document.getElementById('itbis-rate-select').value, r = document.getElementById('is-recurring').value, badge = document.getElementById('ret-badge'); if (badge) { var has = d > 0 || i !== '0.0' || b !== '0.0' || r === 'true'; badge.classList.toggle('has-values', has); badge.querySelector('span') ? badge.querySelector('span').textContent = has ? 'Retenciones ✓' : 'Retenciones' : null; } }
+document.getElementById('btn-close-retentions-modal')?.addEventListener('click', closeRetentionsModal);
+document.getElementById('btn-close-retentions-ok')?.addEventListener('click', closeRetentionsModal);
+document.getElementById('retentions-modal')?.addEventListener('click', function(e) { if (e.target === this) closeRetentionsModal(); });
+recalculateRetBadge();
 
-    fetch('/price-lists/ajax_create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': document.querySelector('[name=csrf_token]').value },
-        body: JSON.stringify({ name, tipo, description })
-    })
-    .then(r => r.json())
-    .then(data => {
-        btn.disabled = false;
-        btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Guardar';
-        if (data.success) {
-            const sel = document.getElementById('price-list-select');
-            const label = `${name} (${tipo})`;
-            const opt = new Option(label, data.id, true, true);
-            sel.appendChild(opt);
-            sel.value = data.id;
-            closeInvoicePriceListModal();
-        } else {
-            errEl.textContent = data.error || 'Error al crear la lista de precios.';
-            errEl.style.display = 'block';
-        }
-    })
-    .catch(() => {
-        btn.disabled = false;
-        btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Guardar';
-        errEl.textContent = 'Error de conexión. Intenta de nuevo.';
-        errEl.style.display = 'block';
-    });
-}
-document.getElementById('invoice-pl-modal').addEventListener('click', function(e) {
-    if (e.target === this) closeInvoicePriceListModal();
-});
+// Colapsables
+function toggleCollapseField(h) { const b = h.nextElementSibling, cv = h.querySelector('.fa-chevron-down'); if (b.style.maxHeight && b.style.maxHeight !== '0px') { b.style.maxHeight = '0'; if (cv) cv.style.transform = ''; } else { b.style.maxHeight = b.scrollHeight + 'px'; if (cv) cv.style.transform = 'rotate(180deg)'; } }
+function updateCollapsePreview(t) { const h = t.closest('.collapse-field').querySelector('.collapse-field-preview'); if (h) h.textContent = t.value || t.placeholder; }
+document.addEventListener('DOMContentLoaded', function() { document.querySelectorAll('#additional-info-container .collapse-field').forEach(function(el) { const t = el.querySelector('textarea'); if (t && t.value.trim()) { const h = el.querySelector('.collapse-field-header'); if (h) toggleCollapseField(h); } }); });
+
+// Menú 3 puntos
+document.addEventListener('click', function(e) { if (!e.target.closest('.row-menu-btn')) document.querySelectorAll('.row-menu-dropdown.show').forEach(d => d.classList.remove('show')); });
+function toggleRowMenu(b) { var d = b.nextElementSibling, is = d.classList.contains('show'); document.querySelectorAll('.row-menu-dropdown.show').forEach(x => x.classList.remove('show')); if (!is) d.classList.add('show'); }
+function removeRowFromMenu(b) { var r = b.closest('.item-row'); if (r) { r.remove(); if (typeof realignRowIndexes === 'function') realignRowIndexes(); if (typeof recalculateTotals === 'function') recalculateTotals(); } }
+
+// CC y PL
+function openInvoiceCostCenterModal() { document.getElementById('icc-name').value = ''; document.getElementById('icc-code').value = ''; document.getElementById('icc-description').value = ''; document.getElementById('icc-error').style.display = 'none'; document.getElementById('invoice-cc-modal').style.display = 'flex'; setTimeout(() => document.getElementById('icc-name').focus(), 100); }
+function closeInvoiceCostCenterModal() { document.getElementById('invoice-cc-modal').style.display = 'none'; }
+function saveInvoiceCostCenter() { const n = document.getElementById('icc-name').value.trim(), c = document.getElementById('icc-code').value.trim(), d = document.getElementById('icc-description').value.trim(), e = document.getElementById('icc-error'), b = document.getElementById('icc-save-btn'); if (!n) { e.textContent = 'El nombre es obligatorio.'; e.style.display = 'block'; return; } e.style.display = 'none'; b.disabled = true; b.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>'; fetch('/accounting/ajax/cost-centers', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': document.querySelector('[name=csrf_token]').value }, body: JSON.stringify({ name: n, code: c, description: d }) }).then(r => r.json()).then(data => { b.disabled = false; b.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Guardar'; if (data.success) { const s = document.getElementById('cost-center-select-side'), l = c ? `[${c}] ${n}` : n; s.appendChild(new Option(l, data.id, true, true)); s.value = data.id; closeInvoiceCostCenterModal(); } else { e.textContent = data.error || 'Error.'; e.style.display = 'block'; } }).catch(() => { b.disabled = false; b.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Guardar'; e.textContent = 'Error de conexión.'; e.style.display = 'block'; }); }
+document.getElementById('invoice-cc-modal').addEventListener('click', function(e) { if (e.target === this) closeInvoiceCostCenterModal(); });
+function openInvoicePriceListModal() { document.getElementById('ipl-name').value = ''; document.getElementById('ipl-tipo').value = ''; document.getElementById('ipl-description').value = ''; document.getElementById('ipl-error').style.display = 'none'; document.getElementById('invoice-pl-modal').style.display = 'flex'; setTimeout(() => document.getElementById('ipl-name').focus(), 100); }
+function closeInvoicePriceListModal() { document.getElementById('invoice-pl-modal').style.display = 'none'; }
+function saveInvoicePriceList() { const n = document.getElementById('ipl-name').value.trim(), t = document.getElementById('ipl-tipo').value.trim(), d = document.getElementById('ipl-description').value.trim(), e = document.getElementById('ipl-error'), b = document.getElementById('ipl-save-btn'); if (!n) { e.textContent = 'El nombre es obligatorio.'; e.style.display = 'block'; return; } if (!t) { e.textContent = 'El tipo es obligatorio.'; e.style.display = 'block'; return; } e.style.display = 'none'; b.disabled = true; b.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>'; fetch('/price-lists/ajax_create', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': document.querySelector('[name=csrf_token]').value }, body: JSON.stringify({ name: n, tipo: t, description: d }) }).then(r => r.json()).then(data => { b.disabled = false; b.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Guardar'; if (data.success) { const s = document.getElementById('price-list-select-side'), l = `${n} (${t})`; s.appendChild(new Option(l, data.id, true, true)); s.value = data.id; closeInvoicePriceListModal(); } else { e.textContent = data.error || 'Error.'; e.style.display = 'block'; } }).catch(() => { b.disabled = false; b.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Guardar'; e.textContent = 'Error de conexión.'; e.style.display = 'block'; }); }
+document.getElementById('invoice-pl-modal').addEventListener('click', function(e) { if (e.target === this) closeInvoicePriceListModal(); });
 </script>
 {% endblock %}

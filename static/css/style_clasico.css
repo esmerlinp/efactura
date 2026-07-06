@@ -77,7 +77,7 @@
     --bg-main: #0F172A;
     --bg-main-gradient: linear-gradient(135deg, #0F172A 0%, #1E3A8A 50%, #1E1B4B 100%);
     --bg-card: rgba(15, 23, 42, 0.6);
-    --bg-sidebar: rgba(15, 23, 42, 0.85);
+    --bg-sidebar: rgba(15, 23, 42, 0.6);
     --bg-header: rgba(15, 23, 42, 0.5);
     --bg-input: rgba(30, 41, 59, 0.7);
     --border-color: rgba(255, 255, 255, 0.12);
@@ -253,7 +253,7 @@ textarea {
     background-color: var(--bg-sidebar);
     /* Se elimina el backdrop-filter pesado para un diseño más limpio */
     border-right: 1px solid var(--border-color);
-    padding: 12px 0;
+    padding: 8px 0;
     /* Padding lateral 0 para que los items ocupen el ancho, los márgenes van en los items */
     display: flex;
     flex-direction: column;
@@ -271,7 +271,7 @@ textarea {
     justify-content: flex-start;
     /* Mantener icono y texto muy juntos */
     gap: 1px;
-    margin-bottom: 14px;
+    margin-bottom: 6px;
     padding: 0 8px;
     position: relative;
 }
@@ -324,7 +324,7 @@ body.sandbox-mode .sidebar-logo span.logo-title {
     list-style: none;
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 1px;
     flex-grow: 1;
     padding: 0 12px;
     /* Espacio para que el border-radius de los items se note */
@@ -333,8 +333,8 @@ body.sandbox-mode .sidebar-logo span.logo-title {
 .nav-item a {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 7px 14px;
+    gap: 8px;
+    padding: 6px 14px;
     border-radius: 24px;
     color: var(--text-secondary);
     font-weight: 500;
@@ -416,8 +416,8 @@ body.sandbox-mode .sidebar-logo span.logo-title {
 }
 
 #sidebar-section-quick {
-    margin-bottom: 8px;
-    padding-bottom: 8px;
+    margin-bottom: 2px;
+    padding-bottom: 2px;
 }
 #sidebar-section-quick.collapsed .sidebar-section-content {
     max-height: none !important;
@@ -438,10 +438,10 @@ body.sandbox-mode .sidebar-logo span.logo-title {
 
 .sidebar-footer {
     border-top: 1px solid var(--border-color);
-    padding-top: 12px;
+    padding-top: 6px;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 4px;
 }
 
 .user-badge {
@@ -2572,4 +2572,38 @@ body.sandbox-mode .segment-header-icon.emerald {
 
 [data-theme="dark"] .action-menu-item:hover {
     background: rgba(255,255,255,0.06);
+}
+
+@media (max-width: 1024px) {
+    .app-container { grid-template-columns: 240px minmax(0, 1fr) !important; }
+    .metrics-grid { grid-template-columns: 1fr 1fr !important; }
+    .small-metrics-grid { grid-template-columns: 1fr 1fr !important; }
+    .page-title { font-size: 1.2rem !important; }
+}
+@media (max-width: 768px) {
+    .app-container { grid-template-columns: 1fr !important; }
+    .sidebar { display: none !important; }
+    .metrics-grid, .small-metrics-grid { grid-template-columns: 1fr !important; }
+    .card-table-wrapper { padding: 14px !important; }
+    .header { padding: 0 16px !important; }
+    .bi-summary-cards { flex-direction: column !important; }
+}
+
+/* =========================================================================
+   RANGOS AUTORIZADOS DGII (SECUENCIAS) -- port from moderno
+   ========================================================================= */
+.sequence-card {
+    border: 1px solid #cbd5e1 !important;
+}
+
+[data-theme="dark"] .sequence-card {
+    border: 1px solid #475569 !important;
+}
+
+/* =========================================================================
+   QUOTATION WIZARD - ANIMATIONS -- port from moderno
+   ========================================================================= */
+@keyframes slideInUp {
+    from { transform: translateY(20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
 }

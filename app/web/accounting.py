@@ -143,7 +143,6 @@ def chart_of_accounts():
     if not check_permission('canAccounting'):
         return render_template('auth/restricted.html', required_permission="canAccounting")
     owner_uid = _owner_uid()
-    AccountingService.seed_default_accounts(owner_uid)
     tree_data, all_accounts = AccountingService.get_accounts_tree(owner_uid)
     account_groups = ACCOUNT_GROUPS
     flat_list = _flatten_tree(tree_data, all_accounts)
@@ -1839,4 +1838,145 @@ def ajax_create_cost_center():
     }
     DatabaseService.save_cost_center(owner_uid, center_id, center_dict, sandbox=sandbox)
     return jsonify(success=True, id=center_id, name=name, code=center_dict["code"])
+
+
+@web_accounting_bp.route('/accounting/fiscal-periods')
+@require_module('contabilidad')
+def fiscal_periods():
+    if not check_permission('canAccounting'):
+        flash('No tienes permiso para acceder a esta sección.', 'error')
+        return redirect(url_for('web_dashboard.dashboard'))
+    owner_uid = session['user']['ownerUID']
+    year = request.args.get('year', type=int, default=datetime.now(timezone.utc).year)
+    from app.services.fiscal_period_service import FiscalPeriodService
+    periods = FiscalPeriodService.list_periods(owner_uid, year)
+    return render_template('accounting/fiscal_periods.html', active_page='accounting',
+                          periods=periods, selected_year=year, product_name=_product_name())
+
+
+@web_accounting_bp.route('/accounting/fiscal-periods/close', methods=['POST'])
+@require_module('contabilidad')
+def close_fiscal_period():
+    if not check_permission('canAccounting'):
+        return jsonify(success=False, error="Permiso denegado"), 403
+    owner_uid = session['user']['ownerUID']
+    year = request.form.get('year', type=int)
+    month = request.form.get('month', type=int)
+    if not year or not month:
+        return jsonify(success=False, error="Año y mes requeridos"), 400
+    try:
+        from app.services.fiscal_period_service import FiscalPeriodService
+        user_name = session.get('user', {}).get('name', '')
+        FiscalPeriodService.close_period(owner_uid, year, month, closed_by=user_name)
+        from app.services.cache_service import CacheService
+        CacheService.invalidate_accounting(owner_uid)
+        return jsonify(success=True)
+    except ValueError as e:
+        return jsonify(success=False, error=str(e)), 400
+
+
+@web_accounting_bp.route('/accounting/fiscal-periods/open', methods=['POST'])
+@require_module('contabilidad')
+def open_fiscal_period():
+    if not check_permission('canAccounting') or session.get('user', {}).get('role') != 'owner':
+        return jsonify(success=False, error="Solo el propietario puede reabrir períodos"), 403
+    owner_uid = session['user']['ownerUID']
+    year = request.form.get('year', type=int)
+    month = request.form.get('month', type=int)
+    if not year or not month:
+        return jsonify(success=False, error="Año y mes requeridos"), 400
+    try:
+        from app.services.fiscal_period_service import FiscalPeriodService
+        period = FiscalPeriodService.get_period(owner_uid, year, month)
+        if not period:
+            return jsonify(success=False, error="Período no encontrado"), 404
+        period['status'] = 'open'
+        period['closedAt'] = None
+        period['closedBy'] = None
+        from app.services.db_service import db_firestore
+        db_firestore.document(f"users/{owner_uid}/fiscal_periods/{year}-{month:02d}").set(period)
+        from app.services.cache_service import CacheService
+        CacheService.invalidate_accounting(owner_uid)
+        return jsonify(success=True)
+    except Exception as e:
+        return jsonify(success=False, error=str(e)), 400
+
+
+@web_accounting_bp.route('/accounting/year-end-close')
+@require_module('contabilidad')
+def year_end_close():
+    if not check_permission('canAccounting'):
+        flash('No tienes permiso para acceder a esta sección.', 'error')
+        return redirect(url_for('web_dashboard.dashboard'))
+    owner_uid = session['user']['ownerUID']
+    sandbox = _sandbox()
+    year = request.args.get('year', type=int, default=datetime.now(timezone.utc).year)
+    from app.services.fiscal_closing_service import FiscalClosingService
+    preview = FiscalClosingService.generate_closing_preview(owner_uid, year, sandbox=sandbox)
+    return render_template('accounting/year_end_close.html', active_page='accounting',
+                          preview=preview, selected_year=year, product_name=_product_name())
+
+
+@web_accounting_bp.route('/accounting/year-end-close/execute', methods=['POST'])
+@require_module('contabilidad')
+def execute_year_end_close():
+    if not check_permission('canAccounting') or session.get('user', {}).get('role') != 'owner':
+        return jsonify(success=False, error="Solo el propietario puede ejecutar el cierre anual"), 403
+    owner_uid = session['user']['ownerUID']
+    sandbox = _sandbox()
+    year = request.form.get('year', type=int)
+    if not year:
+        return jsonify(success=False, error="Año requerido"), 400
+    try:
+        from app.services.fiscal_closing_service import FiscalClosingService
+        user_name = session.get('user', {}).get('name', '')
+        result = FiscalClosingService.execute_year_close(owner_uid, year, performed_by=user_name, sandbox=sandbox)
+        from app.services.cache_service import CacheService
+        CacheService.invalidate_accounting(owner_uid)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify(success=False, error=str(e)), 400
+
+
+def _product_name():
+    from app.brand import get_product_name
+    return get_product_name()
+
+
+@web_accounting_bp.route('/accounting/closing-checklist')
+@require_module('contabilidad')
+def closing_checklist():
+    if not check_permission('canAccounting'):
+        flash('No tienes permiso para acceder a esta sección.', 'error')
+        return redirect(url_for('web_dashboard.dashboard'))
+    owner_uid = session['user']['ownerUID']
+    now = datetime.now(timezone.utc)
+    year = request.args.get('year', type=int, default=now.year)
+    month = request.args.get('month', type=int, default=now.month)
+    from app.services.closing_checklist_service import ClosingChecklistService
+    checklist = ClosingChecklistService.get_or_create_checklist(owner_uid, year, month)
+    months_full = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+                   "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
+    return render_template('accounting/closing_checklist.html', active_page='accounting',
+                          checklist=checklist, selected_year=year, selected_month=month,
+                          months=months_full, product_name=_product_name())
+
+
+@web_accounting_bp.route('/accounting/closing-checklist/toggle', methods=['POST'])
+@require_module('contabilidad')
+def toggle_checklist_task():
+    if not check_permission('canAccounting'):
+        return jsonify(success=False, error="Permiso denegado"), 403
+    owner_uid = session['user']['ownerUID']
+    year = request.form.get('year', type=int)
+    month = request.form.get('month', type=int)
+    task_id = request.form.get('task_id', '')
+    if not year or not month or not task_id:
+        return jsonify(success=False, error="Parámetros requeridos"), 400
+    from app.services.closing_checklist_service import ClosingChecklistService
+    user_name = session.get('user', {}).get('name', '')
+    checklist = ClosingChecklistService.toggle_task(owner_uid, year, month, task_id, completed_by=user_name)
+    return jsonify(success=True, progress=checklist['progress'])
+
+
 

@@ -243,6 +243,14 @@ class RecurrenceService:
 
                 # Guardar la nueva factura
                 DatabaseService.save_invoice(owner_uid, new_id, new_invoice, sandbox=sandbox)
+
+                # Generar asiento contable automático para factura recurrente
+                try:
+                    from app.services.accounting_service import AccountingService
+                    AccountingService.auto_generate_invoice_entry(owner_uid, new_invoice, sandbox=sandbox)
+                except Exception as exc:
+                    import logging
+                    logging.getLogger(__name__).warning(f"Asiento contable recurrente no generado: {exc}")
                 
                 # Calcular la próxima ocurrencia en la factura original y actualizarla
                 next_occurrence = cls.calculate_next_date(next_date_str, original["recurrenceInterval"])
