@@ -37,8 +37,8 @@
 {% set total_debit = namespace(val=0) %}
 {% set total_credit = namespace(val=0) %}
 {% for e in entries %}
-    {% set _ = total_debit.__setattr__('val', total_debit.val + (e.totalDebit|default(0)|float)) %}
-    {% set _ = total_credit.__setattr__('val', total_credit.val + (e.totalCredit|default(0)|float)) %}
+    {% set total_debit.val = total_debit.val + (e.totalDebit|default(0)|float) %}
+    {% set total_credit.val = total_credit.val + (e.totalCredit|default(0)|float) %}
 {% endfor %}
 <div class="summary-strip">
     <div class="summary-strip-item">

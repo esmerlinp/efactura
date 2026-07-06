@@ -85,6 +85,50 @@ def _generate_periods(frequency: str, year: int = None):
 # ONBOARDING — Frecuencia de pago
 # ═══════════════════════════════════════════════════════════════════════════
 
+@web_rrhh_bp.route("/rrhh/onboarding")
+def onboarding_guide():
+    if _login_required():
+        return redirect(url_for("web_auth.login"))
+    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    from app.services import hr_data_service as hr
+
+    config = hr.get_payroll_config(owner_uid, sandbox=sandbox)
+    employees = hr.get_employees(owner_uid, sandbox=sandbox)
+    periods = hr.get_payroll_periods(owner_uid, sandbox=sandbox)
+    positions = hr.get_catalog(owner_uid, "positions", sandbox=sandbox)
+    departments = hr.get_catalog(owner_uid, "departments", sandbox=sandbox)
+
+    step1_done = bool(config.get("payrollFrequency"))
+    step2_done = len(positions) > 0 and len(departments) > 0
+    step3_done = len([e for e in employees if e.get("status") == "activo"]) > 0
+    step4_done = True  # Concepts have defaults, always seeded
+    step5_done = len(periods) > 0
+
+    steps = [
+        {"number": 1, "done": step1_done,
+         "title": "Frecuencia de pago", "description": "Define si pagas nómina quincenal o mensual.",
+         "url": url_for("web_rrhh.payroll_setup"), "action": "Configurar frecuencia"},
+        {"number": 2, "done": step2_done,
+         "title": "Catálogos", "description": "Define las posiciones (cargos) y departamentos de tu empresa.",
+         "url": url_for("web_rrhh.catalog_list", catalog_name="positions"), "action": "Configurar catálogos"},
+        {"number": 3, "done": step3_done,
+         "title": "Primer empleado", "description": "Registra la información de las personas de tu equipo.",
+         "url": url_for("web_rrhh.employee_new"), "action": "Agregar empleado"},
+        {"number": 4, "done": step4_done,
+         "title": "Conceptos de nómina", "description": "Revisa ingresos, deducciones y aportes configurados.",
+         "url": url_for("web_rrhh.concept_list"), "action": "Revisar conceptos"},
+        {"number": 5, "done": step5_done,
+         "title": "Calcular nómina", "description": "Procesa tu primer período de nómina.",
+         "url": url_for("web_rrhh.payroll_new"), "action": "Calcular nómina"},
+    ]
+
+    all_done = all(s["done"] for s in steps)
+    next_step = next((s["number"] for s in steps if not s["done"]), None)
+
+    return render_template("rrhh/onboarding_guide.html", active_page="rrhh_payroll",
+                           steps=steps, all_done=all_done, next_step=next_step)
+
+
 @web_rrhh_bp.route("/rrhh/payroll/setup", methods=["GET", "POST"])
 def payroll_setup():
     if _login_required():
@@ -100,7 +144,7 @@ def payroll_setup():
             config["onboardingCompleted"] = True
             hr.save_payroll_config(owner_uid, config, sandbox=sandbox)
             flash("¡Frecuencia de nómina configurada exitosamente!", "success")
-        return redirect(url_for("web_rrhh.payroll_dashboard"))
+        return redirect(url_for("web_rrhh.onboarding_guide"))
 
     return render_template("rrhh/payroll_onboarding.html", active_page="rrhh_payroll")
 
@@ -120,11 +164,24 @@ def payroll_dashboard():
     # Verificar onboarding
     config = hr.get_payroll_config(owner_uid, sandbox=sandbox)
     if not config.get("onboardingCompleted"):
-        return redirect(url_for("web_rrhh.payroll_setup"))
+        return redirect(url_for("web_rrhh.onboarding_guide"))
 
     employees = hr.get_employees(owner_uid, sandbox=sandbox)
     periods = hr.get_payroll_periods(owner_uid, sandbox=sandbox)
     user_name = session.get("user", {}).get("displayName", "")
+
+    # ── Onboarding steps ──
+    positions = hr.get_catalog(owner_uid, "positions", sandbox=sandbox)
+    departments = hr.get_catalog(owner_uid, "departments", sandbox=sandbox)
+    onboard_steps = {
+        "frequency": bool(config.get("payrollFrequency")),
+        "catalogs": len(positions) > 0 and len(departments) > 0,
+        "employees": len([e for e in employees if e.get("status") == "activo"]) > 0,
+        "concepts": True,
+        "payroll": len(periods) > 0,
+    }
+    onboard_done_count = sum(1 for v in onboard_steps.values() if v)
+    onboard_all_done = all(onboard_steps.values())
 
     # ── Greeting dinámico según hora del día ──
     now = datetime.now()
@@ -221,7 +278,9 @@ def payroll_dashboard():
                            steps_completed=steps, progress_percent=progress_percent,
                            chart_labels=chart_labels, costo_data=costo_data, pago_data=pago_data,
                            hiring_labels=hiring_labels, hiring_data=hiring_data,
-                           recent_periods=recent, indicators=indicators)
+                           recent_periods=recent, indicators=indicators,
+                           onboard_steps=onboard_steps, onboard_done_count=onboard_done_count,
+                           onboard_all_done=onboard_all_done)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -435,8 +494,6 @@ def employee_edit(employee_id):
             "costCenter": request.form.get("costCenter", request.form.get("area", "")).strip(),
             "department": request.form.get("area", "").strip(),
             "hireDate": request.form.get("hireDate", "").strip(),
-            "salary": float(request.form.get("salary", 0) or 0),
-            "baseSalary": float(request.form.get("salary", 0) or 0),
             "email": request.form.get("email", "").strip(),
             "phone": request.form.get("phone", "").strip(),
             "address": request.form.get("address", "").strip(),
@@ -481,28 +538,10 @@ def employee_edit(employee_id):
                 "changes": changes, "newPosition": new_position, "newDepartment": new_department,
             }, sandbox=sandbox)
 
-        # ── Historial de salarios: si cambió, registrar ──
-        new_salary = float(request.form.get("salary", 0) or 0)
-        old_salary = float(employee.get("baseSalary", 0))
-        if new_salary > 0 and new_salary != old_salary:
-            hr.close_previous_salary(owner_uid, employee_id, date.today().isoformat(), sandbox=sandbox)
-            history_id = str(uuid.uuid4())
-            hr.save_salary_history_entry(owner_uid, {
-                "id": history_id,
-                "employeeId": employee_id,
-                "amount": new_salary,
-                "previousAmount": old_salary,
-                "effectiveDate": date.today().isoformat(),
-                "endDate": "",
-                "reason": "Actualización de salario",
-                "approvedBy": session.get("user", {}).get("email", ""),
-                "createdAt": date.today().isoformat(),
-            }, sandbox=sandbox)
-
         from app.services.payroll_audit_service import log_action
         log_action(owner_uid, "update", "employee", employee_id,
                    session.get("user", {}).get("email", ""),
-                   changes={"salary_old": old_salary, "salary_new": new_salary}, sandbox=sandbox)
+                   changes={"position": new_position, "department": new_department, "supervisor": new_supervisor}, sandbox=sandbox)
 
         flash("Empleado actualizado exitosamente.", "success")
         return redirect(url_for("web_rrhh.employee_list"))
@@ -660,7 +699,50 @@ def employee_salary_history(employee_id):
     history = hr.get_salary_history(owner_uid, employee_id, sandbox=sandbox)
     from app.services.payroll_static_data import PAYROLL_FREQUENCIES
     return render_template("rrhh/employee_salary_history.html", active_page="rrhh_employees",
-                           employee=employee, history=history, frequencies=PAYROLL_FREQUENCIES)
+                           employee=employee, history=history, frequencies=PAYROLL_FREQUENCIES,
+                           today=date.today().isoformat())
+
+
+@web_rrhh_bp.route("/rrhh/employees/<employee_id>/salary/add", methods=["POST"])
+def employee_salary_add(employee_id):
+    if _login_required():
+        return redirect(url_for("web_auth.login"))
+    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    from app.services import hr_data_service as hr
+
+    employee = hr.get_employee(owner_uid, employee_id, sandbox=sandbox)
+    if not employee:
+        flash("Empleado no encontrado.", "error")
+        return redirect(url_for("web_rrhh.employee_list"))
+
+    new_amount = float(request.form.get("amount", 0) or 0)
+    eff_date = request.form.get("effective_date", date.today().isoformat()).strip()
+    reason = request.form.get("reason", "Ajuste salarial").strip()
+
+    if new_amount <= 0:
+        flash("El salario debe ser mayor a 0.", "error")
+        return redirect(url_for("web_rrhh.employee_salary_history", employee_id=employee_id))
+
+    old_amount = float(employee.get("baseSalary", 0))
+    # Cerrar salario anterior
+    hr.close_previous_salary(owner_uid, employee_id, eff_date, sandbox=sandbox)
+    # Crear nueva entrada
+    history_id = str(uuid.uuid4())
+    hr.save_salary_history_entry(owner_uid, {
+        "id": history_id, "employeeId": employee_id,
+        "amount": new_amount, "previousAmount": old_amount,
+        "effectiveDate": eff_date, "endDate": "",
+        "reason": reason,
+        "approvedBy": session.get("user", {}).get("email", ""),
+        "createdAt": date.today().isoformat(),
+    }, sandbox=sandbox)
+    # Actualizar el salario del empleado
+    employee["baseSalary"] = new_amount
+    employee["salary"] = new_amount
+    hr.save_employee(owner_uid, employee_id, employee, sandbox=sandbox)
+
+    flash(f"Salario actualizado a RD$ {new_amount:,.2f} con vigencia {eff_date}.", "success")
+    return redirect(url_for("web_rrhh.employee_salary_history", employee_id=employee_id))
 
 
 @web_rrhh_bp.route("/rrhh/employees/<employee_id>/documents/upload", methods=["POST"])
@@ -1085,7 +1167,7 @@ def payroll_new():
     # Verificar onboarding
     config = hr.get_payroll_config(owner_uid, sandbox=sandbox)
     if not config.get("onboardingCompleted"):
-        return redirect(url_for("web_rrhh.payroll_setup"))
+        return redirect(url_for("web_rrhh.onboarding_guide"))
 
     employees = [e for e in hr.get_employees(owner_uid, sandbox=sandbox) if e.get("status") == "activo"]
     frequency = config.get("payrollFrequency", "mensual")

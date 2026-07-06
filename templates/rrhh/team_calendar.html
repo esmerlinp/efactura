@@ -7,60 +7,99 @@
     <div style="display:flex; gap:8px; align-items:center;">
         <a href="?year={{ year-1 }}&month={{ month }}" class="btn btn-ghost btn-sm" title="Año anterior"><i class="fa-solid fa-backward"></i></a>
         <a href="{% if month == 1 %}?year={{ year-1 }}&month=12{% else %}?year={{ year }}&month={{ month-1 }}{% endif %}" class="btn btn-ghost btn-sm"><i class="fa-solid fa-chevron-left"></i></a>
-        <span style="font-weight:700; font-size:1.1rem; min-width:160px; text-align:center;">{{ months_es[month-1] }} {{ year }}</span>
+        <span style="font-weight:700; font-size:1.2rem; min-width:170px; text-align:center;">{{ months_es[month-1] }} {{ year }}</span>
         <a href="{% if month == 12 %}?year={{ year+1 }}&month=1{% else %}?year={{ year }}&month={{ month+1 }}{% endif %}" class="btn btn-ghost btn-sm"><i class="fa-solid fa-chevron-right"></i></a>
         <a href="?year={{ year+1 }}&month={{ month }}" class="btn btn-ghost btn-sm" title="Año siguiente"><i class="fa-solid fa-forward"></i></a>
     </div>
 </div>
 
-<div class="card-table-wrapper hr-table-card">
-    <div class="table-header-row">
-        <h3>Ausencias programadas — {{ months_es[month-1] }} {{ year }}</h3>
-        <span class="badge badge-info">{{ events|length }} eventos</span>
+<!-- Calendar Grid -->
+<div class="card-table-wrapper" style="padding:4px; margin-bottom:16px; overflow:hidden;">
+    {% set weekday_names = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'] %}
+
+    <!-- Header row: day names -->
+    <div style="display:grid; grid-template-columns:repeat(7, 1fr); gap:1px; background:var(--border-color); border-radius:var(--radius-md) var(--radius-md) 0 0; overflow:hidden;">
+        {% for wd in weekday_names %}
+        <div style="background:var(--bg-nav-hover); text-align:center; padding:10px 4px; font-size:0.75rem; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.05em;">{{ wd }}</div>
+        {% endfor %}
     </div>
-    {% if events %}
+
+    <!-- Day grid -->
+    <div style="display:grid; grid-template-columns:repeat(7, 1fr); gap:1px; background:var(--border-color); border-radius:0 0 var(--radius-md) var(--radius-md); overflow:hidden;">
+        {% for day in range(1, num_days + 1) %}
+        {% set day_str = year|string + '-' + '%02d'|format(month) + '-' + '%02d'|format(day) %}
+        <div style="min-height:88px; padding:4px 6px; background:var(--bg-card); position:relative;">
+            <div style="font-size:0.72rem; font-weight:600; color:var(--text-muted); margin-bottom:2px;">{{ day }}</div>
+            {% set ns = namespace(count=0) %}
+            {% for ev in events | sort(attribute='start') %}
+                {% if ev.start <= day_str and ev.end >= day_str %}
+                {% set ns.count = ns.count + 1 %}
+                {% if ns.count <= 3 %}
+                <div style="font-size:0.62rem; padding:1px 4px; margin-bottom:1px; border-radius:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+                            {% if ev.type == 'vacation' %}background:rgba(16,185,129,0.15); color:var(--accent-emerald);{% else %}background:rgba(234,179,8,0.18); color:#b45309;{% endif %}">
+                    {{ ev.employeeName[:18] }}
+                </div>
+                {% endif %}
+                {% endif %}
+            {% endfor %}
+            {% if ns.count > 3 %}
+            <div style="font-size:0.6rem; color:var(--text-muted);">+{{ ns.count - 3 }} más</div>
+            {% endif %}
+            {% if ns.count > 0 %}
+            <div style="position:absolute; bottom:4px; right:6px; width:6px; height:6px; border-radius:50%;
+                        {% if ns.count == 1 %}background:var(--accent-emerald);{% else %}background:var(--accent-amber);{% endif %}"></div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Legend + Summary -->
+<div style="display:flex; gap:20px; flex-wrap:wrap; align-items:center; margin-bottom:16px;">
+    <div style="display:flex; gap:16px; align-items:center;">
+        <span style="display:flex; align-items:center; gap:6px; font-size:0.8rem;">
+            <span style="width:12px; height:12px; border-radius:2px; background:rgba(16,185,129,0.35);"></span> Vacaciones
+        </span>
+        <span style="display:flex; align-items:center; gap:6px; font-size:0.8rem;">
+            <span style="width:12px; height:12px; border-radius:2px; background:rgba(234,179,8,0.35);"></span> Permiso
+        </span>
+        <span style="display:flex; align-items:center; gap:6px; font-size:0.8rem;">
+            <span style="width:6px; height:6px; border-radius:50%; background:var(--accent-amber); margin:0 3px;"></span> Múltiples
+        </span>
+    </div>
+    <span class="badge badge-info">{{ events|length }} eventos</span>
+</div>
+
+<!-- Event list -->
+{% if events %}
+<div class="card-table-wrapper">
+    <div class="table-header-row">
+        <h3>Detalle de ausencias — {{ months_es[month-1] }} {{ year }}</h3>
+    </div>
     <div class="table-responsive">
         <table class="table-premium" style="font-size:0.85rem;">
-            <thead>
-                <tr>
-                    <th>Empleado</th>
-                    <th>Tipo</th>
-                    <th>Desde</th>
-                    <th>Hasta</th>
-                    <th>Días</th>
-                    <th>Detalle</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for ev in events | sort(attribute='start') %}
-                {% set in_month = (ev.start[:7] == year|string + '-' + '%02d'|format(month)) or (ev.end[:7] == year|string + '-' + '%02d'|format(month)) or (ev.start < year|string + '-' + '%02d'|format(month) + '-01' and ev.end > year|string + '-' + '%02d'|format(month) + '-%02d'|format(num_days)) %}
-                {% if in_month %}
-                <tr>
-                    <td><strong>{{ ev.employeeName }}</strong></td>
-                    <td>
-                        {% if ev.type == 'vacation' %}
-                        <span class="badge badge-success"><i class="fa-solid fa-umbrella-beach"></i> Vacaciones</span>
-                        {% else %}
-                        <span class="badge badge-warning">{{ ev.leaveType }}</span>
-                        {% endif %}
-                    </td>
-                    <td>{{ ev.start }}</td>
-                    <td>{{ ev.end }}</td>
-                    <td>{{ ev.days }} días</td>
-                    <td style="font-size:0.78rem; color:var(--text-muted);">
-                        {% if ev.type == 'vacation' %}Solicitud de vacaciones{% elif ev.type == 'leave' %}{{ ev.leaveType }}{% endif %}
-                    </td>
-                </tr>
-                {% endif %}
-                {% endfor %}
-            </tbody>
-        </table>
+        <thead><tr><th>Empleado</th><th>Tipo</th><th>Desde</th><th>Hasta</th><th>Días</th></tr></thead>
+        <tbody>
+            {% for ev in events | sort(attribute='start') %}
+            {% set in_month = (ev.start[:7] == year|string + '-' + '%02d'|format(month)) or (ev.end[:7] == year|string + '-' + '%02d'|format(month)) or (ev.start < year|string + '-' + '%02d'|format(month) + '-01' and ev.end > year|string + '-' + '%02d'|format(month) + '-%02d'|format(num_days)) %}
+            {% if in_month %}
+            <tr>
+                <td><strong>{{ ev.employeeName }}</strong></td>
+                <td>
+                    {% if ev.type == 'vacation' %}<span class="badge badge-success badge-pill">Vacaciones</span>
+                    {% else %}<span class="badge badge-warning badge-pill">{{ ev.leaveType }}</span>{% endif %}
+                </td>
+                <td>{{ ev.start }}</td><td>{{ ev.end }}</td><td>{{ ev.days }} días</td>
+            </tr>
+            {% endif %}
+            {% endfor %}
+        </tbody></table>
     </div>
-    {% else %}
-    <p style="color:var(--text-muted); text-align:center; padding:32px;">
-        <i class="fa-solid fa-circle-check" style="font-size:1.5rem; display:block; margin-bottom:8px; opacity:0.4;"></i>
-        Sin ausencias programadas para {{ months_es[month-1] }} {{ year }}.
-    </p>
-    {% endif %}
 </div>
+{% else %}
+<div class="hr-empty-state">
+    <i class="fa-solid fa-circle-check" style="font-size:2rem;"></i>
+    <p style="font-weight:600; margin:8px 0 0;">Sin ausencias para {{ months_es[month-1] }} {{ year }}</p>
+</div>
+{% endif %}
 {% endblock %}
