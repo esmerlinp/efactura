@@ -1,0 +1,163 @@
+{% extends "layout.html" %}
+{% block title %}Calendario de Pagos{% endblock %}
+{% block page_header %}Calendario de Pagos{% endblock %}
+{% block extra_head %}
+<style>
+    .breadcrumb { display: flex; align-items: center; gap: 6px; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 16px; }
+    .breadcrumb a { color: var(--text-muted); text-decoration: none; font-weight: 500; }
+    .breadcrumb a:hover { color: var(--accent-emerald); }
+    .breadcrumb .sep { color: #cbd5e1; }
+    .page-subtitle { font-size: 0.85rem; color: var(--text-muted); margin: -8px 0 18px 0; line-height: 1.5; max-width: 640px; }
+
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-bottom: 24px; }
+    .stat-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; }
+    .stat-card .stat-label { font-size: 0.72rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px; }
+    .stat-card .stat-value { font-size: 1.5rem; font-weight: 800; color: var(--text-primary); }
+    .stat-card .stat-value.danger { color: var(--accent-red); }
+    .stat-card .stat-value.warning { color: var(--accent-amber); }
+    .stat-card .stat-value.success { color: var(--accent-emerald); }
+
+    .plan-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 20px 22px; margin-bottom: 24px; }
+    .plan-card h3 { margin: 0 0 16px 0; font-size: 1rem; font-weight: 800; }
+    .plan-metrics { display: flex; gap: 24px; flex-wrap: wrap; margin-bottom: 16px; }
+    .plan-metric { text-align: center; }
+    .plan-metric .val { font-size: 1.4rem; font-weight: 800; }
+    .plan-metric .lbl { font-size: 0.72rem; color: var(--text-muted); margin-top: 2px; }
+    .coverage-bar { width: 100%; height: 8px; border-radius: 4px; background: #f1f5f9; overflow: hidden; margin-top: 8px; }
+    .coverage-bar .fill { height: 100%; border-radius: 4px; background: var(--accent-emerald); transition: width 0.5s; }
+
+    .filters-row { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; }
+    .filters-row a { padding: 6px 14px; border-radius: 8px; font-size: 0.84rem; font-weight: 600; text-decoration: none; color: var(--text-muted); border: 1px solid #e2e8f0; }
+    .filters-row a.active, .filters-row a:hover { background: var(--accent-emerald); color: #fff; border-color: var(--accent-emerald); }
+
+    .table-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 20px 22px; overflow-x: auto; }
+    .pctable { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
+    .pctable th, .pctable td { padding: 10px 14px; border-bottom: 1px solid #f1f5f9; }
+    .pctable thead th { background: #f8fafc; font-size: 0.74rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 1px solid #e2e8f0; text-align: left; }
+    .pctable tbody td { color: var(--text-primary); }
+
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 6px; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; }
+    .badge.urgent { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+    .badge.high { background: #fff7ed; color: #ea580c; border: 1px solid #fed7aa; }
+    .badge.normal { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
+    .badge.low { background: #f8fafc; color: var(--text-muted); border: 1px solid #e2e8f0; }
+
+    .overdue { color: var(--accent-red); font-weight: 700; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="breadcrumb">
+    <a href="{{ url_for('web_banks.list_banks') }}">Bancos</a>
+    <span class="sep">/</span>
+    <span>Calendario de pagos</span>
+</div>
+
+<p class="page-subtitle">Programación de pagos a proveedores con priorización automática basada en fechas de vencimiento y montos. Optimiza tu flujo de caja.</p>
+
+{% if stats %}
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-label">Pendientes totales</div>
+        <div class="stat-value">{{ stats.total_pending }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Monto total</div>
+        <div class="stat-value">RD$ {{ "{:,.0f}".format(stats.total_amount) }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Vencidos</div>
+        <div class="stat-value {% if stats.overdue_count > 0 %}danger{% endif %}">{{ stats.overdue_count }} (RD$ {{ "{:,.0f}".format(stats.overdue_amount) }})</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Esta semana</div>
+        <div class="stat-value">{{ stats.this_week_count }} (RD$ {{ "{:,.0f}".format(stats.this_week_amount) }})</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Urgentes</div>
+        <div class="stat-value {% if stats.urgent_count > 0 %}danger{% endif %}">{{ stats.urgent_count }}</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Prioridad alta</div>
+        <div class="stat-value warning">{{ stats.high_count }}</div>
+    </div>
+</div>
+{% endif %}
+
+{% if plan %}
+<div class="plan-card">
+    <h3><i class="fa-solid fa-lightbulb"></i> Plan de pagos sugerido</h3>
+    <div class="plan-metrics">
+        <div class="plan-metric">
+            <div class="val success">RD$ {{ "{:,.0f}".format(plan.total_to_pay) }}</div>
+            <div class="lbl">A pagar ({{ plan.payments | length }} pagos)</div>
+        </div>
+        <div class="plan-metric">
+            <div class="val">RD$ {{ "{:,.0f}".format(plan.available_balance) }}</div>
+            <div class="lbl">Liquidez disponible</div>
+        </div>
+        <div class="plan-metric">
+            <div class="val" style="color: {% if plan.coverage_pct >= 80 %}var(--accent-emerald){% elif plan.coverage_pct >= 50 %}var(--accent-amber){% else %}var(--accent-red){% endif %};">{{ plan.coverage_pct }}%</div>
+            <div class="lbl">Cobertura</div>
+        </div>
+        <div class="plan-metric">
+            <div class="val danger">RD$ {{ "{:,.0f}".format(plan.uncovered_amount) }}</div>
+            <div class="lbl">Descubierto ({{ plan.uncovered_count }} pagos)</div>
+        </div>
+    </div>
+    <div class="coverage-bar"><div class="fill" style="width:{{ plan.coverage_pct }}%;"></div></div>
+    {% if plan.payments %}
+    <div style="margin-top:14px;font-size:0.82rem;">
+        <strong style="color:var(--text-muted);">Pagos sugeridos:</strong>
+        {% for pp in plan.payments %}
+        <span style="margin-left:8px;">{{ pp.concept }} (RD$ {{ "{:,.0f}".format(pp.amount) }}),</span>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
+<div class="filters-row">
+    <span style="font-size:0.8rem;color:var(--text-muted);font-weight:600;">Horizonte:</span>
+    {% for d in [30, 60, 90, 180] %}
+    <a href="?days={{ d }}" {% if days == d %}class="active"{% endif %}>{{ d }} días</a>
+    {% endfor %}
+</div>
+
+<div class="table-card">
+    <table class="pctable">
+        <thead>
+            <tr>
+                <th>Concepto</th>
+                <th>Proveedor</th>
+                <th>Vencimiento</th>
+                <th>Monto</th>
+                <th>Días vencido</th>
+                <th>Prioridad</th>
+                <th>Pago sugerido</th>
+                <th>Categoría</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for p in payments %}
+            <tr>
+                <td style="font-weight:600;">{{ p.concept }}</td>
+                <td>{{ p.supplier_name or '—' }}</td>
+                <td>{{ p.due_date }}</td>
+                <td style="font-weight:700;">RD$ {{ "{:,.2f}".format(p.amount) }}</td>
+                <td>{% if p.days_overdue > 0 %}<span class="overdue">{{ p.days_overdue }} días</span>{% else %}—{% endif %}</td>
+                <td><span class="badge {{ p.priority }}">{{ p.priority }}</span></td>
+                <td>{{ p.suggested_pay_date }}</td>
+                <td style="color:var(--text-muted);font-size:0.78rem;">{{ p.category }}</td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="8" style="text-align:center;padding:40px;color:var(--text-muted);">
+                    <i class="fa-solid fa-check-circle" style="font-size:2rem;display:block;margin-bottom:12px;color:var(--accent-emerald);"></i>
+                    No hay pagos pendientes en el horizonte seleccionado. ¡Todo al día!
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

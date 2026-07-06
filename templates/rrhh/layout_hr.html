@@ -1,0 +1,199 @@
+{% extends "layout.html" %}
+
+{% block sidebar %}
+                <!-- ═══════════════════════════════════════════════════════ -->
+                <!-- WORKSPACE: RRHH Y NÓMINA                                -->
+                <!-- ═══════════════════════════════════════════════════════ -->
+
+                <!-- Volver al ERP -->
+                <a href="{{ url_for('web_dashboard.dashboard') }}"
+                   style="display:flex; align-items:center; gap:10px; padding:12px 16px; margin:0 8px 8px;
+                          border:1px solid var(--border-color); border-radius:var(--radius-sm);
+                          text-decoration:none; color:var(--text-secondary); font-size:0.82rem; font-weight:600;
+                          transition:all 0.2s;"
+                   onmouseover="this.style.borderColor='var(--accent-emerald)'; this.style.color='var(--accent-emerald)';"
+                   onmouseout="this.style.borderColor='var(--border-color)'; this.style.color='var(--text-secondary)';">
+                    <i class="fa-solid fa-arrow-left" style="font-size:0.9rem;"></i>
+                    <span>Volver al ERP</span>
+                </a>
+
+                <div class="sidebar-divider" style="margin:4px 8px 8px;"></div>
+
+                <!-- ── Gestión de Personal ── -->
+                <div class="sidebar-section" id="sidebar-section-rrhh">
+                    <div class="sidebar-section-header">
+                        <div class="header-left">
+                            <i class="fa-regular fa-users section-icon"></i>
+                            <span>Gestión de Personal</span>
+                        </div>
+                        <i class="fa-solid fa-chevron-down section-toggle-icon"></i>
+                    </div>
+                    <ul class="sidebar-section-content">
+                        <li class="nav-item {% if active_page == 'rrhh_employees' %}active{% endif %}"
+                            data-tooltip="Empleados">
+                            <a href="{{ url_for('web_rrhh.employee_list') }}">
+                                <span>Empleados</span>
+                            </a>
+                        </li>
+                        <li class="nav-item {% if active_page == 'rrhh_orgchart' %}active{% endif %}"
+                            data-tooltip="Organigrama">
+                            <a href="{{ url_for('web_rrhh.org_chart') }}">
+                                <span>Organigrama</span>
+                            </a>
+                        </li>
+                        <li class="nav-item {% if active_page == 'rrhh_calendar' %}active{% endif %}"
+                            data-tooltip="Calendario">
+                            <a href="{{ url_for('web_rrhh.team_calendar') }}">
+                                <span>Calendario</span>
+                            </a>
+                        </li>
+                        <li class="nav-item {% if active_page == 'rrhh_attendance' %}active{% endif %}"
+                            data-tooltip="Asistencia">
+                            <a href="{{ url_for('web_rrhh.attendance') }}">
+                                <span>Asistencia</span>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- ── Gestión del Tiempo ── -->
+                <div class="sidebar-section" id="sidebar-section-rrhh-tiempo">
+                    <div class="sidebar-section-header">
+                        <div class="header-left">
+                            <i class="fa-regular fa-clock section-icon"></i>
+                            <span>Gestión del Tiempo</span>
+                        </div>
+                        <i class="fa-solid fa-chevron-down section-toggle-icon"></i>
+                    </div>
+                    <ul class="sidebar-section-content">
+                        <li class="nav-item {% if active_page == 'rrhh_vacations' %}active{% endif %}"
+                            data-tooltip="Vacaciones">
+                            <a href="{{ url_for('web_rrhh.vacation_list') }}">
+                                <span>Vacaciones</span>
+                            </a>
+                        </li>
+                        <li class="nav-item {% if active_page == 'rrhh_leaves' %}active{% endif %}"
+                            data-tooltip="Permisos">
+                            <a href="{{ url_for('web_rrhh.leave_list') }}">
+                                <span>Permisos</span>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- ── Nómina ── -->
+                <div class="sidebar-section" id="sidebar-section-rrhh-nomina">
+                    <div class="sidebar-section-header">
+                        <div class="header-left">
+                            <i class="fa-solid fa-coins section-icon"></i>
+                            <span>Nómina</span>
+                        </div>
+                        <i class="fa-solid fa-chevron-down section-toggle-icon"></i>
+                    </div>
+                    <ul class="sidebar-section-content">
+                        <li class="nav-item {% if active_page == 'rrhh_payroll' %}active{% endif %}"
+                            data-tooltip="Nómina">
+                            <a href="{{ url_for('web_rrhh.payroll_dashboard') }}">
+                                <span>Nómina</span>
+                            </a>
+                        </li>
+                        <li class="nav-item {% if active_page == 'rrhh_payroll_new' %}active{% endif %}"
+                            data-tooltip="Calcular Nómina">
+                            <a href="{{ url_for('web_rrhh.payroll_new') }}">
+                                <span>Calcular Nómina</span>
+                            </a>
+                        </li>
+                        <li class="nav-item {% if active_page == 'rrhh_payroll_simulate' %}active{% endif %}"
+                            data-tooltip="Simular">
+                            <a href="{{ url_for('web_rrhh.payroll_simulate') }}">
+                                <span>Simular</span>
+                            </a>
+                        </li>
+                        <li class="nav-item {% if active_page == 'rrhh_payroll_history' %}active{% endif %}"
+                            data-tooltip="Historial">
+                            <a href="{{ url_for('web_rrhh.payroll_list') }}">
+                                <span>Historial</span>
+                            </a>
+                        </li>
+                        <li class="nav-item {% if active_page == 'rrhh_reports' %}active{% endif %}"
+                            data-tooltip="Reportes">
+                            <a href="{{ url_for('web_rrhh.reports_index') }}">
+                                <span>Reportes</span>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- ── Desarrollo ── -->
+                <div class="sidebar-section" id="sidebar-section-rrhh-desarrollo">
+                    <div class="sidebar-section-header">
+                        <div class="header-left">
+                            <i class="fa-solid fa-star section-icon"></i>
+                            <span>Desarrollo</span>
+                        </div>
+                        <i class="fa-solid fa-chevron-down section-toggle-icon"></i>
+                    </div>
+                    <ul class="sidebar-section-content">
+                        <li class="nav-item {% if active_page == 'rrhh_evaluations' %}active{% endif %}"
+                            data-tooltip="Evaluaciones">
+                            <a href="{{ url_for('web_rrhh.evaluation_list') }}">
+                                <span>Evaluaciones</span>
+                            </a>
+                        </li>
+                        <li class="nav-item {% if active_page == 'rrhh_trainings' %}active{% endif %}"
+                            data-tooltip="Capacitaciones">
+                            <a href="{{ url_for('web_rrhh.training_list') }}">
+                                <span>Capacitaciones</span>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- ── Configuración ── -->
+                {% if session.get('user', {}).get('role') == 'owner' %}
+                <div class="sidebar-section" id="sidebar-section-rrhh-config">
+                    <div class="sidebar-section-header">
+                        <div class="header-left">
+                            <i class="fa-solid fa-gear section-icon"></i>
+                            <span>Configuración</span>
+                        </div>
+                        <i class="fa-solid fa-chevron-down section-toggle-icon"></i>
+                    </div>
+                    <ul class="sidebar-section-content">
+                        <li class="nav-item {% if active_page == 'rrhh_catalogs' %}active{% endif %}"
+                            data-tooltip="Catálogos">
+                            <a href="{{ url_for('web_rrhh.catalog_list', catalog_name='positions') }}">
+                                <span>Catálogos</span>
+                            </a>
+                        </li>
+                        <li class="nav-item {% if active_page == 'rrhh_concepts' %}active{% endif %}"
+                            data-tooltip="Conceptos">
+                            <a href="{{ url_for('web_rrhh.concept_list') }}">
+                                <span>Conceptos</span>
+                            </a>
+                        </li>
+                        <li class="nav-item {% if active_page == 'rrhh_audit' %}active{% endif %}"
+                            data-tooltip="Auditoría">
+                            <a href="{{ url_for('web_rrhh.audit_log') }}">
+                                <span>Auditoría</span>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+                {% endif %}
+
+                <!-- Collapse init needs sections in DOM -->
+                <script>
+                    const hrSections = ['sidebar-section-rrhh', 'sidebar-section-rrhh-tiempo',
+                        'sidebar-section-rrhh-nomina', 'sidebar-section-rrhh-desarrollo',
+                        'sidebar-section-rrhh-config'];
+                    hrSections.forEach(id => {
+                        const el = document.getElementById(id);
+                        if (!el) return;
+                        const hasActive = el.querySelector('.nav-item.active');
+                        if (hasActive) { el.classList.remove('collapsed'); return; }
+                        const stored = localStorage.getItem('sidebar-collapsed-' + id);
+                        if (stored === 'true') el.classList.add('collapsed');
+                    });
+                </script>
+{% endblock %}

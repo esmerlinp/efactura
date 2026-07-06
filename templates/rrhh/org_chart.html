@@ -1,0 +1,81 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}Organigrama — {{ product_name }}{% endblock %}
+{% block content %}
+{% include "rrhh/_styles.html" %}
+<div class="page-header hr-page-header">
+    <h1 class="page-title"><i class="fa-solid fa-sitemap"></i> Organigrama</h1>
+    <a href="{{ url_for('web_rrhh.employee_list') }}" class="btn btn-ghost"><i class="fa-solid fa-arrow-left"></i> Empleados</a>
+</div>
+
+{% if root_nodes %}
+<div style="display:flex; flex-direction:column; gap:16px;">
+{% for root in root_nodes %}
+<div class="card-table-wrapper" style="padding:16px 20px; margin-bottom:0;">
+    <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
+        <div class="hr-avatar" style="width:36px; height:36px; font-size:0.75rem;">
+            {{ (root.firstName or '')[0] }}{{ (root.firstLastName or root.lastName or '')[0] }}
+        </div>
+        <div>
+            <a href="{{ url_for('web_rrhh.employee_view', employee_id=root.id) }}" style="font-weight:700; text-decoration:none; color:var(--text-primary);">
+                {{ root.fullName }}
+            </a>
+            <div style="font-size:0.78rem; color:var(--text-muted);">{{ root.position or '—' }} · {{ root.area or root.department or '—' }}</div>
+        </div>
+        <span class="badge badge-info" style="margin-left:auto;">{{ root.direct_reports|length }} reportes</span>
+    </div>
+    {% if root.direct_reports %}
+    <div style="margin-left:40px; border-left:2px solid var(--border-color); padding-left:16px; display:flex; flex-direction:column; gap:8px;">
+        {% for child in root.direct_reports %}
+        <div style="display:flex; align-items:center; gap:8px; padding:8px 12px; border-radius:var(--radius-sm); border:1px solid var(--border-color);">
+            <div class="hr-avatar" style="width:28px; height:28px; font-size:0.65rem; flex-shrink:0;">
+                {{ (child.firstName or '')[0] }}{{ (child.firstLastName or child.lastName or '')[0] }}
+            </div>
+            <div>
+                <a href="{{ url_for('web_rrhh.employee_view', employee_id=child.id) }}" style="font-weight:600; text-decoration:none; color:var(--text-primary); font-size:0.85rem;">
+                    {{ child.fullName }}
+                </a>
+                <div style="font-size:0.72rem; color:var(--text-muted);">{{ child.position or '—' }}</div>
+            </div>
+            {% if child.direct_reports %}
+            <div class="badge badge-secondary" style="margin-left:auto;">+{{ child.direct_reports|length }}</div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+{% endfor %}
+</div>
+{% endif %}
+
+<!-- Flat: empleados sin jerarquía -->
+{% if flat_employees %}
+<div class="card-table-wrapper hr-table-card" style="margin-top:20px;">
+    <div class="table-header-row">
+        <h3>Sin supervisor asignado</h3>
+        <p>Estos empleados no tienen definido un supervisor directo.</p>
+    </div>
+    <div style="padding:0 20px 16px; display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:10px;">
+        {% for emp in flat_employees %}
+        <div class="hr-person-card">
+            <div class="hr-avatar">{{ (emp.firstName or '')[0] }}{{ (emp.firstLastName or emp.lastName or '')[0] }}</div>
+            <div>
+                <a href="{{ url_for('web_rrhh.employee_view', employee_id=emp.id) }}" style="font-weight:600; text-decoration:none; color:var(--text-primary);">
+                    {{ emp.fullName }}
+                </a>
+                <div style="font-size:0.78rem; color:var(--text-muted);">{{ emp.position or '—' }}</div>
+                <div style="font-size:0.72rem; color:var(--text-muted);">RD$ {{ "{:,.0f}".format(emp.baseSalary|float) if emp.baseSalary else '—' }}</div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+{% if not root_nodes and not flat_employees %}
+<div class="hr-empty-state">
+    <i class="fa-solid fa-sitemap"></i>
+    <p style="font-weight:600;">Sin empleados activos.</p>
+</div>
+{% endif %}
+{% endblock %}

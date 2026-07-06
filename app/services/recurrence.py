@@ -251,6 +251,19 @@ class RecurrenceService:
                 except Exception as exc:
                     import logging
                     logging.getLogger(__name__).warning(f"Asiento contable recurrente no generado: {exc}")
+
+                # Event Bus: notificar emisión de factura recurrente
+                try:
+                    from app.events import get_event_bus, InvoiceEmitted
+                    get_event_bus().publish(InvoiceEmitted(
+                        owner_uid=owner_uid,
+                        invoice_id=new_id,
+                        invoice_number=new_invoice.get("invoiceNumber", ""),
+                        invoice_data=new_invoice,
+                        sandbox=sandbox,
+                    ))
+                except Exception:
+                    pass
                 
                 # Calcular la próxima ocurrencia en la factura original y actualizarla
                 next_occurrence = cls.calculate_next_date(next_date_str, original["recurrenceInterval"])

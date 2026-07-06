@@ -30,6 +30,7 @@ def dashboard():
             
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
+    now = datetime.now(timezone.utc)
     
     # Procesar automáticamente recurrencias programadas al abrir dashboard
     RecurrenceService.process_pending_recurrences(owner_uid, sandbox=sandbox)
@@ -43,7 +44,7 @@ def dashboard():
     
     # Obtener filtros de escala, fecha y KPI
     scale = request.args.get('scale', 'month')
-    date_str = request.args.get('date', datetime.now(timezone.utc).strftime("%Y-%m-%d"))
+    date_str = request.args.get('date', now.strftime("%Y-%m-%d"))
     kpi_period = request.args.get('kpi_period', 'month')
     
     try:
@@ -463,40 +464,20 @@ def dashboard():
 
     clients_by_profit = sorted(client_stats.values(), key=lambda x: x["profit"], reverse=True)
 
-    # 7. BI: Flujo de Caja Proyectado (4 meses)
-    now = datetime.now(timezone.utc)
-    months_projection = []
-    for i in range(4):
-        future_date = now.replace(day=1) + timedelta(days=30 * i)
-        m_label = future_date.strftime("%Y-%m")
-        months_projection.append({
-            "key": m_label,
-            "label": future_date.strftime("%B %Y").capitalize(),
-            "inflow": 0.0, "outflow": 0.0, "net": 0.0
-        })
-
-    for inv in real_invoices:
-        if inv.get('status') in ['Emitida', 'Vencida', 'Parcialmente Cobrada']:
-            due_str = inv.get('dueDate', '')[:7]
-            for m in months_projection:
-                if m["key"] == due_str:
-                    m["inflow"] += float(inv.get('remainingBalance', 0.0))
-
-    for exp in expenses:
-        if exp.get('paymentType') == 'Crédito' and exp.get('cxpStatus') != 'Pagado':
-            due_str = exp.get('dueDate', '')[:7]
-            for m in months_projection:
-                if m["key"] == due_str:
-                    m["outflow"] += float(exp.get('cxpRemainingBalance', 0.0))
-
-    cumulative = 0.0
-    liquidity_warning_month = None
-    for m in months_projection:
-        m["net"] = m["inflow"] - m["outflow"]
-        cumulative += m["net"]
-        m["cumulative"] = cumulative
-        if cumulative < 0 and not liquidity_warning_month:
-            liquidity_warning_month = m["label"]
+    # 7. BI: Flujo de Caja Proyectado (6 meses) — vía CashFlowService
+    from app.services.cash_flow_service import CashFlowService
+    try:
+        projection = CashFlowService.project_cash_flow(owner_uid, months=6, sandbox=sandbox)
+        months_projection = [
+            {"key": p.key, "label": p.label, "inflow": p.inflow,
+             "outflow": p.outflow, "net": p.net, "cumulative": p.cumulative}
+            for p in projection
+        ]
+        deficit_alerts = CashFlowService.get_deficit_alerts(projection)
+        liquidity_warning_month = deficit_alerts[0].month_label if deficit_alerts else None
+    except Exception:
+        months_projection = []
+        liquidity_warning_month = None
 
     # 8. BI: Indicadores Tributarios
     total_itbis_sales = sum(float(inv.get('totalITBIS', 0.0)) for inv in real_invoices)

@@ -3,6 +3,10 @@
 {% block title %}Centros de Costo{% endblock %}
 {% block page_header %}Centros de Costo{% endblock %}
 
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/_dashboard.css') }}?v={{ static_hash('css/_dashboard.css') }}">
+{% endblock %}
+
 {% block content %}
 <div style="max-width: 900px; margin: 0 auto;">
 
@@ -85,7 +89,7 @@
     </div>
 
     <div style="margin-top: 24px; padding: 16px; border-radius: var(--radius-sm);
-                border-left: 4px solid var(--accent-blue);
+                border-left: 4px solid var(--accent-purple);
                 background: rgba(59,130,246,0.05); font-size: 0.85rem; color: var(--text-muted);">
         <strong style="color: var(--text-primary);"><i class="fa-solid fa-circle-info"></i> ¿Para qué sirven los centros de costo?</strong><br>
         Permiten segmentar los ingresos y gastos de la empresa por área (Ventas, Administración, Operaciones, etc.),

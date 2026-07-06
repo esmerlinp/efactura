@@ -1,0 +1,241 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}{{ employee.fullName }} — {{ product_name }}{% endblock %}
+{% block content %}
+{% include "rrhh/_styles.html" %}
+<div class="page-header hr-page-header">
+    <h1 class="page-title"><i class="fa-solid fa-id-card"></i> {{ employee.fullName }}</h1>
+    <div class="hr-page-actions">
+        <a href="{{ url_for('web_rrhh.employee_edit', employee_id=employee.id) }}" class="btn btn-primary">
+            <i class="fa-solid fa-pen-to-square"></i> Editar
+        </a>
+        <a href="{{ url_for('web_rrhh.employee_salary_history', employee_id=employee.id) }}" class="btn btn-ghost btn-sm">
+            <i class="fa-solid fa-chart-line"></i> Salarial
+        </a>
+        <a href="{{ url_for('web_rrhh.employee_checklist', employee_id=employee.id, checklist_type='onboarding') }}" class="btn btn-ghost btn-sm">
+            <i class="fa-solid fa-clipboard-check"></i> Onboarding
+        </a>
+        {% if employee.status == 'inactivo' %}
+        <a href="{{ url_for('web_rrhh.employee_checklist', employee_id=employee.id, checklist_type='offboarding') }}" class="btn btn-ghost btn-sm">
+            <i class="fa-solid fa-door-open"></i> Offboarding
+        </a>
+        {% endif %}
+        <a href="{{ url_for('web_rrhh.employee_list') }}" class="btn btn-ghost">
+            <i class="fa-solid fa-arrow-left"></i> Volver
+        </a>
+    </div>
+</div>
+
+<!-- Header -->
+<div class="card-table-wrapper hr-document-sheet" style="padding:30px; margin-bottom:0;">
+    <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:20px; flex-wrap:wrap; margin-bottom:20px; padding-bottom:20px; border-bottom:1px solid var(--border-color);">
+        <div style="display:flex; align-items:center; gap:16px;">
+            <div class="hr-avatar" style="width:56px; height:56px; font-size:1rem;">
+                {{ (employee.firstName or '')[:1] }}{{ (employee.firstLastName or employee.lastName or '')[:1] }}
+            </div>
+            <div>
+                <h2 style="margin:0 0 6px 0; font-size:1.35rem; font-family:var(--font-heading);">{{ employee.fullName }}</h2>
+                <div style="color:var(--text-secondary); font-size:0.9rem;">{{ employee.position or 'Sin cargo' }} · {{ employee.area or employee.department or 'Sin departamento' }}</div>
+                <div style="margin-top:4px;">
+                    {% if employee.gender %}<span class="badge badge-secondary">{{ employee.gender }}</span>{% endif %}
+                    <span class="badge badge-info">{{ employee.contractType or '—' }}</span>
+                </div>
+            </div>
+        </div>
+        <div style="text-align:right;">
+            {% if employee.status == 'activo' %}
+            <span class="badge badge-success" style="font-size:0.85rem;">Activo</span>
+            {% else %}
+            <span class="badge badge-danger" style="font-size:0.85rem;">Inactivo</span>
+            {% endif %}
+            <div style="margin-top:8px; color:var(--text-secondary); font-size:0.85rem;">Ingreso: <strong>{{ employee.hireDate or '—' }}</strong></div>
+        </div>
+    </div>
+
+    <!-- Tab nav -->
+    <div style="display:flex; gap:4px; margin-bottom:20px; border-bottom:2px solid var(--border-color);">
+        <button class="tab-btn active" data-tab="tab-personal" onclick="switchTab('tab-personal', this)">
+            <i class="fa-solid fa-user"></i> Información
+        </button>
+        <button class="tab-btn" data-tab="tab-laboral" onclick="switchTab('tab-laboral', this)">
+            <i class="fa-solid fa-briefcase"></i> Laboral
+        </button>
+        <button class="tab-btn" data-tab="tab-docs" onclick="switchTab('tab-docs', this)">
+            <i class="fa-solid fa-folder-open"></i> Documentos
+        </button>
+        <button class="tab-btn" data-tab="tab-evals" onclick="switchTab('tab-evals', this)">
+            <i class="fa-solid fa-star"></i> Evals & Cap
+        </button>
+    </div>
+
+    <!-- Tab: Información personal -->
+    <div id="tab-personal" class="tab-content">
+        <div class="hr-detail-grid">
+            <div class="hr-section-card" style="border:none; box-shadow:none; padding:0;">
+                <h3>Datos personales</h3>
+                <div class="hr-info-grid">
+                    <div class="hr-info-item"><span class="hr-info-label">Tipo ID</span><span class="hr-info-value">{{ employee.idType or 'Cédula' }}</span></div>
+                    <div class="hr-info-item"><span class="hr-info-label">No. Identificación</span><span class="hr-info-value">{{ employee.idNumber or employee.cedula or '—' }}</span></div>
+                    <div class="hr-info-item"><span class="hr-info-label">Email</span><span class="hr-info-value">{{ employee.email or '—' }}</span></div>
+                    <div class="hr-info-item"><span class="hr-info-label">Teléfono</span><span class="hr-info-value">{{ employee.phone or '—' }}</span></div>
+                    <div class="hr-info-item"><span class="hr-info-label">Dirección</span><span class="hr-info-value">{{ employee.address or '—' }}</span></div>
+                    <div class="hr-info-item"><span class="hr-info-label">Municipio</span><span class="hr-info-value">{{ employee.municipality or '—' }}</span></div>
+                    <div class="hr-info-item"><span class="hr-info-label">Género</span><span class="hr-info-value">{{ employee.gender or '—' }}</span></div>
+                    <div class="hr-info-item"><span class="hr-info-label">Fecha nacimiento</span><span class="hr-info-value">{{ employee.birthDate or '—' }}</span></div>
+                    <div class="hr-info-item"><span class="hr-info-label">Contacto emergencia</span><span class="hr-info-value">{{ employee.emergencyContact or '—' }}</span></div>
+                    <div class="hr-info-item"><span class="hr-info-label">Tel. emergencia</span><span class="hr-info-value">{{ employee.emergencyPhone or '—' }}</span></div>
+                </div>
+            </div>
+            <div class="hr-section-card" style="border:none; box-shadow:none; padding:0;">
+                <h3>Vacaciones y prestaciones</h3>
+                <div class="hr-info-grid">
+                    <div class="hr-info-item"><span class="hr-info-label">Días de vacaciones</span><span class="hr-info-value">{{ vacation_days }} días</span></div>
+                    <div class="hr-info-item"><span class="hr-info-label">Preaviso</span><span class="hr-info-value">{{ "RD$ {:,.2f}".format(severance.preaviso|float) if severance else '—' }}</span></div>
+                    <div class="hr-info-item"><span class="hr-info-label">Cesantía</span><span class="hr-info-value">{{ "RD$ {:,.2f}".format(severance.cesantia|float) if severance else '—' }}</span></div>
+                    <div class="hr-info-item"><span class="hr-info-label">Vacaciones pendientes</span><span class="hr-info-value">{{ "RD$ {:,.2f}".format(severance.vacacion_pending|float) if severance else '—' }}</span></div>
+                    {% if severance %}
+                    <div class="hr-info-item" style="grid-column:1/-1; border-style:dashed; border-color:var(--accent-emerald); background:rgba(16,185,129,0.06);">
+                        <span class="hr-info-label">Total liquidación estimada</span>
+                        <span class="hr-info-value" style="color:var(--accent-emerald); font-size:1.05rem;">RD$ {{ "{:,.2f}".format(severance.total|float) }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% if employee.notes %}
+        <div class="hr-section-card" style="margin-top:16px;">
+            <h3><i class="fa-regular fa-note-sticky"></i> Notas</h3>
+            <p style="color:var(--text-secondary); margin:0;">{{ employee.notes }}</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Tab: Laboral -->
+    <div id="tab-laboral" class="tab-content" style="display:none;">
+        <div class="hr-detail-grid">
+            <div class="hr-section-card" style="border:none; box-shadow:none; padding:0;">
+                <h3>Datos contractuales</h3>
+                <div class="hr-info-grid">
+                    <div class="hr-info-item"><span class="hr-info-label">Cargo</span><span class="hr-info-value">{{ employee.position or '—' }}</span></div>
+                    <div class="hr-info-item"><span class="hr-info-label">Área</span><span class="hr-info-value">{{ employee.area or employee.department or '—' }}</span></div>
+                    <div class="hr-info-item"><span class="hr-info-label">Tipo contrato</span><span class="hr-info-value">{{ employee.contractType or '—' }}</span></div>
+                    <div class="hr-info-item"><span class="hr-info-label">Frecuencia pago</span><span class="hr-info-value">{{ employee.paymentFrequency or '—' }}</span></div>
+                    <div class="hr-info-item"><span class="hr-info-label">Jornada</span><span class="hr-info-value">{{ employee.workday or '—' }}</span></div>
+                    <div class="hr-info-item"><span class="hr-info-label">Vigilante</span><span class="hr-info-value">{{ 'Sí' if employee.isVigilante else 'No' }}</span></div>
+                    <div class="hr-info-item"><span class="hr-info-label">TSS Clave</span><span class="hr-info-value">{{ employee.tssKey or '—' }}</span></div>
+                    <div class="hr-info-item"><span class="hr-info-label">Fin prueba</span><span class="hr-info-value">{{ employee.probationEndDate or '—' }}</span></div>
+                </div>
+            </div>
+            <div class="hr-section-card" style="border:none; box-shadow:none; padding:0;">
+                <h3>Compensación</h3>
+                <div class="hr-info-grid">
+                    <div class="hr-info-item"><span class="hr-info-label">Salario base</span><span class="hr-info-value" style="color:var(--accent-emerald);font-size:1.05rem;">{{ "RD$ {:,.2f}".format(employee.baseSalary|float) if employee.baseSalary else '—' }}</span></div>
+                    <div class="hr-info-item"><span class="hr-info-label">AFP</span><span class="hr-info-value">{{ employee.afpProvider or '—' }}</span></div>
+                    <div class="hr-info-item"><span class="hr-info-label">Método de pago</span><span class="hr-info-value">{{ employee.paymentMethod or '—' }}</span></div>
+                    <div class="hr-info-item"><span class="hr-info-label">Banco</span><span class="hr-info-value">{{ employee.bank or '—' }}</span></div>
+                    <div class="hr-info-item"><span class="hr-info-label">Cuenta</span><span class="hr-info-value">{{ employee.accountNumber or '—' }} ({{ employee.accountType or '—' }})</span></div>
+                    <div class="hr-info-item"><span class="hr-info-label">Centro de costo</span><span class="hr-info-value">{{ employee.costCenter or '—' }}</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tab: Documentos -->
+    <div id="tab-docs" class="tab-content" style="display:none;">
+        <div class="hr-section-card" style="border:none; box-shadow:none; padding:0;">
+            <h3>Documentos ({{ documents|length }})</h3>
+            {% if documents %}
+            <div style="display:flex; flex-direction:column; gap:6px;">
+                {% for d in documents %}
+                <div style="display:flex; align-items:center; gap:10px; padding:8px 12px; border:1px solid var(--border-color); border-radius:var(--radius-sm);">
+                    <i class="fa-solid fa-file-lines" style="color:var(--accent-blue); font-size:1.1rem;"></i>
+                    <div style="flex:1;">
+                        <a href="{{ url_for('web_rrhh.employee_document_download', employee_id=employee.id, doc_id=d.id) }}" style="font-weight:600; font-size:0.85rem; text-decoration:none;">
+                            {{ d.name }}
+                        </a>
+                        <div style="font-size:0.7rem; color:var(--text-muted);">{{ d.category }} · {{ d.uploadedAt[:10] if d.uploadedAt else '' }} · {{ (d.size|int // 1024) if d.size else 0 }}KB</div>
+                    </div>
+                    <form method="POST" action="{{ url_for('web_rrhh.employee_document_delete', employee_id=employee.id, doc_id=d.id) }}"
+                          onsubmit="return confirm('¿Eliminar?')" style="display:contents;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-sm btn-ghost" style="color:var(--danger);"><i class="fa-solid fa-trash"></i></button>
+                    </form>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}<p style="color:var(--text-muted);">Sin documentos.</p>{% endif %}
+            <form method="POST" action="{{ url_for('web_rrhh.employee_document_upload', employee_id=employee.id) }}"
+                  enctype="multipart/form-data" style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <select name="category" class="form-select" style="width:auto;">
+                    <option value="contract">Contrato</option>
+                    <option value="id">Identificación</option>
+                    <option value="certificate">Certificado</option>
+                    <option value="medical">Médico</option>
+                    <option value="academic">Académico</option>
+                </select>
+                <input type="file" name="file" class="form-input" style="flex:1; min-width:150px;" required>
+                <button type="submit" class="btn btn-sm btn-primary"><i class="fa-solid fa-upload"></i> Subir</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Tab: Evaluaciones & Capacitaciones -->
+    <div id="tab-evals" class="tab-content" style="display:none;">
+        <div class="hr-section-card" style="border:none; box-shadow:none; padding:0; margin-bottom:16px;">
+            <h3>Evaluaciones ({{ evaluations|length }})</h3>
+            {% if evaluations %}
+            <div class="table-responsive">
+                <table class="table-premium">
+                <thead><tr><th>Fecha</th><th>Tipo</th><th>Punt.</th><th>Evaluador</th><th>Fortalezas</th></tr></thead>
+                <tbody>{% for ev in evaluations %}
+                    <tr><td>{{ ev.date }}</td><td>{{ ev.evalType }}</td><td><span class="badge badge-info">{{ ev.score }}/5</span></td><td>{{ ev.evaluatorName }}</td><td>{{ ev.strengths[:60] }}</td></tr>
+                {% endfor %}</tbody></table>
+            </div>{% else %}<p style="color:var(--text-muted);">Sin evaluaciones.</p>{% endif %}
+        </div>
+        <div class="hr-section-card" style="border:none; box-shadow:none; padding:0;">
+            <h3>Capacitaciones ({{ trainings|length }})</h3>
+            {% if trainings %}
+                <div class="table-responsive">
+                <table class="table-premium">
+                <thead><tr><th>Fecha</th><th>Capacitación</th><th>Institución</th><th>Horas</th><th>Cert.</th></tr></thead>
+                <tbody>{% for t in trainings %}
+                    <tr><td>{{ t.date }}</td><td>{{ t.trainingName }}</td><td>{{ t.institution }}</td><td>{{ t.hours }}</td><td>{% if t.hasCertificate %}<span class="badge badge-success">Sí</span>{% else %}No{% endif %}</td></tr>
+                {% endfor %}</tbody></table>
+            </div>{% else %}<p style="color:var(--text-muted);">Sin capacitaciones.</p>{% endif %}
+        </div>
+    </div>
+</div>
+
+{% if employee.status == 'activo' %}
+<div class="hr-section-card" style="margin-top:20px; border:1px solid var(--danger);">
+    <h3 style="color:var(--danger);"><i class="fa-solid fa-user-slash" style="color:var(--danger);"></i> Desvincular empleado</h3>
+    <form method="POST" action="{{ url_for('web_rrhh.employee_terminate', employee_id=employee.id) }}"
+          onsubmit="return confirm('¿Confirma la desvinculación de {{ employee.fullName }}?')">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="form-group"><label>Motivo</label><textarea name="reason" class="form-textarea" rows="2"></textarea></div>
+        <div class="form-group"><label>Tipo</label>
+            <select name="terminationType" class="form-select">
+                <option value="renuncia">Renuncia</option><option value="despido">Despido</option>
+                <option value="mutuo_acuerdo">Mutuo acuerdo</option><option value="fin_contrato">Fin de contrato</option>
+            </select>
+        </div>
+        <button type="submit" class="btn btn-danger"><i class="fa-solid fa-user-slash"></i> Desvincular</button>
+    </form>
+</div>
+{% endif %}
+
+<style>
+.tab-btn { background:none; border:none; padding:8px 18px; cursor:pointer; font-weight:600; font-size:0.85rem; color:var(--text-muted); border-bottom:2px solid transparent; margin-bottom:-2px; transition:all 0.2s; display:inline-flex; align-items:center; gap:6px; }
+.tab-btn.active { color:var(--accent-emerald); border-bottom-color:var(--accent-emerald); }
+.tab-btn:hover { color:var(--text-primary); }
+.tab-content { padding-top:8px; }
+</style>
+<script>
+function switchTab(tabId, btn) {
+    document.querySelectorAll('.tab-content').forEach(t => t.style.display = 'none');
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById(tabId).style.display = '';
+    btn.classList.add('active');
+}
+</script>
+{% endblock %}

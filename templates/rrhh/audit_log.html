@@ -1,0 +1,59 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}Auditoría — {{ product_name }}{% endblock %}
+{% block content %}
+{% include "rrhh/_styles.html" %}
+<div class="page-header hr-page-header">
+    <h1 class="page-title"><i class="fa-solid fa-magnifying-glass"></i> Registro de Auditoría</h1>
+    <div class="hr-page-actions">
+        <select onchange="location.href='?entity='+this.value+'&limit={{ limit }}'" class="form-select" style="width:auto;">
+            <option value="">Todos</option>
+            <option value="employee" {% if entity=='employee' %}selected{% endif %}>Empleados</option>
+            <option value="payroll_period" {% if entity=='payroll_period' %}selected{% endif %}>Nóminas</option>
+        </select>
+        <a href="{{ url_for('web_rrhh.payroll_dashboard') }}" class="btn btn-ghost"><i class="fa-solid fa-arrow-left"></i> Dashboard</a>
+    </div>
+</div>
+<div class="card-table-wrapper hr-table-card">
+    <div class="table-responsive">
+        <table class="table-premium" style="font-size:0.82rem;">
+        <thead>
+            <tr>
+                <th>Fecha / Hora</th>
+                <th>Usuario</th>
+                <th>Entidad</th>
+                <th>Acción</th>
+                <th>Detalles</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for log in logs %}
+            <tr>
+                <td>{{ log.timestamp[:16] }}</td>
+                <td>{{ log.userId }}</td>
+                <td><span class="badge badge-info">{{ log.entity }}</span></td>
+                <td>
+                    {% if log.action == 'create' %}<span class="badge badge-success">Creación</span>
+                    {% elif log.action == 'update' %}<span class="badge badge-warning">Modificación</span>
+                    {% elif log.action == 'terminate' %}<span class="badge badge-danger">Desvinculación</span>
+                    {% elif log.action == 'calculate' %}<span class="badge badge-success">Cálculo</span>
+                    {% elif log.action == 'validada' %}<span class="badge badge-info">Validación</span>
+                    {% elif log.action == 'aprobada' %}<span class="badge badge-success">Aprobación</span>
+                    {% elif log.action == 'contabilizada' %}<span class="badge badge-purple">Contabilización</span>
+                    {% elif log.action == 'pagada' %}<span class="badge badge-success">Pago</span>
+                    {% elif log.action == 'cerrada' %}<span class="badge badge-info">Cierre</span>
+                    {% elif log.action == 'borrador' %}<span class="badge badge-warning">Recálculo</span>
+                    {% else %}{{ log.action }}{% endif %}
+                </td>
+                <td style="font-size:0.78rem;">
+                    {% for k, v in log.changes.items() %}{{ k }}: {{ v }}{% if not loop.last %}; {% endif %}{% endfor %}
+                    {% if log.comment %}<br><span style="color:var(--text-muted);">{{ log.comment }}</span>{% endif %}
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="5" class="text-center text-muted">No hay registros de auditoría aún.</td></tr>
+            {% endfor %}
+        </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

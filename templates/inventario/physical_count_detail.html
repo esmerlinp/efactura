@@ -1,0 +1,82 @@
+{% extends "layout.html" %}
+{% block title %}Conteo {{ count.warehouseName }} — {{ product_name }}{% endblock %}
+{% block content %}
+<div class="page-header" style="display:flex; justify-content: space-between; align-items:center;">
+    <h1 class="page-title"><i class="fa-solid fa-clipboard-check"></i> Conteo: {{ count.warehouseName }}</h1>
+    <div style="display:flex; gap:8px;">
+        <span class="badge badge-{{ 'warning' if count.status == 'en_progreso' else 'success' }}">{{ count.status }}</span>
+        <a href="{{ url_for('web_inventory.physical_count_list') }}" class="btn btn-ghost">Volver</a>
+    </div>
+</div>
+
+{% if count.status == 'en_progreso' %}
+<div class="card" style="overflow-x:auto;">
+    <form method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="card-body">
+            <table class="table" style="font-size:0.85rem;">
+                <thead>
+                    <tr>
+                        <th>Producto</th>
+                        <th style="text-align:right;">Stock Esperado</th>
+                        <th style="width:120px; text-align:right;">Cantidad Contada</th>
+                        <th style="text-align:right;">Diferencia</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for line in count.lines %}
+                    <tr>
+                        <td>{{ line.itemName }}</td>
+                        <td style="text-align:right;">{{ "%.2f"|format(line.expectedQty|float) }}</td>
+                        <td><input type="number" step="0.01" name="qty_{{ line.itemId }}" class="form-control small" value="{{ '%.2f'|format(line.countedQty|float) }}" style="width:120px;text-align:right;"></td>
+                        <td style="text-align:right; color:{% if line.difference|float > 0 %}var(--accent-emerald){% elif line.difference|float < 0 %}var(--danger){% else %}var(--text-muted){% endif %};">
+                            {{ "%+.2f"|format(line.difference|float) }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="card-footer" style="display:flex; gap:12px; justify-content: flex-end;">
+            <button type="submit" class="btn btn-accent"><i class="fa-solid fa-save"></i> Guardar Líneas</button>
+            <button type="submit" name="finalize" value="1" class="btn btn-success"
+                onclick="return confirm('¿Finalizar conteo? Se generarán ajustes automáticos para diferencias significativas.')">
+                <i class="fa-solid fa-check"></i> Finalizar Conteo
+            </button>
+        </div>
+    </form>
+</div>
+{% else %}
+<div class="card">
+    <div class="card-header">Resultado del Conteo</div>
+    <div class="card-body" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px,1fr)); gap:16px;">
+        <div class="stat-box"><span class="stat-label">Líneas Totales</span><span class="stat-value">{{ count.totalLines }}</span></div>
+        <div class="stat-box"><span class="stat-label">Con Diferencias</span><span class="stat-value" style="color:var(--warning);">{{ count.linesWithDifference }}</span></div>
+        <div class="stat-box"><span class="stat-label">Sobrante Total</span><span class="stat-value" style="color:var(--accent-emerald);">{{ "%.2f"|format(count.totalSurplus|float) }}</span></div>
+        <div class="stat-box"><span class="stat-label">Faltante Total</span><span class="stat-value" style="color:var(--danger);">{{ "%.2f"|format(count.totalShortage|float) }}</span></div>
+    </div>
+</div>
+
+<div class="card" style="margin-top:20px; overflow-x:auto;">
+    <table class="table" style="font-size:0.85rem;">
+        <thead>
+            <tr><th>Producto</th><th style="text-align:right;">Esperado</th><th style="text-align:right;">Contado</th><th style="text-align:right;">Diferencia</th></tr>
+        </thead>
+        <tbody>
+            {% for line in count.lines %}
+            {% if line.difference|float != 0 %}
+            <tr>
+                <td>{{ line.itemName }}</td>
+                <td style="text-align:right;">{{ "%.2f"|format(line.expectedQty|float) }}</td>
+                <td style="text-align:right;">{{ "%.2f"|format(line.countedQty|float) }}</td>
+                <td style="text-align:right; color:{% if line.difference|float > 0 %}var(--accent-emerald){% else %}var(--danger){% endif %};">
+                    {{ "%+.2f"|format(line.difference|float) }}
+                </td>
+            </tr>
+            {% endif %}
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+{% endblock %}

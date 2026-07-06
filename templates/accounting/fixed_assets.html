@@ -1,6 +1,9 @@
 {% extends "layout.html" %}
 {% block title %}Activos Fijos{% endblock %}
 {% block page_header %}Activos Fijos{% endblock %}
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/_dashboard.css') }}?v={{ static_hash('css/_dashboard.css') }}">
+{% endblock %}
 {% block content %}
 <div class="page-title-container" style="margin-bottom: 24px; padding-left: 4px;">
     <h1 style="font-size: 1.75rem; font-weight: 800; font-family: var(--font-heading); color: var(--text-primary); margin: 0;">

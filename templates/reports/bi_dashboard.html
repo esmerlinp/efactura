@@ -197,6 +197,26 @@
     <span>BI Dashboard</span>
 </div>
 <div class="bi-container">
+    <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end;">
+        <a class="btn btn-sm btn-secondary" href="{{ url_for('web_bi.drilldown', metric='sales') }}">
+            <i class="fa-solid fa-file-invoice-dollar"></i> Ventas
+        </a>
+        <a class="btn btn-sm btn-secondary" href="{{ url_for('web_bi.drilldown', metric='expenses') }}">
+            <i class="fa-solid fa-wallet"></i> Egresos
+        </a>
+        <a class="btn btn-sm btn-secondary" href="{{ url_for('web_bi.drilldown', metric='cxc') }}">
+            <i class="fa-solid fa-hand-holding-dollar"></i> CxC
+        </a>
+        <a class="btn btn-sm btn-secondary" href="{{ url_for('web_bi.drilldown', metric='cxp') }}">
+            <i class="fa-solid fa-receipt"></i> CxP
+        </a>
+        <a class="btn btn-sm btn-secondary" href="{{ url_for('web_bi.drilldown', metric='taxes') }}">
+            <i class="fa-solid fa-calculator"></i> ITBIS
+        </a>
+        <a class="btn btn-sm btn-accent" href="{{ url_for('web_bi.drilldown', metric='budget') }}">
+            <i class="fa-solid fa-scale-balanced"></i> Presupuesto
+        </a>
+    </div>
     <!-- Resumen Premium Superior (Estilo OpenAI Dashboard) -->
     <div class="bi-summary-cards">
         <!-- Ganancia Neta Real -->

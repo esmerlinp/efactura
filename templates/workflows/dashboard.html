@@ -1,0 +1,178 @@
+{% extends "layout.html" %}
+{% block title %}Workflows y Aprobaciones{% endblock %}
+{% block content %}
+<div class="page-header" style="display:flex; justify-content:space-between; align-items:center; gap:16px;">
+    <div>
+        <h1 class="page-title"><i class="fa-solid fa-route"></i> Workflows y Aprobaciones</h1>
+        <p style="color:var(--text-secondary); margin:6px 0 0;">Reglas, solicitudes pendientes y trazabilidad de decisiones.</p>
+    </div>
+    <a class="btn btn-secondary" href="{{ url_for('web_workflows.dashboard') }}">Ver todo</a>
+</div>
+
+<div class="card" style="margin-bottom:24px;">
+    <div class="card-body" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:16px;">
+        <div class="stat-box">
+            <span class="stat-label">Reglas activas</span>
+            <span class="stat-value">{{ rules|selectattr('is_active')|list|length }}</span>
+        </div>
+        <div class="stat-box">
+            <span class="stat-label">Solicitudes</span>
+            <span class="stat-value">{{ requests|length }}</span>
+        </div>
+        <div class="stat-box">
+            <span class="stat-label">Pendientes para mí</span>
+            <span class="stat-value" style="color:var(--accent-yellow);">{{ my_pending|length }}</span>
+        </div>
+    </div>
+</div>
+
+<div style="display:grid; grid-template-columns:minmax(0,1.2fr) minmax(340px,0.8fr); gap:24px; align-items:start;">
+    <div class="card">
+        <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
+            <span>Solicitudes de aprobación</span>
+            <form method="GET" style="display:flex; gap:8px; align-items:center;">
+                <select name="status" class="form-input" style="height:36px;">
+                    <option value="" {% if not status %}selected{% endif %}>Todas</option>
+                    <option value="pending" {% if status == 'pending' %}selected{% endif %}>Pendientes</option>
+                    <option value="approved" {% if status == 'approved' %}selected{% endif %}>Aprobadas</option>
+                    <option value="rejected" {% if status == 'rejected' %}selected{% endif %}>Rechazadas</option>
+                </select>
+                <button class="btn btn-sm btn-secondary" type="submit">Filtrar</button>
+            </form>
+        </div>
+        <div class="card-body" style="overflow-x:auto;">
+            <table class="table data-table">
+                <thead>
+                    <tr>
+                        <th>Documento</th>
+                        <th>Solicitante</th>
+                        <th>Monto</th>
+                        <th>Estado</th>
+                        <th>Decisión</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for req in requests %}
+                    <tr>
+                        <td>
+                            <strong>{{ req.document_number }}</strong>
+                            <div style="font-size:.78rem; color:var(--text-muted);">{{ req.document_label }}</div>
+                        </td>
+                        <td>{{ req.requestor or 'Sistema' }}</td>
+                        <td>RD$ {{ "{:,.2f}".format(req.amount|float) }}</td>
+                        <td>
+                            <span class="badge {% if req.status == 'approved' %}badge-success{% elif req.status == 'rejected' %}badge-danger{% else %}badge-warning{% endif %}">
+                                {{ req.status }}
+                            </span>
+                        </td>
+                        <td>
+                            {% set can_decide = false %}
+                            {% for step in req.steps %}
+                                {% if step.approver_id == session.get('user', {}).get('uid') and step.status == 'pending' %}
+                                    {% set can_decide = true %}
+                                {% endif %}
+                            {% endfor %}
+                            {% if req.status == 'pending' %}
+                            <form method="POST" action="{{ url_for('web_workflows.decide_request', request_id=req.id) }}" style="display:flex; gap:6px; flex-wrap:wrap;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <input type="text" name="comment" class="form-input" placeholder="Comentario" style="min-width:150px; height:34px;">
+                                <button class="btn btn-sm btn-accent" name="decision" value="approve" type="submit">Aprobar</button>
+                                <button class="btn btn-sm btn-danger" name="decision" value="reject" type="submit">Rechazar</button>
+                            </form>
+                            {% else %}
+                            <span style="color:var(--text-muted);">Cerrada</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="5" style="text-align:center; color:var(--text-muted); padding:24px;">No hay solicitudes registradas.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">Nueva regla de aprobación</div>
+        <div class="card-body">
+            <form method="POST" action="{{ url_for('web_workflows.save_rule') }}" style="display:flex; flex-direction:column; gap:14px;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <label class="form-group">
+                    <span>Tipo de documento</span>
+                    <select name="document_type" class="form-input">
+                        {% for key, label in document_types.items() %}
+                        <option value="{{ key }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+                <label class="form-group">
+                    <span>Monto mínimo</span>
+                    <input type="number" step="0.01" min="0" name="min_amount" class="form-input" value="0">
+                </label>
+                <label class="form-group">
+                    <span>Aprobadores</span>
+                    <select name="approvers" class="form-input" multiple size="5">
+                        {% for opt in team_options %}
+                        <option value="{{ opt.uid }}|{{ opt.name }}|{{ opt.email }}">{{ opt.name }} — {{ opt.email }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+                <label style="display:flex; align-items:center; gap:8px;">
+                    <input type="checkbox" name="require_all" checked> Requerir todos los aprobadores
+                </label>
+                <label style="display:flex; align-items:center; gap:8px;">
+                    <input type="checkbox" name="is_active" checked> Regla activa
+                </label>
+                <textarea name="notes" class="form-input" rows="2" placeholder="Notas internas"></textarea>
+                <button type="submit" class="btn btn-accent">Guardar regla</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="card" style="margin-top:24px;">
+    <div class="card-header">Reglas existentes</div>
+    <div class="card-body" style="overflow-x:auto;">
+        <table class="table data-table">
+            <thead>
+                <tr>
+                    <th>Tipo</th>
+                    <th>Monto mínimo</th>
+                    <th>Aprobadores</th>
+                    <th>Modo</th>
+                    <th>Estado</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for rule in rules %}
+                <tr>
+                    <td>{{ document_types.get(rule.document_type, rule.document_type) }}</td>
+                    <td>RD$ {{ "{:,.2f}".format(rule.min_amount|float) }}</td>
+                    <td>
+                        {% for approver in rule.approvers %}
+                        <span class="badge badge-info">{{ approver.name }}</span>
+                        {% endfor %}
+                    </td>
+                    <td>{{ 'Todos' if rule.require_all else 'Cualquiera' }}</td>
+                    <td>
+                        <span class="badge {% if rule.is_active %}badge-success{% else %}badge-secondary{% endif %}">
+                            {{ 'Activa' if rule.is_active else 'Inactiva' }}
+                        </span>
+                    </td>
+                    <td style="text-align:right;">
+                        <form method="POST" action="{{ url_for('web_workflows.delete_rule', rule_id=rule.id) }}" onsubmit="return confirm('¿Eliminar esta regla?')" style="display:inline;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button class="btn btn-sm btn-ghost" type="submit" style="color:var(--danger);"><i class="fa-solid fa-trash"></i></button>
+                        </form>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:24px;">No hay reglas configuradas.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+

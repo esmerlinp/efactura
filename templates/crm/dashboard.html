@@ -1,0 +1,174 @@
+{% extends "layout.html" %}
+{% block title %}CRM — {{ product_name }}{% endblock %}
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/_dashboard.css') }}?v={{ static_hash('css/_dashboard.css') }}">
+{% endblock %}
+{% block content %}
+<div class="dashboard-container">
+<div class="page-title-container" style="margin-bottom: 0; padding-left: 4px;">
+    <h1 class="page-title"
+        style="font-size: 1.75rem; font-weight: 800; font-family: var(--font-heading); color: var(--text-primary); margin: 0;">
+        <i class="fa-solid fa-address-book"></i> CRM
+    </h1>
+</div>
+
+<div class="small-metrics-grid">
+    <div class="small-metric">
+        <div class="label">Oportunidades Abiertas</div>
+        <div class="value">{{ crm.metrics.openOpportunities }}</div>
+    </div>
+    <div class="small-metric">
+        <div class="label">Pipeline Total</div>
+        <div class="value" style="color:var(--accent-emerald);">{{ "RD$ {:,.2f}".format(crm.metrics.pipelineValue) }}</div>
+    </div>
+    <div class="small-metric">
+        <div class="label">Pipeline Ponderado</div>
+        <div class="value" style="color:var(--accent-purple);">{{ "RD$ {:,.2f}".format(crm.metrics.weightedPipelineValue) }}</div>
+    </div>
+    <div class="small-metric">
+        <div class="label">Actividades Hoy</div>
+        <div class="value">{{ crm.metrics.todayActivities }}</div>
+    </div>
+    <div class="small-metric">
+        <div class="label">Vencidas</div>
+        <div class="value" style="color:var(--accent-red);">{{ crm.metrics.overdueActivities }}</div>
+    </div>
+    <div class="small-metric">
+        <div class="label">Win Rate</div>
+        <div class="value">{{ crm.metrics.winRate }}%</div>
+    </div>
+</div>
+
+<div style="display:grid; grid-template-columns:2fr 1fr; gap:var(--space-4); align-items:start;">
+    <div>
+        <div class="card-table-wrapper" style="margin-bottom:var(--space-4);">
+            <div class="table-header-row" style="margin-bottom:16px;">
+                <span style="font-family:var(--font-heading); font-weight:600; font-size:0.9rem; color:var(--text-primary);"><i class="fa-solid fa-chart-simple"></i> Pipeline por Etapa</span>
+                <a href="{{ url_for('web_crm.pipeline') }}" class="btn btn-sm btn-secondary">Ver Pipeline</a>
+            </div>
+            <div class="table-responsive">
+                <table class="table-premium">
+                    <thead><tr><th>Etapa</th><th>Prob.</th><th>Oportunidades</th><th>Valor</th><th>Ponderado</th></tr></thead>
+                    <tbody>
+                        {% for stage in crm.pipeline %}
+                        <tr>
+                            <td><strong>{{ stage.stage }}</strong></td>
+                            <td>{{ stage.probability }}%</td>
+                            <td>{{ stage.count }}</td>
+                            <td>{{ "RD$ {:,.2f}".format(stage.amount) }}</td>
+                            <td>{{ "RD$ {:,.2f}".format(stage.weighted) }}</td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="5" class="text-center text-muted">Sin oportunidades registradas.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card-table-wrapper">
+            <div class="table-header-row" style="margin-bottom:16px;">
+                <span style="font-family:var(--font-heading); font-weight:600; font-size:0.9rem; color:var(--text-primary);"><i class="fa-solid fa-user-check"></i> Leads Priorizados</span>
+            </div>
+            <div class="table-responsive">
+                <table class="table-premium">
+                    <thead><tr><th>Contacto</th><th>Etapa</th><th>Score</th><th>Próxima Acción</th><th></th></tr></thead>
+                    <tbody>
+                        {% for lead in crm.topLeads %}
+                        <tr>
+                            <td>
+                                <a href="{{ url_for('web_contacts.contact_detail', contact_id=lead.id) }}" style="font-weight:600; color:var(--text-primary); text-decoration:none;">{{ lead.razonSocial }}</a>
+                                <div style="font-size:0.75rem; color:var(--text-muted);">{{ lead.telefono or lead.email or lead.rnc }}</div>
+                            </td>
+                            <td>{{ lead.pipelineStage }}</td>
+                            <td><span class="badge badge-{{ 'success' if lead.score >= 70 else 'warning' if lead.score >= 45 else 'info' }}">{{ lead.score }}</span></td>
+                            <td>{{ lead.nextAction }}</td>
+                            <td style="text-align:right;">
+                                <a href="{{ url_for('web_crm.opportunity_new', contact_id=lead.id) }}" class="btn btn-sm btn-accent">Oportunidad</a>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="5" class="text-center text-muted">No hay leads pendientes de priorización.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div style="display:flex; flex-direction:column; gap:var(--space-4);">
+        <div class="sales-chart-card" style="margin-bottom:0;">
+            <div style="font-family:var(--font-heading); font-weight:600; font-size:0.9rem; color:var(--accent-red); margin-bottom:var(--space-3);">
+                <i class="fa-solid fa-triangle-exclamation"></i> Actividades Vencidas
+            </div>
+            <div style="display:flex; flex-direction:column; gap:var(--space-2);">
+                {% for activity in crm.activitiesOverdue %}
+                <div class="insight-row" style="display:flex; flex-direction:column; align-items:stretch; gap:var(--space-2);">
+                    <div style="display:flex; align-items:center; gap:var(--space-2);">
+                        <span class="insight-dot danger"></span>
+                        <span style="font-weight:600;">{{ activity.title }}</span>
+                    </div>
+                    <div style="font-size:0.75rem; color:var(--text-secondary); padding-left:calc(7px + var(--space-2));">
+                        {{ activity.contactName or 'Sin contacto' }} · {{ activity.dueDate }}
+                    </div>
+                    <form method="POST" action="{{ url_for('web_crm.activity_complete', activity_id=activity.id) }}" style="padding-left:calc(7px + var(--space-2));">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button class="btn btn-sm btn-success">Completar</button>
+                    </form>
+                </div>
+                {% else %}
+                <div class="text-muted" style="font-size:0.85rem;">No hay actividades vencidas.</div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="sales-chart-card" style="margin-bottom:0;">
+            <div style="font-family:var(--font-heading); font-weight:600; font-size:0.9rem; color:var(--text-primary); margin-bottom:var(--space-3);">
+                <i class="fa-solid fa-lightbulb"></i> Sugerencias
+            </div>
+            <div style="display:flex; flex-direction:column; gap:var(--space-2);">
+                {% for suggestion in crm.suggestions %}
+                <div class="insight-card {{ 'insight-danger' if suggestion.priority == 'alta' else 'insight-success' }}">
+                    <div class="insight-icon {{ 'insight-icon-danger' if suggestion.priority == 'alta' else 'insight-icon-success' }}">
+                        <i class="fa-solid {{ 'fa-exclamation' if suggestion.priority == 'alta' else 'fa-check' }}"></i>
+                    </div>
+                    <div style="flex:1;">
+                        <div style="font-size:0.85rem;">{{ suggestion.text }}</div>
+                        {% if suggestion.contactId %}
+                        <div style="margin-top:var(--space-2);">
+                            <a href="{{ url_for('web_crm.activity_new', contact_id=suggestion.contactId, opportunity_id=suggestion.opportunityId) }}" class="btn btn-xs btn-secondary">Agendar</a>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% else %}
+                <div class="text-muted" style="font-size:0.85rem;">Sin sugerencias críticas por ahora.</div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="sales-chart-card" style="margin-bottom:0;">
+            <div style="font-family:var(--font-heading); font-weight:600; font-size:0.9rem; color:var(--text-primary); margin-bottom:var(--space-3);">
+                <i class="fa-solid fa-calendar-day"></i> Agenda de Hoy
+            </div>
+            <div style="display:flex; flex-direction:column; gap:var(--space-2);">
+                {% for activity in crm.activitiesToday %}
+                <div class="insight-row" style="display:flex; flex-direction:column; align-items:stretch; gap:var(--space-1);">
+                    <div style="display:flex; align-items:center; gap:var(--space-2);">
+                        <span class="insight-dot info"></span>
+                        <span style="font-weight:600;">{{ activity.title }}</span>
+                    </div>
+                    <div style="font-size:0.75rem; color:var(--text-secondary); padding-left:calc(7px + var(--space-2));">
+                        {{ activity.contactName or 'Sin contacto' }} · {{ activity.type }}
+                    </div>
+                </div>
+                {% else %}
+                <div class="text-muted" style="font-size:0.85rem;">No hay actividades para hoy.</div>
+                {% endfor %}
+                <a href="{{ url_for('web_crm.activities') }}" class="btn btn-sm btn-secondary" style="align-self:flex-start;">Ver agenda completa</a>
+            </div>
+        </div>
+    </div>
+</div>
+</div>
+{% endblock %}

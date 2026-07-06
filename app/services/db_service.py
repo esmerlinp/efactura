@@ -2336,6 +2336,17 @@ class DatabaseService:
                         current_stage = client.get("pipelineStage", "Prospecto")
                         if current_stage.lower() in ["prospecto", "en negociación", "en negociacion"]:
                             cls.update_client_pipeline(owner_uid, client_id, "Cliente Activo", sandbox=sandbox)
+                        try:
+                            from app.services.crm_service import CRMService
+                            CRMService.mark_contact_opportunities_won(
+                                owner_uid,
+                                client_id,
+                                invoice_id=invoice_id,
+                                invoice_number=inv_dict.get("invoiceNumber", ""),
+                                sandbox=sandbox
+                            )
+                        except Exception as crm_err:
+                            print(f"⚠️ Error al cerrar oportunidades CRM del cliente {client_id}: {crm_err}")
                 except Exception as e:
                     print(f"⚠️ Error al actualizar automáticamente el pipelineStage del cliente {client_id}: {e}")
 
@@ -2732,6 +2743,21 @@ class DatabaseService:
         exp_dict["nextOccurrenceDate"] = serialize_field(exp_dict.get("nextOccurrenceDate"))
         exp_dict["recurrenceEndDate"] = serialize_field(exp_dict.get("recurrenceEndDate"))
         exp_dict["createdAt"] = serialize_field(exp_dict["createdAt"])
+
+        try:
+            if not exp_dict.get("approvalRequestId") and exp_dict.get("approvalStatus") in ("", "Aprobado", None):
+                from app.services.approval_service import ApprovalService
+                exp_dict = ApprovalService.prepare_document_approval(
+                    owner_uid=owner_uid,
+                    doc_type="expense",
+                    doc_id=expense_id,
+                    document=exp_dict,
+                    amount_field="amount",
+                    number_field="ncf",
+                    sandbox=sandbox,
+                )
+        except Exception as approval_err:
+            print(f"⚠️ Error al evaluar aprobación de gasto {expense_id}: {approval_err}")
 
         if firebase_initialized:
             try:
@@ -4805,7 +4831,12 @@ class DatabaseService:
     def get_crm_contacts(cls, owner_uid, sandbox=True):
         """Retorna los compromisos CRM agendados para hoy o clientes con cuentas por cobrar."""
         import copy
-        return copy.deepcopy(_cached_crm_contacts(owner_uid, sandbox))
+        try:
+            from app.services.crm_service import CRMService
+            return copy.deepcopy(CRMService.get_global_commitments(owner_uid, sandbox=sandbox))
+        except Exception as e:
+            print(f"⚠️ Error al obtener compromisos desde CRMService, usando fallback legacy: {e}")
+            return copy.deepcopy(_cached_crm_contacts(owner_uid, sandbox))
 
     @classmethod
     def get_plan(cls, plan_id):

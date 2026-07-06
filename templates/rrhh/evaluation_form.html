@@ -1,0 +1,78 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}Nueva Evaluación — {{ product_name }}{% endblock %}
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/_dashboard.css') }}?v={{ static_hash('css/_dashboard.css') }}">
+{% endblock %}
+{% block content %}
+<div class="dashboard-container">
+<div class="page-title-container" style="margin-bottom: 0; padding-left: 4px;">
+    <h1 class="page-title"
+        style="font-size: 1.75rem; font-weight: 800; font-family: var(--font-heading); color: var(--text-primary); margin: 0;">
+        <i class="fa-solid fa-star-half-stroke"></i> Nueva Evaluación
+    </h1>
+</div>
+
+<form method="POST">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="card-table-wrapper" style="margin-bottom:var(--space-4);">
+        <div style="padding:var(--space-4) 24px;">
+            <div style="font-family:var(--font-heading); font-weight:600; font-size:0.9rem; color:var(--text-primary); margin-bottom:var(--space-4);">
+                <i class="fa-solid fa-star-half-stroke"></i> Información de la evaluación
+            </div>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Empleado</label>
+                    <select name="employeeId" class="form-input" required>
+                        <option value="">Seleccione...</option>
+                        {% for emp in employees %}
+                        <option value="{{ emp.id }}">{{ emp.fullName }} — {{ emp.position }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Fecha</label>
+                    <input type="date" name="date" class="form-input" value="{{ now().strftime('%Y-%m-%d') }}">
+                </div>
+                <div class="form-group">
+                    <label>Tipo</label>
+                    <select name="evalType" class="form-input">
+                        <option value="periodica">Periódica</option>
+                        <option value="anual">Anual</option>
+                        <option value="semestral">Semestral</option>
+                        <option value="inicial">Inicial (3 meses)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Puntuación (1-5)</label>
+                    <select name="score" class="form-input">
+                        {% for s in range(1,6) %}
+                        <option value="{{ s }}" {% if s == 3 %}selected{% endif %}>{{ '★' * s }} {{ s }}/5</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Evaluador</label>
+                    <input type="text" name="evaluatorName" class="form-input">
+                </div>
+                <div class="form-group">
+                    <label>Fortalezas</label>
+                    <textarea name="strengths" class="form-textarea" rows="2"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Áreas de Mejora</label>
+                    <textarea name="improvements" class="form-textarea" rows="2"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Notas</label>
+                    <textarea name="notes" class="form-textarea" rows="2"></textarea>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div style="display:flex; justify-content:flex-end; gap:var(--space-2); flex-wrap:wrap;">
+        <a href="{{ url_for('web_rrhh.evaluation_list') }}" class="btn btn-ghost">Cancelar</a>
+        <button type="submit" class="btn btn-primary">Registrar Evaluación</button>
+    </div>
+</form>
+</div>
+{% endblock %}

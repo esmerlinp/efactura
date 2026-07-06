@@ -1,6 +1,9 @@
 {% extends "layout.html" %}
 {% block title %}Importar Saldos Iniciales{% endblock %}
 {% block page_header %}Importar Saldos Iniciales{% endblock %}
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/_dashboard.css') }}?v={{ static_hash('css/_dashboard.css') }}">
+{% endblock %}
 {% block content %}
 <style>
     .breadcrumb {
@@ -9,10 +12,10 @@
     }
     .breadcrumb a { color: var(--text-muted); text-decoration: none; font-weight: 500; }
     .breadcrumb a:hover { color: var(--accent-emerald); }
-    .breadcrumb .sep { color: #cbd5e1; }
+    .breadcrumb .sep { color: var(--text-muted); }
 
     .import-card {
-        background: #fff; border: 1px solid #e2e8f0; border-radius: 14px;
+        background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 14px;
         padding: 24px; margin-bottom: 20px;
     }
     .import-card h3 {
@@ -43,7 +46,7 @@
         background: #f0fdf4;
     }
     .drop-zone .icon {
-        font-size: 2.5rem; color: #cbd5e1; margin-bottom: 8px;
+        font-size: 2.5rem; color: var(--text-muted); margin-bottom: 8px;
     }
     .drop-zone p { font-size: 0.88rem; color: var(--text-muted); margin: 4px 0; }
     .drop-zone .file-name {
@@ -80,7 +83,7 @@
 </div>
 
 <div class="import-card">
-    <h3><i class="fa-solid fa-upload" style="color:var(--accent-blue);"></i> Subir archivo</h3>
+    <h3><i class="fa-solid fa-upload" style="color:var(--accent-purple);"></i> Subir archivo</h3>
     <p>Selecciona el archivo Excel (.xlsx) con los saldos iniciales completados.</p>
     <form method="POST" enctype="multipart/form-data" id="import-form" style="margin-top:12px;">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

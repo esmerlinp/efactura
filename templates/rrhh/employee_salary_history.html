@@ -1,0 +1,64 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}Historial Salarial — {{ employee.fullName or employee.firstName }} — {{ product_name }}{% endblock %}
+{% block content %}
+{% include "rrhh/_styles.html" %}
+<div class="page-header hr-page-header">
+    <div>
+        <h1 class="page-title"><i class="fa-solid fa-chart-line"></i> Historial Salarial</h1>
+        <p style="color:var(--text-secondary); margin:4px 0 0; font-size:0.9rem;">{{ employee.fullName or employee.firstName + ' ' + (employee.firstLastName or employee.lastName) }}</p>
+    </div>
+    <a href="{{ url_for('web_rrhh.employee_view', employee_id=employee.id) }}" class="btn btn-ghost">
+        <i class="fa-solid fa-arrow-left"></i> Volver al empleado
+    </a>
+</div>
+
+<div class="hr-section-card" style="margin-bottom:20px;">
+    <h3><i class="fa-solid fa-sack-dollar"></i> Salario actual</h3>
+    <div style="font-size:1.6rem; font-weight:800; color:var(--accent-emerald);">
+        RD$ {{ "{:,.2f}".format(employee.baseSalary|float) }}
+    </div>
+</div>
+
+<div class="card-table-wrapper hr-table-card">
+    <div class="table-header-row">
+        <h3>Registro de cambios salariales</h3>
+    </div>
+    <div class="table-responsive">
+        <table class="table-premium">
+        <thead>
+            <tr>
+                <th>Fecha vigencia</th>
+                <th>Salario</th>
+                <th>Anterior</th>
+                <th>Variación</th>
+                <th>Motivo</th>
+                <th>Aprobado por</th>
+                <th>Vigente hasta</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for h in history %}
+            <tr>
+                <td>{{ h.effectiveDate }}</td>
+                <td style="font-weight:600; color:var(--accent-emerald);">RD$ {{ "{:,.2f}".format(h.amount|float) }}</td>
+                <td>{{ "RD$ {:,.2f}".format(h.previousAmount|float) if h.previousAmount else '—' }}</td>
+                <td>
+                    {% if h.previousAmount > 0 %}
+                    {% set diff = h.amount - h.previousAmount %}
+                    <span style="color: {% if diff >= 0 %}var(--accent-emerald){% else %}var(--danger){% endif %}; font-weight:600;">
+                        {{ '+' if diff >= 0 }}{{ "{:,.2f}".format(diff) }} ({{ "+" if diff >= 0 }}{{ "{:.1f}".format(diff / h.previousAmount * 100) }}%)
+                    </span>
+                    {% else %}—{% endif %}
+                </td>
+                <td>{{ h.reason }}</td>
+                <td>{{ h.approvedBy or '—' }}</td>
+                <td>{{ h.endDate or 'Actual' }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="7" class="text-center text-muted">Sin historial de cambios salariales.</td></tr>
+            {% endfor %}
+        </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

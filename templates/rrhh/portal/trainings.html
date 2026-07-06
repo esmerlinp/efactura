@@ -1,0 +1,22 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}Mis Capacitaciones — {{ product_name }}{% endblock %}
+{% block content %}
+{% include "rrhh/_styles.html" %}
+<div class="page-header hr-page-header">
+    <h1 class="page-title"><i class="fa-solid fa-graduation-cap"></i> Mis Capacitaciones</h1>
+    <a href="{{ url_for('web_rrhh.employee_portal_dashboard') }}" class="btn btn-ghost"><i class="fa-solid fa-arrow-left"></i> Mi Perfil</a>
+</div>
+<div class="card-table-wrapper hr-table-card">
+    <div class="table-responsive">
+        <table class="table-premium">
+        <thead><tr><th>Fecha</th><th>Capacitación</th><th>Institución</th><th>Horas</th><th>Certificado</th></tr></thead>
+        <tbody>
+            {% for t in trainings %}
+            <tr><td>{{ t.date }}</td><td>{{ t.trainingName }}</td><td>{{ t.institution }}</td><td>{{ t.hours }}</td><td>{% if t.hasCertificate %}<span class="badge badge-success">Sí</span>{% else %}No{% endif %}</td></tr>
+            {% else %}
+            <tr><td colspan="5" class="text-center text-muted">Sin capacitaciones.</td></tr>
+            {% endfor %}
+        </tbody></table>
+    </div>
+</div>
+{% endblock %}

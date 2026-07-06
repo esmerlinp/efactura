@@ -102,6 +102,21 @@ class PurchaseOrderService:
             if k not in po_dict:
                 po_dict[k] = v
 
+        try:
+            if not po_dict.get("approvalRequestId") and po_dict.get("status") in ("borrador", "", None):
+                from app.services.approval_service import ApprovalService
+                po_dict = ApprovalService.prepare_document_approval(
+                    owner_uid=owner_uid,
+                    doc_type="purchase_order",
+                    doc_id=po_id,
+                    document=po_dict,
+                    amount_field="total",
+                    number_field="poNumber",
+                    sandbox=sandbox,
+                )
+        except Exception as approval_err:
+            print(f"⚠️ Error al evaluar aprobación de orden de compra {po_id}: {approval_err}")
+
         if firebase_initialized and db_firestore is not None:
             try:
                 coll_name = "sandbox_purchase_orders" if sandbox else "purchase_orders"

@@ -1,6 +1,9 @@
 {% extends "layout.html" %}
 {% block title %}Saldos Iniciales{% endblock %}
 {% block page_header %}Saldos Iniciales{% endblock %}
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/_dashboard.css') }}?v={{ static_hash('css/_dashboard.css') }}">
+{% endblock %}
 {% block content %}
 <div class="page-title-container" style="margin-bottom:16px; padding-left:4px;">
     <h1 style="font-size:1.75rem; font-weight:800; font-family:var(--font-heading); color:var(--text-primary); margin:0;">
@@ -46,7 +49,7 @@
                             <div class="ac-search-wrap" style="position:relative;">
                                 <input type="text" class="form-input ac-input" style="width:100%; font-size:0.8rem;" placeholder="Buscar cuenta…" autocomplete="off" required>
                                 <input type="hidden" name="line_account[]" class="ac-hidden" value="">
-                                <div class="ac-dropdown" style="display:none; position:absolute; top:100%; left:0; right:0; background:#fff; border:1px solid #e2e8f0; border-radius:8px; max-height:220px; overflow-y:auto; z-index:100; box-shadow:0 4px 12px rgba(0,0,0,0.1);"></div>
+                                <div class="ac-dropdown" style="display:none; position:absolute; top:100%; left:0; right:0; background:var(--bg-card); border:1px solid var(--border-color); border-radius:8px; max-height:220px; overflow-y:auto; z-index:100; box-shadow:0 4px 12px rgba(0,0,0,0.1);"></div>
                             </div>
                         </td>
                         <td style="padding:6px 8px;">
@@ -107,7 +110,7 @@ function setupAcSearch(wrap) {
     function renderDropdown(results) {
         if (!results.length) { dropdown.style.display = 'none'; return; }
         dropdown.innerHTML = results.slice(0, 100).map(a =>
-            `<div class="ac-item" data-id="${a.id}" style="padding:7px 10px; cursor:pointer; font-size:0.8rem; border-bottom:1px solid #f1f5f9; display:flex; gap:8px;">
+            `<div class="ac-item" data-id="${a.id}" style="padding:7px 10px; cursor:pointer; font-size:0.8rem; border-bottom:1px solid var(--border-color); display:flex; gap:8px;">
                 <span style="font-family:monospace; color:var(--text-muted);">${a.code}</span>
                 <span>${a.name}</span>
             </div>`
@@ -190,7 +193,7 @@ function addBalanceLine() {
             <div class="ac-search-wrap" style="position:relative;">
                 <input type="text" class="form-input ac-input" style="width:100%; font-size:0.8rem;" placeholder="Buscar cuenta…" autocomplete="off" required>
                 <input type="hidden" name="line_account[]" class="ac-hidden" value="">
-                <div class="ac-dropdown" style="display:none; position:absolute; top:100%; left:0; right:0; background:#fff; border:1px solid #e2e8f0; border-radius:8px; max-height:220px; overflow-y:auto; z-index:100; box-shadow:0 4px 12px rgba(0,0,0,0.1);"></div>
+                <div class="ac-dropdown" style="display:none; position:absolute; top:100%; left:0; right:0; background:var(--bg-card); border:1px solid var(--border-color); border-radius:8px; max-height:220px; overflow-y:auto; z-index:100; box-shadow:0 4px 12px rgba(0,0,0,0.1);"></div>
             </div>
         </td>
         <td style="padding:6px 8px;">

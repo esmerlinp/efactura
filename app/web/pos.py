@@ -862,6 +862,19 @@ def create_pos_sale():
             except Exception as exc:
                 import logging
                 logging.getLogger(__name__).warning(f"Asiento contable POS no generado: {exc}")
+
+            # Event Bus: notificar emisión de factura
+            try:
+                from app.events import get_event_bus, InvoiceEmitted
+                get_event_bus().publish(InvoiceEmitted(
+                    owner_uid=owner_uid,
+                    invoice_id=invoice_id,
+                    invoice_number=invoice_number,
+                    invoice_data=invoice_dict,
+                    sandbox=sandbox,
+                ))
+            except Exception:
+                pass
     except Exception as e:
         # Si falla, operamos en contingencia local
         print(f"⚠️ Error al emitir e-CF en POS: {e}")
@@ -876,6 +889,19 @@ def create_pos_sale():
         except Exception as exc:
             import logging
             logging.getLogger(__name__).warning(f"Asiento contable POS (contingencia) no generado: {exc}")
+
+        # Event Bus: notificar emisión en contingencia
+        try:
+            from app.events import get_event_bus, InvoiceEmitted
+            get_event_bus().publish(InvoiceEmitted(
+                owner_uid=owner_uid,
+                invoice_id=invoice_id,
+                invoice_number=invoice_number,
+                invoice_data=invoice_dict,
+                sandbox=sandbox,
+            ))
+        except Exception:
+            pass
 
     from app.services.audit_service import AuditService, ACTION_CREATE, MODULE_POS
     AuditService.log_from_request(

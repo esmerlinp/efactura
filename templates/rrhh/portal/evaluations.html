@@ -1,0 +1,22 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}Mis Evaluaciones — {{ product_name }}{% endblock %}
+{% block content %}
+{% include "rrhh/_styles.html" %}
+<div class="page-header hr-page-header">
+    <h1 class="page-title"><i class="fa-solid fa-star"></i> Mis Evaluaciones</h1>
+    <a href="{{ url_for('web_rrhh.employee_portal_dashboard') }}" class="btn btn-ghost"><i class="fa-solid fa-arrow-left"></i> Mi Perfil</a>
+</div>
+<div class="card-table-wrapper hr-table-card">
+    <div class="table-responsive">
+        <table class="table-premium">
+        <thead><tr><th>Fecha</th><th>Tipo</th><th>Punt.</th><th>Evaluador</th><th>Fortalezas</th><th>Áreas de mejora</th></tr></thead>
+        <tbody>
+            {% for ev in evaluations %}
+            <tr><td>{{ ev.date }}</td><td>{{ ev.evalType }}</td><td><span class="badge badge-info">{{ ev.score }}/5</span></td><td>{{ ev.evaluatorName }}</td><td>{{ ev.strengths[:80] }}</td><td>{{ ev.improvements[:80] }}</td></tr>
+            {% else %}
+            <tr><td colspan="6" class="text-center text-muted">Aún no tienes evaluaciones registradas.</td></tr>
+            {% endfor %}
+        </tbody></table>
+    </div>
+</div>
+{% endblock %}

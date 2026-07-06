@@ -1,0 +1,60 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}Configurar Nómina — {{ product_name }}{% endblock %}
+{% block content %}
+{% include "rrhh/_styles.html" %}
+<div class="hr-main-col" style="max-width:600px; margin-top:40px;">
+    <div class="hr-section-card" style="text-align:center; padding:40px 32px;">
+        <div style="font-size:3rem; margin-bottom:16px; color:var(--accent-emerald);">
+            <i class="fa-solid fa-coins"></i>
+        </div>
+        <h2 style="font-size:1.5rem; font-weight:700; margin:0 0 8px;">¡Bienvenido a Nómina!</h2>
+        <p style="color:var(--text-secondary); margin:0 0 32px; font-size:0.95rem;">
+            Antes de comenzar, necesitamos saber un dato importante.
+        </p>
+
+        <form method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div style="text-align:left; margin-bottom:28px;">
+                <label style="display:block; font-weight:600; margin-bottom:12px; font-size:1rem;">
+                    ¿Con qué frecuencia pagas la nómina de tu equipo?
+                    <span style="color:var(--danger);">*</span>
+                </label>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                    <button type="submit" name="frequency" value="quincenal" class="btn"
+                        style="padding:24px 16px; border:2px solid var(--border-color); border-radius:var(--radius-md);
+                               background:var(--bg-card); cursor:pointer; text-align:center; transition:all 0.2s;
+                               font-size:1rem; font-weight:600; display:flex; flex-direction:column; align-items:center; gap:8px;
+                               hover:border-color:var(--accent-emerald);"
+                        onmouseover="this.style.borderColor='var(--accent-emerald)'; this.style.background='rgba(16,185,129,0.06)';"
+                        onmouseout="this.style.borderColor='var(--border-color)'; this.style.background='var(--bg-card)';">
+                        <i class="fa-solid fa-calendar-week" style="font-size:1.5rem; color:var(--accent-emerald);"></i>
+                        Quincenal
+                        <span style="font-weight:400; font-size:0.8rem; color:var(--text-muted);">
+                            Cada 15 días
+                        </span>
+                    </button>
+                    <button type="submit" name="frequency" value="mensual" class="btn"
+                        style="padding:24px 16px; border:2px solid var(--border-color); border-radius:var(--radius-md);
+                               background:var(--bg-card); cursor:pointer; text-align:center; transition:all 0.2s;
+                               font-size:1rem; font-weight:600; display:flex; flex-direction:column; align-items:center; gap:8px;"
+                        onmouseover="this.style.borderColor='var(--accent-purple)'; this.style.background='rgba(124,58,237,0.06)';"
+                        onmouseout="this.style.borderColor='var(--border-color)'; this.style.background='var(--bg-card)';">
+                        <i class="fa-solid fa-calendar-alt" style="font-size:1.5rem; color:var(--accent-purple);"></i>
+                        Mensual
+                        <span style="font-weight:400; font-size:0.8rem; color:var(--text-muted);">
+                            1 vez al mes
+                        </span>
+                    </button>
+                </div>
+            </div>
+        </form>
+        <p style="color:var(--text-muted); font-size:0.82rem; margin:0;">
+            <i class="fa-solid fa-circle-info"></i> Puedes cambiar esto después en configuración.
+        </p>
+    </div>
+</div>
+<style>
+    .btn[type="submit"]:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+    .btn[type="submit"] { transition: all 0.2s ease; }
+</style>
+{% endblock %}

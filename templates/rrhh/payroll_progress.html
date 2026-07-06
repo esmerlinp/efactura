@@ -1,0 +1,55 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}Procesando Nómina — {{ product_name }}{% endblock %}
+{% block content %}
+<div class="dashboard-container" style="text-align:center; padding-top:60px;">
+    <div id="progressContainer" style="max-width:500px; margin:0 auto;">
+        <i id="statusIcon" class="fa-solid fa-spinner fa-spin" style="font-size:3rem; color:var(--accent-emerald); margin-bottom:16px;"></i>
+        <h2 id="statusTitle" style="margin:0 0 8px;">Procesando nómina...</h2>
+        <p id="statusMessage" style="color:var(--text-muted); margin:0 0 24px;">Calculando ingresos, deducciones e ISR para todos los empleados.</p>
+        <div style="height:12px; background:var(--border-color); border-radius:99px; overflow:hidden; margin-bottom:8px;">
+            <div id="progressBar" style="height:100%; width:0%; background:linear-gradient(90deg, var(--accent-emerald), #34d399); border-radius:99px; transition:width 0.5s;"></div>
+        </div>
+        <span id="progressText" style="font-size:0.85rem; color:var(--text-muted);">0/0 empleados</span>
+    </div>
+</div>
+<script>
+var jobId = '{{ job_id }}';
+function poll() {
+    fetch('/rrhh/payroll/jobs/' + jobId + '/status')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.status === 'completed') {
+                document.getElementById('statusIcon').className = 'fa-solid fa-circle-check';
+                document.getElementById('statusIcon').style.color = 'var(--accent-emerald)';
+                document.getElementById('statusTitle').textContent = '¡Nómina procesada!';
+                document.getElementById('statusMessage').textContent = 'Redirigiendo al detalle...';
+                document.getElementById('progressBar').style.width = '100%';
+                if (data.result && data.result.period_id) {
+                    setTimeout(function() {
+                        window.location.href = '/rrhh/payroll/' + data.result.period_id;
+                    }, 1500);
+                } else {
+                    setTimeout(function() {
+                        window.location.href = '/rrhh/payroll/history';
+                    }, 2000);
+                }
+                return;
+            }
+            if (data.status === 'failed') {
+                document.getElementById('statusIcon').className = 'fa-solid fa-circle-exclamation';
+                document.getElementById('statusIcon').style.color = 'var(--danger)';
+                document.getElementById('statusTitle').textContent = 'Error en el cálculo';
+                document.getElementById('statusMessage').textContent = data.error || 'Ocurrió un error inesperado.';
+                return;
+            }
+            var pct = data.total > 0 ? Math.round(data.progress / data.total * 100) : 0;
+            document.getElementById('progressBar').style.width = pct + '%';
+            document.getElementById('progressText').textContent = data.progress + '/' + data.total + ' empleados';
+            document.getElementById('statusMessage').textContent = data.message;
+            setTimeout(poll, 1500);
+        })
+        .catch(function() { setTimeout(poll, 2000); });
+}
+setTimeout(poll, 500);
+</script>
+{% endblock %}

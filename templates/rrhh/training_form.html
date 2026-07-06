@@ -1,0 +1,65 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}Nueva Capacitación — {{ product_name }}{% endblock %}
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/_dashboard.css') }}?v={{ static_hash('css/_dashboard.css') }}">
+{% endblock %}
+{% block content %}
+<div class="dashboard-container">
+<div class="page-title-container" style="margin-bottom: 0; padding-left: 4px;">
+    <h1 class="page-title"
+        style="font-size: 1.75rem; font-weight: 800; font-family: var(--font-heading); color: var(--text-primary); margin: 0;">
+        <i class="fa-solid fa-graduation-cap"></i> Nueva Capacitación
+    </h1>
+</div>
+
+<form method="POST">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="card-table-wrapper" style="margin-bottom:var(--space-4);">
+        <div style="padding:var(--space-4) 24px;">
+            <div style="font-family:var(--font-heading); font-weight:600; font-size:0.9rem; color:var(--text-primary); margin-bottom:var(--space-4);">
+                <i class="fa-solid fa-graduation-cap"></i> Información de la capacitación
+            </div>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Empleado</label>
+                    <select name="employeeId" class="form-input" required>
+                        <option value="">Seleccione...</option>
+                        {% for emp in employees %}
+                        <option value="{{ emp.id }}">{{ emp.fullName }} — {{ emp.position }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Nombre de la Capacitación</label>
+                    <input type="text" name="trainingName" class="form-input" required>
+                </div>
+                <div class="form-group">
+                    <label>Institución</label>
+                    <input type="text" name="institution" class="form-input">
+                </div>
+                <div class="form-group">
+                    <label>Fecha</label>
+                    <input type="date" name="date" class="form-input" value="{{ now().strftime('%Y-%m-%d') }}">
+                </div>
+                <div class="form-group">
+                    <label>Horas</label>
+                    <input type="number" name="hours" class="form-input" value="0" min="1">
+                </div>
+                <div class="form-group" style="display:flex; align-items:center; gap:var(--space-2); padding-top:var(--space-4);">
+                    <input type="checkbox" name="hasCertificate" id="hasCertificate" style="width:16px; height:16px; accent-color:var(--accent-emerald);">
+                    <label for="hasCertificate" style="margin:0;">Tiene certificado</label>
+                </div>
+                <div class="form-group" style="grid-column:1/-1;">
+                    <label>Notas</label>
+                    <textarea name="notes" class="form-textarea" rows="2"></textarea>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div style="display:flex; justify-content:flex-end; gap:var(--space-2); flex-wrap:wrap;">
+        <a href="{{ url_for('web_rrhh.training_list') }}" class="btn btn-ghost">Cancelar</a>
+        <button type="submit" class="btn btn-primary">Registrar Capacitación</button>
+    </div>
+</form>
+</div>
+{% endblock %}

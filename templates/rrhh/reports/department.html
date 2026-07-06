@@ -1,0 +1,41 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}Resumen por Departamento — {{ product_name }}{% endblock %}
+{% block content %}
+{% include "rrhh/_styles.html" %}
+<div class="page-header hr-page-header">
+    <h1 class="page-title"><i class="fa-solid fa-building"></i> Resumen por Departamento</h1>
+    <div style="display:flex; gap:8px; align-items:center;">
+        <select onchange="if(this.value) location.href='?period='+this.value" class="form-select" style="width:auto;">
+            <option value="">Seleccionar período</option>
+            {% for k in period_keys %}
+            <option value="{{ k }}" {% if k == selected %}selected{% endif %}>{{ k }}</option>
+            {% endfor %}
+        </select>
+        <a href="{{ url_for('web_rrhh.reports_index') }}" class="btn btn-ghost"><i class="fa-solid fa-arrow-left"></i> Reportes</a>
+    </div>
+</div>
+{% if by_dept %}
+<div class="card-table-wrapper hr-table-card">
+    <div class="table-header-row"><h3>Período: {{ selected }}</h3></div>
+    <div class="table-responsive">
+        <table class="table-premium">
+        <thead><tr><th>Departamento</th><th style="text-align:right;">Empleados</th><th style="text-align:right;">Bruto</th><th style="text-align:right;">Neto</th><th style="text-align:right;">Aportes Empleador</th><th style="text-align:right;">Costo Total</th></tr></thead>
+        <tbody>
+            {% for dept, data in by_dept.items() %}
+            <tr>
+                <td><strong>{{ dept }}</strong></td>
+                <td style="text-align:right;">{{ data.count }}</td>
+                <td style="text-align:right;">RD$ {{ "{:,.2f}".format(data.gross) }}</td>
+                <td style="text-align:right; color:var(--accent-emerald);">RD$ {{ "{:,.2f}".format(data.net) }}</td>
+                <td style="text-align:right;">RD$ {{ "{:,.2f}".format(data.employer) }}</td>
+                <td style="text-align:right; font-weight:600;">RD$ {{ "{:,.2f}".format(data.gross + data.employer) }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        </table>
+    </div>
+</div>
+{% else %}
+<p style="color:var(--text-muted); text-align:center; padding:40px;">Selecciona un período para ver el desglose por departamento.</p>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,66 @@
+{% extends "layout.html" %}
+{% block title %}Transferencias — {{ product_name }}{% endblock %}
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/_dashboard.css') }}?v={{ static_hash('css/_dashboard.css') }}">
+{% endblock %}
+{% block content %}
+<div class="dashboard-container">
+<div class="page-title-container" style="margin-bottom: 0; padding-left: 4px;">
+    <h1 class="page-title"
+        style="font-size: 1.75rem; font-weight: 800; font-family: var(--font-heading); color: var(--text-primary); margin: 0;">
+        <i class="fa-solid fa-truck-fast"></i> Transferencias entre Almacenes
+    </h1>
+</div>
+
+<div style="display:flex; gap:var(--space-2); margin-bottom:var(--space-4); flex-wrap:wrap;">
+    <a href="{{ url_for('web_inventory.transfer_new') }}" class="btn btn-accent">
+        <i class="fa-solid fa-plus"></i> Nueva Transferencia
+    </a>
+</div>
+
+<div class="card-table-wrapper">
+    <div class="table-responsive">
+        <table class="table-premium">
+            <thead>
+                <tr><th>ID</th><th>Origen</th><th>Destino</th><th>Ítems</th><th>Estado</th><th>Solicitado</th><th>Acciones</th></tr>
+            </thead>
+            <tbody>
+                {% for t in transfers %}
+                <tr>
+                    <td>{{ t.id[:8] }}...</td>
+                    <td>{{ t.originWarehouseName }}</td>
+                    <td>{{ t.destinationWarehouseName }}</td>
+                    <td>{{ t.lines|length }}</td>
+                    <td>
+                        {% if t.status == 'pendiente' %}<span class="badge badge-warning">Pendiente</span>
+                        {% elif t.status == 'en_transito' %}<span class="badge badge-info">En Tránsito</span>
+                        {% elif t.status == 'completada' %}<span class="badge badge-success">Completada</span>
+                        {% else %}<span class="badge badge-danger">Rechazada</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ t.requestedDate[:10] }}</td>
+                    <td>
+                        {% if t.status == 'pendiente' %}
+                        <div style="display:flex; gap:var(--space-1); align-items:center;">
+                            <form method="POST" action="{{ url_for('web_inventory.transfer_approve', transfer_id=t.id) }}" style="display:inline;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button class="btn btn-sm btn-success">Aprobar</button>
+                            </form>
+                            <form method="POST" action="{{ url_for('web_inventory.transfer_reject', transfer_id=t.id) }}" style="display:inline;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <input type="text" name="reason" placeholder="Motivo" style="width:100px; padding:4px 8px; border:1px solid var(--border-color); border-radius:var(--radius-xs); background:var(--bg-input); color:var(--text-primary); font-size:0.78rem;">
+                                <button class="btn btn-sm btn-danger">Rechazar</button>
+                            </form>
+                        </div>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="7" class="text-center text-muted">No hay transferencias.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+</div>
+{% endblock %}

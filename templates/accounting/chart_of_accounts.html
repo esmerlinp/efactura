@@ -1,6 +1,9 @@
 {% extends "layout.html" %}
 {% block title %}Catálogo de Cuentas{% endblock %}
 {% block page_header %}Catálogo de Cuentas{% endblock %}
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/_dashboard.css') }}?v={{ static_hash('css/_dashboard.css') }}">
+{% endblock %}
 {% block app_loader %}
 <script>
     if (window.showAppLoader) { showAppLoader(); }
@@ -9,55 +12,55 @@
 {% endblock %}
 {% block content %}
 <style>
-    .coa-card { background:#fff; border-radius:12px; box-shadow:0 1px 3px rgba(0,0,0,0.08); width:100%; overflow:hidden; }
-    .coa-card-header { padding:16px 20px; border-bottom:1px solid #e5e7eb; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; }
-    .coa-card-header h2 { font-size:1.1rem; font-weight:700; margin:0; display:flex; align-items:center; gap:8px; }
-    .coa-toolbar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
-    .coa-table { width:100%; border-collapse:collapse; }
-    .coa-table th { text-align:left; padding:10px 16px; font-size:0.78rem; font-weight:600; color:#6b7280; text-transform:uppercase; letter-spacing:0.04em; border-bottom:1px solid #e5e7eb; background:#f9fafb; }
-    .coa-table td { padding:0; border-bottom:1px solid #f3f4f6; }
-    .coa-row { display:flex; align-items:center; padding:6px 16px; cursor:pointer; transition:background 0.12s; min-height:40px; }
-    .coa-row:hover { background:#f9fafb; }
-    .coa-row.level-0 { padding-left:16px; background:#f9fafb; font-weight:600; }
-    .coa-row.level-0:hover { background:#f3f4f6; }
-    .coa-row.level-1 { padding-left:40px; }
-    .coa-row.level-2 { padding-left:64px; }
-    .coa-row.level-3 { padding-left:88px; }
-    .coa-row.level-4 { padding-left:112px; }
-    .coa-row.level-5 { padding-left:136px; }
-    .coa-row .toggle-col { width:20px; flex-shrink:0; text-align:center; color:#9ca3af; }
-    .coa-row .toggle-col i { font-size:0.7rem; transition:transform 0.15s; }
-    .coa-row .toggle-col i.expanded { transform:rotate(90deg); }
-    .coa-row .name-col { flex:1; min-width:0; padding:0 8px; font-size:0.84rem; color:#111827; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .coa-row.level-0 .name-col { font-weight:600; font-size:0.88rem; }
-    .coa-row .usage-col { width:160px; flex-shrink:0; padding:0 8px; font-size:0.78rem; color:#6b7280; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .coa-row .desc-col { flex:0.6; min-width:0; padding:0 8px; font-size:0.78rem; color:#9ca3af; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .coa-row .badge-col { width:80px; flex-shrink:0; padding:0 8px; }
-    .coa-row .badge-col .type-badge { font-size:0.65rem; padding:2px 8px; border-radius:8px; font-weight:500; }
-    .type-badge.control { background:#eef2ff; color:#4338ca; }
-    .type-badge.movimiento { background:#ecfdf5; color:#065f46; }
-    .system-badge { font-size:0.6rem; background:#fef3c7; color:#92400e; padding:1px 6px; border-radius:4px; margin-left:6px; }
-    .coa-row .actions-col { width:36px; flex-shrink:0; position:relative; }
-    .coa-row .actions-btn { background:none; border:none; cursor:pointer; padding:6px 8px; border-radius:6px; color:#9ca3af; font-size:0.9rem; opacity:0; transition:all 0.12s; }
-    .coa-row:hover .actions-btn { opacity:1; }
-    .coa-row .actions-btn:hover { background:#e5e7eb; color:#374151; }
-    .coa-dropdown { position:absolute; right:0; top:100%; min-width:200px; background:#fff; border:1px solid #e5e7eb; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.1); z-index:50; display:none; padding:4px; }
-    .coa-dropdown.show { display:block; }
-    .coa-dropdown a, .coa-dropdown button { display:flex; align-items:center; gap:10px; padding:8px 12px; font-size:0.82rem; color:#374151; text-decoration:none; background:none; border:none; width:100%; text-align:left; cursor:pointer; border-radius:6px; }
-    .coa-dropdown a:hover, .coa-dropdown button:hover { background:#f3f4f6; color:#111827; }
-    .coa-dropdown .dropdown-divider { height:1px; background:#e5e7eb; margin:4px 0; }
-    .coa-dropdown .text-danger { color:#dc2626; }
-    .coa-dropdown .text-danger:hover { background:#fef2f2; color:#b91c1c; }
-    .coa-row.hidden-row { display:none; }
-    .filter-bar { padding:12px 16px; border-bottom:1px solid #e5e7eb; display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
-    .filter-bar .form-input, .filter-bar .form-select { font-size:0.82rem; border:1px solid #d1d5db; border-radius:8px; padding:7px 12px; background:#fff; }
-    .filter-bar .form-input:focus, .filter-bar .form-select:focus { border-color:#6366f1; outline:none; box-shadow:0 0 0 3px rgba(99,102,241,0.1); }
-    .coa-count { font-size:0.78rem; color:#6b7280; padding:4px 16px 0; }
-    .coa-empty-icon { color:#d1d5db; font-size:0.7rem; padding:0 4px; }
-    /* Modal reutilizado */
-    .modal-overlay { position:fixed; top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:9999;display:none;align-items:center;justify-content:center; }
-    .modal-box { background:#fff; border-radius:12px; width:90%; max-width:520px; max-height:90vh; overflow-y:auto; padding:24px; box-shadow:0 8px 24px rgba(0,0,0,0.12); }
-    .modal-box h3 { font-size:1.05rem; font-weight:700; margin-bottom:16px; display:flex; align-items:center; gap:8px; }
+    .coa-card { background:var(--bg-card); border-radius:12px; box-shadow:var(--shadow-sm); width:100%; overflow:hidden; }
+     .coa-card-header { padding:16px 20px; border-bottom:1px solid var(--border-color); display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; }
+     .coa-card-header h2 { font-size:1.1rem; font-weight:700; margin:0; display:flex; align-items:center; gap:8px; }
+     .coa-toolbar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+     .coa-table { width:100%; border-collapse:collapse; }
+     .coa-table th { text-align:left; padding:10px 16px; font-size:0.78rem; font-weight:600; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.04em; border-bottom:1px solid var(--border-color); background:var(--bg-input); }
+     .coa-table td { padding:0; border-bottom:1px solid var(--border-color); }
+     .coa-row { display:flex; align-items:center; padding:6px 16px; cursor:pointer; transition:background 0.12s; min-height:40px; }
+     .coa-row:hover { background:var(--bg-nav-hover); }
+     .coa-row.level-0 { padding-left:16px; background:var(--bg-input); font-weight:600; }
+     .coa-row.level-0:hover { background:var(--bg-nav-hover); }
+     .coa-row.level-1 { padding-left:40px; }
+     .coa-row.level-2 { padding-left:64px; }
+     .coa-row.level-3 { padding-left:88px; }
+     .coa-row.level-4 { padding-left:112px; }
+     .coa-row.level-5 { padding-left:136px; }
+     .coa-row .toggle-col { width:20px; flex-shrink:0; text-align:center; color:var(--text-muted); }
+     .coa-row .toggle-col i { font-size:0.7rem; transition:transform 0.15s; }
+     .coa-row .toggle-col i.expanded { transform:rotate(90deg); }
+     .coa-row .name-col { flex:1; min-width:0; padding:0 8px; font-size:0.84rem; color:var(--text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+     .coa-row.level-0 .name-col { font-weight:600; font-size:0.88rem; }
+     .coa-row .usage-col { width:160px; flex-shrink:0; padding:0 8px; font-size:0.78rem; color:var(--text-secondary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+     .coa-row .desc-col { flex:0.6; min-width:0; padding:0 8px; font-size:0.78rem; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+     .coa-row .badge-col { width:80px; flex-shrink:0; padding:0 8px; }
+     .coa-row .badge-col .type-badge { font-size:0.65rem; padding:2px 8px; border-radius:8px; font-weight:500; }
+     .type-badge.control { background:var(--bg-input); color:var(--accent-purple); }
+     .type-badge.movimiento { background:var(--bg-card); color:var(--accent-emerald); }
+     .system-badge { font-size:0.6rem; background:var(--accent-yellow); color:var(--text-primary); padding:1px 6px; border-radius:4px; margin-left:6px; }
+     .coa-row .actions-col { width:36px; flex-shrink:0; position:relative; }
+     .coa-row .actions-btn { background:none; border:none; cursor:pointer; padding:6px 8px; border-radius:6px; color:var(--text-muted); font-size:0.9rem; opacity:0; transition:all 0.12s; }
+     .coa-row:hover .actions-btn { opacity:1; }
+     .coa-row .actions-btn:hover { background:var(--border-color); color:var(--text-secondary); }
+     .coa-dropdown { position:absolute; right:0; top:100%; min-width:200px; background:var(--bg-card); border:1px solid var(--border-color); border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.1); z-index:50; display:none; padding:4px; }
+     .coa-dropdown.show { display:block; }
+     .coa-dropdown a, .coa-dropdown button { display:flex; align-items:center; gap:10px; padding:8px 12px; font-size:0.82rem; color:var(--text-secondary); text-decoration:none; background:none; border:none; width:100%; text-align:left; cursor:pointer; border-radius:6px; }
+     .coa-dropdown a:hover, .coa-dropdown button:hover { background:var(--bg-nav-hover); color:var(--text-primary); }
+     .coa-dropdown .dropdown-divider { height:1px; background:var(--border-color); margin:4px 0; }
+     .coa-dropdown .text-danger { color:var(--accent-red); }
+     .coa-dropdown .text-danger:hover { background:var(--bg-card); color:var(--accent-red); }
+     .coa-row.hidden-row { display:none; }
+     .filter-bar { padding:12px 16px; border-bottom:1px solid var(--border-color); display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+     .filter-bar .form-input, .filter-bar .form-select { font-size:0.82rem; border:1px solid var(--border-color); border-radius:8px; padding:7px 12px; background:var(--bg-card); }
+     .filter-bar .form-input:focus, .filter-bar .form-select:focus { border-color:var(--accent-purple); outline:none; box-shadow:0 0 0 3px rgba(99,102,241,0.1); }
+     .coa-count { font-size:0.78rem; color:var(--text-secondary); padding:4px 16px 0; }
+     .coa-empty-icon { color:var(--border-color); font-size:0.7rem; padding:0 4px; }
+     /* Modal reutilizado */
+     .modal-overlay { position:fixed; top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:9999;display:none;align-items:center;justify-content:center; }
+     .modal-box { background:var(--bg-card); border-radius:12px; width:90%; max-width:520px; max-height:90vh; overflow-y:auto; padding:24px; box-shadow:0 8px 24px rgba(0,0,0,0.12); }
+     .modal-box h3 { font-size:1.05rem; font-weight:700; margin-bottom:16px; display:flex; align-items:center; gap:8px; }
 </style>
 
 <div style="max-width:1200px; margin:0 auto;">
@@ -159,7 +162,7 @@
 <!-- Modal: Nueva Subcuenta -->
 <div id="subaccount-modal" class="modal-overlay">
     <div class="modal-box">
-        <h3><i class="fa-solid fa-plus-circle" style="color:#6366f1;"></i> Agregar Subcuenta <span id="subaccount-parent-name" style="font-weight:400;font-size:0.84rem;color:#6b7280;"></span></h3>
+        <h3><i class="fa-solid fa-plus-circle" style="color:var(--accent-purple);"></i> Agregar Subcuenta <span id="subaccount-parent-name" style="font-weight:400;font-size:0.84rem;color:var(--text-secondary);"></span></h3>
         <form method="POST" action="{{ url_for('web_accounting.create_account') }}" id="subaccount-form">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="parentId" id="subaccount-parent-id">
@@ -206,7 +209,7 @@
 <!-- Modal: Editar Cuenta -->
 <div id="edit-modal" class="modal-overlay">
     <div class="modal-box">
-        <h3><i class="fa-solid fa-pen" style="color:#6366f1;"></i> Editar Cuenta Contable</h3>
+        <h3><i class="fa-solid fa-pen" style="color:var(--accent-purple);"></i> Editar Cuenta Contable</h3>
         <form method="POST" id="edit-form">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="form-group">
@@ -242,8 +245,8 @@
 <!-- Modal: Eliminar -->
 <div id="delete-modal" class="modal-overlay">
     <div class="modal-box" style="max-width:480px;">
-        <h3 style="color:#dc2626;"><i class="fa-solid fa-trash"></i> Eliminar Cuenta</h3>
-        <p style="font-size:0.85rem; color:#6b7280; margin-bottom:16px;">
+        <h3 style="color:var(--accent-red);"><i class="fa-solid fa-trash"></i> Eliminar Cuenta</h3>
+         <p style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:16px;">
             ¿Estás seguro de eliminar <strong id="delete-account-name"></strong>?
             Los movimientos contables asociados pueden ser reclasificados a otra cuenta.
         </p>

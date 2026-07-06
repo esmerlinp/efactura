@@ -1,0 +1,79 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}{{ 'Editar' if concept else 'Nuevo' }} Concepto — {{ product_name }}{% endblock %}
+{% block content %}
+{% include "rrhh/_styles.html" %}
+<div class="page-header hr-page-header">
+    <h1 class="page-title"><i class="fa-solid fa-cube"></i> {{ 'Editar' if concept else 'Nuevo' }} Concepto</h1>
+    <a href="{{ url_for('web_rrhh.concept_list') }}" class="btn btn-ghost"><i class="fa-solid fa-arrow-left"></i> Volver</a>
+</div>
+
+<form method="POST" class="hr-main-col">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="hr-section-card">
+        <h3><i class="fa-solid fa-gear"></i> Datos del concepto</h3>
+        <div class="hr-form-grid">
+            <div class="form-group">
+                <label>Código <span style="color:var(--danger);">*</span></label>
+                <input type="text" name="code" class="form-input" required {% if concept %}readonly{% endif %}
+                       value="{{ concept.code if concept else '' }}" placeholder="Ej. BONO_ESCOLAR">
+                {% if not concept %}<span style="font-size:0.75rem; color:var(--text-muted);">Sin espacios, mayúsculas.</span>{% endif %}
+            </div>
+            <div class="form-group">
+                <label>Nombre <span style="color:var(--danger);">*</span></label>
+                <input type="text" name="name" class="form-input" required
+                       value="{{ concept.name if concept else '' }}" placeholder="Ej. Bono escolar">
+            </div>
+            <div class="form-group">
+                <label>Tipo <span style="color:var(--danger);">*</span></label>
+                <select name="type" class="form-select" required>
+                    <option value="earning" {% if concept and concept.type=='earning' %}selected{% endif %}>Ingreso</option>
+                    <option value="deduction" {% if concept and concept.type=='deduction' %}selected{% endif %}>Deducción</option>
+                    <option value="employer_contrib" {% if concept and concept.type=='employer_contrib' %}selected{% endif %}>Aporte empleador</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Categoría</label>
+                <select name="category" class="form-select">
+                    <option value="fixed" {% if concept and concept.category=='fixed' %}selected{% endif %}>Fijo</option>
+                    <option value="variable" {% if concept and concept.category=='variable' %}selected{% endif %}>Variable</option>
+                    <option value="formula" {% if concept and concept.category=='formula' %}selected{% endif %}>Fórmula</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Prioridad</label>
+                <input type="number" name="priority" class="form-input"
+                       value="{{ concept.priority if concept else 99 }}" placeholder="99">
+                <span style="font-size:0.75rem; color:var(--text-muted);">Orden de cálculo. Menor = primero.</span>
+            </div>
+            <div class="form-group">
+                <label>Cuenta débito</label>
+                <input type="text" name="account_debit" class="form-input"
+                       value="{{ concept.account_debit if concept else '' }}" placeholder="6.2.1.01">
+            </div>
+            <div class="form-group">
+                <label>Cuenta crédito</label>
+                <input type="text" name="account_credit" class="form-input"
+                       value="{{ concept.account_credit if concept else '' }}" placeholder="2.1.2.1.02">
+            </div>
+            <div class="form-group" style="grid-column:1/-1; display:flex; gap:20px; flex-wrap:wrap;">
+                <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
+                    <input type="checkbox" name="taxable" {% if concept and concept.taxable %}checked{% endif %}> Imponible ISR
+                </label>
+                <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
+                    <input type="checkbox" name="affects_afp" {% if concept and concept.affects_afp %}checked{% endif %}> Afecta AFP
+                </label>
+                <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
+                    <input type="checkbox" name="affects_sfs" {% if concept and concept.affects_sfs %}checked{% endif %}> Afecta SFS
+                </label>
+                <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
+                    <input type="checkbox" name="affects_isr" {% if concept and concept.affects_isr %}checked{% endif %}> Afecta ISR
+                </label>
+            </div>
+        </div>
+    </div>
+    <div class="hr-section-card hr-actions-card hr-actions-bar">
+        <a href="{{ url_for('web_rrhh.concept_list') }}" class="btn btn-ghost">Cancelar</a>
+        <button type="submit" class="btn btn-primary">{{ 'Guardar' if concept else 'Crear Concepto' }}</button>
+    </div>
+</form>
+{% endblock %}

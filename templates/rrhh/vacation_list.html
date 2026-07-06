@@ -1,0 +1,69 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}Vacaciones — {{ product_name }}{% endblock %}
+{% block content %}
+{% include "rrhh/_styles.html" %}
+<div class="page-header hr-page-header">
+    <h1 class="page-title"><i class="fa-solid fa-umbrella-beach"></i> Solicitudes de Vacaciones</h1>
+    <a href="{{ url_for('web_rrhh.vacation_new') }}" class="btn btn-primary">
+        <i class="fa-solid fa-plus"></i> Nueva Solicitud
+    </a>
+</div>
+
+<div class="card-table-wrapper hr-table-card">
+    <div class="table-header-row">
+        <div>
+            <h3>Solicitudes de vacaciones</h3>
+            <p>Control de vacaciones solicitadas, días disponibles y aprobaciones.</p>
+        </div>
+    </div>
+    <div class="table-responsive">
+        <table class="table-premium">
+        <thead>
+            <tr>
+                <th>Empleado</th>
+                <th>Desde</th>
+                <th>Hasta</th>
+                <th>Días</th>
+                <th>Disponibles</th>
+                <th>Estado</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for r in requests %}
+            <tr>
+                <td><strong>{{ r.employeeName }}</strong></td>
+                <td>{{ r.startDate }}</td>
+                <td>{{ r.endDate }}</td>
+                <td>{{ r.days }}</td>
+                <td>{{ r.remainingDaysBefore }}</td>
+                <td>
+                    {% if r.status == 'pendiente' %}
+                    <span class="badge badge-warning">Pendiente</span>
+                    {% elif r.status == 'aprobada' %}
+                    <span class="badge badge-success">Aprobada</span>
+                    {% else %}
+                    <span class="badge badge-danger">Rechazada</span>
+                    {% endif %}
+                </td>
+                <td><div class="hr-table-actions">
+                    {% if r.status == 'pendiente' %}
+                    <form method="POST" action="{{ url_for('web_rrhh.vacation_action', request_id=r.id, action='approve') }}" style="display:contents;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-sm btn-success">Aprobar</button>
+                    </form>
+                    <form method="POST" action="{{ url_for('web_rrhh.vacation_action', request_id=r.id, action='rechazar') }}" style="display:contents;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-sm btn-danger">Rechazar</button>
+                    </form>
+                    {% endif %}
+                </div></td>
+            </tr>
+            {% else %}
+            <tr><td colspan="7" class="text-center text-muted">No hay solicitudes de vacaciones.</td></tr>
+            {% endfor %}
+        </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

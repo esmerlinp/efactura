@@ -1,0 +1,80 @@
+/* =========================================================================
+   DESIGN TOKENS — Sistema de diseño formal para VykOne
+   =========================================================================
+   Define todas las variables CSS que alimentan temas y componentes.
+   Los temas sobreescriben estos valores vía [data-theme].
+   ========================================================================= */
+
+/* ── Tipografía ────────────────────────────────────────────────────── */
+:root {
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --font-heading: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+
+  /* Escala tipográfica */
+  --text-xs: 0.7rem;
+  --text-sm: 0.78rem;
+  --text-base: 0.85rem;
+  --text-md: 0.9rem;
+  --text-lg: 1rem;
+  --text-xl: 1.1rem;
+  --text-2xl: 1.25rem;
+  --text-3xl: 1.5rem;
+  --text-4xl: 1.75rem;
+}
+
+/* ── Radios de borde ───────────────────────────────────────────────── */
+:root {
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-full: 9999px;
+  --radius-btn: 8px;
+  --radius-input: 8px;
+  --radius-card: var(--radius-md);
+  --radius-modal: var(--radius-lg);
+}
+
+/* ── Sombras ───────────────────────────────────────────────────────── */
+:root {
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
+  --shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.16);
+  --shadow-card: var(--shadow-sm);
+  --shadow-dropdown: var(--shadow-lg);
+}
+
+/* ── Espaciado ─────────────────────────────────────────────────────── */
+:root {
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+}
+
+/* ── Transiciones ──────────────────────────────────────────────────── */
+:root {
+  --transition-fast: 0.15s ease;
+  --transition-base: 0.2s ease;
+  --transition-slow: 0.3s ease;
+  --transition-dialog: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ── Z-index ───────────────────────────────────────────────────────── */
+:root {
+  --z-sidebar: 100;
+  --z-dropdown: 500;
+  --z-modal: 10000;
+  --z-toast: 99999;
+  --z-loader: 99999;
+  --z-hamburger: 9999;
+}
