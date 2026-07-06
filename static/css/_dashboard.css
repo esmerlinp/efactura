@@ -1,0 +1,356 @@
+/* =========================================================================
+   DASHBOARD COMPONENT STYLES
+   Extraído de templates/dashboard.html como parte de la fase de
+   estabilización arquitectónica (Fase 1.4 del Plan de Evolución ERP).
+   ========================================================================= */
+
+/* ── Dashboard Container ───────────────────────────────────────────── */
+.dashboard-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+}
+
+@media (max-width: 1024px) {
+    .grid-two-cols,
+    .grid-three-cols {
+        grid-template-columns: 1fr !important;
+        gap: var(--space-6) !important;
+    }
+}
+
+/* ── BI Summary Cards (Resumen Financiero) ─────────────────────────── */
+.bi-summary-cards {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+    display: flex;
+    margin-bottom: 30px;
+    overflow: hidden;
+    backdrop-filter: blur(20px);
+}
+
+.bi-card {
+    flex: 1;
+    padding: var(--space-4) var(--space-5);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    border-right: 1px solid var(--border-color);
+    text-align: center;
+    align-items: center;
+}
+
+.bi-card:last-child {
+    border-right: none;
+}
+
+@media (max-width: 992px) {
+    .bi-summary-cards {
+        flex-direction: column;
+    }
+    .bi-card {
+        border-right: none;
+        border-bottom: 1px solid var(--border-color);
+    }
+    .bi-card:last-child {
+        border-bottom: none;
+    }
+}
+
+.bi-card-title {
+    font-size: 0.72rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+}
+
+.bi-card-value {
+    font-size: 1.4rem;
+    font-family: var(--font-heading);
+    font-weight: 700;
+    color: var(--text-primary);
+    line-height: 1.1;
+}
+
+.bi-card-trend {
+    font-size: 0.68rem;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
+    font-weight: 500;
+    color: var(--text-muted);
+}
+
+.trend-up { color: var(--accent-emerald); }
+.trend-down { color: var(--accent-red); }
+
+/* ── Insight Cards ─────────────────────────────────────────────────── */
+.insight-card {
+    padding: var(--space-3) 14px;
+    border-radius: var(--radius-sm);
+    border-left: 4px solid;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    font-size: var(--text-base);
+    line-height: 1.4;
+    background: var(--bg-card);
+    box-shadow: var(--shadow-sm);
+    transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.insight-card:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
+}
+
+.insight-warning { border-left-color: var(--accent-yellow); }
+.insight-danger { border-left-color: var(--accent-red); }
+.insight-info { border-left-color: var(--accent-purple); }
+.insight-success { border-left-color: var(--accent-emerald); }
+
+.insight-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-size: 0.8rem;
+}
+
+.insight-icon-warning { background: rgba(245, 158, 11, 0.12); color: var(--accent-yellow); }
+.insight-icon-danger { background: rgba(239, 68, 68, 0.12); color: var(--accent-red); }
+.insight-icon-info { background: rgba(124, 58, 237, 0.12); color: var(--accent-purple); }
+.insight-icon-success { background: rgba(16, 185, 129, 0.12); color: var(--accent-emerald); }
+
+.dashboard-tab { display: none; }
+.dashboard-tab.active { display: block; }
+
+/* ── Compact Metric Cards Grid ─────────────────────────────────────── */
+.metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-3);
+    margin-bottom: var(--space-3);
+}
+.metrics-grid.cols-2 { grid-template-columns: repeat(2, 1fr); }
+
+@media (max-width: 900px) {
+    .metrics-grid { grid-template-columns: 1fr; }
+}
+
+.metric-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 14px 16px;
+    box-shadow: var(--shadow-sm);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.metric-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+}
+
+.metric-card-title {
+    font-size: var(--text-sm);
+    font-weight: 500;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.metric-card-value {
+    font-size: var(--text-3xl);
+    font-weight: 700;
+    font-family: var(--font-heading);
+    color: var(--text-primary);
+    line-height: 1;
+}
+
+.metric-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    padding: var(--space-1) 0;
+    border-top: 1px solid var(--border-color);
+}
+
+.metric-row:first-child { border-top: none; }
+.metric-row .label { color: var(--text-secondary); }
+.metric-row .value { font-weight: 600; color: var(--text-primary); }
+.metric-row .danger { color: var(--accent-red); }
+.metric-row .count { font-size: var(--text-xs); color: var(--text-muted); }
+
+/* ── Small Metric Cards (4-col) ────────────────────────────────────── */
+.small-metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--space-3);
+    margin-bottom: var(--space-3);
+}
+
+@media (max-width: 900px) {
+    .small-metrics-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+.small-metric {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: var(--space-3) 14px;
+    text-align: center;
+    box-shadow: var(--shadow-sm);
+}
+
+.small-metric .label {
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    margin-bottom: var(--space-1);
+}
+
+.small-metric .value {
+    font-size: 1.35rem;
+    font-weight: 700;
+    font-family: var(--font-heading);
+    color: var(--text-primary);
+    line-height: 1.1;
+}
+
+.small-metric .sub {
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    margin-top: 2px;
+}
+
+/* ── Onboarding CTA Banner ─────────────────────────────────────────── */
+.onboarding-cta {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 14px 18px;
+    margin-bottom: var(--space-3);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-4);
+    box-shadow: var(--shadow-sm);
+}
+
+.onboarding-cta .step-dots {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
+.onboarding-cta .step-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--border-color);
+}
+
+.onboarding-cta .step-dot.done { background: var(--accent-emerald); }
+.onboarding-cta .step-dot.current {
+    background: var(--accent-emerald);
+    box-shadow: 0 0 8px var(--accent-emerald);
+}
+
+/* ── First Invoice CTA ─────────────────────────────────────────────── */
+.first-invoice-cta {
+    background: linear-gradient(135deg, rgba(16,185,129,0.06), rgba(16,185,129,0.02));
+    border: 1px solid rgba(16,185,129,0.2);
+    border-radius: var(--radius-md);
+    padding: var(--space-4) var(--space-5);
+    margin-bottom: var(--space-3);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-5);
+}
+
+.first-invoice-cta .cta-text h4 {
+    font-family: var(--font-heading);
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0 0 2px 0;
+}
+
+.first-invoice-cta .cta-text p {
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+    margin: 0;
+}
+
+/* ── Sales Chart Card ──────────────────────────────────────────────── */
+.sales-chart-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: var(--space-4) var(--space-5);
+    margin-bottom: var(--space-3);
+    box-shadow: var(--shadow-sm);
+}
+
+/* ── Minimal Smart Insights ────────────────────────────────────────── */
+.insights-minimal {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    margin-bottom: var(--space-3);
+}
+
+.insight-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: 7px var(--space-3);
+    border-radius: var(--radius-sm);
+    font-size: var(--text-sm);
+    color: var(--text-secondary);
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    text-decoration: none;
+    transition: border-color var(--transition-fast);
+}
+
+.insight-row:hover { border-color: var(--border-glow); }
+
+.insight-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.insight-dot.warning { background: var(--accent-yellow); }
+.insight-dot.danger { background: var(--accent-red); }
+.insight-dot.info { background: var(--accent-purple); }
+.insight-dot.success { background: var(--accent-emerald); }
+
+.insights-title {
+    font-size: var(--text-xs);
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: var(--space-1);
+}

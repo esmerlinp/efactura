@@ -1,0 +1,60 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}Mi Perfil — {{ product_name }}{% endblock %}
+{% block content %}
+{% include "rrhh/_styles.html" %}
+<div class="page-header hr-page-header">
+    <h1 class="page-title"><i class="fa-solid fa-user-circle"></i> Hola, {{ employee.firstName }}</h1>
+</div>
+<div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:12px; margin-bottom:20px;">
+    <div class="card-table-wrapper" style="padding:20px; text-align:center;">
+        <div style="font-size:2rem; color:var(--accent-emerald);">RD$ {{ "{:,.2f}".format(employee.baseSalary|float) }}</div>
+        <div style="font-size:0.78rem; color:var(--text-muted);">Salario base</div>
+    </div>
+    <div class="card-table-wrapper" style="padding:20px; text-align:center;">
+        <div style="font-size:2rem; color:var(--accent-blue);">{{ vacation_days }}</div>
+        <div style="font-size:0.78rem; color:var(--text-muted);">Días de vacaciones</div>
+    </div>
+    <div class="card-table-wrapper" style="padding:20px; text-align:center;">
+        <div style="font-size:2rem; color:var(--accent-purple);">{{ employee.position or '—' }}</div>
+        <div style="font-size:0.78rem; color:var(--text-muted);">Cargo</div>
+    </div>
+</div>
+
+<div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:12px;">
+    <a href="{{ url_for('web_rrhh.employee_portal_payslips') }}" class="card-table-wrapper"
+       style="padding:20px; text-decoration:none; display:flex; align-items:center; gap:12px;"
+       onmouseover="this.style.borderColor='var(--accent-emerald)'" onmouseout="this.style.borderColor='var(--border-color)'">
+        <i class="fa-solid fa-file-invoice-dollar" style="font-size:1.5rem; color:var(--accent-emerald);"></i>
+        <div><strong style="color:var(--text-primary);">Mis recibos de pago</strong>
+            <p style="margin:2px 0 0; color:var(--text-muted); font-size:0.8rem;">Ver y descargar payslips</p></div>
+    </a>
+    <a href="{{ url_for('web_rrhh.employee_portal_vacation_new') }}" class="card-table-wrapper"
+       style="padding:20px; text-decoration:none; display:flex; align-items:center; gap:12px;"
+       onmouseover="this.style.borderColor='var(--accent-blue)'" onmouseout="this.style.borderColor='var(--border-color)'">
+        <i class="fa-solid fa-umbrella-beach" style="font-size:1.5rem; color:var(--accent-blue);"></i>
+        <div><strong style="color:var(--text-primary);">Solicitar vacaciones</strong>
+            <p style="margin:2px 0 0; color:var(--text-muted); font-size:0.8rem;">Enviar solicitud de días libres</p></div>
+    </a>
+    <a href="{{ url_for('web_rrhh.employee_portal_leave_new') }}" class="card-table-wrapper"
+       style="padding:20px; text-decoration:none; display:flex; align-items:center; gap:12px;"
+       onmouseover="this.style.borderColor='var(--accent-amber)'" onmouseout="this.style.borderColor='var(--border-color)'">
+        <i class="fa-solid fa-clock" style="font-size:1.5rem; color:var(--accent-amber);"></i>
+        <div><strong style="color:var(--text-primary);">Solicitar permiso</strong>
+            <p style="margin:2px 0 0; color:var(--text-muted); font-size:0.8rem;">Licencia, luto, estudios, personal</p></div>
+    </a>
+    <a href="{{ url_for('web_rrhh.employee_portal_evaluations') }}" class="card-table-wrapper"
+       style="padding:20px; text-decoration:none; display:flex; align-items:center; gap:12px;"
+       onmouseover="this.style.borderColor='var(--accent-amber)'" onmouseout="this.style.borderColor='var(--border-color)'">
+        <i class="fa-solid fa-star" style="font-size:1.5rem; color:var(--accent-amber);"></i>
+        <div><strong style="color:var(--text-primary);">Mis evaluaciones</strong>
+            <p style="margin:2px 0 0; color:var(--text-muted); font-size:0.8rem;">Historial de desempeño</p></div>
+    </a>
+    <a href="{{ url_for('web_rrhh.employee_portal_trainings') }}" class="card-table-wrapper"
+       style="padding:20px; text-decoration:none; display:flex; align-items:center; gap:12px;"
+       onmouseover="this.style.borderColor='var(--accent-purple)'" onmouseout="this.style.borderColor='var(--border-color)'">
+        <i class="fa-solid fa-graduation-cap" style="font-size:1.5rem; color:var(--accent-purple);"></i>
+        <div><strong style="color:var(--text-primary);">Mis capacitaciones</strong>
+            <p style="margin:2px 0 0; color:var(--text-muted); font-size:0.8rem;">Historial de formación</p></div>
+    </a>
+</div>
+{% endblock %}

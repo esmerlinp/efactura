@@ -1,0 +1,31 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}Aportes TSS — {{ product_name }}{% endblock %}
+{% block content %}
+{% include "rrhh/_styles.html" %}
+<div class="page-header hr-page-header">
+    <h1 class="page-title"><i class="fa-solid fa-shield-halved"></i> Aportes TSS {{ year }}</h1>
+    <a href="{{ url_for('web_rrhh.reports_index') }}" class="btn btn-ghost"><i class="fa-solid fa-arrow-left"></i> Reportes</a>
+</div>
+<div class="card-table-wrapper hr-table-card">
+    <div class="table-responsive">
+        <table class="table-premium" style="font-size:0.85rem;">
+        <thead><tr><th>Mes</th><th style="text-align:right;">AFP Emp.</th><th style="text-align:right;">SFS Emp.</th><th style="text-align:right;">AFP Empl.</th><th style="text-align:right;">SFS Empl.</th><th style="text-align:right;">SRL</th><th style="text-align:right;">INFOTEP</th><th style="text-align:right;">Total</th></tr></thead>
+        <tbody>
+            {% for key, data in monthly.items() %}
+            {% set total = data.afp_emp + data.sfs_emp + data.afp_empl + data.sfs_empl + data.srl + data.infotep %}
+            <tr>
+                <td><strong>{{ months_es[loop.index0] }}</strong></td>
+                <td style="text-align:right;">{{ "{:,.2f}".format(data.afp_emp) }}</td>
+                <td style="text-align:right;">{{ "{:,.2f}".format(data.sfs_emp) }}</td>
+                <td style="text-align:right;">{{ "{:,.2f}".format(data.afp_empl) }}</td>
+                <td style="text-align:right;">{{ "{:,.2f}".format(data.sfs_empl) }}</td>
+                <td style="text-align:right;">{{ "{:,.2f}".format(data.srl) }}</td>
+                <td style="text-align:right;">{{ "{:,.2f}".format(data.infotep) }}</td>
+                <td style="text-align:right; font-weight:600;">RD$ {{ "{:,.2f}".format(total) }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

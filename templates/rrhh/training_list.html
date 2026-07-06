@@ -1,0 +1,48 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}Capacitaciones — {{ product_name }}{% endblock %}
+{% block content %}
+{% include "rrhh/_styles.html" %}
+<div class="page-header hr-page-header">
+    <h1 class="page-title"><i class="fa-solid fa-graduation-cap"></i> Capacitaciones</h1>
+    <a href="{{ url_for('web_rrhh.training_new') }}" class="btn btn-primary">
+        <i class="fa-solid fa-plus"></i> Nueva Capacitación
+    </a>
+</div>
+
+<div class="card-table-wrapper hr-table-card">
+    <div class="table-header-row">
+        <div>
+            <h3>Capacitaciones registradas</h3>
+            <p>Historial de formación, instituciones, horas y certificados.</p>
+        </div>
+    </div>
+    <div class="table-responsive">
+        <table class="table-premium">
+        <thead>
+            <tr>
+                <th>Empleado</th>
+                <th>Capacitación</th>
+                <th>Institución</th>
+                <th>Fecha</th>
+                <th>Horas</th>
+                <th>Certificado</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for t in trainings %}
+            <tr>
+                <td><strong>{{ t.employeeName }}</strong></td>
+                <td>{{ t.trainingName }}</td>
+                <td>{{ t.institution }}</td>
+                <td>{{ t.date }}</td>
+                <td>{{ t.hours }}</td>
+                <td>{{ 'Sí' if t.hasCertificate else 'No' }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="6" class="text-center text-muted">No hay capacitaciones registradas.</td></tr>
+            {% endfor %}
+        </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

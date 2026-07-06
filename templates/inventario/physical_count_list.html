@@ -1,0 +1,58 @@
+{% extends "layout.html" %}
+{% block title %}Conteos Físicos — {{ product_name }}{% endblock %}
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/_dashboard.css') }}?v={{ static_hash('css/_dashboard.css') }}">
+{% endblock %}
+{% block content %}
+<div class="dashboard-container">
+<div class="page-title-container" style="margin-bottom: 0; padding-left: 4px;">
+    <h1 class="page-title"
+        style="font-size: 1.75rem; font-weight: 800; font-family: var(--font-heading); color: var(--text-primary); margin: 0;">
+        <i class="fa-solid fa-clipboard-check"></i> Conteos Físicos
+    </h1>
+</div>
+
+<div style="display:flex; gap:var(--space-2); margin-bottom:var(--space-4); flex-wrap:wrap;">
+    <a href="{{ url_for('web_inventory.physical_count_new') }}" class="btn btn-accent">
+        <i class="fa-solid fa-plus"></i> Nuevo Conteo
+    </a>
+</div>
+
+<div class="card-table-wrapper">
+    <div class="table-responsive">
+        <table class="table-premium">
+            <thead>
+                <tr><th>Almacén</th><th>Iniciado</th><th>Estado</th><th>Líneas</th><th>Diferencias</th><th>Sobrante</th><th>Faltante</th><th>Acciones</th></tr>
+            </thead>
+            <tbody>
+                {% for c in counts %}
+                <tr>
+                    <td>{{ c.warehouseName }}</td>
+                    <td>{{ c.startedDate[:10] }}</td>
+                    <td>
+                        {% if c.status == 'en_progreso' %}<span class="badge badge-warning">En Progreso</span>
+                        {% elif c.status == 'finalizado' %}<span class="badge badge-success">Finalizado</span>
+                        {% else %}<span class="badge badge-info">Ajustado</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ c.totalLines }}</td>
+                    <td>{{ c.linesWithDifference }}</td>
+                    <td>{{ "%.2f"|format(c.totalSurplus|float) }}</td>
+                    <td>{{ "%.2f"|format(c.totalShortage|float) }}</td>
+                    <td>
+                        {% if c.status == 'en_progreso' %}
+                        <a href="{{ url_for('web_inventory.physical_count_detail', count_id=c.id) }}" class="btn btn-sm btn-accent">Continuar</a>
+                        {% else %}
+                        <a href="{{ url_for('web_inventory.physical_count_detail', count_id=c.id) }}" class="btn btn-sm btn-ghost">Ver</a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="8" class="text-center text-muted">No hay conteos físicos.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+</div>
+{% endblock %}

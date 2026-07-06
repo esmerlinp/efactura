@@ -1,0 +1,66 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}Calendario de Ausencias — {{ product_name }}{% endblock %}
+{% block content %}
+{% include "rrhh/_styles.html" %}
+<div class="page-header hr-page-header">
+    <h1 class="page-title"><i class="fa-solid fa-calendar-days"></i> Calendario de Ausencias</h1>
+    <div style="display:flex; gap:8px; align-items:center;">
+        <a href="?year={{ year-1 }}&month={{ month }}" class="btn btn-ghost btn-sm" title="Año anterior"><i class="fa-solid fa-backward"></i></a>
+        <a href="{% if month == 1 %}?year={{ year-1 }}&month=12{% else %}?year={{ year }}&month={{ month-1 }}{% endif %}" class="btn btn-ghost btn-sm"><i class="fa-solid fa-chevron-left"></i></a>
+        <span style="font-weight:700; font-size:1.1rem; min-width:160px; text-align:center;">{{ months_es[month-1] }} {{ year }}</span>
+        <a href="{% if month == 12 %}?year={{ year+1 }}&month=1{% else %}?year={{ year }}&month={{ month+1 }}{% endif %}" class="btn btn-ghost btn-sm"><i class="fa-solid fa-chevron-right"></i></a>
+        <a href="?year={{ year+1 }}&month={{ month }}" class="btn btn-ghost btn-sm" title="Año siguiente"><i class="fa-solid fa-forward"></i></a>
+    </div>
+</div>
+
+<div class="card-table-wrapper hr-table-card">
+    <div class="table-header-row">
+        <h3>Ausencias programadas — {{ months_es[month-1] }} {{ year }}</h3>
+        <span class="badge badge-info">{{ events|length }} eventos</span>
+    </div>
+    {% if events %}
+    <div class="table-responsive">
+        <table class="table-premium" style="font-size:0.85rem;">
+            <thead>
+                <tr>
+                    <th>Empleado</th>
+                    <th>Tipo</th>
+                    <th>Desde</th>
+                    <th>Hasta</th>
+                    <th>Días</th>
+                    <th>Detalle</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for ev in events | sort(attribute='start') %}
+                {% set in_month = (ev.start[:7] == year|string + '-' + '%02d'|format(month)) or (ev.end[:7] == year|string + '-' + '%02d'|format(month)) or (ev.start < year|string + '-' + '%02d'|format(month) + '-01' and ev.end > year|string + '-' + '%02d'|format(month) + '-%02d'|format(num_days)) %}
+                {% if in_month %}
+                <tr>
+                    <td><strong>{{ ev.employeeName }}</strong></td>
+                    <td>
+                        {% if ev.type == 'vacation' %}
+                        <span class="badge badge-success"><i class="fa-solid fa-umbrella-beach"></i> Vacaciones</span>
+                        {% else %}
+                        <span class="badge badge-warning">{{ ev.leaveType }}</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ ev.start }}</td>
+                    <td>{{ ev.end }}</td>
+                    <td>{{ ev.days }} días</td>
+                    <td style="font-size:0.78rem; color:var(--text-muted);">
+                        {% if ev.type == 'vacation' %}Solicitud de vacaciones{% elif ev.type == 'leave' %}{{ ev.leaveType }}{% endif %}
+                    </td>
+                </tr>
+                {% endif %}
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p style="color:var(--text-muted); text-align:center; padding:32px;">
+        <i class="fa-solid fa-circle-check" style="font-size:1.5rem; display:block; margin-bottom:8px; opacity:0.4;"></i>
+        Sin ausencias programadas para {{ months_es[month-1] }} {{ year }}.
+    </p>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,248 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}Nómina {{ period.get('periodRange') or period.periodKey }} — {{ product_name }}{% endblock %}
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/_dashboard.css') }}?v={{ static_hash('css/_dashboard.css') }}">
+{% endblock %}
+{% block content %}
+<div class="dashboard-container">
+<div class="page-title-container" style="margin-bottom: 0; padding-left: 4px;">
+    <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:var(--space-4); flex-wrap:wrap;">
+        <h1 class="page-title" style="font-size: 1.75rem; font-weight: 800; margin: 0;">
+            <i class="fa-solid fa-file-invoice-dollar"></i> Nómina {{ period.get('periodRange') or period.periodKey }}
+        </h1>
+        <div style="display:flex; gap:var(--space-2); flex-wrap:wrap;">
+            <a href="{{ url_for('web_rrhh.payroll_tss_export', period_id=period.id) }}" class="btn btn-primary">
+                <i class="fa-solid fa-file-csv"></i> Exportar TSS
+            </a>
+            <a href="{{ url_for('web_rrhh.payroll_bank_export', period_id=period.id, bank='popular') }}" class="btn btn-ghost">
+                <i class="fa-solid fa-building-columns"></i> Archivo Banco
+            </a>
+            <a href="{{ url_for('web_rrhh.payroll_dashboard') }}" class="btn btn-ghost">
+                <i class="fa-solid fa-arrow-left"></i> Volver
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Totales -->
+<div class="small-metrics-grid" style="margin-bottom:var(--space-4);">
+    <div class="small-metric">
+        <div class="label">Período</div>
+        <div class="value" style="font-size:0.95rem;">{{ period.get('periodRange') or period.periodKey }}
+            <span style="font-size:0.7rem; color:var(--text-muted); background:var(--bg-nav-hover); padding:1px 8px; border-radius:99px; margin-left:4px;">
+                {{ period.get('periodType','mensual') }}
+            </span>
+        </div>
+    </div>
+    <div class="small-metric">
+        <div class="label">Empleados</div>
+        <div class="value">{{ period.lines|length }}</div>
+    </div>
+    <div class="small-metric">
+        <div class="label">Total Bruto</div>
+        <div class="value">{{ "RD$ {:,.2f}".format(period.totalGross|float) }}</div>
+    </div>
+    <div class="small-metric">
+        <div class="label">Total Neto</div>
+        <div class="value" style="color:var(--accent-emerald);">{{ "RD$ {:,.2f}".format(period.totalNet|float) }}</div>
+    </div>
+    <div class="small-metric">
+        <div class="label">Aportes Empleador</div>
+        <div class="value" style="color:var(--accent-purple);">{{ "RD$ {:,.2f}".format(period.totalEmployerContrib|float) }}</div>
+    </div>
+</div>
+
+<!-- Workflow Status -->
+{% set statuses = ['borrador','calculada','validada','aprobada','contabilizada','pagada','cerrada'] %}
+{% set status_labels = {'borrador':'Borrador','calculada':'Calculada','validada':'Validada','aprobada':'Aprobada','contabilizada':'Contabilizada','pagada':'Pagada','cerrada':'Cerrada'} %}
+{% set current_idx = statuses.index(period.get('status','borrador')) %}
+<div class="card-table-wrapper" style="padding:16px 24px; margin-bottom:16px;">
+    <div style="display:flex; align-items:center; gap:0; flex-wrap:wrap;">
+    {% for s in statuses %}
+        <div style="display:flex; align-items:center; gap:0;">
+            <div style="display:flex; flex-direction:column; align-items:center; min-width:70px;">
+                <div style="width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+                    {% if statuses.index(s) < current_idx %}
+                        background:var(--accent-emerald); color:#fff;
+                    {% elif statuses.index(s) == current_idx %}
+                        background:var(--accent-emerald); color:#fff; box-shadow:0 0 0 4px rgba(16,185,129,0.2);
+                    {% else %}
+                        background:var(--bg-nav-hover); color:var(--text-muted);
+                    {% endif %}
+                    font-size:0.72rem; font-weight:700;">
+                    {% if statuses.index(s) < current_idx %}<i class="fa-solid fa-check"></i>{% else %}{{ loop.index }}{% endif %}
+                </div>
+                <div style="font-size:0.65rem; font-weight:600; margin-top:4px; color:
+                    {% if statuses.index(s) <= current_idx %}var(--text-primary){% else %}var(--text-muted){% endif %};">
+                    {{ status_labels[s] }}
+                </div>
+            </div>
+            {% if not loop.last %}
+            <div style="width:24px; height:2px; background:
+                {% if statuses.index(s) < current_idx %}var(--accent-emerald){% else %}var(--border-color){% endif %};
+                margin:0 4px; margin-bottom:18px;"></div>
+            {% endif %}
+        </div>
+    {% endfor %}
+    </div>
+</div>
+
+<!-- Workflow Actions -->
+{% set s = period.get('status','borrador') %}
+<div class="card-table-wrapper" style="padding:14px 24px; margin-bottom:16px; background:var(--bg-nav-hover); border-style:dashed;">
+    <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+        <span style="font-weight:600; font-size:0.85rem;">Acciones:</span>
+        {% if s == 'calculada' %}
+        <form method="POST" action="{{ url_for('web_rrhh.payroll_validate', period_id=period.id) }}" style="margin:0;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-primary btn-sm">
+                <i class="fa-solid fa-check-circle"></i> Validar
+            </button>
+        </form>
+        <form method="POST" action="{{ url_for('web_rrhh.payroll_recalculate', period_id=period.id) }}" style="margin:0;"
+              onsubmit="return confirm('¿Revertir nómina a borrador para recalcular?')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-ghost btn-sm" style="color:var(--danger);">
+                <i class="fa-solid fa-undo"></i> Recalcular
+            </button>
+        </form>
+        {% elif s == 'validada' %}
+        <form method="POST" action="{{ url_for('web_rrhh.payroll_approve', period_id=period.id) }}" style="margin:0;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-primary btn-sm">
+                <i class="fa-solid fa-thumbs-up"></i> Aprobar
+            </button>
+        </form>
+        <form method="POST" action="{{ url_for('web_rrhh.payroll_recalculate', period_id=period.id) }}" style="margin:0;"
+              onsubmit="return confirm('¿Revertir nómina a borrador?')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-ghost btn-sm" style="color:var(--danger);">
+                <i class="fa-solid fa-undo"></i> Recalcular
+            </button>
+        </form>
+        {% elif s == 'aprobada' %}
+        <form method="POST" action="{{ url_for('web_rrhh.payroll_post', period_id=period.id) }}" style="margin:0;"
+              onsubmit="return confirm('¿Contabilizar la nómina? Se generará el asiento contable automáticamente.')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-primary btn-sm">
+                <i class="fa-solid fa-book"></i> Contabilizar
+            </button>
+        </form>
+        {% elif s == 'contabilizada' %}
+        <form method="POST" action="{{ url_for('web_rrhh.payroll_pay', period_id=period.id) }}" style="margin:0;"
+              onsubmit="return confirm('¿Confirmar pago de nómina?')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-primary btn-sm">
+                <i class="fa-solid fa-money-bill-wave"></i> Registrar Pago
+            </button>
+        </form>
+        {% elif s == 'pagada' %}
+        <form method="POST" action="{{ url_for('web_rrhh.payroll_close', period_id=period.id) }}" style="margin:0;"
+              onsubmit="return confirm('¿Cerrar definitivamente el período? No se podrá modificar.')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-primary btn-sm">
+                <i class="fa-solid fa-lock"></i> Cerrar Período
+            </button>
+        </form>
+        {% elif s == 'cerrada' %}
+        <span style="color:var(--text-muted); font-size:0.85rem;"><i class="fa-solid fa-lock"></i> Período cerrado. Sin acciones disponibles.</span>
+        {% elif s == 'borrador' %}
+        <span style="color:var(--text-secondary); font-size:0.85rem;">
+            <i class="fa-solid fa-circle-info"></i> Este período está en borrador. Recalcule la nómina para actualizarlo.
+        </span>
+        <a href="{{ url_for('web_rrhh.payroll_new') }}" class="btn btn-primary btn-sm">
+            <i class="fa-solid fa-calculator"></i> Calcular Nómina
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Status history if available -->
+{% set history = period.get('statusHistory', []) %}
+{% if history %}
+<div class="card-table-wrapper" style="padding:14px 24px; margin-bottom:16px;">
+    <div style="font-family:var(--font-heading); font-weight:600; font-size:0.85rem; margin-bottom:8px;">
+        <i class="fa-solid fa-clock-rotate-left"></i> Historial de cambios
+    </div>
+    <div style="font-size:0.78rem;">
+    {% for h in history %}
+    <div style="padding:4px 0; border-bottom:1px solid var(--border-color); display:flex; justify-content:space-between; flex-wrap:wrap;">
+        <span>{{ status_labels.get(h.from, h.from) }} → {{ status_labels.get(h.to, h.to) }}</span>
+        <span style="color:var(--text-muted);">{{ h.by or '—' }} · {{ h.at[:16] if h.at else '—' }}</span>
+    </div>
+    {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<!-- Detalle por empleado -->
+<div class="card-table-wrapper">
+    <div class="table-header-row">
+        <div>
+            <div style="font-family:var(--font-heading); font-weight:600; font-size:0.9rem; color:var(--text-primary);">Detalle por empleado</div>
+            <p style="color:var(--text-secondary); font-size:var(--text-sm); margin:4px 0 0;">Desglose de ingresos, deducciones legales, ISR, INFOTEP y salario neto del período.</p>
+        </div>
+    </div>
+    <div class="table-responsive">
+        <table class="table-premium" style="font-size:0.82rem; min-width:1200px;">
+        <thead>
+            <tr>
+                <th>Empleado</th>
+                <th>Cédula</th>
+                <th>Cargo</th>
+                <th style="text-align:right;">Bruto</th>
+                <th style="text-align:right;">AFP</th>
+                <th style="text-align:right;">SFS</th>
+                <th style="text-align:right;">INFOTEP</th>
+                <th style="text-align:right;">ISR</th>
+                <th style="text-align:right;">Otras Ded.</th>
+                <th style="text-align:right;">Neto</th>
+                <th style="text-align:right;">Aportes Emp.</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for l in period.lines %}
+            <tr>
+                <td><strong>{{ l.employeeName }}</strong></td>
+                <td>{{ l.cedula }}</td>
+                <td>{{ l.position }}</td>
+                <td style="text-align:right;">{{ "RD$ {:,.2f}".format(l.totalIncome|float) }}</td>
+                <td style="text-align:right;">{{ "RD$ {:,.2f}".format(l.afpEmployee|float) }}</td>
+                <td style="text-align:right;">{{ "RD$ {:,.2f}".format(l.sfsEmployee|float) }}</td>
+                <td style="text-align:right;">{{ "RD$ {:,.2f}".format(l.get('infotepEmployee', 0)|float) }}</td>
+                <td style="text-align:right;">{{ "RD$ {:,.2f}".format(l.isrRetention|float) }}</td>
+                <td style="text-align:right;">{{ "RD$ {:,.2f}".format(l.otherDeductions|float) }}</td>
+                <td style="text-align:right; font-weight:700; color:var(--accent-emerald);">{{ "RD$ {:,.2f}".format(l.netSalary|float) }}</td>
+                <td style="text-align:right;">{{ "RD$ {:,.2f}".format(l.totalEmployerContrib|float) }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        <tfoot>
+            <tr style="font-weight:700; background:var(--bg-nav-hover);">
+                <td colspan="3">Totales</td>
+                <td style="text-align:right;">{{ "RD$ {:,.2f}".format(period.totalGross|float) }}</td>
+                <td style="text-align:right;">—</td>
+                <td style="text-align:right;">—</td>
+                <td style="text-align:right;">—</td>
+                <td style="text-align:right;">—</td>
+                <td style="text-align:right;">—</td>
+                <td style="text-align:right; color:var(--accent-emerald);">{{ "RD$ {:,.2f}".format(period.totalNet|float) }}</td>
+                <td style="text-align:right;">{{ "RD$ {:,.2f}".format(period.totalEmployerContrib|float) }}</td>
+            </tr>
+        </tfoot>
+        </table>
+    </div>
+</div>
+
+{% if period.notes %}
+<div class="card-table-wrapper" style="margin-top:var(--space-4);">
+    <div style="padding:var(--space-4) 24px;">
+        <div style="font-family:var(--font-heading); font-weight:600; font-size:0.9rem; color:var(--text-primary); margin-bottom:var(--space-2);">
+            <i class="fa-regular fa-note-sticky"></i> Notas
+        </div>
+        <p style="color:var(--text-secondary); margin:0;">{{ period.notes }}</p>
+    </div>
+</div>
+{% endif %}
+</div>
+{% endblock %}

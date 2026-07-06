@@ -1,0 +1,31 @@
+{% extends "layout.html" %}
+{% block title %}Nuevo Conteo Físico — {{ product_name }}{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title"><i class="fa-solid fa-clipboard-check"></i> Nuevo Conteo Físico</h1>
+</div>
+
+<div class="card" style="max-width:500px;">
+    <form method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="card-body">
+            <div class="form-group">
+                <label>Almacén a contar</label>
+                <select name="warehouseId" class="form-control" required>
+                    <option value="">Seleccione...</option>
+                    {% for w in warehouses %}
+                    <option value="{{ w.id }}">{{ w.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <p class="text-muted" style="margin-top:12px;">
+                <i class="fa-solid fa-info-circle"></i> Se tomará una foto del stock actual al iniciar. Podrá registrar cantidades por producto y finalizar cuando termine.
+            </p>
+        </div>
+        <div class="card-footer" style="display:flex; gap:12px; justify-content: flex-end;">
+            <a href="{{ url_for('web_inventory.physical_count_list') }}" class="btn btn-ghost">Cancelar</a>
+            <button type="submit" class="btn btn-accent">Iniciar Conteo</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

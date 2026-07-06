@@ -1,0 +1,100 @@
+{% extends "layout.html" %}
+{% block title %}BI Drill-down — {{ data.title }}{% endblock %}
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/_dashboard.css') }}?v={{ static_hash('css/_dashboard.css') }}">
+{% endblock %}
+{% block content %}
+<div class="dashboard-container">
+<div class="page-title-container" style="margin-bottom: 0; padding-left: 4px;">
+    <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:var(--space-4); flex-wrap:wrap;">
+        <div>
+            <h1 class="page-title"
+                style="font-size: 1.75rem; font-weight: 800; font-family: var(--font-heading); color: var(--text-primary); margin: 0;">
+                <i class="fa-solid fa-magnifying-glass-chart"></i> Drill-down: {{ data.title }}
+            </h1>
+            <p style="color:var(--text-secondary); margin:6px 0 0; font-size:var(--text-sm);">Navega desde el KPI hasta los documentos origen.</p>
+        </div>
+        <form method="GET" style="display:flex; gap:var(--space-2);">
+            <select name="year" class="form-input">
+                {% for y in years %}
+                <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>
+                {% endfor %}
+            </select>
+            <select name="month" class="form-input">
+                <option value="0" {% if month == 0 %}selected{% endif %}>Todo el año</option>
+                {% for m in range(1, 13) %}
+                <option value="{{ m }}" {% if m == month %}selected{% endif %}>Mes {{ m }}</option>
+                {% endfor %}
+            </select>
+            <button class="btn btn-secondary" type="submit">Filtrar</button>
+        </form>
+    </div>
+</div>
+
+<div class="small-metrics-grid">
+    <div class="small-metric">
+        <div class="label">Registros</div>
+        <div class="value">{{ data.count }}</div>
+    </div>
+    <div class="small-metric">
+        <div class="label">Total / variación</div>
+        <div class="value">RD$ {{ "{:,.2f}".format(data.total) }}</div>
+    </div>
+    <div class="small-metric">
+        <div class="label">Periodo</div>
+        <div class="value">{{ data.year }}{% if data.month %}-{{ "%02d"|format(data.month) }}{% endif %}</div>
+    </div>
+</div>
+
+<div style="display:flex; gap:var(--space-2); flex-wrap:wrap; margin-bottom:var(--space-4);">
+    {% for key, label in metrics.items() %}
+    <a class="btn btn-sm {% if key == data.metric %}btn-accent{% else %}btn-secondary{% endif %}" href="{{ url_for('web_bi.drilldown', metric=key, year=year, month=month) }}">{{ label }}</a>
+    {% endfor %}
+</div>
+
+<div class="card-table-wrapper">
+    <div class="table-header-row" style="margin-bottom:16px;">
+        <span style="font-family:var(--font-heading); font-weight:600; font-size:0.9rem; color:var(--text-primary);">
+            {{ data.title }}
+        </span>
+    </div>
+    <div class="table-responsive">
+        <table class="table-premium">
+            <thead>
+                <tr>
+                    {% for col in data.columns %}
+                    <th>{{ col }}</th>
+                    {% endfor %}
+                    <th>Detalle</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in data.rows %}
+                <tr>
+                    <td>{{ row.date }}</td>
+                    <td>{{ row.doc }}</td>
+                    <td>{{ row.name }}</td>
+                    <td>{{ row.status }}</td>
+                    <td>
+                        RD$ {{ "{:,.2f}".format(row.amount) }}
+                        {% if row.pct is defined %}
+                        <span class="badge badge-info">{{ row.pct }}%</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if row.href %}
+                        <a href="{{ row.href }}" class="btn btn-sm btn-ghost"><i class="fa-solid fa-eye"></i></a>
+                        {% else %}
+                        <span style="color:var(--text-muted);">—</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:var(--space-6);">No hay datos para este filtro.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+</div>
+{% endblock %}

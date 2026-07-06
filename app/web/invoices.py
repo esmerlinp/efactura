@@ -1593,6 +1593,19 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
                         else:
                             import logging
                             logging.getLogger(__name__).warning(f"Asiento contable no generado para factura {invoice_dict.get('invoiceNumber')}")
+
+                        # Event Bus: notificar emisión de factura cobrada
+                        try:
+                            from app.events import get_event_bus, InvoiceEmitted
+                            get_event_bus().publish(InvoiceEmitted(
+                                owner_uid=owner_uid,
+                                invoice_id=target_invoice_id,
+                                invoice_number=invoice_dict.get("invoiceNumber", ""),
+                                invoice_data=invoice_dict,
+                                sandbox=sandbox,
+                            ))
+                        except Exception:
+                            pass
                     else:
                         invoice_dict["status"] = "Pendiente DGII" if pending_dgii else "Emitida"
                         invoice_dict["totalPaid"] = 0.0
@@ -1609,6 +1622,19 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
                         else:
                             import logging
                             logging.getLogger(__name__).warning(f"Asiento contable no generado para {invoice_dict.get('invoiceNumber')}")
+
+                        # Event Bus: notificar emisión de factura
+                        try:
+                            from app.events import get_event_bus, InvoiceEmitted
+                            get_event_bus().publish(InvoiceEmitted(
+                                owner_uid=owner_uid,
+                                invoice_id=target_invoice_id,
+                                invoice_number=invoice_dict.get("invoiceNumber", ""),
+                                invoice_data=invoice_dict,
+                                sandbox=sandbox,
+                            ))
+                        except Exception:
+                            pass
                     
                     logs = DatabaseService.get_sequence_logs(owner_uid, sandbox=sandbox)
                     log = next((l for l in logs if l["encf"] == res.get("encf")), None)

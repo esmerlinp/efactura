@@ -1,0 +1,264 @@
+<style>
+    .hr-page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 16px;
+        flex-wrap: wrap;
+        margin-bottom: 24px;
+        padding-left: 4px;
+    }
+
+    .hr-page-actions {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        align-items: center;
+    }
+
+    .hr-main-col {
+        max-width: 960px;
+        margin: 0 auto;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+    }
+
+    .hr-section-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-md);
+        padding: 22px 24px;
+        box-shadow: var(--shadow-sm);
+    }
+
+    .hr-section-card h3 {
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin: 0 0 16px 0;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .hr-section-card h3 i {
+        color: var(--accent-emerald);
+        font-size: 0.95rem;
+    }
+
+    .hr-form-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 16px;
+    }
+
+    .hr-form-grid .form-group {
+        margin-bottom: 0;
+    }
+
+    .hr-actions-bar {
+        display: flex;
+        justify-content: flex-end;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+    }
+
+    .hr-actions-card {
+        background: transparent;
+        border: none;
+        box-shadow: none;
+        padding: 0;
+    }
+
+    .hr-table-card {
+        margin-bottom: 20px;
+    }
+
+    .hr-table-card .table-responsive {
+        width: 100%;
+        overflow-x: auto;
+    }
+
+    .hr-table-card .table-header-row h3 {
+        font-size: 1.25rem;
+        font-family: var(--font-heading);
+        margin: 0 0 6px 0;
+    }
+
+    .hr-table-card .table-header-row p {
+        color: var(--text-secondary);
+        font-size: 0.88rem;
+        margin: 0;
+    }
+
+    .hr-table-actions {
+        display: flex;
+        gap: 6px;
+        justify-content: flex-end;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+
+    .hr-summary-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 16px;
+    }
+
+    .hr-detail-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 20px;
+    }
+
+    .hr-info-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+        gap: 14px;
+    }
+
+    .hr-info-item {
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-sm);
+        padding: 12px 14px;
+        background: rgba(255, 255, 255, 0.01);
+    }
+
+    .hr-info-label {
+        display: block;
+        margin-bottom: 4px;
+        color: var(--text-muted);
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+    }
+
+    .hr-info-value {
+        color: var(--text-primary);
+        font-size: 0.9rem;
+        font-weight: 600;
+    }
+
+    .hr-document-sheet {
+        position: relative;
+        overflow: hidden;
+    }
+
+    .hr-document-sheet::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 5px;
+        background: linear-gradient(90deg, var(--accent-emerald), var(--accent-purple));
+    }
+
+    .hr-person-card {
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-sm);
+        padding: 12px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        background: var(--bg-card);
+        transition: transform var(--transition-fast), box-shadow var(--transition-fast), border-color var(--transition-fast);
+    }
+
+    .hr-person-card:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-md);
+        border-color: rgba(16, 185, 129, 0.35);
+    }
+
+    .hr-avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, var(--accent-emerald), var(--accent-purple));
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #fff;
+        font-weight: 700;
+        flex-shrink: 0;
+    }
+
+    .hr-inline-filter {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        flex-wrap: wrap;
+        margin: 0;
+    }
+
+    .hr-att-cell {
+        text-align: center;
+        cursor: pointer;
+        border-radius: 4px;
+        font-weight: 700;
+    }
+
+    .hr-att-cell.bg-success { background: rgba(34,197,94,0.16); color: var(--accent-emerald); }
+    .hr-att-cell.bg-danger { background: rgba(239,68,68,0.16); color: var(--danger); }
+    .hr-att-cell.bg-warning { background: rgba(234,179,8,0.18); color: #b45309; }
+    .hr-att-cell.bg-info { background: rgba(59,130,246,0.16); color: var(--accent-blue); }
+
+    .hr-status-btn {
+        padding: 10px 12px;
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-sm);
+        background: var(--bg-input);
+        color: var(--text-primary);
+        cursor: pointer;
+        text-align: left;
+        transition: all var(--transition-fast);
+    }
+
+    .hr-status-btn:hover,
+    .hr-status-btn.selected {
+        border-color: var(--accent-emerald);
+        background: rgba(16,185,129,0.08);
+    }
+
+    .hr-empty-state {
+        text-align: center;
+        padding: 46px 18px;
+        color: var(--text-secondary);
+    }
+
+    .hr-empty-state i {
+        display: block;
+        margin-bottom: 12px;
+        color: var(--text-muted);
+        font-size: 2.5rem;
+        opacity: 0.55;
+    }
+
+    .hr-checkbox-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 0;
+    }
+
+    .hr-checkbox-row input {
+        width: 16px;
+        height: 16px;
+        accent-color: var(--accent-emerald);
+    }
+
+    @media screen and (max-width: 768px) {
+        .hr-section-card {
+            padding: 18px;
+        }
+
+        .hr-actions-bar,
+        .hr-page-actions {
+            justify-content: flex-start;
+        }
+    }
+</style>

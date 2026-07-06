@@ -1,0 +1,72 @@
+{% extends "layout.html" %}
+{% block title %}Agenda CRM — {{ product_name }}{% endblock %}
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/_dashboard.css') }}?v={{ static_hash('css/_dashboard.css') }}">
+{% endblock %}
+{% block content %}
+<div class="dashboard-container">
+<div class="page-title-container" style="margin-bottom: 0; padding-left: 4px;">
+    <h1 class="page-title"
+        style="font-size: 1.75rem; font-weight: 800; font-family: var(--font-heading); color: var(--text-primary); margin: 0;">
+        <i class="fa-solid fa-calendar-check"></i> Agenda CRM
+    </h1>
+</div>
+
+<div style="display:flex; gap:var(--space-2); margin-bottom:var(--space-4); flex-wrap:wrap;">
+    <a href="{{ url_for('web_crm.activities', status='pendientes') }}" class="btn btn-sm {% if status == 'pendientes' %}btn-accent{% else %}btn-secondary{% endif %}">Pendientes</a>
+    <a href="{{ url_for('web_crm.activities', status='hoy') }}" class="btn btn-sm {% if status == 'hoy' %}btn-accent{% else %}btn-secondary{% endif %}">Hoy</a>
+    <a href="{{ url_for('web_crm.activities', status='vencidas') }}" class="btn btn-sm {% if status == 'vencidas' %}btn-accent{% else %}btn-secondary{% endif %}">Vencidas</a>
+    <a href="{{ url_for('web_crm.activities', status='completadas') }}" class="btn btn-sm {% if status == 'completadas' %}btn-accent{% else %}btn-secondary{% endif %}">Completadas</a>
+    <a href="{{ url_for('web_crm.activities', status='todas') }}" class="btn btn-sm {% if status == 'todas' %}btn-accent{% else %}btn-secondary{% endif %}">Todas</a>
+</div>
+
+<div class="card-table-wrapper">
+    <div class="table-responsive">
+        <table class="table-premium">
+            <thead>
+                <tr><th>Actividad</th><th>Contacto</th><th>Tipo</th><th>Fecha</th><th>Prioridad</th><th>Estado</th><th>Acciones</th></tr>
+            </thead>
+            <tbody>
+                {% for activity in activities %}
+                <tr>
+                    <td>
+                        <strong>{{ activity.title }}</strong>
+                        {% if activity.description %}<div style="font-size:var(--text-xs); color:var(--text-muted);">{{ activity.description[:120] }}</div>{% endif %}
+                    </td>
+                    <td>
+                        {% if activity.contactId %}
+                        <a href="{{ url_for('web_contacts.contact_detail', contact_id=activity.contactId) }}">{{ activity.contactName or 'Ver contacto' }}</a>
+                        {% else %}{{ activity.contactName or '—' }}{% endif %}
+                    </td>
+                    <td>{{ activity.type }}</td>
+                    <td>
+                        {{ activity.dueDate or '—' }}
+                        {% if activity.isOverdue %}<span class="badge badge-danger">Vencida</span>{% elif activity.isDueToday %}<span class="badge badge-warning">Hoy</span>{% endif %}
+                    </td>
+                    <td><span class="badge badge-{{ 'danger' if activity.priority == 'urgente' else 'warning' if activity.priority == 'alta' else 'info' }}">{{ activity.priority }}</span></td>
+                    <td>{{ activity.status }}</td>
+                    <td>
+                        <div style="display:flex; gap:var(--space-1); flex-wrap:wrap;">
+                            <a href="{{ url_for('web_crm.activity_edit', activity_id=activity.id) }}" class="btn btn-xs btn-secondary">Editar</a>
+                            {% if activity.status == 'pendiente' %}
+                            <form method="POST" action="{{ url_for('web_crm.activity_complete', activity_id=activity.id) }}">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button class="btn btn-xs btn-success">Completar</button>
+                            </form>
+                            {% endif %}
+                            <form method="POST" action="{{ url_for('web_crm.activity_delete', activity_id=activity.id) }}" onsubmit="return confirm('¿Eliminar esta actividad?')">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button class="btn btn-xs btn-danger">Eliminar</button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="7" class="text-center text-muted">No hay actividades para este filtro.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+</div>
+{% endblock %}

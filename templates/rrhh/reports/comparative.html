@@ -1,0 +1,75 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}Comparativa de Períodos — {{ product_name }}{% endblock %}
+{% block content %}
+{% include "rrhh/_styles.html" %}
+<div class="page-header hr-page-header">
+    <h1 class="page-title"><i class="fa-solid fa-scale-balanced"></i> Comparativa de Períodos</h1>
+    <a href="{{ url_for('web_rrhh.reports_index') }}" class="btn btn-ghost"><i class="fa-solid fa-arrow-left"></i> Reportes</a>
+</div>
+
+<form method="GET" style="margin-bottom:16px; display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap;">
+    <div class="form-group" style="margin:0;">
+        <label>Período 1</label>
+        <select name="p1" class="form-select" style="width:200px;" required>
+            <option value="">Seleccionar</option>
+            {% for k in period_keys %}
+            <option value="{{ k }}" {% if k == p1_key %}selected{% endif %}>{{ k }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="form-group" style="margin:0;">
+        <label>Período 2</label>
+        <select name="p2" class="form-select" style="width:200px;" required>
+            <option value="">Seleccionar</option>
+            {% for k in period_keys %}
+            <option value="{{ k }}" {% if k == p2_key %}selected{% endif %}>{{ k }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <button type="submit" class="btn btn-primary">Comparar</button>
+</form>
+
+{% if comparison %}
+<div class="card-table-wrapper hr-table-card">
+    <div class="table-header-row"><h3>{{ comparison.p1_label }} vs {{ comparison.p2_label }}</h3></div>
+    <div class="table-responsive">
+        <table class="table-premium">
+        <thead><tr><th>Indicador</th><th style="text-align:right;">{{ comparison.p1_label }}</th><th style="text-align:right;">{{ comparison.p2_label }}</th><th style="text-align:right;">Diferencia</th><th style="text-align:right;">Variación %</th></tr></thead>
+        <tbody>
+            <tr>
+                <td><strong>Empleados</strong></td>
+                <td style="text-align:right;">{{ comparison.t1.count }}</td>
+                <td style="text-align:right;">{{ comparison.t2.count }}</td>
+                <td style="text-align:right; color:{% if comparison.count_diff >= 0 %}var(--accent-emerald){% else %}var(--danger){% endif %};">{{ '%+d' % comparison.count_diff }}</td>
+                <td style="text-align:right;">—</td>
+            </tr>
+            <tr>
+                <td><strong>Total Bruto</strong></td>
+                <td style="text-align:right;">RD$ {{ "{:,.2f}".format(comparison.t1.gross) }}</td>
+                <td style="text-align:right;">RD$ {{ "{:,.2f}".format(comparison.t2.gross) }}</td>
+                <td style="text-align:right; color:{% if comparison.gross_diff >= 0 %}var(--accent-emerald){% else %}var(--danger){% endif %};">
+                    RD$ {{ '%+,.2f' % comparison.gross_diff }}</td>
+                <td style="text-align:right;">{{ '%+.1f' % comparison.gross_pct }}%</td>
+            </tr>
+            <tr>
+                <td><strong>Total Neto</strong></td>
+                <td style="text-align:right;">RD$ {{ "{:,.2f}".format(comparison.t1.net) }}</td>
+                <td style="text-align:right;">RD$ {{ "{:,.2f}".format(comparison.t2.net) }}</td>
+                <td style="text-align:right; color:{% if comparison.net_diff >= 0 %}var(--accent-emerald){% else %}var(--danger){% endif %};">
+                    RD$ {{ '%+,.2f' % comparison.net_diff }}</td>
+                <td style="text-align:right;">{{ '%+.1f' % comparison.net_pct }}%</td>
+            </tr>
+            <tr>
+                <td><strong>Aportes Empleador</strong></td>
+                <td style="text-align:right;">RD$ {{ "{:,.2f}".format(comparison.t1.employer) }}</td>
+                <td style="text-align:right;">RD$ {{ "{:,.2f}".format(comparison.t2.employer) }}</td>
+                <td style="text-align:right; color:{% if comparison.employer_diff >= 0 %}var(--accent-emerald){% else %}var(--danger){% endif %};">
+                    RD$ {{ '%+,.2f' % comparison.employer_diff }}</td>
+                <td style="text-align:right;">—</td>
+            </tr>
+        </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

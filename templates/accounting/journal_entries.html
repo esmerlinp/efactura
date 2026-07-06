@@ -1,6 +1,9 @@
 {% extends "layout.html" %}
 {% block title %}Entradas de Diario{% endblock %}
 {% block page_header %}Entradas de Diario{% endblock %}
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/_dashboard.css') }}?v={{ static_hash('css/_dashboard.css') }}">
+{% endblock %}
 {% block content %}
 <div class="page-title-container" style="margin-bottom: 24px; padding-left: 4px;">
     <h1 style="font-size: 1.75rem; font-weight: 800; font-family: var(--font-heading); color: var(--text-primary); margin: 0;">
@@ -44,11 +47,11 @@
     </div>
     <div class="summary-strip-item">
         <div class="summary-strip-label">Total Débitos</div>
-        <div class="summary-strip-value" style="color: var(--accent-blue, #3b82f6);">RD$ {{ "{:,.2f}".format(total_debit.val) }}</div>
+        <div class="summary-strip-value" style="color: var(--accent-purple);">RD$ {{ "{:,.2f}".format(total_debit.val) }}</div>
     </div>
     <div class="summary-strip-item">
         <div class="summary-strip-label">Total Créditos</div>
-        <div class="summary-strip-value" style="color: var(--accent-emerald);">RD$ {{ "{:,.2f}".format(total_credit.val) }}</div>
+        <div class="summary-strip-value" style="color: var(--accent-success);">RD$ {{ "{:,.2f}".format(total_credit.val) }}</div>
     </div>
 </div>
 
@@ -93,7 +96,7 @@
             {% if entries %}
             {% for e in entries %}
             <tr style="border-bottom: 1px solid var(--border-color); {% if e.status == 'voided' %}opacity: 0.5;{% endif %}" class="je-row" data-status="{{ 'voided' if e.status == 'voided' else 'active' }}">
-                <td style="padding: 14px 16px; font-family: monospace; font-weight: 600; color: var(--accent-blue);">{{ e.number }}</td>
+                <td style="padding: 14px 16px; font-family: monospace; font-weight: 600; color: var(--accent-purple);">{{ e.number }}</td>
                 <td style="padding: 14px 16px;">{{ e.date[:10] }}</td>
                 <td style="padding: 14px 16px; max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ e.concept or '' }}</td>
                 <td style="padding: 14px 16px;">{% if e.entryType == 'initial_balance' %}Saldos Iniciales{% elif e.entryType == 'depreciation' %}Depreciación{% elif e.entryType == 'disposal' %}Baja{% else %}Estándar{% endif %}</td>

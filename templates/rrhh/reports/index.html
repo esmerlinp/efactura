@@ -1,0 +1,35 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}Reportes de Nómina — {{ product_name }}{% endblock %}
+{% block content %}
+{% include "rrhh/_styles.html" %}
+<div class="page-header hr-page-header">
+    <h1 class="page-title"><i class="fa-solid fa-file-lines"></i> Reportes de Nómina</h1>
+    <a href="{{ url_for('web_rrhh.payroll_dashboard') }}" class="btn btn-ghost"><i class="fa-solid fa-arrow-left"></i> Dashboard</a>
+</div>
+<div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:16px;">
+    <a href="{{ url_for('web_rrhh.report_department') }}" class="card-table-wrapper" style="padding:24px; text-decoration:none; transition:all 0.2s;"
+       onmouseover="this.style.borderColor='var(--accent-emerald)'" onmouseout="this.style.borderColor='var(--border-color)'">
+        <i class="fa-solid fa-building" style="font-size:1.5rem; color:var(--accent-emerald); margin-bottom:8px;"></i>
+        <h3 style="margin:0 0 4px; color:var(--text-primary);">Resumen por Departamento</h3>
+        <p style="margin:0; color:var(--text-muted); font-size:0.85rem;">Desglose de nómina por área/departamento.</p>
+    </a>
+    <a href="{{ url_for('web_rrhh.report_tss') }}" class="card-table-wrapper" style="padding:24px; text-decoration:none; transition:all 0.2s;"
+       onmouseover="this.style.borderColor='var(--accent-purple)'" onmouseout="this.style.borderColor='var(--border-color)'">
+        <i class="fa-solid fa-shield-halved" style="font-size:1.5rem; color:var(--accent-purple); margin-bottom:8px;"></i>
+        <h3 style="margin:0 0 4px; color:var(--text-primary);">Aportes TSS Mensuales</h3>
+        <p style="margin:0; color:var(--text-muted); font-size:0.85rem;">AFP, SFS, SRL, INFOTEP acumulados por mes.</p>
+    </a>
+    <a href="{{ url_for('web_rrhh.report_comparative') }}" class="card-table-wrapper" style="padding:24px; text-decoration:none; transition:all 0.2s;"
+       onmouseover="this.style.borderColor='var(--accent-blue)'" onmouseout="this.style.borderColor='var(--border-color)'">
+        <i class="fa-solid fa-scale-balanced" style="font-size:1.5rem; color:var(--accent-blue); margin-bottom:8px;"></i>
+        <h3 style="margin:0 0 4px; color:var(--text-primary);">Comparativa de Períodos</h3>
+        <p style="margin:0; color:var(--text-muted); font-size:0.85rem;">Diferencia entre dos períodos de nómina.</p>
+    </a>
+    <a href="{{ url_for('web_rrhh.report_ir18_list') }}" class="card-table-wrapper" style="padding:24px; text-decoration:none; transition:all 0.2s;"
+       onmouseover="this.style.borderColor='var(--danger)'" onmouseout="this.style.borderColor='var(--border-color)'">
+        <i class="fa-solid fa-receipt" style="font-size:1.5rem; color:var(--danger); margin-bottom:8px;"></i>
+        <h3 style="margin:0 0 4px; color:var(--text-primary);">Certificados IR-18</h3>
+        <p style="margin:0; color:var(--text-muted); font-size:0.85rem;">Comprobantes fiscales de retención ISR.</p>
+    </a>
+</div>
+{% endblock %}

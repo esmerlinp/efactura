@@ -1,0 +1,105 @@
+{% extends "layout.html" %}
+{% block title %}Inventario Avanzado — {{ product_name }}{% endblock %}
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/_dashboard.css') }}?v={{ static_hash('css/_dashboard.css') }}">
+{% endblock %}
+{% block content %}
+<div class="dashboard-container">
+<div class="page-title-container" style="margin-bottom: 0; padding-left: 4px;">
+    <h1 class="page-title"
+        style="font-size: 1.75rem; font-weight: 800; font-family: var(--font-heading); color: var(--text-primary); margin: 0;">
+        <i class="fa-solid fa-warehouse"></i> Inventario Avanzado
+    </h1>
+</div>
+
+<div class="small-metrics-grid">
+    <div class="small-metric">
+        <div class="label">Total Ítems</div>
+        <div class="value">{{ totalItems }}</div>
+    </div>
+    <div class="small-metric">
+        <div class="label">Valor Total (Costo)</div>
+        <div class="value" style="color:var(--accent-emerald);">{{ "RD$ {:,.2f}".format(totalCost) }}</div>
+    </div>
+    <div class="small-metric">
+        <div class="label">Alertas Reorden</div>
+        <div class="value" style="color:{{ 'var(--accent-red)' if reorder|length > 0 else 'var(--text-primary)' }};">{{ reorder|length }}</div>
+    </div>
+    <div class="small-metric">
+        <div class="label">Vencimientos ≤30d</div>
+        <div class="value" style="color:{% if expirations.alert_30d|length > 0 %}var(--accent-red){% else %}var(--accent-emerald){% endif %};">
+            {{ expirations.alert_30d|length }}
+        </div>
+    </div>
+</div>
+
+{% if reorder %}
+<div class="card-table-wrapper" style="margin-bottom:var(--space-4);">
+    <div class="table-header-row" style="margin-bottom:16px;">
+        <span style="font-family:var(--font-heading); font-weight:600; font-size:0.9rem; color:var(--accent-yellow);">
+            <i class="fa-solid fa-exclamation-triangle"></i> Sugerencias de Reorden
+        </span>
+    </div>
+    <div class="table-responsive">
+        <table class="table-premium">
+            <thead>
+                <tr><th>Producto</th><th>Stock</th><th>Mín</th><th>Máx</th><th>Consumo/Mes</th><th>Sugerido</th><th>Meses Stock</th><th>Severidad</th></tr>
+            </thead>
+            <tbody>
+                {% for r in reorder[:10] %}
+                <tr>
+                    <td>{{ r.itemName }}</td>
+                    <td>{{ "%.2f"|format(r.currentStock) }}</td>
+                    <td>{{ "%.2f"|format(r.minStock) }}</td>
+                    <td>{{ "%.2f"|format(r.maxStock) }}</td>
+                    <td>{{ "%.2f"|format(r.monthlyConsumption) }}</td>
+                    <td><strong>{{ "%.2f"|format(r.suggestedOrder) }}</strong></td>
+                    <td>{{ r.monthsOfStock }}</td>
+                    <td><span class="badge badge-{{ 'danger' if r.severity == 'critico' else 'warning' if r.severity == 'alto' else 'info' }}">{{ r.severity }}</span></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+{% if expirations.alert_30d %}
+<div class="card-table-wrapper" style="margin-bottom:var(--space-4);">
+    <div class="table-header-row" style="margin-bottom:16px;">
+        <span style="font-family:var(--font-heading); font-weight:600; font-size:0.9rem; color:var(--accent-red);">
+            <i class="fa-solid fa-clock"></i> Próximos a Vencer (≤30 días)
+        </span>
+    </div>
+    <div class="table-responsive">
+        <table class="table-premium">
+            <thead><tr><th>Producto</th><th>Lote</th><th>Cantidad</th><th>Vence</th><th>Días Rest.</th></tr></thead>
+            <tbody>
+                {% for e in expirations.alert_30d %}
+                <tr>
+                    <td>{{ e.itemName }}</td><td>{{ e.lotNumber }}</td><td>{{ "%.2f"|format(e.quantity) }}</td>
+                    <td>{{ e.expirationDate }}</td><td><span class="badge badge-danger">{{ e.daysLeft }}d</span></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<div style="display:flex; gap:var(--space-3); flex-wrap:wrap; margin-top:var(--space-4);">
+    <a href="{{ url_for('web_inventory.transfer_list') }}" class="btn btn-accent">
+        <i class="fa-solid fa-truck-fast"></i> Transferencias
+    </a>
+    <a href="{{ url_for('web_inventory.physical_count_list') }}" class="btn btn-accent">
+        <i class="fa-solid fa-clipboard-check"></i> Conteos Físicos
+    </a>
+    <a href="{{ url_for('web_inventory.lot_list') }}" class="btn btn-accent">
+        <i class="fa-solid fa-cubes"></i> Lotes
+    </a>
+    <a href="{{ url_for('web_inventory.alert_dashboard') }}" class="btn btn-accent">
+        <i class="fa-solid fa-bell"></i> Alertas
+    </a>
+</div>
+</div>
+{% endblock %}

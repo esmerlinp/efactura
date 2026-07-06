@@ -3649,6 +3649,48 @@ def cash_flow_export():
     )
 
 
+@web_reports_sales_bp.route('/reports/financial/cash-flow/projection')
+def cash_flow_projection():
+    if 'user' not in session:
+        return redirect(url_for('web_auth.login'))
+
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+
+    try:
+        proj_months = int(request.args.get('months', 12))
+    except ValueError:
+        proj_months = 12
+    proj_months = max(3, min(proj_months, 24))
+
+    try:
+        from app.services.cash_flow_service import CashFlowService
+        projection = CashFlowService.project_cash_flow(owner_uid, months=proj_months, sandbox=sandbox)
+        deficit_alerts = CashFlowService.get_deficit_alerts(projection)
+        current_liquidity = CashFlowService.get_current_liquidity(owner_uid, sandbox=sandbox)
+    except Exception as e:
+        flash(f'Error al generar proyección: {str(e)}', 'error')
+        projection = []
+        deficit_alerts = []
+        current_liquidity = 0.0
+
+    proj_dicts = [
+        {"key": p.key, "label": p.label, "inflow": p.inflow,
+         "outflow": p.outflow, "net": p.net, "cumulative": p.cumulative,
+         "items": p.items}
+        for p in projection
+    ]
+
+    return render_template(
+        'reports/cash_flow_projection.html',
+        active_page='cash_flow',
+        projections=proj_dicts,
+        deficit_alerts=deficit_alerts,
+        current_liquidity=current_liquidity,
+        months=proj_months,
+    )
+
+
 def _it1_coll(owner_uid, sandbox):
     from app.services.db_service import db_firestore
     coll_name = "sandbox_it1_reports" if sandbox else "it1_reports"

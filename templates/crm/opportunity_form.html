@@ -1,0 +1,117 @@
+{% extends "layout.html" %}
+{% block title %}{% if opportunity %}Editar Oportunidad{% else %}Nueva Oportunidad{% endif %} — {{ product_name }}{% endblock %}
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/_dashboard.css') }}?v={{ static_hash('css/_dashboard.css') }}">
+{% endblock %}
+{% block content %}
+{% set selected_contact = opportunity.contactId if opportunity else selected_contact_id %}
+<div class="dashboard-container">
+<div class="page-title-container" style="margin-bottom: 0; padding-left: 4px;">
+    <h1 class="page-title"
+        style="font-size: 1.75rem; font-weight: 800; font-family: var(--font-heading); color: var(--text-primary); margin: 0;">
+        <i class="fa-solid fa-bullseye"></i> {% if opportunity %}Editar Oportunidad{% else %}Nueva Oportunidad{% endif %}
+    </h1>
+</div>
+
+<div class="card-table-wrapper" style="max-width:920px;">
+    <form method="POST" action="{% if opportunity %}{{ url_for('web_crm.opportunity_edit', opportunity_id=opportunity.id) }}{% else %}{{ url_for('web_crm.opportunity_new') }}{% endif %}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="form-grid">
+            <div class="form-group" style="grid-column:1 / -1;">
+                <label>Contacto</label>
+                <select name="contactId" class="form-input" required>
+                    <option value="">Seleccionar contacto</option>
+                    {% for c in contacts %}
+                    <option value="{{ c.id }}" {% if c.id == selected_contact %}selected{% endif %}>{{ c.razonSocial }} — {{ c.rnc or c.telefono }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group" style="grid-column:1 / -1;">
+                <label>Título</label>
+                <input type="text" name="title" class="form-input" value="{{ opportunity.title if opportunity else '' }}" placeholder="Ej: Venta de implementación ERP" required>
+            </div>
+            <div class="form-group">
+                <label>Etapa</label>
+                <select name="stage" id="stage-select" class="form-input" onchange="syncProbability()">
+                    {% for st in stages %}
+                    <option value="{{ st }}" data-prob="{{ stage_probabilities.get(st, 10) }}" {% if opportunity and opportunity.stage == st %}selected{% endif %}>{{ st }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Probabilidad (%)</label>
+                <input type="number" name="probability" id="probability-input" class="form-input" min="0" max="100" value="{{ opportunity.probability if opportunity else 10 }}">
+            </div>
+            <div class="form-group">
+                <label>Monto Estimado</label>
+                <input type="number" name="amount" class="form-input" min="0" step="0.01" value="{{ opportunity.amount if opportunity else 0 }}">
+            </div>
+            <div class="form-group">
+                <label>Fecha Estimada de Cierre</label>
+                <input type="date" name="expectedCloseDate" class="form-input" value="{{ opportunity.expectedCloseDate if opportunity else '' }}">
+            </div>
+            <div class="form-group">
+                <label>Origen</label>
+                <input type="text" name="source" class="form-input" value="{{ opportunity.source if opportunity else 'Manual' }}" placeholder="Manual, Web, Referido, WhatsApp...">
+            </div>
+            <div class="form-group">
+                <label>Responsable</label>
+                <select name="assignedTo" class="form-input">
+                    <option value="">Owner / Propietario</option>
+                    {% for colab in collaborators %}
+                    <option value="{{ colab.uid }}" {% if opportunity and opportunity.assignedTo == colab.uid %}selected{% endif %}>{{ colab.name or colab.email }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Cotización Relacionada</label>
+                <select name="quotationId" class="form-input">
+                    <option value="">Sin cotización</option>
+                    {% for q in quotations %}
+                    <option value="{{ q.id }}" {% if opportunity and opportunity.quotationId == q.id %}selected{% endif %}>{{ q.invoiceNumber or q.id[:8] }} — {{ q.clientName }} — {{ "RD$ {:,.2f}".format(q.total) }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Factura Relacionada</label>
+                <select name="invoiceId" class="form-input">
+                    <option value="">Sin factura</option>
+                    {% for inv in invoices %}
+                    <option value="{{ inv.id }}" {% if opportunity and opportunity.invoiceId == inv.id %}selected{% endif %}>{{ inv.invoiceNumber or inv.id[:8] }} — {{ inv.clientName }} — {{ "RD$ {:,.2f}".format(inv.total) }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group" style="grid-column:1 / -1;">
+                <label>Notas</label>
+                <textarea name="notes" class="form-textarea" rows="4">{{ opportunity.notes if opportunity else '' }}</textarea>
+            </div>
+            {% if not opportunity %}
+            <div class="form-group">
+                <label>Crear seguimiento inicial</label>
+                <input type="date" name="nextActivityDate" class="form-input">
+            </div>
+            <div class="form-group">
+                <label>Título del seguimiento</label>
+                <input type="text" name="nextActivityTitle" class="form-input" placeholder="Seguimiento comercial">
+            </div>
+            {% endif %}
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:var(--space-2); margin-top:var(--space-5);">
+            <a href="{{ url_for('web_crm.pipeline') }}" class="btn btn-secondary">Cancelar</a>
+            <button class="btn btn-accent"><i class="fa-solid fa-floppy-disk"></i> Guardar</button>
+        </div>
+    </form>
+</div>
+</div>
+{% endblock %}
+{% block extra_scripts %}
+<script>
+function syncProbability() {
+    const select = document.getElementById('stage-select');
+    const input = document.getElementById('probability-input');
+    if (select && input) {
+        input.value = select.options[select.selectedIndex].dataset.prob || input.value;
+    }
+}
+</script>
+{% endblock %}

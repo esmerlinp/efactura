@@ -147,6 +147,19 @@ def emit_invoice():
             except Exception as exc:
                 import logging
                 logging.getLogger(__name__).warning(f"Asiento contable API no generado: {exc}")
+
+            # Event Bus: notificar emisión de factura vía API
+            try:
+                from app.events import get_event_bus, InvoiceEmitted
+                get_event_bus().publish(InvoiceEmitted(
+                    owner_uid=g.owner_uid,
+                    invoice_id=invoice_id,
+                    invoice_number=invoice_dict.get("invoiceNumber", ""),
+                    invoice_data=invoice_dict,
+                    sandbox=g.sandbox_mode,
+                ))
+            except Exception:
+                pass
             
             response_body = {
                 "success": True,

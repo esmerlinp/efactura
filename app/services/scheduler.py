@@ -128,6 +128,59 @@ def run_contingency_sync():
     synced, failed = ContingencySyncService.sync_all_companies()
     logger.info(f"✅ APScheduler — Sincronización de contingencia: {synced} OK, {failed} fallidas")
 
+def _run_monitored(job_id, name, func):
+    from app.services.job_service import JobService
+    return JobService.run_monitored(job_id, name, func)
+
+
+def monitored_daily_contract_billing():
+    return _run_monitored(
+        "daily_contract_billing",
+        "Facturación Diaria de Contratos Recurrentes",
+        run_daily_contract_billing,
+    )
+
+
+def monitored_cleanup_expired_idempotency_keys():
+    return _run_monitored(
+        "cleanup_idempotency_keys",
+        "Limpieza de Idempotency Keys Expiradas",
+        cleanup_expired_idempotency_keys,
+    )
+
+
+def monitored_contingency_sync():
+    return _run_monitored(
+        "contingency_sync",
+        "Sincronización Automática de Contingencia DGII",
+        run_contingency_sync,
+    )
+
+
+def monitored_daily_depreciation():
+    return _run_monitored(
+        "daily_depreciation",
+        "Depreciación Automática de Activos Fijos",
+        run_daily_depreciation,
+    )
+
+
+def get_scheduler_jobs():
+    if _scheduler is None:
+        return []
+    jobs = []
+    try:
+        for job in _scheduler.get_jobs():
+            jobs.append({
+                "id": job.id,
+                "name": job.name,
+                "next_run_time": job.next_run_time.isoformat() if job.next_run_time else "",
+                "trigger": str(job.trigger),
+            })
+    except Exception as exc:
+        logger.warning(f"No se pudo leer la lista de jobs del scheduler: {exc}")
+    return jobs
+
 
 def init_scheduler(app):
     """
@@ -149,7 +202,7 @@ def init_scheduler(app):
     )
 
     _scheduler.add_job(
-        func=run_daily_contract_billing,
+        func=monitored_daily_contract_billing,
         trigger=CronTrigger(hour=6, minute=0),   # 6:00 AM RD cada día
         id="daily_contract_billing",
         name="Facturación Diaria de Contratos Recurrentes",
@@ -157,7 +210,7 @@ def init_scheduler(app):
     )
 
     _scheduler.add_job(
-        func=cleanup_expired_idempotency_keys,
+        func=monitored_cleanup_expired_idempotency_keys,
         trigger=CronTrigger(hour=3, minute=0),   # 3:00 AM RD cada día
         id="cleanup_idempotency_keys",
         name="Limpieza de Idempotency Keys Expiradas",
@@ -165,7 +218,7 @@ def init_scheduler(app):
     )
 
     _scheduler.add_job(
-        func=run_contingency_sync,
+        func=monitored_contingency_sync,
         trigger=CronTrigger(minute="*/30"),      # Cada 30 minutos
         id="contingency_sync",
         name="Sincronización Automática de Contingencia DGII",
@@ -173,7 +226,7 @@ def init_scheduler(app):
     )
 
     _scheduler.add_job(
-        func=run_daily_depreciation,
+        func=monitored_daily_depreciation,
         trigger=CronTrigger(hour=2, minute=0),   # 2:00 AM RD cada día
         id="daily_depreciation",
         name="Depreciación Automática de Activos Fijos",

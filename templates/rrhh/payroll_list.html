@@ -1,0 +1,64 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}Historial de Nómina — {{ product_name }}{% endblock %}
+{% block content %}
+{% include "rrhh/_styles.html" %}
+<div class="page-header hr-page-header">
+    <h1 class="page-title"><i class="fa-solid fa-clock-rotate-left"></i> Historial de Nómina</h1>
+    <div class="hr-page-actions">
+        <a href="{{ url_for('web_rrhh.payroll_dashboard') }}" class="btn btn-ghost">
+            <i class="fa-solid fa-chart-pie"></i> Dashboard
+        </a>
+        <a href="{{ url_for('web_rrhh.payroll_new') }}" class="btn btn-primary">
+            <i class="fa-solid fa-plus"></i> Calcular Nómina
+        </a>
+    </div>
+</div>
+
+<div class="card-table-wrapper hr-table-card">
+    <div class="table-header-row">
+        <div>
+            <h3>Períodos de nómina procesados</h3>
+            <p>Historial de nóminas con totales brutos, netos y aportes patronales.</p>
+        </div>
+    </div>
+    <div class="table-responsive">
+        <table class="table-premium">
+        <thead>
+            <tr>
+                <th>Período</th>
+                <th>Tipo</th>
+                <th>Empleados</th>
+                <th>Bruto</th>
+                <th>Neto</th>
+                <th>Aportes Empleador</th>
+                <th>Estado</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for p in periods %}
+            <tr>
+                <td><strong>{{ p.get('periodRange') or p.periodKey }}</strong></td>
+                <td><span class="badge badge-info">{{ p.get('periodType', 'mensual') }}</span></td>
+                <td>{{ p.lines|length }}</td>
+                <td>{{ "RD$ {:,.2f}".format(p.totalGross|float) }}</td>
+                <td>{{ "RD$ {:,.2f}".format(p.totalNet|float) }}</td>
+                <td>{{ "RD$ {:,.2f}".format(p.totalEmployerContrib|float) }}</td>
+                <td>
+                    <span class="badge badge-success">{{ p.status }}</span>
+                </td>
+                <td><div class="hr-table-actions">
+                    <a href="{{ url_for('web_rrhh.payroll_view', period_id=p.id) }}" class="btn btn-sm btn-ghost"
+                       title="Ver Detalle"><i class="fa-solid fa-eye"></i></a>
+                    <a href="{{ url_for('web_rrhh.payroll_tss_export', period_id=p.id) }}" class="btn btn-sm btn-ghost"
+                       title="Exportar TSS"><i class="fa-solid fa-file-csv"></i></a>
+                </div></td>
+            </tr>
+            {% else %}
+            <tr><td colspan="8" class="text-center text-muted">No hay períodos de nómina procesados.</td></tr>
+            {% endfor %}
+        </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

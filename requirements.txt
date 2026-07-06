@@ -56,6 +56,7 @@ pycparser==3.0
 pydyf==0.12.1
 PyJWT==2.13.0
 pyotp==2.9.0
+redis==5.2.1
 pyparsing==3.3.2
 pypdf==6.13.3
 pyphen==0.17.2

@@ -961,6 +961,7 @@
             <div class="sidebar-divider" style="margin: 6px 0 10px 0 !important;"></div>
 
             <nav class="nav-menu">
+                {% block sidebar %}
 
                 <!-- OPCIONES FIJAS (ANTERIOR GENERAL) -->
                 {% if session.get('user', {}).get('role') == 'owner' or session.get('user',
@@ -978,7 +979,7 @@
                 {% if session.get('user', {}).get('role') == 'owner' or session.get('user',
                 {}).get('permissions', {}).get('canInvoice', True) or session.get('user',
                 {}).get('permissions', {}).get('canExpenses', True) %}
-                <div class="sidebar-section {% if active_page in ('reports', 'ventas_generales', 'ventas_por_producto', 'ventas_por_cliente', 'ventas_rentabilidad', 'ventas_por_vendedor', 'ventas_estado_cuenta', 'admin_ingresos_compras', 'admin_reporte_anual', 'reporte_606', 'dashboard_606', 'accounting_export') %}active-parent{% endif %}" id="sidebar-section-reports">
+                <div class="sidebar-section {% if active_page in ('reports', 'ventas_generales', 'ventas_por_producto', 'ventas_por_cliente', 'ventas_rentabilidad', 'ventas_por_vendedor', 'ventas_estado_cuenta', 'admin_ingresos_compras', 'admin_reporte_anual', 'reporte_606', 'dashboard_606', 'accounting_export', 'budgets', 'bi_drilldown') %}active-parent{% endif %}" id="sidebar-section-reports">
                     <a href="{{ url_for('web_invoices.reports_dashboard') }}" class="sidebar-section-header" style="text-decoration: none;">
                         <div class="header-left">
                             <i class="fa-regular fa-chart-pie section-icon"></i>
@@ -1101,6 +1102,15 @@
                         {% endif %}
                         {% if module_enabled('gastos') and (session.get('user', {}).get('role') == 'owner' or
                         session.get('user', {}).get('permissions', {}).get('canExpenses', True)) %}
+                        <li class="nav-item {% if active_page == 'workflows' %}active{% endif %}"
+                            data-tooltip="Aprobaciones">
+                            <a href="{{ url_for('web_workflows.dashboard') }}">
+                                <span>Aprobaciones</span>
+                            </a>
+                        </li>
+                        {% endif %}
+                        {% if module_enabled('gastos') and (session.get('user', {}).get('role') == 'owner' or
+                        session.get('user', {}).get('permissions', {}).get('canExpenses', True)) %}
                         <li class="nav-item {% if active_page == 'expenses' and request.args.get('tab') != 'minor' and request.args.get('tab') != 'recurring' %}active{% endif %}"
                             data-tooltip="Pagos y Gastos operativos">
                             <a href="{{ url_for('web_invoices.list_expenses', tab='all') }}">
@@ -1126,6 +1136,15 @@
                             data-tooltip="Notas de Crédito en Compras">
                             <a href="{{ url_for('web_purchase_orders.list_credit_notes') }}">
                                 <span>Notas de Crédito Compras</span>
+                            </a>
+                        </li>
+                        {% endif %}
+                        {% if module_enabled('ia_bi') and (session.get('user', {}).get('role') == 'owner' or
+                        session.get('user', {}).get('permissions', {}).get('canViewBI', True)) %}
+                        <li class="nav-item {% if active_page == 'budgets' %}active{% endif %}"
+                            data-tooltip="Presupuestos">
+                            <a href="{{ url_for('web_budgets.dashboard') }}">
+                                <span>Presupuestos</span>
                             </a>
                         </li>
                         {% endif %}
@@ -1183,6 +1202,36 @@
                             </a>
                         </li>
                         {% endif %}
+                        <li class="nav-item {% if active_page == 'inventory_advanced' %}active{% endif %}"
+                            data-tooltip="Inventario Avanzado">
+                            <a href="{{ url_for('web_inventory.advanced_dashboard') }}">
+                                <span>Inventario Avanzado</span>
+                            </a>
+                        </li>
+                        <li class="nav-item {% if active_page == 'inventory_transfers' %}active{% endif %}"
+                            data-tooltip="Transferencias">
+                            <a href="{{ url_for('web_inventory.transfer_list') }}">
+                                <span>Transferencias</span>
+                            </a>
+                        </li>
+                        <li class="nav-item {% if active_page == 'inventory_counts' %}active{% endif %}"
+                            data-tooltip="Conteos Físicos">
+                            <a href="{{ url_for('web_inventory.physical_count_list') }}">
+                                <span>Conteos Físicos</span>
+                            </a>
+                        </li>
+                        <li class="nav-item {% if active_page == 'inventory_lots' %}active{% endif %}"
+                            data-tooltip="Lotes">
+                            <a href="{{ url_for('web_inventory.lot_list') }}">
+                                <span>Lotes</span>
+                            </a>
+                        </li>
+                        <li class="nav-item {% if active_page == 'inventory_alerts' %}active{% endif %}"
+                            data-tooltip="Alertas">
+                            <a href="{{ url_for('web_inventory.alert_dashboard') }}">
+                                <span>Alertas</span>
+                            </a>
+                        </li>
                     </ul>
                 </div>
                 {% endif %}
@@ -1232,6 +1281,24 @@
                     <ul class="sidebar-section-content">
                         {% if session.get('user', {}).get('role') == 'owner' or session.get('user',
                         {}).get('permissions', {}).get('canClients', True) %}
+                        <li class="nav-item {% if active_page == 'crm_dashboard' %}active{% endif %}"
+                            data-tooltip="Dashboard CRM">
+                            <a href="{{ url_for('web_crm.dashboard') }}">
+                                <span>Dashboard CRM</span>
+                            </a>
+                        </li>
+                        <li class="nav-item {% if active_page == 'crm_pipeline' %}active{% endif %}"
+                            data-tooltip="Pipeline">
+                            <a href="{{ url_for('web_crm.pipeline') }}">
+                                <span>Pipeline</span>
+                            </a>
+                        </li>
+                        <li class="nav-item {% if active_page == 'crm_activities' %}active{% endif %}"
+                            data-tooltip="Agenda CRM">
+                            <a href="{{ url_for('web_crm.activities') }}">
+                                <span>Agenda CRM</span>
+                            </a>
+                        </li>
                         <li class="nav-item {% if active_page == 'contacts' %}active{% endif %}"
                             data-tooltip="Contactos">
                             <a href="{{ url_for('web_contacts.list_contacts') }}">
@@ -1321,11 +1388,19 @@
                 </div>
                 {% endif %}
 
-
-                <!-- GRUPO: DESCUBRE MÁS SOLUCIONES -->
+                <!-- GRUPO: MÓDULOS -->
                 <div class="sidebar-discover-group">
                     <div class="sidebar-divider"></div>
-                    <span class="sidebar-discover-title">Descubre más soluciones</span>
+                    <span class="sidebar-discover-title">Módulos</span>
+                    {% if session.get('user', {}).get('role') == 'owner' or session.get('user',
+                    {}).get('permissions', {}).get('canHR', True) %}
+                    <a href="{{ url_for('web_rrhh.payroll_dashboard') }}"
+                        class="sidebar-discover-item {% if active_page and active_page.startswith('rrhh_') %}active{% endif %}"
+                        data-tooltip="Nómina y RRHH">
+                        <i class="fa-solid fa-coins"></i>
+                        <span>Nómina y RRHH</span>
+                    </a>
+                    {% endif %}
                     {% if session.get('user', {}).get('role') == 'owner' or session.get('user',
                     {}).get('permissions', {}).get('canManageNotes', True) %}
                     <a href="{{ url_for('web_notes.list_notes') }}"
@@ -1352,6 +1427,15 @@
                         data-tooltip="Portal de Clientes">
                         <i class="fa-solid fa-globe"></i>
                         <span>Portal de Clientes</span>
+                    </a>
+                    {% endif %}
+                    {% if module_enabled('ia_bi') and (session.get('user', {}).get('role') == 'owner' or
+                    session.get('user', {}).get('permissions', {}).get('canViewBI', True)) %}
+                    <a href="{{ url_for('web_bi.drilldown', metric='sales') }}"
+                        class="sidebar-discover-item {% if active_page == 'bi_drilldown' %}active{% endif %}"
+                        data-tooltip="BI Drill-down">
+                        <i class="fa-solid fa-magnifying-glass-chart"></i>
+                        <span>BI Drill-down</span>
                     </a>
                     {% endif %}
                 </div>
@@ -1466,6 +1550,7 @@
                     });
                 </script>
             </nav>
+            {% endblock %}
 
             <div class="sidebar-footer" style="flex-direction: column; gap: 0; padding-top: 0;">
                 <!-- Active Company Name -->
@@ -1629,7 +1714,7 @@
                                 <div style="display: flex; justify-content: space-between; align-items: center;">
                                     <span style="color: var(--text-muted); font-size: 0.7rem;"><i
                                             class="fa-solid fa-phone"></i> {{ contact.telefono or 'N/A' }}</span>
-                                    <a href="{{ url_for('web_clients.client_detail', client_id=contact.id) }}"
+                                    <a href="{% if contact.commitmentType == 'activity' %}{{ url_for('web_crm.activities') }}{% else %}{{ url_for('web_contacts.contact_detail', contact_id=contact.id) }}{% endif %}"
                                         style="color: var(--accent-emerald); font-weight: 500; text-decoration: none; font-size: 0.75rem;"><i
                                             class="fa-solid fa-eye"></i> Ver</a>
                                 </div>
@@ -1677,6 +1762,18 @@
                         <a href="{{ url_for('web_invoices.team_settings') }}" style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--radius-sm); color: var(--text-primary); text-decoration: none; font-size: 0.85rem; transition: background-color var(--transition-fast);" onmouseover="this.style.backgroundColor='var(--bg-nav-hover)'" onmouseout="this.style.backgroundColor='transparent'">
                             <i class="fa-solid fa-users-gear" style="width: 16px; text-align: center;"></i>
                             <span>Usuarios y Permisos</span>
+                        </a>
+                        {% endif %}
+
+                        <a href="{{ url_for('web_i18n.language_settings') }}" style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--radius-sm); color: var(--text-primary); text-decoration: none; font-size: 0.85rem; transition: background-color var(--transition-fast);" onmouseover="this.style.backgroundColor='var(--bg-nav-hover)'" onmouseout="this.style.backgroundColor='transparent'">
+                            <i class="fa-solid fa-language" style="width: 16px; text-align: center;"></i>
+                            <span>Idioma</span>
+                        </a>
+
+                        {% if module_enabled('auditoria') and (session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canViewAuditLog', False) or session.get('user', {}).get('permissions', {}).get('canModifySettings', True)) %}
+                        <a href="{{ url_for('web_system_jobs.dashboard') }}" style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--radius-sm); color: var(--text-primary); text-decoration: none; font-size: 0.85rem; transition: background-color var(--transition-fast);" onmouseover="this.style.backgroundColor='var(--bg-nav-hover)'" onmouseout="this.style.backgroundColor='transparent'">
+                            <i class="fa-solid fa-gears" style="width: 16px; text-align: center;"></i>
+                            <span>Jobs y Procesos</span>
                         </a>
                         {% endif %}
 

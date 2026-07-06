@@ -1,0 +1,176 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}Asistencia — {{ product_name }}{% endblock %}
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/_dashboard.css') }}?v={{ static_hash('css/_dashboard.css') }}">
+<style>
+    .hr-att-cell {
+        text-align: center;
+        cursor: pointer;
+        border-radius: 4px;
+        font-weight: 700;
+        background: rgba(128,128,128,0.03);
+        transition: background var(--transition-fast);
+    }
+    .hr-att-cell:hover {
+        background: var(--bg-nav-hover);
+        box-shadow: inset 0 0 0 1px var(--border-glow);
+    }
+    .hr-att-cell .placeholder {
+        color: var(--text-muted);
+        font-weight: 400;
+        opacity: 0.25;
+        user-select: none;
+    }
+    .hr-att-cell.bg-success { background: rgba(34,197,94,0.16); color: var(--accent-emerald); }
+    .hr-att-cell.bg-danger { background: rgba(239,68,68,0.16); color: var(--accent-red); }
+    .hr-att-cell.bg-warning { background: rgba(234,179,8,0.18); color: #b45309; }
+    .hr-att-cell.bg-info { background: rgba(59,130,246,0.16); color: var(--accent-purple); }
+    .hr-status-btn {
+        padding: 10px 12px;
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-sm);
+        background: var(--bg-input);
+        color: var(--text-primary);
+        cursor: pointer;
+        text-align: left;
+        transition: all var(--transition-fast);
+    }
+    .hr-status-btn:hover,
+    .hr-status-btn.selected {
+        border-color: var(--accent-emerald);
+        background: rgba(16,185,129,0.08);
+    }
+</style>
+{% endblock %}
+{% block content %}
+<div class="dashboard-container">
+<div class="page-title-container" style="margin-bottom: 0; padding-left: 4px;">
+    <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:var(--space-4); flex-wrap:wrap;">
+        <h1 class="page-title"
+            style="font-size: 1.75rem; font-weight: 800; font-family: var(--font-heading); color: var(--text-primary); margin: 0;">
+            <i class="fa-solid fa-calendar-check"></i> Asistencia
+        </h1>
+        <form method="GET" class="hr-inline-filter" style="display:flex; gap:var(--space-2); align-items:center; flex-wrap:wrap; margin:0;">
+            <select name="month" class="form-input" style="width:auto;">
+                {% for m in range(1,13) %}
+                <option value="{{ m }}" {% if m == sel_month %}selected{% endif %}>{{ m }}</option>
+                {% endfor %}
+            </select>
+            <select name="year" class="form-input" style="width:auto;">
+                {% for y in range(sel_year-2, sel_year+3) %}
+                <option value="{{ y }}" {% if y == sel_year %}selected{% endif %}>{{ y }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="btn btn-secondary"><i class="fa-solid fa-filter"></i> Mes</button>
+        </form>
+    </div>
+</div>
+
+<form method="POST" id="attendance-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="att_date" id="att_date" value="{{ days_list[0] if days_list else '' }}">
+    <input type="hidden" name="att_day" id="att_day" value="{{ days_list[0] if days_list else '' }}">
+    <div class="card-table-wrapper hr-table-card">
+        <div class="table-responsive">
+            <table class="table-premium" style="font-size:0.8rem; min-width:900px;">
+                <thead>
+                    <tr>
+                        <th style="min-width:180px; position:sticky; left:0; background:var(--bg-card); z-index:1;">Empleado</th>
+                        {% for d in days_list %}
+                        <th style="width:40px; text-align:center; font-size:0.7rem;"
+                            class="att-day-header" data-day="{{ d }}">{{ d[-2:] }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for emp in employees %}
+                    <tr>
+                        <td style="position:sticky; left:0; background:var(--bg-card); font-weight:500;">
+                            {{ emp.fullName }}
+                        </td>
+                        {% for d in days_list %}
+                        {% set rec = by_date.get(d, {}).get(emp.id, {}) %}
+                        <td style="text-align:center; cursor:pointer;"
+                            class="hr-att-cell {% if rec.status == 'presente' %}bg-success{% elif rec.status == 'ausente' %}bg-danger{% elif rec.status == 'tarde' %}bg-warning{% elif rec.status == 'permiso' %}bg-info{% endif %}"
+                            onclick="setAttendance('{{ emp.id }}', '{{ d }}')"
+                            data-emp="{{ emp.id }}" data-day="{{ d }}">
+                            {% if rec.status %}{{ rec.status[:2] }}{% else %}<span class="placeholder">—</span>{% endif %}
+                        </td>
+                        {% endfor %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div style="display:flex; gap:var(--space-3); justify-content:flex-end; padding-top:var(--space-4); margin-top:var(--space-3);">
+        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-save"></i> Guardar Asistencia</button>
+    </div>
+</form>
+
+<!-- Modal rápido de asistencia -->
+<div class="search-modal" id="att-modal" style="display:none; animation:none;">
+    <div class="modal-backdrop" onclick="closeModal()"></div>
+    <div class="modal-content" style="max-width:380px;">
+        <div class="modal-header" style="display:flex; justify-content:space-between; align-items:center; padding:16px 24px; border-bottom:1px solid var(--border-color);">
+            <span style="font-family:var(--font-heading); font-weight:600; font-size:0.95rem; color:var(--text-primary);" id="att-modal-title">Marcar Asistencia</span>
+            <button type="button" onclick="closeModal()" style="background:none; border:none; color:var(--text-muted); font-size:1.3rem; cursor:pointer; padding:4px; line-height:1;">&times;</button>
+        </div>
+        <div style="padding:24px; display:flex; flex-direction:column; gap:var(--space-3);">
+            <div style="display:flex; flex-direction:column; gap:var(--space-2);">
+                <button type="button" class="hr-status-btn" data-status="presente" onclick="selectStatus(this)">✅ Presente</button>
+                <button type="button" class="hr-status-btn" data-status="ausente" onclick="selectStatus(this)">❌ Ausente</button>
+                <button type="button" class="hr-status-btn" data-status="tarde" onclick="selectStatus(this)">⏰ Tarde</button>
+                <button type="button" class="hr-status-btn" data-status="permiso" onclick="selectStatus(this)">📋 Permiso</button>
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:var(--space-2);">
+                <div><label style="font-size:var(--text-sm); color:var(--text-secondary); display:block; margin-bottom:4px;">Entrada</label><input type="time" class="form-input" id="checkin_val"></div>
+                <div><label style="font-size:var(--text-sm); color:var(--text-secondary); display:block; margin-bottom:4px;">Salida</label><input type="time" class="form-input" id="checkout_val"></div>
+            </div>
+            <div style="display:flex; gap:var(--space-2); justify-content:flex-end; padding-top:var(--space-2); border-top:1px solid var(--border-color);">
+                <button type="button" class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="saveAttendance()">Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+</div>
+
+<script>
+let currentEmp = '', currentDay = '', currentStatus = '';
+
+function setAttendance(empId, day) {
+    currentEmp = empId; currentDay = day; currentStatus = '';
+    document.getElementById('att_date').value = day;
+    document.getElementById('att-modal-title').textContent = 'Asistencia — ' + day;
+    document.getElementById('att-modal').style.display = 'flex';
+    document.querySelectorAll('.hr-status-btn').forEach(b => b.classList.remove('selected'));
+    document.getElementById('att_day').value = day;
+}
+
+function selectStatus(btn) {
+    currentStatus = btn.dataset.status;
+    document.querySelectorAll('.hr-status-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+}
+
+function closeModal() { document.getElementById('att-modal').style.display = 'none'; }
+
+function saveAttendance() {
+    if (!currentEmp || !currentDay || !currentStatus) { alert('Seleccione estado y empleado'); return; }
+    document.getElementById('att_date').value = currentDay;
+    const inVal = document.getElementById('checkin_val').value;
+    const outVal = document.getElementById('checkout_val').value;
+    const statusInput = document.createElement('input'); statusInput.type='hidden'; statusInput.name=`att_${currentEmp}`; statusInput.value=currentStatus;
+    const inInput = document.createElement('input'); inInput.type='hidden'; inInput.name=`checkin_${currentEmp}`; inInput.value=inVal;
+    const outInput = document.createElement('input'); outInput.type='hidden'; outInput.name=`checkout_${currentEmp}`; outInput.value=outVal;
+    const attendanceForm = document.getElementById('attendance-form');
+    attendanceForm.appendChild(statusInput);
+    attendanceForm.appendChild(inInput);
+    attendanceForm.appendChild(outInput);
+    const cells = document.querySelectorAll(`td[data-emp="${currentEmp}"][data-day="${currentDay}"]`);
+    cells.forEach(c => { c.className = 'hr-att-cell'; if (currentStatus === 'presente') c.classList.add('bg-success'); else if (currentStatus === 'ausente') c.classList.add('bg-danger'); else if (currentStatus === 'tarde') c.classList.add('bg-warning'); else if (currentStatus === 'permiso') c.classList.add('bg-info'); c.textContent = currentStatus.substring(0,2); });
+    closeModal();
+}
+</script>
+{% endblock %}

@@ -1,0 +1,54 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}Nuevo Permiso — {{ product_name }}{% endblock %}
+{% block content %}
+{% include "rrhh/_styles.html" %}
+<div class="page-header hr-page-header">
+    <h1 class="page-title"><i class="fa-solid fa-file-medical"></i> Nuevo Permiso</h1>
+</div>
+
+<form method="POST" class="hr-main-col">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="hr-section-card">
+        <h3><i class="fa-solid fa-file-medical"></i> Información del permiso</h3>
+        <div class="hr-form-grid">
+            <div class="form-group">
+                <label>Empleado</label>
+                <select name="employeeId" class="form-select" required>
+                    <option value="">Seleccione...</option>
+                    {% for emp in employees %}
+                    <option value="{{ emp.id }}">{{ emp.fullName }} — {{ emp.position }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Tipo de Permiso</label>
+                <select name="leaveType" class="form-select">
+                    <option value="licencia_medica">Licencia Médica</option>
+                    <option value="permiso_personal">Permiso Personal</option>
+                    <option value="maternidad">Maternidad</option>
+                    <option value="paternidad">Paternidad</option>
+                    <option value="luto">Luto</option>
+                    <option value="estudios">Estudios</option>
+                    <option value="otro">Otro</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Fecha de Inicio</label>
+                <input type="date" name="startDate" class="form-input" required>
+            </div>
+            <div class="form-group">
+                <label>Fecha de Fin</label>
+                <input type="date" name="endDate" class="form-input" required>
+            </div>
+            <div class="form-group">
+                <label>Notas</label>
+                <textarea name="notes" class="form-textarea" rows="2"></textarea>
+            </div>
+        </div>
+    </div>
+    <div class="hr-section-card hr-actions-card hr-actions-bar">
+            <a href="{{ url_for('web_rrhh.leave_list') }}" class="btn btn-ghost">Cancelar</a>
+            <button type="submit" class="btn btn-primary">Registrar Permiso</button>
+    </div>
+</form>
+{% endblock %}

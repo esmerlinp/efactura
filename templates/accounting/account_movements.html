@@ -1,6 +1,9 @@
 {% extends "layout.html" %}
 {% block title %}Movimientos — {{ account.name }}{% endblock %}
 {% block page_header %}Movimientos de Cuenta{% endblock %}
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/_dashboard.css') }}?v={{ static_hash('css/_dashboard.css') }}">
+{% endblock %}
 {% block content %}
 <div class="page-title-container" style="margin-bottom:16px; padding-left:4px;">
     <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">

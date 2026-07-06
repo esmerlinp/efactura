@@ -1,0 +1,71 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}Conceptos de Nómina — {{ product_name }}{% endblock %}
+{% block content %}
+{% include "rrhh/_styles.html" %}
+<div class="page-header hr-page-header">
+    <h1 class="page-title"><i class="fa-solid fa-cubes"></i> Conceptos de Nómina</h1>
+    <div class="hr-page-actions">
+        <a href="{{ url_for('web_rrhh.concept_new') }}" class="btn btn-primary">
+            <i class="fa-solid fa-plus"></i> Nuevo Concepto
+        </a>
+        <a href="{{ url_for('web_rrhh.payroll_dashboard') }}" class="btn btn-ghost"><i class="fa-solid fa-arrow-left"></i> Dashboard</a>
+    </div>
+</div>
+
+<div class="card-table-wrapper hr-table-card">
+    <div class="table-responsive">
+        <table class="table-premium" style="font-size:0.85rem;">
+        <thead>
+            <tr>
+                <th>Código</th>
+                <th>Nombre</th>
+                <th>Tipo</th>
+                <th>Categoría</th>
+                <th>Prioridad</th>
+                <th>Imponible</th>
+                <th>Estado</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for c in concepts %}
+            <tr>
+                <td><code style="font-size:0.8rem;">{{ c.code }}</code></td>
+                <td><strong>{{ c.name }}</strong></td>
+                <td>
+                    {% if c.type == 'earning' %}<span class="badge badge-success">Ingreso</span>
+                    {% elif c.type == 'deduction' %}<span class="badge badge-danger">Deducción</span>
+                    {% elif c.type == 'employer_contrib' %}<span class="badge badge-purple">Aporte Empleador</span>
+                    {% else %}{{ c.type }}{% endif %}
+                </td>
+                <td><span class="badge badge-info">{{ c.category }}</span></td>
+                <td>{{ c.priority }}</td>
+                <td>{{ 'Sí' if c.taxable else 'No' }}</td>
+                <td>
+                    {% if c.active %}
+                    <span class="badge badge-success">Activo</span>
+                    {% else %}
+                    <span class="badge badge-warning">Inactivo</span>
+                    {% endif %}
+                </td>
+                <td><div class="hr-table-actions">
+                    <a href="{{ url_for('web_rrhh.concept_edit', concept_code=c.code) }}" class="btn btn-sm btn-ghost"
+                       title="Editar"><i class="fa-solid fa-pen-to-square"></i></a>
+                    <form method="POST" action="{{ url_for('web_rrhh.concept_toggle', concept_code=c.code) }}" style="display:contents;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-sm btn-ghost"
+                                title="{{ 'Desactivar' if c.active else 'Activar' }}">
+                            <i class="fa-solid fa-{{ 'toggle-on' if c.active else 'toggle-off' }}"
+                               style="color:{% if c.active %}var(--accent-emerald){% else %}var(--text-muted){% endif %};"></i>
+                        </button>
+                    </form>
+                </div></td>
+            </tr>
+            {% else %}
+            <tr><td colspan="8" class="text-center text-muted">No hay conceptos configurados.</td></tr>
+            {% endfor %}
+        </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

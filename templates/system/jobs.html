@@ -1,0 +1,130 @@
+{% extends "layout.html" %}
+{% block title %}Jobs y Procesos — {{ product_name }}{% endblock %}
+{% block content %}
+<div class="page-header" style="display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap; margin-bottom:20px;">
+    <div>
+        <h1 class="page-title"><i class="fa-solid fa-gears"></i> Jobs y Procesos</h1>
+        <p style="color:var(--text-secondary); margin:6px 0 0; font-size:0.88rem;">Observabilidad de ejecuciones programadas y bajo demanda.</p>
+    </div>
+    <form method="GET" style="display:flex; gap:8px;">
+        <select name="status" class="form-select" style="width:auto;">
+            <option value="" {% if not status %}selected{% endif %}>Todos</option>
+            <option value="running" {% if status=='running' %}selected{% endif %}>Running</option>
+            <option value="success" {% if status=='success' %}selected{% endif %}>Success</option>
+            <option value="error" {% if status=='error' %}selected{% endif %}>Error</option>
+        </select>
+        <button class="btn btn-secondary" type="submit"><i class="fa-solid fa-filter"></i> Filtrar</button>
+    </form>
+</div>
+
+<!-- KPI cards -->
+<div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:12px; margin-bottom:20px;">
+    <div class="card-table-wrapper" style="padding:18px 20px; text-align:center;">
+        <div style="font-size:1.8rem; font-weight:700; color:var(--text-primary);">{{ stats.total }}</div>
+        <div style="font-size:0.78rem; color:var(--text-muted); margin-top:4px;"><i class="fa-solid fa-list"></i> Total ejecuciones</div>
+    </div>
+    <div class="card-table-wrapper" style="padding:18px 20px; text-align:center;">
+        <div style="font-size:1.8rem; font-weight:700; color:var(--accent-blue);">{{ stats.running }}</div>
+        <div style="font-size:0.78rem; color:var(--text-muted); margin-top:4px;"><i class="fa-solid fa-spinner fa-spin"></i> En ejecución</div>
+    </div>
+    <div class="card-table-wrapper" style="padding:18px 20px; text-align:center;">
+        <div style="font-size:1.8rem; font-weight:700; color:var(--accent-emerald);">{{ stats.success }}</div>
+        <div style="font-size:0.78rem; color:var(--text-muted); margin-top:4px;"><i class="fa-solid fa-circle-check"></i> Exitosos</div>
+    </div>
+    <div class="card-table-wrapper" style="padding:18px 20px; text-align:center;">
+        <div style="font-size:1.8rem; font-weight:700; color:var(--danger);">{{ stats.errors }}</div>
+        <div style="font-size:0.78rem; color:var(--text-muted); margin-top:4px;"><i class="fa-solid fa-circle-exclamation"></i> Con error</div>
+    </div>
+</div>
+
+<!-- Scheduled jobs -->
+<div class="card-table-wrapper" style="margin-bottom:20px;">
+    <div class="table-header-row">
+        <div>
+            <h3>Jobs programados</h3>
+            <p>Tareas recurrentes registradas en el planificador.</p>
+        </div>
+    </div>
+    <div class="table-responsive">
+        <table class="table-premium">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Nombre</th>
+                    <th>Próxima ejecución</th>
+                    <th>Trigger</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for job in scheduled_jobs %}
+                <tr>
+                    <td><code style="font-size:0.8rem;">{{ job.id }}</code></td>
+                    <td><strong>{{ job.name }}</strong></td>
+                    <td>{{ job.next_run_time or '—' }}</td>
+                    <td><span class="badge badge-info">{{ job.trigger }}</span></td>
+                </tr>
+                {% else %}
+                <tr><td colspan="4" style="text-align:center; color:var(--text-muted); padding:32px;">
+                    <i class="fa-solid fa-circle-info" style="font-size:1.2rem; display:block; margin-bottom:8px; opacity:0.4;"></i>
+                    Planificador no inicializado o sin jobs activos.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Execution log -->
+<div class="card-table-wrapper">
+    <div class="table-header-row">
+        <div>
+            <h3>Últimas ejecuciones</h3>
+            <p>Historial de ejecuciones registradas con su estado y duración.</p>
+        </div>
+    </div>
+    <div class="table-responsive">
+        <table class="table-premium" style="font-size:0.85rem;">
+            <thead>
+                <tr>
+                    <th>Job</th>
+                    <th>Estado</th>
+                    <th>Inicio</th>
+                    <th>Fin</th>
+                    <th>Duración</th>
+                    <th>Error</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for run in runs %}
+                <tr>
+                    <td>
+                        <strong>{{ run.name }}</strong>
+                        <div style="font-size:.76rem; color:var(--text-muted);">{{ run.jobId }}</div>
+                    </td>
+                    <td>
+                        <span class="badge badge-pill {% if run.status == 'success' %}badge-success{% elif run.status == 'error' %}badge-danger{% elif run.status == 'running' %}badge-warning{% else %}badge-secondary{% endif %}">
+                            {{ run.status }}
+                        </span>
+                    </td>
+                    <td>{{ run.startedAt[:19] if run.startedAt else '—' }}</td>
+                    <td>{{ run.finishedAt[:19] if run.finishedAt else '—' }}</td>
+                    <td>{{ run.durationSeconds or 0 }}s</td>
+                    <td style="max-width:320px; white-space:normal; font-size:0.8rem;">{{ run.error or '—' }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:32px;">
+                    <i class="fa-solid fa-inbox" style="font-size:1.2rem; display:block; margin-bottom:8px; opacity:0.4;"></i>
+                    No hay ejecuciones registradas todavía.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% if runs|length >= limit and not status %}
+<div style="text-align:center; margin-top:12px;">
+    <a href="?status={{ status }}&limit={{ limit + 50 }}" class="btn btn-ghost">
+        <i class="fa-solid fa-chevron-down"></i> Cargar más ejecuciones
+    </a>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,175 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}Empleados — {{ product_name }}{% endblock %}
+{% block content %}
+{% include "rrhh/_styles.html" %}
+<div class="page-header hr-page-header">
+    <h1 class="page-title"><i class="fa-solid fa-users"></i> Empleados</h1>
+    <a href="{{ url_for('web_rrhh.employee_new') }}" class="btn btn-primary">
+        <i class="fa-solid fa-plus"></i> Nuevo Empleado
+    </a>
+</div>
+
+<div class="card-table-wrapper hr-document-sheet" style="padding:24px; margin-bottom:24px;">
+    <div class="hr-summary-grid">
+        <div class="stat-box">
+            <span class="stat-label">Total Empleados</span>
+            <span class="stat-value">{{ total }}</span>
+        </div>
+        <div class="stat-box">
+            <span class="stat-label">Activos</span>
+            <span class="stat-value" style="color:var(--accent-emerald);">{{ active_count }}</span>
+        </div>
+        <div class="stat-box">
+            <span class="stat-label">Inactivos</span>
+            <span class="stat-value" style="color:var(--danger);">{{ inactive_count }}</span>
+        </div>
+    </div>
+</div>
+
+<div class="card-table-wrapper hr-table-card">
+    <div class="table-header-row">
+        <div>
+            <h3>Registro de empleados</h3>
+            <p>Busca, filtra y administra a tu equipo.</p>
+        </div>
+    </div>
+
+    <!-- Search + Filters -->
+    <form method="GET" style="display:flex; gap:10px; flex-wrap:wrap; padding:0 20px 16px; align-items:flex-end;">
+        <div class="form-group" style="margin:0; flex:2; min-width:200px;">
+            <input type="text" name="search" class="form-input" placeholder="Buscar por nombre, cédula o cargo..."
+                   value="{{ search }}" style="border-radius:20px;">
+        </div>
+        <div class="form-group" style="margin:0;">
+            <select name="status" class="form-select" style="width:auto;">
+                <option value="">Todos los estados</option>
+                <option value="activo" {% if filter_status=='activo' %}selected{% endif %}>Activo</option>
+                <option value="inactivo" {% if filter_status=='inactivo' %}selected{% endif %}>Inactivo</option>
+            </select>
+        </div>
+        <div class="form-group" style="margin:0;">
+            <select name="area" class="form-select" style="width:auto;">
+                <option value="">Todas las áreas</option>
+                {% for a in areas_set %}
+                <option value="{{ a }}" {% if filter_area==a %}selected{% endif %}>{{ a }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <button type="submit" class="btn btn-secondary btn-sm"><i class="fa-solid fa-filter"></i> Filtrar</button>
+        {% if search or filter_status or filter_area %}
+        <a href="{{ url_for('web_rrhh.employee_list') }}" class="btn btn-ghost btn-sm" style="color:var(--danger);">
+            <i class="fa-solid fa-xmark"></i> Limpiar
+        </a>
+        {% endif %}
+    </form>
+
+    <!-- Bulk toolbar -->
+    <div id="bulkToolbar" style="display:none; padding:0 20px 12px; gap:8px; align-items:center; flex-wrap:wrap;">
+        <span id="bulkCount" style="font-size:0.82rem; color:var(--text-muted);">0 seleccionados</span>
+        <button type="button" class="btn btn-sm btn-ghost" onclick="bulkChangeStatus('activo')">Marcar Activo</button>
+        <button type="button" class="btn btn-sm btn-ghost" onclick="bulkChangeStatus('inactivo')">Marcar Inactivo</button>
+        <button type="button" class="btn btn-sm btn-ghost" onclick="bulkExport()">
+            <i class="fa-solid fa-download"></i> Exportar selección
+        </button>
+        <form id="bulkForm" method="POST" action="{{ url_for('web_rrhh.employee_list') }}" style="display:none;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="action" id="bulkAction" value="">
+            <input type="hidden" name="ids" id="bulkIds" value="">
+        </form>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table-premium">
+        <thead>
+            <tr>
+                <th style="width:30px;"><input type="checkbox" id="selectAllCB" onchange="toggleAll(this)"></th>
+                <th>Empleado</th>
+                <th>Cédula</th>
+                <th>Cargo</th>
+                <th>Área</th>
+                <th>Salario Base</th>
+                <th>Vacaciones</th>
+                <th>Estado</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for emp in employees %}
+            <tr>
+                <td><input type="checkbox" class="emp-cb" value="{{ emp.id }}" onchange="updateBulk()"></td>
+                <td><strong>{{ emp.fullName }}</strong></td>
+                <td>{{ emp.cedula or emp.idNumber }}</td>
+                <td>{{ emp.position }}</td>
+                <td>{{ emp.area or emp.department }}</td>
+                <td>{{ "RD$ {:,.2f}".format(emp.baseSalary|float) if emp.baseSalary else '—' }}</td>
+                <td>{{ emp.vacationDays }} días</td>
+                <td>
+                    {% if emp.status == 'activo' %}
+                    <span class="badge badge-success">Activo</span>
+                    {% else %}
+                    <span class="badge badge-danger">Inactivo</span>
+                    {% endif %}
+                </td>
+                <td><div class="hr-table-actions">
+                    <a href="{{ url_for('web_rrhh.employee_view', employee_id=emp.id) }}" class="btn btn-sm btn-ghost"
+                       title="Ver"><i class="fa-solid fa-eye"></i></a>
+                    <a href="{{ url_for('web_rrhh.employee_edit', employee_id=emp.id) }}" class="btn btn-sm btn-ghost"
+                       title="Editar"><i class="fa-solid fa-pen-to-square"></i></a>
+                    {% if emp.status == 'activo' %}
+                    <form method="POST" action="{{ url_for('web_rrhh.employee_terminate', employee_id=emp.id) }}"
+                          onsubmit="return confirm('¿Desvincular a {{ emp.fullName }}?')" style="display:contents;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="reason" value="">
+                        <button type="submit" class="btn btn-sm btn-ghost" title="Desvincular" style="color:var(--danger);">
+                            <i class="fa-solid fa-user-slash"></i>
+                        </button>
+                    </form>
+                    {% endif %}
+                </div></td>
+            </tr>
+            {% else %}
+            <tr><td colspan="9" class="text-center text-muted">No hay empleados que coincidan con los filtros.</td></tr>
+            {% endfor %}
+        </tbody>
+        </table>
+    </div>
+</div>
+
+{% if total_pages > 1 %}
+<div style="display:flex; justify-content:center; align-items:center; gap:8px; margin-top:16px;">
+    {% set base_url = '?search=' + search + '&status=' + filter_status + '&area=' + filter_area + '&per_page=' + per_page|string %}
+    {% if page > 1 %}
+    <a href="{{ base_url }}&page={{ page - 1 }}" class="btn btn-sm btn-ghost"><i class="fa-solid fa-chevron-left"></i></a>
+    {% endif %}
+    <span style="font-size:0.82rem; color:var(--text-muted);">Página {{ page }} de {{ total_pages }} ({{ total }} empleados)</span>
+    {% if page < total_pages %}
+    <a href="{{ base_url }}&page={{ page + 1 }}" class="btn btn-sm btn-ghost"><i class="fa-solid fa-chevron-right"></i></a>
+    {% endif %}
+</div>
+{% endif %}
+
+<script>
+function updateBulk() {
+    var cbs = document.querySelectorAll('.emp-cb:checked');
+    document.getElementById('bulkToolbar').style.display = cbs.length > 0 ? 'flex' : 'none';
+    document.getElementById('bulkCount').textContent = cbs.length + ' seleccionados';
+}
+function toggleAll(el) {
+    document.querySelectorAll('.emp-cb').forEach(function(cb) { cb.checked = el.checked; });
+    updateBulk();
+}
+function bulkChangeStatus(s) {
+    var ids = Array.from(document.querySelectorAll('.emp-cb:checked')).map(function(cb) { return cb.value; }).join(',');
+    if (!ids) return;
+    if (!confirm('¿Cambiar estado de los empleados seleccionados a ' + s + '?')) return;
+    document.getElementById('bulkAction').value = s;
+    document.getElementById('bulkIds').value = ids;
+    document.getElementById('bulkForm').submit();
+}
+function bulkExport() {
+    var ids = Array.from(document.querySelectorAll('.emp-cb:checked')).map(function(cb) { return cb.value; }).join(',');
+    if (!ids) return;
+    window.location.href = "{{ url_for('web_rrhh.employee_list') }}?export=1&ids=" + ids;
+}
+</script>
+{% endblock %}

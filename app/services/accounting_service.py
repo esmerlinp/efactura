@@ -1075,6 +1075,74 @@ class AccountingService:
             return None
 
     @classmethod
+    def auto_generate_depreciation_entry(cls, owner_uid, dep_data, sandbox=True):
+        """Genera asiento contable para depreciación de activos fijos.
+
+        Args:
+            owner_uid: ID de la empresa.
+            dep_data: Diccionario con datos de depreciación. Debe contener:
+                - asset_id: ID del activo
+                - asset_name: Nombre del activo
+                - amount: Monto depreciado
+                - expense_account_id: ID de cuenta de gasto
+                - accum_account_id: ID de cuenta de depreciación acumulada
+                - period: Período ('mensual' o 'anual')
+                - code: Código del activo (opcional)
+            sandbox: Si es entorno sandbox.
+
+        Returns:
+            El entry generado, o None si ya existe.
+        """
+        asset_id = dep_data.get("asset_id", dep_data.get("assetId", ""))
+        if _accounting_entry_exists(owner_uid, "depreciation", asset_id):
+            return None
+
+        amount = float(dep_data.get("amount", 0))
+        asset_name = dep_data.get("asset_name", dep_data.get("assetName", "Activo"))
+        expense_account_id = dep_data.get("expense_account_id", dep_data.get("expenseAccountId", ""))
+        accum_account_id = dep_data.get("accum_account_id", dep_data.get("accumAccountId", ""))
+        period = dep_data.get("period", "mensual")
+        code = dep_data.get("code", "")
+
+        if not expense_account_id or not accum_account_id:
+            return None
+
+        lines = [
+            {
+                "accountId": expense_account_id,
+                "accountCode": "",
+                "accountName": "Gasto Depreciación",
+                "debit": round(amount, 2),
+                "credit": 0.00,
+                "description": f"Dep. {asset_name}",
+            },
+            {
+                "accountId": accum_account_id,
+                "accountCode": "",
+                "accountName": "Depreciación Acumulada",
+                "debit": 0.00,
+                "credit": round(amount, 2),
+                "description": f"Dep. {asset_name}",
+            },
+        ]
+
+        try:
+            entry = cls.generate_entry(owner_uid, {
+                "entryType": "depreciation",
+                "date": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+                "concept": f"Depreciación {period} — {asset_name}",
+                "referenceType": "depreciation",
+                "referenceId": asset_id,
+                "referenceNumber": code,
+                "lines": lines,
+                "createdBy": "system",
+                "prefix": "DP",
+            }, sandbox=sandbox)
+            return entry
+        except ValueError:
+            return None
+
+    @classmethod
     def clone_entry(cls, owner_uid, entry_id, sandbox=True):
         entry = DatabaseService.get_accounting_entry(owner_uid, entry_id, sandbox=sandbox)
         if not entry:

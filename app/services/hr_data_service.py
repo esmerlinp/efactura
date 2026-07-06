@@ -1,0 +1,510 @@
+"""
+HRDataService — Capa de acceso a datos Firestore para módulo RRHH.
+
+Usa el mismo patrón de conexión que DatabaseService pero aislado para HR.
+Evita inflar aún más el DatabaseService monolítico.
+"""
+
+import uuid
+from datetime import datetime, timezone
+from app.services.db_service import db_firestore, firebase_initialized
+
+
+def _hr_collection(owner_uid: str, collection: str, sandbox: bool = True) -> str:
+    """Retorna el path de la colección: users/{owner_uid}/{sandbox_}hr_{collection}."""
+    prefix = "sandbox_hr_" if sandbox else "hr_"
+    return f"users/{owner_uid}/{prefix}{collection}"
+
+
+def _get_all(owner_uid: str, collection: str, sandbox: bool = True) -> list:
+    """Obtiene todos los documentos de una colección HR."""
+    if not firebase_initialized or db_firestore is None:
+        return []
+    try:
+        coll_path = _hr_collection(owner_uid, collection, sandbox)
+        docs = db_firestore.collection(coll_path).get()
+        return [{"id": d.id, **d.to_dict()} for d in docs]
+    except Exception as e:
+        print(f"⚠️ HRDataService._get_all({collection}): {e}")
+        return []
+
+
+def _get_one(owner_uid: str, collection: str, doc_id: str, sandbox: bool = True) -> dict | None:
+    """Obtiene un documento por ID."""
+    if not firebase_initialized or db_firestore is None:
+        return None
+    try:
+        coll_path = _hr_collection(owner_uid, collection, sandbox)
+        doc = db_firestore.collection(coll_path).document(doc_id).get()
+        if doc.exists:
+            return {"id": doc.id, **doc.to_dict()}
+        return None
+    except Exception as e:
+        print(f"⚠️ HRDataService._get_one({collection}): {e}")
+        return None
+
+
+def _save(owner_uid: str, collection: str, doc_id: str, data: dict, sandbox: bool = True):
+    """Guarda (crea o actualiza) un documento."""
+    if not firebase_initialized or db_firestore is None:
+        return
+    try:
+        coll_path = _hr_collection(owner_uid, collection, sandbox)
+        db_firestore.collection(coll_path).document(doc_id).set(data)
+    except Exception as e:
+        print(f"⚠️ HRDataService._save({collection}): {e}")
+
+
+def _delete(owner_uid: str, collection: str, doc_id: str, sandbox: bool = True):
+    """Elimina un documento."""
+    if not firebase_initialized or db_firestore is None:
+        return
+    try:
+        coll_path = _hr_collection(owner_uid, collection, sandbox)
+        db_firestore.collection(coll_path).document(doc_id).delete()
+    except Exception as e:
+        print(f"⚠️ HRDataService._delete({collection}): {e}")
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# EMPLOYEES
+# ═══════════════════════════════════════════════════════════════════════════
+
+def get_employees(owner_uid: str, sandbox: bool = True) -> list:
+    return _get_all(owner_uid, "employees", sandbox)
+
+def get_employee(owner_uid: str, employee_id: str, sandbox: bool = True) -> dict | None:
+    return _get_one(owner_uid, "employees", employee_id, sandbox)
+
+def save_employee(owner_uid: str, employee_id: str, data: dict, sandbox: bool = True):
+    _save(owner_uid, "employees", employee_id, data, sandbox)
+
+def delete_employee(owner_uid: str, employee_id: str, sandbox: bool = True):
+    _delete(owner_uid, "employees", employee_id, sandbox)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ATTENDANCE
+# ═══════════════════════════════════════════════════════════════════════════
+
+def get_attendance_records(owner_uid: str, sandbox: bool = True) -> list:
+    return _get_all(owner_uid, "attendance", sandbox)
+
+def get_attendance_record(owner_uid: str, record_id: str, sandbox: bool = True) -> dict | None:
+    return _get_one(owner_uid, "attendance", record_id, sandbox)
+
+def save_attendance_record(owner_uid: str, record_id: str, data: dict, sandbox: bool = True):
+    _save(owner_uid, "attendance", record_id, data, sandbox)
+
+def delete_attendance_record(owner_uid: str, record_id: str, sandbox: bool = True):
+    _delete(owner_uid, "attendance", record_id, sandbox)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# VACATIONS
+# ═══════════════════════════════════════════════════════════════════════════
+
+def get_vacation_requests(owner_uid: str, sandbox: bool = True) -> list:
+    return _get_all(owner_uid, "vacations", sandbox)
+
+def get_vacation_request(owner_uid: str, request_id: str, sandbox: bool = True) -> dict | None:
+    return _get_one(owner_uid, "vacations", request_id, sandbox)
+
+def save_vacation_request(owner_uid: str, request_id: str, data: dict, sandbox: bool = True):
+    _save(owner_uid, "vacations", request_id, data, sandbox)
+
+def delete_vacation_request(owner_uid: str, request_id: str, sandbox: bool = True):
+    _delete(owner_uid, "vacations", request_id, sandbox)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# LEAVES
+# ═══════════════════════════════════════════════════════════════════════════
+
+def get_leave_requests(owner_uid: str, sandbox: bool = True) -> list:
+    return _get_all(owner_uid, "leaves", sandbox)
+
+def get_leave_request(owner_uid: str, request_id: str, sandbox: bool = True) -> dict | None:
+    return _get_one(owner_uid, "leaves", request_id, sandbox)
+
+def save_leave_request(owner_uid: str, request_id: str, data: dict, sandbox: bool = True):
+    _save(owner_uid, "leaves", request_id, data, sandbox)
+
+def delete_leave_request(owner_uid: str, request_id: str, sandbox: bool = True):
+    _delete(owner_uid, "leaves", request_id, sandbox)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# PAYROLL
+# ═══════════════════════════════════════════════════════════════════════════
+
+def get_payroll_periods(owner_uid: str, sandbox: bool = True) -> list:
+    return _get_all(owner_uid, "payroll", sandbox)
+
+def get_payroll_period(owner_uid: str, period_id: str, sandbox: bool = True) -> dict | None:
+    return _get_one(owner_uid, "payroll", period_id, sandbox)
+
+def save_payroll_period(owner_uid: str, period_id: str, data: dict, sandbox: bool = True):
+    _save(owner_uid, "payroll", period_id, data, sandbox)
+
+def delete_payroll_period(owner_uid: str, period_id: str, sandbox: bool = True):
+    _delete(owner_uid, "payroll", period_id, sandbox)
+
+
+def get_payroll_period_by_key(owner_uid: str, period_key: str, sandbox: bool = True) -> dict | None:
+    if not firebase_initialized or db_firestore is None:
+        return None
+    try:
+        coll_path = _hr_collection(owner_uid, "payroll", sandbox)
+        docs = db_firestore.collection(coll_path).where("periodKey", "==", period_key).limit(1).get()
+        for d in docs:
+            return {"id": d.id, **d.to_dict()}
+    except Exception as e:
+        print(f"⚠️ HRDataService.get_payroll_period_by_key: {e}")
+    return None
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# EVALUATIONS
+# ═══════════════════════════════════════════════════════════════════════════
+
+def get_evaluations(owner_uid: str, sandbox: bool = True) -> list:
+    return _get_all(owner_uid, "evaluations", sandbox)
+
+def get_evaluation(owner_uid: str, eval_id: str, sandbox: bool = True) -> dict | None:
+    return _get_one(owner_uid, "evaluations", eval_id, sandbox)
+
+def save_evaluation(owner_uid: str, eval_id: str, data: dict, sandbox: bool = True):
+    _save(owner_uid, "evaluations", eval_id, data, sandbox)
+
+def delete_evaluation(owner_uid: str, eval_id: str, sandbox: bool = True):
+    _delete(owner_uid, "evaluations", eval_id, sandbox)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# TRAININGS
+# ═══════════════════════════════════════════════════════════════════════════
+
+def get_trainings(owner_uid: str, sandbox: bool = True) -> list:
+    return _get_all(owner_uid, "trainings", sandbox)
+
+def get_training(owner_uid: str, training_id: str, sandbox: bool = True) -> dict | None:
+    return _get_one(owner_uid, "trainings", training_id, sandbox)
+
+def save_training(owner_uid: str, training_id: str, data: dict, sandbox: bool = True):
+    _save(owner_uid, "trainings", training_id, data, sandbox)
+
+def delete_training(owner_uid: str, training_id: str, sandbox: bool = True):
+    _delete(owner_uid, "trainings", training_id, sandbox)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# PAYROLL CONFIG (frecuencia de pago, onboarding)
+# ═══════════════════════════════════════════════════════════════════════════
+
+def _config_collection(owner_uid: str, sandbox: bool = True) -> str:
+    prefix = "sandbox_" if sandbox else ""
+    return f"users/{owner_uid}/{prefix}hr_config"
+
+
+def get_payroll_config(owner_uid: str, sandbox: bool = True) -> dict:
+    if not firebase_initialized or db_firestore is None:
+        return {}
+    try:
+        coll = _config_collection(owner_uid, sandbox)
+        doc = db_firestore.collection(coll).document("payroll").get()
+        if doc.exists:
+            return doc.to_dict()
+    except Exception as e:
+        print(f"⚠️ HRDataService.get_payroll_config: {e}")
+    return {}
+
+
+def save_payroll_config(owner_uid: str, data: dict, sandbox: bool = True):
+    if not firebase_initialized or db_firestore is None:
+        return
+    try:
+        coll = _config_collection(owner_uid, sandbox)
+        db_firestore.collection(coll).document("payroll").set(data)
+    except Exception as e:
+        print(f"⚠️ HRDataService.save_payroll_config: {e}")
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# REFERENCE DATA (tipos de contrato, áreas configurables)
+# ═══════════════════════════════════════════════════════════════════════════
+
+def get_reference_data(owner_uid: str, sandbox: bool = True) -> dict:
+    if not firebase_initialized or db_firestore is None:
+        return {}
+    try:
+        coll = _config_collection(owner_uid, sandbox)
+        doc = db_firestore.collection(coll).document("reference_data").get()
+        if doc.exists:
+            return doc.to_dict()
+    except Exception as e:
+        print(f"⚠️ HRDataService.get_reference_data: {e}")
+    return {}
+
+
+def save_reference_data(owner_uid: str, data: dict, sandbox: bool = True):
+    if not firebase_initialized or db_firestore is None:
+        return
+    try:
+        coll = _config_collection(owner_uid, sandbox)
+        db_firestore.collection(coll).document("reference_data").set(data)
+    except Exception as e:
+        print(f"⚠️ HRDataService.save_reference_data: {e}")
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# SALARY HISTORY
+# ═══════════════════════════════════════════════════════════════════════════
+
+def get_salary_history(owner_uid: str, employee_id: str, sandbox: bool = True) -> list:
+    if not firebase_initialized or db_firestore is None:
+        return []
+    try:
+        coll_path = _hr_collection(owner_uid, "salary_history", sandbox)
+        docs = db_firestore.collection(coll_path).where("employeeId", "==", employee_id).get()
+        results = [{"id": d.id, **d.to_dict()} for d in docs]
+        results.sort(key=lambda r: r.get("effectiveDate", ""), reverse=True)
+        return results
+    except Exception as e:
+        print(f"⚠️ HRDataService.get_salary_history: {e}")
+        return []
+
+
+def get_current_salary(owner_uid: str, employee_id: str, sandbox: bool = True) -> float | None:
+    history = get_salary_history(owner_uid, employee_id, sandbox=sandbox)
+    active = [h for h in history if not h.get("endDate")]
+    if active:
+        return active[0].get("amount")
+    if history:
+        return history[0].get("amount")
+    return None
+
+
+def save_salary_history_entry(owner_uid: str, data: dict, sandbox: bool = True):
+    if not firebase_initialized or db_firestore is None:
+        return
+    try:
+        coll_path = _hr_collection(owner_uid, "salary_history", sandbox)
+        doc_id = data.get("id", str(uuid.uuid4()))
+        data["id"] = doc_id
+        db_firestore.collection(coll_path).document(doc_id).set(data)
+    except Exception as e:
+        print(f"⚠️ HRDataService.save_salary_history_entry: {e}")
+
+
+def close_previous_salary(owner_uid: str, employee_id: str, new_effective_date: str, sandbox: bool = True):
+    history = get_salary_history(owner_uid, employee_id, sandbox=sandbox)
+    active = [h for h in history if not h.get("endDate")]
+    for h in active:
+        h["endDate"] = new_effective_date
+        coll_path = _hr_collection(owner_uid, "salary_history", sandbox)
+        db_firestore.collection(coll_path).document(h["id"]).set(h)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# EMPLOYEE DOCUMENTS
+# ═══════════════════════════════════════════════════════════════════════════
+
+DOC_CATEGORIES = [
+    "contract", "id", "certificate", "medical", "disciplinary", "academic", "other"
+]
+
+def get_employee_documents(owner_uid: str, employee_id: str, sandbox: bool = True) -> list:
+    if not firebase_initialized or db_firestore is None:
+        return []
+    try:
+        coll_path = _hr_collection(owner_uid, "employee_documents", sandbox)
+        docs = db_firestore.collection(coll_path).where("employeeId", "==", employee_id).get()
+        return sorted([{"id": d.id, **d.to_dict()} for d in docs],
+                      key=lambda x: x.get("uploadedAt", ""), reverse=True)
+    except Exception as e:
+        print(f"⚠️ get_employee_documents: {e}")
+        return []
+
+
+def save_employee_document(owner_uid: str, data: dict, sandbox: bool = True):
+    if not firebase_initialized or db_firestore is None:
+        return
+    try:
+        coll_path = _hr_collection(owner_uid, "employee_documents", sandbox)
+        doc_id = data.get("id", str(uuid.uuid4()))
+        data["id"] = doc_id
+        db_firestore.collection(coll_path).document(doc_id).set(data)
+    except Exception as e:
+        print(f"⚠️ save_employee_document: {e}")
+
+
+def delete_employee_document(owner_uid: str, doc_id: str, sandbox: bool = True):
+    if not firebase_initialized or db_firestore is None:
+        return
+    try:
+        coll_path = _hr_collection(owner_uid, "employee_documents", sandbox)
+        db_firestore.collection(coll_path).document(doc_id).delete()
+    except Exception as e:
+        print(f"⚠️ delete_employee_document: {e}")
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# CATALOGS: Positions, Departments
+# ═══════════════════════════════════════════════════════════════════════════
+
+def _catalog_collection(owner_uid: str, catalog_name: str, sandbox: bool = True) -> str:
+    prefix = "sandbox_" if sandbox else ""
+    return f"users/{owner_uid}/{prefix}hr_catalog_{catalog_name}"
+
+
+def get_catalog(owner_uid: str, catalog_name: str, sandbox: bool = True) -> list:
+    if not firebase_initialized or db_firestore is None:
+        return _default_catalog(catalog_name)
+    try:
+        coll = _catalog_collection(owner_uid, catalog_name, sandbox)
+        docs = db_firestore.collection(coll).get()
+        items = [d.to_dict() for d in docs]
+        if not items:
+            items = _default_catalog(catalog_name)
+            for item in items:
+                db_firestore.collection(coll).document(item["id"]).set(item)
+        return sorted(items, key=lambda x: x.get("name", ""))
+    except Exception:
+        return _default_catalog(catalog_name)
+
+
+def save_catalog_item(owner_uid: str, catalog_name: str, item: dict, sandbox: bool = True):
+    if not firebase_initialized or db_firestore is None:
+        return
+    try:
+        coll = _catalog_collection(owner_uid, catalog_name, sandbox)
+        db_firestore.collection(coll).document(item["id"]).set(item)
+    except Exception as e:
+        print(f"⚠️ save_catalog_item: {e}")
+
+
+def delete_catalog_item(owner_uid: str, catalog_name: str, item_id: str, sandbox: bool = True):
+    if not firebase_initialized or db_firestore is None:
+        return
+    try:
+        coll = _catalog_collection(owner_uid, catalog_name, sandbox)
+        db_firestore.collection(coll).document(item_id).delete()
+    except Exception as e:
+        print(f"⚠️ delete_catalog_item: {e}")
+
+
+def _default_catalog(catalog_name: str) -> list:
+    defaults = {
+        "positions": [
+            {"id": "pos-1", "name": "Gerente General", "active": True},
+            {"id": "pos-2", "name": "Gerente de Área", "active": True},
+            {"id": "pos-3", "name": "Supervisor", "active": True},
+            {"id": "pos-4", "name": "Analista", "active": True},
+            {"id": "pos-5", "name": "Asistente", "active": True},
+            {"id": "pos-6", "name": "Vendedor", "active": True},
+            {"id": "pos-7", "name": "Contador", "active": True},
+            {"id": "pos-8", "name": "Desarrollador", "active": True},
+            {"id": "pos-9", "name": "Diseñador", "active": True},
+            {"id": "pos-10", "name": "Recepcionista", "active": True},
+        ],
+        "departments": [
+            {"id": "dept-1", "name": "Gerencia General", "active": True},
+            {"id": "dept-2", "name": "Administración", "active": True},
+            {"id": "dept-3", "name": "Ventas", "active": True},
+            {"id": "dept-4", "name": "Operaciones", "active": True},
+            {"id": "dept-5", "name": "Finanzas", "active": True},
+            {"id": "dept-6", "name": "Contabilidad", "active": True},
+            {"id": "dept-7", "name": "Recursos Humanos", "active": True},
+            {"id": "dept-8", "name": "Tecnología", "active": True},
+        ],
+    }
+    return defaults.get(catalog_name, [])
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# EMPLOYMENT HISTORY (transfers, promotions)
+# ═══════════════════════════════════════════════════════════════════════════
+
+def get_employment_history(owner_uid: str, employee_id: str, sandbox: bool = True) -> list:
+    if not firebase_initialized or db_firestore is None:
+        return []
+    try:
+        coll = _hr_collection(owner_uid, "employment_history", sandbox)
+        docs = db_firestore.collection(coll).where("employeeId", "==", employee_id).get()
+        return sorted([d.to_dict() for d in docs], key=lambda x: x.get("changedAt", ""), reverse=True)
+    except Exception:
+        return []
+
+
+def save_employment_history(owner_uid: str, data: dict, sandbox: bool = True):
+    if not firebase_initialized or db_firestore is None:
+        return
+    try:
+        coll = _hr_collection(owner_uid, "employment_history", sandbox)
+        doc_id = data.get("id", str(uuid.uuid4()))
+        data["id"] = doc_id
+        db_firestore.collection(coll).document(doc_id).set(data)
+    except Exception as e:
+        print(f"⚠️ save_employment_history: {e}")
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ONBOARDING / OFFBOARDING CHECKLISTS
+# ═══════════════════════════════════════════════════════════════════════════
+
+ONBOARDING_TASKS = [
+    {"id": "onb-1", "task": "Firmar contrato de trabajo", "category": "legal"},
+    {"id": "onb-2", "task": "Entregar documentos de identidad (cédula, RNC)", "category": "legal"},
+    {"id": "onb-3", "task": "Registrar en TSS (AFP, SFS, SRL)", "category": "legal"},
+    {"id": "onb-4", "task": "Crear correo electrónico corporativo", "category": "systems"},
+    {"id": "onb-5", "task": "Asignar equipo (laptop, teléfono)", "category": "assets"},
+    {"id": "onb-6", "task": "Configurar accesos a sistemas", "category": "systems"},
+    {"id": "onb-7", "task": "Presentación al equipo", "category": "hr"},
+    {"id": "onb-8", "task": "Entrenamiento inicial / inducción", "category": "hr"},
+]
+
+OFFBOARDING_TASKS = [
+    {"id": "off-1", "task": "Recibir carta de renuncia o notificación de despido", "category": "legal"},
+    {"id": "off-2", "task": "Calcular liquidación y prestaciones", "category": "payroll"},
+    {"id": "off-3", "task": "Recoger equipo asignado (laptop, teléfono, llaves)", "category": "assets"},
+    {"id": "off-4", "task": "Desactivar accesos a sistemas", "category": "systems"},
+    {"id": "off-5", "task": "Desactivar correo electrónico", "category": "systems"},
+    {"id": "off-6", "task": "Notificar a TSS baja del empleado", "category": "legal"},
+    {"id": "off-7", "task": "Entrevista de salida", "category": "hr"},
+    {"id": "off-8", "task": "Archivar expediente", "category": "hr"},
+]
+
+
+def get_checklist(owner_uid: str, employee_id: str, checklist_type: str, sandbox: bool = True) -> list:
+    if not firebase_initialized or db_firestore is None:
+        return ONBOARDING_TASKS if checklist_type == "onboarding" else OFFBOARDING_TASKS
+    try:
+        coll = _hr_collection(owner_uid, f"checklist_{checklist_type}", sandbox)
+        docs = db_firestore.collection(coll).where("employeeId", "==", employee_id).get()
+        items = [d.to_dict() for d in docs]
+        if not items:
+            templates = ONBOARDING_TASKS if checklist_type == "onboarding" else OFFBOARDING_TASKS
+            for t in templates:
+                entry = {**t, "employeeId": employee_id, "completed": False, "completedBy": "", "completedAt": ""}
+                db_firestore.collection(coll).document(t["id"] + "_" + employee_id).set(entry)
+                items.append(entry)
+        return items
+    except Exception:
+        return ONBOARDING_TASKS if checklist_type == "onboarding" else OFFBOARDING_TASKS
+
+
+def toggle_checklist_item(owner_uid: str, employee_id: str, checklist_type: str, item_id: str,
+                          completed: bool, user_email: str, sandbox: bool = True):
+    if not firebase_initialized or db_firestore is None:
+        return
+    try:
+        coll = _hr_collection(owner_uid, f"checklist_{checklist_type}", sandbox)
+        doc_id = item_id + "_" + employee_id
+        db_firestore.collection(coll).document(doc_id).set({
+            "employeeId": employee_id, "id": item_id, "completed": completed,
+            "completedBy": user_email if completed else "",
+            "completedAt": datetime.now(timezone.utc).isoformat() if completed else "",
+        }, merge=True)
+    except Exception as e:
+        print(f"⚠️ toggle_checklist_item: {e}")

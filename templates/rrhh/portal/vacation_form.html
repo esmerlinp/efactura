@@ -1,0 +1,37 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}Solicitar Vacaciones — {{ product_name }}{% endblock %}
+{% block content %}
+{% include "rrhh/_styles.html" %}
+<div class="page-header hr-page-header">
+    <h1 class="page-title"><i class="fa-solid fa-umbrella-beach"></i> Solicitar Vacaciones</h1>
+    <a href="{{ url_for('web_rrhh.employee_portal_dashboard') }}" class="btn btn-ghost"><i class="fa-solid fa-arrow-left"></i> Volver</a>
+</div>
+<form method="POST" class="hr-main-col">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="hr-section-card">
+        <h3><i class="fa-regular fa-calendar"></i> Datos de la solicitud</h3>
+        <div style="margin-bottom:12px; padding:10px 14px; background:var(--bg-nav-hover); border-radius:var(--radius-sm);">
+            <span style="font-weight:600;">Días disponibles: </span>
+            <span style="color:var(--accent-emerald); font-weight:700; font-size:1.1rem;">{{ remaining }} días</span>
+        </div>
+        <div class="hr-form-grid">
+            <div class="form-group">
+                <label>Fecha inicio <span style="color:var(--danger);">*</span></label>
+                <input type="date" name="startDate" class="form-input" required>
+            </div>
+            <div class="form-group">
+                <label>Fecha fin <span style="color:var(--danger);">*</span></label>
+                <input type="date" name="endDate" class="form-input" required>
+            </div>
+            <div class="form-group" style="grid-column:1/-1;">
+                <label>Notas</label>
+                <textarea name="notes" class="form-textarea" rows="2"></textarea>
+            </div>
+        </div>
+    </div>
+    <div class="hr-section-card hr-actions-card hr-actions-bar">
+        <a href="{{ url_for('web_rrhh.employee_portal_dashboard') }}" class="btn btn-ghost">Cancelar</a>
+        <button type="submit" class="btn btn-primary">Enviar solicitud</button>
+    </div>
+</form>
+{% endblock %}

@@ -1,0 +1,64 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}IR-18 — Certificados de Retención — {{ product_name }}{% endblock %}
+{% block content %}
+{% include "rrhh/_styles.html" %}
+<div class="page-header hr-page-header">
+    <h1 class="page-title"><i class="fa-solid fa-file-invoice"></i> Certificados IR-18</h1>
+    <div style="display:flex; gap:8px;">
+        <select onchange="location.href='?year='+this.value" class="form-select" style="width:auto;">
+            {% for y in range(year-2, year+1) %}
+            <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>
+            {% endfor %}
+        </select>
+        <a href="{{ url_for('web_rrhh.payroll_dashboard') }}" class="btn btn-ghost">
+            <i class="fa-solid fa-arrow-left"></i> Dashboard
+        </a>
+    </div>
+</div>
+
+<div class="card-table-wrapper hr-table-card">
+    <div class="table-header-row">
+        <div>
+            <h3>Certificados de retención IR-18 — {{ year }}</h3>
+            <p>Empleados con ingresos acumulados en el año fiscal. DGII exige entrega antes del 28 de febrero.</p>
+        </div>
+    </div>
+    <div class="table-responsive">
+        <table class="table-premium">
+        <thead>
+            <tr>
+                <th>Empleado</th>
+                <th>Cédula</th>
+                <th style="text-align:right;">Ingreso Bruto YTD</th>
+                <th style="text-align:right;">ISR Retenido</th>
+                <th style="text-align:right;">AFP Empleado</th>
+                <th style="text-align:right;">SFS Empleado</th>
+                <th style="text-align:right;">Neto YTD</th>
+                <th>Acción</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for ed in employee_ytds %}
+            {% set e = ed.employee %}{% set y = ed.ytd %}
+            <tr>
+                <td><strong>{{ e.fullName }}</strong></td>
+                <td>{{ e.cedula or e.idNumber }}</td>
+                <td style="text-align:right;">RD$ {{ "{:,.2f}".format(y.grossIncome|float) }}</td>
+                <td style="text-align:right; color:var(--danger);">RD$ {{ "{:,.2f}".format(y.isrRetention|float) }}</td>
+                <td style="text-align:right;">RD$ {{ "{:,.2f}".format(y.afpEmployee|float) }}</td>
+                <td style="text-align:right;">RD$ {{ "{:,.2f}".format(y.sfsEmployee|float) }}</td>
+                <td style="text-align:right; color:var(--accent-emerald);">RD$ {{ "{:,.2f}".format(y.netSalary|float) }}</td>
+                <td>
+                    <a href="{{ url_for('web_rrhh.report_ir18_view', employee_id=e.id, year=year) }}" class="btn btn-sm btn-primary">
+                        <i class="fa-solid fa-eye"></i> Ver IR-18
+                    </a>
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="8" class="text-center text-muted">No hay ingresos registrados para {{ year }}. Procesa una nómina primero.</td></tr>
+            {% endfor %}
+        </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

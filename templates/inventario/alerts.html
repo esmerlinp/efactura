@@ -1,0 +1,108 @@
+{% extends "layout.html" %}
+{% block title %}Alertas de Inventario — {{ product_name }}{% endblock %}
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/_dashboard.css') }}?v={{ static_hash('css/_dashboard.css') }}">
+{% endblock %}
+{% block content %}
+<div class="dashboard-container">
+<div class="page-title-container" style="margin-bottom: 0; padding-left: 4px;">
+    <h1 class="page-title"
+        style="font-size: 1.75rem; font-weight: 800; font-family: var(--font-heading); color: var(--text-primary); margin: 0;">
+        <i class="fa-solid fa-bell"></i> Alertas de Inventario
+    </h1>
+</div>
+
+<!-- Puntos de Reorden -->
+<div class="card-table-wrapper" style="margin-bottom:var(--space-4);">
+    <div class="table-header-row" style="margin-bottom:16px;">
+        <span style="font-family:var(--font-heading); font-weight:600; font-size:0.9rem; color:var(--text-primary);">
+            <i class="fa-solid fa-cart-shopping"></i> Sugerencias de Reorden ({{ reorder|length }})
+        </span>
+    </div>
+    {% if reorder %}
+    <div class="table-responsive">
+        <table class="table-premium">
+            <thead><tr><th>Producto</th><th>Stock</th><th>Mín</th><th>Máx</th><th>Consumo/Mes</th><th>Sugerido</th><th>Meses</th><th>Severidad</th></tr></thead>
+            <tbody>
+                {% for r in reorder %}
+                <tr>
+                    <td>{{ r.itemName }}</td><td>{{ "%.2f"|format(r.currentStock) }}</td>
+                    <td>{{ "%.2f"|format(r.minStock) }}</td><td>{{ "%.2f"|format(r.maxStock) }}</td>
+                    <td>{{ "%.2f"|format(r.monthlyConsumption) }}</td>
+                    <td><strong>{{ "%.2f"|format(r.suggestedOrder) }}</strong></td>
+                    <td>{{ r.monthsOfStock }}</td>
+                    <td><span class="badge badge-{{ 'danger' if r.severity == 'critico' else 'warning' if r.severity == 'alto' else 'info' }}">{{ r.severity }}</span></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div style="padding:var(--space-4); color:var(--text-muted); font-size:var(--text-sm);">No hay productos bajo el punto de reorden.</div>
+    {% endif %}
+</div>
+
+<!-- Vencimientos ≤30 días -->
+<div class="card-table-wrapper" style="margin-bottom:var(--space-4);">
+    <div class="table-header-row" style="margin-bottom:16px;">
+        <span style="font-family:var(--font-heading); font-weight:600; font-size:0.9rem; color:var(--accent-red);">
+            <i class="fa-solid fa-clock"></i> Vencimientos ≤30 días ({{ expirations.alert_30d|length }})
+        </span>
+    </div>
+    {% if expirations.alert_30d %}
+    <div class="table-responsive">
+        <table class="table-premium">
+            <thead><tr><th>Producto</th><th>Lote</th><th>Cantidad</th><th>Vence</th><th>Días</th></tr></thead>
+            <tbody>
+                {% for e in expirations.alert_30d %}
+                <tr><td>{{ e.itemName }}</td><td>{{ e.lotNumber }}</td><td>{{ "%.2f"|format(e.quantity) }}</td><td>{{ e.expirationDate }}</td><td><span class="badge badge-danger">{{ e.daysLeft }}d</span></td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}<div style="padding:var(--space-4); color:var(--text-muted); font-size:var(--text-sm);">Sin vencimientos próximos.</div>{% endif %}
+</div>
+
+<!-- Vencimientos 31-60 días -->
+<div class="card-table-wrapper" style="margin-bottom:var(--space-4);">
+    <div class="table-header-row" style="margin-bottom:16px;">
+        <span style="font-family:var(--font-heading); font-weight:600; font-size:0.9rem; color:var(--accent-yellow);">
+            <i class="fa-solid fa-clock"></i> Vencimientos 31-60 días ({{ expirations.alert_60d|length }})
+        </span>
+    </div>
+    {% if expirations.alert_60d %}
+    <div class="table-responsive">
+        <table class="table-premium">
+            <thead><tr><th>Producto</th><th>Lote</th><th>Cantidad</th><th>Vence</th><th>Días</th></tr></thead>
+            <tbody>
+                {% for e in expirations.alert_60d %}
+                <tr><td>{{ e.itemName }}</td><td>{{ e.lotNumber }}</td><td>{{ "%.2f"|format(e.quantity) }}</td><td>{{ e.expirationDate }}</td><td><span class="badge badge-warning">{{ e.daysLeft }}d</span></td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}<div style="padding:var(--space-4); color:var(--text-muted); font-size:var(--text-sm);">Sin vencimientos en este rango.</div>{% endif %}
+</div>
+
+<!-- Vencimientos 61-90 días -->
+<div class="card-table-wrapper">
+    <div class="table-header-row" style="margin-bottom:16px;">
+        <span style="font-family:var(--font-heading); font-weight:600; font-size:0.9rem; color:var(--text-primary);">
+            <i class="fa-solid fa-clock"></i> Vencimientos 61-90 días ({{ expirations.alert_90d|length }})
+        </span>
+    </div>
+    {% if expirations.alert_90d %}
+    <div class="table-responsive">
+        <table class="table-premium">
+            <thead><tr><th>Producto</th><th>Lote</th><th>Cantidad</th><th>Vence</th><th>Días</th></tr></thead>
+            <tbody>
+                {% for e in expirations.alert_90d %}
+                <tr><td>{{ e.itemName }}</td><td>{{ e.lotNumber }}</td><td>{{ "%.2f"|format(e.quantity) }}</td><td>{{ e.expirationDate }}</td><td><span class="badge badge-info">{{ e.daysLeft }}d</span></td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}<div style="padding:var(--space-4); color:var(--text-muted); font-size:var(--text-sm);">Sin vencimientos en este rango.</div>{% endif %}
+</div>
+</div>
+{% endblock %}

@@ -576,7 +576,8 @@ def import_bank_statement(account_id):
         from app.services.bank_statement_parser import BankStatementParser
         try:
             content = file.read()
-            statement_txns = BankStatementParser.parse_csv(content, bank=bank)
+            filename = file.filename or ""
+            statement_txns = BankStatementParser.parse_file(content, bank=bank, filename=filename)
 
             book_txns = []
             try:
@@ -641,4 +642,65 @@ def auto_match_reconciliation(recon_id):
     recon_path = "sandbox_bank_reconciliations" if sandbox else "bank_reconciliations"
     db_firestore.collection("users").document(owner_uid).collection(recon_path).document(recon_id).set(recon)
     return jsonify(success=True)
+
+
+@web_banks_bp.route('/banks/payment-calendar')
+def payment_calendar():
+    if 'user' not in session:
+        return redirect(url_for('web_auth.login'))
+    if not check_permission('canExpenses'):
+        return render_template('auth/restricted.html', feature_name="Calendario de Pagos", required_permission="canExpenses")
+
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+
+    try:
+        days = int(request.args.get('days', 60))
+    except ValueError:
+        days = 60
+
+    try:
+        from app.services.payment_scheduler_service import PaymentSchedulerService
+        payments = PaymentSchedulerService.get_payment_calendar(owner_uid, sandbox=sandbox, days_ahead=days)
+        stats = PaymentSchedulerService.get_calendar_stats(owner_uid, sandbox=sandbox)
+        plan = PaymentSchedulerService.suggest_payment_plan(owner_uid, sandbox=sandbox)
+    except Exception as e:
+        flash(f'Error al generar calendario: {str(e)}', 'error')
+        payments = []
+        stats = {}
+        plan = None
+
+    # Convert dataclasses to dicts for template
+    payments_dicts = [
+        {"expense_id": p.expense_id, "concept": p.concept, "supplier_name": p.supplier_name,
+         "supplier_rnc": p.supplier_rnc, "due_date": p.due_date, "amount": p.amount,
+         "remaining": p.remaining, "days_overdue": p.days_overdue, "priority": p.priority,
+         "suggested_pay_date": p.suggested_pay_date, "category": p.category, "cxp_status": p.cxp_status}
+        for p in payments
+    ]
+
+    plan_dict = None
+    if plan:
+        plan_dict = {
+            "total_to_pay": plan.total_to_pay,
+            "available_balance": plan.available_balance,
+            "remaining_after_plan": plan.remaining_after_plan,
+            "coverage_pct": plan.coverage_pct,
+            "uncovered_amount": plan.uncovered_amount,
+            "uncovered_count": plan.uncovered_count,
+            "payments": [
+                {"concept": pp.concept, "supplier_name": pp.supplier_name,
+                 "amount": pp.amount, "priority": pp.priority, "due_date": pp.due_date}
+                for pp in plan.payments
+            ]
+        }
+
+    return render_template(
+        'banks/payment_calendar.html',
+        active_page='bank_payment_calendar',
+        payments=payments_dicts,
+        stats=stats,
+        plan=plan_dict,
+        days=days,
+    )
 

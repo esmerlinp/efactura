@@ -103,6 +103,16 @@
         </div>
 
         <div style="display:flex; align-items:center; gap:8px; flex-shrink:0;">
+            {% if is_client %}
+            <a href="{{ url_for('web_crm.opportunity_new', contact_id=contact.id) }}" class="btn btn-secondary" style="display:inline-flex; align-items:center; gap:6px; font-weight:600; padding:0 14px; font-size:0.8rem; height:34px; border-radius:6px;">
+                <i class="fa-solid fa-bullseye"></i>
+                <span>Oportunidad</span>
+            </a>
+            <a href="{{ url_for('web_crm.activity_new', contact_id=contact.id) }}" class="btn btn-secondary" style="display:inline-flex; align-items:center; gap:6px; font-weight:600; padding:0 14px; font-size:0.8rem; height:34px; border-radius:6px;">
+                <i class="fa-solid fa-calendar-plus"></i>
+                <span>Actividad</span>
+            </a>
+            {% endif %}
             <a href="{{ url_for('web_contacts.edit_contact', contact_id=contact.id) }}" class="btn btn-secondary" style="display:inline-flex; align-items:center; gap:6px; font-weight:600; padding:0 14px; font-size:0.8rem; height:34px; border-radius:6px;">
                 <i class="fa-solid fa-user-pen"></i>
                 <span>Editar Ficha</span>

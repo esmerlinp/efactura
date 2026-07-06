@@ -208,6 +208,12 @@ def create_app():
                             'web_invoices.new_invoice_route', 'web_invoices.new_quotation_route',
                             'web_invoices.new_expense_route', 'web_clients.ajax_create_client',
                             'web_contacts.ajax_create_contact', 'web_contacts.new_contact',
+                            'web_crm.opportunity_new', 'web_crm.opportunity_edit', 'web_crm.opportunity_stage',
+                            'web_crm.opportunity_close', 'web_crm.opportunity_delete',
+                            'web_crm.activity_new', 'web_crm.activity_edit',
+                            'web_crm.activity_complete', 'web_crm.activity_delete',
+                            'web_workflows.save_rule', 'web_workflows.delete_rule', 'web_workflows.decide_request',
+                            'web_budgets.save_budget',
                             'web_invoices.delete_expense_route', 'web_invoices.delete_multiple_expenses_route', 'web_pos.pos_dashboard',
                             'web_pos.create_pos_invoice', 'web_import_mapper.process_import',
                             'web_operations.register_payment_route', 'web_notes.create_credit_note_route',
@@ -237,6 +243,26 @@ def create_app():
                     'web_contacts.list_contacts': 'crm',
                     'web_contacts.new_contact': 'crm',
                     'web_contacts.ajax_create_contact': 'crm',
+                    'web_crm.dashboard': 'crm',
+                    'web_crm.pipeline': 'crm',
+                    'web_crm.opportunity_new': 'crm',
+                    'web_crm.opportunity_edit': 'crm',
+                    'web_crm.opportunity_stage': 'crm',
+                    'web_crm.opportunity_close': 'crm',
+                    'web_crm.opportunity_delete': 'crm',
+                    'web_crm.activities': 'crm',
+                    'web_crm.activity_new': 'crm',
+                    'web_crm.activity_edit': 'crm',
+                    'web_crm.activity_complete': 'crm',
+                    'web_crm.activity_delete': 'crm',
+                    'web_workflows.dashboard': 'gastos',
+                    'web_workflows.save_rule': 'gastos',
+                    'web_workflows.delete_rule': 'gastos',
+                    'web_workflows.decide_request': 'gastos',
+                    'web_budgets.dashboard': 'ia_bi',
+                    'web_budgets.save_budget': 'ia_bi',
+                    'web_bi.drilldown': 'ia_bi',
+                    'web_system_jobs.dashboard': 'auditoria',
                     'web_notes.credit_notes': 'e_cf',
                     'web_notes.debit_notes': 'e_cf',
                     'web_invoices.new_quotation_route': 'cotizaciones',
@@ -385,6 +411,15 @@ def create_app():
         return dict(check_permission=check_permission, static_hash=static_hash, module_enabled=module_enabled, abs=abs)
 
     @app.context_processor
+    def inject_i18n_helpers():
+        from app.services.i18n_service import I18nService, SUPPORTED_LOCALES
+        return dict(
+            t=I18nService.translate,
+            current_locale=I18nService.current_locale(),
+            supported_locales=SUPPORTED_LOCALES,
+        )
+
+    @app.context_processor
     def inject_plan_info():
         """Inyecta el nombre y tipo de facturación del plan activo en todos los templates."""
         from flask import has_request_context
@@ -440,7 +475,7 @@ def create_app():
                 return flask_url_for(endpoint, **values)
             except Exception:
                 # Si falla, intentar buscar agregando el prefijo de nuestros Blueprints web
-                for bp_name in ['web_auth', 'web_dashboard', 'web_clients', 'web_contacts', 'web_invoices', 'web_suppliers', 'web_purchase_orders', 'web_reports_606', 'web_pos', 'web_operations', 'portal', 'web_audit']:
+                for bp_name in ['web_auth', 'web_dashboard', 'web_clients', 'web_contacts', 'web_crm', 'web_workflows', 'web_budgets', 'web_system_jobs', 'web_i18n', 'web_bi', 'web_invoices', 'web_suppliers', 'web_purchase_orders', 'web_reports_606', 'web_pos', 'web_operations', 'portal', 'web_audit', 'web_accounting', 'web_banks', 'web_reports_sales', 'web_rrhh', 'web_inventory']:
                     try:
                         return flask_url_for(f"{bp_name}.{endpoint}", **values)
                     except Exception:
@@ -604,8 +639,16 @@ def create_app():
     from app.web.vykcore import web_vykcore_bp
     from app.web.banks import web_banks_bp
     from app.web.contacts import web_contacts_bp
+    from app.web.crm import web_crm_bp
+    from app.web.workflows import web_workflows_bp
+    from app.web.budgets import web_budgets_bp
+    from app.web.system_jobs import web_system_jobs_bp
+    from app.web.i18n import web_i18n_bp
+    from app.web.bi import web_bi_bp
     from app.web.reports_sales import web_reports_sales_bp
     from app.web.accounting import web_accounting_bp
+    from app.web.rrhh import web_rrhh_bp
+    from app.web.inventory import web_inventory_bp
 
     app.register_blueprint(web_auth_bp)
     app.register_blueprint(web_dashboard_bp)
@@ -625,8 +668,16 @@ def create_app():
     app.register_blueprint(web_notifications_bp)
     app.register_blueprint(web_banks_bp)
     app.register_blueprint(web_contacts_bp)
+    app.register_blueprint(web_crm_bp)
+    app.register_blueprint(web_workflows_bp)
+    app.register_blueprint(web_budgets_bp)
+    app.register_blueprint(web_system_jobs_bp)
+    app.register_blueprint(web_i18n_bp)
+    app.register_blueprint(web_bi_bp)
     app.register_blueprint(web_reports_sales_bp)
     app.register_blueprint(web_accounting_bp)
+    app.register_blueprint(web_rrhh_bp)
+    app.register_blueprint(web_inventory_bp)
 
     # Eximir rutas /api/ de validación CSRF (los blueprints de API se registraron arriba)
     for rule in app.url_map.iter_rules():
@@ -680,5 +731,17 @@ def create_app():
             logging.getLogger(__name__).warning(
                 f"⚠️ APScheduler no pudo inicializarse: {_sched_err}"
             )
+
+    # =========================================================================
+    # Event Bus — sistema de eventos de dominio (Fase 1.2)
+    # =========================================================================
+    try:
+        from app.events.setup import setup_event_bus
+        setup_event_bus(app=app)
+    except Exception as _evt_err:
+        import logging
+        logging.getLogger(__name__).warning(
+            f"⚠️ Event Bus no pudo inicializarse: {_evt_err}"
+        )
 
     return app

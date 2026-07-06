@@ -1,0 +1,243 @@
+{% extends "layout.html" %}
+{% block title %}Proyección de Flujo de Caja{% endblock %}
+{% block page_header %}Proyección de Flujo de Caja{% endblock %}
+{% block extra_head %}
+<style>
+    .breadcrumb { display: flex; align-items: center; gap: 6px; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 16px; }
+    .breadcrumb a { color: var(--text-muted); text-decoration: none; font-weight: 500; }
+    .breadcrumb a:hover { color: var(--accent-emerald); }
+    .breadcrumb .sep { color: #cbd5e1; }
+    .page-subtitle { font-size: 0.85rem; color: var(--text-muted); margin: -8px 0 18px 0; line-height: 1.5; max-width: 700px; }
+
+    .cf-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+    .cf-toolbar .liquidity-badge { background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 10px; padding: 10px 18px; font-weight: 800; color: var(--accent-emerald); font-size: 1.05rem; }
+    .cf-toolbar .liquidity-badge.negative { background: #fef2f2; border-color: #fecaca; color: var(--accent-red); }
+    .cf-months-select { display: flex; gap: 6px; }
+    .cf-months-select a { padding: 6px 14px; border-radius: 8px; font-size: 0.84rem; font-weight: 600; text-decoration: none; color: var(--text-muted); border: 1px solid #e2e8f0; }
+    .cf-months-select a.active, .cf-months-select a:hover { background: var(--accent-emerald); color: #fff; border-color: var(--accent-emerald); }
+
+    .cf-alert { border-radius: 10px; padding: 14px 18px; margin-bottom: 16px; display: flex; align-items: center; gap: 12px; font-size: 0.88rem; }
+    .cf-alert.danger { background: rgba(239, 68, 68, 0.06); border: 1px solid rgba(239, 68, 68, 0.2); color: var(--accent-red); }
+    .cf-alert.warning { background: rgba(245, 158, 11, 0.06); border: 1px solid rgba(245, 158, 11, 0.2); color: var(--accent-amber); }
+    .cf-alert.critical { background: rgba(220, 38, 38, 0.08); border: 1px solid rgba(220, 38, 38, 0.3); color: #dc2626; font-weight: 700; }
+    .cf-alert.success { background: rgba(16, 185, 129, 0.06); border: 1px solid rgba(16, 185, 129, 0.2); color: var(--accent-emerald); }
+
+    .cf-chart-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 20px 22px; margin-bottom: 24px; }
+    .cf-chart-card h3 { margin: 0 0 16px 0; font-size: 1rem; font-weight: 800; }
+
+    .cf-table-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 20px 22px; overflow-x: auto; margin-bottom: 24px; }
+    .cf-table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
+    .cf-table th, .cf-table td { padding: 10px 14px; border-bottom: 1px solid #f1f5f9; }
+    .cf-table thead th { background: #f8fafc; text-align: right; font-size: 0.74rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 1px solid #e2e8f0; }
+    .cf-table thead th:first-child { text-align: left; }
+    .cf-table tbody td { color: var(--text-primary); text-align: right; }
+    .cf-table tbody td:first-child { text-align: left; font-weight: 600; color: var(--text-secondary); }
+    .cf-table tbody tr.total-row td { background: rgba(16, 185, 129, 0.05); font-weight: 800; color: var(--accent-emerald); border-bottom: 2px solid var(--accent-emerald); }
+    .cf-table tbody tr.danger-row td { background: rgba(239, 68, 68, 0.05); color: var(--accent-red); }
+
+    .item-list { max-height: 300px; overflow-y: auto; font-size: 0.82rem; }
+    .item-row { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px solid #f8fafc; }
+    .item-row .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .item-row .dot.inflow { background: var(--accent-emerald); }
+    .item-row .dot.outflow { background: var(--accent-red); }
+    .item-row .desc { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .item-row .amount { font-weight: 600; white-space: nowrap; }
+    .item-row .amount.inflow { color: var(--accent-emerald); }
+    .item-row .amount.outflow { color: var(--accent-red); }
+    .item-row .tag { font-size: 0.68rem; padding: 2px 8px; border-radius: 6px; background: #f1f5f9; color: var(--text-muted); white-space: nowrap; }
+
+    .empty-state { text-align: center; padding: 60px 20px; color: var(--text-muted); }
+    .empty-state i { font-size: 3rem; display: block; margin-bottom: 16px; color: #cbd5e1; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="breadcrumb">
+    <a href="{{ url_for('web_invoices.reports_dashboard') }}">Reportes</a>
+    <span class="sep">/</span>
+    <a href="{{ url_for('web_invoices.reports_category', category_key='financieros') }}">Financieros</a>
+    <span class="sep">/</span>
+    <a href="{{ url_for('web_reports_sales.cash_flow_report') }}">Flujo de caja</a>
+    <span class="sep">/</span>
+    <span>Proyección</span>
+</div>
+
+<p class="page-subtitle">Proyección forward-looking de tu flujo de caja basada en CxC, CxP, recurrencias y contratos activos. Te ayuda a anticipar déficits de liquidez y planificar con tiempo.</p>
+
+<div class="cf-toolbar">
+    <div class="liquidity-badge {% if current_liquidity < 0 %}negative{% endif %}">
+        <i class="fa-solid fa-piggy-bank"></i>
+        &nbsp;Liquidez actual: RD$ {{ "{:,.2f}".format(current_liquidity) }}
+    </div>
+    <div class="cf-months-select">
+        {% for m in [3, 6, 12, 18, 24] %}
+        <a href="?months={{ m }}" {% if months == m %}class="active"{% endif %}>{{ m }}m</a>
+        {% endfor %}
+    </div>
+</div>
+
+{% for alert in deficit_alerts %}
+<div class="cf-alert {{ alert.severity }}">
+    {% if alert.severity == 'critical' %}<i class="fa-solid fa-triangle-exclamation"></i>{% elif alert.severity == 'danger' %}<i class="fa-solid fa-circle-exclamation"></i>{% else %}<i class="fa-solid fa-circle-info"></i>{% endif %}
+    <span>
+        {% if alert.severity == 'critical' %}
+        ⚠️ Alerta crítica: Saldo proyectado negativo de RD$ {{ "{:,.2f}".format(alert.projected_balance | abs) }} para <strong>{{ alert.month_label }}</strong>. Múltiples meses consecutivos en déficit.
+        {% elif alert.severity == 'danger' %}
+        ⚠️ Riesgo de liquidez: Saldo proyectado negativo de RD$ {{ "{:,.2f}".format(alert.projected_balance | abs) }} para <strong>{{ alert.month_label }}</strong>.
+        {% else %}
+        ⚡ Atención: Déficit proyectado de RD$ {{ "{:,.2f}".format(alert.projected_balance | abs) }} en <strong>{{ alert.month_label }}</strong>. Planifica con anticipación.
+        {% endif %}
+    </span>
+</div>
+{% endfor %}
+
+{% if not deficit_alerts and projections %}
+<div class="cf-alert success">
+    <i class="fa-solid fa-circle-check"></i>
+    <span>No se detectan déficits de liquidez en el horizonte de proyección. Tu flujo de caja proyectado se mantiene positivo.</span>
+</div>
+{% endif %}
+
+{% if projections %}
+<div class="cf-chart-card">
+    <h3>Proyección de saldo acumulado</h3>
+    <div style="height: 320px; position: relative; width: 100%;">
+        <canvas id="projectionChart"></canvas>
+    </div>
+</div>
+
+<div class="cf-table-card">
+    <table class="cf-table">
+        <thead>
+            <tr>
+                <th>Mes</th>
+                <th>Entradas</th>
+                <th>Salidas</th>
+                <th>Neto</th>
+                <th>Saldo acumulado</th>
+                <th>Detalle</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for p in projections %}
+            <tr {% if p.cumulative < 0 %}class="danger-row"{% endif %}>
+                <td>{{ p.label }}</td>
+                <td>RD$ {{ "{:,.2f}".format(p.inflow) }}</td>
+                <td>RD$ {{ "{:,.2f}".format(p.outflow) }}</td>
+                <td style="color: {% if p.net >= 0 %}var(--accent-emerald){% else %}var(--accent-red){% endif %};">
+                    RD$ {{ "{:,.2f}".format(p.net) }}
+                </td>
+                <td style="font-weight: 800; color: {% if p.cumulative >= 0 %}var(--accent-emerald){% else %}var(--accent-red){% endif %};">
+                    RD$ {{ "{:,.2f}".format(p.cumulative) }}
+                </td>
+                <td>
+                    {% if p.items %}
+                    <button onclick="toggleItems('items-{{ loop.index }}')" style="background:none;border:none;cursor:pointer;color:var(--accent-blue);font-size:0.8rem;">
+                        <i class="fa-solid fa-list"></i> {{ p.items | length }} movs.
+                    </button>
+                    {% else %}
+                    <span style="color:var(--text-muted);font-size:0.8rem;">—</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% if p.items %}
+            <tr id="items-{{ loop.index }}" style="display:none;">
+                <td colspan="6" style="padding:0;">
+                    <div class="item-list" style="padding:8px 14px;">
+                        {% for item in p.items %}
+                        <div class="item-row">
+                            <span class="dot {{ item.type }}"></span>
+                            <span class="desc">{{ item.description }}</span>
+                            <span class="tag">{{ item.source }}</span>
+                            <span class="amount {{ item.type }}">RD$ {{ "{:,.2f}".format(item.amount) }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </td>
+            </tr>
+            {% endif %}
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="empty-state">
+    <i class="fa-solid fa-chart-line"></i>
+    <h3>Sin datos de proyección</h3>
+    <p>No se encontraron facturas pendientes, gastos a crédito, recurrencias ni contratos activos para generar la proyección.</p>
+</div>
+{% endif %}
+
+<script>
+function toggleItems(id) {
+    const el = document.getElementById(id);
+    if (el) el.style.display = el.style.display === 'none' ? 'table-row' : 'none';
+}
+
+{% if projections %}
+document.addEventListener("DOMContentLoaded", function() {
+    const ctx = document.getElementById('projectionChart').getContext('2d');
+    const labels = [{% for p in projections %}'{{ p.label | replace("'", "\\'") }}',{% endfor %}];
+    const inflows = [{% for p in projections %}{{ p.inflow }},{% endfor %}];
+    const outflows = [{% for p in projections %}{{ p.outflow }},{% endfor %}];
+    const cumulative = [{% for p in projections %}{{ p.cumulative }},{% endfor %}];
+
+    new Chart(ctx, {
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    type: 'bar',
+                    label: 'Entradas',
+                    data: inflows,
+                    backgroundColor: 'rgba(16, 185, 129, 0.7)',
+                    borderColor: '#10b981',
+                    borderWidth: 1,
+                    borderRadius: 4
+                },
+                {
+                    type: 'bar',
+                    label: 'Salidas',
+                    data: outflows,
+                    backgroundColor: 'rgba(239, 68, 68, 0.7)',
+                    borderColor: '#ef4444',
+                    borderWidth: 1,
+                    borderRadius: 4
+                },
+                {
+                    type: 'line',
+                    label: 'Saldo acumulado',
+                    data: cumulative,
+                    borderColor: '#6366f1',
+                    backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                    borderWidth: 3,
+                    pointBackgroundColor: '#6366f1',
+                    pointRadius: 5,
+                    tension: 0.3,
+                    fill: false
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'top', labels: { font: { family: 'Outfit, sans-serif', size: 12 } } },
+                tooltip: {
+                    mode: 'index',
+                    intersect: false,
+                    callbacks: {
+                        label: function(context) {
+                            return context.dataset.label + ': RD$ ' + context.parsed.y.toLocaleString('es-DO', { minimumFractionDigits: 2 });
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: { beginAtZero: true, ticks: { callback: v => 'RD$ ' + v.toLocaleString() } }
+            }
+        }
+    });
+});
+{% endif %}
+</script>
+{% endblock %}

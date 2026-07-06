@@ -1,0 +1,30 @@
+{% extends "layout.html" %}
+{% block title %}Idioma{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title"><i class="fa-solid fa-language"></i> Idioma</h1>
+    <p style="color:var(--text-secondary); margin:6px 0 0;">Preferencia de idioma base para navegación y etiquetas comunes.</p>
+</div>
+
+<div class="card" style="max-width:620px;">
+    <div class="card-header">Preferencia personal</div>
+    <div class="card-body">
+        <form method="POST" style="display:flex; flex-direction:column; gap:16px;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <label class="form-group">
+                <span>Idioma</span>
+                <select name="locale" class="form-input">
+                    {% for code, label in supported_locales.items() %}
+                    <option value="{{ code }}" {% if code == current_locale %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <div style="background:rgba(59,130,246,.08); border:1px solid rgba(59,130,246,.18); border-radius:var(--radius-sm); padding:14px; color:var(--text-secondary); font-size:.86rem;">
+                Esta fase agrega la infraestructura i18n y traducciones comunes. Los templates se pueden migrar gradualmente usando el helper global <code>t('clave')</code>.
+            </div>
+            <button class="btn btn-accent" type="submit">Guardar idioma</button>
+        </form>
+    </div>
+</div>
+{% endblock %}
+

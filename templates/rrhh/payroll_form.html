@@ -1,0 +1,206 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}Procesar Nómina — {{ product_name }}{% endblock %}
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/_dashboard.css') }}?v={{ static_hash('css/_dashboard.css') }}">
+{% endblock %}
+{% block content %}
+<div class="dashboard-container">
+<div class="page-title-container" style="margin-bottom: 0; padding-left: 4px;">
+    <div style="display:flex; justify-content:space-between; align-items:flex-end; gap:var(--space-4); flex-wrap:wrap;">
+        <div>
+            <h1 class="page-title"
+                style="font-size: 1.75rem; font-weight: 800; font-family: var(--font-heading); color: var(--text-primary); margin: 0;">
+                <i class="fa-solid fa-calculator"></i> Calcular nómina
+            </h1>
+            <p style="color:var(--text-secondary); margin:6px 0 0; font-size:var(--text-sm);">
+                Define el período de nómina que deseas calcular.
+            </p>
+        </div>
+    </div>
+</div>
+
+<form method="POST">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <!-- Period Selector -->
+    <div class="card-table-wrapper" style="padding:20px 24px; margin-bottom:16px;">
+        <div style="font-family:var(--font-heading); font-weight:600; font-size:0.9rem; color:var(--text-primary); margin-bottom:12px;">
+            <i class="fa-regular fa-calendar"></i> Nuevo período
+        </div>
+        <div style="max-width:400px;">
+            <div class="form-group">
+                <label>Período <span style="color:var(--danger);">*</span></label>
+                <select name="period_key" class="form-select" required>
+                    <option value="">Seleccionar período</option>
+                    {% for p in available_periods %}
+                    <option value="{{ p.key }}" {% if loop.first %}selected{% endif %}>{{ p.label }}</option>
+                    {% endfor %}
+                </select>
+                <p style="color:var(--text-muted); font-size:0.82rem; margin-top:8px;">
+                    <i class="fa-regular fa-circle-info"></i>
+                    Al crear un nuevo periodo podrás editar los datos de los empleados que incluirás en tu nómina.
+                </p>
+            </div>
+        </div>
+        {% if show_christmas_bonus %}
+        <div style="margin-top:16px; display:flex; align-items:center; gap:10px;">
+            <input type="checkbox" name="include_christmas_bonus" id="icb" value="1"
+                   style="width:18px; height:18px; accent-color:var(--accent-emerald);">
+            <label for="icb" style="font-weight:600; cursor:pointer;">
+                <i class="fa-solid fa-gift" style="color:var(--accent-emerald);"></i>
+                Incluir regalía pascual (salario de Navidad)
+            </label>
+            <span style="font-size:0.78rem; color:var(--text-muted);">Calculada automáticamente según meses trabajados (Ley 16-92)</span>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Employee Variables Table -->
+    <div class="card-table-wrapper" style="margin-bottom:var(--space-4);">
+        <div class="table-header-row" style="margin-bottom:16px; display:flex; justify-content:space-between; align-items:center;">
+            <span style="font-family:var(--font-heading); font-weight:600; font-size:0.9rem; color:var(--text-primary);">
+                <i class="fa-solid fa-list-check"></i> Variables de nómina por empleado
+            </span>
+            <div style="display:flex; gap:8px; align-items:center;">
+                <button type="button" class="btn btn-sm btn-ghost" onclick="bulkSelectAll()">
+                    <i class="fa-solid fa-check-square"></i> Todos
+                </button>
+                <button type="button" class="btn btn-sm btn-ghost" onclick="bulkUnselectAll()">
+                    <i class="fa-solid fa-square"></i> Ninguno
+                </button>
+                <span style="font-size:0.78rem; color:var(--text-muted);" id="selectedCount">0 seleccionados</span>
+            </div>
+        </div>
+        <div style="margin-bottom:12px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+            <input type="number" id="bulkValue" step="0.01" value="0" class="form-input" style="width:100px;" placeholder="Valor">
+            <button type="button" class="btn btn-sm btn-ghost" onclick="bulkApply('overtime')">Aplicar horas extra</button>
+            <button type="button" class="btn btn-sm btn-ghost" onclick="bulkApply('commission')">Aplicar comisión</button>
+            <button type="button" class="btn btn-sm btn-ghost" onclick="bulkApply('bonus')">Aplicar bonificación</button>
+            <button type="button" class="btn btn-sm btn-ghost" onclick="bulkApply('other_income')">Aplicar otro ingreso</button>
+            <button type="button" class="btn btn-sm btn-ghost" onclick="bulkApply('other_ded')">Aplicar deducción</button>
+        </div>
+        <div class="table-responsive">
+            <table class="table-premium" style="font-size:0.88rem; min-width:1000px;">
+                <thead>
+                    <tr>
+                        <th style="width:30px;"><input type="checkbox" id="selectAllCB" onchange="toggleAll(this)"></th>
+                        <th>Empleado</th>
+                        <th>Salario Base</th>
+                        <th>Cargo</th>
+                        <th style="width:90px;">Horas Extra</th>
+                        <th style="width:90px;">Comisión</th>
+                        <th style="width:90px;">Bonificación</th>
+                        <th style="width:90px;">Otros Ingresos</th>
+                        <th style="width:90px;">Otras Deducc.</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for emp in employees %}
+                    <tr data-emp-id="{{ emp.id }}">
+                        <td><input type="checkbox" class="emp-cb" value="{{ emp.id }}" onchange="updateCount()"></td>
+                        <td><strong>{{ emp.fullName or emp.firstName + ' ' + (emp.firstLastName or emp.lastName) }}</strong></td>
+                        <td>{{ "RD$ {:,.2f}".format(emp.baseSalary|float) if emp.baseSalary else '—' }}</td>
+                        <td style="color:var(--text-muted);">{{ emp.position }}</td>
+                        <td><input type="number" step="0.01" name="overtime_{{ emp.id }}" class="form-input emp-overtime" value="0" style="width:90px;"></td>
+                        <td><input type="number" step="0.01" name="commission_{{ emp.id }}" class="form-input emp-commission" value="0" style="width:90px;"></td>
+                        <td><input type="number" step="0.01" name="bonus_{{ emp.id }}" class="form-input emp-bonus" value="0" style="width:90px;"></td>
+                        <td><input type="number" step="0.01" name="other_income_{{ emp.id }}" class="form-input emp-other_income" value="0" style="width:90px;"></td>
+                        <td><input type="number" step="0.01" name="other_ded_{{ emp.id }}" class="form-input emp-other_ded" value="0" style="width:90px;"></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Notes -->
+    <div class="card-table-wrapper" style="margin-bottom:var(--space-4);">
+        <div style="padding:var(--space-4) 24px;">
+            <div style="font-family:var(--font-heading); font-weight:600; font-size:0.9rem; color:var(--text-primary); margin-bottom:var(--space-3);">
+                <i class="fa-regular fa-note-sticky"></i> Notas del período
+            </div>
+            <div class="form-group" style="margin:0;">
+                <input type="text" name="notes" class="form-input" placeholder="Notas del período (opcional)">
+            </div>
+        </div>
+    </div>
+
+    <!-- Rates Summary -->
+    <div class="card-table-wrapper" style="margin-bottom:var(--space-4);">
+        <div style="padding:var(--space-4) 24px;">
+            <div style="font-family:var(--font-heading); font-weight:600; font-size:0.9rem; color:var(--text-primary); margin-bottom:var(--space-3);">
+                <i class="fa-solid fa-scale-balanced"></i> Resumen de tasas aplicables
+            </div>
+            <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:var(--space-3);">
+                <div style="border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:12px 14px; background:rgba(255,255,255,0.01);">
+                    <span style="display:block; margin-bottom:4px; color:var(--text-muted); font-size:0.72rem; font-weight:700; letter-spacing:0.04em; text-transform:uppercase;">AFP Empleado</span>
+                    <span style="color:var(--text-primary); font-size:0.9rem; font-weight:600;">2.87% · tope RD$ 196,750</span>
+                </div>
+                <div style="border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:12px 14px; background:rgba(255,255,255,0.01);">
+                    <span style="display:block; margin-bottom:4px; color:var(--text-muted); font-size:0.72rem; font-weight:700; letter-spacing:0.04em; text-transform:uppercase;">AFP Empleador</span>
+                    <span style="color:var(--text-primary); font-size:0.9rem; font-weight:600;">7.10% · tope RD$ 196,750</span>
+                </div>
+                <div style="border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:12px 14px; background:rgba(255,255,255,0.01);">
+                    <span style="display:block; margin-bottom:4px; color:var(--text-muted); font-size:0.72rem; font-weight:700; letter-spacing:0.04em; text-transform:uppercase;">SFS Empleado</span>
+                    <span style="color:var(--text-primary); font-size:0.9rem; font-weight:600;">3.04% · tope RD$ 98,375</span>
+                </div>
+                <div style="border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:12px 14px; background:rgba(255,255,255,0.01);">
+                    <span style="display:block; margin-bottom:4px; color:var(--text-muted); font-size:0.72rem; font-weight:700; letter-spacing:0.04em; text-transform:uppercase;">SFS Empleador</span>
+                    <span style="color:var(--text-primary); font-size:0.9rem; font-weight:600;">7.09% · tope RD$ 98,375</span>
+                </div>
+                <div style="border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:12px 14px; background:rgba(255,255,255,0.01);">
+                    <span style="display:block; margin-bottom:4px; color:var(--text-muted); font-size:0.72rem; font-weight:700; letter-spacing:0.04em; text-transform:uppercase;">INFOTEP</span>
+                    <span style="color:var(--text-primary); font-size:0.9rem; font-weight:600;">1% empleador</span>
+                </div>
+                <div style="border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:12px 14px; background:rgba(255,255,255,0.01);">
+                    <span style="display:block; margin-bottom:4px; color:var(--text-muted); font-size:0.72rem; font-weight:700; letter-spacing:0.04em; text-transform:uppercase;">SRL</span>
+                    <span style="color:var(--text-primary); font-size:0.9rem; font-weight:600;">1.20% empleador</span>
+                </div>
+                <div style="border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:12px 14px; background:rgba(255,255,255,0.01);">
+                    <span style="display:block; margin-bottom:4px; color:var(--text-muted); font-size:0.72rem; font-weight:700; letter-spacing:0.04em; text-transform:uppercase;">ISR</span>
+                    <span style="color:var(--text-primary); font-size:0.9rem; font-weight:600;">Tabla DGII 2026 · progresivo 0%-25%</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div style="display:flex; justify-content:flex-end; gap:var(--space-2); flex-wrap:wrap;">
+        <a href="{{ url_for('web_rrhh.payroll_dashboard') }}" class="btn btn-ghost">Cancelar</a>
+        <button type="submit" class="btn btn-primary"
+                onclick="return confirm('¿Procesar nómina para {{ employees|length }} empleados? Se generará asiento contable automáticamente.')">
+            <i class="fa-solid fa-play"></i> Procesar Nómina
+        </button>
+    </div>
+</form>
+</div>
+<script>
+function updateCount() {
+    var cbs = document.querySelectorAll('.emp-cb:checked');
+    document.getElementById('selectedCount').textContent = cbs.length + ' seleccionados';
+}
+function toggleAll(el) {
+    document.querySelectorAll('.emp-cb').forEach(function(cb) { cb.checked = el.checked; });
+    updateCount();
+}
+function bulkSelectAll() {
+    document.querySelectorAll('.emp-cb').forEach(function(cb) { cb.checked = true; });
+    document.getElementById('selectAllCB').checked = true;
+    updateCount();
+}
+function bulkUnselectAll() {
+    document.querySelectorAll('.emp-cb').forEach(function(cb) { cb.checked = false; });
+    document.getElementById('selectAllCB').checked = false;
+    updateCount();
+}
+function bulkApply(field) {
+    var val = document.getElementById('bulkValue').value;
+    document.querySelectorAll('.emp-cb:checked').forEach(function(cb) {
+        var row = cb.closest('tr');
+        if (row) {
+            var input = row.querySelector('.emp-' + field);
+            if (input) input.value = val;
+        }
+    });
+}
+</script>
+{% endblock %}

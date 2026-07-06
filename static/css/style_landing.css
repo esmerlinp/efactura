@@ -1,5 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Sora:wght@300;400;500;600;700&display=swap');
 @import url('style_moderno.css');
+@import url('_tokens.css');
 
 :root {
     --bg-main: #0f1629;

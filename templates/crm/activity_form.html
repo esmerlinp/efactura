@@ -1,0 +1,89 @@
+{% extends "layout.html" %}
+{% block title %}{% if activity %}Editar Actividad{% else %}Nueva Actividad{% endif %} — {{ product_name }}{% endblock %}
+{% block content %}
+{% set selected_contact = activity.contactId if activity else selected_contact_id %}
+{% set selected_opportunity = activity.opportunityId if activity else selected_opportunity_id %}
+<div class="page-header" style="display:flex; justify-content:space-between; align-items:center;">
+    <h1 class="page-title"><i class="fa-solid fa-calendar-plus"></i> {% if activity %}Editar Actividad{% else %}Nueva Actividad{% endif %}</h1>
+    <a href="{{ url_for('web_crm.activities') }}" class="btn btn-secondary"><i class="fa-solid fa-arrow-left"></i> Volver</a>
+</div>
+
+<div class="card" style="max-width:860px;">
+    <div class="card-body">
+        <form method="POST" action="{% if activity %}{{ url_for('web_crm.activity_edit', activity_id=activity.id) }}{% else %}{{ url_for('web_crm.activity_new') }}{% endif %}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Contacto</label>
+                    <select name="contactId" class="form-input">
+                        <option value="">Sin contacto</option>
+                        {% for c in contacts %}
+                        <option value="{{ c.id }}" {% if c.id == selected_contact %}selected{% endif %}>{{ c.razonSocial }} — {{ c.rnc or c.telefono }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Oportunidad</label>
+                    <select name="opportunityId" class="form-input">
+                        <option value="">Sin oportunidad</option>
+                        {% for opp in opportunities %}
+                        <option value="{{ opp.id }}" {% if opp.id == selected_opportunity %}selected{% endif %}>{{ opp.title }} — {{ opp.contactName }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Tipo</label>
+                    <select name="type" class="form-input">
+                        {% for t in activity_types %}
+                        <option value="{{ t }}" {% if activity and activity.type == t %}selected{% endif %}>{{ t }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Prioridad</label>
+                    <select name="priority" class="form-input">
+                        {% for p in activity_priorities %}
+                        <option value="{{ p }}" {% if activity and activity.priority == p %}selected{% endif %}>{{ p|capitalize }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group" style="grid-column:1 / -1;">
+                    <label>Título</label>
+                    <input type="text" name="title" class="form-input" value="{{ activity.title if activity else '' }}" required>
+                </div>
+                <div class="form-group">
+                    <label>Fecha compromiso</label>
+                    <input type="date" name="dueDate" class="form-input" value="{{ activity.dueDate if activity else '' }}">
+                </div>
+                <div class="form-group">
+                    <label>Responsable</label>
+                    <select name="assignedTo" class="form-input">
+                        <option value="">Owner / Propietario</option>
+                        {% for colab in collaborators %}
+                        <option value="{{ colab.uid }}" {% if activity and activity.assignedTo == colab.uid %}selected{% endif %}>{{ colab.name or colab.email }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% if activity %}
+                <div class="form-group">
+                    <label>Estado</label>
+                    <select name="status" class="form-input">
+                        <option value="pendiente" {% if activity.status == 'pendiente' %}selected{% endif %}>Pendiente</option>
+                        <option value="completada" {% if activity.status == 'completada' %}selected{% endif %}>Completada</option>
+                        <option value="cancelada" {% if activity.status == 'cancelada' %}selected{% endif %}>Cancelada</option>
+                    </select>
+                </div>
+                {% endif %}
+                <div class="form-group" style="grid-column:1 / -1;">
+                    <label>Descripción</label>
+                    <textarea name="description" class="form-textarea" rows="4">{{ activity.description if activity else '' }}</textarea>
+                </div>
+            </div>
+            <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
+                <a href="{{ url_for('web_crm.activities') }}" class="btn btn-secondary">Cancelar</a>
+                <button class="btn btn-accent"><i class="fa-solid fa-floppy-disk"></i> Guardar</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
