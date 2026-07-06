@@ -1,0 +1,28 @@
+    // Shared Accordion Behavior
+    window.toggleAccordionSection = function (header) {
+        const item = header.parentElement;
+        const content = item.querySelector('.accordion-content');
+        if (!content) return;
+        const isActive = item.classList.contains('active');
+
+        document.querySelectorAll('.accordion-item').forEach(el => {
+            el.classList.remove('active');
+            const c = el.querySelector('.accordion-content');
+            if (c) c.style.maxHeight = null;
+        });
+
+        if (!isActive) {
+            item.classList.add('active');
+            content.style.maxHeight = content.scrollHeight + 'px';
+        }
+    };
+
+    function adjustActiveAccordionHeight() {
+        const activeItem = document.querySelector('.accordion-item.active');
+        if (activeItem) {
+            const content = activeItem.querySelector('.accordion-content');
+            if (content) {
+                content.style.maxHeight = content.scrollHeight + 'px';
+            }
+        }
+    }

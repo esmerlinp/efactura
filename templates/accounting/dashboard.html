@@ -1,6 +1,12 @@
 {% extends "layout.html" %}
 {% block title %}Dashboard Contable{% endblock %}
 {% block page_header %}Dashboard Contable{% endblock %}
+{% block app_loader %}
+<script>
+    if (window.showAppLoader) { showAppLoader(); }
+    window.addEventListener('load', function() { setTimeout(function() { if (window.hideAppLoader) hideAppLoader(); }, 600); });
+</script>
+{% endblock %}
 {% block content %}
 <style>
     .breadcrumb {

@@ -3,6 +3,7 @@ from datetime import datetime, timedelta, timezone
 from flask import Blueprint, render_template, redirect, url_for, session, request
 from app.services.db_service import DatabaseService
 from app.services.recurrence import RecurrenceService
+from app.services.cache_service import CacheService
 from app.services.dgii import DGIIService
 
 web_dashboard_bp = Blueprint('web_dashboard', __name__)
@@ -123,6 +124,45 @@ def dashboard():
     
     # Cuentas por Cobrar (CxC): Siempre acumulado de toda la vida para evitar deslices en cobranzas
     total_cxc = sum(inv['netPayable'] for inv in real_invoices if inv['status'] in ['Emitida', 'Vencida'])
+    
+    # CxC breakdown
+    cxc_vigentes = sum(inv['netPayable'] for inv in real_invoices if inv['status'] == 'Emitida')
+    cxc_vencidas = sum(inv['netPayable'] for inv in real_invoices if inv['status'] == 'Vencida')
+    cxc_docs_vigentes = sum(1 for inv in real_invoices if inv['status'] == 'Emitida')
+    cxc_docs_vencidas = sum(1 for inv in real_invoices if inv['status'] == 'Vencida')
+    
+    # Pagos Recibidos (total de netPayable que ya han sido pagados)
+    pagos_recibidos = sum(inv.get('netPayable', 0.0) - inv.get('remainingBalance', 0.0) 
+                         for inv in real_invoices if inv['status'] == 'Pagado')
+    pagos_parciales = sum(inv.get('netPayable', 0.0) - inv.get('remainingBalance', 0.0)
+                         for inv in real_invoices if inv['status'] == 'Parcialmente Cobrada')
+    
+    # Cuentas por Pagar (CxP): Gastos de crédito no pagados
+    cxp_expenses = [exp for exp in expenses if exp.get('paymentType') == 'Crédito' and exp.get('cxpStatus') != 'Pagado']
+    total_cxp = sum(exp.get('cxpRemainingBalance', 0.0) for exp in cxp_expenses)
+    cxp_vigentes = sum(exp.get('cxpRemainingBalance', 0.0) for exp in cxp_expenses if exp.get('cxpStatus') != 'Vencido')
+    cxp_vencidas = sum(exp.get('cxpRemainingBalance', 0.0) for exp in cxp_expenses if exp.get('cxpStatus') == 'Vencido')
+    cxp_docs_vigentes = sum(1 for exp in cxp_expenses if exp.get('cxpStatus') != 'Vencido')
+    cxp_docs_vencidas = sum(1 for exp in cxp_expenses if exp.get('cxpStatus') == 'Vencido')
+    
+    # Productos vendidos (items distintos en facturas)
+    productos_vendidos_set = set()
+    for inv in real_invoices:
+        for it in inv.get('items', []):
+            nombre = it.get('name', '')
+            if nombre:
+                productos_vendidos_set.add(nombre.lower().strip())
+    productos_vendidos_count = len(productos_vendidos_set)
+    
+    # Clientes con ventas
+    clientes_con_ventas = len(set(inv.get('clientId', '') for inv in real_invoices if inv.get('clientId')))
+    
+    # Impuestos en venta (ITBIS de todas las facturas reales)
+    impuestos_venta = total_itbis
+    
+    # Ingresos netos y egresos netos para estado de resultados simplificado
+    ingresos_netos = sum(inv.get('subtotal', 0.0) for inv in real_invoices)
+    egresos_netos = sum(exp.get('amount', 0.0) - exp.get('itbisAmount', 0.0) for exp in expenses)
     
     margin_net = 0.0
     if total_invoiced > 0:
@@ -580,5 +620,22 @@ def dashboard():
         itbis_to_pay=itbis_to_pay,
         isr_estimated=isr_estimated,
         anticipos_estimated=anticipos_estimated,
-        rst_isr_estimated=rst_isr_estimated
+        rst_isr_estimated=rst_isr_estimated,
+        cxc_vigentes=cxc_vigentes,
+        cxc_vencidas=cxc_vencidas,
+        cxc_docs_vigentes=cxc_docs_vigentes,
+        cxc_docs_vencidas=cxc_docs_vencidas,
+        pagos_recibidos=pagos_recibidos,
+        pagos_parciales=pagos_parciales,
+        total_cxp=total_cxp,
+        cxp_vigentes=cxp_vigentes,
+        cxp_vencidas=cxp_vencidas,
+        cxp_docs_vigentes=cxp_docs_vigentes,
+        cxp_docs_vencidas=cxp_docs_vencidas,
+        productos_vendidos_count=productos_vendidos_count,
+        clientes_con_ventas=clientes_con_ventas,
+        impuestos_venta=impuestos_venta,
+        ingresos_netos=ingresos_netos,
+        egresos_netos=egresos_netos,
+        _cache_key=f"dashboard_{owner_uid}_{kpi_period}_{scale}_{date_str}",
     )

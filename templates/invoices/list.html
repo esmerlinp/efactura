@@ -567,19 +567,19 @@ endblock %}
                         </a>
                         {% else %}
                         <a href="{{ url_for('web_invoices.invoice_detail', invoice_id=inv.id) }}" class="invoice-link">
-                            {{ inv.invoiceNumber if inv.encf else '---' }}
+                            {{ inv.invoiceNumber }}
                         </a>
                         {% endif %}
                     </td>
                     <td>
                         {% if active_page == 'quotations' %}
-                        ---
-                        {% else %}
-                        {% if inv.encf %}
+                        <a href="{{ url_for('web_invoices.invoice_detail', invoice_id=inv.id) }}" class="invoice-link" style="color: var(--accent-purple);">
+                            {{ inv.invoiceNumber }}
+                        </a>
+                        {% elif inv.encf %}
                         <span style="font-family: monospace; font-size: 0.85rem; color: var(--accent-purple);">{{ inv.encf }}</span>
                         {% else %}
                         <span class="invoice-link">{{ inv.invoiceNumber }}</span>
-                        {% endif %}
                         {% endif %}
                     </td>
                     <td>

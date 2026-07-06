@@ -106,12 +106,20 @@ function setupAcSearch(wrap) {
 
     function renderDropdown(results) {
         if (!results.length) { dropdown.style.display = 'none'; return; }
-        dropdown.innerHTML = results.map(a =>
+        dropdown.innerHTML = results.slice(0, 100).map(a =>
             `<div class="ac-item" data-id="${a.id}" style="padding:7px 10px; cursor:pointer; font-size:0.8rem; border-bottom:1px solid #f1f5f9; display:flex; gap:8px;">
                 <span style="font-family:monospace; color:var(--text-muted);">${a.code}</span>
                 <span>${a.name}</span>
             </div>`
         ).join('');
+        // Position dropdown using fixed coordinates to avoid clipping inside card-segment/table overflow
+        const rect = input.getBoundingClientRect();
+        dropdown.style.position = 'fixed';
+        dropdown.style.top = (rect.bottom + 2) + 'px';
+        dropdown.style.left = rect.left + 'px';
+        dropdown.style.width = rect.width + 'px';
+        dropdown.style.right = 'auto';
+        dropdown.style.zIndex = '9999';
         dropdown.style.display = 'block';
     }
 
@@ -136,10 +144,25 @@ function setupAcSearch(wrap) {
         setTimeout(() => { dropdown.style.display = 'none'; }, 200);
     });
 
+    // Recalculate fixed position on scroll/resize
+    function reposition() {
+        if (dropdown.style.display === 'block') {
+            const rect = input.getBoundingClientRect();
+            dropdown.style.top = (rect.bottom + 2) + 'px';
+            dropdown.style.left = rect.left + 'px';
+            dropdown.style.width = rect.width + 'px';
+        }
+    }
+    window.addEventListener('scroll', reposition, true);
+    window.addEventListener('resize', reposition);
+
     input.addEventListener('focus', function() {
-        if (this.value) {
-            const results = filterAccounts(this.value);
+        const q = this.value;
+        if (q) {
+            const results = filterAccounts(q);
             if (results.length) renderDropdown(results);
+        } else {
+            renderDropdown(ACCOUNTS);
         }
     });
 

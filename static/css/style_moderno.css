@@ -9,7 +9,7 @@
     --bg-main: #F8FAFC;
     --bg-main-gradient: linear-gradient(135deg, #F8FAFC 0%, #E0F2FE 50%, #EEF2FF 100%);
     --bg-card: rgba(255, 255, 255, 0.45);
-    --bg-sidebar: rgba(230, 237, 246, 0.93);
+    --bg-sidebar: rgba(255, 255, 255, 0.45);
     --bg-header: rgba(255, 255, 255, 0.5);
     --bg-input: rgba(255, 255, 255, 0.7);
     --border-color: rgba(255, 255, 255, 0.6);
@@ -76,7 +76,7 @@
     --bg-main: #0F172A;
     --bg-main-gradient: linear-gradient(135deg, #0F172A 0%, #1E3A8A 50%, #1E1B4B 100%);
     --bg-card: rgba(15, 23, 42, 0.6);
-    --bg-sidebar: rgba(15, 23, 42, 0.85);
+    --bg-sidebar: rgba(15, 23, 42, 0.6);
     --bg-header: rgba(15, 23, 42, 0.5);
     --bg-input: rgba(30, 41, 59, 0.7);
     --border-color: rgba(255, 255, 255, 0.12);
@@ -249,7 +249,7 @@ textarea {
     background-color: var(--bg-sidebar);
     backdrop-filter: blur(16px);
     border-right: 1px solid var(--border-color);
-    padding: 16px 16px;
+    padding: 10px 10px;
     display: flex;
     flex-direction: column;
     height: calc(100vh - var(--sandbox-banner-height));
@@ -265,7 +265,7 @@ textarea {
     align-items: center;
     justify-content: flex-start;
     gap: 10px;
-    margin-bottom: 20px;
+    margin-bottom: 6px;
     position: relative;
 }
 
@@ -314,15 +314,15 @@ body.sandbox-mode .sidebar-logo span.logo-title {
     list-style: none;
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 1px;
     flex-grow: 1;
 }
 
 .nav-item a {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 8px 12px;
+    gap: 8px;
+    padding: 6px 10px;
     border-radius: var(--radius-sm);
     color: var(--text-secondary);
     font-weight: 500;
@@ -396,8 +396,8 @@ body.sandbox-mode .sidebar-logo span.logo-title {
 }
 
 #sidebar-section-quick {
-    margin-bottom: 8px;
-    padding-bottom: 8px;
+    margin-bottom: 2px;
+    padding-bottom: 2px;
 }
 #sidebar-section-quick.collapsed .sidebar-section-content {
     max-height: none !important;
@@ -418,10 +418,10 @@ body.sandbox-mode .sidebar-logo span.logo-title {
 
 .sidebar-footer {
     border-top: 1px solid var(--border-color);
-    padding-top: 12px;
+    padding-top: 6px;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 4px;
 }
 
 .user-badge {
@@ -2571,4 +2571,18 @@ body.sandbox-mode .segment-header-icon.emerald {
 
 [data-theme="dark"] .action-menu-item:hover {
     background: rgba(255,255,255,0.06);
+}
+
+@media (max-width: 1024px) {
+    .app-container { grid-template-columns: 240px minmax(0, 1fr) !important; }
+    .metrics-grid { grid-template-columns: 1fr 1fr !important; }
+    .small-metrics-grid { grid-template-columns: 1fr 1fr !important; }
+}
+@media (max-width: 768px) {
+    .app-container { grid-template-columns: 1fr !important; }
+    .sidebar { display: none !important; }
+    .metrics-grid, .small-metrics-grid { grid-template-columns: 1fr !important; }
+    .card-table-wrapper { padding: 14px !important; }
+    .header { padding: 0 16px !important; }
+    .bi-summary-cards { flex-direction: column !important; }
 }

@@ -38,6 +38,30 @@
         box-shadow: var(--shadow-md), 0 10px 35px rgba(167, 139, 250, 0.08) !important;
     }
 
+    /* Factura: Fondo sutil azul corporativo y borde azul */
+    .document-card-sheet.invoice-card {
+        background: linear-gradient(135deg, rgba(59, 130, 246, 0.04) 0%, var(--bg-card) 100%) !important;
+        border: 2px solid rgba(59, 130, 246, 0.25) !important;
+        box-shadow: var(--shadow-sm), 0 10px 30px rgba(59, 130, 246, 0.05) !important;
+    }
+
+    .document-card-sheet.invoice-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 6px;
+        background: linear-gradient(90deg, #2563eb, #60a5fa);
+        z-index: 10;
+    }
+
+    [data-theme="dark"] .document-card-sheet.invoice-card {
+        background: linear-gradient(135deg, rgba(96, 165, 250, 0.06) 0%, var(--bg-card) 100%) !important;
+        border: 2px solid rgba(96, 165, 250, 0.3) !important;
+        box-shadow: var(--shadow-md), 0 10px 35px rgba(96, 165, 250, 0.08) !important;
+    }
+
     /* Layout responsivo del detalle: 2 columnas en desktop, 1 columna en mobile */
     .detail-grid {
         display: grid;
@@ -117,7 +141,7 @@
         {% endif %}
 
         <!-- Vista Principal de Factura Premium -->
-        <div class="card-table-wrapper document-card-sheet {% if invoice.isQuotation %}quotation-card{% endif %}" style="padding: 40px; position: relative;">
+        <div class="card-table-wrapper document-card-sheet {% if invoice.isQuotation %}quotation-card{% else %}invoice-card{% endif %}" style="padding: 40px; position: relative;">
             <!-- Píldora de Sandbox visual -->
             {% if session.get('is_sandbox_mode', True) %}
             <div

@@ -2,90 +2,371 @@
 {% block title %}Activos Fijos{% endblock %}
 {% block page_header %}Activos Fijos{% endblock %}
 {% block content %}
-<div class="page-title-container" style="margin-bottom:16px; padding-left:4px; display:flex; align-items:center; justify-content:space-between;">
+<div class="page-title-container" style="margin-bottom: 24px; padding-left: 4px;">
+    <h1 style="font-size: 1.75rem; font-weight: 800; font-family: var(--font-heading); color: var(--text-primary); margin: 0;">
+        Activos Fijos
+    </h1>
+</div>
+
+<div id="guide-fixed-assets" style="background: rgba(168, 85, 247, 0.05); border: 1px solid rgba(168, 85, 247, 0.2); border-radius: 8px; padding: 16px; margin-bottom: 24px; display: flex; gap: 16px; align-items: flex-start; position: relative;">
+    <button onclick="closeGuide('guide-fixed-assets')" style="position: absolute; top: 12px; right: 12px; background: transparent; border: none; color: var(--text-muted); cursor: pointer; padding: 4px; border-radius: 50%; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; transition: background 0.2s, color 0.2s;" onmouseover="this.style.background='rgba(0,0,0,0.05)'; this.style.color='var(--text-primary)';" onmouseout="this.style.background='transparent'; this.style.color='var(--text-muted)';" title="Cerrar guía"><i class="fa-solid fa-xmark"></i></button>
+    <div style="background: rgba(168, 85, 247, 0.1); width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+        <i class="fa-solid fa-lightbulb" style="color: var(--accent-purple); font-size: 1.2rem;"></i>
+    </div>
     <div>
-        <h1 style="font-size:1.75rem; font-weight:800; font-family:var(--font-heading); color:var(--text-primary); margin:0;">
-            <i class="fa-solid fa-industry" style="color:var(--accent-purple); margin-right:10px;"></i>
-            Activos Fijos
-        </h1>
-        <p style="color:var(--text-secondary); font-size:0.88rem; margin:6px 0 0 2px;">
-            Propiedades, planta y equipo. Control de depreciación.
+        <h4 style="margin: 0 0 8px 0; color: var(--text-primary); font-family: var(--font-heading); font-size: 1rem;">Guía de Uso: Activos Fijos</h4>
+        <p style="margin: 0 0 8px 0; color: var(--text-secondary); font-size: 0.85rem; line-height: 1.5;">
+            Aquí gestionas las propiedades, planta y equipo de tu empresa. Registra tus activos para controlar su depreciación y valor actual.
         </p>
-    </div>
-    <a href="{{ url_for('web_accounting.new_fixed_asset') }}" class="btn btn-primary">
-        <i class="fa-solid fa-plus"></i> Nuevo Activo
-    </a>
-</div>
-
-<div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(150px,1fr)); gap:12px; margin-bottom:20px;">
-    <div class="card-form-body" style="padding:12px; text-align:center;">
-        <div style="font-size:1.4rem; font-weight:800;">{{ summary.activeCount }}</div>
-        <div style="font-size:0.75rem; color:var(--text-muted);">Activos</div>
-    </div>
-    <div class="card-form-body" style="padding:12px; text-align:center;">
-        <div style="font-size:1.4rem; font-weight:800; color:var(--accent-emerald);">{{ "{:,.2f}".format(summary.totalCost) }}</div>
-        <div style="font-size:0.75rem; color:var(--text-muted);">Costo Total</div>
-    </div>
-    <div class="card-form-body" style="padding:12px; text-align:center;">
-        <div style="font-size:1.4rem; font-weight:800; color:var(--accent-red);">{{ "{:,.2f}".format(summary.totalDepreciation) }}</div>
-        <div style="font-size:0.75rem; color:var(--text-muted);">Dep. Acumulada</div>
-    </div>
-    <div class="card-form-body" style="padding:12px; text-align:center;">
-        <div style="font-size:1.4rem; font-weight:800; color:var(--accent-purple);">{{ "{:,.2f}".format(summary.totalCurrentValue) }}</div>
-        <div style="font-size:0.75rem; color:var(--text-muted);">Valor Actual</div>
+        <ul style="margin: 0; padding-left: 20px; color: var(--text-secondary); font-size: 0.85rem; line-height: 1.5;">
+            <li><strong>Registro de Activos:</strong> Agrega equipos de cómputo, vehículos, mobiliario y más para llevar un control detallado.</li>
+            <li><strong>Depreciación Automática:</strong> El sistema calcula y registra la depreciación periódica según la vida útil configurada.</li>
+            <li><strong>Indicadores:</strong> Monitorea el costo total, la depreciación acumulada y el valor actual neto de tus activos.</li>
+        </ul>
     </div>
 </div>
+<script>
+    if (!window.closeGuide) { window.closeGuide = function(id) { document.getElementById(id).style.display = 'none'; sessionStorage.setItem('closed_' + id, 'true'); }; }
+    if (sessionStorage.getItem('closed_guide-fixed-assets')) { document.getElementById('guide-fixed-assets').style.display = 'none'; }
+</script>
 
-<div class="card-form-body" style="padding:0; overflow-x:auto;">
-    <table class="table" style="width:100%; border-collapse:collapse; font-size:0.82rem;">
+<!-- KPI SUMMARY STRIP -->
+<div class="summary-strip">
+    <div class="summary-strip-item">
+        <div class="summary-strip-label">Total Activos</div>
+        <div class="summary-strip-value">{{ summary.activeCount }}</div>
+    </div>
+    <div class="summary-strip-item">
+        <div class="summary-strip-label">Costo Total</div>
+        <div class="summary-strip-value" style="color: var(--accent-emerald);">RD$ {{ "{:,.2f}".format(summary.totalCost) }}</div>
+    </div>
+    <div class="summary-strip-item">
+        <div class="summary-strip-label">Dep. Acumulada</div>
+        <div class="summary-strip-value negative">RD$ {{ "{:,.2f}".format(summary.totalDepreciation) }}</div>
+    </div>
+    <div class="summary-strip-item">
+        <div class="summary-strip-label">Valor Actual Neto</div>
+        <div class="summary-strip-value" style="color: var(--accent-purple);">RD$ {{ "{:,.2f}".format(summary.totalCurrentValue) }}</div>
+    </div>
+</div>
+
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
+    <h2 style="font-size: 0.95rem; font-weight: 500; color: var(--text-secondary); margin: 0;">
+        Listado de Activos Fijos
+    </h2>
+    <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+        <a href="{{ url_for('web_accounting.new_fixed_asset') }}" class="btn btn-primary" style="height: 32px; font-size: 0.78rem; padding: 0 12px; display: inline-flex; align-items: center; gap: 4px;">
+            <i class="fa-solid fa-plus"></i> Nuevo Activo
+        </a>
+        <div style="position: relative; width: 180px;">
+            <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.78rem;"></i>
+            <input type="text" id="fa-search" placeholder="Buscar código o nombre..."
+                style="width: 100%; height: 32px; padding: 0 10px 0 28px; background-color: var(--bg-input); border: 1px solid var(--border-color); border-radius: var(--radius-sm); color: var(--text-primary); font-size: 0.78rem;"
+                oninput="filterFA()">
+        </div>
+        <select id="fa-status-filter" onchange="filterFA()"
+            style="height: 32px; padding: 0 8px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-sm); color: var(--text-primary); font-size: 0.78rem; cursor: pointer; outline: none;">
+            <option value="">Todos los Estados</option>
+            <option value="active">Activo</option>
+            <option value="disposed">Dado de baja</option>
+            <option value="fully_depreciated">Totalmente depreciado</option>
+        </select>
+    </div>
+</div>
+
+<div class="card-table-wrapper" style="box-shadow: none; padding: 0; overflow: hidden;">
+    <table class="table-premium" style="width: 100%; border-collapse: collapse;">
         <thead>
-            <tr style="background:var(--bg-nav-hover);">
-                <th style="padding:8px 10px;">Código</th>
-                <th style="padding:8px 10px;">Nombre</th>
-                <th style="padding:8px 10px;">Categoría</th>
-                <th style="padding:8px 10px; text-align:right;">Costo</th>
-                <th style="padding:8px 10px; text-align:right;">Dep. Acum.</th>
-                <th style="padding:8px 10px; text-align:right;">Valor Actual</th>
-                <th style="padding:8px 10px; text-align:center;">Estado</th>
-                <th style="padding:8px 10px; text-align:center;">Próx. Dep.</th>
-                <th style="padding:8px 10px; text-align:center;">Acciones</th>
+            <tr style="text-align: left; background: rgba(0,0,0,0.02); border-bottom: 1px solid var(--border-color);">
+                <th style="padding: 14px 16px; font-size: 0.78rem; color: var(--text-secondary); text-transform: uppercase;">Código</th>
+                <th style="padding: 14px 16px; font-size: 0.78rem; color: var(--text-secondary); text-transform: uppercase;">Nombre</th>
+                <th style="padding: 14px 16px; font-size: 0.78rem; color: var(--text-secondary); text-transform: uppercase;">Categoría</th>
+                <th style="padding: 14px 16px; font-size: 0.78rem; color: var(--text-secondary); text-transform: uppercase; text-align: right;">Costo</th>
+                <th style="padding: 14px 16px; font-size: 0.78rem; color: var(--text-secondary); text-transform: uppercase; text-align: right;">Dep. Acum.</th>
+                <th style="padding: 14px 16px; font-size: 0.78rem; color: var(--text-secondary); text-transform: uppercase; text-align: right;">Valor Actual</th>
+                <th style="padding: 14px 16px; font-size: 0.78rem; color: var(--text-secondary); text-transform: uppercase; text-align: center;">Estado</th>
+                <th style="padding: 14px 16px; font-size: 0.78rem; color: var(--text-secondary); text-transform: uppercase; text-align: center;">Próx. Dep.</th>
+                <th style="padding: 14px 16px; font-size: 0.78rem; color: var(--text-secondary); text-transform: uppercase; text-align: center; width: 50px;"></th>
             </tr>
         </thead>
         <tbody>
             {% for asset in assets %}
-            <tr style="border-bottom:1px solid var(--border-color);">
-                <td style="padding:6px 10px; font-family:monospace;">{{ asset.code }}</td>
-                <td style="padding:6px 10px;">
-                    <a href="{{ url_for('web_accounting.fixed_asset_detail', asset_id=asset.id) }}">{{ asset.name }}</a>
+            <tr style="border-bottom: 1px solid var(--border-color);" class="fa-row" data-status="{{ asset.status }}">
+                <td style="padding: 14px 16px; font-family: monospace;">{{ asset.code }}</td>
+                <td style="padding: 14px 16px;">
+                    <a href="{{ url_for('web_accounting.fixed_asset_detail', asset_id=asset.id) }}" style="font-weight: normal; color: var(--text-primary); text-decoration: none;">
+                        {{ asset.name }}
+                    </a>
                 </td>
-                <td style="padding:6px 10px;">{{ asset_categories.get(asset.category, {}).label or asset.category }}</td>
-                <td style="padding:6px 10px; text-align:right;">{{ "{:,.2f}".format(asset.purchaseAmount) }}</td>
-                <td style="padding:6px 10px; text-align:right;">{{ "{:,.2f}".format(asset.accumulatedDepreciation) }}</td>
-                <td style="padding:6px 10px; text-align:right; font-weight:600;">{{ "{:,.2f}".format(asset.currentValue) }}</td>
-                <td style="padding:6px 10px; text-align:center;">
+                <td style="padding: 14px 16px;">{{ asset_categories.get(asset.category, {}).label or asset.category }}</td>
+                <td style="padding: 14px 16px; text-align: right; font-size: 0.85rem; color: var(--text-secondary);">RD$ {{ "{:,.2f}".format(asset.purchaseAmount) }}</td>
+                <td style="padding: 14px 16px; text-align: right; font-size: 0.85rem; color: var(--text-secondary);">RD$ {{ "{:,.2f}".format(asset.accumulatedDepreciation) }}</td>
+                <td style="padding: 14px 16px; text-align: right; font-weight: 600; font-size: 0.85rem; color: var(--text-primary);">RD$ {{ "{:,.2f}".format(asset.currentValue) }}</td>
+                <td style="padding: 14px 16px; text-align: center;">
                     {% if asset.status == 'active' %}
-                    <span class="badge badge-success">Activo</span>
+                    <span class="status-badge badge-fa-active">
+                        <i class="fa-solid fa-circle-check"></i> Activo
+                    </span>
                     {% elif asset.status == 'disposed' %}
-                    <span class="badge badge-danger">Dado de baja</span>
+                    <span class="status-badge badge-fa-disposed">
+                        <i class="fa-solid fa-circle-xmark"></i> Dado de baja
+                    </span>
                     {% elif asset.status == 'fully_depreciated' %}
-                    <span class="badge badge-warning">Totalmente depreciado</span>
+                    <span class="status-badge badge-fa-depreciated">
+                        <i class="fa-solid fa-circle-dot"></i> Totalmente depreciado
+                    </span>
                     {% endif %}
                 </td>
-                <td style="padding:6px 10px; text-align:center; font-size:0.75rem;">{{ (asset.nextDepreciationDate or '')[:10] }}</td>
-                <td style="padding:6px 10px; text-align:center;">
-                    <a href="{{ url_for('web_accounting.fixed_asset_detail', asset_id=asset.id) }}" class="btn btn-secondary" style="padding:2px 8px; font-size:0.75rem;">
-                        <i class="fa-solid fa-eye"></i>
-                    </a>
+                <td style="padding: 14px 16px; text-align: center; font-size: 0.82rem;">{{ (asset.nextDepreciationDate or '')[:10] }}</td>
+                <td style="padding: 14px 16px; text-align: center;">
+                    <div class="action-menu">
+                        <button type="button" class="action-menu-btn" onclick="toggleActionMenu(event)" title="Acciones">
+                            <i class="fa-solid fa-ellipsis-vertical"></i>
+                        </button>
+                        <div class="action-menu-dropdown">
+                            <a href="{{ url_for('web_accounting.fixed_asset_detail', asset_id=asset.id) }}" class="action-menu-item">
+                                <i class="fa-solid fa-eye"></i> Ver Detalle
+                            </a>
+                            {% if asset.status == 'active' %}
+                            <form action="{{ url_for('web_accounting.depreciate_asset', asset_id=asset.id) }}" method="POST" style="display: contents;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="action-menu-item">
+                                    <i class="fa-solid fa-arrow-trend-down"></i> Registrar Depreciación
+                                </button>
+                            </form>
+                            <button type="button" class="action-menu-item text-danger" onclick="openDisposeModal('{{ asset.id }}', '{{ asset.name }}')">
+                                <i class="fa-solid fa-box-archive"></i> Dar de Baja
+                            </button>
+                            {% endif %}
+                        </div>
+                    </div>
                 </td>
             </tr>
             {% else %}
             <tr>
-                <td colspan="9" style="padding:24px; text-align:center; color:var(--text-muted);">
+                <td colspan="9" style="padding: 30px; text-align: center; color: var(--text-muted);">
+                    <i class="fa-solid fa-industry" style="font-size: 2rem; opacity: 0.3; margin-bottom: 8px; display: block;"></i>
                     No hay activos fijos registrados. <a href="{{ url_for('web_accounting.new_fixed_asset') }}">Registrar el primero</a>.
                 </td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
+
+    <!-- PAGINACIÓN -->
+    {% if assets %}
+    <div style="display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; border-top: 1px solid var(--border-color); background: rgba(0,0,0,0.01); flex-wrap: wrap; gap: 15px;">
+        <div style="display: flex; align-items: center; gap: 8px; font-size: 0.82rem; color: var(--text-secondary);">
+            <span>Mostrar</span>
+            <select id="fa-page-size" onchange="changeFAPageSize(this.value)"
+                style="padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-color); background: var(--bg-card); color: var(--text-primary); font-weight: 500; outline: none; cursor: pointer;">
+                <option value="5">5</option>
+                <option value="10" selected>10</option>
+                <option value="20">20</option>
+                <option value="50">50</option>
+            </select>
+            <span>registros por página</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 5px;">
+            <button onclick="prevFAPage()" id="btn-fa-prev-page" class="btn btn-secondary"
+                style="padding: 6px 12px; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 4px; height: 32px; border-radius: 4px; font-weight: 500;" disabled>
+                <i class="fa-solid fa-chevron-left"></i> Anterior
+            </button>
+            <span id="fa-page-info" style="font-size: 0.82rem; color: var(--text-secondary); margin: 0 10px; font-weight: 500;">
+                Página 1 de 1
+            </span>
+            <button onclick="nextFAPage()" id="btn-fa-next-page" class="btn btn-secondary"
+                style="padding: 6px 12px; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 4px; height: 32px; border-radius: 4px; font-weight: 500;">
+                Siguiente <i class="fa-solid fa-chevron-right"></i>
+            </button>
+        </div>
+    </div>
+    {% endif %}
 </div>
+
+<style>
+    .status-badge {
+        font-size: 0.75rem;
+        font-weight: 500;
+        padding: 3px 8px;
+        border-radius: 12px;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+    }
+    .badge-fa-active {
+        background: rgba(16, 185, 129, 0.12);
+        color: var(--accent-emerald);
+    }
+    .badge-fa-disposed {
+        background: rgba(239, 68, 68, 0.12);
+        color: var(--accent-red);
+    }
+    .badge-fa-depreciated {
+        background: rgba(245, 158, 11, 0.12);
+        color: #f59e0b;
+    }
+</style>
+
+<!-- Modal Dar de Baja -->
+<div id="disposeModal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 2000; align-items: center; justify-content: center;">
+    <div onclick="closeDisposeModal()" style="position: absolute; width: 100%; height: 100%; background: rgba(0,0,0,0.4); backdrop-filter: blur(4px);"></div>
+    <div class="card-table-wrapper" style="max-width: 440px; width: 90%; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 24px; z-index: 2001; position: relative;">
+        <h3 style="font-size: 1.05rem; font-family: var(--font-heading); margin-bottom: 4px; display: flex; align-items: center; gap: 8px;">
+            <i class="fa-solid fa-box-archive" style="color: var(--accent-red);"></i>
+            <span>Dar de Baja Activo Fijo</span>
+        </h3>
+        <p style="color: var(--text-secondary); font-size: 0.78rem; line-height: 1.4; margin-bottom: 18px;">
+            Esta acción registrará la baja del activo. Se generará el asiento contable correspondiente.
+        </p>
+        <form id="disposeForm" method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div style="margin-bottom: 12px;">
+                <label style="display: block; font-size: 0.78rem; color: var(--text-secondary); margin-bottom: 4px;">Activo</label>
+                <input type="text" id="dispose-asset-name" class="form-control" readonly style="background: rgba(0,0,0,0.03);">
+            </div>
+            <div style="margin-bottom: 12px;">
+                <label style="display: block; font-size: 0.78rem; color: var(--text-secondary); margin-bottom: 4px;">Fecha de Baja</label>
+                <input type="date" name="disposalDate" id="dispose-date" class="form-control" required>
+            </div>
+            <div style="margin-bottom: 12px;">
+                <label style="display: block; font-size: 0.78rem; color: var(--text-secondary); margin-bottom: 4px;">Monto de Venta/Recuperación (RD$)</label>
+                <input type="number" step="0.01" name="disposalAmount" class="form-control" value="0">
+            </div>
+            <div style="margin-bottom: 18px;">
+                <label style="display: block; font-size: 0.78rem; color: var(--text-secondary); margin-bottom: 4px;">Motivo</label>
+                <select name="disposalReason" class="form-select" style="width: 100%;">
+                    <option value="Venta">Venta</option>
+                    <option value="Obsolescencia">Obsolescencia</option>
+                    <option value="Daño">Daño</option>
+                    <option value="Otro">Otro</option>
+                </select>
+            </div>
+            <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                <button type="button" onclick="closeDisposeModal()" class="btn btn-secondary" style="font-size: 0.8rem; padding: 8px 16px;">Cancelar</button>
+                <button type="submit" class="btn btn-primary" style="font-size: 0.8rem; padding: 8px 16px; background: var(--accent-red); border-color: var(--accent-red);">
+                    <i class="fa-solid fa-box-archive"></i> Dar de Baja
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    // --- LÓGICA DE PAGINACIÓN Y FILTRADO ---
+    let faCurrentPage = 1;
+    let faPageSize = 10;
+    let faAllRows = [];
+    let faRows = [];
+
+    document.addEventListener('DOMContentLoaded', () => {
+        faAllRows = Array.from(document.querySelectorAll('.fa-row'));
+        faRows = [...faAllRows];
+        updateFAPagination();
+    });
+
+    function filterFA() {
+        const query = document.getElementById('fa-search').value.toLowerCase().trim();
+        const statusFilter = document.getElementById('fa-status-filter').value;
+
+        faRows = faAllRows.filter(row => {
+            const codeCell = row.querySelector('td:first-child');
+            const nameLink = row.querySelector('td:nth-child(2) a');
+            const textContent = (codeCell ? codeCell.textContent : "") + " " + (nameLink ? nameLink.textContent : "");
+            const matchesQuery = !query || textContent.toLowerCase().includes(query);
+
+            const rowStatus = row.getAttribute('data-status');
+            const matchesStatus = !statusFilter || rowStatus === statusFilter;
+
+            if (matchesQuery && matchesStatus) {
+                return true;
+            } else {
+                row.style.display = 'none';
+                return false;
+            }
+        });
+
+        faCurrentPage = 1;
+        updateFAPagination();
+    }
+
+    function updateFAPagination() {
+        const totalRows = faRows.length;
+
+        faAllRows.forEach(row => {
+            if (!faRows.includes(row)) {
+                row.style.display = 'none';
+            }
+        });
+
+        if (totalRows === 0) {
+            const pageInfo = document.getElementById('fa-page-info');
+            if (pageInfo) pageInfo.textContent = 'Página 0 de 0';
+            const btnPrev = document.getElementById('btn-fa-prev-page');
+            if (btnPrev) btnPrev.disabled = true;
+            const btnNext = document.getElementById('btn-fa-next-page');
+            if (btnNext) btnNext.disabled = true;
+            return;
+        }
+
+        const totalPages = Math.ceil(totalRows / faPageSize);
+        if (faCurrentPage > totalPages) faCurrentPage = totalPages;
+        if (faCurrentPage < 1) faCurrentPage = 1;
+
+        const startIndex = (faCurrentPage - 1) * faPageSize;
+        const endIndex = startIndex + faPageSize;
+
+        faRows.forEach((row, index) => {
+            if (index >= startIndex && index < endIndex) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+
+        const pageInfo = document.getElementById('fa-page-info');
+        if (pageInfo) pageInfo.textContent = `Página ${faCurrentPage} de ${totalPages}`;
+
+        const btnPrev = document.getElementById('btn-fa-prev-page');
+        if (btnPrev) btnPrev.disabled = (faCurrentPage === 1);
+
+        const btnNext = document.getElementById('btn-fa-next-page');
+        if (btnNext) btnNext.disabled = (faCurrentPage === totalPages);
+    }
+
+    function changeFAPageSize(size) {
+        faPageSize = parseInt(size) || 10;
+        faCurrentPage = 1;
+        updateFAPagination();
+    }
+
+    function prevFAPage() {
+        if (faCurrentPage > 1) {
+            faCurrentPage--;
+            updateFAPagination();
+        }
+    }
+
+    function nextFAPage() {
+        const totalPages = Math.ceil(faRows.length / faPageSize);
+        if (faCurrentPage < totalPages) {
+            faCurrentPage++;
+            updateFAPagination();
+        }
+    }
+
+    // --- DISPOSE MODAL ---
+    function openDisposeModal(assetId, assetName) {
+        document.getElementById('dispose-asset-name').value = assetName;
+        document.getElementById('disposeForm').action = '/accounting/fixed-assets/' + assetId + '/dispose';
+        document.getElementById('dispose-date').value = new Date().toISOString().split('T')[0];
+        document.getElementById('disposeModal').style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeDisposeModal() {
+        document.getElementById('disposeModal').style.display = 'none';
+        document.body.style.overflow = 'auto';
+    }
+</script>
 {% endblock %}

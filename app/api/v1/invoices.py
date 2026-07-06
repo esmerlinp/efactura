@@ -139,6 +139,14 @@ def emit_invoice():
             
             # Guardamos con el estado final actualizado
             DatabaseService.save_invoice(g.owner_uid, invoice_id, invoice_dict, sandbox=g.sandbox_mode)
+
+            # Generar asiento contable automático
+            try:
+                from app.services.accounting_service import AccountingService
+                AccountingService.auto_generate_invoice_entry(g.owner_uid, invoice_dict, sandbox=g.sandbox_mode)
+            except Exception as exc:
+                import logging
+                logging.getLogger(__name__).warning(f"Asiento contable API no generado: {exc}")
             
             response_body = {
                 "success": True,
@@ -274,8 +282,20 @@ def cancel_invoice(invoice_id):
         res = EcfEmissionService.emit_cancellation(g.company, canc_dict, sandbox=g.sandbox_mode)
         
         if res.get('success'):
+            before_invoice = invoice.copy()
             invoice["status"] = "Anulada"
             DatabaseService.save_invoice(g.owner_uid, invoice_id, invoice, sandbox=g.sandbox_mode)
+            try:
+                from app.services.accounting_service import AccountingService
+                AccountingService.auto_reverse_invoice_entry(
+                    g.owner_uid, before_invoice,
+                    reason="Anulación API - " + (data.get('reason', '')),
+                    user_id="api",
+                    sandbox=g.sandbox_mode
+                )
+            except Exception as exc:
+                import logging
+                logging.getLogger(__name__).warning(f"Reverso contable API no generado: {exc}")
             return jsonify({
                 "success": True,
                 "message": "Factura anulada con éxito.",

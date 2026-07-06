@@ -75,6 +75,10 @@
         href="{{ url_for('static', filename='css/style_clasico.css') }}?v={{ static_hash('css/style_clasico.css') }}">
     {% endif %}
 
+    <!-- Shared Design System Components -->
+    <link rel="stylesheet"
+        href="{{ url_for('static', filename='css/_components.css') }}?v={{ static_hash('css/_components.css') }}">
+
     {% if company_apply_color_marca_ui and company_color_marca %}
     <style id="dynamic-brand-styles">
         :root,
@@ -183,7 +187,7 @@
     <!-- Estilos de Secciones del Sidebar -->
     <style>
         .sidebar-section {
-            margin-bottom: 4px;
+            margin-bottom: 1px;
             transition: all 0.3s ease;
         }
 
@@ -191,8 +195,8 @@
             font-size: 0.85rem;
             font-weight: 500;
             color: var(--text-secondary);
-            margin: 2px 0;
-            padding: 8px 12px;
+            margin: 0;
+            padding: 3px 12px;
             opacity: 1;
             transition: all var(--transition-fast);
             user-select: none;
@@ -232,11 +236,53 @@
             padding: 0;
         }
 
+        /* En modo colapsado, los headers de secciones regulares se muestran como íconos */
+        .sidebar-collapsed .sidebar-section:not(.sidebar-section-flyout) > .sidebar-section-header {
+            display: flex !important;
+            opacity: 1 !important;
+            width: 44px !important;
+            height: 44px !important;
+            border-radius: 50% !important;
+            padding: 0 !important;
+            justify-content: center !important;
+            align-items: center !important;
+            margin: 6px auto !important;
+            overflow: visible !important;
+            border-top: none !important;
+            background: transparent;
+            text-decoration: none !important;
+            color: var(--text-muted);
+            transition: background 0.15s, color 0.15s;
+        }
+        .sidebar-collapsed .sidebar-section:not(.sidebar-section-flyout) > .sidebar-section-header:hover {
+            background: var(--bg-nav-hover);
+            color: var(--text-primary);
+        }
+        .sidebar-collapsed .sidebar-section:not(.sidebar-section-flyout) > .sidebar-section-header span,
+        .sidebar-collapsed .sidebar-section:not(.sidebar-section-flyout) > .sidebar-section-header .section-toggle-icon {
+            display: none !important;
+        }
+        .sidebar-collapsed .sidebar-section:not(.sidebar-section-flyout) > .sidebar-section-header .header-left {
+            justify-content: center !important;
+            align-items: center !important;
+            width: 100% !important;
+            display: flex !important;
+            gap: 0 !important;
+        }
+        .sidebar-collapsed .sidebar-section:not(.sidebar-section-flyout) > .sidebar-section-header .header-left .section-icon {
+            font-size: 1.15rem;
+            margin: 0 !important;
+            width: auto !important;
+        }
+        .sidebar-collapsed .sidebar-section:not(.sidebar-section-flyout) .sidebar-section-content {
+            display: none !important;
+        }
+
         .sidebar-section-content {
             list-style: none;
             display: flex;
             flex-direction: column;
-            gap: 4px;
+            gap: 1px;
             overflow: hidden;
             transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
         }
@@ -276,8 +322,9 @@
 
         .sidebar-section-header .header-left .section-icon {
             font-size: 0.95rem;
-            color: var(--text-secondary);
-            transition: color 0.2s ease;
+            color: transparent;
+            -webkit-text-stroke: 0.6px var(--text-secondary);
+            transition: color 0.2s ease, -webkit-text-stroke-color 0.2s ease;
             width: 18px;
             text-align: center;
             flex-shrink: 0;
@@ -294,7 +341,7 @@
         }
 
         .sidebar-section-header:hover .header-left .section-icon {
-            color: var(--accent-emerald);
+            -webkit-text-stroke-color: var(--accent-emerald);
         }
 
         @media (min-width: 769px) {
@@ -505,31 +552,25 @@
         }
 
         .sidebar {
-            background-color: #f8fafc !important; /* Fondo claro gris/azul de la imagen */
+            background-color: var(--bg-sidebar) !important;
             border-right: 1px solid #e2e8f0 !important;
-        }
-
-        .sidebar-divider {
-            height: 1px;
-            background-color: #e2e8f0;
-            margin: 8px 10px !important;
-            opacity: 0.8;
         }
 
         /* Estilo del Sidebar según la Imagen de Referencia */
         .sidebar-section {
-            margin-bottom: 4px !important;
+            margin-bottom: 2px !important;
         }
 
         .sidebar-section-header {
-            padding: 8px 12px !important;
+            padding: 3px 12px !important;
             font-weight: 400 !important;
             color: #475569 !important; /* Slate-600 */
             transition: all 0.2s ease;
         }
 
         .sidebar-section-header .header-left .section-icon {
-            color: #64748b !important; /* Íconos en slate-500 suave */
+            color: transparent !important;
+            -webkit-text-stroke: 0.6px #64748b !important;
             font-size: 1.05rem !important;
         }
 
@@ -550,15 +591,15 @@
             padding-left: 6px !important; /* Espacio entre la línea y el texto del item */
             gap: 2px !important;
             list-style: none !important;
-            margin-top: 2px !important;
-            margin-bottom: 4px !important;
+            margin-top: 1px !important;
+            margin-bottom: 2px !important;
         }
 
         /* Sub-ítems de navegación */
         .sidebar-section:not(.sidebar-section-flyout) .sidebar-section-content .nav-item a {
             padding-left: 10px !important; /* Reducir sangría ya que la línea y margin-left se encargan */
-            padding-top: 6px !important;
-            padding-bottom: 6px !important;
+            padding-top: 5px !important;
+            padding-bottom: 5px !important;
             font-weight: 400 !important;
             color: #475569 !important; /* Slate-600 */
             border-radius: 6px !important;
@@ -592,13 +633,14 @@
             padding-left: 9px !important; /* Compensa el indicador */
         }
         .sidebar-section.active-parent .sidebar-section-header .header-left .section-icon {
-            color: #0d9488 !important; /* Resalta icono en teal */
+            color: transparent !important;
+            -webkit-text-stroke-color: #0d9488 !important;
         }
 
         /* Grupo "Descubre más soluciones" al final del sidebar */
         .sidebar-discover-group {
-            margin-top: 4px;
-            padding-bottom: 8px;
+            margin-top: 2px;
+            padding-bottom: 4px;
         }
 
         .sidebar-discover-title {
@@ -607,7 +649,7 @@
             color: var(--text-muted);
             text-transform: uppercase;
             letter-spacing: 0.07em;
-            padding: 8px 12px 4px 12px;
+            padding: 6px 12px 2px 12px;
             display: block;
             opacity: 0.8;
         }
@@ -616,14 +658,14 @@
             display: flex;
             align-items: center;
             gap: 10px;
-            padding: 8px 12px;
+            padding: 5px 12px;
             border-radius: var(--radius-sm);
             color: var(--text-secondary);
             font-size: 0.85rem;
             font-weight: 500;
             text-decoration: none;
             transition: all var(--transition-fast);
-            margin-bottom: 2px;
+            margin-bottom: 1px;
         }
 
         .sidebar-discover-item:hover {
@@ -797,8 +839,64 @@
         }
 
         /* Espacio reducido para sección General */
-        #sidebar-section-general {
+        #sidebar-section-General {
             margin-bottom: 2px;
+        }
+
+        /* Skip to content link */
+        .skip-to-content:focus {
+            top: 8px !important;
+        }
+
+        /* Mobile hamburger menu */
+        .mobile-hamburger {
+            display: none;
+            position: fixed;
+            top: 12px;
+            left: 12px;
+            z-index: 9999;
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            font-size: 1.2rem;
+            cursor: pointer;
+            align-items: center;
+            justify-content: center;
+            box-shadow: var(--shadow-md);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            transition: all 0.2s ease;
+        }
+
+        .mobile-hamburger:focus {
+            outline: 2px solid var(--accent-emerald);
+            outline-offset: 2px;
+        }
+
+        @media (max-width: 768px) {
+            .mobile-hamburger {
+                display: flex;
+            }
+            .app-container.sidebar-mobile-open .sidebar {
+                display: flex !important;
+                position: fixed;
+                top: 0;
+                left: 0;
+                bottom: 0;
+                z-index: 9998;
+                width: 280px !important;
+                box-shadow: var(--shadow-lg);
+            }
+            .app-container.sidebar-mobile-open::after {
+                content: '';
+                position: fixed;
+                inset: 0;
+                background: rgba(0,0,0,0.3);
+                z-index: 9997;
+            }
         }
     </style>
 
@@ -809,6 +907,21 @@
 
 <body class="{% if session.get('is_sandbox_mode', False) %}sandbox-mode{% endif %}">
 
+    <!-- PANTALLA DE CARGA ANIMADA (GLOBAL) -->
+    <div id="app-loader-overlay" style="display:none; position:fixed; inset:0; z-index:99999; background:var(--bg-base,#0f172a); flex-direction:column; align-items:center; justify-content:center;">
+        <div id="app-loader-stage" style="position:relative; display:flex; align-items:center; gap:0;">
+            <img id="loader-logo" src="{{ url_for('static', filename='images/logo.png') }}" alt="Logo" style="width:64px; height:64px; opacity:0; transform:translateY(100vh);">
+            <span id="loader-text" style="font-size:1.6rem; font-weight:800; font-family:'Inter',system-ui,sans-serif; color:#ffffff; opacity:0; white-space:nowrap; transform:translateX(60px);">{{ product_name }}</span>
+        </div>
+    </div>
+    {% block app_loader %}{% endblock %}
+
+    <!-- Skip to content link for keyboard users -->
+    <a href="#main-content" class="skip-to-content" 
+       style="position:absolute; top:-100px; left:12px; z-index:10001; background:var(--accent-emerald); color:#fff; padding:8px 16px; border-radius:0 0 8px 8px; font-size:0.85rem; font-weight:600; transition:top 0.2s;">
+       Saltar al contenido principal
+    </a>
+
     {% if not session.get('company_plan_id') %}
     <!-- Banner superior de Advertencia de Plan Faltante en Producción -->
     <div class="no-plan-banner" id="no-plan-warning-banner"
@@ -817,6 +930,12 @@
         <span>No puedes realizar operaciones hasta que no se te asigne un plan. Por favor, comunícate con el soporte de {{ product_name }}.</span>
     </div>
     {% endif %}
+
+    <!-- Mobile hamburger menu button -->
+    <button class="mobile-hamburger" id="mobile-hamburger-btn" aria-label="Abrir menú de navegación" 
+            onclick="document.getElementById('main-app-container').classList.toggle('sidebar-mobile-open')">
+        <i class="fa-solid fa-bars"></i>
+    </button>
 
     <div class="app-container" id="main-app-container">
         <script>
@@ -828,7 +947,7 @@
             })();
         </script>
         <!-- 1. BARRA DE MENÚ (BARRA LATERAL IZQUIERDA / MENU BAR) -->
-        <aside class="menu-bar sidebar">
+        <aside class="menu-bar sidebar" role="navigation" aria-label="Navegación principal" id="main-sidebar">
             <div class="sidebar-logo">
                 <a href="{{ url_for('web_dashboard.dashboard') }}" style="display: flex; align-items: center; gap: 8px; text-decoration: none; color: inherit;">
                     <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Logo" class="app-brand-logo">
@@ -841,7 +960,7 @@
                     </div>
                 </a>
             </div>
-            <div class="sidebar-divider" style="margin: 8px 0 !important;"></div>
+            <div class="sidebar-divider" style="margin: 6px 0 10px 0 !important;"></div>
 
             <nav class="nav-menu">
 
@@ -1182,6 +1301,24 @@
                                 <span>Centros de Costo</span>
                             </a>
                         </li>
+                        <li class="nav-item {% if active_page == 'accounting' and request.path.startswith('/accounting/fiscal-periods') %}active{% endif %}"
+                            data-tooltip="Períodos Fiscales">
+                            <a href="{{ url_for('web_accounting.fiscal_periods') }}">
+                                <span>Períodos Fiscales</span>
+                            </a>
+                        </li>
+                        <li class="nav-item {% if active_page == 'accounting' and request.path.startswith('/accounting/year-end-close') %}active{% endif %}"
+                            data-tooltip="Cierre Anual">
+                            <a href="{{ url_for('web_accounting.year_end_close') }}">
+                                <span>Cierre Anual</span>
+                            </a>
+                        </li>
+                        <li class="nav-item {% if active_page == 'accounting' and request.path.startswith('/accounting/closing-checklist') %}active{% endif %}"
+                            data-tooltip="Checklist de Cierre">
+                            <a href="{{ url_for('web_accounting.closing_checklist') }}">
+                                <span>Checklist de Cierre</span>
+                            </a>
+                        </li>
                     </ul>
                 </div>
                 {% endif %}
@@ -1361,7 +1498,7 @@
         </aside>
 
         <!-- 2. CONTENIDO PRINCIPAL -->
-        <main class="main-content">
+        <main class="main-content" id="main-content" aria-label="Contenido principal">
             <!-- Mensajes flash flotantes de Jinja2 -->
             {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
@@ -1424,6 +1561,8 @@
                         display: none;
                         position: absolute;
                         background-color: var(--bg-sidebar);
+                        backdrop-filter: blur(16px);
+                        -webkit-backdrop-filter: blur(16px);
                         border: 1px solid var(--border-color);
                         border-radius: var(--radius-md);
                         width: 320px;
@@ -1518,6 +1657,8 @@
                         display: none;
                         position: absolute;
                         background-color: var(--bg-sidebar);
+                        backdrop-filter: blur(16px);
+                        -webkit-backdrop-filter: blur(16px);
                         border: 1px solid var(--border-color);
                         border-radius: var(--radius-md);
                         width: 240px;
@@ -1962,6 +2103,27 @@
 
     </script>
 
+    <!-- Mobile sidebar close handler -->
+    <script>
+        (function() {
+            var container = document.getElementById('main-app-container');
+            var sidebar = document.getElementById('main-sidebar');
+            if (!container || !sidebar) return;
+            sidebar.querySelectorAll('a').forEach(function(link) {
+                link.addEventListener('click', function() {
+                    if (window.innerWidth <= 768) {
+                        container.classList.remove('sidebar-mobile-open');
+                    }
+                });
+            });
+            container.addEventListener('click', function(e) {
+                if (container.classList.contains('sidebar-mobile-open') && e.target === container) {
+                    container.classList.remove('sidebar-mobile-open');
+                }
+            });
+        })();
+    </script>
+
     {% block extra_scripts %}{% endblock %}
 
     <script>
@@ -2160,9 +2322,66 @@
         .action-menu-item.text-danger i { color: var(--accent-red); }
         .action-menu-item.text-danger:hover { background: rgba(239,68,68,0.08); }
         [data-theme="dark"] .action-menu-btn:hover { background: rgba(255,255,255,0.08); }
-        [data-theme="dark"] .action-menu-dropdown { background: var(--bg-card); border-color: var(--border-color); }
+        [data-theme="dark"] .action-menu-dropdown { background: var(--bg-card); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border-color: var(--border-color); }
         [data-theme="dark"] .action-menu-item:hover { background: rgba(255,255,255,0.06); }
+
+        /* PANTALLA DE CARGA ANIMADA */
+        @keyframes loader-logo-rise {
+            0%   { opacity:0; transform:translateY(100vh); }
+            40%  { opacity:1; transform:translateY(0); }
+            100% { opacity:1; transform:translateY(0); }
+        }
+        @keyframes loader-logo-shift {
+            0%   { transform:translateY(0); }
+            100% { transform:translateX(-12px) scale(0.7); }
+        }
+        @keyframes loader-text-enter {
+            0%   { opacity:0; transform:translateX(60px); }
+            100% { opacity:1; transform:translateX(0); }
+        }
+        @keyframes loader-fade-out {
+            0%   { opacity:1; }
+            100% { opacity:0; visibility:hidden; }
+        }
+        #app-loader-overlay.fade-out {
+            animation: loader-fade-out 0.4s ease-out forwards;
+            pointer-events:none;
+        }
     </style>
+    <script>
+        // Funciones globales para controlar la pantalla de carga
+        window.showAppLoader = function() {
+            var overlay = document.getElementById('app-loader-overlay');
+            var logo = document.getElementById('loader-logo');
+            var text = document.getElementById('loader-text');
+            if (!overlay) return;
+            overlay.classList.remove('fade-out');
+            overlay.style.display = 'flex';
+            logo.style.animation = 'none';
+            text.style.animation = 'none';
+            logo.style.opacity = '0';
+            logo.style.transform = 'translateY(100vh)';
+            text.style.opacity = '0';
+            text.style.transform = 'translateX(60px)';
+            void overlay.offsetWidth;
+            logo.style.animation = 'loader-logo-rise 0.7s cubic-bezier(0.22,1,0.36,1) forwards';
+            logo.addEventListener('animationend', function handler1() {
+                logo.removeEventListener('animationend', handler1);
+                logo.style.animation = 'loader-logo-shift 0.5s cubic-bezier(0.22,1,0.36,1) forwards';
+                text.style.opacity = '1';
+                text.style.animation = 'loader-text-enter 0.5s cubic-bezier(0.22,1,0.36,1) forwards';
+            }, { once: true });
+        };
+        window.hideAppLoader = function() {
+            var overlay = document.getElementById('app-loader-overlay');
+            if (!overlay) return;
+            overlay.classList.add('fade-out');
+            setTimeout(function() {
+                overlay.style.display = 'none';
+                overlay.classList.remove('fade-out');
+            }, 450);
+        };
+    </script>
 </body>
 
 </html>

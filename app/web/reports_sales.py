@@ -4661,3 +4661,17 @@ def taxes_retentions_export():
         as_attachment=True,
         download_name=filename,
     )
+
+
+@web_reports_sales_bp.route('/reports/financial-ratios')
+def financial_ratios():
+    if 'user' not in session:
+        return redirect(url_for('web_auth.login'))
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+    from app.services.financial_ratios_service import FinancialRatiosService
+    ratios = FinancialRatiosService.compute_all_ratios(owner_uid, sandbox=sandbox)
+    labels = FinancialRatiosService.get_ratio_labels()
+    return render_template('reports/financial_ratios.html', active_page='reports',
+                          ratios=ratios, labels=labels)
+

@@ -135,10 +135,13 @@ document.addEventListener('DOMContentLoaded', () => {
         clientSearchModal.style.display = 'none';
     };
 
-    if (clientSearchInput) clientSearchInput.addEventListener('click', openClientModal);
     if (btnOpenClientModal) btnOpenClientModal.addEventListener('click', openClientModal);
     if (btnCloseClientModal) btnCloseClientModal.addEventListener('click', closeClientModal);
-    if (clientModalBackdrop) clientModalBackdrop.addEventListener('click', closeClientModal);
+    if (clientSearchModal) {
+        clientSearchModal.addEventListener('click', (e) => {
+            if (e.target === clientSearchModal) closeClientModal();
+        });
+    }
     if (modalClientFilter) modalClientFilter.addEventListener('input', (e) => renderClients(e.target.value));
 
     // =========================================================================
@@ -182,7 +185,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btnOpenCreateClientModal) btnOpenCreateClientModal.addEventListener('click', openCreateClientModal);
     if (btnCloseCreateClientModal) btnCloseCreateClientModal.addEventListener('click', closeCreateClientModal);
     if (btnCancelCreateClient) btnCancelCreateClient.addEventListener('click', closeCreateClientModal);
-    if (clientCreateModalBackdrop) clientCreateModalBackdrop.addEventListener('click', closeCreateClientModal);
+    if (clientCreateModal) {
+        clientCreateModal.addEventListener('click', (e) => {
+            if (e.target === clientCreateModal) closeCreateClientModal();
+        });
+    }
 
     if (btnSaveNewClient) {
         btnSaveNewClient.addEventListener('click', async () => {
@@ -398,8 +405,283 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     if (btnCloseProductModal) btnCloseProductModal.addEventListener('click', closeProductModal);
-    if (productModalBackdrop) productModalBackdrop.addEventListener('click', closeProductModal);
+    if (productSearchModal) {
+        productSearchModal.addEventListener('click', (e) => {
+            if (e.target === productSearchModal) closeProductModal();
+        });
+    }
     if (modalProductFilter) modalProductFilter.addEventListener('input', (e) => renderProducts(e.target.value));
+
+    // =========================================================================
+    // AUTOCOMPLETADO INLINE PARA CLIENTE (sin necesidad de abrir modal)
+    // =========================================================================
+    let clientAutocompleteDropdown = null;
+    function getOrCreateClientDropdown() {
+        if (!clientAutocompleteDropdown) {
+            clientAutocompleteDropdown = document.createElement('div');
+            clientAutocompleteDropdown.className = 'autocomplete-dropdown';
+            clientAutocompleteDropdown.id = 'client-autocomplete-dropdown';
+            clientAutocompleteDropdown.style.cssText = 'display:none; position:fixed; z-index:1050; max-height:280px; overflow-y:auto; background:var(--bg-card,#ffffff); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); border:1px solid var(--border-color); border-radius:var(--radius-sm,8px); box-shadow:0 12px 40px rgba(0,0,0,0.18); font-size:0.9rem;';
+            document.body.appendChild(clientAutocompleteDropdown);
+        }
+        return clientAutocompleteDropdown;
+    }
+
+    function positionClientDropdown() {
+        const dropdown = getOrCreateClientDropdown();
+        if (!clientSearchInput) return;
+        const rect = clientSearchInput.getBoundingClientRect();
+        const width = rect.width;
+        dropdown.style.width = `${width}px`;
+        dropdown.style.left = `${rect.left}px`;
+        if (rect.bottom + 280 > window.innerHeight && rect.top > 280) {
+            dropdown.style.top = `${rect.top - 284}px`;
+        } else {
+            dropdown.style.top = `${rect.bottom + 4}px`;
+        }
+    }
+
+    const selectClient = (id, name, rnc, client) => {
+        if (clientIdHidden) clientIdHidden.value = id;
+        if (clientSearchInput) {
+            clientSearchInput.value = rnc ? `${name} (${rnc})` : name;
+        }
+        if (clientRncInput) clientRncInput.value = rnc || '';
+        activePriceListId = (client && client.priceListId) || '';
+        const dropdown = getOrCreateClientDropdown();
+        dropdown.style.display = 'none';
+        if (typeof validateTaxConstraints === 'function') validateTaxConstraints();
+    };
+
+    if (clientSearchInput) {
+        // Allow typing directly — no longer readonly
+        clientSearchInput.removeAttribute('readonly');
+        clientSearchInput.style.cursor = 'text';
+        clientSearchInput.setAttribute('placeholder', 'Buscar cliente por nombre, RNC o email...');
+        clientSearchInput.setAttribute('autocomplete', 'off');
+
+        // Evitar que el blur cierre el dropdown cuando se hace clic en él
+        const cd = getOrCreateClientDropdown();
+        cd.addEventListener('mousedown', (ev) => {
+            ev.preventDefault();
+        });
+
+        clientSearchInput.addEventListener('keyup', (e) => {
+            const query = clientSearchInput.value.toLowerCase().trim();
+            const dropdown = getOrCreateClientDropdown();
+            if (query.length < 1) {
+                dropdown.style.display = 'none';
+                return;
+            }
+            const filtered = crmClients.filter(c =>
+                (c.razonSocial || '').toLowerCase().includes(query) ||
+                (c.rnc || '').toLowerCase().includes(query) ||
+                (c.email || '').toLowerCase().includes(query) ||
+                (c.phone || '').toLowerCase().includes(query)
+            );
+            if (filtered.length === 0) {
+                dropdown.innerHTML = '<div style="padding:12px 16px; font-size:0.85rem; color:var(--text-muted,#999);">No se encontraron clientes. <button type="button" id="autocomplete-new-client-link" style="color:var(--accent-emerald); background:none; border:none; cursor:pointer; font-weight:600; padding:0;">Crear nuevo cliente</button></div>';
+                const newClientLink = dropdown.querySelector('#autocomplete-new-client-link');
+                if (newClientLink) {
+                    newClientLink.addEventListener('click', () => {
+                        dropdown.style.display = 'none';
+                        if (typeof openCreateClientModal === 'function') openCreateClientModal();
+                    });
+                }
+                positionClientDropdown();
+                dropdown.style.display = 'block';
+                return;
+            }
+            dropdown.innerHTML = filtered.map(c => `
+                <div class="autocomplete-item" data-id="${c.id}" data-name="${c.razonSocial}" data-rnc="${c.rnc || ''}" style="padding:10px 16px; cursor:pointer; border-bottom:1px solid var(--border-color,#f0f0f0); display:flex; align-items:center; gap:10px; font-size:0.9rem;">
+                    <div style="flex:1; min-width:0;">
+                        <div style="font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${c.razonSocial}</div>
+                        <div style="font-size:0.78rem; color:var(--text-muted,#888);">RNC: ${c.rnc || 'Consumidor Final'}</div>
+                    </div>
+                    <div style="font-size:0.78rem; color:var(--text-muted,#888); white-space:nowrap;">${c.email || ''}</div>
+                </div>
+            `).join('');
+            dropdown.querySelectorAll('.autocomplete-item').forEach(item => {
+                item.addEventListener('click', (ev) => {
+                    ev.preventDefault();
+                    ev.stopPropagation();
+                    const id = item.getAttribute('data-id');
+                    const name = item.getAttribute('data-name');
+                    const rnc = item.getAttribute('data-rnc');
+                    const client = crmClients.find(c => c.id === id);
+                    selectClient(id, name, rnc, client);
+                });
+            });
+            positionClientDropdown();
+            dropdown.style.display = 'block';
+        });
+
+        clientSearchInput.addEventListener('blur', () => {
+            setTimeout(() => {
+                const dropdown = getOrCreateClientDropdown();
+                dropdown.style.display = 'none';
+            }, 200);
+        });
+
+        clientSearchInput.addEventListener('focus', () => {
+            if (clientSearchInput.value.trim().length >= 1) {
+                clientSearchInput.dispatchEvent(new Event('keyup'));
+            }
+        });
+    }
+
+    // =========================================================================
+    // AUTOCOMPLETADO INLINE PARA PRODUCTOS (sin necesidad de abrir modal)
+    // =========================================================================
+    function selectProductForRow(row, productId, displayName, price, itbis, product) {
+        const searchInput = row.querySelector('.item-catalog-search-input');
+        const catalogIdHidden = row.querySelector('.item-catalog-id-hidden');
+        const nameInput = row.querySelector('.item-name-input');
+        const priceInput = row.querySelector('.item-price-input');
+        const itbisSelect = row.querySelector('.item-itbis-select');
+        if (catalogIdHidden) catalogIdHidden.value = productId;
+        if (searchInput) searchInput.value = displayName;
+        if (nameInput) nameInput.value = product.name || displayName;
+        if (priceInput) priceInput.value = parseFloat(price).toFixed(2);
+        if (itbisSelect) itbisSelect.value = itbis;
+        if (product) {
+            row.dataset.codigoImpuesto = product.codigoImpuesto || '';
+            row.dataset.tasaImpuestoAdicional = product.tasaImpuestoAdicional || 0.0;
+            row.dataset.gradosAlcohol = product.gradosAlcohol || 0.0;
+            row.dataset.cantidadReferencia = product.cantidadReferencia || 0.0;
+            row.dataset.subcantidad = product.subcantidad || 0.0;
+            row.dataset.precioReferencia = product.precioReferencia || 0.0;
+        }
+        const dropdown = row._autocompleteDropdown;
+        if (dropdown) dropdown.style.display = 'none';
+        recalculateTotals();
+    }
+
+    function createProductAutocomplete(row, searchInput) {
+        if (row._autocompleteDropdown) return;
+        const dropdown = document.createElement('div');
+        dropdown.className = 'autocomplete-dropdown';
+        dropdown.style.cssText = 'display:none; position:fixed; z-index:1050; max-height:260px; overflow-y:auto; width:380px; background:var(--bg-card,#ffffff); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); border:1px solid var(--border-color); border-radius:var(--radius-sm,8px); box-shadow:0 12px 40px rgba(0,0,0,0.18); font-size:0.85rem;';
+        document.body.appendChild(dropdown);
+        row._autocompleteDropdown = dropdown;
+
+        const positionDropdown = () => {
+            const rect = searchInput.getBoundingClientRect();
+            dropdown.style.left = `${rect.left}px`;
+            if (rect.bottom + 260 > window.innerHeight && rect.top > 260) {
+                dropdown.style.top = `${rect.top - 264}px`;
+            } else {
+                dropdown.style.top = `${rect.bottom + 4}px`;
+            }
+        };
+        row._positionDropdown = positionDropdown;
+
+        searchInput.removeAttribute('readonly');
+        searchInput.style.cursor = 'text';
+        searchInput.setAttribute('placeholder', 'Escriba nombre o código...');
+        searchInput.setAttribute('autocomplete', 'off');
+
+        // Evitar que el blur cierre el dropdown cuando se hace clic en él
+        dropdown.addEventListener('mousedown', (ev) => {
+            ev.preventDefault();
+        });
+
+        searchInput.addEventListener('keyup', () => {
+            const query = searchInput.value.toLowerCase().trim();
+            if (query.length < 1) {
+                dropdown.style.display = 'none';
+                return;
+            }
+            const filtered = catalogItems.filter(p =>
+                (p.name || '').toLowerCase().includes(query) ||
+                (p.code || '').toLowerCase().includes(query)
+            ).slice(0, 15);
+            if (filtered.length === 0) {
+                dropdown.innerHTML = '<div style="padding:12px 16px; color:var(--text-muted,#999);">No se encontraron productos. <button type="button" id="autocomplete-new-product-link" style="color:var(--accent-emerald); background:none; border:none; cursor:pointer; font-weight:600; padding:0; margin-left:4px;">Crear nuevo producto</button></div>';
+                const newProductLink = dropdown.querySelector('#autocomplete-new-product-link');
+                if (newProductLink) {
+                    newProductLink.addEventListener('click', (ev) => {
+                        ev.stopPropagation();
+                        dropdown.style.display = 'none';
+                        openProductCreateModal(row);
+                    });
+                }
+                positionDropdown();
+                dropdown.style.display = 'block';
+                return;
+            }
+            dropdown.innerHTML = filtered.map(p => {
+                const listPrice = getPriceListPrice(p.id);
+                const displayPrice = listPrice !== null ? listPrice : p.price;
+                const stock = parseFloat(p.totalStock || 0);
+                const minStock = parseFloat(p.minStock || 0);
+                const isService = p.type === 'Servicio';
+                const stockLow = !isService && stock <= minStock && stock > 0;
+                const stockOut = !isService && stock <= 0;
+                const stockLabel = isService ? 'N/A (Servicio)' :
+                    stockOut ? 'Sin existencias' :
+                    stockLow ? `${stock} und (bajo mín.)` :
+                    stock > 0 ? `${stock} und disponible` : 'Stock no definido';
+                const stockColor = stockOut ? 'var(--accent-red,#ef4444)' :
+                    stockLow ? '#f59e0b' :
+                    isService ? 'var(--text-muted,#888)' : 'var(--accent-emerald,#10b981)';
+                return `
+                <div class="autocomplete-item" data-product-id="${p.id}" data-product-name="${p.name}" data-product-code="${p.code || ''}" data-product-price="${displayPrice}" data-product-itbis="${p.itbisRate}" style="padding:10px 14px; cursor:pointer; border-bottom:1px solid var(--border-color,#f0f0f0); display:flex; align-items:center; gap:10px; ${stockOut ? 'opacity:0.6;' : ''}">
+                    <div style="flex:1; min-width:0;">
+                        <div style="font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${p.name}</div>
+                        <div style="font-size:0.75rem; color:var(--text-muted,#888); display:flex; align-items:center; gap:8px; margin-top:2px;">
+                            <span>${p.code || 'S/C'}</span>
+                            <span style="color:${stockColor}; font-weight:600;">${stockLabel}</span>
+                        </div>
+                    </div>
+                    <div style="font-weight:600; white-space:nowrap;">${formatCurrencyDOP(displayPrice)}</div>
+                    <button type="button" class="autocomplete-product-pick" style="background:var(--accent-emerald); color:white; border:none; border-radius:4px; padding:4px 10px; cursor:pointer; font-size:0.8rem; white-space:nowrap;">+ Agregar</button>
+                </div>
+            `}).join('');
+            dropdown.querySelectorAll('.autocomplete-item').forEach(item => {
+                item.addEventListener('click', (ev) => {
+                    ev.preventDefault();
+                    ev.stopPropagation();
+                    const productId = item.getAttribute('data-product-id');
+                    const productName = item.getAttribute('data-product-name');
+                    const productCode = item.getAttribute('data-product-code');
+                    const displayPrice = parseFloat(item.getAttribute('data-product-price'));
+                    const itbis = parseFloat(item.getAttribute('data-product-itbis'));
+                    const product = catalogItems.find(p => p.id === productId);
+                    if (productId && productName) {
+                        selectProductForRow(row, productId, `${productName} (${productCode || 'N/A'})`, displayPrice, itbis, product);
+                    }
+                });
+            });
+            positionDropdown();
+            dropdown.style.display = 'block';
+        });
+
+        searchInput.addEventListener('blur', () => {
+            setTimeout(() => { dropdown.style.display = 'none'; }, 200);
+        });
+
+        searchInput.addEventListener('focus', () => {
+            if (searchInput.value.trim().length >= 1) {
+                searchInput.dispatchEvent(new Event('keyup'));
+            }
+        });
+    }
+
+    // Apply inline autocomplete to existing rows on page load
+    document.querySelectorAll('#invoice-items-body .item-row').forEach(row => {
+        const searchInput = row.querySelector('.item-catalog-search-input');
+        if (searchInput) createProductAutocomplete(row, searchInput);
+    });
+
+    // Ocultar todos los dropdowns al hacer scroll (position:fixed necesita reposicionarse)
+    window.addEventListener('scroll', () => {
+        const cd = getOrCreateClientDropdown();
+        if (cd) cd.style.display = 'none';
+        document.querySelectorAll('#invoice-items-body .item-row').forEach(row => {
+            if (row._autocompleteDropdown) row._autocompleteDropdown.style.display = 'none';
+        });
+    }, { passive: true });
 
     // =========================================================================
     // AGREGAR PARTIDA DINÁMICA A LA TABLA
@@ -412,43 +694,32 @@ document.addEventListener('DOMContentLoaded', () => {
 
             newRow.innerHTML = `
                 <td>
-                    <div style="position: relative; display: flex; gap: 6px; width: 100%;">
-                        <input type="text" class="form-input item-catalog-search-input" placeholder="-- Buscar en Catálogo --" readonly style="cursor: pointer; width: 100%; text-overflow: ellipsis; white-space: nowrap; overflow: hidden;">
-                        <input type="hidden" class="item-catalog-id-hidden" name="items[${rowIndex}][catalog_id]">
-                        <button type="button" class="btn btn-secondary btn-search-product" style="padding: 8px 10px;" title="Buscar Producto">
-                            <i class="fa-solid fa-magnifying-glass" style="font-size: 0.8rem;"></i>
-                        </button>
+                  <div style="position:relative;">
+                    <input type="text" class="form-input item-catalog-search-input" placeholder="Escriba nombre o código…" autocomplete="off" style="padding-right:30px;">
+                    <input type="hidden" class="item-catalog-id-hidden" name="items[${rowIndex}][catalog_id]">
+                    <input type="hidden" class="item-name-input" name="items[${rowIndex}][name]">
+                    <button type="button" class="btn-search-product" style="position:absolute;right:4px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text-muted);cursor:pointer;padding:4px;"><i class="fa-solid fa-magnifying-glass" style="font-size:0.65rem;"></i></button>
+                  </div>
+                </td>
+                <td style="text-align:center;"><input type="number" class="form-input item-qty-input" name="items[${rowIndex}][quantity]" min="1" value="1" style="width:60px;text-align:center;" required></td>
+                <td style="text-align:right;"><input type="number" class="form-input item-price-input" name="items[${rowIndex}][price]" step="0.01" value="0.00" style="width:110px;" required></td>
+                <td style="text-align:right;"><input type="number" class="form-input item-discount-input" name="items[${rowIndex}][discountRate]" step="0.01" min="0" max="1" value="0.00" style="width:75px;"></td>
+                <td style="text-align:center;"><select class="form-select item-itbis-select" name="items[${rowIndex}][itbisRate]" style="width:75px;"><option value="0.18" selected>18%</option><option value="0.16">16%</option><option value="0.0">0%</option></select></td>
+                <td style="text-align:right;font-weight:600;"><span class="item-total-label">RD$ 0.00</span></td>
+                <td>
+                  <div style="position:relative;">
+                    <button type="button" class="row-menu-btn" onclick="toggleRowMenu(this)"><i class="fa-solid fa-ellipsis" style="font-size:0.9rem;"></i></button>
+                    <div class="row-menu-dropdown">
+                      <button type="button" class="row-menu-item danger" onclick="removeRowFromMenu(this)"><i class="fa-solid fa-trash-can" style="font-size:0.7rem;"></i> Eliminar de la lista</button>
                     </div>
-                </td>
-                <td>
-                    <input type="text" class="form-input item-name-input" name="items[${rowIndex}][name]" required readonly style="width: 100%; background-color: var(--bg-input-readonly, rgba(0,0,0,0.02));">
-                </td>
-                <td>
-                    <input type="number" class="form-input item-price-input" name="items[${rowIndex}][price]" step="0.01" value="0.00" required style="width: 100%; text-align: right;">
-                </td>
-                <td>
-                    <input type="number" class="form-input item-qty-input" name="items[${rowIndex}][quantity]" min="1" value="1" required style="width: 100%; text-align: center;">
-                </td>
-                <td>
-                    <select class="form-select item-itbis-select" name="items[${rowIndex}][itbisRate]" style="width: 100%;">
-                        <option value="0.18" selected>18%</option>
-                        <option value="0.16">16%</option>
-                        <option value="0.0">Exento (0%)</option>
-                    </select>
-                </td>
-                <td>
-                    <input type="number" class="form-input item-discount-input" name="items[${rowIndex}][discountRate]" step="0.01" min="0" max="1" value="0.00" style="width: 100%; text-align: right;">
-                </td>
-                <td style="text-align: right; vertical-align: middle;">
-                    <strong class="item-total-label">RD$ 0.00</strong>
-                </td>
-                <td style="text-align: center; vertical-align: middle;">
-                    <button type="button" class="btn btn-danger btn-remove-row" style="padding: 8px 12px;"><i class="fa-solid fa-trash-can"></i></button>
+                  </div>
                 </td>
             `;
 
             itemsTableBody.appendChild(newRow);
             bindRowEvents(newRow);
+            const searchInput = newRow.querySelector('.item-catalog-search-input');
+            if (searchInput) createProductAutocomplete(newRow, searchInput);
             recalculateTotals();
         });
     }
@@ -464,15 +735,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const qtyInput = row.querySelector('.item-qty-input');
         const itbisSelect = row.querySelector('.item-itbis-select');
         const discountInput = row.querySelector('.item-discount-input');
-        const removeBtn = row.querySelector('.btn-remove-row');
 
-        // Al hacer clic para buscar producto
+        // El botón de lupa aún puede abrir el modal como fallback
         const openProductModalForRow = () => {
             activeProductRow = row;
             openProductModal();
         };
 
-        if (searchInput) searchInput.addEventListener('click', openProductModalForRow);
         if (searchBtn) searchBtn.addEventListener('click', openProductModalForRow);
 
         // Inputs cambiantes
@@ -482,15 +751,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 input.addEventListener('change', recalculateTotals);
             }
         });
-
-        // Borrar fila
-        if (removeBtn) {
-            removeBtn.addEventListener('click', () => {
-                row.remove();
-                realignRowIndexes();
-                recalculateTotals();
-            });
-        }
     }
 
     // =========================================================================
@@ -757,6 +1017,122 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
     }
+
+    // =========================================================================
+    // MODAL DE CREACIÓN RÁPIDA DE PRODUCTO (AJAX)
+    // =========================================================================
+    const productCreateModal = document.getElementById('product-create-modal');
+    const btnCloseProductCreateModal = document.getElementById('btn-close-product-create-modal');
+    const btnCancelProductCreate = document.getElementById('btn-cancel-product-create');
+    const btnSaveNewProduct = document.getElementById('btn-save-new-product');
+    const productCreateAlertEl = document.getElementById('product-create-alert');
+    let targetProductRow = null;
+
+    const openProductCreateModal = (row) => {
+        if (!productCreateModal) return;
+        targetProductRow = row || null;
+        const n = document.getElementById('new-product-name'); if (n) n.value = '';
+        const p = document.getElementById('new-product-price'); if (p) p.value = '0.00';
+        const t = document.getElementById('new-product-type'); if (t) t.value = 'Bien';
+        const i = document.getElementById('new-product-itbis'); if (i) i.value = '0.18';
+        const c = document.getElementById('new-product-cost'); if (c) c.value = '0.00';
+        if (productCreateAlertEl) { productCreateAlertEl.style.display = 'none'; }
+        if (btnSaveNewProduct) btnSaveNewProduct.disabled = false;
+        const lbl = document.getElementById('btn-save-new-product-label');
+        if (lbl) lbl.textContent = 'Guardar y Seleccionar';
+        productCreateModal.style.display = 'flex';
+        setTimeout(() => document.getElementById('new-product-name')?.focus(), 100);
+    };
+
+    const closeProductCreateModal = () => {
+        if (productCreateModal) productCreateModal.style.display = 'none';
+        targetProductRow = null;
+    };
+
+    if (btnCloseProductCreateModal) btnCloseProductCreateModal.addEventListener('click', closeProductCreateModal);
+    if (btnCancelProductCreate) btnCancelProductCreate.addEventListener('click', closeProductCreateModal);
+    if (productCreateModal) {
+        productCreateModal.addEventListener('click', (e) => {
+            if (e.target === productCreateModal) closeProductCreateModal();
+        });
+    }
+
+    if (btnSaveNewProduct) {
+        btnSaveNewProduct.addEventListener('click', async () => {
+            const name = (document.getElementById('new-product-name')?.value || '').trim();
+            const price = parseFloat(document.getElementById('new-product-price')?.value || '0');
+            const type = document.getElementById('new-product-type')?.value || 'Bien';
+            const itbisRate = parseFloat(document.getElementById('new-product-itbis')?.value || '0.18');
+            const costPrice = parseFloat(document.getElementById('new-product-cost')?.value || '0');
+
+            if (!name) {
+                if (productCreateAlertEl) { productCreateAlertEl.textContent = 'El nombre del producto es obligatorio.'; productCreateAlertEl.style.display = 'block'; productCreateAlertEl.style.background = 'rgba(239,68,68,0.12)'; productCreateAlertEl.style.color = '#dc2626'; }
+                document.getElementById('new-product-name')?.focus();
+                return;
+            }
+            if (isNaN(price) || price < 0) {
+                if (productCreateAlertEl) { productCreateAlertEl.textContent = 'El precio debe ser un valor válido.'; productCreateAlertEl.style.display = 'block'; productCreateAlertEl.style.background = 'rgba(239,68,68,0.12)'; productCreateAlertEl.style.color = '#dc2626'; }
+                return;
+            }
+
+            btnSaveNewProduct.disabled = true;
+            const lbl = document.getElementById('btn-save-new-product-label');
+            if (lbl) lbl.textContent = 'Guardando...';
+
+            try {
+                const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+                const resp = await fetch('/api/quick-create-product', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfMeta ? csrfMeta.getAttribute('content') : '' },
+                    body: JSON.stringify({ name, price, type, itbisRate: itbisRate, costPrice })
+                });
+                const result = await resp.json();
+                if (result.success) {
+                    const np = result.item;
+                    catalogItems.push({
+                        id: np.id, code: np.code || '', name: np.name, price: np.price,
+                        type: np.type, itbisRate: np.itbisRate, costPrice: np.costPrice || 0,
+                        totalStock: 0, codigoImpuesto: '', tasaImpuestoAdicional: 0,
+                        gradosAlcohol: 0, cantidadReferencia: 0, subcantidad: 0, precioReferencia: 0
+                    });
+                    if (productCreateAlertEl) { productCreateAlertEl.textContent = '✓ "' + np.name + '" creado.'; productCreateAlertEl.style.display = 'block'; productCreateAlertEl.style.background = 'rgba(16,185,129,0.12)'; productCreateAlertEl.style.color = '#059669'; }
+                    setTimeout(() => {
+                        if (targetProductRow) {
+                            const si = targetProductRow.querySelector('.item-catalog-search-input');
+                            const ch = targetProductRow.querySelector('.item-catalog-id-hidden');
+                            const ni = targetProductRow.querySelector('.item-name-input');
+                            const pi = targetProductRow.querySelector('.item-price-input');
+                            const is = targetProductRow.querySelector('.item-itbis-select');
+                            if (ch) ch.value = np.id;
+                            if (si) si.value = np.name + ' (' + (np.code || 'Nuevo') + ')';
+                            if (ni) ni.value = np.name;
+                            if (pi) pi.value = parseFloat(np.price).toFixed(2);
+                            if (is) is.value = np.itbisRate;
+                            targetProductRow.dataset.codigoImpuesto = '';
+                            targetProductRow.dataset.tasaImpuestoAdicional = 0;
+                            targetProductRow.dataset.gradosAlcohol = 0;
+                            targetProductRow.dataset.cantidadReferencia = 0;
+                            targetProductRow.dataset.subcantidad = 1;
+                            targetProductRow.dataset.precioReferencia = 0;
+                            recalculateTotals();
+                        }
+                        closeProductCreateModal();
+                        btnSaveNewProduct.disabled = false;
+                        if (lbl) lbl.textContent = 'Guardar y Seleccionar';
+                    }, 600);
+                } else {
+                    if (productCreateAlertEl) { productCreateAlertEl.textContent = result.error || 'Error al crear el producto.'; productCreateAlertEl.style.display = 'block'; productCreateAlertEl.style.background = 'rgba(239,68,68,0.12)'; productCreateAlertEl.style.color = '#dc2626'; }
+                    btnSaveNewProduct.disabled = false;
+                    if (lbl) lbl.textContent = 'Guardar y Seleccionar';
+                }
+            } catch (err) {
+                if (productCreateAlertEl) { productCreateAlertEl.textContent = 'Error de conexión.'; productCreateAlertEl.style.display = 'block'; productCreateAlertEl.style.background = 'rgba(239,68,68,0.12)'; productCreateAlertEl.style.color = '#dc2626'; }
+                btnSaveNewProduct.disabled = false;
+                if (lbl) lbl.textContent = 'Guardar y Seleccionar';
+            }
+        });
+    }
+    window.openProductCreateModal = openProductCreateModal;
 });
 
 // Helper para formatear valores monetarios de DOP en la UI

@@ -854,12 +854,28 @@ def create_pos_sale():
             invoice_dict["contingencyEmittedAt"] = datetime.now(timezone.utc).isoformat() if res.get("mode") == "FALLBACK" else None
             invoice_dict["status"] = "Pendiente DGII" if pending_dgii else "Cobrada"
             DatabaseService.save_invoice(owner_uid, invoice_id, invoice_dict, sandbox=sandbox)
+
+            # Generar asiento contable automático para POS
+            try:
+                from app.services.accounting_service import AccountingService
+                AccountingService.auto_generate_invoice_entry(owner_uid, invoice_dict, sandbox=sandbox)
+            except Exception as exc:
+                import logging
+                logging.getLogger(__name__).warning(f"Asiento contable POS no generado: {exc}")
     except Exception as e:
         # Si falla, operamos en contingencia local
         print(f"⚠️ Error al emitir e-CF en POS: {e}")
         invoice_dict["emisionMode"] = "FALLBACK"
         invoice_dict["isSyncedWithDGII"] = False
         DatabaseService.save_invoice(owner_uid, invoice_id, invoice_dict, sandbox=sandbox)
+
+        # Generar asiento contable incluso en contingencia
+        try:
+            from app.services.accounting_service import AccountingService
+            AccountingService.auto_generate_invoice_entry(owner_uid, invoice_dict, sandbox=sandbox)
+        except Exception as exc:
+            import logging
+            logging.getLogger(__name__).warning(f"Asiento contable POS (contingencia) no generado: {exc}")
 
     from app.services.audit_service import AuditService, ACTION_CREATE, MODULE_POS
     AuditService.log_from_request(

@@ -40,64 +40,7 @@
     }
     
     /* Acordeón Styles */
-    .settings-accordion {
-        display: flex;
-        flex-direction: column;
-        gap: 16px;
-        margin-top: 15px;
-    }
-    .accordion-item {
-        background: var(--bg-card);
-        border: 1px solid var(--border-color);
-        border-radius: var(--radius-md);
-        overflow: hidden;
-        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-    .accordion-item.active {
-        border-color: var(--accent-emerald);
-        box-shadow: var(--shadow-sm);
-    }
-    .accordion-header {
-        width: 100%;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 18px 24px;
-        background: none;
-        border: none;
-        cursor: pointer;
-        outline: none;
-    }
-    .accordion-title {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        font-family: var(--font-heading);
-        font-size: 1.05rem;
-        font-weight: 600;
-        color: var(--text-primary);
-    }
-    .accordion-title i {
-        color: var(--accent-emerald);
-        font-size: 1.25rem;
-    }
-    .accordion-chevron {
-        color: var(--text-muted);
-        transition: transform 0.25s ease;
-    }
-    .accordion-item.active .accordion-chevron {
-        transform: rotate(180deg);
-        color: var(--accent-emerald);
-    }
-    .accordion-content {
-        max-height: 0;
-        overflow: hidden;
-        transition: max-height 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-    .accordion-body {
-        padding: 0 24px 24px 24px;
-        border-top: 1px solid rgba(0, 0, 0, 0.02);
-    }
+    {% include 'components/_accordion_css.html' %}
     
     /* Drag & Drop zone */
     .wizard-import-dropzone {
@@ -501,22 +444,7 @@
 
 {% block extra_scripts %}
 <script>
-    window.toggleAccordionSection = function (header) {
-        const item = header.parentElement;
-        const content = item.querySelector('.accordion-content');
-        const isActive = item.classList.contains('active');
-
-        document.querySelectorAll('.accordion-item').forEach(el => {
-            el.classList.remove('active');
-            const c = el.querySelector('.accordion-content');
-            if (c) c.style.maxHeight = null;
-        });
-
-        if (!isActive) {
-            item.classList.add('active');
-            content.style.maxHeight = content.scrollHeight + 'px';
-        }
-    };
+    {% include 'components/_accordion_js.html' %}
 
     document.addEventListener('DOMContentLoaded', function () {
         // Inicializar el acordeón activo con su altura

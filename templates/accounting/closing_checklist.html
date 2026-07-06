@@ -1,0 +1,80 @@
+{% extends "layout.html" %}
+{% block title %}Checklist de Cierre{% endblock %}
+{% block page_header %}Checklist de Cierre — {{ months[selected_month-1] }} {{ selected_year }}{% endblock %}
+{% block content %}
+<style>
+    .checklist-grid { display: flex; flex-direction: column; gap: 6px; max-width: 700px; margin: 0 auto; }
+    .checklist-item {
+        display: flex; align-items: center; gap: 12px;
+        padding: 10px 14px; border-radius: var(--radius-md);
+        background: var(--bg-card); border: 1px solid var(--border-color);
+        cursor: pointer; transition: border-color 0.15s;
+    }
+    .checklist-item:hover { border-color: var(--border-glow); }
+    .checklist-item.completed { opacity: 0.65; }
+    .checklist-item .check {
+        width: 22px; height: 22px; border-radius: 50%;
+        border: 2px solid var(--border-color); display: flex;
+        align-items: center; justify-content: center; flex-shrink: 0;
+        font-size: 0.7rem; transition: all 0.15s;
+    }
+    .checklist-item.completed .check {
+        background: var(--accent-emerald); border-color: var(--accent-emerald);
+        color: white;
+    }
+    .checklist-item .label { font-size: 0.85rem; color: var(--text-primary); }
+    .checklist-item .category {
+        font-size: 0.65rem; color: var(--text-muted);
+        background: var(--bg-input); padding: 2px 8px; border-radius: 10px;
+        margin-left: auto;
+    }
+    .progress-bar { height: 8px; background: var(--bg-input); border-radius: 4px; margin-bottom: 20px; overflow: hidden; }
+    .progress-fill { height: 100%; background: var(--accent-emerald); border-radius: 4px; transition: width 0.3s; }
+</style>
+
+<div style="max-width:700px;margin:0 auto;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+        <span style="font-size:0.78rem;color:var(--text-muted);">{{ checklist.progress }}% completado</span>
+        <div style="display:flex;gap:6px;">
+            <select onchange="changePeriod(this.value)" style="height:30px;border-radius:6px;border:1px solid var(--border-color);background:var(--bg-input);color:var(--text-primary);padding:0 8px;font-size:0.78rem;">
+                {% for y in range(selected_year-1, selected_year+2) %}
+                {% for m in range(1,13) %}
+                <option value="{{y}}-{{m}}" {% if y==selected_year and m==selected_month %}selected{% endif %}>{{ months[m-1] }} {{ y }}</option>
+                {% endfor %}
+                {% endfor %}
+            </select>
+        </div>
+    </div>
+    <div class="progress-bar"><div class="progress-fill" style="width:{{ checklist.progress }}%"></div></div>
+
+    <div class="checklist-grid">
+        {% for task in checklist.tasks %}
+        <div class="checklist-item {{ 'completed' if task.completed }}" onclick="toggleTask('{{ task.id }}')">
+            <div class="check">{{ '✓' if task.completed else '' }}</div>
+            <span class="label">{{ task.label }}</span>
+            <span class="category">{{ task.category }}</span>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<script>
+function toggleTask(taskId) {
+    const formData = new FormData();
+    formData.append('year', {{ selected_year }});
+    formData.append('month', {{ selected_month }});
+    formData.append('task_id', taskId);
+    fetch('/accounting/closing-checklist/toggle', {
+        method: 'POST',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        body: formData,
+    })
+    .then(r => r.json())
+    .then(data => { if (data.success) location.reload(); });
+}
+function changePeriod(val) {
+    const [y, m] = val.split('-');
+    window.location.href = '?year=' + y + '&month=' + m;
+}
+</script>
+{% endblock %}

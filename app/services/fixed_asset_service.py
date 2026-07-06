@@ -138,16 +138,34 @@ class FixedAssetService:
         purchase_amount = float(asset.get("purchaseAmount", 0))
         residual = float(asset.get("residualValue", 0))
         useful_life = int(asset.get("usefulLife", 36))
+        method = asset.get("depreciationMethod", "lineal")
+        period = asset.get("depreciationPeriod", "mensual")
+        current_value = float(asset.get("currentValue", purchase_amount))
+        accum = float(asset.get("accumulatedDepreciation", 0))
+
         if useful_life <= 0:
             return 0
         depreciable = purchase_amount - residual
         if depreciable <= 0:
             return 0
-        period = asset.get("depreciationPeriod", "mensual")
-        if period == "mensual":
-            return round(depreciable / useful_life, 2)
+
+        periods_per_year = 12 if period == "mensual" else 1
+        total_periods = useful_life if period == "mensual" else max(1, useful_life / 12)
+
+        if method == "lineal":
+            return round(depreciable / total_periods, 2)
+        elif method == "decreciente":
+            rate = 2.0 / total_periods
+            amount = round((current_value - residual) * rate, 2)
+            return max(amount, 0.0)
+        elif method == "syd":
+            remaining_periods = total_periods - int(accum / max(depreciable / total_periods, 1))
+            remaining_periods = max(remaining_periods, 1)
+            syd_sum = total_periods * (total_periods + 1) / 2
+            amount = round(depreciable * remaining_periods / syd_sum, 2)
+            return max(amount, 0.0)
         else:
-            return round(depreciable / max(1, useful_life / 12), 2)
+            return round(depreciable / total_periods, 2)
 
     @classmethod
     def dispose_asset(cls, owner_uid, asset_id, disposal_data, sandbox=True):

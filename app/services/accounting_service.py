@@ -397,13 +397,38 @@ def _default_chart_of_accounts():
 
 
 def _find_account_by_usage(accounts, usage):
-    for a in accounts:
-        if a.get("usage") == usage:
-            return a
+    if not usage:
+        return None
     for a in accounts:
         if a.get("usage") == usage:
             return a
     return None
+
+
+def _find_accounts_by_usage(accounts, usage):
+    if not usage:
+        return []
+    return [a for a in accounts if a.get("usage") == usage]
+
+
+def _find_account_by_usages(accounts, usages):
+    if not usages:
+        return None
+    for usage in usages:
+        for a in accounts:
+            if a.get("usage") == usage:
+                return a
+    return None
+
+
+def _accounting_entry_exists(owner_uid, reference_type, reference_id):
+    entries = DatabaseService.get_accounting_entries(owner_uid)
+    for e in entries:
+        if e.get("status") == "voided":
+            continue
+        if e.get("referenceType") == reference_type and e.get("referenceId") == reference_id:
+            return True
+    return False
 
 
 class AccountingService:
@@ -464,35 +489,45 @@ class AccountingService:
         if not accounts:
             cls.seed_default_accounts(owner_uid)
             accounts = DatabaseService.get_chart_of_accounts(owner_uid)
-        grouped = defaultdict(list)
+        else:
+            # Verificar si faltan cuentas del default sin hacer fetch extra
+            existing_codes = {a.get("code") for a in accounts}
+            missing = [a for a in _default_chart_of_accounts() if a["code"] not in existing_codes]
+            if missing:
+                cls.seed_default_accounts(owner_uid)
+                accounts = DatabaseService.get_chart_of_accounts(owner_uid)
+        children_map = defaultdict(list)
         for acc in accounts:
-            grouped[acc.get("group", "otros")].append(acc)
+            children_map[acc.get("parentId") or ""].append(acc)
+
+        def build_node(acc):
+            kids = children_map.get(acc["id"], [])
+            kids.sort(key=lambda x: (x.get("level", 0), x.get("orderIdx", 0)))
+            built = [build_node(k) for k in kids]
+            return {
+                **acc,
+                "children": built,
+                "has_children": len(built) > 0
+            }
+
+        roots = children_map.get("", [])
+        roots.sort(key=lambda x: (x.get("level", 0), x.get("orderIdx", 0)))
+        root_nodes = [build_node(r) for r in roots]
+
         tree = []
+        grouped_root = defaultdict(list)
+        for node in root_nodes:
+            grouped_root[node.get("group", "otros")].append(node)
         for group_key, group_info in sorted(ACCOUNT_GROUPS.items(), key=lambda x: x[1]["order"]):
-            group_accounts = grouped.get(group_key, [])
-            children = cls._build_tree(group_accounts, None)
             tree.append({
                 "group": group_key,
                 "label": group_info["label"],
                 "nature": group_info["nature"],
                 "order": group_info["order"],
-                "children": children,
-                "count": len(group_accounts)
+                "children": grouped_root.get(group_key, []),
+                "count": len(grouped_root.get(group_key, []))
             })
         return tree, accounts
-
-    @classmethod
-    def _build_tree(cls, accounts, parent_id):
-        children = []
-        for acc in sorted(accounts, key=lambda x: (x.get("level", 0), x.get("orderIdx", 0))):
-            if acc.get("parentId") == parent_id:
-                sub = cls._build_tree(accounts, acc.get("id"))
-                children.append({
-                    **acc,
-                    "children": sub,
-                    "has_children": len(sub) > 0
-                })
-        return children
 
     @classmethod
     def get_account_balance(cls, owner_uid, account_id, date_from=None, date_to=None):
@@ -550,6 +585,12 @@ class AccountingService:
         total_credit = sum(float(l.get("credit", 0)) for l in lines)
         if abs(total_debit - total_credit) > 0.01:
             raise ValueError(f"El asiento no está balanceado: Débito {total_debit} ≠ Crédito {total_credit}")
+
+        from app.services.fiscal_period_service import FiscalPeriodService
+        entry_date = entry_data.get("date", "")
+        if entry_date and entry_data.get("entryType") not in ("closing",):
+            FiscalPeriodService.validate_period_open(owner_uid, entry_date)
+
         entry_id = str(uuid.uuid4())
         prefix = entry_data.get("prefix", "A")
         number = DatabaseService.get_next_entry_number(owner_uid, prefix=prefix, sandbox=sandbox)
@@ -572,6 +613,8 @@ class AccountingService:
             "createdBy": entry_data.get("createdBy", ""),
         }
         DatabaseService.save_accounting_entry(owner_uid, entry_id, entry, sandbox=sandbox)
+        from app.services.ledger_audit_service import LedgerAuditService
+        LedgerAuditService.log_entry_creation(entry, owner_uid, performed_by=entry_data.get("createdBy", ""))
         return entry
 
     @classmethod
@@ -668,41 +711,321 @@ class AccountingService:
         entry["voidedBy"] = user_id
         entry["voidReason"] = reason
         DatabaseService.save_accounting_entry(owner_uid, entry_id, entry, sandbox=sandbox)
+        from app.services.ledger_audit_service import LedgerAuditService
+        LedgerAuditService.log_entry_void(entry, owner_uid, performed_by=user_id, reason=reason)
         return entry
 
     @classmethod
+    def _resolve_debit_account(cls, invoice, accounts):
+        payment_type = invoice.get("paymentType", "Contado")
+        if payment_type == "Contado":
+            payment_method = invoice.get("paymentMethod", "Efectivo")
+            if payment_method in ("Tarjeta de Crédito", "Tarjeta de Débito", "Transferencia"):
+                acc = _find_account_by_usages(accounts, ["banco", "transferencias_bancarias"])
+                if acc:
+                    return acc, f"Banco - {invoice.get('invoiceNumber', '')}"
+            acc = _find_account_by_usages(accounts, ["efectivo", "banco"])
+            if acc:
+                return acc, f"Efectivo/Banco - Factura {invoice.get('invoiceNumber', '')}"
+        return _find_account_by_usages(accounts, ["cxc", "banco", "efectivo"]), f"Factura {invoice.get('invoiceNumber', '')}"
+
+    @classmethod
+    def _build_cogs_lines(cls, invoice, accounts):
+        items = invoice.get("items", [])
+        lines = []
+        inv_acc = _find_account_by_usage(accounts, "inventario")
+        cogs_acc = _find_account_by_usage(accounts, "costo_ventas")
+        if not inv_acc or not cogs_acc:
+            return lines
+        for it in items:
+            if it.get("type", "Bien") == "Bien":
+                cost_price = float(it.get("costPrice", 0))
+                quantity = float(it.get("quantity", 1))
+                if cost_price > 0:
+                    total_cost = round(cost_price * quantity, 2)
+                    lines.append({
+                        "accountId": cogs_acc["id"],
+                        "accountCode": cogs_acc.get("code", ""),
+                        "accountName": cogs_acc.get("name", ""),
+                        "debit": total_cost,
+                        "credit": 0.00,
+                        "description": f"Costo de venta: {it.get('name', 'Item')} x{int(quantity)}"
+                    })
+                    lines.append({
+                        "accountId": inv_acc["id"],
+                        "accountCode": inv_acc.get("code", ""),
+                        "accountName": inv_acc.get("name", ""),
+                        "debit": 0.00,
+                        "credit": total_cost,
+                        "description": f"Descargo inventario: {it.get('name', 'Item')} x{int(quantity)}"
+                    })
+        return lines
+
+    @classmethod
+    def _build_extra_tax_lines(cls, invoice, accounts):
+        lines = []
+        total_isc_esp = float(invoice.get("totalISCEspecifico", 0))
+        total_isc_adv = float(invoice.get("totalISCAdValorem", 0))
+        total_otros = float(invoice.get("totalOtrosImpuestos", 0))
+        total_tax_lines = round(total_isc_esp + total_isc_adv + total_otros, 2)
+        if total_tax_lines <= 0:
+            return lines
+        impuesto_acc = _find_account_by_usages(accounts, ["impuesto_por_pagar", "otro_impuesto_por_pagar"])
+        if not impuesto_acc:
+            return lines
+        labels = []
+        if total_isc_esp > 0:
+            labels.append(f"ISC específico {total_isc_esp:,.2f}")
+        if total_isc_adv > 0:
+            labels.append(f"ISC ad valorem {total_isc_adv:,.2f}")
+        if total_otros > 0:
+            labels.append(f"Otros impuestos {total_otros:,.2f}")
+        lines.append({
+            "accountId": impuesto_acc["id"],
+            "accountCode": impuesto_acc.get("code", ""),
+            "accountName": impuesto_acc.get("name", ""),
+            "debit": 0.00,
+            "credit": total_tax_lines,
+            "description": "; ".join(labels)
+        })
+        return lines
+
+    @classmethod
     def auto_generate_invoice_entry(cls, owner_uid, invoice, sandbox=True):
+        invoice_id = invoice.get("id", "")
+        if _accounting_entry_exists(owner_uid, "invoice", invoice_id):
+            return None
         accounts = DatabaseService.get_chart_of_accounts(owner_uid)
         if not accounts:
             cls.seed_default_accounts(owner_uid)
             accounts = DatabaseService.get_chart_of_accounts(owner_uid)
-        cxc_acc = _find_account_by_usage(accounts, "cxc")
+        debit_acc, debit_desc = cls._resolve_debit_account(invoice, accounts)
         sales_acc = _find_account_by_usage(accounts, "ventas")
         itbis_acc = _find_account_by_usage(accounts, "itbis_pagar")
         itbis_ret_acc = _find_account_by_usage(accounts, "itbis_retenido")
         isr_ret_acc = _find_account_by_usage(accounts, "isr_retenido")
-        if not cxc_acc or not sales_acc:
+        if not debit_acc or not sales_acc:
             return None
         total = float(invoice.get("netPayable", invoice.get("total", 0)))
         subtotal = float(invoice.get("subtotal", 0))
         itbis = float(invoice.get("totalITBIS", invoice.get("itbis", 0)))
         retained_isr = float(invoice.get("retainedISR", 0))
         retained_itbis = float(invoice.get("retainedITBIS", 0))
+        branch_id = invoice.get("branchId", "")
+        cost_center_id = invoice.get("costCenterId", "")
+        currency = invoice.get("currency", "DOP")
+        client_id = invoice.get("clientId", "")
+        client_name = invoice.get("clientName", "")
         lines = []
-        lines.append({"accountId": cxc_acc["id"], "accountCode": cxc_acc.get("code", ""), "accountName": cxc_acc.get("name", ""), "debit": round(total, 2), "credit": 0.00, "description": f"Factura {invoice.get('invoiceNumber', '')}"})
-        lines.append({"accountId": sales_acc["id"], "accountCode": sales_acc.get("code", ""), "accountName": sales_acc.get("name", ""), "debit": 0.00, "credit": round(subtotal, 2), "description": ""})
+        lines.append({
+            "accountId": debit_acc["id"],
+            "accountCode": debit_acc.get("code", ""),
+            "accountName": debit_acc.get("name", ""),
+            "debit": round(total, 2),
+            "credit": 0.00,
+            "description": debit_desc,
+            "contactId": client_id,
+            "contactName": client_name,
+            "branchId": branch_id,
+            "costCenterId": cost_center_id,
+            "currency": currency
+        })
+        lines.append({
+            "accountId": sales_acc["id"],
+            "accountCode": sales_acc.get("code", ""),
+            "accountName": sales_acc.get("name", ""),
+            "debit": 0.00,
+            "credit": round(subtotal, 2),
+            "description": f"Ventas factura {invoice.get('invoiceNumber', '')}",
+            "branchId": branch_id,
+            "costCenterId": cost_center_id,
+            "currency": currency
+        })
         if itbis > 0 and itbis_acc:
-            lines.append({"accountId": itbis_acc["id"], "accountCode": itbis_acc.get("code", ""), "accountName": itbis_acc.get("name", ""), "debit": 0.00, "credit": round(itbis, 2), "description": "ITBIS factura"})
+            lines.append({
+                "accountId": itbis_acc["id"],
+                "accountCode": itbis_acc.get("code", ""),
+                "accountName": itbis_acc.get("name", ""),
+                "debit": 0.00,
+                "credit": round(itbis, 2),
+                "description": "ITBIS factura",
+                "branchId": branch_id,
+                "costCenterId": cost_center_id,
+                "currency": currency
+            })
         if retained_itbis > 0 and itbis_ret_acc:
-            lines.append({"accountId": itbis_ret_acc["id"], "accountCode": itbis_ret_acc.get("code", ""), "accountName": itbis_ret_acc.get("name", ""), "debit": round(retained_itbis, 2), "credit": 0.00, "description": "ITBIS retenido"})
+            lines.append({
+                "accountId": itbis_ret_acc["id"],
+                "accountCode": itbis_ret_acc.get("code", ""),
+                "accountName": itbis_ret_acc.get("name", ""),
+                "debit": round(retained_itbis, 2),
+                "credit": 0.00,
+                "description": "ITBIS retenido",
+                "branchId": branch_id,
+                "costCenterId": cost_center_id,
+                "currency": currency
+            })
         if retained_isr > 0 and isr_ret_acc:
-            lines.append({"accountId": isr_ret_acc["id"], "accountCode": isr_ret_acc.get("code", ""), "accountName": isr_ret_acc.get("name", ""), "debit": round(retained_isr, 2), "credit": 0.00, "description": "ISR retenido"})
+            lines.append({
+                "accountId": isr_ret_acc["id"],
+                "accountCode": isr_ret_acc.get("code", ""),
+                "accountName": isr_ret_acc.get("name", ""),
+                "debit": round(retained_isr, 2),
+                "credit": 0.00,
+                "description": "ISR retenido",
+                "branchId": branch_id,
+                "costCenterId": cost_center_id,
+                "currency": currency
+            })
+        extra_tax_lines = cls._build_extra_tax_lines(invoice, accounts)
+        lines.extend(extra_tax_lines)
+        cogs_lines = cls._build_cogs_lines(invoice, accounts)
+        lines.extend(cogs_lines)
         try:
             entry = cls.generate_entry(owner_uid, {
                 "entryType": "invoice",
                 "date": str(invoice.get("date", ""))[:10],
                 "concept": f"Factura de venta {invoice.get('invoiceNumber', '')} - {invoice.get('clientName', '')}",
                 "referenceType": "invoice",
+                "referenceId": invoice.get("id", ""),
+                "referenceNumber": invoice.get("invoiceNumber", ""),
+                "lines": lines,
+                "createdBy": "system",
+                "prefix": "A",
+            }, sandbox=sandbox)
+            return entry
+        except ValueError:
+            return None
+
+    @classmethod
+    def auto_reverse_invoice_entry(cls, owner_uid, invoice, reason="", user_id="", sandbox=True):
+        invoice_id = invoice.get("id", "")
+        entries = DatabaseService.get_accounting_entries(owner_uid, sandbox=sandbox)
+        existing_entries = [
+            e for e in entries
+            if e.get("referenceType") == "invoice"
+            and e.get("referenceId") == invoice_id
+            and e.get("status") == "active"
+        ]
+        if not existing_entries:
+            return None
+        reversed_entries = []
+        for orig_entry in existing_entries:
+            if _accounting_entry_exists(owner_uid, "invoice_reversal", f"{invoice_id}_{orig_entry.get('id', '')}"):
+                continue
+            reversed_lines = []
+            for line in orig_entry.get("lines", []):
+                reversed_lines.append({
+                    "accountId": line.get("accountId", ""),
+                    "accountCode": line.get("accountCode", ""),
+                    "accountName": line.get("accountName", ""),
+                    "debit": round(float(line.get("credit", 0)), 2),
+                    "credit": round(float(line.get("debit", 0)), 2),
+                    "description": f"[REVERSO] {line.get('description', '')}",
+                    "contactId": line.get("contactId"),
+                    "contactName": line.get("contactName"),
+                    "branchId": line.get("branchId", ""),
+                    "costCenterId": line.get("costCenterId", ""),
+                    "currency": line.get("currency", "DOP")
+                })
+            try:
+                rev_entry = cls.generate_entry(owner_uid, {
+                    "entryType": "invoice_reversal",
+                    "date": str(invoice.get("date", ""))[:10],
+                    "concept": f"REVERSO - Factura anulada {invoice.get('invoiceNumber', '')} - {reason}",
+                    "referenceType": "invoice_reversal",
+                    "referenceId": f"{invoice_id}_{orig_entry.get('id', '')}",
+                    "referenceNumber": invoice.get("invoiceNumber", ""),
+                    "lines": reversed_lines,
+                    "createdBy": user_id or "system",
+                    "prefix": "A",
+                }, sandbox=sandbox)
+                reversed_entries.append(rev_entry)
+            except ValueError:
+                continue
+        return reversed_entries[0] if reversed_entries else None
+
+    @classmethod
+    def auto_generate_credit_note_entry(cls, owner_uid, invoice, sandbox=True):
+        invoice_id = invoice.get("id", "")
+        if _accounting_entry_exists(owner_uid, "credit_note", invoice_id):
+            return None
+        accounts = DatabaseService.get_chart_of_accounts(owner_uid)
+        if not accounts:
+            cls.seed_default_accounts(owner_uid)
+            accounts = DatabaseService.get_chart_of_accounts(owner_uid)
+        cxc_acc = _find_account_by_usage(accounts, "cxc")
+        sales_acc = _find_account_by_usage(accounts, "ventas")
+        devolucion_acc = _find_account_by_usages(accounts, ["devoluciones_ventas", "devoluciones_clientes"])
+        itbis_acc = _find_account_by_usage(accounts, "itbis_pagar")
+        if not cxc_acc or not sales_acc:
+            return None
+        total = float(invoice.get("netPayable", invoice.get("total", 0)))
+        subtotal = float(invoice.get("subtotal", 0))
+        itbis = float(invoice.get("totalITBIS", invoice.get("itbis", 0)))
+        branch_id = invoice.get("branchId", "")
+        cost_center_id = invoice.get("costCenterId", "")
+        currency = invoice.get("currency", "DOP")
+        lines = []
+        if devolucion_acc:
+            lines.append({
+                "accountId": devolucion_acc["id"],
+                "accountCode": devolucion_acc.get("code", ""),
+                "accountName": devolucion_acc.get("name", ""),
+                "debit": round(subtotal, 2),
+                "credit": 0.00,
+                "description": f"Devolución factura {invoice.get('invoiceNumber', '')}",
+                "branchId": branch_id,
+                "costCenterId": cost_center_id,
+                "currency": currency
+            })
+        else:
+            lines.append({
+                "accountId": sales_acc["id"],
+                "accountCode": sales_acc.get("code", ""),
+                "accountName": sales_acc.get("name", ""),
+                "debit": round(subtotal, 2),
+                "credit": 0.00,
+                "description": f"Devolución factura {invoice.get('invoiceNumber', '')}",
+                "branchId": branch_id,
+                "costCenterId": cost_center_id,
+                "currency": currency
+            })
+        if itbis > 0 and itbis_acc:
+            lines.append({
+                "accountId": itbis_acc["id"],
+                "accountCode": itbis_acc.get("code", ""),
+                "accountName": itbis_acc.get("name", ""),
+                "debit": round(itbis, 2),
+                "credit": 0.00,
+                "description": "ITBIS devolución",
+                "branchId": branch_id,
+                "costCenterId": cost_center_id,
+                "currency": currency
+            })
+        lines.append({
+            "accountId": cxc_acc["id"],
+            "accountCode": cxc_acc.get("code", ""),
+            "accountName": cxc_acc.get("name", ""),
+            "debit": 0.00,
+            "credit": round(total, 2),
+            "description": f"Nota de crédito {invoice.get('invoiceNumber', '')}",
+            "branchId": branch_id,
+            "costCenterId": cost_center_id,
+            "currency": currency
+        })
+        cogs_lines = cls._build_cogs_lines(invoice, accounts)
+        if cogs_lines:
+            for cl in cogs_lines:
+                cl["debit"], cl["credit"] = cl["credit"], cl["debit"]
+                cl["description"] = f"[REVERSO COGS] {cl.get('description', '')}"
+            lines.extend(cogs_lines)
+        try:
+            entry = cls.generate_entry(owner_uid, {
+                "entryType": "credit_note",
+                "date": str(invoice.get("date", ""))[:10],
+                "concept": f"Nota de crédito {invoice.get('invoiceNumber', '')} - {invoice.get('clientName', '')}",
+                "referenceType": "credit_note",
                 "referenceId": invoice.get("id", ""),
                 "referenceNumber": invoice.get("invoiceNumber", ""),
                 "lines": lines,

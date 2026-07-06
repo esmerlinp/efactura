@@ -549,3 +549,96 @@ def reconcile_delete(recon_id):
     DatabaseService.delete_reconciliation(owner_uid, recon_id, sandbox=sandbox)
     flash('Conciliación eliminada.', 'success')
     return redirect(url_for('web_banks.reconcile_list'))
+
+
+@web_banks_bp.route('/banks/reconcile/<account_id>/import-statement', methods=['GET', 'POST'])
+def import_bank_statement(account_id):
+    if 'user' not in session:
+        return redirect(url_for('web_auth.login'))
+    if not check_permission('canExpenses'):
+        flash('No tienes permiso para acceder a esta sección.', 'error')
+        return redirect(url_for('web_dashboard.dashboard'))
+
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+    account = DatabaseService.get_bank_account(owner_uid, account_id, sandbox=sandbox)
+    if not account:
+        flash('Cuenta bancaria no encontrada.', 'error')
+        return redirect(url_for('web_banks.list_banks'))
+
+    if request.method == 'POST':
+        file = request.files.get('statement_file')
+        bank = request.form.get('bank', 'generic')
+        if not file:
+            flash('Selecciona un archivo CSV.', 'error')
+            return render_template('banks/import_statement.html', account=account, active_page='bancos')
+
+        from app.services.bank_statement_parser import BankStatementParser
+        try:
+            content = file.read()
+            statement_txns = BankStatementParser.parse_csv(content, bank=bank)
+
+            book_txns = []
+            try:
+                trans_type = request.form.get('transaction_type', 'invoice_payments')
+                if trans_type == 'invoice_payments':
+                    invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox)
+                    for inv in invoices:
+                        if inv.get('status') in ['Pagado', 'Parcialmente Cobrada']:
+                            payments = DatabaseService.get_invoice_payments(owner_uid, inv['id'], sandbox=sandbox)
+                            for p in payments:
+                                book_txns.append({
+                                    "id": f"invpay_{p['id']}",
+                                    "date": p.get('paymentDate', ''),
+                                    "description": f"Pago factura {inv.get('invoiceNumber','')} - {inv.get('clientName','')}",
+                                    "amount": float(p.get('amount', 0)),
+                                    "type": "income",
+                                })
+                elif trans_type == 'expense_payments':
+                    expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox)
+                    for exp in expenses:
+                        cxp_payments = DatabaseService.get_cxp_payments(owner_uid, exp['id'], sandbox=sandbox)
+                        for p in cxp_payments:
+                            book_txns.append({
+                                "id": f"cxppay_{p['id']}",
+                                "date": p.get('paymentDate', ''),
+                                "description": f"Pago gasto - {exp.get('concept','')}",
+                                "amount": float(p.get('amount', 0)),
+                                "type": "expense",
+                            })
+            except Exception:
+                pass
+
+            results = BankStatementParser.auto_match(statement_txns, book_txns)
+
+            return render_template('banks/import_statement.html', account=account,
+                                  active_page='bancos', results=results,
+                                  statement_count=len(statement_txns),
+                                  matched_count=sum(1 for r in results if r.get('matched')),
+                                  bank=bank)
+        except Exception as e:
+            flash(f'Error al procesar archivo: {str(e)}', 'error')
+
+    return render_template('banks/import_statement.html', account=account, active_page='bancos')
+
+
+@web_banks_bp.route('/banks/reconcile/<recon_id>/auto-match', methods=['POST'])
+def auto_match_reconciliation(recon_id):
+    if 'user' not in session:
+        return jsonify(success=False, error="No autenticado"), 401
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+    recon = DatabaseService.get_reconciliation(owner_uid, recon_id, sandbox=sandbox)
+    if not recon:
+        return jsonify(success=False, error="Conciliación no encontrada"), 404
+
+    for txn in recon.get("transactions", []):
+        txn["reconciled"] = True
+    recon["reconciledCount"] = len(recon.get("transactions", []))
+    recon["status"] = "conciliada" if abs(recon.get("difference", 0)) < 0.01 else "con_diferencias"
+
+    from app.services.db_service import db_firestore
+    recon_path = "sandbox_bank_reconciliations" if sandbox else "bank_reconciliations"
+    db_firestore.collection("users").document(owner_uid).collection(recon_path).document(recon_id).set(recon)
+    return jsonify(success=True)
+

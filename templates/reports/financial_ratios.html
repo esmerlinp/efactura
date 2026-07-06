@@ -1,0 +1,90 @@
+{% extends "layout.html" %}
+{% block title %}Ratios Financieros{% endblock %}
+{% block page_header %}Ratios Financieros{% endblock %}
+{% block content %}
+<style>
+    .ratios-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+    .ratio-card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 16px; }
+    .ratio-card .ratio-name { font-size: 0.8rem; font-weight: 600; color: var(--text-primary); }
+    .ratio-card .ratio-value { font-size: 1.6rem; font-weight: 800; font-family: var(--font-heading); margin: 4px 0; }
+    .ratio-card .ratio-desc { font-size: 0.68rem; color: var(--text-muted); }
+    .ratio-card .ratio-ideal { font-size: 0.65rem; color: var(--text-secondary); margin-top: 4px; }
+    .ratio-section { margin-bottom: 20px; }
+    .ratio-section h3 { font-size: 1rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.04em; margin: 0 0 10px 0; }
+</style>
+
+<div style="max-width:1200px;margin:0 auto;">
+    <div class="ratio-section">
+        <h3>Liquidez</h3>
+        <div class="ratios-grid">
+            {% set liq = ratios.liquidity %}
+            {% for key in ['current_ratio', 'quick_ratio', 'cash_ratio'] %}
+            <div class="ratio-card">
+                <div class="ratio-name">{{ labels[key].name }}</div>
+                <div class="ratio-value" style="color:{{ 'var(--accent-emerald)' if liq[key]|float >= 1 else 'var(--accent-red)' }};">
+                    {{ "%.2f"|format(liq[key]|float) }}
+                </div>
+                <div class="ratio-desc">{{ labels[key].description }}</div>
+                <div class="ratio-ideal">Ideal: {{ labels[key].ideal }}</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="ratio-section">
+        <h3>Eficiencia</h3>
+        <div class="ratios-grid">
+            {% set eff = ratios.efficiency %}
+            {% for key in ['ar_days', 'ap_days', 'asset_turnover', 'ar_turnover', 'ap_turnover'] %}
+            <div class="ratio-card">
+                <div class="ratio-name">{{ labels[key].name }}</div>
+                <div class="ratio-value" style="color: var(--accent-emerald);">
+                    {{ "%.1f"|format(eff[key]|float) }}
+                    {% if 'days' in key %}días{% else %}x{% endif %}
+                </div>
+                <div class="ratio-desc">{{ labels[key].description }}</div>
+                <div class="ratio-ideal">Ideal: {{ labels[key].ideal }}</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="ratio-section">
+        <h3>Rentabilidad</h3>
+        <div class="ratios-grid">
+            {% set prof = ratios.profitability %}
+            {% for key in ['gross_margin', 'operating_margin', 'net_margin', 'roa', 'roe'] %}
+            <div class="ratio-card">
+                <div class="ratio-name">{{ labels[key].name }}</div>
+                <div class="ratio-value" style="color:{{ 'var(--accent-emerald)' if prof[key]|float >= 0 else 'var(--accent-red)' }};">
+                    {{ "%.1f"|format(prof[key]|float) }}%
+                </div>
+                <div class="ratio-desc">{{ labels[key].description }}</div>
+                <div class="ratio-ideal">Ideal: {{ labels[key].ideal }}</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="ratio-section">
+        <h3>Endeudamiento</h3>
+        <div class="ratios-grid">
+            {% set lev = ratios.leverage %}
+            {% for key in ['debt_to_equity', 'debt_ratio', 'interest_coverage'] %}
+            <div class="ratio-card">
+                <div class="ratio-name">{{ labels[key].name }}</div>
+                <div class="ratio-value" style="color:{{ 'var(--accent-emerald)' if lev[key]|float < 2 else 'var(--accent-yellow)' }};">
+                    {{ "%.2f"|format(lev[key]|float) }}{% if key == 'debt_ratio' %}%{% endif %}
+                </div>
+                <div class="ratio-desc">{{ labels[key].description }}</div>
+                <div class="ratio-ideal">Ideal: {{ labels[key].ideal }}</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div style="text-align:center;margin-top:16px;font-size:0.7rem;color:var(--text-muted);">
+        Capital de Trabajo: <strong>RD$ {{ "{:,.2f}".format(ratios.working_capital) }}</strong>
+    </div>
+</div>
+{% endblock %}

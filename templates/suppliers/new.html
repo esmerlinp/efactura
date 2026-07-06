@@ -5,25 +5,7 @@
 
 {% block content %}
 <style>
-    .settings-accordion { display:flex; flex-direction:column; gap:12px; margin-bottom:24px; width:100%; }
-    .accordion-item { border:1px solid var(--border-color); border-radius:12px; background:var(--bg-card); overflow:hidden; transition:all 0.3s cubic-bezier(0.4,0,0.2,1); }
-    .accordion-item.active { border-color:var(--accent-emerald); box-shadow:0 4px 20px rgba(16,185,129,0.05); }
-    .accordion-header { width:100%; padding:14px 18px; background:rgba(255,255,255,0.01); border:none; display:flex; justify-content:space-between; align-items:center; cursor:pointer; text-align:left; transition:background 0.2s ease; }
-    .accordion-header:hover { background:rgba(255,255,255,0.03); }
-    .accordion-title { font-size:0.95rem; font-family:var(--font-heading); font-weight:500; color:var(--text-main); display:flex; align-items:center; gap:10px; }
-    .accordion-title i { font-size:1.05rem; width:24px; text-align:center; }
-    .accordion-chevron { color:var(--text-muted); transition:transform 0.3s cubic-bezier(0.4,0,0.2,1); font-size:0.85rem; }
-    .accordion-item.active .accordion-chevron { transform:rotate(180deg); color:var(--accent-emerald); }
-    .accordion-content { max-height:0; overflow:hidden; transition:max-height 0.3s cubic-bezier(0.4,0,0.2,1); }
-    .accordion-item.active .accordion-content { max-height:none; }
-    .accordion-body { padding:0 18px 18px; }
-    .form-inner-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
-    .form-inner-grid .span-full { grid-column:1/-1; }
-    .form-inner-grid .span-2 { grid-column:span 2; }
-    .form-group label { font-size:0.78rem; font-weight:600; color:var(--text-primary); display:block; margin-bottom:4px; }
-    .form-group label .required { color:var(--accent-red); }
-    .form-group input, .form-group select, .form-group textarea { width:100%; padding:8px 10px; font-size:0.82rem; border:1px solid var(--border-color); border-radius:var(--radius-sm); background:var(--bg-card); color:var(--text-primary); }
-    .form-group textarea { min-height:70px; resize:vertical; }
+    {% include 'components/_accordion_css.html' %}
     .uploader-zone { border:2px dashed var(--border-color); border-radius:var(--radius-md); padding:24px 16px; text-align:center; cursor:pointer; transition:all 0.25s ease; background:rgba(0,0,0,0.01); }
     .uploader-zone:hover, .uploader-zone.dragover { border-color:var(--accent-emerald); background:rgba(16,185,129,0.03); }
 </style>
@@ -269,20 +251,7 @@
 </div>
 
 <script>
-    window.toggleAccordionSection = function(header) {
-        const item = header.parentElement;
-        const content = item.querySelector('.accordion-content');
-        const isActive = item.classList.contains('active');
-        document.querySelectorAll('.accordion-item').forEach(el => {
-            el.classList.remove('active');
-            const c = el.querySelector('.accordion-content');
-            if (c) c.style.maxHeight = null;
-        });
-        if (!isActive) {
-            item.classList.add('active');
-            if (content) content.style.maxHeight = content.scrollHeight + 'px';
-        }
-    };
+    {% include 'components/_accordion_js.html' %}
 
     let attachmentFiles = [];
 

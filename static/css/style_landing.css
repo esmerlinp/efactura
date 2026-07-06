@@ -7,7 +7,7 @@
         radial-gradient(ellipse 60% 40% at 80% 60%, rgba(20, 184, 166, 0.1), transparent),
         linear-gradient(180deg, #0a0e1a 0%, #0f1629 100%);
     --bg-card: rgba(15, 22, 41, 0.72);
-    --bg-sidebar: rgba(12, 18, 34, 0.92);
+    --bg-sidebar: rgba(15, 22, 41, 0.72);
     --bg-header: rgba(12, 18, 34, 0.75);
     --bg-input: rgba(255, 255, 255, 0.06);
     --border-color: rgba(255, 255, 255, 0.08);
@@ -57,7 +57,7 @@
         radial-gradient(ellipse 60% 40% at 80% 60%, rgba(20, 184, 166, 0.08), transparent),
         linear-gradient(180deg, #080c16 0%, #0a0e1a 100%);
     --bg-card: rgba(10, 14, 26, 0.82);
-    --bg-sidebar: rgba(8, 12, 22, 0.96);
+    --bg-sidebar: rgba(10, 14, 26, 0.82);
     --bg-header: rgba(8, 12, 22, 0.8);
     --bg-input: rgba(255, 255, 255, 0.05);
     --border-color: rgba(255, 255, 255, 0.12);
