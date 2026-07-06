@@ -726,10 +726,8 @@
             }
         }
 
-        .utility-bar {
-            background-color: rgba(255, 255, 255, 0.25) !important;
-            backdrop-filter: blur(25px) !important;
-            -webkit-backdrop-filter: blur(25px) !important;
+.utility-bar {
+            background-color: var(--bg-sidebar) !important;
             border-left: 1px solid var(--border-color);
             padding: 16px 0;
             display: flex;
@@ -745,7 +743,7 @@
         }
 
         [data-theme="dark"] .utility-bar {
-            background-color: rgba(15, 23, 42, 0.45) !important;
+            background-color: var(--bg-sidebar) !important;
         }
 
         .utility-bar-top,
@@ -1560,7 +1558,7 @@
                     <div class="dropdown-menu" id="crm-dropdown-menu" style="
                         display: none;
                         position: absolute;
-                        background-color: var(--bg-sidebar);
+                        background-color: var(--bg-card);
                         backdrop-filter: blur(16px);
                         -webkit-backdrop-filter: blur(16px);
                         border: 1px solid var(--border-color);
@@ -1656,7 +1654,7 @@
                     <div class="dropdown-menu" id="config-dropdown-menu" style="
                         display: none;
                         position: absolute;
-                        background-color: var(--bg-sidebar);
+                        background-color: var(--bg-card);
                         backdrop-filter: blur(16px);
                         -webkit-backdrop-filter: blur(16px);
                         border: 1px solid var(--border-color);
