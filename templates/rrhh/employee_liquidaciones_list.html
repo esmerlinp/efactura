@@ -1,0 +1,77 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}Liquidaciones — {{ product_name }}{% endblock %}
+{% block content %}
+{% include "rrhh/_styles.html" %}
+<div class="page-header hr-page-header">
+    <h1 class="page-title"><i class="fa-solid fa-list-check"></i> Liquidaciones de {{ employee.fullName or (employee.firstName ~ ' ' ~ employee.lastName) }}</h1>
+    <div style="display:flex; gap:8px; margin-left:auto;">
+        <a href="{{ url_for('web_rrhh.employee_liquidacion', employee_id=employee.id) }}" class="btn btn-primary">
+            <i class="fa-solid fa-plus"></i> Nueva liquidación
+        </a>
+        <a href="{{ url_for('web_rrhh.employee_view', employee_id=employee.id) }}" class="btn btn-secondary">
+            <i class="fa-solid fa-arrow-left"></i> Volver
+        </a>
+    </div>
+</div>
+
+{% if liquidaciones %}
+<div class="hr-section-card">
+    <table style="width:100%; border-collapse:collapse; font-size:0.9rem;">
+        <thead>
+            <tr style="border-bottom:2px solid var(--border);">
+                <th style="text-align:left; padding:10px 8px;">Fecha</th>
+                <th style="text-align:left; padding:10px 8px;">Tipo salida</th>
+                <th style="text-align:right; padding:10px 8px;">Total</th>
+                <th style="text-align:center; padding:10px 8px;">Estado</th>
+                <th style="text-align:right; padding:10px 8px;">Acciones</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for l in liquidaciones %}
+            <tr style="border-bottom:1px solid var(--border-light);">
+                <td style="padding:10px 8px;">{{ l.createdAt[:10] if l.createdAt else '—' }}</td>
+                <td style="padding:10px 8px;">
+                    {% if l.terminationType == 'desahucio_empleador' %}Desahucio empleador
+                    {% elif l.terminationType == 'dimision_justificada' %}Dimisión justificada
+                    {% elif l.terminationType == 'despido_justificado' %}Despido justificado
+                    {% elif l.terminationType == 'renuncia' %}Renuncia
+                    {% else %}{{ l.terminationType }}{% endif %}
+                </td>
+                <td style="text-align:right; padding:10px 8px; font-family:monospace; font-weight:600;">
+                    RD$ {{ "{:,.2f}".format((l.totales or {}).get('montoTotal', 0)|float) }}
+                </td>
+                <td style="text-align:center; padding:10px 8px;">
+                    {% if l.status == 'calculada' %}
+                    <span style="background:rgba(99,102,241,0.1); color:var(--accent-indigo); padding:2px 10px; border-radius:12px; font-size:0.75rem;">Calculada</span>
+                    {% elif l.status == 'pagada' %}
+                    <span style="background:rgba(16,185,129,0.1); color:var(--accent-emerald); padding:2px 10px; border-radius:12px; font-size:0.75rem;">Pagada</span>
+                    {% elif l.status == 'anulada' %}
+                    <span style="background:rgba(239,68,68,0.1); color:var(--danger); padding:2px 10px; border-radius:12px; font-size:0.75rem;">Anulada</span>
+                    {% else %}
+                    <span style="background:rgba(107,114,128,0.1); color:var(--text-secondary); padding:2px 10px; border-radius:12px; font-size:0.75rem;">{{ l.status }}</span>
+                    {% endif %}
+                </td>
+                <td style="text-align:right; padding:10px 8px;">
+                    <a href="{{ url_for('web_rrhh.employee_liquidacion', employee_id=employee.id) }}?view={{ l.id }}"
+                       class="btn btn-sm" style="padding:4px 8px; font-size:0.75rem;">
+                        <i class="fa-solid fa-eye"></i> Ver
+                    </a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="hr-section-card" style="text-align:center; padding:48px 24px;">
+    <div style="font-size:3rem; margin-bottom:12px;">📋</div>
+    <h3 style="margin:0;">Sin liquidaciones</h3>
+    <p style="color:var(--text-secondary); margin:8px 0 0;">
+        No se han registrado cálculos de liquidación para este empleado.
+    </p>
+    <a href="{{ url_for('web_rrhh.employee_liquidacion', employee_id=employee.id) }}" class="btn btn-primary" style="margin-top:16px;">
+        <i class="fa-solid fa-calculator"></i> Calcular liquidación
+    </a>
+</div>
+{% endif %}
+{% endblock %}

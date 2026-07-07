@@ -6,26 +6,52 @@
 {% block content %}
 <div class="dashboard-container">
 <div class="page-title-container" style="margin-bottom: 0; padding-left: 4px;">
-    <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:var(--space-4); flex-wrap:wrap;">
-        <h1 class="page-title" style="font-size: 1.75rem; font-weight: 800; margin: 0;">
-            <i class="fa-solid fa-file-invoice-dollar"></i> Nómina {{ period.get('periodRange') or period.periodKey }}
-        </h1>
-        <div style="display:flex; gap:var(--space-2); flex-wrap:wrap;">
-            <a href="{{ url_for('web_rrhh.payroll_tss_export', period_id=period.id) }}" class="btn btn-primary">
-                <i class="fa-solid fa-file-csv"></i> Exportar TSS
-            </a>
-            <a href="{{ url_for('web_rrhh.payroll_export_csv', period_id=period.id) }}" class="btn btn-primary">
-                <i class="fa-solid fa-file-excel"></i> Exportar CSV
-            </a>
-            <a href="{{ url_for('web_rrhh.payroll_bank_export', period_id=period.id, bank='popular') }}" class="btn btn-ghost">
-                <i class="fa-solid fa-building-columns"></i> Archivo Banco
-            </a>
-            <a href="{{ url_for('web_rrhh.payroll_dashboard') }}" class="btn btn-ghost">
-                <i class="fa-solid fa-arrow-left"></i> Volver
-            </a>
+    <h1 class="page-title" style="font-size: 1.75rem; font-weight: 800; margin: 0 0 12px 0;">
+        <i class="fa-solid fa-file-invoice-dollar"></i> Nómina {{ period.get('periodRange') or period.periodKey }}
+    </h1>
+    <div style="display:flex; gap:var(--space-2); flex-wrap:wrap; justify-content:flex-end;">
+        <div style="position:relative; display:inline-flex;">
+            <button class="btn btn-primary" onclick="document.getElementById('tssFormatDropdown').classList.toggle('hidden')" style="display:flex; align-items:center; gap:6px;">
+                <i class="fa-solid fa-file-shield"></i> Autodeterminación TSS
+                <i class="fa-solid fa-chevron-down" style="font-size:0.65rem; margin-left:2px;"></i>
+            </button>
+            <div id="tssFormatDropdown" class="hidden" style="position:absolute; top:100%; left:0; z-index:100; background:var(--bg-card); border:1px solid var(--border-color); border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,0.1); min-width:200px; margin-top:4px;">
+                <a href="{{ url_for('web_rrhh.payroll_tss_autodeterminacion', period_id=period.id, format='xls') }}" class="dropdown-item" style="display:block; padding:10px 16px; text-decoration:none; color:var(--text-primary); font-size:0.85rem; border-bottom:1px solid var(--border-color);">
+                    <i class="fa-solid fa-file-excel" style="color:var(--accent-emerald); margin-right:8px;"></i> Plantilla Excel (.xlsx)
+                </a>
+                <a href="{{ url_for('web_rrhh.payroll_tss_autodeterminacion', period_id=period.id, format='txt') }}" class="dropdown-item" style="display:block; padding:10px 16px; text-decoration:none; color:var(--text-primary); font-size:0.85rem;">
+                    <i class="fa-solid fa-file-lines" style="color:var(--accent-blue); margin-right:8px;"></i> Archivo TXT (.txt)
+                </a>
+            </div>
         </div>
+        <a href="{{ url_for('web_rrhh.payroll_tss_export', period_id=period.id) }}" class="btn btn-secondary" title="CSV simplificado con aportes">
+            <i class="fa-solid fa-file-csv"></i> TSS Resumen
+        </a>
+        <a href="{{ url_for('web_rrhh.payroll_export_csv', period_id=period.id) }}" class="btn btn-ghost">
+            <i class="fa-solid fa-file-excel"></i> Exportar CSV
+        </a>
+        <a href="{{ url_for('web_rrhh.payroll_bank_export', period_id=period.id, bank='popular') }}" class="btn btn-ghost">
+            <i class="fa-solid fa-building-columns"></i> Archivo Banco
+        </a>
+        <a href="{{ url_for('web_rrhh.payroll_dashboard') }}" class="btn btn-ghost">
+            <i class="fa-solid fa-arrow-left"></i> Volver
+        </a>
     </div>
 </div>
+<script>
+    document.addEventListener('click', function(e) {
+        var dd = document.getElementById('tssFormatDropdown');
+        if (dd && !dd.parentElement.contains(e.target)) {
+            dd.classList.add('hidden');
+        }
+    });
+</script>
+<style>
+    .hidden { display: none !important; }
+    .dropdown-item:hover { background: var(--bg-nav-hover); }
+    .dropdown-item:first-child { border-radius: 8px 8px 0 0; }
+    .dropdown-item:last-child { border-radius: 0 0 8px 8px; }
+</style>
 
 <!-- Totales -->
 <div class="small-metrics-grid" style="margin-bottom:var(--space-4);">
@@ -218,13 +244,18 @@
         </div>
     </div>
     <div class="table-responsive">
-        <table class="table-premium" style="font-size:0.82rem; min-width:1200px;">
+        <table class="table-premium" style="font-size:0.82rem; min-width:1800px;">
         <thead>
             <tr>
                 <th>Empleado</th>
                 <th>Cédula</th>
                 <th>Cargo</th>
-                <th style="text-align:right;">Bruto</th>
+                <th style="text-align:right;">Salario Base</th>
+                <th style="text-align:right;">Horas Extras</th>
+                <th style="text-align:right;">Comisiones</th>
+                <th style="text-align:right;">Bonificación</th>
+                <th style="text-align:right;">Otros Ingresos</th>
+                <th style="text-align:right;">Total Ingresos</th>
                 <th style="text-align:right;">AFP</th>
                 <th style="text-align:right;">SFS</th>
                 <th style="text-align:right;">INFOTEP</th>
@@ -240,7 +271,17 @@
                 <td><strong>{{ l.employeeName }}</strong></td>
                 <td>{{ l.cedula }}</td>
                 <td>{{ l.position }}</td>
-                <td style="text-align:right;">{{ "RD$ {:,.2f}".format(l.totalIncome|float) }}</td>
+                <td style="text-align:right;">{{ "RD$ {:,.2f}".format(l.grossSalary|float) }}</td>
+                <td style="text-align:right;">
+                    {% if l.overtimePay and l.overtimePay|float > 0 %}
+                    {{ "RD$ {:,.2f}".format(l.overtimePay|float) }}
+                    <span style="font-size:0.65rem;color:var(--text-muted);display:block;">{{ l.overtimeHours|float }} h</span>
+                    {% else %}—{% endif %}
+                </td>
+                <td style="text-align:right;">{% if l.commission and l.commission|float > 0 %}{{ "RD$ {:,.2f}".format(l.commission|float) }}{% else %}—{% endif %}</td>
+                <td style="text-align:right;">{% if l.bonus and l.bonus|float > 0 %}{{ "RD$ {:,.2f}".format(l.bonus|float) }}{% else %}—{% endif %}</td>
+                <td style="text-align:right;">{% if l.otherIncome and l.otherIncome|float > 0 %}{{ "RD$ {:,.2f}".format(l.otherIncome|float) }}{% else %}—{% endif %}</td>
+                <td style="text-align:right; font-weight:600;">{{ "RD$ {:,.2f}".format(l.totalIncome|float) }}</td>
                 <td style="text-align:right;">{{ "RD$ {:,.2f}".format(l.afpEmployee|float) }}</td>
                 <td style="text-align:right;">{{ "RD$ {:,.2f}".format(l.sfsEmployee|float) }}</td>
                 <td style="text-align:right;">{{ "RD$ {:,.2f}".format(l.get('infotepEmployee', 0)|float) }}</td>
@@ -254,6 +295,11 @@
         <tfoot>
             <tr style="font-weight:700; background:var(--bg-nav-hover);">
                 <td colspan="3">Totales</td>
+                <td style="text-align:right;">—</td>
+                <td style="text-align:right;">—</td>
+                <td style="text-align:right;">—</td>
+                <td style="text-align:right;">—</td>
+                <td style="text-align:right;">—</td>
                 <td style="text-align:right;">{{ "RD$ {:,.2f}".format(period.totalGross|float) }}</td>
                 <td style="text-align:right;">—</td>
                 <td style="text-align:right;">—</td>

@@ -73,13 +73,36 @@
         <div class="small-metric"><div class="label">Costo Empresa</div><div class="value" style="color:var(--accent-emerald); font-size:1.1rem;">RD$ {{ "{:,.2f}".format(simulation.total_costo) }}</div></div>
     </div>
     <div class="table-responsive">
-        <table class="table-premium" style="font-size:0.82rem;">
-            <thead><tr><th>Empleado</th><th style="text-align:right;">Bruto</th><th style="text-align:right;">AFP</th><th style="text-align:right;">SFS</th><th style="text-align:right;">ISR</th><th style="text-align:right;">Neto</th><th style="text-align:right;">Costo Emp.</th></tr></thead>
+        <table class="table-premium" style="font-size:0.82rem; min-width:1600px;">
+            <thead><tr>
+                <th>Empleado</th>
+                <th style="text-align:right;">Salario Base</th>
+                <th style="text-align:right;">Horas Extras</th>
+                <th style="text-align:right;">Comisiones</th>
+                <th style="text-align:right;">Bonificación</th>
+                <th style="text-align:right;">Otros Ingresos</th>
+                <th style="text-align:right;">Total Ingresos</th>
+                <th style="text-align:right;">AFP</th>
+                <th style="text-align:right;">SFS</th>
+                <th style="text-align:right;">ISR</th>
+                <th style="text-align:right;">Neto</th>
+                <th style="text-align:right;">Costo Emp.</th>
+            </tr></thead>
             <tbody>
                 {% for l in simulation.lines %}
                 <tr>
                     <td><strong>{{ l.employeeName }}</strong></td>
-                    <td style="text-align:right;">RD$ {{ "{:,.2f}".format(l.totalIncome) }}</td>
+                    <td style="text-align:right;">RD$ {{ "{:,.2f}".format(l.grossSalary) }}</td>
+                    <td style="text-align:right;">
+                        {% if l.overtimePay and l.overtimePay|float > 0 %}
+                        RD$ {{ "{:,.2f}".format(l.overtimePay) }}
+                        <span style="font-size:0.65rem;color:var(--text-muted);display:block;">{{ l.overtimeHours|float }} h</span>
+                        {% else %}—{% endif %}
+                    </td>
+                    <td style="text-align:right;">{% if l.commission and l.commission|float > 0 %}RD$ {{ "{:,.2f}".format(l.commission) }}{% else %}—{% endif %}</td>
+                    <td style="text-align:right;">{% if l.bonus and l.bonus|float > 0 %}RD$ {{ "{:,.2f}".format(l.bonus) }}{% else %}—{% endif %}</td>
+                    <td style="text-align:right;">{% if l.otherIncome and l.otherIncome|float > 0 %}RD$ {{ "{:,.2f}".format(l.otherIncome) }}{% else %}—{% endif %}</td>
+                    <td style="text-align:right; font-weight:600;">RD$ {{ "{:,.2f}".format(l.totalIncome) }}</td>
                     <td style="text-align:right;">RD$ {{ "{:,.2f}".format(l.afpEmployee) }}</td>
                     <td style="text-align:right;">RD$ {{ "{:,.2f}".format(l.sfsEmployee) }}</td>
                     <td style="text-align:right;">RD$ {{ "{:,.2f}".format(l.isrRetention) }}</td>
