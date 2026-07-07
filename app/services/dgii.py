@@ -111,11 +111,56 @@ class DGIIService:
             return ""
         return re.sub(r'[^0-9]', '', str(rnc))
 
+    @staticmethod
+    def _validate_rnc_local(clean_rnc):
+        """
+        Valida un RNC o Cédula dominicana con el algoritmo de dígito verificador.
+        - RNC (9 dígitos): aplica ponderadores 7,9,8,6,5,4,3,2
+        - Cédula (11 dígitos): aplica ponderadores 1,2,1,2,1,2,1,2,1,2
+        Retorna dict con error y message.
+        """
+        if len(clean_rnc) == 9:
+            # Validación RNC
+            weights = [7, 9, 8, 6, 5, 4, 3, 2]
+            digits = [int(d) for d in clean_rnc[:8]]
+            check_digit = int(clean_rnc[8])
+            total = sum(d * w for d, w in zip(digits, weights))
+            remainder = total % 11
+            if remainder <= 1:
+                expected = 0 if remainder == 0 else 1
+            else:
+                expected = 11 - remainder
+            if expected != check_digit:
+                return {"error": True, "message": "RNC inválido: el dígito verificador no coincide."}
+            return {"error": False, "rnc": clean_rnc, "razon_social": "", "actividad": "", "regimen": "", "source": "local"}
+
+        elif len(clean_rnc) == 11:
+            # Validación Cédula
+            weights = [1, 2, 1, 2, 1, 2, 1, 2, 1, 2]
+            digits = [int(d) for d in clean_rnc[:10]]
+            check_digit = int(clean_rnc[10])
+            products = []
+            for d, w in zip(digits, weights):
+                prod = d * w
+                if prod >= 10:
+                    products.append(prod // 10 + prod % 10)
+                else:
+                    products.append(prod)
+            total = sum(products)
+            next_ten = ((total + 9) // 10) * 10
+            expected = next_ten - total
+            if expected != check_digit:
+                return {"error": True, "message": "Cédula inválida: el dígito verificador no coincide."}
+            return {"error": False, "rnc": clean_rnc, "razon_social": "", "actividad": "", "regimen": "", "source": "local"}
+
+        return {"error": True, "message": "Formato de RNC/Cédula inválido. Debe tener 9 u 11 dígitos sin guiones."}
+
     @classmethod
     def validate_and_fetch_rnc(cls, rnc):
         """
-        Consulta en tiempo real un RNC o Cédula utilizando el API público de Megaplus.
-        GET https://rnc.megaplus.com.do/api/consulta?rnc={cleanRNC}
+        Consulta en tiempo real un RNC o Cédula.
+        Primero intenta API pública de Megaplus; si falla, usa validación local
+        con dígito verificador como fallback.
         """
         clean_rnc = cls.clean_rnc(rnc)
         if len(clean_rnc) not in [9, 11]:
@@ -124,36 +169,28 @@ class DGIIService:
                 "message": "Formato de RNC/Cédula inválido. Debe tener 9 u 11 dígitos sin guiones."
             }
 
+        # Intentar API de Megaplus primero
         url = f"https://rnc.megaplus.com.do/api/consulta?rnc={clean_rnc}"
         try:
             response = requests.get(url, timeout=10)
             if response.status_code == 200:
                 data = response.json()
-                if data.get("error"):
-                    return {
-                        "error": True,
-                        "message": data.get("mensaje", "No encontrado en el padrón de la DGII.")
-                    }
-                
-                # Autocompletado de Razón Social
-                razon_social = data.get("nombre_razon_social") or data.get("nombre_comercial")
-                if razon_social:
-                    return {
-                        "error": False,
-                        "rnc": clean_rnc,
-                        "razon_social": razon_social,
-                        "actividad": data.get("actividad_economica", ""),
-                        "regimen": data.get("regimen_pagos", "")
-                    }
-            return {
-                "error": True,
-                "message": f"Servidor de consulta retornó código HTTP {response.status_code}."
-            }
-        except requests.RequestException as e:
-            return {
-                "error": True,
-                "message": f"Fallo al conectar con el padrón RNC: {str(e)}"
-            }
+                if not data.get("error"):
+                    razon_social = data.get("nombre_razon_social") or data.get("nombre_comercial")
+                    if razon_social:
+                        return {
+                            "error": False,
+                            "rnc": clean_rnc,
+                            "razon_social": razon_social,
+                            "actividad": data.get("actividad_economica", ""),
+                            "regimen": data.get("regimen_pagos", ""),
+                            "source": "megaplus"
+                        }
+        except requests.RequestException:
+            pass  # Fallback a validación local
+
+        # Fallback: validación local con dígito verificador
+        return cls._validate_rnc_local(clean_rnc)
 
     @staticmethod
     def dgii_round(value, decimals=2):

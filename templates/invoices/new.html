@@ -124,15 +124,13 @@
       <div class="inp-group" style="max-width:160px;"><label>Fecha creación</label><input type="date" id="due-date" name="dueDate" class="form-input" required value="{{ default_due_date }}"></div>
       <div class="inp-group" style="max-width:160px;"><label>Condición</label><select id="payment-type-select" name="paymentType" class="form-select"><option value="Contado" {% if not invoice or invoice.paymentType=='Contado' %}selected{% endif %}>Contado</option><option value="Crédito" {% if invoice and invoice.paymentType=='Crédito' %}selected{% endif %}>Crédito</option></select></div>
     </div>
-    <div class="inp-row" style="margin-top:10px;" id="payment-method-group">
-      <div class="inp-group" style="max-width:200px;"><label>Forma de Pago</label><select id="payment-method-select" name="paymentMethod" class="form-select"><option value="Efectivo" {% if not invoice or invoice.paymentMethod=='Efectivo' %}selected{% endif %}>Efectivo</option><option value="Cheque / Transferencia" {% if invoice and invoice.paymentMethod=='Cheque / Transferencia' %}selected{% endif %}>Cheque / Transferencia</option><option value="Tarjeta de Crédito / Débito" {% if invoice and invoice.paymentMethod=='Tarjeta de Crédito / Débito' %}selected{% endif %}>Tarjeta</option><option value="Crédito" {% if invoice and invoice.paymentMethod=='Crédito' %}selected{% endif %}>Crédito</option></select></div>
-      <div id="payment-agreement-group" style="display:none;align-items:center;gap:10px;">
-        <div class="inp-group" style="max-width:140px;"><label>Cuotas</label><select id="agreement-enabled-select" name="agreementEnabled" class="form-select"><option value="false">Pago único</option><option value="true">Dividir</option></select></div>
-        <div id="agreement-details-fields" style="display:none;align-items:center;gap:8px;">
-          <select id="installments-count-select" name="installmentsCount" class="form-select" style="width:70px;"><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="6">6</option><option value="12">12</option></select>
-          <select id="agreement-frequency-select" name="agreementFrequency" class="form-select" style="width:100px;"><option value="mensual">Mensual</option><option value="quincenal">Quincenal</option><option value="semanal">Semanal</option></select>
-          <input type="number" id="late-fee-input" name="lateFeePercentage" class="form-input" style="width:65px;text-align:center;" min="0" max="100" step="0.1" value="5.0" title="Mora %">
-        </div>
+    <input type="hidden" name="paymentMethod" value="{% if invoice %}{{ invoice.paymentMethod or 'Efectivo' }}{% else %}Efectivo{% endif %}">
+    <div class="inp-row" style="margin-top:10px;" id="payment-agreement-group" style="display:none;align-items:center;gap:10px;">
+      <div class="inp-group" style="max-width:140px;"><label>Cuotas</label><select id="agreement-enabled-select" name="agreementEnabled" class="form-select"><option value="false">Pago único</option><option value="true">Dividir</option></select></div>
+      <div id="agreement-details-fields" style="display:none;align-items:center;gap:8px;">
+        <select id="installments-count-select" name="installmentsCount" class="form-select" style="width:70px;"><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="6">6</option><option value="12">12</option></select>
+        <select id="agreement-frequency-select" name="agreementFrequency" class="form-select" style="width:100px;"><option value="mensual">Mensual</option><option value="quincenal">Quincenal</option><option value="semanal">Semanal</option></select>
+        <input type="number" id="late-fee-input" name="lateFeePercentage" class="form-input" style="width:65px;text-align:center;" min="0" max="100" step="0.1" value="5.0" title="Mora %">
       </div>
     </div>
     <small id="client-warning" style="color:var(--accent-red);font-size:0.72rem;margin-top:6px;display:none;"></small>
@@ -405,8 +403,6 @@
 <script>
 document.addEventListener('DOMContentLoaded', () => {
     const paymentTypeSelect = document.getElementById('payment-type-select');
-    const paymentMethodSelect = document.getElementById('payment-method-select');
-    const paymentMethodGroup = document.getElementById('payment-method-group');
     const dueDateInput = document.getElementById('due-date');
     const submitCobrarBtn = document.getElementById('submit-invoice-cobrar-btn');
     const paymentAgreementGroup = document.getElementById('payment-agreement-group');
@@ -416,31 +412,21 @@ document.addEventListener('DOMContentLoaded', () => {
     const referenceInfoGroup = document.getElementById('reference-info-group');
 
     function handlePaymentTypeChange() {
-        if (!paymentTypeSelect || !paymentMethodSelect) return;
+        if (!paymentTypeSelect) return;
         const isCredit = paymentTypeSelect.value === 'Crédito';
-        const creditOption = paymentMethodSelect.querySelector('option[value="Crédito"]');
-        const cashOptions = Array.from(paymentMethodSelect.querySelectorAll('option:not([value="Crédito"])'));
         if (isCredit) {
-            if (paymentMethodGroup) paymentMethodGroup.style.display = 'none';
-            if (creditOption) creditOption.style.display = 'block';
-            paymentMethodSelect.value = 'Crédito';
-            cashOptions.forEach(opt => opt.style.display = 'none');
             if (paymentAgreementGroup) paymentAgreementGroup.style.display = 'flex';
             if (dueDateInput) { const today = new Date().toISOString().split('T')[0]; if (dueDateInput.value <= today) { const d = new Date(); d.setDate(d.getDate()+30); dueDateInput.value = d.toISOString().split('T')[0]; } }
             if (submitCobrarBtn) { submitCobrarBtn.setAttribute('value','emitir_credito'); }
         } else {
-            if (paymentMethodGroup) paymentMethodGroup.style.display = 'flex';
-            if (creditOption) creditOption.style.display = 'none';
-            cashOptions.forEach(opt => opt.style.display = 'block');
             if (paymentAgreementGroup) paymentAgreementGroup.style.display = 'none';
             if (agreementEnabledSelect) agreementEnabledSelect.value = 'false';
             if (agreementDetailsFields) agreementDetailsFields.style.display = 'none';
-            if (paymentMethodSelect.value === 'Crédito') paymentMethodSelect.value = 'Efectivo';
             if (submitCobrarBtn) { submitCobrarBtn.setAttribute('value','emitir_cobrar'); }
         }
     }
     function handleAgreementToggle() { if (!agreementEnabledSelect || !agreementDetailsFields) return; agreementDetailsFields.style.display = agreementEnabledSelect.value === 'true' ? 'flex' : 'none'; }
-    if (paymentTypeSelect && paymentMethodSelect) { paymentTypeSelect.addEventListener('change', handlePaymentTypeChange); handlePaymentTypeChange(); }
+    if (paymentTypeSelect) { paymentTypeSelect.addEventListener('change', handlePaymentTypeChange); handlePaymentTypeChange(); }
     if (agreementEnabledSelect) { agreementEnabledSelect.addEventListener('change', handleAgreementToggle); handleAgreementToggle(); }
 
     function handleEcfTypeChange() {
