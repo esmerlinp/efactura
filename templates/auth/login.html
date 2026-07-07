@@ -192,18 +192,13 @@
         }
 
         /* PANTALLA DE CARGA ANIMADA */
-        @keyframes loader-logo-rise {
-            0%   { opacity:0; transform:translateY(100vh); }
-            40%  { opacity:1; transform:translateY(0); }
-            100% { opacity:1; transform:translateY(0); }
-        }
-        @keyframes loader-logo-shift {
-            0%   { transform:translateY(0); }
-            100% { transform:translateX(-12px) scale(0.7); }
-        }
-        @keyframes loader-text-enter {
-            0%   { opacity:0; transform:translateX(60px); }
+        @keyframes loader-text-slide-in {
+            0%   { opacity:0; transform:translateX(120px); }
             100% { opacity:1; transform:translateX(0); }
+        }
+        @keyframes loader-pulse {
+            0%, 100% { transform:scale(1); }
+            50%      { transform:scale(1.06); }
         }
         @keyframes loader-fade-out {
             0%   { opacity:1; }
@@ -213,17 +208,21 @@
             animation: loader-fade-out 0.4s ease-out forwards;
             pointer-events:none;
         }
+        #app-loader-stage {
+            animation: loader-pulse 2s ease-in-out infinite;
+        }
     </style>
 </head>
 
 <body class="auth-container">
 
     <!-- PANTALLA DE CARGA ANIMADA -->
-    <div id="app-loader-overlay" style="display:none; position:fixed; inset:0; z-index:99999; background:var(--bg-base,#0f172a); flex-direction:column; align-items:center; justify-content:center;">
-        <div id="app-loader-stage" style="position:relative; display:flex; align-items:center; gap:0;">
-            <img id="loader-logo" src="{{ url_for('static', filename='images/logo.png') }}" alt="Logo" style="width:64px; height:64px; opacity:0; transform:translateY(100vh);">
-            <span id="loader-text" style="font-size:1.6rem; font-weight:800; font-family:'Inter',system-ui,sans-serif; color:#ffffff; opacity:0; white-space:nowrap; transform:translateX(60px);">{{ product_name }}</span>
+    <div id="app-loader-overlay" style="display:none; position:fixed; inset:0; z-index:99999; background:#ffffff; flex-direction:column; align-items:center; justify-content:center;">
+        <div id="app-loader-stage" style="position:relative; display:flex; align-items:center; gap:12px;">
+            <img id="loader-logo" src="{{ url_for('static', filename='images/logo.png') }}" alt="Logo" style="width:64px; height:64px;">
+            <span id="loader-text" style="font-size:1.6rem; font-weight:800; font-family:'Inter',system-ui,sans-serif; color:#1a1a2e; opacity:0; white-space:nowrap; transform:translateX(120px);">{{ product_name }}</span>
         </div>
+        <span id="loader-footer" style="position:absolute; bottom:40px; font-size:0.85rem; color:#94a3b8; font-family:'Inter',system-ui,sans-serif; font-weight:500;">Cargando...</span>
     </div>
     <div class="auth-card">
         <div class="auth-header">
@@ -281,8 +280,6 @@
                 style="width: 100%; padding: 14px; font-size: 1rem; border-radius: var(--radius-sm); margin-top: 20px;">
                 <i class="fa-solid fa-right-to-bracket btn-label"></i>
                 <span class="btn-label">Ingresar al Sistema</span>
-                <i class="fa-solid fa-spinner fa-spin btn-spinner"></i>
-                <span class="btn-spinner">Verificando...</span>
             </button>
         </form>
 
@@ -362,25 +359,17 @@
         // ===== PANTALLA DE CARGA: funciones globales =====
         function showAppLoader() {
             var overlay = document.getElementById('app-loader-overlay');
-            var logo = document.getElementById('loader-logo');
             var text = document.getElementById('loader-text');
             if (!overlay) return;
             overlay.classList.remove('fade-out');
             overlay.style.display = 'flex';
-            logo.style.animation = 'none';
-            text.style.animation = 'none';
-            logo.style.opacity = '0';
-            logo.style.transform = 'translateY(100vh)';
-            text.style.opacity = '0';
-            text.style.transform = 'translateX(60px)';
-            void overlay.offsetWidth;
-            logo.style.animation = 'loader-logo-rise 0.7s cubic-bezier(0.22,1,0.36,1) forwards';
-            logo.addEventListener('animationend', function handler1() {
-                logo.removeEventListener('animationend', handler1);
-                logo.style.animation = 'loader-logo-shift 0.5s cubic-bezier(0.22,1,0.36,1) forwards';
-                text.style.opacity = '1';
-                text.style.animation = 'loader-text-enter 0.5s cubic-bezier(0.22,1,0.36,1) forwards';
-            }, { once: true });
+            if (text) {
+                text.style.animation = 'none';
+                text.style.opacity = '0';
+                text.style.transform = 'translateX(120px)';
+                void overlay.offsetWidth;
+                text.style.animation = 'loader-text-slide-in 0.6s cubic-bezier(0.22,1,0.36,1) forwards';
+            }
         }
 
         function hideAppLoader() {
