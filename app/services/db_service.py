@@ -194,6 +194,151 @@ def _cached_clients(owner_uid, sandbox):
     return clients
 
 
+@cache.memoize(timeout=60)
+def _cached_expenses(owner_uid, sandbox):
+    expenses = []
+    if firebase_initialized:
+        try:
+            coll_name = "sandbox_expenses" if sandbox else "expenses"
+            docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).get()
+            for doc in docs:
+                data = doc.to_dict()
+                dgii_status = data.get("dgiiStatus")
+                if not dgii_status:
+                    if data.get("emisionMode") == "FALLBACK":
+                        dgii_status = "CONTINGENCY"
+                    elif data.get("isSyncedWithDGII"):
+                        dgii_status = "ACCEPTED"
+                    elif data.get("emisionMode") == "API":
+                        dgii_status = "PENDING"
+                    else:
+                        dgii_status = ""
+                expenses.append({
+                    "id": doc.id,
+                    "concept": data.get("concept", ""),
+                    "category": data.get("category", ""),
+                    "amount": float(data.get("amount", 0.0)),
+                    "date": serialize_field(data.get("date")),
+                    "rncEmisor": data.get("rncEmisor", ""),
+                    "ncf": data.get("ncf", ""),
+                    "isMinorExpense": bool(data.get("isMinorExpense", False)),
+                    "isSyncedWithDGII": bool(data.get("isSyncedWithDGII", False)),
+                    "qrCodeURL": data.get("qrCodeURL", ""),
+                    "xmlSignature": data.get("xmlSignature", ""),
+                    "notes": data.get("notes", ""),
+                    "isRecurring": bool(data.get("isRecurring", False)),
+                    "recurrenceInterval": data.get("recurrenceInterval", "mensual"),
+                    "nextOccurrenceDate": serialize_field(data.get("nextOccurrenceDate")),
+                    "recurrenceEndDate": serialize_field(data.get("recurrenceEndDate")),
+                    "associatedInvoiceId": data.get("associatedInvoiceId", ""),
+                    "itbisAmount": float(data.get("itbisAmount", 0.0)),
+                    "isITBISDeductible": bool(data.get("isITBISDeductible", True)),
+                    "isDeductible": bool(data.get("isDeductible", True)),
+                    "firebaseAttachmentURLs": data.get("firebaseAttachmentURLs", []),
+                    "createdAt": serialize_field(data.get("createdAt")),
+                    "ecfType": data.get("ecfType", ""),
+                    "ecfNumber": data.get("ecfNumber", ""),
+                    "cne": data.get("cne", ""),
+                    "tipoGastoDGII": data.get("tipoGastoDGII", ""),
+                    "paymentType": data.get("paymentType", "Contado"),
+                    "cxpStatus": data.get("cxpStatus", "Pagado"),
+                    "cxpRemainingBalance": float(data.get("cxpRemainingBalance", 0.0)),
+                    "approvalStatus": data.get("approvalStatus", "Aprobado"),
+                    "requestedBy": data.get("requestedBy", ""),
+                    "approvedBy": data.get("approvedBy", ""),
+                    "dueDate": serialize_field(data.get("dueDate", "")),
+                    "encf": data.get("encf", ""),
+                    "emisionMode": data.get("emisionMode", ""),
+                    "trackId": data.get("trackId", ""),
+                    "xmlContent": data.get("xmlContent", ""),
+                    "supplierId": data.get("supplierId", ""),
+                    "dgiiStatus": dgii_status
+                })
+            expenses.sort(key=lambda x: x["date"] or "", reverse=True)
+        except Exception as e:
+            print(f"⚠️ Error al obtener gastos desde Firestore: {e}")
+    return expenses
+
+
+@cache.memoize(timeout=60)
+def _cached_items(owner_uid, sandbox):
+    items = []
+    if firebase_initialized:
+        try:
+            coll_name = "sandbox_items" if sandbox else "items"
+            docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).get()
+            for doc in docs:
+                data = doc.to_dict()
+                items.append({
+                    "id": doc.id,
+                    "code": data.get("code", ""),
+                    "type": data.get("type", "Bien"),
+                    "name": data.get("name", ""),
+                    "price": float(data.get("price", 0.0)),
+                    "costPrice": float(data.get("costPrice", 0.0)),
+                    "barcode": data.get("barcode", ""),
+                    "categoryId": data.get("categoryId", "general"),
+                    "unit": data.get("unit", "Unidad"),
+                    "itbisRate": float(data.get("itbisRate", 0.18)),
+                    "minStock": float(data.get("minStock", 0.0)),
+                    "rackLocation": data.get("rackLocation", ""),
+                    "totalStock": float(data.get("totalStock", 0.0)),
+                    "createdAt": serialize_field(data.get("createdAt")),
+                    "codigoImpuesto": data.get("codigoImpuesto", ""),
+                    "tasaImpuestoAdicional": float(data.get("tasaImpuestoAdicional", 0.0)),
+                    "gradosAlcohol": float(data.get("gradosAlcohol", 0.0)),
+                    "cantidadReferencia": float(data.get("cantidadReferencia", 0.0)),
+                    "subcantidad": float(data.get("subcantidad", 1.0)),
+                    "precioReferencia": float(data.get("precioReferencia", 0.0)),
+                    "isActive": bool(data.get("isActive", True)),
+                    "supplierName": data.get("supplierName", ""),
+                    "wholesalePrice": float(data.get("wholesalePrice", 0.0)),
+                    "brand": data.get("brand", ""),
+                    "maxStock": float(data.get("maxStock", 0.0)),
+                    "imageUrl": data.get("imageUrl", "")
+                })
+            items.sort(key=lambda x: x["name"].lower())
+        except Exception as e:
+            print(f"⚠️ Error al obtener artículos desde Firestore: {e}")
+    return items
+
+
+@cache.memoize(timeout=120)
+def _cached_sequences(owner_uid, sandbox):
+    seqs = []
+    if firebase_initialized:
+        try:
+            coll_name = "sandbox_sequences" if sandbox else "sequences"
+            docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).get()
+            for doc in docs:
+                data = doc.to_dict()
+                secuenciaInicial = int(data.get("secuenciaInicial", 1))
+                secuenciaFinal = int(data.get("secuenciaFinal", 1))
+                ultimoConsecutivoUsado = int(data.get("ultimoConsecutivoUsado", secuenciaInicial - 1))
+                seqs.append({
+                    "id": doc.id,
+                    "tipoComprobante": data.get("tipoComprobante", ""),
+                    "prefijo": data.get("prefijo", data.get("tipoComprobante", "")),
+                    "secuenciaInicial": secuenciaInicial,
+                    "secuenciaFinal": secuenciaFinal,
+                    "ultimoConsecutivoUsado": ultimoConsecutivoUsado,
+                    "alertaMinimoDisponible": int(data.get("alertaMinimoDisponible", 100)),
+                    "fechaAutorizacion": data.get("fechaAutorizacion", ""),
+                    "fechaExpiracion": data.get("fechaExpiracion", ""),
+                    "numeroAutorizacionDgii": data.get("numeroAutorizacionDgii", ""),
+                    "estado": data.get("estado", "ACTIVA"),
+                    "ambiente": data.get("ambiente", "SANDBOX"),
+                    "bloqueadaManualmente": bool(data.get("bloqueadaManualmente", False)),
+                    "creadoEn": serialize_field(data.get("creadoEn")),
+                    "cantidadDisponible": max(0, secuenciaFinal - ultimoConsecutivoUsado),
+                    "porcentajeUsado": min(1.0, max(0.0, (ultimoConsecutivoUsado - secuenciaInicial + 1) / max(1.0, float(secuenciaFinal - secuenciaInicial + 1))))
+                })
+            seqs.sort(key=lambda x: x["tipoComprobante"])
+        except Exception as e:
+            print(f"⚠️ Error al obtener secuencias desde Firestore: {e}")
+    return seqs
+
+
 @cache.memoize(timeout=30)
 def _cached_invoices(owner_uid, sandbox, quotations_only, include_all):
     invoices = []
@@ -499,6 +644,30 @@ def _invalidate_clients(owner_uid):
         cache.delete_memoized(_cached_clients, owner_uid, False)
     except Exception as e:
         print(f"⚠️ Error al invalidar caché de clientes para {owner_uid}: {e}")
+
+
+def _invalidate_expenses(owner_uid):
+    try:
+        cache.delete_memoized(_cached_expenses, owner_uid, True)
+        cache.delete_memoized(_cached_expenses, owner_uid, False)
+    except Exception as e:
+        print(f"⚠️ Error al invalidar caché de gastos para {owner_uid}: {e}")
+
+
+def _invalidate_items(owner_uid):
+    try:
+        cache.delete_memoized(_cached_items, owner_uid, True)
+        cache.delete_memoized(_cached_items, owner_uid, False)
+    except Exception as e:
+        print(f"⚠️ Error al invalidar caché de ítems para {owner_uid}: {e}")
+
+
+def _invalidate_sequences(owner_uid):
+    try:
+        cache.delete_memoized(_cached_sequences, owner_uid, True)
+        cache.delete_memoized(_cached_sequences, owner_uid, False)
+    except Exception as e:
+        print(f"⚠️ Error al invalidar caché de secuencias para {owner_uid}: {e}")
 
 
 def _invalidate_invoices(owner_uid):
@@ -1357,45 +1526,8 @@ class DatabaseService:
     @classmethod
     def get_items(cls, owner_uid, sandbox=True):
         """Retorna la lista de productos del catálogo."""
-        items = []
-        if firebase_initialized:
-            try:
-                coll_name = "sandbox_items" if sandbox else "items"
-                docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).get()
-                for doc in docs:
-                    data = doc.to_dict()
-                    items.append({
-                        "id": doc.id,
-                        "code": data.get("code", ""),
-                        "type": data.get("type", "Bien"),
-                        "name": data.get("name", ""),
-                        "price": float(data.get("price", 0.0)),
-                        "costPrice": float(data.get("costPrice", 0.0)),
-                        "barcode": data.get("barcode", ""),
-                        "categoryId": data.get("categoryId", "general"),
-                        "unit": data.get("unit", "Unidad"),
-                        "itbisRate": float(data.get("itbisRate", 0.18)),
-                        "minStock": float(data.get("minStock", 0.0)),
-                        "rackLocation": data.get("rackLocation", ""),
-                        "totalStock": float(data.get("totalStock", 0.0)),
-                        "createdAt": serialize_field(data.get("createdAt")),
-                        "codigoImpuesto": data.get("codigoImpuesto", ""),
-                        "tasaImpuestoAdicional": float(data.get("tasaImpuestoAdicional", 0.0)),
-                        "gradosAlcohol": float(data.get("gradosAlcohol", 0.0)),
-                        "cantidadReferencia": float(data.get("cantidadReferencia", 0.0)),
-                        "subcantidad": float(data.get("subcantidad", 1.0)),
-                        "precioReferencia": float(data.get("precioReferencia", 0.0)),
-                        "isActive": bool(data.get("isActive", True)),
-                        "supplierName": data.get("supplierName", ""),
-                        "wholesalePrice": float(data.get("wholesalePrice", 0.0)),
-                        "brand": data.get("brand", ""),
-                        "maxStock": float(data.get("maxStock", 0.0)),
-                        "imageUrl": data.get("imageUrl", "")
-                    })
-                items.sort(key=lambda x: x["name"].lower())
-            except Exception as e:
-                print(f"⚠️ Error al obtener artículos desde Firestore: {e}")
-        return items
+        import copy
+        return copy.deepcopy(_cached_items(owner_uid, sandbox))
 
     @classmethod
     def save_item(cls, owner_uid, item_id, item_dict, sandbox=True):
@@ -1425,6 +1557,7 @@ class DatabaseService:
             try:
                 coll_name = "sandbox_items" if sandbox else "items"
                 db_firestore.collection("users").document(owner_uid).collection(coll_name).document(item_id).set(item_dict)
+                _invalidate_items(owner_uid)
             except Exception as e:
                 print(f"⚠️ Fallo al respaldar producto en Firestore: {e}")
 
@@ -1437,6 +1570,7 @@ class DatabaseService:
             try:
                 coll_name = "sandbox_items" if sandbox else "items"
                 db_firestore.collection("users").document(owner_uid).collection(coll_name).document(item_id).delete()
+                _invalidate_items(owner_uid)
             except Exception as e:
                 print(f"⚠️ Fallo al borrar producto de Firestore: {e}")
 
@@ -1673,39 +1807,8 @@ class DatabaseService:
     @classmethod
     def get_sequences(cls, owner_uid, sandbox=True):
         """Retorna las secuencias fiscales del owner."""
-        seqs = []
-        if firebase_initialized:
-            try:
-                coll_name = "sandbox_sequences" if sandbox else "sequences"
-                docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).get()
-                for doc in docs:
-                    data = doc.to_dict()
-                    secuenciaInicial = int(data.get("secuenciaInicial", 1))
-                    secuenciaFinal = int(data.get("secuenciaFinal", 1))
-                    ultimoConsecutivoUsado = int(data.get("ultimoConsecutivoUsado", secuenciaInicial - 1))
-                    
-                    seqs.append({
-                        "id": doc.id,
-                        "tipoComprobante": data.get("tipoComprobante", ""),
-                        "prefijo": data.get("prefijo", data.get("tipoComprobante", "")),
-                        "secuenciaInicial": secuenciaInicial,
-                        "secuenciaFinal": secuenciaFinal,
-                        "ultimoConsecutivoUsado": ultimoConsecutivoUsado,
-                        "alertaMinimoDisponible": int(data.get("alertaMinimoDisponible", 100)),
-                        "fechaAutorizacion": data.get("fechaAutorizacion", ""),
-                        "fechaExpiracion": data.get("fechaExpiracion", ""),
-                        "numeroAutorizacionDgii": data.get("numeroAutorizacionDgii", ""),
-                        "estado": data.get("estado", "ACTIVA"),
-                        "ambiente": data.get("ambiente", "SANDBOX"),
-                        "bloqueadaManualmente": bool(data.get("bloqueadaManualmente", False)),
-                        "creadoEn": serialize_field(data.get("creadoEn")),
-                        "cantidadDisponible": max(0, secuenciaFinal - ultimoConsecutivoUsado),
-                        "porcentajeUsado": min(1.0, max(0.0, (ultimoConsecutivoUsado - secuenciaInicial + 1) / max(1.0, float(secuenciaFinal - secuenciaInicial + 1))))
-                    })
-                seqs.sort(key=lambda x: x["tipoComprobante"])
-            except Exception as e:
-                print(f"⚠️ Error al obtener secuencias desde Firestore: {e}")
-        return seqs
+        import copy
+        return copy.deepcopy(_cached_sequences(owner_uid, sandbox))
 
     @classmethod
     def save_sequence(cls, owner_uid, seq_id, seq_dict, sandbox=True):
@@ -1726,6 +1829,7 @@ class DatabaseService:
             try:
                 coll_name = "sandbox_sequences" if sandbox else "sequences"
                 db_firestore.collection("users").document(owner_uid).collection(coll_name).document(seq_id).set(seq_dict)
+                _invalidate_sequences(owner_uid)
             except Exception as e:
                 print(f"⚠️ Fallo al respaldar secuencia en Firestore: {e}")
         return seq_dict
@@ -2621,70 +2725,9 @@ class DatabaseService:
 
     @classmethod
     def get_expenses(cls, owner_uid, sandbox=True):
-        """Retorna la lista de gastos desde Firestore."""
-        expenses = []
-        if firebase_initialized:
-            try:
-                coll_name = "sandbox_expenses" if sandbox else "expenses"
-                docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).get()
-                for doc in docs:
-                    data = doc.to_dict()
-                    dgii_status = data.get("dgiiStatus")
-                    if not dgii_status:
-                        if data.get("emisionMode") == "FALLBACK":
-                            dgii_status = "CONTINGENCY"
-                        elif data.get("isSyncedWithDGII"):
-                            dgii_status = "ACCEPTED"
-                        elif data.get("emisionMode") == "API":
-                            dgii_status = "PENDING"
-                        else:
-                            dgii_status = ""
-                    expenses.append({
-                        "id": doc.id,
-                        "concept": data.get("concept", ""),
-                        "category": data.get("category", ""),
-                        "amount": float(data.get("amount", 0.0)),
-                        "date": serialize_field(data.get("date")),
-                        "rncEmisor": data.get("rncEmisor", ""),
-                        "ncf": data.get("ncf", ""),
-                        "isMinorExpense": bool(data.get("isMinorExpense", False)),
-                        "isSyncedWithDGII": bool(data.get("isSyncedWithDGII", False)),
-                        "qrCodeURL": data.get("qrCodeURL", ""),
-                        "xmlSignature": data.get("xmlSignature", ""),
-                        "notes": data.get("notes", ""),
-                        "isRecurring": bool(data.get("isRecurring", False)),
-                        "recurrenceInterval": data.get("recurrenceInterval", "mensual"),
-                        "nextOccurrenceDate": serialize_field(data.get("nextOccurrenceDate")),
-                        "recurrenceEndDate": serialize_field(data.get("recurrenceEndDate")),
-                        "associatedInvoiceId": data.get("associatedInvoiceId", ""),
-                        "itbisAmount": float(data.get("itbisAmount", 0.0)),
-                        "isITBISDeductible": bool(data.get("isITBISDeductible", True)),
-                        "isDeductible": bool(data.get("isDeductible", True)),
-                        "firebaseAttachmentURLs": data.get("firebaseAttachmentURLs", []),
-                        "createdAt": serialize_field(data.get("createdAt")),
-                        # Nuevos campos e-CF y CxP:
-                        "ecfType": data.get("ecfType", ""),
-                        "ecfNumber": data.get("ecfNumber", ""),
-                        "cne": data.get("cne", ""),
-                        "tipoGastoDGII": data.get("tipoGastoDGII", ""),
-                        "paymentType": data.get("paymentType", "Contado"),
-                        "cxpStatus": data.get("cxpStatus", "Pagado"),
-                        "cxpRemainingBalance": float(data.get("cxpRemainingBalance", 0.0)),
-                        "approvalStatus": data.get("approvalStatus", "Aprobado"),
-                        "requestedBy": data.get("requestedBy", ""),
-                        "approvedBy": data.get("approvedBy", ""),
-                        "dueDate": serialize_field(data.get("dueDate", "")),
-                        "encf": data.get("encf", ""),
-                        "emisionMode": data.get("emisionMode", ""),
-                        "trackId": data.get("trackId", ""),
-                        "xmlContent": data.get("xmlContent", ""),
-                        "supplierId": data.get("supplierId", ""),
-                        "dgiiStatus": dgii_status
-                    })
-                expenses.sort(key=lambda x: x["date"] or "", reverse=True)
-            except Exception as e:
-                print(f"⚠️ Error al obtener gastos desde Firestore: {e}")
-        return expenses
+        """Retorna la lista de gastos desde Firestore (con caché)."""
+        import copy
+        return copy.deepcopy(_cached_expenses(owner_uid, sandbox))
 
     @classmethod
     def save_expense(cls, owner_uid, expense_id, exp_dict, sandbox=True):
@@ -2763,6 +2806,7 @@ class DatabaseService:
             try:
                 coll_name = "sandbox_expenses" if sandbox else "expenses"
                 db_firestore.collection("users").document(owner_uid).collection(coll_name).document(expense_id).set(exp_dict)
+                _invalidate_expenses(owner_uid)
             except Exception as e:
                 print(f"⚠️ Fallo al respaldar gasto en Firestore: {e}")
 
@@ -2804,6 +2848,7 @@ class DatabaseService:
                 "cxpRemainingBalance": new_rem,
                 "cxpStatus": new_status
             })
+            _invalidate_expenses(owner_uid)
             return True, f"Pago de RD$ {payment_amount:,.2f} registrado con éxito. Nuevo balance: RD$ {new_rem:,.2f}."
         except Exception as e:
             print(f"⚠️ Error en save_cxp_payment: {e}")
@@ -2837,6 +2882,7 @@ class DatabaseService:
             try:
                 coll_name = "sandbox_expenses" if sandbox else "expenses"
                 db_firestore.collection("users").document(owner_uid).collection(coll_name).document(expense_id).delete()
+                _invalidate_expenses(owner_uid)
             except Exception as e:
                 print(f"⚠️ Fallo al borrar gasto de Firestore: {e}")
 
@@ -3332,31 +3378,23 @@ class DatabaseService:
                         pass
             return None
 
-        # Contar facturas de producción (excluyendo cotizaciones y borradores)
+        # Contar facturas de producción (excluyendo cotizaciones y borradores) — usando caché
         try:
-            prod_docs = db_firestore.collection('users').document(owner_uid).collection('invoices')\
-                .where(filter=firestore.FieldFilter('isQuotation', '==', False)).stream()
-            for doc in prod_docs:
-                data = doc.to_dict()
-                if data.get('status') in ('Borrador', 'Pagado pero no emitido'):
-                    continue
+            prod_invoices = _cached_invoices(owner_uid, sandbox=False, quotations_only=False, include_all=False)
+            for inv in prod_invoices:
                 stats['prod_total'] += 1
-                doc_date = parse_date(data.get('date') or data.get('createdAt'))
+                doc_date = parse_date(inv.get('date') or inv.get('createdAt'))
                 if doc_date and start_date <= doc_date <= end_date:
                     stats['prod_current_cycle'] += 1
         except Exception as e:
             print(f"⚠️ Error counting prod invoices for {owner_uid}: {e}")
             
-        # Contar facturas de sandbox (excluyendo cotizaciones y borradores)
+        # Contar facturas de sandbox (excluyendo cotizaciones y borradores) — usando caché
         try:
-            sandbox_docs = db_firestore.collection('users').document(owner_uid).collection('sandbox_invoices')\
-                .where(filter=firestore.FieldFilter('isQuotation', '==', False)).stream()
-            for doc in sandbox_docs:
-                data = doc.to_dict()
-                if data.get('status') in ('Borrador', 'Pagado pero no emitido'):
-                    continue
+            sandbox_invoices = _cached_invoices(owner_uid, sandbox=True, quotations_only=False, include_all=False)
+            for inv in sandbox_invoices:
                 stats['sandbox_total'] += 1
-                doc_date = parse_date(data.get('date') or data.get('createdAt'))
+                doc_date = parse_date(inv.get('date') or inv.get('createdAt'))
                 if doc_date and start_date <= doc_date <= end_date:
                     stats['sandbox_current_cycle'] += 1
         except Exception as e:

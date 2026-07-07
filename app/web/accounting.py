@@ -111,17 +111,18 @@ def dashboard():
     AccountingService.seed_default_accounts(owner_uid)
     AccountingService.seed_default_entry_types(owner_uid)
     tree, accounts = AccountingService.get_accounts_tree(owner_uid)
-    balance = AccountingService.get_balance_sheet(owner_uid)
-    income = AccountingService.get_income_statement(owner_uid)
+    # Obtener entradas UNA sola vez y pasarlas a todos los reportes
     entries = DatabaseService.get_accounting_entries(owner_uid, sandbox=sandbox)
     active_entries = [e for e in entries if e.get("status") != "voided"]
-    trial = AccountingService.get_trial_balance(owner_uid)
+    balance = AccountingService.get_balance_sheet(owner_uid, accounts=accounts, entries=entries)
+    income = AccountingService.get_income_statement(owner_uid, accounts=accounts, entries=entries)
+    trial = AccountingService.get_trial_balance(owner_uid, accounts=accounts, entries=entries)
     total_assets = balance["activos"]["total"]
     total_liabilities = balance["pasivos"]["total"]
     total_equity = balance["patrimonio"]["total"]
     net_income = income.get("netIncome", 0)
     return render_template('accounting/dashboard.html',
-                           active_page='accounting',
+                           active_page='acc_dashboard',
                            total_assets=total_assets,
                            total_liabilities=total_liabilities,
                            total_equity=total_equity,
@@ -147,7 +148,7 @@ def chart_of_accounts():
     account_groups = ACCOUNT_GROUPS
     flat_list = _flatten_tree(tree_data, all_accounts)
     return render_template('accounting/chart_of_accounts.html',
-                           active_page='accounting',
+                           active_page='acc_chart',
                            tree=tree_data,
                            accounts=all_accounts,
                            flat_list=flat_list,
@@ -294,10 +295,12 @@ def account_movements(account_id):
         return redirect(url_for('web_accounting.chart_of_accounts'))
     date_from = request.args.get('dateFrom', '')
     date_to = request.args.get('dateTo', '')
-    movements = AccountingService.get_account_movements(owner_uid, account_id, date_from=date_from, date_to=date_to)
-    balance = AccountingService.get_account_balance(owner_uid, account_id, date_from=date_from, date_to=date_to)
+    # Obtener entradas una sola vez para movimientos y balance
+    all_entries = DatabaseService.get_accounting_entries(owner_uid)
+    movements = AccountingService.get_account_movements(owner_uid, account_id, date_from=date_from, date_to=date_to, entries=all_entries)
+    balance = AccountingService.get_account_balance(owner_uid, account_id, date_from=date_from, date_to=date_to, entries=all_entries)
     return render_template('accounting/account_movements.html',
-                           active_page='accounting',
+                           active_page='acc_chart',
                            account=account,
                            movements=movements,
                            balance=balance,
@@ -323,7 +326,7 @@ def journal_entries():
     entry_types = DatabaseService.get_entry_types(owner_uid)
     accounts = DatabaseService.get_chart_of_accounts(owner_uid)
     return render_template('accounting/journal_entries.html',
-                           active_page='accounting',
+                           active_page='acc_entries',
                            entries=entries,
                            entry_types=entry_types,
                            accounts=accounts)
@@ -381,7 +384,7 @@ def new_journal_entry():
         except Exception as e:
             flash(f'❌ Error al crear entrada de diario: {str(e)}', 'error')
     return render_template('accounting/journal_entry_form.html',
-                           active_page='accounting',
+                           active_page='acc_entries',
                            accounts=accounts,
                            entry_types=entry_types,
                            is_edit=False)
@@ -402,7 +405,7 @@ def journal_entry_detail(entry_id):
         flash('❌ Entrada de diario no encontrada.', 'error')
         return redirect(url_for('web_accounting.journal_entries'))
     return render_template('accounting/journal_entry_detail.html',
-                           active_page='accounting',
+                           active_page='acc_entries',
                            entry=entry)
 
 
@@ -465,7 +468,7 @@ def general_journal():
         entries = [e for e in entries if e.get("entryType") == entry_type_filter]
     active_entries = [e for e in entries if e.get("status") != "voided"]
     return render_template('accounting/general_journal.html',
-                           active_page='accounting',
+                           active_page='acc_entries',
                            entries=active_entries,
                            date_from=date_from,
                            date_to=date_to,
@@ -835,7 +838,7 @@ def balance_sheet():
 
     from datetime import datetime as _dt
     return render_template('accounting/balance_sheet.html',
-                           active_page='accounting',
+                           active_page='acc_reports',
                            lines=lines,
                            total_activos_curr=round(total_activos_curr, 2),
                            total_activos_prev=round(total_activos_prev, 2),
@@ -902,25 +905,8 @@ def income_statement():
 
     # Precompute balance maps — single Firestore call
     all_entries = DatabaseService.get_accounting_entries(owner_uid)
-
-    def _build_balance_map(entries, date_from, date_to):
-        bm = {}
-        for entry in entries:
-            if entry.get("status") == "voided":
-                continue
-            entry_date = str(entry.get("date", ""))[:10]
-            if date_from and entry_date < date_from:
-                continue
-            if date_to and entry_date > date_to:
-                continue
-            for line in entry.get("lines", []):
-                aid = line.get("accountId")
-                if aid:
-                    bm[aid] = bm.get(aid, 0.0) + float(line.get("debit", 0)) - float(line.get("credit", 0))
-        return bm
-
-    curr_balance_map = _build_balance_map(all_entries, curr_date_from, curr_date_to)
-    prev_balance_map = _build_balance_map(all_entries, prev_date_from, prev_date_to)
+    curr_balance_map = AccountingService._compute_balances_map(all_entries, date_from=curr_date_from, date_to=curr_date_to)
+    prev_balance_map = AccountingService._compute_balances_map(all_entries, date_from=prev_date_from, date_to=prev_date_to)
 
     def pl_value(code, bm):
         meta = code_map.get(code)
@@ -1270,7 +1256,7 @@ def income_statement():
     from datetime import datetime as _dt
     month_abbr = ["","Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"]
     return render_template('accounting/income_statement.html',
-                           active_page='accounting',
+                           active_page='acc_reports',
                            datetime=_dt,
                            lines=lines,
                            ventas_curr=ventas_curr,
@@ -1310,7 +1296,7 @@ def trial_balance():
     date = request.args.get('date', '')
     result = AccountingService.get_trial_balance(owner_uid, date=date or None)
     return render_template('accounting/trial_balance.html',
-                           active_page='accounting',
+                           active_page='acc_reports',
                            rows=result["rows"],
                            total_debit=result["totalDebit"],
                            total_credit=result["totalCredit"],
@@ -1335,7 +1321,7 @@ def fixed_assets():
     summary = FixedAssetService.get_assets_summary(owner_uid, sandbox=sandbox)
     accounts = DatabaseService.get_chart_of_accounts(owner_uid)
     return render_template('accounting/fixed_assets.html',
-                           active_page='accounting',
+                           active_page='acc_assets',
                            assets=assets,
                            summary=summary,
                            accounts=accounts,
@@ -1379,7 +1365,7 @@ def new_fixed_asset():
         except Exception as e:
             flash(f'❌ Error al registrar activo: {str(e)}', 'error')
     return render_template('accounting/fixed_asset_form.html',
-                           active_page='accounting',
+                           active_page='acc_assets',
                            accounts=accounts,
                            asset_categories=ASSET_CATEGORIES,
                            is_edit=False)
@@ -1400,7 +1386,7 @@ def fixed_asset_detail(asset_id):
         flash('❌ Activo fijo no encontrado.', 'error')
         return redirect(url_for('web_accounting.fixed_assets'))
     return render_template('accounting/fixed_asset_detail.html',
-                           active_page='accounting',
+                           active_page='acc_assets',
                            asset=asset)
 
 
@@ -1477,7 +1463,7 @@ def entry_types_settings():
         return redirect(url_for('web_accounting.entry_types_settings'))
     entry_types = DatabaseService.get_entry_types(owner_uid)
     return render_template('accounting/entry_types.html',
-                           active_page='accounting',
+                           active_page='acc_settings',
                            entry_types=entry_types)
 
 
@@ -1543,7 +1529,7 @@ def initial_balances():
         except Exception as e:
             flash(f'❌ Error: {str(e)}', 'error')
     return render_template('accounting/initial_balances.html',
-                           active_page='accounting',
+                           active_page='acc_chart',
                            accounts=accounts)
 
 
@@ -1568,7 +1554,7 @@ def import_initial_balances():
             f = request.files['file']
             if not f.filename.endswith(('.xlsx', '.xls')):
                 flash('❌ El archivo debe ser un Excel (.xlsx o .xls).', 'error')
-                return render_template('accounting/import_initial_balances.html', active_page='accounting', accounts=accounts)
+                return render_template('accounting/import_initial_balances.html', active_page='acc_chart', accounts=accounts)
 
             wb = openpyxl.load_workbook(f)
             ws = wb.active
@@ -1594,7 +1580,7 @@ def import_initial_balances():
 
             if code_col is None:
                 flash('❌ No se encontró la columna "Código" en el archivo. Usa la plantilla descargable.', 'error')
-                return render_template('accounting/import_initial_balances.html', active_page='accounting', accounts=accounts)
+                return render_template('accounting/import_initial_balances.html', active_page='acc_chart', accounts=accounts)
 
             row_num = 1
             for row in ws.iter_rows(min_row=2, values_only=True):
@@ -1631,7 +1617,7 @@ def import_initial_balances():
 
             if not lines:
                 flash('❌ No se pudieron leer líneas válidas del archivo.' + (' Errores: ' + '; '.join(errors[:5]) if errors else ''), 'error')
-                return render_template('accounting/import_initial_balances.html', active_page='accounting', accounts=accounts)
+                return render_template('accounting/import_initial_balances.html', active_page='acc_chart', accounts=accounts)
 
             entry_data = {
                 "entryType": "initial_balance",
@@ -1652,7 +1638,7 @@ def import_initial_balances():
             flash(f'❌ Error al procesar el archivo: {str(e)}', 'error')
 
     return render_template('accounting/import_initial_balances.html',
-                           active_page='accounting',
+                           active_page='acc_chart',
                            accounts=accounts)
 
 
@@ -1743,7 +1729,7 @@ def list_cost_centers():
     sandbox = _sandbox()
     cost_centers = DatabaseService.get_cost_centers(owner_uid, sandbox=sandbox)
     return render_template('accounting/cost_centers.html',
-                           active_page='accounting',
+                           active_page='acc_settings',
                            cost_centers=cost_centers)
 
 
@@ -1850,7 +1836,7 @@ def fiscal_periods():
     year = request.args.get('year', type=int, default=datetime.now(timezone.utc).year)
     from app.services.fiscal_period_service import FiscalPeriodService
     periods = FiscalPeriodService.list_periods(owner_uid, year)
-    return render_template('accounting/fiscal_periods.html', active_page='accounting',
+    return render_template('accounting/fiscal_periods.html', active_page='acc_fiscal',
                           periods=periods, selected_year=year, product_name=_product_name())
 
 
@@ -1913,7 +1899,7 @@ def year_end_close():
     year = request.args.get('year', type=int, default=datetime.now(timezone.utc).year)
     from app.services.fiscal_closing_service import FiscalClosingService
     preview = FiscalClosingService.generate_closing_preview(owner_uid, year, sandbox=sandbox)
-    return render_template('accounting/year_end_close.html', active_page='accounting',
+    return render_template('accounting/year_end_close.html', active_page='acc_fiscal',
                           preview=preview, selected_year=year, product_name=_product_name())
 
 
@@ -1957,7 +1943,7 @@ def closing_checklist():
     checklist = ClosingChecklistService.get_or_create_checklist(owner_uid, year, month)
     months_full = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
                    "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
-    return render_template('accounting/closing_checklist.html', active_page='accounting',
+    return render_template('accounting/closing_checklist.html', active_page='acc_fiscal',
                           checklist=checklist, selected_year=year, selected_month=month,
                           months=months_full, product_name=_product_name())
 

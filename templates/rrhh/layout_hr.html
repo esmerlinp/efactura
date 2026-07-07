@@ -5,19 +5,31 @@
                 <!-- WORKSPACE: RRHH Y NÓMINA                                -->
                 <!-- ═══════════════════════════════════════════════════════ -->
 
-                <!-- Volver al ERP -->
-                <a href="{{ url_for('web_dashboard.dashboard') }}"
-                   style="display:flex; align-items:center; gap:10px; padding:12px 16px; margin:0 8px 8px;
-                          border:1px solid var(--border-color); border-radius:var(--radius-sm);
-                          text-decoration:none; color:var(--text-secondary); font-size:0.82rem; font-weight:600;
-                          transition:all 0.2s;"
-                   onmouseover="this.style.borderColor='var(--accent-emerald)'; this.style.color='var(--accent-emerald)';"
-                   onmouseout="this.style.borderColor='var(--border-color)'; this.style.color='var(--text-secondary)';">
-                    <i class="fa-solid fa-arrow-left" style="font-size:0.9rem;"></i>
-                    <span>Volver al ERP</span>
-                </a>
+                <!-- ── INICIO (fijo) ── -->
+                {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canViewDashboard', True) %}
+                <div class="sidebar-section {% if active_page == 'dashboard' %}active-parent{% endif %}" id="sidebar-section-inicio">
+                    <a href="{{ url_for('web_dashboard.dashboard') }}" class="sidebar-section-header" style="text-decoration: none;">
+                        <div class="header-left">
+                            <i class="fa-regular fa-house section-icon"></i>
+                            <span>Inicio</span>
+                        </div>
+                    </a>
+                </div>
+                {% endif %}
 
-                <div class="sidebar-divider" style="margin:4px 8px 8px;"></div>
+                <!-- ── REPORTES (fijo) ── -->
+                {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canInvoice', True) or session.get('user', {}).get('permissions', {}).get('canExpenses', True) %}
+                <div class="sidebar-section {% if active_page in ('reports', 'ventas_generales', 'ventas_por_producto', 'ventas_por_cliente', 'ventas_rentabilidad', 'ventas_por_vendedor', 'ventas_estado_cuenta', 'admin_ingresos_compras', 'admin_reporte_anual', 'reporte_606', 'dashboard_606', 'accounting_export', 'budgets', 'bi_drilldown') %}active-parent{% endif %}" id="sidebar-section-reports">
+                    <a href="{{ url_for('web_invoices.reports_dashboard') }}" class="sidebar-section-header" style="text-decoration: none;">
+                        <div class="header-left">
+                            <i class="fa-regular fa-chart-pie section-icon"></i>
+                            <span>Reportes</span>
+                        </div>
+                    </a>
+                </div>
+                {% endif %}
+
+                <div class="sidebar-divider"></div>
 
                 <!-- ── Gestión de Personal ── -->
                 <div class="sidebar-section" id="sidebar-section-rrhh">

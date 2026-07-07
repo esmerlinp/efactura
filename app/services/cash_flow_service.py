@@ -83,6 +83,8 @@ class CashFlowService:
         sandbox: bool = True,
         include_recurring: bool = True,
         include_contracts: bool = True,
+        invoices: Optional[list] = None,
+        expenses: Optional[list] = None,
     ) -> list[MonthProjection]:
         """
         Genera proyección de flujo de caja para los próximos N meses.
@@ -93,6 +95,8 @@ class CashFlowService:
             sandbox: Entorno sandbox o producción.
             include_recurring: Incluir facturas/gastos recurrentes programados.
             include_contracts: Incluir contratos con nextBillingDate.
+            invoices: Lista de facturas pre-fetched (opcional).
+            expenses: Lista de gastos pre-fetched (opcional).
 
         Returns:
             Lista de MonthProjection ordenada cronológicamente.
@@ -113,7 +117,7 @@ class CashFlowService:
             projections[key] = MonthProjection(key=key, label=label)
 
         # ── CxC: Facturas pendientes de cobro ──
-        invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox) or []
+        invoices = invoices if invoices is not None else (DatabaseService.get_invoices(owner_uid, sandbox=sandbox) or [])
         for inv in invoices:
             if inv.get("isQuotation") or inv.get("status") in ("Anulada", "Borrador", "Pagado", "Consolidada"):
                 continue
@@ -136,7 +140,7 @@ class CashFlowService:
                 })
 
         # ── CxP: Gastos a crédito pendientes de pago ──
-        expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox) or []
+        expenses = expenses if expenses is not None else (DatabaseService.get_expenses(owner_uid, sandbox=sandbox) or [])
         for exp in expenses:
             if exp.get("approvalStatus") == "Rechazado":
                 continue
@@ -311,7 +315,8 @@ class CashFlowService:
         return alerts
 
     @classmethod
-    def get_weekly_forecast(cls, owner_uid: str, weeks: int = 12, sandbox: bool = True) -> list[dict]:
+    def get_weekly_forecast(cls, owner_uid: str, weeks: int = 12, sandbox: bool = True,
+                            invoices: Optional[list] = None, expenses: Optional[list] = None) -> list[dict]:
         """
         Proyección semanal de flujo de caja.
 
@@ -319,6 +324,8 @@ class CashFlowService:
             owner_uid: UID del propietario.
             weeks: Número de semanas a proyectar.
             sandbox: Entorno.
+            invoices: Lista de facturas pre-fetched (opcional).
+            expenses: Lista de gastos pre-fetched (opcional).
 
         Returns:
             Lista de dicts con week_start, week_label, inflow, outflow, net, balance.
@@ -342,7 +349,7 @@ class CashFlowService:
             })
 
         # ── CxC ──
-        invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox) or []
+        invoices = invoices if invoices is not None else (DatabaseService.get_invoices(owner_uid, sandbox=sandbox) or [])
         for inv in invoices:
             if inv.get("isQuotation") or inv.get("status") in ("Anulada", "Borrador", "Pagado", "Consolidada"):
                 continue
@@ -358,7 +365,7 @@ class CashFlowService:
                     break
 
         # ── CxP ──
-        expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox) or []
+        expenses = expenses if expenses is not None else (DatabaseService.get_expenses(owner_uid, sandbox=sandbox) or [])
         for exp in expenses:
             if exp.get("approvalStatus") == "Rechazado":
                 continue

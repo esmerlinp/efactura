@@ -372,13 +372,13 @@ def dashboard():
     plan_pct = min(100.0, (docs_used / docs_limit) * 100.0) if docs_limit > 0 else 0.0
     
     plan_name = "Plan Personalizado"
-    from app.services.db_service import db_firestore
+    from app.services.db_service import _cached_plan
     try:
         plan_id = profile.get('planId')
         if plan_id:
-            plan_doc = db_firestore.collection('plans').document(plan_id).get()
-            if plan_doc.exists:
-                plan_name = plan_doc.to_dict().get('name', 'Plan Activo')
+            plan_data = _cached_plan(plan_id)
+            if plan_data:
+                plan_name = plan_data.get('name', 'Plan Activo')
     except Exception:
         pass
 
@@ -467,7 +467,7 @@ def dashboard():
     # 7. BI: Flujo de Caja Proyectado (6 meses) — vía CashFlowService
     from app.services.cash_flow_service import CashFlowService
     try:
-        projection = CashFlowService.project_cash_flow(owner_uid, months=6, sandbox=sandbox)
+        projection = CashFlowService.project_cash_flow(owner_uid, months=6, sandbox=sandbox, invoices=real_invoices, expenses=expenses)
         months_projection = [
             {"key": p.key, "label": p.label, "inflow": p.inflow,
              "outflow": p.outflow, "net": p.net, "cumulative": p.cumulative}

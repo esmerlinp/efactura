@@ -1,0 +1,230 @@
+{% extends "layout.html" %}
+
+{% block sidebar %}
+                <!-- ═══════════════════════════════════════════════════════ -->
+                <!-- WORKSPACE: CONTABILIDAD                              -->
+                <!-- ═══════════════════════════════════════════════════════ -->
+
+                <!-- ── INICIO (fijo) ── -->
+                {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canViewDashboard', True) %}
+                <div class="sidebar-section {% if active_page == 'dashboard' %}active-parent{% endif %}" id="sidebar-section-inicio">
+                    <a href="{{ url_for('web_dashboard.dashboard') }}" class="sidebar-section-header" style="text-decoration: none;">
+                        <div class="header-left">
+                            <i class="fa-regular fa-house section-icon"></i>
+                            <span>Inicio</span>
+                        </div>
+                    </a>
+                </div>
+                {% endif %}
+
+                <!-- ── REPORTES (fijo) ── -->
+                {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canInvoice', True) or session.get('user', {}).get('permissions', {}).get('canExpenses', True) %}
+                <div class="sidebar-section {% if active_page in ('reports', 'ventas_generales', 'ventas_por_producto', 'ventas_por_cliente', 'ventas_rentabilidad', 'ventas_por_vendedor', 'ventas_estado_cuenta', 'admin_ingresos_compras', 'admin_reporte_anual', 'reporte_606', 'dashboard_606', 'accounting_export', 'budgets', 'bi_drilldown') %}active-parent{% endif %}" id="sidebar-section-reports">
+                    <a href="{{ url_for('web_invoices.reports_dashboard') }}" class="sidebar-section-header" style="text-decoration: none;">
+                        <div class="header-left">
+                            <i class="fa-regular fa-chart-pie section-icon"></i>
+                            <span>Reportes</span>
+                        </div>
+                    </a>
+                </div>
+                {% endif %}
+
+                <div class="sidebar-divider"></div>
+
+                <!-- ── Panel de Control ── -->
+                <div class="sidebar-section" id="sidebar-section-acc-dashboard">
+                    <div class="sidebar-section-header">
+                        <div class="header-left">
+                            <i class="fa-solid fa-chart-pie section-icon"></i>
+                            <span>Panel de Control</span>
+                        </div>
+                        <i class="fa-solid fa-chevron-down section-toggle-icon"></i>
+                    </div>
+                    <ul class="sidebar-section-content">
+                        <li class="nav-item {% if active_page == 'acc_dashboard' %}active{% endif %}"
+                            data-tooltip="Dashboard">
+                            <a href="{{ url_for('web_accounting.dashboard') }}">
+                                <span>Dashboard</span>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- ── Catálogo de Cuentas ── -->
+                <div class="sidebar-section" id="sidebar-section-acc-chart">
+                    <div class="sidebar-section-header">
+                        <div class="header-left">
+                            <i class="fa-solid fa-book section-icon"></i>
+                            <span>Catálogo de Cuentas</span>
+                        </div>
+                        <i class="fa-solid fa-chevron-down section-toggle-icon"></i>
+                    </div>
+                    <ul class="sidebar-section-content">
+                        <li class="nav-item {% if active_page == 'acc_chart' %}active{% endif %}"
+                            data-tooltip="Catálogo">
+                            <a href="{{ url_for('web_accounting.chart_of_accounts') }}">
+                                <span>Catálogo de Cuentas</span>
+                            </a>
+                        </li>
+                        <li class="nav-item {% if active_page == 'acc_chart' %}active{% endif %}"
+                            data-tooltip="Saldos Iniciales">
+                            <a href="{{ url_for('web_accounting.initial_balances') }}">
+                                <span>Saldos Iniciales</span>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- ── Registros Contables ── -->
+                <div class="sidebar-section" id="sidebar-section-acc-entries">
+                    <div class="sidebar-section-header">
+                        <div class="header-left">
+                            <i class="fa-solid fa-pen-to-square section-icon"></i>
+                            <span>Registros Contables</span>
+                        </div>
+                        <i class="fa-solid fa-chevron-down section-toggle-icon"></i>
+                    </div>
+                    <ul class="sidebar-section-content">
+                        <li class="nav-item {% if active_page == 'acc_entries' %}active{% endif %}"
+                            data-tooltip="Entradas de Diario">
+                            <a href="{{ url_for('web_accounting.journal_entries') }}">
+                                <span>Entradas de Diario</span>
+                            </a>
+                        </li>
+                        <li class="nav-item {% if active_page == 'acc_entries' %}active{% endif %}"
+                            data-tooltip="Libro Diario">
+                            <a href="{{ url_for('web_accounting.general_journal') }}">
+                                <span>Libro Diario</span>
+                            </a>
+                        </li>
+                        <li class="nav-item {% if active_page == 'acc_settings' %}active{% endif %}"
+                            data-tooltip="Tipos de Entrada">
+                            <a href="{{ url_for('web_accounting.entry_types_settings') }}">
+                                <span>Tipos de Entrada</span>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- ── Reportes Contables ── -->
+                <div class="sidebar-section" id="sidebar-section-acc-reports">
+                    <div class="sidebar-section-header">
+                        <div class="header-left">
+                            <i class="fa-solid fa-chart-bar section-icon"></i>
+                            <span>Reportes Contables</span>
+                        </div>
+                        <i class="fa-solid fa-chevron-down section-toggle-icon"></i>
+                    </div>
+                    <ul class="sidebar-section-content">
+                        <li class="nav-item {% if active_page == 'acc_reports' %}active{% endif %}"
+                            data-tooltip="Balance General">
+                            <a href="{{ url_for('web_accounting.balance_sheet') }}">
+                                <span>Balance General</span>
+                            </a>
+                        </li>
+                        <li class="nav-item {% if active_page == 'acc_reports' %}active{% endif %}"
+                            data-tooltip="Estado de Resultados">
+                            <a href="{{ url_for('web_accounting.income_statement') }}">
+                                <span>Estado de Resultados</span>
+                            </a>
+                        </li>
+                        <li class="nav-item {% if active_page == 'acc_reports' %}active{% endif %}"
+                            data-tooltip="Balanza de Comprobación">
+                            <a href="{{ url_for('web_accounting.trial_balance') }}">
+                                <span>Balanza de Comprobación</span>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- ── Activos Fijos ── -->
+                <div class="sidebar-section" id="sidebar-section-acc-assets">
+                    <div class="sidebar-section-header">
+                        <div class="header-left">
+                            <i class="fa-solid fa-building section-icon"></i>
+                            <span>Activos Fijos</span>
+                        </div>
+                        <i class="fa-solid fa-chevron-down section-toggle-icon"></i>
+                    </div>
+                    <ul class="sidebar-section-content">
+                        <li class="nav-item {% if active_page == 'acc_assets' %}active{% endif %}"
+                            data-tooltip="Activos Fijos">
+                            <a href="{{ url_for('web_accounting.fixed_assets') }}">
+                                <span>Activos Fijos</span>
+                            </a>
+                        </li>
+                        <li class="nav-item {% if active_page == 'acc_assets' %}active{% endif %}"
+                            data-tooltip="Nuevo Activo">
+                            <a href="{{ url_for('web_accounting.new_fixed_asset') }}">
+                                <span>Nuevo Activo</span>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- ── Cierre Fiscal ── -->
+                <div class="sidebar-section" id="sidebar-section-acc-fiscal">
+                    <div class="sidebar-section-header">
+                        <div class="header-left">
+                            <i class="fa-solid fa-calendar-check section-icon"></i>
+                            <span>Cierre Fiscal</span>
+                        </div>
+                        <i class="fa-solid fa-chevron-down section-toggle-icon"></i>
+                    </div>
+                    <ul class="sidebar-section-content">
+                        <li class="nav-item {% if active_page == 'acc_fiscal' %}active{% endif %}"
+                            data-tooltip="Períodos Fiscales">
+                            <a href="{{ url_for('web_accounting.fiscal_periods') }}">
+                                <span>Períodos Fiscales</span>
+                            </a>
+                        </li>
+                        <li class="nav-item {% if active_page == 'acc_fiscal' %}active{% endif %}"
+                            data-tooltip="Checklist de Cierre">
+                            <a href="{{ url_for('web_accounting.closing_checklist') }}">
+                                <span>Checklist de Cierre</span>
+                            </a>
+                        </li>
+                        <li class="nav-item {% if active_page == 'acc_fiscal' %}active{% endif %}"
+                            data-tooltip="Cierre Anual">
+                            <a href="{{ url_for('web_accounting.year_end_close') }}">
+                                <span>Cierre Anual</span>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- ── Configuración ── -->
+                <div class="sidebar-section" id="sidebar-section-acc-settings">
+                    <div class="sidebar-section-header">
+                        <div class="header-left">
+                            <i class="fa-solid fa-gear section-icon"></i>
+                            <span>Configuración</span>
+                        </div>
+                        <i class="fa-solid fa-chevron-down section-toggle-icon"></i>
+                    </div>
+                    <ul class="sidebar-section-content">
+                        <li class="nav-item {% if active_page == 'acc_settings' %}active{% endif %}"
+                            data-tooltip="Centros de Costo">
+                            <a href="{{ url_for('web_accounting.list_cost_centers') }}">
+                                <span>Centros de Costo</span>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- Collapse init needs sections in DOM -->
+                <script>
+                    const accSections = ['sidebar-section-acc-dashboard', 'sidebar-section-acc-chart',
+                        'sidebar-section-acc-entries', 'sidebar-section-acc-reports',
+                        'sidebar-section-acc-assets', 'sidebar-section-acc-fiscal',
+                        'sidebar-section-acc-settings'];
+                    accSections.forEach(id => {
+                        const el = document.getElementById(id);
+                        if (!el) return;
+                        const hasActive = el.querySelector('.nav-item.active');
+                        if (hasActive) { el.classList.remove('collapsed'); return; }
+                        const stored = localStorage.getItem('sidebar-collapsed-' + id);
+                        if (stored === 'true') el.classList.add('collapsed');
+                    });
+                </script>
+{% endblock %}

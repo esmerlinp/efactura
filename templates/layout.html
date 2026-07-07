@@ -906,11 +906,12 @@
 <body class="{% if session.get('is_sandbox_mode', False) %}sandbox-mode{% endif %}">
 
     <!-- PANTALLA DE CARGA ANIMADA (GLOBAL) -->
-    <div id="app-loader-overlay" style="display:none; position:fixed; inset:0; z-index:99999; background:var(--bg-base,#0f172a); flex-direction:column; align-items:center; justify-content:center;">
-        <div id="app-loader-stage" style="position:relative; display:flex; align-items:center; gap:0;">
-            <img id="loader-logo" src="{{ url_for('static', filename='images/logo.png') }}" alt="Logo" style="width:64px; height:64px; opacity:0; transform:translateY(100vh);">
-            <span id="loader-text" style="font-size:1.6rem; font-weight:800; font-family:'Inter',system-ui,sans-serif; color:#ffffff; opacity:0; white-space:nowrap; transform:translateX(60px);">{{ product_name }}</span>
+    <div id="app-loader-overlay" style="display:none; position:fixed; inset:0; z-index:99999; background:#ffffff; flex-direction:column; align-items:center; justify-content:center;">
+        <div id="app-loader-stage" style="position:relative; display:flex; align-items:center; gap:12px;">
+            <img id="loader-logo" src="{{ url_for('static', filename='images/logo.png') }}" alt="Logo" style="width:64px; height:64px;">
+            <span id="loader-text" style="font-size:1.6rem; font-weight:800; font-family:'Inter',system-ui,sans-serif; color:#1a1a2e; opacity:0; white-space:nowrap; transform:translateX(120px);">{{ product_name }}</span>
         </div>
+        <span id="loader-footer" style="position:absolute; bottom:40px; font-size:0.85rem; color:#94a3b8; font-family:'Inter',system-ui,sans-serif; font-weight:500;">Cargando...</span>
     </div>
     {% block app_loader %}{% endblock %}
 
@@ -1319,75 +1320,6 @@
                 </div>
                 {% endif %}
 
-                <!-- SECCIÓN: CONTABILIDAD -->
-                {% if module_enabled('contabilidad') and (session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canAccounting', True)) %}
-                <div class="sidebar-section" id="sidebar-section-contabilidad">
-                    <div class="sidebar-section-header">
-                        <div class="header-left">
-                            <i class="fa-regular fa-newspaper section-icon"></i>
-                            <span>Contabilidad</span>
-                        </div>
-                        <i class="fa-solid fa-chevron-down section-toggle-icon"></i>
-                    </div>
-                    <ul class="sidebar-section-content">
-                        <li class="nav-item {% if active_page == 'accounting' and request.path == '/accounting' %}active{% endif %}"
-                            data-tooltip="Dashboard Contable">
-                            <a href="{{ url_for('web_accounting.dashboard') }}">
-                                <span>Dashboard Contable</span>
-                            </a>
-                        </li>
-                        <li class="nav-item {% if active_page == 'accounting' and request.path.startswith('/accounting/chart-of-accounts') %}active{% endif %}"
-                            data-tooltip="Catálogo de Cuentas">
-                            <a href="{{ url_for('web_accounting.chart_of_accounts') }}">
-                                <span>Catálogo de Cuentas</span>
-                            </a>
-                        </li>
-                        <li class="nav-item {% if active_page == 'accounting' and request.path.startswith('/accounting/journal-entries') %}active{% endif %}"
-                            data-tooltip="Entradas de Diario">
-                            <a href="{{ url_for('web_accounting.journal_entries') }}">
-                                <span>Entradas de Diario</span>
-                            </a>
-                        </li>
-                        <li class="nav-item {% if active_page == 'accounting' and request.path == '/accounting/general-journal' %}active{% endif %}"
-                            data-tooltip="Libro Diario">
-                            <a href="{{ url_for('web_accounting.general_journal') }}">
-                                <span>Libro Diario</span>
-                            </a>
-                        </li>
-                        <li class="nav-item {% if active_page == 'accounting' and request.path.startswith('/accounting/fixed-assets') %}active{% endif %}"
-                            data-tooltip="Activos Fijos">
-                            <a href="{{ url_for('web_accounting.fixed_assets') }}">
-                                <span>Activos Fijos</span>
-                            </a>
-                        </li>
-                        <li class="nav-item {% if active_page == 'accounting' and request.path.startswith('/accounting/cost-centers') %}active{% endif %}"
-                            data-tooltip="Centros de Costo">
-                            <a href="{{ url_for('web_accounting.list_cost_centers') }}">
-                                <span>Centros de Costo</span>
-                            </a>
-                        </li>
-                        <li class="nav-item {% if active_page == 'accounting' and request.path.startswith('/accounting/fiscal-periods') %}active{% endif %}"
-                            data-tooltip="Períodos Fiscales">
-                            <a href="{{ url_for('web_accounting.fiscal_periods') }}">
-                                <span>Períodos Fiscales</span>
-                            </a>
-                        </li>
-                        <li class="nav-item {% if active_page == 'accounting' and request.path.startswith('/accounting/year-end-close') %}active{% endif %}"
-                            data-tooltip="Cierre Anual">
-                            <a href="{{ url_for('web_accounting.year_end_close') }}">
-                                <span>Cierre Anual</span>
-                            </a>
-                        </li>
-                        <li class="nav-item {% if active_page == 'accounting' and request.path.startswith('/accounting/closing-checklist') %}active{% endif %}"
-                            data-tooltip="Checklist de Cierre">
-                            <a href="{{ url_for('web_accounting.closing_checklist') }}">
-                                <span>Checklist de Cierre</span>
-                            </a>
-                        </li>
-                    </ul>
-                </div>
-                {% endif %}
-
                 <!-- GRUPO: MÓDULOS -->
                 <div class="sidebar-discover-group">
                     <div class="sidebar-divider"></div>
@@ -1396,9 +1328,19 @@
                     {}).get('permissions', {}).get('canHR', True) %}
                     <a href="{{ url_for('web_rrhh.payroll_dashboard') }}"
                         class="sidebar-discover-item {% if active_page and active_page.startswith('rrhh_') %}active{% endif %}"
-                        data-tooltip="Nómina y RRHH">
+                        data-tooltip="Nómina y RRHH"
+                        onclick="event.preventDefault(); showAppLoaderAndNavigate('{{ url_for('web_rrhh.payroll_dashboard') }}');">
                         <i class="fa-solid fa-coins"></i>
                         <span>Nómina y RRHH</span>
+                    </a>
+                    {% endif %}
+                    {% if module_enabled('contabilidad') and (session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canAccounting', True)) %}
+                    <a href="{{ url_for('web_accounting.dashboard') }}"
+                        class="sidebar-discover-item {% if active_page and active_page.startswith('acc_') %}active{% endif %}"
+                        data-tooltip="Contabilidad"
+                        onclick="event.preventDefault(); showAppLoaderAndNavigate('{{ url_for('web_accounting.dashboard') }}');">
+                        <i class="fa-solid fa-scale-balanced"></i>
+                        <span>Contabilidad</span>
                     </a>
                     {% endif %}
                     {% if session.get('user', {}).get('role') == 'owner' or session.get('user',
@@ -1443,7 +1385,7 @@
                 <!-- Inicializar estado de secciones colapsables para evitar visual layout shift -->
                 <script>
                     (function () {
-                        const sections = ['ingresos', 'compras', 'inventario', 'bancos', 'crm', 'configuracion', 'contabilidad'];
+                        const sections = ['ingresos', 'compras', 'inventario', 'bancos', 'crm', 'configuracion'];
                         sections.forEach(id => {
                             const el = document.getElementById('sidebar-section-' + id);
                             if (!el) return;
@@ -1549,8 +1491,8 @@
                         });
                     });
                 </script>
-            </nav>
             {% endblock %}
+            </nav>
 
             <div class="sidebar-footer" style="flex-direction: column; gap: 0; padding-top: 0;">
                 <!-- Active Company Name -->
@@ -2421,18 +2363,13 @@
         [data-theme="dark"] .action-menu-item:hover { background: rgba(255,255,255,0.06); }
 
         /* PANTALLA DE CARGA ANIMADA */
-        @keyframes loader-logo-rise {
-            0%   { opacity:0; transform:translateY(100vh); }
-            40%  { opacity:1; transform:translateY(0); }
-            100% { opacity:1; transform:translateY(0); }
-        }
-        @keyframes loader-logo-shift {
-            0%   { transform:translateY(0); }
-            100% { transform:translateX(-12px) scale(0.7); }
-        }
-        @keyframes loader-text-enter {
-            0%   { opacity:0; transform:translateX(60px); }
+        @keyframes loader-text-slide-in {
+            0%   { opacity:0; transform:translateX(120px); }
             100% { opacity:1; transform:translateX(0); }
+        }
+        @keyframes loader-pulse {
+            0%, 100% { transform:scale(1); }
+            50%      { transform:scale(1.06); }
         }
         @keyframes loader-fade-out {
             0%   { opacity:1; }
@@ -2442,30 +2379,25 @@
             animation: loader-fade-out 0.4s ease-out forwards;
             pointer-events:none;
         }
+        #app-loader-stage {
+            animation: loader-pulse 2s ease-in-out infinite;
+        }
     </style>
     <script>
         // Funciones globales para controlar la pantalla de carga
         window.showAppLoader = function() {
             var overlay = document.getElementById('app-loader-overlay');
-            var logo = document.getElementById('loader-logo');
             var text = document.getElementById('loader-text');
             if (!overlay) return;
             overlay.classList.remove('fade-out');
             overlay.style.display = 'flex';
-            logo.style.animation = 'none';
-            text.style.animation = 'none';
-            logo.style.opacity = '0';
-            logo.style.transform = 'translateY(100vh)';
-            text.style.opacity = '0';
-            text.style.transform = 'translateX(60px)';
-            void overlay.offsetWidth;
-            logo.style.animation = 'loader-logo-rise 0.7s cubic-bezier(0.22,1,0.36,1) forwards';
-            logo.addEventListener('animationend', function handler1() {
-                logo.removeEventListener('animationend', handler1);
-                logo.style.animation = 'loader-logo-shift 0.5s cubic-bezier(0.22,1,0.36,1) forwards';
-                text.style.opacity = '1';
-                text.style.animation = 'loader-text-enter 0.5s cubic-bezier(0.22,1,0.36,1) forwards';
-            }, { once: true });
+            if (text) {
+                text.style.animation = 'none';
+                text.style.opacity = '0';
+                text.style.transform = 'translateX(120px)';
+                void overlay.offsetWidth;
+                text.style.animation = 'loader-text-slide-in 0.6s cubic-bezier(0.22,1,0.36,1) forwards';
+            }
         };
         window.hideAppLoader = function() {
             var overlay = document.getElementById('app-loader-overlay');
@@ -2475,6 +2407,16 @@
                 overlay.style.display = 'none';
                 overlay.classList.remove('fade-out');
             }, 450);
+        };
+        // Navegar a una URL mostrando primero el loader animado
+        window.showAppLoaderAndNavigate = function(url) {
+            window.showAppLoader();
+            // Doble rAF garantiza que el navegador pinte el overlay antes de navegar
+            requestAnimationFrame(function() {
+                requestAnimationFrame(function() {
+                    window.location.href = url;
+                });
+            });
         };
     </script>
 </body>

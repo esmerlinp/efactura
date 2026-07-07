@@ -530,7 +530,41 @@ class AccountingService:
         return tree, accounts
 
     @classmethod
-    def get_account_balance(cls, owner_uid, account_id, date_from=None, date_to=None):
+    def _compute_balances_map(cls, entries, date_from=None, date_to=None):
+        """Calcula un mapa account_id → balance en una sola pasada sobre las entradas."""
+        balances = defaultdict(float)
+        for entry in entries:
+            if entry.get("status") == "voided":
+                continue
+            entry_date = str(entry.get("date", ""))[:10]
+            if date_from and entry_date < date_from:
+                continue
+            if date_to and entry_date > date_to:
+                continue
+            for line in entry.get("lines", []):
+                aid = line.get("accountId")
+                if aid:
+                    balances[aid] += float(line.get("debit", 0)) - float(line.get("credit", 0))
+        return dict(balances)
+
+    @classmethod
+    def get_account_balance(cls, owner_uid, account_id, date_from=None, date_to=None, entries=None):
+        if entries is not None:
+            # Usar entradas pre-cargadas: cálculo rápido sin consulta a BD
+            balance = 0.0
+            for entry in entries:
+                if entry.get("status") == "voided":
+                    continue
+                entry_date = str(entry.get("date", ""))[:10]
+                if date_from and entry_date < date_from:
+                    continue
+                if date_to and entry_date > date_to:
+                    continue
+                for line in entry.get("lines", []):
+                    if line.get("accountId") == account_id:
+                        balance += float(line.get("debit", 0)) - float(line.get("credit", 0))
+            return balance
+        # Fallback: sin entradas pre-cargadas, consultar BD
         entries = DatabaseService.get_accounting_entries(owner_uid)
         balance = 0.0
         for entry in entries:
@@ -547,9 +581,10 @@ class AccountingService:
         return balance
 
     @classmethod
-    def get_account_movements(cls, owner_uid, account_id, date_from=None, date_to=None):
+    def get_account_movements(cls, owner_uid, account_id, date_from=None, date_to=None, entries=None):
         movements = []
-        entries = DatabaseService.get_accounting_entries(owner_uid)
+        if entries is None:
+            entries = DatabaseService.get_accounting_entries(owner_uid)
         for entry in entries:
             if entry.get("status") == "voided":
                 continue
@@ -618,17 +653,19 @@ class AccountingService:
         return entry
 
     @classmethod
-    def get_balance_sheet(cls, owner_uid, date=None):
-        accounts = DatabaseService.get_chart_of_accounts(owner_uid)
-        if not accounts:
-            cls.seed_default_accounts(owner_uid)
+    def get_balance_sheet(cls, owner_uid, date=None, accounts=None, entries=None):
+        if accounts is None:
             accounts = DatabaseService.get_chart_of_accounts(owner_uid)
+            if not accounts:
+                cls.seed_default_accounts(owner_uid)
+                accounts = DatabaseService.get_chart_of_accounts(owner_uid)
+        balances = cls._compute_balances_map(entries or [], date_to=date)
         active_accounts = [a for a in accounts if a.get("group") in ("activos", "pasivos", "patrimonio")]
         result = {"activos": {"total": 0.0, "children": []}, "pasivos": {"total": 0.0, "children": []}, "patrimonio": {"total": 0.0, "children": []}}
         for acc in active_accounts:
             if acc.get("type") != "movimiento":
                 continue
-            balance = cls.get_account_balance(owner_uid, acc["id"], date_to=date)
+            balance = balances.get(acc["id"], 0.0)
             group = acc.get("group")
             if group in result:
                 result[group]["children"].append({
@@ -645,11 +682,13 @@ class AccountingService:
         return result
 
     @classmethod
-    def get_income_statement(cls, owner_uid, date_from=None, date_to=None):
-        accounts = DatabaseService.get_chart_of_accounts(owner_uid)
-        if not accounts:
-            cls.seed_default_accounts(owner_uid)
+    def get_income_statement(cls, owner_uid, date_from=None, date_to=None, accounts=None, entries=None):
+        if accounts is None:
             accounts = DatabaseService.get_chart_of_accounts(owner_uid)
+            if not accounts:
+                cls.seed_default_accounts(owner_uid)
+                accounts = DatabaseService.get_chart_of_accounts(owner_uid)
+        balances = cls._compute_balances_map(entries or [], date_from=date_from, date_to=date_to)
         result = {"ingresos": {"total": 0.0, "children": []}, "costos": {"total": 0.0, "children": []}, "gastos": {"total": 0.0, "children": []}}
         for acc in accounts:
             if acc.get("type") != "movimiento":
@@ -657,7 +696,7 @@ class AccountingService:
             group = acc.get("group")
             if group not in ("ingresos", "costos", "gastos"):
                 continue
-            balance = cls.get_account_balance(owner_uid, acc["id"], date_from=date_from, date_to=date_to)
+            balance = balances.get(acc["id"], 0.0)
             result[group]["children"].append({
                 "code": acc.get("code", ""),
                 "name": acc.get("name", ""),
@@ -674,18 +713,20 @@ class AccountingService:
         return result
 
     @classmethod
-    def get_trial_balance(cls, owner_uid, date=None):
-        accounts = DatabaseService.get_chart_of_accounts(owner_uid)
-        if not accounts:
-            cls.seed_default_accounts(owner_uid)
+    def get_trial_balance(cls, owner_uid, date=None, accounts=None, entries=None):
+        if accounts is None:
             accounts = DatabaseService.get_chart_of_accounts(owner_uid)
+            if not accounts:
+                cls.seed_default_accounts(owner_uid)
+                accounts = DatabaseService.get_chart_of_accounts(owner_uid)
+        balances = cls._compute_balances_map(entries or [], date_to=date)
         rows = []
         total_debit = 0.0
         total_credit = 0.0
         for acc in accounts:
             if acc.get("type") != "movimiento":
                 continue
-            balance = cls.get_account_balance(owner_uid, acc["id"], date_to=date)
+            balance = balances.get(acc["id"], 0.0)
             debit = balance if balance > 0 else 0.0
             credit = -balance if balance < 0 else 0.0
             if abs(balance) > 0.001:
