@@ -734,24 +734,23 @@ class PayrollService:
             fecha_nac = fecha_nac.ljust(8)[:8]
 
             # ── Salarios ──
-            gross_salary = pl.get("grossSalary", 0) or pl.get("baseSalary", 0) or 0
+            # Regla: todo se reporta en TSS. Salario_SS = total devengado.
+            # Solo son exentos: regalía (01), preaviso/cesantía (02), pensión alimenticia (03).
             total_income = pl.get("totalIncome", 0) or 0
             afp_cap = emp.get("afpSalaryCap", 0) or _AFP_SALARY_CAP
-            salario_ss = min(gross_salary, afp_cap)
+            salario_ss = min(total_income, afp_cap)
 
-            # Salario_SS (16, ceros izq con 2 decimales)
+            # Salario_SS (16, ceros izq con 2 decimales) — incluye TODO: base + extras + comisiones + bonos
             salario_ss_str = f"{salario_ss:016.2f}"[:16]
 
             # Aporte voluntario (16, ceros)
             aporte_vol = "0000000000000.00"
 
-            # Salario_ISR (16): solo si es diferente de Salario_SS
-            salario_isr = total_income
-            salario_isr_str = "0000000000000.00" if abs(salario_isr - salario_ss) < 0.01 else f"{salario_isr:016.2f}"[:16]
+            # Salario_ISR (16): en ceros, es igual a Salario_SS (todo tributa salvo exentos)
+            salario_isr_str = "0000000000000.00"
 
-            # Otras remuneraciones (16): comisiones + bonos + otros ingresos
-            otras_rem = (pl.get("commission", 0) or 0) + (pl.get("bonus", 0) or 0) + (pl.get("otherIncome", 0) or 0)
-            otras_rem_str = f"{otras_rem:016.2f}"[:16]
+            # Otras remuneraciones (16): 0, todo va dentro de Salario_SS
+            otras_rem_str = "0000000000000.00"
 
             # RNC agente retención (11, justificado derecha)
             agente_ret = "".rjust(11)
@@ -765,9 +764,8 @@ class PayrollService:
             # Saldo a favor (16, ceros)
             saldo_favor = "0000000000000.00"
 
-            # Salario INFOTEP (16): solo si es diferente de Salario_SS
-            salario_infotep = total_income
-            salario_infotep_str = "0000000000000.00" if abs(salario_infotep - salario_ss) < 0.01 else f"{salario_infotep:016.2f}"[:16]
+            # Salario INFOTEP (16): en ceros, es igual a Salario_SS
+            salario_infotep_str = "0000000000000.00"
 
             # Tipo ingreso (4): default 0001 (Normal)
             tipo_ingreso = "0001"

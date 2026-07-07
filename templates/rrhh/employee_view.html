@@ -106,6 +106,9 @@
                     <a href="{{ url_for('web_rrhh.employee_liquidaciones_list', employee_id=employee.id) }}" class="btn btn-secondary" style="font-size:0.85rem;">
                         <i class="fa-solid fa-list-check"></i> Ver historial
                     </a>
+                    <a href="{{ url_for('web_rrhh.attendance') }}?employee={{ employee.id }}" class="btn btn-secondary" style="font-size:0.85rem;">
+                        <i class="fa-solid fa-clock"></i> Detalle de ausencias
+                    </a>
                 </div>
             </div>
         </div>

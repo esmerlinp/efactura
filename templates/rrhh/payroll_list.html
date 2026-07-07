@@ -38,7 +38,7 @@
         <tbody>
             {% for p in periods %}
             <tr>
-                <td><strong>{{ p.get('periodRange') or p.periodKey }}</strong></td>
+                <td><strong><a href="{{ url_for('web_rrhh.payroll_view', period_id=p.id) }}" style="color:var(--text-primary); text-decoration:none;">{{ p.get('periodRange') or p.periodKey }}</a></strong></td>
                 <td><span class="badge badge-info">{{ p.get('periodType', 'mensual') }}</span></td>
                 <td>{{ p.lines|length }}</td>
                 <td>{{ "RD$ {:,.2f}".format(p.totalGross|float) }}</td>

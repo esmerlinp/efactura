@@ -134,7 +134,7 @@
             {% for emp in employees %}
             <tr>
                 <td><input type="checkbox" class="emp-cb" value="{{ emp.id }}" onchange="updateBulk()"></td>
-                <td><strong>{{ emp.fullName }}</strong></td>
+                <td><strong><a href="{{ url_for('web_rrhh.employee_view', employee_id=emp.id) }}" style="color:var(--text-primary); text-decoration:none;">{{ emp.fullName }}</a></strong></td>
                 <td>{{ emp.cedula or emp.idNumber }}</td>
                 <td>{{ emp.position }}</td>
                 <td>{{ emp.area or emp.department }}</td>

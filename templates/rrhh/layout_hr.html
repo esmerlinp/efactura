@@ -113,10 +113,6 @@
                             data-tooltip="Historial">
                             <a href="{{ url_for('web_rrhh.payroll_list') }}"><span>Historial de nóminas</span></a>
                         </li>
-                        <li class="nav-item {% if active_page == 'rrhh_payroll' %}active{% endif %}"
-                            data-tooltip="Liquidaciones">
-                            <a href="{{ url_for('web_rrhh.employee_list') }}"><span>Liquidaciones laborales</span></a>
-                        </li>
                     </ul>
                 </div>
 
@@ -197,7 +193,8 @@
                 </div>
                 {% endif %}
 
-                <!-- ── Perfil empleado (portal) ── -->
+                {# ── Perfil empleado (portal) — DESACTIVADO pendiente de implementar ── #}
+                {#
                 <div class="sidebar-section {% if active_page == 'rrhh_portal' %}active-parent{% endif %}">
                     <a href="{{ url_for('web_rrhh.employee_portal_dashboard') }}" class="sidebar-section-header" style="text-decoration: none;">
                         <div class="header-left">
@@ -206,6 +203,7 @@
                         </div>
                     </a>
                 </div>
+                #}
 
                 <!-- Collapse init -->
                 <script>

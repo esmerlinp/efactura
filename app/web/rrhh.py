@@ -1147,11 +1147,13 @@ def team_calendar():
     for v in vacations:
         if v.get("status") == "aprobada":
             events.append({"type": "vacation", "employeeName": v.get("employeeName", ""),
+                          "employeeId": v.get("employeeId", ""),
                           "start": v.get("startDate", ""), "end": v.get("endDate", ""),
                           "days": v.get("days", 0)})
     for l in leaves:
         if l.get("status") == "aprobada":
             events.append({"type": "leave", "employeeName": l.get("employeeName", ""),
+                          "employeeId": l.get("employeeId", ""),
                           "start": l.get("startDate", ""), "end": l.get("endDate", ""),
                           "days": l.get("days", 0), "leaveType": l.get("leaveType", "")})
 

@@ -31,7 +31,7 @@
         <tbody>
             {% for t in trainings %}
             <tr>
-                <td><strong>{{ t.employeeName }}</strong></td>
+                <td><strong><a href="{{ url_for('web_rrhh.employee_view', employee_id=t.employeeId) }}" style="color:var(--text-primary); text-decoration:none;">{{ t.employeeName }}</a></strong></td>
                 <td>{{ t.trainingName }}</td>
                 <td>{{ t.institution }}</td>
                 <td>{{ t.date }}</td>
