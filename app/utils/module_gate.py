@@ -22,6 +22,7 @@ MODULE_DEFS = [
     {"key": "price_lists", "label": "Listas de Precios", "category": "ventas"},
     {"key": "banks", "label": "Bancos & Conciliación", "category": "finanzas"},
     {"key": "contabilidad", "label": "Contabilidad & Catálogo de Cuentas", "category": "finanzas"},
+    {"key": "nomina", "label": "Nómina y Recursos Humanos", "category": "rrhh"},
 ]
 
 def get_enabled_modules():
@@ -40,6 +41,10 @@ def module_enabled(module_key):
     if module_key == 'contabilidad' and module_key not in modules:
         user = session.get('user', {})
         if user.get('role') == 'owner' or user.get('permissions', {}).get('canAccounting', False):
+            return True
+    if module_key == 'nomina' and module_key not in modules:
+        user = session.get('user', {})
+        if user.get('role') == 'owner' or user.get('permissions', {}).get('canHR', False):
             return True
     if modules:
         return False
