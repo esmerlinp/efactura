@@ -1,9 +1,40 @@
 # app/utils/decorators.py
-from flask import session, render_template
+from flask import session, render_template, flash
 from app.utils.module_gate import module_enabled
 
+# ═════════════════════════════════════════════════════════════════════
+# MATRIZ DE SEGREGACIÓN DE FUNCIONES (SoD)
+# Define conflictos de interés que aplican incluso al rol owner.
+# Formato: permission_name -> {conflicts: [permisos en conflicto]}
+# Cuando un usuario owner ya ha ejercido un permiso, los permisos
+# en conflicto se bloquean a menos que otro miembro los ejecute.
+# ═════════════════════════════════════════════════════════════════════
+
+SOD_CONFLICT_MATRIX = {
+    # Crear proveedor vs aprobar pago
+    "canCreateSupplier": {"conflicts": ["canApprovePayments"], "label": "crear proveedores"},
+    "canApprovePayments": {"conflicts": ["canCreateSupplier"], "label": "aprobar pagos"},
+    # Emitir factura vs anular factura
+    "canInvoice": {"conflicts": ["canVoidInvoice"], "label": "emitir facturas"},
+    "canVoidInvoice": {"conflicts": ["canInvoice"], "label": "anular facturas"},
+    # Registrar nómina vs autorizar pago de nómina
+    "canHR": {"conflicts": ["canApprovePayroll"], "label": "gestionar nómina"},
+    "canApprovePayroll": {"conflicts": ["canHR"], "label": "autorizar pagos de nómina"},
+    # Registrar gasto vs aprobar gasto
+    "canExpenses": {"conflicts": ["canApproveExpenses"], "label": "registrar gastos"},
+    "canApproveExpenses": {"conflicts": ["canExpenses"], "label": "aprobar gastos"},
+    # Modificar configuración vs auditar
+    "canModifySettings": {"conflicts": ["canViewAuditLog"], "label": "modificar configuración"},
+    "canViewAuditLog": {"conflicts": ["canModifySettings"], "label": "ver pistas de auditoría"},
+}
+
+
 def check_permission(permission_name):
-    """Retorna True si el usuario tiene el rol de propietario o cuenta con el permiso granular solicitado."""
+    """
+    Retorna True si el usuario tiene el permiso granular solicitado.
+    Para el rol owner, aplica matriz SoD: si ya tiene un permiso en conflicto,
+    se deniega (a menos que se haya delegado explícitamente a otro miembro).
+    """
     if 'user' not in session:
         return False
     if permission_name == 'canManagePOS' and not session.get('company_profile_pos_enabled', True):
@@ -12,6 +43,14 @@ def check_permission(permission_name):
         return False
     user = session['user']
     if user.get('role') == 'owner':
+        # Aplicar matriz SoD para owner
+        if permission_name in SOD_CONFLICT_MATRIX:
+            sod_entry = SOD_CONFLICT_MATRIX[permission_name]
+            user_perms = user.get('permissions', {})
+            for conflict_perm in sod_entry["conflicts"]:
+                # Si el owner ya ejerce el permiso en conflicto, se bloquea
+                if user_perms.get(conflict_perm, True):
+                    return False
         return True
     default_val = False if permission_name in ('isPosSupervisor', 'canSupervisePOS', 'canUseChatbot') else True
     return user.get('permissions', {}).get(permission_name, default_val)

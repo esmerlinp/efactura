@@ -1209,7 +1209,16 @@ def _new_document_helper(invoice_id=None, is_quotation=False):
             if record and record.get("invoiceId"):
                 return redirect(url_for('web_invoices.invoice_detail', invoice_id=record["invoiceId"]))
 
-        # 0. Validar régimen fiscal
+        # 0. Validar período fiscal abierto (bloquea modificaciones en períodos cerrados)
+        from app.services.fiscal_period_service import FiscalPeriodService
+        invoice_date = request.form.get('date') or datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        try:
+            FiscalPeriodService.validate_period_open(owner_uid, invoice_date)
+        except ValueError as e:
+            flash(str(e), 'error')
+            return redirect(request.path)
+
+        # 1. Validar régimen fiscal
         profile = DatabaseService.get_company_profile(owner_uid)
         regimen = DGIIService.normalize_regimen(profile.get("regimenFiscal", "ordinary")) if profile else "ordinary"
         regimen_rules = DGIIService.get_regimen_rules(regimen)

@@ -657,6 +657,9 @@ def create_app():
     from app.web.suppliers import web_suppliers_bp
     from app.web.purchase_orders import web_purchase_orders_bp
     from app.web.reports_606 import web_reports_606_bp
+    from app.web.reports_607 import web_reports_607_bp
+    from app.web.reports_608 import web_reports_608_bp
+    from app.web.reports_623 import web_reports_623_bp
     from app.web.fiscal_notes import web_fiscal_notes_bp
     from app.web.notifications import web_notifications_bp
     from app.web.vykcore import web_vykcore_bp
@@ -686,6 +689,9 @@ def create_app():
     app.register_blueprint(web_suppliers_bp)
     app.register_blueprint(web_purchase_orders_bp)
     app.register_blueprint(web_reports_606_bp)
+    app.register_blueprint(web_reports_607_bp)
+    app.register_blueprint(web_reports_608_bp)
+    app.register_blueprint(web_reports_623_bp)
     app.register_blueprint(web_fiscal_notes_bp)
     app.register_blueprint(web_vykcore_bp)
     app.register_blueprint(web_notifications_bp)

@@ -922,21 +922,118 @@ class AccountingService:
         lines.extend(extra_tax_lines)
         cogs_lines = cls._build_cogs_lines(invoice, accounts)
         lines.extend(cogs_lines)
-        try:
-            entry = cls.generate_entry(owner_uid, {
-                "entryType": "invoice",
-                "date": str(invoice.get("date", ""))[:10],
-                "concept": f"Factura de venta {invoice.get('invoiceNumber', '')} - {invoice.get('clientName', '')}",
-                "referenceType": "invoice",
-                "referenceId": invoice.get("id", ""),
-                "referenceNumber": invoice.get("invoiceNumber", ""),
-                "lines": lines,
-                "createdBy": "system",
-                "prefix": "A",
-            }, sandbox=sandbox)
-            return entry
-        except ValueError:
+
+    @classmethod
+    def _build_inventory_adjustment_lines(cls, operation_type, items, accounts, reference_id=""):
+        """
+        Genera líneas contables para operaciones de inventario:
+        - ajuste (+/-): ajusta inventario contra cuenta de ajustes
+        - transferencia: mueve entre almacenes (sin efecto en resultados)
+        - merma: descarga inventario contra cuenta de mermas/pérdidas
+        """
+        inv_acc = _find_account_by_usage(accounts, "inventario")
+        if not inv_acc:
+            return []
+        lines = []
+        if operation_type == "ajuste":
+            ajuste_acc = _find_account_by_usage(accounts, "ajuste_inventario")
+            if not ajuste_acc:
+                ajuste_acc = _find_account_by_usage(accounts, "costo_ventas")
+            if not ajuste_acc:
+                return []
+            for it in items:
+                qty_diff = float(it.get("qtyDiff", it.get("quantity", 0)))
+                cost_price = float(it.get("costPrice", 0))
+                if abs(qty_diff) < 0.001 or cost_price <= 0:
+                    continue
+                total = round(abs(qty_diff) * cost_price, 2)
+                name = it.get("name", "Item")
+                if qty_diff > 0:
+                    # Entrada: débito inventario, crédito ajustes
+                    lines.append({
+                        "accountId": inv_acc["id"], "accountCode": inv_acc.get("code", ""),
+                        "accountName": inv_acc.get("name", ""), "debit": total, "credit": 0.00,
+                        "description": f"Ajuste (+): {name}"
+                    })
+                    lines.append({
+                        "accountId": ajuste_acc["id"], "accountCode": ajuste_acc.get("code", ""),
+                        "accountName": ajuste_acc.get("name", ""), "debit": 0.00, "credit": total,
+                        "description": f"Ajuste inventario (+): {name}"
+                    })
+                else:
+                    # Salida: débito ajustes, crédito inventario
+                    lines.append({
+                        "accountId": ajuste_acc["id"], "accountCode": ajuste_acc.get("code", ""),
+                        "accountName": ajuste_acc.get("name", ""), "debit": total, "credit": 0.00,
+                        "description": f"Ajuste (-): {name}"
+                    })
+                    lines.append({
+                        "accountId": inv_acc["id"], "accountCode": inv_acc.get("code", ""),
+                        "accountName": inv_acc.get("name", ""), "debit": 0.00, "credit": total,
+                        "description": f"Ajuste inventario (-): {name}"
+                    })
+        elif operation_type == "merma":
+            merma_acc = _find_account_by_usage(accounts, "merma_perdida")
+            if not merma_acc:
+                merma_acc = _find_account_by_usage(accounts, "costo_ventas")
+            if not merma_acc:
+                return []
+            for it in items:
+                qty = abs(float(it.get("quantity", 0)))
+                cost_price = float(it.get("costPrice", 0))
+                if qty < 0.001 or cost_price <= 0:
+                    continue
+                total = round(qty * cost_price, 2)
+                name = it.get("name", "Item")
+                lines.append({
+                    "accountId": merma_acc["id"], "accountCode": merma_acc.get("code", ""),
+                    "accountName": merma_acc.get("name", ""), "debit": total, "credit": 0.00,
+                    "description": f"Merma: {name}"
+                })
+                lines.append({
+                    "accountId": inv_acc["id"], "accountCode": inv_acc.get("code", ""),
+                    "accountName": inv_acc.get("name", ""), "debit": 0.00, "credit": total,
+                    "description": f"Descargo por merma: {name}"
+                })
+        return lines
+
+    @classmethod
+    def auto_generate_inventory_entry(cls, owner_uid, operation_type, items, reference_id="", performed_by="", sandbox=True):
+        """
+        Genera asiento contable para operaciones de inventario (ajustes, mermas, transferencias).
+        operation_type: 'ajuste', 'merma', 'transferencia'
+        """
+        if _accounting_entry_exists(owner_uid, "inventory", reference_id):
             return None
+        accounts = DatabaseService.get_chart_of_accounts(owner_uid)
+        if not accounts:
+            cls.seed_default_accounts(owner_uid)
+            accounts = DatabaseService.get_chart_of_accounts(owner_uid)
+        lines = cls._build_inventory_adjustment_lines(operation_type, items, accounts, reference_id)
+        if not lines:
+            return None
+        total_debit = round(sum(l["debit"] for l in lines), 2)
+        total_credit = round(sum(l["credit"] for l in lines), 2)
+        if abs(total_debit - total_credit) > 0.01:
+            return None
+        entry_id = str(uuid.uuid4())
+        entry = {
+            "id": entry_id,
+            "entryType": "inventory",
+            "referenceId": reference_id,
+            "date": datetime.now(timezone.utc).isoformat(),
+            "description": f"{'Ajuste' if operation_type == 'ajuste' else 'Merma' if operation_type == 'merma' else 'Transferencia'} de inventario",
+            "lines": lines,
+            "totalDebit": total_debit,
+            "totalCredit": total_credit,
+            "status": "open",
+            "createdBy": performed_by or "system",
+            "createdAt": datetime.now(timezone.utc).isoformat(),
+        }
+        DatabaseService.save_accounting_entry(owner_uid, entry_id, entry, sandbox=sandbox)
+        from app.services.ledger_audit_service import LedgerAuditService
+        LedgerAuditService.log_entry_created(entry, owner_uid, performed_by=performed_by or "system")
+        return entry
 
     @classmethod
     def auto_reverse_invoice_entry(cls, owner_uid, invoice, reason="", user_id="", sandbox=True):
