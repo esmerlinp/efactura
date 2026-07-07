@@ -3616,10 +3616,16 @@ class DatabaseService:
                             "id": doc.id,
                             "title": data.get("title", "Nota sin título"),
                             "content": data.get("content", ""),
-                            "color": data.get("color", "default"),
                             "visibility": visibility,
                             "createdBy": created_by,
-                            "status": data.get("status", "abierta"),
+                            "status": data.get("status", "pending"),
+                            "priority": data.get("priority", "media"),
+                            "dueDate": serialize_field(data.get("dueDate")),
+                            "assignedTo": data.get("assignedTo", ""),
+                            "entityType": data.get("entityType", ""),
+                            "entityId": data.get("entityId", ""),
+                            "entityLabel": data.get("entityLabel", ""),
+                            "completedAt": serialize_field(data.get("completedAt")),
                             "createdAt": serialize_field(data.get("createdAt")),
                             "updatedAt": serialize_field(data.get("updatedAt"))
                         })
@@ -3641,7 +3647,14 @@ class DatabaseService:
         note_dict["createdAt"] = serialize_field(note_dict["createdAt"])
         note_dict["updatedAt"] = serialize_field(note_dict["updatedAt"])
         note_dict["visibility"] = note_dict.get("visibility", "shared")
-        note_dict["status"] = note_dict.get("status", "abierta")
+        note_dict["status"] = note_dict.get("status", "pending")
+        note_dict["priority"] = note_dict.get("priority", "media")
+        note_dict["dueDate"] = serialize_field(note_dict.get("dueDate"))
+        note_dict["assignedTo"] = note_dict.get("assignedTo", "")
+        note_dict["entityType"] = note_dict.get("entityType", "")
+        note_dict["entityId"] = note_dict.get("entityId", "")
+        note_dict["entityLabel"] = note_dict.get("entityLabel", "")
+        note_dict["completedAt"] = serialize_field(note_dict.get("completedAt"))
 
         if firebase_initialized:
             try:
@@ -3654,13 +3667,39 @@ class DatabaseService:
 
     @classmethod
     def update_note_status(cls, owner_uid, note_id, status, sandbox=True):
-        """Actualiza solo el estado de una nota en Firestore."""
+        """Actualiza solo el estado de una nota. Si es 'done', registra completedAt."""
         if firebase_initialized:
             try:
                 coll_name = "sandbox_notes" if sandbox else "notes"
-                db_firestore.collection("users").document(owner_uid).collection(coll_name).document(note_id).update({"status": status})
+                update_data = {"status": status}
+                if status == "done":
+                    update_data["completedAt"] = serialize_field(datetime.now(timezone.utc).isoformat())
+                else:
+                    update_data["completedAt"] = None
+                db_firestore.collection("users").document(owner_uid).collection(coll_name).document(note_id).update(update_data)
             except Exception as e:
                 print(f"⚠️ Fallo al actualizar estado de nota en Firestore: {e}")
+
+    @classmethod
+    def update_note(cls, owner_uid, note_id, update_dict, sandbox=True):
+        """Actualiza campos específicos de una nota."""
+        if firebase_initialized:
+            try:
+                clean = {}
+                allowed = {"title", "content", "priority", "dueDate", "assignedTo",
+                           "entityType", "entityId", "entityLabel", "visibility", "status"}
+                for k, v in update_dict.items():
+                    if k in allowed:
+                        if k in ("dueDate",):
+                            clean[k] = serialize_field(v)
+                        else:
+                            clean[k] = v
+                clean["updatedAt"] = serialize_field(datetime.now(timezone.utc).isoformat())
+                if clean:
+                    coll_name = "sandbox_notes" if sandbox else "notes"
+                    db_firestore.collection("users").document(owner_uid).collection(coll_name).document(note_id).update(clean)
+            except Exception as e:
+                print(f"⚠️ Fallo al actualizar nota en Firestore: {e}")
 
     @classmethod
     def delete_note(cls, owner_uid, note_id, sandbox=True):
@@ -3671,44 +3710,6 @@ class DatabaseService:
                 db_firestore.collection("users").document(owner_uid).collection(coll_name).document(note_id).delete()
             except Exception as e:
                 print(f"⚠️ Fallo al borrar nota de Firestore: {e}")
-
-    @classmethod
-    def get_note_statuses(cls, owner_uid, sandbox=True):
-        """Retorna las columnas/estados configurados para el tablero de notas."""
-        default_statuses = [
-            {"id": "abierta", "name": "Abierta", "color": "var(--accent-purple)", "order": 1},
-            {"id": "in_progress", "name": "En Proceso", "color": "var(--accent-blue)", "order": 2},
-            {"id": "done", "name": "Cerrado", "color": "var(--text-muted)", "order": 3}
-        ]
-        if not firebase_initialized:
-            return default_statuses
-        try:
-            coll_name = "sandbox_settings" if sandbox else "settings"
-            doc_ref = db_firestore.collection("users").document(owner_uid).collection(coll_name).document("note_board")
-            doc = doc_ref.get()
-            if doc.exists:
-                data = doc.to_dict()
-                if "statuses" in data and isinstance(data["statuses"], list):
-                    return data["statuses"]
-            
-            # Save and return defaults if not exists
-            doc_ref.set({"statuses": default_statuses})
-            return default_statuses
-        except Exception as e:
-            print(f"⚠️ Error get_note_statuses: {e}")
-            return default_statuses
-
-    @classmethod
-    def save_note_statuses(cls, owner_uid, statuses, sandbox=True):
-        """Guarda la lista de columnas/estados para las notas."""
-        if not firebase_initialized:
-            return
-        try:
-            coll_name = "sandbox_settings" if sandbox else "settings"
-            doc_ref = db_firestore.collection("users").document(owner_uid).collection(coll_name).document("note_board")
-            doc_ref.set({"statuses": statuses}, merge=True)
-        except Exception as e:
-            print(f"⚠️ Error save_note_statuses: {e}")
 
     # =========================================================================
     # GESTIÓN DE CAJA Y TURNOS POS

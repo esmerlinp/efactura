@@ -14,9 +14,9 @@
     .breadcrumb .sep { color: #cbd5e1; }
 </style>
 <div class="breadcrumb">
-    <span>Reportes</span>
+    <a href="{{ url_for('web_invoices.reports_dashboard') }}">Reportes</a>
     <span class="sep">/</span>
-    <span>Fiscales</span>
+    <a href="{{ url_for('web_invoices.reports_category', category_key='fiscales') }}">Fiscales</a>
     <span class="sep">/</span>
     <span>Reporte 607</span>
 </div>
@@ -79,6 +79,15 @@
                     <option value="">Todos</option>
                     {% for k, v in ecf_labels.items() %}
                     <option value="{{ k }}" {% if ecf_type == k %}selected{% endif %}>{{ k }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group" style="margin-bottom:0;">
+                <label style="font-size:0.72rem; color:var(--text-secondary);">Tipo Ingreso</label>
+                <select name="income_type" class="form-select" style="width:100%; font-size:0.78rem; height:36px;">
+                    <option value="">Todos</option>
+                    {% for k, v in income_labels.items() %}
+                    <option value="{{ k }}" {% if income_type == k %}selected{% endif %}>{{ k }} — {{ v }}</option>
                     {% endfor %}
                 </select>
             </div>
@@ -197,4 +206,30 @@
     </div>
 </div>
 {% endif %}
+
+<script>
+document.querySelectorAll('.dropdown button').forEach(btn => {
+    btn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        const menu = this.nextElementSibling;
+        menu.classList.toggle('show');
+        menu.style.display = menu.classList.contains('show') ? 'block' : 'none';
+    });
+});
+document.addEventListener('click', function() {
+    document.querySelectorAll('.dropdown [style*="display: block"]').forEach(el => {
+        el.style.display = 'none';
+        el.classList.remove('show');
+    });
+});
+</script>
+
+<style>
+.badge-ecf {
+    display:inline-block; padding:2px 6px; border-radius:4px;
+    font-size:0.7rem; font-weight:600; font-family:monospace;
+    background:rgba(59,130,246,0.1); color:#3b82f6;
+}
+.mono { font-family:monospace; font-size:0.82rem; }
+</style>
 {% endblock %}

@@ -980,7 +980,7 @@
                 {% if session.get('user', {}).get('role') == 'owner' or session.get('user',
                 {}).get('permissions', {}).get('canInvoice', True) or session.get('user',
                 {}).get('permissions', {}).get('canExpenses', True) %}
-                <div class="sidebar-section {% if active_page in ('reports', 'ventas_generales', 'ventas_por_producto', 'ventas_por_cliente', 'ventas_rentabilidad', 'ventas_por_vendedor', 'ventas_estado_cuenta', 'admin_ingresos_compras', 'admin_reporte_anual', 'reporte_606', 'dashboard_606', 'accounting_export', 'budgets', 'bi_drilldown') %}active-parent{% endif %}" id="sidebar-section-reports">
+                <div class="sidebar-section {% if active_page in ('reports', 'ventas_generales', 'ventas_por_producto', 'ventas_por_cliente', 'ventas_rentabilidad', 'ventas_por_vendedor', 'ventas_estado_cuenta', 'admin_ingresos_compras', 'admin_reporte_anual', 'reporte_606', 'dashboard_606', 'accounting_export', 'budgets', 'bi_drilldown', 'monthly_taxes', 'tax_reconciliation') %}active-parent{% endif %}" id="sidebar-section-reports">
                     <a href="{{ url_for('web_invoices.reports_dashboard') }}" class="sidebar-section-header" style="text-decoration: none;">
                         <div class="header-left">
                             <i class="fa-regular fa-chart-pie section-icon"></i>

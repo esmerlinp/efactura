@@ -1,0 +1,223 @@
+{% extends "layout.html" %}
+{% block title %}Exportar Respaldo{% endblock %}
+
+{% block content %}
+<style>
+    .backup-container { max-width: 720px; margin: 0 auto; }
+
+    .breadcrumb {
+        display: flex; align-items: center; gap: 6px;
+        font-size: 0.8rem; color: var(--text-muted); margin-bottom: 16px;
+    }
+    .breadcrumb a { color: var(--text-muted); text-decoration: none; font-weight: 500; }
+    .breadcrumb a:hover { color: var(--accent-emerald); }
+    .breadcrumb .sep { color: #cbd5e1; }
+
+    .page-title-container { margin-bottom: 24px; padding-left: 4px; }
+    .page-title-container h1 {
+        font-size: 1.75rem; font-weight: 800; font-family: var(--font-heading);
+        color: var(--text-primary); margin: 0;
+    }
+    .page-title-container p {
+        color: var(--text-secondary); font-size: 0.88rem; margin: 6px 0 0 2px;
+    }
+
+    .backup-info-card {
+        background: rgba(59,130,246,0.06);
+        border: 1px solid rgba(59,130,246,0.18);
+        border-radius: 10px;
+        padding: 16px 20px;
+        margin-bottom: 24px;
+        display: flex; gap: 12px; align-items: flex-start;
+        font-size: 0.82rem; color: var(--text-secondary);
+    }
+    .backup-info-card i { color: #3b82f6; font-size: 1.1rem; margin-top: 2px; flex-shrink: 0; }
+
+    .module-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        margin-bottom: 20px;
+    }
+    @media (max-width: 600px) {
+        .module-grid { grid-template-columns: 1fr; }
+    }
+
+    .module-card {
+        background: var(--bg-card);
+        border: 2px solid var(--border-color);
+        border-radius: 10px;
+        padding: 14px 16px;
+        cursor: pointer;
+        transition: border-color 0.15s, background 0.15s;
+        display: flex; align-items: flex-start; gap: 12px;
+        user-select: none;
+    }
+    .module-card:hover { border-color: var(--accent-emerald); }
+    .module-card.selected {
+        border-color: var(--accent-emerald);
+        background: rgba(16,185,129,0.04);
+    }
+
+    .module-card input[type="checkbox"] {
+        display: none;
+    }
+
+    .module-card .card-icon {
+        width: 36px; height: 36px; border-radius: 8px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 0.95rem; flex-shrink: 0;
+    }
+    .card-icon.blue { background: rgba(59,130,246,0.12); color: #3b82f6; }
+    .card-icon.green { background: rgba(16,185,129,0.12); color: var(--accent-emerald); }
+    .card-icon.purple { background: rgba(139,92,246,0.12); color: #8b5cf6; }
+    .card-icon.amber { background: rgba(245,158,11,0.12); color: #f59e0b; }
+    .card-icon.red { background: rgba(239,68,68,0.12); color: #ef4444; }
+    .card-icon.cyan { background: rgba(6,182,212,0.12); color: #06b6d4; }
+
+    .module-card .card-body { flex: 1; min-width: 0; }
+    .module-card .card-title {
+        font-weight: 600; font-size: 0.85rem; color: var(--text-primary);
+        margin-bottom: 2px;
+    }
+    .module-card .card-count {
+        font-size: 0.72rem; color: var(--text-muted);
+    }
+
+    .format-section {
+        display: flex; align-items: center; gap: 12px;
+        padding: 14px 18px;
+        background: var(--bg-card);
+        border: 1px solid var(--border-color);
+        border-radius: 10px;
+        margin-bottom: 24px;
+    }
+    .format-section label {
+        font-weight: 600; font-size: 0.82rem; color: var(--text-secondary);
+        white-space: nowrap;
+    }
+    .format-section select {
+        flex: 1; max-width: 220px;
+        padding: 8px 12px; border: 1px solid var(--border-color);
+        border-radius: 8px; background: var(--bg-card);
+        color: var(--text-primary); font-size: 0.82rem;
+    }
+
+    .action-bar {
+        display: flex; gap: 12px; justify-content: center;
+        padding-top: 8px; flex-wrap: wrap;
+    }
+    .action-bar .btn { min-width: 180px; justify-content: center; }
+
+    .select-all-row {
+        display: flex; gap: 10px; margin-bottom: 12px;
+    }
+    .select-all-row .btn-sm {
+        font-size: 0.75rem; padding: 5px 14px;
+        border-radius: 6px; border: 1px solid var(--border-color);
+        background: var(--bg-card); color: var(--text-secondary);
+        cursor: pointer; transition: all 0.15s;
+    }
+    .select-all-row .btn-sm:hover {
+        border-color: var(--accent-emerald); color: var(--accent-emerald);
+    }
+</style>
+
+<div class="backup-container">
+
+    <div class="breadcrumb">
+        <a href="{{ url_for('web_invoices.reports_dashboard') }}">Reportes</a>
+        <span class="sep">/</span>
+        <a href="{{ url_for('web_invoices.reports_category', category_key='para_trabajar') }}">Para trabajar</a>
+        <span class="sep">/</span>
+        <span>Exportar respaldo</span>
+    </div>
+
+    <div class="page-title-container">
+        <h1>
+            <i class="fa-solid fa-cloud-arrow-down" style="color: #3b82f6; margin-right: 10px;"></i>
+            Exportar Respaldo
+        </h1>
+        <p>Descarga una copia completa de los datos de tu empresa para tener un respaldo local o migrar a otro sistema.</p>
+    </div>
+
+    <div class="backup-info-card">
+        <i class="fa-solid fa-circle-info"></i>
+        <div>
+            <strong>Recomendación:</strong> Exporta un respaldo periódicamente para proteger tu información.
+            Puedes elegir exportar todos los módulos o solo los que necesites.
+            {% if sandbox %}
+            <br><span style="color: #f59e0b; font-weight: 600;">Modo Sandbox activo</span> — los datos exportados son de prueba.
+            {% endif %}
+        </div>
+    </div>
+
+    <form method="POST" action="{{ url_for('web_invoices.backup_export') }}" id="backupForm">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+        <div class="select-all-row">
+            <button type="button" class="btn-sm" onclick="toggleAll(true)">Seleccionar todo</button>
+            <button type="button" class="btn-sm" onclick="toggleAll(false)">Deseleccionar todo</button>
+        </div>
+
+        <div class="module-grid">
+            {% for mod in modules %}
+            <label class="module-card {% if mod.default_selected %}selected{% endif %}" id="card-{{ mod.key }}">
+                <input type="checkbox" name="modules" value="{{ mod.key }}" {% if mod.default_selected %}checked{% endif %}
+                       onchange="toggleCard('{{ mod.key }}', this.checked)">
+                <div class="card-icon {{ mod.color }}">
+                    <i class="fa-solid {{ mod.icon }}"></i>
+                </div>
+                <div class="card-body">
+                    <div class="card-title">{{ mod.title }}</div>
+                    <div class="card-count">{{ mod.count }} registro{% if mod.count != 1 %}s{% endif %}</div>
+                </div>
+            </label>
+            {% endfor %}
+        </div>
+
+        <div class="format-section">
+            <label for="exportFormat"><i class="fa-solid fa-file-export"></i> Formato:</label>
+            <select name="format" id="exportFormat" class="form-select">
+                <option value="json">JSON — Respaldo completo unificado</option>
+                <option value="csv">CSV — Archivos individuales (ZIP)</option>
+            </select>
+        </div>
+
+        <div class="action-bar">
+            <button type="submit" class="btn btn-primary" onclick="return validateSelection()">
+                <i class="fa-solid fa-download"></i> Descargar Respaldo
+            </button>
+        </div>
+    </form>
+
+</div>
+
+<script>
+    function toggleCard(key, checked) {
+        var card = document.getElementById('card-' + key);
+        if (checked) {
+            card.classList.add('selected');
+        } else {
+            card.classList.remove('selected');
+        }
+    }
+
+    function toggleAll(select) {
+        var checkboxes = document.querySelectorAll('input[name="modules"]');
+        checkboxes.forEach(function(cb) {
+            cb.checked = select;
+            toggleCard(cb.value, select);
+        });
+    }
+
+    function validateSelection() {
+        var checked = document.querySelectorAll('input[name="modules"]:checked');
+        if (checked.length === 0) {
+            alert('Selecciona al menos un módulo para exportar.');
+            return false;
+        }
+        return true;
+    }
+</script>
+{% endblock %}

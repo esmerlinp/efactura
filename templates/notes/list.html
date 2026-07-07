@@ -1,506 +1,348 @@
 {% extends "layout.html" %}
 
-{% block title %}Tablero Kanban de Notas{% endblock %}
-
-{% block page_header %}Gestor de Tareas y Notas{% endblock %}
+{% block title %}Gestor de Tareas{% endblock %}
 
 {% block content %}
-<div class="page-title-container" style="margin-bottom: 24px; padding-left: 4px;">
-    <h1 class="page-title"
-        style="font-size: 1.75rem; font-weight: 800; font-family: var(--font-heading); color: var(--text-primary); margin: 0;">
-        Gestor de Tareas y Notas
-    </h1>
-</div>
-
 <style>
-    /* Kanban Layout */
-    .kanban-board {
-        display: flex;
-        gap: 15px;
-        margin-top: 20px;
-        overflow-x: auto;
-        padding-bottom: 20px;
-        min-height: 500px;
+    .tasks-container { max-width: 860px; margin: 0 auto; }
+
+    .page-title-container { margin-bottom: 20px; padding-left: 4px; }
+    .page-title-container h1 {
+        font-size: 1.75rem; font-weight: 800; font-family: var(--font-heading);
+        color: var(--text-primary); margin: 0;
+    }
+    .page-title-container p {
+        color: var(--text-secondary); font-size: 0.88rem; margin: 6px 0 0 2px;
     }
 
-    .kanban-column {
-        flex: 1;
-        min-width: 250px;
-        background: rgba(255, 255, 255, 0.02);
-        border: 1px solid var(--border-color);
-        border-radius: var(--radius-md);
-        display: flex;
-        flex-direction: column;
+    .filter-tabs {
+        display: flex; gap: 4px; margin-bottom: 18px;
+        overflow-x: auto; padding-bottom: 2px;
+    }
+    .filter-tab {
+        padding: 7px 16px; border-radius: 99px; font-size: 0.8rem;
+        font-weight: 600; cursor: pointer; white-space: nowrap;
+        border: 1px solid var(--border-color); background: var(--bg-card);
+        color: var(--text-secondary); transition: all 0.15s;
+        display: flex; align-items: center; gap: 6px;
+    }
+    .filter-tab:hover { border-color: var(--accent-emerald); color: var(--text-primary); }
+    .filter-tab.active {
+        background: rgba(16,185,129,0.1); border-color: var(--accent-emerald);
+        color: var(--accent-emerald);
+    }
+    .filter-tab .count {
+        font-size: 0.68rem; background: rgba(0,0,0,0.06); border-radius: 99px;
+        padding: 1px 7px; font-weight: 700;
+    }
+    .filter-tab.active .count { background: rgba(16,185,129,0.18); }
+
+    .inline-creator {
+        background: var(--bg-card); border: 1px solid var(--border-color);
+        border-radius: 12px; padding: 12px 16px; margin-bottom: 18px;
+        transition: border-color 0.2s;
+    }
+    .inline-creator:focus-within { border-color: var(--accent-emerald); }
+    .inline-creator-row { display: flex; align-items: center; gap: 10px; }
+    .inline-creator-row input[type="text"] {
+        flex: 1; border: none; background: transparent; outline: none;
+        color: var(--text-primary); font-size: 0.9rem;
+    }
+    .inline-creator-row input[type="text"]::placeholder { color: var(--text-muted); }
+    .creator-quick-actions { display: flex; gap: 6px; align-items: center; }
+    .quick-btn {
+        width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--border-color);
+        background: transparent; cursor: pointer; font-size: 0.85rem;
+        color: var(--text-muted); display: flex; align-items: center; justify-content: center;
+        transition: all 0.15s;
+    }
+    .quick-btn:hover { border-color: var(--accent-emerald); color: var(--accent-emerald); }
+    .quick-btn.active { background: rgba(16,185,129,0.1); border-color: var(--accent-emerald); color: var(--accent-emerald); }
+    .quick-btn.p1 { border-color: rgba(239,68,68,0.4); color: rgba(239,68,68,0.6); }
+    .quick-btn.p1.active { background: rgba(239,68,68,0.1); color: #ef4444; border-color: #ef4444; }
+    .quick-btn.p3 { border-color: rgba(16,185,129,0.4); color: rgba(16,185,129,0.6); }
+    .quick-btn.p3.active { background: rgba(16,185,129,0.1); color: var(--accent-emerald); border-color: var(--accent-emerald); }
+
+    .creator-expanded { display: none; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border-color); }
+    .inline-creator.expanded .creator-expanded { display: block; }
+    .creator-row { display: flex; gap: 10px; margin-bottom: 8px; align-items: center; flex-wrap: wrap; }
+    .creator-row label { font-size: 0.72rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.03em; min-width: 60px; }
+    .creator-row input[type="date"], .creator-row select {
+        padding: 6px 10px; border: 1px solid var(--border-color); border-radius: 6px;
+        background: var(--bg-card); color: var(--text-primary); font-size: 0.8rem; outline: none;
+    }
+    .creator-row input[type="date"]:focus, .creator-row select:focus { border-color: var(--accent-emerald); }
+
+    .task-list { display: flex; flex-direction: column; gap: 8px; }
+    .task-card {
+        display: flex; align-items: center; gap: 12px;
+        background: var(--bg-card); border: 1px solid var(--border-color);
+        border-radius: 10px; padding: 12px 16px;
+        transition: border-color 0.15s, box-shadow 0.15s; cursor: default;
+    }
+    .task-card:hover { border-color: rgba(16,185,129,0.3); box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
+    .task-card.done { opacity: 0.55; }
+    .task-card.done .task-title { text-decoration: line-through; }
+    .task-card.overdue { border-left: 3px solid #ef4444; }
+
+    .task-checkbox {
+        width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--border-color);
+        cursor: pointer; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+        transition: all 0.15s; background: transparent;
+    }
+    .task-checkbox:hover { border-color: var(--accent-emerald); }
+    .task-checkbox.checked { background: var(--accent-emerald); border-color: var(--accent-emerald); }
+    .task-checkbox.checked::after { content: '\f00c'; font-family: 'Font Awesome 6 Free'; font-weight: 900; font-size: 0.6rem; color: #fff; }
+
+    .task-body { flex: 1; min-width: 0; cursor: pointer; }
+    .task-title {
+        font-weight: 600; font-size: 0.88rem; color: var(--text-primary);
+        margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .task-meta {
+        display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+        font-size: 0.73rem; color: var(--text-muted); margin-top: 3px;
     }
 
-    .kanban-header {
-        padding: 10px 15px;
-        border-bottom: 1px solid var(--border-color);
-        font-family: var(--font-heading);
-        font-size: 1rem;
-        font-weight: 500;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        background: rgba(0, 0, 0, 0.1);
-        border-top-left-radius: var(--radius-md);
-        border-top-right-radius: var(--radius-md);
+    .priority-badge {
+        display: inline-flex; align-items: center; gap: 3px;
+        font-size: 0.65rem; font-weight: 700; text-transform: uppercase;
+        padding: 1px 6px; border-radius: 4px;
+    }
+    .priority-badge.alta { background: rgba(239,68,68,0.1); color: #ef4444; }
+    .priority-badge.media { background: rgba(245,158,11,0.1); color: #d97706; }
+    .priority-badge.baja { background: rgba(16,185,129,0.1); color: #10b981; }
+
+    .entity-chip {
+        display: inline-flex; align-items: center; gap: 4px;
+        font-size: 0.68rem; padding: 2px 8px; border-radius: 99px;
+        background: rgba(59,130,246,0.08); color: #3b82f6;
+        border: 1px solid rgba(59,130,246,0.15); cursor: pointer;
+        text-decoration: none; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .entity-chip:hover { background: rgba(59,130,246,0.14); }
+    .entity-chip.client { background: rgba(139,92,246,0.08); color: #8b5cf6; border-color: rgba(139,92,246,0.15); }
+    .entity-chip.client:hover { background: rgba(139,92,246,0.14); }
+    .entity-chip.expense { background: rgba(245,158,11,0.08); color: #d97706; border-color: rgba(245,158,11,0.15); }
+    .entity-chip.expense:hover { background: rgba(245,158,11,0.14); }
+
+    .due-indicator {
+        font-weight: 600; font-size: 0.73rem; display: inline-flex; align-items: center; gap: 3px;
+    }
+    .due-indicator.overdue { color: #ef4444; }
+    .due-indicator.soon { color: #f59e0b; }
+    .due-indicator.ok { color: var(--text-muted); }
+
+    .task-actions { display: flex; gap: 4px; opacity: 0; transition: opacity 0.15s; }
+    .task-card:hover .task-actions { opacity: 1; }
+    .task-card.done .task-actions { display: none; }
+    .task-action-btn {
+        width: 28px; height: 28px; border-radius: 6px; border: none;
+        background: transparent; cursor: pointer; color: var(--text-muted);
+        display: flex; align-items: center; justify-content: center;
+        font-size: 0.78rem; transition: all 0.15s;
+    }
+    .task-action-btn:hover { background: rgba(0,0,0,0.04); color: var(--text-primary); }
+    .task-action-btn.delete:hover { color: #ef4444; background: rgba(239,68,68,0.08); }
+
+    .assignee-avatar {
+        width: 24px; height: 24px; border-radius: 50%; background: rgba(16,185,129,0.12);
+        color: var(--accent-emerald); font-size: 0.62rem;
+        display: flex; align-items: center; justify-content: center;
+        font-weight: 700; flex-shrink: 0;
     }
 
-    .kanban-cards {
-        padding: 10px;
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-        min-height: 150px;
+    .modal-overlay {
+        position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(0,0,0,0.5); z-index: 1000; display: none;
+        align-items: center; justify-content: center;
     }
-
-    /* Note Card */
-    .note-card {
-        border-radius: var(--radius-md);
-        padding: 12px;
-        position: relative;
-        display: flex;
-        flex-direction: column;
-        transition: box-shadow var(--transition-fast), transform 0.2s ease;
-        border: 1px solid rgba(0, 0, 0, 0.06);
-        cursor: pointer;
-        height: 140px;
-        /* Exact same height for all notes */
-        box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.04);
+    .modal-overlay.active { display: flex; }
+    .modal-card {
+        background: var(--bg-card); border: 1px solid var(--border-color);
+        border-radius: 14px; width: 100%; max-width: 560px;
+        padding: 24px; max-height: 85vh; overflow-y: auto;
     }
-
-    .note-card:active {
-        cursor: grabbing;
-        transform: scale(0.98);
-    }
-
-    .note-card:hover {
-        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-        transform: translateY(-2px);
-    }
-
-    .note-done {
-        filter: grayscale(80%);
-        opacity: 0.6;
-        transition: all 0.3s ease;
-    }
-
-    .note-done .note-title {
-        text-decoration: line-through;
-    }
-
-    .note-card .card-actions {
-        position: absolute;
-        top: 8px;
-        right: 8px;
-        opacity: 0;
-        display: flex;
-        gap: 4px;
-        transition: opacity var(--transition-fast);
-        z-index: 2;
-    }
-
-    .note-card:hover .card-actions {
-        opacity: 1;
-    }
-
-    .btn-icon {
-        background: rgba(255, 255, 255, 0.4);
-        border: 1px solid transparent;
-        color: var(--text-secondary);
-        border-radius: 50%;
-        width: 26px;
-        height: 26px;
-        font-size: 0.75rem;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        transition: all 0.2s;
-    }
-
-    .btn-icon:hover {
-        background: rgba(255, 255, 255, 0.8);
+    .modal-card h3 {
+        font-family: var(--font-heading); font-size: 1.1rem; margin: 0 0 16px 0;
         color: var(--text-primary);
-        border-color: rgba(0, 0, 0, 0.1);
-        transform: scale(1.1);
     }
-
-    .btn-icon.delete:hover {
-        color: var(--accent-red);
-        background: rgba(239, 68, 68, 0.15);
+    .modal-field { margin-bottom: 14px; }
+    .modal-field label {
+        display: block; font-size: 0.72rem; font-weight: 600;
+        color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.03em;
+        margin-bottom: 4px;
     }
-
-    /* Note Content */
-    .note-title {
-        font-size: 0.95rem;
-        font-weight: 700;
-        color: var(--text-primary);
-        font-family: var(--font-heading);
-        margin-bottom: 6px;
-        padding-right: 28px;
-        /* space for icon */
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
+    .modal-field input, .modal-field textarea, .modal-field select {
+        width: 100%; padding: 8px 12px; border: 1px solid var(--border-color);
+        border-radius: 8px; background: var(--bg-body); color: var(--text-primary);
+        font-size: 0.85rem; outline: none; font-family: inherit;
     }
-
-    .note-content {
-        white-space: pre-wrap;
-        font-size: 0.8rem;
-        color: var(--text-secondary);
-        line-height: 1.4;
-        word-break: break-word;
-        display: -webkit-box;
-        -webkit-line-clamp: 3;
-        -webkit-box-orient: vertical;
-        overflow: hidden;
-        flex: 1;
-        /* Pushes the footer down */
-    }
-
-    .note-footer {
-        font-size: 0.72rem;
-        color: var(--text-muted);
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        margin-top: 8px;
-        padding-top: 8px;
-        border-top: 1px solid rgba(0, 0, 0, 0.05);
-    }
-
-    /* Creator Box */
-    .note-creator-wrapper {
-        flex: 2;
-        min-width: 300px;
-        position: relative;
-        z-index: 50;
-    }
-
-    .note-creator {
-        background: #ffffff; /* iOS paper color */
-        border: 1px solid rgba(0, 0, 0, 0.08);
-        border-radius: 16px; /* iOS softer corners */
-        box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06); /* Diffuse soft shadow */
-        overflow: hidden;
-        transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-    }
-
-    .note-creator.expanded {
-        border-color: rgba(234, 179, 8, 0.4); /* iOS Yellow accent */
-        box-shadow: 0 8px 32px rgba(234, 179, 8, 0.08);
-    }
-
-    .creator-input-fake {
-        width: 100%;
-        padding: 14px 20px;
-        background: transparent;
-        border: none;
-        color: var(--text-primary);
-        font-size: 0.95rem;
-        font-family: var(--font-main);
-        outline: none;
-        cursor: text;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-    }
-
-    .creator-input-fake span {
-        color: #8e8e93; /* iOS placeholder color */
-    }
-
-    .creator-expanded-area {
-        display: none;
-        padding: 0 20px 20px 20px;
-    }
-
-    .note-creator.expanded .creator-expanded-area {
-        display: block;
-    }
-
-    .note-creator.expanded .creator-input-fake {
-        display: none;
-    }
-
-    .creator-title {
-        width: 100%;
-        padding: 16px 0 8px 0;
-        background: transparent;
-        border: none;
-        color: var(--text-primary);
-        font-size: 1.15rem;
-        font-weight: 600;
-        font-family: var(--font-heading);
-        outline: none;
-    }
-
-    .creator-title::placeholder {
-        color: #8e8e93;
-        font-weight: 500;
-    }
-
-    .creator-content {
-        width: 100%;
-        min-height: 100px;
-        background: transparent;
-        border: none;
-        color: var(--text-secondary);
-        font-size: 0.95rem;
-        font-family: var(--font-main);
-        outline: none;
-        resize: none;
-        line-height: 1.5;
-    }
-
-    .creator-content::placeholder {
-        color: #8e8e93;
-    }
-
-    .creator-footer {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-top: 15px;
-    }
-
-    .creator-tools {
-        display: flex;
-        gap: 10px;
-    }
-
-    .tool-select {
-        background: rgba(0, 0, 0, 0.04);
-        border: 1px solid rgba(0, 0, 0, 0.06);
-        color: var(--text-primary);
-        border-radius: var(--radius-sm);
-        padding: 6px 10px;
-        font-size: 0.85rem;
-        outline: none;
-        cursor: pointer;
-        transition: all 0.2s;
-    }
-
-    .tool-select:hover {
-        background: rgba(0, 0, 0, 0.08);
-    }
-
-    /* Backdrop */
-    .creator-backdrop {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(0, 0, 0, 0.4);
-        z-index: 40;
-        display: none;
-        opacity: 0;
-        transition: opacity 0.3s ease;
-    }
-
-    .creator-backdrop.active {
-        display: block;
-        opacity: 1;
-    }
-
-    /* Search Bar & Top Controls */
-    .top-controls {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 15px;
-        margin-bottom: 20px;
-        align-items: flex-start;
-    }
-
-    .search-wrapper {
-        flex: 1;
-        min-width: 250px;
-        position: relative;
-    }
-
-    .search-input {
-        width: 100%;
-        padding: 12px 20px 12px 45px;
-        background: rgba(255, 255, 255, 0.03);
-        border: 1px solid var(--border-color);
-        border-radius: 50px;
-        color: var(--text-primary);
-        font-size: 0.95rem;
-        outline: none;
-        transition: border-color var(--transition-fast);
-    }
-
-    .search-input:focus {
+    .modal-field textarea { min-height: 80px; resize: vertical; }
+    .modal-field input:focus, .modal-field textarea:focus, .modal-field select:focus {
         border-color: var(--accent-emerald);
-        background: rgba(255, 255, 255, 0.05);
     }
+    .modal-priority-row { display: flex; gap: 8px; }
+    .modal-priority-btn {
+        flex: 1; padding: 8px; border-radius: 8px; border: 2px solid var(--border-color);
+        background: transparent; cursor: pointer; text-align: center;
+        font-size: 0.8rem; font-weight: 600; color: var(--text-muted); transition: all 0.15s;
+    }
+    .modal-priority-btn:hover { border-color: var(--text-muted); }
+    .modal-priority-btn.sel-alta { border-color: #ef4444; background: rgba(239,68,68,0.05); color: #ef4444; }
+    .modal-priority-btn.sel-media { border-color: #f59e0b; background: rgba(245,158,11,0.05); color: #d97706; }
+    .modal-priority-btn.sel-baja { border-color: #10b981; background: rgba(16,185,129,0.05); color: #10b981; }
 
-    .search-icon {
-        position: absolute;
-        left: 18px;
-        top: 50%;
-        transform: translateY(-50%);
-        color: var(--text-muted);
+    .entity-search-wrapper { position: relative; flex: 1; }
+    .entity-search-row { display: flex; gap: 8px; }
+    .entity-search-row select { width: 130px; flex-shrink: 0; }
+    .entity-search-results {
+        position: absolute; z-index: 10; background: var(--bg-card); border: 1px solid var(--border-color);
+        border-radius: 8px; max-height: 160px; overflow-y: auto; width: 100%;
+        margin-top: 4px; display: none;
     }
+    .entity-search-results .result-item {
+        padding: 8px 12px; cursor: pointer; font-size: 0.8rem;
+        color: var(--text-primary); border-bottom: 1px solid rgba(255,255,255,0.03);
+    }
+    .entity-search-results .result-item:hover { background: rgba(16,185,129,0.06); }
+
+    .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
+
+    .empty-state {
+        text-align: center; padding: 48px 20px; color: var(--text-muted);
+    }
+    .empty-state i { font-size: 2.5rem; margin-bottom: 12px; opacity: 0.3; }
+    .empty-state p { font-size: 0.9rem; margin: 0; }
 </style>
 
-<!-- Creator Backdrop -->
-<div class="creator-backdrop" id="creator-backdrop"></div>
+<div class="tasks-container">
 
-<div class="top-controls">
-    <!-- Search Bar -->
-    <div class="search-wrapper">
-        <i class="fa-solid fa-search search-icon"></i>
-        <input type="text" class="search-input" id="search-notes" placeholder="Buscar en mis notas...">
+    <div class="page-title-container">
+        <h1>
+            <i class="fa-regular fa-circle-check" style="color: var(--accent-emerald); margin-right: 10px;"></i>
+            Gestor de Tareas
+        </h1>
+        <p>Organiza tu trabajo, asigna tareas a tu equipo y vincúlalas a facturas, clientes o gastos.</p>
     </div>
 
-    <!-- Inline Note Creator -->
-    <div class="note-creator-wrapper">
-        <div class="note-creator" id="note-creator">
-            <div class="creator-input-fake" id="creator-trigger">
-                <span>Añadir una nueva tarea o nota...</span>
-                <i class="fa-solid fa-pen-to-square" style="color: #eab308; font-size: 1.1rem;"></i>
+    <!-- Filter Tabs -->
+    <div class="filter-tabs" id="filterTabs">
+        <div class="filter-tab active" data-filter="all">
+            Todas <span class="count" id="count-all">0</span>
+        </div>
+        <div class="filter-tab" data-filter="pending">
+            Pendientes <span class="count" id="count-pending">0</span>
+        </div>
+        <div class="filter-tab" data-filter="mine">
+            Mías <span class="count" id="count-mine">0</span>
+        </div>
+        <div class="filter-tab" data-filter="overdue">
+            Vencidas <span class="count" id="count-overdue">0</span>
+        </div>
+        <div class="filter-tab" data-filter="done">
+            Completadas <span class="count" id="count-done">0</span>
+        </div>
+    </div>
+
+    <!-- Inline Creator -->
+    <div class="inline-creator" id="inlineCreator">
+        <div class="inline-creator-row">
+            <input type="text" id="quickTitle" placeholder="Añadir nueva tarea..."
+                   onfocus="expandCreator()" onkeydown="if(event.key==='Enter'){saveTask()}">
+            <div class="creator-quick-actions">
+                <button class="quick-btn p1" id="prioAlta" title="Prioridad Alta"
+                        onclick="togglePrio(this,'alta')"><i class="fa-solid fa-flag"></i></button>
+                <button class="quick-btn active p2" id="prioMedia" title="Prioridad Media"
+                        onclick="togglePrio(this,'media')"><i class="fa-solid fa-flag"></i></button>
+                <button class="quick-btn p3" id="prioBaja" title="Prioridad Baja"
+                        onclick="togglePrio(this,'baja')"><i class="fa-solid fa-flag"></i></button>
+                <button class="quick-btn" id="btnSaveTask" title="Guardar"
+                        onclick="saveTask()"><i class="fa-solid fa-paper-plane"></i></button>
             </div>
+        </div>
+        <div class="creator-expanded">
+            <div class="creator-row">
+                <label>Vence</label>
+                <input type="date" id="quickDueDate">
+                <button type="button" class="btn btn-secondary" style="font-size:0.7rem; padding:4px 10px;"
+                        onclick="document.getElementById('quickDueDate').valueAsDate=new Date()">Hoy</button>
+                <label style="margin-left:12px;">Asignar a</label>
+                <select id="quickAssigned" style="min-width:140px;">
+                    <option value="">Sin asignar</option>
+                    {% for m in team %}
+                    <option value="{{ m.uid }}">{{ m.name or m.email }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+    </div>
 
-            <div class="creator-expanded-area">
-                <input type="text" class="creator-title" id="new-note-title" placeholder="Título">
-                <textarea class="creator-content" id="new-note-content"
-                    placeholder="Describe la tarea o apunte..."></textarea>
+    <!-- Task List -->
+    <div class="task-list" id="taskList"></div>
+    <div class="empty-state" id="emptyState" style="display:none;">
+        <i class="fa-regular fa-face-smile"></i>
+        <p>No hay tareas aquí. ¡Crea una nueva arriba!</p>
+    </div>
+</div>
 
-                <div class="creator-footer">
-                    <div class="creator-tools">
-                        <select class="tool-select" id="new-note-visibility" title="Privacidad">
-                            <option value="private">Privada</option>
-                            <option value="shared" selected>Compartida</option>
-                        </select>
-                    </div>
-                    <div>
-                        <button type="button" class="btn btn-secondary"
-                            style="background: transparent; border: none; padding: 6px 12px; font-size: 0.9rem; color: var(--text-muted);"
-                            id="btn-close-creator">Cerrar</button>
-                        <button type="button" class="btn btn-primary"
-                            style="padding: 6px 16px; font-size: 0.9rem; margin-left: 8px; background: #eab308; border-color: #eab308; color: white; font-weight: 500;"
-                            id="btn-save-note">Guardar</button>
-                    </div>
+<!-- Edit Modal -->
+<div class="modal-overlay" id="editModal">
+    <div class="modal-card">
+        <h3>Editar Tarea</h3>
+
+        <div class="modal-field">
+            <label>Título</label>
+            <input type="text" id="editTitle" placeholder="Título de la tarea">
+        </div>
+        <div class="modal-field">
+            <label>Descripción</label>
+            <textarea id="editContent" placeholder="Detalles (opcional)"></textarea>
+        </div>
+        <div class="modal-field">
+            <label>Prioridad</label>
+            <div class="modal-priority-row" id="prioritySelector">
+                <button type="button" class="modal-priority-btn" data-prio="alta">Alta</button>
+                <button type="button" class="modal-priority-btn sel-media" data-prio="media">Media</button>
+                <button type="button" class="modal-priority-btn" data-prio="baja">Baja</button>
+            </div>
+        </div>
+        <div class="modal-field">
+            <label>Fecha de vencimiento</label>
+            <input type="date" id="editDueDate">
+        </div>
+        <div class="modal-field">
+            <label>Asignado a</label>
+            <select id="editAssigned">
+                <option value="">Sin asignar</option>
+                {% for m in team %}
+                <option value="{{ m.uid }}">{{ m.name or m.email }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="modal-field">
+            <label>Vincular a</label>
+            <div class="entity-search-row">
+                <select id="editEntityType" onchange="updateEntitySearch()">
+                    <option value="">Ninguno</option>
+                    <option value="invoice">Factura</option>
+                    <option value="client">Cliente</option>
+                    <option value="expense">Gasto</option>
+                </select>
+                <div class="entity-search-wrapper" id="entitySearchWrapper" style="display:none;">
+                    <input type="text" id="entitySearchInput" placeholder="Buscar..."
+                           autocomplete="off" oninput="searchEntities()" onfocus="searchEntities()">
+                    <div class="entity-search-results" id="entitySearchResults"></div>
                 </div>
+                <input type="hidden" id="editEntityId">
+                <input type="hidden" id="editEntityLabel">
             </div>
+            <div id="selectedEntityChip" style="margin-top:6px; display:none;"></div>
         </div>
-    </div>
 
-    <!-- Configuración del Tablero Button -->
-    <div style="flex-basis: 100%; display: flex; justify-content: flex-end;">
-        <button type="button" class="btn btn-secondary" style="font-size: 0.85rem;" onclick="openBoardConfig()">
-            <i class="fa-solid fa-gear"></i> Configurar Tablero
-        </button>
-    </div>
-</div>
-
-<!-- Kanban Board -->
-{% set color_map = {
-'default': 'rgba(255, 255, 255, 0.85)',
-'yellow': 'rgba(254, 240, 138, 0.85)',
-'blue': 'rgba(219, 234, 254, 0.85)',
-'green': 'rgba(209, 250, 229, 0.85)',
-'pink': 'rgba(252, 231, 243, 0.85)',
-'purple': 'rgba(243, 232, 255, 0.85)',
-'orange': 'rgba(255, 237, 213, 0.85)'
-} %}
-{% set border_map = {
-'default': 'rgba(0, 0, 0, 0.08)',
-'yellow': 'rgba(234, 179, 8, 0.3)',
-'blue': 'rgba(59, 130, 246, 0.3)',
-'green': 'rgba(16, 185, 129, 0.3)',
-'pink': 'rgba(236, 72, 153, 0.3)',
-'purple': 'rgba(168, 85, 247, 0.3)',
-'orange': 'rgba(249, 115, 22, 0.3)'
-} %}
-
-{% macro render_note(note, status_color, user_uid) %}
-<div class="note-card {% if note.status == 'done' %}note-done{% endif %}" id="note-{{ note.id }}" draggable="true"
-    ondragstart="drag(event)" data-title="{{ note.title | lower }}" data-content="{{ note.content | lower }}"
-    style="background-color: {{ color_map.get(status_color, color_map['default']) }}; border-color: {{ border_map.get(status_color, border_map['default']) }}; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);"
-    onclick="editNote('{{ note.id }}')">
-
-    <div class="note-title" title="{{ note.title }}">
-        {{ note.title }}
-    </div>
-
-    <div class="note-content">{{ note.content }}</div>
-
-    <div class="note-footer">
-        {% if note.visibility == 'private' %}
-        <i class="fa-solid fa-lock" title="Privada"></i>
-        {% else %}
-        <i class="fa-solid fa-users" title="Compartida"></i>
-        {% endif %}
-        <span>{{ note.createdAt | format_date }}</span>
-    </div>
-
-    <div class="card-actions">
-        <button class="btn-icon delete" onclick="event.stopPropagation(); deleteNote('{{ note.id }}')"
-            title="Eliminar nota">
-            <i class="fa-solid fa-trash-can"></i>
-        </button>
-    </div>
-</div>
-{% endmacro %}
-
-<div class="kanban-board">
-    {% set status_ids = statuses | map(attribute='id') | list %}
-    {% set sorted_statuses = statuses|sort(attribute='order') %}
-    {% set first_status_id = (sorted_statuses|first).id if sorted_statuses else 'abierta' %}
-    {% for status in sorted_statuses %}
-    <div class="kanban-column" id="col-{{ status.id }}" ondrop="drop(event)" ondragover="allowDrop(event)">
-        <h4 class="kanban-header">
-            {{ status.name }}
-        </h4>
-        <div class="kanban-cards">
-            {% for note in notes %}
-            {% if note.status == status.id or (status.id == first_status_id and note.status not in status_ids) %}
-            {{ render_note(note, status.color, user_uid) }}
-            {% endif %}
-            {% endfor %}
-        </div>
-    </div>
-    {% endfor %}
-</div>
-
-<!-- Board Config Modal -->
-<div id="boardConfigModal" class="search-modal"
-    style="display: none; justify-content: center; align-items: center; z-index: 9999;">
-    <div class="modal-backdrop" onclick="closeBoardConfig()"></div>
-    <div class="modal-content animate-fade-in"
-        style="width: 100%; max-width: 600px; padding: 0; border-radius: var(--radius-md); background: var(--bg-card); border: 1px solid var(--border-color);">
-        <div class="modal-header"
-            style="border-bottom: 1px solid var(--border-color); padding: 20px 24px; display: flex; justify-content: space-between; align-items: center;">
-            <h5 class="modal-title"
-                style="font-family: var(--font-heading); color: var(--text-primary); margin: 0; font-size: 1.1rem;">
-                Configurar Columnas</h5>
-            <button type="button" class="btn-close-modal" onclick="closeBoardConfig()"
-                style="background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 1.2rem;"><i
-                    class="fa-solid fa-xmark"></i></button>
-        </div>
-        <div class="modal-body" style="padding: 24px;">
-            <p class="text-muted" style="font-size: 0.85rem; margin-bottom: 20px;">Arrastra para reordenar, cambia los
-                nombres o asigna colores. Si eliminas una columna, sus notas volverán al estado "Abierta".</p>
-            <div id="statusList" class="list-group mb-3" style="display: flex; flex-direction: column; gap: 10px;">
-                <!-- Rendered via JS -->
-            </div>
-            <button type="button" class="btn btn-secondary" onclick="addNewStatus()"
-                style="width: 100%; padding: 10px; margin-top: 15px;">
-                <i class="fa-solid fa-plus"></i> Añadir Columna
-            </button>
-        </div>
-        <div class="modal-footer"
-            style="border-top: 1px solid var(--border-color); padding: 20px 24px; display: flex; justify-content: flex-end; gap: 10px;">
-            <button type="button" class="btn"
-                style="background: transparent; border: 1px solid var(--border-color); color: var(--text-primary);"
-                onclick="closeBoardConfig()">Cancelar</button>
-            <button type="button" class="btn btn-primary" onclick="saveBoardConfig()">Guardar Cambios</button>
+        <div class="modal-actions">
+            <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+            <button type="button" class="btn btn-primary" onclick="saveEdit()">Guardar</button>
         </div>
     </div>
 </div>
@@ -509,379 +351,325 @@
 
 {% block extra_scripts %}
 <script>
-    document.addEventListener('DOMContentLoaded', function () {
-        // --- Inline Creator Logic ---
-        const creator = document.getElementById('note-creator');
-        const trigger = document.getElementById('creator-trigger');
-        const backdrop = document.getElementById('creator-backdrop');
-        const btnClose = document.getElementById('btn-close-creator');
-        const btnSave = document.getElementById('btn-save-note');
+    const USER_UID = "{{ user_uid }}";
+    const NOTES_URL = "{{ url_for('web_notes.list_notes') }}";
+    let allNotes = [];
+    let currentFilter = 'all';
+    let currentPrio = 'media';
+    let editNoteId = null;
+    let entitySearchTimer = null;
+    let teamMap = {};
 
-        const inputTitle = document.getElementById('new-note-title');
-        const inputContent = document.getElementById('new-note-content');
-        const selectVis = document.getElementById('new-note-visibility');
+    {% for m in team %}
+    teamMap["{{ m.uid }}"] = { name: "{{ (m.name or m.email) | e }}", email: "{{ (m.email or '') | e }}" };
+    {% endfor %}
 
-        let currentEditId = null;
+    function loadNotes() {
+        allNotes = {{ notes | tojson | safe }};
+        allNotes.forEach(function(n) {
+            if (!n.priority) n.priority = 'media';
+            if (!n.status) n.status = 'pending';
+        });
+        renderList();
+        updateCounts();
+    }
 
-        function expandCreator() {
-            creator.classList.add('expanded');
-            backdrop.classList.add('active');
-            inputContent.focus();
+    function renderList() {
+        var list = document.getElementById('taskList');
+        var empty = document.getElementById('emptyState');
+        var todayStr = new Date().toISOString().split('T')[0];
+        var today = new Date(todayStr);
+
+        var filtered = allNotes.filter(function(n) {
+            if (currentFilter === 'all') return true;
+            if (currentFilter === 'pending') return n.status !== 'done';
+            if (currentFilter === 'done') return n.status === 'done';
+            if (currentFilter === 'mine') return n.assignedTo === USER_UID && n.status !== 'done';
+            if (currentFilter === 'overdue') {
+                if (n.status === 'done') return false;
+                if (!n.dueDate) return false;
+                return new Date(n.dueDate) < today;
+            }
+            return true;
+        });
+
+        if (filtered.length === 0) {
+            list.innerHTML = '';
+            empty.style.display = 'block';
+            return;
         }
+        empty.style.display = 'none';
 
-        function collapseCreator() {
-            creator.classList.remove('expanded');
-            backdrop.classList.remove('active');
-            setTimeout(() => { currentEditId = null; }, 300);
-        }
-
-        function resetCreator() {
-            inputTitle.value = '';
-            inputContent.value = '';
-            selectVis.value = 'shared'; // default
-            currentEditId = null;
-            const creator = document.getElementById('note-creator');
-            if (creator) {
-                creator.style.backgroundColor = '';
-                creator.style.borderColor = '';
-            }
-        }
-
-        trigger.addEventListener('click', expandCreator);
-        btnClose.addEventListener('click', () => {
-            collapseCreator();
-            // If empty, reset
-            if (!inputTitle.value && !inputContent.value) {
-                resetCreator();
-            }
-        });
-        backdrop.addEventListener('click', () => {
-            collapseCreator();
-        });
-
-        // Auto-resize textarea
-        inputContent.addEventListener('input', function () {
-            this.style.height = 'auto';
-            this.style.height = (this.scrollHeight) + 'px';
-        });
-
-        // Save Note
-        btnSave.addEventListener('click', function () {
-            const title = inputTitle.value.trim() || 'Sin título';
-            const content = inputContent.value.trim();
-
-            if (!content) {
-                inputContent.focus();
-                return;
+        list.innerHTML = filtered.map(function(n) {
+            var isDone = n.status === 'done';
+            var dueHtml = '';
+            if (n.dueDate && !isDone) {
+                var due = new Date(n.dueDate);
+                var diffDays = Math.ceil((due - today) / (1000 * 60 * 60 * 24));
+                var cls = 'ok', text = 'Vence ' + fmtDate(n.dueDate);
+                if (diffDays < 0) { cls = 'overdue'; text = 'Vencida hace ' + Math.abs(diffDays) + ' d\u00eda(s)'; }
+                else if (diffDays <= 2) { cls = 'soon'; text = diffDays === 0 ? 'Vence hoy' : 'Vence en ' + diffDays + ' d\u00eda(s)'; }
+                dueHtml = '<span class="due-indicator ' + cls + '"><i class="fa-regular fa-clock"></i> ' + text + '</span>';
+            } else if (n.dueDate && isDone) {
+                dueHtml = '<span class="due-indicator ok" style="text-decoration:line-through"><i class="fa-regular fa-clock"></i> ' + fmtDate(n.dueDate) + '</span>';
             }
 
-            btnSave.disabled = true;
-            btnSave.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
-
-            fetch('{{ url_for("web_notes.create_note") }}', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    note_id: currentEditId,
-                    title: title,
-                    content: content,
-                    visibility: selectVis.value
-                })
-            })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.success) {
-                        window.location.reload();
-                    } else {
-                        alert('Error: ' + (data.error || 'Desconocido'));
-                        btnSave.disabled = false;
-                        btnSave.innerHTML = 'Guardar';
-                    }
-                })
-                .catch(err => {
-                    console.error(err);
-                    alert('Error de conexión');
-                    btnSave.disabled = false;
-                    btnSave.innerHTML = 'Guardar';
-                });
-        });
-
-        // --- Search Logic ---
-        const searchInput = document.getElementById('search-notes');
-        const noteCards = document.querySelectorAll('.note-card');
-
-        searchInput.addEventListener('input', function (e) {
-            const term = e.target.value.toLowerCase().trim();
-            noteCards.forEach(card => {
-                const title = card.getAttribute('data-title') || '';
-                const content = card.getAttribute('data-content') || '';
-                if (title.includes(term) || content.includes(term)) {
-                    card.style.display = 'flex';
-                } else {
-                    card.style.display = 'none';
-                }
-            });
-        });
-
-        // Expose editNote to global scope
-        window.editNote = function (noteId) {
-            const card = document.getElementById('note-' + noteId);
-            if (card) {
-                const titleText = card.querySelector('.note-title').innerText.trim();
-                const contentText = card.querySelector('.note-content').innerText.trim();
-
-                const isShared = card.querySelector('.fa-users') !== null;
-                selectVis.value = isShared ? 'shared' : 'private';
-
-                inputTitle.value = titleText;
-                inputContent.value = contentText;
-                currentEditId = noteId;
-
-                // Expand and scroll to top
-                expandCreator();
-
-                const creator = document.getElementById('note-creator');
-                if (creator) {
-                    creator.style.backgroundColor = card.style.backgroundColor;
-                    creator.style.borderColor = card.style.borderColor;
-                }
-
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-                inputContent.style.height = 'auto';
-                inputContent.style.height = (inputContent.scrollHeight) + 'px';
+            var entityChip = '';
+            if (n.entityType && n.entityId && n.entityLabel) {
+                var icon = 'fa-file-invoice-dollar', chipClass = '', link = '#';
+                if (n.entityType === 'invoice') { icon = 'fa-file-invoice-dollar'; link = '/invoices/' + n.entityId; }
+                else if (n.entityType === 'client') { icon = 'fa-user'; chipClass = 'client'; }
+                else if (n.entityType === 'expense') { icon = 'fa-receipt'; chipClass = 'expense'; }
+                entityChip = '<a href="' + link + '" class="entity-chip ' + chipClass + '" onclick="event.stopPropagation()" target="_blank"><i class="fa-solid ' + icon + '"></i> ' + escHtml(n.entityLabel) + '</a>';
             }
-        };
+
+            var assigneeHtml = '';
+            if (n.assignedTo && teamMap[n.assignedTo]) {
+                var init = teamMap[n.assignedTo].name.charAt(0).toUpperCase();
+                assigneeHtml = '<div class="assignee-avatar" title="' + escHtml(teamMap[n.assignedTo].name) + '">' + init + '</div>';
+            }
+
+            var prioLabels = {alta:'Alta',media:'Media',baja:'Baja'};
+            var prioLabel = prioLabels[n.priority] || 'Media';
+            var overdueClass = (dueHtml.indexOf('overdue') !== -1) ? ' overdue' : '';
+
+            return '<div class="task-card' + (isDone ? ' done' : '') + overdueClass + '">' +
+                '<div class="task-checkbox' + (isDone ? ' checked' : '') + '" onclick="toggleDone(\'' + n.id + '\')"></div>' +
+                '<div class="task-body" onclick="openEdit(\'' + n.id + '\')">' +
+                    '<div class="task-title">' + escHtml(n.title) + '</div>' +
+                    '<div class="task-meta">' +
+                        '<span class="priority-badge ' + n.priority + '">' + prioLabel + '</span>' +
+                        dueHtml +
+                        entityChip +
+                    '</div>' +
+                '</div>' +
+                assigneeHtml +
+                '<div class="task-actions">' +
+                    '<button class="task-action-btn" onclick="event.stopPropagation();openEdit(\'' + n.id + '\')" title="Editar"><i class="fa-solid fa-pen-to-square"></i></button>' +
+                    '<button class="task-action-btn delete" onclick="event.stopPropagation();deleteTask(\'' + n.id + '\')" title="Eliminar"><i class="fa-solid fa-trash-can"></i></button>' +
+                '</div>' +
+            '</div>';
+        }).join('');
+    }
+
+    function updateCounts() {
+        var today = new Date(new Date().toISOString().split('T')[0]);
+        document.getElementById('count-all').textContent = allNotes.length;
+        document.getElementById('count-pending').textContent = allNotes.filter(function(n){return n.status !== 'done';}).length;
+        document.getElementById('count-mine').textContent = allNotes.filter(function(n){return n.assignedTo === USER_UID && n.status !== 'done';}).length;
+        document.getElementById('count-overdue').textContent = allNotes.filter(function(n){return n.status !== 'done' && n.dueDate && new Date(n.dueDate) < today;}).length;
+        document.getElementById('count-done').textContent = allNotes.filter(function(n){return n.status === 'done';}).length;
+    }
+
+    document.getElementById('filterTabs').addEventListener('click', function(e) {
+        var tab = e.target.closest('.filter-tab');
+        if (!tab) return;
+        document.querySelectorAll('.filter-tab').forEach(function(t){t.classList.remove('active');});
+        tab.classList.add('active');
+        currentFilter = tab.dataset.filter;
+        renderList();
     });
 
-    function deleteNote(noteId) {
-        if (confirm('¿Estás seguro de que deseas eliminar esta nota/tarea?')) {
-            const card = document.getElementById('note-' + noteId);
-            if (card) card.style.opacity = '0.3';
-
-            fetch('{{ url_for("web_notes.list_notes") }}/delete/' + noteId, {
-                method: 'POST'
-            })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.success) {
-                        if (card) {
-                            card.remove();
-                        } else {
-                            window.location.reload();
-                        }
-                    } else {
-                        alert('Error al eliminar.');
-                        if (card) card.style.opacity = '1';
-                    }
-                })
-                .catch(err => {
-                    console.error(err);
-                    alert('Error de conexión');
-                    if (card) card.style.opacity = '1';
-                });
-        }
+    function expandCreator() {
+        document.getElementById('inlineCreator').classList.add('expanded');
     }
 
-    // --- HTML5 Drag and Drop Kanban Logic ---
-    function allowDrop(ev) {
-        ev.preventDefault();
-    }
-
-    function drag(ev) {
-        ev.dataTransfer.setData("text", ev.target.id);
-        ev.target.style.opacity = '0.5';
-    }
-
-    // Restore opacity if dropped outside
-    document.addEventListener("dragend", function (event) {
-        if (event.target.classList && event.target.classList.contains('note-card')) {
-            event.target.style.opacity = '1';
-        }
-    });
-
-    function drop(ev) {
-        ev.preventDefault();
-        var data = ev.dataTransfer.getData("text");
-        if (!data) return;
-
-        var card = document.getElementById(data);
-        if (!card) return;
-
-        var targetCol = ev.target.closest('.kanban-column');
-
-        if (targetCol && card) {
-            var cardsContainer = targetCol.querySelector('.kanban-cards');
-            cardsContainer.appendChild(card);
-            card.style.opacity = '1';
-
-            // Update styling if it's "Done"
-            const status = targetCol.id.replace('col-', '');
-            if (status === 'done') {
-                card.classList.add('note-done');
-            } else {
-                card.classList.remove('note-done');
-            }
-
-            // Save to backend
-            const noteId = data.replace('note-', '');
-            fetch('{{ url_for("web_notes.list_notes") }}/update_status/' + noteId, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ status: status })
-            }).then(res => res.json())
-                .then(data => {
-                    if (data.success) {
-                        window.location.reload();
-                    }
-                })
-                .catch(err => console.error(err));
-        }
-    }
-
-    // --- Board Configuration Logic ---
-    let boardStatuses = {{ statuses | tojson | safe }};
-
-    window.openBoardConfig = function () {
-        renderStatusConfigList();
-        const modal = document.getElementById('boardConfigModal');
-        if (modal) modal.style.display = 'flex';
-    };
-
-    window.closeBoardConfig = function () {
-        const modal = document.getElementById('boardConfigModal');
-        if (modal) modal.style.display = 'none';
-    };
-
-    function renderStatusConfigList() {
-        const list = document.getElementById('statusList');
-        list.innerHTML = '';
-        boardStatuses.sort((a, b) => a.order - b.order).forEach((status, index) => {
-            const colors = ['default', 'yellow', 'blue', 'green', 'pink', 'purple', 'orange'];
-            let colorOptions = colors.map(c => `<option value="${c}" ${status.color === c ? 'selected' : ''}>${c}</option>`).join('');
-
-            list.innerHTML += `
-                <div class="status-item" data-id="${status.id}" draggable="true" ondragstart="dragStatus(event)" ondragover="allowDropStatus(event)" ondrop="dropStatus(event)" style="display: flex; align-items: center; justify-content: space-between; gap: 12px; background: var(--bg-body); padding: 12px 16px; margin-bottom: 10px; border-radius: var(--radius-md); border: 1px solid var(--border-color); flex-wrap: nowrap; transition: transform 0.2s;">
-                    
-                    <div style="display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0;">
-                        <i class="fa-solid fa-grip-vertical text-muted" style="cursor: grab; font-size: 1.1rem; opacity: 0.5;"></i>
-                        
-                        <div style="display: flex; align-items: center; gap: 8px; flex: 1; background: var(--bg-card); border-radius: var(--radius-sm); border: 1px solid var(--border-color); padding: 6px 12px;">
-                            <input type="text" class="status-name" value="${status.name}" placeholder="Nombre de columna" style="flex: 1; min-width: 80px; background: transparent; border: none; outline: none; color: var(--text-primary); font-size: 0.95rem; font-weight: 500;">
-                            
-                            <div style="width: 1px; height: 20px; background: var(--border-color);"></div>
-                            
-                            <select class="status-color" style="width: auto; min-width: 90px; background: transparent; border: none; outline: none; color: var(--text-muted); font-size: 0.85rem; cursor: pointer;">
-                                ${colorOptions}
-                            </select>
-                        </div>
-                    </div>
-                    
-                    <button type="button" onclick="removeStatus(this)" style="background: transparent; border: none; color: var(--accent-red); cursor: pointer; padding: 6px; opacity: 0.7; transition: opacity 0.2s ease;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'" title="Eliminar Columna">
-                        <i class="fa-solid fa-trash-can" style="font-size: 1.1rem;"></i>
-                    </button>
-                    
-                </div>
-            `;
-        });
-    }
-
-    window.addNewStatus = function () {
-        const newId = 'status_' + Math.random().toString(36).substr(2, 9);
-        boardStatuses.push({
-            id: newId,
-            name: 'Nueva Columna',
-            color: 'default',
-            order: boardStatuses.length + 1
-        });
-        renderStatusConfigList();
-    };
-
-    window.removeStatus = function (btn) {
-        if (confirm('¿Estás seguro? Las notas en esta columna regresarán al estado por defecto.')) {
-            btn.closest('.status-item').remove();
-        }
-    };
-
-    function syncDOMToBoardStatuses() {
-        const items = document.querySelectorAll('#statusList .status-item');
-        items.forEach((item, index) => {
-            const id = item.getAttribute('data-id');
-            const stat = boardStatuses.find(s => s.id === id);
-            if (stat) {
-                stat.name = item.querySelector('.status-name').value.trim() || 'Sin Nombre';
-                stat.color = item.querySelector('.status-color').value;
-                stat.order = index + 1;
+    function togglePrio(btn, level) {
+        currentPrio = level;
+        ['prioAlta','prioMedia','prioBaja'].forEach(function(id) {
+            var b = document.getElementById(id);
+            b.classList.remove('active');
+            if ((id === 'prioAlta' && level === 'alta') ||
+                (id === 'prioMedia' && level === 'media') ||
+                (id === 'prioBaja' && level === 'baja')) {
+                b.classList.add('active');
             }
         });
     }
 
-    let draggedStatusId = null;
-    window.dragStatus = function (ev) {
-        draggedStatusId = ev.target.closest('.status-item').getAttribute('data-id');
-        ev.dataTransfer.effectAllowed = 'move';
-        ev.target.closest('.status-item').style.opacity = '0.5';
-    };
+    function saveTask() {
+        var title = document.getElementById('quickTitle').value.trim();
+        if (!title) return;
 
-    document.addEventListener("dragend", function (event) {
-        if (event.target.classList && event.target.classList.contains('status-item')) {
-            event.target.style.opacity = '1';
-        }
-    });
+        var dueDate = document.getElementById('quickDueDate').value;
+        var assignedTo = document.getElementById('quickAssigned').value;
 
-    window.allowDropStatus = function (ev) {
-        ev.preventDefault();
-        ev.dataTransfer.dropEffect = 'move';
-    };
-
-    window.dropStatus = function (ev) {
-        ev.preventDefault();
-        if (!draggedStatusId) return;
-
-        const targetItem = ev.target.closest('.status-item');
-        if (!targetItem) return;
-
-        const targetId = targetItem.getAttribute('data-id');
-        if (draggedStatusId === targetId) return;
-
-        syncDOMToBoardStatuses();
-
-        const draggedIndex = boardStatuses.findIndex(s => s.id === draggedStatusId);
-        const targetIndex = boardStatuses.findIndex(s => s.id === targetId);
-
-        if (draggedIndex > -1 && targetIndex > -1) {
-            const [item] = boardStatuses.splice(draggedIndex, 1);
-            boardStatuses.splice(targetIndex, 0, item);
-            renderStatusConfigList();
-        }
-        draggedStatusId = null;
-    };
-
-    window.saveBoardConfig = function () {
-        syncDOMToBoardStatuses();
-
-        const newStatuses = boardStatuses.map((s, index) => {
-            s.order = index + 1;
-            return {
-                id: s.id,
-                name: s.name,
-                color: s.color,
-                order: s.order
-            };
-        });
-
-        fetch('{{ url_for("web_notes.save_statuses") }}', {
+        fetch(NOTES_URL + '/create', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ statuses: newStatuses })
-        })
-            .then(res => res.json())
-            .then(data => {
-                if (data.success) {
-                    window.location.reload();
-                } else {
-                    alert('Error al guardar configuración.');
-                }
+            body: JSON.stringify({ title: title, priority: currentPrio, dueDate: dueDate, assignedTo: assignedTo })
+        }).then(function(r) { return r.json(); }).then(function(data) {
+            if (data.success) {
+                document.getElementById('quickTitle').value = '';
+                document.getElementById('quickDueDate').value = '';
+                document.getElementById('quickAssigned').value = '';
+                document.getElementById('inlineCreator').classList.remove('expanded');
+                reloadNotes();
+            }
+        });
+    }
+
+    function toggleDone(id) {
+        var note = allNotes.find(function(n){return n.id === id;});
+        if (!note) return;
+        var newStatus = note.status === 'done' ? 'pending' : 'done';
+        fetch(NOTES_URL + '/update_status/' + id, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: newStatus })
+        }).then(function(r){return r.json();}).then(function(data) {
+            if (data.success) reloadNotes();
+        });
+    }
+
+    function deleteTask(id) {
+        if (!confirm('Eliminar esta tarea?')) return;
+        fetch(NOTES_URL + '/delete/' + id, { method: 'POST' })
+            .then(function(r){return r.json();}).then(function(data) {
+                if (data.success) reloadNotes();
             });
-    };
+    }
+
+    function openEdit(id) {
+        var note = allNotes.find(function(n){return n.id === id;});
+        if (!note) return;
+        editNoteId = id;
+        document.getElementById('editTitle').value = note.title || '';
+        document.getElementById('editContent').value = note.content || '';
+        document.getElementById('editDueDate').value = note.dueDate || '';
+        document.getElementById('editAssigned').value = note.assignedTo || '';
+        document.getElementById('editEntityType').value = note.entityType || '';
+        document.getElementById('editEntityId').value = note.entityId || '';
+        document.getElementById('editEntityLabel').value = note.entityLabel || '';
+
+        setModalPrio(note.priority || 'media');
+        updateEntitySearch();
+        showSelectedChip();
+
+        document.getElementById('editModal').classList.add('active');
+    }
+
+    function closeModal() {
+        document.getElementById('editModal').classList.remove('active');
+        editNoteId = null;
+    }
+
+    function setModalPrio(prio) {
+        document.querySelectorAll('#prioritySelector .modal-priority-btn').forEach(function(b) {
+            b.className = 'modal-priority-btn';
+            if (b.dataset.prio === prio) b.classList.add('sel-' + prio);
+        });
+    }
+
+    document.getElementById('prioritySelector').addEventListener('click', function(e) {
+        var btn = e.target.closest('.modal-priority-btn');
+        if (!btn) return;
+        setModalPrio(btn.dataset.prio);
+    });
+
+    function saveEdit() {
+        if (!editNoteId) return;
+        var prioBtn = document.querySelector('#prioritySelector .modal-priority-btn[class*="sel-"]');
+        var priority = prioBtn ? prioBtn.dataset.prio : 'media';
+
+        fetch(NOTES_URL + '/update/' + editNoteId, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                title: document.getElementById('editTitle').value.trim(),
+                content: document.getElementById('editContent').value.trim(),
+                priority: priority,
+                dueDate: document.getElementById('editDueDate').value,
+                assignedTo: document.getElementById('editAssigned').value,
+                entityType: document.getElementById('editEntityType').value,
+                entityId: document.getElementById('editEntityId').value,
+                entityLabel: document.getElementById('editEntityLabel').value
+            })
+        }).then(function(r){return r.json();}).then(function(data) {
+            if (data.success) { closeModal(); reloadNotes(); }
+        });
+    }
+
+    function updateEntitySearch() {
+        var type = document.getElementById('editEntityType').value;
+        var wrapper = document.getElementById('entitySearchWrapper');
+        if (type) {
+            wrapper.style.display = 'flex';
+            document.getElementById('entitySearchInput').value = '';
+            document.getElementById('entitySearchResults').style.display = 'none';
+        } else {
+            wrapper.style.display = 'none';
+            document.getElementById('editEntityId').value = '';
+            document.getElementById('editEntityLabel').value = '';
+            document.getElementById('selectedEntityChip').style.display = 'none';
+        }
+    }
+
+    function searchEntities() {
+        clearTimeout(entitySearchTimer);
+        entitySearchTimer = setTimeout(function() {
+            var q = document.getElementById('entitySearchInput').value.trim();
+            var type = document.getElementById('editEntityType').value;
+            if (!q || !type) { document.getElementById('entitySearchResults').style.display = 'none'; return; }
+            fetch(NOTES_URL + '/search-entities?q=' + encodeURIComponent(q) + '&type=' + type)
+                .then(function(r){return r.json();})
+                .then(function(data) {
+                    var results = document.getElementById('entitySearchResults');
+                    if (data.success && data.results.length) {
+                        results.innerHTML = data.results.map(function(r) {
+                            return '<div class="result-item" onclick="selectEntity(\'' + r.id + '\',\'' + escHtml(r.label) + '\',\'' + r.type + '\')">' + escHtml(r.label) + '</div>';
+                        }).join('');
+                        results.style.display = 'block';
+                    } else {
+                        results.style.display = 'none';
+                    }
+                });
+        }, 300);
+    }
+
+    function selectEntity(id, label, type) {
+        document.getElementById('editEntityId').value = id;
+        document.getElementById('editEntityLabel').value = label;
+        document.getElementById('entitySearchResults').style.display = 'none';
+        document.getElementById('entitySearchInput').value = label;
+        showSelectedChip();
+    }
+
+    function showSelectedChip() {
+        var chip = document.getElementById('selectedEntityChip');
+        var label = document.getElementById('editEntityLabel').value;
+        var type = document.getElementById('editEntityType').value;
+        if (label && type) {
+            var icon = 'fa-file-invoice-dollar', chipClass = '';
+            if (type === 'client') { icon = 'fa-user'; chipClass = 'client'; }
+            else if (type === 'expense') { icon = 'fa-receipt'; chipClass = 'expense'; }
+            chip.innerHTML = '<span class="entity-chip ' + chipClass + '"><i class="fa-solid ' + icon + '"></i> ' + escHtml(label) + '</span>';
+            chip.style.display = 'block';
+        } else {
+            chip.style.display = 'none';
+        }
+    }
+
+    document.getElementById('editModal').addEventListener('click', function(e) {
+        if (e.target === this) closeModal();
+    });
+
+    function reloadNotes() {
+        window.location.reload();
+    }
+
+    function fmtDate(d) {
+        if (!d) return '';
+        var parts = d.split('-');
+        if (parts.length === 3) return parts[2] + '/' + parts[1] + '/' + parts[0];
+        return d;
+    }
+
+    function escHtml(str) {
+        if (!str) return '';
+        return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    document.addEventListener('DOMContentLoaded', loadNotes);
 </script>
 {% endblock %}

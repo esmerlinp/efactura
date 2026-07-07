@@ -6586,7 +6586,8 @@ def get_report_categories():
                 {"title": "Informe de cuentas", "url": "web_accounting.chart_of_accounts",
                  "enabled": module_enabled('contabilidad'),
                  "desc": "Explora el catálogo de cuentas y sus saldos actuales."},
-                {"title": "Mayor general", "enabled": False,
+{"title": "Mayor general", "url": "web_accounting.general_ledger",
+                 "enabled": module_enabled('contabilidad'),
                  "desc": "Consulta los movimientos y saldos de cada cuenta contable."},
             ]
         },
@@ -6601,21 +6602,30 @@ def get_report_categories():
                 {"title": "Reporte 606", "url": "web_reports_606.reporte_606",
                  "enabled": module_enabled('reporte_606'),
                  "desc": "Compras y gastos del período para tu declaración DGII."},
-                {"title": "Reporte 607", "url": "web_invoices.report_607_export",
+                {"title": "Reporte 607", "url": "web_reports_607.reporte_607",
                  "enabled": module_enabled('reporte_606'),
                  "desc": "Ventas del período para tu declaración DGII."},
+                {"title": "Reporte 608", "url": "web_reports_608.reporte_608",
+                 "enabled": True,
+                 "desc": "Reporte de compras de bienes y servicios para tu declaración DGII."},
+                {"title": "Reporte 623", "url": "web_reports_623.reporte_623",
+                 "enabled": True,
+                 "desc": "Reporte de compras de servicios transfronterizos para tu declaración DGII."},
                 {"title": "Reporte IT1", "url": "web_reports_sales.it1_reports_list",
                  "enabled": module_enabled('e_cf'),
                  "desc": "Crea un reporte con los datos de tu IT-1 y Anexo A para presentarlo en la oficina virtual de la DGII."},
                 {"title": "Reporte detallado de impuestos", "url": "web_reports_sales.detailed_taxes_report",
                  "enabled": module_enabled('e_cf'),
                  "desc": "Consulta la base y el valor de tus impuestos generados por cada transacción."},
-                {"title": "Reporte 608", "enabled": False, "desc": ""},
-                {"title": "Conciliación fiscal", "enabled": False, "desc": ""},
+                {"title": "Impuestos mensuales", "url": "web_reports_sales.monthly_taxes_report",
+                 "enabled": True,
+                 "desc": "Resumen mensual de impuestos generados, soportados y retenciones para tu declaración DGII."},
+                {"title": "Conciliación fiscal", "url": "web_reports_sales.tax_reconciliation_report",
+                 "enabled": True,
+                 "desc": "Comparativa mes a mes de impuestos y retenciones del año fiscal para detectar discrepancias."},
                 {"title": "Impuestos y retenciones", "url": "web_reports_sales.taxes_retentions_report",
                  "enabled": True,
                  "desc": "Conoce el detalle de los impuestos y retenciones asociados a tus compras, ventas y devoluciones."},
-                {"title": "Impuestos mensuales", "enabled": False, "desc": ""},
             ]
         },
         {
@@ -6629,7 +6639,9 @@ def get_report_categories():
                 {"title": "Importar gastos", "url": "web_invoices.expense_import_page",
                  "enabled": True,
                  "desc": "Importa gastos desde archivos CSV."},
-                {"title": "Exportar respaldo", "enabled": False, "desc": ""},
+                {"title": "Exportar respaldo", "url": "web_invoices.backup_export",
+                 "enabled": True,
+                 "desc": "Descarga una copia de seguridad de todos los datos de tu empresa."},
             ]
         },
         {
@@ -6693,6 +6705,186 @@ def it1_diagnostic():
     
     current_period = datetime.now(timezone.utc).strftime("%Y-%m")
     return render_template('reports/it1.html', active_page='reports', it1=it1, current_period=current_period)
+
+
+@web_invoices_bp.route('/reports/backup-export', methods=['GET', 'POST'])
+def backup_export():
+    if 'user' not in session:
+        return redirect(url_for('web_auth.login'))
+    if not check_permission('canInvoice'):
+        return render_template('auth/restricted.html', feature_name="Exportar Respaldo", required_permission="canInvoice")
+
+    owner_uid = session['user']['ownerUID']
+    sandbox_flag = session.get('is_sandbox_mode', True)
+
+    if request.method == 'GET':
+        invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox_flag)
+        real_invoices = [inv for inv in invoices if not inv.get('isQuotation')]
+        expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox_flag)
+        clients = DatabaseService.get_clients(owner_uid, sandbox=sandbox_flag)
+        items = DatabaseService.get_items(owner_uid, sandbox=sandbox_flag)
+        categories = DatabaseService.get_categories(owner_uid, sandbox=sandbox_flag)
+        branches = DatabaseService.get_branches(owner_uid, sandbox=sandbox_flag)
+        warehouses = DatabaseService.get_warehouses(owner_uid, sandbox=sandbox_flag)
+
+        entries = []
+        accounts = []
+        price_lists = []
+        cost_centers = []
+        try:
+            entries = DatabaseService.get_accounting_entries(owner_uid, sandbox=sandbox_flag)
+        except Exception:
+            pass
+        try:
+            accounts = DatabaseService.get_accounts(owner_uid, sandbox=sandbox_flag)
+        except Exception:
+            pass
+        try:
+            price_lists = DatabaseService.get_price_lists(owner_uid, sandbox=sandbox_flag)
+        except Exception:
+            pass
+        try:
+            cost_centers = DatabaseService.get_cost_centers(owner_uid, sandbox=sandbox_flag)
+        except Exception:
+            pass
+
+        modules = [
+            {"key": "invoices", "title": "Ventas (e-CF)", "icon": "fa-file-invoice-dollar", "color": "blue",
+             "count": len(real_invoices), "default_selected": True},
+            {"key": "expenses", "title": "Gastos", "icon": "fa-receipt", "color": "red",
+             "count": len(expenses), "default_selected": True},
+            {"key": "clients", "title": "Clientes", "icon": "fa-users", "color": "green",
+             "count": len(clients), "default_selected": True},
+            {"key": "items", "title": "Art\u00edculos", "icon": "fa-boxes-stacked", "color": "purple",
+             "count": len(items), "default_selected": True},
+            {"key": "accounting_entries", "title": "Asientos contables", "icon": "fa-book", "color": "amber",
+             "count": len(entries), "default_selected": True},
+            {"key": "accounts", "title": "Cat\u00e1logo de cuentas", "icon": "fa-list-ol", "color": "cyan",
+             "count": len(accounts), "default_selected": False},
+            {"key": "branches", "title": "Sucursales", "icon": "fa-building", "color": "blue",
+             "count": len(branches), "default_selected": False},
+            {"key": "warehouses", "title": "Almacenes", "icon": "fa-warehouse", "color": "purple",
+             "count": len(warehouses), "default_selected": False},
+            {"key": "categories", "title": "Categor\u00edas", "icon": "fa-tags", "color": "green",
+             "count": len(categories), "default_selected": False},
+            {"key": "price_lists", "title": "Listas de precios", "icon": "fa-tag", "color": "amber",
+             "count": len(price_lists), "default_selected": False},
+            {"key": "cost_centers", "title": "Centros de costo", "icon": "fa-chart-pie", "color": "red",
+             "count": len(cost_centers), "default_selected": False},
+        ]
+
+        return render_template('reports/backup_export.html', active_page='reports',
+                               modules=modules, sandbox=sandbox_flag)
+
+    # --- POST: generar y descargar respaldo ---
+    selected = request.form.getlist('modules')
+    fmt = request.form.get('format', 'json')
+
+    if not selected:
+        flash('Selecciona al menos un m\u00f3dulo para exportar.', 'error')
+        return redirect(url_for('web_invoices.backup_export'))
+
+    # Recolectar datos
+    backup = {
+        "metadata": {
+            "exported_at": datetime.now(timezone.utc).isoformat(),
+            "format": fmt,
+            "modules": selected,
+        },
+        "data": {}
+    }
+
+    # Cargar m\u00f3dulos seleccionados
+    if 'invoices' in selected:
+        invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox_flag)
+        backup["data"]["invoices"] = [inv for inv in invoices if not inv.get('isQuotation')]
+
+    if 'expenses' in selected:
+        backup["data"]["expenses"] = DatabaseService.get_expenses(owner_uid, sandbox=sandbox_flag)
+
+    if 'clients' in selected:
+        backup["data"]["clients"] = DatabaseService.get_clients(owner_uid, sandbox=sandbox_flag)
+
+    if 'items' in selected:
+        backup["data"]["items"] = DatabaseService.get_items(owner_uid, sandbox=sandbox_flag)
+
+    if 'categories' in selected:
+        backup["data"]["categories"] = DatabaseService.get_categories(owner_uid, sandbox=sandbox_flag)
+
+    if 'branches' in selected:
+        backup["data"]["branches"] = DatabaseService.get_branches(owner_uid, sandbox=sandbox_flag)
+
+    if 'warehouses' in selected:
+        backup["data"]["warehouses"] = DatabaseService.get_warehouses(owner_uid, sandbox=sandbox_flag)
+
+    if 'accounting_entries' in selected:
+        try:
+            backup["data"]["accounting_entries"] = DatabaseService.get_accounting_entries(owner_uid, sandbox=sandbox_flag)
+        except Exception:
+            backup["data"]["accounting_entries"] = []
+
+    if 'accounts' in selected:
+        try:
+            backup["data"]["accounts"] = DatabaseService.get_accounts(owner_uid, sandbox=sandbox_flag)
+        except Exception:
+            backup["data"]["accounts"] = []
+
+    if 'price_lists' in selected:
+        try:
+            backup["data"]["price_lists"] = DatabaseService.get_price_lists(owner_uid, sandbox=sandbox_flag)
+        except Exception:
+            backup["data"]["price_lists"] = []
+
+    if 'cost_centers' in selected:
+        try:
+            backup["data"]["cost_centers"] = DatabaseService.get_cost_centers(owner_uid, sandbox=sandbox_flag)
+        except Exception:
+            backup["data"]["cost_centers"] = []
+
+    timestamp = datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')
+
+    if fmt == 'json':
+        # Serializar a JSON con manejo de tipos no serializables
+        class BackupEncoder(json.JSONEncoder):
+            def default(self, obj):
+                if isinstance(obj, datetime):
+                    return obj.isoformat()
+                return str(obj)
+
+        json_str = json.dumps(backup, ensure_ascii=False, indent=2, cls=BackupEncoder)
+        dest = io.BytesIO()
+        dest.write(b'\xef\xbb\xbf')
+        dest.write(json_str.encode('utf-8'))
+        dest.seek(0)
+        filename = f"respaldo_{timestamp}.json"
+        return send_file(dest, mimetype="application/json", as_attachment=True, download_name=filename)
+
+    else:
+        # CSV: crear ZIP con un CSV por m\u00f3dulo
+        import zipfile
+        dest = io.BytesIO()
+        with zipfile.ZipFile(dest, 'w', zipfile.ZIP_DEFLATED) as zf:
+            for mod_key, records in backup["data"].items():
+                if not records:
+                    continue
+                csv_output = io.StringIO()
+                writer = csv.writer(csv_output, quoting=csv.QUOTE_ALL)
+                # Encabezados desde el primer registro
+                if records:
+                    headers = list(records[0].keys())
+                    writer.writerow(headers)
+                    for rec in records:
+                        row = []
+                        for h in headers:
+                            val = rec.get(h, '')
+                            if isinstance(val, (dict, list)):
+                                val = json.dumps(val, ensure_ascii=False)
+                            row.append(str(val) if val is not None else '')
+                        writer.writerow(row)
+                zf.writestr(f"{mod_key}.csv", csv_output.getvalue().encode('utf-8-sig'))
+        dest.seek(0)
+        filename = f"respaldo_{timestamp}.zip"
+        return send_file(dest, mimetype="application/zip", as_attachment=True, download_name=filename)
 
 
 def _parse_period_args():
