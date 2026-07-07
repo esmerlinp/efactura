@@ -4705,6 +4705,427 @@ def taxes_retentions_export():
     )
 
 
+# ─────────────────────────────────────────────────────────
+# REPORTE IMPUESTOS MENSUALES
+# ─────────────────────────────────────────────────────────
+
+@web_reports_sales_bp.route('/reports/fiscal/monthly-taxes')
+def monthly_taxes_report():
+    if 'user' not in session:
+        return redirect(url_for('web_auth.login'))
+    if not check_permission('canInvoice'):
+        return render_template('auth/restricted.html',
+                               feature_name="Impuestos mensuales",
+                               required_permission="canInvoice")
+
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+    now = datetime.now(timezone.utc)
+
+    try:
+        year = int(request.args.get('year', now.year))
+    except ValueError:
+        year = now.year
+    try:
+        month = int(request.args.get('month', now.month))
+    except ValueError:
+        month = now.month
+
+    active_tab = request.args.get('tab', 'sales')
+
+    all_invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox) or []
+    all_expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox) or []
+
+    # ── Sales tax breakdown (ventas) ──
+    sales_bd = _empty_tax_breakdown()
+    for inv in all_invoices:
+        if inv.get('status') in ('Anulada', 'Borrador', 'Consolidada') or inv.get('isQuotation'):
+            continue
+        ecf = inv.get('ecfType', '')
+        if ecf in ('Nota de Crédito (E34)', 'Nota de Crédito') or 'Crédito' in ecf:
+            continue
+        date_raw = inv.get('date') or inv.get('createdAt') or ''
+        if not _period_matches(date_raw, year, month):
+            continue
+        _merge_breakdown(sales_bd, _invoice_tax_breakdown(inv))
+
+    # ── Sales retentions (retenciones sufridas) ──
+    sales_ret_rows = _tr_sales_retention_rows(all_invoices, year, month)
+    total_sales_ret_itbis = round(sum(r['retained_itbis'] for r in sales_ret_rows), 2)
+    total_sales_ret_isr = round(sum(r['retained_isr'] for r in sales_ret_rows), 2)
+
+    # ── Purchase tax breakdown (compras) ──
+    purchases_bd = _empty_tax_breakdown()
+    purchase_detail_rows = []
+    for exp in all_expenses:
+        date_raw = exp.get('date') or exp.get('createdAt') or ''
+        if not _period_matches(date_raw, year, month):
+            continue
+        _merge_breakdown(purchases_bd, _expense_tax_breakdown(exp))
+        # Also collect detail rows for table
+        amount = float(exp.get('amount', 0) or 0)
+        itbis_amt = float(exp.get('itbisAmount', 0) or exp.get('itbis', 0) or 0)
+        base = amount - itbis_amt
+        if itbis_amt > 0 and base > 0:
+            lbl = _classify_rate(itbis_amt / base)
+        else:
+            lbl = "Exento (0%)"
+        purchase_detail_rows.append({
+            'ncf': exp.get('ncf') or exp.get('supplierInvoiceNumber') or '—',
+            'doc_type': exp.get('ecfType') or 'Gasto',
+            'entity': exp.get('supplierName') or '—',
+            'date': date_raw[:10],
+            'tax_label': lbl,
+            'base': round(base, 2),
+            'tax': round(itbis_amt, 2),
+            'deductible': exp.get('isITBISDeductible', True),
+        })
+    purchase_detail_rows.sort(key=lambda r: r['date'], reverse=True)
+
+    # ── Purchase retentions (retenciones practicadas) ──
+    purchase_ret_rows = _tr_purchase_retention_rows(all_expenses, year, month)
+    total_purchase_ret_itbis = round(sum(r['retained_itbis'] for r in purchase_ret_rows), 2)
+    total_purchase_ret_isr = round(sum(r['retained_isr'] for r in purchase_ret_rows), 2)
+
+    # ── ITBIS deducible de compras ──
+    total_itbis_deducible = round(sum(
+        float(e.get('itbisAmount', 0) or 0)
+        for e in all_expenses
+        if _period_matches(e.get('date') or e.get('createdAt') or '', year, month)
+        and e.get('isITBISDeductible', True)
+    ), 2)
+
+    # ── KPI calculations ──
+    total_itbis_ventas = round(sum(v['tax'] for v in sales_bd.values()), 2)
+    total_itbis_compras = round(sum(v['tax'] for v in purchases_bd.values()), 2)
+    # DGII: ITBIS a pagar = ITBIS ventas - ITBIS compras deducible - retenciones ITBIS sufridas
+    itbis_a_pagar = round(total_itbis_ventas - total_itbis_deducible - total_sales_ret_itbis, 2)
+
+    years_range = list(range(now.year - 5, now.year + 1))
+
+    return render_template(
+        'reports/monthly_taxes.html',
+        active_page='monthly_taxes',
+        year=year, month=month,
+        years_range=years_range,
+        months_list=MONTH_FILTER_OPTIONS,
+        tax_labels=TAX_LABELS,
+        active_tab=active_tab,
+        # KPI totals
+        total_itbis_ventas=total_itbis_ventas,
+        total_itbis_compras=total_itbis_compras,
+        total_itbis_deducible=total_itbis_deducible,
+        itbis_a_pagar=itbis_a_pagar,
+        total_sales_ret_itbis=total_sales_ret_itbis,
+        total_sales_ret_isr=total_sales_ret_isr,
+        total_purchase_ret_itbis=total_purchase_ret_itbis,
+        total_purchase_ret_isr=total_purchase_ret_isr,
+        # Breakdowns
+        sales_bd=sales_bd,
+        purchases_bd=purchases_bd,
+        # Detail rows
+        sales_ret_rows=sales_ret_rows,
+        purchase_ret_rows=purchase_ret_rows,
+        purchase_detail_rows=purchase_detail_rows,
+        # Counts
+        sales_ret_count=len(sales_ret_rows),
+        purchase_ret_count=len(purchase_ret_rows),
+        purchase_count=len(purchase_detail_rows),
+    )
+
+
+@web_reports_sales_bp.route('/reports/fiscal/monthly-taxes/export')
+def monthly_taxes_export():
+    if 'user' not in session:
+        return redirect(url_for('web_auth.login'))
+    if not check_permission('canInvoice'):
+        return render_template('auth/restricted.html'), 403
+
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+    now = datetime.now(timezone.utc)
+
+    try:
+        year = int(request.args.get('year', now.year))
+    except ValueError:
+        year = now.year
+    try:
+        month = int(request.args.get('month', now.month))
+    except ValueError:
+        month = now.month
+
+    active_tab = request.args.get('tab', 'sales')
+
+    all_invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox) or []
+    all_expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox) or []
+
+    if active_tab == 'sales_retentions':
+        rows = _tr_sales_retention_rows(all_invoices, year, month)
+    elif active_tab == 'purchase_retentions':
+        rows = _tr_purchase_retention_rows(all_expenses, year, month)
+    elif active_tab == 'purchases':
+        rows = _tr_expenses_rows(all_expenses, '', year, month)
+    else:
+        rows = _tr_sales_rows(all_invoices, '', year, month)
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+
+    if active_tab in ('sales_retentions', 'purchase_retentions'):
+        writer.writerow(['NCF/Número', 'Tipo documento', 'Proveedor/Cliente', 'Fecha',
+                         'Ret. ITBIS', 'Ret. ISR', 'Total retenciones'])
+        for r in rows:
+            writer.writerow([r['ncf'], r['doc_type'], r['entity'], r['date'],
+                             r['retained_itbis'], r['retained_isr'], r['total']])
+    else:
+        writer.writerow(['NCF/Número', 'Tipo documento', 'Proveedor/Cliente', 'Fecha',
+                         'Impuesto', 'Base imponible', 'Valor impuesto'])
+        for r in rows:
+            writer.writerow([r['ncf'], r['doc_type'], r['entity'], r['date'],
+                             r['tax_label'], r['base'], r['tax']])
+
+    output.seek(0)
+    tab_name = active_tab.replace('_', '-')
+    filename = f"impuestos-mensuales-{tab_name}-{year}-{month:02d}.csv"
+    return send_file(
+        io.BytesIO(output.getvalue().encode('utf-8-sig')),
+        mimetype='text/csv',
+        as_attachment=True,
+        download_name=filename,
+    )
+
+
+# ─────────────────────────────────────────────────────────
+# REPORTE CONCILIACIÓN FISCAL
+# ─────────────────────────────────────────────────────────
+
+@web_reports_sales_bp.route('/reports/fiscal/tax-reconciliation')
+def tax_reconciliation_report():
+    if 'user' not in session:
+        return redirect(url_for('web_auth.login'))
+    if not check_permission('canInvoice'):
+        return render_template('auth/restricted.html',
+                               feature_name="Conciliación fiscal",
+                               required_permission="canInvoice")
+
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+    now = datetime.now(timezone.utc)
+
+    try:
+        year = int(request.args.get('year', now.year))
+    except ValueError:
+        year = now.year
+
+    all_invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox) or []
+    all_expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox) or []
+
+    # ── Build month-by-month data ──
+    monthly_data = []
+    annual_itbis_ventas = 0.0
+    annual_itbis_compras = 0.0
+    annual_itbis_deducible = 0.0
+    annual_itbis_a_pagar = 0.0
+    annual_ret_isr = 0.0
+    annual_ret_itbis = 0.0
+
+    for m in range(1, 13):
+        # ITBIS en ventas
+        sales_bd = _empty_tax_breakdown()
+        for inv in all_invoices:
+            if inv.get('status') in ('Anulada', 'Borrador', 'Consolidada') or inv.get('isQuotation'):
+                continue
+            ecf = inv.get('ecfType', '')
+            if ecf in ('Nota de Crédito (E34)', 'Nota de Crédito') or 'Crédito' in ecf:
+                continue
+            date_raw = inv.get('date') or inv.get('createdAt') or ''
+            if not _period_matches(date_raw, year, m):
+                continue
+            _merge_breakdown(sales_bd, _invoice_tax_breakdown(inv))
+        itbis_ventas = round(sum(v['tax'] for v in sales_bd.values()), 2)
+
+        # ITBIS en compras
+        itbis_compras = round(sum(
+            float(e.get('itbisAmount', 0) or 0)
+            for e in all_expenses
+            if _period_matches(e.get('date') or e.get('createdAt') or '', year, m)
+        ), 2)
+
+        # ITBIS deducible
+        itbis_deducible = round(sum(
+            float(e.get('itbisAmount', 0) or 0)
+            for e in all_expenses
+            if _period_matches(e.get('date') or e.get('createdAt') or '', year, m)
+            and e.get('isITBISDeductible', True)
+        ), 2)
+
+        # Retenciones sufridas ITBIS (ventas)
+        sales_ret_rows = _tr_sales_retention_rows(all_invoices, year, m)
+        ret_itbis_sufrida = round(sum(r['retained_itbis'] for r in sales_ret_rows), 2)
+
+        # Retenciones ISR (ventas + compras)
+        ret_isr_ventas = round(sum(
+            float(inv.get('retainedISR', 0) or 0)
+            for inv in all_invoices
+            if inv.get('status') not in ('Anulada', 'Borrador', 'Consolidada')
+            and not inv.get('isQuotation')
+            and _period_matches(inv.get('date') or inv.get('createdAt') or '', year, m)
+        ), 2)
+        ret_isr_compras = round(sum(
+            float(e.get('retainedISR', 0) or 0)
+            for e in all_expenses
+            if _period_matches(e.get('date') or e.get('createdAt') or '', year, m)
+        ), 2)
+        ret_isr_total = round(ret_isr_ventas + ret_isr_compras, 2)
+
+        # Retenciones ITBIS total (ventas + compras)
+        ret_itbis_compras = round(sum(
+            float(e.get('retainedITBIS', 0) or 0)
+            for e in all_expenses
+            if _period_matches(e.get('date') or e.get('createdAt') or '', year, m)
+        ), 2)
+        ret_itbis_total = round(ret_itbis_sufrida + ret_itbis_compras, 2)
+
+        # ITBIS a pagar
+        itbis_a_pagar = round(itbis_ventas - itbis_deducible - ret_itbis_sufrida, 2)
+
+        monthly_data.append({
+            'month': m,
+            'month_name': MONTH_NAMES[m - 1],
+            'itbis_ventas': itbis_ventas,
+            'itbis_compras': itbis_compras,
+            'itbis_deducible': itbis_deducible,
+            'itbis_a_pagar': itbis_a_pagar,
+            'ret_isr': ret_isr_total,
+            'ret_itbis': ret_itbis_total,
+            'has_data': (itbis_ventas > 0 or itbis_compras > 0 or ret_isr_total > 0),
+        })
+
+        annual_itbis_ventas += itbis_ventas
+        annual_itbis_compras += itbis_compras
+        annual_itbis_deducible += itbis_deducible
+        annual_itbis_a_pagar += itbis_a_pagar
+        annual_ret_isr += ret_isr_total
+        annual_ret_itbis += ret_itbis_total
+
+    annual_itbis_ventas = round(annual_itbis_ventas, 2)
+    annual_itbis_compras = round(annual_itbis_compras, 2)
+    annual_itbis_deducible = round(annual_itbis_deducible, 2)
+    annual_itbis_a_pagar = round(annual_itbis_a_pagar, 2)
+    annual_ret_isr = round(annual_ret_isr, 2)
+    annual_ret_itbis = round(annual_ret_itbis, 2)
+
+    years_range = list(range(now.year - 5, now.year + 1))
+
+    return render_template(
+        'reports/tax_reconciliation.html',
+        active_page='tax_reconciliation',
+        year=year,
+        years_range=years_range,
+        months=MONTH_NAMES,
+        monthly_data=monthly_data,
+        # Annual totals
+        annual_itbis_ventas=annual_itbis_ventas,
+        annual_itbis_compras=annual_itbis_compras,
+        annual_itbis_deducible=annual_itbis_deducible,
+        annual_itbis_a_pagar=annual_itbis_a_pagar,
+        annual_ret_isr=annual_ret_isr,
+        annual_ret_itbis=annual_ret_itbis,
+    )
+
+
+@web_reports_sales_bp.route('/reports/fiscal/tax-reconciliation/export')
+def tax_reconciliation_export():
+    if 'user' not in session:
+        return redirect(url_for('web_auth.login'))
+    if not check_permission('canInvoice'):
+        return render_template('auth/restricted.html'), 403
+
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+    now = datetime.now(timezone.utc)
+
+    try:
+        year = int(request.args.get('year', now.year))
+    except ValueError:
+        year = now.year
+
+    all_invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox) or []
+    all_expenses = DatabaseService.get_expenses(owner_uid, sandbox=sandbox) or []
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(['Mes', 'ITBIS Ventas (607)', 'ITBIS Compras (606)',
+                     'ITBIS Deducible', 'ITBIS a Pagar',
+                     'Retenciones ISR', 'Retenciones ITBIS'])
+
+    for m in range(1, 13):
+        sales_bd = _empty_tax_breakdown()
+        for inv in all_invoices:
+            if inv.get('status') in ('Anulada', 'Borrador', 'Consolidada') or inv.get('isQuotation'):
+                continue
+            ecf = inv.get('ecfType', '')
+            if ecf in ('Nota de Crédito (E34)', 'Nota de Crédito') or 'Crédito' in ecf:
+                continue
+            date_raw = inv.get('date') or inv.get('createdAt') or ''
+            if not _period_matches(date_raw, year, m):
+                continue
+            _merge_breakdown(sales_bd, _invoice_tax_breakdown(inv))
+        itbis_ventas = round(sum(v['tax'] for v in sales_bd.values()), 2)
+
+        itbis_compras = round(sum(
+            float(e.get('itbisAmount', 0) or 0)
+            for e in all_expenses
+            if _period_matches(e.get('date') or e.get('createdAt') or '', year, m)
+        ), 2)
+
+        itbis_deducible = round(sum(
+            float(e.get('itbisAmount', 0) or 0)
+            for e in all_expenses
+            if _period_matches(e.get('date') or e.get('createdAt') or '', year, m)
+            and e.get('isITBISDeductible', True)
+        ), 2)
+
+        sales_ret_rows = _tr_sales_retention_rows(all_invoices, year, m)
+        ret_itbis_sufrida = round(sum(r['retained_itbis'] for r in sales_ret_rows), 2)
+
+        ret_isr_ventas = round(sum(
+            float(inv.get('retainedISR', 0) or 0)
+            for inv in all_invoices
+            if inv.get('status') not in ('Anulada', 'Borrador', 'Consolidada')
+            and not inv.get('isQuotation')
+            and _period_matches(inv.get('date') or inv.get('createdAt') or '', year, m)
+        ), 2)
+        ret_isr_compras = round(sum(
+            float(e.get('retainedISR', 0) or 0)
+            for e in all_expenses
+            if _period_matches(e.get('date') or e.get('createdAt') or '', year, m)
+        ), 2)
+        ret_isr_total = round(ret_isr_ventas + ret_isr_compras, 2)
+
+        ret_itbis_compras = round(sum(
+            float(e.get('retainedITBIS', 0) or 0)
+            for e in all_expenses
+            if _period_matches(e.get('date') or e.get('createdAt') or '', year, m)
+        ), 2)
+        ret_itbis_total = round(ret_itbis_sufrida + ret_itbis_compras, 2)
+
+        itbis_a_pagar = round(itbis_ventas - itbis_deducible - ret_itbis_sufrida, 2)
+
+        writer.writerow([MONTH_NAMES[m - 1], itbis_ventas, itbis_compras,
+                         itbis_deducible, itbis_a_pagar,
+                         ret_isr_total, ret_itbis_total])
+
+    output.seek(0)
+    filename = f"conciliacion-fiscal-{year}.csv"
+    return send_file(
+        io.BytesIO(output.getvalue().encode('utf-8-sig')),
+        mimetype='text/csv',
+        as_attachment=True,
+        download_name=filename,
+    )
+
+
 @web_reports_sales_bp.route('/reports/financial-ratios')
 def financial_ratios():
     if 'user' not in session:

@@ -134,6 +134,12 @@
                                 <span>Balanza de Comprobación</span>
                             </a>
                         </li>
+                        <li class="nav-item {% if active_page == 'acc_reports' %}active{% endif %}"
+                            data-tooltip="Mayor General">
+                            <a href="{{ url_for('web_accounting.general_ledger') }}">
+                                <span>Mayor General</span>
+                            </a>
+                        </li>
                     </ul>
                 </div>
 

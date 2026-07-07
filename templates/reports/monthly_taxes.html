@@ -1,0 +1,449 @@
+{% extends "layout.html" %}
+{% block title %}Impuestos mensuales — {{ year }}-{{ '%02d'|format(month) }}{% endblock %}
+{% block page_header %}Impuestos mensuales{% endblock %}
+{% block content %}
+<style>
+    .breadcrumb {
+        display: flex; align-items: center; gap: 6px;
+        font-size: 0.8rem; color: var(--text-muted); margin-bottom: 16px;
+    }
+    .breadcrumb a { color: var(--text-muted); text-decoration: none; font-weight: 500; }
+    .breadcrumb a:hover { color: var(--accent-emerald); }
+    .breadcrumb .sep { color: #cbd5e1; }
+    .page-subtitle {
+        font-size: 0.85rem; color: var(--text-muted); margin: -8px 0 22px 0;
+        line-height: 1.5; max-width: 660px;
+    }
+
+    .tr-toolbar {
+        display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap;
+        margin-bottom: 24px;
+    }
+    .tr-filters {
+        background: #fff; border: 1px solid #e2e8f0; border-radius: 14px;
+        padding: 16px 20px; display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap;
+        flex: 1;
+    }
+    .tr-filters .fg { display: flex; flex-direction: column; gap: 4px; }
+    .tr-filters .fg label {
+        font-size: 0.72rem; font-weight: 600; color: var(--text-muted);
+        text-transform: uppercase; letter-spacing: 0.04em;
+    }
+    .tr-filters select {
+        height: 40px; padding: 0 12px; border: 1px solid #e2e8f0;
+        border-radius: 8px; font-size: 0.86rem; background: #fff;
+        outline: none; min-width: 140px; transition: border-color 0.15s;
+    }
+    .tr-filters select:focus { border-color: var(--accent-emerald); }
+    .btn-gen {
+        height: 40px; padding: 0 20px; font-size: 0.86rem; font-weight: 600;
+        background: var(--accent-emerald); color: #fff; border: none;
+        border-radius: 8px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+        text-decoration: none; transition: opacity .15s;
+    }
+    .btn-gen:hover { opacity: .9; color: #fff; }
+    .btn-download {
+        height: 40px; padding: 0 18px; font-size: 0.86rem; font-weight: 600;
+        background: #fff; color: var(--text-primary); border: 1px solid #e2e8f0;
+        border-radius: 8px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+        text-decoration: none; transition: background .15s; white-space: nowrap;
+    }
+    .btn-download:hover { background: #f1f5f9; color: var(--text-primary); }
+
+    .kpi-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 14px; margin-bottom: 26px;
+    }
+    @media (max-width: 900px) { .kpi-grid { grid-template-columns: repeat(2,1fr); } }
+    @media (max-width: 560px) { .kpi-grid { grid-template-columns: 1fr; } }
+    .kpi-card {
+        background: #fff; border: 1px solid #e2e8f0; border-radius: 14px;
+        padding: 16px 20px;
+    }
+    .kpi-label {
+        font-size: 0.72rem; font-weight: 600; color: var(--text-muted);
+        text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px;
+    }
+    .kpi-value { font-size: 1.18rem; font-weight: 700; color: var(--text-primary); }
+    .kpi-value.green { color: #059669; }
+    .kpi-value.red   { color: #dc2626; }
+    .kpi-value.blue  { color: #2563eb; }
+    .kpi-value.amber { color: #d97706; }
+    .kpi-value.purple { color: #7c3aed; }
+
+    .table-card {
+        background: #fff; border: 1px solid #e2e8f0; border-radius: 14px;
+        overflow: hidden; margin-bottom: 20px;
+    }
+    .table-card-header {
+        background: #f8fafc; border-bottom: 1px solid #e2e8f0;
+        padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;
+    }
+    .table-card-header h3 { font-size: 0.9rem; font-weight: 700; margin: 0; }
+
+    .tab-nav {
+        display: flex; gap: 6px; flex-wrap: wrap;
+        padding: 12px 18px; border-bottom: 1px solid #e2e8f0;
+    }
+    .tab-link {
+        padding: 6px 14px; font-size: 0.8rem; font-weight: 600; border-radius: 8px;
+        text-decoration: none; color: var(--text-muted); background: #f1f5f9;
+        border: 1px solid transparent; transition: all .15s;
+    }
+    .tab-link:hover { background: #e2e8f0; color: var(--text-primary); }
+    .tab-link.active { background: var(--accent-emerald); color: #fff; border-color: var(--accent-emerald); }
+
+    .data-table { width: 100%; border-collapse: collapse; }
+    .data-table thead th {
+        font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+        color: var(--text-muted); background: #f8fafc; padding: 9px 16px;
+        border-bottom: 1px solid #e2e8f0; text-align: right;
+    }
+    .data-table thead th:first-child,
+    .data-table thead th:nth-child(2),
+    .data-table thead th:nth-child(3) { text-align: left; }
+    .data-table tbody tr { border-bottom: 1px solid #f1f5f9; transition: background .12s; }
+    .data-table tbody tr:last-child { border-bottom: none; }
+    .data-table tbody tr:hover { background: #f8fafc; }
+    .data-table td { font-size: 0.82rem; padding: 10px 16px; text-align: right; color: var(--text-primary); }
+    .data-table td:first-child,
+    .data-table td:nth-child(2),
+    .data-table td:nth-child(3) { text-align: left; }
+
+    .empty-state {
+        text-align: center; padding: 52px 20px; color: var(--text-muted);
+    }
+    .empty-state i { font-size: 2.2rem; margin-bottom: 12px; display: block; opacity: .35; }
+    .empty-state p { font-size: 0.88rem; margin: 0 0 4px; }
+    .empty-state small { font-size: 0.78rem; opacity: .8; }
+
+    .tax-badge {
+        display: inline-block; padding: 2px 8px; border-radius: 5px;
+        font-size: 0.72rem; font-weight: 700; background: #f1f5f9; color: #475569;
+    }
+    .ret-badge {
+        display: inline-block; padding: 2px 8px; border-radius: 5px;
+        font-size: 0.72rem; font-weight: 700; background: #fef3c7; color: #92400e;
+    }
+
+    .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 10px; padding: 16px 20px;
+    }
+    .summary-item {
+        padding: 10px 14px; border-radius: 8px;
+        background: #f8fafc; border: 1px solid #e2e8f0;
+    }
+    .summary-item .s-label {
+        font-size: 0.65rem; font-weight: 600; color: var(--text-muted);
+        text-transform: uppercase; letter-spacing: 0.03em;
+    }
+    .summary-item .s-value {
+        font-size: 1rem; font-weight: 700; color: var(--text-primary); margin-top: 2px;
+    }
+    .s-value.green { color: #059669; }
+    .s-value.red   { color: #dc2626; }
+
+    .formula-box {
+        background: #f0fdf4; border: 1px solid #86efac; border-radius: 12px;
+        padding: 14px 20px; margin: 16px 20px;
+    }
+    .formula-box .formula-title {
+        font-size: 0.72rem; font-weight: 700; color: #065f46;
+        text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 6px;
+    }
+    .formula-box .formula-text {
+        font-size: 0.82rem; color: #047857; font-family: monospace;
+    }
+    .formula-box .formula-result {
+        font-size: 1.1rem; font-weight: 800; color: #065f46; margin-top: 4px;
+    }
+</style>
+
+<div class="breadcrumb">
+    <a href="{{ url_for('web_invoices.reports_dashboard') }}">Reportes</a>
+    <span class="sep">›</span>
+    <a href="{{ url_for('web_invoices.reports_category', category_key='fiscales') }}">Fiscales</a>
+    <span class="sep">›</span>
+    <span>Impuestos mensuales</span>
+</div>
+<p class="page-subtitle">Resumen mensual de impuestos generados, soportados y retenciones para tu declaración DGII.</p>
+
+<div class="tr-toolbar">
+    <form method="GET" action="{{ url_for('web_reports_sales.monthly_taxes_report') }}" class="tr-filters">
+        <div class="fg">
+            <label>Año</label>
+            <select name="year">
+                {% for y in years_range|reverse %}
+                <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="fg">
+            <label>Mes</label>
+            <select name="month">
+                {% for m_val, m_name in months_list %}
+                <option value="{{ m_val }}" {% if m_val == month %}selected{% endif %}>{{ m_name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <input type="hidden" name="tab" value="{{ active_tab }}">
+        <button type="submit" class="btn-gen">
+            <i class="fa-solid fa-rotate-right"></i> Generar reporte
+        </button>
+    </form>
+    <a href="{{ url_for('web_reports_sales.monthly_taxes_export', year=year, month=month, tab=active_tab) }}"
+       class="btn-download">
+        <i class="fa-solid fa-download"></i> Descargar
+    </a>
+</div>
+
+<!-- KPI Cards -->
+<div class="kpi-grid">
+    <div class="kpi-card">
+        <div class="kpi-label">ITBIS en ventas</div>
+        <div class="kpi-value green">RD${{ "{:,.2f}".format(total_itbis_ventas) }}</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-label">ITBIS en compras</div>
+        <div class="kpi-value red">RD${{ "{:,.2f}".format(total_itbis_compras) }}</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-label">ITBIS deducible</div>
+        <div class="kpi-value blue">RD${{ "{:,.2f}".format(total_itbis_deducible) }}</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-label">ITBIS a pagar (DGII)</div>
+        <div class="kpi-value {% if itbis_a_pagar > 0 %}amber{% else %}purple{% endif %}">RD${{ "{:,.2f}".format(itbis_a_pagar) }}</div>
+    </div>
+</div>
+
+<!-- Fórmula DGII -->
+<div class="formula-box">
+    <div class="formula-title"><i class="fa-solid fa-calculator"></i> Cálculo DGII</div>
+    <div class="formula-text">
+        ITBIS a pagar = ITBIS Ventas − ITBIS Compras Deducible − Retenciones ITBIS Sufridas
+    </div>
+    <div class="formula-result">
+        RD${{ "{:,.2f}".format(total_itbis_ventas) }} − RD${{ "{:,.2f}".format(total_itbis_deducible) }} − RD${{ "{:,.2f}".format(total_sales_ret_itbis) }} = <strong>RD${{ "{:,.2f}".format(itbis_a_pagar) }}</strong>
+    </div>
+</div>
+
+<!-- Main table card with tabs -->
+<div class="table-card">
+    <div class="table-card-header">
+        <h3>
+            <i class="fa-solid fa-list-ul" style="color:var(--accent-emerald);margin-right:6px;"></i>
+            {% if active_tab == 'sales' %}Impuestos en ventas
+            {% elif active_tab == 'purchases' %}Impuestos en compras
+            {% elif active_tab == 'sales_retentions' %}Retenciones sufridas (ventas)
+            {% else %}Retenciones practicadas (compras)
+            {% endif %}
+        </h3>
+    </div>
+
+    {% set bu = url_for('web_reports_sales.monthly_taxes_report', year=year, month=month) %}
+    <div class="tab-nav">
+        <a href="{{ bu }}&tab=sales" class="tab-link {% if active_tab=='sales' %}active{% endif %}">Impuestos en ventas</a>
+        <a href="{{ bu }}&tab=purchases" class="tab-link {% if active_tab=='purchases' %}active{% endif %}">Impuestos en compras</a>
+        <a href="{{ bu }}&tab=sales_retentions" class="tab-link {% if active_tab=='sales_retentions' %}active{% endif %}">Retenciones sufridas</a>
+        <a href="{{ bu }}&tab=purchase_retentions" class="tab-link {% if active_tab=='purchase_retentions' %}active{% endif %}">Retenciones practicadas</a>
+    </div>
+
+    {% if active_tab == 'sales' %}
+    <!-- Tax breakdown summary -->
+    <div class="summary-grid">
+        {% for lbl in tax_labels %}
+        {% set bd = sales_bd.get(lbl, {'base': 0, 'tax': 0}) %}
+        <div class="summary-item">
+            <div class="s-label">{{ lbl }}</div>
+            <div class="s-value {% if bd.tax > 0 %}green{% endif %}">
+                RD${{ "{:,.2f}".format(bd.tax) }}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% elif active_tab == 'purchases' %}
+    <div class="summary-grid">
+        {% for lbl in tax_labels %}
+        {% set bd = purchases_bd.get(lbl, {'base': 0, 'tax': 0}) %}
+        <div class="summary-item">
+            <div class="s-label">{{ lbl }}</div>
+            <div class="s-value {% if bd.tax > 0 %}red{% endif %}">
+                RD${{ "{:,.2f}".format(bd.tax) }}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if active_tab == 'sales' %}
+        {% if sales_bd %}
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Impuesto</th>
+                    <th>Base imponible</th>
+                    <th>Valor impuesto</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for lbl in tax_labels %}
+                {% set bd = sales_bd.get(lbl, {'base': 0, 'tax': 0}) %}
+                <tr>
+                    <td><span class="tax-badge">{{ lbl }}</span></td>
+                    <td>RD${{ "{:,.2f}".format(bd.base) }}</td>
+                    <td><strong>RD${{ "{:,.2f}".format(bd.tax) }}</strong></td>
+                </tr>
+                {% endfor %}
+                <tr style="font-weight:700; background:rgba(16,185,129,0.04);">
+                    <td><strong>TOTAL</strong></td>
+                    <td>RD${{ "{:,.2f}".format(sales_bd.values()|sum(attribute='base')) }}</td>
+                    <td><strong>RD${{ "{:,.2f}".format(total_itbis_ventas) }}</strong></td>
+                </tr>
+            </tbody>
+        </table>
+        {% else %}
+        <div class="empty-state">
+            <i class="fa-solid fa-receipt"></i>
+            <p>No hay impuestos en ventas para este período.</p>
+        </div>
+        {% endif %}
+
+    {% elif active_tab == 'purchases' %}
+        {% if purchase_detail_rows %}
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>NCF / Número</th>
+                    <th>Tipo documento</th>
+                    <th>Proveedor</th>
+                    <th>Fecha</th>
+                    <th>Impuesto</th>
+                    <th>Base</th>
+                    <th>Valor ITBIS</th>
+                    <th>Deducible</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in purchase_detail_rows %}
+                <tr>
+                    <td style="font-family:monospace;font-size:0.77rem;">{{ row.ncf }}</td>
+                    <td style="font-size:0.78rem;">{{ row.doc_type }}</td>
+                    <td>{{ row.entity }}</td>
+                    <td>{{ row.date }}</td>
+                    <td><span class="tax-badge">{{ row.tax_label }}</span></td>
+                    <td>RD${{ "{:,.2f}".format(row.base) }}</td>
+                    <td>RD${{ "{:,.2f}".format(row.tax) }}</td>
+                    <td style="text-align:center;">
+                        {% if row.deductible %}
+                        <span style="color:var(--accent-emerald);"><i class="fa-solid fa-check"></i></span>
+                        {% else %}
+                        <span style="color:var(--text-muted);">—</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="empty-state">
+            <i class="fa-solid fa-receipt"></i>
+            <p>No hay impuestos en compras para este período.</p>
+        </div>
+        {% endif %}
+
+    {% elif active_tab == 'sales_retentions' %}
+        {% if sales_ret_rows %}
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>NCF / Número</th>
+                    <th>Tipo documento</th>
+                    <th>Cliente</th>
+                    <th>Fecha</th>
+                    <th>Ret. ITBIS</th>
+                    <th>Ret. ISR</th>
+                    <th>Total retenciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in sales_ret_rows %}
+                <tr>
+                    <td style="font-family:monospace;font-size:0.77rem;">{{ row.ncf }}</td>
+                    <td style="font-size:0.78rem;">{{ row.doc_type }}</td>
+                    <td>{{ row.entity }}</td>
+                    <td>{{ row.date }}</td>
+                    <td>RD${{ "{:,.2f}".format(row.retained_itbis) }}</td>
+                    <td>RD${{ "{:,.2f}".format(row.retained_isr) }}</td>
+                    <td><strong>RD${{ "{:,.2f}".format(row.total) }}</strong></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="empty-state">
+            <i class="fa-solid fa-hand-holding-dollar"></i>
+            <p>No hay retenciones sufridas en este período.</p>
+        </div>
+        {% endif %}
+
+    {% elif active_tab == 'purchase_retentions' %}
+        {% if purchase_ret_rows %}
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>NCF / Número</th>
+                    <th>Tipo documento</th>
+                    <th>Proveedor</th>
+                    <th>Fecha</th>
+                    <th>Ret. ITBIS</th>
+                    <th>Ret. ISR</th>
+                    <th>Total retenciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in purchase_ret_rows %}
+                <tr>
+                    <td style="font-family:monospace;font-size:0.77rem;">{{ row.ncf }}</td>
+                    <td style="font-size:0.78rem;">{{ row.doc_type }}</td>
+                    <td>{{ row.entity }}</td>
+                    <td>{{ row.date }}</td>
+                    <td>RD${{ "{:,.2f}".format(row.retained_itbis) }}</td>
+                    <td>RD${{ "{:,.2f}".format(row.retained_isr) }}</td>
+                    <td><strong>RD${{ "{:,.2f}".format(row.total) }}</strong></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="empty-state">
+            <i class="fa-solid fa-hand-holding-dollar"></i>
+            <p>No hay retenciones practicadas en este período.</p>
+        </div>
+        {% endif %}
+    {% endif %}
+</div>
+
+<!-- Retention KPIs -->
+<div class="kpi-grid" style="grid-template-columns: repeat(4, 1fr);">
+    <div class="kpi-card">
+        <div class="kpi-label">Ret. ITBIS sufridas</div>
+        <div class="kpi-value red">RD${{ "{:,.2f}".format(total_sales_ret_itbis) }}</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-label">Ret. ISR sufridas</div>
+        <div class="kpi-value amber">RD${{ "{:,.2f}".format(total_sales_ret_isr) }}</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-label">Ret. ITBIS practicadas</div>
+        <div class="kpi-value blue">RD${{ "{:,.2f}".format(total_purchase_ret_itbis) }}</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-label">Ret. ISR practicadas</div>
+        <div class="kpi-value purple">RD${{ "{:,.2f}".format(total_purchase_ret_isr) }}</div>
+    </div>
+</div>
+{% endblock %}

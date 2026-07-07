@@ -49,7 +49,7 @@ def check_permission(permission_name):
             user_perms = user.get('permissions', {})
             for conflict_perm in sod_entry["conflicts"]:
                 # Si el owner ya ejerce el permiso en conflicto, se bloquea
-                if user_perms.get(conflict_perm, True):
+                if user_perms.get(conflict_perm, False):
                     return False
         return True
     default_val = False if permission_name in ('isPosSupervisor', 'canSupervisePOS', 'canUseChatbot') else True

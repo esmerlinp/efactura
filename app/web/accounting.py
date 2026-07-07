@@ -1304,6 +1304,120 @@ def trial_balance():
 
 
 # =========================================================================
+# MAYOR GENERAL
+# =========================================================================
+@web_accounting_bp.route('/accounting/general-ledger')
+@require_module('contabilidad')
+def general_ledger():
+    user = _auth()
+    if not user:
+        return redirect(url_for('web_auth.login'))
+    if not check_permission('canAccounting'):
+        return render_template('auth/restricted.html', required_permission="canAccounting")
+    owner_uid = _owner_uid()
+    sandbox = _sandbox()
+    entries = DatabaseService.get_accounting_entries(owner_uid, sandbox=sandbox)
+    all_accounts = DatabaseService.get_chart_of_accounts(owner_uid)
+
+    # Build account lookup: id -> {code, name, type, group, nature}
+    account_map = {}
+    for a in all_accounts:
+        account_map[a["id"]] = {
+            "code": a.get("code", ""),
+            "name": a.get("name", ""),
+            "type": a.get("type", ""),
+            "group": a.get("group", ""),
+            "nature": a.get("nature", "deudora"),
+            "id": a["id"],
+        }
+
+    date_from = request.args.get('dateFrom', '')
+    date_to = request.args.get('dateTo', '')
+    account_filter = request.args.get('account', '')  # accountId
+
+    # Filter active entries by date
+    active = [e for e in entries if e.get("status") != "voided"]
+    if date_from:
+        active = [e for e in active if str(e.get("date", ""))[:10] >= date_from]
+    if date_to:
+        active = [e for e in active if str(e.get("date", ""))[:10] <= date_to]
+
+    # Process line items
+    account_lines = {}  # accountId -> list of line dicts
+    for entry in active:
+        entry_date = str(entry.get("date", ""))[:10]
+        for line in entry.get("lines", []):
+            aid = line.get("accountId")
+            if not aid:
+                continue
+            if account_filter and aid != account_filter:
+                continue
+            account_lines.setdefault(aid, []).append({
+                "date": entry_date,
+                "number": entry.get("number", ""),
+                "concept": entry.get("concept", ""),
+                "entryType": entry.get("entryType", ""),
+                "debit": float(line.get("debit", 0) or 0),
+                "credit": float(line.get("credit", 0) or 0),
+            })
+
+    # Sort accounts and calculate balances
+    ledger_accounts = []
+    total_debit = 0.0
+    total_credit = 0.0
+
+    for aid, lines in account_lines.items():
+        acct = account_map.get(aid)
+        if not acct:
+            continue
+        # Sort lines by date
+        lines.sort(key=lambda l: l["date"])
+
+        # Calculate running balance
+        balance = 0.0
+        sum_debit = 0.0
+        sum_credit = 0.0
+        for line in lines:
+            sum_debit += line["debit"]
+            sum_credit += line["credit"]
+            if acct["nature"] == "deudora":
+                balance += line["debit"] - line["credit"]
+            else:
+                balance += line["credit"] - line["debit"]
+            line["balance"] = round(balance, 2)
+
+        total_debit += sum_debit
+        total_credit += sum_credit
+
+        ledger_accounts.append({
+            "account": acct,
+            "lines": lines,
+            "sum_debit": round(sum_debit, 2),
+            "sum_credit": round(sum_credit, 2),
+            "final_balance": round(balance, 2),
+        })
+
+    # Sort by account code
+    ledger_accounts.sort(key=lambda a: a["account"]["code"])
+
+    # Build account list for filter dropdown (only movimiento accounts)
+    filter_accounts = sorted(
+        [a for a in all_accounts if a.get("type") == "movimiento"],
+        key=lambda a: a.get("code", "")
+    )
+
+    return render_template('accounting/general_ledger.html',
+                           active_page='acc_reports',
+                           ledger_accounts=ledger_accounts,
+                           filter_accounts=filter_accounts,
+                           account_filter=account_filter,
+                           date_from=date_from,
+                           date_to=date_to,
+                           total_debit=round(total_debit, 2),
+                           total_credit=round(total_credit, 2))
+
+
+# =========================================================================
 # ACTIVOS FIJOS
 # =========================================================================
 @web_accounting_bp.route('/accounting/fixed-assets')

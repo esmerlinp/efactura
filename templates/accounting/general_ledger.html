@@ -1,0 +1,256 @@
+{% extends "accounting/layout_accounting.html" %}
+{% block title %}Mayor General{% endblock %}
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/_dashboard.css') }}?v={{ static_hash('css/_dashboard.css') }}">
+{% endblock %}
+{% block content %}
+<style>
+    .breadcrumb {
+        display: flex; align-items: center; gap: 6px;
+        font-size: 0.8rem; color: var(--text-muted); margin-bottom: 16px;
+    }
+    .breadcrumb a { color: var(--text-muted); text-decoration: none; font-weight: 500; }
+    .breadcrumb a:hover { color: var(--accent-emerald); }
+    .breadcrumb .sep { color: var(--text-muted); }
+
+    .page-title {
+        font-size: 1.75rem; font-weight: 800; font-family: var(--font-heading); color: var(--text-primary);
+        margin: 0 0 4px 0;
+    }
+    .page-desc {
+        font-size: 0.85rem; color: var(--text-muted);
+        margin: 0 0 20px 0; line-height: 1.5; max-width: 640px;
+    }
+
+    .rpt-filters {
+        background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 14px;
+        padding: 14px 20px; margin-bottom: 24px;
+        display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    }
+
+    .filter-pills {
+        display: flex; gap: 6px; flex-wrap: wrap; align-items: center;
+    }
+    .filter-pills .pill {
+        padding: 5px 14px; border-radius: 20px; font-size: 0.78rem;
+        font-weight: 600; border: 1px solid var(--border-color); background: var(--bg-card);
+        color: var(--text-muted); cursor: pointer; transition: all 0.15s;
+        text-decoration: none;
+    }
+    .filter-pills .pill:hover { border-color: var(--accent-emerald); color: var(--accent-emerald); }
+    .filter-pills .pill.active { background: var(--accent-emerald); color: #fff; border-color: var(--accent-emerald); }
+
+    .pill-date-group {
+        display: flex; align-items: center; gap: 6px;
+    }
+    .pill-date-group .pill-date-label {
+        font-size: 0.72rem; font-weight: 600; color: var(--text-muted);
+        text-transform: uppercase; letter-spacing: 0.04em;
+    }
+    input.pill-date {
+        padding: 5px 12px; border-radius: 20px; font-size: 0.78rem;
+        font-weight: 500; border: 1px solid var(--border-color); background: var(--bg-card);
+        color: var(--text-primary); outline: none;
+        transition: border-color 0.15s; min-width: 145px;
+        cursor: pointer; font-family: inherit; height: 32px;
+        box-sizing: border-box;
+    }
+    input.pill-date:focus { border-color: var(--accent-emerald); }
+
+    .account-filter-group {
+        display: flex; align-items: center; gap: 6px;
+    }
+    .account-filter-group select {
+        height: 32px; padding: 0 10px; border-radius: 20px;
+        font-size: 0.78rem; font-weight: 500; border: 1px solid var(--border-color);
+        background: var(--bg-card); color: var(--text-primary); outline: none;
+        min-width: 200px; cursor: pointer;
+    }
+
+    .rpt-help-bar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 20px; }
+
+    /* Account card */
+    .ledger-card {
+        background: var(--bg-card); border: 1px solid var(--border-color);
+        border-radius: 14px; overflow: hidden; margin-bottom: 20px;
+    }
+    .ledger-card-header {
+        padding: 14px 20px; background: var(--bg-input);
+        border-bottom: 1px solid var(--border-color);
+        display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;
+    }
+    .ledger-card-header .acct-code {
+        font-family: monospace; font-size: 0.85rem; font-weight: 700;
+        color: var(--accent-emerald); margin-right: 8px;
+    }
+    .ledger-card-header .acct-name {
+        font-size: 0.95rem; font-weight: 700; color: var(--text-primary);
+    }
+    .ledger-card-header .acct-balance {
+        font-size: 0.85rem; font-weight: 600; color: var(--text-muted);
+    }
+    .ledger-card-header .balance-value {
+        font-weight: 800;
+    }
+    .balance-value.positive { color: #059669; }
+    .balance-value.negative { color: #dc2626; }
+    .balance-value.zero { color: var(--text-muted); }
+
+    .rpt-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+    .rpt-table th {
+        padding: 10px 14px; font-size: 0.72rem; font-weight: 700;
+        color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em;
+        background: var(--bg-input); border-bottom: 1px solid var(--border-color); white-space: nowrap;
+    }
+    .rpt-table th:first-child { text-align: left; }
+    .rpt-table th:not(:first-child) { text-align: right; }
+    .rpt-table td {
+        padding: 8px 14px; border-bottom: 1px solid var(--border-color);
+        color: var(--text-primary); white-space: nowrap;
+    }
+    .rpt-table td:first-child { text-align: left; }
+    .rpt-table td:not(:first-child) { text-align: right; }
+    .rpt-table tr:last-child td { border-bottom: none; }
+    .rpt-table tfoot tr {
+        border-top: 2px solid var(--border-color);
+        font-weight: 700; background: rgba(16,185,129,0.04);
+    }
+
+    .entry-type-badge {
+        display: inline-block; padding: 1px 8px; border-radius: 4px;
+        font-size: 0.68rem; font-weight: 700; font-family: monospace;
+        background: #f1f5f9; color: #64748b; min-width: 24px; text-align: center;
+    }
+
+    .empty-state {
+        text-align: center; padding: 40px; color: var(--text-muted);
+    }
+    .empty-state i { font-size: 2.2rem; display: block; margin-bottom: 12px; opacity: 0.35; }
+    .empty-state p { font-size: 0.88rem; }
+</style>
+
+<div class="dashboard-container">
+    <div class="page-title-container" style="margin-bottom:16px; padding-left:4px;">
+        <h1 class="page-title">
+            <i class="fa-solid fa-table-list" style="color:var(--accent-purple); margin-right:8px;"></i> Mayor General
+        </h1>
+        <p class="page-desc">Consulta los movimientos y saldos de cada cuenta contable. Agrupado por cuenta con saldo acumulado.</p>
+    </div>
+
+    {% set _now = datetime.now() %}
+    {% set _y = _now.year %}{% set _m = _now.month %}{% set _d = _now.day %}
+    {% set _today_from = "%04d-%02d-%02d"|format(_y, _m, _d) %}
+    {% set _today_to = "%04d-%02d-%02d"|format(_y, _m, _d) %}
+    {% set _this_from = "%04d-%02d-01"|format(_y, _m) %}
+    {% set _this_to = "%04d-%02d-%02d"|format(_y, _m, _d) %}
+    {% set _q_start = ((_m - 1) // 3) * 3 + 1 %}{% set _q_end = _q_start + 2 %}
+    {% set _q_from = "%04d-%02d-01"|format(_y, _q_start) %}
+    {% if _q_end == 12 %}{% set _q_to = "%04d-12-31"|format(_y) %}
+    {% elif _q_end == 2 %}{% set _q_to = "%04d-%02d-28"|format(_y, _q_end) %}
+    {% else %}{% set _q_to = "%04d-%02d-30"|format(_y, _q_end) %}{% endif %}
+    {% set _year_from = "%04d-01-01"|format(_y) %}
+    {% set _year_to = "%04d-12-31"|format(_y) %}
+
+    <div class="rpt-filters">
+        <form method="GET" id="filter-form" style="display:contents;">
+            <div class="filter-pills">
+                <a href="?" class="pill{% if not date_from and not date_to and not account_filter %} active{% endif %}">Todo</a>
+                <a href="?dateFrom={{ _today_from }}&dateTo={{ _today_to }}" class="pill{% if date_from == _today_from and date_to == _today_to %} active{% endif %}">Hoy</a>
+                <a href="?dateFrom={{ _this_from }}&dateTo={{ _this_to }}" class="pill{% if date_from == _this_from and date_to == _this_to %} active{% endif %}">Este mes</a>
+                <a href="?dateFrom={{ _q_from }}&dateTo={{ _q_to }}" class="pill{% if date_from == _q_from and date_to == _q_to %} active{% endif %}">Trimestre</a>
+                <a href="?dateFrom={{ _year_from }}&dateTo={{ _year_to }}" class="pill{% if date_from == _year_from and date_to == _year_to %} active{% endif %}">Año actual</a>
+            </div>
+            <div class="pill-date-group">
+                <span class="pill-date-label">Desde</span>
+                <input type="date" class="pill-date" name="dateFrom" value="{{ date_from }}" onchange="this.form.submit()">
+            </div>
+            <div class="pill-date-group">
+                <span class="pill-date-label">Hasta</span>
+                <input type="date" class="pill-date" name="dateTo" value="{{ date_to }}" onchange="this.form.submit()">
+            </div>
+            <div class="account-filter-group">
+                <select name="account" onchange="this.form.submit()">
+                    <option value="">Todas las cuentas</option>
+                    {% for a in filter_accounts %}
+                    <option value="{{ a.id }}" {% if account_filter == a.id %}selected{% endif %}>{{ a.code }} — {{ a.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button type="submit" class="btn btn-primary" style="height:32px; padding:0 16px; font-size:0.78rem; border-radius:20px; font-weight:600; display:inline-flex; align-items:center; gap:6px; cursor:pointer; border:none; background:var(--accent-emerald); color:#fff;">
+                <i class="fa-solid fa-rotate"></i> Actualizar
+            </button>
+        </form>
+    </div>
+
+    <div class="rpt-help-bar">
+        <span style="font-size:0.82rem; color:var(--text-muted);">
+            <strong>{{ ledger_accounts|length }}</strong> cuenta{% if ledger_accounts|length != 1 %}s{% endif %} con movimientos
+            · Total Débitos: <strong style="color:#059669;">RD${{ "{:,.2f}".format(total_debit) }}</strong>
+            · Total Créditos: <strong style="color:#dc2626;">RD${{ "{:,.2f}".format(total_credit) }}</strong>
+        </span>
+    </div>
+
+    {% if ledger_accounts %}
+    {% for la in ledger_accounts %}
+    <div class="ledger-card">
+        <div class="ledger-card-header">
+            <div>
+                <span class="acct-code">{{ la.account.code }}</span>
+                <span class="acct-name">{{ la.account.name }}</span>
+            </div>
+            <div class="acct-balance">
+                Saldo: <span class="balance-value {% if la.final_balance > 0 %}positive{% elif la.final_balance < 0 %}negative{% else %}zero{% endif %}">
+                    RD${{ "{:,.2f}".format(la.final_balance) }}
+                </span>
+            </div>
+        </div>
+        <div style="overflow-x:auto;">
+            <table class="rpt-table">
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>N° Asiento</th>
+                        <th>Tipo</th>
+                        <th>Concepto</th>
+                        <th>Débito</th>
+                        <th>Crédito</th>
+                        <th>Saldo</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for line in la.lines %}
+                    <tr>
+                        <td>{{ line.date }}</td>
+                        <td style="font-family:monospace;">{{ line.number }}</td>
+                        <td><span class="entry-type-badge">{{ line.entryType[:2]|upper }}</span></td>
+                        <td style="max-width:240px; overflow:hidden; text-overflow:ellipsis;">{{ line.concept }}</td>
+                        <td>{% if line.debit > 0 %}RD${{ "{:,.2f}".format(line.debit) }}{% endif %}</td>
+                        <td>{% if line.credit > 0 %}RD${{ "{:,.2f}".format(line.credit) }}{% endif %}</td>
+                        <td style="font-weight:600; color:{% if line.balance > 0 %}#059669{% elif line.balance < 0 %}#dc2626{% else %}var(--text-muted){% endif %};">
+                            RD${{ "{:,.2f}".format(line.balance) }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td colspan="4" style="text-align:right; padding:10px 14px;">TOTALES CUENTA</td>
+                        <td>RD${{ "{:,.2f}".format(la.sum_debit) }}</td>
+                        <td>RD${{ "{:,.2f}".format(la.sum_credit) }}</td>
+                        <td>RD${{ "{:,.2f}".format(la.final_balance) }}</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+    {% endfor %}
+    {% else %}
+    <div class="ledger-card">
+        <div class="empty-state">
+            <i class="fa-solid fa-table-list"></i>
+            <p>No hay movimientos contables en el período seleccionado.</p>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
