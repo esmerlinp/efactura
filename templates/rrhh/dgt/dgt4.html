@@ -1,0 +1,101 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}DGT-4 — Cambios {{ year }}-{{ '%02d'|format(month) }} — {{ product_name }}{% endblock %}
+{% block content %}
+{% include "rrhh/_styles.html" %}
+<div class="page-header hr-page-header" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap;">
+    <div>
+        <h1 class="page-title"><i class="fa-solid fa-arrows-rotate"></i> DGT-4: Cambios en Personal Fijo</h1>
+        <p style="color:var(--text-secondary); margin:0;">Ministerio de Trabajo — Reporte mensual (primeros 5 días)</p>
+    </div>
+    <div style="display:flex; gap:8px;">
+        <a href="{{ url_for('web_dgt.dgt4_export', year=year, month=month, format='txt') }}" class="btn btn-primary">
+            <i class="fa-solid fa-download"></i> .txt (SIRLA)
+        </a>
+        <a href="{{ url_for('web_dgt.dgt4_export', year=year, month=month, format='xlsx') }}" class="btn btn-success">
+            <i class="fa-solid fa-file-excel"></i> .xlsx
+        </a>
+        <a href="{{ url_for('web_dgt.dgt4_export', year=year, month=month, format='pdf') }}" class="btn btn-danger">
+            <i class="fa-solid fa-file-pdf"></i> .pdf
+        </a>
+    </div>
+</div>
+
+<div class="hr-section-card" style="margin-bottom:16px;">
+    <form method="GET" style="display:flex; gap:12px; align-items:end; flex-wrap:wrap;">
+        <div class="form-group" style="margin:0;">
+            <label>Año</label>
+            <select name="year" class="form-select" onchange="this.form.submit()">
+                {% for y in range(now.year - 3, now.year + 2) %}
+                <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group" style="margin:0;">
+            <label>Mes</label>
+            <select name="month" class="form-select" onchange="this.form.submit()">
+                {% for m in range(1, 13) %}
+                <option value="{{ m }}" {% if m == month %}selected{% endif %}>{{ '%02d'|format(m) }}</option>
+                {% endfor %}
+            </select>
+        </div>
+    </form>
+</div>
+
+<div class="hr-section-card">
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(150px,1fr)); gap:16px; margin-bottom:20px;">
+        <div class="kpi-box" style="text-align:center; padding:16px; background:rgba(16,185,129,0.08); border-radius:8px;">
+            <div style="font-size:1.8rem; font-weight:700; color:var(--accent-emerald);">{{ data.altas }}</div>
+            <div style="font-size:0.8rem; color:var(--text-muted);">Altas</div>
+        </div>
+        <div class="kpi-box" style="text-align:center; padding:16px; background:rgba(239,68,68,0.08); border-radius:8px;">
+            <div style="font-size:1.8rem; font-weight:700; color:var(--danger);">{{ data.bajas }}</div>
+            <div style="font-size:0.8rem; color:var(--text-muted);">Bajas</div>
+        </div>
+        <div class="kpi-box" style="text-align:center; padding:16px; background:rgba(245,158,11,0.08); border-radius:8px;">
+            <div style="font-size:1.8rem; font-weight:700; color:var(--accent-orange);">{{ data.modificaciones }}</div>
+            <div style="font-size:0.8rem; color:var(--text-muted);">Modificaciones</div>
+        </div>
+        <div class="kpi-box" style="text-align:center; padding:16px; background:rgba(99,102,241,0.08); border-radius:8px;">
+            <div style="font-size:1.8rem; font-weight:700; color:var(--accent-purple);">{{ data.totalCambios }}</div>
+            <div style="font-size:0.8rem; color:var(--text-muted);">Total Cambios</div>
+        </div>
+    </div>
+
+    <div style="overflow-x:auto;">
+        <table class="table-premium" style="font-size:0.8rem;">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Tipo</th>
+                    <th>Documento</th>
+                    <th>Nombre</th>
+                    <th>Detalle</th>
+                    <th>Fecha Cambio</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in data.lines %}
+                <tr>
+                    <td>{{ loop.index }}</td>
+                    <td>
+                        {% if c.tipo == 'alta' %}
+                        <span class="badge badge-success">ALTA</span>
+                        {% elif c.tipo == 'baja' %}
+                        <span class="badge badge-danger">BAJA</span>
+                        {% else %}
+                        <span class="badge badge-warning">MOD</span>
+                        {% endif %}
+                    </td>
+                    <td><span class="mono">{{ c.documento }}</span></td>
+                    <td>{{ c.nombre }}</td>
+                    <td>{{ c.detalle }}</td>
+                    <td>{{ c.fechaCambio[:10] }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:32px;">No se detectaron cambios en {{ year }}-{{ '%02d'|format(month) }}.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

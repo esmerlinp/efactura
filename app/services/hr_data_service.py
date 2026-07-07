@@ -275,6 +275,11 @@ def get_salary_history(owner_uid: str, employee_id: str, sandbox: bool = True) -
         return []
 
 
+def get_all_salary_history(owner_uid: str, sandbox: bool = True) -> list:
+    """Obtiene todos los historiales salariales (sin filtrar por empleado)."""
+    return _get_all(owner_uid, "salary_history", sandbox)
+
+
 def get_current_salary(owner_uid: str, employee_id: str, sandbox: bool = True) -> float | None:
     history = get_salary_history(owner_uid, employee_id, sandbox=sandbox)
     active = [h for h in history if not h.get("endDate")]
@@ -536,3 +541,37 @@ def toggle_checklist_item(owner_uid: str, employee_id: str, checklist_type: str,
         }, merge=True)
     except Exception as e:
         print(f"⚠️ toggle_checklist_item: {e}")
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# DGT SUSPENSIONES (DGT-9)
+# ═══════════════════════════════════════════════════════════════════════════
+
+def get_dgt_suspensions(owner_uid: str, sandbox: bool = True) -> list:
+    return _get_all(owner_uid, "dgt_suspensions", sandbox)
+
+def get_dgt_suspension(owner_uid: str, suspension_id: str, sandbox: bool = True) -> dict | None:
+    return _get_one(owner_uid, "dgt_suspensions", suspension_id, sandbox)
+
+def save_dgt_suspension(owner_uid: str, suspension_id: str, data: dict, sandbox: bool = True):
+    _save(owner_uid, "dgt_suspensions", suspension_id, data, sandbox)
+
+def delete_dgt_suspension(owner_uid: str, suspension_id: str, sandbox: bool = True):
+    _delete(owner_uid, "dgt_suspensions", suspension_id, sandbox)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# DGT REINCORPORACIONES (DGT-12)
+# ═══════════════════════════════════════════════════════════════════════════
+
+def get_dgt_reinstatements(owner_uid: str, sandbox: bool = True) -> list:
+    return _get_all(owner_uid, "dgt_reinstatements", sandbox)
+
+def get_dgt_reinstatement(owner_uid: str, reinst_id: str, sandbox: bool = True) -> dict | None:
+    return _get_one(owner_uid, "dgt_reinstatements", reinst_id, sandbox)
+
+def save_dgt_reinstatement(owner_uid: str, reinst_id: str, data: dict, sandbox: bool = True):
+    _save(owner_uid, "dgt_reinstatements", reinst_id, data, sandbox)
+
+def delete_dgt_reinstatement(owner_uid: str, reinst_id: str, sandbox: bool = True):
+    _delete(owner_uid, "dgt_reinstatements", reinst_id, sandbox)

@@ -2,6 +2,7 @@
 {% block title %}Resumen por Departamento — {{ product_name }}{% endblock %}
 {% block content %}
 {% include "rrhh/_styles.html" %}
+<div class="breadcrumb"><a href="{{ url_for('web_rrhh.reports_index') }}">Reportes de RRHH</a> <span class="sep">›</span> <span>Resumen por Departamento</span></div>
 <div class="page-header hr-page-header">
     <h1 class="page-title"><i class="fa-solid fa-building"></i> Resumen por Departamento</h1>
     <div style="display:flex; gap:8px; align-items:center;">

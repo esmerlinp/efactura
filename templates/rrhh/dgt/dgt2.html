@@ -1,0 +1,61 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}DGT-2 — Horas y Vacaciones {{ year }} — {{ product_name }}{% endblock %}
+{% block content %}
+{% include "rrhh/_styles.html" %}
+<div class="page-header hr-page-header">
+    <h1 class="page-title"><i class="fa-solid fa-clock"></i> DGT-2: Cartel de Horas y Vacaciones</h1>
+    <p style="color:var(--text-secondary); margin:0;">Ministerio de Trabajo — Jornada laboral, horas extraordinarias y calendario de vacaciones</p>
+</div>
+
+<div class="hr-section-card" style="margin-bottom:16px;">
+    <form method="GET" style="display:flex; gap:12px; align-items:end;">
+        <div class="form-group" style="margin:0;">
+            <label>Año</label>
+            <select name="year" class="form-select" onchange="this.form.submit()">
+                {% for y in range(now.year - 3, now.year + 2) %}
+                <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>
+                {% endfor %}
+            </select>
+        </div>
+    </form>
+</div>
+
+<div class="hr-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+    <div class="hr-section-card">
+        <h3><i class="fa-solid fa-calendar-day"></i> Jornada Laboral</h3>
+        <table class="table-premium">
+            <tr><td><strong>Inicio jornada</strong></td><td>{{ data.workdayStart }}</td></tr>
+            <tr><td><strong>Fin jornada</strong></td><td>{{ data.workdayEnd }}</td></tr>
+            <tr><td><strong>Inicio almuerzo</strong></td><td>{{ data.lunchStart }}</td></tr>
+            <tr><td><strong>Fin almuerzo</strong></td><td>{{ data.lunchEnd }}</td></tr>
+            <tr><td><strong>Días laborables</strong></td><td>{{ data.workDays | join(', ') }}</td></tr>
+            <tr><td><strong>Días de descanso</strong></td><td>{{ data.restDays | join(', ') }}</td></tr>
+            <tr><td><strong>Horario sábado</strong></td><td>{{ data.saturdayHours }}</td></tr>
+        </table>
+    </div>
+
+    <div class="hr-section-card">
+        <h3><i class="fa-solid fa-clock-rotate-left"></i> Horas Extraordinarias</h3>
+        <div style="text-align:center; padding:24px;">
+            <div style="font-size:2.5rem; font-weight:700; color:var(--accent-orange);">{{ "%.2f"|format(data.totalOvertimeHours) }}</div>
+            <div style="font-size:0.85rem; color:var(--text-muted);">HE acumuladas en {{ year }}</div>
+        </div>
+    </div>
+</div>
+
+<div class="hr-section-card" style="margin-top:16px;">
+    <h3><i class="fa-solid fa-umbrella-beach"></i> Vacaciones Aprobadas en {{ year }}</h3>
+    <div style="overflow-x:auto;">
+        <table class="table-premium">
+            <thead><tr><th>Empleado</th><th>Desde</th><th>Hasta</th><th>Días</th></tr></thead>
+            <tbody>
+                {% for v in data.workersOnVacation %}
+                <tr><td>{{ v.name }}</td><td>{{ v.desde }}</td><td>{{ v.hasta }}</td><td>{{ v.days }}</td></tr>
+                {% else %}
+                <tr><td colspan="4" style="text-align:center; color:var(--text-muted); padding:24px;">Sin vacaciones registradas en {{ year }}.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

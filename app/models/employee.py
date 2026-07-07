@@ -62,6 +62,15 @@ class Employee(BaseModel):
     # Jerarquía
     reportsTo: str = ""  # Employee ID del supervisor directo
 
+    # Datos DGT/SIRLA
+    nationality: int = 1  # Código de país (1 = Dominicana)
+    maritalStatus: str = ""  # Estado civil: S/Soltero, C/Casado, U/Unión Libre, D/Divorciado, V/Viudo
+    occupationCode: str = ""  # Código CNO-2019 (4 dígitos, catálogo oficial MT)
+    weeklyHours: int = 44  # Horas semanales contratadas (max 44)
+    workShift: int = 1  # Turno: 1=Diurno, 2=Nocturno, 3=Mixto
+    educationLevel: int = 0  # Grado instrucción: 1=Primaria, 2=Secundaria, 3=Técnico, 4=Grado, 5=Postgrado, 6=Ninguno
+    vacationGranted: int = 1  # Concesión vacaciones: 1=Tomará en el año, 2=Ya las tomó
+
     # Bajas
     terminationDate: Optional[str] = None
     terminationReason: Optional[str] = None
@@ -188,6 +197,9 @@ class PayrollPeriod(BaseModel):
     closedBy: str = ""
     closedAt: str = ""
     statusHistory: List[dict] = []  # [{"from": "borrador", "to": "calculada", "by": "...", "at": "...", "comment": ""}]
+
+    # Snapshot de empleados al momento del cálculo (para DGT-4)
+    employeeSnapshot: List[dict] = []  # Lista de empleados activos con sus datos al corte
 
 
 class Evaluation(BaseModel):

@@ -123,6 +123,11 @@
                     <div class="hr-info-item"><span class="hr-info-label">Vigilante</span><span class="hr-info-value">{{ 'Sí' if employee.isVigilante else 'No' }}</span></div>
                     <div class="hr-info-item"><span class="hr-info-label">TSS Clave</span><span class="hr-info-value">{{ employee.tssKey or '—' }}</span></div>
                     <div class="hr-info-item"><span class="hr-info-label">Fin prueba</span><span class="hr-info-value">{{ employee.probationEndDate or '—' }}</span></div>
+                    <div class="hr-info-item"><span class="hr-info-label">Estado civil</span><span class="hr-info-value">{% if employee.maritalStatus == 'S' %}Soltero{% elif employee.maritalStatus == 'C' %}Casado{% elif employee.maritalStatus == 'U' %}Unión Libre{% elif employee.maritalStatus == 'D' %}Divorciado{% elif employee.maritalStatus == 'V' %}Viudo{% else %}—{% endif %}</span></div>
+                    <div class="hr-info-item"><span class="hr-info-label">Código ocupación</span><span class="hr-info-value">{{ employee.occupationCode or '—' }}</span></div>
+                    <div class="hr-info-item"><span class="hr-info-label">Horas semanales</span><span class="hr-info-value">{{ employee.weeklyHours or 44 }}</span></div>
+                    <div class="hr-info-item"><span class="hr-info-label">Turno</span><span class="hr-info-value">{% if employee.workShift == 1 %}Diurno{% elif employee.workShift == 2 %}Nocturno{% elif employee.workShift == 3 %}Mixto{% else %}—{% endif %}</span></div>
+                    <div class="hr-info-item"><span class="hr-info-label">Instrucción</span><span class="hr-info-value">{% if employee.educationLevel == 1 %}Primaria{% elif employee.educationLevel == 2 %}Secundaria{% elif employee.educationLevel == 3 %}Técnico{% elif employee.educationLevel == 4 %}Grado{% elif employee.educationLevel == 5 %}Postgrado{% elif employee.educationLevel == 6 %}Ninguno{% else %}—{% endif %}</span></div>
                 </div>
             </div>
             <div class="hr-section-card" style="border:none; box-shadow:none; padding:0;">

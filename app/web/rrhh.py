@@ -4,6 +4,7 @@ import io
 import csv
 import uuid
 import calendar
+import re
 from datetime import datetime, timezone, date, timedelta
 
 from flask import Blueprint, render_template, request, redirect, url_for, session, flash, jsonify, send_file
@@ -446,8 +447,8 @@ def employee_new():
         data = {
             "id": emp_id,
             "idType": request.form.get("idType", "cedula").strip(),
-            "idNumber": request.form.get("idNumber", "").strip(),
-            "cedula": request.form.get("idNumber", "").strip(),
+            "idNumber": re.sub(r'\D', '', request.form.get("idNumber", "")),
+            "cedula": re.sub(r'\D', '', request.form.get("idNumber", "")),
             "firstName": first_name,
             "middleName": middle_name,
             "lastName": first_last_name,
@@ -465,7 +466,7 @@ def employee_new():
             "salaryType": "fijo",
             "status": "activo",
             "email": request.form.get("email", "").strip(),
-            "phone": request.form.get("phone", "").strip(),
+            "phone": re.sub(r'\D', '', request.form.get("phone", "")),
             "address": request.form.get("address", "").strip(),
             "municipality": request.form.get("municipality", "").strip(),
             "contractType": request.form.get("contractType", "").strip(),
@@ -485,6 +486,13 @@ def employee_new():
             "birthDate": request.form.get("birthDate", "").strip(),
             "probationEndDate": request.form.get("probationEndDate", "").strip(),
             "reportsTo": request.form.get("reportsTo", "").strip(),
+            "maritalStatus": request.form.get("maritalStatus", "").strip(),
+            "occupationCode": request.form.get("occupationCode", "").strip(),
+            "weeklyHours": int(request.form.get("weeklyHours", 44) or 44),
+            "workShift": int(request.form.get("workShift", 1) or 1),
+            "educationLevel": int(request.form.get("educationLevel", 0) or 0),
+            "vacationGranted": int(request.form.get("vacationGranted", 1) or 1),
+            "nationality": 1,
         }
         hr.save_employee(owner_uid, emp_id, data, sandbox=sandbox)
 
@@ -522,6 +530,7 @@ def employee_new():
     departments = hr.get_catalog(owner_uid, "departments", sandbox=sandbox)
     config = hr.get_payroll_config(owner_uid, sandbox=sandbox)
 
+    from app.data.occupations_catalog import OCCUPATIONS
     return render_template("rrhh/employee_form.html", active_page="rrhh_employees", employee=None,
                            id_types=ID_TYPES, municipios=MUNICIPIOS_RD,
                            contract_types=contract_types, areas=areas,
@@ -530,7 +539,8 @@ def employee_new():
                            frequencies=PAYROLL_FREQUENCIES,
                            supervisors=supervisors,
                            positions=positions, departments=departments,
-                           frequency_mode=config.get("frequencyMode", "company"))
+                           frequency_mode=config.get("frequencyMode", "company"),
+                           occupations=OCCUPATIONS)
 
 
 @web_rrhh_bp.route("/rrhh/employees/<employee_id>/edit", methods=["GET", "POST"])
@@ -557,8 +567,8 @@ def employee_edit(employee_id):
 
         employee.update({
             "idType": request.form.get("idType", "cedula").strip(),
-            "idNumber": request.form.get("idNumber", "").strip(),
-            "cedula": request.form.get("idNumber", "").strip(),
+            "idNumber": re.sub(r'\D', '', request.form.get("idNumber", "")),
+            "cedula": re.sub(r'\D', '', request.form.get("idNumber", "")),
             "firstName": first_name,
             "middleName": middle_name,
             "lastName": first_last_name,
@@ -571,7 +581,7 @@ def employee_edit(employee_id):
             "department": request.form.get("area", "").strip(),
             "hireDate": request.form.get("hireDate", "").strip(),
             "email": request.form.get("email", "").strip(),
-            "phone": request.form.get("phone", "").strip(),
+            "phone": re.sub(r'\D', '', request.form.get("phone", "")),
             "address": request.form.get("address", "").strip(),
             "municipality": request.form.get("municipality", "").strip(),
             "contractType": request.form.get("contractType", "").strip(),
@@ -584,13 +594,20 @@ def employee_edit(employee_id):
             "bank": request.form.get("bank", "").strip(),
             "accountType": request.form.get("accountType", "").strip(),
             "emergencyContact": request.form.get("emergencyContact", "").strip(),
-            "emergencyPhone": request.form.get("emergencyPhone", "").strip(),
+            "emergencyPhone": re.sub(r'\D', '', request.form.get("emergencyPhone", "")),
             "afpProvider": request.form.get("afpProvider", "").strip(),
             "notes": request.form.get("notes", "").strip(),
             "gender": request.form.get("gender", "").strip(),
             "birthDate": request.form.get("birthDate", "").strip(),
             "probationEndDate": request.form.get("probationEndDate", "").strip(),
             "reportsTo": request.form.get("reportsTo", "").strip(),
+            "maritalStatus": request.form.get("maritalStatus", "").strip(),
+            "occupationCode": request.form.get("occupationCode", "").strip(),
+            "weeklyHours": int(request.form.get("weeklyHours", 44) or 44),
+            "workShift": int(request.form.get("workShift", 1) or 1),
+            "educationLevel": int(request.form.get("educationLevel", 0) or 0),
+            "vacationGranted": int(request.form.get("vacationGranted", 1) or 1),
+            "nationality": employee.get("nationality", 1),
         })
         hr.save_employee(owner_uid, employee_id, employee, sandbox=sandbox)
 
@@ -631,6 +648,7 @@ def employee_edit(employee_id):
     departments = hr.get_catalog(owner_uid, "departments", sandbox=sandbox)
     config = hr.get_payroll_config(owner_uid, sandbox=sandbox)
 
+    from app.data.occupations_catalog import OCCUPATIONS
     return render_template("rrhh/employee_form.html", active_page="rrhh_employees", employee=employee,
                            id_types=ID_TYPES, municipios=MUNICIPIOS_RD,
                            contract_types=contract_types, areas=areas,
@@ -639,7 +657,8 @@ def employee_edit(employee_id):
                            frequencies=PAYROLL_FREQUENCIES,
                            supervisors=supervisors,
                            positions=positions, departments=departments,
-                           frequency_mode=config.get("frequencyMode", "company"))
+                           frequency_mode=config.get("frequencyMode", "company"),
+                           occupations=OCCUPATIONS)
 
 
 @web_rrhh_bp.route("/rrhh/employees/<employee_id>/view")
@@ -2400,6 +2419,29 @@ def _transition(period, to_status, comment="", owner_uid="", sandbox=True):
     elif to_status == "cerrada":
         period["closedBy"] = user_email
         period["closedAt"] = now_iso
+
+    # ── Snapshot de empleados para DGT-4 ──
+    if to_status in ("calculada", "cerrada") and owner_uid:
+        try:
+            from app.services import hr_data_service as hr
+            employees = hr.get_employees(owner_uid, sandbox=sandbox)
+            snapshot = []
+            for emp in employees:
+                if emp.get("status") == "activo":
+                    snapshot.append({
+                        "employeeId": emp.get("id", ""),
+                        "cedula": (emp.get("cedula") or emp.get("idNumber", "")).replace("-", ""),
+                        "fullName": emp.get("fullName", ""),
+                        "position": emp.get("position", ""),
+                        "baseSalary": emp.get("baseSalary", emp.get("salary", 0)),
+                        "contractType": emp.get("contractType", ""),
+                        "status": emp.get("status", ""),
+                        "hireDate": emp.get("hireDate", ""),
+                        "terminationDate": emp.get("terminationDate", ""),
+                    })
+            period["employeeSnapshot"] = snapshot
+        except Exception as e:
+            print(f"⚠️ Error guardando snapshot empleados para DGT-4: {e}")
 
     if owner_uid:
         from app.services.payroll_audit_service import log_action

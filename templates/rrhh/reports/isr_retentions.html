@@ -2,6 +2,7 @@
 {% block title %}Retenciones ISR Nómina — {{ product_name }}{% endblock %}
 {% block content %}
 {% include "rrhh/_styles.html" %}
+<div class="breadcrumb"><a href="{{ url_for('web_rrhh.reports_index') }}">Reportes de RRHH</a> <span class="sep">›</span> <span>Retenciones ISR Nómina</span></div>
 <div class="page-header hr-page-header">
     <h1 class="page-title"><i class="fa-solid fa-file-invoice-dollar"></i> Retenciones ISR Nómina {{ year }}</h1>
     <div class="hr-page-actions">

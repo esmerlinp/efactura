@@ -675,6 +675,7 @@ def create_app():
     from app.web.accounting import web_accounting_bp
     from app.web.rrhh import web_rrhh_bp
     from app.web.inventory import web_inventory_bp
+    from app.web.dgt import web_dgt_bp
 
     app.register_blueprint(web_auth_bp)
     app.register_blueprint(web_dashboard_bp)
@@ -707,6 +708,7 @@ def create_app():
     app.register_blueprint(web_accounting_bp)
     app.register_blueprint(web_rrhh_bp)
     app.register_blueprint(web_inventory_bp)
+    app.register_blueprint(web_dgt_bp)
 
     # Eximir rutas /api/ de validación CSRF (los blueprints de API se registraron arriba)
     for rule in app.url_map.iter_rules():
