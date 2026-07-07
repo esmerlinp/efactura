@@ -182,14 +182,17 @@
                     {% endfor %}
                 </select>
             </div>
-            <div class="form-group">
+            <div class="form-group" {% if frequency_mode != 'employee' %}style="display:none;"{% endif %}>
                 <label>Frecuencia de pago <span style="color:var(--danger);">*</span></label>
-                <select name="paymentFrequency" class="form-select" required>
+                <select name="paymentFrequency" class="form-select">
                     <option value="">Seleccionar</option>
                     {% for f in frequencies %}
                     <option value="{{ f.value }}" {% if employee and employee.paymentFrequency == f.value %}selected{% endif %}>{{ f.label }}</option>
                     {% endfor %}
                 </select>
+                <p style="color:var(--text-muted); font-size:0.72rem; margin:4px 0 0;">
+                    <i class="fa-solid fa-circle-info"></i> En modo "Por empleado", define en qué períodos aparece este empleado.
+                </p>
             </div>
             <div class="form-group">
                 <label>Valor salario {% if not employee %}<span style="color:var(--danger);">*</span>{% endif %}</label>

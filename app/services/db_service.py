@@ -697,6 +697,44 @@ def serialize_field(val):
     return str(val)
 
 
+import copy
+import math
+
+
+def _deepcopy_dict(d):
+    return copy.deepcopy(d)
+
+
+def _sanitize_for_firestore(obj):
+    """Convierte datos no compatibles con Firestore (inf, nan, arrays anidados)."""
+    if isinstance(obj, dict):
+        return {k: _sanitize_for_firestore(v) for k, v in obj.items()}
+    elif isinstance(obj, (list, tuple)):
+        if len(obj) == 3 and all(isinstance(x, (int, float)) for x in obj):
+            return {"l": float(obj[0]), "r": float(obj[1]), "f": float(obj[2])}
+        return [_sanitize_for_firestore(item) for item in obj]
+    elif isinstance(obj, float):
+        if math.isinf(obj) and obj > 0:
+            return 999999999.0
+        elif math.isinf(obj) and obj < 0:
+            return -999999999.0
+        elif math.isnan(obj):
+            return 0.0
+    return obj
+
+
+def _restore_inf_values(obj):
+    """Restaura maps de brackets a tuplas y 999999999.0 a float('inf')."""
+    if isinstance(obj, dict):
+        if set(obj.keys()) == {"l", "r", "f"}:
+            limit = obj["l"] if obj["l"] < 999999999.0 else float("inf")
+            return [limit, float(obj["r"]), float(obj["f"])]
+        return {k: _restore_inf_values(v) for k, v in obj.items()}
+    elif isinstance(obj, (list, tuple)):
+        return [_restore_inf_values(item) for item in obj]
+    return obj
+
+
 class DatabaseService:
 
     @classmethod
@@ -4603,6 +4641,39 @@ class DatabaseService:
             except Exception as e:
                 print(f"⚠️ Error al guardar configuración de comisiones: {e}")
         return settings_dict
+
+    @classmethod
+    def get_tax_rules(cls, owner_uid):
+        """Retorna la configuración general de impuestos (ITBIS, ISC, ISR, retenciones, RST)."""
+        from app.services.tax_engine import DEFAULT_TAX_RULES
+        rules = _deepcopy_dict(DEFAULT_TAX_RULES)
+        if firebase_initialized:
+            try:
+                doc = db_firestore.collection("users").document(owner_uid).collection("config").document("tax_rules").get()
+                if doc.exists:
+                    data = _restore_inf_values(doc.to_dict())
+                    rules.update(data)
+            except Exception as e:
+                print(f"⚠️ Error al obtener tax_rules: {e}")
+        return rules
+
+    @classmethod
+    def save_tax_rules(cls, owner_uid, rules_dict):
+        """Guarda la configuración general de impuestos. Retorna (éxito, error_msg)."""
+        if not firebase_initialized or db_firestore is None:
+            return False, "Firebase no está inicializado"
+        if not owner_uid:
+            return False, "owner_uid vacío"
+        try:
+            rules_dict["updatedAt"] = datetime.now(timezone.utc).isoformat()
+            safe = _sanitize_for_firestore(dict(rules_dict))
+            print(f"🔧 db save_tax_rules: rst={safe.get('rst')}")
+            db_firestore.collection("users").document(owner_uid).collection("config").document("tax_rules").set(safe)
+            return True, "OK"
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return False, str(e)[:200]
 
     @classmethod
     def get_sales_goals(cls, owner_uid):

@@ -1,0 +1,70 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}Nómina Neta sin Provisiones — {{ product_name }}{% endblock %}
+{% block content %}
+{% include "rrhh/_styles.html" %}
+<div class="page-header hr-page-header">
+    <h1 class="page-title"><i class="fa-solid fa-file-invoice"></i> Nómina Neta sin Provisiones</h1>
+    <div class="hr-page-actions">
+        {% if selected %}
+        <a href="{{ url_for('web_rrhh.report_net_payroll_export', period=period_key) }}" class="btn btn-primary">
+            <i class="fa-solid fa-file-csv"></i> Exportar CSV
+        </a>
+        {% endif %}
+        <a href="{{ url_for('web_rrhh.reports_index') }}" class="btn btn-ghost"><i class="fa-solid fa-arrow-left"></i> Reportes</a>
+    </div>
+</div>
+
+<form method="GET" style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end; margin-bottom:16px;">
+    <div class="form-group" style="margin:0;">
+        <label>Período de nómina</label>
+        <select name="period" class="form-select" onchange="this.form.submit()">
+            <option value="">Seleccionar período</option>
+            {% for pk in period_keys %}
+            <option value="{{ pk }}" {% if period_key == pk %}selected{% endif %}>{{ pk }}</option>
+            {% endfor %}
+        </select>
+    </div>
+</form>
+
+{% if selected %}
+<div class="card-table-wrapper hr-table-card">
+    <div class="table-header-row">
+        <div>
+            <h3>{{ selected.get('periodRange') or selected.get('periodKey') }}</h3>
+            <p>Sueldos netos excluyendo AFP, SFS, INFOTEP, ISR, bonificaciones y regalía pascual.</p>
+        </div>
+    </div>
+    <div class="table-responsive">
+        <table class="table-premium" style="font-size:0.85rem;">
+        <thead><tr>
+            <th>Empleado</th><th>Cédula</th><th>Cargo</th>
+            <th style="text-align:right;">Salario Base</th>
+            <th style="text-align:right;">Hrs Extra</th>
+            <th style="text-align:right;">Comisiones</th>
+            <th style="text-align:right;">Total Bruto</th>
+            <th style="text-align:right;">Otras Ded.</th>
+            <th style="text-align:right;">Neto sin Prov.</th>
+        </tr></thead>
+        <tbody>{% for l in lines %}
+        {% set neto_sin = (l.netSalary|float) + (l.afpEmployee|float) + (l.sfsEmployee|float) + (l.get('infotepEmployee',0)|float) + (l.isrRetention|float) %}
+        <tr>
+            <td><strong>{{ l.employeeName }}</strong></td>
+            <td>{{ l.cedula }}</td>
+            <td>{{ l.position }}</td>
+            <td style="text-align:right;">{{ "RD$ {:,.2f}".format(l.baseSalary|float) }}</td>
+            <td style="text-align:right;">{{ l.get('overtimeHours', 0) }}</td>
+            <td style="text-align:right;">{{ "RD$ {:,.2f}".format(l.get('commission', 0)|float) }}</td>
+            <td style="text-align:right;">{{ "RD$ {:,.2f}".format(l.totalIncome|float) }}</td>
+            <td style="text-align:right;">{{ "RD$ {:,.2f}".format(l.otherDeductions|float) }}</td>
+            <td style="text-align:right; font-weight:700; color:var(--accent-emerald);">{{ "RD$ {:,.2f}".format(neto_sin) }}</td>
+        </tr>
+        {% endfor %}</tbody>
+        </table>
+    </div>
+</div>
+{% else %}
+<div class="card-table-wrapper" style="padding:40px; text-align:center;">
+    <p style="color:var(--text-muted);">Selecciona un período de nómina para ver el desglose sin provisiones.</p>
+</div>
+{% endif %}
+{% endblock %}

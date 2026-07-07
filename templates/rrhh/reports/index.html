@@ -31,5 +31,17 @@
         <h3 style="margin:0 0 4px; color:var(--text-primary);">Certificados IR-18</h3>
         <p style="margin:0; color:var(--text-muted); font-size:0.85rem;">Comprobantes fiscales de retención ISR.</p>
     </a>
+    <a href="{{ url_for('web_rrhh.report_net_payroll') }}" class="card-table-wrapper" style="padding:24px; text-decoration:none; transition:all 0.2s;"
+       onmouseover="this.style.borderColor='var(--accent-blue)'" onmouseout="this.style.borderColor='var(--border-color)'">
+        <i class="fa-solid fa-file-invoice" style="font-size:1.5rem; color:var(--accent-blue); margin-bottom:8px;"></i>
+        <h3 style="margin:0 0 4px; color:var(--text-primary);">Nómina Neta sin Provisiones</h3>
+        <p style="margin:0; color:var(--text-muted); font-size:0.85rem;">Sueldos netos excluyendo TSS, INFOTEP, ISR y bonos.</p>
+    </a>
+    <a href="{{ url_for('web_rrhh.report_isr_retentions') }}" class="card-table-wrapper" style="padding:24px; text-decoration:none; transition:all 0.2s;"
+       onmouseover="this.style.borderColor='var(--accent-orange)'" onmouseout="this.style.borderColor='var(--border-color)'">
+        <i class="fa-solid fa-file-invoice-dollar" style="font-size:1.5rem; color:var(--accent-orange); margin-bottom:8px;"></i>
+        <h3 style="margin:0 0 4px; color:var(--text-primary);">Retenciones ISR Nómina</h3>
+        <p style="margin:0; color:var(--text-muted); font-size:0.85rem;">ISR empleados por mes (suma quincenas). Formato DGII.</p>
+    </a>
 </div>
 {% endblock %}

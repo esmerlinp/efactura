@@ -1,0 +1,54 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}Retenciones ISR Nómina — {{ product_name }}{% endblock %}
+{% block content %}
+{% include "rrhh/_styles.html" %}
+<div class="page-header hr-page-header">
+    <h1 class="page-title"><i class="fa-solid fa-file-invoice-dollar"></i> Retenciones ISR Nómina {{ year }}</h1>
+    <div class="hr-page-actions">
+        <a href="{{ url_for('web_rrhh.report_isr_retentions_export', year=year, month=request.args.get('month', 1)) }}" class="btn btn-primary">
+            <i class="fa-solid fa-file-csv"></i> Exportar CSV
+        </a>
+        <a href="{{ url_for('web_rrhh.reports_index') }}" class="btn btn-ghost"><i class="fa-solid fa-arrow-left"></i> Reportes</a>
+    </div>
+</div>
+
+<div class="card-table-wrapper" style="padding:12px 24px; margin-bottom:16px; background:rgba(16,185,129,0.06); border:1px solid var(--accent-emerald);">
+    <p style="margin:0; font-size:0.82rem;"><i class="fa-solid fa-circle-info"></i>
+        Las quincenas se suman automáticamente en cada mes. El formato de exportación CSV es compatible con DGII.
+        Selecciona mes y año para exportar.</p>
+</div>
+
+<div class="card-table-wrapper hr-table-card">
+    <div class="table-responsive">
+        <table class="table-premium" style="font-size:0.85rem;">
+        <thead><tr>
+            <th>Mes</th>
+            <th style="text-align:right;">Empleados</th>
+            <th style="text-align:right;">ISR Retenido</th>
+            <th style="text-align:right;">AFP Empleado</th>
+            <th style="text-align:right;">SFS Empleado</th>
+            <th style="text-align:right;">Total Retenciones</th>
+            <th>Exportar</th>
+        </tr></thead>
+        <tbody>
+            {% for key, data in monthly.items() %}
+            {% set total = data.isr + data.afp_emp + data.sfs_emp %}
+            <tr>
+                <td><strong>{{ months_es[loop.index0] }} {{ year }}</strong></td>
+                <td style="text-align:right;">{{ data.employees }}</td>
+                <td style="text-align:right;">RD$ {{ "{:,.2f}".format(data.isr) }}</td>
+                <td style="text-align:right;">RD$ {{ "{:,.2f}".format(data.afp_emp) }}</td>
+                <td style="text-align:right;">RD$ {{ "{:,.2f}".format(data.sfs_emp) }}</td>
+                <td style="text-align:right; font-weight:600;">RD$ {{ "{:,.2f}".format(total) }}</td>
+                <td>
+                    <a href="{{ url_for('web_rrhh.report_isr_retentions_export', year=year, month=loop.index) }}" class="btn btn-sm btn-ghost">
+                        <i class="fa-solid fa-download"></i> CSV
+                    </a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

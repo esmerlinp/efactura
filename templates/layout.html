@@ -1698,6 +1698,10 @@
                             <i class="fa-solid fa-gears" style="width: 16px; text-align: center;"></i>
                             <span>Administrar Empresa</span>
                         </a>
+                        <a href="{{ url_for('web_invoices.tax_settings') }}" style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--radius-sm); color: var(--text-primary); text-decoration: none; font-size: 0.85rem; transition: background-color var(--transition-fast);" onmouseover="this.style.backgroundColor='var(--bg-nav-hover)'" onmouseout="this.style.backgroundColor='transparent'">
+                            <i class="fa-solid fa-coins" style="width: 16px; text-align: center;"></i>
+                            <span>Impuestos</span>
+                        </a>
                         {% endif %}
 
                         {% if session.get('user', {}).get('role') == 'owner' %}

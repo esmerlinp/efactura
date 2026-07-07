@@ -350,6 +350,34 @@ def delete_employee_document(owner_uid: str, doc_id: str, sandbox: bool = True):
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# TAX RATES — Tasas y topes TSS/DGII configurables
+# ═══════════════════════════════════════════════════════════════════════════
+
+def get_tax_rates(owner_uid: str, sandbox: bool = True) -> dict:
+    if not firebase_initialized or db_firestore is None:
+        return {}
+    try:
+        coll = _config_collection(owner_uid, sandbox)
+        doc = db_firestore.collection(coll).document("tax_rates").get()
+        if doc.exists:
+            return doc.to_dict()
+    except Exception as e:
+        print(f"⚠️ HRDataService.get_tax_rates: {e}")
+    return {}
+
+
+def save_tax_rates(owner_uid: str, data: dict, sandbox: bool = True):
+    if not firebase_initialized or db_firestore is None:
+        return
+    try:
+        coll = _config_collection(owner_uid, sandbox)
+        data["updatedAt"] = datetime.now(timezone.utc).isoformat()
+        db_firestore.collection(coll).document("tax_rates").set(data)
+    except Exception as e:
+        print(f"⚠️ HRDataService.save_tax_rates: {e}")
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # CATALOGS: Positions, Departments
 # ═══════════════════════════════════════════════════════════════════════════
 

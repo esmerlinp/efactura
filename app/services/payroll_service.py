@@ -13,41 +13,65 @@ from datetime import date, datetime, timedelta
 from typing import Optional
 
 # ═══════════════════════════════════════════════════════════════════════════
-# TASAS DE SEGURIDAD SOCIAL (2026)
+# TASAS DE SEGURIDAD SOCIAL (2026) — Valores por defecto
+# Estos valores se usan como fallback si no hay configuración en Firestore.
 # ═══════════════════════════════════════════════════════════════════════════
-AFP_EMPLOYEE_RATE = 0.0287   # 2.87% — Aporte del empleado a AFP
-AFP_EMPLOYER_RATE = 0.0710   # 7.10% — Aporte del empleador a AFP
-SFS_EMPLOYEE_RATE = 0.0304   # 3.04% — Aporte del empleado a SFS
-SFS_EMPLOYER_RATE = 0.0709   # 7.09% — Aporte del empleador a SFS
-SRL_EMPLOYER_RATE = 0.0120   # 1.20% — Seguro de Riesgo Laboral (empleador)
-INFOTEP_RATE = 0.0100        # 1.00% — INFOTEP (empleador; empleado solo si gana más de cierto tope)
+_AFP_EMPLOYEE_RATE = 0.0287   # 2.87% — Aporte del empleado a AFP
+_AFP_EMPLOYER_RATE = 0.0710   # 7.10% — Aporte del empleador a AFP
+_SFS_EMPLOYEE_RATE = 0.0304   # 3.04% — Aporte del empleado a SFS
+_SFS_EMPLOYER_RATE = 0.0709   # 7.09% — Aporte del empleador a SFS
+_SRL_EMPLOYER_RATE = 0.0120   # 1.20% — Seguro de Riesgo Laboral (empleador)
+_INFOTEP_RATE = 0.0100        # 1.00% — INFOTEP (empleador; empleado solo si gana más de cierto tope)
 
-# Salarios topes mensuales para cotización TSS (2026)
-AFP_SALARY_CAP = 196750.00   # Tope máximo cotizable AFP (20 salarios mínimos aprox)
-SFS_SALARY_CAP = 98375.00    # Tope máximo cotizable SFS
+_AFP_SALARY_CAP = 196750.00   # Tope máximo cotizable AFP (20 salarios mínimos aprox)
+_SFS_SALARY_CAP = 98375.00    # Tope máximo cotizable SFS
 
-# ═══════════════════════════════════════════════════════════════════════════
-# TABLA ISR PERSONAS FÍSICAS ASALARIADOS — DGII 2026 (Escala Anual)
-# Fuente: DGII, ajustada anualmente. Tramos progresivos sobre renta neta anual.
-# ═══════════════════════════════════════════════════════════════════════════
-ISR_ANNUAL_TABLE = [
-    # (desde, hasta, tasa, cuota_fija)
-    (0.00,        416220.00,   0.00, 0.00),        # Exento
-    (416220.01,   624329.00,   0.15, 0.00),        # 15% sobre excedente de 416,220
-    (624329.01,   867123.00,   0.20, 31216.00),    # 20% + 31,216
-    (867123.01,   float("inf"), 0.25, 79775.00),   # 25% + 79,775
+_ISR_ANNUAL_TABLE = [
+    (0.00,        416220.00,   0.00, 0.00),
+    (416220.01,   624329.00,   0.15, 0.00),
+    (624329.01,   867123.00,   0.20, 31216.00),
+    (867123.01,   float("inf"), 0.25, 79775.00),
 ]
 
-# Deducción anual por gastos educativos (Ley 179-09)
-ANNUAL_EDUCATION_DEDUCTION = 50000.00  # Hasta RD$ 50,000 por hijo (máx 2 hijos = 100,000)
+_ANNUAL_EDUCATION_DEDUCTION = 50000.00
+_MIN_SALARY = 23223.00
 
-# Salario mínimo nacional RD 2026 — base para cálculo INFOTEP empleado
-MIN_SALARY = 23223.00
-INFOTEP_EMPLOYEE_THRESHOLD = MIN_SALARY * 5  # Empleado paga INFOTEP si gana > 5x salario mínimo
+# Compatibilidad hacia atrás — exponer como atributos de clase
+AFP_EMPLOYEE_RATE = _AFP_EMPLOYEE_RATE
+AFP_EMPLOYER_RATE = _AFP_EMPLOYER_RATE
+SFS_EMPLOYEE_RATE = _SFS_EMPLOYEE_RATE
+SFS_EMPLOYER_RATE = _SFS_EMPLOYER_RATE
+SRL_EMPLOYER_RATE = _SRL_EMPLOYER_RATE
+INFOTEP_RATE = _INFOTEP_RATE
+AFP_SALARY_CAP = _AFP_SALARY_CAP
+SFS_SALARY_CAP = _SFS_SALARY_CAP
+ISR_ANNUAL_TABLE = _ISR_ANNUAL_TABLE
+ANNUAL_EDUCATION_DEDUCTION = _ANNUAL_EDUCATION_DEDUCTION
+MIN_SALARY = _MIN_SALARY
+INFOTEP_EMPLOYEE_THRESHOLD = _MIN_SALARY * 5
 
 
 class PayrollService:
     """Servicio de cálculo de nómina dominicana."""
+
+    @staticmethod
+    def get_rates(tax_rates: dict = None) -> dict:
+        """Obtiene tasas desde dict de Firestore o usa valores por defecto."""
+        if not tax_rates:
+            tax_rates = {}
+        return {
+            "afp_employee_rate": tax_rates.get("afpEmployeeRate", _AFP_EMPLOYEE_RATE),
+            "afp_employer_rate": tax_rates.get("afpEmployerRate", _AFP_EMPLOYER_RATE),
+            "sfs_employee_rate": tax_rates.get("sfsEmployeeRate", _SFS_EMPLOYEE_RATE),
+            "sfs_employer_rate": tax_rates.get("sfsEmployerRate", _SFS_EMPLOYER_RATE),
+            "srl_employer_rate": tax_rates.get("srlEmployerRate", _SRL_EMPLOYER_RATE),
+            "infotep_rate": tax_rates.get("infotepRate", _INFOTEP_RATE),
+            "afp_salary_cap": tax_rates.get("afpSalaryCap", _AFP_SALARY_CAP),
+            "sfs_salary_cap": tax_rates.get("sfsSalaryCap", _SFS_SALARY_CAP),
+            "min_salary": tax_rates.get("minSalary", _MIN_SALARY),
+            "education_deduction": tax_rates.get("educationDeduction", _ANNUAL_EDUCATION_DEDUCTION),
+            "isr_table": tax_rates.get("isrAnnualTable", _ISR_ANNUAL_TABLE),
+        }
 
     # ═══════════════════════════════════════════════════════════════════════
     # CÁLCULO DE NÓMINA INDIVIDUAL
@@ -66,6 +90,7 @@ class PayrollService:
         education_deduction: float = 0.0,
         period_type: str = "mensual",
         prorated_salary: float = None,
+        tax_rates: dict = None,
     ) -> dict:
         """
         Calcula una línea de nómina completa.
@@ -100,34 +125,37 @@ class PayrollService:
         total_income = round(period_salary + overtime_pay + commission + bonus + other_income, 2)
 
         # ── 2. Salario cotizable TSS (topado) ────────────────────────────
-        afp_cap = AFP_SALARY_CAP / 2 if period_type == "quincenal" else AFP_SALARY_CAP
-        sfs_cap = SFS_SALARY_CAP / 2 if period_type == "quincenal" else SFS_SALARY_CAP
+        r = cls.get_rates(tax_rates)
+        afp_cap = r["afp_salary_cap"] / 2 if period_type == "quincenal" else r["afp_salary_cap"]
+        sfs_cap = r["sfs_salary_cap"] / 2 if period_type == "quincenal" else r["sfs_salary_cap"]
         afp_cotizable = min(total_income, afp_cap)
         sfs_cotizable = min(total_income, sfs_cap)
 
         # ── 3. Descuentos al empleado ───────────────────────────────────
-        afp_employee = round(afp_cotizable * AFP_EMPLOYEE_RATE, 2)
-        sfs_employee = round(sfs_cotizable * SFS_EMPLOYEE_RATE, 2)
+        afp_employee = round(afp_cotizable * r["afp_employee_rate"], 2)
+        sfs_employee = round(sfs_cotizable * r["sfs_employee_rate"], 2)
 
         # INFOTEP empleado: aplica si total_income > 5x salario mínimo
-        if total_income > INFOTEP_EMPLOYEE_THRESHOLD:
-            infotep_employee = round(total_income * INFOTEP_RATE, 2)
+        infotep_threshold = r["min_salary"] * 5
+        if total_income > infotep_threshold:
+            infotep_employee = round(total_income * r["infotep_rate"], 2)
         else:
             infotep_employee = 0.0
 
         # ISR: se calcula sobre renta neta anualizable con el factor correcto
         isr_monthly = cls._calculate_isr_monthly(
-            total_income, afp_employee, sfs_employee, education_deduction, period_factor
+            total_income, afp_employee, sfs_employee, education_deduction, period_factor,
+            tax_rates=r,
         )
 
         total_deductions = round(afp_employee + sfs_employee + infotep_employee + isr_monthly + other_deductions, 2)
         net_salary = round(total_income - total_deductions, 2)
 
         # ── 4. Aportes empleador ────────────────────────────────────────
-        afp_employer = round(afp_cotizable * AFP_EMPLOYER_RATE, 2)
-        sfs_employer = round(sfs_cotizable * SFS_EMPLOYER_RATE, 2)
-        srl_employer = round(sfs_cotizable * SRL_EMPLOYER_RATE, 2)
-        infotep_employer = round(total_income * INFOTEP_RATE, 2)
+        afp_employer = round(afp_cotizable * r["afp_employer_rate"], 2)
+        sfs_employer = round(sfs_cotizable * r["sfs_employer_rate"], 2)
+        srl_employer = round(sfs_cotizable * r["srl_employer_rate"], 2)
+        infotep_employer = round(total_income * r["infotep_rate"], 2)
         total_employer = round(afp_employer + sfs_employer + srl_employer + infotep_employer, 2)
 
         return {
@@ -169,6 +197,7 @@ class PayrollService:
         sfs_deduction: float,
         education_deduction: float = 0.0,
         period_factor: int = 12,
+        tax_rates: dict = None,
     ) -> float:
         """
         Calcula ISR del período según tabla DGII para asalariados.
@@ -180,17 +209,18 @@ class PayrollService:
         Args:
             period_factor: 12 para mensual, 24 para quincenal, 52 para semanal.
         """
+        r = cls.get_rates(tax_rates)
         annual_gross = monthly_income * period_factor
         annual_afp = afp_deduction * period_factor
         annual_sfs = sfs_deduction * period_factor
-        annual_edu = min(education_deduction * period_factor, ANNUAL_EDUCATION_DEDUCTION)
+        annual_edu = min(education_deduction * period_factor, r["education_deduction"])
 
         # Renta neta anual
         annual_taxable = max(0.0, annual_gross - annual_afp - annual_sfs - annual_edu)
 
         # Aplicar tabla ISR
         annual_isr = 0.0
-        for floor, ceiling, rate, fixed in ISR_ANNUAL_TABLE:
+        for floor, ceiling, rate, fixed in r["isr_table"]:
             if annual_taxable <= floor:
                 break
             bracket_top = min(annual_taxable, ceiling)

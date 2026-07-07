@@ -14,6 +14,7 @@
 
 <form method="POST" style="margin-top:16px;">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
     <div class="card-table-wrapper" style="padding:16px 24px; margin-bottom:16px;">
         <div class="form-group" style="max-width:400px;">
             <label>Período a simular <span style="color:var(--danger);">*</span></label>
@@ -63,6 +64,9 @@
     <h3 style="margin:0 0 12px;"><i class="fa-solid fa-chart-simple"></i> Resultado de simulación — {{ simulation.period_range }}</h3>
     <div class="small-metrics-grid" style="margin-bottom:16px;">
         <div class="small-metric"><div class="label">Empleados</div><div class="value">{{ simulation.employee_count }}</div></div>
+        {% if simulation.get('excluded_count', 0) > 0 %}
+        <div class="small-metric"><div class="label">Omitidos (frecuencia distinta)</div><div class="value" style="color:var(--accent-orange);">{{ simulation.excluded_count }}</div></div>
+        {% endif %}
         <div class="small-metric"><div class="label">Total Bruto</div><div class="value">RD$ {{ "{:,.2f}".format(simulation.total_gross) }}</div></div>
         <div class="small-metric"><div class="label">Total Neto</div><div class="value" style="color:var(--accent-emerald);">RD$ {{ "{:,.2f}".format(simulation.total_net) }}</div></div>
         <div class="small-metric"><div class="label">Aportes Empleador</div><div class="value" style="color:var(--accent-purple);">RD$ {{ "{:,.2f}".format(simulation.total_employer) }}</div></div>

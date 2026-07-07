@@ -2,59 +2,126 @@
 {% block title %}Configurar Nómina — {{ product_name }}{% endblock %}
 {% block content %}
 {% include "rrhh/_styles.html" %}
-<div class="hr-main-col" style="max-width:600px; margin-top:40px;">
+<div class="hr-main-col" style="max-width:700px; margin-top:40px;">
     <div class="hr-section-card" style="text-align:center; padding:40px 32px;">
         <div style="font-size:3rem; margin-bottom:16px; color:var(--accent-emerald);">
             <i class="fa-solid fa-coins"></i>
         </div>
         <h2 style="font-size:1.5rem; font-weight:700; margin:0 0 8px;">¡Bienvenido a Nómina!</h2>
         <p style="color:var(--text-secondary); margin:0 0 32px; font-size:0.95rem;">
-            Antes de comenzar, necesitamos saber un dato importante.
+            Antes de comenzar, elige cómo quieres manejar la frecuencia de pago.
         </p>
 
         <form method="POST">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+            <!-- Selección de modo -->
             <div style="text-align:left; margin-bottom:28px;">
                 <label style="display:block; font-weight:600; margin-bottom:12px; font-size:1rem;">
-                    ¿Con qué frecuencia pagas la nómina de tu equipo?
+                    ¿Cómo quieres manejar la frecuencia de pago?
                     <span style="color:var(--danger);">*</span>
                 </label>
                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
-                    <button type="submit" name="frequency" value="quincenal" class="btn"
-                        style="padding:24px 16px; border:2px solid var(--border-color); border-radius:var(--radius-md);
-                               background:var(--bg-card); cursor:pointer; text-align:center; transition:all 0.2s;
-                               font-size:1rem; font-weight:600; display:flex; flex-direction:column; align-items:center; gap:8px;
-                               hover:border-color:var(--accent-emerald);"
-                        onmouseover="this.style.borderColor='var(--accent-emerald)'; this.style.background='rgba(16,185,129,0.06)';"
-                        onmouseout="this.style.borderColor='var(--border-color)'; this.style.background='var(--bg-card)';">
-                        <i class="fa-solid fa-calendar-week" style="font-size:1.5rem; color:var(--accent-emerald);"></i>
-                        Quincenal
-                        <span style="font-weight:400; font-size:0.8rem; color:var(--text-muted);">
-                            Cada 15 días
+                    <!-- Modo: empresa -->
+                    <label id="mode-card-company" class="mode-card"
+                           style="display:flex; flex-direction:column; gap:8px; padding:20px 16px;
+                                  border:2px solid {% if current_mode == 'company' %}var(--accent-emerald){% else %}var(--border-color){% endif %};
+                                  border-radius:var(--radius-md); cursor:pointer; background:{% if current_mode == 'company' %}rgba(16,185,129,0.06){% else %}var(--bg-card){% endif %};
+                                  transition:all 0.2s; text-align:center;"
+                           onclick="selectMode('company')">
+                        <input type="radio" name="frequency_mode" value="company" style="display:none;" {% if current_mode == 'company' %}checked{% endif %}>
+                        <i class="fa-solid fa-building" style="font-size:1.8rem; color:var(--accent-emerald);"></i>
+                        <span style="font-weight:700; font-size:0.95rem;">Por empresa</span>
+                        <span style="font-size:0.75rem; color:var(--text-muted); line-height:1.4;">
+                            Una frecuencia para todos.<br>
+                            Ideal si todos cobran igual.
                         </span>
-                    </button>
-                    <button type="submit" name="frequency" value="mensual" class="btn"
-                        style="padding:24px 16px; border:2px solid var(--border-color); border-radius:var(--radius-md);
-                               background:var(--bg-card); cursor:pointer; text-align:center; transition:all 0.2s;
-                               font-size:1rem; font-weight:600; display:flex; flex-direction:column; align-items:center; gap:8px;"
-                        onmouseover="this.style.borderColor='var(--accent-purple)'; this.style.background='rgba(124,58,237,0.06)';"
-                        onmouseout="this.style.borderColor='var(--border-color)'; this.style.background='var(--bg-card)';">
-                        <i class="fa-solid fa-calendar-alt" style="font-size:1.5rem; color:var(--accent-purple);"></i>
-                        Mensual
-                        <span style="font-weight:400; font-size:0.8rem; color:var(--text-muted);">
-                            1 vez al mes
+                        <div style="margin-top:4px; font-size:0.7rem; color:var(--text-muted);">
+                            ✅ Más simple<br>✅ Una sola configuración
+                        </div>
+                    </label>
+
+                    <!-- Modo: empleado -->
+                    <label id="mode-card-employee" class="mode-card"
+                           style="display:flex; flex-direction:column; gap:8px; padding:20px 16px;
+                                  border:2px solid {% if current_mode == 'employee' %}var(--accent-purple){% else %}var(--border-color){% endif %};
+                                  border-radius:var(--radius-md); cursor:pointer; background:{% if current_mode == 'employee' %}rgba(124,58,237,0.06){% else %}var(--bg-card){% endif %};
+                                  transition:all 0.2s; text-align:center;"
+                           onclick="selectMode('employee')">
+                        <input type="radio" name="frequency_mode" value="employee" style="display:none;" {% if current_mode == 'employee' %}checked{% endif %}>
+                        <i class="fa-solid fa-users" style="font-size:1.8rem; color:var(--accent-purple);"></i>
+                        <span style="font-weight:700; font-size:0.95rem;">Por empleado</span>
+                        <span style="font-size:0.75rem; color:var(--text-muted); line-height:1.4;">
+                            Cada empleado con su<br>
+                            propia frecuencia.
                         </span>
-                    </button>
+                        <div style="margin-top:4px; font-size:0.7rem; color:var(--text-muted);">
+                            ✅ Máxima flexibilidad<br>✅ Quincenal + Mensual
+                        </div>
+                    </label>
                 </div>
             </div>
+
+            <!-- Frecuencia de empresa (solo visible en modo company) -->
+            <div id="company-freq-section" style="text-align:left; margin-bottom:28px; {% if current_mode == 'employee' %}display:none;{% endif %}">
+                <label style="display:block; font-weight:600; margin-bottom:12px; font-size:1rem;">
+                    ¿Con qué frecuencia pagas la nómina?
+                </label>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                    <button type="button" name="frequency" value="quincenal" class="freq-btn"
+                        style="padding:20px 16px; border:2px solid {% if current_freq == 'quincenal' %}var(--accent-emerald){% else %}var(--border-color){% endif %};
+                               border-radius:var(--radius-md); background:{% if current_freq == 'quincenal' %}rgba(16,185,129,0.06){% else %}var(--bg-card){% endif %};
+                               cursor:pointer; text-align:center; font-size:0.95rem; font-weight:600; display:flex; flex-direction:column; align-items:center; gap:8px;
+                               transition:all 0.2s;"
+                        onclick="selectFreq(this, 'quincenal')">
+                        <i class="fa-solid fa-calendar-week" style="font-size:1.5rem; color:var(--accent-emerald);"></i>
+                        Quincenal
+                        <span style="font-weight:400; font-size:0.8rem; color:var(--text-muted);">Cada 15 días</span>
+                    </button>
+                    <button type="button" name="frequency" value="mensual" class="freq-btn"
+                        style="padding:20px 16px; border:2px solid {% if current_freq == 'mensual' %}var(--accent-purple){% else %}var(--border-color){% endif %};
+                               border-radius:var(--radius-md); background:{% if current_freq == 'mensual' %}rgba(124,58,237,0.06){% else %}var(--bg-card){% endif %};
+                               cursor:pointer; text-align:center; font-size:0.95rem; font-weight:600; display:flex; flex-direction:column; align-items:center; gap:8px;
+                               transition:all 0.2s;"
+                        onclick="selectFreq(this, 'mensual')">
+                        <i class="fa-solid fa-calendar-alt" style="font-size:1.5rem; color:var(--accent-purple);"></i>
+                        Mensual
+                        <span style="font-weight:400; font-size:0.8rem; color:var(--text-muted);">1 vez al mes</span>
+                    </button>
+                </div>
+                <input type="hidden" name="frequency" id="frequency-hidden" value="{{ current_freq }}">
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="padding:14px 48px; font-size:1rem;">
+                <i class="fa-solid fa-check"></i> Guardar configuración
+            </button>
         </form>
-        <p style="color:var(--text-muted); font-size:0.82rem; margin:0;">
-            <i class="fa-solid fa-circle-info"></i> Puedes cambiar esto después en configuración.
+        <p style="color:var(--text-muted); font-size:0.82rem; margin:12px 0 0;">
+            <i class="fa-solid fa-circle-info"></i> Puedes cambiar esto después en Configuración Nómina.
         </p>
     </div>
 </div>
-<style>
-    .btn[type="submit"]:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
-    .btn[type="submit"] { transition: all 0.2s ease; }
-</style>
+<script>
+function selectMode(mode) {
+    document.querySelectorAll('.mode-card').forEach(c => {
+        c.style.borderColor = 'var(--border-color)';
+        c.style.background = 'var(--bg-card)';
+        c.querySelector('input').checked = false;
+    });
+    const card = document.getElementById('mode-card-' + mode);
+    card.style.borderColor = mode === 'company' ? 'var(--accent-emerald)' : 'var(--accent-purple)';
+    card.style.background = mode === 'company' ? 'rgba(16,185,129,0.06)' : 'rgba(124,58,237,0.06)';
+    card.querySelector('input').checked = true;
+    document.getElementById('company-freq-section').style.display = mode === 'company' ? '' : 'none';
+}
+function selectFreq(btn, freq) {
+    document.querySelectorAll('.freq-btn').forEach(b => {
+        b.style.borderColor = 'var(--border-color)';
+        b.style.background = 'var(--bg-card)';
+    });
+    btn.style.borderColor = freq === 'quincenal' ? 'var(--accent-emerald)' : 'var(--accent-purple)';
+    btn.style.background = freq === 'quincenal' ? 'rgba(16,185,129,0.06)' : 'rgba(124,58,237,0.06)';
+    document.getElementById('frequency-hidden').value = freq;
+}
+</script>
 {% endblock %}

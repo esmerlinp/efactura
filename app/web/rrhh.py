@@ -1,5 +1,7 @@
 """Blueprint de RRHH: empleados, asistencia, vacaciones, permisos, nómina, evaluaciones, capacitaciones."""
 
+import io
+import csv
 import uuid
 import calendar
 from datetime import datetime, timezone, date, timedelta
@@ -44,39 +46,68 @@ def _sanitize_for_role(employee: dict) -> dict:
 MONTHS_ES = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
 
 
+def _filter_employees_by_period(employees: list, period_key: str, frequency_mode: str = "company") -> tuple:
+    """Filtra empleados según su paymentFrequency vs el período.
+    En modo 'company', incluye a todos.
+    En modo 'employee': quincenal → Q1, mensual → Q2, ambos/empty → ambos.
+    Retorna (incluidos, excluidos)."""
+    if frequency_mode != "employee":
+        return list(employees), []
+    parts = period_key.split("-")
+    is_q2 = len(parts) == 3 and parts[2] == "2"
+    is_q1 = len(parts) == 3 and parts[2] == "1"
+    included, excluded = [], []
+    for emp in employees:
+        emp_freq = (emp.get("paymentFrequency") or "").strip()
+        if emp_freq == "quincenal":
+            if is_q1:
+                included.append(emp)
+            else:
+                excluded.append(emp)
+        elif emp_freq == "mensual":
+            if is_q2:
+                included.append(emp)
+            else:
+                excluded.append(emp)
+        else:
+            included.append(emp)
+    return included, excluded
+
+
 def _generate_periods(frequency: str, year: int = None):
     """Genera lista de períodos disponibles para el año."""
     if year is None:
         year = date.today().year
     periods = []
-    if frequency == "quincenal":
+    if frequency in ("quincenal", "ambos", "quincenal_y_mensual"):
         for m in range(1, 13):
             last_day = calendar.monthrange(year, m)[1]
             mid = 15
             label_m = MONTHS_ES[m - 1]
-            # Primera quincena: 1 al 15
             periods.append({
                 "key": f"{year}-{m:02d}-1",
-                "label": f"1 {label_m} - 15 {label_m}",
+                "label": f"Q1: 1 {label_m} - 15 {label_m}",
                 "start": f"{year}-{m:02d}-01",
                 "end": f"{year}-{m:02d}-{mid}",
+                "type": "quincenal",
             })
-            # Segunda quincena: 16 al último día
             periods.append({
                 "key": f"{year}-{m:02d}-2",
-                "label": f"16 {label_m} - {last_day} {label_m}",
+                "label": f"Q2: 16 {label_m} - {last_day} {label_m}",
                 "start": f"{year}-{m:02d}-16",
                 "end": f"{year}-{m:02d}-{last_day}",
+                "type": "quincenal",
             })
-    else:
+    if frequency in ("mensual", "ambos", "quincenal_y_mensual"):
         for m in range(1, 13):
             label_m = MONTHS_ES[m - 1]
             last_day = calendar.monthrange(year, m)[1]
             periods.append({
-                "key": f"{year}-{m:02d}",
-                "label": f"{label_m} {year}",
+                "key": f"{year}-{m:02d}-M",
+                "label": f"M: {label_m} {year}",
                 "start": f"{year}-{m:02d}-01",
                 "end": f"{year}-{m:02d}-{last_day}",
+                "type": "mensual",
             })
     return periods
 
@@ -137,16 +168,26 @@ def payroll_setup():
     from app.services import hr_data_service as hr
 
     if request.method == "POST":
-        frequency = request.form.get("frequency", "")
-        if frequency in ("quincenal", "mensual"):
+        frequency_mode = request.form.get("frequency_mode", "company")
+        frequency = request.form.get("frequency", "mensual")
+        if frequency_mode in ("company", "employee"):
             config = hr.get_payroll_config(owner_uid, sandbox=sandbox)
-            config["payrollFrequency"] = frequency
+            config["frequencyMode"] = frequency_mode
+            if frequency_mode == "company":
+                if frequency not in ("quincenal", "mensual", "ambos", "quincenal_y_mensual"):
+                    flash("Frecuencia inválida.", "error")
+                    return redirect(url_for("web_rrhh.payroll_setup"))
+                config["payrollFrequency"] = frequency
             config["onboardingCompleted"] = True
             hr.save_payroll_config(owner_uid, config, sandbox=sandbox)
-            flash("¡Frecuencia de nómina configurada exitosamente!", "success")
+            flash("¡Configuración de nómina guardada exitosamente!", "success")
         return redirect(url_for("web_rrhh.onboarding_guide"))
 
-    return render_template("rrhh/payroll_onboarding.html", active_page="rrhh_payroll")
+    config = hr.get_payroll_config(owner_uid, sandbox=sandbox)
+    current_mode = config.get("frequencyMode", "company")
+    current_freq = config.get("payrollFrequency", "mensual")
+    return render_template("rrhh/payroll_onboarding.html", active_page="rrhh_payroll",
+                           current_mode=current_mode, current_freq=current_freq)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -208,17 +249,26 @@ def payroll_dashboard():
     progress_percent = int((steps / 4) * 100)
 
     # Periodo actual
+    frequency_mode = config.get("frequencyMode", "company")
     frequency = config.get("payrollFrequency", "mensual")
     now = date.today()
     current_period = ""
-    if frequency == "quincenal":
+    if frequency_mode == "employee":
         day = now.day
         label_m = MONTHS_ES[now.month - 1]
         last_day = calendar.monthrange(now.year, now.month)[1]
         if day <= 15:
-            current_period = f"1 {label_m} - 15 {label_m}"
+            current_period = f"Q1: 1 {label_m} - 15 {label_m}"
         else:
-            current_period = f"16 {label_m} - {last_day} {label_m}"
+            current_period = f"Q2: 16 {label_m} - {last_day} {label_m}"
+    elif frequency in ("quincenal",):
+        day = now.day
+        label_m = MONTHS_ES[now.month - 1]
+        last_day = calendar.monthrange(now.year, now.month)[1]
+        if day <= 15:
+            current_period = f"Q1: 1 {label_m} - 15 {label_m}"
+        else:
+            current_period = f"Q2: 16 {label_m} - {last_day} {label_m}"
     else:
         current_period = f"{MONTHS_ES[now.month - 1]} {now.year}"
 
@@ -253,6 +303,27 @@ def payroll_dashboard():
         except (ValueError, TypeError):
             pass
 
+    # Terminaciones por mes (rotación)
+    termination_by_month = {}
+    for emp in employees:
+        try:
+            td = emp.get("terminationDate", "")
+            if td and emp.get("status") == "inactivo":
+                dt = datetime.strptime(td[:10], "%Y-%m-%d")
+                key = f"{MONTHS_ES[dt.month - 1]}"
+                termination_by_month[key] = termination_by_month.get(key, 0) + 1
+        except (ValueError, TypeError):
+            pass
+
+    rotation_labels = []
+    rotation_hires = []
+    rotation_terms = []
+    for m in MONTHS_ES:
+        if m in hiring_by_month or m in termination_by_month:
+            rotation_labels.append(m)
+            rotation_hires.append(hiring_by_month.get(m, 0))
+            rotation_terms.append(termination_by_month.get(m, 0))
+
     hiring_labels = []
     hiring_data = []
     for m in MONTHS_ES:
@@ -278,9 +349,12 @@ def payroll_dashboard():
                            steps_completed=steps, progress_percent=progress_percent,
                            chart_labels=chart_labels, costo_data=costo_data, pago_data=pago_data,
                            hiring_labels=hiring_labels, hiring_data=hiring_data,
+                           rotation_labels=rotation_labels, rotation_hires=rotation_hires,
+                           rotation_terms=rotation_terms,
                            recent_periods=recent, indicators=indicators,
                            onboard_steps=onboard_steps, onboard_done_count=onboard_done_count,
-                           onboard_all_done=onboard_all_done)
+                           onboard_all_done=onboard_all_done,
+                           frequency_mode=frequency_mode, payroll_frequency=frequency)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -446,6 +520,7 @@ def employee_new():
     supervisors = [e for e in hr.get_employees(owner_uid, sandbox=sandbox) if e.get("status") == "activo"]
     positions = hr.get_catalog(owner_uid, "positions", sandbox=sandbox)
     departments = hr.get_catalog(owner_uid, "departments", sandbox=sandbox)
+    config = hr.get_payroll_config(owner_uid, sandbox=sandbox)
 
     return render_template("rrhh/employee_form.html", active_page="rrhh_employees", employee=None,
                            id_types=ID_TYPES, municipios=MUNICIPIOS_RD,
@@ -454,7 +529,8 @@ def employee_new():
                            bancos=BANCOS_RD, account_types=ACCOUNT_TYPES,
                            frequencies=PAYROLL_FREQUENCIES,
                            supervisors=supervisors,
-                           positions=positions, departments=departments)
+                           positions=positions, departments=departments,
+                           frequency_mode=config.get("frequencyMode", "company"))
 
 
 @web_rrhh_bp.route("/rrhh/employees/<employee_id>/edit", methods=["GET", "POST"])
@@ -553,6 +629,7 @@ def employee_edit(employee_id):
                    if e.get("status") == "activo" and e.get("id") != employee_id]
     positions = hr.get_catalog(owner_uid, "positions", sandbox=sandbox)
     departments = hr.get_catalog(owner_uid, "departments", sandbox=sandbox)
+    config = hr.get_payroll_config(owner_uid, sandbox=sandbox)
 
     return render_template("rrhh/employee_form.html", active_page="rrhh_employees", employee=employee,
                            id_types=ID_TYPES, municipios=MUNICIPIOS_RD,
@@ -561,7 +638,8 @@ def employee_edit(employee_id):
                            bancos=BANCOS_RD, account_types=ACCOUNT_TYPES,
                            frequencies=PAYROLL_FREQUENCIES,
                            supervisors=supervisors,
-                           positions=positions, departments=departments)
+                           positions=positions, departments=departments,
+                           frequency_mode=config.get("frequencyMode", "company"))
 
 
 @web_rrhh_bp.route("/rrhh/employees/<employee_id>/view")
@@ -1170,9 +1248,13 @@ def payroll_new():
         return redirect(url_for("web_rrhh.onboarding_guide"))
 
     employees = [e for e in hr.get_employees(owner_uid, sandbox=sandbox) if e.get("status") == "activo"]
+    frequency_mode = config.get("frequencyMode", "company")
     frequency = config.get("payrollFrequency", "mensual")
     now = date.today()
-    available_periods = _generate_periods(frequency, now.year)
+    if frequency_mode == "employee":
+        available_periods = _generate_periods("quincenal", now.year)
+    else:
+        available_periods = _generate_periods(frequency, now.year)
 
     if request.method == "POST":
         period_key = request.form.get("period_key", "")
@@ -1191,7 +1273,6 @@ def payroll_new():
         parts = period_key.split("-")
         year = int(parts[0])
         month = int(parts[1])
-        is_quincenal = len(parts) == 3
 
         # Get period metadata
         period_info = next((p for p in available_periods if p["key"] == period_key), None)
@@ -1199,15 +1280,28 @@ def payroll_new():
         start_date = period_info["start"] if period_info else ""
         end_date = period_info["end"] if period_info else ""
 
-        period_type = "quincenal" if is_quincenal else "mensual"
+        # Determinar tipo: desde metadata o por sufijo (-M = mensual, -1/-2 = quincenal)
+        period_type = period_info.get("type", "mensual") if period_info else ("quincenal" if len(parts) == 3 and parts[2] != "M" else "mensual")
+
+        # ── Filtrar empleados según frecuencia del período ──
+        period_employees, excluded = _filter_employees_by_period(employees, period_key, frequency_mode)
+        if excluded:
+            nombres = ", ".join(e.get("fullName", "?") for e in excluded[:5])
+            if len(excluded) > 5:
+                nombres += f" y {len(excluded) - 5} más"
+            flash(f"{len(excluded)} empleado(s) omitido(s) por frecuencia distinta: {nombres}", "info")
+
         period_id = str(uuid.uuid4())
         lines = []
+
+        # ── Cargar tasas configurables desde Firestore ──
+        tax_rates_data = hr.get_tax_rates(owner_uid, sandbox=sandbox)
 
         total_gross = 0.0
         total_net = 0.0
         total_employer = 0.0
 
-        for emp in employees:
+        for emp in period_employees:
             emp_id = emp["id"]
             base = float(emp.get("baseSalary", 0))
             overtime = float(request.form.get(f"overtime_{emp_id}", 0) or 0)
@@ -1215,6 +1309,11 @@ def payroll_new():
             bonus = float(request.form.get(f"bonus_{emp_id}", 0) or 0)
             other_income = float(request.form.get(f"other_income_{emp_id}", 0) or 0)
             other_ded = float(request.form.get(f"other_ded_{emp_id}", 0) or 0)
+
+            # ── Frecuencia de pago por empleado (respeta configuración individual) ──
+            emp_freq = (emp.get("paymentFrequency") or "").strip()
+            emp_period_type = emp_freq if emp_freq in ("quincenal", "mensual") else period_type
+            emp_is_quincenal = emp_period_type == "quincenal"
 
             # ── Regalía pascual ──
             if request.form.get("include_christmas_bonus") == "1":
@@ -1242,8 +1341,9 @@ def payroll_new():
                 bonus=bonus,
                 other_income=other_income,
                 other_deductions=other_ded,
-                period_type=period_type,
+                period_type=emp_period_type,
                 prorated_salary=prorated,
+                tax_rates=tax_rates_data,
             )
             line = {
                 **calc,
@@ -1252,6 +1352,7 @@ def payroll_new():
                 "cedula": emp.get("cedula", ""),
                 "position": emp.get("position", ""),
                 "department": emp.get("department", ""),
+                "periodType": emp_period_type,
             }
             lines.append(line)
             total_gross += line["totalIncome"]
@@ -1261,7 +1362,7 @@ def payroll_new():
             # ── YTD: acumulación anual por empleado ──
             try:
                 ytd = get_ytd(owner_uid, emp_id, year, sandbox=sandbox)
-                ytd = accumulate_ytd(ytd, line, period_factor=24 if is_quincenal else 12)
+                ytd = accumulate_ytd(ytd, line, period_factor=24 if emp_is_quincenal else 12)
                 save_ytd(owner_uid, emp_id, year, ytd, sandbox=sandbox)
             except Exception as e:
                 print(f"⚠️ YTD accumulation error for employee {emp_id}: {e}")
@@ -1305,7 +1406,8 @@ def payroll_new():
     return render_template("rrhh/payroll_form.html", active_page="rrhh_payroll_new",
                            employees=employees, now=datetime.now,
                            available_periods=available_periods, frequency=frequency,
-                           show_christmas_bonus=(now.month >= 11))  # Nov-Dic
+                           show_christmas_bonus=(now.month >= 11),
+                           frequency_mode=frequency_mode)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -1325,9 +1427,13 @@ def payroll_simulate():
         return redirect(url_for("web_rrhh.payroll_setup"))
 
     employees = [e for e in hr.get_employees(owner_uid, sandbox=sandbox) if e.get("status") == "activo"]
+    frequency_mode = config.get("frequencyMode", "company")
     frequency = config.get("payrollFrequency", "mensual")
     now = date.today()
-    available_periods = _generate_periods(frequency, now.year)
+    if frequency_mode == "employee":
+        available_periods = _generate_periods("quincenal", now.year)
+    else:
+        available_periods = _generate_periods(frequency, now.year)
 
     simulation = None
 
@@ -1336,8 +1442,10 @@ def payroll_simulate():
         period_info = next((p for p in available_periods if p["key"] == period_key), None)
         start_date = period_info["start"] if period_info else ""
         end_date = period_info["end"] if period_info else ""
-        is_quincenal = len(period_key.split("-")) == 3
-        period_type = "quincenal" if is_quincenal else "mensual"
+        period_type = period_info.get("type", "mensual") if period_info else ("quincenal" if len(period_key.split("-")) == 3 and period_key.split("-")[2] != "M" else "mensual")
+
+        # ── Filtrar empleados según frecuencia del período ──
+        period_employees, _sim_excluded = _filter_employees_by_period(employees, period_key, frequency_mode)
 
         lines = []
         total_gross = 0.0
@@ -1345,7 +1453,10 @@ def payroll_simulate():
         total_employer = 0.0
         total_costo = 0.0
 
-        for emp in employees:
+        # ── Cargar tasas configurables desde Firestore ──
+        tax_rates_data = hr.get_tax_rates(owner_uid, sandbox=sandbox)
+
+        for emp in period_employees:
             emp_id = emp["id"]
             base = float(emp.get("baseSalary", 0))
             overtime = float(request.form.get(f"overtime_{emp_id}", 0) or 0)
@@ -1353,6 +1464,10 @@ def payroll_simulate():
             bonus = float(request.form.get(f"bonus_{emp_id}", 0) or 0)
             other_income = float(request.form.get(f"other_income_{emp_id}", 0) or 0)
             other_ded = float(request.form.get(f"other_ded_{emp_id}", 0) or 0)
+
+            # ── Frecuencia de pago por empleado (respeta configuración individual) ──
+            emp_freq = (emp.get("paymentFrequency") or "").strip()
+            emp_period_type = emp_freq if emp_freq in ("quincenal", "mensual") else period_type
 
             salary_history = hr.get_salary_history(owner_uid, emp_id, sandbox=sandbox)
             prorated = PayrollService.prorate_salary(
@@ -1365,11 +1480,13 @@ def payroll_simulate():
             calc = PayrollService.calculate_payroll_line(
                 base_salary=base, overtime_hours=overtime, commission=commission,
                 bonus=bonus, other_income=other_income, other_deductions=other_ded,
-                period_type=period_type, prorated_salary=prorated,
+                period_type=emp_period_type, prorated_salary=prorated,
+                tax_rates=tax_rates_data,
             )
             calc["employeeName"] = emp.get("fullName", "")
             calc["employeeId"] = emp_id
             calc["position"] = emp.get("position", "")
+            calc["periodType"] = emp_period_type
             lines.append(calc)
             total_gross += calc["totalIncome"]
             total_net += calc["netSalary"]
@@ -1379,7 +1496,8 @@ def payroll_simulate():
         simulation = {
             "period_range": period_info["label"] if period_info else period_key,
             "period_type": period_type,
-            "employee_count": len(employees),
+            "employee_count": len(period_employees),
+            "excluded_count": len(_sim_excluded),
             "total_gross": round(total_gross, 2),
             "total_net": round(total_net, 2),
             "total_employer": round(total_employer, 2),
@@ -1389,7 +1507,8 @@ def payroll_simulate():
 
     return render_template("rrhh/payroll_simulate.html", active_page="rrhh_payroll_simulate",
                            employees=employees, available_periods=available_periods,
-                           frequency=frequency, simulation=simulation)
+                           frequency=frequency, simulation=simulation,
+                           frequency_mode=frequency_mode)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -1751,6 +1870,112 @@ def audit_log():
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# CONFIGURACIÓN DE TASAS Y TOPES TSS/DGII
+# ═══════════════════════════════════════════════════════════════════════════
+
+@web_rrhh_bp.route("/rrhh/payroll/settings", methods=["GET", "POST"])
+def payroll_settings():
+    if _login_required():
+        return redirect(url_for("web_auth.login"))
+    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    from app.services import hr_data_service as hr
+    from app.services.payroll_service import PayrollService
+
+    rates = hr.get_tax_rates(owner_uid, sandbox=sandbox)
+    default_rates = PayrollService.get_rates({})
+    config = hr.get_payroll_config(owner_uid, sandbox=sandbox)
+    config_updated = False
+
+    if request.method == "POST":
+        action = request.form.get("action", "save")
+
+        # ── Guardar modo de frecuencia ──
+        new_mode = request.form.get("frequency_mode", "")
+        if new_mode in ("company", "employee"):
+            if new_mode != config.get("frequencyMode", ""):
+                config["frequencyMode"] = new_mode
+                hr.save_payroll_config(owner_uid, config, sandbox=sandbox)
+
+        # ── Guardar frecuencia si cambió ──
+        new_freq = request.form.get("payroll_frequency", "")
+        if new_freq in ("quincenal", "mensual", "ambos", "quincenal_y_mensual"):
+            current_freq = config.get("payrollFrequency", "")
+            if new_freq != current_freq:
+                config["payrollFrequency"] = new_freq
+                hr.save_payroll_config(owner_uid, config, sandbox=sandbox)
+
+        if action == "reset":
+            hr.save_tax_rates(owner_uid, {
+                "year": date.today().year,
+                "afpEmployeeRate": default_rates["afp_employee_rate"],
+                "afpEmployerRate": default_rates["afp_employer_rate"],
+                "sfsEmployeeRate": default_rates["sfs_employee_rate"],
+                "sfsEmployerRate": default_rates["sfs_employer_rate"],
+                "srlEmployerRate": default_rates["srl_employer_rate"],
+                "infotepRate": default_rates["infotep_rate"],
+                "afpSalaryCap": default_rates["afp_salary_cap"],
+                "sfsSalaryCap": default_rates["sfs_salary_cap"],
+                "minSalary": default_rates["min_salary"],
+                "educationDeduction": default_rates["education_deduction"],
+                "isrAnnualTable": default_rates["isr_table"],
+                "updatedBy": session.get("user", {}).get("email", ""),
+            }, sandbox=sandbox)
+        else:
+            isr_table = []
+            for i in range(4):
+                desde = float(request.form.get(f"isr_from_{i}", 0) or 0)
+                hasta = float(request.form.get(f"isr_to_{i}", 0) or 0)
+                tasa = float(request.form.get(f"isr_rate_{i}", 0) or 0) / 100.0
+                fija = float(request.form.get(f"isr_fixed_{i}", 0) or 0)
+                if i == 3:
+                    hasta = float("inf")
+                isr_table.append([desde, hasta, tasa, fija])
+            hr.save_tax_rates(owner_uid, {
+                "year": date.today().year,
+                "afpEmployeeRate": float(request.form.get("afpEmployeeRate", 0) or 0) / 100.0,
+                "afpEmployerRate": float(request.form.get("afpEmployerRate", 0) or 0) / 100.0,
+                "sfsEmployeeRate": float(request.form.get("sfsEmployeeRate", 0) or 0) / 100.0,
+                "sfsEmployerRate": float(request.form.get("sfsEmployerRate", 0) or 0) / 100.0,
+                "srlEmployerRate": float(request.form.get("srlEmployerRate", 0) or 0) / 100.0,
+                "infotepRate": float(request.form.get("infotepRate", 0) or 0) / 100.0,
+                "afpSalaryCap": float(request.form.get("afpSalaryCap", 0) or 0),
+                "sfsSalaryCap": float(request.form.get("sfsSalaryCap", 0) or 0),
+                "minSalary": float(request.form.get("minSalary", 0) or 0),
+                "educationDeduction": float(request.form.get("educationDeduction", 0) or 0),
+                "isrAnnualTable": isr_table,
+                "updatedBy": session.get("user", {}).get("email", ""),
+            }, sandbox=sandbox)
+        config_updated = True
+        rates = hr.get_tax_rates(owner_uid, sandbox=sandbox)
+
+    if not rates:
+        rates = {
+            "year": date.today().year,
+            "afpEmployeeRate": default_rates["afp_employee_rate"],
+            "afpEmployerRate": default_rates["afp_employer_rate"],
+            "sfsEmployeeRate": default_rates["sfs_employee_rate"],
+            "sfsEmployerRate": default_rates["sfs_employer_rate"],
+            "srlEmployerRate": default_rates["srl_employer_rate"],
+            "infotepRate": default_rates["infotep_rate"],
+            "afpSalaryCap": default_rates["afp_salary_cap"],
+            "sfsSalaryCap": default_rates["sfs_salary_cap"],
+            "minSalary": default_rates["min_salary"],
+            "educationDeduction": default_rates["education_deduction"],
+            "isrAnnualTable": default_rates["isr_table"],
+            "updatedAt": "",
+            "updatedBy": "",
+        }
+
+    # Recargar config después de posibles cambios
+    config = hr.get_payroll_config(owner_uid, sandbox=sandbox)
+    from types import SimpleNamespace
+    return render_template("rrhh/settings.html", active_page="rrhh_payroll_settings",
+                           tax_rates=SimpleNamespace(**rates), config_updated=config_updated,
+                           payroll_frequency=config.get("payrollFrequency", "mensual"),
+                           frequency_mode=config.get("frequencyMode", "company"))
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # REPORTES
 # ═══════════════════════════════════════════════════════════════════════════
 
@@ -1907,6 +2132,210 @@ def report_comparative():
     return render_template("rrhh/reports/comparative.html", active_page="rrhh_reports",
                            period_keys=period_keys, comparison=comparison,
                            p1_key=p1_key, p2_key=p2_key)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# REPORTE: NÓMINA NETA SIN PROVISIONES
+# ═══════════════════════════════════════════════════════════════════════════
+
+@web_rrhh_bp.route("/rrhh/reports/net-payroll")
+def report_net_payroll():
+    if _login_required():
+        return redirect(url_for("web_auth.login"))
+    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    from app.services import hr_data_service as hr
+
+    periods = hr.get_payroll_periods(owner_uid, sandbox=sandbox)
+    periods.sort(key=lambda p: p.get("periodKey", ""), reverse=True)
+
+    # Filtro por período
+    period_key = request.args.get("period", "")
+    selected = None
+    if period_key:
+        selected = next((p for p in periods if p.get("periodKey") == period_key), None)
+
+    period_keys = [p.get("periodKey", "") for p in periods]
+    lines = selected.get("lines", []) if selected else []
+
+    return render_template("rrhh/reports/net_payroll.html", active_page="rrhh_reports",
+                           period_keys=period_keys, selected=selected,
+                           lines=lines, period_key=period_key)
+
+
+@web_rrhh_bp.route("/rrhh/reports/net-payroll/export")
+def report_net_payroll_export():
+    if _login_required():
+        return redirect(url_for("web_auth.login"))
+    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    from app.services import hr_data_service as hr
+
+    period_key = request.args.get("period", "")
+    period = hr.get_payroll_period_by_key(owner_uid, period_key, sandbox=sandbox)
+    if not period:
+        flash("Período no encontrado.", "error")
+        return redirect(url_for("web_rrhh.report_net_payroll"))
+
+    import csv, io
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["Empleado", "Cedula", "Cargo", "Salario Base", "Horas Extra",
+                      "Comisiones", "Total Bruto", "Otras Ded.", "Neto sin Provisiones"])
+    for l in period.get("lines", []):
+        neto_sin_provisiones = round(l.get("netSalary", 0) + l.get("afpEmployee", 0) +
+                                     l.get("sfsEmployee", 0) + l.get("infotepEmployee", 0) +
+                                     l.get("isrRetention", 0), 2)
+        writer.writerow([
+            l.get("employeeName", ""), l.get("cedula", ""), l.get("position", ""),
+            f"{l.get('baseSalary', 0):.2f}", f"{l.get('overtimeHours', 0):.2f}",
+            f"{l.get('commission', 0):.2f}", f"{l.get('totalIncome', 0):.2f}",
+            f"{l.get('otherDeductions', 0):.2f}", f"{neto_sin_provisiones:.2f}",
+        ])
+    dest = io.BytesIO()
+    dest.write(b"\xef\xbb\xbf")
+    dest.write(output.getvalue().encode("utf-8"))
+    dest.seek(0)
+    period_label = period_key or "nomina"
+    filename = f"nomina_neta_{period_label}.csv"
+    return send_file(dest, mimetype="text/csv", as_attachment=True, download_name=filename)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# EXPORTACIÓN CSV DE NÓMINA GENERAL CONSOLIDADA
+# ═══════════════════════════════════════════════════════════════════════════
+
+@web_rrhh_bp.route("/rrhh/payroll/<period_id>/export-csv")
+def payroll_export_csv(period_id):
+    if _login_required():
+        return redirect(url_for("web_auth.login"))
+    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    from app.services import hr_data_service as hr
+
+    period = hr.get_payroll_period(owner_uid, period_id, sandbox=sandbox)
+    if not period:
+        flash("Período no encontrado.", "error")
+        return redirect(url_for("web_rrhh.payroll_list"))
+
+    import csv, io
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["Empleado", "Cedula", "Cargo", "Salario Base", "Bruto",
+                      "AFP Emp.", "SFS Emp.", "INFOTEP Emp.", "ISR", "Otras Ded.",
+                      "Neto", "AFP Empl.", "SFS Empl.", "SRL", "INFOTEP Empl.",
+                      "Aportes Empleador"])
+    for l in period.get("lines", []):
+        writer.writerow([
+            l.get("employeeName", ""), l.get("cedula", ""), l.get("position", ""),
+            f"{l.get('baseSalary', 0):.2f}", f"{l.get('totalIncome', 0):.2f}",
+            f"{l.get('afpEmployee', 0):.2f}", f"{l.get('sfsEmployee', 0):.2f}",
+            f"{l.get('infotepEmployee', 0):.2f}", f"{l.get('isrRetention', 0):.2f}",
+            f"{l.get('otherDeductions', 0):.2f}", f"{l.get('netSalary', 0):.2f}",
+            f"{l.get('afpEmployer', 0):.2f}", f"{l.get('sfsEmployer', 0):.2f}",
+            f"{l.get('srlEmployer', 0):.2f}", f"{l.get('infotepEmployer', 0):.2f}",
+            f"{l.get('totalEmployerContrib', 0):.2f}",
+        ])
+    # Totales
+    writer.writerow([])
+    writer.writerow(["TOTALES", "", "", "",
+                     f"{period.get('totalGross', 0):.2f}", "", "", "", "", "",
+                     f"{period.get('totalNet', 0):.2f}", "", "", "", "",
+                     f"{period.get('totalEmployerContrib', 0):.2f}"])
+
+    dest = io.BytesIO()
+    dest.write(b"\xef\xbb\xbf")
+    dest.write(output.getvalue().encode("utf-8"))
+    dest.seek(0)
+    period_label = period.get("periodKey", "nomina")
+    filename = f"nomina_general_{period_label}.csv"
+    return send_file(dest, mimetype="text/csv", as_attachment=True, download_name=filename)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# REPORTE: RETENCIONES ISR NÓMINA (suma quincenas para DGII)
+# ═══════════════════════════════════════════════════════════════════════════
+
+@web_rrhh_bp.route("/rrhh/reports/isr-retentions")
+def report_isr_retentions():
+    if _login_required():
+        return redirect(url_for("web_auth.login"))
+    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    from app.services import hr_data_service as hr
+
+    periods = hr.get_payroll_periods(owner_uid, sandbox=sandbox)
+    try:
+        year = int(request.args.get("year", date.today().year))
+    except (ValueError, TypeError):
+        year = date.today().year
+
+    # Agrupar por mes: sumar quincenas si existen
+    monthly = {}
+    for m in range(1, 13):
+        key = f"{year}-{m:02d}"
+        monthly[key] = {"isr": 0.0, "afp_emp": 0.0, "sfs_emp": 0.0, "employees": 0, "lines": []}
+
+    for p in periods:
+        pk = p.get("periodKey", "")
+        if str(year) not in pk:
+            continue
+        base_key = pk[:7]
+        if base_key in monthly:
+            for l in p.get("lines", []):
+                monthly[base_key]["isr"] += l.get("isrRetention", 0)
+                monthly[base_key]["afp_emp"] += l.get("afpEmployee", 0)
+                monthly[base_key]["sfs_emp"] += l.get("sfsEmployee", 0)
+                monthly[base_key]["employees"] += 1
+                monthly[base_key]["lines"].append(l)
+
+    return render_template("rrhh/reports/isr_retentions.html", active_page="rrhh_reports",
+                           monthly=monthly, year=year, months_es=MONTHS_ES)
+
+
+@web_rrhh_bp.route("/rrhh/reports/isr-retentions/export")
+def report_isr_retentions_export():
+    if _login_required():
+        return redirect(url_for("web_auth.login"))
+    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    from app.services import hr_data_service as hr
+
+    periods = hr.get_payroll_periods(owner_uid, sandbox=sandbox)
+    try:
+        year = int(request.args.get("year", date.today().year))
+        month = int(request.args.get("month", date.today().month))
+    except (ValueError, TypeError):
+        year = date.today().year
+        month = date.today().month
+
+    # Agrupar para el mes seleccionado
+    base_key = f"{year}-{month:02d}"
+    isr_lines = []
+    for p in periods:
+        pk = p.get("periodKey", "")
+        if pk[:7] == base_key:
+            for l in p.get("lines", []):
+                if l.get("isrRetention", 0) > 0:
+                    isr_lines.append(l)
+
+    import csv, io
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["RNC Agente", "Período", "Cédula Retenido", "Nombre Retenido",
+                      "ISR Retenido", "Salario Bruto", "Período Nómina"])
+    period_label = f"{year:04d}{month:02d}"
+    for l in isr_lines:
+        writer.writerow([
+            "", period_label, l.get("cedula", ""), l.get("employeeName", ""),
+            f"{l.get('isrRetention', 0):.2f}", f"{l.get('totalIncome', 0):.2f}",
+            l.get("periodType", ""),
+        ])
+    writer.writerow([])
+    total_isr = sum(l.get("isrRetention", 0) for l in isr_lines)
+    writer.writerow(["TOTAL", "", "", "", f"{total_isr:.2f}", "", ""])
+
+    dest = io.BytesIO()
+    dest.write(b"\xef\xbb\xbf")
+    dest.write(output.getvalue().encode("utf-8"))
+    dest.seek(0)
+    filename = f"isr_retenciones_{period_label}.csv"
+    return send_file(dest, mimetype="text/csv", as_attachment=True, download_name=filename)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -2197,18 +2626,85 @@ def payroll_recalculate(period_id):
         flash("Período no encontrado.", "error")
         return redirect(url_for("web_rrhh.payroll_list"))
 
-    if period.get("status") in ("contabilizada", "pagada", "cerrada"):
-        flash("No se puede recalcular una nómina ya contabilizada o cerrada. Debe revertirla primero.", "error")
+    status = period.get("status", "")
+    if status == "cerrada":
+        flash("No se puede modificar una nómina cerrada.", "error")
         return redirect(url_for("web_rrhh.payroll_view", period_id=period_id))
 
-    ok, msg = _transition(period, "borrador", "Recálculo solicitado",
-                          owner_uid=owner_uid, sandbox=sandbox)
+    # Confirmación requerida para estados avanzados
+    confirm = request.form.get("confirm", "")
+    target = "borrador"
+    comment = "Recálculo solicitado"
+
+    if status in ("contabilizada", "pagada"):
+        # Revertir paso a paso con confirmación explícita
+        if confirm != "RECALCULAR":
+            flash("Para revertir una nómina contabilizada o pagada, debes escribir RECALCULAR en el campo de confirmación.", "warning")
+            return redirect(url_for("web_rrhh.payroll_view", period_id=period_id))
+        comment = "Reversión forzada con confirmación explícita"
+        # Primero revertir al estado anterior
+        if status == "pagada":
+            prev_ok, prev_msg = _transition(period, "contabilizada", "Reversión desde pagada",
+                                            owner_uid=owner_uid, sandbox=sandbox)
+            if not prev_ok:
+                flash(prev_msg, "error")
+                return redirect(url_for("web_rrhh.payroll_view", period_id=period_id))
+            status = "contabilizada"
+        if status == "contabilizada":
+            prev_ok, prev_msg = _transition(period, "aprobada", "Reversión desde contabilizada",
+                                            owner_uid=owner_uid, sandbox=sandbox)
+            if not prev_ok:
+                flash(prev_msg, "error")
+                return redirect(url_for("web_rrhh.payroll_view", period_id=period_id))
+        # Ahora a borrador
+        ok, msg = _transition(period, "borrador", comment,
+                              owner_uid=owner_uid, sandbox=sandbox)
+    else:
+        ok, msg = _transition(period, target, comment,
+                              owner_uid=owner_uid, sandbox=sandbox)
+
     if not ok:
         flash(msg, "error")
     else:
         hr.save_payroll_period(owner_uid, period_id, period, sandbox=sandbox)
         flash("Nómina revertida a borrador. Puede recalcularla desde «Calcular nómina».", "success")
     return redirect(url_for("web_rrhh.payroll_view", period_id=period_id))
+
+
+@web_rrhh_bp.route("/rrhh/payroll/<period_id>/delete", methods=["POST"])
+def payroll_delete(period_id):
+    if _login_required():
+        return redirect(url_for("web_auth.login"))
+    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    from app.services import hr_data_service as hr
+    from app.services.payroll_audit_service import log_action
+
+    period = hr.get_payroll_period(owner_uid, period_id, sandbox=sandbox)
+    if not period:
+        flash("Período no encontrado.", "error")
+        return redirect(url_for("web_rrhh.payroll_list"))
+
+    status = period.get("status", "")
+    if status != "borrador":
+        flash("Solo se pueden eliminar nóminas en estado borrador. Revierta la nómina primero.", "error")
+        return redirect(url_for("web_rrhh.payroll_view", period_id=period_id))
+
+    confirm = request.form.get("confirm", "")
+    if confirm != "ELIMINAR":
+        flash("Debes escribir ELIMINAR en el campo de confirmación para borrar definitivamente.", "warning")
+        return redirect(url_for("web_rrhh.payroll_view", period_id=period_id))
+
+    period_key = period.get("periodKey", "")
+    period_range = period.get("periodRange", "")
+    user_email = session.get("user", {}).get("email", "")
+
+    log_action(owner_uid, "delete", "payroll_period", period_id, user_email,
+               changes={"period": period_key, "status": status, "range": period_range},
+               comment="Eliminación de período de nómina", sandbox=sandbox)
+
+    hr.delete_payroll_period(owner_uid, period_id, sandbox=sandbox)
+    flash(f"Período de nómina «{period_range or period_key}» eliminado permanentemente.", "success")
+    return redirect(url_for("web_rrhh.payroll_list"))
 
 
 # ═══════════════════════════════════════════════════════════════════════════
