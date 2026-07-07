@@ -32,7 +32,7 @@
         <tbody>
             {% for ev in evaluations %}
             <tr>
-                <td><strong>{{ ev.employeeName }}</strong></td>
+                <td><strong><a href="{{ url_for('web_rrhh.employee_view', employee_id=ev.employeeId) }}" style="color:var(--text-primary); text-decoration:none;">{{ ev.employeeName }}</a></strong></td>
                 <td>{{ ev.date }}</td>
                 <td>{{ ev.evalType }}</td>
                 <td>

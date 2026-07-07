@@ -32,7 +32,7 @@
         <tbody>
             {% for r in requests %}
             <tr>
-                <td><strong>{{ r.employeeName }}</strong></td>
+                <td><strong><a href="{{ url_for('web_rrhh.employee_view', employee_id=r.employeeId) }}" style="color:var(--text-primary); text-decoration:none;">{{ r.employeeName }}</a></strong></td>
                 <td>{{ r.startDate }}</td>
                 <td>{{ r.endDate }}</td>
                 <td>{{ r.days }}</td>

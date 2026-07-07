@@ -35,10 +35,12 @@
                 {% if ev.start <= day_str and ev.end >= day_str %}
                 {% set ns.count = ns.count + 1 %}
                 {% if ns.count <= 3 %}
+                <a href="{{ url_for('web_rrhh.employee_view', employee_id=ev.employeeId) }}" style="text-decoration:none;">
                 <div style="font-size:0.62rem; padding:1px 4px; margin-bottom:1px; border-radius:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
                             {% if ev.type == 'vacation' %}background:rgba(16,185,129,0.15); color:var(--accent-emerald);{% else %}background:rgba(234,179,8,0.18); color:#b45309;{% endif %}">
                     {{ ev.employeeName[:18] }}
                 </div>
+                </a>
                 {% endif %}
                 {% endif %}
             {% endfor %}
@@ -84,7 +86,7 @@
             {% set in_month = (ev.start[:7] == year|string + '-' + '%02d'|format(month)) or (ev.end[:7] == year|string + '-' + '%02d'|format(month)) or (ev.start < year|string + '-' + '%02d'|format(month) + '-01' and ev.end > year|string + '-' + '%02d'|format(month) + '-%02d'|format(num_days)) %}
             {% if in_month %}
             <tr>
-                <td><strong>{{ ev.employeeName }}</strong></td>
+                <td><strong><a href="{{ url_for('web_rrhh.employee_view', employee_id=ev.employeeId) }}" style="color:var(--text-primary); text-decoration:none;">{{ ev.employeeName }}</a></strong></td>
                 <td>
                     {% if ev.type == 'vacation' %}<span class="badge badge-success badge-pill">Vacaciones</span>
                     {% else %}<span class="badge badge-warning badge-pill">{{ ev.leaveType }}</span>{% endif %}

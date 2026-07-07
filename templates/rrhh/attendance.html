@@ -85,9 +85,9 @@
                 <tbody>
                     {% for emp in employees %}
                     <tr>
-                        <td style="position:sticky; left:0; background:var(--bg-card); font-weight:500;">
-                            {{ emp.fullName }}
-                        </td>
+                <td style="position:sticky; left:0; background:var(--bg-card); font-weight:500;">
+                    <a href="{{ url_for('web_rrhh.employee_view', employee_id=emp.id) }}" style="color:var(--text-primary); text-decoration:none;">{{ emp.fullName }}</a>
+                </td>
                         {% for d in days_list %}
                         {% set rec = by_date.get(d, {}).get(emp.id, {}) %}
                         <td style="text-align:center; cursor:pointer;"
