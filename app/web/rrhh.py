@@ -157,7 +157,7 @@ def onboarding_guide():
     all_done = all(s["done"] for s in steps)
     next_step = next((s["number"] for s in steps if not s["done"]), None)
 
-    return render_template("rrhh/onboarding_guide.html", active_page="rrhh_payroll",
+    return render_template("rrhh/onboarding_guide.html", active_page="rrhh_dashboard",
                            steps=steps, all_done=all_done, next_step=next_step)
 
 
@@ -187,7 +187,7 @@ def payroll_setup():
     config = hr.get_payroll_config(owner_uid, sandbox=sandbox)
     current_mode = config.get("frequencyMode", "company")
     current_freq = config.get("payrollFrequency", "mensual")
-    return render_template("rrhh/payroll_onboarding.html", active_page="rrhh_payroll",
+    return render_template("rrhh/payroll_onboarding.html", active_page="rrhh_dashboard",
                            current_mode=current_mode, current_freq=current_freq)
 
 
@@ -343,7 +343,7 @@ def payroll_dashboard():
         "srlTotal": config.get("srlTotal", 92892.40),
     }
 
-    return render_template("rrhh/payroll_dashboard.html", active_page="rrhh_payroll",
+    return render_template("rrhh/payroll_dashboard.html", active_page="rrhh_dashboard",
                            user_name=user_name, greeting=greeting, employee_count=len(active_emps),
                            current_period=current_period,
                            total_pago=total_pago, total_costo=total_costo,
@@ -370,7 +370,46 @@ def payroll_redirect():
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# EMPLEADOS — CRUD + Organigrama
+# LANDING PAGES — Índices con tarjetas de navegación
+# ═══════════════════════════════════════════════════════════════════════════
+
+@web_rrhh_bp.route("/rrhh/empleados")
+def employees_index():
+    if _login_required():
+        return redirect(url_for("web_auth.login"))
+    return render_template("rrhh/employees_index.html", active_page="rrhh_employees")
+
+
+@web_rrhh_bp.route("/rrhh/asistencia")
+def attendance_index():
+    if _login_required():
+        return redirect(url_for("web_auth.login"))
+    return render_template("rrhh/attendance_index.html", active_page="rrhh_attendance")
+
+
+@web_rrhh_bp.route("/rrhh/nomina")
+def payroll_index():
+    if _login_required():
+        return redirect(url_for("web_auth.login"))
+    return render_template("rrhh/payroll_index.html", active_page="rrhh_payroll")
+
+
+@web_rrhh_bp.route("/rrhh/desarrollo")
+def development_index():
+    if _login_required():
+        return redirect(url_for("web_auth.login"))
+    return render_template("rrhh/development_index.html", active_page="rrhh_development")
+
+
+@web_rrhh_bp.route("/rrhh/configuracion")
+def settings_index():
+    if _login_required():
+        return redirect(url_for("web_auth.login"))
+    return render_template("rrhh/settings_index.html", active_page="rrhh_settings")
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# EMPLOYEES
 # ═══════════════════════════════════════════════════════════════════════════
 
 @web_rrhh_bp.route("/rrhh/employees")
@@ -713,6 +752,115 @@ def employee_terminate(employee_id):
     return redirect(url_for("web_rrhh.employee_list"))
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+# LIQUIDACIÓN LABORAL — Cálculo de Prestaciones y Derechos Adquiridos
+# ═══════════════════════════════════════════════════════════════════════════
+
+@web_rrhh_bp.route("/rrhh/employees/<employee_id>/liquidacion", methods=["GET", "POST"])
+def employee_liquidacion(employee_id):
+    if _login_required():
+        return redirect(url_for("web_auth.login"))
+    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    from app.services import hr_data_service as hr
+    from app.services.liquidacion_service import LiquidacionService
+
+    employee = hr.get_employee(owner_uid, employee_id, sandbox=sandbox)
+    if not employee:
+        flash("Empleado no encontrado.", "error")
+        return redirect(url_for("web_rrhh.employee_list"))
+
+    resultado = None
+
+    if request.method == "POST":
+        termination_type = request.form.get("terminationType", "renuncia").strip()
+        termination_date = request.form.get("terminationDate", "").strip()
+        preaviso_trabajado = request.form.get("preavisoTrabajado") == "on"
+        vacation_pending_days = int(request.form.get("vacationPendingDays", "0") or 0)
+        vacation_days_taken = int(request.form.get("vacationDaysTakenThisPeriod", "0") or 0)
+        notes = request.form.get("notes", "").strip()
+
+        base_salary = float(employee.get("baseSalary", 0) or 0)
+        salary_frequency = employee.get("paymentFrequency", "") or "mensual"
+
+        # Usar salarios de los últimos 12 meses desde el historial salarial
+        salaries_12 = [base_salary]
+        try:
+            salary_history = hr.get_salary_history(owner_uid, employee_id, sandbox=sandbox)
+            if salary_history:
+                recent = sorted(salary_history, key=lambda x: x.get("effectiveDate", ""), reverse=True)[:12]
+                salaries_12 = [s.get("amount", base_salary) for s in recent if s.get("amount")]
+                if not salaries_12:
+                    salaries_12 = [base_salary]
+        except Exception:
+            salaries_12 = [base_salary]
+
+        # Salarios año corriente (enero a fecha de salida)
+        try:
+            if termination_date:
+                td = datetime.strptime(termination_date, "%Y-%m-%d")
+                months_ytd = td.month
+            else:
+                months_ytd = date.today().month
+        except ValueError:
+            months_ytd = date.today().month
+        salaries_ytd = [base_salary] * max(1, months_ytd)
+
+        resultado = LiquidacionService.calcular_liquidacion(
+            employee_id=employee_id,
+            employee_name=employee.get("fullName", ""),
+            cedula=employee.get("cedula", ""),
+            hire_date=employee.get("hireDate", ""),
+            termination_date=termination_date,
+            termination_type=termination_type,
+            last_base_salary=base_salary,
+            salary_frequency=salary_frequency,
+            monthly_salaries_last_12=salaries_12,
+            monthly_salaries_ytd=salaries_ytd,
+            preaviso_trabajado=preaviso_trabajado,
+            vacation_pending_days=vacation_pending_days,
+            vacation_days_taken_this_period=vacation_days_taken,
+            notes=notes,
+            created_by=session.get("user", {}).get("email", ""),
+        )
+
+        # Persistir en Firestore
+        save_action = request.form.get("save", "").strip()
+        if save_action == "1":
+            hr.save_liquidacion(owner_uid, resultado["id"], resultado, sandbox=sandbox)
+            from app.services.payroll_audit_service import log_action
+            log_action(owner_uid, "liquidacion_calculada", "employee", employee_id,
+                       session.get("user", {}).get("email", ""),
+                       changes={
+                           "liquidacionId": resultado["id"],
+                           "terminationType": termination_type,
+                           "montoTotal": resultado["totales"]["montoTotal"],
+                       }, sandbox=sandbox)
+            flash("Liquidación calculada y guardada.", "success")
+
+    return render_template("rrhh/employee_liquidacion.html",
+                           active_page="rrhh_employees",
+                           employee=_sanitize_for_role(employee),
+                           resultado=resultado)
+
+
+@web_rrhh_bp.route("/rrhh/employees/<employee_id>/liquidaciones")
+def employee_liquidaciones_list(employee_id):
+    if _login_required():
+        return redirect(url_for("web_auth.login"))
+    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    from app.services import hr_data_service as hr
+
+    employee = hr.get_employee(owner_uid, employee_id, sandbox=sandbox)
+    if not employee:
+        flash("Empleado no encontrado.", "error")
+        return redirect(url_for("web_rrhh.employee_list"))
+
+    liquidaciones = hr.get_liquidaciones_by_employee(owner_uid, employee_id, sandbox=sandbox)
+    return render_template("rrhh/employee_liquidaciones_list.html",
+                           active_page="rrhh_employees",
+                           employee=_sanitize_for_role(employee),
+                           liquidaciones=liquidaciones)
+
 @web_rrhh_bp.route("/rrhh/employees/export")
 def employee_export():
     if _login_required():
@@ -973,7 +1121,7 @@ def org_chart():
     root_nodes = [e for e in employees if not e.get("reportsTo") or e.get("reportsTo") not in emp_map]
     flat_employees = []
 
-    return render_template("rrhh/org_chart.html", active_page="rrhh_orgchart",
+    return render_template("rrhh/org_chart.html", active_page="rrhh_employees",
                            root_nodes=root_nodes, flat_employees=flat_employees,
                            emp_map=emp_map)
 
@@ -1007,7 +1155,7 @@ def team_calendar():
                           "start": l.get("startDate", ""), "end": l.get("endDate", ""),
                           "days": l.get("days", 0), "leaveType": l.get("leaveType", "")})
 
-    return render_template("rrhh/team_calendar.html", active_page="rrhh_calendar",
+    return render_template("rrhh/team_calendar.html", active_page="rrhh_employees",
                            events=events, year=year, month=month,
                            months_es=MONTHS_ES, employees=employees,
                            num_days=calendar.monthrange(year, month)[1])
@@ -1085,7 +1233,7 @@ def vacation_list():
 
     requests = hr.get_vacation_requests(owner_uid, sandbox=sandbox)
     requests.sort(key=lambda r: r.get("createdDate", ""), reverse=True)
-    return render_template("rrhh/vacation_list.html", active_page="rrhh_vacations", requests=requests)
+    return render_template("rrhh/vacation_list.html", active_page="rrhh_attendance", requests=requests)
 
 
 @web_rrhh_bp.route("/rrhh/vacations/new", methods=["GET", "POST"])
@@ -1126,7 +1274,7 @@ def vacation_new():
         flash(f"Solicitud de vacaciones por {business_days} días creada.", "success")
         return redirect(url_for("web_rrhh.vacation_list"))
 
-    return render_template("rrhh/vacation_form.html", active_page="rrhh_vacations", employees=employees)
+    return render_template("rrhh/vacation_form.html", active_page="rrhh_attendance", employees=employees)
 
 
 @web_rrhh_bp.route("/rrhh/vacations/<request_id>/<action>", methods=["POST"])
@@ -1175,7 +1323,7 @@ def leave_list():
 
     requests = hr.get_leave_requests(owner_uid, sandbox=sandbox)
     requests.sort(key=lambda r: r.get("startDate", ""), reverse=True)
-    return render_template("rrhh/leave_list.html", active_page="rrhh_leaves", requests=requests)
+    return render_template("rrhh/leave_list.html", active_page="rrhh_attendance", requests=requests)
 
 
 @web_rrhh_bp.route("/rrhh/leaves/new", methods=["GET", "POST"])
@@ -1213,7 +1361,7 @@ def leave_new():
         flash("Permiso registrado.", "success")
         return redirect(url_for("web_rrhh.leave_list"))
 
-    return render_template("rrhh/leave_form.html", active_page="rrhh_leaves", employees=employees)
+    return render_template("rrhh/leave_form.html", active_page="rrhh_attendance", employees=employees)
 
 
 @web_rrhh_bp.route("/rrhh/leaves/<request_id>/<action>", methods=["POST"])
@@ -1422,7 +1570,7 @@ def payroll_new():
         flash(f"Nómina {period_range or period_key} calculada: {len(lines)} empleados, neto RD$ {total_net:,.2f}.", "success")
         return redirect(url_for("web_rrhh.payroll_view", period_id=period_id))
 
-    return render_template("rrhh/payroll_form.html", active_page="rrhh_payroll_new",
+    return render_template("rrhh/payroll_form.html", active_page="rrhh_payroll",
                            employees=employees, now=datetime.now,
                            available_periods=available_periods, frequency=frequency,
                            show_christmas_bonus=(now.month >= 11),
@@ -1524,7 +1672,7 @@ def payroll_simulate():
             "lines": lines,
         }
 
-    return render_template("rrhh/payroll_simulate.html", active_page="rrhh_payroll_simulate",
+    return render_template("rrhh/payroll_simulate.html", active_page="rrhh_payroll",
                            employees=employees, available_periods=available_periods,
                            frequency=frequency, simulation=simulation,
                            frequency_mode=frequency_mode)
@@ -1543,7 +1691,7 @@ def payroll_list():
 
     periods = hr.get_payroll_periods(owner_uid, sandbox=sandbox)
     periods.sort(key=lambda p: p.get("periodKey", ""), reverse=True)
-    return render_template("rrhh/payroll_list.html", active_page="rrhh_payroll_history", periods=periods)
+    return render_template("rrhh/payroll_list.html", active_page="rrhh_payroll", periods=periods)
 
 
 @web_rrhh_bp.route("/rrhh/payroll/<period_id>")
@@ -1583,6 +1731,43 @@ def payroll_tss_export(period_id):
                      download_name=f"TSS_{period.get('periodKey', '')}.csv")
 
 
+@web_rrhh_bp.route("/rrhh/payroll/<period_id>/tss-autodeterminacion")
+def payroll_tss_autodeterminacion(period_id):
+    if _login_required():
+        return redirect(url_for("web_auth.login"))
+    owner_uid, sandbox = _get_owner_uid_and_sandbox()
+    from app.services import hr_data_service as hr
+    from app.services.payroll_service import PayrollService
+    from app.services.db_service import DatabaseService
+
+    period = hr.get_payroll_period(owner_uid, period_id, sandbox=sandbox)
+    if not period:
+        flash("Período no encontrado.", "error")
+        return redirect(url_for("web_rrhh.payroll_list"))
+
+    formato = request.args.get("format", "txt").lower()
+    employees = hr.get_employees(owner_uid, sandbox=sandbox)
+
+    if formato == "xls":
+        company = DatabaseService.get_company_profile(owner_uid)
+        employer_rnc = (company.get("companyRNC", "") or "").replace("-", "").strip() if company else ""
+        resultado = PayrollService.generate_tss_autodeterminacion_xls(period, employees, employer_rnc=employer_rnc)
+        mimetype = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    else:
+        company = DatabaseService.get_company_profile(owner_uid)
+        employer_rnc = (company.get("companyRNC", "") or "").replace("-", "").strip() if company else ""
+        resultado = PayrollService.generate_tss_autodeterminacion(period, employees, employer_rnc=employer_rnc)
+        mimetype = "text/plain"
+
+    import io
+    content = resultado["content"]
+    if isinstance(content, str):
+        content = content.encode("utf-8-sig")
+    buffer = io.BytesIO(content)
+    return send_file(buffer, mimetype=mimetype, as_attachment=True,
+                     download_name=resultado["filename"])
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # CATÁLOGOS: Posiciones y Departamentos
 # ═══════════════════════════════════════════════════════════════════════════
@@ -1595,7 +1780,7 @@ def catalog_list(catalog_name):
     from app.services import hr_data_service as hr
     items = hr.get_catalog(owner_uid, catalog_name, sandbox=sandbox)
     titles = {"positions": "Posiciones", "departments": "Departamentos"}
-    return render_template("rrhh/catalog_list.html", active_page="rrhh_catalogs",
+    return render_template("rrhh/catalog_list.html", active_page="rrhh_settings",
                            catalog_name=catalog_name, items=items,
                            title=titles.get(catalog_name, catalog_name))
 
@@ -1636,7 +1821,7 @@ def concept_list():
     owner_uid, sandbox = _get_owner_uid_and_sandbox()
     from app.services.payroll_concept_engine import get_concepts
     concepts = get_concepts(owner_uid, sandbox=sandbox)
-    return render_template("rrhh/concepts/list.html", active_page="rrhh_concepts", concepts=concepts)
+    return render_template("rrhh/concepts/list.html", active_page="rrhh_settings", concepts=concepts)
 
 
 @web_rrhh_bp.route("/rrhh/concepts/new", methods=["GET", "POST"])
@@ -1662,7 +1847,7 @@ def concept_new():
         }, sandbox=sandbox)
         flash("Concepto creado exitosamente.", "success")
         return redirect(url_for("web_rrhh.concept_list"))
-    return render_template("rrhh/concepts/form.html", active_page="rrhh_payroll", concept=None)
+    return render_template("rrhh/concepts/form.html", active_page="rrhh_settings", concept=None)
 
 
 @web_rrhh_bp.route("/rrhh/concepts/<concept_code>/edit", methods=["GET", "POST"])
@@ -1691,7 +1876,7 @@ def concept_edit(concept_code):
         save_concept(owner_uid, concept, sandbox=sandbox)
         flash("Concepto actualizado.", "success")
         return redirect(url_for("web_rrhh.concept_list"))
-    return render_template("rrhh/concepts/form.html", active_page="rrhh_payroll", concept=concept)
+    return render_template("rrhh/concepts/form.html", active_page="rrhh_settings", concept=concept)
 
 
 @web_rrhh_bp.route("/rrhh/concepts/<concept_code>/toggle", methods=["POST"])
@@ -1884,7 +2069,7 @@ def audit_log():
     entity = request.args.get("entity", "")
     limit = min(int(request.args.get("limit", 100) or 100), 500)
     logs = get_audit_log(owner_uid, entity=entity or None, limit=limit, sandbox=sandbox)
-    return render_template("rrhh/audit_log.html", active_page="rrhh_audit",
+    return render_template("rrhh/audit_log.html", active_page="rrhh_settings",
                            logs=logs, entity=entity, limit=limit)
 
 
@@ -1988,7 +2173,7 @@ def payroll_settings():
     # Recargar config después de posibles cambios
     config = hr.get_payroll_config(owner_uid, sandbox=sandbox)
     from types import SimpleNamespace
-    return render_template("rrhh/settings.html", active_page="rrhh_payroll_settings",
+    return render_template("rrhh/settings.html", active_page="rrhh_settings",
                            tax_rates=SimpleNamespace(**rates), config_updated=config_updated,
                            payroll_frequency=config.get("payrollFrequency", "mensual"),
                            frequency_mode=config.get("frequencyMode", "company"))
@@ -2763,7 +2948,7 @@ def evaluation_list():
     evals = hr.get_evaluations(owner_uid, sandbox=sandbox)
     evals.sort(key=lambda e: e.get("date", ""), reverse=True)
     employees = {e["id"]: e for e in hr.get_employees(owner_uid, sandbox=sandbox)}
-    return render_template("rrhh/evaluation_list.html", active_page="rrhh_evaluations",
+    return render_template("rrhh/evaluation_list.html", active_page="rrhh_development",
                            evaluations=evals, employees=employees)
 
 
@@ -2795,7 +2980,7 @@ def evaluation_new():
         flash("Evaluación registrada.", "success")
         return redirect(url_for("web_rrhh.evaluation_list"))
 
-    return render_template("rrhh/evaluation_form.html", active_page="rrhh_evaluations", employees=employees, now=datetime.now)
+    return render_template("rrhh/evaluation_form.html", active_page="rrhh_development", employees=employees, now=datetime.now)
 
 
 @web_rrhh_bp.route("/rrhh/trainings")
@@ -2807,7 +2992,7 @@ def training_list():
 
     trainings = hr.get_trainings(owner_uid, sandbox=sandbox)
     trainings.sort(key=lambda t: t.get("date", ""), reverse=True)
-    return render_template("rrhh/training_list.html", active_page="rrhh_trainings", trainings=trainings)
+    return render_template("rrhh/training_list.html", active_page="rrhh_development", trainings=trainings)
 
 
 @web_rrhh_bp.route("/rrhh/trainings/new", methods=["GET", "POST"])
@@ -2837,4 +3022,4 @@ def training_new():
         flash("Capacitación registrada.", "success")
         return redirect(url_for("web_rrhh.training_list"))
 
-    return render_template("rrhh/training_form.html", active_page="rrhh_trainings", employees=employees, now=datetime.now)
+    return render_template("rrhh/training_form.html", active_page="rrhh_development", employees=employees, now=datetime.now)

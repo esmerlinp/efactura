@@ -36,6 +36,27 @@
     </div>
 </div>
 
+<!-- Quick-access toolbar -->
+<div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:20px;">
+    <a href="{{ url_for('web_rrhh.employee_new') }}" class="btn btn-primary btn-sm">
+        <i class="fa-solid fa-user-plus"></i> Nuevo Empleado
+    </a>
+    <a href="{{ url_for('web_rrhh.employee_export') }}" class="btn btn-secondary btn-sm">
+        <i class="fa-solid fa-download"></i> Exportar XLSX
+    </a>
+    <span style="border-left:1px solid var(--border-color); height:24px; margin:0 4px;"></span>
+    <a href="{{ url_for('web_rrhh.org_chart') }}" class="btn btn-ghost btn-sm">
+        <i class="fa-solid fa-sitemap"></i> Organigrama
+    </a>
+    <a href="{{ url_for('web_rrhh.team_calendar') }}" class="btn btn-ghost btn-sm">
+        <i class="fa-solid fa-calendar-days"></i> Calendario
+    </a>
+    <span style="border-left:1px solid var(--border-color); height:24px; margin:0 4px;"></span>
+    <span style="font-size:0.78rem; color:var(--text-muted); display:flex; align-items:center; gap:4px;">
+        <i class="fa-solid fa-calculator"></i> Liquidaciones desde la ficha del empleado
+    </span>
+</div>
+
 <div class="card-table-wrapper hr-table-card">
     <div class="table-header-row">
         <div>

@@ -109,4 +109,7 @@ class Config:
     SESSION_PERMANENT = True
     PERMANENT_SESSION_LIFETIME = 28800  # 8 horas en segundos
 
+    # Templates — recargar automáticamente sin necesidad de reiniciar el servidor
+    TEMPLATES_AUTO_RELOAD = True
+
 

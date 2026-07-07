@@ -624,3 +624,521 @@ class PayrollService:
             ])
 
         return output.getvalue()
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # AUTODETERMINACIÓN TSS — Formato oficial Tesorería de la Seguridad Social
+    # ═══════════════════════════════════════════════════════════════════════
+
+    # Mapeo de tipos de identificación a códigos TSS
+    _TIPO_DOC_MAP = {"cedula": "1", "rnc": "2", "pasaporte": "3", "": "1"}
+
+    # Meses en español para el período
+    _MESES = ["", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+              "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
+
+    @classmethod
+    def generate_tss_autodeterminacion(cls, payroll_period: dict, employees: list,
+                                        employer_rnc: str = "") -> dict:
+        """
+        Genera archivo de Autodeterminación TSS en formato OFICIAL SUIRPLUS v6.0.
+
+        Formato: archivo de texto de ancho fijo con 3 tipos de registro:
+          E = Encabezado (20 caracteres)
+          D = Detalle (366 caracteres por empleado)
+          S = Sumario (7 caracteres)
+
+        Especificación: Instructivo Construcción Archivos Autodeterminación y
+        Novedades v6.0 — TSS, Junio 2025.
+
+        Args:
+            payroll_period: Dict del período de nómina.
+            employees: Lista de empleados con datos completos.
+            employer_rnc: RNC o Cédula del empleador (sin guiones).
+
+        Returns:
+            Dict con {content, filename, periodo, periodo_tss, total_empleados, resumen}.
+        """
+        from datetime import datetime
+
+        period_key = payroll_period.get("periodKey", "")
+        year = payroll_period.get("year", datetime.now().year)
+        month = payroll_period.get("month", datetime.now().month)
+        periodo_mmaaaa = f"{month:02d}{year}"
+        periodo_label = f"{cls._MESES[month]}_{year}"
+
+        lines = payroll_period.get("lines", [])
+        emp_map = {e.get("id", ""): e for e in employees}
+
+        # Limpiar RNC: solo dígitos, quitar guiones
+        rnc = "".join(c for c in (employer_rnc or "") if c.isdigit())
+        if len(rnc) < 11:
+            rnc = rnc.rjust(11)
+
+        output_lines = []
+
+        # ═══════════════════════════════════════════════════════════════
+        # ENCABEZADO — 20 caracteres
+        # Pos: 1(1) E, 2-3(2) AM, 4-14(11) RNC, 15-20(6) MMAAAA
+        # ═══════════════════════════════════════════════════════════════
+        header = f"EAM{rnc[-11:].rjust(11)}{periodo_mmaaaa}"
+        output_lines.append(header)
+
+        empleados_contados = 0
+
+        for pl in lines:
+            emp = emp_map.get(pl.get("employeeId", ""), {})
+            if not emp:
+                continue
+
+            empleados_contados += 1
+
+            # ── Datos del empleado ──
+
+            # Clave nómina (3, justificada derecha)
+            tss_key = str(emp.get("tssKey", "") or "").strip()[:3]
+            clave = tss_key.rjust(3)
+
+            # Tipo documento (1)
+            id_type = (emp.get("idType", "") or "cedula").lower()
+            tipo_doc = "C" if id_type == "cedula" else ("P" if id_type == "pasaporte" else "N")
+
+            # Documento (25, justificado izquierda, sin guiones)
+            doc = "".join(c for c in (emp.get("cedula", "") or emp.get("idNumber", "") or "") if c.isalnum())
+            documento = doc.ljust(25)[:25]
+
+            # Nombres (50, justificado izquierda)
+            nombres_raw = f"{emp.get('firstName', '')} {emp.get('middleName', '')}".strip()
+            nombres = nombres_raw.ljust(50)[:50]
+
+            # 1er Apellido (40)
+            apellido1 = (emp.get("firstLastName", "") or emp.get("lastName", "") or "").strip()
+            apellido1 = apellido1.ljust(40)[:40]
+
+            # 2do Apellido (40)
+            apellido2 = (emp.get("secondLastName", "") or "").strip()
+            apellido2 = apellido2.ljust(40)[:40]
+
+            # Sexo (1)
+            gender = (emp.get("gender", "") or "").lower()
+            sexo = "M" if gender in ("masculino", "male", "m") else ("F" if gender else " ")
+
+            # Fecha nacimiento (8, DDMMAAAA)
+            birth = (emp.get("birthDate", "") or "").strip()
+            fecha_nac = ""
+            if birth:
+                try:
+                    bd = datetime.strptime(birth[:10], "%Y-%m-%d")
+                    fecha_nac = bd.strftime("%d%m%Y")
+                except ValueError:
+                    fecha_nac = ""
+            fecha_nac = fecha_nac.ljust(8)[:8]
+
+            # ── Salarios ──
+            gross_salary = pl.get("grossSalary", 0) or pl.get("baseSalary", 0) or 0
+            total_income = pl.get("totalIncome", 0) or 0
+            afp_cap = emp.get("afpSalaryCap", 0) or _AFP_SALARY_CAP
+            salario_ss = min(gross_salary, afp_cap)
+
+            # Salario_SS (16, ceros izq con 2 decimales)
+            salario_ss_str = f"{salario_ss:016.2f}"[:16]
+
+            # Aporte voluntario (16, ceros)
+            aporte_vol = "0000000000000.00"
+
+            # Salario_ISR (16): solo si es diferente de Salario_SS
+            salario_isr = total_income
+            salario_isr_str = "0000000000000.00" if abs(salario_isr - salario_ss) < 0.01 else f"{salario_isr:016.2f}"[:16]
+
+            # Otras remuneraciones (16): comisiones + bonos + otros ingresos
+            otras_rem = (pl.get("commission", 0) or 0) + (pl.get("bonus", 0) or 0) + (pl.get("otherIncome", 0) or 0)
+            otras_rem_str = f"{otras_rem:016.2f}"[:16]
+
+            # RNC agente retención (11, justificado derecha)
+            agente_ret = "".rjust(11)
+
+            # Remun. otros empleadores (16, ceros)
+            rem_otros = "0000000000000.00"
+
+            # Ingresos exentos ISR (16) — siempre en ceros (se desglosan abajo)
+            ingresos_exentos = "0000000000000.00"
+
+            # Saldo a favor (16, ceros)
+            saldo_favor = "0000000000000.00"
+
+            # Salario INFOTEP (16): solo si es diferente de Salario_SS
+            salario_infotep = total_income
+            salario_infotep_str = "0000000000000.00" if abs(salario_infotep - salario_ss) < 0.01 else f"{salario_infotep:016.2f}"[:16]
+
+            # Tipo ingreso (4): default 0001 (Normal)
+            tipo_ingreso = "0001"
+
+            # ── Ingresos exentos desglosados (18 chars c/u: código 2 + monto 16) ──
+            # 01 = Regalía Pascual
+            regalia = pl.get("christmasBonus", 0) or 0
+            regalia_str = f"01{regalia:016.2f}"[:18]
+
+            # 02 = Preaviso, Cesantía, Viáticos e Indemnizaciones
+            preaviso_cesantia = 0.0
+            pc_str = f"02{preaviso_cesantia:016.2f}"[:18]
+
+            # 03 = Retención Pensión Alimenticia
+            pension = pl.get("pensionAlimenticia", 0) or 0
+            pension_str = f"03{pension:016.2f}"[:18]
+
+            # ═══════════════════════════════════════════════════════════
+            # DETALLE — 366 caracteres
+            # ═══════════════════════════════════════════════════════════
+            detalle = (
+                "D" + clave + tipo_doc + documento + nombres + apellido1 +
+                apellido2 + sexo + fecha_nac + salario_ss_str + aporte_vol +
+                salario_isr_str + otras_rem_str + agente_ret + rem_otros +
+                ingresos_exentos + saldo_favor + salario_infotep_str +
+                tipo_ingreso + regalia_str + pc_str + pension_str
+            )
+            # Verificar longitud exacta
+            detalle = detalle.ljust(366)[:366]
+            output_lines.append(detalle)
+
+        # ═══════════════════════════════════════════════════════════════
+        # SUMARIO — 7 caracteres
+        # Pos: 1(1) S, 2-7(6) total registros (E + D's + S)
+        # ═══════════════════════════════════════════════════════════════
+        total_registros = 1 + empleados_contados + 1  # header + details + trailer
+        trailer = f"S{total_registros:06d}"
+        output_lines.append(trailer)
+
+        content = "\n".join(output_lines)
+
+        # Clean RNC for filename (just numbers, no spaces)
+        rnc_clean = "".join(c for c in (employer_rnc or "000000000") if c.isdigit())
+        filename = f"AM_{rnc_clean}_{periodo_mmaaaa}.txt"
+
+        return {
+            "content": content,
+            "filename": filename,
+            "periodo": periodo_label,
+            "periodo_tss": periodo_mmaaaa,
+            "total_empleados": empleados_contados,
+            "resumen": {
+                "total_empleados": empleados_contados,
+                "total_registros": total_registros,
+            },
+        }
+
+    @classmethod
+    def generate_tss_autodeterminacion_xls(cls, payroll_period: dict, employees: list,
+                                            employer_rnc: str = "",
+                                            tipo_archivo: str = "AM") -> dict:
+        """
+        Genera el archivo Excel (.xlsx) poblado con la plantilla oficial de
+        Autodeterminación TSS de la Tesorería de la Seguridad Social RD.
+
+        Columnas exactas de la plantilla oficial (21 columnas B-V, col A vacía):
+          B: Clave Nómina        C: Tipo Doc.           D: Número Documento
+          E: Nombres             F: 1er. Apellido       G: 2do. Apellido
+          H: Sexo                I: Fecha Nacimiento
+          J: Salario Cotizable   K: Aporte Voluntario
+          L: Salario ISR         M: Tipo Ingreso         N: Otras Remuneraciones
+          O: RNC/Céd. Agente Ret P: Remun. Otros Agentes Q: Remuneración del período
+          R: Saldo a favor       S: Regalía Pascual      T: Preaviso/Cesantía/Indemniz.
+          U: Retención Pensión   V: Salario INFOTEP
+
+        Args:
+            payroll_period: Dict del período de nómina.
+            employees: Lista de empleados con datos completos.
+            employer_rnc: RNC o Cédula del empleador.
+            tipo_archivo: "AM" (Modificación) o "AR" (Reemplazo).
+
+        Returns:
+            Dict con {content (bytes), filename, periodo, total_empleados, resumen}.
+        """
+        import io
+        from datetime import datetime
+        from openpyxl import Workbook
+        from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
+        from openpyxl.utils import get_column_letter
+
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Autodeterminación"
+
+        period_key = payroll_period.get("periodKey", "")
+        year = payroll_period.get("year", datetime.now().year)
+        month = payroll_period.get("month", datetime.now().month)
+        periodo_mmaaaa = f"{month:02d}{year}"
+        periodo_label = f"{cls._MESES[month]}_{year}"
+
+        lines = payroll_period.get("lines", [])
+        emp_map = {e.get("id", ""): e for e in employees}
+
+        # ── Estilos ──
+        bold_font = Font(bold=True, size=10)
+        title_font = Font(bold=True, size=12)
+        header_font = Font(bold=True, size=9)
+        header_fill = PatternFill(start_color="D9E1F2", end_color="D9E1F2", fill_type="solid")
+        section_fill = PatternFill(start_color="B4C6E7", end_color="B4C6E7", fill_type="solid")
+        thin_border = Border(
+            left=Side(style="thin"), right=Side(style="thin"),
+            top=Side(style="thin"), bottom=Side(style="thin"),
+        )
+        center_align = Alignment(horizontal="center", vertical="center", wrap_text=True)
+
+        # ── Metadata rows ──
+        ws.merge_cells("B1:V1")
+        ws["B1"] = "Plantilla de Archivo AutoDeterminación"
+        ws["B1"].font = title_font
+
+        ws["B2"] = "Tipo de Archivo:"
+        ws["B2"].font = bold_font
+        ws["C2"] = tipo_archivo
+
+        ws["B3"] = "RNC o Cédula:"
+        ws["B3"].font = bold_font
+        ws["C3"] = employer_rnc
+
+        ws["B4"] = "Período:"
+        ws["B4"].font = bold_font
+        ws["C4"] = periodo_mmaaaa
+
+        ws["B5"] = "# de Empleados:"
+        ws["B5"].font = bold_font
+
+        # ── Section headers (row 7) ──
+        section_row = 7
+        ws.merge_cells(f"B{section_row}:I{section_row}")
+        ws[f"B{section_row}"] = "TRABAJADORES"
+        ws[f"B{section_row}"].font = Font(bold=True, size=10)
+        ws[f"B{section_row}"].fill = section_fill
+        ws[f"B{section_row}"].alignment = center_align
+
+        ws.merge_cells(f"J{section_row}:K{section_row}")
+        ws[f"J{section_row}"] = "SDSS"
+        ws[f"J{section_row}"].font = Font(bold=True, size=10)
+        ws[f"J{section_row}"].fill = section_fill
+        ws[f"J{section_row}"].alignment = center_align
+
+        ws.merge_cells(f"L{section_row}:T{section_row}")
+        ws[f"L{section_row}"] = "DGII"
+        ws[f"L{section_row}"].font = Font(bold=True, size=10)
+        ws[f"L{section_row}"].fill = section_fill
+        ws[f"L{section_row}"].alignment = center_align
+
+        ws.merge_cells(f"U{section_row}:V{section_row}")
+        ws[f"U{section_row}"] = "INFOTEP"
+        ws[f"U{section_row}"].font = Font(bold=True, size=10)
+        ws[f"U{section_row}"].fill = section_fill
+        ws[f"U{section_row}"].alignment = center_align
+
+        # ── Column headers (row 8-9, 2-line headers) ──
+        headers_r1 = [
+            "", "Clave Nómina", "Tipo Doc.", "Número Documento",
+            "Nombres", "1er. Apellido", "2do. Apellido", "Sexo",
+            "Fecha Nacimiento", "Salario Cotizable", "Aporte Voluntario",
+            "Salario ISR", "Tipo Ingreso", "Otras Remuneraciones",
+            "RNC/Céd. Agente Ret", "Remun. Otros Agentes",
+            "Remuneración del período", "Saldo a favor (Saldo 13)",
+            "Regalía Pascual", "Preaviso, Cesantía, Viático e Indemnizaciones",
+            "Retención Pensión Alimenticia", "Salario INFOTEP",
+        ]
+
+        header_row = 8
+        for col_idx, h in enumerate(headers_r1):
+            cell = ws.cell(row=header_row, column=col_idx + 1, value=h)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.border = thin_border
+            cell.alignment = center_align
+
+        # ── Widths ──
+        widths = [3, 12, 10, 16, 18, 16, 16, 6, 14, 14, 14,
+                  14, 12, 16, 18, 16, 16, 14, 14, 22, 16, 14]
+        for i, w in enumerate(widths):
+            ws.column_dimensions[get_column_letter(i + 1)].width = w
+
+        # ── Data rows ──
+        data_start = 9
+        total_afp_emp = 0.0
+        total_sfs_emp = 0.0
+        total_afp_empl = 0.0
+        total_sfs_empl = 0.0
+        total_srl = 0.0
+        total_infotep = 0.0
+        emp_count = 0
+
+        for pl in lines:
+            emp = emp_map.get(pl.get("employeeId", ""), {})
+            if not emp:
+                continue
+
+            emp_count += 1
+            row = data_start + emp_count
+
+            # Tipo doc
+            id_type = emp.get("idType", "cedula") or "cedula"
+            tipo_doc = "C" if id_type == "cedula" else ("P" if id_type == "pasaporte" else "N")
+
+            # Sexo
+            gender = (emp.get("gender", "") or "").lower()
+            sexo = "M" if gender in ("masculino", "male", "m") else ("F" if gender else "")
+
+            # Fecha nacimiento
+            birth = (emp.get("birthDate", "") or "").strip()
+            if birth:
+                try:
+                    bd = datetime.strptime(birth[:10], "%Y-%m-%d")
+                    birth = bd.strftime("%d/%m/%Y")
+                except ValueError:
+                    pass
+
+            # Nombres
+            nombres = " ".join(p for p in [
+                emp.get("firstName", ""), emp.get("middleName", "")
+            ] if p).strip()
+
+            total_income = pl.get("totalIncome", 0)
+            afp_cap = emp.get("afpSalaryCap", 0) or _AFP_SALARY_CAP
+            sfs_cap = emp.get("sfsSalaryCap", 0) or _SFS_SALARY_CAP
+            salario_cotizable = min(total_income, afp_cap)
+
+            # Aportes individuales
+            afp_emp_val = pl.get("afpEmployee", 0)
+            sfs_emp_val = pl.get("sfsEmployee", 0)
+            afp_empl_val = pl.get("afpEmployer", 0)
+            sfs_empl_val = pl.get("sfsEmployer", 0)
+            srl_val = pl.get("srlEmployer", 0)
+            infotep_val = pl.get("infotepEmployer", 0)
+
+            # Otras remuneraciones = comisiones + bonos + otros ingresos
+            otras_rem = (pl.get("commission", 0) + pl.get("bonus", 0) +
+                        pl.get("otherIncome", 0))
+
+            row_data = [
+                "",  # A: empty
+                emp.get("tssKey", ""),              # B: Clave Nómina
+                tipo_doc,                            # C: Tipo Doc.
+                emp.get("cedula", "") or emp.get("idNumber", ""),  # D: Documento
+                nombres,                             # E: Nombres
+                emp.get("firstLastName", "") or emp.get("lastName", ""),  # F: 1er Apellido
+                emp.get("secondLastName", ""),       # G: 2do Apellido
+                sexo,                                # H: Sexo
+                birth,                               # I: Fecha Nacimiento
+                salario_cotizable,                   # J: Salario Cotizable
+                0.0,                                 # K: Aporte Voluntario
+                total_income,                        # L: Salario ISR
+                "01",                                # M: Tipo Ingreso (01=Normal)
+                otras_rem,                           # N: Otras Remuneraciones
+                "",                                  # O: RNC/Céd. Agente Ret
+                0.0,                                 # P: Remun. Otros Agentes
+                total_income,                        # Q: Remuneración del período
+                0.0,                                 # R: Saldo a favor
+                0.0,                                 # S: Regalía Pascual
+                0.0,                                 # T: Preaviso/Cesantía/Indemniz.
+                0.0,                                 # U: Retención Pensión Alimenticia
+                total_income,                        # V: Salario INFOTEP
+            ]
+
+            for col_idx, val in enumerate(row_data):
+                cell = ws.cell(row=row, column=col_idx + 1, value=val)
+                cell.border = thin_border
+                if isinstance(val, float):
+                    cell.number_format = '#,##0.00'
+
+            total_afp_emp += afp_emp_val
+            total_sfs_emp += sfs_emp_val
+            total_afp_empl += afp_empl_val
+            total_sfs_empl += sfs_empl_val
+            total_srl += srl_val
+            total_infotep += infotep_val
+
+        # Actualizar conteo
+        ws["C5"] = emp_count
+
+        # ── Save to bytes ──
+        output = io.BytesIO()
+        wb.save(output)
+        output.seek(0)
+
+        filename = f"TSS_Autodeterminacion_{periodo_label.replace(' ', '_')}.xlsx"
+
+        return {
+            "content": output.getvalue(),
+            "filename": filename,
+            "periodo": periodo_label,
+            "periodo_tss": periodo_mmaaaa,
+            "total_empleados": emp_count,
+            "resumen": {
+                "afp_empleado": round(total_afp_emp, 2),
+                "sfs_empleado": round(total_sfs_emp, 2),
+                "afp_empleador": round(total_afp_empl, 2),
+                "sfs_empleador": round(total_sfs_empl, 2),
+                "srl": round(total_srl, 2),
+                "infotep": round(total_infotep, 2),
+                "total": round(total_afp_emp + total_sfs_emp + total_afp_empl +
+                              total_sfs_empl + total_srl + total_infotep, 2),
+            },
+        }
+
+    @classmethod
+    def _split_name(cls, emp: dict) -> dict:
+        """Separa nombres y apellidos para el formato TSS."""
+        primer_nombre = (emp.get("firstName", "") or "").strip()
+        segundo_nombre = (emp.get("middleName", "") or "").strip()
+        primer_apellido = (emp.get("firstLastName", "") or emp.get("lastName", "") or "").strip()
+        segundo_apellido = (emp.get("secondLastName", "") or "").strip()
+
+        # Fallback: si no hay nombres separados, intentar separar fullName
+        if not primer_nombre and not primer_apellido:
+            full = (emp.get("fullName", "") or "").strip()
+            parts = full.split()
+            if len(parts) >= 2:
+                primer_nombre = parts[0]
+                primer_apellido = parts[-1]
+                if len(parts) >= 3:
+                    segundo_nombre = parts[1] if len(parts) > 2 else ""
+                    if len(parts) >= 4:
+                        segundo_apellido = parts[-2]
+
+        return {
+            "primer_nombre": primer_nombre,
+            "segundo_nombre": segundo_nombre,
+            "primer_apellido": primer_apellido,
+            "segundo_apellido": segundo_apellido,
+        }
+
+    @classmethod
+    def _calcular_estado_tss(cls, hire_date_str: str, termination_date_str: str,
+                              year: int, month: int) -> str:
+        """
+        Determina el estado TSS del empleado para el período:
+          I = Ingreso (fecha de entrada dentro del mes)
+          P = Permanencia (activo, entró antes del mes)
+          E = Egreso (fecha de salida dentro del mes)
+        """
+        from datetime import datetime
+
+        # Primer día del período
+        try:
+            periodo_inicio = datetime(year, month, 1).date()
+            if month == 12:
+                periodo_fin = datetime(year + 1, 1, 1).date()
+            else:
+                periodo_fin = datetime(year, month + 1, 1).date()
+        except (ValueError, TypeError):
+            return "P"
+
+        try:
+            if hire_date_str:
+                hd = datetime.strptime(hire_date_str[:10], "%Y-%m-%d").date()
+                # Si entró en este mes, es Ingreso
+                if periodo_inicio <= hd < periodo_fin:
+                    return "I"
+
+            if termination_date_str:
+                td = datetime.strptime(termination_date_str[:10], "%Y-%m-%d").date()
+                # Si salió en este mes, es Egreso
+                if periodo_inicio <= td < periodo_fin:
+                    return "E"
+        except (ValueError, TypeError):
+            pass
+
+        return "P"

@@ -567,6 +567,31 @@ def delete_dgt_suspension(owner_uid: str, suspension_id: str, sandbox: bool = Tr
 def get_dgt_reinstatements(owner_uid: str, sandbox: bool = True) -> list:
     return _get_all(owner_uid, "dgt_reinstatements", sandbox)
 
+
+# ═══════════════════════════════════════════════════════════════════════════
+# LIQUIDACIONES (PRESTACIONES LABORALES)
+# ═══════════════════════════════════════════════════════════════════════════
+
+def get_liquidaciones(owner_uid: str, sandbox: bool = True) -> list:
+    return _get_all(owner_uid, "liquidaciones", sandbox)
+
+
+def get_liquidacion(owner_uid: str, liquidacion_id: str, sandbox: bool = True) -> dict | None:
+    return _get_one(owner_uid, "liquidaciones", liquidacion_id, sandbox)
+
+
+def save_liquidacion(owner_uid: str, liquidacion_id: str, data: dict, sandbox: bool = True):
+    _save(owner_uid, "liquidaciones", liquidacion_id, data, sandbox)
+
+
+def get_liquidaciones_by_employee(owner_uid: str, employee_id: str, sandbox: bool = True) -> list:
+    liquidaciones = _get_all(owner_uid, "liquidaciones", sandbox)
+    return [l for l in liquidaciones if l.get("employeeId") == employee_id]
+
+
+def delete_liquidacion(owner_uid: str, liquidacion_id: str, sandbox: bool = True):
+    _delete(owner_uid, "liquidaciones", liquidacion_id, sandbox)
+
 def get_dgt_reinstatement(owner_uid: str, reinst_id: str, sandbox: bool = True) -> dict | None:
     return _get_one(owner_uid, "dgt_reinstatements", reinst_id, sandbox)
 

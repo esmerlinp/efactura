@@ -291,6 +291,11 @@ def create_app():
                     'web_accounting.income_statement': 'contabilidad',
                     'web_rrhh.onboarding_guide': 'nomina',
                     'web_rrhh.payroll_setup': 'nomina',
+                    'web_rrhh.employees_index': 'nomina',
+                    'web_rrhh.attendance_index': 'nomina',
+                    'web_rrhh.payroll_index': 'nomina',
+                    'web_rrhh.development_index': 'nomina',
+                    'web_rrhh.settings_index': 'nomina',
                     'web_rrhh.payroll_dashboard': 'nomina',
                     'web_rrhh.payroll_new': 'nomina',
                     'web_rrhh.payroll_simulate': 'nomina',
@@ -312,6 +317,8 @@ def create_app():
                     'web_rrhh.concept_list': 'nomina',
                     'web_rrhh.reports_index': 'nomina',
                     'web_rrhh.audit_log': 'nomina',
+                    'web_rrhh.employee_liquidacion': 'nomina',
+                    'web_rrhh.employee_liquidaciones_list': 'nomina',
                 }
                 ep = request.endpoint
                 if ep in module_restricted:
@@ -634,6 +641,7 @@ def create_app():
     from app.api.v1.metadata import metadata_bp
     from app.api.v1.prospects import api_prospects_bp
     from app.api.v1.accounting import api_accounting_bp
+    from app.api.v1.liquidacion import api_liquidacion_bp
     
     app.register_blueprint(api_invoices_bp, url_prefix='/api/v1')
     app.register_blueprint(api_clients_bp, url_prefix='/api/v1')
@@ -642,6 +650,7 @@ def create_app():
     app.register_blueprint(metadata_bp, url_prefix='/api/v1')
     app.register_blueprint(api_prospects_bp, url_prefix='/api/v1')
     app.register_blueprint(api_accounting_bp, url_prefix='/api/v1')
+    app.register_blueprint(api_liquidacion_bp, url_prefix='/api/v1')
 
     # 2. Web UI Blueprints
     from app.web.auth import web_auth_bp
