@@ -1324,8 +1324,8 @@
                 <div class="sidebar-discover-group">
                     <div class="sidebar-divider"></div>
                     <span class="sidebar-discover-title">Módulos</span>
-                    {% if session.get('user', {}).get('role') == 'owner' or session.get('user',
-                    {}).get('permissions', {}).get('canHR', True) %}
+                    {% if module_enabled('nomina') and (session.get('user', {}).get('role') == 'owner' or session.get('user',
+                    {}).get('permissions', {}).get('canHR', True)) %}
                     <a href="{{ url_for('web_rrhh.payroll_dashboard') }}"
                         class="sidebar-discover-item {% if active_page and active_page.startswith('rrhh_') %}active{% endif %}"
                         data-tooltip="Nómina y RRHH"
