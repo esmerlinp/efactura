@@ -1,0 +1,233 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}Configuración de Nómina — {{ product_name }}{% endblock %}
+{% block content %}
+{% include "rrhh/_styles.html" %}
+<div class="page-header hr-page-header">
+    <h1 class="page-title"><i class="fa-solid fa-gear"></i> Configuración de Nómina</h1>
+    <a href="{{ url_for('web_rrhh.payroll_dashboard') }}" class="btn btn-ghost"><i class="fa-solid fa-arrow-left"></i> Dashboard</a>
+</div>
+
+<div class="card-table-wrapper" style="padding:16px 24px; margin-bottom:16px; background:rgba(16,185,129,0.06); border:1px solid var(--accent-emerald);">
+    <div style="display:flex; align-items:center; gap:12px;">
+        <i class="fa-solid fa-circle-info" style="color:var(--accent-emerald); font-size:1.2rem;"></i>
+        <p style="margin:0; font-size:0.85rem;">Estas tasas y topes deben coincidir con los valores oficiales publicados por <strong>TSS</strong> y <strong>DGII</strong> para el año fiscal vigente.
+        El sistema usa estos valores en todos los cálculos de nómina.</p>
+    </div>
+</div>
+
+{% if config_updated %}
+<div class="card-table-wrapper" style="padding:12px 24px; margin-bottom:16px; background:rgba(16,185,129,0.1); border:1px solid var(--accent-emerald);">
+    <i class="fa-solid fa-check-circle" style="color:var(--accent-emerald);"></i>
+    <strong>Configuración guardada exitosamente.</strong>
+    Los nuevos valores se aplicarán a partir del próximo cálculo de nómina.
+</div>
+{% endif %}
+
+<form method="POST">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="year" value="{{ tax_rates.year }}">
+
+    <!-- ═══════════ MODO DE FRECUENCIA ═══════════ -->
+    <div class="card-table-wrapper" style="margin-bottom:16px;">
+        <div class="table-header-row">
+            <div><h3><i class="fa-solid fa-sliders"></i> Modo de Frecuencia</h3></div>
+        </div>
+        <div style="padding:0 20px 20px;">
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+                {% set mode = frequency_mode or 'company' %}
+                <label id="mode-card-company" class="mode-card"
+                       style="display:flex; flex-direction:column; gap:8px; padding:20px 16px;
+                              border:2px solid {% if mode == 'company' %}var(--accent-emerald){% else %}var(--border-color){% endif %};
+                              border-radius:var(--radius-md); cursor:pointer; background:{% if mode == 'company' %}rgba(16,185,129,0.06){% else %}var(--bg-card){% endif %};
+                              transition:all 0.2s; text-align:center;"
+                       onclick="selectMode('company')">
+                    <input type="radio" name="frequency_mode" value="company" style="display:none;" {% if mode == 'company' %}checked{% endif %}>
+                    <i class="fa-solid fa-building" style="font-size:1.5rem; color:var(--accent-emerald);"></i>
+                    <span style="font-weight:700;">Por empresa</span>
+                    <span style="font-size:0.72rem; color:var(--text-muted);">Una frecuencia para todos. Más simple de administrar.</span>
+                </label>
+                <label id="mode-card-employee" class="mode-card"
+                       style="display:flex; flex-direction:column; gap:8px; padding:20px 16px;
+                              border:2px solid {% if mode == 'employee' %}var(--accent-purple){% else %}var(--border-color){% endif %};
+                              border-radius:var(--radius-md); cursor:pointer; background:{% if mode == 'employee' %}rgba(124,58,237,0.06){% else %}var(--bg-card){% endif %};
+                              transition:all 0.2s; text-align:center;"
+                       onclick="selectMode('employee')">
+                    <input type="radio" name="frequency_mode" value="employee" style="display:none;" {% if mode == 'employee' %}checked{% endif %}>
+                    <i class="fa-solid fa-users" style="font-size:1.5rem; color:var(--accent-purple);"></i>
+                    <span style="font-weight:700;">Por empleado</span>
+                    <span style="font-size:0.72rem; color:var(--text-muted);">Cada empleado con su propia frecuencia. Máxima flexibilidad.</span>
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════ FRECUENCIA (solo modo empresa) ═══════════ -->
+    <div id="company-freq-section" class="card-table-wrapper" style="margin-bottom:16px; {% if mode == 'employee' %}display:none;{% endif %}">
+        <div class="table-header-row">
+            <div><h3><i class="fa-solid fa-calendar-week"></i> Frecuencia de Nómina</h3></div>
+        </div>
+        <div style="padding:0 20px 20px;">
+            <div style="display:flex; gap:12px; flex-wrap:wrap;">
+                {% for freq in [{'v':'quincenal','l':'Quincenal','i':'fa-calendar-week','c':'var(--accent-emerald)'},{'v':'mensual','l':'Mensual','i':'fa-calendar-alt','c':'var(--accent-purple)'}] %}
+                <label style="display:flex; align-items:center; gap:8px; padding:10px 16px; border:2px solid {% if payroll_frequency == freq.v %}var(--accent-emerald){% else %}var(--border-color){% endif %}; border-radius:var(--radius-md); cursor:pointer; background:{% if payroll_frequency == freq.v %}rgba(16,185,129,0.06){% else %}var(--bg-card){% endif %}; transition:all 0.2s;"
+                       onmouseover="this.style.borderColor='var(--accent-emerald)';"
+                       onmouseout="if(!this.querySelector('input').checked) this.style.borderColor='var(--border-color)';">
+                    <input type="radio" name="payroll_frequency" value="{{ freq.v }}" {% if payroll_frequency == freq.v %}checked{% endif %}
+                           style="accent-color:var(--accent-emerald);">
+                    <i class="fa-solid {{ freq.i }}" style="font-size:1.2rem; color:{{ freq.c }};"></i>
+                    <span style="font-weight:600;">{{ freq.l }}</span>
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <div class="card-table-wrapper" style="margin-bottom:16px;">
+        <div class="table-header-row">
+            <div><h3><i class="fa-solid fa-shield-halved"></i> Tasas de Seguridad Social (TSS)</h3></div>
+        </div>
+        <div style="padding:0 20px 20px;">
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:16px;">
+                <div class="form-group">
+                    <label>AFP Empleado (%)</label>
+                    <input type="number" step="0.0001" name="afpEmployeeRate" class="form-input"
+                           value="{{ "%.4f" % (tax_rates.afpEmployeeRate * 100) }}">
+                </div>
+                <div class="form-group">
+                    <label>AFP Empleador (%)</label>
+                    <input type="number" step="0.0001" name="afpEmployerRate" class="form-input"
+                           value="{{ "%.4f" % (tax_rates.afpEmployerRate * 100) }}">
+                </div>
+                <div class="form-group">
+                    <label>SFS Empleado (%)</label>
+                    <input type="number" step="0.0001" name="sfsEmployeeRate" class="form-input"
+                           value="{{ "%.4f" % (tax_rates.sfsEmployeeRate * 100) }}">
+                </div>
+                <div class="form-group">
+                    <label>SFS Empleador (%)</label>
+                    <input type="number" step="0.0001" name="sfsEmployerRate" class="form-input"
+                           value="{{ "%.4f" % (tax_rates.sfsEmployerRate * 100) }}">
+                </div>
+                <div class="form-group">
+                    <label>SRL Empleador (%)</label>
+                    <input type="number" step="0.0001" name="srlEmployerRate" class="form-input"
+                           value="{{ "%.4f" % (tax_rates.srlEmployerRate * 100) }}">
+                </div>
+                <div class="form-group">
+                    <label>INFOTEP (%)</label>
+                    <input type="number" step="0.0001" name="infotepRate" class="form-input"
+                           value="{{ "%.4f" % (tax_rates.infotepRate * 100) }}">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card-table-wrapper" style="margin-bottom:16px;">
+        <div class="table-header-row">
+            <div><h3><i class="fa-solid fa-arrow-up-wide-short"></i> Topes Salariales TSS</h3></div>
+        </div>
+        <div style="padding:0 20px 20px;">
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:16px;">
+                <div class="form-group">
+                    <label>Tope AFP (RD$ mensual)</label>
+                    <input type="number" step="0.01" name="afpSalaryCap" class="form-input"
+                           value="{{ "%.2f" % tax_rates.afpSalaryCap }}">
+                </div>
+                <div class="form-group">
+                    <label>Tope SFS (RD$ mensual)</label>
+                    <input type="number" step="0.01" name="sfsSalaryCap" class="form-input"
+                           value="{{ "%.2f" % tax_rates.sfsSalaryCap }}">
+                </div>
+                <div class="form-group">
+                    <label>Salario Mínimo Nacional (RD$)</label>
+                    <input type="number" step="0.01" name="minSalary" class="form-input"
+                           value="{{ "%.2f" % tax_rates.minSalary }}">
+                </div>
+                <div class="form-group">
+                    <label>Deducción Max. Educación (RD$ anual)</label>
+                    <input type="number" step="0.01" name="educationDeduction" class="form-input"
+                           value="{{ "%.2f" % tax_rates.educationDeduction }}">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card-table-wrapper" style="margin-bottom:16px;">
+        <div class="table-header-row">
+            <div><h3><i class="fa-solid fa-table-list"></i> Tabla ISR DGII — Escala Anual</h3></div>
+        </div>
+        <div style="padding:0 20px 20px;">
+            <p style="color:var(--text-muted); font-size:0.82rem; margin:0 0 12px;">
+                Cada fila define un tramo: <strong>desde, hasta, tasa (%), cuota fija (RD$)</strong>.
+                El último tramo debe tener "inf" como límite superior (dejar vacío).
+            </p>
+            <div class="table-responsive">
+                <table class="table-premium" style="font-size:0.82rem;">
+                    <thead>
+                        <tr>
+                            <th>Tramo</th>
+                            <th>Desde (RD$)</th>
+                            <th>Hasta (RD$)</th>
+                            <th>Tasa (%)</th>
+                            <th>Cuota Fija (RD$)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for i in range(4) %}
+                        {% set tramo = tax_rates.isrAnnualTable[i] if i < tax_rates.isrAnnualTable|length else [0, 0, 0, 0] %}
+                        <tr>
+                            <td><strong>{{ i + 1 }}</strong></td>
+                            <td><input type="number" step="0.01" name="isr_from_{{ i }}" class="form-input" value="{{ "%.2f" % tramo[0] }}" style="width:130px;"></td>
+                            <td>
+                                {% if i < 3 %}
+                                <input type="number" step="0.01" name="isr_to_{{ i }}" class="form-input" value="{{ "%.2f" % tramo[1] }}" style="width:130px;">
+                                {% else %}
+                                <input type="text" class="form-input" value="inf" disabled style="width:130px; background:var(--bg-nav-hover);">
+                                <input type="hidden" name="isr_to_{{ i }}" value="999999999">
+                                {% endif %}
+                            </td>
+                            <td><input type="number" step="0.01" name="isr_rate_{{ i }}" class="form-input" value="{{ "%.2f" % (tramo[2] * 100) }}" style="width:100px;"></td>
+                            <td><input type="number" step="0.01" name="isr_fixed_{{ i }}" class="form-input" value="{{ "%.2f" % tramo[3] }}" style="width:120px;"></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div style="display:flex; gap:12px; justify-content:flex-end; flex-wrap:wrap; margin-bottom:24px;">
+        <a href="{{ url_for('web_rrhh.payroll_dashboard') }}" class="btn btn-ghost">Cancelar</a>
+        <button type="submit" name="action" value="reset" class="btn btn-ghost" style="color:var(--danger);"
+                onclick="return confirm('¿Restaurar valores por defecto? Se perderán los cambios personalizados.')">
+            <i class="fa-solid fa-rotate-left"></i> Restaurar valores por defecto
+        </button>
+        <button type="submit" name="action" value="save" class="btn btn-primary">
+            <i class="fa-solid fa-floppy-disk"></i> Guardar configuración
+        </button>
+    </div>
+</form>
+
+{% if tax_rates.updatedAt %}
+<div class="card-table-wrapper" style="margin-top:16px;">
+    <div style="padding:12px 24px; font-size:0.78rem; color:var(--text-muted);">
+        <i class="fa-solid fa-clock"></i> Última actualización: {{ tax_rates.updatedAt[:16] }}
+        {% if tax_rates.updatedBy %} por {{ tax_rates.updatedBy }}{% endif %}
+    </div>
+</div>
+{% endif %}
+<script>
+function selectMode(mode) {
+    document.querySelectorAll('.mode-card').forEach(c => {
+        c.style.borderColor = 'var(--border-color)';
+        c.style.background = 'var(--bg-card)';
+        c.querySelector('input').checked = false;
+    });
+    const card = document.getElementById('mode-card-' + mode);
+    card.style.borderColor = mode === 'company' ? 'var(--accent-emerald)' : 'var(--accent-purple)';
+    card.style.background = mode === 'company' ? 'rgba(16,185,129,0.06)' : 'rgba(124,58,237,0.06)';
+    card.querySelector('input').checked = true;
+    document.getElementById('company-freq-section').style.display = mode === 'company' ? '' : 'none';
+}
+</script>
+{% endblock %}

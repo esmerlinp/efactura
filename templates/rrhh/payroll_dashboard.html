@@ -19,6 +19,9 @@
                     Aquí puedes ver tus resúmenes y accesos rápidos.
                 </p>
             </div>
+            <a href="{{ url_for('web_rrhh.payroll_settings') }}" class="btn btn-primary">
+                <i class="fa-solid fa-gear"></i> Configuración
+            </a>
         </div>
     </div>
 
@@ -66,7 +69,17 @@
     </style>
     <div class="summary-cards">
         <div style="border:1px solid var(--border-color); border-radius:var(--radius-md); padding:16px 18px; background:var(--bg-card); display:flex; flex-direction:column; gap:6px;">
-            <span style="font-size:0.7rem; color:var(--text-muted); font-weight:600; text-transform:uppercase; letter-spacing:0.05em;">Período a calcular</span>
+            <span style="font-size:0.7rem; color:var(--text-muted); font-weight:600; text-transform:uppercase; letter-spacing:0.05em;">Modo</span>
+            <span style="font-size:1.15rem; font-weight:700; color:var(--text-primary);">
+                {% if frequency_mode == 'employee' %}
+                <i class="fa-solid fa-users" style="color:var(--accent-purple);"></i> Por empleado
+                {% else %}
+                <i class="fa-solid fa-building" style="color:var(--accent-emerald);"></i> {{ payroll_frequency }}
+                {% endif %}
+            </span>
+        </div>
+        <div style="border:1px solid var(--border-color); border-radius:var(--radius-md); padding:16px 18px; background:var(--bg-card); display:flex; flex-direction:column; gap:6px;">
+            <span style="font-size:0.7rem; color:var(--text-muted); font-weight:600; text-transform:uppercase; letter-spacing:0.05em;">Período</span>
             <span style="font-size:1.15rem; font-weight:700; color:var(--text-primary);">{{ current_period or '—' }}</span>
         </div>
         <div style="border:1px solid var(--border-color); border-radius:var(--radius-md); padding:16px 18px; background:var(--bg-card); display:flex; flex-direction:column; gap:6px;">
@@ -144,10 +157,14 @@
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:20px;">
         <!-- Hiring Chart -->
         <div class="card-table-wrapper" style="padding:20px 24px;">
-            <h3 style="font-size:0.95rem; font-weight:700; margin:0 0 16px;">Contrataciones por mes</h3>
-            {% if hiring_data %}
+            <h3 style="font-size:0.95rem; font-weight:700; margin:0 0 16px;">Altas y bajas por mes</h3>
+            {% if rotation_labels %}
             <div style="position:relative; height:180px;">
-                <canvas id="hiringChart"></canvas>
+                <canvas id="rotationChart"></canvas>
+            </div>
+            <div style="display:flex; justify-content:center; gap:24px; margin-top:12px; font-size:0.82rem;">
+                <span><span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:var(--accent-emerald); margin-right:4px;"></span> Altas</span>
+                <span><span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:var(--danger); margin-right:4px;"></span> Bajas</span>
             </div>
             {% else %}
             <div class="hr-empty-state">
@@ -198,6 +215,9 @@
                 </a>
                 <a href="{{ url_for('web_rrhh.reports_index') }}" class="btn btn-ghost">
                     <i class="fa-solid fa-file-lines"></i> Reportes
+                </a>
+                <a href="{{ url_for('web_rrhh.payroll_settings') }}" class="btn btn-ghost" style="color:var(--accent-purple);">
+                    <i class="fa-solid fa-gear"></i> Tasas y topes
                 </a>
             </div>
         </div>
@@ -283,6 +303,53 @@ document.addEventListener('DOMContentLoaded', function() {
                 pointRadius: 3,
                 pointHoverRadius: 6,
             }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: { legend: { display: false } },
+            scales: {
+                x: {
+                    grid: { display: false },
+                    ticks: { font: { size: 10 } }
+                },
+                y: {
+                    beginAtZero: true,
+                    grid: { color: 'rgba(0,0,0,0.06)' },
+                    ticks: {
+                        stepSize: 1,
+                        callback: function(v) { return Number.isInteger(v) ? v : ''; }
+                    }
+                }
+            }
+        }
+    });
+    {% endif %}
+
+    {% if rotation_labels %}
+    new Chart(document.getElementById('rotationChart'), {
+        type: 'bar',
+        data: {
+            labels: {{ rotation_labels | tojson }},
+            datasets: [
+                {
+                    label: 'Altas',
+                    data: {{ rotation_hires | tojson }},
+                    backgroundColor: 'rgba(16,185,129,0.65)',
+                    borderColor: 'rgba(16,185,129,1)',
+                    borderWidth: 0,
+                    borderRadius: 3,
+                },
+                {
+                    label: 'Bajas',
+                    data: {{ rotation_terms | tojson }},
+                    backgroundColor: 'rgba(239,68,68,0.65)',
+                    borderColor: 'rgba(239,68,68,1)',
+                    borderWidth: 0,
+                    borderRadius: 3,
+                }
+            ]
         },
         options: {
             responsive: true,

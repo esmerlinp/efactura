@@ -20,9 +20,19 @@
             <span class="stat-value" style="color:var(--accent-emerald);">{{ active_count }}</span>
         </div>
         <div class="stat-box">
-            <span class="stat-label">Inactivos</span>
+            <span class="stat-label">Ex-empleados</span>
             <span class="stat-value" style="color:var(--danger);">{{ inactive_count }}</span>
         </div>
+        {% if filter_status == 'inactivo' %}
+        <div class="stat-box">
+            <span class="stat-label">Renuncias</span>
+            <span class="stat-value" style="color:var(--accent-orange);">{{ employees|selectattr('terminationType', 'equalto', 'renuncia')|list|length }}</span>
+        </div>
+        <div class="stat-box">
+            <span class="stat-label">Despidos</span>
+            <span class="stat-value" style="color:var(--danger);">{{ employees|selectattr('terminationType', 'equalto', 'despido')|list|length }}</span>
+        </div>
+        {% endif %}
     </div>
 </div>
 
@@ -88,6 +98,11 @@
                 <th>Cargo</th>
                 <th>Área</th>
                 <th>Salario Base</th>
+                {% if filter_status == 'inactivo' %}
+                <th>Fecha Salida</th>
+                <th>Motivo</th>
+                <th>Tipo</th>
+                {% endif %}
                 <th>Vacaciones</th>
                 <th>Estado</th>
                 <th>Acciones</th>
@@ -102,6 +117,17 @@
                 <td>{{ emp.position }}</td>
                 <td>{{ emp.area or emp.department }}</td>
                 <td>{{ "RD$ {:,.2f}".format(emp.baseSalary|float) if emp.baseSalary else '—' }}</td>
+                {% if filter_status == 'inactivo' %}
+                <td>{{ emp.terminationDate or '—' }}</td>
+                <td>{{ emp.terminationReason or '—' }}</td>
+                <td>
+                    {% if emp.terminationType == 'renuncia' %}<span class="badge badge-warning">Renuncia</span>
+                    {% elif emp.terminationType == 'despido' %}<span class="badge badge-danger">Despido</span>
+                    {% elif emp.terminationType == 'mutuo_acuerdo' %}<span class="badge badge-info">Mutuo acuerdo</span>
+                    {% elif emp.terminationType == 'fin_contrato' %}<span class="badge badge-secondary">Fin contrato</span>
+                    {% else %}{{ emp.terminationType or '—' }}{% endif %}
+                </td>
+                {% endif %}
                 <td>{{ emp.vacationDays }} días</td>
                 <td>
                     {% if emp.status == 'activo' %}
@@ -128,7 +154,7 @@
                 </div></td>
             </tr>
             {% else %}
-            <tr><td colspan="9" class="text-center text-muted">No hay empleados que coincidan con los filtros.</td></tr>
+            <tr><td colspan="{{ 11 if filter_status == 'inactivo' else 8 }}" class="text-center text-muted">No hay empleados que coincidan con los filtros.</td></tr>
             {% endfor %}
         </tbody>
         </table>

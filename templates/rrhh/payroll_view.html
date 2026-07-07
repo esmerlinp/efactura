@@ -14,6 +14,9 @@
             <a href="{{ url_for('web_rrhh.payroll_tss_export', period_id=period.id) }}" class="btn btn-primary">
                 <i class="fa-solid fa-file-csv"></i> Exportar TSS
             </a>
+            <a href="{{ url_for('web_rrhh.payroll_export_csv', period_id=period.id) }}" class="btn btn-primary">
+                <i class="fa-solid fa-file-excel"></i> Exportar CSV
+            </a>
             <a href="{{ url_for('web_rrhh.payroll_bank_export', period_id=period.id, bank='popular') }}" class="btn btn-ghost">
                 <i class="fa-solid fa-building-columns"></i> Archivo Banco
             </a>
@@ -128,6 +131,13 @@
                 <i class="fa-solid fa-book"></i> Contabilizar
             </button>
         </form>
+        <form method="POST" action="{{ url_for('web_rrhh.payroll_recalculate', period_id=period.id) }}" style="margin:0;"
+              onsubmit="return confirm('¿Revertir nómina a borrador?')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-ghost btn-sm" style="color:var(--danger);">
+                <i class="fa-solid fa-undo"></i> Recalcular
+            </button>
+        </form>
         {% elif s == 'contabilizada' %}
         <form method="POST" action="{{ url_for('web_rrhh.payroll_pay', period_id=period.id) }}" style="margin:0;"
               onsubmit="return confirm('¿Confirmar pago de nómina?')">
@@ -136,12 +146,28 @@
                 <i class="fa-solid fa-money-bill-wave"></i> Registrar Pago
             </button>
         </form>
+        <form method="POST" action="{{ url_for('web_rrhh.payroll_recalculate', period_id=period.id) }}" style="margin:0;"
+              onsubmit="document.getElementById('recalcConfirmField').value = prompt('⚠️ Esta acción revertirá el asiento contable generado.\\n\\nEscribe RECALCULAR para confirmar:'); return document.getElementById('recalcConfirmField').value === 'RECALCULAR';">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="confirm" id="recalcConfirmField" value="">
+            <button type="submit" class="btn btn-ghost btn-sm" style="color:var(--danger);">
+                <i class="fa-solid fa-rotate-left"></i> Revertir contabilización
+            </button>
+        </form>
         {% elif s == 'pagada' %}
         <form method="POST" action="{{ url_for('web_rrhh.payroll_close', period_id=period.id) }}" style="margin:0;"
               onsubmit="return confirm('¿Cerrar definitivamente el período? No se podrá modificar.')">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <button type="submit" class="btn btn-primary btn-sm">
                 <i class="fa-solid fa-lock"></i> Cerrar Período
+            </button>
+        </form>
+        <form method="POST" action="{{ url_for('web_rrhh.payroll_recalculate', period_id=period.id) }}" style="margin:0;"
+              onsubmit="document.getElementById('recalcConfirmField2').value = prompt('⚠️ Esta acción revertirá el pago registrado y el asiento contable.\\n\\nEscribe RECALCULAR para confirmar:'); return document.getElementById('recalcConfirmField2').value === 'RECALCULAR';">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="confirm" id="recalcConfirmField2" value="">
+            <button type="submit" class="btn btn-ghost btn-sm" style="color:var(--danger);">
+                <i class="fa-solid fa-rotate-left"></i> Revertir pago
             </button>
         </form>
         {% elif s == 'cerrada' %}
@@ -153,6 +179,14 @@
         <a href="{{ url_for('web_rrhh.payroll_new') }}" class="btn btn-primary btn-sm">
             <i class="fa-solid fa-calculator"></i> Calcular Nómina
         </a>
+        <form method="POST" action="{{ url_for('web_rrhh.payroll_delete', period_id=period.id) }}" style="margin:0;"
+              onsubmit="document.getElementById('deleteConfirmField').value = prompt('⚠️ ¿Eliminar este período definitivamente?\\n\\nEsta acción NO se puede deshacer.\\n\\nEscribe ELIMINAR para confirmar:'); return document.getElementById('deleteConfirmField').value === 'ELIMINAR';">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="confirm" id="deleteConfirmField" value="">
+            <button type="submit" class="btn btn-ghost btn-sm" style="color:var(--danger); border-color:var(--danger);">
+                <i class="fa-solid fa-trash"></i> Eliminar período
+            </button>
+        </form>
         {% endif %}
     </div>
 </div>

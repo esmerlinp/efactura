@@ -27,14 +27,37 @@
         <div style="font-family:var(--font-heading); font-weight:600; font-size:0.9rem; color:var(--text-primary); margin-bottom:12px;">
             <i class="fa-regular fa-calendar"></i> Nuevo período
         </div>
-        <div style="max-width:400px;">
+        <div style="max-width:500px;">
             <div class="form-group">
                 <label>Período <span style="color:var(--danger);">*</span></label>
                 <select name="period_key" class="form-select" required>
                     <option value="">Seleccionar período</option>
+                    {% if frequency_mode == 'employee' %}
                     {% for p in available_periods %}
                     <option value="{{ p.key }}" {% if loop.first %}selected{% endif %}>{{ p.label }}</option>
                     {% endfor %}
+                    {% else %}
+                    {% set q_groups = available_periods|selectattr('type', 'equalto', 'quincenal')|list %}
+                    {% set m_groups = available_periods|selectattr('type', 'equalto', 'mensual')|list %}
+                    {% set other_groups = available_periods|rejectattr('type', 'defined')|list + available_periods|selectattr('type', 'undefined')|list %}
+                    {% if q_groups %}
+                    <optgroup label="── Períodos Quincenales ──">
+                        {% for p in q_groups %}
+                        <option value="{{ p.key }}" {% if loop.first and not m_groups %}selected{% endif %}>{{ p.label }}</option>
+                        {% endfor %}
+                    </optgroup>
+                    {% endif %}
+                    {% if m_groups %}
+                    <optgroup label="── Períodos Mensuales ──">
+                        {% for p in m_groups %}
+                        <option value="{{ p.key }}" {% if loop.first %}selected{% endif %}>{{ p.label }}</option>
+                        {% endfor %}
+                    </optgroup>
+                    {% endif %}
+                    {% for p in other_groups %}
+                    <option value="{{ p.key }}" {% if loop.first %}selected{% endif %}>{{ p.label }}</option>
+                    {% endfor %}
+                    {% endif %}
                 </select>
                 <p style="color:var(--text-muted); font-size:0.82rem; margin-top:8px;">
                     <i class="fa-regular fa-circle-info"></i>

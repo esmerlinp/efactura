@@ -1,0 +1,254 @@
+{% extends "layout.html" %}
+{% block title %}Configuración de Impuestos — {{ product_name }}{% endblock %}
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/_dashboard.css') }}?v={{ static_hash('css/_dashboard.css') }}">
+<div class="dashboard-container">
+<div class="page-title-container" style="margin-bottom:0; padding-left:4px;">
+    <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap;">
+        <div>
+            <h1 class="page-title" style="font-size:1.75rem; font-weight:800; margin:0;">
+                <i class="fa-solid fa-coins"></i> Configuración de Impuestos
+            </h1>
+            <p style="color:var(--text-secondary); margin:6px 0 0; font-size:0.88rem;">
+                Tasas de ITBIS, ISC, ISR, retenciones y RST. Ajustables según normativa vigente por país.
+            </p>
+        </div>
+        <a href="{{ url_for('web_invoices.company_settings') }}" class="btn btn-ghost">
+            <i class="fa-solid fa-arrow-left"></i> Volver a Empresa
+        </a>
+    </div>
+</div>
+
+<div class="card-table-wrapper" style="padding:16px 24px; margin-bottom:16px; background:rgba(16,185,129,0.06); border:1px solid var(--accent-emerald);">
+    <div style="display:flex; align-items:center; gap:12px;">
+        <i class="fa-solid fa-circle-info" style="color:var(--accent-emerald); font-size:1.2rem;"></i>
+        <p style="margin:0; font-size:0.85rem;">Estos valores son compartidos por todos los módulos (facturación, compras, nómina).
+        Asegúrate de mantenerlos actualizados según la normativa fiscal del país seleccionado.</p>
+    </div>
+</div>
+
+{% if config_updated %}
+<div class="card-table-wrapper" style="padding:12px 24px; margin-bottom:16px; background:rgba(16,185,129,0.1); border:1px solid var(--accent-emerald);">
+    <i class="fa-solid fa-check-circle" style="color:var(--accent-emerald);"></i>
+    <strong>Configuración guardada exitosamente.</strong>
+</div>
+{% endif %}
+
+<form method="POST">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <!-- País -->
+    <div class="card-table-wrapper" style="margin-bottom:16px;">
+        <div class="table-header-row">
+            <div><h3><i class="fa-solid fa-globe-americas"></i> País</h3></div>
+        </div>
+        <div style="padding:0 20px 20px;">
+            <p style="color:var(--text-muted); font-size:0.82rem; margin:0 0 12px;">
+                Define el país para aplicar la normativa fiscal correspondiente.
+            </p>
+            <div style="max-width:300px;">
+                <select name="country" class="form-select">
+                    <option value="RD" {% if rules['country'] == 'RD' %}selected{% endif %}>República Dominicana</option>
+                    <option value="US" {% if rules['country'] == 'US' %}selected{% endif %}>Estados Unidos</option>
+                    <option value="MX" {% if rules['country'] == 'MX' %}selected{% endif %}>México</option>
+                    <option value="CO" {% if rules['country'] == 'CO' %}selected{% endif %}>Colombia</option>
+                    <option value="PA" {% if rules['country'] == 'PA' %}selected{% endif %}>Panamá</option>
+                    <option value="CR" {% if rules['country'] == 'CR' %}selected{% endif %}>Costa Rica</option>
+                    <option value="PR" {% if rules['country'] == 'PR' %}selected{% endif %}>Puerto Rico</option>
+                </select>
+            </div>
+            <p style="color:var(--text-muted); font-size:0.75rem; margin:12px 0 0; font-style:italic; border-top:1px solid var(--border-color); padding-top:8px;">
+                <i class="fa-solid fa-circle-info"></i> El país determina las tasas por defecto y formatos de comprobantes fiscales. Al cambiar de país, revise todas las tasas antes de guardar.
+            </p>
+        </div>
+    </div>
+
+    <!-- ITBIS -->
+    <div class="card-table-wrapper" style="margin-bottom:16px;">
+        <div class="table-header-row">
+            <div><h3><i class="fa-solid fa-receipt"></i> ITBIS / IVA</h3></div>
+        </div>
+        <div style="padding:0 20px 20px;">
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:16px;">
+                <div class="form-group">
+                    <label>Tasa General (%)</label>
+                    <input type="number" step="0.01" name="itbis_general" class="form-input"
+                           value="{{ "%.2f" % (rules['itbis']['general'] * 100) }}">
+                </div>
+                <div class="form-group">
+                    <label>Tasa Reducida (%)</label>
+                    <input type="number" step="0.01" name="itbis_reduced" class="form-input"
+                           value="{{ "%.2f" % (rules['itbis']['reduced'] * 100) }}">
+                </div>
+            </div>
+            <p style="color:var(--text-muted); font-size:0.75rem; margin:12px 0 0; font-style:italic; border-top:1px solid var(--border-color); padding-top:8px;">
+                <i class="fa-solid fa-circle-info"></i> <strong>ITBIS</strong> (Impuesto sobre Transferencias de Bienes Industrializados y Servicios) es el IVA dominicano. La tasa general (18%) aplica a la mayoría de bienes y servicios. La tasa reducida (16%) aplica a productos de primera necesidad y bienes específicos según el código de impuesto DGII 003.
+            </p>
+        </div>
+    </div>
+
+    <!-- ISC (Impuesto Selectivo al Consumo) -->
+    <div class="card-table-wrapper" style="margin-bottom:16px;">
+        <div class="table-header-row">
+            <div><h3><i class="fa-solid fa-wine-bottle"></i> ISC — Impuesto Selectivo al Consumo</h3></div>
+        </div>
+        <div style="padding:0 20px 20px;">
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:16px;">
+                {% set isc = rules.get('isc', {}) %}
+                {% set isc_items = [
+                    ('001', 'Propina Legal', isc.get('codigo_001_propina_legal', 0.10)),
+                    ('002', 'CDT', isc.get('codigo_002_cdt', 0.02)),
+                    ('003', 'ISC Seguros', isc.get('codigo_003_isc_seguros', 0.16)),
+                    ('004', 'Telecomunicaciones', isc.get('codigo_004_telecomunicaciones', 0.10)),
+                    ('005', 'Primera Placa', isc.get('codigo_005_primera_placa', 0.17)),
+                ] %}
+                {% for codigo, label, valor in isc_items %}
+                <div class="form-group">
+                    <label>Cód. {{ codigo }} — {{ label }} (%)</label>
+                    <input type="number" step="0.01" name="isc_{{ codigo }}" class="form-input"
+                           value="{{ "%.2f" % (valor * 100) }}">
+                </div>
+                {% endfor %}
+            </div>
+            <p style="color:var(--text-muted); font-size:0.75rem; margin:12px 0 0; font-style:italic; border-top:1px solid var(--border-color); padding-top:8px;">
+                <i class="fa-solid fa-circle-info"></i> El <strong>ISC</strong> grava productos y servicios específicos como alcohol, tabaco, seguros, telecomunicaciones y vehículos. Se calcula sobre el subtotal y forma parte de la base imponible del ITBIS. Cada código DGII (001–005) aplica una tasa distinta según la categoría del bien o servicio.
+            </p>
+        </div>
+    </div>
+
+    <!-- ISR Corporativo -->
+    <div class="card-table-wrapper" style="margin-bottom:16px;">
+        <div class="table-header-row">
+            <div><h3><i class="fa-solid fa-building"></i> ISR Corporativo</h3></div>
+        </div>
+        <div style="padding:0 20px 20px;">
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:16px;">
+                <div class="form-group">
+                    <label>Tasa General (%)</label>
+                    <input type="number" step="0.01" name="isr_corporate" class="form-input"
+                           value="{{ "%.2f" % (rules['isr_corporate']['general'] * 100) }}">
+                </div>
+                <div class="form-group">
+                    <label>Gran Contribuyente (%)</label>
+                    <input type="number" step="0.01" name="isr_large_taxpayer" class="form-input"
+                           value="{{ "%.2f" % (rules['isr_corporate']['large_taxpayer'] * 100) }}">
+                </div>
+            </div>
+            <p style="color:var(--text-muted); font-size:0.75rem; margin:12px 0 0; font-style:italic; border-top:1px solid var(--border-color); padding-top:8px;">
+                <i class="fa-solid fa-circle-info"></i> El <strong>ISR Corporativo</strong> (Impuesto Sobre la Renta) grava las utilidades netas de las empresas. En RD, la tasa general es 27% para personas jurídicas. Los grandes contribuyentes pagan 30%. Esta tasa afecta el cálculo de renta anual y anticipos.
+            </p>
+        </div>
+    </div>
+
+    <!-- Retenciones ISR -->
+    <div class="card-table-wrapper" style="margin-bottom:16px;">
+        <div class="table-header-row">
+            <div><h3><i class="fa-solid fa-hand-holding-dollar"></i> Retenciones ISR</h3></div>
+        </div>
+        <div style="padding:0 20px 20px;">
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:16px;">
+                <div class="form-group">
+                    <label>Bienes y Servicios (%)</label>
+                    <input type="number" step="0.01" name="w_isr_goods" class="form-input"
+                           value="{{ "%.2f" % (rules['withholding_isr']['goods_services'] * 100) }}">
+                </div>
+                <div class="form-group">
+                    <label>Honorarios Profesionales (%)</label>
+                    <input type="number" step="0.01" name="w_isr_professional" class="form-input"
+                           value="{{ "%.2f" % (rules['withholding_isr']['professional_fees'] * 100) }}">
+                </div>
+                <div class="form-group">
+                    <label>Servicios Digitales Extranjero (%)</label>
+                    <input type="number" step="0.01" name="w_isr_digital" class="form-input"
+                           value="{{ "%.2f" % (rules['withholding_isr']['digital_services_abroad'] * 100) }}">
+                </div>
+            </div>
+            <p style="color:var(--text-muted); font-size:0.75rem; margin:12px 0 0; font-style:italic; border-top:1px solid var(--border-color); padding-top:8px;">
+                <i class="fa-solid fa-circle-info"></i> Las <strong>Retenciones ISR</strong> son el porcentaje que el comprador retiene al proveedor como anticipo del impuesto sobre la renta. Se aplican en facturas de compra. Bienes y servicios: 2%, honorarios profesionales: 10%, servicios digitales del exterior: 15%. Se configuran por proveedor usando estas tasas como base.
+            </p>
+        </div>
+    </div>
+
+    <!-- Retenciones ITBIS -->
+    <div class="card-table-wrapper" style="margin-bottom:16px;">
+        <div class="table-header-row">
+            <div><h3><i class="fa-solid fa-percent"></i> Retenciones ITBIS</h3></div>
+        </div>
+        <div style="padding:0 20px 20px;">
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:16px;">
+                <div class="form-group">
+                    <label>Bienes Corporativos (%)</label>
+                    <input type="number" step="0.01" name="w_itbis_corp" class="form-input"
+                           value="{{ "%.2f" % (rules['withholding_itbis']['corporate_goods'] * 100) }}">
+                </div>
+                <div class="form-group">
+                    <label>Servicios Legales (%)</label>
+                    <input type="number" step="0.01" name="w_itbis_legal" class="form-input"
+                           value="{{ "%.2f" % (rules['withholding_itbis']['legal_services'] * 100) }}">
+                </div>
+                <div class="form-group">
+                    <label>Profesionales Independientes (%)</label>
+                    <input type="number" step="0.01" name="w_itbis_indep" class="form-input"
+                           value="{{ "%.2f" % (rules['withholding_itbis']['independent_professionals'] * 100) }}">
+                </div>
+            </div>
+            <p style="color:var(--text-muted); font-size:0.75rem; margin:12px 0 0; font-style:italic; border-top:1px solid var(--border-color); padding-top:8px;">
+                <i class="fa-solid fa-circle-info"></i> Las <strong>Retenciones ITBIS</strong> son el porcentaje del ITBIS que el comprador retiene y entera directamente a la DGII en lugar de pagárselo al proveedor. Aplica a bienes corporativos (30% del ITBIS), servicios legales (75%) y profesionales independientes (100% del ITBIS facturado). Se configuran por proveedor.
+            </p>
+        </div>
+    </div>
+
+    <!-- RST -->
+    <div class="card-table-wrapper" style="margin-bottom:16px;">
+        <div class="table-header-row">
+            <div><h3><i class="fa-solid fa-table-list"></i> RST — Régimen Simplificado de Tributación</h3></div>
+        </div>
+        <div style="padding:0 20px 20px;">
+            <div class="form-group" style="max-width:300px;">
+                <label>Límite Anual RST (RD$)</label>
+                <input type="number" step="0.01" name="rst_annual_limit" class="form-input"
+                       value="{{ "%.2f" % rules.get('rst', {}).get('limit', 0) }}">
+            </div>
+            <p style="color:var(--text-muted); font-size:0.82rem; margin:16px 0 8px;">Tramos progresivos (desde, tasa %, cuota fija RD$)</p>
+            <div class="table-responsive">
+                <table class="table-premium" style="font-size:0.82rem;">
+                    <thead><tr><th>Tramo</th><th>Hasta (RD$)</th><th>Tasa (%)</th><th>Cuota Fija (RD$)</th></tr></thead>
+                    <tbody>
+                        {% for i in range(4) %}
+                        {% set rst_brackets = rules.get('rst', {}).get('brackets', []) %}
+                        {% set b = rst_brackets[i] if rst_brackets|length > i else None %}
+                        <tr>
+                            <td><strong>{{ i + 1 }}</strong></td>
+                            <td>
+                                {% if i < 3 %}
+                                <input type="number" step="0.01" name="rst_limit_{{ i }}" class="form-input" value="{{ "%.2f" % b[0] if b else '' }}" style="width:140px;">
+                                {% else %}
+                                <input type="text" class="form-input" value="inf" disabled style="width:140px; background:var(--bg-nav-hover);">
+                                {% endif %}
+                            </td>
+                            <td><input type="number" step="0.01" name="rst_rate_{{ i }}" class="form-input" value="{{ "%.2f" % (b[1] * 100) if b else '' }}" style="width:100px;"></td>
+                            <td><input type="number" step="0.01" name="rst_fixed_{{ i }}" class="form-input" value="{{ "%.2f" % b[2] if b else '0' }}" style="width:120px;"></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <p style="color:var(--text-muted); font-size:0.75rem; margin:12px 0 0; font-style:italic; border-top:1px solid var(--border-color); padding-top:8px;">
+                <i class="fa-solid fa-circle-info"></i> El <strong>RST</strong> es el régimen para personas físicas con ingresos por debajo del límite anual (~RD$ 12 millones). La tabla progresiva determina el ISR a pagar sobre la renta neta anual. La renta exenta llega hasta RD$ 416,220 anuales. La deducción por gastos educativos es de hasta RD$ 50,000 por hijo (máx. 2).
+            </p>
+        </div>
+    </div>
+
+    <div style="display:flex; gap:12px; justify-content:flex-end; flex-wrap:wrap; margin-bottom:24px;">
+        <a href="{{ url_for('web_invoices.company_settings') }}" class="btn btn-ghost">Cancelar</a>
+        <button type="submit" name="action" value="reset" class="btn btn-ghost" style="color:var(--danger);"
+                onclick="return confirm('¿Restaurar valores por defecto?')">
+            <i class="fa-solid fa-rotate-left"></i> Restaurar valores por defecto
+        </button>
+        <button type="submit" name="action" value="save" class="btn btn-primary">
+            <i class="fa-solid fa-floppy-disk"></i> Guardar configuración
+        </button>
+    </div>
+</form>
+</div>
+{% endblock %}

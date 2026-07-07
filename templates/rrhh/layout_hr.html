@@ -190,6 +190,12 @@
                                 <span>Conceptos</span>
                             </a>
                         </li>
+                        <li class="nav-item {% if active_page == 'rrhh_payroll_settings' %}active{% endif %}"
+                            data-tooltip="Configuración de nómina">
+                            <a href="{{ url_for('web_rrhh.payroll_settings') }}">
+                                <span>Configuración Nómina</span>
+                            </a>
+                        </li>
                         <li class="nav-item {% if active_page == 'rrhh_audit' %}active{% endif %}"
                             data-tooltip="Auditoría">
                             <a href="{{ url_for('web_rrhh.audit_log') }}">

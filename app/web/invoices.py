@@ -5746,6 +5746,95 @@ def new_cancellation_route():
 # =========================================================================
 # CONFIGURACIÓN DE EMPRESA Y EQUIPO
 # =========================================================================
+
+@web_invoices_bp.route('/settings/taxes', methods=['GET', 'POST'])
+def tax_settings():
+    if 'user' not in session:
+        return redirect(url_for('web_auth.login'))
+    if not check_permission('canModifySettings'):
+        return render_template('auth/restricted.html', feature_name="Configuración de Impuestos",
+                               required_permission="canModifySettings")
+    owner_uid = session['user']['ownerUID']
+    rules = DatabaseService.get_tax_rules(owner_uid)
+    config_updated = False
+
+    if request.method == 'POST':
+        action = request.form.get('action', 'save')
+        if action == 'reset':
+            from app.services.tax_engine import DEFAULT_TAX_RULES
+            import copy
+            rules = copy.deepcopy(DEFAULT_TAX_RULES)
+            rules["updatedBy"] = session.get("user", {}).get("email", "")
+            success, error_msg = DatabaseService.save_tax_rules(owner_uid, rules)
+            if not success:
+                flash(f"Error al restaurar: {error_msg}", "error")
+            else:
+                config_updated = True
+        else:
+            # ISC rates
+            isc = {}
+            for codigo, key in [("001", "codigo_001_propina_legal"), ("002", "codigo_002_cdt"),
+                                 ("003", "codigo_003_isc_seguros"), ("004", "codigo_004_telecomunicaciones"),
+                                 ("005", "codigo_005_primera_placa")]:
+                val = request.form.get(f"isc_{codigo}", "")
+                if val:
+                    isc[key] = float(val) / 100.0
+
+            # RST brackets
+            rst_brackets = []
+            for i in range(4):
+                rate = request.form.get(f"rst_rate_{i}", "")
+                fixed = request.form.get(f"rst_fixed_{i}", "")
+                if i < 3:
+                    limit = request.form.get(f"rst_limit_{i}", "")
+                    if limit and rate:
+                        rst_brackets.append([float(limit), float(rate) / 100.0, float(fixed or 0)])
+                else:
+                    if rate:
+                        rst_brackets.append([999999999.0, float(rate) / 100.0, float(fixed or 0)])
+
+            rules = {
+                "country": request.form.get("country", "RD"),
+                "itbis": {
+                    "general": float(request.form.get("itbis_general", 0) or 0) / 100.0,
+                    "reduced": float(request.form.get("itbis_reduced", 0) or 0) / 100.0,
+                },
+                "isc": isc,
+                "isr_corporate": {
+                    "general": float(request.form.get("isr_corporate", 0) or 0) / 100.0,
+                    "large_taxpayer": float(request.form.get("isr_large_taxpayer", 0) or 0) / 100.0,
+                },
+                "withholding_isr": {
+                    "goods_services": float(request.form.get("w_isr_goods", 0) or 0) / 100.0,
+                    "professional_fees": float(request.form.get("w_isr_professional", 0) or 0) / 100.0,
+                    "digital_services_abroad": float(request.form.get("w_isr_digital", 0) or 0) / 100.0,
+                },
+                "withholding_itbis": {
+                    "corporate_goods": float(request.form.get("w_itbis_corp", 0) or 0) / 100.0,
+                    "legal_services": float(request.form.get("w_itbis_legal", 0) or 0) / 100.0,
+                    "independent_professionals": float(request.form.get("w_itbis_indep", 0) or 0) / 100.0,
+                },
+                "rst": {
+                    "limit": float(request.form.get("rst_annual_limit", 0) or 0),
+                    "brackets": rst_brackets,
+                },
+                "updatedBy": session.get("user", {}).get("email", ""),
+            }
+            success, error_msg = DatabaseService.save_tax_rules(owner_uid, rules)
+            print(f"🔧 tax_settings SAVE: success={success}, error={error_msg}")
+            print(f"   rst_annual={rules.get('rst', {}).get('limit')}, brackets_len={len(rules.get('rst', {}).get('brackets', []))}")
+            print(f"   rst brackets={rules.get('rst', {}).get('brackets')}")
+            if not success:
+                flash(f"Error al guardar: {error_msg}", "error")
+            else:
+                config_updated = True
+
+    rules = DatabaseService.get_tax_rules(owner_uid)
+    print(f"🔧 tax_settings READ: withholding_isr={rules.get('withholding_isr')}")
+    return render_template('settings/taxes.html', active_page='settings',
+                           rules=rules, config_updated=config_updated)
+
+
 @web_invoices_bp.route('/settings/company', methods=['GET', 'POST'])
 def company_settings():
     if 'user' not in session: return redirect(url_for('web_auth.login'))

@@ -222,6 +222,32 @@
         <button type="submit" class="btn btn-danger"><i class="fa-solid fa-user-slash"></i> Desvincular</button>
     </form>
 </div>
+{% elif employee.status == 'inactivo' %}
+<div class="hr-section-card" style="margin-top:20px; border:1px solid var(--danger); background:rgba(239,68,68,0.04);">
+    <h3 style="color:var(--danger);"><i class="fa-solid fa-user-slash"></i> Datos de desvinculación</h3>
+    <div class="hr-info-grid">
+        <div class="hr-info-item">
+            <span class="hr-info-label">Fecha de salida</span>
+            <span class="hr-info-value" style="color:var(--danger);">{{ employee.terminationDate or '—' }}</span>
+        </div>
+        <div class="hr-info-item">
+            <span class="hr-info-label">Tipo de salida</span>
+            <span class="hr-info-value">
+                {% if employee.terminationType == 'renuncia' %}Renuncia
+                {% elif employee.terminationType == 'despido' %}Despido
+                {% elif employee.terminationType == 'mutuo_acuerdo' %}Mutuo acuerdo
+                {% elif employee.terminationType == 'fin_contrato' %}Fin de contrato
+                {% else %}{{ employee.terminationType or '—' }}{% endif %}
+            </span>
+        </div>
+        <div class="hr-info-item" style="grid-column:1/-1;">
+            <span class="hr-info-label">Motivo</span>
+            <span class="hr-info-value">{{ employee.terminationReason or 'No especificado' }}</span>
+        </div>
+        <div class="hr-info-item"><span class="hr-info-label">Fecha de ingreso</span><span class="hr-info-value">{{ employee.hireDate or '—' }}</span></div>
+        <div class="hr-info-item"><span class="hr-info-label">Último salario</span><span class="hr-info-value">RD$ {{ "{:,.2f}".format(employee.baseSalary|float) if employee.baseSalary else '—' }}</span></div>
+    </div>
+</div>
 {% endif %}
 
 <style>

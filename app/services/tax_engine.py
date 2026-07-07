@@ -38,9 +38,17 @@ def calc_rst_isr(annual_taxable_income):
 
 
 DEFAULT_TAX_RULES = {
+    "country": "RD",
     "itbis": {
         "general": ITBIS_RATE_GENERAL,
         "reduced": ITBIS_RATE_REDUCED,
+    },
+    "isc": {
+        "codigo_001_propina_legal": 0.10,
+        "codigo_002_cdt": 0.02,
+        "codigo_003_isc_seguros": 0.16,
+        "codigo_004_telecomunicaciones": 0.10,
+        "codigo_005_primera_placa": 0.17,
     },
     "isr_corporate": {
         "general": ISR_CORPORATE_RATE,
@@ -133,6 +141,26 @@ class TaxEngine:
         if supplier.get("itbisWithholding"):
             return self.get_withholding_itbis_rate("corporate_goods")
         return 0.0
+
+    def get_isc_rate(self, codigo: str) -> float:
+        codigo_map = {
+            "001": "codigo_001_propina_legal",
+            "002": "codigo_002_cdt",
+            "003": "codigo_003_isc_seguros",
+            "004": "codigo_004_telecomunicaciones",
+            "005": "codigo_005_primera_placa",
+        }
+        key = codigo_map.get(str(codigo).zfill(3))
+        if not key:
+            return 0.0
+        override = self._get_override("isc", key)
+        if override is not None:
+            return float(override)
+        return DEFAULT_TAX_RULES.get("isc", {}).get(key, 0.0)
+
+    def get_country(self) -> str:
+        override = self._get_override("country")
+        return override or DEFAULT_TAX_RULES.get("country", "RD")
 
     def get_rst_limit(self):
         override = self._get_override("rst", "limit")
