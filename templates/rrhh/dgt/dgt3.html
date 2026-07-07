@@ -1,0 +1,95 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}DGT-3 — Personal Fijo {{ year }} — {{ product_name }}{% endblock %}
+{% block content %}
+{% include "rrhh/_styles.html" %}
+<div class="page-header hr-page-header" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap;">
+    <div>
+        <h1 class="page-title"><i class="fa-solid fa-file-lines"></i> DGT-3: Planilla de Personal Fijo</h1>
+        <p style="color:var(--text-secondary); margin:0;">Ministerio de Trabajo — Reporte anual</p>
+    </div>
+    <div style="display:flex; gap:8px;">
+        <a href="{{ url_for('web_dgt.dgt3_export', year=year, format='txt') }}" class="btn btn-primary">
+            <i class="fa-solid fa-download"></i> .txt (SIRLA)
+        </a>
+        <a href="{{ url_for('web_dgt.dgt3_export', year=year, format='xlsx') }}" class="btn btn-success">
+            <i class="fa-solid fa-file-excel"></i> .xlsx
+        </a>
+        <a href="{{ url_for('web_dgt.dgt3_export', year=year, format='pdf') }}" class="btn btn-danger">
+            <i class="fa-solid fa-file-pdf"></i> .pdf
+        </a>
+    </div>
+</div>
+
+<div class="hr-section-card" style="margin-bottom:16px;">
+    <form method="GET" style="display:flex; gap:12px; align-items:end; flex-wrap:wrap;">
+        <div class="form-group" style="margin:0;">
+            <label>Año</label>
+            <select name="year" class="form-select" onchange="this.form.submit()">
+                {% for y in range(now.year - 3, now.year + 2) %}
+                <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>
+                {% endfor %}
+            </select>
+        </div>
+    </form>
+</div>
+
+<div class="hr-section-card">
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(150px,1fr)); gap:16px; margin-bottom:20px;">
+        <div class="kpi-box" style="text-align:center; padding:16px; background:rgba(16,185,129,0.08); border-radius:8px;">
+            <div style="font-size:1.8rem; font-weight:700; color:var(--accent-emerald);">{{ data.totalEmployees }}</div>
+            <div style="font-size:0.8rem; color:var(--text-muted);">Total Empleados Fijos</div>
+        </div>
+        <div class="kpi-box" style="text-align:center; padding:16px; background:rgba(59,130,246,0.08); border-radius:8px;">
+            <div style="font-size:1.8rem; font-weight:700; color:var(--accent-blue);">RD$ {{ "{:,.2f}".format(data.totalSalary) }}</div>
+            <div style="font-size:0.8rem; color:var(--text-muted);">Masa Salarial Mensual</div>
+        </div>
+        <div class="kpi-box" style="text-align:center; padding:16px; background:rgba(245,158,11,0.08); border-radius:8px;">
+            <div style="font-size:1.8rem; font-weight:700; color:var(--accent-orange);">RD$ {{ "{:,.0f}".format(data.totalSalary / data.totalEmployees) if data.totalEmployees else '0' }}</div>
+            <div style="font-size:0.8rem; color:var(--text-muted);">Salario Promedio</div>
+        </div>
+    </div>
+
+    <div style="overflow-x:auto;">
+        <table class="table-premium" style="font-size:0.8rem;">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Documento</th>
+                    <th>Nombres</th>
+                    <th>Apellidos</th>
+                    <th>Sexo</th>
+                    <th>Salario</th>
+                    <th>Ocupación</th>
+                    <th>F. Ingreso</th>
+                    <th>Contrato</th>
+                    <th>Horas</th>
+                    <th>Turno</th>
+                    <th>Instruc.</th>
+                    <th>Vac.</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for emp in data.lines %}
+                <tr>
+                    <td>{{ loop.index }}</td>
+                    <td><span class="mono">{{ emp.documento }}</span></td>
+                    <td>{{ emp.nombres }}</td>
+                    <td>{{ emp.apellidos }}</td>
+                    <td>{{ emp.sexo }}</td>
+                    <td style="text-align:right;">{{ "{:,.2f}".format(emp.salario) }}</td>
+                    <td>{{ emp.ocupacionTexto[:30] }}</td>
+                    <td>{{ emp.fechaIngreso }}</td>
+                    <td>{{ emp.tipoContrato }}</td>
+                    <td style="text-align:center;">{{ emp.horasSemanales }}</td>
+                    <td style="text-align:center;">{{ emp.turnoTrabajo }}</td>
+                    <td style="text-align:center;">{{ emp.gradoInstruccion }}</td>
+                    <td style="text-align:center;">{{ emp.concesionVacaciones }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="13" style="text-align:center; color:var(--text-muted); padding:32px;">No hay empleados fijos registrados para {{ year }}.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

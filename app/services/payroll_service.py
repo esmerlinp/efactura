@@ -113,8 +113,7 @@ class PayrollService:
             period_salary = prorated_salary
             period_factor = 24 if period_type == "quincenal" else 12
         elif period_type == "quincenal":
-            daily_salary = base_salary / 23.83
-            period_salary = round(daily_salary * 15, 2)
+            period_salary = round(base_salary / 2, 2)
             period_factor = 24
         else:
             period_salary = base_salary
@@ -368,7 +367,7 @@ class PayrollService:
         hire_date: str = "",
         termination_date: str = "",
         salary_history: list = None,
-    ) -> float:
+    ) -> float | None:
         try:
             ps = datetime.strptime(period_start, "%Y-%m-%d").date()
             pe = datetime.strptime(period_end, "%Y-%m-%d").date()
@@ -394,6 +393,23 @@ class PayrollService:
         if emp_start > emp_end:
             return 0.0
         emp_days = (emp_end - emp_start).days + 1
+
+        # Si el empleado trabajó el período completo y no hay cambios salariales,
+        # retorna None para que calculate_payroll_line use la fórmula estándar
+        if emp_start == ps and emp_end == pe:
+            has_changes = False
+            if salary_history:
+                for h in salary_history:
+                    try:
+                        eff = datetime.strptime(h.get("effectiveDate", ""), "%Y-%m-%d").date()
+                        if ps <= eff <= pe:
+                            has_changes = True
+                            break
+                    except (ValueError, TypeError):
+                        continue
+            if not has_changes:
+                return None
+
         daily_rate = monthly_salary / 23.83
 
         if salary_history:

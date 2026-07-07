@@ -1,0 +1,44 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}DGT-5 — Personal Ocasional — {{ product_name }}{% endblock %}
+{% block content %}
+{% include "rrhh/_styles.html" %}
+<div class="page-header hr-page-header">
+    <h1 class="page-title"><i class="fa-solid fa-user-clock"></i> DGT-5: Personal Móvil u Ocasional</h1>
+    <p style="color:var(--text-secondary); margin:0;">Ministerio de Trabajo — Trabajadores temporeros, móviles u ocasionales</p>
+</div>
+
+<div class="hr-section-card">
+    {% if data %}
+    <div style="overflow-x:auto;">
+        <table class="table-premium" style="font-size:0.85rem;">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Documento</th>
+                    <th>Nombre</th>
+                    <th>Ocupación</th>
+                    <th>F. Inicio</th>
+                    <th>F. Fin</th>
+                    <th>Salario</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for w in data %}
+                <tr>
+                    <td>{{ loop.index }}</td>
+                    <td><span class="mono">{{ w.documento }}</span></td>
+                    <td>{{ w.nombres }}</td>
+                    <td>{{ w.ocupacion }}</td>
+                    <td>{{ w.fechaInicio }}</td>
+                    <td>{{ w.fechaFin }}</td>
+                    <td style="text-align:right;">{{ "{:,.2f}".format(w.salario) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p style="text-align:center; color:var(--text-muted); padding:32px;">No hay personal ocasional o temporal registrado.</p>
+    {% endif %}
+</div>
+{% endblock %}

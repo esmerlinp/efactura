@@ -2,6 +2,7 @@
 {% block title %}IR-18 {{ year }} — {{ employee.fullName }} — {{ product_name }}{% endblock %}
 {% block content %}
 {% include "rrhh/_styles.html" %}
+<div class="breadcrumb"><a href="{{ url_for('web_rrhh.reports_index') }}">Reportes de RRHH</a> <span class="sep">›</span> <a href="{{ url_for('web_rrhh.report_ir18_list') }}">IR-18</a> <span class="sep">›</span> <span>{{ employee.fullName }}</span></div>
 <div class="page-header hr-page-header">
     <h1 class="page-title"><i class="fa-solid fa-file-invoice"></i> Certificado IR-18 {{ year }}</h1>
     <div class="hr-page-actions">

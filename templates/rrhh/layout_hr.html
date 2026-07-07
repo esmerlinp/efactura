@@ -93,6 +93,16 @@
                     </ul>
                 </div>
 
+                <!-- ── Reportes ── -->
+                <div class="sidebar-section {% if active_page in ('rrhh_reports', 'rrhh_dgt') %}active-parent{% endif %}" id="sidebar-section-rrhh-reportes">
+                    <a href="{{ url_for('web_rrhh.reports_index') }}" class="sidebar-section-header" style="text-decoration: none;">
+                        <div class="header-left">
+                            <i class="fa-regular fa-chart-pie section-icon"></i>
+                            <span>Reportes</span>
+                        </div>
+                    </a>
+                </div>
+
                 <!-- ── Nómina ── -->
                 <div class="sidebar-section" id="sidebar-section-rrhh-nomina">
                     <div class="sidebar-section-header">
@@ -125,12 +135,6 @@
                             data-tooltip="Historial">
                             <a href="{{ url_for('web_rrhh.payroll_list') }}">
                                 <span>Historial</span>
-                            </a>
-                        </li>
-                        <li class="nav-item {% if active_page == 'rrhh_reports' %}active{% endif %}"
-                            data-tooltip="Reportes">
-                            <a href="{{ url_for('web_rrhh.reports_index') }}">
-                                <span>Reportes</span>
                             </a>
                         </li>
                     </ul>
@@ -209,7 +213,7 @@
                 <!-- Collapse init needs sections in DOM -->
                 <script>
                     const hrSections = ['sidebar-section-rrhh', 'sidebar-section-rrhh-tiempo',
-                        'sidebar-section-rrhh-nomina', 'sidebar-section-rrhh-desarrollo',
+                        'sidebar-section-rrhh-reportes', 'sidebar-section-rrhh-nomina', 'sidebar-section-rrhh-desarrollo',
                         'sidebar-section-rrhh-config'];
                     hrSections.forEach(id => {
                         const el = document.getElementById(id);

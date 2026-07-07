@@ -1,0 +1,89 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}DGT-12 — Cese de Suspensión — {{ product_name }}{% endblock %}
+{% block content %}
+{% include "rrhh/_styles.html" %}
+<div class="page-header hr-page-header">
+    <h1 class="page-title"><i class="fa-solid fa-play-circle"></i> DGT-12: Cese de Suspensión</h1>
+    <p style="color:var(--text-secondary); margin:0;">Ministerio de Trabajo — Reincorporación de trabajadores tras suspensión</p>
+</div>
+
+<div class="hr-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+    <div class="hr-section-card">
+        <h3><i class="fa-solid fa-check-circle"></i> Registrar Cese</h3>
+        <form method="POST" id="dgt12form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="hr-form-grid">
+                <div class="form-group" style="grid-column:1/-1;">
+                    <label>Suspensión a cesar</label>
+                    <select name="suspensionId" class="form-select" required>
+                        <option value="">Seleccionar suspensión activa</option>
+                        {% for s in suspensions %}
+                        <option value="{{ s.id }}">{{ s.fechaInicio[:10] }} — {{ s.causa }} ({{ s.trabajadores|length }} trab.)</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group" style="grid-column:1/-1;">
+                    <label>Fecha de cese (reincorporación)</label>
+                    <input type="date" name="fechaCese" class="form-input" value="{{ now.strftime('%Y-%m-%d') }}" required>
+                </div>
+            </div>
+
+            <h4 style="margin-top:16px;">Trabajadores a reincorporar</h4>
+            <div id="workers-container">
+                <div class="worker-row" style="display:flex; gap:8px; margin-bottom:8px;">
+                    <input type="text" name="documento[]" class="form-input" placeholder="Cédula" style="flex:1;">
+                    <input type="text" name="nombre[]" class="form-input" placeholder="Nombre completo" style="flex:2;">
+                    <button type="button" class="btn btn-danger btn-sm" onclick="this.parentElement.remove()">✕</button>
+                </div>
+            </div>
+            <button type="button" class="btn btn-ghost btn-sm" onclick="addWorker()">
+                <i class="fa-solid fa-plus"></i> Agregar trabajador
+            </button>
+
+            <div style="margin-top:16px;">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fa-solid fa-save"></i> Registrar Cese
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <div class="hr-section-card">
+        <h3><i class="fa-solid fa-list"></i> Suspensiones Activas</h3>
+        {% if suspensions %}
+        <div style="overflow-x:auto;">
+            <table class="table-premium" style="font-size:0.8rem;">
+                <thead><tr><th>Fecha</th><th>Causa</th><th>Trabajadores</th><th>Estado</th></tr></thead>
+                <tbody>
+                    {% for s in suspensions %}
+                    <tr>
+                        <td>{{ s.fechaInicio[:10] if s.fechaInicio else '' }}</td>
+                        <td>{{ s.causa }}</td>
+                        <td>{{ s.trabajadores|length }}</td>
+                        <td><span class="badge badge-warning">activa</span></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p style="text-align:center; color:var(--text-muted); padding:24px;">No hay suspensiones activas.</p>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+function addWorker() {
+    const container = document.getElementById('workers-container');
+    const row = document.createElement('div');
+    row.className = 'worker-row';
+    row.style.cssText = 'display:flex; gap:8px; margin-bottom:8px;';
+    row.innerHTML = `
+        <input type="text" name="documento[]" class="form-input" placeholder="Cédula" style="flex:1;">
+        <input type="text" name="nombre[]" class="form-input" placeholder="Nombre completo" style="flex:2;">
+        <button type="button" class="btn btn-danger btn-sm" onclick="this.parentElement.remove()">✕</button>
+    `;
+    container.appendChild(row);
+}
+</script>
+{% endblock %}

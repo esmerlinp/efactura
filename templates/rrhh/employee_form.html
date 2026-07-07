@@ -98,7 +98,7 @@
             </div>
             <div class="form-group">
                 <label>Teléfono</label>
-                <input type="text" name="phone" class="form-input" placeholder="(809) 234-5678"
+                <input type="text" name="phone" class="form-input" placeholder="(809) 234-5678" maxlength="14"
                        value="{{ employee.phone if employee else '' }}">
             </div>
             <div class="form-group">
@@ -120,13 +120,37 @@
                        value="{{ employee.birthDate if employee else '' }}">
             </div>
             <div class="form-group">
+                <label>Estado civil</label>
+                <select name="maritalStatus" class="form-select">
+                    <option value="">—</option>
+                    <option value="S" {% if employee and employee.maritalStatus == 'S' %}selected{% endif %}>Soltero/a</option>
+                    <option value="C" {% if employee and employee.maritalStatus == 'C' %}selected{% endif %}>Casado/a</option>
+                    <option value="U" {% if employee and employee.maritalStatus == 'U' %}selected{% endif %}>Unión Libre</option>
+                    <option value="D" {% if employee and employee.maritalStatus == 'D' %}selected{% endif %}>Divorciado/a</option>
+                    <option value="V" {% if employee and employee.maritalStatus == 'V' %}selected{% endif %}>Viudo/a</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Grado de instrucción</label>
+                <select name="educationLevel" class="form-select">
+                    <option value="0">—</option>
+                    <option value="6" {% if employee and employee.educationLevel == 6 %}selected{% endif %}>Ninguno</option>
+                    <option value="1" {% if employee and employee.educationLevel == 1 %}selected{% endif %}>Primaria</option>
+                    <option value="2" {% if employee and employee.educationLevel == 2 %}selected{% endif %}>Secundaria</option>
+                    <option value="3" {% if employee and employee.educationLevel == 3 %}selected{% endif %}>Técnico</option>
+                    <option value="4" {% if employee and employee.educationLevel == 4 %}selected{% endif %}>Grado Universitario</option>
+                    <option value="5" {% if employee and employee.educationLevel == 5 %}selected{% endif %}>Postgrado/Maestría</option>
+                </select>
+                <span style="font-size:0.75rem; color:var(--text-muted);">Requerido para reportes DGT (Ministerio de Trabajo)</span>
+            </div>
+            <div class="form-group">
                 <label>Contacto de emergencia</label>
                 <input type="text" name="emergencyContact" class="form-input"
                        value="{{ employee.emergencyContact if employee else '' }}">
             </div>
             <div class="form-group">
                 <label>Teléfono de emergencia</label>
-                <input type="text" name="emergencyPhone" class="form-input"
+                <input type="text" name="emergencyPhone" class="form-input" placeholder="(809) 234-5678" maxlength="14"
                        value="{{ employee.emergencyPhone if employee else '' }}">
             </div>
             <div class="form-group">
@@ -228,6 +252,38 @@
                         Sí
                     </label>
                 </div>
+            </div>
+            <div class="form-group">
+                <label>Horas semanales</label>
+                <input type="number" name="weeklyHours" class="form-input" min="1" max="44"
+                       value="{{ employee.weeklyHours or 44 }}">
+                <span style="font-size:0.75rem; color:var(--text-muted);">Máximo 44 horas según Código de Trabajo</span>
+            </div>
+            <div class="form-group">
+                <label>Turno de trabajo</label>
+                <select name="workShift" class="form-select">
+                    <option value="1" {% if not employee or employee.workShift == 1 %}selected{% endif %}>Diurno</option>
+                    <option value="2" {% if employee and employee.workShift == 2 %}selected{% endif %}>Nocturno</option>
+                    <option value="3" {% if employee and employee.workShift == 3 %}selected{% endif %}>Mixto</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Código ocupación (CNO-2019)</label>
+                <select name="occupationCode" class="form-select">
+                    <option value="">Seleccionar</option>
+                    {% for oc in occupations %}
+                    <option value="{{ oc.code }}" {% if employee and employee.occupationCode == oc.code %}selected{% endif %}>{{ oc.code }} - {{ oc.name }}</option>
+                    {% endfor %}
+                </select>
+                <span style="font-size:0.75rem; color:var(--text-muted);">Catálogo Nacional de Ocupaciones del Ministerio de Trabajo</span>
+            </div>
+            <div class="form-group">
+                <label>Concesión de vacaciones</label>
+                <select name="vacationGranted" class="form-select">
+                    <option value="1" {% if not employee or employee.vacationGranted == 1 %}selected{% endif %}>Tomará vacaciones en el año</option>
+                    <option value="2" {% if employee and employee.vacationGranted == 2 %}selected{% endif %}>Ya las tomó</option>
+                </select>
+                <span style="font-size:0.75rem; color:var(--text-muted);">Requerido para DGT-3 (Ministerio de Trabajo)</span>
             </div>
             <div class="form-group">
                 <label>TSS Clave nómina <span style="color:var(--danger);">*</span></label>
@@ -477,6 +533,64 @@
     });
 
     showStep(1);
+
+    // ── Input masks ────────────────────────────────────────────────
+    const idTypeEl = document.querySelector('[name="idType"]');
+    const idNumberEl = document.querySelector('[name="idNumber"]');
+    const phoneEl = document.querySelector('[name="phone"]');
+    const emergPhoneEl = document.querySelector('[name="emergencyPhone"]');
+
+    function maskIdNumber(val, type) {
+        const d = val.replace(/\D/g, '');
+        if (type === 'cedula') {
+            if (d.length <= 3) return d;
+            if (d.length <= 10) return d.slice(0, 3) + '-' + d.slice(3);
+            return d.slice(0, 3) + '-' + d.slice(3, 10) + '-' + d.slice(10, 11);
+        }
+        if (type === 'rnc') {
+            if (d.length <= 3) return d;
+            if (d.length <= 8) return d.slice(0, 3) + '-' + d.slice(3);
+            return d.slice(0, 3) + '-' + d.slice(3, 8) + '-' + d.slice(8, 9);
+        }
+        return d;
+    }
+
+    function maskPhone(val) {
+        const d = val.replace(/\D/g, '');
+        if (d.length <= 3) return '(' + d;
+        if (d.length <= 6) return '(' + d.slice(0, 3) + ') ' + d.slice(3);
+        return '(' + d.slice(0, 3) + ') ' + d.slice(3, 6) + '-' + d.slice(6, 10);
+    }
+
+    function applyIdMask() {
+        const type = idTypeEl.value;
+        const start = idNumberEl.selectionStart;
+        const prevLen = idNumberEl.value.length;
+        idNumberEl.value = maskIdNumber(idNumberEl.value, type);
+        const diff = idNumberEl.value.length - prevLen;
+        idNumberEl.setSelectionRange(start + diff, start + diff);
+        idNumberEl.maxLength = type === 'cedula' ? 13 : type === 'rnc' ? 11 : '';
+    }
+
+    function applyPhoneMask(el) {
+        const start = el.selectionStart;
+        const prevLen = el.value.length;
+        el.value = maskPhone(el.value);
+        const diff = el.value.length - prevLen;
+        el.setSelectionRange(start + diff, start + diff);
+    }
+
+    if (idTypeEl) {
+        idTypeEl.addEventListener('change', function () { idNumberEl.value = ''; applyIdMask(); });
+    }
+    if (idNumberEl) idNumberEl.addEventListener('input', applyIdMask);
+    if (phoneEl) phoneEl.addEventListener('input', function () { applyPhoneMask(phoneEl); });
+    if (emergPhoneEl) emergPhoneEl.addEventListener('input', function () { applyPhoneMask(emergPhoneEl); });
+
+    // Format existing values on load
+    if (idNumberEl && idTypeEl) applyIdMask();
+    if (phoneEl) applyPhoneMask(phoneEl);
+    if (emergPhoneEl) applyPhoneMask(emergPhoneEl);
 })();
 </script>
 {% endblock %}

@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <style>
+        @page { size: letter; margin: 1.5cm; }
+        body { font-family: 'Helvetica', 'Arial', sans-serif; font-size: 9pt; color: #1a1a1a; }
+        h1 { font-size: 14pt; text-align: center; margin-bottom: 4px; }
+        h2 { font-size: 10pt; text-align: center; color: #555; font-weight: normal; margin-top: 0; }
+        .header { text-align: center; margin-bottom: 20px; }
+        .header .title { font-size: 16pt; font-weight: bold; }
+        .header .subtitle { font-size: 10pt; color: #666; }
+        .info { margin-bottom: 16px; }
+        .info table { width: 100%; border-collapse: collapse; }
+        .info td { padding: 2px 6px; }
+        .info .label { font-weight: bold; width: 120px; }
+        table.data { width: 100%; border-collapse: collapse; font-size: 8pt; }
+        table.data th { background: #2D3748; color: #fff; padding: 4px 4px; text-align: left; font-weight: 600; }
+        table.data td { padding: 3px 4px; border-bottom: 1px solid #e2e8f0; }
+        table.data tr:nth-child(even) { background: #f7fafc; }
+        .badge { padding: 1px 6px; border-radius: 3px; font-size: 7pt; font-weight: bold; }
+        .badge-alta { background: #c6f6d5; color: #22543d; }
+        .badge-baja { background: #fed7d7; color: #9b2c2c; }
+        .badge-mod { background: #fefcbf; color: #744210; }
+        .footer { margin-top: 30px; text-align: center; font-size: 8pt; color: #999; }
+        .mono { font-family: 'Courier New', monospace; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="title">DGT-4: Cambios en Planilla de Personal Fijo</div>
+        <div class="subtitle">Ministerio de Trabajo — República Dominicana</div>
+    </div>
+    <div class="info">
+        <table>
+            <tr><td class="label">RNC:</td><td>{{ owner_info.get('companyRNC', '') }}</td><td class="label">Período:</td><td>{{ title }}</td></tr>
+            <tr><td class="label">Empresa:</td><td>{{ owner_info.get('companyName', '') }}</td><td class="label">Cambios:</td><td>{{ lines|length }}</td></tr>
+        </table>
+    </div>
+    <table class="data">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Tipo Doc</th>
+                <th>Documento</th>
+                <th>Nombres</th>
+                <th>Apellidos</th>
+                <th>Salario</th>
+                <th>Ocupación</th>
+                <th>F. Ingreso</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for emp in lines %}
+            <tr>
+                <td>{{ loop.index }}</td>
+                <td>{{ emp.tipoDocumento }}</td>
+                <td class="mono">{{ emp.documento }}</td>
+                <td>{{ emp.nombres }}</td>
+                <td>{{ emp.apellidos }}</td>
+                <td style="text-align:right;">{{ "{:,.2f}".format(emp.salario) }}</td>
+                <td>{{ emp.ocupacionTexto[:25] }}</td>
+                <td>{{ emp.fechaIngreso }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <div class="footer">
+        Generado el {{ now.strftime('%d/%m/%Y %H:%M') }} — Documento para uso informativo, no oficial
+    </div>
+</body>
+</html>
