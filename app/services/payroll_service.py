@@ -23,8 +23,8 @@ _SFS_EMPLOYER_RATE = 0.0709   # 7.09% — Aporte del empleador a SFS
 _SRL_EMPLOYER_RATE = 0.0120   # 1.20% — Seguro de Riesgo Laboral (empleador)
 _INFOTEP_RATE = 0.0100        # 1.00% — INFOTEP (empleador; empleado solo si gana más de cierto tope)
 
-_AFP_SALARY_CAP = 196750.00   # Tope máximo cotizable AFP (20 salarios mínimos aprox)
-_SFS_SALARY_CAP = 98375.00    # Tope máximo cotizable SFS
+_AFP_SALARY_CAP = 464460.00  # Tope máximo cotizable AFP (20 salarios mínimos aprox)
+_SFS_SALARY_CAP = 232230.00  # Tope máximo cotizable SFS
 
 _ISR_ANNUAL_TABLE = [
     (0.00,        416220.00,   0.00, 0.00),
@@ -35,6 +35,26 @@ _ISR_ANNUAL_TABLE = [
 
 _ANNUAL_EDUCATION_DEDUCTION = 50000.00
 _MIN_SALARY = 23223.00
+
+_DEFAULT_OVERTIME_RATE = 1.35
+_DEFAULT_WORKING_DAYS_PER_MONTH = 23.83
+_DEFAULT_WORKING_HOURS_PER_DAY = 8.0
+_DEFAULT_INFOTEP_THRESHOLD_MULTIPLIER = 5
+
+_DEFAULT_ACCOUNT_SALARIES_PAYABLE = "2.1.2.1.02"
+_DEFAULT_ACCOUNT_AFP_EMPLOYEE = "2.1.2.1.05"
+_DEFAULT_ACCOUNT_SFS_EMPLOYEE = "2.1.2.1.06"
+_DEFAULT_ACCOUNT_ISR_EMPLOYEE = "2.1.2.1.08"
+_DEFAULT_ACCOUNT_AFP_EMPLOYER = "2.1.2.1.10"
+_DEFAULT_ACCOUNT_SFS_EMPLOYER = "2.1.2.1.09"
+_DEFAULT_ACCOUNT_SRL_EMPLOYER = "2.1.2.1.11"
+_DEFAULT_ACCOUNT_INFOTEP_EMPLOYER = "2.1.2.1.12"
+_DEFAULT_COST_CENTER_ACCOUNTS = {
+    "General":         "6.2.1.01",
+    "Ventas":          "6.2.1.01.01",
+    "Produccion":      "6.2.1.01.02",
+    "Administrativa":  "6.2.1.01.03",
+}
 
 # Compatibilidad hacia atrás — exponer como atributos de clase
 AFP_EMPLOYEE_RATE = _AFP_EMPLOYEE_RATE
@@ -71,6 +91,20 @@ class PayrollService:
             "min_salary": tax_rates.get("minSalary", _MIN_SALARY),
             "education_deduction": tax_rates.get("educationDeduction", _ANNUAL_EDUCATION_DEDUCTION),
             "isr_table": tax_rates.get("isrAnnualTable", _ISR_ANNUAL_TABLE),
+            "overtime_rate": tax_rates.get("overtimeRate", _DEFAULT_OVERTIME_RATE),
+            "working_days_per_month": tax_rates.get("workingDaysPerMonth", _DEFAULT_WORKING_DAYS_PER_MONTH),
+            "working_hours_per_day": tax_rates.get("workingHoursPerDay", _DEFAULT_WORKING_HOURS_PER_DAY),
+            "infotep_threshold_multiplier": tax_rates.get("infotepThresholdMultiplier", _DEFAULT_INFOTEP_THRESHOLD_MULTIPLIER),
+            # ── Cuentas contables ──
+            "account_salaries_payable": tax_rates.get("accountSalariesPayable", _DEFAULT_ACCOUNT_SALARIES_PAYABLE),
+            "account_afp_employee": tax_rates.get("accountAfpEmployee", _DEFAULT_ACCOUNT_AFP_EMPLOYEE),
+            "account_sfs_employee": tax_rates.get("accountSfsEmployee", _DEFAULT_ACCOUNT_SFS_EMPLOYEE),
+            "account_isr_employee": tax_rates.get("accountIsrEmployee", _DEFAULT_ACCOUNT_ISR_EMPLOYEE),
+            "account_afp_employer": tax_rates.get("accountAfpEmployer", _DEFAULT_ACCOUNT_AFP_EMPLOYER),
+            "account_sfs_employer": tax_rates.get("accountSfsEmployer", _DEFAULT_ACCOUNT_SFS_EMPLOYER),
+            "account_srl_employer": tax_rates.get("accountSrlEmployer", _DEFAULT_ACCOUNT_SRL_EMPLOYER),
+            "account_infotep_employer": tax_rates.get("accountInfotepEmployer", _DEFAULT_ACCOUNT_INFOTEP_EMPLOYER),
+            "cost_center_accounts": tax_rates.get("costCenterAccounts", _DEFAULT_COST_CENTER_ACCOUNTS),
         }
 
     # ═══════════════════════════════════════════════════════════════════════
@@ -81,8 +115,9 @@ class PayrollService:
     def calculate_payroll_line(
         cls,
         base_salary: float,
+        tax_rates: dict = None,
         overtime_hours: float = 0.0,
-        overtime_rate: float = 1.35,
+        overtime_rate: float = None,
         commission: float = 0.0,
         bonus: float = 0.0,
         other_income: float = 0.0,
@@ -90,15 +125,15 @@ class PayrollService:
         education_deduction: float = 0.0,
         period_type: str = "mensual",
         prorated_salary: float = None,
-        tax_rates: dict = None,
     ) -> dict:
         """
         Calcula una línea de nómina completa.
 
         Args:
             base_salary: Salario base mensual bruto.
+            tax_rates: Dict con tasas, topes, tabla ISR y parámetros de cálculo configurables.
             overtime_hours: Horas extras trabajadas.
-            overtime_rate: Multiplicador de hora extra (default 1.35).
+            overtime_rate: Multiplicador de hora extra (si es None, se usa el de tax_rates o default 1.35).
             commission: Comisiones del período.
             bonus: Bonificación.
             other_income: Otros ingresos.
@@ -108,6 +143,9 @@ class PayrollService:
             prorated_salary: Salario ya prorrateado para el período (entrada a mitad, salida, cambio salarial).
                              Si es None, se calcula normalmente.
         """
+        r = cls.get_rates(tax_rates)
+        if overtime_rate is None:
+            overtime_rate = r["overtime_rate"]
         # ── 1. Ingresos ──────────────────────────────────────────────────
         if prorated_salary is not None:
             period_salary = prorated_salary
@@ -119,12 +157,15 @@ class PayrollService:
             period_salary = base_salary
             period_factor = 12
 
-        overtime_pay = cls._calculate_overtime(base_salary, overtime_hours, overtime_rate)
+        overtime_pay = cls._calculate_overtime(
+            base_salary, overtime_hours, overtime_rate,
+            working_days=r["working_days_per_month"],
+            working_hours=r["working_hours_per_day"],
+        )
         gross_salary = period_salary
         total_income = round(period_salary + overtime_pay + commission + bonus + other_income, 2)
 
         # ── 2. Salario cotizable TSS (topado) ────────────────────────────
-        r = cls.get_rates(tax_rates)
         afp_cap = r["afp_salary_cap"] / 2 if period_type == "quincenal" else r["afp_salary_cap"]
         sfs_cap = r["sfs_salary_cap"] / 2 if period_type == "quincenal" else r["sfs_salary_cap"]
         afp_cotizable = min(total_income, afp_cap)
@@ -134,8 +175,8 @@ class PayrollService:
         afp_employee = round(afp_cotizable * r["afp_employee_rate"], 2)
         sfs_employee = round(sfs_cotizable * r["sfs_employee_rate"], 2)
 
-        # INFOTEP empleado: aplica si total_income > 5x salario mínimo
-        infotep_threshold = r["min_salary"] * 5
+        # INFOTEP empleado: aplica si total_income > umbral * salario mínimo
+        infotep_threshold = r["min_salary"] * r["infotep_threshold_multiplier"]
         if total_income > infotep_threshold:
             infotep_employee = round(total_income * r["infotep_rate"], 2)
         else:
@@ -181,11 +222,12 @@ class PayrollService:
         }
 
     @classmethod
-    def _calculate_overtime(cls, base_salary: float, hours: float, rate: float) -> float:
-        """Calcula pago de horas extras. Base: (salario / 23.83 días / 8 horas) * rate."""
+    def _calculate_overtime(cls, base_salary: float, hours: float, rate: float,
+                            working_days: float = 23.83, working_hours: float = 8.0) -> float:
+        """Calcula pago de horas extras. Base: (salario / días / horas) * rate."""
         if hours <= 0 or base_salary <= 0:
             return 0.0
-        hourly = base_salary / 23.83 / 8.0  # Días hábiles promedio mensual
+        hourly = base_salary / working_days / working_hours
         return round(hourly * rate * hours, 2)
 
     @classmethod
@@ -217,15 +259,15 @@ class PayrollService:
         # Renta neta anual
         annual_taxable = max(0.0, annual_gross - annual_afp - annual_sfs - annual_edu)
 
-        # Aplicar tabla ISR
+        # Aplicar tabla ISR — cada tramo ya incluye la cuota fija acumulada de los anteriores
         annual_isr = 0.0
         for floor, ceiling, rate, fixed in r["isr_table"]:
             if annual_taxable <= floor:
                 break
-            bracket_top = min(annual_taxable, ceiling)
-            if bracket_top > floor:
-                annual_isr = round((bracket_top - floor) * rate + fixed, 2)
-                break
+            if annual_taxable > ceiling:
+                continue
+            annual_isr = round((annual_taxable - floor) * rate + fixed, 2)
+            break
 
         return round(annual_isr / period_factor, 2)
 
@@ -468,11 +510,12 @@ class PayrollService:
     }
 
     @classmethod
-    def build_payroll_accounting_lines(cls, payroll_period: dict, employees: dict = None) -> list:
+    def build_payroll_accounting_lines(cls, payroll_period: dict, employees: dict = None, tax_rates: dict = None) -> list:
         lines = []
         period_label = payroll_period.get("periodKey", "")
         plines = payroll_period.get("lines", [])
         employees = employees or {}
+        r = cls.get_rates(tax_rates)
 
         total_gross = 0.0
         total_net = 0.0
@@ -483,6 +526,8 @@ class PayrollService:
         total_sfs_empl = 0.0
         total_srl_empl = 0.0
         total_infotep = 0.0
+
+        cc_accounts = r.get("cost_center_accounts", cls.DEFAULT_COST_CENTER_ACCOUNTS)
 
         by_cc = {}
         for pl in plines:
@@ -509,7 +554,7 @@ class PayrollService:
         # DEBE: Líneas de gasto por centro de costo
         for cc, totals in by_cc.items():
             cc_gasto = round(totals["gross"] + totals["employer"], 2)
-            acct_code = cls.DEFAULT_COST_CENTER_ACCOUNTS.get(cc, "6.2.1.01")
+            acct_code = cc_accounts.get(cc, "6.2.1.01")
             lines.append({
                 "accountCode": acct_code,
                 "accountName": f"Sueldos y salarios - {cc}",
@@ -521,59 +566,58 @@ class PayrollService:
         # HABER: Salarios por pagar (neto)
         if total_net > 0:
             lines.append({
-                "accountCode": "2.1.2.1.02",
+                "accountCode": r["account_salaries_payable"],
                 "accountName": "Salarios por pagar",
                 "debit": 0.00, "credit": round(total_net, 2),
                 "description": f"Salario neto período {period_label}",
             })
         if total_afp_emp > 0:
             lines.append({
-                "accountCode": "2.1.2.1.05",
+                "accountCode": r["account_afp_employee"],
                 "accountName": "Retenciones empleado AFP",
                 "debit": 0.00, "credit": round(total_afp_emp, 2),
                 "description": f"AFP empleado {period_label}",
             })
         if total_sfs_emp > 0:
             lines.append({
-                "accountCode": "2.1.2.1.06",
+                "accountCode": r["account_sfs_employee"],
                 "accountName": "Retenciones a empleado SFS",
                 "debit": 0.00, "credit": round(total_sfs_emp, 2),
                 "description": f"SFS empleado {period_label}",
             })
         if total_isr > 0:
             lines.append({
-                "accountCode": "2.1.2.1.08",
+                "accountCode": r["account_isr_employee"],
                 "accountName": "Retención ISR empleados",
                 "debit": 0.00, "credit": round(total_isr, 2),
                 "description": f"ISR empleados {period_label}",
             })
         if total_afp_empl > 0:
             lines.append({
-                "accountCode": "2.1.2.1.10",
+                "accountCode": r["account_afp_employer"],
                 "accountName": "Acumulaciones AFP",
                 "debit": 0.00, "credit": round(total_afp_empl, 2),
                 "description": f"AFP empleador {period_label}",
             })
         if total_sfs_empl > 0:
             lines.append({
-                "accountCode": "2.1.2.1.09",
+                "accountCode": r["account_sfs_employer"],
                 "accountName": "Acumulaciones SFS",
                 "debit": 0.00, "credit": round(total_sfs_empl, 2),
                 "description": f"SFS empleador {period_label}",
             })
         if total_srl_empl > 0:
             lines.append({
-                "accountCode": "2.1.2.1.11",
+                "accountCode": r["account_srl_employer"],
                 "accountName": "Acumulaciones SRL",
                 "debit": 0.00, "credit": round(total_srl_empl, 2),
                 "description": f"SRL empleador {period_label}",
             })
-        total_infotep_line = total_infotep
-        if total_infotep_line > 0:
+        if total_infotep > 0:
             lines.append({
-                "accountCode": "2.1.2.1.12",
+                "accountCode": r["account_infotep_employer"],
                 "accountName": "Acumulaciones INFOTEP",
-                "debit": 0.00, "credit": round(total_infotep_line, 2),
+                "debit": 0.00, "credit": round(total_infotep, 2),
                 "description": f"INFOTEP {period_label}",
             })
 

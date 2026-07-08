@@ -65,6 +65,9 @@
         <button class="tab-btn" data-tab="tab-evals" onclick="switchTab('tab-evals', this)">
             <i class="fa-solid fa-star"></i> Evals & Cap
         </button>
+        <button class="tab-btn" data-tab="tab-history" onclick="switchTab('tab-history', this)">
+            <i class="fa-solid fa-clock-rotate-left"></i> Historial de pago
+        </button>
     </div>
 
     <!-- Tab: Información personal -->
@@ -220,6 +223,73 @@
             </div>{% else %}<p style="color:var(--text-muted);">Sin capacitaciones.</p>{% endif %}
         </div>
     </div>
+
+    <!-- Tab: Historial de pago -->
+    <div id="tab-history" class="tab-content" style="display:none;">
+        <div class="hr-section-card" style="border:none; box-shadow:none; padding:0;">
+            <h3>Historial de pagos ({{ payment_history|length }})
+                <button type="button" class="btn btn-sm btn-ghost" onclick="openSimModal()" style="margin-left:12px; color:var(--accent-emerald);">
+                    <i class="fa-solid fa-calculator"></i> Simular pago
+                </button>
+            </h3>
+            {% if payment_history %}
+            <div class="table-responsive">
+                <table class="table-premium" style="font-size:0.82rem;">
+                <thead>
+                    <tr>
+                        <th>Período</th>
+                        <th style="text-align:right;">Salario Base</th>
+                        <th style="text-align:right;">Total Ingresos</th>
+                        <th style="text-align:right;">Deducciones</th>
+                        <th style="text-align:right;">Neto</th>
+                        <th style="text-align:center; width:130px;">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ph in payment_history %}
+                    {% set pl = ph.line %}{% set pp = ph.period %}
+                    <tr>
+                        <td style="white-space:nowrap;">
+                            <strong>{{ pp.get('periodRange') or pp.get('periodKey','') }}</strong>
+                            <span style="font-size:0.65rem;color:var(--text-muted);display:block;">{{ pp.get('periodType','')|capitalize }} · {% if pp.get('processedDate') %}{{ pp.processedDate[:10] }}{% endif %}</span>
+                        </td>
+                        <td style="text-align:right; white-space:nowrap;">{{ "RD$ {:,.2f}".format(pl.grossSalary|float) if pl.grossSalary else '—' }}</td>
+                        <td style="text-align:right; white-space:nowrap;">{{ "RD$ {:,.2f}".format(pl.totalIncome|float) }}</td>
+                        <td style="text-align:right; white-space:nowrap;">{{ "RD$ {:,.2f}".format(pl.totalDeductions|float) }}</td>
+                        <td style="text-align:right; white-space:nowrap; font-weight:700; color:var(--accent-emerald);">{{ "RD$ {:,.2f}".format(pl.netSalary|float) }}</td>
+                        <td style="text-align:center; white-space:nowrap;">
+                            <a href="{{ url_for('web_rrhh.employee_payslip', employee_id=employee.id, period_id=pp.id) }}" class="btn btn-sm btn-ghost" title="Ver volante">
+                                <i class="fa-solid fa-eye"></i>
+                            </a>
+                            <a href="{{ url_for('web_rrhh.employee_payslip_pdf', employee_id=employee.id, period_id=pp.id) }}" class="btn btn-sm btn-ghost" title="Descargar PDF">
+                                <i class="fa-solid fa-download"></i>
+                            </a>
+                            {% if employee.email %}
+                            <form method="POST" action="{{ url_for('web_rrhh.employee_payslip_email', employee_id=employee.id, period_id=pp.id) }}" style="display:contents;"
+                                  onsubmit="return confirm('¿Enviar volante a {{ employee.email }}?')">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="btn btn-sm btn-ghost" title="Enviar por email a {{ employee.email }}">
+                                    <i class="fa-solid fa-envelope"></i>
+                                </button>
+                            </form>
+                            {% else %}
+                            <span style="position:relative; display:inline-block;" title="El empleado no tiene email registrado">
+                                <button type="button" class="btn btn-sm btn-ghost" disabled style="opacity:0.4; cursor:not-allowed;">
+                                    <i class="fa-solid fa-envelope"></i>
+                                </button>
+                            </span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p style="color:var(--text-muted);">No se encontraron pagos de nómina para este empleado.</p>
+            {% endif %}
+        </div>
+    </div>
 </div>
 
 {% if employee.status == 'activo' %}
@@ -266,6 +336,65 @@
 </div>
 {% endif %}
 
+<!-- Modal: Simulador de pago -->
+<div id="simModal" style="display:none; position:fixed; inset:16px; z-index:9999; background:rgba(0,0,0,0.55); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); align-items:center; justify-content:center; border-radius:12px;" onclick="closeSimModal(event)">
+    <div style="background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-xl); width:100%; max-width:960px; height:90vh; max-height:700px; display:flex; flex-direction:column; box-shadow:var(--shadow-xl); animation:fadeInUp 0.3s ease; overflow:hidden;" onclick="event.stopPropagation()">
+        <!-- Header -->
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:18px 24px; border-bottom:1px solid var(--border-color);">
+            <h2 style="margin:0; font-size:1.1rem; font-weight:700;"><i class="fa-solid fa-calculator" style="color:var(--accent-emerald);"></i> Simular pago — {{ employee.fullName }}</h2>
+            <button type="button" class="btn btn-sm btn-ghost" onclick="document.getElementById('simModal').style.display='none'">
+                <i class="fa-solid fa-times" style="font-size:1.1rem;"></i>
+            </button>
+        </div>
+        <!-- Body: 2 columnas -->
+        <div style="flex:1; display:flex; overflow:hidden;">
+            <!-- Columna izquierda: formulario -->
+            <div style="width:340px; flex-shrink:0; padding:20px 24px; border-right:1px solid var(--border-color); overflow-y:auto; display:flex; flex-direction:column; gap:14px;">
+                <div class="form-group" style="margin:0;">
+                    <label style="font-size:0.78rem; font-weight:600;">Período</label>
+                    <select id="simPeriodType" class="form-select" style="font-size:0.85rem;">
+                        <option value="mensual">Mensual (completo)</option>
+                        <option value="quincenal">Quincenal (mitad)</option>
+                    </select>
+                </div>
+                <div class="form-group" style="margin:0;">
+                    <label style="font-size:0.78rem; font-weight:600;">Horas extra</label>
+                    <input type="number" id="simOvertime" step="0.01" value="0" class="form-input" style="font-size:0.85rem;">
+                </div>
+                <div class="form-group" style="margin:0;">
+                    <label style="font-size:0.78rem; font-weight:600;">Comisión</label>
+                    <input type="number" id="simCommission" step="0.01" value="0" class="form-input" style="font-size:0.85rem;">
+                </div>
+                <div class="form-group" style="margin:0;">
+                    <label style="font-size:0.78rem; font-weight:600;">Bonificación</label>
+                    <input type="number" id="simBonus" step="0.01" value="0" class="form-input" style="font-size:0.85rem;">
+                </div>
+                <div class="form-group" style="margin:0;">
+                    <label style="font-size:0.78rem; font-weight:600;">Otro ingreso</label>
+                    <input type="number" id="simOtherIncome" step="0.01" value="0" class="form-input" style="font-size:0.85rem;">
+                </div>
+                <div class="form-group" style="margin:0;">
+                    <label style="font-size:0.78rem; font-weight:600;">Otra deducción</label>
+                    <input type="number" id="simOtherDed" step="0.01" value="0" class="form-input" style="font-size:0.85rem;">
+                </div>
+                <div style="margin-top:auto; padding-top:12px; display:flex; gap:8px;">
+                    <button type="button" class="btn btn-primary" onclick="calculateSim()" style="flex:1;">
+                        <i class="fa-solid fa-play"></i> Calcular
+                    </button>
+                    <button type="button" class="btn btn-ghost" onclick="document.getElementById('simModal').style.display='none'">Cerrar</button>
+                </div>
+            </div>
+            <!-- Columna derecha: resultados -->
+            <div id="simResults" style="flex:1; padding:20px 24px; overflow-y:auto; color:var(--text-muted); font-size:0.85rem; display:flex; align-items:center; justify-content:center;">
+                <span><i class="fa-solid fa-circle-info" style="color:var(--text-muted);"></i> Ingresa los valores y presiona <strong>Calcular</strong> para ver el desglose.</span>
+            </div>
+        </div>
+    </div>
+</div>
+<style>
+    @keyframes fadeInUp { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
+</style>
+
 <style>
 .tab-btn { background:none; border:none; padding:8px 18px; cursor:pointer; font-weight:600; font-size:0.85rem; color:var(--text-muted); border-bottom:2px solid transparent; margin-bottom:-2px; transition:all 0.2s; display:inline-flex; align-items:center; gap:6px; }
 .tab-btn.active { color:var(--accent-emerald); border-bottom-color:var(--accent-emerald); }
@@ -278,6 +407,111 @@ function switchTab(tabId, btn) {
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     document.getElementById(tabId).style.display = '';
     btn.classList.add('active');
+}
+function openSimModal() {
+    document.getElementById('simModal').style.display = 'flex';
+    document.getElementById('simResults').innerHTML = '<span><i class="fa-solid fa-circle-info" style="color:var(--text-muted);"></i> Ingresa los valores y presiona <strong>Calcular</strong> para ver el desglose.</span>';
+    document.getElementById('simResults').style.alignItems = 'center';
+    document.getElementById('simResults').style.justifyContent = 'center';
+    document.getElementById('simPeriodType').value = 'mensual';
+    ['simOvertime','simCommission','simBonus','simOtherIncome','simOtherDed'].forEach(function(id){ document.getElementById(id).value = '0'; });
+}
+function closeSimModal(e) {
+    if (e.target === document.getElementById('simModal')) {
+        document.getElementById('simModal').style.display = 'none';
+    }
+}
+function fmt(n) { return (n || 0).toLocaleString('es-DO', {minimumFractionDigits:2, maximumFractionDigits:2}); }
+function calculateSim() {
+    var results = document.getElementById('simResults');
+    var steps = [
+        { icon: 'fa-calculator', label: 'Calculando ingresos' },
+        { icon: 'fa-shield-halved', label: 'Aplicando deducciones (AFP, SFS)' },
+        { icon: 'fa-file-invoice', label: 'Calculando ISR y retenciones' },
+    ];
+    var stepsHtml = '<div style="display:flex; flex-direction:column; align-items:center; gap:16px; width:100%;">';
+    stepsHtml += '<i class="fa-solid fa-spinner fa-spin" style="font-size:2rem; color:var(--accent-emerald); margin-bottom:8px;"></i>';
+    stepsHtml += '<h3 style="margin:0; font-size:1rem; font-weight:700;">Calculando...</h3>';
+    stepsHtml += '<div style="display:flex; flex-direction:column; gap:10px; width:100%; max-width:320px; margin-top:8px;">';
+    steps.forEach(function(s, idx) {
+        stepsHtml += '<div class="sim-step" data-step="'+idx+'" style="display:flex; align-items:center; gap:10px; padding:8px 14px; border-radius:var(--radius-sm); color:var(--text-muted); font-size:0.82rem; background:rgba(255,255,255,0.02); transition:all 0.3s;">';
+        stepsHtml += '<i class="fa-solid '+s.icon+'" style="width:20px; text-align:center;"></i>';
+        stepsHtml += '<span>'+s.label+'</span></div>';
+    });
+    stepsHtml += '</div></div>';
+    results.style.alignItems = 'center';
+    results.style.justifyContent = 'center';
+    results.innerHTML = stepsHtml;
+    // Step animation
+    var stepEls = document.querySelectorAll('.sim-step');
+    var current = 0;
+    function advance() {
+        if (current < stepEls.length) {
+            stepEls[current].style.color = 'var(--text-primary)';
+            stepEls[current].style.background = 'rgba(16,185,129,0.08)';
+            current++;
+            if (current < stepEls.length) setTimeout(advance, 600);
+        }
+    }
+    setTimeout(advance, 300);
+
+    var formData = new FormData();
+    formData.append('csrf_token', document.querySelector('meta[name="csrf-token"]').getAttribute('content'));
+    formData.append('period_type', document.getElementById('simPeriodType').value);
+    formData.append('overtime_hours', document.getElementById('simOvertime').value);
+    formData.append('commission', document.getElementById('simCommission').value);
+    formData.append('bonus', document.getElementById('simBonus').value);
+    formData.append('other_income', document.getElementById('simOtherIncome').value);
+    formData.append('other_deductions', document.getElementById('simOtherDed').value);
+    fetch('{{ url_for("web_rrhh.employee_calculate_payroll", employee_id=employee.id) }}', {
+        method:'POST',
+        body:formData,
+        headers: { 'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').getAttribute('content') }
+    })
+        .then(function(r){ return r.json(); })
+        .then(function(d){
+            if (d.error) { results.innerHTML = '<p style="color:var(--danger); padding:20px;">'+d.error+'</p>'; results.style.alignItems='center'; results.style.justifyContent='center'; return; }
+            results.style.alignItems = 'flex-start';
+            results.style.justifyContent = 'flex-start';
+            var incomeRows = '';
+            incomeRows += '<tr><td style="padding:4px 12px 4px 20px;">Salario base del período</td><td style="text-align:right; padding:4px 12px;">RD$ '+fmt(d.grossSalary)+'</td></tr>';
+            if (d.overtimePay > 0) incomeRows += '<tr><td style="padding:4px 12px 4px 20px;">Horas extra ('+d.overtimeHours+' h × '+d.overtimeRate+')</td><td style="text-align:right; padding:4px 12px;">RD$ '+fmt(d.overtimePay)+'</td></tr>';
+            if (d.commission > 0) incomeRows += '<tr><td style="padding:4px 12px 4px 20px;">Comisión</td><td style="text-align:right; padding:4px 12px;">RD$ '+fmt(d.commission)+'</td></tr>';
+            if (d.bonus > 0) incomeRows += '<tr><td style="padding:4px 12px 4px 20px;">Bonificación</td><td style="text-align:right; padding:4px 12px;">RD$ '+fmt(d.bonus)+'</td></tr>';
+            if (d.otherIncome > 0) incomeRows += '<tr><td style="padding:4px 12px 4px 20px;">Otro ingreso</td><td style="text-align:right; padding:4px 12px;">RD$ '+fmt(d.otherIncome)+'</td></tr>';
+            var afpPct = (d.afpEmployeeRate * 100).toFixed(2);
+            var sfsPct = (d.sfsEmployeeRate * 100).toFixed(2);
+            var dedRows = '';
+            dedRows += '<tr><td style="padding:4px 12px 4px 20px;">AFP ('+afpPct+'% sobre RD$ '+fmt(Math.min(d.totalIncome, d.afpSalaryCap / (d.period_type==="quincenal"?2:1)))+')</td><td style="text-align:right; padding:4px 12px;">RD$ '+fmt(d.afpEmployee)+'</td></tr>';
+            dedRows += '<tr><td style="padding:4px 12px 4px 20px;">SFS ('+sfsPct+'% sobre RD$ '+fmt(Math.min(d.totalIncome, d.sfsSalaryCap / (d.period_type==="quincenal"?2:1)))+')</td><td style="text-align:right; padding:4px 12px;">RD$ '+fmt(d.sfsEmployee)+'</td></tr>';
+            if (d.infotepEmployee > 0) dedRows += '<tr><td style="padding:4px 12px 4px 20px;">INFOTEP</td><td style="text-align:right; padding:4px 12px;">RD$ '+fmt(d.infotepEmployee)+'</td></tr>';
+            dedRows += '<tr><td style="padding:4px 12px 4px 20px;">ISR</td><td style="text-align:right; padding:4px 12px;">RD$ '+fmt(d.isrRetention)+'</td></tr>';
+            if (d.otherDeductions > 0) dedRows += '<tr><td style="padding:4px 12px 4px 20px;">Otra deducción</td><td style="text-align:right; padding:4px 12px;">RD$ '+fmt(d.otherDeductions)+'</td></tr>';
+            var html = '<div style="width:100%; font-size:0.82rem;">';
+            html += '<div style="margin-bottom:12px; padding:8px 12px; background:var(--bg-nav-hover); border-radius:var(--radius-sm); font-size:0.75rem; color:var(--text-secondary);">';
+            html += 'Salario base: <strong>RD$ '+fmt(d.baseSalary)+'</strong> · ';
+            html += 'Período: <strong>'+(d.period_type==='quincenal'?'Quincenal':'Mensual')+'</strong> · ';
+            html += 'Tope AFP: <strong>RD$ '+fmt(d.afpSalaryCap)+'</strong> · Tope SFS: <strong>RD$ '+fmt(d.sfsSalaryCap)+'</strong>';
+            if (d.infotepEmployee > 0) html += ' · Umbral INFOTEP: <strong>'+d.infotepThreshold+'× salario mínimo</strong>';
+            html += '</div>';
+            html += '<table style="width:100%; border-collapse:collapse; margin-bottom:12px;"><thead><tr style="background:var(--bg-nav-hover);"><th style="text-align:left; padding:6px 10px; border-radius:4px 0 0 0; font-size:0.75rem;">+ Ingresos</th><th style="text-align:right; padding:6px 10px; border-radius:0 4px 0 0; font-size:0.75rem;">Monto</th></tr></thead>';
+            html += '<tbody>'+incomeRows+'<tr style="border-top:2px solid var(--border-color);"><td style="padding:6px 12px; font-weight:700;">Total ingresos</td><td style="text-align:right; padding:6px 12px; font-weight:700;">RD$ '+fmt(d.totalIncome)+'</td></tr></tbody></table>';
+            html += '<table style="width:100%; border-collapse:collapse; margin-bottom:12px;"><thead><tr style="background:var(--bg-nav-hover);"><th style="text-align:left; padding:6px 10px; border-radius:4px 0 0 0; font-size:0.75rem;">- Deducciones</th><th style="text-align:right; padding:6px 10px; border-radius:0 4px 0 0; font-size:0.75rem;">Monto</th></tr></thead>';
+            html += '<tbody>'+dedRows+'<tr style="border-top:2px solid var(--border-color);"><td style="padding:6px 12px; font-weight:700;">Total deducciones</td><td style="text-align:right; padding:6px 12px; font-weight:700;">RD$ '+fmt(d.totalDeductions)+'</td></tr></tbody></table>';
+            html += '<div style="padding:12px 16px; background:rgba(16,185,129,0.08); border:2px solid var(--accent-emerald); border-radius:var(--radius-md); text-align:center; margin-bottom:12px;">';
+            html += '<div style="font-size:0.7rem; font-weight:700; text-transform:uppercase; color:var(--text-muted); margin-bottom:2px;">Neto a recibir</div>';
+            html += '<div style="font-size:1.3rem; font-weight:800; color:var(--accent-emerald);">RD$ '+fmt(d.netSalary)+'</div></div>';
+            html += '<div style="padding:10px 12px; background:var(--bg-nav-hover); border-radius:var(--radius-sm); font-size:0.75rem; color:var(--text-secondary);">';
+            html += '<strong>Aportes del empleador:</strong> AFP RD$ '+fmt(d.afpEmployer)+' · SFS RD$ '+fmt(d.sfsEmployer)+' · SRL RD$ '+fmt(d.srlEmployer)+' · INFOTEP RD$ '+fmt(d.infotepEmployer)+'<br>';
+            html += 'Total aportes: <strong>RD$ '+fmt(d.totalEmployerContrib)+'</strong> · Costo empresa: <strong style="color:var(--accent-emerald);">RD$ '+fmt(d.costoEmpresa)+'</strong>';
+            html += '</div></div>';
+            results.innerHTML = html;
+        })
+        .catch(function(e){
+            results.innerHTML = '<div style="text-align:center; padding:20px; color:var(--danger);"><i class="fa-solid fa-circle-exclamation" style="font-size:1.5rem;"></i><p>Error al calcular: '+e.message+'</p></div>';
+            results.style.alignItems = 'center';
+            results.style.justifyContent = 'center';
+        });
 }
 </script>
 {% endblock %}

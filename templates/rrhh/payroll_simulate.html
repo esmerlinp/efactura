@@ -2,6 +2,14 @@
 {% block title %}Simulador de Nómina — {{ product_name }}{% endblock %}
 {% block extra_head %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/_dashboard.css') }}?v={{ static_hash('css/_dashboard.css') }}">
+<style>
+.payroll-tabs { display:flex; gap:var(--space-1, 4px); border-bottom:2px solid var(--border-color); margin-bottom:var(--space-3, 12px); padding:0 var(--space-1, 4px); }
+.payroll-tab { padding:10px 18px; font-size:0.85rem; font-weight:600; color:var(--text-muted); cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-2px; transition:all 0.15s; white-space:nowrap; background:none; border:0; }
+.payroll-tab:hover { color:var(--text-primary); }
+.payroll-tab.active { color:var(--accent-emerald); border-bottom-color:var(--accent-emerald); }
+.tab-panel { display:none; }
+.tab-panel.active { display:block; }
+</style>
 {% endblock %}
 {% block content %}
 <div class="dashboard-container">
@@ -29,16 +37,34 @@
 
     <!-- Variables -->
     <div class="card-table-wrapper" style="margin-bottom:16px;">
-        <div class="table-header-row" style="margin-bottom:12px;">
+        <div class="table-header-row" style="margin-bottom:0;">
             <span style="font-weight:600; font-size:0.9rem;"><i class="fa-solid fa-sliders"></i> Variables por empleado</span>
+            <span style="font-size:0.78rem; color:var(--text-muted);" id="simVarCount">{{ employees|length }} empleados</span>
+        </div>
+        <div style="display:flex; gap:8px; align-items:center; padding:12px 0; flex-wrap:wrap;">
+            <div class="form-group" style="margin:0; flex:1; min-width:200px; max-width:320px;">
+                <input type="text" id="simVarSearch" class="form-input" placeholder="Buscar empleado o cargo..." style="border-radius:20px; font-size:0.82rem;">
+            </div>
+            <div class="form-group" style="margin:0;">
+                <select id="simVarPerPage" class="form-select" style="width:auto; font-size:0.82rem;">
+                    <option value="5" selected>5 por página</option>
+                    <option value="10">10 por página</option>
+                    <option value="20">20 por página</option>
+                    <option value="50">50 por página</option>
+                    <option value="100">100 por página</option>
+                </select>
+            </div>
         </div>
         <div class="table-responsive">
             <table class="table-premium" style="font-size:0.85rem; min-width:900px;">
                 <thead><tr><th>Empleado</th><th style="width:80px;">Hrs Extra</th><th style="width:80px;">Comisión</th><th style="width:80px;">Bono</th><th style="width:80px;">Otro Ing.</th><th style="width:80px;">Otra Ded.</th></tr></thead>
-                <tbody>
+                <tbody id="simVarTbody">
                     {% for emp in employees %}
-                    <tr>
-                        <td><strong>{{ emp.fullName or emp.firstName }}</strong></td>
+                    <tr data-search="{{ (emp.fullName or '')|lower }} {{ (emp.position or '')|lower }} {{ (emp.area or '')|lower }}">
+                        <td>
+                            <strong>{{ emp.fullName or emp.firstName }}</strong>
+                            {% if emp.position %}<span style="display:block; font-size:0.7rem; color:var(--text-muted);">{{ emp.position }}</span>{% endif %}
+                        </td>
                         <td><input type="number" step="0.01" name="overtime_{{ emp.id }}" class="form-input" value="0" style="width:80px;"></td>
                         <td><input type="number" step="0.01" name="commission_{{ emp.id }}" class="form-input" value="0" style="width:80px;"></td>
                         <td><input type="number" step="0.01" name="bonus_{{ emp.id }}" class="form-input" value="0" style="width:80px;"></td>
@@ -49,6 +75,7 @@
                 </tbody>
             </table>
         </div>
+        <div id="simVarPagination" style="display:flex; justify-content:center; align-items:center; gap:8px; margin-top:12px; padding-top:8px; border-top:1px solid var(--border-color);"></div>
     </div>
 
     <div style="display:flex; gap:8px; margin-bottom:16px;">
@@ -72,48 +99,393 @@
         <div class="small-metric"><div class="label">Aportes Empleador</div><div class="value" style="color:var(--accent-purple);">RD$ {{ "{:,.2f}".format(simulation.total_employer) }}</div></div>
         <div class="small-metric"><div class="label">Costo Empresa</div><div class="value" style="color:var(--accent-emerald); font-size:1.1rem;">RD$ {{ "{:,.2f}".format(simulation.total_costo) }}</div></div>
     </div>
-    <div class="table-responsive">
-        <table class="table-premium" style="font-size:0.82rem; min-width:1600px;">
-            <thead><tr>
-                <th>Empleado</th>
-                <th style="text-align:right;">Salario Base</th>
-                <th style="text-align:right;">Horas Extras</th>
-                <th style="text-align:right;">Comisiones</th>
-                <th style="text-align:right;">Bonificación</th>
-                <th style="text-align:right;">Otros Ingresos</th>
-                <th style="text-align:right;">Total Ingresos</th>
-                <th style="text-align:right;">AFP</th>
-                <th style="text-align:right;">SFS</th>
-                <th style="text-align:right;">ISR</th>
-                <th style="text-align:right;">Neto</th>
-                <th style="text-align:right;">Costo Emp.</th>
-            </tr></thead>
-            <tbody>
-                {% for l in simulation.lines %}
-                <tr>
-                    <td><strong>{{ l.employeeName }}</strong></td>
-                    <td style="text-align:right;">RD$ {{ "{:,.2f}".format(l.grossSalary) }}</td>
-                    <td style="text-align:right;">
-                        {% if l.overtimePay and l.overtimePay|float > 0 %}
-                        RD$ {{ "{:,.2f}".format(l.overtimePay) }}
-                        <span style="font-size:0.65rem;color:var(--text-muted);display:block;">{{ l.overtimeHours|float }} h</span>
-                        {% else %}—{% endif %}
-                    </td>
-                    <td style="text-align:right;">{% if l.commission and l.commission|float > 0 %}RD$ {{ "{:,.2f}".format(l.commission) }}{% else %}—{% endif %}</td>
-                    <td style="text-align:right;">{% if l.bonus and l.bonus|float > 0 %}RD$ {{ "{:,.2f}".format(l.bonus) }}{% else %}—{% endif %}</td>
-                    <td style="text-align:right;">{% if l.otherIncome and l.otherIncome|float > 0 %}RD$ {{ "{:,.2f}".format(l.otherIncome) }}{% else %}—{% endif %}</td>
-                    <td style="text-align:right; font-weight:600;">RD$ {{ "{:,.2f}".format(l.totalIncome) }}</td>
-                    <td style="text-align:right;">RD$ {{ "{:,.2f}".format(l.afpEmployee) }}</td>
-                    <td style="text-align:right;">RD$ {{ "{:,.2f}".format(l.sfsEmployee) }}</td>
-                    <td style="text-align:right;">RD$ {{ "{:,.2f}".format(l.isrRetention) }}</td>
-                    <td style="text-align:right; font-weight:700; color:var(--accent-emerald);">RD$ {{ "{:,.2f}".format(l.netSalary) }}</td>
-                    <td style="text-align:right;">RD$ {{ "{:,.2f}".format(l.totalEmployerContrib) }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+
+    <div style="display:flex; gap:8px; align-items:center; padding:12px 0; flex-wrap:wrap;">
+        <div class="form-group" style="margin:0; flex:1; min-width:200px; max-width:320px;">
+            <input type="text" id="simResSearch" class="form-input" placeholder="Buscar empleado..." style="border-radius:20px; font-size:0.82rem;">
+        </div>
+        <div class="form-group" style="margin:0;">
+            <select id="simResPerPage" class="form-select" style="width:auto; font-size:0.82rem;">
+                <option value="5">5 por página</option>
+                <option value="10" selected>10 por página</option>
+                <option value="20">20 por página</option>
+                <option value="50">50 por página</option>
+                <option value="100">100 por página</option>
+            </select>
+        </div>
+        <span style="font-size:0.78rem; color:var(--text-muted);" id="simResCount">{{ simulation.employee_count }} empleados</span>
+    </div>
+
+    <div class="payroll-tabs">
+        <button class="payroll-tab active" data-tab="resumen" onclick="switchSimTab('resumen')">
+            <i class="fa-solid fa-list"></i> Resumen
+        </button>
+        <button class="payroll-tab" data-tab="ingresos" onclick="switchSimTab('ingresos')">
+            <i class="fa-solid fa-arrow-trend-up"></i> Ingresos
+        </button>
+        <button class="payroll-tab" data-tab="descuentos" onclick="switchSimTab('descuentos')">
+            <i class="fa-solid fa-arrow-trend-down"></i> Descuentos
+        </button>
+        <button class="payroll-tab" data-tab="completo" onclick="switchSimTab('completo')">
+            <i class="fa-solid fa-table"></i> Completo
+        </button>
+    </div>
+
+    <div id="tab-resumen" class="tab-panel active">
+        <div class="table-responsive">
+            <table class="table-premium" style="font-size:0.82rem; min-width:800px;">
+                <thead><tr>
+                    <th style="min-width:180px; position:sticky; left:0; background:var(--bg-card); z-index:1;">Empleado</th>
+                    <th style="text-align:right;">Total Ingresos</th>
+                    <th style="text-align:right;">Total Descuentos</th>
+                    <th style="text-align:right;">Neto</th>
+                    <th style="text-align:right;">Costo Emp.</th>
+                </tr></thead>
+                <tbody id="simResTbody0">
+                    {% for l in simulation.lines %}
+                    <tr data-search="{{ (l.employeeName or '')|lower }}">
+                        <td style="position:sticky; left:0; background:var(--bg-card); font-weight:500;"><strong>{{ l.employeeName }}</strong></td>
+                        <td style="text-align:right; font-weight:600;">RD$ {{ "{:,.2f}".format(l.totalIncome) }}</td>
+                        <td style="text-align:right;">RD$ {{ "{:,.2f}".format(l.totalDeductions) }}</td>
+                        <td style="text-align:right; font-weight:700; color:var(--accent-emerald);">RD$ {{ "{:,.2f}".format(l.netSalary) }}</td>
+                        <td style="text-align:right;">RD$ {{ "{:,.2f}".format(l.totalEmployerContrib) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="tab-ingresos" class="tab-panel">
+        <div class="table-responsive">
+            <table class="table-premium" style="font-size:0.82rem; min-width:1000px;">
+                <thead><tr>
+                    <th style="min-width:180px; position:sticky; left:0; background:var(--bg-card); z-index:1;">Empleado</th>
+                    <th style="text-align:right;">Salario Base</th>
+                    <th style="text-align:right;">Horas Extras</th>
+                    <th style="text-align:right;">Comisiones</th>
+                    <th style="text-align:right;">Bonificación</th>
+                    <th style="text-align:right;">Otros Ingresos</th>
+                    <th style="text-align:right;">Total Ingresos</th>
+                </tr></thead>
+                <tbody id="simResTbody1">
+                    {% for l in simulation.lines %}
+                    <tr data-search="{{ (l.employeeName or '')|lower }}">
+                        <td style="position:sticky; left:0; background:var(--bg-card); font-weight:500;"><strong>{{ l.employeeName }}</strong></td>
+                        <td style="text-align:right;">RD$ {{ "{:,.2f}".format(l.grossSalary) }}</td>
+                        <td style="text-align:right;">
+                            {% if l.overtimePay and l.overtimePay|float > 0 %}
+                            RD$ {{ "{:,.2f}".format(l.overtimePay) }}
+                            <span style="font-size:0.65rem;color:var(--text-muted);display:block;">{{ l.overtimeHours|float }} h</span>
+                            {% else %}—{% endif %}
+                        </td>
+                        <td style="text-align:right;">{% if l.commission and l.commission|float > 0 %}RD$ {{ "{:,.2f}".format(l.commission) }}{% else %}—{% endif %}</td>
+                        <td style="text-align:right;">{% if l.bonus and l.bonus|float > 0 %}RD$ {{ "{:,.2f}".format(l.bonus) }}{% else %}—{% endif %}</td>
+                        <td style="text-align:right;">{% if l.otherIncome and l.otherIncome|float > 0 %}RD$ {{ "{:,.2f}".format(l.otherIncome) }}{% else %}—{% endif %}</td>
+                        <td style="text-align:right; font-weight:600;">RD$ {{ "{:,.2f}".format(l.totalIncome) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="tab-descuentos" class="tab-panel">
+        <div class="table-responsive">
+            <table class="table-premium" style="font-size:0.82rem; min-width:1200px;">
+                <thead><tr>
+                    <th style="min-width:180px; position:sticky; left:0; background:var(--bg-card); z-index:1;">Empleado</th>
+                    <th style="text-align:right;">Total Ingresos</th>
+                    <th style="text-align:right;">AFP</th>
+                    <th style="text-align:right;">SFS</th>
+                    <th style="text-align:right;">ISR</th>
+                    <th style="text-align:right;">Otras Ded.</th>
+                    <th style="text-align:right;">Total Descuentos</th>
+                    <th style="text-align:right;">Neto</th>
+                    <th style="text-align:right;">Costo Emp.</th>
+                </tr></thead>
+                <tbody id="simResTbody2">
+                    {% for l in simulation.lines %}
+                    <tr data-search="{{ (l.employeeName or '')|lower }}">
+                        <td style="position:sticky; left:0; background:var(--bg-card); font-weight:500;"><strong>{{ l.employeeName }}</strong></td>
+                        <td style="text-align:right; font-weight:600;">RD$ {{ "{:,.2f}".format(l.totalIncome) }}</td>
+                        <td style="text-align:right;">RD$ {{ "{:,.2f}".format(l.afpEmployee) }}</td>
+                        <td style="text-align:right;">RD$ {{ "{:,.2f}".format(l.sfsEmployee) }}</td>
+                        <td style="text-align:right;">RD$ {{ "{:,.2f}".format(l.isrRetention) }}</td>
+                        <td style="text-align:right;">{% if l.otherDeductions and l.otherDeductions|float > 0 %}RD$ {{ "{:,.2f}".format(l.otherDeductions) }}{% else %}—{% endif %}</td>
+                        <td style="text-align:right;">RD$ {{ "{:,.2f}".format(l.totalDeductions) }}</td>
+                        <td style="text-align:right; font-weight:700; color:var(--accent-emerald);">RD$ {{ "{:,.2f}".format(l.netSalary) }}</td>
+                        <td style="text-align:right;">RD$ {{ "{:,.2f}".format(l.totalEmployerContrib) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="tab-completo" class="tab-panel">
+        <div class="table-responsive">
+            <table class="table-premium" style="font-size:0.82rem; min-width:1600px;">
+                <thead><tr>
+                    <th style="min-width:180px; position:sticky; left:0; background:var(--bg-card); z-index:1;">Empleado</th>
+                    <th style="text-align:right;">Salario Base</th>
+                    <th style="text-align:right;">Horas Extras</th>
+                    <th style="text-align:right;">Comisiones</th>
+                    <th style="text-align:right;">Bonificación</th>
+                    <th style="text-align:right;">Otros Ingresos</th>
+                    <th style="text-align:right;">Total Ingresos</th>
+                    <th style="text-align:right;">AFP</th>
+                    <th style="text-align:right;">SFS</th>
+                    <th style="text-align:right;">ISR</th>
+                    <th style="text-align:right;">Otras Ded.</th>
+                    <th style="text-align:right;">Total Descuentos</th>
+                    <th style="text-align:right;">Neto</th>
+                    <th style="text-align:right;">Costo Emp.</th>
+                </tr></thead>
+                <tbody id="simResTbody3">
+                    {% for l in simulation.lines %}
+                    <tr data-search="{{ (l.employeeName or '')|lower }}">
+                        <td style="position:sticky; left:0; background:var(--bg-card); font-weight:500;"><strong>{{ l.employeeName }}</strong></td>
+                        <td style="text-align:right;">RD$ {{ "{:,.2f}".format(l.grossSalary) }}</td>
+                        <td style="text-align:right;">
+                            {% if l.overtimePay and l.overtimePay|float > 0 %}
+                            RD$ {{ "{:,.2f}".format(l.overtimePay) }}
+                            <span style="font-size:0.65rem;color:var(--text-muted);display:block;">{{ l.overtimeHours|float }} h</span>
+                            {% else %}—{% endif %}
+                        </td>
+                        <td style="text-align:right;">{% if l.commission and l.commission|float > 0 %}RD$ {{ "{:,.2f}".format(l.commission) }}{% else %}—{% endif %}</td>
+                        <td style="text-align:right;">{% if l.bonus and l.bonus|float > 0 %}RD$ {{ "{:,.2f}".format(l.bonus) }}{% else %}—{% endif %}</td>
+                        <td style="text-align:right;">{% if l.otherIncome and l.otherIncome|float > 0 %}RD$ {{ "{:,.2f}".format(l.otherIncome) }}{% else %}—{% endif %}</td>
+                        <td style="text-align:right; font-weight:600;">RD$ {{ "{:,.2f}".format(l.totalIncome) }}</td>
+                        <td style="text-align:right;">RD$ {{ "{:,.2f}".format(l.afpEmployee) }}</td>
+                        <td style="text-align:right;">RD$ {{ "{:,.2f}".format(l.sfsEmployee) }}</td>
+                        <td style="text-align:right;">RD$ {{ "{:,.2f}".format(l.isrRetention) }}</td>
+                        <td style="text-align:right;">{% if l.otherDeductions and l.otherDeductions|float > 0 %}RD$ {{ "{:,.2f}".format(l.otherDeductions) }}{% else %}—{% endif %}</td>
+                        <td style="text-align:right;">RD$ {{ "{:,.2f}".format(l.totalDeductions) }}</td>
+                        <td style="text-align:right; font-weight:700; color:var(--accent-emerald);">RD$ {{ "{:,.2f}".format(l.netSalary) }}</td>
+                        <td style="text-align:right;">RD$ {{ "{:,.2f}".format(l.totalEmployerContrib) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="simResPagination" style="display:flex; justify-content:center; align-items:center; gap:8px; margin-top:12px; padding-top:8px; border-top:1px solid var(--border-color);"></div>
+
+    <div style="margin-top:12px; display:flex; gap:8px; justify-content:flex-end;">
+        <button type="button" class="btn btn-primary" onclick="exportSimCSV()">
+            <i class="fa-solid fa-file-csv"></i> Exportar CSV
+        </button>
     </div>
 </div>
 {% endif %}
 </div>
+
+<script>
+(function() {
+    var tbody = document.getElementById('simVarTbody');
+    var searchEl = document.getElementById('simVarSearch');
+    var perPageEl = document.getElementById('simVarPerPage');
+    var paginationEl = document.getElementById('simVarPagination');
+    var countEl = document.getElementById('simVarCount');
+    if (!tbody || !searchEl || !perPageEl || !paginationEl || !countEl) return;
+
+    var allRows = Array.from(tbody.querySelectorAll('tr'));
+    var filteredRows = allRows.slice();
+    var currentPage = 1;
+    var perPage = parseInt(perPageEl.value) || 5;
+
+    function getSearchTokens() {
+        return searchEl.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    }
+
+    function applyFilter() {
+        var tokens = getSearchTokens();
+        if (tokens.length === 0) {
+            filteredRows = allRows.slice();
+        } else {
+            filteredRows = allRows.filter(function(row) {
+                var text = (row.getAttribute('data-search') || '');
+                return tokens.every(function(t) { return text.indexOf(t) !== -1; });
+            });
+        }
+        currentPage = 1;
+        render();
+    }
+
+    function render() {
+        perPage = parseInt(perPageEl.value) || 5;
+        var totalPages = Math.max(1, Math.ceil(filteredRows.length / perPage));
+        if (currentPage > totalPages) currentPage = totalPages;
+        var start = (currentPage - 1) * perPage;
+        var end = start + perPage;
+        var pageRows = filteredRows.slice(start, end);
+
+        allRows.forEach(function(r) { r.style.display = 'none'; });
+        pageRows.forEach(function(r) { r.style.display = ''; });
+
+        countEl.textContent = filteredRows.length === allRows.length
+            ? allRows.length + ' empleados'
+            : filteredRows.length + ' de ' + allRows.length + ' empleados';
+
+        var html = '';
+        if (totalPages > 1) {
+            if (currentPage > 1) {
+                html += '<button type="button" class="btn btn-sm btn-ghost" data-page="' + (currentPage - 1) + '"><i class="fa-solid fa-chevron-left"></i></button>';
+            }
+            html += '<span style="font-size:0.8rem; color:var(--text-muted);">P&aacute;gina ' + currentPage + ' de ' + totalPages + '</span>';
+            if (currentPage < totalPages) {
+                html += '<button type="button" class="btn btn-sm btn-ghost" data-page="' + (currentPage + 1) + '"><i class="fa-solid fa-chevron-right"></i></button>';
+            }
+        }
+        paginationEl.innerHTML = html;
+    }
+
+    searchEl.addEventListener('input', applyFilter);
+    perPageEl.addEventListener('change', function() { currentPage = 1; render(); });
+    paginationEl.addEventListener('click', function(e) {
+        var btn = e.target.closest('button[data-page]');
+        if (btn) {
+            currentPage = parseInt(btn.getAttribute('data-page'));
+            render();
+            paginationEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+    });
+
+    render();
+})();
+
+function switchSimTab(tabName) {
+    document.querySelectorAll('.payroll-tab').forEach(function(t) { t.classList.remove('active'); });
+    document.querySelectorAll('.tab-panel').forEach(function(p) { p.classList.remove('active'); });
+    document.querySelector('[data-tab="' + tabName + '"]').classList.add('active');
+    document.getElementById('tab-' + tabName).classList.add('active');
+    try { localStorage.setItem('payroll-sim-tab', tabName); } catch(e) {}
+}
+
+(function() {
+    var tabPanels = document.querySelectorAll('.tab-panel');
+    if (!tabPanels.length) return;
+
+    var allRows = [];
+    tabPanels.forEach(function(panel) {
+        allRows.push(Array.from(panel.querySelectorAll('tbody tr')));
+    });
+
+    var employeeCount = allRows[0] ? allRows[0].length : 0;
+    if (employeeCount === 0) return;
+
+    var searchEl = document.getElementById('simResSearch');
+    var perPageEl = document.getElementById('simResPerPage');
+    var paginationEl = document.getElementById('simResPagination');
+    var countEl = document.getElementById('simResCount');
+    if (!searchEl || !perPageEl || !paginationEl || !countEl) return;
+
+    var currentPage = 1;
+    var visibleIndices = [];
+    for (var i = 0; i < employeeCount; i++) visibleIndices.push(i);
+    var filteredIndices = visibleIndices.slice();
+
+    function getSearchTokens() {
+        return searchEl.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    }
+
+    function applyFilter() {
+        var tokens = getSearchTokens();
+        if (tokens.length === 0) {
+            filteredIndices = visibleIndices.slice();
+        } else {
+            filteredIndices = visibleIndices.filter(function(idx) {
+                var row = allRows[0][idx];
+                var text = (row.getAttribute('data-search') || '');
+                return tokens.every(function(t) { return text.indexOf(t) !== -1; });
+            });
+        }
+        currentPage = 1;
+        render();
+    }
+
+    function render() {
+        var perPage = parseInt(perPageEl.value) || 10;
+        var totalPages = Math.max(1, Math.ceil(filteredIndices.length / perPage));
+        if (currentPage > totalPages) currentPage = totalPages;
+        var start = (currentPage - 1) * perPage;
+        var end = start + perPage;
+        var pageIndices = filteredIndices.slice(start, end);
+        var pageSet = {};
+        pageIndices.forEach(function(idx) { pageSet[idx] = true; });
+
+        allRows.forEach(function(rows) {
+            rows.forEach(function(row, idx) {
+                row.style.display = pageSet[idx] ? '' : 'none';
+            });
+        });
+
+        countEl.textContent = filteredIndices.length === employeeCount
+            ? employeeCount + ' empleados'
+            : filteredIndices.length + ' de ' + employeeCount + ' empleados';
+
+        var html = '';
+        if (totalPages > 1) {
+            if (currentPage > 1) {
+                html += '<button type="button" class="btn btn-sm btn-ghost" data-page="' + (currentPage - 1) + '"><i class="fa-solid fa-chevron-left"></i> Anterior</button>';
+            }
+            html += '<span style="font-size:0.8rem; color:var(--text-muted);">P&aacute;gina ' + currentPage + ' de ' + totalPages + '</span>';
+            if (currentPage < totalPages) {
+                html += '<button type="button" class="btn btn-sm btn-ghost" data-page="' + (currentPage + 1) + '">Siguiente <i class="fa-solid fa-chevron-right"></i></button>';
+            }
+        }
+        paginationEl.innerHTML = html;
+    }
+
+    searchEl.addEventListener('input', applyFilter);
+    perPageEl.addEventListener('change', function() { currentPage = 1; render(); });
+    paginationEl.addEventListener('click', function(e) {
+        var btn = e.target.closest('button[data-page]');
+        if (btn) {
+            currentPage = parseInt(btn.getAttribute('data-page'));
+            render();
+            paginationEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+    });
+
+    var saved = null;
+    try { saved = localStorage.getItem('payroll-sim-tab'); } catch(e) {}
+    if (saved && document.getElementById('tab-' + saved)) {
+        switchSimTab(saved);
+    }
+
+    render();
+})();
+
+function exportSimCSV() {
+    var activePanel = document.querySelector('.tab-panel.active');
+    if (!activePanel) return;
+    var table = activePanel.querySelector('.table-premium');
+    if (!table) return;
+    var rows = Array.from(table.querySelectorAll('tr'));
+    if (rows.length === 0) return;
+    var csv = '\uFEFF';
+    var headers = Array.from(rows[0].querySelectorAll('th')).map(function(th) {
+        return '"' + th.textContent.trim() + '"';
+    });
+    csv += headers.join(',') + '\n';
+    for (var i = 1; i < rows.length; i++) {
+        if (rows[i].style.display === 'none') continue;
+        var cells = Array.from(rows[i].querySelectorAll('td'));
+        var line = cells.map(function(td) {
+            var txt = td.textContent.trim().replace(/\s+/g, ' ').replace(/"/g, '""');
+            return '"' + txt + '"';
+        }).join(',');
+        csv += line + '\n';
+    }
+    var a = document.createElement('a');
+    a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+    a.download = 'simulacion_nomina.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+}
+</script>
 {% endblock %}

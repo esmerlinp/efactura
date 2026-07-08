@@ -159,39 +159,157 @@
         <div style="padding:0 20px 20px;">
             <p style="color:var(--text-muted); font-size:0.82rem; margin:0 0 12px;">
                 Cada fila define un tramo: <strong>desde, hasta, tasa (%), cuota fija (RD$)</strong>.
-                El último tramo debe tener "inf" como límite superior (dejar vacío).
+                La última escala debe tener "inf" como límite superior.
             </p>
             <div class="table-responsive">
                 <table class="table-premium" style="font-size:0.82rem;">
                     <thead>
                         <tr>
-                            <th>Tramo</th>
+                            <th>Escala</th>
                             <th>Desde (RD$)</th>
                             <th>Hasta (RD$)</th>
                             <th>Tasa (%)</th>
                             <th>Cuota Fija (RD$)</th>
+                            <th style="width:40px;"></th>
                         </tr>
                     </thead>
-                    <tbody>
-                        {% for i in range(4) %}
-                        {% set tramo = tax_rates.isrAnnualTable[i] if i < tax_rates.isrAnnualTable|length else [0, 0, 0, 0] %}
-                        <tr>
+                    <tbody id="isr-tbody">
+                        {% set isr_table = tax_rates.isrAnnualTable %}
+                        {% for i in range(isr_table|length) %}
+                        {% set tramo = isr_table[i] %}
+                        {% set is_last = loop.last %}
+                        <tr data-row="{{ i }}">
                             <td><strong>{{ i + 1 }}</strong></td>
                             <td><input type="number" step="0.01" name="isr_from_{{ i }}" class="form-input" value="{{ "%.2f" % tramo[0] }}" style="width:130px;"></td>
                             <td>
-                                {% if i < 3 %}
-                                <input type="number" step="0.01" name="isr_to_{{ i }}" class="form-input" value="{{ "%.2f" % tramo[1] }}" style="width:130px;">
-                                {% else %}
+                                {% if is_last %}
                                 <input type="text" class="form-input" value="inf" disabled style="width:130px; background:var(--bg-nav-hover);">
                                 <input type="hidden" name="isr_to_{{ i }}" value="999999999">
+                                {% else %}
+                                <input type="number" step="0.01" name="isr_to_{{ i }}" class="form-input" value="{{ "%.2f" % tramo[1] }}" style="width:130px;">
                                 {% endif %}
                             </td>
                             <td><input type="number" step="0.01" name="isr_rate_{{ i }}" class="form-input" value="{{ "%.2f" % (tramo[2] * 100) }}" style="width:100px;"></td>
                             <td><input type="number" step="0.01" name="isr_fixed_{{ i }}" class="form-input" value="{{ "%.2f" % tramo[3] }}" style="width:120px;"></td>
+                            <td>
+                                {% if not is_last and isr_table|length > 2 %}
+                                <button type="button" class="btn btn-sm btn-ghost" onclick="removeIsrRow(this)" style="color:var(--danger);"><i class="fa-solid fa-trash"></i></button>
+                                {% endif %}
+                            </td>
                         </tr>
                         {% endfor %}
                     </tbody>
                 </table>
+            </div>
+            <button type="button" class="btn btn-sm btn-ghost" onclick="addIsrRow()" style="margin-top:8px;">
+                <i class="fa-solid fa-plus"></i> Agregar escala
+            </button>
+        </div>
+    </div>
+
+    <!-- ═══════════ CÁLCULO DE HORAS EXTRA ═══════════ -->
+    <div class="card-table-wrapper" style="margin-bottom:16px;">
+        <div class="table-header-row">
+            <div><h3><i class="fa-solid fa-clock"></i> Cálculo de Horas Extra</h3></div>
+        </div>
+        <div style="padding:0 20px 20px;">
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:16px;">
+                <div class="form-group">
+                    <label>Multiplicador hora extra (%)</label>
+                    <input type="number" step="0.01" name="overtimeRate" class="form-input"
+                           value="{{ "%.2f" % (tax_rates.overtimeRate * 100) }}">
+                    <p style="font-size:0.7rem; color:var(--text-muted); margin:4px 0 0;">135% = pago a 1.35× la hora normal</p>
+                </div>
+                <div class="form-group">
+                    <label>Días laborables por mes</label>
+                    <input type="number" step="0.01" name="workingDaysPerMonth" class="form-input"
+                           value="{{ "%.2f" % tax_rates.workingDaysPerMonth }}">
+                    <p style="font-size:0.7rem; color:var(--text-muted); margin:4px 0 0;">Estándar RD: 23.83 (promedio anual)</p>
+                </div>
+                <div class="form-group">
+                    <label>Horas laborables por día</label>
+                    <input type="number" step="0.1" name="workingHoursPerDay" class="form-input"
+                           value="{{ "%.1f" % tax_rates.workingHoursPerDay }}">
+                    <p style="font-size:0.7rem; color:var(--text-muted); margin:4px 0 0;">Estándar: 8 horas diarias</p>
+                </div>
+            </div>
+            <p style="font-size:0.78rem; color:var(--text-muted); margin-top:12px;">
+                <i class="fa-solid fa-circle-info"></i>
+                Fórmula: <strong>(Salario base / Días × Horas) × Multiplicador</strong>. Ej: RD$ 30,000 / 23.83 / 8 × 1.35 = RD$ 212.43/hora extra.
+            </p>
+        </div>
+    </div>
+
+    <!-- ═══════════ PARÁMETROS ADICIONALES ═══════════ -->
+    <div class="card-table-wrapper" style="margin-bottom:16px;">
+        <div class="table-header-row">
+            <div><h3><i class="fa-solid fa-sliders"></i> Parámetros Adicionales</h3></div>
+        </div>
+        <div style="padding:0 20px 20px;">
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:16px;">
+                <div class="form-group">
+                    <label>Multiplicador umbral INFOTEP empleado</label>
+                    <input type="number" step="0.1" name="infotepThresholdMultiplier" class="form-input"
+                           value="{{ "%.1f" % tax_rates.infotepThresholdMultiplier }}">
+                    <p style="font-size:0.7rem; color:var(--text-muted); margin:4px 0 0;">
+                        INFOTEP se cobra al empleado si su ingreso > multiplicador × salario mínimo.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════ CUENTAS CONTABLES ═══════════ -->
+    <div class="card-table-wrapper" style="margin-bottom:16px;">
+        <div class="table-header-row">
+            <div><h3><i class="fa-solid fa-book-open"></i> Cuentas Contables</h3></div>
+        </div>
+        <div style="padding:0 20px 20px;">
+            <p style="color:var(--text-muted); font-size:0.82rem; margin:0 0 16px;">
+                Códigos de cuenta del catálogo contable para el asiento automático de nómina.
+            </p>
+
+            <div style="margin-bottom:20px;">
+                <h4 style="font-size:0.85rem; font-weight:700; margin:0 0 10px; color:var(--text-primary);">Cuentas de pasivo (HABER)</h4>
+                <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:12px;">
+                    {% set accounts = [
+                        ('accountSalariesPayable', 'Salarios por pagar', '2.1.2.1.02'),
+                        ('accountAfpEmployee', 'Retenciones AFP empleado', '2.1.2.1.05'),
+                        ('accountSfsEmployee', 'Retenciones SFS empleado', '2.1.2.1.06'),
+                        ('accountIsrEmployee', 'Retención ISR empleados', '2.1.2.1.08'),
+                        ('accountAfpEmployer', 'Acumulaciones AFP empleador', '2.1.2.1.10'),
+                        ('accountSfsEmployer', 'Acumulaciones SFS empleador', '2.1.2.1.09'),
+                        ('accountSrlEmployer', 'Acumulaciones SRL empleador', '2.1.2.1.11'),
+                        ('accountInfotepEmployer', 'Acumulaciones INFOTEP empleador', '2.1.2.1.12'),
+                    ] %}
+                    {% for acct in accounts %}
+                    <div class="form-group" style="margin:0;">
+                        <label style="font-size:0.78rem;">{{ acct[1] }}</label>
+                        <input type="text" name="{{ acct[0] }}" class="form-input" style="font-family:monospace; font-size:0.82rem;"
+                               value="{{ tax_rates[acct[0]] }}">
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div>
+                <h4 style="font-size:0.85rem; font-weight:700; margin:0 0 10px; color:var(--text-primary);">Cuentas de gasto por centro de costo (DEBE)</h4>
+                {% set cc_accounts = tax_rates.costCenterAccounts %}
+                <table class="table-premium" style="font-size:0.82rem; margin-bottom:8px;">
+                    <thead><tr><th>Centro de costo</th><th>Código de cuenta</th><th></th></tr></thead>
+                    <tbody id="cc-accounts-tbody">
+                        {% for cc_name, cc_code in cc_accounts.items() %}
+                        <tr>
+                            <td><input type="text" name="cc_name_{{ loop.index0 }}" class="form-input" value="{{ cc_name }}" style="font-family:monospace; font-size:0.82rem;"></td>
+                            <td><input type="text" name="cc_code_{{ loop.index0 }}" class="form-input" value="{{ cc_code }}" style="font-family:monospace; font-size:0.82rem;"></td>
+                            <td style="width:40px;"><button type="button" class="btn btn-sm btn-ghost" onclick="this.closest('tr').remove()" style="color:var(--danger);"><i class="fa-solid fa-trash"></i></button></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                <button type="button" class="btn btn-sm btn-ghost" onclick="addCostCenterRow()">
+                    <i class="fa-solid fa-plus"></i> Agregar centro de costo
+                </button>
             </div>
         </div>
     </div>
@@ -228,6 +346,71 @@ function selectMode(mode) {
     card.style.background = mode === 'company' ? 'rgba(16,185,129,0.06)' : 'rgba(124,58,237,0.06)';
     card.querySelector('input').checked = true;
     document.getElementById('company-freq-section').style.display = mode === 'company' ? '' : 'none';
+}
+function addCostCenterRow() {
+    var tbody = document.getElementById('cc-accounts-tbody');
+    var idx = tbody.querySelectorAll('tr').length;
+    var tr = document.createElement('tr');
+    tr.innerHTML = '<td><input type="text" name="cc_name_' + idx + '" class="form-input" placeholder="Ej: Logística" style="font-family:monospace; font-size:0.82rem;"></td>'
+        + '<td><input type="text" name="cc_code_' + idx + '" class="form-input" placeholder="Ej: 6.2.1.01.04" style="font-family:monospace; font-size:0.82rem;"></td>'
+        + '<td style="width:40px;"><button type="button" class="btn btn-sm btn-ghost" onclick="this.closest(\'tr\').remove()" style="color:var(--danger);"><i class="fa-solid fa-trash"></i></button></td>';
+    tbody.appendChild(tr);
+}
+function reindexIsrRows() {
+    var rows = document.querySelectorAll('#isr-tbody tr');
+    var total = rows.length;
+    rows.forEach(function(row, idx) {
+        row.setAttribute('data-row', idx);
+        row.querySelector('strong').textContent = idx + 1;
+        var isLast = idx === total - 1;
+        // Update name attributes
+        row.querySelectorAll('input[name], input[name]').forEach(function(inp) {
+            if (inp.name) inp.name = inp.name.replace(/_\d+$/, '_' + idx);
+        });
+        // Update "hasta" column for last row
+        var tdHasta = row.querySelectorAll('td')[2];
+        if (isLast) {
+            tdHasta.innerHTML = '<input type="text" class="form-input" value="inf" disabled style="width:130px; background:var(--bg-nav-hover);"><input type="hidden" name="isr_to_' + idx + '" value="999999999">';
+        } else {
+            tdHasta.innerHTML = '<input type="number" step="0.01" name="isr_to_' + idx + '" class="form-input" value="0.00" style="width:130px;">';
+        }
+        // Show/hide delete button
+        var delTd = row.querySelectorAll('td')[5];
+        if (isLast || total <= 2) {
+            delTd.innerHTML = '';
+        } else {
+            delTd.innerHTML = '<button type="button" class="btn btn-sm btn-ghost" onclick="removeIsrRow(this)" style="color:var(--danger);"><i class="fa-solid fa-trash"></i></button>';
+        }
+    });
+}
+function addIsrRow() {
+    var tbody = document.getElementById('isr-tbody');
+    var rows = tbody.querySelectorAll('tr');
+    var total = rows.length;
+    var newIdx = total;
+    // Convert current last row from "inf" to normal number input
+    var lastRow = rows[total - 1];
+    if (lastRow) {
+        var tdHasta = lastRow.querySelectorAll('td')[2];
+        tdHasta.innerHTML = '<input type="number" step="0.01" name="isr_to_' + (total - 1) + '" class="form-input" value="0.00" style="width:130px;">';
+        var delTd = lastRow.querySelectorAll('td')[5];
+        delTd.innerHTML = '<button type="button" class="btn btn-sm btn-ghost" onclick="removeIsrRow(this)" style="color:var(--danger);"><i class="fa-solid fa-trash"></i></button>';
+    }
+    // Add new last row with "inf"
+    var tr = document.createElement('tr');
+    tr.setAttribute('data-row', newIdx);
+    tr.innerHTML = ''
+        + '<td><strong>' + (newIdx + 1) + '</strong></td>'
+        + '<td><input type="number" step="0.01" name="isr_from_' + newIdx + '" class="form-input" value="0.00" style="width:130px;"></td>'
+        + '<td><input type="text" class="form-input" value="inf" disabled style="width:130px; background:var(--bg-nav-hover);"><input type="hidden" name="isr_to_' + newIdx + '" value="999999999"></td>'
+        + '<td><input type="number" step="0.01" name="isr_rate_' + newIdx + '" class="form-input" value="0.00" style="width:100px;"></td>'
+        + '<td><input type="number" step="0.01" name="isr_fixed_' + newIdx + '" class="form-input" value="0.00" style="width:120px;"></td>'
+        + '<td></td>';
+    tbody.appendChild(tr);
+}
+function removeIsrRow(btn) {
+    btn.closest('tr').remove();
+    reindexIsrRows();
 }
 </script>
 {% endblock %}
