@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="margin:0; padding:0; background:#f4f6f8; font-family:Arial,Helvetica,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6f8; padding:24px 0;">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="background:#fff; border-radius:10px; overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+
+    <!-- Encabezado -->
+    <tr>
+        <td style="background:#10b981; padding:24px 28px; text-align:center;">
+            <h2 style="margin:0; color:#fff; font-size:18px; font-weight:700;">VOLANTE DE PAGO</h2>
+            <p style="margin:4px 0 0; color:rgba(255,255,255,0.85); font-size:13px;">{{ period.get('periodRange') or period.periodKey }}</p>
+        </td>
+    </tr>
+
+    <!-- Datos empleado -->
+    <tr>
+        <td style="padding:20px 28px;">
+            <table width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                    <td style="padding:4px 12px 4px 0; width:50%; vertical-align:top;">
+                        <span style="font-size:10px; color:#94a3b8; text-transform:uppercase; font-weight:700;">Empleado</span><br>
+                        <span style="font-size:14px; color:#1e293b; font-weight:600;">{{ employee.fullName }}</span>
+                    </td>
+                    <td style="padding:4px 0 4px 12px; width:50%; vertical-align:top;">
+                        <span style="font-size:10px; color:#94a3b8; text-transform:uppercase; font-weight:700;">Identificación</span><br>
+                        <span style="font-size:14px; color:#1e293b;">{{ employee.cedula or employee.idNumber or '—' }}</span>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="padding:8px 12px 4px 0; vertical-align:top;">
+                        <span style="font-size:10px; color:#94a3b8; text-transform:uppercase; font-weight:700;">Cargo</span><br>
+                        <span style="font-size:14px; color:#1e293b;">{{ employee.position or '—' }}</span>
+                    </td>
+                    <td style="padding:8px 0 4px 12px; vertical-align:top;">
+                        <span style="font-size:10px; color:#94a3b8; text-transform:uppercase; font-weight:700;">Salario Base</span><br>
+                        <span style="font-size:14px; color:#1e293b; font-weight:600;">RD$ {{ "{:,.2f}".format(line.baseSalary|float) if line.baseSalary else '—' }}</span>
+                    </td>
+                </tr>
+            </table>
+        </td>
+    </tr>
+
+    <!-- Ingresos -->
+    <tr><td style="padding:0 28px;">
+        <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+            <tr style="background:#f1f5f9;">
+                <td colspan="2" style="padding:8px 12px; font-size:12px; font-weight:700; color:#475569; border-radius:6px 6px 0 0;">+ Ingresos</td>
+            </tr>
+            <tr>
+                <td style="padding:6px 12px 6px 24px; font-size:13px; color:#334155;">Salario base del período</td>
+                <td style="text-align:right; padding:6px 12px; font-size:13px; color:#1e293b; white-space:nowrap;">{{ "RD$ {:,.2f}".format(line.grossSalary|float) if line.grossSalary else '—' }}</td>
+            </tr>
+            {% if line.overtimePay and line.overtimePay|float > 0 %}
+            <tr>
+                <td style="padding:4px 12px 4px 24px; font-size:13px; color:#334155;">Horas extra ({{ line.overtimeHours|float }} h)</td>
+                <td style="text-align:right; padding:4px 12px; font-size:13px; color:#1e293b; white-space:nowrap;">{{ "RD$ {:,.2f}".format(line.overtimePay|float) }}</td>
+            </tr>
+            {% endif %}
+            {% if line.commission and line.commission|float > 0 %}
+            <tr>
+                <td style="padding:4px 12px 4px 24px; font-size:13px; color:#334155;">Comisión</td>
+                <td style="text-align:right; padding:4px 12px; font-size:13px; color:#1e293b; white-space:nowrap;">{{ "RD$ {:,.2f}".format(line.commission|float) }}</td>
+            </tr>
+            {% endif %}
+            {% if line.bonus and line.bonus|float > 0 %}
+            <tr>
+                <td style="padding:4px 12px 4px 24px; font-size:13px; color:#334155;">Bonificación</td>
+                <td style="text-align:right; padding:4px 12px; font-size:13px; color:#1e293b; white-space:nowrap;">{{ "RD$ {:,.2f}".format(line.bonus|float) }}</td>
+            </tr>
+            {% endif %}
+            {% if line.otherIncome and line.otherIncome|float > 0 %}
+            <tr>
+                <td style="padding:4px 12px 4px 24px; font-size:13px; color:#334155;">Otros ingresos</td>
+                <td style="text-align:right; padding:4px 12px; font-size:13px; color:#1e293b; white-space:nowrap;">{{ "RD$ {:,.2f}".format(line.otherIncome|float) }}</td>
+            </tr>
+            {% endif %}
+            <tr style="border-top:2px solid #e2e8f0;">
+                <td style="padding:8px 12px; font-size:13px; font-weight:700; color:#1e293b;">Total ingresos</td>
+                <td style="text-align:right; padding:8px 12px; font-size:13px; font-weight:700; color:#1e293b; white-space:nowrap;">{{ "RD$ {:,.2f}".format(line.totalIncome|float) }}</td>
+            </tr>
+        </table>
+    </td></tr>
+
+    <!-- Deducciones -->
+    <tr><td style="padding:12px 28px 0;">
+        <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+            <tr style="background:#f1f5f9;">
+                <td colspan="2" style="padding:8px 12px; font-size:12px; font-weight:700; color:#475569; border-radius:6px 6px 0 0;">- Deducciones</td>
+            </tr>
+            <tr>
+                <td style="padding:6px 12px 6px 24px; font-size:13px; color:#334155;">AFP</td>
+                <td style="text-align:right; padding:6px 12px; font-size:13px; color:#1e293b; white-space:nowrap;">{{ "RD$ {:,.2f}".format(line.afpEmployee|float) }}</td>
+            </tr>
+            <tr>
+                <td style="padding:4px 12px 4px 24px; font-size:13px; color:#334155;">SFS</td>
+                <td style="text-align:right; padding:4px 12px; font-size:13px; color:#1e293b; white-space:nowrap;">{{ "RD$ {:,.2f}".format(line.sfsEmployee|float) }}</td>
+            </tr>
+            {% if line.get('infotepEmployee', 0)|float > 0 %}
+            <tr>
+                <td style="padding:4px 12px 4px 24px; font-size:13px; color:#334155;">INFOTEP</td>
+                <td style="text-align:right; padding:4px 12px; font-size:13px; color:#1e293b; white-space:nowrap;">{{ "RD$ {:,.2f}".format(line.infotepEmployee|float) }}</td>
+            </tr>
+            {% endif %}
+            <tr>
+                <td style="padding:4px 12px 4px 24px; font-size:13px; color:#334155;">ISR</td>
+                <td style="text-align:right; padding:4px 12px; font-size:13px; color:#1e293b; white-space:nowrap;">{{ "RD$ {:,.2f}".format(line.isrRetention|float) }}</td>
+            </tr>
+            {% if line.otherDeductions and line.otherDeductions|float > 0 %}
+            <tr>
+                <td style="padding:4px 12px 4px 24px; font-size:13px; color:#334155;">Otras deducciones</td>
+                <td style="text-align:right; padding:4px 12px; font-size:13px; color:#1e293b; white-space:nowrap;">{{ "RD$ {:,.2f}".format(line.otherDeductions|float) }}</td>
+            </tr>
+            {% endif %}
+            <tr style="border-top:2px solid #e2e8f0;">
+                <td style="padding:8px 12px; font-size:13px; font-weight:700; color:#1e293b;">Total deducciones</td>
+                <td style="text-align:right; padding:8px 12px; font-size:13px; font-weight:700; color:#1e293b; white-space:nowrap;">{{ "RD$ {:,.2f}".format(line.totalDeductions|float) }}</td>
+            </tr>
+        </table>
+    </td></tr>
+
+    <!-- Neto -->
+    <tr>
+        <td style="padding:16px 28px;">
+            <table width="100%" cellpadding="0" cellspacing="0" style="background:#ecfdf5; border:2px solid #10b981; border-radius:8px;">
+                <tr>
+                    <td style="padding:14px 16px; text-align:center;">
+                        <span style="font-size:11px; color:#64748b; font-weight:700; text-transform:uppercase;">Neto a recibir</span><br>
+                        <span style="font-size:22px; font-weight:800; color:#059669;">RD$ {{ "{:,.2f}".format(line.netSalary|float) }}</span>
+                    </td>
+                </tr>
+            </table>
+        </td>
+    </tr>
+
+    <!-- Footer -->
+    <tr>
+        <td style="padding:12px 28px 20px; text-align:center;">
+            <p style="margin:0; font-size:11px; color:#94a3b8;">
+                {{ product_name }} · Período {{ period.get('periodKey','') }}
+                {% if period.get('processedDate') %} · {{ period.processedDate[:10] }}{% endif %}
+            </p>
+        </td>
+    </tr>
+
+</table>
+</td></tr>
+</table>
+</body>
+</html>

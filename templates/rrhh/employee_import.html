@@ -1,0 +1,1228 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}Importar Empleados — {{ product_name }}{% endblock %}
+{% block content %}
+{% include "rrhh/_styles.html" %}
+
+<div class="page-header hr-page-header">
+    <div style="display:flex; align-items:center; gap:12px;">
+        <a href="{{ url_for('web_rrhh.employee_list') }}" class="btn btn-ghost btn-sm" style="padding:6px 10px;">
+            <i class="fa-solid fa-arrow-left"></i>
+        </a>
+        <h1 class="page-title"><i class="fa-solid fa-file-csv"></i> Importar Empleados</h1>
+    </div>
+</div>
+
+<p style="color:var(--text-secondary); margin:-12px 0 20px 52px; font-size:0.88rem;">
+    Agrega múltiples empleados a tu equipo desde un archivo CSV en pocos pasos.
+</p>
+
+<div class="import-wizard" style="max-width:920px; margin:0 auto;">
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- STEP INDICATORS -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <div class="import-step-indicators">
+        <div class="import-step-dot" data-step="1">
+            <div class="import-step-circle">
+                <i class="fa-solid fa-download"></i>
+            </div>
+            <div class="import-step-label">Plantilla</div>
+        </div>
+        <div class="import-step-line"></div>
+        <div class="import-step-dot" data-step="2">
+            <div class="import-step-circle">
+                <i class="fa-solid fa-upload"></i>
+            </div>
+            <div class="import-step-label">Subir</div>
+        </div>
+        <div class="import-step-line"></div>
+        <div class="import-step-dot" data-step="3">
+            <div class="import-step-circle">
+                <i class="fa-solid fa-link"></i>
+            </div>
+            <div class="import-step-label">Mapeo</div>
+        </div>
+        <div class="import-step-line"></div>
+        <div class="import-step-dot" data-step="4">
+            <div class="import-step-circle">
+                <i class="fa-solid fa-check"></i>
+            </div>
+            <div class="import-step-label">Procesar</div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- STEP 1: PLANTILLA -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <div id="importStep1" class="import-step-panel">
+        <div class="hr-section-card" style="text-align:center; padding:40px 32px;">
+            <div class="import-icon-circle">
+                <i class="fa-solid fa-table"></i>
+            </div>
+            <h2 style="margin:16px 0 8px; font-size:1.2rem;">Paso 1: Descarga la plantilla</h2>
+            <p style="color:var(--text-secondary); max-width:520px; margin:0 auto 8px; font-size:0.88rem; line-height:1.5;">
+                El archivo CSV contiene <strong>todas las columnas</strong> que el sistema necesita para crear un empleado.
+                Los campos con <span style="color:var(--danger);">*</span> son obligatorios.
+            </p>
+            <p style="color:var(--text-muted); max-width:520px; margin:0 auto 24px; font-size:0.82rem;">
+                Incluye una fila de ejemplo para que sepas exactamente cómo llenar cada campo.
+            </p>
+
+            <a href="{{ url_for('web_rrhh.employee_import_template') }}"
+               class="btn btn-primary" style="font-size:0.95rem; padding:12px 28px;">
+                <i class="fa-solid fa-download"></i> Descargar plantilla CSV
+            </a>
+
+            <!-- Collapsible fields table -->
+            <div style="margin-top:28px; text-align:left;">
+                <button type="button" class="import-toggle-fields"
+                        onclick="toggleFieldsTable()" style="display:flex; align-items:center; gap:8px;
+                        margin:0 auto; background:none; border:1px solid var(--border-color); border-radius:var(--radius-sm);
+                        padding:8px 16px; cursor:pointer; color:var(--text-muted); font-size:0.82rem;">
+                    <i id="toggleFieldsIcon" class="fa-solid fa-chevron-down"></i>
+                    <span>Ver todas las columnas de la plantilla ({{ target_fields|length }})</span>
+                </button>
+                <div id="fieldsTableWrapper" style="display:none; margin-top:16px; overflow-x:auto;">
+                    <table class="import-fields-table">
+                        <thead>
+                            <tr>
+                                <th>Columna</th>
+                                <th>Descripción</th>
+                                <th style="width:80px; text-align:center;">Requerido</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for f in target_fields %}
+                            <tr class="{{ 'import-row-required' if f.required else '' }}">
+                                <td><code>{{ f.id }}</code></td>
+                                <td>{{ f.name.rstrip(' *') }}</td>
+                                <td style="text-align:center;">
+                                    {% if f.required %}
+                                    <span style="color:var(--danger); font-weight:700;">* Sí</span>
+                                    {% else %}
+                                    <span style="color:var(--text-muted);">No</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div style="display:flex; justify-content:flex-end; margin-top:16px;">
+            <button type="button" class="btn btn-primary" onclick="goToStep(2)">
+                Ya tengo mi archivo, siguiente <i class="fa-solid fa-arrow-right"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- STEP 2: SUBIR ARCHIVO -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <div id="importStep2" class="import-step-panel" style="display:none;">
+        <div class="hr-section-card" style="padding:32px;">
+            <h3 style="margin-bottom:20px;"><i class="fa-solid fa-upload"></i> Paso 2: Sube tu archivo CSV</h3>
+
+            <!-- Drop zone -->
+            <div id="dropZone" class="import-drop-zone">
+                <div class="import-drop-content">
+                    <i class="fa-solid fa-cloud-arrow-up import-drop-icon"></i>
+                    <p style="font-weight:600; margin:8px 0 4px;">Arrastra tu archivo CSV aquí</p>
+                    <p style="color:var(--text-muted); font-size:0.82rem;">o haz clic para seleccionarlo</p>
+                    <p style="color:var(--text-muted); font-size:0.75rem; margin-top:4px;">Formatos aceptados: .csv — Tamaño máximo: 10 MB</p>
+                </div>
+                <input type="file" id="fileInput" accept=".csv" style="display:none;">
+            </div>
+
+            <!-- Upload status -->
+            <div id="uploadStatus" style="display:none; margin-top:20px;">
+                <div id="uploadLoading" style="display:none; text-align:center; padding:20px;">
+                    <i class="fa-solid fa-spinner fa-spin" style="font-size:1.5rem; color:var(--accent-emerald);"></i>
+                    <p style="margin-top:8px; color:var(--text-muted);">Analizando archivo...</p>
+                </div>
+                <div id="uploadError" style="display:none;" class="import-alert import-alert-error"></div>
+                <div id="uploadSuccess" style="display:none;">
+                    <div class="import-alert import-alert-success">
+                        <i class="fa-solid fa-circle-check"></i>
+                        <span id="uploadSuccessMsg"></span>
+                    </div>
+                    <!-- Mini preview -->
+                    <div style="overflow-x:auto; margin-top:12px; border:1px solid var(--border-color); border-radius:var(--radius-sm);">
+                        <table class="import-preview-table" id="uploadPreviewTable"></table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tip -->
+            <div style="margin-top:24px; padding:12px 16px; background:rgba(16,185,129,0.06); border-radius:var(--radius-sm);
+                        border-left:3px solid var(--accent-emerald);">
+                <i class="fa-solid fa-lightbulb" style="color:var(--accent-emerald);"></i>
+                <span style="font-size:0.82rem; color:var(--text-secondary); margin-left:8px;">
+                    ¿Aún no tienes la plantilla?
+                    <a href="{{ url_for('web_rrhh.employee_import_template') }}" style="color:var(--accent-emerald); font-weight:600;">Descárgala aquí</a>
+                </span>
+            </div>
+        </div>
+
+        <div style="display:flex; justify-content:space-between; margin-top:16px;">
+            <button type="button" class="btn btn-ghost" onclick="goToStep(1)">
+                <i class="fa-solid fa-arrow-left"></i> Anterior
+            </button>
+            <button type="button" id="step2NextBtn" class="btn btn-primary" disabled onclick="goToStep(3)">
+                Siguiente: Mapear columnas <i class="fa-solid fa-arrow-right"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- STEP 3: MAPEO -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <div id="importStep3" class="import-step-panel" style="display:none;">
+        <div class="hr-section-card" style="padding:28px 24px;">
+            <h3 style="margin-bottom:8px;"><i class="fa-solid fa-link"></i> Paso 3: Vista previa y mapeo de columnas</h3>
+            <p style="color:var(--text-muted); font-size:0.85rem; margin-bottom:20px;">
+                Asigna cada columna de tu archivo al campo correspondiente del sistema. Los campos con
+                <span style="color:var(--danger);">*</span> son obligatorios.
+            </p>
+
+            <!-- CSV Preview -->
+            <div style="margin-bottom:20px;">
+                <h4 style="font-size:0.88rem; margin-bottom:8px; color:var(--text-secondary);">
+                    <i class="fa-solid fa-eye"></i> Vista previa de tu archivo
+                    (<span id="previewRowCount">0</span> filas de <span id="previewTotalRows">0</span>)
+                </h4>
+                <div style="overflow-x:auto; border:1px solid var(--border-color); border-radius:var(--radius-sm);">
+                    <table class="import-preview-table" id="mappingPreviewTable"></table>
+                </div>
+            </div>
+
+            <!-- Auto-map button -->
+            <div style="margin-bottom:16px;">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="autoMapFields()">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i> Auto-detectar columnas
+                </button>
+                <span style="font-size:0.78rem; color:var(--text-muted); margin-left:8px;">
+                    El sistema intentará emparejar las columnas por nombre.
+                </span>
+            </div>
+
+            <!-- Mapping grid -->
+            <div id="mappingGrid" class="import-mapping-grid">
+                {% for f in target_fields %}
+                <div class="import-mapping-row" data-field="{{ f.id }}" data-required="{{ 'true' if f.required else 'false' }}">
+                    <div class="import-mapping-field">
+                        <span class="import-field-name">
+                            {{ f.name }}
+                            {% if f.required %}<span class="import-req-star">*</span>{% endif %}
+                        </span>
+                    </div>
+                    <div class="import-mapping-select">
+                        <select class="form-select import-map-select" data-field-id="{{ f.id }}" style="width:100%;">
+                            <option value="">— Ignorar —</option>
+                        </select>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <div id="mappingWarning" style="display:none; margin-top:16px;" class="import-alert import-alert-warning">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+                <span>Hay campos obligatorios sin mapear. Verifica los marcados en rojo.</span>
+            </div>
+        </div>
+
+        <div style="display:flex; justify-content:space-between; margin-top:16px;">
+            <button type="button" class="btn btn-ghost" onclick="goToStep(2)">
+                <i class="fa-solid fa-arrow-left"></i> Anterior
+            </button>
+            <button type="button" id="startImportBtn" class="btn btn-primary" onclick="startImport()">
+                <i class="fa-solid fa-rocket"></i> Iniciar importación
+            </button>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- STEP 4: PROCESANDO -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <div id="importStep4" class="import-step-panel" style="display:none;">
+        <div class="hr-section-card" id="processingCard" style="padding:40px 32px; text-align:center;">
+            <!-- Processing animation -->
+            <div id="processingView">
+                <div class="import-spinner">
+                    <i class="fa-solid fa-gear import-spin-gear"></i>
+                </div>
+                <h2 style="margin:16px 0 8px; font-size:1.1rem;" id="processingTitle">Procesando archivo...</h2>
+                <p style="color:var(--text-muted); font-size:0.85rem;" id="processingPhrase">Validando datos...</p>
+
+                <!-- Progress bar -->
+                <div class="import-progress-wrapper" style="margin:24px auto 0; max-width:480px;">
+                    <div class="import-progress-bar">
+                        <div class="import-progress-fill" id="progressFill" style="width:0%;"></div>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; margin-top:6px; font-size:0.78rem; color:var(--text-muted);">
+                        <span id="progressPercent">0%</span>
+                        <span id="progressCount">0 / 0</span>
+                    </div>
+                </div>
+
+                <!-- Live counters -->
+                <div style="display:flex; gap:16px; justify-content:center; margin-top:24px; flex-wrap:wrap;">
+                    <div class="import-stat-mini" style="border-color:var(--accent-emerald);">
+                        <span class="import-stat-mini-value" id="counterImported" style="color:var(--accent-emerald);">0</span>
+                        <span class="import-stat-mini-label">Importados</span>
+                    </div>
+                    <div class="import-stat-mini" style="border-color:var(--accent-orange);">
+                        <span class="import-stat-mini-value" id="counterSkipped" style="color:var(--accent-orange);">0</span>
+                        <span class="import-stat-mini-label">Saltados</span>
+                    </div>
+                    <div class="import-stat-mini" style="border-color:var(--danger);">
+                        <span class="import-stat-mini-value" id="counterErrors" style="color:var(--danger);">0</span>
+                        <span class="import-stat-mini-label">Errores</span>
+                    </div>
+                </div>
+
+                <!-- Error list -->
+                <div id="processingErrors" style="display:none; margin-top:20px; text-align:left; max-height:200px; overflow-y:auto;
+                            border:1px solid var(--border-color); border-radius:var(--radius-sm);">
+                    <table class="import-errors-table" id="processingErrorsTable"></table>
+                </div>
+            </div>
+
+            <!-- Completed view (hidden initially) -->
+            <div id="completedView" style="display:none;">
+                <div class="import-icon-circle" style="background:rgba(16,185,129,0.12);">
+                    <i class="fa-solid fa-circle-check" style="color:var(--accent-emerald);"></i>
+                </div>
+                <h2 style="margin:16px 0 8px; font-size:1.2rem;" id="completedTitle"></h2>
+                <p style="color:var(--text-muted); font-size:0.88rem; margin-bottom:20px;" id="completedSubtitle"></p>
+
+                <div style="display:flex; gap:8px; justify-content:center; flex-wrap:wrap;">
+                    <a href="{{ url_for('web_rrhh.employee_list') }}" class="btn btn-primary">
+                        <i class="fa-solid fa-users"></i> Ver lista de empleados
+                    </a>
+                    <button type="button" id="downloadErrorsBtn" class="btn btn-secondary" style="display:none;" onclick="downloadErrorLog()">
+                        <i class="fa-solid fa-download"></i> Descargar log de errores
+                    </button>
+                    <button type="button" class="btn btn-ghost" onclick="resetWizard()">
+                        <i class="fa-solid fa-rotate-right"></i> Importar otro archivo
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- STYLES -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<style>
+.import-wizard {
+    --step-active: var(--accent-emerald, #10b981);
+    --step-inactive: var(--border-color, #e2e8f0);
+}
+
+.import-step-indicators {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    margin-bottom: 28px;
+    padding: 0 16px;
+}
+
+.import-step-dot {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    opacity: 0.4;
+    transition: opacity 0.3s ease;
+    position: relative;
+}
+.import-step-dot.active {
+    opacity: 1;
+}
+.import-step-dot.completed {
+    opacity: 0.75;
+}
+
+.import-step-circle {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    font-size: 0.95rem;
+    transition: all 0.3s ease;
+}
+.import-step-dot.active .import-step-circle {
+    background: var(--step-active);
+    color: #fff;
+    box-shadow: 0 0 0 4px rgba(16,185,129,0.15);
+}
+.import-step-dot.completed .import-step-circle {
+    background: var(--step-active);
+    color: #fff;
+}
+.import-step-dot.error .import-step-circle {
+    background: var(--danger, #ef4444);
+    color: #fff;
+}
+
+.import-step-label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+.import-step-line {
+    width: 48px;
+    height: 2px;
+    background: var(--border-color);
+    margin: 0 4px;
+    margin-bottom: 18px;
+    transition: background 0.3s ease;
+}
+.import-step-line.completed {
+    background: var(--step-active);
+}
+
+.import-step-panel {
+    animation: importFadeIn 0.35s ease;
+}
+
+@keyframes importFadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.import-icon-circle {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: rgba(16,185,129,0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto;
+    font-size: 1.5rem;
+    color: var(--accent-emerald);
+}
+
+/* Drop zone */
+.import-drop-zone {
+    border: 2px dashed var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 40px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    background: var(--bg-nav-hover);
+}
+.import-drop-zone:hover,
+.import-drop-zone.dragover {
+    border-color: var(--accent-emerald);
+    background: rgba(16,185,129,0.04);
+    box-shadow: 0 0 0 4px rgba(16,185,129,0.06);
+}
+.import-drop-icon {
+    font-size: 2.5rem;
+    color: var(--text-muted);
+    transition: color 0.2s;
+}
+.import-drop-zone:hover .import-drop-icon,
+.import-drop-zone.dragover .import-drop-icon {
+    color: var(--accent-emerald);
+}
+
+/* Alerts */
+.import-alert {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    border-radius: var(--radius-sm);
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+.import-alert-success {
+    background: rgba(16,185,129,0.08);
+    border: 1px solid rgba(16,185,129,0.25);
+    color: var(--accent-emerald);
+}
+.import-alert-error {
+    background: rgba(239,68,68,0.08);
+    border: 1px solid rgba(239,68,68,0.25);
+    color: var(--danger);
+}
+.import-alert-warning {
+    background: rgba(249,115,22,0.08);
+    border: 1px solid rgba(249,115,22,0.25);
+    color: var(--accent-orange);
+}
+
+/* Fields table */
+.import-fields-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8rem;
+}
+.import-fields-table th {
+    background: var(--bg-nav-hover);
+    padding: 8px 12px;
+    text-align: left;
+    font-weight: 600;
+    color: var(--text-secondary);
+    font-size: 0.76rem;
+    border-bottom: 1px solid var(--border-color);
+}
+.import-fields-table td {
+    padding: 6px 12px;
+    border-bottom: 1px solid rgba(0,0,0,0.04);
+}
+.import-fields-table code {
+    font-size: 0.78rem;
+    background: var(--bg-nav-hover);
+    padding: 1px 6px;
+    border-radius: 3px;
+    color: var(--text-primary);
+}
+.import-row-required {
+    background: rgba(16,185,129,0.03);
+}
+.import-row-required code {
+    color: var(--accent-emerald);
+    font-weight: 600;
+}
+
+/* Preview table */
+.import-preview-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.78rem;
+}
+.import-preview-table th {
+    background: var(--bg-nav-hover);
+    padding: 8px 10px;
+    text-align: left;
+    font-weight: 600;
+    color: var(--text-secondary);
+    font-size: 0.74rem;
+    white-space: nowrap;
+    border-right: 1px solid var(--border-color);
+}
+.import-preview-table td {
+    padding: 6px 10px;
+    border-right: 1px solid rgba(0,0,0,0.04);
+    border-bottom: 1px solid rgba(0,0,0,0.04);
+    white-space: nowrap;
+    max-width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--text-primary);
+}
+
+/* Mapping grid */
+.import-mapping-grid {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+}
+.import-mapping-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 14px;
+    border-bottom: 1px solid rgba(0,0,0,0.04);
+    transition: background 0.15s;
+}
+.import-mapping-row:last-child {
+    border-bottom: none;
+}
+.import-mapping-row:hover {
+    background: var(--bg-nav-hover);
+}
+.import-mapping-row.unmapped-required {
+    background: rgba(239,68,68,0.04);
+    border-left: 3px solid var(--danger);
+}
+.import-mapping-row.mapped {
+    border-left: 3px solid var(--accent-emerald);
+}
+
+.import-mapping-field {
+    flex: 0 0 200px;
+    min-width: 160px;
+}
+.import-field-name {
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--text-primary);
+}
+.import-req-star {
+    color: var(--danger);
+    font-weight: 700;
+    margin-left: 2px;
+}
+.import-mapping-select {
+    flex: 1;
+    min-width: 140px;
+}
+
+/* Progress bar */
+.import-progress-wrapper {
+    width: 100%;
+}
+.import-progress-bar {
+    width: 100%;
+    height: 8px;
+    background: var(--border-color);
+    border-radius: 4px;
+    overflow: hidden;
+}
+.import-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent-emerald), #34d399);
+    border-radius: 4px;
+    transition: width 0.3s ease;
+    width: 0%;
+}
+
+/* Spinner */
+.import-spinner {
+    position: relative;
+    width: 60px;
+    height: 60px;
+    margin: 0 auto;
+}
+.import-spin-gear {
+    font-size: 2.5rem;
+    color: var(--accent-emerald);
+    display: block;
+    animation: importSpinGear 2s linear infinite;
+}
+@keyframes importSpinGear {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+}
+
+/* Mini stats */
+.import-stat-mini {
+    border: 1px solid;
+    border-radius: var(--radius-md);
+    padding: 12px 20px;
+    text-align: center;
+    min-width: 90px;
+    background: var(--bg-card);
+}
+.import-stat-mini-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    display: block;
+    line-height: 1.2;
+}
+.import-stat-mini-label {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Error table */
+.import-errors-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.76rem;
+}
+.import-errors-table th {
+    background: var(--bg-nav-hover);
+    padding: 6px 10px;
+    text-align: left;
+    font-weight: 600;
+    color: var(--text-secondary);
+    font-size: 0.72rem;
+    position: sticky;
+    top: 0;
+}
+.import-errors-table td {
+    padding: 5px 10px;
+    border-bottom: 1px solid rgba(0,0,0,0.04);
+}
+.import-errors-table tr:nth-child(even) {
+    background: rgba(239,68,68,0.02);
+}
+
+/* Toggle fields button */
+.import-toggle-fields {
+    font-family: inherit;
+}
+.import-toggle-fields:hover {
+    color: var(--accent-emerald);
+    border-color: var(--accent-emerald);
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+    .import-step-label { display: none; }
+    .import-step-line { width: 24px; }
+    .import-mapping-field { flex: 0 0 120px; min-width: 100px; }
+    .import-mapping-row { flex-wrap: wrap; }
+    .import-stat-mini { min-width: 70px; padding: 8px 12px; }
+    .import-stat-mini-value { font-size: 1.2rem; }
+}
+</style>
+
+
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<!-- SCRIPTS -->
+<!-- ═══════════════════════════════════════════════════════════════════ -->
+<script>
+(function() {
+    const TOTAL_STEPS = 4;
+    let currentStep = 1;
+    let tempFilename = null;
+    let csvHeaders = [];
+    let csvPreviewRows = [];
+    let csvRowCount = 0;
+    let jobId = null;
+    let pollingInterval = null;
+    let finalErrors = [];
+    let finalImported = 0;
+
+    const processingPhrases = [
+        "Validando datos...",
+        "Verificando cédulas existentes...",
+        "Creando empleados...",
+        "Registrando salarios iniciales...",
+        "Guardando en la base de datos...",
+        "¡Casi listo!",
+    ];
+    let phraseIndex = 0;
+    let phraseInterval = null;
+
+    // ── Step navigation ─────────────────────────────────────────────
+    window.goToStep = function(step) {
+        if (step < 1 || step > TOTAL_STEPS) return;
+
+        for (let s = 1; s <= TOTAL_STEPS; s++) {
+            const panel = document.getElementById('importStep' + s);
+            if (panel) panel.style.display = s === step ? '' : 'none';
+        }
+
+        const dots = document.querySelectorAll('.import-step-dot');
+        dots.forEach(function(dot, idx) {
+            const s = idx + 1;
+            dot.classList.remove('active', 'completed', 'error');
+            if (s === step) dot.classList.add('active');
+            else if (s < step) dot.classList.add('completed');
+        });
+
+        const lines = document.querySelectorAll('.import-step-line');
+        lines.forEach(function(line, idx) {
+            if (idx + 1 < step) line.classList.add('completed');
+            else line.classList.remove('completed');
+        });
+
+        currentStep = step;
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+
+        if (step === 3) buildMappingGrid();
+    };
+
+    // ── Toggle fields table ──────────────────────────────────────────
+    window.toggleFieldsTable = function() {
+        const wrapper = document.getElementById('fieldsTableWrapper');
+        const icon = document.getElementById('toggleFieldsIcon');
+        if (wrapper.style.display === 'none') {
+            wrapper.style.display = '';
+            icon.className = 'fa-solid fa-chevron-up';
+        } else {
+            wrapper.style.display = 'none';
+            icon.className = 'fa-solid fa-chevron-down';
+        }
+    };
+
+    // ── File drop zone ───────────────────────────────────────────────
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+    const step2NextBtn = document.getElementById('step2NextBtn');
+
+    if (dropZone && fileInput) {
+        dropZone.addEventListener('click', function() { fileInput.click(); });
+
+        dropZone.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        });
+        dropZone.addEventListener('dragleave', function() {
+            dropZone.classList.remove('dragover');
+        });
+        dropZone.addEventListener('drop', function(e) {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) handleFile(files[0]);
+        });
+
+        fileInput.addEventListener('change', function() {
+            if (fileInput.files.length > 0) handleFile(fileInput.files[0]);
+        });
+    }
+
+    function handleFile(file) {
+        if (!file.name.toLowerCase().endsWith('.csv')) {
+            showUploadError('El archivo debe ser un CSV (.csv).');
+            return;
+        }
+        if (file.size > 10 * 1024 * 1024) {
+            showUploadError('El archivo excede el tamaño máximo de 10 MB.');
+            return;
+        }
+
+        resetUploadUI();
+        document.getElementById('uploadLoading').style.display = '';
+        document.getElementById('uploadStatus').style.display = '';
+
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('import_type', 'employees');
+
+        fetch('{{ url_for("web_rrhh.employee_import_upload") }}', {
+            method: 'POST',
+            body: formData,
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            document.getElementById('uploadLoading').style.display = 'none';
+            if (!data.success) {
+                showUploadError(data.error || 'Error al analizar el archivo.');
+                return;
+            }
+            tempFilename = data.temp_filename;
+            csvHeaders = data.headers;
+            csvPreviewRows = data.preview_rows;
+            csvRowCount = data.row_count;
+
+            document.getElementById('uploadSuccess').style.display = '';
+            document.getElementById('uploadSuccessMsg').textContent =
+                'Archivo cargado correctamente. ' + csvRowCount + ' fila(s) de datos detectadas.';
+
+            buildUploadPreviewTable();
+            step2NextBtn.disabled = false;
+        })
+        .catch(function(err) {
+            document.getElementById('uploadLoading').style.display = 'none';
+            showUploadError('Error de conexión al subir el archivo.');
+        });
+    }
+
+    function buildUploadPreviewTable() {
+        const table = document.getElementById('uploadPreviewTable');
+        let html = '<thead><tr>';
+        csvHeaders.forEach(function(h) {
+            html += '<th>' + escapeHtml(h) + '</th>';
+        });
+        html += '</tr></thead><tbody>';
+        csvPreviewRows.forEach(function(row) {
+            html += '<tr>';
+            for (let i = 0; i < csvHeaders.length; i++) {
+                html += '<td>' + escapeHtml(row[i] || '') + '</td>';
+            }
+            html += '</tr>';
+        });
+        html += '</tbody>';
+        table.innerHTML = html;
+    }
+
+    function showUploadError(msg) {
+        document.getElementById('uploadLoading').style.display = 'none';
+        document.getElementById('uploadSuccess').style.display = 'none';
+        document.getElementById('uploadError').style.display = '';
+        document.getElementById('uploadError').textContent = msg;
+        step2NextBtn.disabled = true;
+    }
+
+    function resetUploadUI() {
+        document.getElementById('uploadError').style.display = 'none';
+        document.getElementById('uploadSuccess').style.display = 'none';
+        document.getElementById('uploadError').textContent = '';
+        step2NextBtn.disabled = true;
+    }
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    // ── Mapping grid ─────────────────────────────────────────────────
+    function buildMappingGrid() {
+        const selects = document.querySelectorAll('.import-map-select');
+        selects.forEach(function(sel) {
+            sel.innerHTML = '<option value="">— Ignorar —</option>';
+            csvHeaders.forEach(function(h, idx) {
+                const clean = h.startsWith('*') ? h.substring(1) : h;
+                sel.innerHTML += '<option value="' + idx + '">' + escapeHtml(clean) + '</option>';
+            });
+        });
+
+        document.getElementById('previewRowCount').textContent = Math.min(csvPreviewRows.length, 5);
+        document.getElementById('previewTotalRows').textContent = csvRowCount;
+
+        const table = document.getElementById('mappingPreviewTable');
+        let html = '<thead><tr>';
+        csvHeaders.forEach(function(h) {
+            html += '<th>' + escapeHtml(h) + '</th>';
+        });
+        html += '</tr></thead><tbody>';
+        csvPreviewRows.forEach(function(row) {
+            html += '<tr>';
+            for (let i = 0; i < csvHeaders.length; i++) {
+                html += '<td>' + escapeHtml(row[i] || '') + '</td>';
+            }
+            html += '</tr>';
+        });
+        html += '</tbody>';
+        table.innerHTML = html;
+
+        autoMapFields();
+        validateMapping();
+    }
+
+    window.autoMapFields = function() {
+        const selects = document.querySelectorAll('.import-map-select');
+        selects.forEach(function(sel) {
+            const fieldId = sel.getAttribute('data-field-id');
+            const row = document.querySelector('.import-mapping-row[data-field="' + fieldId + '"]');
+            if (!row) return;
+            const isRequired = row.getAttribute('data-required') === 'true';
+
+            // Try exact match first
+            for (let i = 0; i < csvHeaders.length; i++) {
+                const h = csvHeaders[i].toLowerCase().replace(/^\*/, '').replace(/[_\s]/g, '');
+                const f = fieldId.toLowerCase().replace(/[_\s]/g, '');
+                if (h === f) {
+                    sel.value = i;
+                    return;
+                }
+            }
+
+            // Try partial match
+            for (let i = 0; i < csvHeaders.length; i++) {
+                const h = csvHeaders[i].toLowerCase().replace(/^\*/, '');
+                if (h.includes(fieldId.toLowerCase()) || fieldId.toLowerCase().includes(h)) {
+                    sel.value = i;
+                    return;
+                }
+            }
+
+            // Try keyword matching
+            const keywords = {
+                'firstName': ['nombre', 'name', 'primer'],
+                'middleName': ['segundo nombre', 'middle'],
+                'firstLastName': ['apellido', 'lastname', 'primer apellido'],
+                'secondLastName': ['segundo apellido', 'secondlast'],
+                'idType': ['tipo', 'type'],
+                'idNumber': ['cedula', 'rnc', 'identificacion', 'identificación', 'documento', 'idnumber'],
+                'email': ['email', 'correo', 'mail'],
+                'phone': ['telefono', 'teléfono', 'celular'],
+                'municipality': ['municipio', 'ciudad'],
+                'address': ['direccion', 'dirección', 'address', 'calle'],
+                'gender': ['genero', 'género', 'gender', 'sexo'],
+                'birthDate': ['nacimiento', 'birth', 'fecha nac'],
+                'maritalStatus': ['civil', 'marital'],
+                'educationLevel': ['instruccion', 'instrucción', 'educacion', 'educación', 'education'],
+                'emergencyContact': ['emergencia', 'emergency contact'],
+                'emergencyPhone': ['emergencia telefono', 'emergency phone'],
+                'afpProvider': ['afp'],
+                'notes': ['nota', 'notes', 'comentario', 'observacion'],
+                'hireDate': ['contratacion', 'contratación', 'hire', 'ingreso', 'fecha ingreso'],
+                'contractType': ['contrato', 'contract', 'tipo contrato'],
+                'probationEndDate': ['prueba', 'probation'],
+                'reportsTo': ['supervisor', 'jefe', 'reporta'],
+                'paymentFrequency': ['frecuencia', 'frequency'],
+                'salary': ['salario', 'salary', 'sueldo', 'salario base'],
+                'workday': ['jornada', 'workday'],
+                'isVigilante': ['vigilante', 'vigilancia'],
+                'weeklyHours': ['horas', 'weeklyhours', 'semanales'],
+                'workShift': ['turno', 'workshift'],
+                'occupationCode': ['ocupacion', 'ocupación', 'occupation', 'cno'],
+                'vacationGranted': ['vacacion', 'vacation'],
+                'tssKey': ['tss', 'clave nomina', 'clave'],
+                'position': ['cargo', 'position', 'puesto'],
+                'department_catalog': ['departamento', 'department', 'depto'],
+                'area': ['area', 'área'],
+                'costCenter': ['costo', 'costcenter', 'centro costo', 'cc'],
+                'paymentMethod': ['metodo', 'método', 'paymentmethod', 'forma pago', 'metodo pago'],
+                'accountNumber': ['cuenta', 'account', 'numero cuenta', 'num cuenta'],
+                'bank': ['banco', 'bank', 'entidad'],
+                'accountType': ['tipo cuenta', 'accounttype']
+            };
+
+            const kw = keywords[fieldId] || [];
+            for (let i = 0; i < csvHeaders.length; i++) {
+                const h = csvHeaders[i].toLowerCase().replace(/^\*/, '');
+                for (let k = 0; k < kw.length; k++) {
+                    if (h.includes(kw[k])) {
+                        sel.value = i;
+                        return;
+                    }
+                }
+            }
+        });
+
+        validateMapping();
+        updateMappingRowStyles();
+    };
+
+    function validateMapping() {
+        const selects = document.querySelectorAll('.import-map-select');
+        let unmappedRequired = 0;
+        selects.forEach(function(sel) {
+            const fieldId = sel.getAttribute('data-field-id');
+            const row = document.querySelector('.import-mapping-row[data-field="' + fieldId + '"]');
+            if (!row) return;
+            const isRequired = row.getAttribute('data-required') === 'true';
+            if (isRequired && (!sel.value || sel.value === '')) {
+                unmappedRequired++;
+            }
+        });
+
+        document.getElementById('mappingWarning').style.display = unmappedRequired > 0 ? '' : 'none';
+        document.getElementById('startImportBtn').disabled = unmappedRequired > 0;
+    }
+
+    function updateMappingRowStyles() {
+        const selects = document.querySelectorAll('.import-map-select');
+        selects.forEach(function(sel) {
+            const fieldId = sel.getAttribute('data-field-id');
+            const row = document.querySelector('.import-mapping-row[data-field="' + fieldId + '"]');
+            if (!row) return;
+            const isRequired = row.getAttribute('data-required') === 'true';
+            row.classList.remove('unmapped-required', 'mapped');
+            if (sel.value && sel.value !== '') {
+                row.classList.add('mapped');
+            } else if (isRequired) {
+                row.classList.add('unmapped-required');
+            }
+        });
+    }
+
+    document.addEventListener('change', function(e) {
+        if (e.target && e.target.classList.contains('import-map-select')) {
+            validateMapping();
+            updateMappingRowStyles();
+        }
+    });
+
+    // ── Import processing ────────────────────────────────────────────
+    window.startImport = function() {
+        const selects = document.querySelectorAll('.import-map-select');
+        const formData = new FormData();
+        formData.append('temp_filename', tempFilename);
+
+        selects.forEach(function(sel) {
+            const fieldId = sel.getAttribute('data-field-id');
+            if (sel.value && sel.value !== '') {
+                formData.append('map_' + fieldId, sel.value);
+            }
+        });
+
+        goToStep(4);
+
+        document.getElementById('processingView').style.display = '';
+        document.getElementById('completedView').style.display = 'none';
+        document.getElementById('progressFill').style.width = '0%';
+        document.getElementById('progressPercent').textContent = '0%';
+        document.getElementById('progressCount').textContent = '0 / ' + csvRowCount;
+        document.getElementById('counterImported').textContent = '0';
+        document.getElementById('counterSkipped').textContent = '0';
+        document.getElementById('counterErrors').textContent = '0';
+        document.getElementById('processingErrors').style.display = 'none';
+        document.getElementById('processingErrorsTable').innerHTML = '';
+        document.getElementById('processingTitle').textContent = 'Procesando archivo...';
+
+        startPhrasesRotation();
+
+        fetch('{{ url_for("web_rrhh.employee_import_process") }}', {
+            method: 'POST',
+            body: formData,
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (!data.success) {
+                stopPolling();
+                stopPhrasesRotation();
+                showImportError(data.error || 'Error al iniciar la importación.');
+                return;
+            }
+            jobId = data.job_id;
+            startPolling();
+        })
+        .catch(function(err) {
+            stopPhrasesRotation();
+            showImportError('Error de conexión al iniciar la importación.');
+        });
+    };
+
+    function startPolling() {
+        if (pollingInterval) clearInterval(pollingInterval);
+        pollingInterval = setInterval(pollStatus, 500);
+    }
+
+    function stopPolling() {
+        if (pollingInterval) {
+            clearInterval(pollingInterval);
+            pollingInterval = null;
+        }
+    }
+
+    function pollStatus() {
+        if (!jobId) return;
+        fetch('{{ url_for("web_rrhh.employee_import_status", job_id="JOBID") }}'.replace('JOBID', jobId))
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.status === 'not_found') return;
+
+            const total = data.total || csvRowCount || 1;
+            const processed = data.processed || 0;
+            const percent = Math.round((processed / total) * 100);
+
+            document.getElementById('progressFill').style.width = percent + '%';
+            document.getElementById('progressPercent').textContent = percent + '%';
+            document.getElementById('progressCount').textContent = processed + ' / ' + total;
+            document.getElementById('counterImported').textContent = data.imported || 0;
+            document.getElementById('counterSkipped').textContent = data.skipped || 0;
+
+            const errorCount = (data.errors || []).length;
+            document.getElementById('counterErrors').textContent = errorCount;
+
+            if (data.errors && data.errors.length > 0) {
+                document.getElementById('processingErrors').style.display = '';
+                let errHtml = '<thead><tr><th>Fila</th><th>Motivo</th></tr></thead><tbody>';
+                const showErrors = data.errors.slice(-15);
+                showErrors.forEach(function(e) {
+                    errHtml += '<tr><td style="width:50px;">' + e.row + '</td><td>' + escapeHtml(e.reason) + '</td></tr>';
+                });
+                errHtml += '</tbody>';
+                document.getElementById('processingErrorsTable').innerHTML = errHtml;
+            }
+
+            if (data.status === 'completed') {
+                stopPolling();
+                stopPhrasesRotation();
+                finalErrors = data.errors || [];
+                finalImported = data.imported || 0;
+                showCompleted(data);
+            }
+        })
+        .catch(function() {});
+    }
+
+    function startPhrasesRotation() {
+        phraseIndex = 0;
+        updatePhrase();
+        phraseInterval = setInterval(function() {
+            phraseIndex = (phraseIndex + 1) % processingPhrases.length;
+            updatePhrase();
+        }, 2500);
+    }
+
+    function stopPhrasesRotation() {
+        if (phraseInterval) {
+            clearInterval(phraseInterval);
+            phraseInterval = null;
+        }
+    }
+
+    function updatePhrase() {
+        document.getElementById('processingPhrase').textContent = processingPhrases[phraseIndex];
+    }
+
+    function showImportError(msg) {
+        document.getElementById('processingView').style.display = '';
+        document.getElementById('completedView').style.display = 'none';
+        document.getElementById('processingTitle').textContent = 'Error';
+        document.getElementById('processingPhrase').textContent = msg;
+        document.querySelector('.import-spin-gear').style.color = 'var(--danger)';
+
+        const dot = document.querySelector('.import-step-dot[data-step="4"]');
+        if (dot) dot.classList.add('error');
+    }
+
+    function showCompleted(data) {
+        document.getElementById('processingView').style.display = 'none';
+        document.getElementById('completedView').style.display = '';
+
+        const imported = data.imported || 0;
+        const skipped = data.skipped || 0;
+        const errors = data.errors || [];
+
+        if (errors.length === 0 && skipped === 0) {
+            document.getElementById('completedTitle').textContent = '¡Importación completada!';
+            document.getElementById('completedSubtitle').textContent =
+                'Los ' + imported + ' empleado(s) se importaron exitosamente.';
+        } else {
+            document.getElementById('completedTitle').textContent = 'Importación finalizada';
+            let parts = [];
+            if (imported > 0) parts.push(imported + ' importado(s)');
+            if (skipped > 0) parts.push(skipped + ' omitido(s)');
+            if (errors.length > 0) parts.push(errors.length + ' error(es)');
+            document.getElementById('completedSubtitle').textContent = parts.join(' · ');
+        }
+
+        if (errors.length > 0) {
+            document.getElementById('downloadErrorsBtn').style.display = '';
+        }
+    }
+
+    window.downloadErrorLog = function() {
+        if (finalErrors.length === 0) return;
+        let csvContent = 'Fila,Motivo\n';
+        finalErrors.forEach(function(e) {
+            csvContent += e.row + ',"' + (e.reason || '').replace(/"/g, '""') + '"\n';
+        });
+        const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'errores_importacion.csv';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    };
+
+    window.resetWizard = function() {
+        stopPolling();
+        stopPhrasesRotation();
+        jobId = null;
+        tempFilename = null;
+        csvHeaders = [];
+        csvPreviewRows = [];
+        csvRowCount = 0;
+        finalErrors = [];
+        finalImported = 0;
+        fileInput.value = '';
+        resetUploadUI();
+        document.getElementById('uploadStatus').style.display = 'none';
+        goToStep(1);
+    };
+
+    // ── Init ─────────────────────────────────────────────────────────
+    goToStep(1);
+})();
+</script>
+{% endblock %}

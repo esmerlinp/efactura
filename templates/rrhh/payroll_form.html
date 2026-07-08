@@ -78,13 +78,61 @@
         {% endif %}
     </div>
 
+    {% if existing_period %}
+    <div class="card-table-wrapper" style="margin-bottom:16px; border:2px solid var(--accent-orange);">
+        <div style="padding:14px 20px;">
+            <div style="display:flex; align-items:flex-start; gap:12px; flex-wrap:wrap;">
+                <div style="width:40px; height:40px; border-radius:50%; background:rgba(249,115,22,0.12); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                    <i class="fa-solid fa-triangle-exclamation" style="color:var(--accent-orange); font-size:1.1rem;"></i>
+                </div>
+                <div style="flex:1; min-width:200px;">
+                    <strong style="color:var(--text-primary);">Ya existe una nómina para este período</strong>
+                    <div style="font-size:0.8rem; color:var(--text-secondary); margin-top:4px;">
+                        {{ existing_period.get('periodRange', existing_period.get('periodKey', '')) }}
+                        · {{ existing_period.lines|length if existing_period.get('lines') else '?' }} empleados
+                        · Estado: <span class="badge" style="background:var(--bg-nav-hover); color:var(--text-primary); font-size:0.7rem; text-transform:capitalize;">{{ existing_period.get('status', '—') }}</span>
+                        {% if existing_period.get('totalNet') %}
+                        · Neto: <strong>RD$ {{ "{:,.2f}".format(existing_period.totalNet|float) }}</strong>
+                        {% endif %}
+                        {% if existing_period.get('calculatedAt') %}
+                        · {{ existing_period.calculatedAt[:10] }}
+                        {% endif %}
+                    </div>
+                </div>
+                <div style="display:flex; gap:8px; flex-shrink:0;">
+                    <a href="{{ url_for('web_rrhh.payroll_view', period_id=existing_period.id) }}" class="btn btn-sm btn-ghost">
+                        <i class="fa-solid fa-eye"></i> Ver nómina
+                    </a>
+                    {% if existing_period.get('status', '') not in ('cerrada',) %}
+                    <form method="POST" action="{{ url_for('web_rrhh.payroll_recalculate', period_id=existing_period.id) }}" style="margin:0;"
+                          onsubmit="return confirm('¿Recalcular esta nómina? Se revertirá a borrador para poder modificarla.')">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-sm btn-primary" style="background:var(--accent-orange); border-color:var(--accent-orange);">
+                            <i class="fa-solid fa-rotate-right"></i> Recalcular
+                        </button>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <div style="display:flex; justify-content:flex-end; margin-bottom:12px;">
+        <button type="submit" class="btn btn-primary"
+                onclick="return startPayrollProcessing()">
+            <i class="fa-solid fa-play"></i> Procesar Nómina
+        </button>
+    </div>
+
     <!-- Employee Variables Table -->
     <div class="card-table-wrapper" style="margin-bottom:var(--space-4);">
-        <div class="table-header-row" style="margin-bottom:16px; display:flex; justify-content:space-between; align-items:center;">
+        <div class="table-header-row" style="margin-bottom:0; display:flex; justify-content:space-between; align-items:center;">
             <span style="font-family:var(--font-heading); font-weight:600; font-size:0.9rem; color:var(--text-primary);">
                 <i class="fa-solid fa-list-check"></i> Variables de nómina por empleado
             </span>
             <div style="display:flex; gap:8px; align-items:center;">
+                <span style="font-size:0.78rem; color:var(--text-muted);" id="payVarCount">{{ employees|length }} empleados</span>
                 <button type="button" class="btn btn-sm btn-ghost" onclick="bulkSelectAll()">
                     <i class="fa-solid fa-check-square"></i> Todos
                 </button>
@@ -94,13 +142,24 @@
                 <span style="font-size:0.78rem; color:var(--text-muted);" id="selectedCount">0 seleccionados</span>
             </div>
         </div>
+        <div style="display:flex; gap:8px; align-items:center; padding:8px 0; flex-wrap:wrap;">
+            <div class="form-group" style="margin:0; flex:1; min-width:200px; max-width:300px;">
+                <input type="text" id="payVarSearch" class="form-input" placeholder="Buscar empleado o cargo..." style="border-radius:20px; font-size:0.82rem;">
+            </div>
+            <div class="form-group" style="margin:0;">
+                <select id="payVarPerPage" class="form-select" style="width:auto; font-size:0.82rem;">
+                    <option value="5" selected>5 por página</option>
+                    <option value="10">10 por página</option>
+                    <option value="20">20 por página</option>
+                    <option value="50">50 por página</option>
+                    <option value="100">100 por página</option>
+                </select>
+            </div>
+        </div>
         <div style="margin-bottom:12px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-            <input type="number" id="bulkValue" step="0.01" value="0" class="form-input" style="width:100px;" placeholder="Valor">
-            <button type="button" class="btn btn-sm btn-ghost" onclick="bulkApply('overtime')">Aplicar horas extra</button>
-            <button type="button" class="btn btn-sm btn-ghost" onclick="bulkApply('commission')">Aplicar comisión</button>
-            <button type="button" class="btn btn-sm btn-ghost" onclick="bulkApply('bonus')">Aplicar bonificación</button>
-            <button type="button" class="btn btn-sm btn-ghost" onclick="bulkApply('other_income')">Aplicar otro ingreso</button>
-            <button type="button" class="btn btn-sm btn-ghost" onclick="bulkApply('other_ded')">Aplicar deducción</button>
+            <button type="button" class="btn btn-sm btn-outline" onclick="openBulkModal()">
+                <i class="fa-solid fa-layer-group"></i> Aplicar en lote
+            </button>
         </div>
         <div class="table-responsive">
             <table class="table-premium" style="font-size:0.88rem; min-width:1000px;">
@@ -117,11 +176,14 @@
                         <th style="width:90px;">Otras Deducc.</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody id="payVarTbody">
                     {% for emp in employees %}
-                    <tr data-emp-id="{{ emp.id }}">
+                     <tr data-emp-id="{{ emp.id }}" data-salary="{{ emp.baseSalary or 0 }}" data-search="{{ (emp.fullName or '')|lower }} {{ (emp.position or '')|lower }} {{ (emp.area or '')|lower }}">
                         <td><input type="checkbox" class="emp-cb" value="{{ emp.id }}" onchange="updateCount()"></td>
-                        <td><strong>{{ emp.fullName or emp.firstName + ' ' + (emp.firstLastName or emp.lastName) }}</strong></td>
+                        <td>
+                            <strong>{{ emp.fullName or emp.firstName + ' ' + (emp.firstLastName or emp.lastName) }}</strong>
+                            {% if emp.area %}<span style="display:block; font-size:0.7rem; color:var(--text-muted);">{{ emp.area }}</span>{% endif %}
+                        </td>
                         <td>{{ "RD$ {:,.2f}".format(emp.baseSalary|float) if emp.baseSalary else '—' }}</td>
                         <td style="color:var(--text-muted);">{{ emp.position }}</td>
                         <td><input type="number" step="0.01" name="overtime_{{ emp.id }}" class="form-input emp-overtime" value="0" style="width:90px;"></td>
@@ -133,6 +195,48 @@
                     {% endfor %}
                 </tbody>
             </table>
+        </div>
+        <div id="payVarPagination" style="display:flex; justify-content:center; align-items:center; gap:8px; margin-top:12px; padding-top:8px; border-top:1px solid var(--border-color);"></div>
+
+        <!-- Bulk apply modal -->
+        <div id="bulkModal" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.45); align-items:center; justify-content:center;" onclick="closeBulkModal(event)">
+            <div style="background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-lg); padding:24px; width:100%; max-width:420px; box-shadow:var(--shadow-xl);" onclick="event.stopPropagation()">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                    <h3 style="margin:0; font-size:1.1rem; font-weight:700;"><i class="fa-solid fa-layer-group" style="color:var(--accent-emerald);"></i> Aplicar en lote</h3>
+                    <button type="button" class="btn btn-sm btn-ghost" onclick="document.getElementById('bulkModal').style.display='none'">
+                        <i class="fa-solid fa-times"></i>
+                    </button>
+                </div>
+                <p id="bulkSelectedInfo" style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:16px;"></p>
+                <div class="form-group" style="margin-bottom:14px;">
+                    <label style="font-size:0.82rem; font-weight:600;">Concepto a aplicar</label>
+                    <select id="bulkField" class="form-select" onchange="onBulkFieldChange()">
+                        <option value="overtime">Horas extra</option>
+                        <option value="commission">Comisión</option>
+                        <option value="bonus">Bonificación</option>
+                        <option value="other_income">Otro ingreso</option>
+                        <option value="other_ded">Otra deducción</option>
+                    </select>
+                </div>
+                <div id="bulkModeRow" style="margin-bottom:12px; display:flex; gap:0; border:1px solid var(--border-color); border-radius:var(--radius-sm); overflow:hidden;">
+                    <button type="button" id="bulkModeFixed" class="bulk-mode-btn active" onclick="setBulkMode('fixed')" style="flex:1; padding:6px 12px; border:none; background:var(--bg-brand-translucent); color:var(--text-primary); font-size:0.78rem; font-weight:600; cursor:pointer;">Monto fijo</button>
+                    <button type="button" id="bulkModePct" class="bulk-mode-btn" onclick="setBulkMode('pct')" style="flex:1; padding:6px 12px; border:none; background:transparent; color:var(--text-muted); font-size:0.78rem; font-weight:500; cursor:pointer;">Porcentaje (%)</button>
+                </div>
+                <div class="form-group" style="margin-bottom:8px;">
+                    <label id="bulkValueLabel" style="font-size:0.82rem; font-weight:600;">Valor</label>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <input type="number" id="bulkValue" step="0.01" value="0" class="form-input" style="font-size:0.95rem; flex:1;">
+                        <span id="bulkValueSuffix" style="font-size:0.82rem; color:var(--text-muted); display:none; font-weight:600;"></span>
+                    </div>
+                </div>
+                <p id="bulkPreview" style="font-size:0.78rem; color:var(--text-muted); margin:0 0 20px 0; min-height:18px;"></p>
+                <div style="display:flex; justify-content:flex-end; gap:8px;">
+                    <button type="button" class="btn btn-ghost" onclick="document.getElementById('bulkModal').style.display='none'">Cancelar</button>
+                    <button type="button" class="btn btn-primary" onclick="applyBulk()">
+                        <i class="fa-solid fa-check"></i> Aplicar
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -150,38 +254,38 @@
 
     <!-- Rates Summary -->
     <div class="card-table-wrapper" style="margin-bottom:var(--space-4);">
-        <div style="padding:var(--space-4) 24px;">
-            <div style="font-family:var(--font-heading); font-weight:600; font-size:0.9rem; color:var(--text-primary); margin-bottom:var(--space-3);">
+        <div style="padding:12px 20px;">
+            <div style="font-family:var(--font-heading); font-weight:600; font-size:0.85rem; color:var(--text-primary); margin-bottom:10px;">
                 <i class="fa-solid fa-scale-balanced"></i> Resumen de tasas aplicables
             </div>
-            <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:var(--space-3);">
-                <div style="border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:12px 14px; background:rgba(255,255,255,0.01);">
-                    <span style="display:block; margin-bottom:4px; color:var(--text-muted); font-size:0.72rem; font-weight:700; letter-spacing:0.04em; text-transform:uppercase;">AFP Empleado</span>
-                    <span style="color:var(--text-primary); font-size:0.9rem; font-weight:600;">2.87% · tope RD$ 196,750</span>
+            <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:8px;">
+                <div style="border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:8px 12px; background:rgba(255,255,255,0.01);">
+                    <span style="display:block; margin-bottom:2px; color:var(--text-muted); font-size:0.65rem; font-weight:700;">AFP Empleado</span>
+                    <span style="color:var(--text-primary); font-size:0.78rem; font-weight:600;">2.87% · tope RD$ 196,750</span>
                 </div>
-                <div style="border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:12px 14px; background:rgba(255,255,255,0.01);">
-                    <span style="display:block; margin-bottom:4px; color:var(--text-muted); font-size:0.72rem; font-weight:700; letter-spacing:0.04em; text-transform:uppercase;">AFP Empleador</span>
-                    <span style="color:var(--text-primary); font-size:0.9rem; font-weight:600;">7.10% · tope RD$ 196,750</span>
+                <div style="border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:8px 12px; background:rgba(255,255,255,0.01);">
+                    <span style="display:block; margin-bottom:2px; color:var(--text-muted); font-size:0.65rem; font-weight:700;">AFP Empleador</span>
+                    <span style="color:var(--text-primary); font-size:0.78rem; font-weight:600;">7.10% · tope RD$ 196,750</span>
                 </div>
-                <div style="border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:12px 14px; background:rgba(255,255,255,0.01);">
-                    <span style="display:block; margin-bottom:4px; color:var(--text-muted); font-size:0.72rem; font-weight:700; letter-spacing:0.04em; text-transform:uppercase;">SFS Empleado</span>
-                    <span style="color:var(--text-primary); font-size:0.9rem; font-weight:600;">3.04% · tope RD$ 98,375</span>
+                <div style="border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:8px 12px; background:rgba(255,255,255,0.01);">
+                    <span style="display:block; margin-bottom:2px; color:var(--text-muted); font-size:0.65rem; font-weight:700;">SFS Empleado</span>
+                    <span style="color:var(--text-primary); font-size:0.78rem; font-weight:600;">3.04% · tope RD$ 98,375</span>
                 </div>
-                <div style="border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:12px 14px; background:rgba(255,255,255,0.01);">
-                    <span style="display:block; margin-bottom:4px; color:var(--text-muted); font-size:0.72rem; font-weight:700; letter-spacing:0.04em; text-transform:uppercase;">SFS Empleador</span>
-                    <span style="color:var(--text-primary); font-size:0.9rem; font-weight:600;">7.09% · tope RD$ 98,375</span>
+                <div style="border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:8px 12px; background:rgba(255,255,255,0.01);">
+                    <span style="display:block; margin-bottom:2px; color:var(--text-muted); font-size:0.65rem; font-weight:700;">SFS Empleador</span>
+                    <span style="color:var(--text-primary); font-size:0.78rem; font-weight:600;">7.09% · tope RD$ 98,375</span>
                 </div>
-                <div style="border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:12px 14px; background:rgba(255,255,255,0.01);">
-                    <span style="display:block; margin-bottom:4px; color:var(--text-muted); font-size:0.72rem; font-weight:700; letter-spacing:0.04em; text-transform:uppercase;">INFOTEP</span>
-                    <span style="color:var(--text-primary); font-size:0.9rem; font-weight:600;">1% empleador</span>
+                <div style="border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:8px 12px; background:rgba(255,255,255,0.01);">
+                    <span style="display:block; margin-bottom:2px; color:var(--text-muted); font-size:0.65rem; font-weight:700;">INFOTEP</span>
+                    <span style="color:var(--text-primary); font-size:0.78rem; font-weight:600;">1% empleador</span>
                 </div>
-                <div style="border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:12px 14px; background:rgba(255,255,255,0.01);">
-                    <span style="display:block; margin-bottom:4px; color:var(--text-muted); font-size:0.72rem; font-weight:700; letter-spacing:0.04em; text-transform:uppercase;">SRL</span>
-                    <span style="color:var(--text-primary); font-size:0.9rem; font-weight:600;">1.20% empleador</span>
+                <div style="border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:8px 12px; background:rgba(255,255,255,0.01);">
+                    <span style="display:block; margin-bottom:2px; color:var(--text-muted); font-size:0.65rem; font-weight:700;">SRL</span>
+                    <span style="color:var(--text-primary); font-size:0.78rem; font-weight:600;">1.20% empleador</span>
                 </div>
-                <div style="border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:12px 14px; background:rgba(255,255,255,0.01);">
-                    <span style="display:block; margin-bottom:4px; color:var(--text-muted); font-size:0.72rem; font-weight:700; letter-spacing:0.04em; text-transform:uppercase;">ISR</span>
-                    <span style="color:var(--text-primary); font-size:0.9rem; font-weight:600;">Tabla DGII 2026 · progresivo 0%-25%</span>
+                <div style="border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:8px 12px; background:rgba(255,255,255,0.01);">
+                    <span style="display:block; margin-bottom:2px; color:var(--text-muted); font-size:0.65rem; font-weight:700;">ISR</span>
+                    <span style="color:var(--text-primary); font-size:0.78rem; font-weight:600;">Tabla DGII 2026 · 0%-25%</span>
                 </div>
             </div>
         </div>
@@ -190,12 +294,61 @@
     <div style="display:flex; justify-content:flex-end; gap:var(--space-2); flex-wrap:wrap;">
         <a href="{{ url_for('web_rrhh.payroll_dashboard') }}" class="btn btn-ghost">Cancelar</a>
         <button type="submit" class="btn btn-primary"
-                onclick="return confirm('¿Procesar nómina para {{ employees|length }} empleados? Se generará asiento contable automáticamente.')">
+                onclick="return startPayrollProcessing()">
             <i class="fa-solid fa-play"></i> Procesar Nómina
         </button>
     </div>
+
+    <!-- Processing overlay -->
+    <div id="payrollProcessOverlay" style="display:none; position:fixed; inset:0; z-index:99998; background:rgba(0,0,0,0.55); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); flex-direction:column; align-items:center; justify-content:center;">
+        <div style="background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-xl); padding:40px 36px; max-width:440px; width:90%; text-align:center; box-shadow:var(--shadow-xl); animation:fadeInUp 0.35s ease;">
+            <div style="position:relative; display:inline-block; margin-bottom:20px;">
+                <div style="width:72px; height:72px; border-radius:50%; background:rgba(16,185,129,0.12); display:flex; align-items:center; justify-content:center; margin:0 auto;">
+                    <i class="fa-solid fa-calculator" style="font-size:2rem; color:var(--accent-emerald);"></i>
+                </div>
+                <div style="position:absolute; bottom:-4px; right:-4px; width:26px; height:26px; border-radius:50%; background:var(--accent-emerald); display:flex; align-items:center; justify-content:center;">
+                    <i class="fa-solid fa-gear fa-spin" style="font-size:0.7rem; color:#fff;"></i>
+                </div>
+            </div>
+            <h2 style="margin:0 0 6px; font-size:1.2rem; font-weight:700; color:var(--text-primary);">Procesando nómina</h2>
+            <p style="margin:0 0 28px; font-size:0.82rem; color:var(--text-muted);">Esto puede tomar unos segundos. No cierres la ventana.</p>
+            <div id="processSteps" style="text-align:left; display:flex; flex-direction:column; gap:12px;">
+                <div class="proc-step" data-step="0" style="display:flex; align-items:center; gap:10px; font-size:0.82rem; color:var(--text-muted); transition:color 0.3s;">
+                    <span class="step-icon" style="width:22px; height:22px; border-radius:50%; border:2px solid var(--border-color); display:flex; align-items:center; justify-content:center; font-size:0.6rem; flex-shrink:0; transition:all 0.3s;">1</span>
+                    <span>Validando período</span>
+                </div>
+                <div class="proc-step" data-step="1" style="display:flex; align-items:center; gap:10px; font-size:0.82rem; color:var(--text-muted); transition:color 0.3s;">
+                    <span class="step-icon" style="width:22px; height:22px; border-radius:50%; border:2px solid var(--border-color); display:flex; align-items:center; justify-content:center; font-size:0.6rem; flex-shrink:0; transition:all 0.3s;">2</span>
+                    <span>Calculando ingresos y horas extra</span>
+                </div>
+                <div class="proc-step" data-step="2" style="display:flex; align-items:center; gap:10px; font-size:0.82rem; color:var(--text-muted); transition:color 0.3s;">
+                    <span class="step-icon" style="width:22px; height:22px; border-radius:50%; border:2px solid var(--border-color); display:flex; align-items:center; justify-content:center; font-size:0.6rem; flex-shrink:0; transition:all 0.3s;">3</span>
+                    <span>Aplicando deducciones (AFP, SFS, ISR)</span>
+                </div>
+                <div class="proc-step" data-step="3" style="display:flex; align-items:center; gap:10px; font-size:0.82rem; color:var(--text-muted); transition:color 0.3s;">
+                    <span class="step-icon" style="width:22px; height:22px; border-radius:50%; border:2px solid var(--border-color); display:flex; align-items:center; justify-content:center; font-size:0.6rem; flex-shrink:0; transition:all 0.3s;">4</span>
+                    <span>Calculando aportes del empleador</span>
+                </div>
+                <div class="proc-step" data-step="4" style="display:flex; align-items:center; gap:10px; font-size:0.82rem; color:var(--text-muted); transition:color 0.3s;">
+                    <span class="step-icon" style="width:22px; height:22px; border-radius:50%; border:2px solid var(--border-color); display:flex; align-items:center; justify-content:center; font-size:0.6rem; flex-shrink:0; transition:all 0.3s;">5</span>
+                    <span>Generando asiento contable</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    <style>
+        @keyframes fadeInUp { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
+        @keyframes stepPulse { 0%,100% { box-shadow:0 0 0 0 rgba(16,185,129,0.4); } 50% { box-shadow:0 0 0 6px rgba(16,185,129,0); } }
+        .proc-step.active { color:var(--text-primary) !important; }
+        .proc-step.active .step-icon { border-color:var(--accent-emerald) !important; background:var(--accent-emerald) !important; color:#fff !important; animation:stepPulse 1.4s infinite; }
+        .proc-step.done { color:var(--text-primary) !important; }
+        .proc-step.done .step-icon { border-color:var(--accent-emerald) !important; background:var(--accent-emerald) !important; color:#fff !important; }
+    </style>
 </form>
 </div>
+{% endblock %}
+
+{% block extra_scripts %}
 <script>
 function updateCount() {
     var cbs = document.querySelectorAll('.emp-cb:checked');
@@ -215,15 +368,222 @@ function bulkUnselectAll() {
     document.getElementById('selectAllCB').checked = false;
     updateCount();
 }
-function bulkApply(field) {
-    var val = document.getElementById('bulkValue').value;
+var bulkMode = 'fixed';
+
+function openBulkModal() {
+    var selected = document.querySelectorAll('.emp-cb:checked');
+    var info = document.getElementById('bulkSelectedInfo');
+    if (selected.length === 0) {
+        info.innerHTML = '<span style="color:var(--accent-orange);"><i class="fa-solid fa-triangle-exclamation"></i> No hay empleados seleccionados. Marca al menos uno en la tabla.</span>';
+    } else {
+        info.innerHTML = '<i class="fa-solid fa-users"></i> <strong>' + selected.length + '</strong> empleado(s) seleccionado(s).';
+    }
+    document.getElementById('bulkValue').value = '0';
+    setBulkMode('fixed');
+    document.getElementById('bulkField').value = 'overtime';
+    onBulkFieldChange();
+    document.getElementById('bulkModal').style.display = 'flex';
+}
+
+function onBulkFieldChange() {
+    var field = document.getElementById('bulkField').value;
+    var modeRow = document.getElementById('bulkModeRow');
+    if (field === 'overtime') {
+        modeRow.style.display = 'none';
+        setBulkMode('fixed');
+    } else {
+        modeRow.style.display = 'flex';
+    }
+    updateBulkPreview();
+}
+
+function setBulkMode(mode) {
+    bulkMode = mode;
+    var fixedBtn = document.getElementById('bulkModeFixed');
+    var pctBtn = document.getElementById('bulkModePct');
+    var suffix = document.getElementById('bulkValueSuffix');
+    var label = document.getElementById('bulkValueLabel');
+    if (mode === 'fixed') {
+        fixedBtn.style.background = 'var(--bg-brand-translucent)';
+        fixedBtn.style.color = 'var(--text-primary)';
+        fixedBtn.style.fontWeight = '600';
+        pctBtn.style.background = 'transparent';
+        pctBtn.style.color = 'var(--text-muted)';
+        pctBtn.style.fontWeight = '500';
+        suffix.style.display = 'none';
+        label.textContent = 'Valor';
+    } else {
+        pctBtn.style.background = 'var(--bg-brand-translucent)';
+        pctBtn.style.color = 'var(--text-primary)';
+        pctBtn.style.fontWeight = '600';
+        fixedBtn.style.background = 'transparent';
+        fixedBtn.style.color = 'var(--text-muted)';
+        fixedBtn.style.fontWeight = '500';
+        suffix.textContent = '% del salario base';
+        suffix.style.display = 'inline';
+        label.textContent = 'Porcentaje';
+    }
+    updateBulkPreview();
+}
+
+function updateBulkPreview() {
+    var preview = document.getElementById('bulkPreview');
+    var val = parseFloat(document.getElementById('bulkValue').value) || 0;
+    if (bulkMode !== 'pct' || val === 0) {
+        preview.textContent = '';
+        return;
+    }
+    var selected = document.querySelectorAll('.emp-cb:checked');
+    if (selected.length === 0) { preview.textContent = ''; return; }
+    var first = selected[0];
+    var row = first.closest('tr');
+    var salary = parseFloat(row ? row.getAttribute('data-salary') : 0) || 0;
+    var amount = (salary * val / 100);
+    var formatted = amount.toLocaleString('es-DO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    preview.innerHTML = 'Ejemplo: <strong>' + val + '%</strong> de RD$ ' + salary.toLocaleString('es-DO') + ' = <strong style="color:var(--accent-emerald);">RD$ ' + formatted + '</strong> por empleado';
+}
+
+function applyBulk() {
+    var field = document.getElementById('bulkField').value;
+    var val = parseFloat(document.getElementById('bulkValue').value) || 0;
+    var count = 0;
     document.querySelectorAll('.emp-cb:checked').forEach(function(cb) {
         var row = cb.closest('tr');
-        if (row) {
-            var input = row.querySelector('.emp-' + field);
-            if (input) input.value = val;
+        if (!row) return;
+        var input = row.querySelector('.emp-' + field);
+        if (!input) return;
+        if (bulkMode === 'pct' && field !== 'overtime') {
+            var salary = parseFloat(row.getAttribute('data-salary')) || 0;
+            input.value = (salary * val / 100).toFixed(2);
+        } else {
+            input.value = val;
+        }
+        count++;
+    });
+    document.getElementById('bulkModal').style.display = 'none';
+    if (count > 0) {
+        var labels = { overtime: 'horas extra', commission: 'comisión', bonus: 'bonificación', other_income: 'otro ingreso', other_ded: 'otra deducción' };
+        if (bulkMode === 'pct' && field !== 'overtime') {
+            showBulkToast('Aplicado <strong>' + val + '%</strong> del salario base como ' + labels[field] + ' a ' + count + ' empleado(s).');
+        } else if (field === 'overtime') {
+            showBulkToast('Aplicado <strong>' + val + ' horas</strong> extra a ' + count + ' empleado(s).');
+        } else {
+            showBulkToast('Aplicado <strong>RD$ ' + val.toLocaleString('es-DO') + '</strong> de ' + labels[field] + ' a ' + count + ' empleado(s).');
+        }
+    }
+}
+function closeBulkModal(e) {
+    if (e.target === document.getElementById('bulkModal')) {
+        document.getElementById('bulkModal').style.display = 'none';
+    }
+}
+function showBulkToast(msg) {
+    var toast = document.getElementById('bulkToast');
+    if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'bulkToast';
+        toast.style.cssText = 'position:fixed; bottom:24px; right:24px; z-index:99999; background:var(--bg-card); border:1px solid var(--accent-emerald); border-radius:var(--radius-md); padding:12px 20px; box-shadow:var(--shadow-lg); font-size:0.85rem; color:var(--text-primary); max-width:400px; opacity:0; pointer-events:none; transition:opacity 0.3s;';
+        document.body.appendChild(toast);
+    }
+    toast.innerHTML = '<i class="fa-solid fa-circle-check" style="color:var(--accent-emerald); margin-right:8px;"></i>' + msg;
+    toast.style.opacity = '1';
+    toast.style.pointerEvents = 'none';
+    clearTimeout(toast._timeout);
+    toast._timeout = setTimeout(function() { toast.style.opacity = '0'; }, 3000);
+}
+function startPayrollProcessing() {
+    if (!confirm('¿Procesar nómina para {{ employees|length }} empleados? Se generará asiento contable automáticamente.')) return false;
+    var overlay = document.getElementById('payrollProcessOverlay');
+    overlay.style.display = 'flex';
+    var steps = document.querySelectorAll('.proc-step');
+    var current = 0;
+    var total = steps.length;
+    function advanceStep() {
+        if (current < total) {
+            steps[current].classList.add('active');
+            current++;
+            if (current < total) {
+                setTimeout(advanceStep, 700);
+            }
+        }
+    }
+    setTimeout(advanceStep, 400);
+    return true;
+}
+
+(function() {
+    var tbody = document.getElementById('payVarTbody');
+    var searchEl = document.getElementById('payVarSearch');
+    var perPageEl = document.getElementById('payVarPerPage');
+    var paginationEl = document.getElementById('payVarPagination');
+    var countEl = document.getElementById('payVarCount');
+    if (!tbody || !searchEl || !perPageEl || !paginationEl || !countEl) return;
+
+    var allRows = Array.from(tbody.querySelectorAll('tr'));
+    var filteredRows = allRows.slice();
+    var currentPage = 1;
+    var perPage = parseInt(perPageEl.value) || 5;
+
+    function getSearchTokens() {
+        return searchEl.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    }
+
+    function applyFilter() {
+        var tokens = getSearchTokens();
+        if (tokens.length === 0) {
+            filteredRows = allRows.slice();
+        } else {
+            filteredRows = allRows.filter(function(row) {
+                var text = (row.getAttribute('data-search') || '');
+                return tokens.every(function(t) { return text.indexOf(t) !== -1; });
+            });
+        }
+        currentPage = 1;
+        render();
+    }
+
+    function render() {
+        perPage = parseInt(perPageEl.value) || 5;
+        var totalPages = Math.max(1, Math.ceil(filteredRows.length / perPage));
+        if (currentPage > totalPages) currentPage = totalPages;
+        var start = (currentPage - 1) * perPage;
+        var end = start + perPage;
+        var pageRows = filteredRows.slice(start, end);
+
+        allRows.forEach(function(r) { r.style.display = 'none'; });
+        pageRows.forEach(function(r) { r.style.display = ''; });
+
+        countEl.textContent = filteredRows.length === allRows.length
+            ? allRows.length + ' empleados'
+            : filteredRows.length + ' de ' + allRows.length + ' empleados';
+
+        var html = '';
+        if (totalPages > 1) {
+            if (currentPage > 1) {
+                html += '<button type="button" class="btn btn-sm btn-ghost" data-page="' + (currentPage - 1) + '"><i class="fa-solid fa-chevron-left"></i></button>';
+            }
+            html += '<span style="font-size:0.8rem; color:var(--text-muted);">P&aacute;gina ' + currentPage + ' de ' + totalPages + '</span>';
+            if (currentPage < totalPages) {
+                html += '<button type="button" class="btn btn-sm btn-ghost" data-page="' + (currentPage + 1) + '"><i class="fa-solid fa-chevron-right"></i></button>';
+            }
+        }
+        paginationEl.innerHTML = html;
+    }
+
+    searchEl.addEventListener('input', applyFilter);
+    perPageEl.addEventListener('change', function() { currentPage = 1; render(); });
+    var bulkValInput = document.getElementById('bulkValue');
+    if (bulkValInput) bulkValInput.addEventListener('input', updateBulkPreview);
+    paginationEl.addEventListener('click', function(e) {
+        var btn = e.target.closest('button[data-page]');
+        if (btn) {
+            currentPage = parseInt(btn.getAttribute('data-page'));
+            render();
+            paginationEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }
     });
-}
+
+    render();
+})();
 </script>
 {% endblock %}

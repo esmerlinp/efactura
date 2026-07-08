@@ -4,9 +4,14 @@
 {% include "rrhh/_styles.html" %}
 <div class="page-header hr-page-header">
     <h1 class="page-title"><i class="fa-solid fa-users"></i> Empleados</h1>
-    <a href="{{ url_for('web_rrhh.employee_new') }}" class="btn btn-primary">
-        <i class="fa-solid fa-plus"></i> Nuevo Empleado
-    </a>
+    <div class="hr-page-actions">
+        <a href="{{ url_for('web_rrhh.employee_new') }}" class="btn btn-primary">
+            <i class="fa-solid fa-plus"></i> Nuevo Empleado
+        </a>
+        <a href="{{ url_for('web_rrhh.employee_import') }}" class="btn btn-secondary">
+            <i class="fa-solid fa-file-csv"></i> Importar Empleados
+        </a>
+    </div>
 </div>
 
 <div class="card-table-wrapper hr-document-sheet" style="padding:24px; margin-bottom:24px;">

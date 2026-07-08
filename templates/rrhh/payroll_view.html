@@ -33,6 +33,18 @@
         <a href="{{ url_for('web_rrhh.payroll_bank_export', period_id=period.id, bank='popular') }}" class="btn btn-ghost">
             <i class="fa-solid fa-building-columns"></i> Archivo Banco
         </a>
+        <form method="POST" action="{{ url_for('web_rrhh.payroll_send_payslips', period_id=period.id) }}" style="margin:0; display:contents;"
+              onsubmit="return confirm('¿Enviar volantes de pago a todos los empleados con email registrado?')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-ghost" style="color:var(--accent-emerald);">
+                <i class="fa-solid fa-paper-plane"></i>
+                {% if period.get('payslipsSentAt') %}
+                Reenviar volantes
+                {% else %}
+                Enviar volantes
+                {% endif %}
+            </button>
+        </form>
         <a href="{{ url_for('web_rrhh.payroll_dashboard') }}" class="btn btn-ghost">
             <i class="fa-solid fa-arrow-left"></i> Volver
         </a>
@@ -66,29 +78,29 @@
 
 <!-- Totales -->
 <div class="small-metrics-grid" style="margin-bottom:var(--space-4);">
-    <div class="small-metric">
-        <div class="label">Período</div>
-        <div class="value" style="font-size:0.95rem;">{{ period.get('periodRange') or period.periodKey }}
-            <span style="font-size:0.7rem; color:var(--text-muted); background:var(--bg-nav-hover); padding:1px 8px; border-radius:99px; margin-left:4px;">
+    <div class="small-metric" style="padding:10px 14px;">
+        <div class="label" style="white-space:nowrap; font-size:0.68rem;">Período</div>
+        <div class="value" style="font-size:0.8rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ period.get('periodRange') or period.periodKey }}
+            <span style="font-size:0.62rem; color:var(--text-muted); background:var(--bg-nav-hover); padding:1px 6px; border-radius:99px; margin-left:4px; white-space:nowrap;">
                 {{ period.get('periodType','mensual') }}
             </span>
         </div>
     </div>
-    <div class="small-metric">
-        <div class="label">Empleados</div>
-        <div class="value">{{ period.lines|length }}</div>
+    <div class="small-metric" style="padding:10px 14px;">
+        <div class="label" style="white-space:nowrap; font-size:0.68rem;">Empleados</div>
+        <div class="value" style="font-size:0.85rem; white-space:nowrap;">{{ period.lines|length }}</div>
     </div>
-    <div class="small-metric">
-        <div class="label">Total Bruto</div>
-        <div class="value">{{ "RD$ {:,.2f}".format(period.totalGross|float) }}</div>
+    <div class="small-metric" style="padding:10px 14px;">
+        <div class="label" style="white-space:nowrap; font-size:0.68rem;">Total Bruto</div>
+        <div class="value" style="font-size:0.82rem; white-space:nowrap;">{{ "RD$ {:,.2f}".format(period.totalGross|float) }}</div>
     </div>
-    <div class="small-metric">
-        <div class="label">Total Neto</div>
-        <div class="value" style="color:var(--accent-emerald);">{{ "RD$ {:,.2f}".format(period.totalNet|float) }}</div>
+    <div class="small-metric" style="padding:10px 14px;">
+        <div class="label" style="white-space:nowrap; font-size:0.68rem;">Total Neto</div>
+        <div class="value" style="color:var(--accent-emerald); font-size:0.82rem; white-space:nowrap;">{{ "RD$ {:,.2f}".format(period.totalNet|float) }}</div>
     </div>
-    <div class="small-metric">
-        <div class="label">Aportes Empleador</div>
-        <div class="value" style="color:var(--accent-purple);">{{ "RD$ {:,.2f}".format(period.totalEmployerContrib|float) }}</div>
+    <div class="small-metric" style="padding:10px 14px;">
+        <div class="label" style="white-space:nowrap; font-size:0.68rem;">Aportes Empleador</div>
+        <div class="value" style="color:var(--accent-purple); font-size:0.82rem; white-space:nowrap;">{{ "RD$ {:,.2f}".format(period.totalEmployerContrib|float) }}</div>
     </div>
 </div>
 
@@ -247,7 +259,19 @@
 {% endif %}
 
 <!-- ═══════════════════════════════════════════════════ -->
-<!-- TABS                                                 -->
+<!-- EMPLOYEE FILTER / TABS                               -->
+<!-- ═══════════════════════════════════════════════════ -->
+<div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:12px;">
+    <div class="form-group" style="margin:0; flex:1; min-width:220px; max-width:340px;">
+        <div style="position:relative;">
+            <i class="fa-solid fa-search" style="position:absolute; left:12px; top:50%; transform:translateY(-50%); color:var(--text-muted); font-size:0.8rem;"></i>
+            <input type="text" id="employeeFilter" class="form-input" placeholder="Filtrar por nombre o cédula..."
+                   style="padding-left:34px; border-radius:24px; font-size:0.82rem;">
+        </div>
+    </div>
+    <span id="employeeFilterCount" style="font-size:0.78rem; color:var(--text-muted); white-space:nowrap;"></span>
+</div>
+
 <!-- ═══════════════════════════════════════════════════ -->
 <div class="payroll-tabs">
     <button class="payroll-tab active" data-tab="resumen" onclick="switchTab('resumen')">
@@ -293,22 +317,22 @@
                 {% set _ = total_deductions.update({'val': total_deductions.val + ded}) %}
                 {% set _ = total_net.update({'val': total_net.val + l.netSalary|float}) %}
                 {% set _ = total_employer.update({'val': total_employer.val + l.totalEmployerContrib|float}) %}
-                <tr>
-                    <td><a href="{{ url_for('web_rrhh.employee_view', employee_id=l.employeeId) }}" class="emp-link">{{ l.employeeName }}</a></td>
-                    <td style="text-align:right;">{{ "RD$ {:,.2f}".format(l.totalIncome|float) }}</td>
-                    <td style="text-align:right;">{{ "RD$ {:,.2f}".format(ded) }}</td>
-                    <td style="text-align:right; font-weight:700; color:var(--accent-emerald);">{{ "RD$ {:,.2f}".format(l.netSalary|float) }}</td>
-                    <td style="text-align:right;">{{ "RD$ {:,.2f}".format(l.totalEmployerContrib|float) }}</td>
+                <tr data-search="{{ (l.employeeName or '')|lower }} {{ (l.cedula or '')|lower }}">
+                    <td style="white-space:nowrap;"><a href="{{ url_for('web_rrhh.employee_view', employee_id=l.employeeId) }}" class="emp-link">{{ l.employeeName }}</a></td>
+                    <td style="text-align:right; white-space:nowrap;">{{ "RD$ {:,.2f}".format(l.totalIncome|float) }}</td>
+                    <td style="text-align:right; white-space:nowrap;">{{ "RD$ {:,.2f}".format(ded) }}</td>
+                    <td style="text-align:right; white-space:nowrap; font-weight:700; color:var(--accent-emerald);">{{ "RD$ {:,.2f}".format(l.netSalary|float) }}</td>
+                    <td style="text-align:right; white-space:nowrap;">{{ "RD$ {:,.2f}".format(l.totalEmployerContrib|float) }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
             <tfoot>
                 <tr style="font-weight:700; background:var(--bg-nav-hover);">
                     <td>Totales ({{ period.lines|length }} empleados)</td>
-                    <td style="text-align:right;">{{ "RD$ {:,.2f}".format(total_incomes.val) }}</td>
-                    <td style="text-align:right;">{{ "RD$ {:,.2f}".format(total_deductions.val) }}</td>
-                    <td style="text-align:right; color:var(--accent-emerald);">{{ "RD$ {:,.2f}".format(total_net.val) }}</td>
-                    <td style="text-align:right;">{{ "RD$ {:,.2f}".format(total_employer.val) }}</td>
+                    <td style="text-align:right; white-space:nowrap;">{{ "RD$ {:,.2f}".format(total_incomes.val) }}</td>
+                    <td style="text-align:right; white-space:nowrap;">{{ "RD$ {:,.2f}".format(total_deductions.val) }}</td>
+                    <td style="text-align:right; white-space:nowrap; color:var(--accent-emerald);">{{ "RD$ {:,.2f}".format(total_net.val) }}</td>
+                    <td style="text-align:right; white-space:nowrap;">{{ "RD$ {:,.2f}".format(total_employer.val) }}</td>
                 </tr>
             </tfoot>
             </table>
@@ -336,19 +360,19 @@
             </thead>
             <tbody>
                 {% for l in period.lines %}
-                <tr>
-                    <td><a href="{{ url_for('web_rrhh.employee_view', employee_id=l.employeeId) }}" class="emp-link">{{ l.employeeName }}</a></td>
-                    <td style="text-align:right;">{{ "RD$ {:,.2f}".format(l.grossSalary|float) }}</td>
-                    <td style="text-align:right;">
+                <tr data-search="{{ (l.employeeName or '')|lower }} {{ (l.cedula or '')|lower }}">
+                    <td style="white-space:nowrap;"><a href="{{ url_for('web_rrhh.employee_view', employee_id=l.employeeId) }}" class="emp-link">{{ l.employeeName }}</a></td>
+                    <td style="text-align:right; white-space:nowrap;">{{ "RD$ {:,.2f}".format(l.grossSalary|float) }}</td>
+                    <td style="text-align:right; white-space:nowrap;">
                         {% if l.overtimePay and l.overtimePay|float > 0 %}
                         {{ "RD$ {:,.2f}".format(l.overtimePay|float) }}
-                        <span style="font-size:0.65rem;color:var(--text-muted);display:block;">{{ l.overtimeHours|float }} h</span>
+                        <span style="font-size:0.65rem;color:var(--text-muted);"> ({{ l.overtimeHours|float }} h)</span>
                         {% else %}—{% endif %}
                     </td>
-                    <td style="text-align:right;">{% if l.commission and l.commission|float > 0 %}{{ "RD$ {:,.2f}".format(l.commission|float) }}{% else %}—{% endif %}</td>
-                    <td style="text-align:right;">{% if l.bonus and l.bonus|float > 0 %}{{ "RD$ {:,.2f}".format(l.bonus|float) }}{% else %}—{% endif %}</td>
-                    <td style="text-align:right;">{% if l.otherIncome and l.otherIncome|float > 0 %}{{ "RD$ {:,.2f}".format(l.otherIncome|float) }}{% else %}—{% endif %}</td>
-                    <td style="text-align:right; font-weight:600;">{{ "RD$ {:,.2f}".format(l.totalIncome|float) }}</td>
+                    <td style="text-align:right; white-space:nowrap;">{% if l.commission and l.commission|float > 0 %}{{ "RD$ {:,.2f}".format(l.commission|float) }}{% else %}—{% endif %}</td>
+                    <td style="text-align:right; white-space:nowrap;">{% if l.bonus and l.bonus|float > 0 %}{{ "RD$ {:,.2f}".format(l.bonus|float) }}{% else %}—{% endif %}</td>
+                    <td style="text-align:right; white-space:nowrap;">{% if l.otherIncome and l.otherIncome|float > 0 %}{{ "RD$ {:,.2f}".format(l.otherIncome|float) }}{% else %}—{% endif %}</td>
+                    <td style="text-align:right; white-space:nowrap; font-weight:600;">{{ "RD$ {:,.2f}".format(l.totalIncome|float) }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -360,7 +384,7 @@
                     <td style="text-align:right;">—</td>
                     <td style="text-align:right;">—</td>
                     <td style="text-align:right;">—</td>
-                    <td style="text-align:right;">{{ "RD$ {:,.2f}".format(period.totalGross|float) }}</td>
+                    <td style="text-align:right; white-space:nowrap;">{{ "RD$ {:,.2f}".format(period.totalGross|float) }}</td>
                 </tr>
             </tfoot>
             </table>
@@ -390,30 +414,30 @@
             </thead>
             <tbody>
                 {% for l in period.lines %}
-                <tr>
-                    <td><a href="{{ url_for('web_rrhh.employee_view', employee_id=l.employeeId) }}" class="emp-link">{{ l.employeeName }}</a></td>
-                    <td style="text-align:right;">{{ "RD$ {:,.2f}".format(l.totalIncome|float) }}</td>
-                    <td style="text-align:right;">{{ "RD$ {:,.2f}".format(l.afpEmployee|float) }}</td>
-                    <td style="text-align:right;">{{ "RD$ {:,.2f}".format(l.sfsEmployee|float) }}</td>
-                    <td style="text-align:right;">{{ "RD$ {:,.2f}".format(l.get('infotepEmployee', 0)|float) }}</td>
-                    <td style="text-align:right;">{{ "RD$ {:,.2f}".format(l.isrRetention|float) }}</td>
-                    <td style="text-align:right;">{{ "RD$ {:,.2f}".format(l.otherDeductions|float) }}</td>
-                    <td style="text-align:right; font-weight:700; color:var(--accent-emerald);">{{ "RD$ {:,.2f}".format(l.netSalary|float) }}</td>
-                    <td style="text-align:right;">{{ "RD$ {:,.2f}".format(l.totalEmployerContrib|float) }}</td>
+                <tr data-search="{{ (l.employeeName or '')|lower }} {{ (l.cedula or '')|lower }}">
+                    <td style="white-space:nowrap;"><a href="{{ url_for('web_rrhh.employee_view', employee_id=l.employeeId) }}" class="emp-link">{{ l.employeeName }}</a></td>
+                    <td style="text-align:right; white-space:nowrap;">{{ "RD$ {:,.2f}".format(l.totalIncome|float) }}</td>
+                    <td style="text-align:right; white-space:nowrap;">{{ "RD$ {:,.2f}".format(l.afpEmployee|float) }}</td>
+                    <td style="text-align:right; white-space:nowrap;">{{ "RD$ {:,.2f}".format(l.sfsEmployee|float) }}</td>
+                    <td style="text-align:right; white-space:nowrap;">{{ "RD$ {:,.2f}".format(l.get('infotepEmployee', 0)|float) }}</td>
+                    <td style="text-align:right; white-space:nowrap;">{{ "RD$ {:,.2f}".format(l.isrRetention|float) }}</td>
+                    <td style="text-align:right; white-space:nowrap;">{{ "RD$ {:,.2f}".format(l.otherDeductions|float) }}</td>
+                    <td style="text-align:right; white-space:nowrap; font-weight:700; color:var(--accent-emerald);">{{ "RD$ {:,.2f}".format(l.netSalary|float) }}</td>
+                    <td style="text-align:right; white-space:nowrap;">{{ "RD$ {:,.2f}".format(l.totalEmployerContrib|float) }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
             <tfoot>
                 <tr style="font-weight:700; background:var(--bg-nav-hover);">
                     <td>Totales</td>
-                    <td style="text-align:right;">{{ "RD$ {:,.2f}".format(period.totalGross|float) }}</td>
+                    <td style="text-align:right; white-space:nowrap;">{{ "RD$ {:,.2f}".format(period.totalGross|float) }}</td>
                     <td style="text-align:right;">—</td>
                     <td style="text-align:right;">—</td>
                     <td style="text-align:right;">—</td>
                     <td style="text-align:right;">—</td>
                     <td style="text-align:right;">—</td>
-                    <td style="text-align:right; color:var(--accent-emerald);">{{ "RD$ {:,.2f}".format(period.totalNet|float) }}</td>
-                    <td style="text-align:right;">{{ "RD$ {:,.2f}".format(period.totalEmployerContrib|float) }}</td>
+                    <td style="text-align:right; white-space:nowrap; color:var(--accent-emerald);">{{ "RD$ {:,.2f}".format(period.totalNet|float) }}</td>
+                    <td style="text-align:right; white-space:nowrap;">{{ "RD$ {:,.2f}".format(period.totalEmployerContrib|float) }}</td>
                 </tr>
             </tfoot>
             </table>
@@ -450,28 +474,28 @@
             </thead>
             <tbody>
                 {% for l in period.lines %}
-                <tr>
-                    <td><a href="{{ url_for('web_rrhh.employee_view', employee_id=l.employeeId) }}" class="emp-link">{{ l.employeeName }}</a></td>
-                    <td>{{ l.cedula }}</td>
-                    <td>{{ l.position }}</td>
-                    <td style="text-align:right;">{{ "RD$ {:,.2f}".format(l.grossSalary|float) }}</td>
-                    <td style="text-align:right;">
+                <tr data-search="{{ (l.employeeName or '')|lower }} {{ (l.cedula or '')|lower }}">
+                    <td style="white-space:nowrap;"><a href="{{ url_for('web_rrhh.employee_view', employee_id=l.employeeId) }}" class="emp-link">{{ l.employeeName }}</a></td>
+                    <td style="white-space:nowrap;">{{ l.cedula }}</td>
+                    <td style="white-space:nowrap;">{{ l.position }}</td>
+                    <td style="text-align:right; white-space:nowrap;">{{ "RD$ {:,.2f}".format(l.grossSalary|float) }}</td>
+                    <td style="text-align:right; white-space:nowrap;">
                         {% if l.overtimePay and l.overtimePay|float > 0 %}
                         {{ "RD$ {:,.2f}".format(l.overtimePay|float) }}
-                        <span style="font-size:0.65rem;color:var(--text-muted);display:block;">{{ l.overtimeHours|float }} h</span>
+                        <span style="font-size:0.65rem;color:var(--text-muted);"> ({{ l.overtimeHours|float }} h)</span>
                         {% else %}—{% endif %}
                     </td>
-                    <td style="text-align:right;">{% if l.commission and l.commission|float > 0 %}{{ "RD$ {:,.2f}".format(l.commission|float) }}{% else %}—{% endif %}</td>
-                    <td style="text-align:right;">{% if l.bonus and l.bonus|float > 0 %}{{ "RD$ {:,.2f}".format(l.bonus|float) }}{% else %}—{% endif %}</td>
-                    <td style="text-align:right;">{% if l.otherIncome and l.otherIncome|float > 0 %}{{ "RD$ {:,.2f}".format(l.otherIncome|float) }}{% else %}—{% endif %}</td>
-                    <td style="text-align:right; font-weight:600;">{{ "RD$ {:,.2f}".format(l.totalIncome|float) }}</td>
-                    <td style="text-align:right;">{{ "RD$ {:,.2f}".format(l.afpEmployee|float) }}</td>
-                    <td style="text-align:right;">{{ "RD$ {:,.2f}".format(l.sfsEmployee|float) }}</td>
-                    <td style="text-align:right;">{{ "RD$ {:,.2f}".format(l.get('infotepEmployee', 0)|float) }}</td>
-                    <td style="text-align:right;">{{ "RD$ {:,.2f}".format(l.isrRetention|float) }}</td>
-                    <td style="text-align:right;">{{ "RD$ {:,.2f}".format(l.otherDeductions|float) }}</td>
-                    <td style="text-align:right; font-weight:700; color:var(--accent-emerald);">{{ "RD$ {:,.2f}".format(l.netSalary|float) }}</td>
-                    <td style="text-align:right;">{{ "RD$ {:,.2f}".format(l.totalEmployerContrib|float) }}</td>
+                    <td style="text-align:right; white-space:nowrap;">{% if l.commission and l.commission|float > 0 %}{{ "RD$ {:,.2f}".format(l.commission|float) }}{% else %}—{% endif %}</td>
+                    <td style="text-align:right; white-space:nowrap;">{% if l.bonus and l.bonus|float > 0 %}{{ "RD$ {:,.2f}".format(l.bonus|float) }}{% else %}—{% endif %}</td>
+                    <td style="text-align:right; white-space:nowrap;">{% if l.otherIncome and l.otherIncome|float > 0 %}{{ "RD$ {:,.2f}".format(l.otherIncome|float) }}{% else %}—{% endif %}</td>
+                    <td style="text-align:right; white-space:nowrap; font-weight:600;">{{ "RD$ {:,.2f}".format(l.totalIncome|float) }}</td>
+                    <td style="text-align:right; white-space:nowrap;">{{ "RD$ {:,.2f}".format(l.afpEmployee|float) }}</td>
+                    <td style="text-align:right; white-space:nowrap;">{{ "RD$ {:,.2f}".format(l.sfsEmployee|float) }}</td>
+                    <td style="text-align:right; white-space:nowrap;">{{ "RD$ {:,.2f}".format(l.get('infotepEmployee', 0)|float) }}</td>
+                    <td style="text-align:right; white-space:nowrap;">{{ "RD$ {:,.2f}".format(l.isrRetention|float) }}</td>
+                    <td style="text-align:right; white-space:nowrap;">{{ "RD$ {:,.2f}".format(l.otherDeductions|float) }}</td>
+                    <td style="text-align:right; white-space:nowrap; font-weight:700; color:var(--accent-emerald);">{{ "RD$ {:,.2f}".format(l.netSalary|float) }}</td>
+                    <td style="text-align:right; white-space:nowrap;">{{ "RD$ {:,.2f}".format(l.totalEmployerContrib|float) }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -483,14 +507,14 @@
                     <td style="text-align:right;">—</td>
                     <td style="text-align:right;">—</td>
                     <td style="text-align:right;">—</td>
-                    <td style="text-align:right;">{{ "RD$ {:,.2f}".format(period.totalGross|float) }}</td>
+                    <td style="text-align:right; white-space:nowrap;">{{ "RD$ {:,.2f}".format(period.totalGross|float) }}</td>
                     <td style="text-align:right;">—</td>
                     <td style="text-align:right;">—</td>
                     <td style="text-align:right;">—</td>
                     <td style="text-align:right;">—</td>
                     <td style="text-align:right;">—</td>
-                    <td style="text-align:right; color:var(--accent-emerald);">{{ "RD$ {:,.2f}".format(period.totalNet|float) }}</td>
-                    <td style="text-align:right;">{{ "RD$ {:,.2f}".format(period.totalEmployerContrib|float) }}</td>
+                    <td style="text-align:right; white-space:nowrap; color:var(--accent-emerald);">{{ "RD$ {:,.2f}".format(period.totalNet|float) }}</td>
+                    <td style="text-align:right; white-space:nowrap;">{{ "RD$ {:,.2f}".format(period.totalEmployerContrib|float) }}</td>
                 </tr>
             </tfoot>
             </table>
@@ -512,6 +536,34 @@ function switchTab(tabName) {
     if (saved && document.getElementById('tab-' + saved)) {
         switchTab(saved);
     }
+    // Employee filter
+    var filterEl = document.getElementById('employeeFilter');
+    var countEl = document.getElementById('employeeFilterCount');
+    if (!filterEl) return;
+    var allTabs = document.querySelectorAll('.tab-panel');
+    filterEl.addEventListener('input', function() {
+        var tokens = filterEl.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+        var visible = 0;
+        var total = 0;
+        allTabs.forEach(function(tab) {
+            var rows = tab.querySelectorAll('tbody tr[data-search]');
+            rows.forEach(function(row) {
+                var text = (row.getAttribute('data-search') || '');
+                if (tokens.length === 0 || tokens.every(function(t) { return text.indexOf(t) !== -1; })) {
+                    row.style.display = '';
+                    visible++;
+                } else {
+                    row.style.display = 'none';
+                }
+                total++;
+            });
+        });
+        if (tokens.length > 0 && countEl) {
+            countEl.textContent = visible + ' de ' + (total / allTabs.length) + ' empleados';
+        } else if (countEl) {
+            countEl.textContent = '';
+        }
+    });
 })();
 </script>
 
