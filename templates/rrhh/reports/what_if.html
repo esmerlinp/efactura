@@ -1,0 +1,98 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}Análisis What-If — {{ product_name }}{% endblock %}
+{% block content %}
+{% include "rrhh/_styles.html" %}
+<div class="page-header hr-page-header">
+    <h1 class="page-title"><i class="fa-solid fa-chart-line"></i> Simulación What-If</h1>
+    <a href="{{ url_for('web_rrhh.payroll_dashboard') }}" class="btn btn-ghost"><i class="fa-solid fa-arrow-left"></i> Dashboard</a>
+</div>
+
+<form method="GET" class="card-table-wrapper" style="padding:20px; margin-bottom:20px;">
+    <h3 style="margin-top:0;">Configurar escenario</h3>
+    <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:end;">
+        <div>
+            <label style="font-size:0.8rem; display:block;">Tipo</label>
+            <select name="type" class="form-select" style="width:200px;">
+                <option value="pct_increase" {% if scenario_type=='pct_increase' %}selected{% endif %}>Aumento porcentual</option>
+                <option value="fixed_increase" {% if scenario_type=='fixed_increase' %}selected{% endif %}>Aumento fijo</option>
+                <option value="department_increase" {% if scenario_type=='department_increase' %}selected{% endif %}>Por departamento</option>
+                <option value="executive_bonus" {% if scenario_type=='executive_bonus' %}selected{% endif %}>Bono ejecutivo</option>
+            </select>
+        </div>
+        <div>
+            <label style="font-size:0.8rem; display:block;">Valor</label>
+            <input type="number" name="value" step="0.01" value="{{ value or 10 }}" class="form-input" style="width:120px;" placeholder="10">
+        </div>
+        <div>
+            <label style="font-size:0.8rem; display:block;">Departamento (opcional)</label>
+            <select name="department" class="form-select" style="width:180px;">
+                <option value="">Todos</option>
+                {% for d in departments %}
+                <option value="{{ d }}" {% if filter_dept==d %}selected{% endif %}>{{ d }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-play"></i> Simular</button>
+    </div>
+</form>
+
+{% if result %}
+<div class="validation-summary" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:16px; margin-bottom:20px;">
+    <div class="card-table-wrapper" style="padding:16px; text-align:center;">
+        <div style="font-size:1.4rem; font-weight:700; color:var(--accent-emerald);">{{ result.affectedEmployees }}</div>
+        <div style="font-size:0.75rem; color:var(--text-muted);">Empleados afectados</div>
+    </div>
+    <div class="card-table-wrapper" style="padding:16px; text-align:center;">
+        <div style="font-size:1.4rem; font-weight:700;">RD$ {{ '{:,.0f}'.format(result.impact.total) }}</div>
+        <div style="font-size:0.75rem; color:var(--text-muted);">Impacto mensual total</div>
+    </div>
+    <div class="card-table-wrapper" style="padding:16px; text-align:center;">
+        <div style="font-size:1.4rem; font-weight:700; color:var(--accent-amber);">RD$ {{ '{:,.0f}'.format(result.impact.annualTotal) }}</div>
+        <div style="font-size:0.75rem; color:var(--text-muted);">Impacto anual proyectado</div>
+    </div>
+</div>
+
+<div class="card-table-wrapper" style="margin-bottom:16px;">
+    <h3 style="padding:12px 18px; margin:0; border-bottom:1px solid var(--border-color); font-size:0.9rem;">Comparativa mensual</h3>
+    <div style="padding:16px; display:grid; grid-template-columns:1fr 1fr; gap:20px;">
+        <div>
+            <strong style="font-size:0.85rem;">Actual (mensual)</strong>
+            <div style="font-size:0.82rem; color:var(--text-muted);">Bruto: RD$ {{ '{:,.2f}'.format(result.currentMonthly.gross) }}</div>
+            <div style="font-size:0.82rem; color:var(--text-muted);">Neto: RD$ {{ '{:,.2f}'.format(result.currentMonthly.net) }}</div>
+            <div style="font-size:0.82rem; color:var(--text-muted);">Empleador: RD$ {{ '{:,.2f}'.format(result.currentMonthly.employer) }}</div>
+        </div>
+        <div>
+            <strong style="font-size:0.85rem;">Proyectado (mensual)</strong>
+            <div style="font-size:0.82rem; color:var(--accent-emerald);">Bruto: RD$ {{ '{:,.2f}'.format(result.projectedMonthly.gross) }}</div>
+            <div style="font-size:0.82rem; color:var(--accent-emerald);">Neto: RD$ {{ '{:,.2f}'.format(result.projectedMonthly.net) }}</div>
+            <div style="font-size:0.82rem; color:var(--accent-emerald);">Empleador: RD$ {{ '{:,.2f}'.format(result.projectedMonthly.employer) }}</div>
+        </div>
+    </div>
+</div>
+
+{% if result.perEmployee[:20] %}
+<div class="card-table-wrapper">
+    <div class="table-responsive">
+        <table class="table-premium" style="font-size:0.82rem;">
+            <thead><tr><th>Empleado</th><th>Base Actual</th><th>Nueva Base</th><th>Neto Actual</th><th>Neto Proy.</th><th>Diferencia</th></tr></thead>
+            <tbody>
+                {% for e in result.perEmployee[:20] %}
+                <tr>
+                    <td>{{ e.employeeName }}</td>
+                    <td>RD$ {{ '{:,.2f}'.format(e.currentBase) }}</td>
+                    <td>RD$ {{ '{:,.2f}'.format(e.newBase) }}</td>
+                    <td>RD$ {{ '{:,.2f}'.format(e.currentNet) }}</td>
+                    <td>RD$ {{ '{:,.2f}'.format(e.projectedNet) }}</td>
+                    <td style="color:{% if e.netDiff>0 %}var(--accent-emerald){% else %}var(--text-muted){% endif %};">RD$ {{ '{:,.2f}'.format(e.netDiff) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% if result.perEmployee|length > 20 %}
+    <p style="padding:8px; text-align:center; font-size:0.8rem; color:var(--text-muted);">Mostrando 20 de {{ result.perEmployee|length }} empleados</p>
+    {% endif %}
+</div>
+{% endif %}
+{% endif %}
+{% endblock %}

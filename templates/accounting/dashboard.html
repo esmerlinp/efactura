@@ -85,9 +85,9 @@
                     <span>¿Balanceado?</span>
                     {% set diff = total_assets - total_liabilities - total_equity %}
                     {% if abs(diff) < 0.01 %}
-                    <span style="color:var(--accent-emerald);">✅ Sí</span>
+                    <span style="color:var(--accent-emerald);"><i class="fa-solid fa-check"></i> Sí</span>
                     {% else %}
-                    <span style="color:var(--accent-red);">❌ No (diferencia: {{ "{:,.2f}".format(diff) }})</span>
+                    <span style="color:var(--accent-red);"><i class="fa-solid fa-xmark"></i> No (diferencia: {{ "{:,.2f}".format(diff) }})</span>
                     {% endif %}
                 </div>
             </div>

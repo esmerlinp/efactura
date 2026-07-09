@@ -1,0 +1,31 @@
+{# =========================================================================
+   BREADCRUMB COMPONENT — Shared breadcrumb navigation
+   =========================================================================
+   Usage: {% with crumbs=[...] %}{% include 'components/_breadcrumb.html' %}{% endwith %}
+
+   Each crumb is a dict: {label: "Text", url: "/path"} or {label: "Text"} (current)
+   If url is omitted, the item is rendered as the current page (no link).
+
+   Example:
+   {% with crumbs=[
+       {'label': 'Inicio', 'url': url_for('web_dashboard.dashboard')},
+       {'label': 'Reportes', 'url': url_for('web_reports_606.dashboard_606')},
+       {'label': 'Reporte 606'}
+   ] %}
+   {% include 'components/_breadcrumb.html' %}
+   {% endwith %}
+   ========================================================================= #}
+{% if crumbs %}
+<nav class="breadcrumb" aria-label="Breadcrumb">
+    {% for crumb in crumbs %}
+        {% if not loop.first %}
+        <span class="breadcrumb-separator">/</span>
+        {% endif %}
+        {% if crumb.url and not loop.last %}
+        <a href="{{ crumb.url }}">{{ crumb.label }}</a>
+        {% elif loop.last or not crumb.url %}
+        <span class="breadcrumb-current" style="color: var(--text-primary); font-weight: 500;">{{ crumb.label }}</span>
+        {% endif %}
+    {% endfor %}
+</nav>
+{% endif %}

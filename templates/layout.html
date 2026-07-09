@@ -57,7 +57,12 @@
     <meta name="twitter:description" content="{% block twitter_description %}Sistema de facturación electrónica certificado por DGII. Cumplimiento Ley 32-23 en República Dominicana.{% endblock %}">
     <meta name="twitter:image" content="{% block twitter_image %}{{ url_for('static', filename='images/og-default.png', _external=True) }}{% endblock %}">
 
-    <!-- FontAwesome para Iconos Modernos -->
+    <!-- Google Fonts: Fira Sans + Fira Code (primary typography system) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Fira+Sans:wght@300;400;500;600;700&display=swap">
+
+    <!-- FontAwesome para Iconos (v6.4.0, canonical) -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
     <!-- Estilos según Tema -->
@@ -1128,9 +1133,9 @@
                             </a>
                         </li>
                         <li class="nav-item {% if active_page == 'expenses_minor' %}active{% endif %}"
-                            data-tooltip="Gastos Menores E43">
+                            data-tooltip="Gastos Menores">
                             <a href="{{ url_for('web_invoices.minor_list') }}">
-                                <span>Gastos Menores (E43)</span>
+                                <span>Gastos Menores</span>
                             </a>
                         </li>
                         <li class="nav-item {% if active_page == 'expenses_recurring' %}active{% endif %}"
@@ -1403,6 +1408,14 @@
                     </div>
                     <ul class="sidebar-section-content">
                         {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canModifySettings', True) %}
+                        <li class="nav-item {% if active_page == 'settings' %}active{% endif %}">
+                            <a href="{{ url_for('web_invoices.company_settings') }}">
+                                <i class="fa-solid fa-building-gear" style="width:16px;"></i>
+                                <span>Configuración de Empresa</span>
+                            </a>
+                        </li>
+                        {% endif %}
+                        {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canModifySettings', True) %}
                         <li class="nav-item {% if active_page == 'tax_settings' %}active{% endif %}">
                             <a href="{{ url_for('web_invoices.tax_settings') }}">
                                 <i class="fa-solid fa-coins" style="width:16px;"></i>
@@ -1467,7 +1480,7 @@
 
                             // Cargar preferencia del localStorage (solo para no-flyout)
                             if (!el.classList.contains('sidebar-section-flyout')) {
-                                const stored = localStorage.getItem('sidebar-collapsed-sidebar-section-' + id);
+                                const stored = localStorage.getItem('sidebar-section-' + id);
                                 if (stored === 'true') {
                                     el.classList.add('collapsed');
                                 } else if (stored === 'false') {
@@ -1535,7 +1548,7 @@
                                         }
                                     } else {
                                         if (!section.classList.contains('sidebar-section-flyout')) {
-                                            const stored = localStorage.getItem('sidebar-collapsed-' + section.id);
+                                            const stored = localStorage.getItem(section.id);
                                             if (stored === 'true') {
                                                 section.classList.add('collapsed');
                                             } else if (stored === 'false') {
@@ -1561,9 +1574,11 @@
             <div class="sidebar-footer" style="flex-direction: column; gap: 0; padding-top: 0;">
                 <!-- Active Company Name -->
                 {% if active_company_name %}
-                <div style="font-size: 0.78rem; font-weight: 500; color: var(--text-secondary); padding: 8px 14px; border-top: 1px solid var(--border-color); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; border-bottom: 1px solid var(--border-color);">
-                    <i class="fa-solid fa-building" style="margin-right: 6px; color: var(--accent-emerald);"></i>{{ active_company_name }}
-                </div>
+                <a href="{{ url_for('web_invoices.company_settings') }}" style="text-decoration: none; display: block;">
+                    <div style="font-size: 0.78rem; font-weight: 500; color: var(--text-secondary); padding: 8px 14px; border-top: 1px solid var(--border-color); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; border-bottom: 1px solid var(--border-color); cursor: pointer; transition: background 0.15s;" onmouseover="this.style.background='var(--hover-bg)';" onmouseout="this.style.background='transparent';">
+                        <i class="fa-solid fa-building" style="margin-right: 6px; color: var(--accent-emerald);"></i>{{ active_company_name }}
+                    </div>
+                </a>
                 {% endif %}
                 <!-- Plan Info Block -->
                 {% if global_plan_name %}
@@ -2362,20 +2377,20 @@
             backdrop-filter: blur(24px) saturate(180%);
             -webkit-backdrop-filter: blur(24px) saturate(180%);
         }
-        .action-menu { position: relative; display: inline-block; }
-        .action-menu-btn { background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 6px 10px; border-radius: 6px; font-size: 1rem; line-height: 1; transition: background 0.15s, color 0.15s; }
-        .action-menu-btn:hover { background: rgba(0,0,0,0.05); color: var(--text-primary); }
-        .action-menu-dropdown { display: none !important; position: absolute; right: 0; top: 100%; z-index: 1000; min-width: 180px; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,0.15); padding: 4px; margin-top: 4px; }
-        .action-menu-dropdown.show { display: block !important; }
-        .action-menu-item { display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 12px; background: none; border: none; color: var(--text-primary); font-size: 0.84rem; font-family: inherit; cursor: pointer; border-radius: 4px; text-decoration: none; text-align: left; white-space: nowrap; transition: background 0.12s; }
-        .action-menu-item:hover { background: rgba(0,0,0,0.04); color: var(--text-primary); text-decoration: none; }
-        .action-menu-item i { width: 16px; font-size: 0.88rem; color: var(--text-muted); text-align: center; }
-        .action-menu-item.text-danger { color: var(--accent-red); }
-        .action-menu-item.text-danger i { color: var(--accent-red); }
-        .action-menu-item.text-danger:hover { background: rgba(239,68,68,0.08); }
-        [data-theme="dark"] .action-menu-btn:hover { background: rgba(255,255,255,0.08); }
-        [data-theme="dark"] .action-menu-dropdown { background: var(--bg-card); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border-color: var(--border-color); }
-        [data-theme="dark"] .action-menu-item:hover { background: rgba(255,255,255,0.06); }
+         .action-menu { position: relative; display: inline-block; }
+         .action-menu-btn { background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 6px 10px; border-radius: 6px; font-size: 1rem; line-height: 1; transition: background 0.15s, color 0.15s; }
+         .action-menu-btn:hover { background: var(--bg-nav-hover); color: var(--text-primary); }
+         .action-menu-dropdown { display: none !important; position: absolute; right: 0; top: 100%; z-index: var(--z-dropdown); min-width: 180px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-md); box-shadow: var(--shadow-lg); padding: 4px; margin-top: 4px; }
+         .action-menu-dropdown.show { display: block !important; }
+         .action-menu-item { display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 12px; background: none; border: none; color: var(--text-primary); font-size: 0.84rem; font-family: inherit; cursor: pointer; border-radius: var(--radius-xs); text-decoration: none; text-align: left; white-space: nowrap; transition: background 0.12s; }
+         .action-menu-item:hover { background: var(--bg-nav-hover); color: var(--text-primary); text-decoration: none; }
+         .action-menu-item i { width: 16px; font-size: 0.88rem; color: var(--text-muted); text-align: center; }
+         .action-menu-item.text-danger { color: var(--accent-red); }
+         .action-menu-item.text-danger i { color: var(--accent-red); }
+         .action-menu-item.text-danger:hover { background: var(--color-error-light); }
+         [data-theme="dark"] .action-menu-btn:hover { background: rgba(255,255,255,0.08); }
+         [data-theme="dark"] .action-menu-dropdown { background: var(--dark-surface); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border-color: var(--dark-border); }
+         [data-theme="dark"] .action-menu-item:hover { background: rgba(255,255,255,0.06); }
 
         /* PANTALLA DE CARGA ANIMADA */
         @keyframes loader-text-slide-in {

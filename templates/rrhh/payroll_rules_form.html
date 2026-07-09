@@ -1,0 +1,229 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}{% if rule %}Editar{% else %}Nueva{% endif %} Regla — {{ product_name }}{% endblock %}
+{% block extra_head %}
+<style>
+.condition-row, .action-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 8px;
+    padding: 8px;
+    border: 1px solid var(--border-color-light);
+    border-radius: var(--radius-sm);
+    background: var(--bg-surface-secondary);
+}
+.condition-row select, .condition-row input,
+.action-row select, .action-row input {
+    font-size: 0.82rem;
+}
+.logic-toggle {
+    display: inline-flex;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+}
+.logic-toggle label {
+    padding: 6px 14px;
+    font-size: 0.78rem;
+    cursor: pointer;
+    margin: 0;
+}
+.logic-toggle input { display: none; }
+.logic-toggle input:checked + span {
+    background: var(--accent-emerald);
+    color: white;
+}
+.logic-toggle span { padding: 6px 14px; display: block; }
+</style>
+{% endblock %}
+{% block content %}
+{% include "rrhh/_styles.html" %}
+<div class="page-header hr-page-header">
+    <h1 class="page-title"><i class="fa-solid fa-code-branch"></i> {% if rule %}Editar{% else %}Nueva{% endif %} Regla</h1>
+    <a href="{{ url_for('web_rrhh.payroll_rules_list') }}" class="btn btn-ghost"><i class="fa-solid fa-arrow-left"></i> Reglas</a>
+</div>
+
+<form method="POST" class="card-table-wrapper" style="padding:24px;">
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:20px;">
+        <div>
+            <label style="font-size:0.82rem; display:block; margin-bottom:4px;">Nombre *</label>
+            <input type="text" name="name" value="{{ rule.name if rule else '' }}" class="form-input" required placeholder="Ej: Bono por antigüedad">
+        </div>
+        <div>
+            <label style="font-size:0.82rem; display:block; margin-bottom:4px;">Prioridad</label>
+            <input type="number" name="priority" value="{{ rule.priority if rule else 0 }}" class="form-input" style="width:100px;" min="0">
+            <span style="font-size:0.7rem; color:var(--text-muted);">Menor = más prioritario</span>
+        </div>
+    </div>
+
+    <div style="margin-bottom:20px;">
+        <label style="font-size:0.82rem; display:block; margin-bottom:4px;">Descripción</label>
+        <input type="text" name="description" value="{{ rule.description if rule else '' }}" class="form-input" placeholder="Qué hace esta regla...">
+    </div>
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:20px;">
+        <div>
+            <label style="font-size:0.82rem; display:block; margin-bottom:4px;">Ámbito</label>
+            <select name="scope" class="form-select" onchange="document.getElementById('scopeIdContainer').style.display=this.value=='global'?'none':'block'">
+                <option value="global" {% if rule and rule.scope=='global' %}selected{% endif %}>Global (todos los empleados)</option>
+                <option value="group" {% if rule and rule.scope=='group' %}selected{% endif %}>Por grupo de nómina</option>
+                <option value="employee" {% if rule and rule.scope=='employee' %}selected{% endif %}>Por empleado</option>
+            </select>
+        </div>
+        <div id="scopeIdContainer" style="{% if not rule or rule.scope=='global' %}display:none;{% endif %}">
+            <label style="font-size:0.82rem; display:block; margin-bottom:4px;">
+                {% if rule and rule.scope=='group' %}Grupo{% else %}Empleado{% endif %}
+            </label>
+            <select name="scope_id" class="form-select">
+                {% if rule and rule.scope == 'group' %}
+                {% for g in groups %}
+                <option value="{{ g.id }}" {% if rule.scopeId==g.id %}selected{% endif %}>{{ g.name }}</option>
+                {% endfor %}
+                {% elif rule and rule.scope == 'employee' %}
+                {% for e in employees %}
+                <option value="{{ e.id }}" {% if rule.scopeId==e.id %}selected{% endif %}>{{ e.fullName }}</option>
+                {% endfor %}
+                {% endif %}
+            </select>
+        </div>
+    </div>
+
+    <div style="margin-bottom:20px;">
+        <label style="font-size:0.82rem; display:block; margin-bottom:4px;">Lógica de condiciones</label>
+        <div class="logic-toggle">
+            <label><input type="radio" name="logic" value="AND" {% if not rule or rule.logic=='AND' %}checked{% endif %}><span>Y (AND)</span></label>
+            <label><input type="radio" name="logic" value="OR" {% if rule and rule.logic=='OR' %}checked{% endif %}><span>O (OR)</span></label>
+        </div>
+    </div>
+
+    <h3 style="font-size:0.9rem; margin-bottom:8px;">Condiciones</h3>
+    <div id="conditionsContainer">
+        {% if rule and rule.conditions %}
+        {% for cond in rule.conditions %}
+        <div class="condition-row">
+            <select name="cond_field[]" class="form-select" style="width:150px;">
+                {% set fields = ['department','area','position','salary','salary_type','contract_type','seniority_years','status','workday','cost_center','gender'] %}
+                {% for f in fields %}
+                <option value="{{ f }}" {% if cond.field==f %}selected{% endif %}>{{ f }}</option>
+                {% endfor %}
+            </select>
+            <select name="cond_op[]" class="form-select" style="width:100px;">
+                {% set ops = ['==','!=','>','<','>=','<=','contains','in','not_in'] %}
+                {% for o in ops %}
+                <option value="{{ o }}" {% if cond.operator==o %}selected{% endif %}>{{ o }}</option>
+                {% endfor %}
+            </select>
+            <input type="text" name="cond_value[]" value="{{ cond.value }}" class="form-input" style="flex:1;" placeholder="Valor">
+            <button type="button" class="btn btn-ghost btn-sm" onclick="this.parentElement.remove()" style="color:var(--accent-red);"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        {% endfor %}
+        {% else %}
+        <div class="condition-row">
+            <select name="cond_field[]" class="form-select" style="width:150px;">
+                <option value="department">department</option>
+                <option value="area">area</option>
+                <option value="position">position</option>
+                <option value="salary">salary</option>
+                <option value="salary_type">salary_type</option>
+                <option value="contract_type">contract_type</option>
+                <option value="seniority_years">seniority_years</option>
+                <option value="status">status</option>
+                <option value="workday">workday</option>
+                <option value="cost_center">cost_center</option>
+                <option value="gender">gender</option>
+            </select>
+            <select name="cond_op[]" class="form-select" style="width:100px;">
+                <option value="==">==</option><option value="!=">!=</option><option value=">">></option>
+                <option value="<"><</option><option value=">=">>=</option><option value="<="><=</option>
+                <option value="contains">contiene</option><option value="in">en</option>
+            </select>
+            <input type="text" name="cond_value[]" class="form-input" style="flex:1;" placeholder="Valor">
+            <button type="button" class="btn btn-ghost btn-sm" onclick="this.parentElement.remove()" style="color:var(--accent-red);"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        {% endif %}
+    </div>
+    <button type="button" class="btn btn-ghost btn-sm" onclick="addCondition()" style="margin-bottom:20px;"><i class="fa-solid fa-plus"></i> Agregar condición</button>
+
+    <h3 style="font-size:0.9rem; margin-bottom:8px;">Acciones</h3>
+    <div id="actionsContainer">
+        {% if rule and rule.actions %}
+        {% for act in rule.actions %}
+        <div class="action-row">
+            <select name="action_type[]" class="form-select" style="width:160px;">
+                {% set atypes = ['set_bonus','set_commission','set_deduction','set_overtime_rate','set_other_income','set_other_deduction'] %}
+                {% for t in atypes %}
+                <option value="{{ t }}" {% if act.type==t %}selected{% endif %}>{{ t }}</option>
+                {% endfor %}
+            </select>
+            <input type="text" name="action_formula[]" value="{{ act.formula }}" class="form-input" style="flex:1;" placeholder="salary * 0.10">
+            <input type="text" name="action_desc[]" value="{{ act.description }}" class="form-input" style="width:150px;" placeholder="Descripción">
+            <button type="button" class="btn btn-ghost btn-sm" onclick="this.parentElement.remove()" style="color:var(--accent-red);"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        {% endfor %}
+        {% else %}
+        <div class="action-row">
+            <select name="action_type[]" class="form-select" style="width:160px;">
+                <option value="set_bonus">set_bonus</option>
+                <option value="set_commission">set_commission</option>
+                <option value="set_deduction">set_deduction</option>
+                <option value="set_overtime_rate">set_overtime_rate</option>
+                <option value="set_other_income">set_other_income</option>
+                <option value="set_other_deduction">set_other_deduction</option>
+            </select>
+            <input type="text" name="action_formula[]" class="form-input" style="flex:1;" placeholder="salary * 0.10">
+            <input type="text" name="action_desc[]" class="form-input" style="width:150px;" placeholder="Descripción">
+            <button type="button" class="btn btn-ghost btn-sm" onclick="this.parentElement.remove()" style="color:var(--accent-red);"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        {% endif %}
+    </div>
+    <button type="button" class="btn btn-ghost btn-sm" onclick="addAction()" style="margin-bottom:20px;"><i class="fa-solid fa-plus"></i> Agregar acción</button>
+
+    <div style="margin-bottom:20px;">
+        <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+            <input type="checkbox" name="isActive" value="1" {% if not rule or rule.isActive %}checked{% endif %}>
+            <span style="font-size:0.85rem;">Regla activa</span>
+        </label>
+    </div>
+
+    <div style="display:flex; gap:8px;">
+        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-save"></i> Guardar regla</button>
+        <a href="{{ url_for('web_rrhh.payroll_rules_list') }}" class="btn btn-ghost">Cancelar</a>
+    </div>
+</form>
+
+<script>
+function addCondition() {
+    var container = document.getElementById('conditionsContainer');
+    var row = document.createElement('div');
+    row.className = 'condition-row';
+    row.innerHTML = '<select name="cond_field[]" class="form-select" style="width:150px;">'
+        + '<option value="department">department</option><option value="area">area</option>'
+        + '<option value="position">position</option><option value="salary">salary</option>'
+        + '<option value="salary_type">salary_type</option><option value="contract_type">contract_type</option>'
+        + '<option value="seniority_years">seniority_years</option><option value="status">status</option>'
+        + '<option value="workday">workday</option><option value="cost_center">cost_center</option>'
+        + '<option value="gender">gender</option></select>'
+        + '<select name="cond_op[]" class="form-select" style="width:100px;">'
+        + '<option value="==">==</option><option value="!=">!=</option><option value=">">></option>'
+        + '<option value="<"><</option><option value=">=">>=</option><option value="<="><=</option>'
+        + '<option value="contains">contiene</option><option value="in">en</option></select>'
+        + '<input type="text" name="cond_value[]" class="form-input" style="flex:1;" placeholder="Valor">'
+        + '<button type="button" class="btn btn-ghost btn-sm" onclick="this.parentElement.remove()" style="color:var(--accent-red);"><i class="fa-solid fa-xmark"></i></button>';
+    container.appendChild(row);
+}
+
+function addAction() {
+    var container = document.getElementById('actionsContainer');
+    var row = document.createElement('div');
+    row.className = 'action-row';
+    row.innerHTML = '<select name="action_type[]" class="form-select" style="width:160px;">'
+        + '<option value="set_bonus">set_bonus</option><option value="set_commission">set_commission</option>'
+        + '<option value="set_deduction">set_deduction</option><option value="set_overtime_rate">set_overtime_rate</option>'
+        + '<option value="set_other_income">set_other_income</option><option value="set_other_deduction">set_other_deduction</option></select>'
+        + '<input type="text" name="action_formula[]" class="form-input" style="flex:1;" placeholder="salary * 0.10">'
+        + '<input type="text" name="action_desc[]" class="form-input" style="width:150px;" placeholder="Descripción">'
+        + '<button type="button" class="btn btn-ghost btn-sm" onclick="this.parentElement.remove()" style="color:var(--accent-red);"><i class="fa-solid fa-xmark"></i></button>';
+    container.appendChild(row);
+}
+</script>
+{% endblock %}

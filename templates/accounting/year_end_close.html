@@ -94,27 +94,29 @@
 
 <script>
 function executeClose() {
-    if (!confirm('¿Estás seguro de ejecutar el cierre del año {{ selected_year }}? Esta acción no se puede deshacer.')) return;
-    const form = document.getElementById('close-form');
-    const btn = form.querySelector('button');
-    btn.disabled = true;
-    btn.textContent = 'Ejecutando cierre...';
-    const formData = new FormData(form);
-    fetch(form.action, {
-        method: 'POST',
-        headers: { 'X-Requested-With': 'XMLHttpRequest' },
-        body: formData,
-    })
-    .then(r => r.json())
-    .then(data => {
-        if (data.status === 'success') {
-            alert('Cierre ejecutado exitosamente. Asiento #' + data.entry_number + '\nResultado neto: RD$ ' + data.net_income.toLocaleString());
-            location.reload();
-        } else {
-            alert(data.message || data.error || 'Error al ejecutar cierre');
-        }
-    })
-    .catch(() => alert('Error de red'));
+    showConfirm('Cierre Fiscal', '¿Estás seguro de ejecutar el cierre del año {{ selected_year }}? Esta acción no se puede deshacer.', 'danger').then(function(yes) {
+        if (!yes) return;
+        const form = document.getElementById('close-form');
+        const btn = form.querySelector('button');
+        btn.disabled = true;
+        btn.textContent = 'Ejecutando cierre...';
+        const formData = new FormData(form);
+        fetch(form.action, {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            body: formData,
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.status === 'success') {
+                showAlert('Cierre exitoso', 'Asiento #' + data.entry_number + '\nResultado neto: RD$ ' + data.net_income.toLocaleString(), 'success');
+                location.reload();
+            } else {
+                showAlert('Error', data.message || data.error || 'Error al ejecutar cierre', 'danger');
+            }
+        })
+        .catch(() => showAlert('Error', 'Error de red', 'danger'));
+    });
 }
 </script>
 {% endblock %}

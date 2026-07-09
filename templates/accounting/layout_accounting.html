@@ -66,7 +66,7 @@
                                 <span>Catálogo de Cuentas</span>
                             </a>
                         </li>
-                        <li class="nav-item {% if active_page == 'acc_chart' %}active{% endif %}"
+                        <li class="nav-item {% if active_page == 'acc_initial_balances' %}active{% endif %}"
                             data-tooltip="Saldos Iniciales">
                             <a href="{{ url_for('web_accounting.initial_balances') }}">
                                 <span>Saldos Iniciales</span>
@@ -91,13 +91,13 @@
                                 <span>Entradas de Diario</span>
                             </a>
                         </li>
-                        <li class="nav-item {% if active_page == 'acc_entries' %}active{% endif %}"
+                        <li class="nav-item {% if active_page == 'acc_general_journal' %}active{% endif %}"
                             data-tooltip="Libro Diario">
                             <a href="{{ url_for('web_accounting.general_journal') }}">
                                 <span>Libro Diario</span>
                             </a>
                         </li>
-                        <li class="nav-item {% if active_page == 'acc_settings' %}active{% endif %}"
+                        <li class="nav-item {% if active_page == 'acc_entry_types' %}active{% endif %}"
                             data-tooltip="Tipos de Entrada">
                             <a href="{{ url_for('web_accounting.entry_types_settings') }}">
                                 <span>Tipos de Entrada</span>
@@ -116,25 +116,25 @@
                         <i class="fa-solid fa-chevron-down section-toggle-icon"></i>
                     </div>
                     <ul class="sidebar-section-content">
-                        <li class="nav-item {% if active_page == 'acc_reports' %}active{% endif %}"
+                        <li class="nav-item {% if active_page == 'acc_balance_sheet' %}active{% endif %}"
                             data-tooltip="Balance General">
                             <a href="{{ url_for('web_accounting.balance_sheet') }}">
                                 <span>Balance General</span>
                             </a>
                         </li>
-                        <li class="nav-item {% if active_page == 'acc_reports' %}active{% endif %}"
+                        <li class="nav-item {% if active_page == 'acc_income_statement' %}active{% endif %}"
                             data-tooltip="Estado de Resultados">
                             <a href="{{ url_for('web_accounting.income_statement') }}">
                                 <span>Estado de Resultados</span>
                             </a>
                         </li>
-                        <li class="nav-item {% if active_page == 'acc_reports' %}active{% endif %}"
+                        <li class="nav-item {% if active_page == 'acc_trial_balance' %}active{% endif %}"
                             data-tooltip="Balanza de Comprobación">
                             <a href="{{ url_for('web_accounting.trial_balance') }}">
                                 <span>Balanza de Comprobación</span>
                             </a>
                         </li>
-                        <li class="nav-item {% if active_page == 'acc_reports' %}active{% endif %}"
+                        <li class="nav-item {% if active_page == 'acc_general_ledger' %}active{% endif %}"
                             data-tooltip="Mayor General">
                             <a href="{{ url_for('web_accounting.general_ledger') }}">
                                 <span>Mayor General</span>
@@ -159,7 +159,7 @@
                                 <span>Activos Fijos</span>
                             </a>
                         </li>
-                        <li class="nav-item {% if active_page == 'acc_assets' %}active{% endif %}"
+                        <li class="nav-item {% if active_page == 'acc_new_asset' %}active{% endif %}"
                             data-tooltip="Nuevo Activo">
                             <a href="{{ url_for('web_accounting.new_fixed_asset') }}">
                                 <span>Nuevo Activo</span>
@@ -178,19 +178,19 @@
                         <i class="fa-solid fa-chevron-down section-toggle-icon"></i>
                     </div>
                     <ul class="sidebar-section-content">
-                        <li class="nav-item {% if active_page == 'acc_fiscal' %}active{% endif %}"
+                        <li class="nav-item {% if active_page == 'acc_fiscal_periods' %}active{% endif %}"
                             data-tooltip="Períodos Fiscales">
                             <a href="{{ url_for('web_accounting.fiscal_periods') }}">
                                 <span>Períodos Fiscales</span>
                             </a>
                         </li>
-                        <li class="nav-item {% if active_page == 'acc_fiscal' %}active{% endif %}"
+                        <li class="nav-item {% if active_page == 'acc_closing_checklist' %}active{% endif %}"
                             data-tooltip="Checklist de Cierre">
                             <a href="{{ url_for('web_accounting.closing_checklist') }}">
                                 <span>Checklist de Cierre</span>
                             </a>
                         </li>
-                        <li class="nav-item {% if active_page == 'acc_fiscal' %}active{% endif %}"
+                        <li class="nav-item {% if active_page == 'acc_year_end_close' %}active{% endif %}"
                             data-tooltip="Cierre Anual">
                             <a href="{{ url_for('web_accounting.year_end_close') }}">
                                 <span>Cierre Anual</span>
@@ -237,8 +237,9 @@
                         if (!el) return;
                         const hasActive = el.querySelector('.nav-item.active');
                         if (hasActive) { el.classList.remove('collapsed'); return; }
-                        const stored = localStorage.getItem('sidebar-collapsed-' + id);
-                        if (stored === 'true') el.classList.add('collapsed');
+                        const stored = localStorage.getItem(id);
+                        if (stored === 'false') { el.classList.remove('collapsed'); }
+                        else { el.classList.add('collapsed'); }
                     });
                 </script>
 {% endblock %}

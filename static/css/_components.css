@@ -1,9 +1,663 @@
 /* =========================================================================
-   SHARED DESIGN SYSTEM COMPONENTS
+   SHARED DESIGN SYSTEM COMPONENTS  v2 — VykOne ERP
    =========================================================================
-   This file defines standardized components used across the entire application.
-   It is shared by all themes and should be loaded after the theme CSS.
+   Centralized component library. Each component defined ONCE here.
+   Templates must NOT redefine these classes in <style> blocks.
    ========================================================================= */
+
+/* =========================================================================
+   UNIFIED MODAL SYSTEM (single source of truth for ALL modals)
+   ========================================================================= */
+/* Overlay + backdrop */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: var(--z-overlay, 40);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.modal-overlay.active {
+    display: flex;
+}
+
+.modal-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    animation: modalFadeIn 0.2s ease;
+}
+
+.modal-overlay.closing .modal-backdrop {
+    animation: modalFadeOut 0.15s ease forwards;
+}
+
+/* Modal card */
+.modal-card {
+    position: relative;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-xl);
+    max-width: 640px;
+    width: 100%;
+    max-height: 85vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    animation: modalSlideIn 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.modal-overlay.closing .modal-card {
+    animation: modalSlideOut 0.15s ease forwards;
+}
+
+/* Size variants */
+.modal-card--sm { max-width: 440px; }
+.modal-card--md { max-width: 640px; }
+.modal-card--lg { max-width: 800px; }
+.modal-card--xl { max-width: 960px; }
+
+/* Modal sections */
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--border-color);
+    flex-shrink: 0;
+}
+
+.modal-title {
+    font-family: var(--font-heading);
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 1.15rem;
+    color: var(--text-muted);
+    cursor: pointer;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+    flex-shrink: 0;
+}
+
+.modal-close:hover {
+    background: var(--bg-nav-hover);
+    color: var(--text-primary);
+}
+
+.modal-body {
+    padding: 24px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.modal-footer {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    padding: 16px 24px;
+    border-top: 1px solid var(--border-color);
+    flex-shrink: 0;
+}
+
+/* Animations */
+@keyframes modalFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes modalFadeOut {
+    from { opacity: 1; }
+    to { opacity: 0; }
+}
+
+@keyframes modalSlideIn {
+    from { transform: translateY(16px) scale(0.97); opacity: 0; }
+    to { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+@keyframes modalSlideOut {
+    from { transform: translateY(0) scale(1); opacity: 1; }
+    to { transform: translateY(16px) scale(0.97); opacity: 0; }
+}
+
+/* Legacy search-modal compatibility (wraps to new system) */
+.search-modal {
+    position: fixed;
+    inset: 0;
+    z-index: var(--z-overlay, 40);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.search-modal .modal-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+
+.search-modal .modal-content {
+    position: relative;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-xl);
+    max-width: 650px;
+    width: 100%;
+    max-height: 85vh;
+    overflow-y: auto;
+    animation: modalSlideIn 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Backward compat: deprecated selectors mapped to new system */
+.btn-close-modal { /* maps to .modal-close */ }
+.modal-content .modal-header { /* same as .modal-header */ }
+.modal-content .modal-body { /* same as .modal-body */ }
+.modal-content .modal-footer { /* same as .modal-footer */ }
+
+/* =========================================================================
+   UNIFIED BUTTON SYSTEM (ALL variants defined here)
+   ========================================================================= */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 7px 14px;
+    font-family: var(--font-body);
+    font-size: 0.85rem;
+    font-weight: 500;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: all var(--transition-fast);
+    line-height: 1.4;
+    user-select: none;
+}
+
+.btn:focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 2px;
+}
+
+/* Size variants */
+.btn-xs {
+    padding: 2px 8px;
+    font-size: 0.7rem;
+    gap: 4px;
+    border-radius: var(--radius-xs);
+}
+
+.btn-sm {
+    padding: 4px 10px;
+    font-size: 0.78rem;
+    gap: 5px;
+}
+
+.btn-lg {
+    padding: 10px 24px;
+    font-size: 0.92rem;
+    gap: 10px;
+}
+
+/* Semantic variants */
+/* Primary */
+.btn-primary {
+    background: linear-gradient(135deg, var(--color-primary), var(--color-primary-hover));
+    color: var(--color-on-primary);
+    border-color: transparent;
+    box-shadow: var(--shadow-sm);
+}
+
+.btn-primary:hover {
+    background: linear-gradient(135deg, var(--color-primary-hover), var(--color-primary));
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
+}
+
+.btn-primary:active {
+    transform: translateY(0);
+    box-shadow: var(--shadow-sm);
+}
+
+/* Secondary */
+.btn-secondary {
+    background: var(--bg-input);
+    color: var(--text-primary);
+    border-color: var(--border-color);
+}
+
+.btn-secondary:hover {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+    background: var(--bg-card);
+}
+
+/* Success */
+.btn-success {
+    background: var(--color-success);
+    color: var(--color-on-success);
+    border-color: transparent;
+}
+
+.btn-success:hover {
+    background: var(--color-success-hover);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-sm);
+}
+
+/* Danger / Destructive */
+.btn-danger {
+    background: var(--color-error);
+    color: var(--color-on-error);
+    border-color: transparent;
+}
+
+.btn-danger:hover {
+    background: var(--color-error-hover);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-sm);
+}
+
+/* Warning */
+.btn-warning {
+    background: var(--color-warning);
+    color: var(--color-on-warning);
+    border-color: transparent;
+}
+
+.btn-warning:hover {
+    background: var(--color-warning-hover);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-sm);
+}
+
+/* Accent */
+.btn-accent {
+    background: var(--color-accent);
+    color: var(--color-on-accent);
+    border-color: transparent;
+}
+
+.btn-accent:hover {
+    background: var(--color-accent-hover);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-sm);
+}
+
+/* Ghost (transparent with hover bg) */
+.btn-ghost {
+    background: transparent;
+    color: var(--text-secondary);
+    border-color: transparent;
+}
+
+.btn-ghost:hover {
+    background: var(--bg-nav-hover);
+    color: var(--text-primary);
+}
+
+.btn-ghost.text-danger {
+    color: var(--color-error);
+}
+
+.btn-ghost.text-danger:hover {
+    background: var(--color-error-light);
+}
+
+/* Link */
+.btn-link {
+    background: transparent;
+    color: var(--color-primary);
+    border-color: transparent;
+    padding: 0;
+    font-weight: 500;
+    text-decoration: none;
+}
+
+.btn-link:hover {
+    text-decoration: underline;
+    color: var(--color-primary-hover);
+}
+
+/* Outline */
+.btn-outline {
+    background: transparent;
+    color: var(--color-primary);
+    border-color: var(--color-primary);
+}
+
+.btn-outline:hover {
+    background: var(--color-primary-light);
+    color: var(--color-primary-hover);
+}
+
+/* Icon-only button */
+.btn-icon {
+    background: transparent;
+    color: var(--text-muted);
+    border-color: transparent;
+    padding: 4px;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    gap: 0;
+    font-size: 0.9rem;
+}
+
+.btn-icon:hover {
+    color: var(--text-primary);
+    background: var(--bg-nav-hover);
+}
+
+.btn-icon.eye:hover { color: var(--color-primary); }
+.btn-icon.edit:hover { color: var(--color-accent); }
+
+/* Disabled state (covers ALL variants) */
+.btn:disabled,
+.btn.disabled,
+.btn[aria-disabled="true"] {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+    transform: none !important;
+    box-shadow: none !important;
+    background: var(--border-color);
+    color: var(--text-muted);
+    border-color: var(--border-color);
+}
+
+/* Loading state */
+.btn-loading {
+    position: relative;
+    pointer-events: none;
+    color: transparent !important;
+}
+
+.btn-loading::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    margin: auto;
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-top-color: currentColor;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+}
+
+.btn-secondary.btn-loading::after {
+    border-color: rgba(0, 0, 0, 0.15);
+    border-top-color: var(--color-primary);
+}
+
+/* Close guide button (reusable) */
+.close-guide-btn {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    transition: background 0.2s, color 0.2s;
+}
+
+.close-guide-btn:hover {
+    background: var(--bg-nav-hover);
+    color: var(--text-primary);
+}
+
+/* =========================================================================
+   UNIFIED DROPDOWN & SELECT SYSTEM
+   ========================================================================= */
+
+/* Native select (ALL selects must use this class) */
+.form-select {
+    display: block;
+    width: 100%;
+    height: 34px;
+    padding: 6px 30px 6px 12px;
+    font-size: 0.85rem;
+    font-family: var(--font-body);
+    color: var(--text-primary);
+    background-color: var(--bg-input);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2364748B' d='M6 8.825L1.175 4 2.238 2.938 6 6.7 9.763 2.938 10.825 4z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    cursor: pointer;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    max-width: 100%;
+}
+
+.form-select:hover {
+    border-color: var(--color-primary);
+}
+
+.form-select:focus {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+    outline: none;
+}
+
+.form-select:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background-color: var(--color-muted);
+}
+
+/* Action menu (three-dot dropdown in tables) */
+.action-menu {
+    position: relative;
+    display: inline-block;
+}
+
+.action-menu-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 4px 6px;
+    border-radius: var(--radius-sm);
+    font-size: 1rem;
+    line-height: 1;
+    transition: all 0.15s;
+}
+
+.action-menu-btn:hover,
+.action-menu-btn.active {
+    background: var(--bg-nav-hover);
+    color: var(--text-primary);
+}
+
+.action-menu-dropdown {
+    display: none;
+    position: absolute;
+    right: 0;
+    top: calc(100% + 4px);
+    z-index: var(--z-dropdown, 10);
+    min-width: 180px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    padding: 4px;
+}
+
+.action-menu-dropdown.show {
+    display: block;
+    animation: dialogFadeIn 0.12s ease;
+}
+
+.action-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    font-size: 0.84rem;
+    color: var(--text-primary);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    border: none;
+    background: none;
+    width: 100%;
+    text-align: left;
+    font-family: var(--font-body);
+    transition: background 0.12s;
+}
+
+.action-menu-item:hover {
+    background: var(--bg-nav-hover);
+}
+
+.action-menu-item.text-danger {
+    color: var(--color-error);
+}
+
+.action-menu-item.text-danger:hover {
+    background: var(--color-error-light);
+}
+
+/* Account tree dropdown (journal entries, expenses) */
+.acco-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    min-width: 400px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-lg);
+    z-index: var(--z-dropdown, 10);
+    max-height: 350px;
+    overflow-y: auto;
+    display: none;
+    margin-top: 2px;
+}
+
+.acco-dropdown.open {
+    display: block;
+    animation: dialogFadeIn 0.12s ease;
+}
+
+.acco-dropdown-item {
+    padding: 8px 12px;
+    font-size: 0.84rem;
+    cursor: pointer;
+    border-bottom: 1px solid var(--border-color);
+    transition: background 0.1s;
+}
+
+.acco-dropdown-item:last-child {
+    border-bottom: none;
+}
+
+.acco-dropdown-item:hover,
+.acco-dropdown-item.highlighted {
+    background: var(--bg-nav-hover);
+}
+
+.acco-dropdown-item .account-code {
+    font-family: var(--font-mono);
+    color: var(--color-primary);
+    font-weight: 600;
+    margin-right: 8px;
+}
+
+.acco-dropdown-item .account-name {
+    color: var(--text-primary);
+}
+
+.acco-dropdown-item .account-type {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    float: right;
+}
+
+/* Row action dropdown (inline table row menus) */
+.row-menu-dropdown {
+    display: none;
+    position: absolute;
+    right: 0;
+    top: 100%;
+    z-index: var(--z-dropdown, 10);
+    min-width: 170px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+    padding: 6px;
+    margin-top: 4px;
+}
+
+.row-menu-dropdown.show {
+    display: block;
+    animation: dialogFadeIn 0.1s ease;
+}
+
+.row-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    font-size: 0.84rem;
+    color: var(--text-primary);
+    cursor: pointer;
+    border: none;
+    background: none;
+    width: 100%;
+    text-align: left;
+    font-family: var(--font-body);
+    border-radius: var(--radius-sm);
+    transition: background 0.12s;
+}
+
+.row-menu-item:hover {
+    background: var(--bg-nav-hover);
+}
+
+.row-menu-item.danger {
+    color: var(--color-error);
+}
+
+.row-menu-item.danger:hover {
+    background: var(--color-error-light);
+}
 
 /* =========================================================================
    DIALOG SYSTEM (replaces native alert/confirm)
@@ -445,6 +1099,27 @@
     pointer-events: none;
 }
 
+/* Backward-compat alias for legacy report pagination (deprecated, use .page-link) */
+.btn-page {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 32px;
+    height: 32px;
+    padding: 0 8px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--bg-input);
+    color: var(--text-secondary);
+    font-size: 0.82rem;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.15s;
+}
+.btn-page:hover { background: var(--bg-nav-hover); color: var(--text-primary); }
+.btn-page.active { background: var(--accent-emerald); color: #fff; border-color: var(--accent-emerald); }
+.btn-page.disabled { opacity: 0.5; cursor: not-allowed; pointer-events: none; }
+
 /* =========================================================================
    FORM VALIDATION
    ========================================================================= */
@@ -466,55 +1141,88 @@
 }
 
 /* =========================================================================
-   GUIDE BANNER
+   GUIDE BANNER (unified emerald style — canonical for ALL modules)
    ========================================================================= */
 .guide-banner {
-    background: rgba(168, 85, 247, 0.05);
-    border: 1px solid rgba(168, 85, 247, 0.2);
-    border-radius: 8px;
-    padding: 16px;
+    background: rgba(16, 185, 129, 0.05);
+    border: 1px solid rgba(16, 185, 129, 0.2);
+    border-radius: 12px;
+    padding: 20px 24px;
     margin-bottom: 24px;
     display: flex;
     gap: 16px;
     align-items: flex-start;
+    position: relative;
 }
 
 .guide-banner-icon {
-    font-size: 1.5rem;
-    color: var(--accent-purple);
+    background: rgba(16, 185, 129, 0.1);
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     flex-shrink: 0;
-    margin-top: 2px;
+    font-size: 1.2rem;
+    color: var(--accent-emerald);
 }
 
 .guide-banner-content {
     flex: 1;
+    min-width: 0;
 }
 
+.guide-banner-content h4,
 .guide-banner-title {
-    font-weight: 600;
-    font-size: 0.9rem;
+    margin: 0 0 6px 0;
     color: var(--text-primary);
+    font-family: var(--font-heading);
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.guide-banner-content p,
+.guide-banner-text {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    line-height: 1.5;
+}
+
+.guide-banner-content ul {
+    margin: 8px 0 0 0;
+    padding-left: 20px;
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
+}
+
+.guide-banner-content ul li {
     margin-bottom: 4px;
 }
 
-.guide-banner-text {
-    font-size: 0.82rem;
-    color: var(--text-secondary);
-    line-height: 1.4;
-}
-
 .guide-banner-close {
-    background: none;
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: transparent;
     border: none;
     color: var(--text-muted);
     cursor: pointer;
-    font-size: 1rem;
     padding: 4px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    transition: background 0.2s, color 0.2s;
     flex-shrink: 0;
-    transition: color 0.15s;
 }
 
 .guide-banner-close:hover {
+    background: var(--bg-nav-hover);
     color: var(--text-primary);
 }
 
@@ -897,4 +1605,16 @@
     border-radius: 99px;
     font-size: 0.72rem;
     font-weight: 600;
+}
+
+/* =========================================================================
+   STANDARDIZE H1 PAGE TITLES
+   ========================================================================= */
+.page-header h1,
+h1.page-title {
+    font-family: var(--font-heading);
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0;
 }

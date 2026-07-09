@@ -32,178 +32,6 @@ endblock %}
         text-decoration: underline;
     }
 
-    /* Estilos Kanban Globales */
-    .kanban-board {
-        display: flex;
-        gap: 15px;
-        margin-top: 20px;
-        overflow-x: auto;
-        padding-bottom: 20px;
-        min-height: 500px;
-    }
-
-    .kanban-column {
-        flex: 1;
-        min-width: 250px;
-        max-width: 350px;
-        background: #f8fafc;
-        /* Color de fondo muy claro para columnas */
-        border: 1px solid var(--border-color);
-        border-radius: var(--radius-md);
-        display: flex;
-        flex-direction: column;
-    }
-
-    .kanban-header {
-        padding: 10px 15px;
-        border-bottom: 1px solid var(--border-color);
-        font-family: var(--font-heading);
-        font-size: 1rem;
-        font-weight: 500;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        background: #f1f5f9;
-        /* Color de cabecera más claro */
-        border-top-left-radius: var(--radius-md);
-        border-top-right-radius: var(--radius-md);
-    }
-
-    .kanban-cards {
-        padding: 10px;
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-        min-height: 150px;
-    }
-
-    .doc-card {
-        border-radius: var(--radius-sm);
-        padding: 10px 12px;
-        position: relative;
-        display: flex;
-        flex-direction: column;
-        background: #ffffff;
-        border: 1px solid rgba(0, 0, 0, 0.06);
-        box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.04), 0 1px 2px -1px rgba(0, 0, 0, 0.02);
-        cursor: grab;
-        transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.2s ease;
-    }
-
-    .doc-card:active {
-        cursor: grabbing;
-        transform: scale(0.98);
-    }
-
-    .doc-card:hover {
-        box-shadow: 0 12px 20px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
-        border-color: rgba(16, 185, 129, 0.4);
-        transform: translateY(-3px);
-    }
-
-    .doc-card.readonly {
-        cursor: default;
-    }
-
-    .doc-card.readonly:active {
-        cursor: default;
-        transform: none;
-    }
-
-    .doc-card.readonly:hover {
-        transform: none;
-        box-shadow: 0 2px 4px -1px rgba(0, 0, 0, 0.04), 0 1px 2px -1px rgba(0, 0, 0, 0.02);
-        border-color: rgba(0, 0, 0, 0.06);
-    }
-
-    .doc-title {
-        font-size: 0.9rem;
-        font-weight: 500;
-        color: var(--text-primary);
-        font-family: var(--font-heading);
-        margin-bottom: 2px;
-        text-decoration: none;
-        line-height: 1.2;
-    }
-
-    .doc-title:hover {
-        color: var(--accent-emerald);
-    }
-
-    .doc-meta {
-        font-size: 0.75rem;
-        color: var(--text-secondary);
-        margin-bottom: 8px;
-        display: flex;
-        flex-direction: column;
-        gap: 3px;
-    }
-
-    .doc-finance {
-        font-size: 0.8rem;
-        background: #f8fafc;
-        border: 1px dashed var(--border-color);
-        padding: 6px 8px;
-        border-radius: var(--radius-sm);
-        margin-bottom: 8px;
-    }
-
-    .card-actions {
-        display: flex;
-        gap: 6px;
-        justify-content: flex-end;
-        margin-top: auto;
-        border-top: 1px solid rgba(0, 0, 0, 0.04);
-        padding-top: 8px;
-    }
-
-    .btn-icon {
-        background: #f1f5f9;
-        border: 1px solid transparent;
-        color: var(--text-secondary);
-        border-radius: 50%;
-        width: 26px;
-        height: 26px;
-        font-size: 0.75rem;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        transition: all 0.2s;
-        text-decoration: none;
-    }
-
-    .btn-icon:hover {
-        background: #e2e8f0;
-        color: var(--text-primary);
-        border-color: rgba(0, 0, 0, 0.1);
-        transform: scale(1.05);
-    }
-
-    .kanban-column#col-Borrador .kanban-header,
-    .kanban-column#col-Borradores .kanban-header {
-        border-bottom-color: var(--text-muted);
-        color: var(--text-muted);
-    }
-
-    .kanban-column#col-Enviada .kanban-header,
-    .kanban-column#col-PorCobrar .kanban-header {
-        border-bottom-color: var(--accent-blue);
-        color: var(--accent-blue);
-    }
-
-    .kanban-column#col-Aprobada .kanban-header,
-    .kanban-column#col-Cobradas .kanban-header {
-        border-bottom-color: var(--accent-emerald);
-        color: var(--accent-emerald);
-    }
-
-    .kanban-column#col-Rechazada .kanban-header,
-    .kanban-column#col-Anuladas .kanban-header {
-        border-bottom-color: var(--accent-red);
-        color: var(--accent-red);
-    }
 </style>
 
 <div class="page-title-container" style="margin-bottom: 24px; padding-left: 4px;">
@@ -213,38 +41,34 @@ endblock %}
     </h1>
 </div>
 
-<div id="guide-invoices" style="background: rgba(168, 85, 247, 0.05); border: 1px solid rgba(168, 85, 247, 0.2); border-radius: 8px; padding: 16px; margin-bottom: 24px; display: flex; gap: 16px; align-items: flex-start; position: relative;">
-    <button onclick="closeGuide('guide-invoices')" style="position: absolute; top: 12px; right: 12px; background: transparent; border: none; color: var(--text-muted); cursor: pointer; padding: 4px; border-radius: 50%; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; transition: background 0.2s, color 0.2s;" onmouseover="this.style.background='rgba(0,0,0,0.05)'; this.style.color='var(--text-primary)';" onmouseout="this.style.background='transparent'; this.style.color='var(--text-muted)';" title="Cerrar guía"><i class="fa-solid fa-xmark"></i></button>
-    <div style="background: rgba(168, 85, 247, 0.1); width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-        <i class="fa-solid fa-lightbulb" style="color: var(--accent-purple); font-size: 1.2rem;"></i>
+<div class="guide-banner" id="guide-invoices">
+    <button class="guide-banner-close" onclick="closeGuide('guide-invoices')" title="Cerrar guía" aria-label="Cerrar guía">
+        <i class="fa-solid fa-xmark"></i>
+    </button>
+    <div class="guide-banner-icon">
+        <i class="fa-solid fa-lightbulb"></i>
     </div>
-    <div>
+    <div class="guide-banner-content">
         {% if active_page == 'quotations' %}
-        <h4 style="margin: 0 0 8px 0; color: var(--text-primary); font-family: var(--font-heading); font-size: 1rem;">Guía de Uso: Cotizaciones y Presupuestos</h4>
-        <p style="margin: 0 0 8px 0; color: var(--text-secondary); font-size: 0.85rem; line-height: 1.5;">
+        <h4>Guía de Uso: Cotizaciones y Presupuestos</h4>
+        <p>
             Esta sección te permite emitir presupuestos o proformas comerciales a tus clientes.
         </p>
-        <ul style="margin: 0; padding-left: 20px; color: var(--text-secondary); font-size: 0.85rem; line-height: 1.5;">
-            <li><strong>Vista Kanban:</strong> Puedes mover tus cotizaciones entre diferentes etapas (Borrador, Enviada, Aprobada, Rechazada) arrastrando y soltando las tarjetas.</li>
-            <li><strong>Facturación Rápida:</strong> Una cotización aprobada puede convertirse en factura con un solo clic desde la vista de detalle.</li>
+        <ul>
+                        <li><strong>Facturación Rápida:</strong> Una cotización aprobada puede convertirse en factura con un solo clic desde la vista de detalle.</li>
         </ul>
         {% else %}
-        <h4 style="margin: 0 0 8px 0; color: var(--text-primary); font-family: var(--font-heading); font-size: 1rem;">Guía de Uso: Documentos Emitidos</h4>
-        <p style="margin: 0 0 8px 0; color: var(--text-secondary); font-size: 0.85rem; line-height: 1.5;">
+        <h4>Guía de Uso: Documentos Emitidos</h4>
+        <p>
             Aquí administras todas tus facturas electrónicas y comprobantes fiscales (e-CF) enviados a la DGII o en estado borrador.
         </p>
-        <ul style="margin: 0; padding-left: 20px; color: var(--text-secondary); font-size: 0.85rem; line-height: 1.5;">
+        <ul>
             <li><strong>Estado de Cobro:</strong> Visualiza rápidamente qué facturas han sido pagadas, cuáles tienen abonos parciales y cuáles están pendientes.</li>
             <li><strong>Gestión:</strong> Puedes anular documentos, ver detalles, revisar las firmas XML y re-sincronizar fallos temporales de conexión con DGII.</li>
-            <li><strong>Vistas Dinámicas:</strong> Intercambia entre vista de <em>Tabla</em> para detalles completos o vista <em>Kanban</em> para un seguimiento de estados.</li>
-        </ul>
+                    </ul>
         {% endif %}
     </div>
 </div>
-<script>
-    if (!window.closeGuide) { window.closeGuide = function(id) { document.getElementById(id).style.display = 'none'; sessionStorage.setItem('closed_' + id, 'true'); }; }
-    if (sessionStorage.getItem('closed_guide-invoices')) { document.getElementById('guide-invoices').style.display = 'none'; }
-</script>
 
 <div class="card-table-wrapper">
     <div class="table-header-row">
@@ -387,19 +211,7 @@ endblock %}
                 <i class="fa-solid fa-file-csv"></i> Exportar
             </button>
 
-            <!-- Vista Toggle -->
-            {% if active_page == 'quotations' %}
-            <div
-                style="display: flex; align-items: center; gap: 4px; margin-left: 10px; background: rgba(0,0,0,0.05); padding: 4px; border-radius: var(--radius-md);">
-                <button type="button" id="btn-view-kanban" onclick="setViewMode('kanban')"
-                    style="border: none; background: #ffffff; padding: 6px 10px; border-radius: var(--radius-sm); cursor: pointer; color: var(--text-primary); font-size: 0.85rem; box-shadow: 0 1px 2px rgba(0,0,0,0.1);"><i
-                        class="fa-solid fa-table-columns"></i> Kanban</button>
-                <button type="button" id="btn-view-table" onclick="setViewMode('table')"
-                    style="border: none; background: transparent; padding: 6px 10px; border-radius: var(--radius-sm); cursor: pointer; color: var(--text-secondary); font-size: 0.85rem;"><i
-                        class="fa-solid fa-list"></i> Lista</button>
-            </div>
-            {% endif %}
-
+            
             <!-- Mostrar N Registros (Alineado a la derecha) -->
             <div style="display: flex; align-items: center; gap: 6px; margin-left: auto;">
                 <span style="font-size: 0.75rem; color: var(--text-muted);">Filas:</span>
@@ -415,129 +227,11 @@ endblock %}
         </form>
     </div>
 
-    {% if active_page == 'quotations' %}
-    <!-- Estilos Kanban en línea eliminados (movidos al bloque head) -->
-    <!-- Estilos pasados al layout o globales -->
 
-    {% macro render_doc(inv) %}
-    <div class="doc-card" id="inv-{{ inv.id }}" draggable="true" ondragstart="drag(event)">
-        <a href="{{ url_for('web_invoices.invoice_detail', invoice_id=inv.id) }}" class="doc-title">
-            {{ inv.invoiceNumber }}
-        </a>
 
-        <div class="doc-meta">
-            <span><i class="fa-solid fa-user"></i> {{ inv.clientName }}</span>
-            <span><i class="fa-solid fa-calendar"></i> {{ inv.date | format_date }}</span>
-        </div>
-
-        <div class="doc-finance">
-            <strong style="color: var(--accent-emerald); display: block;">Total: RD$ {{ "{:,.2f}".format(inv.total)
-                }}</strong>
-        </div>
-
-        <div class="card-actions">
-            <a href="{{ url_for('web_invoices.invoice_detail', invoice_id=inv.id) }}" class="btn-icon"
-                title="Ver Detalle">
-                <i class="fa-solid fa-eye"></i>
-            </a>
-            <a href="{% if inv.get('isProfessional') %}{{ url_for('web_invoices.professional_quotation_route') }}?clone={{ inv.id }}{% else %}{{ url_for('web_invoices.new_quotation_route') }}?clone={{ inv.id }}{% endif %}"
-                class="btn-icon" title="Crear copia">
-                <i class="fa-solid fa-copy"></i>
-            </a>
-            {% if inv.status == 'Borrador' %}
-            <a href="{% if inv.get('isProfessional') %}{{ url_for('web_invoices.professional_quotation_route') }}?clone={{ inv.id }}{% else %}{{ url_for('web_invoices.new_quotation_route', invoice_id=inv.id) }}{% endif %}" class="btn-icon"
-                title="Editar">
-                <i class="fa-solid fa-pen"></i>
-            </a>
-            {% endif %}
-        </div>
-    </div>
-    {% endmacro %}
-
-    <div id="view-kanban" style="display: none;">
-        <div class="kanban-board">
-            <div class="kanban-column" id="col-Borrador" ondrop="drop(event)" ondragover="allowDrop(event)">
-                <h4 class="kanban-header"><i class="fa-solid fa-file"></i> Borrador</h4>
-                <div class="kanban-cards">
-                    {% for inv in invoices if inv.status in ('Borrador', 'Pagado pero no emitido') or not inv.status %}
-                    {{ render_doc(inv) }}
-                    {% endfor %}
-                </div>
-            </div>
-
-            <div class="kanban-column" id="col-Enviada" ondrop="drop(event)" ondragover="allowDrop(event)">
-                <h4 class="kanban-header"><i class="fa-solid fa-paper-plane"></i> Pendiente Aut. Cliente</h4>
-                <div class="kanban-cards">
-                    {% for inv in invoices if inv.status == 'Pendiente Aut. Cliente' %}
-                    {{ render_doc(inv) }}
-                    {% endfor %}
-                </div>
-            </div>
-
-            <div class="kanban-column" id="col-Aprobada" ondrop="drop(event)" ondragover="allowDrop(event)">
-                <h4 class="kanban-header"><i class="fa-solid fa-check-circle"></i> Aprobada</h4>
-                <div class="kanban-cards">
-                    {% for inv in invoices if inv.status == 'Aprobada' %}
-                    {{ render_doc(inv) }}
-                    {% endfor %}
-                </div>
-            </div>
-
-            <div class="kanban-column" id="col-Facturada" ondrop="drop(event)" ondragover="allowDrop(event)">
-                <h4 class="kanban-header"><i class="fa-solid fa-receipt"></i> Facturada</h4>
-                <div class="kanban-cards">
-                    {% for inv in invoices if inv.status == 'Facturada' %}
-                    {{ render_doc(inv) }}
-                    {% endfor %}
-                </div>
-            </div>
-
-            <div class="kanban-column" id="col-Rechazada" ondrop="drop(event)" ondragover="allowDrop(event)">
-                <h4 class="kanban-header"><i class="fa-solid fa-times-circle"></i> Rechazada</h4>
-                <div class="kanban-cards">
-                    {% for inv in invoices if inv.status == 'Rechazada' %}
-                    {{ render_doc(inv) }}
-                    {% endfor %}
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        function allowDrop(ev) { ev.preventDefault(); }
-        function drag(ev) { ev.dataTransfer.setData("text", ev.currentTarget.id); ev.currentTarget.style.opacity = '0.5'; }
-        document.addEventListener("dragend", function (event) { if (event.target.classList && event.target.classList.contains('doc-card')) event.target.style.opacity = '1'; });
-        function drop(ev) {
-            ev.preventDefault();
-            var data = ev.dataTransfer.getData("text");
-            if (!data) return;
-            var card = document.getElementById(data);
-            if (!card) return;
-            var targetCol = ev.target.closest('.kanban-column');
-            if (targetCol && card) {
-                targetCol.querySelector('.kanban-cards').appendChild(card);
-                card.style.opacity = '1';
-                let status = 'Borrador';
-                if (targetCol.id === 'col-Enviada') status = 'Pendiente Aut. Cliente';
-                if (targetCol.id === 'col-Aprobada') status = 'Aprobada';
-                if (targetCol.id === 'col-Facturada') status = 'Facturada';
-                if (targetCol.id === 'col-Rechazada') status = 'Rechazada';
-
-                const invId = data.replace('inv-', '');
-                fetch('{{ url_for("web_invoices.list_invoices") }}/' + invId + '/update_status', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ status: status })
-                }).catch(err => console.error(err));
-            }
-        }
-    </script>
-    {% else %}
-    <div id="view-kanban" style="display: none;"></div>
-    {% endif %}
 
     <!-- Contenedor Tabla (Vista de Lista) -->
-    <div id="view-table" class="table-responsive" style="display: none;">
+    <div id="view-table" class="table-responsive">
         <table class="table-premium">
             <thead>
                 <tr>
@@ -780,54 +474,9 @@ endblock %}
     </div>
     {% endif %}
 
-    <script>
+     <script>
         // Toggle view logic
-        function setViewMode(mode) {
-            const btnKanban = document.getElementById('btn-view-kanban');
-            const btnTable = document.getElementById('btn-view-table');
-            const viewKanban = document.getElementById('view-kanban');
-            const viewTable = document.getElementById('view-table');
-
-            if (mode === 'kanban' && viewKanban) {
-                viewKanban.style.display = 'block';
-                viewTable.style.display = 'none';
-                if (btnKanban) {
-                    btnKanban.style.background = '#ffffff';
-                    btnKanban.style.color = 'var(--text-primary)';
-                    btnKanban.style.boxShadow = '0 1px 2px rgba(0,0,0,0.1)';
-                }
-                if (btnTable) {
-                    btnTable.style.background = 'transparent';
-                    btnTable.style.color = 'var(--text-secondary)';
-                    btnTable.style.boxShadow = 'none';
-                }
-                localStorage.setItem('docViewMode', 'kanban');
-            } else {
-                if (viewKanban) viewKanban.style.display = 'none';
-                if (viewTable) viewTable.style.display = 'block';
-                if (btnTable) {
-                    btnTable.style.background = '#ffffff';
-                    btnTable.style.color = 'var(--text-primary)';
-                    btnTable.style.boxShadow = '0 1px 2px rgba(0,0,0,0.1)';
-                }
-                if (btnKanban) {
-                    btnKanban.style.background = 'transparent';
-                    btnKanban.style.color = 'var(--text-secondary)';
-                    btnKanban.style.boxShadow = 'none';
-                }
-                localStorage.setItem('docViewMode', 'table');
-            }
-        }
-
         document.addEventListener("DOMContentLoaded", function () {
-            // Restore view mode
-            {% if active_page == 'quotations' %}
-            const savedMode = localStorage.getItem('docViewMode') || 'table';
-            setViewMode(savedMode);
-            {% else %}
-            setViewMode('table');
-            {% endif %}
-
             const form = document.getElementById('filters-form');
             const searchInput = document.getElementById('q');
             const selectStatus = document.getElementById('status');
@@ -877,7 +526,7 @@ endblock %}
             style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px);">
         </div>
         <div class="modal-content animate-fade-in"
-            style="max-width: 450px; width: 90%; padding: 0; border-radius: var(--radius-md); position: relative; z-index: 2001; background: #ffffff; box-shadow: var(--shadow-lg);">
+            style="max-width: 450px; width: 90%; padding: 0; border-radius: var(--radius-md); position: relative; z-index: 2001; background: var(--bg-card); box-shadow: var(--shadow-lg);">
             <div class="modal-header"
                 style="border-bottom: 1px solid var(--border-color); padding: 20px 24px; display: flex; justify-content: space-between; align-items: center;">
                 <h3
@@ -1001,7 +650,7 @@ endblock %}
         style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px);">
     </div>
     <div class="modal-content animate-fade-in"
-        style="max-width: 500px; width: 90%; padding: 0; border-radius: var(--radius-md); position: relative; z-index: 2001; background: #ffffff; box-shadow: var(--shadow-lg);">
+        style="max-width: 500px; width: 90%; padding: 0; border-radius: var(--radius-md); position: relative; z-index: 2001; background: var(--bg-card); box-shadow: var(--shadow-lg);">
         <div class="modal-header"
             style="border-bottom: 1px solid var(--border-color); padding: 20px 24px; display: flex; justify-content: space-between; align-items: center;">
             <h3

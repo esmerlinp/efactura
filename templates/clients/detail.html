@@ -893,7 +893,7 @@
                 if (data.success) {
                     console.log("Preferencia de recordatorios actualizada.");
                 } else {
-                    alert("Error al actualizar la preferencia: " + data.error);
+                    showAlert('Error', 'Error al actualizar la preferencia: ' + data.error, 'danger');
                     document.getElementById('disableAutoReminders').checked = !disableAutoReminders;
                 }
             })

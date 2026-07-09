@@ -292,102 +292,94 @@ document.addEventListener('DOMContentLoaded', () => {
                 ? formatCurrencyDOP(listPrice) + ' <span style="font-size:0.7rem;color:var(--accent-emerald);font-weight:400;">(Lista)</span>'
                 : formatCurrencyDOP(p.price);
             return `
-            <tr>
+            <tr class="product-select-row" data-id="${p.id}" data-name="${p.name}" data-price="${displayPrice}" data-itbis="${p.itbisRate}" data-code="${p.code || ''}" style="cursor:pointer;transition:background 0.15s;">
                 <td style="font-family: monospace; font-weight: 500;">${p.code || 'N/A'}</td>
                 <td>
                     <div style="font-weight: 500;">${p.name}</div>
                     <div style="font-size: 0.75rem; color: var(--text-muted);">${p.type === 'service' ? 'Servicio' : 'Producto'}</div>
                 </td>
                 <td style="text-align: right; font-weight: 500;">${priceLabel}</td>
-                <td>${parseFloat(p.itbisRate * 100)}%</td>
-                <td style="text-align: center;">
-                    <button type="button" class="btn btn-primary modal-row-btn btn-select-product" data-id="${p.id}" data-name="${p.name}" data-price="${displayPrice}" data-itbis="${p.itbisRate}" data-code="${p.code}">
-                        <i class="fa-solid fa-check"></i> Seleccionar
-                    </button>
-                </td>
+                <td style="text-align:center;">${parseFloat(p.itbisRate * 100)}%</td>
             </tr>
         `}).join('');
 
-        modalProductListBody.querySelectorAll('.btn-select-product').forEach(btn => {
-            btn.addEventListener('click', () => {
-                if (activeProductRow) {
-                    const id = btn.getAttribute('data-id');
-                    const name = btn.getAttribute('data-name');
-                    const price = btn.getAttribute('data-price');
-                    const itbis = btn.getAttribute('data-itbis');
-                    const code = btn.getAttribute('data-code');
+        modalProductListBody.querySelectorAll('.product-select-row').forEach(row => {
+            row.addEventListener('click', () => {
+                if (!activeProductRow) return;
+                const id = row.getAttribute('data-id');
+                const name = row.getAttribute('data-name');
+                const price = row.getAttribute('data-price');
+                const itbis = row.getAttribute('data-itbis');
+                const code = row.getAttribute('data-code');
 
-                    // Check if product is already in another row
-                    let duplicateRow = null;
-                    const rows = itemsTableBody.querySelectorAll('.item-row');
-                    rows.forEach(row => {
-                        if (row !== activeProductRow) {
-                            const existingIdInput = row.querySelector('.item-catalog-id-hidden');
-                            if (existingIdInput && existingIdInput.value === id) {
-                                duplicateRow = row;
-                            }
+                let duplicateRow = null;
+                const rows = itemsTableBody.querySelectorAll('.item-row');
+                rows.forEach(r => {
+                    if (r !== activeProductRow) {
+                        const existingIdInput = r.querySelector('.item-catalog-id-hidden');
+                        if (existingIdInput && existingIdInput.value === id) {
+                            duplicateRow = r;
                         }
-                    });
-
-                    if (duplicateRow) {
-                        // Increment quantity of existing row
-                        const qtyInput = duplicateRow.querySelector('.item-qty-input');
-                        if (qtyInput) {
-                            qtyInput.value = parseInt(qtyInput.value || 0) + 1;
-                        }
-
-                        // Remove the empty active row since the product was merged into an existing row
-                        if (rows.length > 1) {
-                            activeProductRow.remove();
-                            realignRowIndexes();
-                        } else {
-                            // If it is the only row, just reset inputs so it is clean
-                            const searchInput = activeProductRow.querySelector('.item-catalog-search-input');
-                            const catalogIdHidden = activeProductRow.querySelector('.item-catalog-id-hidden');
-                            const nameInput = activeProductRow.querySelector('.item-name-input');
-                            const priceInput = activeProductRow.querySelector('.item-price-input');
-                            const itbisSelect = activeProductRow.querySelector('.item-itbis-select');
-
-                            if (catalogIdHidden) catalogIdHidden.value = '';
-                            if (searchInput) searchInput.value = '';
-                            if (nameInput) nameInput.value = '';
-                            if (priceInput) priceInput.value = '0.00';
-                            if (itbisSelect) itbisSelect.value = '0.18';
-                        }
-
-                        closeProductModal();
-                        recalculateTotals();
-                        return;
                     }
+                });
 
-                    const searchInput = activeProductRow.querySelector('.item-catalog-search-input');
-                    const catalogIdHidden = activeProductRow.querySelector('.item-catalog-id-hidden');
-                    const nameInput = activeProductRow.querySelector('.item-name-input');
-                    const priceInput = activeProductRow.querySelector('.item-price-input');
-                    const itbisSelect = activeProductRow.querySelector('.item-itbis-select');
-
-                    catalogIdHidden.value = id;
-                    searchInput.value = `${name} (${code || 'N/A'})`;
-                    nameInput.value = name;
-                    priceInput.value = parseFloat(price).toFixed(2);
-                    itbisSelect.value = itbis;
-
-                    // Buscar el producto en catalogItems para asociar campos del Impuesto Selectivo (ISC)
-                    const product = catalogItems.find(p => p.id === id || p.code === code);
-                    if (product) {
-                        activeProductRow.dataset.codigoImpuesto = product.codigoImpuesto || "";
-                        activeProductRow.dataset.tasaImpuestoAdicional = product.tasaImpuestoAdicional || 0.0;
-                        activeProductRow.dataset.gradosAlcohol = product.gradosAlcohol || 0.0;
-                        activeProductRow.dataset.cantidadReferencia = product.cantidadReferencia || 0.0;
-                        activeProductRow.dataset.subcantidad = product.subcantidad || 0.0;
-                        activeProductRow.dataset.precioReferencia = product.precioReferencia || 0.0;
+                if (duplicateRow) {
+                    const qtyInput = duplicateRow.querySelector('.item-qty-input');
+                    if (qtyInput) {
+                        qtyInput.value = parseInt(qtyInput.value || 0) + 1;
+                    }
+                    if (rows.length > 1) {
+                        activeProductRow.remove();
+                        realignRowIndexes();
                     } else {
-                        activeProductRow.dataset.codigoImpuesto = "";
+                        const searchInput = activeProductRow.querySelector('.item-catalog-search-input');
+                        const catalogIdHidden = activeProductRow.querySelector('.item-catalog-id-hidden');
+                        const nameInput = activeProductRow.querySelector('.item-name-input');
+                        const priceInput = activeProductRow.querySelector('.item-price-input');
+                        const itbisSelect = activeProductRow.querySelector('.item-itbis-select');
+                        if (catalogIdHidden) catalogIdHidden.value = '';
+                        if (searchInput) searchInput.value = '';
+                        if (nameInput) nameInput.value = '';
+                        if (priceInput) priceInput.value = '0.00';
+                        if (itbisSelect) itbisSelect.value = '0.18';
                     }
-
                     closeProductModal();
                     recalculateTotals();
+                    return;
                 }
+
+                const searchInput = activeProductRow.querySelector('.item-catalog-search-input');
+                const catalogIdHidden = activeProductRow.querySelector('.item-catalog-id-hidden');
+                const nameInput = activeProductRow.querySelector('.item-name-input');
+                const priceInput = activeProductRow.querySelector('.item-price-input');
+                const itbisSelect = activeProductRow.querySelector('.item-itbis-select');
+
+                catalogIdHidden.value = id;
+                searchInput.value = `${name} (${code || 'N/A'})`;
+                nameInput.value = name;
+                priceInput.value = parseFloat(price).toFixed(2);
+                itbisSelect.value = itbis;
+
+                const product = catalogItems.find(p => p.id === id || p.code === code);
+                if (product) {
+                    activeProductRow.dataset.codigoImpuesto = product.codigoImpuesto || "";
+                    activeProductRow.dataset.tasaImpuestoAdicional = product.tasaImpuestoAdicional || 0.0;
+                    activeProductRow.dataset.gradosAlcohol = product.gradosAlcohol || 0.0;
+                    activeProductRow.dataset.cantidadReferencia = product.cantidadReferencia || 0.0;
+                    activeProductRow.dataset.subcantidad = product.subcantidad || 0.0;
+                    activeProductRow.dataset.precioReferencia = product.precioReferencia || 0.0;
+                } else {
+                    activeProductRow.dataset.codigoImpuesto = "";
+                }
+
+                closeProductModal();
+                recalculateTotals();
+            });
+            row.addEventListener('mouseenter', () => {
+                row.style.background = 'var(--hover-bg, rgba(0,0,0,0.04))';
+            });
+            row.addEventListener('mouseleave', () => {
+                row.style.background = '';
             });
         });
     };

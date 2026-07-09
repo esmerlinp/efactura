@@ -217,7 +217,7 @@ document.querySelector('form').addEventListener('submit', function(e) {
     const tc = parseFloat(document.getElementById('total-credit').textContent) || 0;
     if (Math.abs(td - tc) > 0.01) {
         e.preventDefault();
-        alert('Los totales de débito y crédito deben ser iguales.');
+        showAlert('Asiento no balanceado', 'Los débitos deben ser iguales a los créditos.', 'warning');
     }
 });
 </script>

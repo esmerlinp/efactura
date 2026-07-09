@@ -1,178 +1,265 @@
 {% extends "layout.html" %}
 {% block title %}Workflows y Aprobaciones{% endblock %}
 {% block content %}
-<div class="page-header" style="display:flex; justify-content:space-between; align-items:center; gap:16px;">
-    <div>
-        <h1 class="page-title"><i class="fa-solid fa-route"></i> Workflows y Aprobaciones</h1>
-        <p style="color:var(--text-secondary); margin:6px 0 0;">Reglas, solicitudes pendientes y trazabilidad de decisiones.</p>
-    </div>
-    <a class="btn btn-secondary" href="{{ url_for('web_workflows.dashboard') }}">Ver todo</a>
+<div class="page-title-container" style="margin-bottom: 24px; padding-left: 4px;">
+    <h1 style="font-size: 1.75rem; font-weight: 800; font-family: var(--font-heading); color: var(--text-primary); margin: 0;">
+        Workflows y Aprobaciones
+    </h1>
 </div>
 
-<div class="card" style="margin-bottom:24px;">
-    <div class="card-body" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:16px;">
-        <div class="stat-box">
-            <span class="stat-label">Reglas activas</span>
-            <span class="stat-value">{{ rules|selectattr('is_active')|list|length }}</span>
-        </div>
-        <div class="stat-box">
-            <span class="stat-label">Solicitudes</span>
-            <span class="stat-value">{{ requests|length }}</span>
-        </div>
-        <div class="stat-box">
-            <span class="stat-label">Pendientes para mí</span>
-            <span class="stat-value" style="color:var(--accent-yellow);">{{ my_pending|length }}</span>
-        </div>
+<!-- KPI SUMMARY STRIP -->
+<div class="summary-strip">
+    <div class="summary-strip-item">
+        <div class="summary-strip-label">Reglas activas</div>
+        <div class="summary-strip-value">{{ rules|selectattr('is_active')|list|length }}</div>
+    </div>
+    <div class="summary-strip-item">
+        <div class="summary-strip-label">Solicitudes</div>
+        <div class="summary-strip-value">{{ requests|length }}</div>
+    </div>
+    <div class="summary-strip-item">
+        <div class="summary-strip-label">Pendientes para mí</div>
+        <div class="summary-strip-value" style="color: var(--accent-yellow);">{{ my_pending|length }}</div>
     </div>
 </div>
 
-<div style="display:grid; grid-template-columns:minmax(0,1.2fr) minmax(340px,0.8fr); gap:24px; align-items:start;">
-    <div class="card">
-        <div class="card-header" style="display:flex; justify-content:space-between; align-items:center;">
-            <span>Solicitudes de aprobación</span>
-            <form method="GET" style="display:flex; gap:8px; align-items:center;">
-                <select name="status" class="form-input" style="height:36px;">
-                    <option value="" {% if not status %}selected{% endif %}>Todas</option>
-                    <option value="pending" {% if status == 'pending' %}selected{% endif %}>Pendientes</option>
-                    <option value="approved" {% if status == 'approved' %}selected{% endif %}>Aprobadas</option>
-                    <option value="rejected" {% if status == 'rejected' %}selected{% endif %}>Rechazadas</option>
-                </select>
-                <button class="btn btn-sm btn-secondary" type="submit">Filtrar</button>
-            </form>
+<div style="display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr); gap: 24px; align-items: start;"
+    class="workflow-grid">
+    <!-- ═══ COLUMNA IZQUIERDA: SOLICITUDES ═══════════════════════════════════ -->
+    <div style="display: flex; flex-direction: column; gap: 24px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+            <h2 style="font-size: 0.95rem; font-weight: 500; color: var(--text-secondary); margin: 0;">Solicitudes de Aprobación</h2>
+            <select id="filter-status" onchange="submitStatusFilter()"
+                style="height: 32px; padding: 0 8px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-sm); color: var(--text-primary); font-size: 0.78rem; cursor: pointer; outline: none;">
+                <option value="" {% if not status %}selected{% endif %}>Todas</option>
+                <option value="pending" {% if status == 'pending' %}selected{% endif %}>Pendientes</option>
+                <option value="approved" {% if status == 'approved' %}selected{% endif %}>Aprobadas</option>
+                <option value="rejected" {% if status == 'rejected' %}selected{% endif %}>Rechazadas</option>
+            </select>
         </div>
-        <div class="card-body" style="overflow-x:auto;">
-            <table class="table data-table">
+
+        <div class="card-table-wrapper" style="box-shadow: none; padding: 0; overflow: hidden;">
+            <table class="table-premium" style="width: 100%; border-collapse: collapse;">
                 <thead>
-                    <tr>
-                        <th>Documento</th>
-                        <th>Solicitante</th>
-                        <th>Monto</th>
-                        <th>Estado</th>
-                        <th>Decisión</th>
+                    <tr style="text-align: left; background: rgba(0,0,0,0.02); border-bottom: 1px solid var(--border-color);">
+                        <th style="padding: 12px 16px; font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase;">Documento</th>
+                        <th style="padding: 12px 16px; font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase;">Solicitante</th>
+                        <th style="padding: 12px 16px; font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; text-align: right;">Monto</th>
+                        <th style="padding: 12px 16px; font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; text-align: center;">Estado</th>
+                        <th style="padding: 12px 16px; font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; text-align: center; width: 50px;"></th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for req in requests %}
-                    <tr>
-                        <td>
-                            <strong>{{ req.document_number }}</strong>
-                            <div style="font-size:.78rem; color:var(--text-muted);">{{ req.document_label }}</div>
+                    {% set can_decide = false %}
+                    {% for step in req.steps %}
+                        {% if step.approver_id == session.get('user', {}).get('uid') and step.status == 'pending' %}
+                            {% set can_decide = true %}
+                        {% endif %}
+                    {% endfor %}
+                    <tr style="border-bottom: 1px solid var(--border-color);">
+                        <td style="padding: 12px 16px;">
+                            <span style="font-size: 0.85rem; font-weight: 500; color: var(--text-primary);">{{ req.document_number }}</span>
+                            <span style="font-size: 0.7rem; color: var(--text-muted); display: block;">{{ req.document_label }}</span>
                         </td>
-                        <td>{{ req.requestor or 'Sistema' }}</td>
-                        <td>RD$ {{ "{:,.2f}".format(req.amount|float) }}</td>
-                        <td>
-                            <span class="badge {% if req.status == 'approved' %}badge-success{% elif req.status == 'rejected' %}badge-danger{% else %}badge-warning{% endif %}">
-                                {{ req.status }}
+                        <td style="padding: 12px 16px;">
+                            <span style="font-size: 0.82rem; color: var(--text-primary);">{{ req.requestor or 'Sistema' }}</span>
+                        </td>
+                        <td style="padding: 12px 16px; text-align: right;">
+                            <span style="font-size: 0.85rem; font-weight: 600; color: var(--text-primary);">RD$ {{ "{:,.2f}".format(req.amount|float) }}</span>
+                        </td>
+                        <td style="padding: 12px 16px; text-align: center;">
+                            {% if req.status == 'approved' %}
+                            <span class="status-badge" style="background: rgba(16,185,129,0.12); color: var(--accent-emerald); font-size: 0.7rem; padding: 3px 8px; border-radius: 12px;">
+                                <i class="fa-solid fa-circle-check"></i> Aprobada
                             </span>
-                        </td>
-                        <td>
-                            {% set can_decide = false %}
-                            {% for step in req.steps %}
-                                {% if step.approver_id == session.get('user', {}).get('uid') and step.status == 'pending' %}
-                                    {% set can_decide = true %}
-                                {% endif %}
-                            {% endfor %}
-                            {% if req.status == 'pending' %}
-                            <form method="POST" action="{{ url_for('web_workflows.decide_request', request_id=req.id) }}" style="display:flex; gap:6px; flex-wrap:wrap;">
-                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                <input type="text" name="comment" class="form-input" placeholder="Comentario" style="min-width:150px; height:34px;">
-                                <button class="btn btn-sm btn-accent" name="decision" value="approve" type="submit">Aprobar</button>
-                                <button class="btn btn-sm btn-danger" name="decision" value="reject" type="submit">Rechazar</button>
-                            </form>
+                            {% elif req.status == 'rejected' %}
+                            <span class="status-badge" style="background: rgba(239,68,68,0.12); color: var(--accent-red); font-size: 0.7rem; padding: 3px 8px; border-radius: 12px;">
+                                <i class="fa-solid fa-ban"></i> Rechazada
+                            </span>
                             {% else %}
-                            <span style="color:var(--text-muted);">Cerrada</span>
+                            <span class="status-badge" style="background: rgba(245,158,11,0.12); color: var(--accent-yellow); font-size: 0.7rem; padding: 3px 8px; border-radius: 12px;">
+                                <i class="fa-solid fa-clock"></i> Pendiente
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td style="padding: 12px 16px; text-align: center;">
+                            {% if can_decide and req.status == 'pending' %}
+                            <div class="action-menu">
+                                <button type="button" class="action-menu-btn" onclick="toggleActionMenu(event)" title="Acciones">
+                                    <i class="fa-solid fa-ellipsis-vertical"></i>
+                                </button>
+                                <div class="action-menu-dropdown" style="min-width: 260px; padding: 10px;">
+                                    <form method="POST" action="{{ url_for('web_workflows.decide_request', request_id=req.id) }}" style="display: flex; flex-direction: column; gap: 8px;">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <textarea name="comment" class="form-input" rows="2" placeholder="Comentario (opcional)" style="font-size: 0.78rem; width: 100%; resize: vertical; min-height: 50px;"></textarea>
+                                        <div style="display: flex; gap: 6px;">
+                                            <button class="btn btn-primary btn-sm" name="decision" value="approve" type="submit" style="flex: 1; justify-content: center; font-size: 0.75rem; padding: 6px 10px; background: var(--accent-emerald); border-color: var(--accent-emerald);">
+                                                <i class="fa-solid fa-check"></i> Aprobar
+                                            </button>
+                                            <button class="btn btn-danger btn-sm" name="decision" value="reject" type="submit" style="flex: 1; justify-content: center; font-size: 0.75rem; padding: 6px 10px;">
+                                                <i class="fa-solid fa-xmark"></i> Rechazar
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                            {% elif req.status != 'pending' %}
+                            <span style="color: var(--text-muted); font-size: 0.75rem;">Cerrada</span>
+                            {% else %}
+                            <span style="color: var(--text-muted); font-size: 0.72rem;">Sin acción</span>
                             {% endif %}
                         </td>
                     </tr>
                     {% else %}
-                    <tr><td colspan="5" style="text-align:center; color:var(--text-muted); padding:24px;">No hay solicitudes registradas.</td></tr>
+                    <tr>
+                        <td colspan="5" style="text-align: center; padding: 40px; color: var(--text-muted);">
+                            <i class="fa-solid fa-inbox" style="font-size: 2rem; opacity: 0.3; display: block; margin-bottom: 8px;"></i>
+                            No hay solicitudes registradas.
+                        </td>
+                    </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
     </div>
 
-    <div class="card">
-        <div class="card-header">Nueva regla de aprobación</div>
-        <div class="card-body">
-            <form method="POST" action="{{ url_for('web_workflows.save_rule') }}" style="display:flex; flex-direction:column; gap:14px;">
+    <!-- ═══ COLUMNA DERECHA: NUEVA REGLA ═══════════════════════════════════════ -->
+    <div style="display: flex; flex-direction: column; gap: 24px;">
+        <div class="section-card" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 24px;">
+            <h2 style="font-size: 0.95rem; font-weight: 700; color: var(--text-primary); margin: 0 0 18px 0; display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-plus-circle" style="color: var(--accent-emerald); font-size: 0.9rem;"></i> Nueva regla de aprobación
+            </h2>
+
+            <form method="POST" action="{{ url_for('web_workflows.save_rule') }}" style="display: flex; flex-direction: column; gap: 14px;">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <label class="form-group">
-                    <span>Tipo de documento</span>
-                    <select name="document_type" class="form-input">
+                <div class="inp-group">
+                    <label style="font-size: 0.78rem; color: var(--text-secondary); display: block; margin-bottom: 4px; font-weight: 500;">Tipo de documento</label>
+                    <select name="document_type" class="form-select" style="width: 100%;">
                         {% for key, label in document_types.items() %}
                         <option value="{{ key }}">{{ label }}</option>
                         {% endfor %}
                     </select>
-                </label>
-                <label class="form-group">
-                    <span>Monto mínimo</span>
-                    <input type="number" step="0.01" min="0" name="min_amount" class="form-input" value="0">
-                </label>
-                <label class="form-group">
-                    <span>Aprobadores</span>
-                    <select name="approvers" class="form-input" multiple size="5">
+                </div>
+                <div class="inp-group">
+                    <label style="font-size: 0.78rem; color: var(--text-secondary); display: block; margin-bottom: 4px; font-weight: 500;">Monto mínimo</label>
+                    <input type="number" step="0.01" min="0" name="min_amount" class="form-input" value="0" style="width: 100%;">
+                </div>
+                <div class="inp-group">
+                    <label style="font-size: 0.78rem; color: var(--text-secondary); display: block; margin-bottom: 4px; font-weight: 500;">Aprobadores</label>
+                    <select name="approvers" class="form-select" multiple size="5" style="width: 100%; min-height: 120px;">
                         {% for opt in team_options %}
                         <option value="{{ opt.uid }}|{{ opt.name }}|{{ opt.email }}">{{ opt.name }} — {{ opt.email }}</option>
                         {% endfor %}
                     </select>
-                </label>
-                <label style="display:flex; align-items:center; gap:8px;">
+                    <span style="font-size: 0.68rem; color: var(--text-muted); display: block; margin-top: 3px;">Usa Ctrl/Cmd para seleccionar varios</span>
+                </div>
+                <label style="display: flex; align-items: center; gap: 8px; font-size: 0.78rem; color: var(--text-primary); cursor: pointer;">
                     <input type="checkbox" name="require_all" checked> Requerir todos los aprobadores
                 </label>
-                <label style="display:flex; align-items:center; gap:8px;">
+                <label style="display: flex; align-items: center; gap: 8px; font-size: 0.78rem; color: var(--text-primary); cursor: pointer;">
                     <input type="checkbox" name="is_active" checked> Regla activa
                 </label>
-                <textarea name="notes" class="form-input" rows="2" placeholder="Notas internas"></textarea>
-                <button type="submit" class="btn btn-accent">Guardar regla</button>
+                <div class="inp-group">
+                    <label style="font-size: 0.78rem; color: var(--text-secondary); display: block; margin-bottom: 4px; font-weight: 500;">Notas internas</label>
+                    <textarea name="notes" class="form-textarea" rows="2" placeholder="Notas internas (opcional)" style="width: 100%; resize: vertical;"></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%; justify-content: center;">
+                    <i class="fa-solid fa-floppy-disk"></i> Guardar regla
+                </button>
             </form>
         </div>
     </div>
 </div>
 
-<div class="card" style="margin-top:24px;">
-    <div class="card-header">Reglas existentes</div>
-    <div class="card-body" style="overflow-x:auto;">
-        <table class="table data-table">
-            <thead>
-                <tr>
-                    <th>Tipo</th>
-                    <th>Monto mínimo</th>
-                    <th>Aprobadores</th>
-                    <th>Modo</th>
-                    <th>Estado</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for rule in rules %}
-                <tr>
-                    <td>{{ document_types.get(rule.document_type, rule.document_type) }}</td>
-                    <td>RD$ {{ "{:,.2f}".format(rule.min_amount|float) }}</td>
-                    <td>
-                        {% for approver in rule.approvers %}
-                        <span class="badge badge-info">{{ approver.name }}</span>
-                        {% endfor %}
-                    </td>
-                    <td>{{ 'Todos' if rule.require_all else 'Cualquiera' }}</td>
-                    <td>
-                        <span class="badge {% if rule.is_active %}badge-success{% else %}badge-secondary{% endif %}">
-                            {{ 'Activa' if rule.is_active else 'Inactiva' }}
-                        </span>
-                    </td>
-                    <td style="text-align:right;">
-                        <form method="POST" action="{{ url_for('web_workflows.delete_rule', rule_id=rule.id) }}" onsubmit="return confirm('¿Eliminar esta regla?')" style="display:inline;">
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <button class="btn btn-sm btn-ghost" type="submit" style="color:var(--danger);"><i class="fa-solid fa-trash"></i></button>
-                        </form>
-                    </td>
-                </tr>
-                {% else %}
-                <tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:24px;">No hay reglas configuradas.</td></tr>
-                {% endfor %}
-            </tbody>
-        </table>
+<!-- REGLAS EXISTENTES -->
+<div class="card-table-wrapper" style="box-shadow: none; padding: 0; overflow: hidden; margin-top: 24px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; border-bottom: 1px solid var(--border-color);">
+        <h2 style="font-size: 0.95rem; font-weight: 500; color: var(--text-secondary); margin: 0;">Reglas existentes</h2>
     </div>
+    <table class="table-premium" style="width: 100%; border-collapse: collapse;">
+        <thead>
+            <tr style="text-align: left; background: rgba(0,0,0,0.02); border-bottom: 1px solid var(--border-color);">
+                <th style="padding: 12px 16px; font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase;">Tipo</th>
+                <th style="padding: 12px 16px; font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; text-align: right;">Monto mínimo</th>
+                <th style="padding: 12px 16px; font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase;">Aprobadores</th>
+                <th style="padding: 12px 16px; font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase;">Modo</th>
+                <th style="padding: 12px 16px; font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; text-align: center;">Estado</th>
+                <th style="padding: 12px 16px; font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; text-align: center; width: 50px;"></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for rule in rules %}
+            <tr style="border-bottom: 1px solid var(--border-color);">
+                <td style="padding: 12px 16px;">
+                    <span style="font-size: 0.85rem; font-weight: 500; color: var(--text-primary);">{{ document_types.get(rule.document_type, rule.document_type) }}</span>
+                </td>
+                <td style="padding: 12px 16px; text-align: right;">
+                    <span style="font-size: 0.82rem; color: var(--text-primary);">RD$ {{ "{:,.2f}".format(rule.min_amount|float) }}</span>
+                </td>
+                <td style="padding: 12px 16px;">
+                    {% for approver in rule.approvers %}
+                    <span style="font-size: 0.75rem; color: var(--text-primary); background: rgba(59,130,246,0.08); color: var(--accent-blue); padding: 2px 8px; border-radius: 12px; margin-right: 4px; display: inline-block; margin-bottom: 2px;">{{ approver.name }}</span>
+                    {% endfor %}
+                </td>
+                <td style="padding: 12px 16px;">
+                    <span style="font-size: 0.8rem; color: var(--text-secondary);">{{ 'Todos' if rule.require_all else 'Cualquiera' }}</span>
+                </td>
+                <td style="padding: 12px 16px; text-align: center;">
+                    {% if rule.is_active %}
+                    <span class="status-badge" style="background: rgba(16,185,129,0.12); color: var(--accent-emerald); font-size: 0.7rem; padding: 3px 8px; border-radius: 12px;">
+                        <i class="fa-solid fa-circle-check"></i> Activa
+                    </span>
+                    {% else %}
+                    <span class="status-badge" style="background: rgba(107,114,128,0.12); color: #6b7280; font-size: 0.7rem; padding: 3px 8px; border-radius: 12px;">
+                        <i class="fa-solid fa-pause"></i> Inactiva
+                    </span>
+                    {% endif %}
+                </td>
+                <td style="padding: 12px 16px; text-align: center;">
+                    <div class="action-menu">
+                        <button type="button" class="action-menu-btn" onclick="toggleActionMenu(event)" title="Acciones">
+                            <i class="fa-solid fa-ellipsis-vertical"></i>
+                        </button>
+                        <div class="action-menu-dropdown">
+                            <form method="POST" action="{{ url_for('web_workflows.delete_rule', rule_id=rule.id) }}" style="display: contents;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="action-menu-item text-danger" onclick="return confirm('¿Eliminar esta regla?');">
+                                    <i class="fa-solid fa-trash-can"></i> Eliminar
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="6" style="text-align: center; padding: 40px; color: var(--text-muted);">
+                    <i class="fa-solid fa-route" style="font-size: 2rem; opacity: 0.3; display: block; margin-bottom: 8px;"></i>
+                    No hay reglas configuradas.
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
 </div>
-{% endblock %}
 
+<style>
+    @media (max-width: 768px) {
+        .workflow-grid {
+            grid-template-columns: 1fr !important;
+        }
+    }
+    .form-select, .form-input, .form-textarea {
+        font-size: 0.82rem !important;
+        padding: 8px 10px !important;
+    }
+</style>
+
+<script>
+    function submitStatusFilter() {
+        const status = document.getElementById('filter-status').value;
+        window.location.href = '{{ url_for("web_workflows.dashboard") }}' + (status ? '?status=' + status : '');
+    }
+</script>
+{% endblock %}

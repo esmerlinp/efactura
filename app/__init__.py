@@ -313,7 +313,8 @@ def create_app():
                     'web_rrhh.team_calendar': 'nomina',
                     'web_rrhh.evaluation_list': 'nomina',
                     'web_rrhh.training_list': 'nomina',
-                    'web_rrhh.catalog_list': 'nomina',
+                    'web_rrhh.position_list': 'nomina',
+                    'web_rrhh.department_list': 'nomina',
                     'web_rrhh.concept_list': 'nomina',
                     'web_rrhh.reports_index': 'nomina',
                     'web_rrhh.audit_log': 'nomina',
@@ -487,6 +488,13 @@ def create_app():
                 if c.get('ownerUID') == active_owner_uid:
                     act_name = c.get('companyName', 'Mi Empresa')
                     break
+            if act_name == 'Mi Empresa' and active_owner_uid:
+                try:
+                    profile = DatabaseService.get_company_profile(active_owner_uid)
+                    if profile:
+                        act_name = profile.get('companyName') or profile.get('tradeName') or 'Mi Empresa'
+                except Exception:
+                    pass
         return dict(
             associated_companies=companies,
             user_has_multiple_companies=has_mult,
@@ -686,7 +694,6 @@ def create_app():
     from app.web.accounting import web_accounting_bp
     from app.web.rrhh import web_rrhh_bp
     from app.web.inventory import web_inventory_bp
-    from app.web.dgt import web_dgt_bp
 
     app.register_blueprint(web_auth_bp)
     app.register_blueprint(web_dashboard_bp)
@@ -719,7 +726,6 @@ def create_app():
     app.register_blueprint(web_accounting_bp)
     app.register_blueprint(web_rrhh_bp)
     app.register_blueprint(web_inventory_bp)
-    app.register_blueprint(web_dgt_bp)
 
     # Eximir rutas /api/ de validación CSRF (los blueprints de API se registraron arriba)
     for rule in app.url_map.iter_rules():

@@ -1,0 +1,104 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}Probar Reglas — {{ product_name }}{% endblock %}
+{% block content %}
+{% include "rrhh/_styles.html" %}
+<div class="page-header hr-page-header">
+    <h1 class="page-title"><i class="fa-solid fa-flask"></i> Probar Reglas de Cálculo</h1>
+    <a href="{{ url_for('web_rrhh.payroll_rules_list') }}" class="btn btn-ghost"><i class="fa-solid fa-arrow-left"></i> Reglas</a>
+</div>
+
+<div class="card-table-wrapper" style="padding:12px 18px; margin-bottom:16px; background:rgba(16,185,129,0.06); border:1px solid var(--accent-emerald);">
+    <p style="margin:0; font-size:0.82rem;">
+        <i class="fa-solid fa-circle-info" style="color:var(--accent-emerald);"></i>
+        Selecciona un empleado para ver qué reglas aplicarían y qué valores se calcularían. Esto es solo una simulación — no modifica ningún dato.
+    </p>
+</div>
+
+<form method="POST" class="card-table-wrapper" style="padding:20px; margin-bottom:20px;">
+    <div style="display:flex; gap:12px; align-items:end;">
+        <div style="flex:1;">
+            <label style="font-size:0.82rem; display:block; margin-bottom:4px;">Empleado</label>
+            <select name="employee_id" class="form-select">
+                <option value="">— Seleccionar —</option>
+                {% for e in employees %}
+                <option value="{{ e.id }}" {% if selected_emp and selected_emp.id==e.id %}selected{% endif %}>
+                    {{ e.fullName }} — {{ e.position or 'Sin cargo' }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-play"></i> Evaluar reglas</button>
+    </div>
+</form>
+
+{% if selected_emp %}
+<div class="card-table-wrapper" style="padding:16px; margin-bottom:16px;">
+    <strong>{{ selected_emp.fullName }}</strong>
+    <span style="color:var(--text-muted); margin-left:8px;">{{ selected_emp.position }}</span>
+    <div style="font-size:0.8rem; color:var(--text-muted); margin-top:4px;">
+        Depto: {{ selected_emp.department or selected_emp.area or 'N/A' }} ·
+        Salario: RD$ {{ '{:,.2f}'.format(selected_emp.baseSalary or selected_emp.salary) }} ·
+        Antigüedad: {{ (now.year - (selected_emp.hireDate[:4]|int)) if selected_emp.hireDate else 'N/A' }} años
+    </div>
+</div>
+{% endif %}
+
+{% if test_results %}
+<div class="validation-summary" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:12px; margin-bottom:20px;">
+    <div class="card-table-wrapper" style="padding:12px; text-align:center;">
+        <div style="font-size:1.2rem; font-weight:700;">{{ test_results.rulesEvaluated }}</div>
+        <div style="font-size:0.7rem; color:var(--text-muted);">Reglas evaluadas</div>
+    </div>
+    <div class="card-table-wrapper" style="padding:12px; text-align:center; border-color:var(--accent-emerald);">
+        <div style="font-size:1.2rem; font-weight:700; color:var(--accent-emerald);">{{ test_results.rulesApplied }}</div>
+        <div style="font-size:0.7rem; color:var(--text-muted);">Reglas aplicadas</div>
+    </div>
+    {% if test_results.bonus %}
+    <div class="card-table-wrapper" style="padding:12px; text-align:center;">
+        <div style="font-size:1.2rem; font-weight:700; color:var(--accent-emerald);">RD$ {{ '{:,.2f}'.format(test_results.bonus) }}</div>
+        <div style="font-size:0.7rem; color:var(--text-muted);">Bono</div>
+    </div>
+    {% endif %}
+    {% if test_results.commission %}
+    <div class="card-table-wrapper" style="padding:12px; text-align:center;">
+        <div style="font-size:1.2rem; font-weight:700;">RD$ {{ '{:,.2f}'.format(test_results.commission) }}</div>
+        <div style="font-size:0.7rem; color:var(--text-muted);">Comisión</div>
+    </div>
+    {% endif %}
+    {% if test_results.deduction %}
+    <div class="card-table-wrapper" style="padding:12px; text-align:center;">
+        <div style="font-size:1.2rem; font-weight:700; color:var(--accent-amber);">RD$ {{ '{:,.2f}'.format(test_results.deduction) }}</div>
+        <div style="font-size:0.7rem; color:var(--text-muted);">Deducción</div>
+    </div>
+    {% endif %}
+    {% if test_results.overtime_rate %}
+    <div class="card-table-wrapper" style="padding:12px; text-align:center;">
+        <div style="font-size:1.2rem; font-weight:700;">{{ test_results.overtime_rate }}×</div>
+        <div style="font-size:0.7rem; color:var(--text-muted);">Tasa HE</div>
+    </div>
+    {% endif %}
+</div>
+
+{% if test_results.appliedRules %}
+<div class="card-table-wrapper">
+    <h3 style="padding:12px 18px; margin:0; font-size:0.9rem;">Reglas que aplican</h3>
+    {% for applied in test_results.appliedRules %}
+    <div style="padding:10px 18px; border-bottom:1px solid var(--border-color-light); font-size:0.84rem;">
+        <strong>{{ applied.ruleName }}</strong>
+        <div style="font-size:0.78rem; color:var(--text-muted);">
+            {% for act in applied.actions %}
+            <span class="badge badge-info" style="margin-right:4px;">{{ act.type }}: {{ act.formula }}</span>
+            {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if test_results and test_results.rulesApplied == 0 %}
+<div class="card-table-wrapper" style="padding:40px; text-align:center;">
+    <p style="color:var(--text-muted);">Ninguna regla aplica a este empleado con los datos actuales.</p>
+</div>
+{% endif %}
+{% endif %}
+{% endblock %}

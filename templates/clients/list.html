@@ -313,7 +313,7 @@
             <i class="fa-solid fa-eye"></i>
         </a>
         <a href="{{ url_for('web_clients.edit_client', client_id=client.id) }}" class="btn-icon edit" title="Editar">
-            <i class="fa-solid fa-pen"></i>
+            <i class="fa-solid fa-pen-to-square"></i>
         </a>
     </div>
 </div>
@@ -430,7 +430,7 @@
                                 </a>
                                 <a href="{{ url_for('web_clients.edit_client', client_id=client.id) }}"
                                     class="action-menu-item">
-                                    <i class="fa-solid fa-pen"></i> Editar
+                                    <i class="fa-solid fa-pen-to-square"></i> Editar
                                 </a>
                             </div>
                         </div>
@@ -695,7 +695,7 @@
                 form.addEventListener('submit', function (e) {
                     if (!fileInput.files || fileInput.files.length === 0) {
                         e.preventDefault();
-                        alert('Por favor, selecciona o arrastra un archivo .csv antes de continuar.');
+                        showAlert('Validación', 'Por favor, selecciona o arrastra un archivo .csv antes de continuar.', 'warning');
                     }
                 });
             }
@@ -754,7 +754,7 @@
                         fileInput.files = files;
                         fileInput.dispatchEvent(new Event('change'));
                     } else {
-                        alert('Por favor, selecciona únicamente archivos con extensión .csv');
+                        showAlert('Validación', 'Por favor, selecciona únicamente archivos con extensión .csv', 'warning');
                     }
                 }
             }, false);

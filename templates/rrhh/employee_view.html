@@ -230,7 +230,7 @@
                     <form method="POST" action="{{ url_for('web_rrhh.employee_document_delete', employee_id=employee.id, doc_id=d.id) }}"
                           onsubmit="return confirm('¿Eliminar?')" style="display:contents;">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                        <button type="submit" class="btn btn-sm btn-ghost" style="color:var(--danger);"><i class="fa-solid fa-trash"></i></button>
+                        <button type="submit" class="btn btn-sm btn-ghost" style="color:var(--danger);"><i class="fa-solid fa-trash-can"></i></button>
                     </form>
                 </div>
                 {% endfor %}

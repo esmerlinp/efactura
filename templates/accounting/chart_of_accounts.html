@@ -143,9 +143,9 @@
                                     <a href="{{ url_for('web_accounting.account_movements', account_id=acc.id) }}"><i class="fa-solid fa-list"></i> Ver movimientos</a>
                                     <button onclick="openAddSubaccount('{{ acc.id }}', '{{ acc.name|e }}', '{{ acc.group }}')"><i class="fa-solid fa-plus"></i> Agregar sub cuenta</button>
                                     {% if not acc.isSystem %}
-                                    <button onclick="openEdit('{{ acc.id }}')"><i class="fa-solid fa-pen"></i> Editar</button>
+                                    <button onclick="openEdit('{{ acc.id }}')"><i class="fa-solid fa-pen-to-square"></i> Editar</button>
                                     <div class="dropdown-divider"></div>
-                                    <button class="text-danger" onclick="deleteAccount('{{ acc.id }}', '{{ acc.name|e }}')"><i class="fa-solid fa-trash"></i> Eliminar cuenta</button>
+                                    <button class="text-danger" onclick="deleteAccount('{{ acc.id }}', '{{ acc.name|e }}')"><i class="fa-solid fa-trash-can"></i> Eliminar cuenta</button>
                                     {% endif %}
                                 </div>
                             </div>
@@ -209,7 +209,7 @@
 <!-- Modal: Editar Cuenta -->
 <div id="edit-modal" class="modal-overlay">
     <div class="modal-box">
-        <h3><i class="fa-solid fa-pen" style="color:var(--accent-purple);"></i> Editar Cuenta Contable</h3>
+        <h3><i class="fa-solid fa-pen-to-square" style="color:var(--accent-purple);"></i> Editar Cuenta Contable</h3>
         <form method="POST" id="edit-form">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="form-group">
@@ -245,7 +245,7 @@
 <!-- Modal: Eliminar -->
 <div id="delete-modal" class="modal-overlay">
     <div class="modal-box" style="max-width:480px;">
-        <h3 style="color:var(--accent-red);"><i class="fa-solid fa-trash"></i> Eliminar Cuenta</h3>
+        <h3 style="color:var(--accent-red);"><i class="fa-solid fa-trash-can"></i> Eliminar Cuenta</h3>
          <p style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:16px;">
             ¿Estás seguro de eliminar <strong id="delete-account-name"></strong>?
             Los movimientos contables asociados pueden ser reclasificados a otra cuenta.

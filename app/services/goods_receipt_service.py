@@ -170,4 +170,17 @@ class GoodsReceiptService:
             result = DatabaseService.register_inventory_transaction(owner_uid, tx, sandbox=sandbox)
             if result:
                 registered.append(result)
+
+            unit_cost = float(item.get("unitCost", item.get("costPrice", item.get("unitPrice", 0))) or 0)
+            if unit_cost > 0:
+                from app.services.inventory_costing_service import InventoryCostingService
+                InventoryCostingService.record_fifo_entry(
+                    owner_uid, item_id, warehouse_id, qty, unit_cost,
+                    reference_id=receipt_number, reference_type="COMPRA",
+                    sandbox=sandbox
+                )
+                InventoryCostingService.recalculate_item_avg_cost(
+                    owner_uid, item_id, warehouse_id, sandbox=sandbox
+                )
+
         return registered

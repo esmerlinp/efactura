@@ -31,9 +31,9 @@
 
 <div style="display:grid; grid-template-columns:1fr 1fr; gap:24px; margin-bottom:24px;">
     <div class="card-form-body" style="padding:20px;">
-        <h4 style="font-size:0.9rem; font-weight:700; font-family:var(--font-heading); margin-bottom:14px; color:var(--text-secondary); text-transform:uppercase;">
+        <h2 style="font-size:0.9rem; font-weight:700; font-family:var(--font-heading); margin-bottom:14px; color:var(--text-secondary); text-transform:uppercase;">
             <i class="fa-solid fa-file-invoice-dollar"></i> Exportar Ventas
-        </h4>
+        </h2>
         <form method="POST" action="{{ url_for('web_invoices.accounting_export_download') }}" style="display:flex; flex-direction:column; gap:12px;">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="exportType" value="sales">
@@ -62,9 +62,9 @@
     </div>
 
     <div class="card-form-body" style="padding:20px;">
-        <h4 style="font-size:0.9rem; font-weight:700; font-family:var(--font-heading); margin-bottom:14px; color:var(--text-secondary); text-transform:uppercase;">
+        <h2 style="font-size:0.9rem; font-weight:700; font-family:var(--font-heading); margin-bottom:14px; color:var(--text-secondary); text-transform:uppercase;">
             <i class="fa-solid fa-receipt"></i> Exportar Gastos
-        </h4>
+        </h2>
         <form method="POST" action="{{ url_for('web_invoices.accounting_export_download') }}" style="display:flex; flex-direction:column; gap:12px;">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="exportType" value="expenses">
@@ -94,9 +94,9 @@
 </div>
 
 <div class="card-form-body" style="padding:20px; margin-bottom:24px;">
-    <h4 style="font-size:0.9rem; font-weight:700; font-family:var(--font-heading); margin-bottom:14px; color:var(--text-secondary); text-transform:uppercase;">
+    <h2 style="font-size:0.9rem; font-weight:700; font-family:var(--font-heading); margin-bottom:14px; color:var(--text-secondary); text-transform:uppercase;">
         <i class="fa-solid fa-book"></i> Plan de Cuentas
-    </h4>
+    </h2>
     <p style="font-size:0.82rem; color:var(--text-muted); margin-bottom:12px;">
         Personaliza las cuentas contables que se usan en la exportación. Cada software usa nomenclatura distinta.
     </p>
@@ -136,9 +136,9 @@
 </div>
 
 <div class="card-form-body" style="padding:20px;">
-    <h4 style="font-size:0.9rem; font-weight:700; font-family:var(--font-heading); margin-bottom:14px; color:var(--text-secondary); text-transform:uppercase;">
+    <h2 style="font-size:0.9rem; font-weight:700; font-family:var(--font-heading); margin-bottom:14px; color:var(--text-secondary); text-transform:uppercase;">
         <i class="fa-solid fa-circle-info"></i> Formatos Soportados
-    </h4>
+    </h2>
     <ul style="font-size:0.82rem; color:var(--text-secondary); padding-left:20px;">
         <li><strong>CSV Estándar</strong> — Columnas para importar en Excel / Google Sheets. Compatible con la mayoría de contadores independientes.</li>
         <li><strong>QuickBooks (IIF)</strong> — Formato IIF con cabeceras !TRNS/!SPL. Compatible con QuickBooks Desktop y Online (importación CSV).</li>

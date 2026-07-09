@@ -1,0 +1,174 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}Validación Pre-Cierre Fiscal {{ year }} — {{ product_name }}{% endblock %}
+{% block extra_head %}
+<style>
+.validation-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 20px;
+}
+.validation-stat {
+    padding: 16px 20px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-color);
+    text-align: center;
+}
+.validation-stat .stat-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 4px;
+}
+.validation-stat .stat-label {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.validation-stat.success { border-color: var(--accent-emerald); background: rgba(16,185,129,0.06); }
+.validation-stat.success .stat-value { color: var(--accent-emerald); }
+.validation-stat.warning { border-color: var(--accent-amber); background: rgba(251,191,36,0.06); }
+.validation-stat.warning .stat-value { color: var(--accent-amber); }
+.validation-stat.error-stat { border-color: var(--accent-red); background: rgba(239,68,68,0.06); }
+.validation-stat.error-stat .stat-value { color: var(--accent-red); }
+
+.result-banner {
+    padding: 16px 24px;
+    border-radius: var(--radius-md);
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.result-banner.valid {
+    background: rgba(16,185,129,0.1);
+    border: 1px solid var(--accent-emerald);
+}
+.result-banner.invalid {
+    background: rgba(239,68,68,0.1);
+    border: 1px solid var(--accent-red);
+}
+.result-banner .result-icon {
+    font-size: 1.5rem;
+}
+.result-banner.valid .result-icon { color: var(--accent-emerald); }
+.result-banner.invalid .result-icon { color: var(--accent-red); }
+
+.validation-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+.validation-list li {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border-color-light);
+    font-size: 0.84rem;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+}
+.validation-list li:last-child { border-bottom: none; }
+.validation-list li.error-item { color: var(--accent-red); }
+.validation-list li.warning-item { color: var(--accent-amber); }
+.validation-list li i { margin-top: 2px; flex-shrink: 0; }
+</style>
+{% endblock %}
+{% block content %}
+{% include "rrhh/_styles.html" %}
+<div class="page-header hr-page-header">
+    <h1 class="page-title"><i class="fa-solid fa-circle-check"></i> Validación Pre-Cierre Fiscal {{ year }}</h1>
+    <div class="hr-page-actions">
+        <select onchange="location.href='?year='+this.value" class="form-select" style="width:auto;">
+            {% for y in range(year-2, year+2) %}
+            <option value="{{ y }}" {% if y == year %}selected{% endif %}>{{ y }}</option>
+            {% endfor %}
+        </select>
+        <a href="{{ url_for('web_rrhh.payroll_dashboard') }}" class="btn btn-ghost"><i class="fa-solid fa-arrow-left"></i> Dashboard</a>
+    </div>
+</div>
+
+{% if result %}
+<div class="result-banner {% if result.isValid %}valid{% else %}invalid{% endif %}">
+    <span class="result-icon">
+        {% if result.isValid %}
+        <i class="fa-solid fa-circle-check"></i>
+        {% else %}
+        <i class="fa-solid fa-triangle-exclamation"></i>
+        {% endif %}
+    </span>
+    <div>
+        <strong style="font-size:0.95rem;">
+            {% if result.isValid %}
+            Todos los períodos de nómina de {{ year }} están cerrados y listos para el cierre fiscal.
+            {% else %}
+            Se encontraron {{ result.errors|length }} problemas que impiden el cierre fiscal de {{ year }}.
+            {% endif %}
+        </strong>
+        {% if result.warnings %}
+        <p style="margin:4px 0 0; font-size:0.82rem; color:var(--text-muted);">
+            También hay {{ result.warnings|length }} advertencias que deberías revisar.
+        </p>
+        {% endif %}
+    </div>
+</div>
+
+<div class="validation-summary">
+    <div class="validation-stat success">
+        <div class="stat-value">{{ result.details.closedCount }}</div>
+        <div class="stat-label">Períodos Cerrados</div>
+    </div>
+    <div class="validation-stat {% if result.details.openCount > 0 %}error-stat{% else %}success{% endif %}">
+        <div class="stat-value">{{ result.details.openCount }}</div>
+        <div class="stat-label">Períodos Abiertos</div>
+    </div>
+    <div class="validation-stat success">
+        <div class="stat-value">RD$ {{ '{:,.2f}'.format(result.details.totalGross) }}</div>
+        <div class="stat-label">Total Bruto {{ year }}</div>
+    </div>
+    <div class="validation-stat success">
+        <div class="stat-value">RD$ {{ '{:,.2f}'.format(result.details.totalNet) }}</div>
+        <div class="stat-label">Total Neto {{ year }}</div>
+    </div>
+    <div class="validation-stat success">
+        <div class="stat-value">RD$ {{ '{:,.2f}'.format(result.details.totalIsr) }}</div>
+        <div class="stat-label">ISR Retenido {{ year }}</div>
+    </div>
+    <div class="validation-stat success">
+        <div class="stat-value">RD$ {{ '{:,.2f}'.format(result.details.totalTss) }}</div>
+        <div class="stat-label">TSS Total {{ year }}</div>
+    </div>
+</div>
+
+{% if result.errors %}
+<div class="card-table-wrapper" style="margin-bottom: 16px;">
+    <h3 style="padding:12px 18px; margin:0; border-bottom:1px solid var(--border-color); font-size:0.9rem;">
+        <i class="fa-solid fa-circle-xmark" style="color:var(--accent-red);"></i> Errores ({{ result.errors|length }})
+    </h3>
+    <ul class="validation-list">
+        {% for error in result.errors %}
+        <li class="error-item"><i class="fa-solid fa-xmark"></i> {{ error }}</li>
+        {% endfor %}
+    </ul>
+</div>
+{% endif %}
+
+{% if result.warnings %}
+<div class="card-table-wrapper" style="margin-bottom: 16px;">
+    <h3 style="padding:12px 18px; margin:0; border-bottom:1px solid var(--border-color); font-size:0.9rem;">
+        <i class="fa-solid fa-triangle-exclamation" style="color:var(--accent-amber);"></i> Advertencias ({{ result.warnings|length }})
+    </h3>
+    <ul class="validation-list">
+        {% for warning in result.warnings %}
+        <li class="warning-item"><i class="fa-solid fa-exclamation"></i> {{ warning }}</li>
+        {% endfor %}
+    </ul>
+</div>
+{% endif %}
+
+{% else %}
+<div class="card-table-wrapper" style="padding: 40px 24px; text-align: center;">
+    <i class="fa-solid fa-circle-check" style="font-size: 2rem; color: var(--text-muted); margin-bottom: 12px;"></i>
+    <p style="color: var(--text-muted); font-size: 0.9rem;">No se encontraron datos de nómina para el año {{ year }}.</p>
+</div>
+{% endif %}
+{% endblock %}

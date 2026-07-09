@@ -2688,6 +2688,18 @@ class DatabaseService:
                 except Exception as bank_err:
                     print(f"⚠️ Error al actualizar saldo de cuenta bancaria: {bank_err}")
 
+            # Generar asiento contable automático al registrar un pago
+            try:
+                ecf_type = inv_data.get("ecfType", "")
+                is_note = "Nota de Crédito" in ecf_type or "Nota de Débito" in ecf_type
+                if not inv_data.get("isQuotation", False) and not is_note and new_status in ("Cobrada", "Pagado pero no emitido"):
+                    from app.services.accounting_service import AccountingService
+                    entry = AccountingService.auto_generate_invoice_entry(owner_uid, inv_data, sandbox=sandbox)
+                    if entry:
+                        print(f"✅ Asiento contable {entry.get('number', '')} generado para factura {inv_data.get('invoiceNumber', '')}")
+            except Exception as acc_err:
+                print(f"⚠️ Error al generar asiento contable en pago: {acc_err}")
+
             _invalidate_invoices(owner_uid)
             _invalidate_crm_contacts(owner_uid)
             return payment_dict
@@ -2786,6 +2798,8 @@ class DatabaseService:
             exp_dict["createdAt"] = datetime.now(timezone.utc).isoformat()
         
         exp_dict["amount"] = float(exp_dict["amount"])
+        if exp_dict["amount"] <= 0:
+            raise ValueError("El monto del gasto debe ser mayor a cero.")
         exp_dict["itbisAmount"] = float(exp_dict.get("itbisAmount", exp_dict["amount"] * 0.18 / 1.18))
         exp_dict["isMinorExpense"] = bool(exp_dict.get("isMinorExpense", False))
         exp_dict["isSyncedWithDGII"] = bool(exp_dict.get("isSyncedWithDGII", False))
@@ -4767,7 +4781,7 @@ class DatabaseService:
                 own_company = cls.get_company_profile(own_owner_uid)
                 companies.append({
                     "ownerUID": own_owner_uid,
-                    "companyName": own_company.get("tradeName") or own_company.get("companyName", "Mi Empresa"),
+                    "companyName": own_company.get("companyName") or own_company.get("tradeName", "Mi Empresa"),
                     "role": profile.get("role", "owner"),
                     "logoUrl": own_company.get("logoUrl"),
                     "logoBase64": own_company.get("logoBase64")
@@ -4788,7 +4802,7 @@ class DatabaseService:
                         role = item.get("role", "employee") if isinstance(item, dict) else "employee"
                         companies.append({
                             "ownerUID": owner_uid,
-                            "companyName": comp_prof.get("tradeName") or comp_prof.get("companyName", "Empresa Asociada"),
+                            "companyName": comp_prof.get("companyName") or comp_prof.get("tradeName", "Empresa Asociada"),
                             "role": role,
                             "logoUrl": comp_prof.get("logoUrl"),
                             "logoBase64": comp_prof.get("logoBase64")
@@ -4808,7 +4822,7 @@ class DatabaseService:
                         comp_prof = cls.get_company_profile(owner_uid)
                         companies.append({
                             "ownerUID": owner_uid,
-                            "companyName": comp_prof.get("tradeName") or comp_prof.get("companyName", "Empresa Colaboradora"),
+                            "companyName": comp_prof.get("companyName") or comp_prof.get("tradeName", "Empresa Colaboradora"),
                             "role": "employee",
                             "logoUrl": comp_prof.get("logoUrl"),
                             "logoBase64": comp_prof.get("logoBase64")
@@ -4830,7 +4844,7 @@ class DatabaseService:
                                     comp_prof = cls.get_company_profile(owner_uid)
                                     companies.append({
                                         "ownerUID": owner_uid,
-                                        "companyName": comp_prof.get("tradeName") or comp_prof.get("companyName", "Empresa Colaboradora"),
+                                        "companyName": comp_prof.get("companyName") or comp_prof.get("tradeName", "Empresa Colaboradora"),
                                         "role": "employee",
                                         "logoUrl": comp_prof.get("logoUrl"),
                                         "logoBase64": comp_prof.get("logoBase64")

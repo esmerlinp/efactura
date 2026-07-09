@@ -76,6 +76,7 @@ def _default_chart_of_accounts():
         {"code": "1.1.5.01.01", "name": "ITBIS a favor", "group": "activos", "type": "movimiento", "parentId": None, "level": 4, "orderIdx": 1, "nature": "deudora", "usage": "impuesto_a_favor", "description": "", "isSystem": False},
         {"code": "1.1.5.01.02", "name": "ISC a favor", "group": "activos", "type": "movimiento", "parentId": None, "level": 4, "orderIdx": 2, "nature": "deudora", "usage": "impuesto_a_favor", "description": "", "isSystem": False},
         {"code": "1.1.5.01.03", "name": "Otro tipo de impuesto a favor", "group": "activos", "type": "movimiento", "parentId": None, "level": 4, "orderIdx": 3, "nature": "deudora", "usage": "otro_impuesto_a_favor", "description": "", "isSystem": False},
+        {"code": "1.1.5.01.04", "name": "ITBIS crédito fiscal", "group": "activos", "type": "movimiento", "parentId": None, "level": 4, "orderIdx": 4, "nature": "deudora", "usage": "itbis_credito", "description": "ITBIS pagado en compras y gastos deducible", "isSystem": False},
 
         # 1.1.6 — Activos por retenciones a favor
         {"code": "1.1.6", "name": "Activos por retenciones a favor", "group": "activos", "type": "control", "parentId": None, "level": 2, "orderIdx": 6, "nature": "deudora", "description": "", "isSystem": True},
@@ -183,6 +184,9 @@ def _default_chart_of_accounts():
         {"code": "2.1.5.01.01", "name": "Retención ITBIS por pagar", "group": "pasivos", "type": "movimiento", "parentId": None, "level": 4, "orderIdx": 1, "nature": "acreedora", "usage": "retenciones_por_pagar", "description": "", "isSystem": False},
         {"code": "2.1.5.01.02", "name": "Retención ISR por pagar", "group": "pasivos", "type": "movimiento", "parentId": None, "level": 4, "orderIdx": 2, "nature": "acreedora", "usage": "retenciones_por_pagar", "description": "", "isSystem": False},
         {"code": "2.1.5.01.03", "name": "Otro tipo de retención por pagar", "group": "pasivos", "type": "movimiento", "parentId": None, "level": 4, "orderIdx": 3, "nature": "acreedora", "usage": "otra_retencion_por_pagar", "description": "", "isSystem": False},
+        # Retenciones específicas para gastos (uso contable automático)
+        {"code": "2.1.5.01.04", "name": "ITBIS retenido a proveedores", "group": "pasivos", "type": "movimiento", "parentId": None, "level": 4, "orderIdx": 4, "nature": "acreedora", "usage": "itbis_retenido", "description": "ITBIS retenido en compras y gastos", "isSystem": False},
+        {"code": "2.1.5.01.05", "name": "ISR retenido a proveedores", "group": "pasivos", "type": "movimiento", "parentId": None, "level": 4, "orderIdx": 5, "nature": "acreedora", "usage": "isr_retenido", "description": "ISR retenido en compras y servicios", "isSystem": False},
 
         # 2.1.6 — Otros pasivos corrientes
         {"code": "2.1.6", "name": "Otros pasivos corrientes", "group": "pasivos", "type": "control", "parentId": None, "level": 2, "orderIdx": 6, "nature": "acreedora", "description": "", "isSystem": True},
@@ -262,6 +266,7 @@ def _default_chart_of_accounts():
         {"code": "5.1.1.02", "name": "Ajustes al inventario", "group": "costos", "type": "movimiento", "parentId": None, "level": 3, "orderIdx": 2, "nature": "deudora", "usage": None, "description": "", "isSystem": False},
         {"code": "5.1.1.03", "name": "Descuentos financieros", "group": "costos", "type": "movimiento", "parentId": None, "level": 3, "orderIdx": 3, "nature": "acreedora", "usage": "descuentos_financieros", "description": "", "isSystem": False},
         {"code": "5.1.1.04", "name": "Devoluciones en compras de inventario", "group": "costos", "type": "movimiento", "parentId": None, "level": 3, "orderIdx": 4, "nature": "acreedora", "usage": None, "description": "", "isSystem": False},
+        {"code": "5.1.1.05", "name": "Compras de mercancías y suministros", "group": "costos", "type": "movimiento", "parentId": None, "level": 3, "orderIdx": 5, "nature": "deudora", "usage": "compras", "description": "Compras generales para operación", "isSystem": False},
         {"code": "5.1.2", "name": "Costo de los servicios vendidos", "group": "costos", "type": "movimiento", "parentId": None, "level": 2, "orderIdx": 2, "nature": "deudora", "usage": None, "description": "", "isSystem": False},
 
         # ═══════════════════════════════════════════════
@@ -354,6 +359,7 @@ def _default_chart_of_accounts():
         {"code": "6.2.2.17.05", "name": "Adecuaciones locativas", "group": "gastos", "type": "movimiento", "parentId": None, "level": 4, "orderIdx": 5, "nature": "deudora", "usage": None, "description": "", "isSystem": False},
         {"code": "6.2.2.18", "name": "Cuotas y suscripciones", "group": "gastos", "type": "movimiento", "parentId": None, "level": 3, "orderIdx": 18, "nature": "deudora", "usage": None, "description": "", "isSystem": False},
         {"code": "6.2.2.19", "name": "Otros gastos generales", "group": "gastos", "type": "movimiento", "parentId": None, "level": 3, "orderIdx": 19, "nature": "deudora", "usage": None, "description": "", "isSystem": False},
+        {"code": "6.2.2.20", "name": "Gastos generales", "group": "gastos", "type": "movimiento", "parentId": None, "level": 3, "orderIdx": 20, "nature": "deudora", "usage": "gastos", "description": "Cuenta genérica para gastos operativos", "isSystem": False},
 
         # 6.2.3 — Depreciaciones, amortizaciones y desvalorizaciones
         {"code": "6.2.3", "name": "Depreciaciones, amortizaciones y desvalorizaciones", "group": "gastos", "type": "control", "parentId": None, "level": 2, "orderIdx": 3, "nature": "deudora", "description": "", "isSystem": True},
@@ -857,6 +863,31 @@ class AccountingService:
         currency = invoice.get("currency", "DOP")
         client_id = invoice.get("clientId", "")
         client_name = invoice.get("clientName", "")
+
+        items = invoice.get("items", [])
+        missing_cost = [it for it in items if it.get("type", "Bien") == "Bien" and not (float(it.get("costPrice", 0) or 0) > 0)]
+        if missing_cost:
+            catalog_items = {}
+            try:
+                from app.services.db_service import db_firestore, firebase_initialized
+                if firebase_initialized and db_firestore:
+                    coll_name = "sandbox_items" if sandbox else "items"
+                    docs = db_firestore.collection("users").document(owner_uid).collection(coll_name).stream()
+                    for doc in docs:
+                        data = doc.to_dict()
+                        data["id"] = doc.id
+                        catalog_items[data["id"]] = data
+            except Exception:
+                pass
+            catalog_by_name = {ci.get("name", "").strip().lower(): ci for ci in catalog_items.values()}
+            catalog_by_code = {ci.get("code", "").strip().lower(): ci for ci in catalog_items.values() if ci.get("code")}
+            for it in missing_cost:
+                cat = (catalog_items.get(it.get("itemId", "")) or
+                       catalog_by_code.get((it.get("code", "") or "").strip().lower()) or
+                       catalog_by_name.get((it.get("name", "") or "").strip().lower()))
+                if cat and float(cat.get("costPrice", 0) or 0) > 0:
+                    it["costPrice"] = float(cat["costPrice"])
+
         lines = []
         lines.append({
             "accountId": debit_acc["id"],
@@ -1010,6 +1041,26 @@ class AccountingService:
                     "accountId": inv_acc["id"], "accountCode": inv_acc.get("code", ""),
                     "accountName": inv_acc.get("name", ""), "debit": 0.00, "credit": total,
                     "description": f"Descargo por merma: {name}"
+                    })
+        elif operation_type == "transferencia":
+            for it in items:
+                qty = abs(float(it.get("quantity", 0)))
+                cost_price = float(it.get("costPrice", 0))
+                if qty < 0.001:
+                    continue
+                total = round(qty * cost_price, 2) if cost_price > 0 else 0
+                name = it.get("name", "Item")
+                origin = it.get("originWarehouseName", "Origen")
+                dest = it.get("destinationWarehouseName", "Destino")
+                lines.append({
+                    "accountId": inv_acc["id"], "accountCode": inv_acc.get("code", ""),
+                    "accountName": inv_acc.get("name", ""), "debit": total, "credit": 0.00,
+                    "description": f"Transferencia recibida: {name} ({dest})"
+                })
+                lines.append({
+                    "accountId": inv_acc["id"], "accountCode": inv_acc.get("code", ""),
+                    "accountName": inv_acc.get("name", ""), "debit": 0.00, "credit": total,
+                    "description": f"Transferencia enviada: {name} ({origin})"
                 })
         return lines
 
@@ -1236,6 +1287,15 @@ class AccountingService:
                     })
                     total_debit_computed += item_value
                 else:
+                    fallback = gastos_acc or compras_acc
+                    lines.append({
+                        "accountId": fallback["id"] if fallback else "",
+                        "accountCode": fallback.get("code", "-") if fallback else "-",
+                        "accountName": fallback.get("name", item.get("concept", "Gasto")) if fallback else item.get("concept", "Gasto"),
+                        "debit": round(item_total, 2),
+                        "credit": 0.00,
+                        "description": item.get("concept", "") or expense.get("concept", ""),
+                    })
                     total_debit_computed += item_total
 
                 if tax_amount > 0 and itbis_credito_acc:
@@ -1306,8 +1366,13 @@ class AccountingService:
                 lines.append({"accountId": gastos_acc["id"], "accountCode": gastos_acc.get("code", ""), "accountName": gastos_acc.get("name", ""), "debit": round(net, 2), "credit": 0.00, "description": expense.get("concept", "")})
             if itbis > 0 and itbis_credito_acc:
                 lines.append({"accountId": itbis_credito_acc["id"], "accountCode": itbis_credito_acc.get("code", ""), "accountName": itbis_credito_acc.get("name", ""), "debit": round(itbis, 2), "credit": 0.00, "description": "ITBIS"})
-            if cxp_acc:
-                lines.append({"accountId": cxp_acc["id"], "accountCode": cxp_acc.get("code", ""), "accountName": cxp_acc.get("name", ""), "debit": 0.00, "credit": round(total, 2), "description": ""})
+            credit_acc = None
+            if payment_type == "Contado" and banco_acc:
+                credit_acc = banco_acc
+            elif cxp_acc:
+                credit_acc = cxp_acc
+            if credit_acc:
+                lines.append({"accountId": credit_acc["id"], "accountCode": credit_acc.get("code", ""), "accountName": credit_acc.get("name", ""), "debit": 0.00, "credit": round(total, 2), "description": expense.get("concept", "")})
 
         try:
             supplier_name = expense.get("providerName", expense.get("supplierName", ""))

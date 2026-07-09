@@ -34,7 +34,7 @@
 <div class="card-table-wrapper" style="margin-bottom:30px;">
     <div class="table-header-row">
         <div>
-            <h3 style="font-size:1.15rem; font-family:var(--font-heading);">Filtros</h3>
+            <h2 style="font-size:1.15rem; font-family:var(--font-heading);">Filtros</h2>
         </div>
         <div style="display:flex; gap:8px;">
             <a href="{{ url_for('web_reports_606.reporte_606_dashboard', year=year, month=month) }}" class="btn btn-secondary">
@@ -188,9 +188,9 @@
 
 {% if by_supplier and by_supplier|length > 1 %}
 <div class="card-form-body" style="padding:20px; margin-bottom:24px;">
-    <h4 style="font-size:0.9rem; font-weight:700; font-family:var(--font-heading); margin-bottom:14px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.03em;">
+    <h3 style="font-size:0.9rem; font-weight:700; font-family:var(--font-heading); margin-bottom:14px; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.03em;">
         <i class="fa-solid fa-truck" style="margin-right:6px;"></i> Resumen por Proveedor
-    </h4>
+    </h3>
     <div class="table-responsive">
         <table class="table-premium">
             <thead>

@@ -349,7 +349,11 @@ class RecurrenceService:
                 }
                 
                 # Guardar el nuevo gasto
-                DatabaseService.save_expense(owner_uid, new_id, new_expense, sandbox=sandbox)
+                try:
+                    DatabaseService.save_expense(owner_uid, new_id, new_expense, sandbox=sandbox)
+                except ValueError as ve:
+                    print(f"⚠️ Gasto recurrente omitido (monto inválido): {original['concept']} - {ve}")
+                    continue
                 
                 # Calcular la próxima ocurrencia en el gasto original y actualizarlo
                 next_occurrence = cls.calculate_next_date(next_date_str, original["recurrenceInterval"])

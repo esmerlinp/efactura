@@ -25,6 +25,41 @@
     }
 
     {% include 'components/_accordion_css.html' %}
+
+    .brand-panel-overlay {
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0, 0, 0, 0.4); z-index: 9998;
+        opacity: 0; visibility: hidden; transition: opacity 0.3s ease, visibility 0.3s ease;
+    }
+    .brand-panel-overlay.active {
+        opacity: 1; visibility: visible;
+    }
+    .brand-panel {
+        position: fixed; top: 0; right: 0; width: 420px; max-width: 92vw; height: 100%;
+        background: var(--bg-card); border-left: 1px solid var(--border-color);
+        box-shadow: -8px 0 32px rgba(0,0,0,0.12); z-index: 9999;
+        transform: translateX(100%); transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+        display: flex; flex-direction: column; overflow: hidden;
+    }
+    .brand-panel.active {
+        transform: translateX(0);
+    }
+    .brand-panel-header {
+        display: flex; justify-content: space-between; align-items: center;
+        padding: 20px 24px; border-bottom: 1px solid var(--border-color);
+        flex-shrink: 0;
+    }
+    .brand-panel-body {
+        flex: 1; overflow-y: auto; padding: 24px;
+    }
+    .btn-close-panel {
+        background: none; border: none; cursor: pointer; color: var(--text-muted);
+        font-size: 1.25rem; padding: 4px 8px; border-radius: 6px; transition: all 0.2s;
+        display: flex; align-items: center; justify-content: center;
+    }
+    .btn-close-panel:hover {
+        background: var(--hover-bg); color: var(--text-primary);
+    }
 </style>
 
 <div class="page-title-container" style="margin-bottom: 24px; padding-left: 4px;">
@@ -64,14 +99,19 @@
     </div>
 </div>
 {% else %}
-<div style="display: grid; grid-template-columns: 2.2fr 1fr; gap: 30px; max-width: 1400px; margin: 0 auto;">
+<div style="display: grid; grid-template-columns: 1fr; gap: 30px; max-width: 1400px; margin: 0 auto;">
     <!-- Formulario de Configuración de Empresa -->
     <div class="card-table-wrapper" style="margin-bottom: 0; align-self: start;">
-        <h3
-            style="font-size: 1.25rem; font-family: var(--font-heading); margin-bottom: 24px; border-bottom: 1px solid var(--border-color); padding-bottom: 14px;">
-            <i class="fa-solid fa-building" style="color: var(--accent-emerald);"></i>
-            <span>Datos del Emisor Fiscal (Empresa)</span>
-        </h3>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; border-bottom: 1px solid var(--border-color); padding-bottom: 14px;">
+            <h3 style="font-size: 1.25rem; font-family: var(--font-heading); margin: 0; padding: 0; border: none;">
+                <i class="fa-solid fa-building" style="color: var(--accent-emerald);"></i>
+                <span>Datos del Emisor Fiscal (Empresa)</span>
+            </h3>
+            <button type="button" id="btn-open-brand-panel" class="btn btn-secondary" style="padding: 8px 18px; font-size: 0.82rem; border-color: var(--accent-purple); color: var(--accent-purple); white-space: nowrap;" title="Personalizar diseño de la marca">
+                <i class="fa-solid fa-palette"></i>
+                <span>Diseño de la Marca</span>
+            </button>
+        </div>
 
         {% if show_wizard %}
         <!-- Barra de progreso del Wizard -->
@@ -766,263 +806,246 @@
         </form>
     </div>
 
-    <!-- Panel del Propietario & Multitenancy (Equipo) -->
-    <div style="display: flex; flex-direction: column; gap: 24px;">
-
-        <!-- Diseño de la Marca -->
-        <div class="card-table-wrapper" style="margin-bottom: 0; padding: 28px;">
-            <h3
-                style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 18px; display: flex; align-items: center; gap: 8px;">
-                <i class="fa-solid fa-palette" style="color: var(--accent-purple);"></i>
-                <span>Diseño de la Marca</span>
-            </h3>
-
-            <!-- Fila 1: Logo de Empresa -->
-            <div style="display: grid; grid-template-columns: 1fr; margin-bottom: 24px;">
-                <div class="form-group" style="margin-bottom: 0;">
-                    <label style="margin-bottom: 10px; display: flex; align-items: center; gap: 8px;">
-                        <i class="fa-solid fa-image" style="color: var(--accent-purple);"></i>
-                        Logo de la Empresa
-                    </label>
-
-                    <input type="hidden" name="removeLogo" id="removeLogoField" value="false">
-                    <input type="file" id="logoFileInput" name="logoFile"
-                        accept="image/png,image/jpeg,image/webp,image/gif" style="display: none;">
-
-                    <!-- Zona Única de Carga / Drop / Preview (Alineación fila independiente) -->
-                    <div id="logo-drop-zone"
-                        style="position: relative; width: 100%; height: 110px; border: 2px dashed var(--border-color); border-radius: var(--radius-sm); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; cursor: pointer; background: var(--bg-input); overflow: hidden; transition: all 0.25s ease;"
-                        onclick="document.getElementById('logoFileInput').click();">
-
-                        <img id="logo-preview-img" src="{{ profile.logoUrl or '' }}" alt="Logo de la empresa"
-                            style="max-width: 100%; max-height: 100%; object-fit: contain; position: absolute; z-index: 1; {% if not profile.logoUrl %}display: none;{% endif %}">
-
-                        <div id="logo-empty-state"
-                            style="display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 2; transition: opacity 0.2s ease; {% if profile.logoUrl %}opacity: 0; background: rgba(0,0,0,0.6); width: 100%; height: 100%;{% endif %}"
-                            onmouseover="if(document.getElementById('logo-preview-img').style.display !== 'none') this.style.opacity=1;"
-                            onmouseout="if(document.getElementById('logo-preview-img').style.display !== 'none') this.style.opacity=0;">
-                            <i id="logo-empty-icon" class="fa-solid fa-cloud-arrow-up"
-                                style="font-size: 1.5rem; transition: color 0.25s ease; {% if profile.logoUrl %}color: white;{% else %}color: var(--text-muted);{% endif %}"></i>
-                            <span id="logo-empty-text-1"
-                                style="font-size: 0.75rem; text-align: center; line-height: 1.4; margin-top: 6px; {% if profile.logoUrl %}color: white;{% else %}color: var(--text-secondary);{% endif %}">
-                                <strong>Haz clic</strong> o <strong>arrastra</strong> la imagen aquí
-                            </span>
-                        </div>
-
-                        <button type="button" id="btn-remove-logo"
-                            style="position: absolute; top: 8px; right: 8px; width: 24px; height: 24px; border-radius: 50%; background: var(--accent-red); color: white; border: 2px solid white; font-size: 0.7rem; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: var(--shadow-sm); transition: transform 0.2s ease; z-index: 3; {% if not profile.logoUrl %}display: none;{% endif %}"
-                            title="Eliminar logo" onclick="event.stopPropagation();">
-                            <i class="fa-solid fa-trash-can"></i>
-                        </button>
-                    </div>
-                </div>
+    <!-- Gestión de Sucursales -->
+    <div class="card-table-wrapper" style="margin-bottom: 24px; padding: 28px;">
+        <h3
+            style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 18px; display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <i class="fa-solid fa-building" style="color: var(--accent-emerald);"></i>
+                <span>Gestión de Sucursales</span>
             </div>
+            <button type="button" id="btn-open-branch-modal" class="btn btn-primary"
+                style="padding: 6px 12px; font-size: 0.75rem;">
+                <i class="fa-solid fa-plus-circle"></i>
+                <span>Añadir</span>
+            </button>
+        </h3>
 
-            <!-- Fila 2: Tema de la Aplicación -->
-            <div style="display: grid; grid-template-columns: 1fr; margin-bottom: 24px;">
-                <div class="form-group" style="margin-bottom: 0;">
-                    <label for="companyTheme">Tema de la Aplicación</label>
-                    <select id="companyTheme" name="theme" class="form-input" style="width: 100%; cursor: pointer;">
-                        <option value="moderno" {% if profile.theme=='moderno' or not profile.theme %}selected{% endif
-                            %}>Moderno</option>
-                        <option value="alegra" {% if profile.theme=='alegra' %}selected{% endif %}>Alegra</option>
-                        <option value="landing" {% if profile.theme=='landing' %}selected{% endif %}>Landing</option>
-                        <option value="clasico" {% if profile.theme=='clasico' %}selected{% endif %}>Clásico
-                        </option>
-                    </select>
-                </div>
-            </div>
-
-            <!-- Fila 3: Color de Marca y Degradado -->
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 24px;">
-                <div class="form-group" style="margin-bottom: 0;">
-                    <label for="colorMarca">Color de Marca</label>
-                    <div style="display: flex; gap: 10px; align-items: center;">
-                        <input type="color" id="colorMarca" name="colorMarca" class="form-input"
-                            style="padding: 0; width: 50px; height: 42px; border: none; cursor: pointer; background: none;"
-                            value="{{ profile.colorMarca }}">
-                        <span id="colorMarcaHex" style="font-family: monospace; font-size: 0.9rem;">{{
-                            profile.colorMarca }}</span>
-                    </div>
-                </div>
-
-                <div class="form-group" style="margin-bottom: 0;">
-                    <label>Efecto Degradado</label>
-                    <div style="margin-top: 4px; display: flex; align-items: center; gap: 12px;">
-                        <input type="hidden" name="gradientEnabled" id="gradientEnabledField"
-                            value="{{ 'true' if profile.gradientEnabled else 'false' }}">
-                        <button type="button" id="gradient-toggle-btn"
-                            style="position: relative; width: 46px; height: 26px; border-radius: 13px; border: none; cursor: pointer; transition: all 0.3s ease; padding: 0; flex-shrink: 0;
-                                   background: {% if profile.gradientEnabled %}linear-gradient(90deg, {{ profile.colorMarca }}, #60a5fa){% else %}rgba(156, 163, 175, 0.35){% endif %};"
-                            title="Activar / desactivar degradado">
-                            <span id="gradient-toggle-knob"
-                                style="position: absolute; top: 3px; {% if profile.gradientEnabled %}left: 23px;{% else %}left: 3px;{% endif %} width: 20px; height: 20px; border-radius: 50%; background: white; box-shadow: 0 1px 4px rgba(0,0,0,0.2); transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);"></span>
-                        </button>
-                        <span id="gradient-status-text"
-                            style="font-size: 0.82rem; font-weight: 500; color: var(--text-primary); display: none;"></span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Fila 4: Visualización del Color / Degradado -->
-            <div style="display: grid; grid-template-columns: 1fr;">
-                <div class="form-group" style="margin-bottom: 0;">
-                    <label
-                        style="font-size: 0.78rem; font-weight: 500; color: var(--text-secondary); display: block; margin-bottom: 6px;">
-                        Visualización del Color / Degradado:
-                    </label>
-                    <div id="gradient-preview"
-                        style="height: 18px; border-radius: 4px; transition: all 0.4s ease; background: {% if profile.gradientEnabled %}linear-gradient(90deg, {{ profile.colorMarca }}, #60a5fa){% else %}{{ profile.colorMarca }}{% endif %};">
-                    </div>
-                </div>
-            </div>
-
-            <!-- Fila 3: Habilitar color de marca -->
+        <div
+            style="display: flex; flex-direction: column; gap: 14px; max-height: 380px; overflow-y: auto; padding-right: 5px;">
+            {% if branches %}
+            {% for branch in branches %}
             <div
-                style="margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 10px;">
-                <span
-                    style="font-size: 0.82rem; font-weight: 500; color: var(--text-secondary); display: flex; align-items: center; gap: 6px;">
-                    <i class="fa-solid fa-sliders" style="color: var(--accent-purple);"></i>
-                    Habilitar color de marca en:
-                </span>
-                <div style="display: flex; gap: 20px; align-items: center; flex-wrap: wrap; margin-top: 4px;">
-                    <label
-                        style="display: flex; align-items: center; gap: 8px; font-size: 0.82rem; cursor: pointer; color: var(--text-primary);">
-                        <input type="checkbox" id="applyColorMarcaUI" name="applyColorMarcaUI" value="true" {% if
-                            profile.applyColorMarcaUI %}checked{% endif %}
-                            style="cursor: pointer; width: 16px; height: 16px; accent-color: var(--accent-emerald);">
-                        <span>Interfaz (UI) de pantalla</span>
-                    </label>
-                    <label
-                        style="display: flex; align-items: center; gap: 8px; font-size: 0.82rem; cursor: pointer; color: var(--text-primary);">
-                        <input type="checkbox" id="applyColorMarcaReports" name="applyColorMarcaReports" value="true" {%
-                            if profile.applyColorMarcaReports %}checked{% endif %}
-                            style="cursor: pointer; width: 16px; height: 16px; accent-color: var(--accent-emerald);">
-                        <span>Reportes / PDF</span>
-                    </label>
-                </div>
-            </div>
-        </div>
-
-        <!-- Gestión de Sucursales -->
-        <div class="card-table-wrapper" style="margin-bottom: 24px; padding: 28px;">
-            <h3
-                style="font-size: 1.1rem; font-family: var(--font-heading); margin-bottom: 18px; display: flex; align-items: center; justify-content: space-between; gap: 8px;">
-                <div style="display: flex; align-items: center; gap: 8px;">
-                    <i class="fa-solid fa-building" style="color: var(--accent-emerald);"></i>
-                    <span>Gestión de Sucursales</span>
-                </div>
-                <button type="button" id="btn-open-branch-modal" class="btn btn-primary"
-                    style="padding: 6px 12px; font-size: 0.75rem;">
-                    <i class="fa-solid fa-plus-circle"></i>
-                    <span>Añadir</span>
-                </button>
-            </h3>
-
-            <div
-                style="display: flex; flex-direction: column; gap: 14px; max-height: 380px; overflow-y: auto; padding-right: 5px;">
-                {% if branches %}
-                {% for branch in branches %}
-                <div
-                    style="background-color: rgba(255, 255, 255, 0.01); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 14px 16px; display: flex; flex-direction: column; gap: 10px;">
-                    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                        <div>
-                            <strong style="font-size: 0.9rem; display: block; color: var(--text-primary);">
-                                {{ branch.name }} ({{ branch.code }})
-                                {% if branch.isDefault %}
-                                <span class="badge badge-success"
-                                    style="font-size: 0.65rem; margin-left: 6px;">Principal</span>
-                                {% endif %}
-                            </strong>
-                            <span
-                                style="font-size: 0.78rem; color: var(--text-secondary); display: block; margin-top: 2px;">{{
-                                branch.address }}</span>
-                        </div>
-                        <div style="display: flex; gap: 6px;">
-                            <button type="button" class="btn btn-secondary btn-edit-branch"
-                                style="padding: 6px 8px; font-size: 0.75rem;" data-id="{{ branch.id }}"
-                                data-name="{{ branch.name }}" data-code="{{ branch.code }}"
-                                data-address="{{ branch.address }}"
-                                data-isdefault="{{ 'true' if branch.isDefault else 'false' }}" title="Editar Sucursal">
-                                <i class="fa-solid fa-pen"></i>
-                            </button>
-                            {% if not branch.isDefault %}
-                            <form action="/settings/branches/{{ branch.id }}/delete" method="POST"
-                                onsubmit="return confirm('¿Seguro que deseas eliminar esta sucursal?');"
-                                style="display: inline;">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                <button type="submit" class="btn btn-danger"
-                                    style="padding: 6px 8px; font-size: 0.75rem;" title="Eliminar Sucursal">
-                                    <i class="fa-solid fa-trash"></i>
-                                </button>
-                            </form>
+                style="background-color: rgba(255, 255, 255, 0.01); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 14px 16px; display: flex; flex-direction: column; gap: 10px;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                    <div>
+                        <strong style="font-size: 0.9rem; display: block; color: var(--text-primary);">
+                            {{ branch.name }} ({{ branch.code }})
+                            {% if branch.isDefault %}
+                            <span class="badge badge-success"
+                                style="font-size: 0.65rem; margin-left: 6px;">Principal</span>
                             {% endif %}
-                        </div>
+                        </strong>
+                        <span
+                            style="font-size: 0.78rem; color: var(--text-secondary); display: block; margin-top: 2px;">{{
+                            branch.address }}</span>
+                    </div>
+                    <div style="display: flex; gap: 6px;">
+                        <button type="button" class="btn btn-secondary btn-edit-branch"
+                            style="padding: 6px 8px; font-size: 0.75rem;" data-id="{{ branch.id }}"
+                            data-name="{{ branch.name }}" data-code="{{ branch.code }}"
+                            data-address="{{ branch.address }}"
+                            data-isdefault="{{ 'true' if branch.isDefault else 'false' }}" title="Editar Sucursal">
+                            <i class="fa-solid fa-pen-to-square"></i>
+                        </button>
+                        {% if not branch.isDefault %}
+                        <form action="/settings/branches/{{ branch.id }}/delete" method="POST"
+                            onsubmit="return confirm('¿Seguro que deseas eliminar esta sucursal?');"
+                            style="display: inline;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn btn-danger"
+                                style="padding: 6px 8px; font-size: 0.75rem;" title="Eliminar Sucursal">
+                                <i class="fa-solid fa-trash-can"></i>
+                            </button>
+                        </form>
+                        {% endif %}
                     </div>
                 </div>
-                {% endfor %}
-                {% else %}
-                <div style="text-align: center; color: var(--text-muted); font-size: 0.82rem; padding: 20px 0;">
-                    No hay sucursales registradas.
+            </div>
+            {% endfor %}
+            {% else %}
+            <div style="text-align: center; color: var(--text-muted); font-size: 0.82rem; padding: 20px 0;">
+                No hay sucursales registradas.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Formulario oculto para regeneración de API Key (Evita formularios anidados en el acordeón) -->
+    <form id="generateKeyForm" action="{{ url_for('web_invoices.generate_company_api_key') }}" method="POST"
+        style="display: none;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form>
+
+    <!-- Modal Añadir/Editar Sucursal -->
+    <div class="search-modal" id="branch-modal" style="display: none;">
+        <div class="modal-backdrop" id="branch-modal-backdrop"></div>
+        <div class="modal-content" style="max-width: 450px;">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-building" style="color: var(--accent-emerald);"></i> <span
+                        id="branch-modal-title">Añadir Sucursal</span></h3>
+                <button type="button" class="btn-close-modal" id="btn-close-branch-modal"><i
+                        class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <form id="branch-form" action="/settings/branches/save" method="POST"
+                    style="display: flex; flex-direction: column; gap: 15px;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="id" id="branch-id" value="">
+
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label for="branch-name">Nombre de la Sucursal</label>
+                        <input type="text" id="branch-name" name="name" class="form-input"
+                            placeholder="Ej: Sucursal Santiago" required>
+                    </div>
+
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label for="branch-code">Código (Emisión DGII)</label>
+                        <input type="text" id="branch-code" name="code" class="form-input" placeholder="Ej: 0002"
+                            required>
+                    </div>
+
+                    <div class="form-group" style="margin-bottom: 0;">
+                        <label for="branch-address">Dirección Física</label>
+                        <input type="text" id="branch-address" name="address" class="form-input"
+                            placeholder="Ej: Av. Estrella Sadhala #45, Santiago" required>
+                    </div>
+
+                    <label
+                        style="display: flex; align-items: center; gap: 10px; font-size: 0.9rem; cursor: pointer; margin-top: 5px;">
+                        <input type="checkbox" id="branch-isdefault" name="isDefault" value="true"
+                            style="width: 16px; height: 16px; accent-color: var(--accent-emerald);">
+                        <span>Marcar como Sucursal Principal (Predeterminada)</span>
+                    </label>
+
+                    <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 10px;">
+                        <i class="fa-solid fa-save"></i>
+                        <span>Guardar Sucursal</span>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- PANEL DESLIZANTE: DISEÑO DE LA MARCA -->
+<div class="brand-panel-overlay" id="brand-panel-overlay"></div>
+<div class="brand-panel" id="brand-panel">
+    <div class="brand-panel-header">
+        <h3 style="font-size: 1.15rem; font-family: var(--font-heading); margin: 0; display: flex; align-items: center; gap: 8px;">
+            <i class="fa-solid fa-palette" style="color: var(--accent-purple);"></i>
+            <span>Diseño de la Marca</span>
+        </h3>
+        <button type="button" id="btn-close-brand-panel" class="btn-close-panel" title="Cerrar">
+            <i class="fa-solid fa-xmark"></i>
+        </button>
+    </div>
+    <div class="brand-panel-body">
+        <!-- Logo de Empresa -->
+        <div style="margin-bottom: 24px;">
+            <label style="margin-bottom: 10px; display: flex; align-items: center; gap: 8px; font-weight: 500; color: var(--text-primary);">
+                <i class="fa-solid fa-image" style="color: var(--accent-purple);"></i>
+                Logo de la Empresa
+            </label>
+
+            <input type="file" id="logoFileInputPanel" name="logoFile"
+                accept="image/png,image/jpeg,image/webp,image/gif" style="display: none;">
+
+            <div id="logo-drop-zone-panel"
+                style="position: relative; width: 100%; height: 120px; border: 2px dashed var(--border-color); border-radius: var(--radius-sm); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; cursor: pointer; background: var(--bg-input); overflow: hidden; transition: all 0.25s ease;"
+                onclick="document.getElementById('logoFileInputPanel').click();">
+
+                <img id="logo-preview-img-panel" src="{{ profile.logoUrl or '' }}" alt="Logo de la empresa"
+                    style="max-width: 100%; max-height: 100%; object-fit: contain; position: absolute; z-index: 1; {% if not profile.logoUrl %}display: none;{% endif %}">
+
+                <div id="logo-empty-state-panel"
+                    style="display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 2; transition: opacity 0.2s ease; {% if profile.logoUrl %}opacity: 0; background: rgba(0,0,0,0.6); width: 100%; height: 100%;{% endif %}"
+                    onmouseover="if(document.getElementById('logo-preview-img-panel').style.display !== 'none') this.style.opacity=1;"
+                    onmouseout="if(document.getElementById('logo-preview-img-panel').style.display !== 'none') this.style.opacity=0;">
+                    <i id="logo-empty-icon-panel" class="fa-solid fa-cloud-arrow-up"
+                        style="font-size: 1.5rem; transition: color 0.25s ease; {% if profile.logoUrl %}color: white;{% else %}color: var(--text-muted);{% endif %}"></i>
+                    <span id="logo-empty-text-panel"
+                        style="font-size: 0.75rem; text-align: center; line-height: 1.4; margin-top: 6px; {% if profile.logoUrl %}color: white;{% else %}color: var(--text-secondary);{% endif %}">
+                        <strong>Haz clic</strong> o <strong>arrastra</strong> la imagen aquí
+                    </span>
                 </div>
-                {% endif %}
+
+                <button type="button" id="btn-remove-logo-panel"
+                    style="position: absolute; top: 8px; right: 8px; width: 24px; height: 24px; border-radius: 50%; background: var(--accent-red); color: white; border: 2px solid white; font-size: 0.7rem; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: var(--shadow-sm); transition: transform 0.2s ease; z-index: 3; {% if not profile.logoUrl %}display: none;{% endif %}"
+                    title="Eliminar logo" onclick="event.stopPropagation();">
+                    <i class="fa-solid fa-trash-can"></i>
+                </button>
             </div>
         </div>
 
-        <!-- Formulario oculto para regeneración de API Key (Evita formularios anidados en el acordeón) -->
-        <form id="generateKeyForm" action="{{ url_for('web_invoices.generate_company_api_key') }}" method="POST"
-            style="display: none;">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"></form>
+        <!-- Tema de la Aplicación -->
+        <div style="margin-bottom: 24px;">
+            <label for="companyThemePanel" style="font-weight: 500; color: var(--text-primary); display: block; margin-bottom: 6px;">Tema de la Aplicación</label>
+            <select id="companyThemePanel" name="theme" class="form-input" style="width: 100%; cursor: pointer;">
+                <option value="moderno" {% if profile.theme=='moderno' or not profile.theme %}selected{% endif %}>Moderno</option>
+                <option value="alegra" {% if profile.theme=='alegra' %}selected{% endif %}>Alegra</option>
+                <option value="landing" {% if profile.theme=='landing' %}selected{% endif %}>Landing</option>
+                <option value="clasico" {% if profile.theme=='clasico' %}selected{% endif %}>Clásico</option>
+            </select>
+        </div>
 
-        <!-- Modal Añadir/Editar Sucursal -->
-        <div class="search-modal" id="branch-modal" style="display: none;">
-            <div class="modal-backdrop" id="branch-modal-backdrop"></div>
-            <div class="modal-content" style="max-width: 450px;">
-                <div class="modal-header">
-                    <h3><i class="fa-solid fa-building" style="color: var(--accent-emerald);"></i> <span
-                            id="branch-modal-title">Añadir Sucursal</span></h3>
-                    <button type="button" class="btn-close-modal" id="btn-close-branch-modal"><i
-                            class="fa-solid fa-xmark"></i></button>
+        <!-- Color de Marca y Degradado -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
+            <div style="margin-bottom: 0;">
+                <label for="colorMarcaPanel" style="font-weight: 500; color: var(--text-primary); display: block; margin-bottom: 6px;">Color de Marca</label>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <input type="color" id="colorMarcaPanel" class="form-input"
+                        style="padding: 0; width: 50px; height: 42px; border: none; cursor: pointer; background: none;"
+                        value="{{ profile.colorMarca }}">
+                    <span id="colorMarcaHexPanel" style="font-family: monospace; font-size: 0.9rem;">{{ profile.colorMarca }}</span>
                 </div>
-                <div class="modal-body">
-                    <form id="branch-form" action="/settings/branches/save" method="POST"
-                        style="display: flex; flex-direction: column; gap: 15px;">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                        <input type="hidden" name="id" id="branch-id" value="">
+            </div>
 
-                        <div class="form-group" style="margin-bottom: 0;">
-                            <label for="branch-name">Nombre de la Sucursal</label>
-                            <input type="text" id="branch-name" name="name" class="form-input"
-                                placeholder="Ej: Sucursal Santiago" required>
-                        </div>
-
-                        <div class="form-group" style="margin-bottom: 0;">
-                            <label for="branch-code">Código (Emisión DGII)</label>
-                            <input type="text" id="branch-code" name="code" class="form-input" placeholder="Ej: 0002"
-                                required>
-                        </div>
-
-                        <div class="form-group" style="margin-bottom: 0;">
-                            <label for="branch-address">Dirección Física</label>
-                            <input type="text" id="branch-address" name="address" class="form-input"
-                                placeholder="Ej: Av. Estrella Sadhala #45, Santiago" required>
-                        </div>
-
-                        <label
-                            style="display: flex; align-items: center; gap: 10px; font-size: 0.9rem; cursor: pointer; margin-top: 5px;">
-                            <input type="checkbox" id="branch-isdefault" name="isDefault" value="true"
-                                style="width: 16px; height: 16px; accent-color: var(--accent-emerald);">
-                            <span>Marcar como Sucursal Principal (Predeterminada)</span>
-                        </label>
-
-                        <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 10px;">
-                            <i class="fa-solid fa-save"></i>
-                            <span>Guardar Sucursal</span>
-                        </button>
-                    </form>
+            <div style="margin-bottom: 0;">
+                <label style="font-weight: 500; color: var(--text-primary); display: block; margin-bottom: 6px;">Efecto Degradado</label>
+                <div style="margin-top: 4px; display: flex; align-items: center; gap: 12px;">
+                    <input type="hidden" id="gradientEnabledFieldPanel" value="{{ 'true' if profile.gradientEnabled else 'false' }}">
+                    <button type="button" id="gradient-toggle-btn-panel"
+                        style="position: relative; width: 46px; height: 26px; border-radius: 13px; border: none; cursor: pointer; transition: all 0.3s ease; padding: 0; flex-shrink: 0;
+                               background: {% if profile.gradientEnabled %}linear-gradient(90deg, {{ profile.colorMarca }}, #60a5fa){% else %}rgba(156, 163, 175, 0.35){% endif %};"
+                        title="Activar / desactivar degradado">
+                        <span id="gradient-toggle-knob-panel"
+                            style="position: absolute; top: 3px; {% if profile.gradientEnabled %}left: 23px;{% else %}left: 3px;{% endif %} width: 20px; height: 20px; border-radius: 50%; background: white; box-shadow: 0 1px 4px rgba(0,0,0,0.2); transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);"></span>
+                    </button>
                 </div>
             </div>
         </div>
+
+        <!-- Visualización del Color / Degradado -->
+        <div style="margin-bottom: 24px;">
+            <label style="font-size: 0.78rem; font-weight: 500; color: var(--text-secondary); display: block; margin-bottom: 6px;">
+                Visualización del Color / Degradado:
+            </label>
+            <div id="gradient-preview-panel"
+                style="height: 18px; border-radius: 4px; transition: all 0.4s ease; background: {% if profile.gradientEnabled %}linear-gradient(90deg, {{ profile.colorMarca }}, #60a5fa){% else %}{{ profile.colorMarca }}{% endif %};">
+            </div>
+        </div>
+
+        <!-- Habilitar color de marca -->
+        <div style="padding-top: 14px; border-top: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 10px;">
+            <span style="font-size: 0.82rem; font-weight: 500; color: var(--text-secondary); display: flex; align-items: center; gap: 6px;">
+                <i class="fa-solid fa-sliders" style="color: var(--accent-purple);"></i>
+                Habilitar color de marca en:
+            </span>
+            <div style="display: flex; gap: 20px; align-items: center; flex-wrap: wrap; margin-top: 4px;">
+                <label style="display: flex; align-items: center; gap: 8px; font-size: 0.82rem; cursor: pointer; color: var(--text-primary);">
+                    <input type="checkbox" id="applyColorMarcaUIPanel" value="true" {% if profile.applyColorMarcaUI %}checked{% endif %}
+                        style="cursor: pointer; width: 16px; height: 16px; accent-color: var(--accent-emerald);">
+                    <span>Interfaz (UI) de pantalla</span>
+                </label>
+                <label style="display: flex; align-items: center; gap: 8px; font-size: 0.82rem; cursor: pointer; color: var(--text-primary);">
+                    <input type="checkbox" id="applyColorMarcaReportsPanel" value="true" {% if profile.applyColorMarcaReports %}checked{% endif %}
+                        style="cursor: pointer; width: 16px; height: 16px; accent-color: var(--accent-emerald);">
+                    <span>Reportes / PDF</span>
+                </label>
+            </div>
+        </div>
+    </div>
+</div>
         {% endif %}
         {% endblock %}
 
@@ -1055,6 +1078,35 @@
             };
 
             document.addEventListener('DOMContentLoaded', function () {
+                // ═══════════════════════════════════════════════════
+                // PANEL DESLIZANTE: DISEÑO DE LA MARCA
+                // ═══════════════════════════════════════════════════
+                const brandPanel = document.getElementById('brand-panel');
+                const brandPanelOverlay = document.getElementById('brand-panel-overlay');
+                const btnOpenBrand = document.getElementById('btn-open-brand-panel');
+                const btnCloseBrand = document.getElementById('btn-close-brand-panel');
+
+                function openBrandPanel() {
+                    brandPanel.classList.add('active');
+                    brandPanelOverlay.classList.add('active');
+                    document.body.style.overflow = 'hidden';
+                }
+
+                function closeBrandPanel() {
+                    brandPanel.classList.remove('active');
+                    brandPanelOverlay.classList.remove('active');
+                    document.body.style.overflow = '';
+                }
+
+                if (btnOpenBrand) btnOpenBrand.addEventListener('click', openBrandPanel);
+                if (btnCloseBrand) btnCloseBrand.addEventListener('click', closeBrandPanel);
+                if (brandPanelOverlay) brandPanelOverlay.addEventListener('click', closeBrandPanel);
+
+                document.addEventListener('keydown', function(e) {
+                    if (e.key === 'Escape' && brandPanel.classList.contains('active')) {
+                        closeBrandPanel();
+                    }
+                });
                 // Inicializar el acordeón activo con su altura
                 const activeAccordionItem = document.querySelector('.accordion-item.active');
                 if (activeAccordionItem) {
@@ -1374,15 +1426,13 @@
                 // ═══════════════════════════════════════════════════
                 // LOGO DE EMPRESA: Preview, Drag & Drop, Remover (AJAX INMEDIATO)
                 // ═══════════════════════════════════════════════════
-                const logoFileInput = document.getElementById('logoFileInput');
-                const logoPreviewImg = document.getElementById('logo-preview-img');
-                const removeLogoBtn = document.getElementById('btn-remove-logo');
-                const removeLogoField = document.getElementById('removeLogoField');
-                const dropZone = document.getElementById('logo-drop-zone');
-                const logoEmptyState = document.getElementById('logo-empty-state');
-                const logoEmptyIcon = document.getElementById('logo-empty-icon');
-                const logoEmptyText1 = document.getElementById('logo-empty-text-1');
-                const logoEmptyText2 = document.getElementById('logo-empty-text-2');
+                const logoFileInput = document.getElementById('logoFileInputPanel');
+                const logoPreviewImg = document.getElementById('logo-preview-img-panel');
+                const removeLogoBtn = document.getElementById('btn-remove-logo-panel');
+                const dropZone = document.getElementById('logo-drop-zone-panel');
+                const logoEmptyState = document.getElementById('logo-empty-state-panel');
+                const logoEmptyIcon = document.getElementById('logo-empty-icon-panel');
+                const logoEmptyText1 = document.getElementById('logo-empty-text-panel');
 
                 function showToast(message, type) {
                     const toast = document.createElement('div');
@@ -1428,7 +1478,6 @@
                                 logoEmptyState.style.height = '100%';
                                 logoEmptyIcon.style.color = 'white';
                                 logoEmptyText1.style.color = 'white';
-                                if (logoEmptyText2) logoEmptyText2.style.color = 'rgba(255,255,255,0.7)';
                                 showToast('Logo guardado correctamente', 'success');
                             } else {
                                 showToast(data.error || 'Error al guardar el logo', 'error');
@@ -1484,10 +1533,8 @@
                             logoEmptyState.style.height = '100%';
                             logoEmptyIcon.style.color = 'white';
                             logoEmptyText1.style.color = 'white';
-                            if (logoEmptyText2) logoEmptyText2.style.color = 'rgba(255,255,255,0.7)';
 
                             removeLogoBtn.style.display = 'flex';
-                            removeLogoField.value = 'false';
                         };
                         reader.readAsDataURL(file);
 
@@ -1501,13 +1548,11 @@
                         logoPreviewImg.src = '';
                         logoPreviewImg.style.display = 'none';
                         logoFileInput.value = '';
-                        removeLogoField.value = 'true';
 
                         logoEmptyState.style.opacity = '1';
                         logoEmptyState.style.background = 'transparent';
                         logoEmptyIcon.style.color = 'var(--text-muted)';
                         logoEmptyText1.style.color = 'var(--text-secondary)';
-                        if (logoEmptyText2) logoEmptyText2.style.color = 'var(--text-muted)';
 
                         this.style.display = 'none';
 
@@ -1550,15 +1595,14 @@
                 // ═══════════════════════════════════════════════════
                 // CONTROLADORES DE AUTO-GUARDADO Y RENDERING EN VIVO (AJAX + CSS INJECTION)
                 // ═══════════════════════════════════════════════════
-                const gradientToggleBtn = document.getElementById('gradient-toggle-btn');
-                const gradientToggleKnob = document.getElementById('gradient-toggle-knob');
-                const gradientEnabledField = document.getElementById('gradientEnabledField');
-                const gradientStatusText = document.getElementById('gradient-status-text');
-                const gradientPreview = document.getElementById('gradient-preview');
-                const colorMarcaInput = document.getElementById('colorMarca');
-                const colorMarcaHex = document.getElementById('colorMarcaHex');
-                const applyColorMarcaUI = document.getElementById('applyColorMarcaUI');
-                const applyColorMarcaReports = document.getElementById('applyColorMarcaReports');
+                const gradientToggleBtn = document.getElementById('gradient-toggle-btn-panel');
+                const gradientToggleKnob = document.getElementById('gradient-toggle-knob-panel');
+                const gradientEnabledField = document.getElementById('gradientEnabledFieldPanel');
+                const gradientPreview = document.getElementById('gradient-preview-panel');
+                const colorMarcaInput = document.getElementById('colorMarcaPanel');
+                const colorMarcaHex = document.getElementById('colorMarcaHexPanel');
+                const applyColorMarcaUI = document.getElementById('applyColorMarcaUIPanel');
+                const applyColorMarcaReports = document.getElementById('applyColorMarcaReportsPanel');
 
                 function saveBrandSetting(key, value) {
                     const formData = new FormData();
@@ -1584,7 +1628,7 @@
                         });
                 }
 
-                const companyThemeSelect = document.getElementById('companyTheme');
+                const companyThemeSelect = document.getElementById('companyThemePanel');
                 if (companyThemeSelect) {
                     companyThemeSelect.addEventListener('change', function () {
                         saveBrandSetting('theme', this.value);
@@ -1638,12 +1682,10 @@
                     if (enabled) {
                         gradientToggleKnob.style.left = '23px';
                         gradientToggleBtn.style.background = 'linear-gradient(90deg, ' + color + ', #60a5fa)';
-                        gradientStatusText.textContent = 'Activado — se aplica degradado en secciones de UI';
                         gradientPreview.style.background = 'linear-gradient(90deg, ' + color + ', #60a5fa)';
                     } else {
                         gradientToggleKnob.style.left = '3px';
                         gradientToggleBtn.style.background = 'rgba(156, 163, 175, 0.35)';
-                        gradientStatusText.textContent = 'Desactivado — se usa color sólido';
                         gradientPreview.style.background = color;
                     }
                 }

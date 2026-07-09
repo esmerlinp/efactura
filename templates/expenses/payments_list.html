@@ -1,240 +1,160 @@
 {% extends "layout.html" %}
 
 {% block title %}Pagos y Gastos{% endblock %}
-
 {% block page_header %}Pagos y Gastos{% endblock %}
 
 {% block content %}
 <div class="page-title-container" style="margin-bottom: 24px; padding-left: 4px;">
-    <h1 class="page-title"
-        style="font-size: 1.75rem; font-weight: 800; font-family: var(--font-heading); color: var(--text-primary); margin: 0;">
-        Pagos y Gastos
-    </h1>
-    <p style="color: var(--text-secondary); font-size: 0.88rem; margin: 4px 0 0 0;">
-        Los comprobantes de egresos te ayudarán a respaldar los gastos o salidas de dinero de tu empresa.
-        Para trasladar dinero entre tus cuentas bancarias, utiliza la opción de
-        <a href="{{ url_for('web_banks.list_banks') }}" style="color: var(--accent-blue);">Transferencias bancarias</a>.
-    </p>
+    <h1 style="font-size: 1.75rem; font-weight: 800; font-family: var(--font-heading); color: var(--text-primary); margin: 0;">Pagos y Gastos</h1>
 </div>
 
-<div class="kpi-grid" style="margin-bottom: 20px;">
-    <div class="kpi-card kpi-card--danger">
-        <div class="kpi-card-header">
-            <span class="kpi-card-label">Total Pagos</span>
-            <div class="kpi-card-icon" style="background: rgba(239, 68, 68, 0.1); color: var(--accent-red);">
-                <i class="fa-solid fa-sack-dollar"></i>
-            </div>
-        </div>
-        <div class="kpi-card-value">RD$ {{ "{:,.2f}".format(total_amount or 0) }}</div>
-        <div class="kpi-card-subtitle">{{ total_items or 0 }} registros</div>
+<div class="summary-strip">
+    <div class="summary-strip-item">
+        <div class="summary-strip-label">Total Pagos</div>
+        <div class="summary-strip-value" style="color: var(--accent-red);">RD$ {{ "{:,.2f}".format(total_amount or 0) }}</div>
     </div>
-    <div class="kpi-card kpi-card--success">
-        <div class="kpi-card-header">
-            <span class="kpi-card-label">Pagados</span>
-            <div class="kpi-card-icon" style="background: rgba(16, 185, 129, 0.1); color: var(--accent-emerald);">
-                <i class="fa-solid fa-check-circle"></i>
-            </div>
-        </div>
-        <div class="kpi-card-value">RD$ {{ "{:,.2f}".format(paid_amount or 0) }}</div>
-        <div class="kpi-card-subtitle">{{ paid_count or 0 }} pagos</div>
+    <div class="summary-strip-item">
+        <div class="summary-strip-label">Pagados</div>
+        <div class="summary-strip-value" style="color: var(--accent-emerald);">RD$ {{ "{:,.2f}".format(paid_amount or 0) }}</div>
     </div>
-    <div class="kpi-card kpi-card--warning">
-        <div class="kpi-card-header">
-            <span class="kpi-card-label">Pendientes</span>
-            <div class="kpi-card-icon" style="background: rgba(245, 158, 11, 0.1); color: var(--accent-yellow);">
-                <i class="fa-solid fa-clock"></i>
-            </div>
-        </div>
-        <div class="kpi-card-value">RD$ {{ "{:,.2f}".format(pending_amount or 0) }}</div>
-        <div class="kpi-card-subtitle">{{ pending_count or 0 }} pendientes</div>
+    <div class="summary-strip-item">
+        <div class="summary-strip-label">Pendientes</div>
+        <div class="summary-strip-value" style="color: var(--accent-yellow);">RD$ {{ "{:,.2f}".format(pending_amount or 0) }}</div>
     </div>
 </div>
 
-<div class="card-table-wrapper" style="margin-bottom: 30px;">
-    <div class="table-header-row">
-        <div>
-            <h3 style="font-size: 1.25rem; font-family: var(--font-heading); margin-bottom: 6px;">Comprobantes de Egreso</h3>
-            <p style="color: var(--text-secondary); font-size: 0.88rem;">Pagos y gastos operativos registrados con comprobante fiscal.</p>
-        </div>
-        <a href="{{ url_for('web_invoices.payments_new_route') }}" class="btn btn-primary">
-            <i class="fa-solid fa-plus"></i>
-            <span>Nuevo Pago</span>
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
+    <h2 style="font-size: 0.95rem; font-weight: 500; color: var(--text-secondary); margin: 0;">Comprobantes de Egreso</h2>
+    <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+        <a href="{{ url_for('web_invoices.payments_new_route') }}" class="btn btn-primary" style="height: 32px; font-size: 0.78rem; padding: 0 12px; display: inline-flex; align-items: center; gap: 4px;">
+            <i class="fa-solid fa-plus"></i> Nuevo Pago
         </a>
     </div>
+</div>
 
-    <form method="GET" action="{{ url_for('web_invoices.payments_list') }}" id="filter-form" style="margin-bottom: 24px; padding: 15px; background: rgba(0, 0, 0, 0.02); border: 1px solid var(--border-color); border-radius: 8px; margin-left: 20px; margin-right: 20px;">
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; align-items: flex-end;">
-            <div class="form-group" style="margin-bottom: 0;">
-                <label for="search" style="font-size: 0.72rem; margin-bottom: 4px; display: block; color: var(--text-secondary);">Buscar</label>
-                <input type="text" id="search" name="search" class="form-input" placeholder="Concepto, RNC, NCF..." value="{{ search_query or '' }}" style="width: 100%; font-size: 0.78rem; height: 36px; padding: 6px 10px;">
-            </div>
-            <div class="form-group" style="margin-bottom: 0;">
-                <label for="category" style="font-size: 0.72rem; margin-bottom: 4px; display: block; color: var(--text-secondary);">Categoría</label>
-                <select id="category" name="category" class="form-select" style="width: 100%; font-size: 0.78rem; height: 36px; padding: 6px 10px;">
-                    <option value="">-- Todas --</option>
-                    <option value="Software y Tecnología" {% if category_filter == 'Software y Tecnología' %}selected{% endif %}>Software y Tecnología</option>
-                    <option value="Servicios Básicos" {% if category_filter == 'Servicios Básicos' %}selected{% endif %}>Servicios Básicos</option>
-                    <option value="Alquileres" {% if category_filter == 'Alquileres' %}selected{% endif %}>Alquileres</option>
-                    <option value="Impuestos y Tasas" {% if category_filter == 'Impuestos y Tasas' %}selected{% endif %}>Impuestos y Tasas</option>
-                    <option value="Otros Gastos" {% if category_filter == 'Otros Gastos' %}selected{% endif %}>Otros Gastos</option>
-                </select>
-            </div>
-            <div class="form-group" style="margin-bottom: 0;">
-                <label for="start_date" style="font-size: 0.72rem; margin-bottom: 4px; display: block; color: var(--text-secondary);">Desde</label>
-                <input type="date" id="start_date" name="start_date" class="form-input" value="{{ start_date or '' }}" style="width: 100%; font-size: 0.78rem; height: 36px; padding: 6px 10px;">
-            </div>
-            <div class="form-group" style="margin-bottom: 0;">
-                <label for="end_date" style="font-size: 0.72rem; margin-bottom: 4px; display: block; color: var(--text-secondary);">Hasta</label>
-                <input type="date" id="end_date" name="end_date" class="form-input" value="{{ end_date or '' }}" style="width: 100%; font-size: 0.78rem; height: 36px; padding: 6px 10px;">
-            </div>
-            <div style="display: flex; gap: 8px; justify-content: flex-end;">
-                <button type="submit" class="btn btn-secondary" style="flex: 1; justify-content: center; height: 36px; font-size: 0.78rem; padding: 0 12px; border-color: var(--accent-emerald); color: var(--accent-emerald);">
-                    <i class="fa-solid fa-filter"></i> Filtrar
-                </button>
-                <a href="{{ url_for('web_invoices.payments_list') }}" class="btn btn-secondary" style="justify-content: center; height: 36px; font-size: 0.78rem; padding: 0 10px; border-color: var(--border-color); color: var(--text-muted);" title="Limpiar Filtros">
-                    <i class="fa-solid fa-filter-circle-xmark"></i>
-                </a>
-            </div>
-        </div>
-    </form>
+<div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 16px;">
+    <div style="position: relative; width: 200px;">
+        <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.78rem;"></i>
+        <input type="text" id="filter-search" placeholder="Buscar concepto, RNC, NCF..." value="{{ search_query or '' }}"
+            style="width: 100%; height: 32px; padding: 0 10px 0 28px; background-color: var(--bg-input); border: 1px solid var(--border-color); border-radius: var(--radius-sm); color: var(--text-primary); font-size: 0.78rem;" oninput="submitFilters()">
+    </div>
+    <select id="filter-category" onchange="submitFilters()"
+        style="height: 32px; padding: 0 8px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-sm); color: var(--text-primary); font-size: 0.78rem; cursor: pointer; outline: none;">
+        <option value="">Todas las Categorías</option>
+        <option value="Software y Tecnología" {% if category_filter == 'Software y Tecnología' %}selected{% endif %}>Software y Tecnología</option>
+        <option value="Servicios Básicos" {% if category_filter == 'Servicios Básicos' %}selected{% endif %}>Servicios Básicos</option>
+        <option value="Alquileres" {% if category_filter == 'Alquileres' %}selected{% endif %}>Alquileres</option>
+        <option value="Impuestos y Tasas" {% if category_filter == 'Impuestos y Tasas' %}selected{% endif %}>Impuestos y Tasas</option>
+        <option value="Otros Gastos" {% if category_filter == 'Otros Gastos' %}selected{% endif %}>Otros Gastos</option>
+    </select>
+    <input type="date" id="filter-start" value="{{ start_date or '' }}" onchange="submitFilters()"
+        style="height: 32px; padding: 0 8px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-sm); color: var(--text-primary); font-size: 0.78rem; cursor: pointer; outline: none; width: 140px;">
+    <input type="date" id="filter-end" value="{{ end_date or '' }}" onchange="submitFilters()"
+        style="height: 32px; padding: 0 8px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-sm); color: var(--text-primary); font-size: 0.78rem; cursor: pointer; outline: none; width: 140px;">
+    {% if search_query or category_filter or start_date or end_date %}
+    <a href="{{ url_for('web_invoices.payments_list') }}" class="btn btn-subtle" style="height: 32px; font-size: 0.75rem; display: inline-flex; align-items: center; gap: 4px;">
+        <i class="fa-solid fa-xmark"></i> Limpiar
+    </a>
+    {% endif %}
+</div>
 
-    <form id="multiple-delete-form" method="POST" action="{{ url_for('web_invoices.delete_multiple_expenses_route') }}">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <div style="display: flex; justify-content: flex-start; margin-bottom: 12px; padding: 0 20px;">
-            <button type="submit" id="btn-delete-selected" class="btn btn-danger" style="display: none; height: 36px; font-size: 0.78rem; padding: 0 16px; align-items: center;" onclick="return confirm('¿Estás seguro de que deseas eliminar los pagos seleccionados?');">
-                <i class="fa-solid fa-trash-can" style="margin-right: 6px;"></i> Eliminar Seleccionados (<span id="selected-count">0</span>)
-            </button>
-        </div>
-        <div class="table-responsive">
-            <table class="table-premium">
-                <thead>
-                    <tr>
-                        <th style="width: 40px; text-align: center;">
-                            <input type="checkbox" id="select-all" onclick="toggleAllCheckboxes(this)" style="cursor: pointer;">
-                        </th>
-                        <th>Concepto / Descripción</th>
-                        <th>Categoría</th>
-                        <th>Proveedor</th>
-                        <th>Fecha</th>
-                        <th>NCF / RNC</th>
-                        <th>Monto</th>
-                        <th>Estado</th>
-                        <th style="text-align: right; width: 50px;"></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% if expenses %}
-                    {% for exp in expenses %}
-                    <tr>
-                        <td style="text-align: center;">
-                            <input type="checkbox" name="expense_ids" value="{{ exp.id }}" class="expense-checkbox" onclick="updateDeleteButton()" style="cursor: pointer;">
-                        </td>
-                        <td>
-                            <span style="font-size: 0.85rem; font-weight: 500; display: block; color: var(--text-primary);">{{ exp.concept }}</span>
-                            {% if exp.notes %}
-                            <span style="font-size: 0.72rem; color: var(--text-muted); display: block;">{{ exp.notes }}</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            <span class="badge badge-secondary" style="font-size: 0.7rem; padding: 4px 8px;">{{ exp.category }}</span>
-                        </td>
-                        <td>
-                            {% if exp.providerName %}
-                            <span style="font-size: 0.82rem; color: var(--text-primary);">{{ exp.providerName }}</span>
-                            {% else %}
-                            <span style="color: var(--text-muted); font-size: 0.75rem;">—</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            <span style="font-size: 0.8rem; color: var(--text-secondary);">{{ exp.date | format_date }}</span>
-                        </td>
-                        <td>
-                            {% if exp.ncf %}
-                            <span style="font-family: monospace; font-size: 0.78rem; color: var(--accent-purple); display: block; font-weight: 500;">{{ exp.ncf }}</span>
-                            <span style="font-size: 0.7rem; color: var(--text-secondary); font-family: monospace; display: block;">RNC: {{ exp.rncEmisor or 'N/A' }}</span>
-                            {% else %}
-                            <span style="color: var(--text-muted); font-size: 0.75rem;">Sin comprobante</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            <span style="color: var(--accent-red); font-size: 0.85rem; font-weight: 600;">RD$ {{ "{:,.2f}".format(exp.amount) }}</span>
-                        </td>
-                        <td>
-                            {% if exp.approvalStatus == 'Pendiente' %}
-                            <span class="badge badge-amber" style="font-size: 0.65rem; padding: 3px 8px;">
-                                <i class="fa-solid fa-clock"></i> Pendiente
-                            </span>
-                            {% else %}
-                            <span class="badge badge-green" style="font-size: 0.65rem; padding: 3px 8px;">
-                                <i class="fa-solid fa-check-circle"></i> Aprobado
-                            </span>
-                            {% endif %}
-                            {% if exp.cxpStatus %}
-                            <span style="display: block; font-size: 0.65rem; color: var(--text-muted); margin-top: 3px;">
-                                {% if exp.cxpStatus == 'Pagado' %}
-                                <i class="fa-solid fa-circle-check" style="color: var(--accent-emerald);"></i> Pagado
-                                {% else %}
-                                <i class="fa-solid fa-circle-exclamation" style="color: var(--accent-yellow);"></i> {{ exp.cxpStatus }}
-                                {% endif %}
-                            </span>
-                            {% endif %}
-                        </td>
-                        <td style="text-align: right;">
-                            <div class="action-menu">
-                                <button type="button" class="action-menu-btn" onclick="toggleActionMenu(event)" title="Acciones">
-                                    <i class="fa-solid fa-ellipsis-vertical"></i>
-                                </button>
-                                <div class="action-menu-dropdown">
-                                    <a href="{{ url_for('web_invoices.expense_detail', expense_id=exp.id) }}" class="action-menu-item">
-                                        <i class="fa-solid fa-eye"></i> Ver Detalle
-                                    </a>
-                                    {% if exp.approvalStatus == 'Pendiente' %}
-                                    <button type="button" class="action-menu-item" onclick="approveExpense('{{ exp.id }}')">
-                                        <i class="fa-solid fa-check-double"></i> Aprobar
-                                    </button>
-                                    {% endif %}
-                                    <a href="{{ url_for('web_invoices.edit_expense_route', expense_id=exp.id) }}" class="action-menu-item">
-                                        <i class="fa-solid fa-pen-to-square"></i> Editar
-                                    </a>
-                                    <button type="submit" class="action-menu-item text-danger"
-                                        formaction="{{ url_for('web_invoices.delete_expense_route', expense_id=exp.id) }}"
-                                        onclick="return confirm('¿Seguro que deseas eliminar este pago?');">
-                                        <i class="fa-solid fa-trash-can"></i> Eliminar
-                                    </button>
-                                </div>
-                            </div>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                    {% else %}
-                    <tr>
-                        <td colspan="9" style="text-align: center; padding: 60px 0; color: var(--text-secondary);">
-                            <i class="fa-solid fa-receipt" style="font-size: 3rem; color: var(--text-muted); margin-bottom: 16px; opacity: 0.5; display: block;"></i>
-                            <span>No hay pagos registrados aún.</span>
-                            <a href="{{ url_for('web_invoices.payments_new_route') }}" class="btn btn-primary" style="display: inline-block; margin-top: 16px; padding: 10px 20px;">Registrar primer pago</a>
-                        </td>
-                    </tr>
+<div class="card-table-wrapper" style="box-shadow: none; padding: 0; overflow: hidden;">
+    <table class="table-premium" style="width: 100%; border-collapse: collapse;">
+        <thead>
+            <tr style="text-align: left; background: rgba(0,0,0,0.02); border-bottom: 1px solid var(--border-color);">
+                <th style="padding: 12px 16px; font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase;">Concepto</th>
+                <th style="padding: 12px 16px; font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase;">Proveedor</th>
+                <th style="padding: 12px 16px; font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase;">Fecha</th>
+                <th style="padding: 12px 16px; font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; text-align: right;">Monto</th>
+                <th style="padding: 12px 16px; font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; text-align: center;">Estado</th>
+                <th style="padding: 12px 16px; font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; text-align: center; width: 50px;"></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% if expenses %}
+            {% for exp in expenses %}
+            <tr style="border-bottom: 1px solid var(--border-color); cursor: pointer;" onclick="window.location='{{ url_for('web_invoices.expense_detail', expense_id=exp.id) }}'">
+                <td style="padding: 12px 16px;">
+                    <span style="font-size: 0.85rem; font-weight: 500; display: block; color: var(--text-primary);">{{ exp.concept }}</span>
+                    {% if exp.category %}
+                    <span style="font-size: 0.7rem; color: var(--text-muted);">{{ exp.category }}</span>
                     {% endif %}
-                </tbody>
-            </table>
-        </div>
-    </form>
+                </td>
+                <td style="padding: 12px 16px;">
+                    {% if exp.providerName %}
+                    <span style="font-size: 0.82rem; color: var(--text-primary);">{{ exp.providerName }}</span>
+                    {% else %}
+                    <span style="color: var(--text-muted); font-size: 0.75rem;">—</span>
+                    {% endif %}
+                </td>
+                <td style="padding: 12px 16px;">
+                    <span style="font-size: 0.8rem; color: var(--text-secondary);">{{ exp.date | format_date }}</span>
+                </td>
+                <td style="padding: 12px 16px; text-align: right;">
+                    <span style="color: var(--accent-red); font-size: 0.85rem; font-weight: 600;">RD$ {{ "{:,.2f}".format(exp.amount) }}</span>
+                </td>
+                <td style="padding: 12px 16px; text-align: center;">
+                    {% if exp.approvalStatus == 'Pendiente' %}
+                    <span class="status-badge" style="background: rgba(245,158,11,0.12); color: var(--accent-yellow); font-size:0.7rem; padding:3px 8px; border-radius:12px;">
+                        <i class="fa-solid fa-clock"></i> Pendiente
+                    </span>
+                    {% else %}
+                    <span class="status-badge" style="background: rgba(16,185,129,0.12); color: var(--accent-emerald); font-size:0.7rem; padding:3px 8px; border-radius:12px;">
+                        <i class="fa-solid fa-check-circle"></i> Aprobado
+                    </span>
+                    {% endif %}
+                </td>
+                <td style="padding: 12px 16px; text-align: center;" onclick="event.stopPropagation();">
+                    <div class="action-menu">
+                        <button type="button" class="action-menu-btn" onclick="toggleActionMenu(event)" title="Acciones">
+                            <i class="fa-solid fa-ellipsis-vertical"></i>
+                        </button>
+                        <div class="action-menu-dropdown">
+                            <a href="{{ url_for('web_invoices.expense_detail', expense_id=exp.id) }}" class="action-menu-item">
+                                <i class="fa-solid fa-eye"></i> Ver Detalle
+                            </a>
+                            <a href="{{ url_for('web_invoices.edit_expense_route', expense_id=exp.id) }}" class="action-menu-item">
+                                <i class="fa-solid fa-pen-to-square"></i> Editar
+                            </a>
+                            <form method="POST" action="{{ url_for('web_invoices.delete_expense_route', expense_id=exp.id) }}" style="display: contents;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="action-menu-item text-danger" onclick="return confirm('¿Eliminar este pago?');">
+                                    <i class="fa-solid fa-trash-can"></i> Eliminar
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+            {% else %}
+            <tr>
+                <td colspan="6" style="text-align: center; padding: 40px; color: var(--text-muted);">
+                    <i class="fa-solid fa-receipt" style="font-size: 2rem; opacity: 0.3; display: block; margin-bottom: 8px;"></i>
+                    No hay pagos registrados.
+                    <a href="{{ url_for('web_invoices.payments_new_route') }}" style="display: inline-block; margin-top: 8px;">Registrar primer pago</a>
+                </td>
+            </tr>
+            {% endif %}
+        </tbody>
+    </table>
 
     {% if total_items > 0 %}
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border-color); flex-wrap: wrap; gap: 16px; padding-left: 4px; padding-right: 4px;">
-        <div style="color: var(--text-secondary); font-size: 0.85rem;">
+    <div style="display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; border-top: 1px solid var(--border-color); background: rgba(0,0,0,0.01); flex-wrap: wrap; gap: 15px;">
+        <div style="color: var(--text-secondary); font-size: 0.82rem;">
             Mostrando <strong style="color: var(--text-primary);">{{ start_count }}</strong> a <strong style="color: var(--text-primary);">{{ end_count }}</strong> de <strong style="color: var(--text-primary);">{{ total_items }}</strong> registros
         </div>
-        <div style="display: flex; gap: 6px;">
+        <div style="display: flex; gap: 5px;">
             {% if has_prev %}
-            <a href="?page={{ page - 1 }}&search={{ search_query or '' }}&category={{ category_filter or '' }}&start_date={{ start_date or '' }}&end_date={{ end_date or '' }}" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.82rem; display: inline-flex; align-items: center; gap: 6px;"><i class="fa-solid fa-chevron-left" style="font-size: 0.75rem;"></i> Anterior</a>
+            <a href="?page={{ page - 1 }}&search={{ search_query or '' }}&category={{ category_filter or '' }}&start_date={{ start_date or '' }}&end_date={{ end_date or '' }}" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 4px; height: 32px; border-radius: 4px;"><i class="fa-solid fa-chevron-left"></i> Anterior</a>
             {% else %}
-            <button class="btn btn-secondary" disabled style="padding: 6px 12px; font-size: 0.82rem; opacity: 0.5; cursor: not-allowed;"><i class="fa-solid fa-chevron-left" style="font-size: 0.75rem;"></i> Anterior</button>
+            <button class="btn btn-secondary" disabled style="padding: 6px 12px; font-size: 0.8rem; opacity: 0.4; cursor: not-allowed; height: 32px;"><i class="fa-solid fa-chevron-left"></i> Anterior</button>
             {% endif %}
+            <span style="font-size: 0.82rem; color: var(--text-secondary); margin: 0 6px; display: inline-flex; align-items: center; font-weight: 500;">Página {{ page }} de {{ total_pages }}</span>
             {% if has_next %}
-            <a href="?page={{ page + 1 }}&search={{ search_query or '' }}&category={{ category_filter or '' }}&start_date={{ start_date or '' }}&end_date={{ end_date or '' }}" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.82rem; display: inline-flex; align-items: center; gap: 6px;">Siguiente <i class="fa-solid fa-chevron-right" style="font-size: 0.75rem;"></i></a>
+            <a href="?page={{ page + 1 }}&search={{ search_query or '' }}&category={{ category_filter or '' }}&start_date={{ start_date or '' }}&end_date={{ end_date or '' }}" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 4px; height: 32px; border-radius: 4px;">Siguiente <i class="fa-solid fa-chevron-right"></i></a>
             {% else %}
-            <button class="btn btn-secondary" disabled style="padding: 6px 12px; font-size: 0.82rem; opacity: 0.5; cursor: not-allowed;">Siguiente <i class="fa-solid fa-chevron-right" style="font-size: 0.75rem;"></i></button>
+            <button class="btn btn-secondary" disabled style="padding: 6px 12px; font-size: 0.8rem; opacity: 0.4; cursor: not-allowed; height: 32px;">Siguiente <i class="fa-solid fa-chevron-right"></i></button>
             {% endif %}
         </div>
     </div>
@@ -242,25 +162,22 @@
 </div>
 
 <script>
-    function toggleAllCheckboxes(source) {
-        document.querySelectorAll('.expense-checkbox').forEach(cb => cb.checked = source.checked);
-        updateDeleteButton();
-    }
-    function updateDeleteButton() {
-        const count = document.querySelectorAll('.expense-checkbox:checked').length;
-        const btn = document.getElementById('btn-delete-selected');
-        const countSpan = document.getElementById('selected-count');
-        if (count > 0) { btn.style.display = 'inline-flex'; countSpan.textContent = count; }
-        else { btn.style.display = 'none'; }
-    }
-    async function approveExpense(expenseId) {
-        if (!confirm('¿Estás seguro de que deseas aprobar este pago?')) return;
-        try {
-            const res = await fetch(`/expenses/${expenseId}/approve`, { method: 'POST', headers: { 'Content-Type': 'application/json' } });
-            const data = await res.json();
-            if (data.success) window.location.reload();
-            else alert(data.message || 'Error al aprobar');
-        } catch (e) { alert('Error de conexión'); }
+    let filterTimeout = null;
+    function submitFilters() {
+        clearTimeout(filterTimeout);
+        filterTimeout = setTimeout(() => {
+            const params = new URLSearchParams();
+            const search = document.getElementById('filter-search').value.trim();
+            const category = document.getElementById('filter-category').value;
+            const start = document.getElementById('filter-start').value;
+            const end = document.getElementById('filter-end').value;
+            if (search) params.set('search', search);
+            if (category) params.set('category', category);
+            if (start) params.set('start_date', start);
+            if (end) params.set('end_date', end);
+            const qs = params.toString();
+            window.location.href = '{{ url_for("web_invoices.payments_list") }}' + (qs ? '?' + qs : '');
+        }, 400);
     }
 </script>
 {% endblock %}

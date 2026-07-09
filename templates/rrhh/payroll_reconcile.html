@@ -1,0 +1,139 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}Conciliación Bancaria — {{ period.periodRange or period.periodKey }} — {{ product_name }}{% endblock %}
+{% block extra_head %}
+<style>
+.reconciled-card { border-left: 3px solid var(--accent-emerald); }
+.partial-card { border-left: 3px solid var(--accent-amber); }
+.unmatched-card { border-left: 3px solid var(--accent-red); }
+.reconcile-employee {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:10px 14px; border-bottom:1px solid var(--border-color-light);
+    font-size:0.84rem;
+}
+.reconcile-employee:last-child { border-bottom:none; }
+.match-info { font-size:0.78rem; color:var(--text-muted); }
+.step-indicator { display:flex; gap:16px; margin-bottom:20px; }
+.step { flex:1; text-align:center; padding:12px; border-radius:var(--radius-md); border:1px solid var(--border-color); }
+.step.active { border-color:var(--accent-emerald); background:rgba(16,185,129,0.06); }
+.step .step-num { font-size:1.2rem; font-weight:700; }
+.step .step-label { font-size:0.75rem; color:var(--text-muted); }
+</style>
+{% endblock %}
+{% block content %}
+{% include "rrhh/_styles.html" %}
+<div class="page-header hr-page-header">
+    <h1 class="page-title"><i class="fa-solid fa-arrow-right-arrow-left"></i> Conciliación de Nómina</h1>
+    <div class="hr-page-actions">
+        <a href="{{ url_for('web_rrhh.payroll_view', period_id=period.id) }}" class="btn btn-ghost"><i class="fa-solid fa-eye"></i> Ver Nómina</a>
+        <a href="{{ url_for('web_rrhh.payroll_list') }}" class="btn btn-ghost"><i class="fa-solid fa-arrow-left"></i> Historial</a>
+    </div>
+</div>
+
+<div class="card-table-wrapper" style="padding:16px 20px; margin-bottom:16px;">
+    <strong>{{ period.periodRange or period.periodKey }}</strong>
+    <span style="color:var(--text-muted); margin-left:12px;">
+        Total neto: RD$ {{ '{:,.2f}'.format(period.totalNet) }} · {{ period.lines|length }} empleados
+    </span>
+</div>
+
+{% if not result and not suggestions %}
+<form method="POST" action="{{ url_for('web_rrhh.payroll_reconcile_load_transactions', period_id=period.id) }}" class="card-table-wrapper" style="padding:20px;">
+    <h3 style="margin-top:0;"><i class="fa-solid fa-download"></i> Cargar transacciones bancarias</h3>
+    <p style="color:var(--text-muted); font-size:0.85rem;">Especifica el rango de fechas para buscar transacciones bancarias que coincidan con los pagos de este período.</p>
+    <div style="display:flex; gap:12px; align-items:end; flex-wrap:wrap;">
+        <div>
+            <label style="font-size:0.8rem; display:block; margin-bottom:4px;">Desde</label>
+            <input type="date" name="tx_from" value="{{ period.startDate }}" class="form-input" style="width:160px;">
+        </div>
+        <div>
+            <label style="font-size:0.8rem; display:block; margin-bottom:4px;">Hasta</label>
+            <input type="date" name="tx_to" value="{{ period.endDate }}" class="form-input" style="width:160px;">
+        </div>
+        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-magnifying-glass"></i> Buscar transacciones</button>
+    </div>
+</form>
+{% endif %}
+
+{% if suggestions %}
+<div class="card-table-wrapper" style="padding:16px 20px; margin-bottom:16px; background:rgba(251,191,36,0.06); border:1px solid var(--accent-amber);">
+    <h3 style="margin-top:0;"><i class="fa-solid fa-lightbulb"></i> Sugerencias de conciliación</h3>
+    <p style="color:var(--text-muted); font-size:0.82rem;">No se encontraron transacciones bancarias. Revisa lo siguiente para cada empleado:</p>
+</div>
+<div class="card-table-wrapper">
+    {% for s in suggestions.suggestions %}
+    <div class="reconcile-employee unmatched-card">
+        <div>
+            <strong>{{ s.employeeName }}</strong>
+            <span style="margin-left:8px; color:var(--text-muted);">RD$ {{ '{:,.2f}'.format(s.netSalary) }}</span>
+        </div>
+        <div class="match-info">
+            {% for action in s.actions %}
+            <div><i class="fa-solid fa-circle-exclamation" style="color:var(--accent-amber); font-size:0.7rem;"></i> {{ action }}</div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if result %}
+<div class="step-indicator">
+    <div class="step active">
+        <div class="step-num" style="color:var(--accent-emerald);">{{ result.matchedCount }}</div>
+        <div class="step-label">Conciliados</div>
+    </div>
+    <div class="step" style="border-color:var(--accent-amber);">
+        <div class="step-num" style="color:var(--accent-amber);">{{ result.partialCount }}</div>
+        <div class="step-label">Parciales</div>
+    </div>
+    <div class="step" style="border-color:var(--accent-red);">
+        <div class="step-num" style="color:var(--accent-red);">{{ result.unmatchedCount }}</div>
+        <div class="step-label">Sin conciliar</div>
+    </div>
+</div>
+
+{% if result.matched %}
+<div class="card-table-wrapper" style="margin-bottom:16px;">
+    <h3 style="padding:12px 18px; margin:0; border-bottom:1px solid var(--border-color); font-size:0.9rem;">
+        <i class="fa-solid fa-circle-check" style="color:var(--accent-emerald);"></i> Conciliados ({{ result.matched|length }})
+    </h3>
+    {% for m in result.matched %}
+    <div class="reconcile-employee reconciled-card">
+        <div>
+            <strong>{{ m.employeeName }}</strong>
+            <span class="badge badge-success" style="margin-left:8px;">RD$ {{ '{:,.2f}'.format(m.netSalary) }}</span>
+        </div>
+        <div class="match-info">
+            {% if m.transaction %}
+            {{ m.transaction.date[:10] }} · {{ m.transaction.description[:40] }}
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if result.unmatched %}
+<div class="card-table-wrapper" style="margin-bottom:16px;">
+    <h3 style="padding:12px 18px; margin:0; border-bottom:1px solid var(--border-color); font-size:0.9rem;">
+        <i class="fa-solid fa-circle-xmark" style="color:var(--accent-red);"></i> Sin conciliar ({{ result.unmatched|length }})
+    </h3>
+    {% for m in result.unmatched %}
+    <div class="reconcile-employee unmatched-card">
+        <div>
+            <strong>{{ m.employeeName }}</strong>
+            <span class="badge badge-danger" style="margin-left:8px;">RD$ {{ '{:,.2f}'.format(m.netSalary) }}</span>
+        </div>
+        <div class="match-info">
+            {% if m.bank and m.accountNumber %}
+            {{ m.bank }} · {{ m.accountNumber }}
+            {% else %}
+            Sin datos bancarios
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+{% endif %}
+{% endblock %}

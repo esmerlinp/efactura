@@ -1,8 +1,9 @@
 import uuid
 import json
+import csv
 import io
 from datetime import datetime, timezone
-from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify, send_file
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify, send_file, make_response
 from app.services.db_service import DatabaseService
 from app.services.accounting_service import AccountingService, ACCOUNT_GROUPS
 
@@ -39,6 +40,8 @@ USAGE_LABELS = {
     "costo_ventas": "Costo de la mercancía vendida",
     "descuentos_financieros": "Descuentos financieros",
     "gastos_nomina": "Gastos de nómina",
+    "gastos": "Gastos generales",
+    "costo_ventas": "Costo de ventas",
     "cuentas_incobrables": "Cuentas incobrables",
     "impuestos_no_acreditables": "Impuestos no acreditables",
     "retencion_asumida": "Retención asumida sobre renta",
@@ -325,11 +328,85 @@ def journal_entries():
     entries = DatabaseService.get_accounting_entries(owner_uid, sandbox=sandbox)
     entry_types = DatabaseService.get_entry_types(owner_uid)
     accounts = DatabaseService.get_chart_of_accounts(owner_uid)
+
+    q = request.args.get('q', '').strip()
+    status_filter = request.args.get('status', '')
+    type_filter = request.args.get('type', '')
+    date_from = request.args.get('date_from', '')
+    date_to = request.args.get('date_to', '')
+
+    if q:
+        q_lower = q.lower()
+        entries = [e for e in entries if
+                   q_lower in (e.get('number', '') or '').lower()
+                   or q_lower in (e.get('concept', '') or '').lower()
+                   or q_lower in (e.get('referenceNumber', '') or '').lower()
+                   or q_lower in (e.get('entryType', '') or '').lower()]
+
+    if status_filter:
+        entries = [e for e in entries if e.get('status') == status_filter]
+
+    if type_filter:
+        entries = [e for e in entries if e.get('entryType') == type_filter]
+
+    if date_from:
+        entries = [e for e in entries if str(e.get('date', ''))[:10] >= date_from]
+    if date_to:
+        entries = [e for e in entries if str(e.get('date', ''))[:10] <= date_to]
+
+    if request.args.get('export') == 'csv':
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(['Número', 'Fecha', 'Concepto', 'Tipo', 'Débito', 'Crédito', 'Estado'])
+        for e in entries:
+            entry_type_label = {
+                'invoice': 'Factura', 'credit_note': 'Nota de Crédito', 'expense': 'Gasto',
+                'standard': 'Estándar', 'opening': 'Apertura', 'closing': 'Cierre',
+                'initial_balance': 'Saldos Iniciales', 'depreciation': 'Depreciación',
+                'disposal': 'Baja',
+            }.get(e.get('entryType', ''), e.get('entryType', 'Estándar'))
+            writer.writerow([
+                e.get('number', ''),
+                str(e.get('date', ''))[:10],
+                e.get('concept', ''),
+                entry_type_label,
+                round(float(e.get('totalDebit', 0)), 2),
+                round(float(e.get('totalCredit', 0)), 2),
+                'Anulada' if e.get('status') == 'voided' else 'Activa',
+            ])
+        output.seek(0)
+        response = make_response(output.getvalue())
+        response.headers['Content-Disposition'] = 'attachment; filename=entradas_diario.csv'
+        response.headers['Content-Type'] = 'text/csv; charset=utf-8'
+        return response
+
+    type_labels = {
+        'invoice': 'Factura', 'credit_note': 'Nota de Crédito', 'expense': 'Gasto',
+        'standard': 'Estándar', 'opening': 'Apertura', 'closing': 'Cierre',
+        'initial_balance': 'Saldos Iniciales', 'depreciation': 'Depreciación',
+        'disposal': 'Baja',
+    }
+
+    today = datetime.now(timezone.utc)
+    first_of_month = today.replace(day=1).strftime('%Y-%m-%d')
+    qm = (today.month - 1) // 3 * 3 + 1
+    quarter_start = today.replace(month=qm, day=1).strftime('%Y-%m-%d')
+    year_start = today.replace(month=1, day=1).strftime('%Y-%m-%d')
+    today_str = today.strftime('%Y-%m-%d')
+
     return render_template('accounting/journal_entries.html',
                            active_page='acc_entries',
                            entries=entries,
                            entry_types=entry_types,
-                           accounts=accounts)
+                           accounts=accounts,
+                           q=q, status_filter=status_filter,
+                           type_filter=type_filter,
+                           date_from=date_from, date_to=date_to,
+                           type_labels=type_labels,
+                           today_str=today_str,
+                           first_of_month=first_of_month,
+                           quarter_start=quarter_start,
+                           year_start=year_start)
 
 
 @web_accounting_bp.route('/accounting/journal-entries/new', methods=['GET', 'POST'])

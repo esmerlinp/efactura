@@ -135,6 +135,7 @@ class PhysicalCountService:
         shortage = 0.0
         lines_with_diff = 0
         adjustments = 0
+        adjusted_items = []
 
         for line in count["lines"]:
             diff = line["difference"]
@@ -160,6 +161,25 @@ class PhysicalCountService:
                     "notes": f"Ajuste automático: conteo #{count_id[:8]}, diferencia {diff:+.4f}",
                     "performedBy": finalized_by,
                 }, sandbox=sandbox)
+
+                adjusted_items.append({
+                    "itemId": line["itemId"],
+                    "name": line["itemName"],
+                    "quantity": diff,
+                    "qtyDiff": diff,
+                    "costPrice": 0,
+                })
+
+        if adjusted_items:
+            try:
+                from app.services.accounting_service import AccountingService
+                AccountingService.auto_generate_inventory_entry(
+                    owner_uid, "ajuste", adjusted_items,
+                    reference_id=count_id, performed_by=finalized_by,
+                    sandbox=sandbox
+                )
+            except Exception as e:
+                print(f"⚠️ Error al generar asiento de inventario para conteo {count_id}: {e}")
 
         count["status"] = "ajustado" if adjustments > 0 else "finalizado"
         count["finalizedDate"] = datetime.now(timezone.utc).isoformat()

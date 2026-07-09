@@ -216,15 +216,15 @@
     <div class="action-bar">
         {% if report.import_type == 'clients' %}
         <a href="{{ url_for('web_clients.list_clients') }}" class="btn btn-primary">
-            <i class="fa-regular fa-eye"></i> Ver Clientes
+            <i class="fa-solid fa-eye"></i> Ver Clientes
         </a>
         {% elif report.import_type == 'products' %}
         <a href="{{ url_for('web_invoices.list_items') }}" class="btn btn-primary">
-            <i class="fa-regular fa-eye"></i> Ver Productos
+            <i class="fa-solid fa-eye"></i> Ver Productos
         </a>
         {% else %}
         <a href="{{ url_for('web_invoices.list_invoices') }}" class="btn btn-primary">
-            <i class="fa-regular fa-eye"></i> Ver Facturas
+            <i class="fa-solid fa-eye"></i> Ver Facturas
         </a>
         {% endif %}
         <a href="javascript:history.back()" class="btn btn-secondary">

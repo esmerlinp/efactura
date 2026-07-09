@@ -914,14 +914,14 @@
                         } else {
                             btn.disabled = false;
                             btn.innerHTML = 'Procesar Importación';
-                            alert(procData.error || 'Error al procesar la importación.');
+                            showAlert('Error', procData.error || 'Error al procesar la importación.', 'danger');
                         }
                     })
                     .catch(err => {
                         console.error(err);
                         btn.disabled = false;
                         btn.innerHTML = 'Procesar Importación';
-                        alert('Error de conexión.');
+                        showAlert('Error', 'Error de conexión.', 'danger');
                     });
                 });
             }
@@ -946,7 +946,7 @@
                     } else {
                         btnSkip.disabled = false;
                         btnSkip.innerHTML = 'Omitir y entrar en Modo Pruebas';
-                        alert('No se pudo activar el modo pruebas.');
+                        showAlert('Error', 'No se pudo activar el modo pruebas.', 'danger');
                     }
                 })
                 .catch(err => {

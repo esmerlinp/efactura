@@ -1,0 +1,104 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}Validación IR-18 {{ year }} — {{ product_name }}{% endblock %}
+{% block extra_head %}
+<style>
+.ir18-summary { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px; margin-bottom:20px; }
+.ir18-stat { padding:14px; border-radius:var(--radius-md); border:1px solid var(--border-color); text-align:center; }
+.ir18-stat .val { font-size:1.3rem; font-weight:700; }
+.ir18-stat .lbl { font-size:0.72rem; color:var(--text-muted); text-transform:uppercase; }
+.ir18-stat.ok { border-color:var(--accent-emerald); }
+.ir18-stat.warn { border-color:var(--accent-amber); }
+.ir18-stat.err { border-color:var(--accent-red); }
+</style>
+{% endblock %}
+{% block content %}
+{% include "rrhh/_styles.html" %}
+<div class="page-header hr-page-header">
+    <h1 class="page-title"><i class="fa-solid fa-file-lines"></i> Validación IR-18 {{ year }}</h1>
+    <div class="hr-page-actions">
+        <select onchange="location.href='?year='+this.value" class="form-select" style="width:auto;">
+            {% for y in range(year-2, year+2) %}
+            <option value="{{ y }}" {% if y==year %}selected{% endif %}>{{ y }}</option>
+            {% endfor %}
+        </select>
+        <a href="{{ url_for('web_rrhh.report_ir18_list') }}" class="btn btn-ghost"><i class="fa-solid fa-list"></i> IR-18</a>
+        <a href="{{ url_for('web_rrhh.payroll_dashboard') }}" class="btn btn-ghost"><i class="fa-solid fa-arrow-left"></i> Dashboard</a>
+    </div>
+</div>
+
+{% if result %}
+<div class="card-table-wrapper" style="padding:16px 20px; margin-bottom:16px; {% if result.isReady %}border:1px solid var(--accent-emerald); background:rgba(16,185,129,0.06){% else %}border:1px solid var(--accent-red); background:rgba(239,68,68,0.06){% endif %};">
+    <strong>
+        {% if result.isReady %}
+        <i class="fa-solid fa-circle-check" style="color:var(--accent-emerald);"></i> Datos IR-18 listos para reporte DGII {{ year }}
+        {% else %}
+        <i class="fa-solid fa-triangle-exclamation" style="color:var(--accent-red);"></i> Hay {{ result.errors|length }} problemas por resolver antes de generar el IR-18
+        {% endif %}
+    </strong>
+</div>
+
+<div class="ir18-summary">
+    <div class="ir18-stat ok">
+        <div class="val">{{ result.summary.totalEmployees }}</div>
+        <div class="lbl">Empleados activos</div>
+    </div>
+    <div class="ir18-stat {% if result.summary.employeesReady < result.summary.totalEmployees %}warn{% else %}ok{% endif %}">
+        <div class="val">{{ result.summary.employeesReady }}</div>
+        <div class="lbl">Con YTD completo</div>
+    </div>
+    <div class="ir18-stat {% if result.summary.isrDiscrepancy > 1 %}warn{% else %}ok{% endif %}">
+        <div class="val">RD$ {{ '{:,.0f}'.format(result.summary.totalIsrYtd) }}</div>
+        <div class="lbl">ISR acumulado YTD</div>
+    </div>
+    <div class="ir18-stat ok">
+        <div class="val">RD$ {{ '{:,.0f}'.format(result.summary.totalIsrPeriods) }}</div>
+        <div class="lbl">ISR de períodos</div>
+    </div>
+    <div class="ir18-stat {% if result.summary.isrDiscrepancy > 1 %}err{% else %}ok{% endif %}">
+        <div class="val">RD$ {{ '{:,.2f}'.format(result.summary.isrDiscrepancy) }}</div>
+        <div class="lbl">Discrepancia ISR</div>
+    </div>
+</div>
+
+{% if result.errors %}
+<div class="card-table-wrapper" style="margin-bottom:16px;">
+    <h3 style="padding:12px 18px; margin:0; font-size:0.9rem;"><i class="fa-solid fa-xmark" style="color:var(--accent-red);"></i> Errores</h3>
+    <ul style="list-style:none; padding:0; margin:0;">
+        {% for e in result.errors %}
+        <li style="padding:8px 18px; border-bottom:1px solid var(--border-color-light); font-size:0.84rem; color:var(--accent-red);">{{ e }}</li>
+        {% endfor %}
+    </ul>
+</div>
+{% endif %}
+
+{% if result.warnings %}
+<div class="card-table-wrapper" style="margin-bottom:16px;">
+    <h3 style="padding:12px 18px; margin:0; font-size:0.9rem;"><i class="fa-solid fa-triangle-exclamation" style="color:var(--accent-amber);"></i> Advertencias</h3>
+    <ul style="list-style:none; padding:0; margin:0;">
+        {% for w in result.warnings %}
+        <li style="padding:8px 18px; border-bottom:1px solid var(--border-color-light); font-size:0.84rem; color:var(--accent-amber);">{{ w }}</li>
+        {% endfor %}
+    </ul>
+</div>
+{% endif %}
+
+{% if result.summary.employeesMissing %}
+<div class="card-table-wrapper">
+    <h3 style="padding:12px 18px; margin:0; font-size:0.9rem;">Empleados con datos incompletos</h3>
+    <div class="table-responsive">
+        <table class="table-premium" style="font-size:0.82rem;">
+            <thead><tr><th>Empleado</th><th>Problemas</th></tr></thead>
+            <tbody>
+                {% for e in result.summary.employeesMissing %}
+                <tr>
+                    <td>{{ e.name }}</td>
+                    <td>{{ e.issues|join(', ') }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+{% endif %}
+{% endblock %}

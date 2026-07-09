@@ -52,6 +52,38 @@
     .ret-badge.has-values { background:rgba(16,185,129,0.1); color:var(--accent-emerald); border-color:rgba(16,185,129,0.25); }
 </style>
 
+<div class="guide-banner" id="guide-new-invoice">
+    <button class="guide-banner-close" onclick="closeGuide('guide-new-invoice')" title="Cerrar guía" aria-label="Cerrar guía">
+        <i class="fa-solid fa-xmark"></i>
+    </button>
+    <div class="guide-banner-icon">
+        <i class="fa-solid fa-lightbulb"></i>
+    </div>
+    <div class="guide-banner-content">
+        {% if active_page == 'quotations' %}
+        <h4>Guía de Uso: Crear Cotización</h4>
+        <p>
+            Crea presupuestos y proformas comerciales para tus clientes. Las cotizaciones no se envían a la DGII y pueden convertirse en facturas cuando el cliente las apruebe.
+        </p>
+        <ul>
+            <li><strong>Datos del Cliente:</strong> Selecciona el cliente, la sucursal y la fecha de la cotización.</li>
+            <li><strong>Productos y Servicios:</strong> Agrega los bienes o servicios a cotizar con cantidades, precios e impuestos.</li>
+            <li><strong>Convertir a Factura:</strong> Una vez aprobada por el cliente, puedes convertir la cotización en factura electrónica con un solo clic.</li>
+        </ul>
+        {% else %}
+        <h4>Guía de Uso: Crear Documento</h4>
+        <p>
+            Emite facturas electrónicas (e-CF), notas de crédito, notas de débito y otros comprobantes fiscales para su envío a la DGII.
+        </p>
+        <ul>
+            <li><strong>Datos del Cliente:</strong> Selecciona el cliente, la sucursal y la fecha de la transacción.</li>
+            <li><strong>Productos y Servicios:</strong> Agrega los bienes o servicios a facturar, configura cantidades, precios e impuestos.</li>
+            <li><strong>Envío a DGII:</strong> Al guardar y emitir, el comprobante se envía automáticamente a la DGII para su validación fiscal.</li>
+        </ul>
+        {% endif %}
+    </div>
+</div>
+
 <div id="catalog-data-json" style="display:none;">{{ catalog_json }}</div>
 <div id="clients-data-json" style="display:none;">{{ clients_json }}</div>
 <div id="price-list-prices-json" style="display:none;">{{ price_list_prices_json }}</div>
@@ -344,11 +376,11 @@
 </div>
 
 <div class="search-modal" id="product-search-modal" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;align-items:center;justify-content:center;z-index:1050;">
-  <div class="modal-content" style="max-width:720px;position:relative;background:var(--bg-card);border:1px solid var(--border-color);border-radius:var(--radius-lg);box-shadow:0 20px 60px rgba(0,0,0,0.15);overflow:hidden;">
+  <div class="modal-content" style="max-width:640px;position:relative;background:var(--bg-card);border:1px solid var(--border-color);border-radius:var(--radius-lg);box-shadow:0 20px 60px rgba(0,0,0,0.15);overflow:hidden;">
     <div class="modal-header" style="padding:20px 24px;border-bottom:1px solid var(--border-color);"><h3 style="font-size:0.95rem;"><i class="fa-solid fa-boxes-stacked" style="color:var(--accent-emerald);margin-right:8px;"></i>Buscar Producto / Servicio</h3><button type="button" class="btn-close-modal" id="btn-close-product-modal"><i class="fa-solid fa-xmark"></i></button></div>
     <div class="modal-body" style="padding:22px 24px;">
       <div style="margin-bottom:16px;"><div style="position:relative;"><i class="fa-solid fa-magnifying-glass" style="position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--text-muted);"></i><input type="text" id="modal-product-filter" class="form-input" placeholder="Filtrar por Nombre, Código…" style="padding-left:40px;"></div></div>
-      <div style="max-height:320px;overflow-y:auto;"><table style="width:100%;border-collapse:collapse;font-size:0.85rem;"><thead><tr style="border-bottom:2px solid var(--border-color);"><th style="padding:10px 14px;text-align:left;font-weight:600;color:var(--text-muted);">Código</th><th style="padding:10px 14px;text-align:left;color:var(--text-muted);">Nombre</th><th style="padding:10px 14px;text-align:right;color:var(--text-muted);">Precio</th><th style="padding:10px 14px;text-align:center;width:70px;color:var(--text-muted);">ITBIS</th><th style="padding:10px 14px;text-align:center;width:110px;"></th></tr></thead><tbody id="modal-product-list-body"></tbody></table></div>
+      <div style="max-height:360px;overflow-y:auto;"><table style="width:100%;border-collapse:collapse;font-size:0.85rem;"><thead><tr style="border-bottom:2px solid var(--border-color);"><th style="padding:10px 14px;text-align:left;font-weight:600;color:var(--text-muted);">Código</th><th style="padding:10px 14px;text-align:left;color:var(--text-muted);">Nombre</th><th style="padding:10px 14px;text-align:right;color:var(--text-muted);">Precio</th><th style="padding:10px 14px;text-align:center;width:60px;color:var(--text-muted);">ITBIS</th></tr></thead><tbody id="modal-product-list-body"></tbody></table></div>
     </div>
   </div>
 </div>
