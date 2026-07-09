@@ -11,6 +11,45 @@
         <a href="{{ url_for('web_rrhh.employee_salary_history', employee_id=employee.id) }}" class="btn btn-ghost btn-sm">
             <i class="fa-solid fa-chart-line"></i> Salarial
         </a>
+        <div class="dropdown" style="position:relative; display:inline-block;">
+            <button class="btn btn-primary" onclick="event.stopPropagation(); document.getElementById('actionMenu').style.display='block'">
+                <i class="fa-solid fa-bolt"></i> Acción <i class="fa-solid fa-caret-down"></i>
+            </button>
+            <div id="actionMenu" style="display:none; position:absolute; top:100%; right:0; z-index:50;
+                 background:#ffffff; border:1px solid #d1d5db; border-radius:8px; min-width:220px;
+                 box-shadow:0 4px 16px rgba(0,0,0,0.15); overflow:hidden;">
+                <a href="{{ url_for('web_rrhh.mass_action_wizard', ids=employee.id, action_type='salary_change') }}"
+                   style="display:flex; align-items:center; gap:8px; padding:10px 14px; text-decoration:none; color:var(--text-primary); font-size:0.85rem; border-bottom:1px solid var(--border-color); transition:background 0.15s;"
+                   onmouseenter="this.style.background='var(--bg-secondary)'" onmouseleave="this.style.background=''">
+                    <i class="fa-solid fa-money-bill-trend-up" style="color:#1d4ed8; width:16px; text-align:center;"></i> Cambio de Salario
+                </a>
+                <a href="{{ url_for('web_rrhh.mass_action_wizard', ids=employee.id, action_type='position_change') }}"
+                   style="display:flex; align-items:center; gap:8px; padding:10px 14px; text-decoration:none; color:var(--text-primary); font-size:0.85rem; border-bottom:1px solid var(--border-color); transition:background 0.15s;"
+                   onmouseenter="this.style.background='var(--bg-secondary)'" onmouseleave="this.style.background=''">
+                    <i class="fa-solid fa-briefcase" style="color:#a21caf; width:16px; text-align:center;"></i> Cambio de Puesto
+                </a>
+                <a href="{{ url_for('web_rrhh.mass_action_wizard', ids=employee.id, action_type='supervisor_change') }}"
+                   style="display:flex; align-items:center; gap:8px; padding:10px 14px; text-decoration:none; color:var(--text-primary); font-size:0.85rem; border-bottom:1px solid var(--border-color); transition:background 0.15s;"
+                   onmouseenter="this.style.background='var(--bg-secondary)'" onmouseleave="this.style.background=''">
+                    <i class="fa-solid fa-user-tie" style="color:#b45309; width:16px; text-align:center;"></i> Cambio de Supervisor
+                </a>
+                <a href="{{ url_for('web_rrhh.mass_action_wizard', ids=employee.id, action_type='promotion') }}"
+                   style="display:flex; align-items:center; gap:8px; padding:10px 14px; text-decoration:none; color:var(--text-primary); font-size:0.85rem; border-bottom:1px solid var(--border-color); transition:background 0.15s;"
+                   onmouseenter="this.style.background='var(--bg-secondary)'" onmouseleave="this.style.background=''">
+                    <i class="fa-solid fa-arrow-up" style="color:#047857; width:16px; text-align:center;"></i> Promoción
+                </a>
+                <a href="{{ url_for('web_rrhh.mass_action_wizard', ids=employee.id, action_type='mass_absence') }}"
+                   style="display:flex; align-items:center; gap:8px; padding:10px 14px; text-decoration:none; color:var(--text-primary); font-size:0.85rem; border-bottom:1px solid var(--border-color); transition:background 0.15s;"
+                   onmouseenter="this.style.background='var(--bg-secondary)'" onmouseleave="this.style.background=''">
+                    <i class="fa-solid fa-calendar-xmark" style="color:#4338ca; width:16px; text-align:center;"></i> Ausencia
+                </a>
+                <a href="{{ url_for('web_rrhh.employee_liquidacion', employee_id=employee.id) }}"
+                   style="display:flex; align-items:center; gap:8px; padding:10px 14px; text-decoration:none; color:var(--danger); font-size:0.85rem; transition:background 0.15s;"
+                   onmouseenter="this.style.background='var(--bg-secondary)'" onmouseleave="this.style.background=''">
+                    <i class="fa-solid fa-user-slash" style="color:var(--danger); width:16px; text-align:center;"></i> Desvinculación
+                </a>
+            </div>
+        </div>
         <a href="{{ url_for('web_rrhh.employee_checklist', employee_id=employee.id, checklist_type='onboarding') }}" class="btn btn-ghost btn-sm">
             <i class="fa-solid fa-clipboard-check"></i> Onboarding
         </a>
@@ -67,6 +106,9 @@
         </button>
         <button class="tab-btn" data-tab="tab-history" onclick="switchTab('tab-history', this)">
             <i class="fa-solid fa-clock-rotate-left"></i> Historial de pago
+        </button>
+        <button class="tab-btn" data-tab="tab-actions" onclick="switchTab('tab-actions', this)">
+            <i class="fa-solid fa-people-arrows"></i> Acciones
         </button>
     </div>
 
@@ -132,7 +174,19 @@
                     <div class="hr-info-item"><span class="hr-info-label">Cargo</span><span class="hr-info-value">{{ employee.position or '—' }}</span></div>
                     <div class="hr-info-item"><span class="hr-info-label">Área</span><span class="hr-info-value">{{ employee.area or employee.department or '—' }}</span></div>
                     <div class="hr-info-item"><span class="hr-info-label">Tipo contrato</span><span class="hr-info-value">{{ employee.contractType or '—' }}</span></div>
-                    <div class="hr-info-item"><span class="hr-info-label">Frecuencia pago</span><span class="hr-info-value">{{ employee.paymentFrequency or '—' }}</span></div>
+                    <div class="hr-info-item"><span class="hr-info-label">Grupos de nómina</span><span class="hr-info-value">
+                        {% set emp_groups = employee.payrollGroupIds or [] %}
+                        {% if emp_groups %}
+                            {% for gid in emp_groups %}
+                                {% set g = payroll_groups|selectattr("id", "equalto", gid)|first %}
+                                <span class="badge {% if g and g.frequency == 'mensual' %}badge-info{% else %}badge-secondary{% endif %}" style="font-size:0.7rem; margin-right:2px;">
+                                    {{ g.name if g else gid[:8] }}
+                                </span>
+                            {% endfor %}
+                        {% else %}
+                            <span style="color:var(--text-muted);">—</span>
+                        {% endif %}
+                    </span></div>
                     <div class="hr-info-item"><span class="hr-info-label">Jornada</span><span class="hr-info-value">{{ employee.workday or '—' }}</span></div>
                     <div class="hr-info-item"><span class="hr-info-label">Vigilante</span><span class="hr-info-value">{{ 'Sí' if employee.isVigilante else 'No' }}</span></div>
                     <div class="hr-info-item"><span class="hr-info-label">TSS Clave</span><span class="hr-info-value">{{ employee.tssKey or '—' }}</span></div>
@@ -290,51 +344,85 @@
             {% endif %}
         </div>
     </div>
-</div>
 
-{% if employee.status == 'activo' %}
-<div class="hr-section-card" style="margin-top:20px; border:1px solid var(--danger);">
-    <h3 style="color:var(--danger);"><i class="fa-solid fa-user-slash" style="color:var(--danger);"></i> Desvincular empleado</h3>
-    <form method="POST" action="{{ url_for('web_rrhh.employee_terminate', employee_id=employee.id) }}"
-          onsubmit="return confirm('¿Confirma la desvinculación de {{ employee.fullName }}?')">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <div class="form-group"><label>Motivo</label><textarea name="reason" class="form-textarea" rows="2"></textarea></div>
-        <div class="form-group"><label>Tipo</label>
-            <select name="terminationType" class="form-select">
-                <option value="renuncia">Renuncia</option><option value="despido">Despido</option>
-                <option value="mutuo_acuerdo">Mutuo acuerdo</option><option value="fin_contrato">Fin de contrato</option>
-            </select>
+    <!-- Tab: Acciones de Personal Masivas -->
+    <div id="tab-actions" class="tab-content" style="display:none;">
+        {% if employee_actions %}
+        <div class="table-responsive">
+            <table class="table-premium">
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Tipo</th>
+                        <th>Cambios aplicados</th>
+                        <th>Realizado por</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for a in employee_actions %}
+                    {% set c = a.result.changes %}
+                    <tr>
+                        <td style="white-space:nowrap; font-size:0.85rem;">{{ a.createdAt[:10] if a.createdAt else '—' }}</td>
+                        <td>
+                            <span style="display:inline-flex; align-items:center; gap:4px; padding:2px 10px; border-radius:20px; font-size:0.78rem; font-weight:500;
+                                {% if a.actionType == 'salary_change' %}background:#dbeafe;color:#1d4ed8;
+                                {% elif a.actionType == 'position_change' %}background:#fae8ff;color:#a21caf;
+                                {% elif a.actionType == 'supervisor_change' %}background:#fef3c7;color:#b45309;
+                                {% elif a.actionType == 'promotion' %}background:#d1fae5;color:#047857;
+                                {% elif a.actionType == 'mass_absence' %}background:#e0e7ff;color:#4338ca;
+                                {% elif a.actionType == 'desvinculacion' %}background:#fee2e2;color:#dc2626;
+                                {% else %}background:var(--bg-secondary);color:var(--text-muted);{% endif %}">
+                                {{ a.actionTypeLabel }}
+                            </span>
+                        </td>
+                        <td style="font-size:0.82rem; line-height:1.5;">
+                            {% if a.actionType == 'desvinculacion' %}
+                                Estado: <strong>{{ c.after.status }}</strong> ·
+                                {{ c.after.terminationType|replace('_',' ')|title }}
+                                {% if c.after.terminationDate %}({{ c.after.terminationDate }}){% endif %}
+                            {% elif c.before and c.after %}
+                                {% if c.before.get('baseSalary') != c.after.get('baseSalary') or c.before.get('salary') != c.after.get('salary') %}
+                                Salario: RD$ {{ "{:,.0f}".format(c.before.get('baseSalary') or c.before.get('salary') or 0) }}
+                                → RD$ {{ "{:,.0f}".format(c.after.get('baseSalary') or c.after.get('salary') or 0) }}<br>
+                                {% endif %}
+                                {% if c.before.get('position') != c.after.get('position') %}
+                                Puesto: {{ c.before.position or '—' }} → {{ c.after.position or '—' }}<br>
+                                {% endif %}
+                                {% if c.before.get('department') != c.after.get('department') %}
+                                Depto: {{ c.before.department or '—' }} → {{ c.after.department or '—' }}<br>
+                                {% endif %}
+                                {% if c.before.get('area') != c.after.get('area') %}
+                                Área: {{ c.before.area or '—' }} → {{ c.after.area or '—' }}<br>
+                                {% endif %}
+                                {% if c.before.get('reportsTo') != c.after.get('reportsTo') %}
+                                Supervisor cambiado<br>
+                                {% endif %}
+                                {% if c.before == c.after %}
+                                <span class="text-muted">Sin cambios detectados</span>
+                                {% endif %}
+                            {% else %}
+                                <span class="text-muted">Detalle no disponible</span>
+                            {% endif %}
+                        </td>
+                        <td style="font-size:0.82rem; color:var(--text-muted);">{{ a.createdBy or '—' }}</td>
+                        <td>
+                            <a href="{{ url_for('web_rrhh.mass_action_detail', action_id=a.id) }}" class="btn btn-sm btn-ghost" title="Ver acción completa">
+                                <i class="fa-solid fa-eye"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
-        <button type="submit" class="btn btn-danger"><i class="fa-solid fa-user-slash"></i> Desvincular</button>
-    </form>
-</div>
-{% elif employee.status == 'inactivo' %}
-<div class="hr-section-card" style="margin-top:20px; border:1px solid var(--danger); background:rgba(239,68,68,0.04);">
-    <h3 style="color:var(--danger);"><i class="fa-solid fa-user-slash"></i> Datos de desvinculación</h3>
-    <div class="hr-info-grid">
-        <div class="hr-info-item">
-            <span class="hr-info-label">Fecha de salida</span>
-            <span class="hr-info-value" style="color:var(--danger);">{{ employee.terminationDate or '—' }}</span>
-        </div>
-        <div class="hr-info-item">
-            <span class="hr-info-label">Tipo de salida</span>
-            <span class="hr-info-value">
-                {% if employee.terminationType == 'renuncia' %}Renuncia
-                {% elif employee.terminationType == 'despido' %}Despido
-                {% elif employee.terminationType == 'mutuo_acuerdo' %}Mutuo acuerdo
-                {% elif employee.terminationType == 'fin_contrato' %}Fin de contrato
-                {% else %}{{ employee.terminationType or '—' }}{% endif %}
-            </span>
-        </div>
-        <div class="hr-info-item" style="grid-column:1/-1;">
-            <span class="hr-info-label">Motivo</span>
-            <span class="hr-info-value">{{ employee.terminationReason or 'No especificado' }}</span>
-        </div>
-        <div class="hr-info-item"><span class="hr-info-label">Fecha de ingreso</span><span class="hr-info-value">{{ employee.hireDate or '—' }}</span></div>
-        <div class="hr-info-item"><span class="hr-info-label">Último salario</span><span class="hr-info-value">RD$ {{ "{:,.2f}".format(employee.baseSalary|float) if employee.baseSalary else '—' }}</span></div>
+        {% else %}
+        <p class="text-muted" style="padding:20px;">Este empleado no ha sido incluido en ninguna acción masiva.</p>
+        {% endif %}
     </div>
 </div>
-{% endif %}
+
+
 
 <!-- Modal: Simulador de pago -->
 <div id="simModal" style="display:none; position:fixed; inset:16px; z-index:9999; background:rgba(0,0,0,0.55); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); align-items:center; justify-content:center; border-radius:12px;" onclick="closeSimModal(event)">
@@ -513,5 +601,12 @@ function calculateSim() {
             results.style.justifyContent = 'center';
         });
 }
+
+document.addEventListener('click', function(e) {
+    var menu = document.getElementById('actionMenu');
+    if (menu && !e.target.closest('.dropdown')) {
+        menu.style.display = 'none';
+    }
+});
 </script>
 {% endblock %}

@@ -1,0 +1,61 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}{{ 'Editar' if group else 'Nuevo' }} Grupo de Nómina — {{ product_name }}{% endblock %}
+{% block content %}
+{% include "rrhh/_styles.html" %}
+<div class="page-header hr-page-header">
+    <h1 class="page-title">
+        <i class="fa-solid fa-layer-group"></i>
+        {{ 'Editar' if group else 'Nuevo' }} Grupo de Nómina
+    </h1>
+    <a href="{{ url_for('web_rrhh.payroll_groups_list') }}" class="btn btn-secondary">
+        <i class="fa-solid fa-arrow-left"></i> Volver
+    </a>
+</div>
+
+<div class="hr-section-card" style="max-width:600px;">
+    <form method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+        <div class="form-group" style="margin-bottom:16px;">
+            <label class="form-label">Nombre <span style="color:var(--danger);">*</span></label>
+            <input type="text" name="name" class="form-input" required
+                   value="{{ group.name if group else '' }}"
+                   placeholder="Ej: Administrativa, Producción, Vendedores">
+        </div>
+
+        <div class="form-group" style="margin-bottom:16px;">
+            <label class="form-label">Descripción</label>
+            <textarea name="description" class="form-input" rows="2"
+                      placeholder="Opcional">{{ group.description if group else '' }}</textarea>
+        </div>
+
+        <div class="form-group" style="margin-bottom:16px;">
+            <label class="form-label">Frecuencia</label>
+            <select name="frequency" class="form-select">
+                <option value="mensual" {% if group and group.frequency == 'mensual' %}selected{% endif %}>Mensual</option>
+                <option value="quincenal" {% if group and group.frequency == 'quincenal' %}selected{% endif %}>Quincenal</option>
+            </select>
+            <p style="font-size:0.75rem; color:var(--text-muted); margin:4px 0 0;">
+                La frecuencia define los períodos de nómina de este grupo. Todos los empleados del grupo compartirán esta frecuencia.
+            </p>
+        </div>
+
+        {% if group %}
+        <div class="form-group" style="margin-bottom:16px;">
+            <label class="form-label" style="display:flex; align-items:center; gap:8px;">
+                <input type="checkbox" name="isActive" style="width:16px; height:16px; accent-color:var(--accent-emerald);"
+                       {% if group.isActive %}checked{% endif %}>
+                Grupo activo
+            </label>
+        </div>
+        {% endif %}
+
+        <div style="display:flex; gap:12px; justify-content:flex-end;">
+            <a href="{{ url_for('web_rrhh.payroll_groups_list') }}" class="btn btn-secondary">Cancelar</a>
+            <button type="submit" class="btn btn-primary">
+                <i class="fa-solid fa-floppy-disk"></i> {{ 'Guardar cambios' if group else 'Crear grupo' }}
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}

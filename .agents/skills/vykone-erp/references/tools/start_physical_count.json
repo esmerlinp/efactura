@@ -1,0 +1,150 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "tool_name": "start_physical_count",
+  "display_name": "Iniciar Conteo Físico de Inventario",
+  "description": "Inicia un proceso de conteo físico de inventario en un almacén. Toma snapshot del stock teórico, aplica freeze (soft/hard), genera hojas de conteo, y permite registrar conteos parciales o finales. Al completar, genera ajustes de inventario y asientos contables por diferencias.",
+  "category": "inventory",
+  "risk_level": "high",
+  "idempotency": "idempotent (returns existing count if already active for same warehouse)",
+  "permissions": ["inventory:write"],
+  "related_process": "BP-11 Conteo Físico de Inventario",
+
+  "input_schema": {
+    "type": "object",
+    "required": ["owner_uid", "warehouse_id", "cutoff_date"],
+    "properties": {
+      "owner_uid": {"type": "string"},
+      "warehouse_id": {"type": "string", "description": "ID del almacén a contar"},
+      "cutoff_date": {"type": "string", "format": "date", "description": "Fecha de corte para el snapshot de stock teórico"},
+      "item_ids": {
+        "type": "array",
+        "items": {"type": "string"},
+        "description": "IDs de artículos específicos. Si se omite, se cuentan TODOS los artículos del almacén."
+      },
+      "freeze_mode": {
+        "type": "string",
+        "enum": ["soft_freeze", "hard_freeze"],
+        "default": "soft_freeze",
+        "description": "soft_freeze: permite movimientos post-cierre. hard_freeze: bloquea todo movimiento."
+      },
+      "zones": {
+        "type": "array",
+        "items": {"type": "string"},
+        "description": "Zonas/secciones a contar. Si se omite, todo el almacén."
+      },
+      "counts": {
+        "type": "array",
+        "description": "Conteos registrados (pueden enviarse en lote al finalizar)",
+        "items": {
+          "type": "object",
+          "required": ["item_id", "qty_contada", "contado_por"],
+          "properties": {
+            "item_id": {"type": "string"},
+            "zona": {"type": "string"},
+            "qty_contada": {"type": "number", "minimum": 0},
+            "contado_por": {"type": "string", "description": "Nombre/ID de quien realizó el conteo"},
+            "notas": {"type": "string"}
+          }
+        }
+      },
+      "action": {
+        "type": "string",
+        "enum": ["start", "add_counts", "finalize", "approve_adjustments"],
+        "default": "start",
+        "description": "Acción a ejecutar sobre el conteo"
+      },
+      "approve_adjustments": {
+        "type": "boolean",
+        "default": false,
+        "description": "Si true, aprueba y aplica los ajustes de inventario automáticamente (requiere permiso inventory:approve)"
+      }
+    }
+  },
+
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "count_id": {"type": "string"},
+      "warehouse_id": {"type": "string"},
+      "status": {"type": "string", "enum": ["En Proceso", "Pendiente de Revisión", "Completado"]},
+      "cutoff_date": {"type": "string"},
+      "freeze_mode": {"type": "string"},
+      "summary": {
+        "type": "object",
+        "properties": {
+          "total_items_counted": {"type": "integer"},
+          "sobrantes_count": {"type": "integer", "description": "Ítems con stock_contado > stock_teórico"},
+          "faltantes_count": {"type": "integer", "description": "Ítems con stock_contado < stock_teórico"},
+          "exactos_count": {"type": "integer"},
+          "impacto_financiero_total": {"type": "number", "description": "Valor neto de diferencias (sobrantes - faltantes)"}
+        }
+      },
+      "differences": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "item_id": {"type": "string"},
+            "item_description": {"type": "string"},
+            "stock_teorico": {"type": "number"},
+            "stock_contado": {"type": "number"},
+            "diferencia": {"type": "number"},
+            "costo_unitario": {"type": "number"},
+            "impacto_valor": {"type": "number"},
+            "tipo": {"type": "string", "enum": ["sobrante", "faltante", "exacto"]}
+          }
+        }
+      },
+      "accounting_entry_id": {"type": "string"},
+      "created_at": {"type": "string", "format": "date-time"}
+    }
+  },
+
+  "validations": [
+    {"field": "warehouse.active", "rule": "Almacén debe existir y estar activo"},
+    {"field": "cutoff_date", "rule": "No debe haber otro conteo activo en el mismo almacén"},
+    {"field": "counts[].qty_contada", "rule": ">= 0 (no se permiten cantidades negativas)"}
+  ],
+
+  "errors": [
+    {"code": "WAREHOUSE_NOT_FOUND", "message": "Almacén {warehouse_id} no encontrado."},
+    {"code": "COUNT_ALREADY_ACTIVE", "message": "Ya existe un conteo activo ({count_id}) para este almacén."},
+    {"code": "NEGATIVE_COUNT", "message": "Cantidad contada no puede ser negativa para {item_id}."},
+    {"code": "ADJUSTMENT_THRESHOLD_EXCEEDED", "message": "Diferencias por RD${amount} exceden el límite de aprobación automática. Requiere aprobación de supervisor."}
+  ],
+
+  "post_effects": {
+    "events": ["PhysicalCountStarted", "PhysicalCountCompleted", "InventoryAdjusted"],
+    "accounting": "auto adjustment entries (Other Income for sobrantes, Expense for faltantes)"
+  },
+
+  "example": {
+    "input": {
+      "owner_uid": "abc123def456",
+      "warehouse_id": "wh_principal",
+      "cutoff_date": "2026-07-08",
+      "freeze_mode": "soft_freeze",
+      "action": "finalize",
+      "approve_adjustments": false
+    },
+    "output": {
+      "count_id": "cnt_20260708_001",
+      "warehouse_id": "wh_principal",
+      "status": "Pendiente de Revisión",
+      "cutoff_date": "2026-07-08",
+      "freeze_mode": "soft_freeze",
+      "summary": {
+        "total_items_counted": 120,
+        "sobrantes_count": 3,
+        "faltantes_count": 5,
+        "exactos_count": 112,
+        "impacto_financiero_total": -4500.00
+      },
+      "differences": [
+        {"item_id": "itm_prod_012", "item_description": "Mouse Logitech MX", "stock_teorico": 50, "stock_contado": 47, "diferencia": -3, "costo_unitario": 1500.00, "impacto_valor": -4500.00, "tipo": "faltante"}
+      ],
+      "accounting_entry_id": null,
+      "created_at": "2026-07-08T16:30:00Z"
+    }
+  }
+}

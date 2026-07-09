@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "tool": "calculate_payroll_period",
+  "business_process": "BP-2",
+  "risk": "medium",
+  "requires_confirmation": true,
+  "required_permissions": ["canHR"],
+  "sod_conflicts": ["canApprovePayroll"],
+  "description": "Ejecuta el cálculo completo de nómina para un grupo y período. Calcula línea por línea: salario base, horas extra, comisiones, bonificaciones, descuentos TSS (AFP 2.87%, SFS 3.04%, INFOTEP condicional), ISR progresivo anualizado, aportes empleador. El período pasa de 'borrador' a 'calculada'. Requiere confirmación del usuario.",
+  "parameters": {
+    "type": "object",
+    "required": ["payroll_group_id", "period_key"],
+    "properties": {
+      "payroll_group_id": {
+        "type": "string",
+        "description": "ID del grupo de nómina"
+      },
+      "period_key": {
+        "type": "string",
+        "pattern": "^\\d{4}-\\d{2}(-\\d{1,2})?$",
+        "description": "Clave del período: '2026-07' para mensual, '2026-07-1' para primera quincena"
+      },
+      "overtime_data": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": ["employee_id", "hours"],
+          "properties": {
+            "employee_id": {"type": "string"},
+            "hours": {"type": "number", "minimum": 0},
+            "rate": {"type": "number", "default": 1.35, "description": "Multiplicador de hora extra (default 1.35)"}
+          }
+        }
+      },
+      "commissions": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": ["employee_id", "amount"],
+          "properties": {
+            "employee_id": {"type": "string"},
+            "amount": {"type": "number", "minimum": 0}
+          }
+        }
+      },
+      "bonuses": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": ["employee_id", "amount"],
+          "properties": {
+            "employee_id": {"type": "string"},
+            "amount": {"type": "number", "minimum": 0}
+          }
+        }
+      },
+      "other_deductions": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "required": ["employee_id", "amount"],
+          "properties": {
+            "employee_id": {"type": "string"},
+            "amount": {"type": "number", "minimum": 0},
+            "concept": {"type": "string"}
+          }
+        }
+      }
+    }
+  },
+  "effects": [
+    "Carga empleados activos del grupo",
+    "Calcula línea de nómina por empleado con TSS + ISR + aportes empleador",
+    "Guarda el período con estado 'calculada'",
+    "Crea snapshot de empleados para DGT-3"
+  ],
+  "example": {
+    "payroll_group_id": "group-admin-001",
+    "period_key": "2026-07",
+    "overtime_data": [
+      {"employee_id": "emp-001", "hours": 10},
+      {"employee_id": "emp-003", "hours": 5, "rate": 1.5}
+    ],
+    "commissions": [
+      {"employee_id": "emp-002", "amount": 15000}
+    ]
+  }
+}

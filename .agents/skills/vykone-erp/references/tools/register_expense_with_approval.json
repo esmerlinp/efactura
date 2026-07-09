@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "tool": "register_expense_with_approval",
+  "business_process": "BP-5",
+  "risk": "medium",
+  "requires_confirmation": true,
+  "required_permissions": ["canExpenses"],
+  "sod_conflicts": ["canApproveExpenses"],
+  "description": "Registra un gasto/egreso y automáticamente evalúa si requiere aprobación según las reglas de workflow configuradas. Si el monto supera el umbral de alguna regla activa, crea una solicitud de aprobación. Al ser aprobado, dispara EventBus ExpenseCreated para contabilización automática.",
+  "parameters": {
+    "type": "object",
+    "required": ["supplier_id", "concept", "amount", "tipo_gasto_dgii"],
+    "properties": {
+      "supplier_id": {
+        "type": "string",
+        "description": "ID del proveedor en Firestore. Usar 'generic-supplier' para gastos menores sin proveedor formal."
+      },
+      "concept": {
+        "type": "string",
+        "minLength": 3,
+        "maxLength": 500
+      },
+      "amount": {
+        "type": "number",
+        "exclusiveMinimum": 0
+      },
+      "itbis_amount": {
+        "type": "number",
+        "minimum": 0,
+        "default": 0
+      },
+      "tipo_gasto_dgii": {
+        "type": "string",
+        "enum": ["01", "02", "03", "04", "05"],
+        "default": "02",
+        "description": "01=Gastos de personal, 02=Gastos generales, 03=Gastos financieros, 04=Gastos de depreciación, 05=Otros"
+      },
+      "category": {
+        "type": "string",
+        "description": "Categoría interna del gasto (ej: 'Servicios', 'Alquiler', 'Suministros')"
+      },
+      "ncf": {
+        "type": "string",
+        "description": "NCF/e-CF del comprobante del proveedor"
+      },
+      "ecf_type": {
+        "type": "string",
+        "enum": ["E31", "E32", "E41", "E43"],
+        "default": "E31"
+      },
+      "date": {
+        "type": "string",
+        "format": "date",
+        "description": "Fecha del gasto (YYYY-MM-DD). Default: hoy."
+      },
+      "due_date": {
+        "type": "string",
+        "format": "date",
+        "description": "Fecha de vencimiento para pago (YYYY-MM-DD)"
+      },
+      "payment_type": {
+        "type": "string",
+        "enum": ["Contado", "Crédito"],
+        "default": "Crédito"
+      },
+      "is_itbis_deductible": {
+        "type": "boolean",
+        "default": true
+      },
+      "is_deductible": {
+        "type": "boolean",
+        "default": true
+      },
+      "is_minor_expense": {
+        "type": "boolean",
+        "default": false,
+        "description": "Gasto menor de RD$250,000 que usa E41"
+      },
+      "currency": {
+        "type": "string",
+        "default": "DOP"
+      },
+      "exchange_rate": {
+        "type": "number",
+        "default": 1.0
+      },
+      "notes": {
+        "type": "string",
+        "maxLength": 1000
+      },
+      "requested_by": {
+        "type": "string",
+        "description": "Email o nombre de quien solicita el gasto"
+      }
+    }
+  },
+  "approval_flow": {
+    "trigger": "ApprovalService.check_needs_approval() compara el monto contra las reglas activas para document_type='expense'",
+    "if_no_approval_needed": "El gasto se guarda con approvalStatus='Aprobado' y dispara ExpenseCreated → asiento contable",
+    "if_approval_needed": "Crea approval_request con steps para cada aprobador. El gasto se guarda con approvalStatus='Pendiente'. NO se genera asiento contable hasta que se apruebe.",
+    "approval_logic": "Require_all: todos deben aprobar. !require_all: basta con que uno apruebe. Si alguno rechaza → status='rejected'."
+  },
+  "effects": [
+    "Guarda el gasto en Firestore",
+    "Evalúa reglas de aprobación (ApprovalService.check_needs_approval)",
+    "Si requiere aprobación: crea approval_request, notifica aprobadores",
+    "Si no requiere o ya aprobado: EventBus ExpenseCreated → asiento contable automático"
+  ],
+  "example": {
+    "supplier_id": "supplier-xyz",
+    "concept": "Servicio de mantenimiento de aires acondicionados - julio 2026",
+    "amount": 85000,
+    "itbis_amount": 15300,
+    "tipo_gasto_dgii": "02",
+    "category": "Mantenimiento",
+    "ncf": "E310000012345",
+    "ecf_type": "E31",
+    "payment_type": "Crédito",
+    "due_date": "2026-08-15",
+    "notes": "Mantenimiento preventivo trimestral de 5 unidades"
+  }
+}

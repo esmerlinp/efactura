@@ -634,6 +634,7 @@ def create_app():
     # =========================================================================
     
     # 1. API Blueprints
+    from app.api.v1.expenses import api_expenses_bp
     from app.api.v1.invoices import api_invoices_bp
     from app.api.v1.clients import api_clients_bp
     from app.api.v1.dgii import api_dgii_bp
@@ -643,6 +644,7 @@ def create_app():
     from app.api.v1.accounting import api_accounting_bp
     from app.api.v1.liquidacion import api_liquidacion_bp
     
+    app.register_blueprint(api_expenses_bp, url_prefix='/api/v1')
     app.register_blueprint(api_invoices_bp, url_prefix='/api/v1')
     app.register_blueprint(api_clients_bp, url_prefix='/api/v1')
     app.register_blueprint(api_dgii_bp, url_prefix='/api/v1')

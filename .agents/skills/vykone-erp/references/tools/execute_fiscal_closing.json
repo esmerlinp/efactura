@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "tool": "execute_fiscal_closing",
+  "business_process": "BP-7",
+  "risk": "critical",
+  "requires_confirmation": true,
+  "requires_double_confirmation": true,
+  "confirmation_phrase_field": "year",
+  "required_permissions": ["canAccounting"],
+  "sod_conflicts": [],
+  "description": "Ejecuta el cierre fiscal anual IRREVERSIBLE. Cancela todas las cuentas de ingreso (grupo 4) y gasto/costo (grupos 5 y 6), y traspasa el resultado neto a la cuenta de resultados acumulados. Cierra todos los períodos fiscales del año. DEBE ejecutarse preview_fiscal_closing primero y el usuario debe confirmar dos veces.",
+  "precondition": "DEBE ejecutarse preview_fiscal_closing primero para que el usuario revise las líneas de cierre antes de confirmar.",
+  "parameters": {
+    "type": "object",
+    "required": ["year"],
+    "properties": {
+      "year": {
+        "type": "integer",
+        "minimum": 2000,
+        "maximum": 2100,
+        "description": "Año fiscal a cerrar"
+      },
+      "performed_by": {
+        "type": "string",
+        "description": "Nombre o email del usuario que ejecuta el cierre"
+      }
+    }
+  },
+  "execution_steps": [
+    "1. Genera preview: barre cuentas grupo 4 (ingresos) y 5/6 (gastos/costos)",
+    "2. Calcula saldo de cada cuenta desde journal entries (excluyendo voided)",
+    "3. Genera líneas de cancelación: débito a ingresos acreedores, crédito a gastos deudores",
+    "4. Identifica cuenta de resultados acumulados (usage='resultados_acumulados')",
+    "5. Calcula net_income = Σingresos - Σgastos",
+    "6. Crea journal entry tipo 'closing' con fecha {year}-12-31",
+    "7. Cierra todos los fiscal_periods del año vía FiscalPeriodService.close_year()",
+    "8. Retorna: entry_id, entry_number, net_income"
+  ],
+  "effects": [
+    "Crea asiento contable de cierre con prefijo 'C'",
+    "Todos los períodos fiscales del año marcados como cerrados",
+    "IRREVERSIBLE sin intervención manual en Firestore"
+  ],
+  "possible_errors": [
+    "No hay movimiento en cuentas de ingreso/gasto para el año",
+    "Cuenta de resultados acumulados no configurada",
+    "Períodos ya cerrados previamente",
+    "Asiento no balanceado (debe sumar 0)"
+  ],
+  "example": {
+    "year": 2025,
+    "performed_by": "contador@empresa.com"
+  }
+}

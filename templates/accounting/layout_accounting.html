@@ -215,6 +215,14 @@
                                 <span>Centros de Costo</span>
                             </a>
                         </li>
+                        {% if session.get('user', {}).get('role') == 'owner' or session.get('user', {}).get('permissions', {}).get('canModifySettings', True) %}
+                        <li class="nav-item {% if active_page == 'company_settings' %}active{% endif %}"
+                            data-tooltip="Identidad fiscal, certificado digital y preferencias">
+                            <a href="{{ url_for('web_invoices.company_settings') }}">
+                                <span>Administrar Empresa</span>
+                            </a>
+                        </li>
+                        {% endif %}
                     </ul>
                 </div>
 

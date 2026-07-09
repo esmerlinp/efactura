@@ -206,16 +206,27 @@
                     {% endfor %}
                 </select>
             </div>
-            <div class="form-group" {% if frequency_mode != 'employee' %}style="display:none;"{% endif %}>
-                <label>Frecuencia de pago <span style="color:var(--danger);">*</span></label>
-                <select name="paymentFrequency" class="form-select">
-                    <option value="">Seleccionar</option>
-                    {% for f in frequencies %}
-                    <option value="{{ f.value }}" {% if employee and employee.paymentFrequency == f.value %}selected{% endif %}>{{ f.label }}</option>
+            <div class="form-group">
+                <label>Grupos de nómina</label>
+                <div style="display:flex; flex-direction:column; gap:4px; padding:6px 0;">
+                    {% for g in payroll_groups %}
+                    <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem; cursor:pointer;">
+                        <input type="checkbox" name="payrollGroupIds" value="{{ g.id }}"
+                               style="width:16px; height:16px; accent-color:var(--accent-emerald);"
+                               {% if employee and g.id in (employee.payrollGroupIds or []) %}checked{% endif %}>
+                        <strong>{{ g.name }}</strong>
+                        <span class="badge {% if g.frequency == 'mensual' %}badge-info{% else %}badge-secondary{% endif %}" style="font-size:0.65rem;">
+                            {{ 'Mensual' if g.frequency == 'mensual' else 'Quincenal' }}
+                        </span>
+                    </label>
+                    {% else %}
+                    <p style="font-size:0.78rem; color:var(--text-muted); margin:0;">
+                        No hay grupos de nómina. <a href="{{ url_for('web_rrhh.payroll_groups_new') }}">Crea uno</a> primero.
+                    </p>
                     {% endfor %}
-                </select>
+                </div>
                 <p style="color:var(--text-muted); font-size:0.72rem; margin:4px 0 0;">
-                    <i class="fa-solid fa-circle-info"></i> En modo "Por empleado", define en qué períodos aparece este empleado.
+                    <i class="fa-solid fa-circle-info"></i> El empleado aparecerá en las nóminas de los grupos seleccionados.
                 </p>
             </div>
             <div class="form-group">

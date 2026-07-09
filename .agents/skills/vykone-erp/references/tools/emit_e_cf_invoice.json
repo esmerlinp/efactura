@@ -1,0 +1,183 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "tool": "emit_e_cf_invoice",
+  "business_process": "BP-3",
+  "risk": "high",
+  "requires_confirmation": true,
+  "required_permissions": ["canInvoice"],
+  "sod_conflicts": ["canVoidInvoice"],
+  "description": "Emite un comprobante fiscal electrónico (e-CF) ante la DGII. Construye el XML firmado digitalmente, lo envía a los endpoints de la DGII, recibe el trackId, y dispara la contabilización automática y reducción de inventario.",
+  "parameters": {
+    "type": "object",
+    "required": ["client_id", "items", "ecf_type"],
+    "properties": {
+      "client_id": {
+        "type": "string",
+        "description": "ID del cliente en Firestore"
+      },
+      "ecf_type": {
+        "type": "string",
+        "enum": [
+          "Factura de Crédito Fiscal (E31)",
+          "Factura de Consumo (E32)",
+          "Factura de Gasto Menor (E41)",
+          "Comprobante Especial (E43)"
+        ],
+        "default": "Factura de Consumo (E32)",
+        "description": "Tipo de comprobante fiscal electrónico según catálogo DGII"
+      },
+      "items": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "type": "object",
+          "required": ["name", "price", "quantity"],
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "Nombre del ítem o servicio"
+            },
+            "code": {
+              "type": "string",
+              "description": "Código del ítem en el catálogo"
+            },
+            "type": {
+              "type": "string",
+              "enum": ["Bien", "Servicio"],
+              "default": "Bien"
+            },
+            "price": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "description": "Precio unitario en DOP"
+            },
+            "quantity": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "default": 1
+            },
+            "itbisRate": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "default": 0.18,
+              "description": "Tasa de ITBIS (0.18 = 18%)"
+            },
+            "discountRate": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "default": 0
+            }
+          }
+        }
+      },
+      "payment_type": {
+        "type": "string",
+        "enum": ["Contado", "Crédito"],
+        "default": "Contado"
+      },
+      "payment_method": {
+        "type": "string",
+        "enum": ["Efectivo", "Transferencia", "Tarjeta", "Cheque", "Depósito"],
+        "default": "Efectivo"
+      },
+      "currency": {
+        "type": "string",
+        "default": "DOP"
+      },
+      "exchange_rate": {
+        "type": "number",
+        "default": 1.0
+      },
+      "notes": {
+        "type": "string",
+        "maxLength": 1000
+      },
+      "comentario": {
+        "type": "string",
+        "maxLength": 500
+      },
+      "income_type": {
+        "type": "string",
+        "default": "01 - Ingresos por operaciones"
+      },
+      "branch_id": {
+        "type": "string",
+        "default": "default-sucursal-principal"
+      },
+      "warehouse_id": {
+        "type": "string",
+        "description": "Almacén del cual se descuenta el inventario. Si no se especifica, no se reduce stock."
+      },
+      "is_consolidado": {
+        "type": "boolean",
+        "default": false,
+        "description": "Si es true, consolida múltiples facturas previas"
+      },
+      "consolidated_invoice_ids": {
+        "type": "array",
+        "items": {"type": "string"},
+        "description": "IDs de facturas a consolidar (solo si is_consolidado = true)"
+      },
+      "is_professional": {
+        "type": "boolean",
+        "default": false,
+        "description": "Si el emisor es profesional liberal (requiere datos adicionales)"
+      },
+      "professional_data": {
+        "type": "object",
+        "properties": {
+          "exequatur": {"type": "string"},
+          "colegiatura": {"type": "string"}
+        }
+      }
+    }
+  },
+  "validation_rules": [
+    "Si ecf_type contiene 'E31' o 'Crédito Fiscal', clientRNC debe tener 9 u 11 dígitos y no ser '999999999'",
+    "Todo ítem debe tener price > 0 y quantity > 0",
+    "La suma de subtotales × (1 + itbisRate) debe aproximar el total (tolerancia de cuadratura)",
+    "El certificado digital P12 debe ser válido y no expirado",
+    "La secuencia e-NCF no debe estar agotada",
+    "El cliente debe existir y estar activo"
+  ],
+  "possible_errors": [
+    "ValueError: RNC inválido para E31 (se requiere 9 u 11 dígitos, no genérico)",
+    "DGII auth error: HTTP 401/403 — certificado inválido o expirado",
+    "DGII recepción error: secuencia e-NCF agotada o inválida",
+    "Cuadratura ITBIS fuera de tolerancia"
+  ],
+  "post_effects": [
+    "Genera XML firmado y lo envía a DGII",
+    "Consume una secuencia e-NCF",
+    "Reduce inventario si warehouse_id está especificado",
+    "Dispara EventBus InvoiceEmitted → asiento contable automático",
+    "Factura aparece en CxC con balance = total"
+  ],
+  "example": {
+    "client_id": "abc123-client-uuid",
+    "ecf_type": "Factura de Consumo (E32)",
+    "items": [
+      {
+        "name": "Servicio de Consultoría TI",
+        "code": "SERV-001",
+        "type": "Servicio",
+        "price": 50000,
+        "quantity": 1,
+        "itbisRate": 0.18
+      },
+      {
+        "name": "Licencia Software Anual",
+        "code": "SW-001",
+        "type": "Servicio",
+        "price": 120000,
+        "quantity": 2,
+        "itbisRate": 0.18
+      }
+    ],
+    "payment_type": "Crédito",
+    "payment_method": "Transferencia",
+    "notes": "Factura correspondiente a servicios de julio 2026"
+  }
+}

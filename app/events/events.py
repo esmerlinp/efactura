@@ -104,6 +104,66 @@ class AssetDepreciated(DomainEvent):
         object.__setattr__(self, "event_type", "AssetDepreciated")
 
 
+# ── Eventos de Acciones Masivas de Personal ──────────────────────────
+
+
+@dataclass(frozen=True)
+class BulkSalaryChanged(DomainEvent):
+    """Emitido cuando se aplica un cambio salarial masivo."""
+    mass_action_id: str = ""
+    action_data: Dict[str, Any] = field(default_factory=dict)
+    affected_ids: list = field(default_factory=list)
+    payroll_period_key: str = ""
+
+    def __post_init__(self):
+        object.__setattr__(self, "event_type", "BulkSalaryChanged")
+
+
+@dataclass(frozen=True)
+class BulkPositionChanged(DomainEvent):
+    """Emitido cuando se aplica un cambio de puesto masivo."""
+    mass_action_id: str = ""
+    action_data: Dict[str, Any] = field(default_factory=dict)
+    affected_ids: list = field(default_factory=list)
+
+    def __post_init__(self):
+        object.__setattr__(self, "event_type", "BulkPositionChanged")
+
+
+@dataclass(frozen=True)
+class BulkSupervisorChanged(DomainEvent):
+    """Emitido cuando se reasignan supervisores masivamente."""
+    mass_action_id: str = ""
+    action_data: Dict[str, Any] = field(default_factory=dict)
+    affected_ids: list = field(default_factory=list)
+
+    def __post_init__(self):
+        object.__setattr__(self, "event_type", "BulkSupervisorChanged")
+
+
+@dataclass(frozen=True)
+class BulkPromotionApplied(DomainEvent):
+    """Emitido cuando se aplica una promoción masiva."""
+    mass_action_id: str = ""
+    action_data: Dict[str, Any] = field(default_factory=dict)
+    affected_ids: list = field(default_factory=list)
+    payroll_period_key: str = ""
+
+    def __post_init__(self):
+        object.__setattr__(self, "event_type", "BulkPromotionApplied")
+
+
+@dataclass(frozen=True)
+class BulkAbsenceApplied(DomainEvent):
+    """Emitido cuando se aplica una ausencia masiva."""
+    mass_action_id: str = ""
+    action_data: Dict[str, Any] = field(default_factory=dict)
+    affected_ids: list = field(default_factory=list)
+
+    def __post_init__(self):
+        object.__setattr__(self, "event_type", "BulkAbsenceApplied")
+
+
 def event_from_dict(data: Dict[str, Any]) -> DomainEvent:
     """Reconstruye un evento a partir de un diccionario (ej. desde Redis)."""
     event_type = data.get("event_type", "")
@@ -112,6 +172,11 @@ def event_from_dict(data: Dict[str, Any]) -> DomainEvent:
         "PaymentRegistered": PaymentRegistered,
         "ExpenseCreated": ExpenseCreated,
         "AssetDepreciated": AssetDepreciated,
+        "BulkSalaryChanged": BulkSalaryChanged,
+        "BulkPositionChanged": BulkPositionChanged,
+        "BulkSupervisorChanged": BulkSupervisorChanged,
+        "BulkPromotionApplied": BulkPromotionApplied,
+        "BulkAbsenceApplied": BulkAbsenceApplied,
     }
     cls = event_map.get(event_type)
     if cls is None:

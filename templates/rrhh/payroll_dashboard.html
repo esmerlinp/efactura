@@ -69,12 +69,17 @@
     </style>
     <div class="summary-cards">
         <div style="border:1px solid var(--border-color); border-radius:var(--radius-md); padding:16px 18px; background:var(--bg-card); display:flex; flex-direction:column; gap:6px;">
-            <span style="font-size:0.7rem; color:var(--text-muted); font-weight:600; text-transform:uppercase; letter-spacing:0.05em;">Modo</span>
+            <span style="font-size:0.7rem; color:var(--text-muted); font-weight:600; text-transform:uppercase; letter-spacing:0.05em;">Grupos de nómina</span>
             <span style="font-size:1.15rem; font-weight:700; color:var(--text-primary);">
-                {% if frequency_mode == 'employee' %}
-                <i class="fa-solid fa-users" style="color:var(--accent-purple);"></i> Por empleado
+                {% if payroll_groups %}
+                <i class="fa-solid fa-layer-group" style="color:var(--accent-emerald);"></i>
+                {% for g in payroll_groups %}
+                <span class="badge {% if g.frequency == 'mensual' %}badge-info{% else %}badge-secondary{% endif %}" style="font-size:0.75rem;">
+                    {{ g.name }} ({{ g._employee_count }})
+                </span>
+                {% endfor %}
                 {% else %}
-                <i class="fa-solid fa-building" style="color:var(--accent-emerald);"></i> {{ payroll_frequency }}
+                <span style="color:var(--text-muted); font-size:0.85rem;">Sin grupos</span>
                 {% endif %}
             </span>
         </div>

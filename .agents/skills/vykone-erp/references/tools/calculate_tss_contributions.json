@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "tool_name": "calculate_tss_contributions",
+  "display_name": "Calcular Contribuciones TSS",
+  "description": "Calcula las contribuciones de Seguridad Social (TSS) para un empleado: AFP (empleador 7.10%, empleado 2.87%), ARS (empleador 7.09%, empleado 3.04%), y Riesgos Laborales (empleador 1.20% promedio). Aplica tope de 20 salarios mínimos al salario cotizable.",
+  "category": "tss",
+  "risk_level": "low (read-only calculation)",
+  "idempotency": "idempotent",
+  "permissions": ["tss:read"],
+  "related_process": "BP-2 Ciclo de Nómina",
+
+  "input_schema": {
+    "type": "object",
+    "required": ["owner_uid", "salario_mensual"],
+    "properties": {
+      "owner_uid": {"type": "string"},
+      "salario_mensual": {"type": "number", "exclusiveMinimum": 0, "description": "Salario mensual bruto en RD$"},
+      "sector": {
+        "type": "string",
+        "enum": ["comercio", "industrial", "zona_franca", "hoteleria", "construccion", "agricola", "servicios", "otro"],
+        "description": "Sector para tope de salario cotizable"
+      },
+      "riesgo_laboral_tasa": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 5,
+        "default": 1.20,
+        "description": "Tasa de Riesgos Laborales según clasificación de la empresa (0.10% - 5.00%)"
+      }
+    }
+  },
+
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "salario_mensual": {"type": "number"},
+      "salario_cotizable": {"type": "number", "description": "Salario usado para cálculo (topeado a 20 salarios mínimos)"},
+      "tope_salarial_aplicado": {"type": "boolean"},
+      "detalle_empleado": {
+        "type": "object",
+        "properties": {
+          "afp": {"type": "number", "description": "2.87% del salario cotizable"},
+          "ars": {"type": "number", "description": "3.04% del salario cotizable"},
+          "total_descuentos": {"type": "number", "description": "Total descontado al empleado (AFP + ARS)"}
+        }
+      },
+      "detalle_empleador": {
+        "type": "object",
+        "properties": {
+          "afp": {"type": "number", "description": "7.10% del salario cotizable"},
+          "ars": {"type": "number", "description": "7.09% del salario cotizable"},
+          "riesgos_laborales": {"type": "number", "description": "Tasa configurada × salario cotizable"},
+          "total_aportes": {"type": "number", "description": "Total aportado por el empleador"}
+        }
+      },
+      "total_tss": {"type": "number", "description": "Suma total TSS (empleado + empleador)"},
+      "salario_neto_tss": {"type": "number", "description": "Salario después de descuentos TSS del empleado"}
+    }
+  },
+
+  "errors": [
+    {"code": "INVALID_SALARY", "message": "El salario debe ser mayor que 0."},
+    {"code": "INVALID_RISK_RATE", "message": "La tasa de riesgo laboral debe estar entre 0.10% y 5.00%."}
+  ],
+
+  "example": {
+    "input": {
+      "owner_uid": "abc123def456",
+      "salario_mensual": 45000.00,
+      "sector": "servicios"
+    },
+    "output": {
+      "salario_mensual": 45000.00,
+      "salario_cotizable": 45000.00,
+      "tope_salarial_aplicado": false,
+      "detalle_empleado": {
+        "afp": 1291.50,
+        "ars": 1368.00,
+        "total_descuentos": 2659.50
+      },
+      "detalle_empleador": {
+        "afp": 3195.00,
+        "ars": 3190.50,
+        "riesgos_laborales": 540.00,
+        "total_aportes": 6925.50
+      },
+      "total_tss": 9585.00,
+      "salario_neto_tss": 42340.50
+    }
+  }
+}

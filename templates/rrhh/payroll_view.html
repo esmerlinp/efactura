@@ -33,18 +33,14 @@
         <a href="{{ url_for('web_rrhh.payroll_bank_export', period_id=period.id, bank='popular') }}" class="btn btn-ghost">
             <i class="fa-solid fa-building-columns"></i> Archivo Banco
         </a>
-        <form method="POST" action="{{ url_for('web_rrhh.payroll_send_payslips', period_id=period.id) }}" style="margin:0; display:contents;"
-              onsubmit="return confirm('¿Enviar volantes de pago a todos los empleados con email registrado?')">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <button type="submit" class="btn btn-ghost" style="color:var(--accent-emerald);">
-                <i class="fa-solid fa-paper-plane"></i>
-                {% if period.get('payslipsSentAt') %}
-                Reenviar volantes
-                {% else %}
-                Enviar volantes
-                {% endif %}
-            </button>
-        </form>
+        <button type="button" class="btn btn-ghost" style="color:var(--accent-emerald);" onclick="sendPayslipsAsync()">
+            <i class="fa-solid fa-paper-plane"></i>
+            {% if period.get('payslipsSentAt') %}
+            Reenviar volantes
+            {% else %}
+            Enviar volantes
+            {% endif %}
+        </button>
         <a href="{{ url_for('web_rrhh.payroll_dashboard') }}" class="btn btn-ghost">
             <i class="fa-solid fa-arrow-left"></i> Volver
         </a>
@@ -107,7 +103,7 @@
 <!-- Workflow Status -->
 {% set statuses = ['borrador','calculada','validada','aprobada','contabilizada','pagada','cerrada'] %}
 {% set status_labels = {'borrador':'Borrador','calculada':'Calculada','validada':'Validada','aprobada':'Aprobada','contabilizada':'Contabilizada','pagada':'Pagada','cerrada':'Cerrada'} %}
-{% set current_idx = statuses.index(period.get('status','borrador')) %}
+{% set current_idx = statuses.index(period.get('status','borrador')) if period.get('status','borrador') in statuses else 0 %}
 <div class="card-table-wrapper" style="padding:16px 24px; margin-bottom:16px;">
     <div style="display:flex; align-items:center; gap:0; flex-wrap:wrap;">
     {% for s in statuses %}
@@ -578,4 +574,114 @@ function switchTab(tabName) {
 </div>
 {% endif %}
 </div>
+
+<!-- ── ASYNC PAYSLIP SEND: progress banner ── -->
+<div id="payslipProgressBanner"
+     style="display:none; position:fixed; bottom:24px; right:24px; z-index:99999;
+            max-width:420px; background:var(--bg-card); border:1px solid var(--border-color);
+            border-radius:12px; padding:16px 20px; box-shadow:0 8px 32px rgba(0,0,0,0.15);
+            font-size:0.85rem;">
+    <div style="display:flex; align-items:flex-start; gap:12px;">
+        <div id="payslipSpinner" style="width:24px; height:24px; border:3px solid var(--border-color); border-top-color:var(--accent-emerald); border-radius:50%; animation:spin .8s linear infinite; flex-shrink:0; margin-top:2px;"></div>
+        <div style="flex:1; min-width:0;">
+            <div style="font-weight:600; color:var(--text-primary); margin-bottom:4px;">
+                <i class="fa-solid fa-paper-plane" style="color:var(--accent-emerald);"></i>
+                <span id="pBslipTitle">Enviando volantes...</span>
+            </div>
+            <div style="color:var(--text-secondary); font-size:0.78rem; margin-bottom:6px;" id="pBslipMessage">Preparando...</div>
+            <div style="height:4px; background:var(--bg-nav-hover); border-radius:4px; overflow:hidden;">
+                <div id="pBslipBar" style="height:100%; width:0%; background:var(--accent-emerald); border-radius:4px; transition:width .4s ease;"></div>
+            </div>
+            <div id="pBslipComplete" style="display:none; margin-top:6px; font-size:0.78rem; color:var(--accent-emerald); font-weight:600;">
+                <i class="fa-solid fa-check-circle"></i> <span id="pBslipResult"></span>
+            </div>
+        </div>
+        <button onclick="dismissPayslipBanner()" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:1.1rem; padding:0; line-height:1;">&times;</button>
+    </div>
+</div>
+
+<style>
+@keyframes spin { to { transform:rotate(360deg); } }
+</style>
+<script>
+var _payslipJobId = null;
+var _payslipPollTimer = null;
+
+function sendPayslipsAsync() {
+    if (_payslipJobId) return;
+    if (!confirm('¿Enviar volantes de pago a todos los empleados con email registrado?')) return;
+
+    var banner = document.getElementById('payslipProgressBanner');
+    var spinner = document.getElementById('payslipSpinner');
+    var bar = document.getElementById('pBslipBar');
+    var msg = document.getElementById('pBslipMessage');
+    var title = document.getElementById('pBslipTitle');
+    var complete = document.getElementById('pBslipComplete');
+    var resultEl = document.getElementById('pBslipResult');
+
+    spinner.style.display = 'block';
+    title.innerHTML = '<i class="fa-solid fa-paper-plane" style="color:var(--accent-emerald);"></i> Enviando volantes...';
+    complete.style.display = 'none';
+    bar.style.width = '0%';
+    msg.textContent = 'Iniciando...';
+    banner.style.display = 'flex';
+
+    fetch('{{ url_for("web_rrhh.payroll_send_payslips_async", period_id=period.id) }}', {
+        method: 'POST',
+        headers: {'X-CSRFToken': '{{ csrf_token() }}'},
+    }).then(function(r) { return r.json(); }).then(function(data) {
+        if (data.error) { msg.textContent = 'Error: ' + data.error; return; }
+        _payslipJobId = data.job_id;
+        if (_payslipPollTimer) clearInterval(_payslipPollTimer);
+        _payslipPollTimer = setInterval(function() { pollPayslipJob(); }, 2000);
+    }).catch(function(e) {
+        msg.textContent = 'Error al iniciar: ' + e;
+    });
+}
+
+function pollPayslipJob() {
+    if (!_payslipJobId) return;
+    fetch('/rrhh/payroll/jobs/' + _payslipJobId + '/status').then(function(r) { return r.json(); }).then(function(job) {
+        var bar = document.getElementById('pBslipBar');
+        var msg = document.getElementById('pBslipMessage');
+        var complete = document.getElementById('pBslipComplete');
+        var resultEl = document.getElementById('pBslipResult');
+        var spinner = document.getElementById('payslipSpinner');
+        var title = document.getElementById('pBslipTitle');
+
+        if (job.total > 0) {
+            var pct = Math.round((job.progress || 0) / job.total * 100);
+            bar.style.width = pct + '%';
+        }
+        msg.textContent = job.message || '';
+
+        if (job.status === 'completed') {
+            clearInterval(_payslipPollTimer);
+            _payslipPollTimer = null;
+            _payslipJobId = null;
+            spinner.style.display = 'none';
+            title.innerHTML = '<i class="fa-solid fa-check-circle" style="color:var(--accent-emerald);"></i> Completado';
+            complete.style.display = 'block';
+            resultEl.textContent = job.result ? (job.result.sent + ' enviado(s), ' + job.result.skipped + ' omitido(s), ' + job.result.errors + ' error(es)') : (job.message || '');
+            bar.style.width = '100%';
+        } else if (job.status === 'failed') {
+            clearInterval(_payslipPollTimer);
+            _payslipPollTimer = null;
+            _payslipJobId = null;
+            spinner.style.display = 'none';
+            title.innerHTML = '<i class="fa-solid fa-circle-exclamation" style="color:var(--danger);"></i> Error';
+            complete.style.display = 'block';
+            resultEl.textContent = job.error || job.message || 'Error desconocido';
+        }
+    }).catch(function(e) {
+        // ignore transient polling errors
+    });
+}
+
+function dismissPayslipBanner() {
+    document.getElementById('payslipProgressBanner').style.display = 'none';
+    if (_payslipPollTimer) { clearInterval(_payslipPollTimer); _payslipPollTimer = null; }
+    _payslipJobId = null;
+}
+</script>
 {% endblock %}

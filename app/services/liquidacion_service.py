@@ -240,7 +240,7 @@ class LiquidacionService:
         }
 
     # ─────────────────────────────────────────────────────────────────
-    # VACACIONES NO TOMADAS (Art. 177 / Art. 182)
+    # VACACIONES NO TOMADAS (Art. 177 / Art. 182 / Art. 180)
     # ─────────────────────────────────────────────────────────────────
 
     @classmethod
@@ -248,54 +248,98 @@ class LiquidacionService:
         cls,
         antiguedad: dict,
         sdp: float,
-        pending_days: int = 0,
-        days_taken_this_period: int = 0,
+        termination_type: str = "renuncia",
+        pending_complete_years: int = 0,
+        taken_current_period: int = 0,
     ) -> dict:
         """
-        Calcula vacaciones no tomadas según Art. 177 y 182.
+        Calcula vacaciones no tomadas según Código de Trabajo RD.
 
-        - Período completo no tomado: 14 días (1-5 años) o 18 días (>5 años).
-        - Proporcionalidad por fracción de año según tabla fija (Art. 182).
-        - Suma días pendientes reportados de períodos anteriores.
+        Dos escenarios (Art. 180 vs Art. 177+182):
+
+        ESCENARIO 1 — Menos de 1 año de antigüedad:
+          - Solo aplica para desahucio (empleador) o dimisión justificada.
+          - Tabla proporcional fija (Art. 182): 5→6, 6→7, ..., 11→12 días.
+          - Renuncia voluntaria o despido justificado: 0 días.
+
+        ESCENARIO 2 — Más de 1 año de antigüedad:
+          - Años completos NO tomados × días_por_año (14 si <5a, 18 si ≥5a)
+          - + Fracción del año en curso (tabla proporcional Art. 182)
+          - - Días ya tomados del período actual
+          - Aplica para cualquier tipo de salida (derecho adquirido)
 
         Args:
             antiguedad: Resultado de calcular_antiguedad().
             sdp: Salario diario promedio.
-            pending_days: Días de vacaciones pendientes de períodos anteriores.
-            days_taken_this_period: Días ya tomados del período actual.
+            termination_type: Tipo de salida (impacta Escenario 1).
+            pending_complete_years: N° de años completos NO tomados (Escenario 2).
+            taken_current_period: Días de vacaciones ya usados en el año en curso.
         """
         years = antiguedad["years"]
-        months_current = antiguedad["months"]
+        months = antiguedad["months"]
         if antiguedad["days"] > 0:
-            months_current += 1
+            months += 1
+        TIPOS_CON_DERECHO = ("desahucio_empleador", "dimision_justificada")
 
-        if months_current >= 12:
-            months_current = 12
+        # ── ESCENARIO 1: Menos de 1 año ──
+        if years == 0:
+            if termination_type not in TIPOS_CON_DERECHO:
+                return {
+                    "aplica": False, "dias": 0, "monto": 0.0,
+                    "detalle": "Menos de 1 año sin derecho a vacaciones proporcionales "
+                               f"para salida tipo '{termination_type}' (Art. 180).",
+                    "exentoTSS": True, "exentoISR": False,
+                    "baseLegal": "Art. 180 Código de Trabajo",
+                }
+            if months < 5:
+                return {
+                    "aplica": False, "dias": 0, "monto": 0.0,
+                    "detalle": f"Menos de 1 año y {months} meses: "
+                               "no acumula vacaciones proporcionales (Art. 180).",
+                    "exentoTSS": True, "exentoISR": False,
+                    "baseLegal": "Art. 180 Código de Trabajo",
+                }
+            dias = cls.TABLA_VACACIONES_PROPORCIONAL.get(months, 0)
+            return {
+                "aplica": dias > 0, "dias": dias,
+                "monto": round(dias * sdp, 2),
+                "detalle": f"Vacaciones proporcionales: {months} meses → {dias} días (Art. 180).",
+                "exentoTSS": True, "exentoISR": False,
+                "baseLegal": "Art. 180 y 182 Código de Trabajo",
+            }
 
+        # ── ESCENARIO 2: Más de 1 año ──
         dias_por_anio = 18 if years >= 5 else 14
         detalle_parts = []
+        total_dias = 0
 
-        # Días del período actual (proporcional)
-        if months_current < 5:
-            dias_periodo_actual = 0
-            detalle_parts.append(f"Fracción actual ({months_current} meses): no acumula vacaciones proporcionales")
-        else:
-            dias_periodo_actual = cls.TABLA_VACACIONES_PROPORCIONAL.get(months_current, dias_por_anio)
+        # Años completos pendientes
+        if pending_complete_years > 0:
+            dias_completos = pending_complete_years * dias_por_anio
+            total_dias += dias_completos
             detalle_parts.append(
-                f"Período actual ({months_current} meses): {dias_periodo_actual} días "
-                f"({dias_por_anio} días/año base, proporcional Art. 182)"
+                f"{pending_complete_years} año(s) completo(s) pendiente(s): "
+                f"{pending_complete_years}×{dias_por_anio}={dias_completos} días"
             )
 
-        # Netear días ya tomados
-        if days_taken_this_period > 0:
-            dias_periodo_actual = max(0, dias_periodo_actual - days_taken_this_period)
-            detalle_parts.append(f"Menos {days_taken_this_period} día(s) ya tomado(s)")
-
-        # Días pendientes de períodos anteriores
-        if pending_days > 0:
-            detalle_parts.append(f"Más {pending_days} día(s) pendiente(s) de períodos anteriores")
-
-        total_dias = dias_periodo_actual + pending_days
+        # Fracción del año en curso
+        if months < 5:
+            detalle_parts.append(
+                f"Año en curso ({months} meses): no acumula fracción (Art. 182)"
+            )
+        else:
+            fraccion = cls.TABLA_VACACIONES_PROPORCIONAL.get(months, dias_por_anio)
+            if taken_current_period > 0:
+                fraccion = max(0, fraccion - taken_current_period)
+                detalle_parts.append(
+                    f"Año en curso ({months} meses): {cls.TABLA_VACACIONES_PROPORCIONAL.get(months, dias_por_anio)} días "
+                    f"menos {taken_current_period} ya tomado(s) = {fraccion} días"
+                )
+            else:
+                detalle_parts.append(
+                    f"Año en curso ({months} meses): {fraccion} días (Art. 182)"
+                )
+            total_dias += fraccion
 
         if total_dias == 0:
             detalle = "Sin vacaciones pendientes"
@@ -307,7 +351,7 @@ class LiquidacionService:
             "dias": total_dias,
             "monto": round(total_dias * sdp, 2),
             "detalle": detalle,
-            "exentoTSS": False,
+            "exentoTSS": True,
             "exentoISR": False,
             "baseLegal": "Art. 177 y 182 Código de Trabajo",
         }
@@ -384,8 +428,8 @@ class LiquidacionService:
         monthly_salaries_last_12: list = None,
         monthly_salaries_ytd: list = None,
         preaviso_trabajado: bool = False,
-        vacation_pending_days: int = 0,
-        vacation_days_taken_this_period: int = 0,
+        vacation_pending_complete_years: int = 0,
+        vacation_taken_current_period: int = 0,
         notes: str = "",
         created_by: str = "",
     ) -> dict:
@@ -456,7 +500,10 @@ class LiquidacionService:
 
         # Vacaciones (siempre)
         conceptos["vacaciones"] = cls.calcular_vacaciones(
-            antiguedad, sdp, vacation_pending_days, vacation_days_taken_this_period
+            antiguedad, sdp,
+            termination_type=termination_type,
+            pending_complete_years=vacation_pending_complete_years,
+            taken_current_period=vacation_taken_current_period,
         )
 
         # Salario de Navidad (siempre)

@@ -135,6 +135,23 @@ def delete_leave_request(owner_uid: str, request_id: str, sandbox: bool = True):
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# PAYROLL GROUPS
+# ═══════════════════════════════════════════════════════════════════════════
+
+def get_payroll_groups(owner_uid: str, sandbox: bool = True) -> list:
+    return _get_all(owner_uid, "payroll_groups", sandbox)
+
+def get_payroll_group(owner_uid: str, group_id: str, sandbox: bool = True) -> dict | None:
+    return _get_one(owner_uid, "payroll_groups", group_id, sandbox)
+
+def save_payroll_group(owner_uid: str, group_id: str, data: dict, sandbox: bool = True):
+    _save(owner_uid, "payroll_groups", group_id, data, sandbox)
+
+def delete_payroll_group(owner_uid: str, group_id: str, sandbox: bool = True):
+    _delete(owner_uid, "payroll_groups", group_id, sandbox)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # PAYROLL
 # ═══════════════════════════════════════════════════════════════════════════
 
@@ -161,6 +178,21 @@ def get_payroll_period_by_key(owner_uid: str, period_key: str, sandbox: bool = T
             return {"id": d.id, **d.to_dict()}
     except Exception as e:
         print(f"⚠️ HRDataService.get_payroll_period_by_key: {e}")
+    return None
+
+def get_payroll_period_by_key_and_group(owner_uid: str, period_key: str, group_id: str, sandbox: bool = True) -> dict | None:
+    if not firebase_initialized or db_firestore is None:
+        return None
+    try:
+        coll_path = _hr_collection(owner_uid, "payroll", sandbox)
+        docs = db_firestore.collection(coll_path) \
+            .where("periodKey", "==", period_key) \
+            .where("payrollGroupId", "==", group_id) \
+            .limit(1).get()
+        for d in docs:
+            return {"id": d.id, **d.to_dict()}
+    except Exception as e:
+        print(f"⚠️ HRDataService.get_payroll_period_by_key_and_group: {e}")
     return None
 
 
@@ -600,3 +632,23 @@ def save_dgt_reinstatement(owner_uid: str, reinst_id: str, data: dict, sandbox: 
 
 def delete_dgt_reinstatement(owner_uid: str, reinst_id: str, sandbox: bool = True):
     _delete(owner_uid, "dgt_reinstatements", reinst_id, sandbox)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ACCIONES DE PERSONAL MASIVAS
+# ═══════════════════════════════════════════════════════════════════════════
+
+def get_mass_actions(owner_uid: str, sandbox: bool = True) -> list:
+    return _get_all(owner_uid, "mass_actions", sandbox)
+
+
+def get_mass_action(owner_uid: str, action_id: str, sandbox: bool = True) -> dict | None:
+    return _get_one(owner_uid, "mass_actions", action_id, sandbox)
+
+
+def save_mass_action(owner_uid: str, action_id: str, data: dict, sandbox: bool = True):
+    _save(owner_uid, "mass_actions", action_id, data, sandbox)
+
+
+def delete_mass_action(owner_uid: str, action_id: str, sandbox: bool = True):
+    _delete(owner_uid, "mass_actions", action_id, sandbox)

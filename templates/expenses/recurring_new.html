@@ -1,0 +1,497 @@
+{% extends "layout.html" %}
+
+{% block title %}Nuevo Pago Recurrente{% endblock %}
+
+{% block page_header %}Nuevo Pago Recurrente{% endblock %}
+
+{% block content %}
+<style>
+    .doc-main-col { max-width:960px; margin:0 auto; display:flex; flex-direction:column; gap:24px; }
+    .section-card { background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-lg); padding:28px 32px; margin-bottom:24px; }
+    .section-card:last-child { margin-bottom:0; }
+    .section-card h3 { font-size:0.95rem; font-weight:700; color:var(--text-primary); margin:0 0 18px 0; display:flex; align-items:center; gap:10px; }
+    .section-card h3 i { font-size:0.95rem; }
+    .inp-row { display:flex; gap:14px; flex-wrap:wrap; align-items:flex-end; }
+    .inp-row > .inp-group { flex:1; min-width:150px; }
+    .inp-group.wide { flex:2; min-width:220px; }
+    .inp-group label { font-size:0.78rem; color:var(--text-secondary); display:block; margin-bottom:4px; font-weight:500; }
+
+    .concept-table { width:100%; border-collapse:collapse; font-size:0.85rem; }
+    .concept-table th { padding:8px 12px; text-align:left; font-size:0.72rem; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; border-bottom:2px solid var(--border-color); white-space:nowrap; }
+    .concept-table td { padding:8px 12px; border-bottom:1px solid var(--border-color); vertical-align:middle; }
+    .concept-table td:last-child { text-align:center; width:40px; padding:6px 8px; }
+
+    .totals-section { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:16px; padding-top:16px; border-top:2px solid var(--border-color); }
+    .totals-section .t-line { display:flex; justify-content:space-between; padding:4px 0; font-size:0.82rem; color:var(--text-secondary); }
+    .totals-section .t-grand { display:flex; justify-content:space-between; padding:8px 0; font-size:1.05rem; font-weight:800; color:var(--text-primary); border-top:1px solid var(--border-color); margin-top:6px; padding-top:12px; }
+
+    .actions-bar { display:flex; justify-content:flex-end; align-items:center; gap:12px; padding-top:8px; }
+    .actions-bar .btn { padding:10px 24px; font-size:0.85rem; }
+
+    .row-menu-btn { background:none; border:none; color:var(--text-muted); cursor:pointer; padding:6px 8px; border-radius:6px; transition:all 0.15s; }
+    .row-menu-btn:hover { background:rgba(0,0,0,0.05); color:var(--text-primary); }
+    .row-menu-dropdown { display:none; position:absolute; right:0; top:100%; z-index:500; min-width:170px; background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-md); box-shadow:0 8px 30px rgba(0,0,0,0.12); padding:6px; margin-top:4px; }
+    .row-menu-dropdown.show { display:block; }
+    .row-menu-item { display:flex; align-items:center; gap:8px; width:100%; padding:8px 12px; background:none; border:none; color:var(--text-primary); font-size:0.8rem; cursor:pointer; border-radius:6px; text-align:left; }
+    .row-menu-item:hover { background:rgba(0,0,0,0.04); }
+    .row-menu-item.danger { color:var(--accent-red); }
+    .row-menu-item.danger:hover { background:rgba(239,68,68,0.08); }
+
+    .help-banner { background:rgba(139,92,246,0.05); border:1px solid rgba(139,92,246,0.15); border-radius:var(--radius-sm); padding:14px 18px; font-size:0.78rem; color:var(--text-secondary); line-height:1.5; margin-bottom:4px; }
+    .help-banner i { color:var(--accent-purple); margin-right:6px; }
+
+    /* Contact dropdown */
+    .contact-select { position:relative; }
+    .contact-input-wrap { position:relative; }
+    .contact-arrow { position:absolute; right:12px; top:50%; transform:translateY(-50%); color:var(--text-muted); font-size:0.7rem; pointer-events:none; z-index:1; }
+    .contact-dropdown { display:none; position:absolute; top:100%; left:0; right:0; background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-md); box-shadow:var(--shadow-lg); z-index:999; margin-top:4px; overflow:hidden; }
+    .contact-dropdown.open { display:block; }
+    .contact-option { display:flex; align-items:center; gap:8px; padding:10px 14px; cursor:pointer; font-size:0.82rem; color:var(--text-primary); border-bottom:1px solid var(--border-color); transition:background 0.15s; }
+    .contact-option:hover { background:rgba(16,185,129,0.06); }
+    .contact-option.selected { background:rgba(16,185,129,0.08); color:var(--accent-emerald); font-weight:600; }
+    .contact-option.selected i { color:var(--accent-emerald); }
+    .contact-search-box { padding:8px 12px; border-bottom:1px solid var(--border-color); }
+    .contact-search-box input { width:100%; font-size:0.78rem; height:34px; }
+    .contact-results { max-height:180px; overflow-y:auto; }
+    .contact-result-item { display:flex; flex-direction:column; gap:2px; padding:10px 14px; cursor:pointer; border-bottom:1px solid var(--border-color); transition:background 0.15s; }
+    .contact-result-item:hover { background:rgba(255,255,255,0.04); }
+    .contact-result-item .cr-name { font-size:0.82rem; font-weight:500; color:var(--text-primary); }
+    .contact-result-item .cr-rnc { font-size:0.7rem; color:var(--text-muted); }
+    .contact-no-results { padding:20px 14px; text-align:center; font-size:0.78rem; color:var(--text-muted); }
+
+    /* Accounting account dropdown inside table cells */
+    .account-cell { overflow:visible; position:relative; }
+    .acco-dropdown { position:absolute; top:100%; left:0; right:0; background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-sm); box-shadow:var(--shadow-lg); z-index:9999; max-height:200px; overflow-y:auto; display:none; margin-top:2px; }
+    .acco-dropdown.open { display:block; }
+    .acco-search-item { display:flex; gap:8px; padding:8px 12px; cursor:pointer; font-size:0.78rem; border-bottom:1px solid var(--border-color); transition:background 0.1s; }
+    .acco-search-item:hover { background:rgba(16,185,129,0.06); }
+    .acco-search-item .acco-code { min-width:80px; color:var(--text-muted); font-family:monospace; font-size:0.72rem; }
+    .acco-search-item .acco-name { color:var(--text-primary); }
+    .acco-search-no-results { padding:20px 14px; text-align:center; font-size:0.78rem; color:var(--text-muted); }
+</style>
+
+<div class="doc-main-col">
+
+    <div class="help-banner">
+        <i class="fa-solid fa-circle-info"></i>
+        Programa pagos automáticos para gastos fijos recurrentes. El sistema registrará el gasto automáticamente en la frecuencia indicada.
+    </div>
+
+    <form method="POST" id="recurring-form" action="{{ url_for('web_invoices.recurring_new_route') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+        <div class="section-card">
+            <h3><i class="fa-solid fa-user" style="color: var(--accent-emerald);"></i> Contacto</h3>
+            <div class="inp-row" style="margin-bottom:12px;">
+                <div class="inp-group wide contact-select" id="contact-select">
+                    <label for="contact-display">Proveedor</label>
+                    <div class="contact-input-wrap">
+                        <input type="text" id="contact-display" class="form-input" value="Consumidor Final" readonly placeholder="Seleccionar contacto..." style="cursor:pointer; padding-right:30px;">
+                        <i class="fa-solid fa-chevron-down contact-arrow"></i>
+                    </div>
+                    <div class="contact-dropdown" id="contact-dropdown">
+                        <div class="contact-option selected" data-type="consumidor" data-name="Consumidor Final" data-rnc="" data-id="" onclick="selectContactOption(this)">
+                            <i class="fa-solid fa-user"></i> Consumidor Final
+                        </div>
+                        <div class="contact-search-box">
+                            <input type="text" id="contact-search" class="form-input" placeholder="Buscar proveedor por nombre o RNC..." autocomplete="off">
+                            <i class="fa-solid fa-spinner fa-spin" id="contact-spinner" style="display:none; position:absolute; right:10px; top:50%; transform:translateY(-50%); color:var(--text-muted); font-size:0.7rem;"></i>
+                        </div>
+                        <div class="contact-results" id="contact-results">
+                            <div class="contact-no-results">Escribe para buscar proveedores</div>
+                        </div>
+                    </div>
+                </div>
+                <input type="hidden" id="contact-type-hidden" name="contact_type" value="consumidor">
+                <input type="hidden" id="provider-name-hidden" name="providerName" value="">
+                <input type="hidden" id="rnc-emisor-hidden" name="rncEmisor" value="">
+                <input type="hidden" id="supplier-id-hidden" name="supplierId" value="">
+            </div>
+        </div>
+
+        <div class="section-card" style="overflow:visible;">
+            <h3 style="display:flex;justify-content:space-between;">
+                <span><i class="fa-solid fa-calculator" style="color: var(--accent-emerald);"></i> Conceptos del pago recurrente</span>
+                <button type="button" id="btn-add-concept-row" class="btn btn-sm btn-secondary"><i class="fa-solid fa-plus"></i> Agregar concepto</button>
+            </h3>
+            <p style="font-size:0.78rem; color:var(--text-muted); margin:0 0 12px 0;">Define los conceptos y las cuentas contables que se registrarán periódicamente.</p>
+
+            <div style="overflow:visible;">
+                <table class="concept-table" id="concept-items-table">
+                    <thead>
+                        <tr>
+                            <th style="width:28%;">Concepto</th>
+                            <th style="width:14%;text-align:right;">Valor</th>
+                            <th style="width:12%;text-align:right;">Impuesto</th>
+                            <th style="width:8%;text-align:center;">Cant.</th>
+                            <th style="width:20%;">Observaciones</th>
+                            <th style="width:14%;text-align:right;">Total</th>
+                            <th style="width:4%;"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="concept-items-body">
+                        <tr class="concept-row">
+                            <td class="account-cell">
+                                <input type="text" class="form-input account-display item-concept" value="" placeholder="Buscar cuenta contable..." autocomplete="off" onfocus="openAccountDropdown(this)" oninput="filterAccountDropdown(this)">
+                                <input type="hidden" class="item-concept-id" name="concept_items[0][concept_id]" value="">
+                                <input type="hidden" class="item-concept-name" name="concept_items[0][concept]" value="">
+                                <div class="acco-dropdown"></div>
+                            </td>
+                            <td style="text-align:right;">
+                                <input type="number" class="form-input item-price" name="concept_items[0][price]" step="0.01" value="0.00" style="width:110px;text-align:right;" oninput="recalculateRowTotal(this);recalculateGrandTotal();">
+                            </td>
+                            <td style="text-align:right;">
+                                <select class="form-select item-tax item-tax-select" name="concept_items[0][tax]" onchange="recalculateRowTotal(this);recalculateGrandTotal();" style="width:100%;">
+                                    <option value="0" selected>Ninguno</option>
+                                    <option value="{{ itbis_general }}">ITBIS - ({{ '%.2f'|format(itbis_general * 100) }}%)</option>
+                                    <option value="{{ itbis_reduced }}">ITBIS Reducido - ({{ '%.2f'|format(itbis_reduced * 100) }}%)</option>
+                                    <option value="0.00">ITBIS 0% - (0.00%)</option>
+                                    <option value="exento">Exento - (0.00%)</option>
+                                </select>
+                            </td>
+                            <td style="text-align:center;">
+                                <input type="number" class="form-input item-qty" name="concept_items[0][quantity]" min="1" value="1" style="width:55px;text-align:center;" oninput="recalculateRowTotal(this);recalculateGrandTotal();">
+                            </td>
+                            <td>
+                                <input type="text" class="form-input item-obs" name="concept_items[0][observations]" placeholder="Opcional" style="width:100%;">
+                            </td>
+                            <td style="text-align:right;font-weight:600;">
+                                <span class="item-total-label">RD$ 0.00</span>
+                                <input type="hidden" class="item-total-hidden" name="concept_items[0][total]" value="0">
+                            </td>
+                            <td>
+                                <div style="position:relative;">
+                                    <button type="button" class="row-menu-btn" onclick="toggleRowMenu(this)"><i class="fa-solid fa-ellipsis" style="font-size:0.9rem;"></i></button>
+                                    <div class="row-menu-dropdown">
+                                        <button type="button" class="row-menu-item danger" onclick="removeConceptRow(this)"><i class="fa-solid fa-trash-can" style="font-size:0.7rem;"></i> Eliminar línea</button>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="totals-section">
+                <div>
+                    <div class="t-line"><span>Subtotal</span><span id="lbl-subtotal">RD$ 0.00</span></div>
+                    <div class="t-line"><span>Impuestos</span><span id="lbl-taxes">RD$ 0.00</span></div>
+                </div>
+                <div class="t-grand" style="justify-content: flex-end; gap: 24px;">
+                    <span>Total por período</span>
+                    <span id="grand-total">RD$ 0.00</span>
+                </div>
+            </div>
+
+            <div style="margin-top:14px; font-size:0.72rem; color:var(--text-muted);">
+                Los campos marcados con <span style="color:var(--accent-red);">*</span> son obligatorios.
+            </div>
+        </div>
+
+        <div class="section-card">
+            <h3><i class="fa-solid fa-calendar" style="color: var(--accent-blue);"></i> Configuración de recurrencia</h3>
+
+            <div class="inp-row" style="margin-bottom:12px;">
+                <div class="inp-group" style="max-width:200px;">
+                    <label for="recurrenceInterval">Frecuencia <span style="color:var(--accent-red);">*</span></label>
+                    <select id="recurrenceInterval" name="recurrenceInterval" class="form-select" required onchange="updateNextDate()">
+                        <option value="semanal">Semanal</option>
+                        <option value="quincenal">Quincenal</option>
+                        <option value="mensual" selected>Mensual</option>
+                    </select>
+                </div>
+                <div class="inp-group" style="max-width:200px;">
+                    <label for="currency">Moneda <span style="color:var(--accent-red);">*</span></label>
+                    <select id="currency" name="currency" class="form-select" required>
+                        <option value="DOP" selected>DOP - Peso Dominicano</option>
+                        <option value="USD">USD - Dólar Estadounidense</option>
+                        <option value="EUR">EUR - Euro</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="inp-row" style="margin-bottom:12px;">
+                <div class="inp-group" style="max-width:200px;">
+                    <label for="nextOccurrenceDate">Próximo registro <span style="color:var(--accent-red);">*</span></label>
+                    <input type="date" id="nextOccurrenceDate" name="nextOccurrenceDate" class="form-input" required>
+                </div>
+                <div class="inp-group" style="max-width:200px;">
+                    <label for="recurrenceEndDate">Fecha límite (opcional)</label>
+                    <input type="date" id="recurrenceEndDate" name="recurrenceEndDate" class="form-input">
+                </div>
+                <div class="inp-group wide">
+                    <label for="bankAccountId">Cuenta bancaria</label>
+                    <select id="bankAccountId" name="bankAccountId" class="form-select">
+                        <option value="">-- Seleccionar --</option>
+                        {% for acc in bank_accounts %}
+                        <option value="{{ acc.id }}">{{ acc.name }} ({{ acc.type|capitalize }}) — RD$ {{ "{:,.2f}".format(acc.currentBalance) }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="actions-bar">
+            <a href="{{ url_for('web_invoices.recurring_list') }}" class="btn btn-secondary">Cancelar</a>
+            <button type="submit" class="btn btn-primary" style="background:var(--accent-purple);border-color:var(--accent-purple);">
+                <i class="fa-solid fa-floppy-disk"></i> Guardar
+            </button>
+        </div>
+    </form>
+
+</div>
+
+<script>
+    const accountingAccounts = {{ accounting_accounts | tojson | safe }};
+    const itbisGeneral = {{ itbis_general }};
+    const itbisReduced = {{ itbis_reduced }};
+
+    function buildTaxSelect(rowIndex) {
+        return `<select class="form-select item-tax item-tax-select" name="concept_items[${rowIndex}][tax]" onchange="recalculateRowTotal(this);recalculateGrandTotal();" style="width:100%;">
+            <option value="0" selected>Ninguno</option>
+            <option value="${itbisGeneral}">ITBIS - (${(itbisGeneral * 100).toFixed(2)}%)</option>
+            <option value="${itbisReduced}">ITBIS Reducido - (${(itbisReduced * 100).toFixed(2)}%)</option>
+            <option value="0.00">ITBIS 0% - (0.00%)</option>
+            <option value="exento">Exento - (0.00%)</option>
+        </select>`;
+    }
+
+    var rowIndex = 0;
+    const totalRows = document.querySelectorAll('#concept-items-body .concept-row').length;
+    if (totalRows > 0) rowIndex = totalRows;
+
+    function recalculateRowTotal(el) {
+        const row = el.closest('.concept-row');
+        const price = parseFloat(row.querySelector('.item-price').value) || 0;
+        const taxSel = row.querySelector('.item-tax-select');
+        const taxRaw = taxSel ? taxSel.value : '0';
+        const isExento = taxRaw === 'exento';
+        const taxRate = isExento ? 0 : (parseFloat(taxRaw) || 0);
+        const taxAmount = price * taxRate;
+        const qty = parseInt(row.querySelector('.item-qty').value) || 1;
+        const total = (price + taxAmount) * qty;
+        row.querySelector('.item-total-label').textContent = `RD$ ${total.toLocaleString('en-US', {minimumFractionDigits:2})}`;
+        row.querySelector('.item-total-hidden').value = total.toFixed(2);
+    }
+
+    function recalculateGrandTotal() {
+        let subtotal = 0, taxes = 0, total = 0;
+        document.querySelectorAll('.concept-row').forEach(row => {
+            const price = parseFloat(row.querySelector('.item-price').value) || 0;
+            const taxSel = row.querySelector('.item-tax-select');
+            const taxRaw = taxSel ? taxSel.value : '0';
+            const isExento = taxRaw === 'exento';
+            const taxRate = isExento ? 0 : (parseFloat(taxRaw) || 0);
+            const taxAmount = price * taxRate;
+            const qty = parseInt(row.querySelector('.item-qty').value) || 1;
+            subtotal += price * qty;
+            taxes += taxAmount * qty;
+            total += (price + taxAmount) * qty;
+        });
+        document.getElementById('lbl-subtotal').textContent = `RD$ ${subtotal.toLocaleString('en-US', {minimumFractionDigits:2})}`;
+        document.getElementById('lbl-taxes').textContent = `RD$ ${taxes.toLocaleString('en-US', {minimumFractionDigits:2})}`;
+        document.getElementById('grand-total').textContent = `RD$ ${total.toLocaleString('en-US', {minimumFractionDigits:2})}`;
+    }
+
+    function openAccountDropdown(input) {
+        const cell = input.closest('.account-cell');
+        const dropdown = cell.querySelector('.acco-dropdown');
+        document.querySelectorAll('.acco-dropdown.open').forEach(d => { if (d !== dropdown) d.classList.remove('open'); });
+        dropdown.classList.toggle('open');
+        if (dropdown.classList.contains('open')) {
+            filterAccountDropdown(input);
+        }
+    }
+
+    function filterAccountDropdown(input) {
+        const cell = input.closest('.account-cell');
+        const dropdown = cell.querySelector('.acco-dropdown');
+        const q = input.value.toLowerCase().trim();
+        dropdown.classList.add('open');
+        let filtered = accountingAccounts;
+        if (q) {
+            filtered = accountingAccounts.filter(a =>
+                (a.code && a.code.toLowerCase().includes(q)) ||
+                (a.name && a.name.toLowerCase().includes(q))
+            );
+        }
+        if (filtered.length === 0) {
+            dropdown.innerHTML = '<div class="acco-search-no-results">Sin resultados</div>';
+        } else {
+            const frag = document.createDocumentFragment();
+            const limit = Math.min(filtered.length, 30);
+            for (let i = 0; i < limit; i++) {
+                const a = filtered[i];
+                const div = document.createElement('div');
+                div.className = 'acco-search-item';
+                div.onclick = function() { selectAccountItem(cell, a); };
+                div.innerHTML = '<span class="acco-code">' + (a.code || '—') + '</span><span class="acco-name">' + (a.name || a.code || 'Sin nombre') + '</span>';
+                frag.appendChild(div);
+            }
+            dropdown.innerHTML = '';
+            dropdown.appendChild(frag);
+        }
+    }
+
+    function selectAccountItem(cell, account) {
+        const input = cell.querySelector('.account-display');
+        const idHidden = cell.querySelector('.item-concept-id');
+        const nameHidden = cell.querySelector('.item-concept-name');
+        const label = (account.code ? '[' + account.code + '] ' : '') + (account.name || account.code || '');
+        input.value = label;
+        idHidden.value = account.id || '';
+        if (nameHidden) nameHidden.value = label;
+        cell.querySelector('.acco-dropdown').classList.remove('open');
+    }
+
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.account-cell')) {
+            document.querySelectorAll('.acco-dropdown.open').forEach(d => d.classList.remove('open'));
+        }
+    });
+
+    document.getElementById('btn-add-concept-row').addEventListener('click', function() {
+        rowIndex++;
+        const tbody = document.getElementById('concept-items-body');
+        const tr = document.createElement('tr');
+        tr.className = 'concept-row';
+        tr.innerHTML = `
+            <td class="account-cell">
+                <input type="text" class="form-input account-display item-concept" value="" placeholder="Buscar cuenta contable..." autocomplete="off" onfocus="openAccountDropdown(this)" oninput="filterAccountDropdown(this)">
+                <input type="hidden" class="item-concept-id" name="concept_items[${rowIndex}][concept_id]" value="">
+                <input type="hidden" class="item-concept-name" name="concept_items[${rowIndex}][concept]" value="">
+                <div class="acco-dropdown"></div>
+            </td>
+            <td style="text-align:right;"><input type="number" class="form-input item-price" name="concept_items[${rowIndex}][price]" step="0.01" value="0.00" style="width:110px;text-align:right;" oninput="recalculateRowTotal(this);recalculateGrandTotal();"></td>
+            <td style="text-align:right;">${buildTaxSelect(rowIndex)}</td>
+            <td style="text-align:center;"><input type="number" class="form-input item-qty" name="concept_items[${rowIndex}][quantity]" min="1" value="1" style="width:55px;text-align:center;" oninput="recalculateRowTotal(this);recalculateGrandTotal();"></td>
+            <td><input type="text" class="form-input item-obs" name="concept_items[${rowIndex}][observations]" placeholder="Opcional" style="width:100%;"></td>
+            <td style="text-align:right;font-weight:600;">
+                <span class="item-total-label">RD$ 0.00</span>
+                <input type="hidden" class="item-total-hidden" name="concept_items[${rowIndex}][total]" value="0">
+            </td>
+            <td>
+                <div style="position:relative;">
+                    <button type="button" class="row-menu-btn" onclick="toggleRowMenu(this)"><i class="fa-solid fa-ellipsis" style="font-size:0.9rem;"></i></button>
+                    <div class="row-menu-dropdown">
+                        <button type="button" class="row-menu-item danger" onclick="removeConceptRow(this)"><i class="fa-solid fa-trash-can" style="font-size:0.7rem;"></i> Eliminar línea</button>
+                    </div>
+                </div>
+            </td>
+        `;
+        tbody.appendChild(tr);
+    });
+
+    function removeConceptRow(btn) {
+        const row = btn.closest('.concept-row');
+        const tbody = document.getElementById('concept-items-body');
+        if (tbody.querySelectorAll('.concept-row').length > 1) {
+            row.remove();
+            recalculateGrandTotal();
+        }
+    }
+
+    function toggleRowMenu(btn) {
+        var d = btn.nextElementSibling, is = d.classList.contains('show');
+        document.querySelectorAll('.row-menu-dropdown.show').forEach(x => x.classList.remove('show'));
+        if (!is) d.classList.add('show');
+    }
+
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.row-menu-btn')) document.querySelectorAll('.row-menu-dropdown.show').forEach(d => d.classList.remove('show'));
+    });
+
+    function updateNextDate() {
+        const d = new Date();
+        d.setDate(d.getDate() + 30);
+        document.getElementById('nextOccurrenceDate').value = d.toISOString().split('T')[0];
+    }
+    updateNextDate();
+
+    // Contact dropdown logic
+    const contactDisplay   = document.getElementById('contact-display');
+    const contactDropdown  = document.getElementById('contact-dropdown');
+    const contactSearch    = document.getElementById('contact-search');
+    const contactResults   = document.getElementById('contact-results');
+    const contactSpinner   = document.getElementById('contact-spinner');
+    const contactTypeHid   = document.getElementById('contact-type-hidden');
+    const providerNameHid  = document.getElementById('provider-name-hidden');
+    const rncEmisorHid     = document.getElementById('rnc-emisor-hidden');
+    const supplierIdHid    = document.getElementById('supplier-id-hidden');
+    let contactSearchTimeout = null;
+
+    contactDisplay.addEventListener('click', function(e) {
+        e.stopPropagation();
+        contactDropdown.classList.toggle('open');
+        if (contactDropdown.classList.contains('open')) {
+            contactSearch.value = '';
+            contactResults.innerHTML = '<div class="contact-no-results">Escribe para buscar proveedores</div>';
+            setTimeout(() => contactSearch.focus(), 100);
+        }
+    });
+
+    document.addEventListener('click', function(e) {
+        if (!document.getElementById('contact-select').contains(e.target)) {
+            contactDropdown.classList.remove('open');
+        }
+    });
+
+    contactSearch.addEventListener('input', function() {
+        clearTimeout(contactSearchTimeout);
+        const q = this.value.trim();
+        if (q.length < 2) {
+            contactResults.innerHTML = '<div class="contact-no-results">Escribe al menos 2 caracteres</div>';
+            return;
+        }
+        contactSpinner.style.display = 'block';
+        contactResults.innerHTML = '';
+        contactSearchTimeout = setTimeout(() => {
+            fetch('/api/suppliers/search?q=' + encodeURIComponent(q))
+                .then(res => res.json())
+                .then(data => {
+                    contactSpinner.style.display = 'none';
+                    if (data.success && data.suppliers.length) {
+                        const frag = document.createDocumentFragment();
+                        data.suppliers.forEach(s => {
+                            const div = document.createElement('div');
+                            div.className = 'contact-result-item';
+                            div.onclick = function() { selectSupplier(s); };
+                            div.innerHTML = '<span class="cr-name">' + s.name + '</span>' +
+                                '<span class="cr-rnc">RNC: ' + (s.rnc || 'N/A') + '</span>';
+                            frag.appendChild(div);
+                        });
+                        contactResults.innerHTML = '';
+                        contactResults.appendChild(frag);
+                    } else {
+                        contactResults.innerHTML = '<div class="contact-no-results">Sin resultados para "' + q + '"</div>';
+                    }
+                })
+                .catch(() => {
+                    contactSpinner.style.display = 'none';
+                    contactResults.innerHTML = '<div class="contact-no-results">Error de conexión</div>';
+                });
+        }, 300);
+    });
+
+    function selectContactOption(el) {
+        document.querySelectorAll('.contact-option').forEach(o => o.classList.remove('selected'));
+        el.classList.add('selected');
+        contactDisplay.value = el.dataset.name;
+        contactTypeHid.value = el.dataset.type;
+        providerNameHid.value = el.dataset.name;
+        rncEmisorHid.value = el.dataset.rnc;
+        supplierIdHid.value = el.dataset.id;
+        contactDropdown.classList.remove('open');
+    }
+
+    function selectSupplier(s) {
+        contactDisplay.value = s.name || '';
+        contactTypeHid.value = 'supplier';
+        providerNameHid.value = s.name || '';
+        rncEmisorHid.value = s.rnc || '';
+        supplierIdHid.value = s.id || '';
+        document.querySelectorAll('.contact-option').forEach(o => o.classList.remove('selected'));
+        contactDropdown.classList.remove('open');
+    }
+</script>
+{% endblock %}

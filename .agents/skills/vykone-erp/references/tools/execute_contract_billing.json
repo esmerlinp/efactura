@@ -1,0 +1,119 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "tool_name": "execute_contract_billing",
+  "display_name": "Ejecutar Facturación de Contratos",
+  "description": "Ejecuta la facturación recurrente para contratos que han alcanzado su próxima fecha de facturación. Por cada contrato activo, valida cliente, genera e-CF, actualiza next_billing_date, y crea asiento contable. Retorna resumen de facturas generadas y errores por contrato.",
+  "category": "billing",
+  "risk_level": "high",
+  "idempotency": "not idempotent (generates invoices for each call; uses next_billing_date as guard)",
+  "permissions": ["billing:write", "e-cf:write"],
+  "related_process": "BP-9 Facturación Recurrente por Contrato",
+
+  "input_schema": {
+    "type": "object",
+    "required": ["owner_uid"],
+    "properties": {
+      "owner_uid": {"type": "string", "description": "Identificador del tenant/empresa"},
+      "target_date": {
+        "type": "string",
+        "format": "date",
+        "description": "Fecha de referencia para facturación (default: hoy). Se facturan contratos con next_billing_date <= target_date."
+      },
+      "contract_ids": {
+        "type": "array",
+        "items": {"type": "string"},
+        "description": "IDs de contratos específicos a facturar. Si se omite, se facturan TODOS los contratos elegibles."
+      },
+      "dry_run": {
+        "type": "boolean",
+        "default": true,
+        "description": "Si true, simula la facturación sin generarla realmente. Retorna qué contratos se facturarían."
+      },
+      "skip_dgii": {
+        "type": "boolean",
+        "default": false,
+        "description": "Si true, genera facturas internas sin enviar a DGII (solo para testing)"
+      }
+    }
+  },
+
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "execution_id": {"type": "string"},
+      "total_contracts_eligible": {"type": "integer", "description": "Contratos que califican para facturación"},
+      "total_invoiced": {"type": "integer", "description": "Facturas generadas exitosamente"},
+      "total_amount": {"type": "number", "description": "Monto total facturado en RD$"},
+      "dry_run": {"type": "boolean"},
+      "results": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "contract_id": {"type": "string"},
+            "client_name": {"type": "string"},
+            "service_description": {"type": "string"},
+            "amount": {"type": "number"},
+            "invoice_id": {"type": "string", "description": "null si error o dry_run"},
+            "encf": {"type": "string", "description": "Número e-NCF asignado"},
+            "status": {"type": "string", "enum": ["generated", "skipped", "error"]},
+            "error": {"type": "string", "description": "Mensaje de error si status=error"},
+            "next_billing_date": {"type": "string", "format": "date"}
+          }
+        }
+      },
+      "errors_summary": {
+        "type": "object",
+        "properties": {
+          "cliente_inactivo": {"type": "integer"},
+          "sin_ncf_disponibles": {"type": "integer"},
+          "dgii_error": {"type": "integer"},
+          "precio_no_encontrado": {"type": "integer"},
+          "other": {"type": "integer"}
+        }
+      },
+      "created_at": {"type": "string", "format": "date-time"}
+    }
+  },
+
+  "validations": [
+    {"field": "contract.active", "rule": "Contrato debe estar activo (is_active=true, billing_suspended=false)"},
+    {"field": "contract.client", "rule": "Cliente debe estar activo en el sistema"},
+    {"field": "contract.next_billing_date", "rule": "next_billing_date <= target_date y <= end_date si existe"}
+  ],
+
+  "errors": [
+    {"code": "NO_NCF_AVAILABLE", "message": "Sin NCF disponibles en el rango DGII asignado. Se detuvo la facturación después de {processed} contratos."},
+    {"code": "CLIENT_INACTIVE", "message": "Cliente {client_name} ({client_id}) está inactivo. Contrato {contract_id} omitido."},
+    {"code": "DGII_REJECTED", "message": "DGII rechazó e-CF para contrato {contract_id}: {dgii_error}."},
+    {"code": "NO_PRICE_FOUND", "message": "No se encontró precio vigente para el servicio del contrato {contract_id}."}
+  ],
+
+  "post_effects": {
+    "events": ["RecurringInvoiceCreated (per invoice)", "ContractBillingCompleted"],
+    "accounting": "auto (Income + ITBIS payable per invoice)",
+    "notifications": ["email to client (configurable per contract)"]
+  },
+
+  "example": {
+    "input": {
+      "owner_uid": "abc123def456",
+      "target_date": "2026-07-08",
+      "dry_run": true
+    },
+    "output": {
+      "execution_id": "bill_20260708_001",
+      "total_contracts_eligible": 12,
+      "total_invoiced": 0,
+      "total_amount": 0.00,
+      "dry_run": true,
+      "results": [
+        {"contract_id": "ctr_001", "client_name": "Tech Solutions SRL", "service_description": "Soporte TI Mensual", "amount": 25000.00, "invoice_id": null, "encf": null, "status": "generated", "error": null, "next_billing_date": "2026-08-08"},
+        {"contract_id": "ctr_005", "client_name": "Comercial del Este", "service_description": "Hosting Cloud", "amount": 8500.00, "invoice_id": null, "encf": null, "status": "generated", "error": null, "next_billing_date": "2026-08-08"},
+        {"contract_id": "ctr_009", "client_name": "Inmobiliaria Coral", "service_description": "Mantenimiento Web", "amount": 12000.00, "invoice_id": null, "encf": null, "status": "skipped", "error": "Cliente suspendido temporalmente", "next_billing_date": "2026-07-08"}
+      ],
+      "errors_summary": {"cliente_inactivo": 0, "sin_ncf_disponibles": 0, "dgii_error": 0, "precio_no_encontrado": 0, "other": 1},
+      "created_at": "2026-07-08T06:00:00Z"
+    }
+  }
+}

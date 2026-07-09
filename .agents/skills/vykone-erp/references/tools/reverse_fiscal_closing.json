@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "tool_name": "reverse_fiscal_closing",
+  "display_name": "Revertir Cierre Fiscal",
+  "description": "Revierte un cierre fiscal ejecutado erróneamente. Solo permitido si NO se ha realizado envío a DGII del período. Requiere permiso admin (fiscal:reverse) y doble confirmación. Reabre el período, revierte asientos automáticos de cierre, y elimina el bloqueo de transacciones.",
+  "category": "accounting",
+  "risk_level": "critical",
+  "idempotency": "idempotent (checks if period is already open)",
+  "permissions": ["fiscal:reverse"],
+  "related_process": "BP-7 Cierre Fiscal",
+
+  "input_schema": {
+    "type": "object",
+    "required": ["owner_uid", "period_start", "period_end", "confirmation_token", "reason"],
+    "properties": {
+      "owner_uid": {"type": "string"},
+      "period_start": {"type": "string", "format": "date", "description": "Inicio del período cerrado a revertir"},
+      "period_end": {"type": "string", "format": "date", "description": "Fin del período cerrado a revertir"},
+      "confirmation_token": {
+        "type": "string",
+        "description": "Token de confirmación requerido. Debe generarse con generate_reversal_token() primero."
+      },
+      "reason": {
+        "type": "string",
+        "minLength": 20,
+        "description": "Justificación detallada de la reversión (mínimo 20 caracteres). Se registra en auditoría."
+      },
+      "dry_run": {
+        "type": "boolean",
+        "default": true,
+        "description": "Si true, verifica condiciones sin ejecutar la reversión"
+      }
+    }
+  },
+
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "reversed": {"type": "boolean"},
+      "period": {"type": "object", "properties": {"start": {"type": "string"}, "end": {"type": "string"}}},
+      "previous_status": {"type": "string"},
+      "new_status": {"type": "string", "enum": ["open", "reopened"]},
+      "reversed_entries": {"type": "array", "items": {"type": "string"}, "description": "IDs de asientos revertidos"},
+      "audit_log_id": {"type": "string"},
+      "reversed_by": {"type": "string"},
+      "reversed_at": {"type": "string", "format": "date-time"}
+    }
+  },
+
+  "validations": [
+    {"field": "period", "rule": "Debe existir un cierre fiscal para este período"},
+    {"field": "dgii_submission", "rule": "NO debe existir envío DGII del período (guard irreversible)"},
+    {"field": "confirmation_token", "rule": "Debe ser válido, no expirado, de un solo uso"},
+    {"field": "reason", "rule": "Mínimo 20 caracteres — se registra en bitácora de auditoría"}
+  ],
+
+  "errors": [
+    {"code": "NOT_CLOSED", "message": "El período {start}-{end} no está cerrado. No hay nada que revertir."},
+    {"code": "DGII_ALREADY_SUBMITTED", "message": "IMPOSIBLE REVERTIR: Ya se realizó envío DGII para este período. Contacte a su contador y a DGII."},
+    {"code": "INVALID_TOKEN", "message": "Token de confirmación inválido o expirado. Genere uno nuevo."},
+    {"code": "INSUFFICIENT_PERMISSIONS", "message": "Se requiere permiso 'fiscal:reverse' para revertir cierres fiscales."},
+    {"code": "REASON_TOO_SHORT", "message": "La justificación debe tener al menos 20 caracteres."}
+  ],
+
+  "post_effects": {
+    "events": ["FiscalClosingReversed"],
+    "accounting": "Reverse all auto-generated closing entries, set period to open",
+    "audit": "Full audit trail created with reason and user"
+  },
+
+  "example": {
+    "input": {
+      "owner_uid": "abc123def456",
+      "period_start": "2026-06-01",
+      "period_end": "2026-06-30",
+      "confirmation_token": "tok_rev_a7f3b9c2",
+      "reason": "Error en cálculo de provisión ISR del período. Se detectó omisión de ingresos por RD$150,000 que deben incluirse.",
+      "dry_run": false
+    },
+    "output": {
+      "reversed": true,
+      "period": {"start": "2026-06-01", "end": "2026-06-30"},
+      "previous_status": "closed",
+      "new_status": "reopened",
+      "reversed_entries": ["asiento_20260701_CIERRE_001", "asiento_20260701_CIERRE_002"],
+      "audit_log_id": "audit_rev_20260708_001",
+      "reversed_by": "admin@empresa.com",
+      "reversed_at": "2026-07-08T18:30:00Z"
+    }
+  }
+}

@@ -1,0 +1,141 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "tool_name": "generate_dgii_report",
+  "display_name": "Generar Reporte DGII",
+  "description": "Genera reportes fiscales DGII: IT-1 (Ingresos Totales), IR-17/DC4 (Compras y Gastos con NCF), y resumen ITBIS. Usa datos del período especificado. Retorna resúmenes y permite exportar en formato DGII.",
+  "category": "reports",
+  "risk_level": "low (read-only)",
+  "idempotency": "idempotent",
+  "permissions": ["reports:read"],
+  "related_process": "BP-7 Cierre Fiscal",
+
+  "input_schema": {
+    "type": "object",
+    "required": ["owner_uid", "report_type", "period_start", "period_end"],
+    "properties": {
+      "owner_uid": {"type": "string"},
+      "report_type": {
+        "type": "string",
+        "enum": ["IT-1", "IR-17", "DC4", "ITBIS_SUMMARY", "ALL"],
+        "description": "Tipo de reporte DGII a generar"
+      },
+      "period_start": {"type": "string", "format": "date"},
+      "period_end": {"type": "string", "format": "date"},
+      "format": {
+        "type": "string",
+        "enum": ["json", "csv", "dgii_format_606"],
+        "default": "json",
+        "description": "Formato de salida. dgii_format_606 genera archivo compatible con envío DGII."
+      },
+      "include_anuladas": {
+        "type": "boolean",
+        "default": false,
+        "description": "Incluir facturas anuladas en el reporte"
+      }
+    }
+  },
+
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "report_type": {"type": "string"},
+      "period": {"type": "object", "properties": {"start": {"type": "string"}, "end": {"type": "string"}}},
+      "generated_at": {"type": "string", "format": "date-time"},
+
+      "it1": {
+        "description": "Datos IT-1: Ingresos Totales",
+        "type": "object",
+        "properties": {
+          "total_ingresos_gravados": {"type": "number"},
+          "total_ingresos_exentos": {"type": "number"},
+          "total_ingresos_exportacion": {"type": "number"},
+          "total_itbis_facturado": {"type": "number"},
+          "cantidad_comprobantes": {"type": "integer"},
+          "detalle_por_tipo": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "tipo_comprobante": {"type": "string"},
+                "cantidad": {"type": "integer"},
+                "monto_total": {"type": "number"},
+                "itbis_total": {"type": "number"}
+              }
+            }
+          }
+        }
+      },
+
+      "ir17_dc4": {
+        "description": "Datos IR-17/DC4: Compras y Gastos",
+        "type": "object",
+        "properties": {
+          "total_compras_bienes": {"type": "number"},
+          "total_servicios": {"type": "number"},
+          "total_itbis_adelantado": {"type": "number"},
+          "total_itbis_retenido_terceros": {"type": "number"},
+          "total_isr_retenido_terceros": {"type": "number"},
+          "total_retenciones_empleados_isr": {"type": "number"},
+          "cantidad_comprobantes": {"type": "integer"},
+          "detalle_retenciones": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "rnc_proveedor": {"type": "string"},
+                "nombre": {"type": "string"},
+                "ncf": {"type": "string"},
+                "monto": {"type": "number"},
+                "itbis_retenido": {"type": "number"},
+                "isr_retenido": {"type": "number"}
+              }
+            }
+          }
+        }
+      },
+
+      "itbis_summary": {
+        "description": "Resumen ITBIS del período",
+        "type": "object",
+        "properties": {
+          "itbis_cobrado": {"type": "number", "description": "ITBIS facturado en ventas"},
+          "itbis_adelantado": {"type": "number", "description": "ITBIS pagado en compras"},
+          "itbis_retenido_por_terceros": {"type": "number", "description": "ITBIS retenido por clientes"},
+          "itbis_retenido_a_terceros": {"type": "number", "description": "ITBIS retenido a proveedores"},
+          "itbis_neto_a_pagar": {"type": "number", "description": "ITBIS a pagar a DGII"},
+          "saldo_a_favor": {"type": "number", "description": "Saldo a favor si ITBIS adelantado > cobrado"}
+        }
+      },
+
+      "export_url": {"type": "string", "description": "URL para descargar archivo en formato DGII (si format=dgii_format_606)"}
+    }
+  },
+
+  "errors": [
+    {"code": "NO_DATA", "message": "No se encontraron transacciones para el período {start}-{end}."},
+    {"code": "PERIOD_TOO_LARGE", "message": "El período máximo para reportes DGII es de 12 meses."},
+    {"code": "INVALID_FORMAT", "message": "Formato {format} no soportado para {report_type}."}
+  ],
+
+  "example": {
+    "input": {
+      "owner_uid": "abc123def456",
+      "report_type": "ITBIS_SUMMARY",
+      "period_start": "2026-06-01",
+      "period_end": "2026-06-30"
+    },
+    "output": {
+      "report_type": "ITBIS_SUMMARY",
+      "period": {"start": "2026-06-01", "end": "2026-06-30"},
+      "generated_at": "2026-07-08T17:00:00Z",
+      "itbis_summary": {
+        "itbis_cobrado": 180000.00,
+        "itbis_adelantado": 95000.00,
+        "itbis_retenido_por_terceros": 25000.00,
+        "itbis_retenido_a_terceros": 18000.00,
+        "itbis_neto_a_pagar": 67000.00,
+        "saldo_a_favor": 0.00
+      }
+    }
+  }
+}

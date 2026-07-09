@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "tool_name": "create_adjustment_entry",
+  "display_name": "Crear Asiento de Ajuste Contable",
+  "description": "Crea un asiento contable manual de ajuste (journal entry). Requiere que total débito = total crédito. Útil para correcciones, provisiones, depreciaciones manuales, y ajustes de cierre. Cada línea debe referenciar una cuenta del catálogo contable.",
+  "category": "accounting",
+  "risk_level": "critical",
+  "idempotency": "not idempotent (creates new entry per call)",
+  "permissions": ["accounting:write"],
+  "related_process": "BP-7 Cierre Fiscal, BP-11 Conteo Físico",
+
+  "input_schema": {
+    "type": "object",
+    "required": ["owner_uid", "fecha", "descripcion", "lineas"],
+    "properties": {
+      "owner_uid": {"type": "string"},
+      "fecha": {"type": "string", "format": "date", "description": "Fecha del asiento"},
+      "descripcion": {"type": "string", "minLength": 5, "description": "Concepto o descripción del asiento de ajuste"},
+      "referencia": {"type": "string", "description": "Documento de referencia (ej: factura, recibo, ID de conteo físico)"},
+      "tipo_asiento": {
+        "type": "string",
+        "enum": ["ajuste_manual", "provision", "correccion", "depreciacion", "cierre", "reapertura", "otro"],
+        "default": "ajuste_manual"
+      },
+      "lineas": {
+        "type": "array",
+        "minItems": 2,
+        "items": {
+          "type": "object",
+          "required": ["cuenta_contable", "tipo", "monto"],
+          "properties": {
+            "cuenta_contable": {"type": "string", "description": "Código de cuenta del catálogo contable"},
+            "tipo": {"type": "string", "enum": ["debito", "credito"]},
+            "monto": {"type": "number", "exclusiveMinimum": 0},
+            "descripcion": {"type": "string", "description": "Descripción específica de la línea"},
+            "centro_costo": {"type": "string", "description": "Centro de costo opcional"}
+          }
+        }
+      },
+      "periodo_contable": {"type": "string", "description": "Período contable (YYYY-MM). Default: derivado de fecha."},
+      "confirmacion_doble": {"type": "string", "description": "Token de doble confirmación (requerido para asientos de tipo cierre o reapertura)"}
+    }
+  },
+
+  "output_schema": {
+    "type": "object",
+    "properties": {
+      "entry_id": {"type": "string"},
+      "numero_asiento": {"type": "string", "description": "Número secuencial del asiento"},
+      "fecha": {"type": "string"},
+      "descripcion": {"type": "string"},
+      "total_debito": {"type": "number"},
+      "total_credito": {"type": "number"},
+      "diferencia": {"type": "number", "description": "Debe ser 0.00"},
+      "lineas_count": {"type": "integer"},
+      "periodo_contable": {"type": "string"},
+      "created_at": {"type": "string", "format": "date-time"}
+    }
+  },
+
+  "validations": [
+    {"field": "lineas", "rule": "Σ débitos debe ser exactamente igual a Σ créditos"},
+    {"field": "lineas[].cuenta_contable", "rule": "Debe existir en el catálogo contable y estar activa"},
+    {"field": "periodo_contable", "rule": "No puede estar cerrado fiscalmente (excepto tipo=reapertura)"},
+    {"field": "tipo_asiento in [cierre, reapertura]", "rule": "Requiere confirmacion_doble token"}
+  ],
+
+  "errors": [
+    {"code": "UNBALANCED", "message": "Asiento desbalanceado: débitos RD${debitos} vs créditos RD${creditos}. Diferencia: RD${diff}."},
+    {"code": "ACCOUNT_NOT_FOUND", "message": "Cuenta contable {cuenta} no encontrada o inactiva."},
+    {"code": "PERIOD_CLOSED", "message": "El período {periodo} está cerrado. No se permiten asientos."},
+    {"code": "DOUBLE_CONFIRMATION_REQUIRED", "message": "Asientos de tipo {tipo} requieren token de doble confirmación."}
+  ],
+
+  "post_effects": {
+    "events": ["AccountingEntryCreated"],
+    "accounting": "Actualiza saldos de cuentas, afecta libros mayor y balances"
+  },
+
+  "example": {
+    "input": {
+      "owner_uid": "abc123def456",
+      "fecha": "2026-06-30",
+      "descripcion": "Ajuste por diferencia de inventario - Conteo Físico Junio 2026",
+      "referencia": "cnt_20260630_001",
+      "tipo_asiento": "ajuste_manual",
+      "lineas": [
+        {"cuenta_contable": "6-1-02-001", "tipo": "debito", "monto": 4500.00, "descripcion": "Gasto por faltante de inventario"},
+        {"cuenta_contable": "1-1-03-001", "tipo": "credito", "monto": 4500.00, "descripcion": "Ajuste inventario - Mouse Logitech"}
+      ]
+    },
+    "output": {
+      "entry_id": "asiento_20260708_060",
+      "numero_asiento": "A-2026-06-089",
+      "fecha": "2026-06-30",
+      "descripcion": "Ajuste por diferencia de inventario - Conteo Físico Junio 2026",
+      "total_debito": 4500.00,
+      "total_credito": 4500.00,
+      "diferencia": 0.00,
+      "lineas_count": 2,
+      "periodo_contable": "2026-06",
+      "created_at": "2026-07-08T18:15:00Z"
+    }
+  }
+}

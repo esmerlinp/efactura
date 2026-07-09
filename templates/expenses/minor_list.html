@@ -1,0 +1,217 @@
+{% extends "layout.html" %}
+
+{% block title %}Gastos Menores{% endblock %}
+
+{% block page_header %}Gastos Menores (E43){% endblock %}
+
+{% block content %}
+<div class="page-title-container" style="margin-bottom: 24px; padding-left: 4px;">
+    <h1 class="page-title"
+        style="font-size: 1.75rem; font-weight: 800; font-family: var(--font-heading); color: var(--text-primary); margin: 0;">
+        Gastos Menores
+    </h1>
+    <p style="color: var(--text-secondary); font-size: 0.88rem; margin: 4px 0 0 0;">
+        Registra las transacciones no ocasionales o del mercado informal, como un gasto menor.
+        <a href="#" style="color: var(--accent-blue);" onclick="alert('Los gastos menores (E43) son comprobantes electrónicos para registrar egresos del mercado informal sin RNC formal. La DGII permite hasta RD$ 50,000 por comprobante.')">Saber más</a>
+    </p>
+</div>
+
+<div class="kpi-grid" style="margin-bottom: 20px;">
+    <div class="kpi-card kpi-card--warning">
+        <div class="kpi-card-header">
+            <span class="kpi-card-label">Total Gastos Menores</span>
+            <div class="kpi-card-icon" style="background: rgba(245, 158, 11, 0.1); color: var(--accent-yellow);">
+                <i class="fa-solid fa-receipt"></i>
+            </div>
+        </div>
+        <div class="kpi-card-value">RD$ {{ "{:,.2f}".format(total_amount or 0) }}</div>
+        <div class="kpi-card-subtitle">{{ total_items or 0 }} registros</div>
+    </div>
+    <div class="kpi-card kpi-card--success">
+        <div class="kpi-card-header">
+            <span class="kpi-card-label">Este Mes</span>
+            <div class="kpi-card-icon" style="background: rgba(16, 185, 129, 0.1); color: var(--accent-emerald);">
+                <i class="fa-solid fa-check-circle"></i>
+            </div>
+        </div>
+        <div class="kpi-card-value">RD$ {{ "{:,.2f}".format(this_month_amount or 0) }}</div>
+        <div class="kpi-card-subtitle">{{ this_month_count or 0 }} gastos</div>
+    </div>
+    <div class="kpi-card kpi-card--purple">
+        <div class="kpi-card-header">
+            <span class="kpi-card-label">Promedio</span>
+            <div class="kpi-card-icon" style="background: rgba(139, 92, 246, 0.1); color: var(--accent-purple);">
+                <i class="fa-solid fa-cash-register"></i>
+            </div>
+        </div>
+        <div class="kpi-card-value">RD$ {{ "{:,.2f}".format(avg_amount or 0) }}</div>
+        <div class="kpi-card-subtitle">por gasto menor</div>
+    </div>
+</div>
+
+<div class="card-table-wrapper" style="margin-bottom: 30px;">
+    <div class="table-header-row">
+        <div>
+            <h3 style="font-size: 1.25rem; font-family: var(--font-heading); margin-bottom: 6px;">Registro de Gastos Menores</h3>
+            <p style="color: var(--text-secondary); font-size: 0.88rem;">Transacciones informales y gastos diarios registrados como E43.</p>
+        </div>
+        <a href="{{ url_for('web_invoices.minor_new_route') }}" class="btn btn-primary">
+            <i class="fa-solid fa-plus"></i>
+            <span>Nuevo Gasto Menor</span>
+        </a>
+    </div>
+
+    <form method="GET" action="{{ url_for('web_invoices.minor_list') }}" id="filter-form" style="margin-bottom: 24px; padding: 15px; background: rgba(0, 0, 0, 0.02); border: 1px solid var(--border-color); border-radius: 8px; margin-left: 20px; margin-right: 20px;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; align-items: flex-end;">
+            <div class="form-group" style="margin-bottom: 0;">
+                <label for="search" style="font-size: 0.72rem; margin-bottom: 4px; display: block; color: var(--text-secondary);">Buscar</label>
+                <input type="text" id="search" name="search" class="form-input" placeholder="Concepto, nota..." value="{{ search_query or '' }}" style="width: 100%; font-size: 0.78rem; height: 36px; padding: 6px 10px;">
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+                <label for="start_date" style="font-size: 0.72rem; margin-bottom: 4px; display: block; color: var(--text-secondary);">Desde</label>
+                <input type="date" id="start_date" name="start_date" class="form-input" value="{{ start_date or '' }}" style="width: 100%; font-size: 0.78rem; height: 36px; padding: 6px 10px;">
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+                <label for="end_date" style="font-size: 0.72rem; margin-bottom: 4px; display: block; color: var(--text-secondary);">Hasta</label>
+                <input type="date" id="end_date" name="end_date" class="form-input" value="{{ end_date or '' }}" style="width: 100%; font-size: 0.78rem; height: 36px; padding: 6px 10px;">
+            </div>
+            <div style="display: flex; gap: 8px; justify-content: flex-end;">
+                <button type="submit" class="btn btn-secondary" style="flex: 1; justify-content: center; height: 36px; font-size: 0.78rem; padding: 0 12px; border-color: var(--accent-emerald); color: var(--accent-emerald);">
+                    <i class="fa-solid fa-filter"></i> Filtrar
+                </button>
+                <a href="{{ url_for('web_invoices.minor_list') }}" class="btn btn-secondary" style="justify-content: center; height: 36px; font-size: 0.78rem; padding: 0 10px; border-color: var(--border-color); color: var(--text-muted);" title="Limpiar Filtros">
+                    <i class="fa-solid fa-filter-circle-xmark"></i>
+                </a>
+            </div>
+        </div>
+    </form>
+
+    <form id="multiple-delete-form" method="POST" action="{{ url_for('web_invoices.delete_multiple_expenses_route') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div style="display: flex; justify-content: flex-start; margin-bottom: 12px; padding: 0 20px;">
+            <button type="submit" id="btn-delete-selected" class="btn btn-danger" style="display: none; height: 36px; font-size: 0.78rem; padding: 0 16px; align-items: center;" onclick="return confirm('¿Eliminar los gastos menores seleccionados?');">
+                <i class="fa-solid fa-trash-can" style="margin-right: 6px;"></i> Eliminar Seleccionados (<span id="selected-count">0</span>)
+            </button>
+        </div>
+        <div class="table-responsive">
+            <table class="table-premium">
+                <thead>
+                    <tr>
+                        <th style="width: 40px; text-align: center;">
+                            <input type="checkbox" id="select-all" onclick="toggleAllCheckboxes(this)" style="cursor: pointer;">
+                        </th>
+                        <th>No.</th>
+                        <th>Concepto</th>
+                        <th>Cuenta</th>
+                        <th>Fecha</th>
+                        <th>Monto</th>
+                        <th>Notas</th>
+                        <th style="text-align: right; width: 50px;"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if expenses %}
+                    {% for exp in expenses %}
+                    <tr>
+                        <td style="text-align: center;">
+                            <input type="checkbox" name="expense_ids" value="{{ exp.id }}" class="expense-checkbox" onclick="updateDeleteButton()" style="cursor: pointer;">
+                        </td>
+                        <td>
+                            <span style="font-family: monospace; font-size: 0.8rem; color: var(--accent-purple); font-weight: 500;">{{ exp.ncf or ('Auto #' + loop.index|string) }}</span>
+                        </td>
+                        <td>
+                            <span style="font-size: 0.85rem; font-weight: 500; display: block; color: var(--text-primary);">{{ exp.concept }}</span>
+                            {% if exp.category %}
+                            <span class="badge badge-secondary" style="font-size: 0.65rem; padding: 2px 6px;">{{ exp.category }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if exp.bankAccountName %}
+                            <span style="font-size: 0.8rem; color: var(--text-primary);">{{ exp.bankAccountName }}</span>
+                            {% else %}
+                            <span style="color: var(--text-muted); font-size: 0.75rem;">—</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span style="font-size: 0.8rem; color: var(--text-secondary);">{{ exp.date | format_date }}</span>
+                        </td>
+                        <td>
+                            <span style="color: var(--accent-red); font-size: 0.85rem; font-weight: 600;">RD$ {{ "{:,.2f}".format(exp.amount) }}</span>
+                            {% if exp.currency and exp.currency != 'DOP' %}
+                            <span style="font-size: 0.65rem; color: var(--text-muted); display: block;">{{ exp.currency }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span style="font-size: 0.78rem; color: var(--text-secondary); max-width: 200px; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ exp.notes or '—' }}</span>
+                        </td>
+                        <td style="text-align: right;">
+                            <div class="action-menu">
+                                <button type="button" class="action-menu-btn" onclick="toggleActionMenu(event)" title="Acciones">
+                                    <i class="fa-solid fa-ellipsis-vertical"></i>
+                                </button>
+                                <div class="action-menu-dropdown">
+                                    <a href="{{ url_for('web_invoices.expense_detail', expense_id=exp.id) }}" class="action-menu-item">
+                                        <i class="fa-solid fa-eye"></i> Ver Detalle
+                                    </a>
+                                    <a href="{{ url_for('web_invoices.edit_expense_route', expense_id=exp.id) }}" class="action-menu-item">
+                                        <i class="fa-solid fa-pen-to-square"></i> Editar
+                                    </a>
+                                    <button type="submit" class="action-menu-item text-danger"
+                                        formaction="{{ url_for('web_invoices.delete_expense_route', expense_id=exp.id) }}"
+                                        onclick="return confirm('¿Eliminar este gasto menor?');">
+                                        <i class="fa-solid fa-trash-can"></i> Eliminar
+                                    </button>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% else %}
+                    <tr>
+                        <td colspan="8" style="text-align: center; padding: 60px 0; color: var(--text-secondary);">
+                            <i class="fa-solid fa-receipt" style="font-size: 3rem; color: var(--text-muted); margin-bottom: 16px; opacity: 0.5; display: block;"></i>
+                            <span>No hay gastos menores registrados.</span>
+                            <a href="{{ url_for('web_invoices.minor_new_route') }}" class="btn btn-primary" style="display: inline-block; margin-top: 16px; padding: 10px 20px;">Registrar primer gasto menor</a>
+                        </td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </form>
+
+    {% if total_items > 0 %}
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border-color); flex-wrap: wrap; gap: 16px; padding-left: 4px; padding-right: 4px;">
+        <div style="color: var(--text-secondary); font-size: 0.85rem;">
+            Mostrando <strong style="color: var(--text-primary);">{{ start_count }}</strong> a <strong style="color: var(--text-primary);">{{ end_count }}</strong> de <strong style="color: var(--text-primary);">{{ total_items }}</strong> registros
+        </div>
+        <div style="display: flex; gap: 6px;">
+            {% if has_prev %}
+            <a href="?page={{ page - 1 }}&search={{ search_query or '' }}&start_date={{ start_date or '' }}&end_date={{ end_date or '' }}" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.82rem; display: inline-flex; align-items: center; gap: 6px;"><i class="fa-solid fa-chevron-left" style="font-size: 0.75rem;"></i> Anterior</a>
+            {% else %}
+            <button class="btn btn-secondary" disabled style="padding: 6px 12px; font-size: 0.82rem; opacity: 0.5; cursor: not-allowed;"><i class="fa-solid fa-chevron-left" style="font-size: 0.75rem;"></i> Anterior</button>
+            {% endif %}
+            {% if has_next %}
+            <a href="?page={{ page + 1 }}&search={{ search_query or '' }}&start_date={{ start_date or '' }}&end_date={{ end_date or '' }}" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.82rem; display: inline-flex; align-items: center; gap: 6px;">Siguiente <i class="fa-solid fa-chevron-right" style="font-size: 0.75rem;"></i></a>
+            {% else %}
+            <button class="btn btn-secondary" disabled style="padding: 6px 12px; font-size: 0.82rem; opacity: 0.5; cursor: not-allowed;">Siguiente <i class="fa-solid fa-chevron-right" style="font-size: 0.75rem;"></i></button>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+    function toggleAllCheckboxes(source) {
+        document.querySelectorAll('.expense-checkbox').forEach(cb => cb.checked = source.checked);
+        updateDeleteButton();
+    }
+    function updateDeleteButton() {
+        const count = document.querySelectorAll('.expense-checkbox:checked').length;
+        const btn = document.getElementById('btn-delete-selected');
+        const countSpan = document.getElementById('selected-count');
+        if (count > 0) { btn.style.display = 'inline-flex'; countSpan.textContent = count; }
+        else { btn.style.display = 'none'; }
+    }
+</script>
+{% endblock %}
