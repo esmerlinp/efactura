@@ -29,6 +29,46 @@ def _get_all(owner_uid: str, collection: str, sandbox: bool = True) -> list:
         return []
 
 
+def _get_paginated(owner_uid: str, collection: str, sandbox: bool = True,
+                   limit: int = 100, start_after: str = None,
+                   order_by: str = None, filters: dict = None) -> dict:
+    """Obtiene documentos con paginación. Retorna {items, cursor, has_more}."""
+    if not firebase_initialized or db_firestore is None:
+        return {"items": [], "cursor": None, "has_more": False}
+    try:
+        coll_path = _hr_collection(owner_uid, collection, sandbox)
+        query = db_firestore.collection(coll_path)
+
+        if filters:
+            for field, value in filters.items():
+                query = query.where(field, "==", value)
+
+        if order_by:
+            query = query.order_by(order_by)
+        elif start_after:
+            query = query.order_by("__name__")
+
+        if start_after:
+            try:
+                start_doc = db_firestore.collection(coll_path).document(start_after).get()
+                if start_doc.exists:
+                    query = query.start_after(start_doc)
+            except Exception:
+                pass
+
+        query = query.limit(limit + 1)
+        docs = query.get()
+        doc_list = list(docs)
+        has_more = len(doc_list) > limit
+        items = [{"id": d.id, **d.to_dict()} for d in doc_list[:limit]]
+        cursor = items[-1]["id"] if items else None
+
+        return {"items": items, "cursor": cursor, "has_more": has_more}
+    except Exception as e:
+        print(f"⚠️ HRDataService._get_paginated({collection}): {e}")
+        return {"items": [], "cursor": None, "has_more": False}
+
+
 def _get_one(owner_uid: str, collection: str, doc_id: str, sandbox: bool = True) -> dict | None:
     """Obtiene un documento por ID."""
     if not firebase_initialized or db_firestore is None:
@@ -152,6 +192,51 @@ def delete_payroll_group(owner_uid: str, group_id: str, sandbox: bool = True):
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# EMPLOYMENT CONTRACTS
+# ═══════════════════════════════════════════════════════════════════════════
+
+def get_contracts(owner_uid: str, sandbox: bool = True) -> list:
+    return _get_all(owner_uid, "employment_contracts", sandbox)
+
+def get_contract(owner_uid: str, contract_id: str, sandbox: bool = True) -> dict | None:
+    return _get_one(owner_uid, "employment_contracts", contract_id, sandbox)
+
+def save_contract(owner_uid: str, contract_id: str, data: dict, sandbox: bool = True):
+    _save(owner_uid, "employment_contracts", contract_id, data, sandbox)
+
+def delete_contract(owner_uid: str, contract_id: str, sandbox: bool = True):
+    _delete(owner_uid, "employment_contracts", contract_id, sandbox)
+
+def get_active_contracts_for_employee(owner_uid: str, employee_id: str, sandbox: bool = True) -> list:
+    if not firebase_initialized or db_firestore is None:
+        return []
+    try:
+        coll_path = _hr_collection(owner_uid, "employment_contracts", sandbox)
+        docs = db_firestore.collection(coll_path) \
+            .where("employeeId", "==", employee_id) \
+            .where("status", "==", "activo") \
+            .get()
+        return [{"id": d.id, **d.to_dict()} for d in docs]
+    except Exception as e:
+        print(f"⚠️ HRDataService.get_active_contracts_for_employee: {e}")
+        return []
+
+def get_contracts_for_group(owner_uid: str, group_id: str, sandbox: bool = True) -> list:
+    if not firebase_initialized or db_firestore is None:
+        return []
+    try:
+        coll_path = _hr_collection(owner_uid, "employment_contracts", sandbox)
+        docs = db_firestore.collection(coll_path) \
+            .where("payrollGroupIds", "array_contains", group_id) \
+            .where("status", "==", "activo") \
+            .get()
+        return [{"id": d.id, **d.to_dict()} for d in docs]
+    except Exception as e:
+        print(f"⚠️ HRDataService.get_contracts_for_group: {e}")
+        return []
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # PAYROLL
 # ═══════════════════════════════════════════════════════════════════════════
 
@@ -194,6 +279,82 @@ def get_payroll_period_by_key_and_group(owner_uid: str, period_key: str, group_i
     except Exception as e:
         print(f"⚠️ HRDataService.get_payroll_period_by_key_and_group: {e}")
     return None
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# PAYROLL LINES — Subcolección hr_payroll/{periodId}/lines/{lineId}
+# ═══════════════════════════════════════════════════════════════════════════
+
+def _payroll_lines_subcollection(owner_uid: str, period_id: str, sandbox: bool = True) -> str:
+    coll = _hr_collection(owner_uid, "payroll", sandbox)
+    return f"{coll}/{period_id}/lines"
+
+
+def get_payroll_lines(owner_uid: str, period_id: str, sandbox: bool = True, limit: int = None) -> list:
+    """Obtiene todas las líneas de nómina de un período desde la subcolección."""
+    if not firebase_initialized or db_firestore is None:
+        return []
+    try:
+        sub_coll = _payroll_lines_subcollection(owner_uid, period_id, sandbox)
+        query = db_firestore.collection(sub_coll)
+        if limit:
+            query = query.limit(limit)
+        docs = query.get()
+        return [{"id": d.id, **d.to_dict()} for d in docs]
+    except Exception as e:
+        print(f"⚠️ HRDataService.get_payroll_lines({period_id}): {e}")
+        return []
+
+
+def save_payroll_lines_batch(owner_uid: str, period_id: str, lines: list, sandbox: bool = True):
+    """Guarda líneas de nómina en la subcolección usando batch write (máx 500 por batch)."""
+    if not firebase_initialized or db_firestore is None or not lines:
+        return
+    try:
+        sub_coll = _payroll_lines_subcollection(owner_uid, period_id, sandbox)
+        batch_size = 400
+        for i in range(0, len(lines), batch_size):
+            batch = db_firestore.batch()
+            chunk = lines[i:i + batch_size]
+            for line in chunk:
+                line_id = line.get("employeeId", str(uuid.uuid4().hex[:12]))
+                doc_ref = db_firestore.collection(sub_coll).document(line_id)
+                batch.set(doc_ref, line)
+            batch.commit()
+    except Exception as e:
+        print(f"⚠️ HRDataService.save_payroll_lines_batch({period_id}): {e}")
+
+
+def delete_payroll_lines(owner_uid: str, period_id: str, sandbox: bool = True):
+    """Elimina todas las líneas de la subcolección de un período."""
+    if not firebase_initialized or db_firestore is None:
+        return
+    try:
+        lines = get_payroll_lines(owner_uid, period_id, sandbox=sandbox)
+        sub_coll = _payroll_lines_subcollection(owner_uid, period_id, sandbox)
+        for i in range(0, len(lines), 400):
+            batch = db_firestore.batch()
+            for line in lines[i:i + 400]:
+                batch.delete(db_firestore.collection(sub_coll).document(line["id"]))
+            batch.commit()
+    except Exception as e:
+        print(f"⚠️ HRDataService.delete_payroll_lines({period_id}): {e}")
+
+
+def get_payroll_lines_unified(period: dict, owner_uid: str = "", sandbox: bool = True) -> list:
+    """Obtiene líneas de nómina desde subcolección, con fallback a líneas embebidas.
+
+    Si el período tiene líneas embebidas ('lines' en el documento) y no hay
+    subcolección, las retorna directamente (compatibilidad hacia atrás).
+    Si hay subcolección, las lee de allí.
+    """
+    embedded = period.get("lines", [])
+    if embedded:
+        return embedded
+    period_id = period.get("id", "")
+    if period_id and owner_uid:
+        return get_payroll_lines(owner_uid, period_id, sandbox=sandbox)
+    return embedded
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -390,7 +551,13 @@ def delete_employee_document(owner_uid: str, doc_id: str, sandbox: bool = True):
 # TAX RATES — Tasas y topes TSS/DGII configurables
 # ═══════════════════════════════════════════════════════════════════════════
 
+def _tax_rates_collection(owner_uid: str, sandbox: bool = True) -> str:
+    prefix = "sandbox_" if sandbox else ""
+    return f"users/{owner_uid}/{prefix}hr_tax_rates_history"
+
+
 def get_tax_rates(owner_uid: str, sandbox: bool = True) -> dict:
+    """Obtiene las tasas vigentes actualmente (documento 'tax_rates' en hr_config)."""
     if not firebase_initialized or db_firestore is None:
         return {}
     try:
@@ -404,14 +571,76 @@ def get_tax_rates(owner_uid: str, sandbox: bool = True) -> dict:
 
 
 def save_tax_rates(owner_uid: str, data: dict, sandbox: bool = True):
+    """Guarda tasas actuales Y crea entrada en el historial."""
     if not firebase_initialized or db_firestore is None:
         return
     try:
+        now_iso = datetime.now(timezone.utc).isoformat()
+        data["updatedAt"] = now_iso
+
         coll = _config_collection(owner_uid, sandbox)
-        data["updatedAt"] = datetime.now(timezone.utc).isoformat()
         db_firestore.collection(coll).document("tax_rates").set(data)
+
+        _close_active_tax_rates(owner_uid, sandbox)
+        history_coll = _tax_rates_collection(owner_uid, sandbox)
+        history_doc = dict(data)
+        history_doc["effectiveFrom"] = now_iso
+        history_doc["effectiveTo"] = None
+        history_doc["createdAt"] = now_iso
+        db_firestore.collection(history_coll).add(history_doc)
     except Exception as e:
         print(f"⚠️ HRDataService.save_tax_rates: {e}")
+
+
+def _close_active_tax_rates(owner_uid: str, sandbox: bool = True):
+    """Cierra (setea effectiveTo) el documento de tasas activo actual."""
+    if not firebase_initialized or db_firestore is None:
+        return
+    try:
+        now_iso = datetime.now(timezone.utc).isoformat()
+        history_coll = _tax_rates_collection(owner_uid, sandbox)
+        active_docs = db_firestore.collection(history_coll) \
+            .where("effectiveTo", "==", None) \
+            .limit(1).get()
+        for d in active_docs:
+            d.reference.update({"effectiveTo": now_iso})
+    except Exception as e:
+        print(f"⚠️ HRDataService._close_active_tax_rates: {e}")
+
+
+def get_tax_rates_for_date(owner_uid: str, target_date: str, sandbox: bool = True) -> dict:
+    """Obtiene las tasas vigentes para una fecha específica (ISO date string)."""
+    if not firebase_initialized or db_firestore is None:
+        return {}
+    try:
+        history_coll = _tax_rates_collection(owner_uid, sandbox)
+        docs = db_firestore.collection(history_coll) \
+            .where("effectiveFrom", "<=", target_date) \
+            .order_by("effectiveFrom", direction="DESCENDING") \
+            .limit(1).get()
+        for d in docs:
+            data = d.to_dict()
+            eff_to = data.get("effectiveTo")
+            if eff_to is None or eff_to >= target_date:
+                return data
+    except Exception as e:
+        print(f"⚠️ HRDataService.get_tax_rates_for_date: {e}")
+    return {}
+
+
+def get_tax_rates_history(owner_uid: str, sandbox: bool = True) -> list:
+    """Obtiene el historial completo de cambios de tasas, ordenado por fecha."""
+    if not firebase_initialized or db_firestore is None:
+        return []
+    try:
+        history_coll = _tax_rates_collection(owner_uid, sandbox)
+        docs = db_firestore.collection(history_coll) \
+            .order_by("effectiveFrom", direction="DESCENDING") \
+            .get()
+        return [{"id": d.id, **d.to_dict()} for d in docs]
+    except Exception as e:
+        print(f"⚠️ HRDataService.get_tax_rates_history: {e}")
+        return []
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -652,3 +881,95 @@ def save_mass_action(owner_uid: str, action_id: str, data: dict, sandbox: bool =
 
 def delete_mass_action(owner_uid: str, action_id: str, sandbox: bool = True):
     _delete(owner_uid, "mass_actions", action_id, sandbox)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# PAYROLL POLICIES
+# ═══════════════════════════════════════════════════════════════════════════
+
+def get_payroll_policies(owner_uid: str, sandbox: bool = True) -> list:
+    return _get_all(owner_uid, "payroll_policies", sandbox)
+
+def get_payroll_policy(owner_uid: str, policy_id: str, sandbox: bool = True) -> dict | None:
+    return _get_one(owner_uid, "payroll_policies", policy_id, sandbox)
+
+def save_payroll_policy(owner_uid: str, policy_id: str, data: dict, sandbox: bool = True):
+    _save(owner_uid, "payroll_policies", policy_id, data, sandbox)
+
+def delete_payroll_policy(owner_uid: str, policy_id: str, sandbox: bool = True):
+    _delete(owner_uid, "payroll_policies", policy_id, sandbox)
+
+def get_default_payroll_policy(owner_uid: str, sandbox: bool = True) -> dict | None:
+    if not firebase_initialized or db_firestore is None:
+        return None
+    try:
+        coll_path = _hr_collection(owner_uid, "payroll_policies", sandbox)
+        docs = db_firestore.collection(coll_path) \
+            .where("isDefault", "==", True) \
+            .limit(1).get()
+        for d in docs:
+            return {"id": d.id, **d.to_dict()}
+    except Exception as e:
+        print(f"⚠️ HRDataService.get_default_payroll_policy: {e}")
+    return None
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# PAYROLL RULES (reglas configurables)
+# ═══════════════════════════════════════════════════════════════════════════
+
+def get_payroll_rules(owner_uid: str, sandbox: bool = True) -> list:
+    return _get_all(owner_uid, "payroll_rules", sandbox)
+
+def get_payroll_rule(owner_uid: str, rule_id: str, sandbox: bool = True) -> dict | None:
+    return _get_one(owner_uid, "payroll_rules", rule_id, sandbox)
+
+def save_payroll_rule(owner_uid: str, rule_id: str, data: dict, sandbox: bool = True):
+    _save(owner_uid, "payroll_rules", rule_id, data, sandbox)
+
+def delete_payroll_rule(owner_uid: str, rule_id: str, sandbox: bool = True):
+    _delete(owner_uid, "payroll_rules", rule_id, sandbox)
+
+def get_active_rules_for_scope(owner_uid: str, scope: str = "global",
+                                scope_id: str = "", sandbox: bool = True) -> list:
+    """Obtiene reglas activas para un ámbito (global, grupo o empleado)."""
+    rules = get_payroll_rules(owner_uid, sandbox=sandbox)
+    active = [r for r in rules if r.get("isActive", True)]
+    matching = []
+    for r in active:
+        r_scope = r.get("scope", "global")
+        if r_scope == "global":
+            matching.append(r)
+        elif r_scope == scope and (not scope_id or r.get("scopeId") == scope_id):
+            matching.append(r)
+    matching.sort(key=lambda r: r.get("priority", 999))
+    return matching
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# GARNISHMENTS (embargos salariales)
+# ═══════════════════════════════════════════════════════════════════════════
+
+def get_garnishments(owner_uid: str, employee_id: str = "", sandbox: bool = True) -> list:
+    if employee_id:
+        if not firebase_initialized or db_firestore is None:
+            return []
+        try:
+            coll_path = _hr_collection(owner_uid, "garnishments", sandbox)
+            docs = db_firestore.collection(coll_path) \
+                .where("employeeId", "==", employee_id) \
+                .get()
+            return [{"id": d.id, **d.to_dict()} for d in docs]
+        except Exception as e:
+            print(f"⚠️ HRDataService.get_garnishments: {e}")
+            return []
+    return _get_all(owner_uid, "garnishments", sandbox)
+
+def get_garnishment(owner_uid: str, garnishment_id: str, sandbox: bool = True) -> dict | None:
+    return _get_one(owner_uid, "garnishments", garnishment_id, sandbox)
+
+def save_garnishment(owner_uid: str, garnishment_id: str, data: dict, sandbox: bool = True):
+    _save(owner_uid, "garnishments", garnishment_id, data, sandbox)
+
+def delete_garnishment(owner_uid: str, garnishment_id: str, sandbox: bool = True):
+    _delete(owner_uid, "garnishments", garnishment_id, sandbox)

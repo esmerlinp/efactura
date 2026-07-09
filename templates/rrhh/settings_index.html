@@ -41,8 +41,8 @@
         <div class="card-title">Catálogos</div>
         <div class="card-desc">Administrar posiciones y departamentos de la organización.</div>
         <ul class="link-list">
-            <li><a href="{{ url_for('web_rrhh.catalog_list', catalog_name='positions') }}"><i class="fa-solid fa-briefcase" style="font-size:0.7rem;margin-right:4px;color:var(--text-muted);"></i> Posiciones</a></li>
-            <li><a href="{{ url_for('web_rrhh.catalog_list', catalog_name='departments') }}"><i class="fa-solid fa-building" style="font-size:0.7rem;margin-right:4px;color:var(--text-muted);"></i> Departamentos</a></li>
+            <li><a href="{{ url_for('web_rrhh.position_list') }}"><i class="fa-solid fa-briefcase" style="font-size:0.7rem;margin-right:4px;color:var(--text-muted);"></i> Posiciones</a></li>
+            <li><a href="{{ url_for('web_rrhh.department_list') }}"><i class="fa-solid fa-building" style="font-size:0.7rem;margin-right:4px;color:var(--text-muted);"></i> Departamentos</a></li>
         </ul>
     </div>
 

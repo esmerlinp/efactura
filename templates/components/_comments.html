@@ -213,14 +213,14 @@ Variables esperadas:
                     <button type="button" onclick="showEditForm('{{ c.id }}')" class="action-icon-btn"
                         title="Editar comentario"
                         style="background: transparent; border: none; cursor: pointer; color: var(--text-muted); font-size: 0.78rem; padding: 2px;"><i
-                            class="fa-regular fa-pen-to-square"></i></button>
+                            class="fa-solid fa-pen-to-square"></i></button>
                     <form action="{{ delete_url_prefix }}/{{ c.id }}/delete" method="POST"
                         onsubmit="return confirm('¿Estás seguro de que deseas eliminar este comentario?');"
                         style="margin: 0; display: inline-flex; align-items: center;">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <button type="submit" class="action-icon-btn" title="Eliminar comentario"
                             style="background: transparent; border: none; cursor: pointer; color: var(--accent-red); font-size: 0.78rem; padding: 2px;"><i
-                                class="fa-regular fa-trash-can"></i></button>
+                                class="fa-solid fa-trash-can"></i></button>
                     </form>
                     {% endif %}
                 </div>

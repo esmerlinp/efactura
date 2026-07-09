@@ -324,7 +324,7 @@
                         {% endif %}
                         <form method="POST" action="{{ url_for('web_contacts.delete_contact_interaction', contact_id=contact.id, interaction_id=inter.id) }}" style="display:inline;" onsubmit="return confirm('¿Eliminar esta interacción?')">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <button type="submit" class="btn btn-ghost btn-xs" title="Eliminar"><i class="fa-solid fa-trash" style="color:var(--danger);"></i></button>
+                            <button type="submit" class="btn btn-ghost btn-xs" title="Eliminar"><i class="fa-solid fa-trash-can" style="color:var(--danger);"></i></button>
                         </form>
                     </div>
                 </div>

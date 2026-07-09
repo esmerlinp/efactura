@@ -55,11 +55,11 @@
                             data-tooltip="Empleados">
                             <a href="{{ url_for('web_rrhh.employee_list') }}"><span>Empleados</span></a>
                         </li>
-                        <li class="nav-item {% if active_page == 'rrhh_employees' %}active{% endif %}"
+                        <li class="nav-item {% if active_page == 'rrhh_org_chart' %}active{% endif %}"
                             data-tooltip="Organigrama">
                             <a href="{{ url_for('web_rrhh.org_chart') }}"><span>Organigrama</span></a>
                         </li>
-                        <li class="nav-item {% if active_page == 'rrhh_employees' %}active{% endif %}"
+                        <li class="nav-item {% if active_page == 'rrhh_team_calendar' %}active{% endif %}"
                             data-tooltip="Calendario">
                             <a href="{{ url_for('web_rrhh.team_calendar') }}"><span>Calendario del equipo</span></a>
                         </li>
@@ -81,11 +81,11 @@
                         <i class="fa-solid fa-chevron-down section-toggle-icon"></i>
                     </div>
                     <ul class="sidebar-section-content">
-                        <li class="nav-item {% if active_page == 'rrhh_attendance' %}active{% endif %}"
+                        <li class="nav-item {% if active_page == 'rrhh_vacations' %}active{% endif %}"
                             data-tooltip="Vacaciones">
                             <a href="{{ url_for('web_rrhh.vacation_list') }}"><span>Vacaciones</span></a>
                         </li>
-                        <li class="nav-item {% if active_page == 'rrhh_attendance' %}active{% endif %}"
+                        <li class="nav-item {% if active_page == 'rrhh_leaves' %}active{% endif %}"
                             data-tooltip="Permisos">
                             <a href="{{ url_for('web_rrhh.leave_list') }}"><span>Permisos / Licencias</span></a>
                         </li>
@@ -106,11 +106,11 @@
                             data-tooltip="Calcular Nómina">
                             <a href="{{ url_for('web_rrhh.payroll_new') }}"><span>Calcular período</span></a>
                         </li>
-                        <li class="nav-item {% if active_page == 'rrhh_payroll' %}active{% endif %}"
+                        <li class="nav-item {% if active_page == 'rrhh_payroll_simulate' %}active{% endif %}"
                             data-tooltip="Simular">
                             <a href="{{ url_for('web_rrhh.payroll_simulate') }}"><span>Simular</span></a>
                         </li>
-                        <li class="nav-item {% if active_page == 'rrhh_payroll' %}active{% endif %}"
+                        <li class="nav-item {% if active_page == 'rrhh_payroll_history' %}active{% endif %}"
                             data-tooltip="Historial">
                             <a href="{{ url_for('web_rrhh.payroll_list') }}"><span>Historial de nóminas</span></a>
                         </li>
@@ -131,7 +131,7 @@
                             data-tooltip="Evaluaciones">
                             <a href="{{ url_for('web_rrhh.evaluation_list') }}"><span>Evaluaciones</span></a>
                         </li>
-                        <li class="nav-item {% if active_page == 'rrhh_development' %}active{% endif %}"
+                        <li class="nav-item {% if active_page == 'rrhh_training' %}active{% endif %}"
                             data-tooltip="Capacitaciones">
                             <a href="{{ url_for('web_rrhh.training_list') }}"><span>Capacitaciones</span></a>
                         </li>
@@ -156,7 +156,7 @@
                         </li>
                         <li class="nav-item {% if active_page == 'rrhh_dgt' %}active{% endif %}"
                             data-tooltip="DGT">
-                            <a href="{{ url_for('web_dgt.dgt_index') }}"><span>Formularios DGT / SIRLA</span></a>
+                            <a href="{{ url_for('web_rrhh.dgt_index') }}"><span>Formularios DGT / SIRLA</span></a>
                         </li>
                     </ul>
                 </div>
@@ -174,19 +174,23 @@
                         <i class="fa-solid fa-chevron-down section-toggle-icon"></i>
                     </div>
                     <ul class="sidebar-section-content">
-                        <li class="nav-item {% if active_page == 'rrhh_settings' %}active{% endif %}"
+                        <li class="nav-item {% if active_page == 'rrhh_positions' %}active{% endif %}"
                             data-tooltip="Posiciones">
-                            <a href="{{ url_for('web_rrhh.catalog_list', catalog_name='positions') }}"><span>Catálogos (posiciones, deptos.)</span></a>
+                            <a href="{{ url_for('web_rrhh.position_list') }}"><span>Posiciones</span></a>
                         </li>
-                        <li class="nav-item {% if active_page == 'rrhh_settings' %}active{% endif %}"
+                        <li class="nav-item {% if active_page == 'rrhh_departments' %}active{% endif %}"
+                            data-tooltip="Departamentos">
+                            <a href="{{ url_for('web_rrhh.department_list') }}"><span>Departamentos</span></a>
+                        </li>
+                        <li class="nav-item {% if active_page == 'rrhh_concepts' %}active{% endif %}"
                             data-tooltip="Conceptos">
                             <a href="{{ url_for('web_rrhh.concept_list') }}"><span>Conceptos de nómina</span></a>
                         </li>
-                        <li class="nav-item {% if active_page == 'rrhh_settings' %}active{% endif %}"
+                        <li class="nav-item {% if active_page == 'rrhh_payroll_config' %}active{% endif %}"
                             data-tooltip="Configuración de nómina">
                             <a href="{{ url_for('web_rrhh.payroll_settings') }}"><span>Configuración de nómina</span></a>
                         </li>
-                        <li class="nav-item {% if active_page == 'rrhh_settings' %}active{% endif %}"
+                        <li class="nav-item {% if active_page == 'rrhh_audit' %}active{% endif %}"
                             data-tooltip="Auditoría">
                             <a href="{{ url_for('web_rrhh.audit_log') }}"><span>Auditoría</span></a>
                         </li>
@@ -216,8 +220,9 @@
                         if (!el) return;
                         const hasActive = el.querySelector('.nav-item.active');
                         if (hasActive) { el.classList.remove('collapsed'); return; }
-                        const stored = localStorage.getItem('sidebar-collapsed-' + id);
-                        if (stored === 'true') el.classList.add('collapsed');
+                        const stored = localStorage.getItem(id);
+                        if (stored === 'false') { el.classList.remove('collapsed'); }
+                        else { el.classList.add('collapsed'); }
                     });
                 </script>
 {% endblock %}

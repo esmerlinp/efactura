@@ -1,203 +1,173 @@
 {% extends "layout.html" %}
 
 {% block title %}Pagos Recurrentes{% endblock %}
-
 {% block page_header %}Pagos Recurrentes{% endblock %}
 
 {% block content %}
 <div class="page-title-container" style="margin-bottom: 24px; padding-left: 4px;">
-    <h1 class="page-title"
-        style="font-size: 1.75rem; font-weight: 800; font-family: var(--font-heading); color: var(--text-primary); margin: 0;">
-        Pagos Recurrentes
-    </h1>
-    <p style="color: var(--text-secondary); font-size: 0.88rem; margin: 4px 0 0 0;">
-        Programa pagos automáticos para gastos fijos recurrentes como alquiler, servicios, suscripciones y más.
-    </p>
+    <h1 style="font-size: 1.75rem; font-weight: 800; font-family: var(--font-heading); color: var(--text-primary); margin: 0;">Pagos Recurrentes</h1>
 </div>
 
-<div class="kpi-grid" style="margin-bottom: 20px;">
-    <div class="kpi-card">
-        <div class="kpi-card-header">
-            <span class="kpi-card-label">Total Programado/mes</span>
-            <div class="kpi-card-icon" style="background: rgba(59, 130, 246, 0.1); color: var(--accent-blue);">
-                <i class="fa-solid fa-arrows-spin"></i>
-            </div>
-        </div>
-        <div class="kpi-card-value">RD$ {{ "{:,.2f}".format(total_monthly or 0) }}</div>
-        <div class="kpi-card-subtitle">{{ total_items or 0 }} recurrentes activos</div>
+<div class="summary-strip">
+    <div class="summary-strip-item">
+        <div class="summary-strip-label">Total Programado/mes</div>
+        <div class="summary-strip-value" style="color: var(--accent-blue);">RD$ {{ "{:,.2f}".format(total_monthly or 0) }}</div>
     </div>
-    <div class="kpi-card kpi-card--success">
-        <div class="kpi-card-header">
-            <span class="kpi-card-label">Próximo Vencimiento</span>
-            <div class="kpi-card-icon" style="background: rgba(16, 185, 129, 0.1); color: var(--accent-emerald);">
-                <i class="fa-solid fa-calendar-check"></i>
-            </div>
-        </div>
-        <div class="kpi-card-value" style="font-size:1rem;">{{ next_due or '—' }}</div>
-        <div class="kpi-card-subtitle">{{ upcoming_count or 0 }} próximos esta semana</div>
+    <div class="summary-strip-item">
+        <div class="summary-strip-label">Activos</div>
+        <div class="summary-strip-value">{{ total_items or 0 }}</div>
     </div>
-    <div class="kpi-card kpi-card--purple">
-        <div class="kpi-card-header">
-            <span class="kpi-card-label">Frecuencias</span>
-            <div class="kpi-card-icon" style="background: rgba(139, 92, 246, 0.1); color: var(--accent-purple);">
-                <i class="fa-solid fa-clock"></i>
-            </div>
-        </div>
-        <div class="kpi-card-value" style="font-size:0.95rem;">{{ frequency_summary or '—' }}</div>
-        <div class="kpi-card-subtitle">distribución</div>
+    <div class="summary-strip-item">
+        <div class="summary-strip-label">Próximo Vencimiento</div>
+        <div class="summary-strip-value" style="color: var(--accent-emerald);">{{ next_due or '—' }}</div>
     </div>
 </div>
 
-<div class="card-table-wrapper" style="margin-bottom: 30px;">
-    <div class="table-header-row">
-        <div>
-            <h3 style="font-size: 1.25rem; font-family: var(--font-heading); margin-bottom: 6px;">Pagos Recurrentes Programados</h3>
-            <p style="color: var(--text-secondary); font-size: 0.88rem;">Gastos fijos configurados para registro automático periódico.</p>
-        </div>
-        <a href="{{ url_for('web_invoices.recurring_new_route') }}" class="btn btn-primary">
-            <i class="fa-solid fa-plus"></i>
-            <span>Nuevo Pago Recurrente</span>
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
+    <h2 style="font-size: 0.95rem; font-weight: 500; color: var(--text-secondary); margin: 0;">Pagos Recurrentes Programados</h2>
+    <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+        <a href="{{ url_for('web_invoices.recurring_new_route') }}" class="btn btn-primary" style="height: 32px; font-size: 0.78rem; padding: 0 12px; display: inline-flex; align-items: center; gap: 4px;">
+            <i class="fa-solid fa-plus"></i> Nuevo Pago Recurrente
         </a>
     </div>
+</div>
 
-    <form method="GET" action="{{ url_for('web_invoices.recurring_list') }}" id="filter-form" style="margin-bottom: 24px; padding: 15px; background: rgba(0, 0, 0, 0.02); border: 1px solid var(--border-color); border-radius: 8px; margin-left: 20px; margin-right: 20px;">
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; align-items: flex-end;">
-            <div class="form-group" style="margin-bottom: 0;">
-                <label for="search" style="font-size: 0.72rem; margin-bottom: 4px; display: block; color: var(--text-secondary);">Buscar</label>
-                <input type="text" id="search" name="search" class="form-input" placeholder="Concepto..." value="{{ search_query or '' }}" style="width: 100%; font-size: 0.78rem; height: 36px; padding: 6px 10px;">
-            </div>
-            <div class="form-group" style="margin-bottom: 0;">
-                <label for="frequency" style="font-size: 0.72rem; margin-bottom: 4px; display: block; color: var(--text-secondary);">Frecuencia</label>
-                <select id="frequency" name="frequency" class="form-select" style="width: 100%; font-size: 0.78rem; height: 36px; padding: 6px 10px;">
-                    <option value="">-- Todas --</option>
-                    <option value="semanal" {% if frequency_filter == 'semanal' %}selected{% endif %}>Semanal</option>
-                    <option value="quincenal" {% if frequency_filter == 'quincenal' %}selected{% endif %}>Quincenal</option>
-                    <option value="mensual" {% if frequency_filter == 'mensual' %}selected{% endif %}>Mensual</option>
-                </select>
-            </div>
-            <div style="display: flex; gap: 8px; justify-content: flex-end;">
-                <button type="submit" class="btn btn-secondary" style="flex: 1; justify-content: center; height: 36px; font-size: 0.78rem; padding: 0 12px; border-color: var(--accent-emerald); color: var(--accent-emerald);">
-                    <i class="fa-solid fa-filter"></i> Filtrar
-                </button>
-                <a href="{{ url_for('web_invoices.recurring_list') }}" class="btn btn-secondary" style="justify-content: center; height: 36px; font-size: 0.78rem; padding: 0 10px; border-color: var(--border-color); color: var(--text-muted);" title="Limpiar Filtros">
-                    <i class="fa-solid fa-filter-circle-xmark"></i>
-                </a>
-            </div>
-        </div>
-    </form>
+<div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 16px;">
+    <div style="position: relative; width: 200px;">
+        <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.78rem;"></i>
+        <input type="text" id="filter-search" placeholder="Buscar concepto..." value="{{ search_query or '' }}"
+            style="width: 100%; height: 32px; padding: 0 10px 0 28px; background-color: var(--bg-input); border: 1px solid var(--border-color); border-radius: var(--radius-sm); color: var(--text-primary); font-size: 0.78rem;" oninput="submitFilters()">
+    </div>
+    <select id="filter-frequency" onchange="submitFilters()"
+        style="height: 32px; padding: 0 8px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-sm); color: var(--text-primary); font-size: 0.78rem; cursor: pointer; outline: none;">
+        <option value="">Todas las Frecuencias</option>
+        <option value="semanal" {% if frequency_filter == 'semanal' %}selected{% endif %}>Semanal</option>
+        <option value="quincenal" {% if frequency_filter == 'quincenal' %}selected{% endif %}>Quincenal</option>
+        <option value="mensual" {% if frequency_filter == 'mensual' %}selected{% endif %}>Mensual</option>
+    </select>
+    {% if search_query or frequency_filter %}
+    <a href="{{ url_for('web_invoices.recurring_list') }}" class="btn btn-subtle" style="height: 32px; font-size: 0.75rem; display: inline-flex; align-items: center; gap: 4px;">
+        <i class="fa-solid fa-xmark"></i> Limpiar
+    </a>
+    {% endif %}
+</div>
 
-    <div class="table-responsive">
-        <table class="table-premium">
-            <thead>
-                <tr>
-                    <th>Concepto</th>
-                    <th>Frecuencia</th>
-                    <th>Próximo Registro</th>
-                    <th>Vence</th>
-                    <th>Monto</th>
-                    <th>Estado</th>
-                    <th style="text-align: right; width: 50px;"></th>
-                </tr>
-            </thead>
-            <tbody>
-                {% if expenses %}
-                {% for exp in expenses %}
-                <tr>
-                    <td>
-                        <span style="font-size: 0.85rem; font-weight: 500; color: var(--text-primary);">{{ exp.concept }}</span>
-                        {% if exp.category %}
-                        <span class="badge badge-secondary" style="font-size: 0.65rem; padding: 2px 6px; display: block; width: fit-content; margin-top: 3px;">{{ exp.category }}</span>
-                        {% endif %}
-                    </td>
-                    <td>
-                        <span class="badge badge-purple" style="font-size: 0.7rem; padding: 4px 8px;">
-                            <i class="fa-solid fa-rotate"></i> {{ exp.recurrenceInterval | capitalize if exp.recurrenceInterval else 'Mensual' }}
-                        </span>
-                    </td>
-                    <td>
-                        <span style="font-size: 0.82rem; color: var(--accent-emerald); font-weight: 500;">
-                            {{ exp.nextOccurrenceDate | format_date if exp.nextOccurrenceDate else '—' }}
-                        </span>
-                    </td>
-                    <td>
-                        <span style="font-size: 0.8rem; color: var(--text-secondary);">{{ exp.recurrenceEndDate | format_date if exp.recurrenceEndDate else 'Sin límite' }}</span>
-                    </td>
-                    <td>
-                        <span style="color: var(--accent-red); font-size: 0.85rem; font-weight: 600;">RD$ {{ "{:,.2f}".format(exp.amount) }}</span>
-                        {% if exp.currency and exp.currency != 'DOP' %}
-                        <span style="font-size: 0.65rem; color: var(--text-muted); display: block;">{{ exp.currency }}</span>
-                        {% endif %}
-                    </td>
-                    <td>
-                        {% if exp.nextOccurrenceDate and exp.recurrenceEndDate %}
-                            {% if exp.nextOccurrenceDate > exp.recurrenceEndDate %}
-                            <span class="badge badge-gray" style="font-size: 0.65rem; padding: 3px 8px;">
-                                <i class="fa-solid fa-stop-circle"></i> Finalizado
-                            </span>
-                            {% else %}
-                            <span class="badge badge-green" style="font-size: 0.65rem; padding: 3px 8px;">
-                                <i class="fa-solid fa-check-circle"></i> Activo
-                            </span>
-                            {% endif %}
-                        {% else %}
-                        <span class="badge badge-green" style="font-size: 0.65rem; padding: 3px 8px;">
-                            <i class="fa-solid fa-check-circle"></i> Activo
-                        </span>
-                        {% endif %}
-                    </td>
-                    <td style="text-align: right;">
-                        <div class="action-menu">
-                            <button type="button" class="action-menu-btn" onclick="toggleActionMenu(event)" title="Acciones">
-                                <i class="fa-solid fa-ellipsis-vertical"></i>
-                            </button>
-                            <div class="action-menu-dropdown">
-                                <a href="{{ url_for('web_invoices.expense_detail', expense_id=exp.id) }}" class="action-menu-item">
-                                    <i class="fa-solid fa-eye"></i> Ver Detalle
-                                </a>
-                                <a href="{{ url_for('web_invoices.edit_expense_route', expense_id=exp.id) }}" class="action-menu-item">
-                                    <i class="fa-solid fa-pen-to-square"></i> Editar
-                                </a>
-                                <button type="submit" class="action-menu-item text-danger"
-                                    formaction="{{ url_for('web_invoices.delete_expense_route', expense_id=exp.id) }}"
-                                    onclick="return confirm('¿Desactivar este pago recurrente?');">
+<div class="card-table-wrapper" style="box-shadow: none; padding: 0; overflow: hidden;">
+    <table class="table-premium" style="width: 100%; border-collapse: collapse;">
+        <thead>
+            <tr style="text-align: left; background: rgba(0,0,0,0.02); border-bottom: 1px solid var(--border-color);">
+                <th style="padding: 12px 16px; font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase;">Concepto</th>
+                <th style="padding: 12px 16px; font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase;">Frecuencia</th>
+                <th style="padding: 12px 16px; font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase;">Próximo</th>
+                <th style="padding: 12px 16px; font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; text-align: right;">Monto</th>
+                <th style="padding: 12px 16px; font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; text-align: center;">Estado</th>
+                <th style="padding: 12px 16px; font-size: 0.75rem; color: var(--text-secondary); text-transform: uppercase; text-align: center; width: 50px;"></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% if expenses %}
+            {% for exp in expenses %}
+            <tr style="border-bottom: 1px solid var(--border-color); cursor: pointer;" onclick="window.location='{{ url_for('web_invoices.expense_detail', expense_id=exp.id) }}'">
+                <td style="padding: 12px 16px;">
+                    <span style="font-size: 0.85rem; font-weight: 500; color: var(--text-primary);">{{ exp.concept }}</span>
+                    {% if exp.category %}
+                    <span style="font-size: 0.7rem; color: var(--text-muted); display: block;">{{ exp.category }}</span>
+                    {% endif %}
+                </td>
+                <td style="padding: 12px 16px;">
+                    <span style="font-size: 0.78rem; color: var(--accent-purple); font-weight: 500; text-transform: capitalize;">
+                        <i class="fa-solid fa-rotate" style="font-size:0.7rem;"></i> {{ exp.recurrenceInterval or 'Mensual' }}
+                    </span>
+                </td>
+                <td style="padding: 12px 16px;">
+                    <span style="font-size: 0.8rem; color: var(--accent-emerald); font-weight: 500;">
+                        {{ exp.nextOccurrenceDate | format_date if exp.nextOccurrenceDate else '—' }}
+                    </span>
+                </td>
+                <td style="padding: 12px 16px; text-align: right;">
+                    <span style="color: var(--accent-red); font-size: 0.85rem; font-weight: 600;">RD$ {{ "{:,.2f}".format(exp.amount) }}</span>
+                </td>
+                <td style="padding: 12px 16px; text-align: center;">
+                    {% if exp.nextOccurrenceDate and exp.recurrenceEndDate and exp.nextOccurrenceDate > exp.recurrenceEndDate %}
+                    <span class="status-badge" style="background: rgba(107,114,128,0.12); color: #6b7280; font-size:0.7rem; padding:3px 8px; border-radius:12px;">
+                        <i class="fa-solid fa-stop-circle"></i> Finalizado
+                    </span>
+                    {% else %}
+                    <span class="status-badge" style="background: rgba(16,185,129,0.12); color: var(--accent-emerald); font-size:0.7rem; padding:3px 8px; border-radius:12px;">
+                        <i class="fa-solid fa-check-circle"></i> Activo
+                    </span>
+                    {% endif %}
+                </td>
+                <td style="padding: 12px 16px; text-align: center;" onclick="event.stopPropagation();">
+                    <div class="action-menu">
+                        <button type="button" class="action-menu-btn" onclick="toggleActionMenu(event)" title="Acciones">
+                            <i class="fa-solid fa-ellipsis-vertical"></i>
+                        </button>
+                        <div class="action-menu-dropdown">
+                            <a href="{{ url_for('web_invoices.expense_detail', expense_id=exp.id) }}" class="action-menu-item">
+                                <i class="fa-solid fa-eye"></i> Ver Detalle
+                            </a>
+                            <a href="{{ url_for('web_invoices.edit_expense_route', expense_id=exp.id) }}" class="action-menu-item">
+                                <i class="fa-solid fa-pen-to-square"></i> Editar
+                            </a>
+                            <form method="POST" action="{{ url_for('web_invoices.delete_expense_route', expense_id=exp.id) }}" style="display: contents;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="action-menu-item text-danger" onclick="return confirm('¿Desactivar este pago recurrente?');">
                                     <i class="fa-solid fa-trash-can"></i> Eliminar
                                 </button>
-                            </div>
+                            </form>
                         </div>
-                    </td>
-                </tr>
-                {% endfor %}
-                {% else %}
-                <tr>
-                    <td colspan="7" style="text-align: center; padding: 60px 0; color: var(--text-secondary);">
-                        <i class="fa-solid fa-arrows-spin" style="font-size: 3rem; color: var(--text-muted); margin-bottom: 16px; opacity: 0.5; display: block;"></i>
-                        <span>No hay pagos recurrentes configurados.</span>
-                        <a href="{{ url_for('web_invoices.recurring_new_route') }}" class="btn btn-primary" style="display: inline-block; margin-top: 16px; padding: 10px 20px;">Crear primer pago recurrente</a>
-                    </td>
-                </tr>
-                {% endif %}
-            </tbody>
-        </table>
-    </div>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+            {% else %}
+            <tr>
+                <td colspan="6" style="text-align: center; padding: 40px; color: var(--text-muted);">
+                    <i class="fa-solid fa-arrows-spin" style="font-size: 2rem; opacity: 0.3; display: block; margin-bottom: 8px;"></i>
+                    No hay pagos recurrentes configurados.
+                    <a href="{{ url_for('web_invoices.recurring_new_route') }}" style="display: inline-block; margin-top: 8px;">Crear primer pago recurrente</a>
+                </td>
+            </tr>
+            {% endif %}
+        </tbody>
+    </table>
 
     {% if total_items > 0 %}
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border-color); flex-wrap: wrap; gap: 16px; padding-left: 4px; padding-right: 4px;">
-        <div style="color: var(--text-secondary); font-size: 0.85rem;">
+    <div style="display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; border-top: 1px solid var(--border-color); background: rgba(0,0,0,0.01); flex-wrap: wrap; gap: 15px;">
+        <div style="color: var(--text-secondary); font-size: 0.82rem;">
             Mostrando <strong style="color: var(--text-primary);">{{ start_count }}</strong> a <strong style="color: var(--text-primary);">{{ end_count }}</strong> de <strong style="color: var(--text-primary);">{{ total_items }}</strong> registros
         </div>
-        <div style="display: flex; gap: 6px;">
+        <div style="display: flex; gap: 5px;">
             {% if has_prev %}
-            <a href="?page={{ page - 1 }}&search={{ search_query or '' }}&frequency={{ frequency_filter or '' }}" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.82rem; display: inline-flex; align-items: center; gap: 6px;"><i class="fa-solid fa-chevron-left" style="font-size: 0.75rem;"></i> Anterior</a>
+            <a href="?page={{ page - 1 }}&search={{ search_query or '' }}&frequency={{ frequency_filter or '' }}" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 4px; height: 32px; border-radius: 4px;"><i class="fa-solid fa-chevron-left"></i> Anterior</a>
             {% else %}
-            <button class="btn btn-secondary" disabled style="padding: 6px 12px; font-size: 0.82rem; opacity: 0.5; cursor: not-allowed;"><i class="fa-solid fa-chevron-left" style="font-size: 0.75rem;"></i> Anterior</button>
+            <button class="btn btn-secondary" disabled style="padding: 6px 12px; font-size: 0.8rem; opacity: 0.4; cursor: not-allowed; height: 32px;"><i class="fa-solid fa-chevron-left"></i> Anterior</button>
             {% endif %}
+            <span style="font-size: 0.82rem; color: var(--text-secondary); margin: 0 6px; display: inline-flex; align-items: center; font-weight: 500;">Página {{ page }} de {{ total_pages }}</span>
             {% if has_next %}
-            <a href="?page={{ page + 1 }}&search={{ search_query or '' }}&frequency={{ frequency_filter or '' }}" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.82rem; display: inline-flex; align-items: center; gap: 6px;">Siguiente <i class="fa-solid fa-chevron-right" style="font-size: 0.75rem;"></i></a>
+            <a href="?page={{ page + 1 }}&search={{ search_query or '' }}&frequency={{ frequency_filter or '' }}" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 4px; height: 32px; border-radius: 4px;">Siguiente <i class="fa-solid fa-chevron-right"></i></a>
             {% else %}
-            <button class="btn btn-secondary" disabled style="padding: 6px 12px; font-size: 0.82rem; opacity: 0.5; cursor: not-allowed;">Siguiente <i class="fa-solid fa-chevron-right" style="font-size: 0.75rem;"></i></button>
+            <button class="btn btn-secondary" disabled style="padding: 6px 12px; font-size: 0.8rem; opacity: 0.4; cursor: not-allowed; height: 32px;">Siguiente <i class="fa-solid fa-chevron-right"></i></button>
             {% endif %}
         </div>
     </div>
     {% endif %}
 </div>
+
+<script>
+    let filterTimeout = null;
+    function submitFilters() {
+        clearTimeout(filterTimeout);
+        filterTimeout = setTimeout(() => {
+            const params = new URLSearchParams();
+            const search = document.getElementById('filter-search').value.trim();
+            const frequency = document.getElementById('filter-frequency').value;
+            if (search) params.set('search', search);
+            if (frequency) params.set('frequency', frequency);
+            const qs = params.toString();
+            window.location.href = '{{ url_for("web_invoices.recurring_list") }}' + (qs ? '?' + qs : '');
+        }, 400);
+    }
+</script>
 {% endblock %}

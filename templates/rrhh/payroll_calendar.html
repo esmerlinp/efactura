@@ -1,0 +1,212 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}Calendario de Nómina {{ year }} — {{ product_name }}{% endblock %}
+{% block extra_head %}
+<style>
+.calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 20px;
+}
+.calendar-month {
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+}
+.calendar-month-header {
+    padding: 10px 14px;
+    background: var(--bg-surface-secondary);
+    border-bottom: 1px solid var(--border-color);
+    font-weight: 600;
+    font-size: 0.88rem;
+    text-align: center;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.month-net {
+    font-size: 0.72rem;
+    color: var(--accent-emerald);
+    font-weight: 500;
+}
+.calendar-weekdays {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    text-align: center;
+    font-size: 0.68rem;
+    color: var(--text-muted);
+    padding: 4px 0;
+    border-bottom: 1px solid var(--border-color-light);
+    background: var(--bg-surface);
+}
+.calendar-week {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+}
+.calendar-day {
+    min-height: 58px;
+    padding: 3px;
+    border-right: 1px solid var(--border-color-light);
+    border-bottom: 1px solid var(--border-color-light);
+    font-size: 0.75rem;
+    position: relative;
+}
+.calendar-day:nth-child(7n) { border-right: none; }
+.calendar-day.other-month { opacity: 0.35; }
+.calendar-day.weekend { background: var(--bg-surface-secondary); }
+.calendar-day.today { background: rgba(16,185,129,0.08); }
+.calendar-day .day-num {
+    font-weight: 500;
+    margin-bottom: 2px;
+}
+.calendar-day.today .day-num {
+    background: var(--accent-emerald);
+    color: white;
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    font-size: 0.75rem;
+}
+.calendar-day.holiday .day-num { color: var(--accent-red); }
+.period-strip {
+    height: 4px;
+    border-radius: 2px;
+    margin-top: 1px;
+    cursor: pointer;
+    display: block;
+    transition: transform 0.1s;
+}
+.period-strip:hover {
+    transform: scaleY(2.5);
+    opacity: 1 !important;
+}
+.period-label-wrap {
+    position: relative;
+}
+.period-tooltip {
+    display: none;
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 0.7rem;
+    white-space: nowrap;
+    z-index: 10;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    pointer-events: none;
+}
+.period-strip:hover + .period-tooltip,
+.period-label-wrap:hover .period-tooltip {
+    display: block;
+}
+.holiday-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent-red);
+    margin-left: 2px;
+    vertical-align: middle;
+}
+
+.legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 16px;
+    padding: 12px 18px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    margin-bottom: 16px;
+    font-size: 0.78rem;
+}
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+.legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+</style>
+{% endblock %}
+{% block content %}
+{% include "rrhh/_styles.html" %}
+<div class="page-header hr-page-header">
+    <h1 class="page-title"><i class="fa-solid fa-calendar-days"></i> Calendario de Nómina {{ year }}</h1>
+    <div class="hr-page-actions">
+        <select onchange="location.href='?year='+this.value" class="form-select" style="width:auto;">
+            {% for y in years_available %}
+            <option value="{{ y }}" {% if y==year %}selected{% endif %}>{{ y }}</option>
+            {% endfor %}
+        </select>
+        <a href="{{ url_for('web_rrhh.payroll_new') }}" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Nueva nómina</a>
+        <a href="{{ url_for('web_rrhh.payroll_dashboard') }}" class="btn btn-ghost"><i class="fa-solid fa-arrow-left"></i> Dashboard</a>
+    </div>
+</div>
+
+<div class="legend">
+    {% for status, label in status_labels.items() %}
+    <div class="legend-item">
+        <span class="legend-dot" style="background:{{ status_colors.get(status, '#94a3b8') }};"></span>
+        {{ label }}
+    </div>
+    {% endfor %}
+    <div class="legend-item">
+        <span class="holiday-dot"></span> Feriado
+    </div>
+</div>
+
+<div class="calendar-grid">
+    {% for month in months_data %}
+    <div class="calendar-month">
+        <div class="calendar-month-header">
+            <span>{{ month.nameFull }}</span>
+            {% if month.totalNet > 0 %}
+            <span class="month-net">RD$ {{ '{:,.0f}'.format(month.totalNet) }}</span>
+            {% endif %}
+        </div>
+        <div class="calendar-weekdays">
+            <span>Dom</span><span>Lun</span><span>Mar</span><span>Mié</span><span>Jue</span><span>Vie</span><span>Sáb</span>
+        </div>
+        {% for week in month.weeks %}
+        <div class="calendar-week">
+            {% for day in week %}
+            <div class="calendar-day
+                {% if not day.isCurrentMonth %}other-month{% endif %}
+                {% if day.isWeekend %}weekend{% endif %}
+                {% if day.isToday %}today{% endif %}
+                {% if day.isHoliday %}holiday{% endif %}">
+                <div class="day-num">
+                    {{ day.day }}
+                    {% if day.isHoliday %}<span class="holiday-dot" title="{{ day.holidayName }}"></span>{% endif %}
+                </div>
+                {% for p in day.periods[:3] %}
+                <a href="{{ url_for('web_rrhh.payroll_view', period_id=p.id) }}" class="period-label-wrap" style="text-decoration:none;">
+                    <div class="period-strip" style="background:{{ p.statusColor }}; opacity:0.8;"></div>
+                    <div class="period-tooltip">
+                        {{ p.groupName }}<br>
+                        <span style="color:{{ p.statusColor }};">{{ p.statusLabel }}</span>
+                        {% if p.totalNet %}· RD$ {{ '{:,.0f}'.format(p.totalNet) }}{% endif %}
+                    </div>
+                </a>
+                {% endfor %}
+                {% if day.periods|length > 3 %}
+                <span style="font-size:0.6rem; color:var(--text-muted);">+{{ day.periods|length - 3 }}</span>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        {% endfor %}
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

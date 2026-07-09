@@ -1,0 +1,190 @@
+<style>
+    .att-panel-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.35); backdrop-filter: blur(4px); z-index: 1999; display: none; }
+    .att-panel { position: fixed; top: 0; right: 0; width: 420px; max-width: 95vw; height: 100vh; background: var(--bg-card); border-left: 1px solid var(--border-color); z-index: 2000; display: flex; flex-direction: column; transform: translateX(100%); transition: transform 0.25s ease; box-shadow: -4px 0 24px rgba(0,0,0,0.12); }
+    .att-panel.open { transform: translateX(0); }
+    .att-panel-overlay.open { display: block; }
+    .att-panel-header { display: flex; align-items: center; justify-content: space-between; padding: 18px 20px; border-bottom: 1px solid var(--border-color); flex-shrink: 0; }
+    .att-panel-header h3 { font-size: 1rem; font-weight: 700; color: var(--text-primary); margin: 0; display: flex; align-items: center; gap: 8px; }
+    .att-panel-close { background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 6px; border-radius: 8px; transition: all 0.15s; }
+    .att-panel-close:hover { background: rgba(0,0,0,0.05); color: var(--text-primary); }
+    .att-panel-body { flex: 1; overflow-y: auto; padding: 16px 20px; }
+    .att-panel-footer { padding: 14px 20px; border-top: 1px solid var(--border-color); flex-shrink: 0; }
+    .att-item { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border-color); margin-bottom: 8px; background: var(--bg-card); transition: box-shadow 0.15s; }
+    .att-item:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+    .att-item-icon { width: 40px; height: 40px; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 1.1rem; }
+    .att-item-icon.pdf { background: rgba(239,68,68,0.1); color: #ef4444; }
+    .att-item-icon.xml { background: rgba(16,185,129,0.1); color: #10b981; }
+    .att-item-icon.img { background: rgba(59,130,246,0.1); color: #3b82f6; }
+    .att-item-icon.other { background: rgba(107,114,128,0.1); color: #6b7280; }
+    .att-item-info { flex: 1; min-width: 0; }
+    .att-item-info .att-name { font-size: 0.82rem; font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .att-item-info .att-meta { font-size: 0.7rem; color: var(--text-muted); margin-top: 2px; }
+    .att-item-actions { display: flex; gap: 4px; flex-shrink: 0; }
+    .att-item-actions button { background: none; border: none; cursor: pointer; padding: 6px 8px; border-radius: 6px; transition: all 0.15s; color: var(--text-muted); font-size: 0.82rem; }
+    .att-item-actions button:hover { background: rgba(0,0,0,0.06); }
+    .att-item-actions button.danger:hover { background: rgba(239,68,68,0.1); color: var(--accent-red); }
+    .att-upload-zone { border: 2px dashed var(--border-color); border-radius: 10px; padding: 28px 16px; text-align: center; cursor: pointer; transition: border-color 0.2s, background 0.2s; }
+    .att-upload-zone:hover, .att-upload-zone.dragover { border-color: var(--accent-emerald); background: rgba(16,185,129,0.04); }
+    .att-upload-zone i { font-size: 2rem; color: var(--text-muted); margin-bottom: 8px; display: block; }
+    .att-upload-zone p { font-size: 0.8rem; color: var(--text-primary); font-weight: 600; margin: 0 0 4px; }
+    .att-upload-zone span { font-size: 0.7rem; color: var(--text-muted); }
+    .att-upload-hint { font-size: 0.68rem; color: var(--text-muted); text-align: center; margin-top: 8px; }
+    .att-empty { text-align: center; padding: 40px 20px; }
+    .att-empty i { font-size: 2.5rem; color: var(--text-muted); opacity: 0.3; display: block; margin-bottom: 10px; }
+    .att-empty p { font-size: 0.82rem; color: var(--text-muted); margin: 0; }
+    .att-progress { margin-top: 8px; }
+    .att-progress-bar { height: 4px; background: var(--border-color); border-radius: 2px; overflow: hidden; }
+    .att-progress-bar-fill { height: 100%; background: var(--accent-emerald); transition: width 0.3s ease; }
+</style>
+
+<div class="att-panel-overlay" id="att-panel-overlay" onclick="closeAttachmentPanel()"></div>
+<div class="att-panel" id="att-panel">
+    <div class="att-panel-header">
+        <h3><i class="fa-solid fa-paperclip" style="color: var(--accent-emerald);"></i> Adjuntos <span id="att-count-badge" style="font-size:0.75rem; font-weight:500; color:var(--text-muted);"></span></h3>
+        <button class="att-panel-close" onclick="closeAttachmentPanel()" title="Cerrar"><i class="fa-solid fa-xmark" style="font-size:1.1rem;"></i></button>
+    </div>
+    <div class="att-panel-body" id="att-panel-body">
+        <div id="att-list"></div>
+        <div class="att-upload-zone" id="att-upload-zone" onclick="document.getElementById('att-file-input').click()" ondragover="this.classList.add('dragover'); event.preventDefault();" ondragleave="this.classList.remove('dragover');" ondrop="handleAttDrop(event)">
+            <i class="fa-solid fa-cloud-arrow-up"></i>
+            <p>Arrastra archivos aquí o haz clic</p>
+            <span>PDF, XML, JPG, PNG (max 10MB)</span>
+            <input type="file" id="att-file-input" accept=".pdf,.xml,.jpg,.jpeg,.png,.webp" multiple style="display:none;" onchange="handleAttFileSelect(this.files)">
+        </div>
+        <div class="att-progress" id="att-progress" style="display:none;">
+            <div class="att-progress-bar"><div class="att-progress-bar-fill" id="att-progress-fill" style="width:0%;"></div></div>
+            <span style="font-size:0.7rem; color:var(--text-muted); display:block; text-align:center; margin-top:4px;" id="att-progress-text">Subiendo...</span>
+        </div>
+        <p class="att-upload-hint"><i class="fa-solid fa-circle-info"></i> Estos documentos sirven como aval del gasto ante la DGII.</p>
+    </div>
+    <div class="att-panel-footer">
+        <button class="btn btn-secondary" onclick="closeAttachmentPanel()" style="width:100%;">Cerrar</button>
+    </div>
+</div>
+
+<script>
+let attExpenseId = '';
+let attUploadUrl = '';
+
+function openAttachmentPanel(expenseId, existingAttachments) {
+    attExpenseId = expenseId;
+    attUploadUrl = '/expenses/' + expenseId + '/attach';
+    renderAttachments(existingAttachments || []);
+    document.getElementById('att-panel-overlay').classList.add('open');
+    document.getElementById('att-panel').classList.add('open');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeAttachmentPanel() {
+    document.getElementById('att-panel-overlay').classList.remove('open');
+    document.getElementById('att-panel').classList.remove('open');
+    document.body.style.overflow = '';
+}
+
+function getExtClass(name) {
+    const ext = (name || '').split('.').pop().toLowerCase();
+    if (ext === 'pdf') return 'pdf';
+    if (ext === 'xml') return 'xml';
+    if (['jpg','jpeg','png','gif','webp','heic'].includes(ext)) return 'img';
+    return 'other';
+}
+
+function getExtIcon(name) {
+    const cls = getExtClass(name);
+    if (cls === 'pdf') return '<i class="fa-solid fa-file-pdf"></i>';
+    if (cls === 'xml') return '<i class="fa-solid fa-file-code"></i>';
+    if (cls === 'img') return '<i class="fa-solid fa-file-image"></i>';
+    return '<i class="fa-solid fa-file"></i>';
+}
+
+function renderAttachments(attachments) {
+    const list = document.getElementById('att-list');
+    const badge = document.getElementById('att-count-badge');
+    const count = attachments.length;
+    badge.textContent = count > 0 ? '(' + count + ')' : '';
+
+    if (count === 0) {
+        list.innerHTML = '<div class="att-empty"><i class="fa-solid fa-folder-open"></i><p>Sin documentos adjuntos</p></div>';
+        return;
+    }
+
+    let html = '';
+    attachments.forEach((att, index) => {
+        const name = att.name || att.url.split('/').pop().split('?')[0] || 'Documento';
+        const cls = getExtClass(name);
+        html += '<div class="att-item">' +
+            '<div class="att-item-icon ' + cls + '">' + getExtIcon(name) + '</div>' +
+            '<div class="att-item-info">' +
+                '<div class="att-name" title="' + (name || '') + '">' + (name || 'Documento') + '</div>' +
+                '<div class="att-meta">' + (att.type || 'otro').charAt(0).toUpperCase() + (att.type || 'otro').slice(1) + '</div>' +
+            '</div>' +
+            '<div class="att-item-actions">' +
+                '<a href="' + (att.url || '') + '" target="_blank" title="Ver"><i class="fa-solid fa-eye"></i></a>' +
+                '<button class="danger" onclick="deleteAttachment(' + index + ')" title="Eliminar"><i class="fa-solid fa-trash-can"></i></button>' +
+            '</div>' +
+        '</div>';
+    });
+    list.innerHTML = html;
+}
+
+function handleAttDrop(e) {
+    e.preventDefault();
+    e.currentTarget.classList.remove('dragover');
+    if (e.dataTransfer.files.length) {
+        uploadAttachments(e.dataTransfer.files);
+    }
+}
+
+function handleAttFileSelect(files) {
+    if (files.length) uploadAttachments(files);
+}
+
+async function uploadAttachments(files) {
+    const progressEl = document.getElementById('att-progress');
+    const progressFill = document.getElementById('att-progress-fill');
+    const progressText = document.getElementById('att-progress-text');
+    progressEl.style.display = 'block';
+
+    const formData = new FormData();
+    const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+    const csrfInput = document.querySelector('input[name="csrf_token"]');
+    const csrfToken = csrfMeta ? csrfMeta.content : (csrfInput ? csrfInput.value : '');
+    if (csrfToken) formData.append('csrf_token', csrfToken);
+
+    for (let i = 0; i < files.length; i++) {
+        formData.append('attachments[]', files[i]);
+        formData.append('attachmentTypes[]', 'otro');
+    }
+
+    progressFill.style.width = '30%';
+    progressText.textContent = 'Subiendo ' + files.length + ' archivo(s)...';
+
+    try {
+        const resp = await fetch(attUploadUrl, { method: 'POST', body: formData });
+        const data = await resp.json();
+        if (data.success) {
+            progressFill.style.width = '100%';
+            progressText.textContent = 'Completado';
+            renderAttachments(data.attachments || []);
+            setTimeout(() => { progressEl.style.display = 'none'; }, 800);
+        } else {
+            progressText.textContent = 'Error: ' + (data.error || 'Desconocido');
+            progressFill.style.background = 'var(--accent-red)';
+        }
+    } catch (err) {
+        progressText.textContent = 'Error de conexión';
+        progressFill.style.background = 'var(--accent-red)';
+    }
+}
+
+async function deleteAttachment(index) {
+    if (!confirm('¿Eliminar este documento?')) return;
+    const resp = await fetch(attUploadUrl + '/' + index, { method: 'POST' });
+    const data = await resp.json();
+    if (data.success) {
+        renderAttachments(data.attachments || []);
+    } else {
+        alert('Error al eliminar: ' + (data.error || 'Desconocido'));
+    }
+}
+</script>

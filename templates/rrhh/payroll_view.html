@@ -33,6 +33,9 @@
         <a href="{{ url_for('web_rrhh.payroll_bank_export', period_id=period.id, bank='popular') }}" class="btn btn-ghost">
             <i class="fa-solid fa-building-columns"></i> Archivo Banco
         </a>
+        <a href="{{ url_for('web_rrhh.payroll_reconcile', period_id=period.id) }}" class="btn btn-ghost">
+            <i class="fa-solid fa-arrow-right-arrow-left"></i> Conciliar
+        </a>
         <button type="button" class="btn btn-ghost" style="color:var(--accent-emerald);" onclick="sendPayslipsAsync()">
             <i class="fa-solid fa-paper-plane"></i>
             {% if period.get('payslipsSentAt') %}
@@ -229,7 +232,7 @@
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="confirm" id="deleteConfirmField" value="">
             <button type="submit" class="btn btn-ghost btn-sm" style="color:var(--danger); border-color:var(--danger);">
-                <i class="fa-solid fa-trash"></i> Eliminar período
+                <i class="fa-solid fa-trash-can"></i> Eliminar período
             </button>
         </form>
         {% endif %}

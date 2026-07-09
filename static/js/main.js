@@ -169,7 +169,7 @@ document.addEventListener('DOMContentLoaded', () => {
         content.style.opacity = '0';
 
         if (sectionId) {
-            localStorage.setItem('sidebar-collapsed-' + sectionId, 'true');
+            localStorage.setItem(sectionId, 'true');
         }
 
         content.addEventListener('transitionend', function onEnd(e) {
@@ -229,7 +229,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 content.style.opacity = '1';
 
                 if (sectionId) {
-                    localStorage.setItem('sidebar-collapsed-' + sectionId, 'false');
+                    localStorage.setItem(sectionId, 'false');
                 }
 
                 const onEnd = (e) => {
@@ -255,7 +255,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 content.style.opacity = '0';
 
                 if (sectionId) {
-                    localStorage.setItem('sidebar-collapsed-' + sectionId, 'true');
+                    localStorage.setItem(sectionId, 'true');
                 }
 
                 const onEnd = (e) => {
@@ -270,6 +270,117 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     });
+
+// =========================================================================
+// UNIFIED MODAL SYSTEM (single API for all modals)
+// =========================================================================
+/**
+ * Open a modal by ID. Adds .active class and locks body scroll.
+ * @param {string} modalId - The DOM ID of the modal-overlay element
+ */
+function openModal(modalId) {
+    var modal = document.getElementById(modalId);
+    if (!modal) return;
+    modal.classList.add('active');
+    document.body.style.overflow = 'hidden';
+    // Trap focus inside modal
+    var firstFocusable = modal.querySelector('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+    if (firstFocusable) setTimeout(function () { firstFocusable.focus(); }, 100);
+}
+
+/**
+ * Close a modal by ID. Removes .active class and restores body scroll.
+ * @param {string} modalId - The DOM ID of the modal-overlay element
+ */
+function closeModal(modalId) {
+    var modal = document.getElementById(modalId);
+    if (!modal) return;
+    modal.classList.add('closing');
+    setTimeout(function () {
+        modal.classList.remove('active', 'closing');
+        document.body.style.overflow = '';
+    }, 150);
+}
+
+// Close modal on Escape key
+document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') {
+        var openModals = document.querySelectorAll('.modal-overlay.active');
+        if (openModals.length > 0) {
+            closeModal(openModals[openModals.length - 1].id);
+        }
+    }
+});
+
+// Close modal on backdrop click
+document.addEventListener('click', function (e) {
+    if (e.target.classList.contains('modal-backdrop')) {
+        var overlay = e.target.closest('.modal-overlay');
+        if (overlay) closeModal(overlay.id);
+    }
+});
+
+// Backward compat: keep legacy openX/closeX functions working
+// Templates using openXModal() / closeXModal() with search-modal pattern
+// will continue to work since they use inline style.display manipulation
+
+// =========================================================================
+// UNIFIED TAB SYSTEM (single API for all tabs)
+// =========================================================================
+/**
+ * Switch to a tab panel. Works with .tab-btn / .tab-panel or .tab-link / .tab-content.
+ * @param {Event} event - The click event
+ * @param {string} panelId - The ID of the tab panel to show
+ */
+function switchTab(event, panelId) {
+    if (event) event.preventDefault();
+    var container = event ? event.target.closest('.tabs, .tab-nav, .detail-tabs') : document;
+    if (!container) {
+        container = document.querySelector('.tabs, .tab-nav, .detail-tabs') || document;
+    }
+
+    // Deactivate all tab buttons in the container
+    var buttons = container.querySelectorAll('.tab-btn, .tab-link, .detail-tab, .dashboard-tab-btn, .bi-tab-btn, .report-tab-btn, .bell-tab-btn');
+    buttons.forEach(function (btn) { btn.classList.remove('active'); });
+    if (event && event.target) event.target.classList.add('active');
+
+    // Deactivate all tab panels
+    var panels = document.querySelectorAll('.tab-panel, .tab-content, .tab-panel-content');
+    panels.forEach(function (p) { p.classList.remove('active'); if (p.style) p.style.display = 'none'; });
+
+    // Activate target panel
+    var target = document.getElementById(panelId);
+    if (target) {
+        target.classList.add('active');
+        if (target.style) target.style.display = '';
+    }
+}
+
+// Close modal on backdrop click for legacy search-modal pattern
+document.addEventListener('click', function (e) {
+    if (e.target.classList.contains('modal-backdrop') && e.target.onclick) {
+        // Legacy onclick handlers on modal-backdrop divs still work
+    }
+});
+
+// =========================================================================
+// UNIFIED GUIDE BANNER DISMISS (single global function)
+// =========================================================================
+function closeGuide(id) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.style.display = 'none';
+    sessionStorage.setItem('closed-' + id, 'true');
+}
+
+// Auto-hide guides that were previously dismissed
+document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('.guide-banner[id]').forEach(function (el) {
+        if (sessionStorage.getItem('closed-' + el.id) === 'true') {
+            el.style.display = 'none';
+        }
+    });
+});
 
     // 7. Formateo Automático de Entradas de Teléfono y Montos
     function formatPhoneNumber(value) {
@@ -754,7 +865,7 @@ function showCommandPalette() {
         { label: 'Dashboard', icon: 'fa-house', url: '/dashboard' },
         { label: 'Lista de Clientes', icon: 'fa-users', url: '/clients' },
         { label: 'Catálogo de Cuentas', icon: 'fa-book', url: '/accounting/chart-of-accounts' },
-        { label: 'Entradas de Diario', icon: 'fa-pen', url: '/accounting/journal-entries' },
+        { label: 'Entradas de Diario', icon: 'fa-pen-to-square', url: '/accounting/journal-entries' },
         { label: 'Períodos Fiscales', icon: 'fa-calendar', url: '/accounting/fiscal-periods' },
         { label: 'Ratios Financieros', icon: 'fa-chart-pie', url: '/reports/financial-ratios' },
         { label: 'POS', icon: 'fa-cash-register', url: '/pos' },

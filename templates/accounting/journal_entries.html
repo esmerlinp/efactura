@@ -11,27 +11,25 @@
     </h1>
 </div>
 
-<div id="guide-journal-entries" style="background: rgba(168, 85, 247, 0.05); border: 1px solid rgba(168, 85, 247, 0.2); border-radius: 8px; padding: 16px; margin-bottom: 24px; display: flex; gap: 16px; align-items: flex-start; position: relative;">
-    <button onclick="closeGuide('guide-journal-entries')" style="position: absolute; top: 12px; right: 12px; background: transparent; border: none; color: var(--text-muted); cursor: pointer; padding: 4px; border-radius: 50%; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; transition: background 0.2s, color 0.2s;" onmouseover="this.style.background='rgba(0,0,0,0.05)'; this.style.color='var(--text-primary)';" onmouseout="this.style.background='transparent'; this.style.color='var(--text-muted)';" title="Cerrar guía"><i class="fa-solid fa-xmark"></i></button>
-    <div style="background: rgba(168, 85, 247, 0.1); width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-        <i class="fa-solid fa-lightbulb" style="color: var(--accent-purple); font-size: 1.2rem;"></i>
+<div class="guide-banner" id="guide-journal-entries">
+    <button class="guide-banner-close" onclick="closeGuide('guide-journal-entries')" title="Cerrar guía" aria-label="Cerrar guía">
+        <i class="fa-solid fa-xmark"></i>
+    </button>
+    <div class="guide-banner-icon">
+        <i class="fa-solid fa-lightbulb"></i>
     </div>
-    <div>
-        <h4 style="margin: 0 0 8px 0; color: var(--text-primary); font-family: var(--font-heading); font-size: 1rem;">Guía de Uso: Entradas de Diario</h4>
-        <p style="margin: 0 0 8px 0; color: var(--text-secondary); font-size: 0.85rem; line-height: 1.5;">
+    <div class="guide-banner-content">
+        <h4>Guía de Uso: Entradas de Diario</h4>
+        <p>
             Aquí registras asientos contables manuales para ajustes, correcciones y operaciones especiales que requieren intervención directa.
         </p>
-        <ul style="margin: 0; padding-left: 20px; color: var(--text-secondary); font-size: 0.85rem; line-height: 1.5;">
+        <ul>
             <li><strong>Asientos Manuales:</strong> Crea entradas de diario con múltiples líneas de débito y crédito para registrar operaciones contables.</li>
             <li><strong>Clonación:</strong> Puedes clonar una entrada existente para agilizar la creación de asientos similares.</li>
             <li><strong>Anulación:</strong> Las entradas pueden anularse con un motivo, manteniendo la trazabilidad de los cambios.</li>
         </ul>
     </div>
 </div>
-<script>
-    if (!window.closeGuide) { window.closeGuide = function(id) { document.getElementById(id).style.display = 'none'; sessionStorage.setItem('closed_' + id, 'true'); }; }
-    if (sessionStorage.getItem('closed_guide-journal-entries')) { document.getElementById('guide-journal-entries').style.display = 'none'; }
-</script>
 
 <!-- KPI SUMMARY STRIP -->
 {% set total_debit = namespace(val=0) %}
@@ -55,39 +53,104 @@
     </div>
 </div>
 
+<!-- FILTER BAR -->
 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
-    <h2 style="font-size: 0.95rem; font-weight: 500; color: var(--text-secondary); margin: 0;">
-        Listado de Entradas de Diario
-    </h2>
-    <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-        <a href="{{ url_for('web_accounting.new_journal_entry') }}" class="btn btn-primary" style="height: 32px; font-size: 0.78rem; padding: 0 12px; display: inline-flex; align-items: center; gap: 4px;">
-            <i class="fa-solid fa-plus"></i> Nueva Entrada
-        </a>
-        <div style="position: relative; width: 180px;">
-            <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.78rem;"></i>
-            <input type="text" id="je-search" placeholder="Buscar N° o concepto..."
-                style="width: 100%; height: 32px; padding: 0 10px 0 28px; background-color: var(--bg-input); border: 1px solid var(--border-color); border-radius: var(--radius-sm); color: var(--text-primary); font-size: 0.78rem;"
-                oninput="filterJE()">
-        </div>
-        <select id="je-status-filter" onchange="filterJE()"
-            style="height: 32px; padding: 0 8px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-sm); color: var(--text-primary); font-size: 0.78rem; cursor: pointer; outline: none;">
-            <option value="">Todos los Estados</option>
-            <option value="active">Activa</option>
-            <option value="voided">Anulada</option>
-        </select>
+    <div class="filter-pills" style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center;">
+        <a href="?date_from={{ today_str }}&date_to={{ today_str }}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if type_filter %}&type={{ type_filter }}{% endif %}" class="pill{% if date_from == today_str and date_to == today_str %} active{% endif %}">Hoy</a>
+        <a href="?date_from={{ first_of_month }}&date_to={{ today_str }}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if type_filter %}&type={{ type_filter }}{% endif %}" class="pill{% if date_from == first_of_month and date_to == today_str %} active{% endif %}">Este mes</a>
+        <a href="?date_from={{ quarter_start }}&date_to={{ today_str }}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if type_filter %}&type={{ type_filter }}{% endif %}" class="pill{% if date_from == quarter_start and date_to == today_str %} active{% endif %}">Trimestre</a>
+        <a href="?date_from={{ year_start }}&date_to={{ today_str }}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if type_filter %}&type={{ type_filter }}{% endif %}" class="pill{% if date_from == year_start and date_to == today_str %} active{% endif %}">Año actual</a>
     </div>
 </div>
+
+<div class="rpt-filters" style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 14px; padding: 12px 18px; margin-bottom: 20px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+    <input type="date" id="filter-date-from" value="{{ date_from }}" onchange="submitFilters()"
+        style="height: 32px; padding: 0 8px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-sm); color: var(--text-primary); font-size: 0.78rem; cursor: pointer; outline: none; width: 140px;">
+    <span style="font-size: 0.72rem; color: var(--text-muted);">al</span>
+    <input type="date" id="filter-date-to" value="{{ date_to }}" onchange="submitFilters()"
+        style="height: 32px; padding: 0 8px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-sm); color: var(--text-primary); font-size: 0.78rem; cursor: pointer; outline: none; width: 140px;">
+    <select id="filter-type" onchange="submitFilters()"
+        style="height: 32px; padding: 0 8px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-sm); color: var(--text-primary); font-size: 0.78rem; cursor: pointer; outline: none;">
+        <option value="">Todos los Tipos</option>
+        {% for key, label in type_labels.items() %}
+        <option value="{{ key }}" {% if type_filter == key %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+        {% for et in entry_types %}
+        <option value="{{ et.id }}" {% if type_filter == et.id %}selected{% endif %}>{{ et.name }}</option>
+        {% endfor %}
+    </select>
+    <select id="filter-status" onchange="submitFilters()"
+        style="height: 32px; padding: 0 8px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-sm); color: var(--text-primary); font-size: 0.78rem; cursor: pointer; outline: none;">
+        <option value="">Todos los Estados</option>
+        <option value="active" {% if status_filter == 'active' %}selected{% endif %}>Activa</option>
+        <option value="voided" {% if status_filter == 'voided' %}selected{% endif %}>Anulada</option>
+    </select>
+    <div style="position: relative; flex: 1; min-width: 180px;">
+        <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.78rem;"></i>
+        <input type="text" id="filter-q" value="{{ q }}" placeholder="Buscar N°, concepto, referencia..."
+            style="width: 100%; height: 32px; padding: 0 10px 0 28px; background-color: var(--bg-input); border: 1px solid var(--border-color); border-radius: var(--radius-sm); color: var(--text-primary); font-size: 0.78rem; outline: none; box-sizing: border-box;">
+    </div>
+    {% if date_from or date_to or type_filter or status_filter or q %}
+    <a href="{{ url_for('web_accounting.journal_entries') }}" class="btn btn-subtle" style="height: 32px; font-size: 0.75rem; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;">
+        <i class="fa-solid fa-xmark"></i> Limpiar
+    </a>
+    {% endif %}
+    {% if entries %}
+    <a href="?export=csv{% if q %}&q={{ q }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if type_filter %}&type={{ type_filter }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}" class="btn btn-subtle" title="Exportar a CSV" style="height: 32px; font-size: 0.75rem; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;">
+        <i class="fa-solid fa-download"></i> CSV
+    </a>
+    {% endif %}
+</div>
+
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
+    <h2 style="font-size: 0.95rem; font-weight: 500; color: var(--text-secondary); margin: 0;">Listado de Entradas de Diario</h2>
+    <a href="{{ url_for('web_accounting.new_journal_entry') }}" class="btn btn-primary" style="height: 32px; font-size: 0.78rem; padding: 0 12px; display: inline-flex; align-items: center; gap: 4px;">
+        <i class="fa-solid fa-plus"></i> Nueva Entrada
+    </a>
+</div>
+
+<style>
+    .filter-pills a.pill {
+        padding: 5px 14px; border-radius: 20px; font-size: 0.78rem;
+        font-weight: 600; border: 1px solid var(--border-color); background: var(--bg-card);
+        color: var(--text-muted); cursor: pointer; transition: all 0.15s;
+        text-decoration: none; white-space: nowrap; height: 32px; box-sizing: border-box;
+        display: inline-flex; align-items: center;
+    }
+    .filter-pills a.pill:hover { border-color: var(--accent-purple); color: var(--accent-purple); }
+    .filter-pills a.pill.active { background: var(--accent-purple); color: #fff; border-color: var(--accent-purple); }
+    .sortable-th {
+        cursor: pointer; user-select: none; position: relative; white-space: nowrap;
+        transition: color 0.15s;
+    }
+    .sortable-th:hover { color: var(--accent-purple); }
+    .sort-icon {
+        font-size: 0.65rem; margin-left: 4px; opacity: 0.4;
+        display: inline-block; vertical-align: middle; transition: opacity 0.15s, color 0.15s;
+    }
+    .sort-icon.active { opacity: 1; color: var(--accent-purple); }
+</style>
 
 <div class="card-table-wrapper" style="box-shadow: none; padding: 0; overflow: hidden;">
     <table class="table-premium" style="width: 100%; border-collapse: collapse;">
         <thead>
             <tr style="text-align: left; background: rgba(0,0,0,0.02); border-bottom: 1px solid var(--border-color);">
-                <th style="padding: 14px 16px; font-size: 0.78rem; color: var(--text-secondary); text-transform: uppercase;">N°</th>
-                <th style="padding: 14px 16px; font-size: 0.78rem; color: var(--text-secondary); text-transform: uppercase;">Fecha</th>
+                <th class="sortable-th" data-sort="number" data-sort-dir="desc" onclick="sortJE('number', this)" style="padding: 14px 16px; font-size: 0.78rem; color: var(--text-secondary); text-transform: uppercase;">
+                    N° <i class="fa-solid fa-sort-down sort-icon active" id="sort-icon-number"></i>
+                </th>
+                <th class="sortable-th" data-sort="date" data-sort-dir="" onclick="sortJE('date', this)" style="padding: 14px 16px; font-size: 0.78rem; color: var(--text-secondary); text-transform: uppercase;">
+                    Fecha <i class="fa-solid fa-sort sort-icon" id="sort-icon-date"></i>
+                </th>
                 <th style="padding: 14px 16px; font-size: 0.78rem; color: var(--text-secondary); text-transform: uppercase;">Concepto</th>
-                <th style="padding: 14px 16px; font-size: 0.78rem; color: var(--text-secondary); text-transform: uppercase;">Tipo</th>
-                <th style="padding: 14px 16px; font-size: 0.78rem; color: var(--text-secondary); text-transform: uppercase; text-align: right;">Débito</th>
-                <th style="padding: 14px 16px; font-size: 0.78rem; color: var(--text-secondary); text-transform: uppercase; text-align: right;">Crédito</th>
+                <th class="sortable-th" data-sort="entryType" data-sort-dir="" onclick="sortJE('entryType', this)" style="padding: 14px 16px; font-size: 0.78rem; color: var(--text-secondary); text-transform: uppercase;">
+                    Tipo <i class="fa-solid fa-sort sort-icon" id="sort-icon-entryType"></i>
+                </th>
+                <th class="sortable-th" data-sort="totalDebit" data-sort-dir="" onclick="sortJE('totalDebit', this)" style="padding: 14px 16px; font-size: 0.78rem; color: var(--text-secondary); text-transform: uppercase; text-align: right;">
+                    Débito <i class="fa-solid fa-sort sort-icon" id="sort-icon-totalDebit"></i>
+                </th>
+                <th class="sortable-th" data-sort="totalCredit" data-sort-dir="" onclick="sortJE('totalCredit', this)" style="padding: 14px 16px; font-size: 0.78rem; color: var(--text-secondary); text-transform: uppercase; text-align: right;">
+                    Crédito <i class="fa-solid fa-sort sort-icon" id="sort-icon-totalCredit"></i>
+                </th>
                 <th style="padding: 14px 16px; font-size: 0.78rem; color: var(--text-secondary); text-transform: uppercase; text-align: center;">Estado</th>
                 <th style="padding: 14px 16px; font-size: 0.78rem; color: var(--text-secondary); text-transform: uppercase; text-align: center; width: 50px;"></th>
             </tr>
@@ -95,11 +158,23 @@
         <tbody>
             {% if entries %}
             {% for e in entries %}
-            <tr style="border-bottom: 1px solid var(--border-color); {% if e.status == 'voided' %}opacity: 0.5;{% endif %}" class="je-row" data-status="{{ 'voided' if e.status == 'voided' else 'active' }}">
+            <tr style="border-bottom: 1px solid var(--border-color); {% if e.status == 'voided' %}opacity: 0.5;{% endif %} cursor: pointer;" class="je-row" data-status="{{ 'voided' if e.status == 'voided' else 'active' }}" data-number="{{ e.number }}" data-date="{{ e.date[:10] }}" data-entrytype="{{ e.entryType }}" data-totaldebit="{{ e.totalDebit }}" data-totalcredit="{{ e.totalCredit }}" onclick="window.location='{{ url_for('web_accounting.journal_entry_detail', entry_id=e.id) }}'">
                 <td style="padding: 14px 16px; font-family: monospace; font-weight: 600; color: var(--accent-purple);">{{ e.number }}</td>
                 <td style="padding: 14px 16px;">{{ e.date[:10] }}</td>
                 <td style="padding: 14px 16px; max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">{{ e.concept or '' }}</td>
-                <td style="padding: 14px 16px;">{% if e.entryType == 'initial_balance' %}Saldos Iniciales{% elif e.entryType == 'depreciation' %}Depreciación{% elif e.entryType == 'disposal' %}Baja{% else %}Estándar{% endif %}</td>
+                <td style="padding: 14px 16px;">
+                    {% set et = e.entryType %}
+                    {% if et == 'invoice' %}Factura
+                    {% elif et == 'credit_note' %}Nota de Crédito
+                    {% elif et == 'expense' %}Gasto
+                    {% elif et == 'standard' %}Estándar
+                    {% elif et == 'opening' %}Apertura
+                    {% elif et == 'closing' %}Cierre
+                    {% elif et == 'initial_balance' %}Saldos Iniciales
+                    {% elif et == 'depreciation' %}Depreciación
+                    {% elif et == 'disposal' %}Baja
+                    {% else %}{{ et }}{% endif %}
+                </td>
                 <td style="padding: 14px 16px; text-align: right; font-size: 0.85rem;">RD$ {{ "{:,.2f}".format(e.totalDebit) }}</td>
                 <td style="padding: 14px 16px; text-align: right; font-size: 0.85rem;">RD$ {{ "{:,.2f}".format(e.totalCredit) }}</td>
                 <td style="padding: 14px 16px; text-align: center;">
@@ -113,7 +188,7 @@
                     </span>
                     {% endif %}
                 </td>
-                <td style="padding: 14px 16px; text-align: center;">
+                <td style="padding: 14px 16px; text-align: center;" onclick="event.stopPropagation();">
                     <div class="action-menu">
                         <button type="button" class="action-menu-btn" onclick="toggleActionMenu(event)" title="Acciones">
                             <i class="fa-solid fa-ellipsis-vertical"></i>
@@ -231,7 +306,7 @@
 <script>
     function voidEntry(entryId, number) {
         document.getElementById('void-entry-number').textContent = number;
-        document.getElementById('void-form').action = '{{ url_for("web_accounting.void_journal_entry", entry_id="") }}' + entryId;
+        document.getElementById('void-form').action = '{{ url_for("web_accounting.void_journal_entry", entry_id="__ENTRY_ID__") }}'.replace('__ENTRY_ID__', entryId);
         document.getElementById('void-modal').style.display = 'flex';
         document.body.style.overflow = 'hidden';
     }
@@ -241,41 +316,100 @@
         document.body.style.overflow = 'auto';
     }
 
-    // --- LÓGICA DE PAGINACIÓN Y FILTRADO ---
+    // --- FILTROS: auto-submit ---
+    let filterDebounce = null;
+    const filterQ = document.getElementById('filter-q');
+    if (filterQ) {
+        filterQ.addEventListener('input', function() {
+            clearTimeout(filterDebounce);
+            filterDebounce = setTimeout(() => submitFilters(), 400);
+        });
+    }
+
+    function submitFilters() {
+        const params = new URLSearchParams();
+        const qVal = document.getElementById('filter-q').value.trim();
+        const typeVal = document.getElementById('filter-type').value;
+        const statusVal = document.getElementById('filter-status').value;
+        const dateFrom = document.getElementById('filter-date-from').value;
+        const dateTo = document.getElementById('filter-date-to').value;
+        if (qVal) params.set('q', qVal);
+        if (typeVal) params.set('type', typeVal);
+        if (statusVal) params.set('status', statusVal);
+        if (dateFrom) params.set('date_from', dateFrom);
+        if (dateTo) params.set('date_to', dateTo);
+        const qs = params.toString();
+        window.location.href = '{{ url_for("web_accounting.journal_entries") }}' + (qs ? '?' + qs : '');
+    }
+
+    // --- PAGINACIÓN Y ORDENAMIENTO ---
     let jeCurrentPage = 1;
     let jePageSize = 10;
     let jeAllRows = [];
     let jeRows = [];
+    let currentSort = { field: 'number', dir: 'desc' };
 
     document.addEventListener('DOMContentLoaded', () => {
         jeAllRows = Array.from(document.querySelectorAll('.je-row'));
         jeRows = [...jeAllRows];
+        applySort();
         updateJEPagination();
     });
 
-    function filterJE() {
-        const query = document.getElementById('je-search').value.toLowerCase().trim();
-        const statusFilter = document.getElementById('je-status-filter').value;
+    function sortJE(field, thEl) {
+        const oldField = currentSort.field;
+        const oldDir = currentSort.dir;
 
-        jeRows = jeAllRows.filter(row => {
-            const numberCell = row.querySelector('td:first-child');
-            const conceptCell = row.querySelector('td:nth-child(3)');
-            const textContent = (numberCell ? numberCell.textContent : "") + " " + (conceptCell ? conceptCell.textContent : "");
-            const matchesQuery = !query || textContent.toLowerCase().includes(query);
+        if (oldField === field) {
+            currentSort.dir = oldDir === 'asc' ? 'desc' : 'asc';
+        } else {
+            currentSort.field = field;
+            currentSort.dir = 'asc';
+        }
 
-            const rowStatus = row.getAttribute('data-status');
-            const matchesStatus = !statusFilter || rowStatus === statusFilter;
-
-            if (matchesQuery && matchesStatus) {
-                return true;
-            } else {
-                row.style.display = 'none';
-                return false;
-            }
-        });
-
+        updateSortIcons();
+        applySort();
         jeCurrentPage = 1;
         updateJEPagination();
+    }
+
+    function updateSortIcons() {
+        document.querySelectorAll('.sort-icon').forEach(icon => {
+            icon.classList.remove('fa-sort-up', 'fa-sort-down', 'active');
+            icon.classList.add('fa-sort');
+        });
+        const activeIcon = document.getElementById('sort-icon-' + currentSort.field);
+        if (activeIcon) {
+            activeIcon.classList.remove('fa-sort');
+            activeIcon.classList.add(currentSort.dir === 'asc' ? 'fa-sort-up' : 'fa-sort-down');
+            activeIcon.classList.add('active');
+        }
+    }
+
+    function applySort() {
+        const field = currentSort.field;
+        const dir = currentSort.dir;
+        jeRows = [...jeAllRows].sort((a, b) => {
+            let valA, valB;
+            if (field === 'number') {
+                valA = (a.getAttribute('data-number') || '').toLowerCase();
+                valB = (b.getAttribute('data-number') || '').toLowerCase();
+                return dir === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+            } else if (field === 'date') {
+                valA = a.getAttribute('data-date') || '';
+                valB = b.getAttribute('data-date') || '';
+                return dir === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+            } else if (field === 'entryType') {
+                valA = (a.getAttribute('data-entrytype') || '').toLowerCase();
+                valB = (b.getAttribute('data-entrytype') || '').toLowerCase();
+                return dir === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+            } else if (field === 'totalDebit' || field === 'totalCredit') {
+                valA = parseFloat(a.getAttribute('data-' + field.toLowerCase()) || 0);
+                valB = parseFloat(b.getAttribute('data-' + field.toLowerCase()) || 0);
+                return dir === 'asc' ? valA - valB : valB - valA;
+            }
+            return 0;
+        });
     }
 
     function updateJEPagination() {

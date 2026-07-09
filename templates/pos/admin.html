@@ -226,7 +226,7 @@
     </div>
 
     <!-- MODAL: AGREGAR NUEVA CAJA -->
-    <div id="add-register-modal" class="search-modal"
+    <div id="admin-add-register-modal" class="search-modal"
         style="display: none; justify-content: center; align-items: center;">
         <div class="modal-backdrop" onclick="closeAddRegisterModal()"></div>
         <div class="modal-content animate-fade-in"
@@ -264,7 +264,7 @@
 
 <script>
     function openAddRegisterModal() {
-        const modal = document.getElementById('add-register-modal');
+        const modal = document.getElementById('admin-add-register-modal');
         if (modal) {
             modal.style.display = 'flex';
             document.body.style.overflow = 'hidden';
@@ -273,7 +273,7 @@
     }
 
     function closeAddRegisterModal() {
-        const modal = document.getElementById('add-register-modal');
+        const modal = document.getElementById('admin-add-register-modal');
         if (modal) {
             modal.style.display = 'none';
             document.body.style.overflow = 'auto';

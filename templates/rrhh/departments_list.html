@@ -1,16 +1,16 @@
 {% extends "rrhh/layout_hr.html" %}
-{% block title %}{{ title }} — {{ product_name }}{% endblock %}
+{% block title %}Departamentos — {{ product_name }}{% endblock %}
 {% block content %}
 {% include "rrhh/_styles.html" %}
 <div class="page-header hr-page-header">
-    <h1 class="page-title"><i class="fa-solid fa-list"></i> {{ title }}</h1>
-    <a href="{{ url_for('web_rrhh.employee_list') }}" class="btn btn-ghost"><i class="fa-solid fa-arrow-left"></i> Empleados</a>
+    <h1 class="page-title"><i class="fa-solid fa-building"></i> Departamentos</h1>
+    <a href="{{ url_for('web_rrhh.settings_index') }}" class="btn btn-ghost"><i class="fa-solid fa-arrow-left"></i> Configuración</a>
 </div>
 <div class="card-table-wrapper" style="padding:16px 24px; margin-bottom:16px; display:flex; gap:8px;">
-    <form method="POST" action="{{ url_for('web_rrhh.catalog_save', catalog_name=catalog_name) }}" style="display:flex; gap:8px; flex:1; align-items:flex-end;">
+    <form method="POST" action="{{ url_for('web_rrhh.department_save') }}" style="display:flex; gap:8px; flex:1; align-items:flex-end;">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="form-group" style="margin:0; flex:1;">
-            <input type="text" name="name" class="form-input" placeholder="Nuevo {{ title[:-1]|lower }}..." required>
+            <input type="text" name="name" class="form-input" placeholder="Nuevo departamento..." required>
         </div>
         <button type="submit" class="btn btn-primary btn-sm"><i class="fa-solid fa-plus"></i> Agregar</button>
     </form>
@@ -23,7 +23,7 @@
             {% for item in items %}
             <tr>
                 <td>
-                    <form method="POST" action="{{ url_for('web_rrhh.catalog_save', catalog_name=catalog_name) }}" style="display:flex; gap:8px;">
+                    <form method="POST" action="{{ url_for('web_rrhh.department_save') }}" style="display:flex; gap:8px;">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <input type="hidden" name="id" value="{{ item.id }}">
                         <input type="text" name="name" value="{{ item.name }}" class="form-input" style="border:1px solid transparent; background:transparent;">
@@ -31,15 +31,15 @@
                     </form>
                 </td>
                 <td>
-                    <form method="POST" action="{{ url_for('web_rrhh.catalog_delete', catalog_name=catalog_name, item_id=item.id) }}"
+                    <form method="POST" action="{{ url_for('web_rrhh.department_delete', item_id=item.id) }}"
                           onsubmit="return confirm('¿Eliminar {{ item.name }}?')" style="display:contents;">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                        <button type="submit" class="btn btn-ghost btn-sm" style="color:var(--danger);"><i class="fa-solid fa-trash"></i></button>
+                        <button type="submit" class="btn btn-ghost btn-sm" style="color:var(--danger);"><i class="fa-solid fa-trash-can"></i></button>
                     </form>
                 </td>
             </tr>
             {% else %}
-            <tr><td colspan="2" class="text-center text-muted">Sin elementos.</td></tr>
+            <tr><td colspan="2" class="text-center text-muted">Sin departamentos definidos.</td></tr>
             {% endfor %}
         </tbody>
         </table>

@@ -152,27 +152,25 @@
     }
 </style>
 
-<div id="guide-cxc" style="background: rgba(168, 85, 247, 0.05); border: 1px solid rgba(168, 85, 247, 0.2); border-radius: 8px; padding: 16px; margin-bottom: 24px; display: flex; gap: 16px; align-items: flex-start; position: relative;">
-    <button onclick="closeGuide('guide-cxc')" style="position: absolute; top: 12px; right: 12px; background: transparent; border: none; color: var(--text-muted); cursor: pointer; padding: 4px; border-radius: 50%; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; transition: background 0.2s, color 0.2s;" onmouseover="this.style.background='rgba(0,0,0,0.05)'; this.style.color='var(--text-primary)';" onmouseout="this.style.background='transparent'; this.style.color='var(--text-muted)';" title="Cerrar guía"><i class="fa-solid fa-xmark"></i></button>
-    <div style="background: rgba(168, 85, 247, 0.1); width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-        <i class="fa-solid fa-lightbulb" style="color: var(--accent-purple); font-size: 1.2rem;"></i>
+<div class="guide-banner" id="guide-cxc">
+    <button class="guide-banner-close" onclick="closeGuide('guide-cxc')" title="Cerrar guía" aria-label="Cerrar guía">
+        <i class="fa-solid fa-xmark"></i>
+    </button>
+    <div class="guide-banner-icon">
+        <i class="fa-solid fa-lightbulb"></i>
     </div>
-    <div>
-        <h4 style="margin: 0 0 8px 0; color: var(--text-primary); font-family: var(--font-heading); font-size: 1rem;">Guía de Uso: Cuentas por Cobrar (CxC)</h4>
-        <p style="margin: 0 0 8px 0; color: var(--text-secondary); font-size: 0.85rem; line-height: 1.5;">
+    <div class="guide-banner-content">
+        <h4>Guía de Uso: Cuentas por Cobrar (CxC)</h4>
+        <p>
             Aquí gestionas el dinero que tus clientes te deben. Tienes una visión clara de los balances pendientes, saldos vencidos y dinero prometido.
         </p>
-        <ul style="margin: 0; padding-left: 20px; color: var(--text-secondary); font-size: 0.85rem; line-height: 1.5;">
+        <ul>
             <li><strong>Acciones Rápidas:</strong> Desde la tabla puedes enviar recordatorios automatizados por WhatsApp o Correo utilizando Inteligencia Artificial.</li>
             <li><strong>Promesas de Pago:</strong> Registra compromisos de fecha de pago con tus clientes para que puedas hacerles seguimiento.</li>
             <li><strong>Indicadores:</strong> Monitorea fácilmente qué porcentaje de tu cartera está vencida (riesgo).</li>
         </ul>
     </div>
 </div>
-<script>
-    if (!window.closeGuide) { window.closeGuide = function(id) { document.getElementById(id).style.display = 'none'; sessionStorage.setItem('closed_' + id, 'true'); }; }
-    if (sessionStorage.getItem('closed_guide-cxc')) { document.getElementById('guide-cxc').style.display = 'none'; }
-</script>
 
 <!-- KPIs SUPERIORES (Estilo OpenAI Dashboard) -->
 {% set total_outstanding_val = total_outstanding | float %}

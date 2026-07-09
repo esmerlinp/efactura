@@ -1,8 +1,18 @@
 {% extends "layout.html" %}
 
-{% block title %}Nuevo Pago{% endblock %}
+{% set is_edit = mode == 'edit' %}
+{% set expense_data = expense or {} %}
+{% set existing_attachments = expense_data.attachments or [] %}
+{% if not existing_attachments and expense_data.firebaseAttachmentURLs %}
+    {% set existing_attachments = [] %}
+    {% for url in expense_data.firebaseAttachmentURLs %}
+        {% set _ = existing_attachments.append({'url': url, 'type': 'otro', 'name': url.split('/')[-1].split('?')[0]}) %}
+    {% endfor %}
+{% endif %}
 
-{% block page_header %}Nuevo Pago{% endblock %}
+{% block title %}{% if is_edit %}Editar Gasto{% else %}Nuevo Pago{% endif %}{% endblock %}
+
+{% block page_header %}{% if is_edit %}Editar Gasto{% else %}Nuevo Pago{% endif %}{% endblock %}
 
 {% block content %}
 <style>
@@ -61,12 +71,19 @@
 
     /* Accounting account dropdown inside table cells */
     .account-cell { overflow:visible; position:relative; }
-    .acco-dropdown { position:absolute; top:100%; left:0; right:0; background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-sm); box-shadow:var(--shadow-lg); z-index:9999; max-height:200px; overflow-y:auto; display:none; margin-top:2px; }
+    .acco-dropdown { position:absolute; top:100%; left:0; min-width:380px; background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-sm); box-shadow:var(--shadow-lg); z-index:9999; max-height:350px; overflow-y:auto; display:none; margin-top:2px; }
     .acco-dropdown.open { display:block; }
-    .acco-search-item { display:flex; align-items:center; gap:8px; padding:8px 12px; cursor:pointer; border-bottom:1px solid var(--border-color); font-size:0.78rem; transition:background 0.12s; }
-    .acco-search-item:hover { background:rgba(16,185,129,0.06); }
-    .acco-search-item .acco-code { font-family:monospace; font-size:0.72rem; color:var(--accent-purple); min-width:65px; }
-    .acco-search-item .acco-name { color:var(--text-primary); flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    /* Tree dropdown for accounting accounts */
+    .acco-tree-item { display:flex; align-items:center; gap:4px; padding:6px 8px; cursor:pointer; border-bottom:1px solid var(--border-color); font-size:0.78rem; transition:background 0.12s; }
+    .acco-tree-item:hover { background:rgba(16,185,129,0.06); }
+    .acco-tree-item .acco-indent { display:inline-block; min-width:4px; }
+    .acco-tree-item .acco-toggle { font-size:0.6rem; color:var(--text-muted); width:14px; text-align:center; flex-shrink:0; cursor:pointer; user-select:none; }
+    .acco-tree-item .acco-toggle:hover { color:var(--accent-emerald); }
+    .acco-tree-item .acco-icon { font-size:0.65rem; width:14px; text-align:center; flex-shrink:0; color:var(--text-muted); }
+    .acco-tree-item .acco-name { color:var(--text-primary); flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0; }
+    .acco-tree-item.selected { background:rgba(16,185,129,0.1); font-weight:600; }
+    .acco-tree-item.selected .acco-name { color:var(--accent-emerald); }
+    .acco-children { }
     .acco-search-no-results { padding:12px; text-align:center; font-size:0.75rem; color:var(--text-muted); }
     .account-cell { position:relative; }
     .account-cell .account-display { cursor:pointer; padding-right:26px; text-overflow:ellipsis; }
@@ -81,19 +98,24 @@
         <strong>Transferencias bancarias</strong>.
     </div>
 
-    <form method="POST" id="payment-form" action="{{ url_for('web_invoices.payments_new_route') }}">
+    <form method="POST" id="payment-form" action="{% if is_edit %}{{ url_for('web_invoices.edit_expense_route', expense_id=expense_data.id) }}{% else %}{{ url_for('web_invoices.payments_new_route') }}{% endif %}" enctype="multipart/form-data">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
         <div class="section-card">
-            <h3><i class="fa-solid fa-circle-info" style="color: var(--accent-blue);"></i> Información general del pago</h3>
+            <h3 style="display:flex;justify-content:space-between;align-items:center;">
+                <span><i class="fa-solid fa-circle-info" style="color: var(--accent-blue);"></i> Información general del pago</span>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="openAttachmentPanel('{{ expense_data.id or '__NEW__' }}', {{ existing_attachments|tojson|safe }})" style="display:inline-flex;align-items:center;gap:5px;font-size:0.75rem;padding:5px 12px;">
+                    <i class="fa-solid fa-paperclip"></i> Adjuntos <span id="att-badge" style="font-size:0.65rem;opacity:0.7;">({{ existing_attachments|length }})</span>
+                </button>
+            </h3>
             <p style="font-size:0.78rem; color:var(--text-muted); margin:0 0 16px 0;">Indica los detalles generales asociados a este egreso</p>
 
             <div class="inp-row" style="margin-bottom:12px;">
                 <div class="inp-group" style="max-width:220px;">
                     <label>Tipo de Comprobante</label>
                     <select id="ecfType" name="ecfType" class="form-select">
-                        <option value="Gasto">Gasto</option>
-                        <option value="E47">Comprobante para pagos al exterior (17)</option>
+                        <option value="Gasto" {% if expense_data.ecfType == 'Gasto' or (not is_edit) %}selected{% endif %}>Gasto</option>
+                        <option value="E47" {% if expense_data.ecfType == 'E47' %}selected{% endif %}>Comprobante para pagos al exterior (17)</option>
                     </select>
                 </div>
                 <div class="inp-group" style="max-width:180px;">
@@ -106,11 +128,11 @@
                 <div class="inp-group wide contact-select" id="contact-select">
                     <label for="contact-display">Contacto</label>
                     <div class="contact-input-wrap">
-                        <input type="text" id="contact-display" class="form-input" value="Consumidor Final" readonly placeholder="Seleccionar contacto..." style="cursor:pointer; padding-right:30px;">
+                        <input type="text" id="contact-display" class="form-input" value="{{ expense_data.providerName or expense_data.contactName or 'Consumidor Final' }}" readonly placeholder="Seleccionar contacto..." style="cursor:pointer; padding-right:30px;">
                         <i class="fa-solid fa-chevron-down contact-arrow"></i>
                     </div>
                     <div class="contact-dropdown" id="contact-dropdown">
-                        <div class="contact-option selected" data-type="consumidor" data-name="Consumidor Final" data-rnc="" data-id="" onclick="selectContactOption(this)">
+                        <div class="contact-option{% if not is_edit or not expense_data.providerName %} selected{% endif %}" data-type="consumidor" data-name="Consumidor Final" data-rnc="" data-id="" onclick="selectContactOption(this)">
                             <i class="fa-solid fa-user"></i> Consumidor Final
                         </div>
                         <div class="contact-search-box">
@@ -122,10 +144,10 @@
                         </div>
                     </div>
                 </div>
-                <input type="hidden" id="contact-type-hidden" name="contact_type" value="consumidor">
-                <input type="hidden" id="provider-name-hidden" name="providerName" value="">
-                <input type="hidden" id="rnc-emisor-hidden" name="rncEmisor" value="">
-                <input type="hidden" id="supplier-id-hidden" name="supplierId" value="">
+                <input type="hidden" id="contact-type-hidden" name="contact_type" value="{{ expense_data.supplierType or 'consumidor' }}">
+                <input type="hidden" id="provider-name-hidden" name="providerName" value="{{ expense_data.providerName or '' }}">
+                <input type="hidden" id="rnc-emisor-hidden" name="rncEmisor" value="{{ expense_data.rncEmisor or '' }}">
+                <input type="hidden" id="supplier-id-hidden" name="supplierId" value="{{ expense_data.supplierId or '' }}">
             </div>
 
             <div class="inp-row" style="margin-bottom:12px;">
@@ -140,7 +162,7 @@
                 </div>
                 <div class="inp-group" style="max-width:180px;">
                     <label for="date">Fecha <span style="color:var(--accent-red);">*</span></label>
-                    <input type="date" id="date" name="date" class="form-input" required value="{{ today_str }}">
+                    <input type="date" id="date" name="date" class="form-input" required value="{{ expense_data.date[:10] if is_edit and expense_data.date else today_str }}">
                 </div>
             </div>
 
@@ -148,19 +170,19 @@
                 <div class="inp-group" style="max-width:200px;">
                     <label for="paymentMethod">Forma de pago <span style="color:var(--accent-red);">*</span></label>
                     <select id="paymentMethod" name="paymentMethod" class="form-select" required>
-                        <option value="transferencia">Transferencia bancaria</option>
-                        <option value="cheque">Cheque</option>
-                        <option value="efectivo">Efectivo</option>
-                        <option value="tarjeta">Tarjeta</option>
-                        <option value="otro">Otro</option>
+                        <option value="transferencia" {% if expense_data.paymentMethod == 'transferencia' or (not is_edit) %}selected{% endif %}>Transferencia bancaria</option>
+                        <option value="cheque" {% if expense_data.paymentMethod == 'cheque' %}selected{% endif %}>Cheque</option>
+                        <option value="efectivo" {% if expense_data.paymentMethod == 'efectivo' %}selected{% endif %}>Efectivo</option>
+                        <option value="tarjeta" {% if expense_data.paymentMethod == 'tarjeta' %}selected{% endif %}>Tarjeta</option>
+                        <option value="otro" {% if expense_data.paymentMethod == 'otro' %}selected{% endif %}>Otro</option>
                     </select>
                 </div>
                 <div class="inp-group" style="max-width:200px;">
                     <label for="currency">Moneda <span style="color:var(--accent-red);">*</span></label>
                     <select id="currency" name="currency" class="form-select" required>
-                        <option value="DOP" selected>DOP - Peso Dominicano</option>
-                        <option value="USD">USD - Dólar Estadounidense</option>
-                        <option value="EUR">EUR - Euro</option>
+                        <option value="DOP" {% if expense_data.currency == 'DOP' or (not is_edit) %}selected{% endif %}>DOP - Peso Dominicano</option>
+                        <option value="USD" {% if expense_data.currency == 'USD' %}selected{% endif %}>USD - Dólar Estadounidense</option>
+                        <option value="EUR" {% if expense_data.currency == 'EUR' %}selected{% endif %}>EUR - Euro</option>
                     </select>
                 </div>
             </div>
@@ -168,7 +190,7 @@
             <div class="inp-row">
                 <div class="inp-group wide">
                     <label for="notes">Nota de egreso</label>
-                    <textarea id="notes" name="notes" class="form-textarea" rows="2" placeholder="Detalles adicionales del egreso..."></textarea>
+                    <textarea id="notes" name="notes" class="form-textarea" rows="2" placeholder="Detalles adicionales del egreso...">{{ expense_data.notes or '' }}</textarea>
                 </div>
             </div>
 
@@ -252,18 +274,18 @@
                 <div class="inp-group" style="max-width:220px;">
                     <label for="retainedISR">Retención ISR</label>
                     <select id="retainedISR" name="retainedISRRate" class="form-select">
-                        <option value="0.0" selected>Sin retención (0%)</option>
-                        <option value="0.02">2% — Bienes y servicios</option>
-                        <option value="0.10">10% — Honorarios / Alquiler</option>
+                        <option value="0.0" {% if expense_data.retainedISR == 0 or expense_data.retainedISR == 0.0 or (not is_edit) %}selected{% endif %}>Sin retención (0%)</option>
+                        <option value="0.02" {% if expense_data.retainedISR == 0.02 %}selected{% endif %}>2% — Bienes y servicios</option>
+                        <option value="0.10" {% if expense_data.retainedISR == 0.10 %}selected{% endif %}>10% — Honorarios / Alquiler</option>
                     </select>
                 </div>
                 <div class="inp-group" style="max-width:220px;">
                     <label for="retainedITBIS">Retención ITBIS</label>
                     <select id="retainedITBIS" name="retainedITBISRate" class="form-select">
-                        <option value="0.0" selected>Sin retención (0%)</option>
-                        <option value="0.30">30% — Bienes corporativos</option>
-                        <option value="0.75">75% — Servicios jurídicos</option>
-                        <option value="1.00">100% — Profesionales independientes</option>
+                        <option value="0.0" {% if expense_data.retainedITBIS == 0 or expense_data.retainedITBIS == 0.0 or (not is_edit) %}selected{% endif %}>Sin retención (0%)</option>
+                        <option value="0.30" {% if expense_data.retainedITBIS == 0.30 %}selected{% endif %}>30% — Bienes corporativos</option>
+                        <option value="0.75" {% if expense_data.retainedITBIS == 0.75 %}selected{% endif %}>75% — Servicios jurídicos</option>
+                        <option value="1.00" {% if expense_data.retainedITBIS == 1.00 %}selected{% endif %}>100% — Profesionales independientes</option>
                     </select>
                 </div>
             </div>
@@ -285,9 +307,9 @@
         </div>
 
         <div class="actions-bar">
-            <a href="{{ url_for('web_invoices.payments_list') }}" class="btn btn-secondary">Cancelar</a>
+            <a href="{% if is_edit %}{{ url_for('web_invoices.expense_detail', expense_id=expense_data.id) }}{% else %}{{ url_for('web_invoices.payments_list') }}{% endif %}" class="btn btn-secondary">Cancelar</a>
             <button type="submit" class="btn btn-primary" style="background:var(--accent-emerald);border-color:var(--accent-emerald);">
-                <i class="fa-solid fa-floppy-disk"></i> Guardar
+                <i class="fa-solid fa-floppy-disk"></i> {% if is_edit %}Guardar Cambios{% else %}Guardar{% endif %}
             </button>
         </div>
     </form>
@@ -345,33 +367,180 @@
         }
     }
 
+    // Build account tree hierarchy from flat list
+    function buildAccountTree(accounts) {
+        const map = {};
+        const roots = [];
+        accounts.forEach(a => {
+            a._children = [];
+            map[a.code || ''] = a;
+        });
+        accounts.forEach(a => {
+            // Infer parent by matching the code prefix (e.g. "1.1.1" is parent of "1.1.1.01")
+            const code = a.code || '';
+            const parts = code.split('.');
+            let parentCode = '';
+            if (parts.length > 1) {
+                // For codes like "1.1.1.01", parent is "1.1.1"
+                // For codes like "3.5.01", try shrinking parts
+                // Try removing the last segment
+                const parentParts = parts.slice(0, -1);
+                parentCode = parentParts.join('.');
+                // If that doesn't match, try treating the last part as a sub-level
+                if (!map[parentCode]) {
+                    // For codes where parent may not exist directly, try navigating up
+                    for (let i = parentParts.length - 1; i >= 0; i--) {
+                        const testCode = parentParts.slice(0, i + 1).join('.');
+                        if (map[testCode]) {
+                            parentCode = testCode;
+                            break;
+                        }
+                    }
+                }
+            }
+            if (parentCode && map[parentCode]) {
+                map[parentCode]._children.push(a);
+            } else if (a.level === 0 || !parentCode || !map[parentCode]) {
+                roots.push(a);
+            }
+        });
+        // Sort children by orderIdx then code
+        function sortTree(nodes) {
+            nodes.sort((a, b) => (a.orderIdx || 0) - (b.orderIdx || 0) || (a.code || '').localeCompare(b.code || ''));
+            nodes.forEach(n => sortTree(n._children));
+        }
+        sortTree(roots);
+        return roots;
+    }
+
+    // Store expanded state per dropdown
+    let expandedMap = {};
+
     function filterAccountDropdown(input) {
         const cell = input.closest('.account-cell');
         const dropdown = cell.querySelector('.acco-dropdown');
         const q = input.value.toLowerCase().trim();
         dropdown.classList.add('open');
-        let filtered = accountingAccounts;
-        if (q) {
-            filtered = accountingAccounts.filter(a =>
-                (a.code && a.code.toLowerCase().includes(q)) ||
-                (a.name && a.name.toLowerCase().includes(q))
-            );
+        if (!q) expandedMap = {};
+
+        const roots = buildAccountTree(accountingAccounts);
+        dropdown.innerHTML = '';
+
+        // Recursive tree renderer
+        function renderNode(node, depth) {
+            const nameMatch = node.name && node.name.toLowerCase().includes(q);
+            const codeMatch = node.code && node.code.toLowerCase().includes(q);
+            const matches = !q || nameMatch || codeMatch;
+            const hasChildren = node._children && node._children.length > 0;
+            const isExpanded = expandedMap[node.code || ''] !== false;
+
+            if (q && !matches) {
+                if (hasChildren) {
+                    let childMatch = false;
+                    const childFrag = document.createDocumentFragment();
+                    node._children.forEach(c => {
+                        const childDiv = renderNode(c, depth + 1);
+                        if (childDiv) { childMatch = true; childFrag.appendChild(childDiv); }
+                    });
+                    if (childMatch) {
+                        const div = document.createElement('div');
+                        div.className = 'acco-tree-item';
+                        div.style.paddingLeft = (12 + depth * 16) + 'px';
+                        div.innerHTML = '<span class="acco-toggle"><i class="fa-solid fa-chevron-right"></i></span>'
+                            + '<span class="acco-icon"><i class="fa-regular fa-folder"></i></span>'
+                            + '<span class="acco-name">' + (node.name || node.code || '') + '</span>';
+                        div.onclick = function(e) {
+                            if (e.target.closest('.acco-toggle')) return;
+                            const childrenDiv = div.nextElementSibling;
+                            if (childrenDiv) {
+                                childrenDiv.style.display = childrenDiv.style.display === 'none' ? '' : 'none';
+                                div.querySelector('.acco-toggle i').className = childrenDiv.style.display === 'none'
+                                    ? 'fa-solid fa-chevron-right' : 'fa-solid fa-chevron-down';
+                            }
+                        };
+                        const frag = document.createDocumentFragment();
+                        frag.appendChild(div);
+                        const childWrapper = document.createElement('div');
+                        childWrapper.className = 'acco-children';
+                        childWrapper.style.display = 'none';
+                        childWrapper.appendChild(childFrag);
+                        frag.appendChild(childWrapper);
+                        return frag;
+                    }
+                }
+                return null;
+            }
+
+            const div = document.createElement('div');
+            div.className = 'acco-tree-item';
+            div.style.paddingLeft = (12 + depth * 16) + 'px';
+
+            let html = '';
+            if (hasChildren) {
+                html += '<span class="acco-toggle" data-toggle="1"><i class="fa-solid ' + (isExpanded ? 'fa-chevron-down' : 'fa-chevron-right') + '"></i></span>';
+                html += '<span class="acco-icon"><i class="fa-regular ' + (isExpanded ? 'fa-folder-open' : 'fa-folder') + '"></i></span>';
+            } else {
+                html += '<span class="acco-toggle"></span>';
+                html += '<span class="acco-icon"><i class="fa-regular fa-file-lines"></i></span>';
+            }
+            html += '<span class="acco-name">' + (node.name || node.code || 'Sin nombre') + '</span>';
+            div.innerHTML = html;
+
+            div.onclick = function(e) {
+                if (e.target.closest('.acco-toggle')) {
+                    e.stopPropagation();
+                    const childrenDiv = div.nextElementSibling;
+                    if (childrenDiv) {
+                        const isHidden = childrenDiv.style.display === 'none';
+                        childrenDiv.style.display = isHidden ? '' : 'none';
+                        const icon = div.querySelector('.acco-toggle i');
+                        if (icon) icon.className = 'fa-solid ' + (isHidden ? 'fa-chevron-down' : 'fa-chevron-right');
+                        const folderIcon = div.querySelector('.acco-icon i');
+                        if (folderIcon) folderIcon.className = 'fa-regular ' + (isHidden ? 'fa-folder-open' : 'fa-folder');
+                        expandedMap[node.code || ''] = isHidden;
+                    }
+                    return;
+                }
+                if (!hasChildren || node.type !== 'control') {
+                    selectAccountItem(cell, node);
+                } else {
+                    const childrenDiv = div.nextElementSibling;
+                    if (childrenDiv) {
+                        const isHidden = childrenDiv.style.display === 'none';
+                        childrenDiv.style.display = isHidden ? '' : 'none';
+                        div.querySelector('.acco-toggle i').className = 'fa-solid ' + (isHidden ? 'fa-chevron-down' : 'fa-chevron-right');
+                        div.querySelector('.acco-icon i').className = 'fa-regular ' + (isHidden ? 'fa-folder-open' : 'fa-folder');
+                        expandedMap[node.code || ''] = isHidden;
+                    }
+                }
+            };
+
+            const frag = document.createDocumentFragment();
+            frag.appendChild(div);
+
+            if (hasChildren) {
+                const childWrapper = document.createElement('div');
+                childWrapper.className = 'acco-children';
+                if (!q && !isExpanded) childWrapper.style.display = 'none';
+                node._children.forEach(c => {
+                    const childFrag = renderNode(c, depth + 1);
+                    if (childFrag) childWrapper.appendChild(childFrag);
+                });
+                frag.appendChild(childWrapper);
+            }
+            return frag;
         }
-        if (filtered.length === 0) {
+
+        const rootFrag = document.createDocumentFragment();
+        roots.forEach(root => {
+            const result = renderNode(root, 0);
+            if (result) rootFrag.appendChild(result);
+        });
+
+        if (!rootFrag.hasChildNodes()) {
             dropdown.innerHTML = '<div class="acco-search-no-results">Sin resultados</div>';
         } else {
-            const frag = document.createDocumentFragment();
-            const limit = Math.min(filtered.length, 30);
-            for (let i = 0; i < limit; i++) {
-                const a = filtered[i];
-                const div = document.createElement('div');
-                div.className = 'acco-search-item';
-                div.onclick = function() { selectAccountItem(cell, a); };
-                div.innerHTML = '<span class="acco-code">' + (a.code || '—') + '</span><span class="acco-name">' + (a.name || a.code || 'Sin nombre') + '</span>';
-                frag.appendChild(div);
-            }
-            dropdown.innerHTML = '';
-            dropdown.appendChild(frag);
+            dropdown.appendChild(rootFrag);
         }
     }
 
@@ -379,7 +548,7 @@
         const input = cell.querySelector('.account-display');
         const idHidden = cell.querySelector('.item-concept-id');
         const nameHidden = cell.querySelector('.item-concept-name');
-        const label = (account.code ? '[' + account.code + '] ' : '') + (account.name || account.code || '');
+        const label = account.name || account.code || 'Sin nombre';
         input.value = label;
         idHidden.value = account.id || '';
         if (nameHidden) nameHidden.value = label;
@@ -539,4 +708,7 @@
         contactDropdown.classList.remove('open');
     }
 </script>
+
+{% include 'components/_attachment_panel.html' %}
+
 {% endblock %}

@@ -17,7 +17,7 @@
     </h1>
     <p style="color:var(--text-secondary); font-size:0.85rem; margin:4px 0 0 2px;">
         Naturaleza: {{ account.nature }} | Tipo: {{ account.type }}
-        {% if account.isSystem %}| 🔒 Cuenta regla{% endif %}
+        {% if account.isSystem %}| <i class="fa-solid fa-lock" style="color:var(--text-muted);"></i> Cuenta regla{% endif %}
     </p>
 </div>
 

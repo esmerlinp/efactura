@@ -797,6 +797,9 @@ def create_expense():
         
         if not concept:
             return jsonify({"success": False, "error": "El concepto del gasto es requerido."}), 400
+        
+        if amount <= 0:
+            return jsonify({"success": False, "error": "El monto del gasto debe ser mayor a cero."}), 400
             
         expense_id = data.get('id') or str(uuid.uuid4())
         

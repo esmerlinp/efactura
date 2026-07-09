@@ -1,0 +1,105 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}Reglas de Cálculo — {{ product_name }}{% endblock %}
+{% block extra_head %}
+<style>
+.rule-card {
+    padding: 14px 18px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    margin-bottom: 10px;
+    transition: all 0.15s;
+}
+.rule-card:hover { border-color: var(--accent-emerald); }
+.rule-card.inactive { opacity: 0.55; }
+.rule-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+.rule-name { font-weight: 600; font-size: 0.9rem; }
+.rule-conditions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+.cond-tag {
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-size: 0.72rem;
+    background: var(--bg-surface-secondary);
+    border: 1px solid var(--border-color-light);
+}
+.rule-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+.action-tag {
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-size: 0.72rem;
+    background: rgba(16,185,129,0.08);
+    border: 1px solid var(--accent-emerald);
+    color: var(--accent-emerald);
+}
+.scope-badge {
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.7rem;
+    font-weight: 600;
+}
+.scope-global { background: rgba(59,130,246,0.1); color: #3b82f6; }
+.scope-group { background: rgba(16,185,129,0.1); color: var(--accent-emerald); }
+.scope-employee { background: rgba(168,85,247,0.1); color: #a855f7; }
+</style>
+{% endblock %}
+{% block content %}
+{% include "rrhh/_styles.html" %}
+<div class="page-header hr-page-header">
+    <h1 class="page-title"><i class="fa-solid fa-code-branch"></i> Reglas de Cálculo</h1>
+    <div class="hr-page-actions">
+        <a href="{{ url_for('web_rrhh.payroll_rules_test') }}" class="btn btn-ghost"><i class="fa-solid fa-flask"></i> Probar reglas</a>
+        <a href="{{ url_for('web_rrhh.payroll_rules_new') }}" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Nueva regla</a>
+        <a href="{{ url_for('web_rrhh.payroll_settings') }}" class="btn btn-ghost"><i class="fa-solid fa-arrow-left"></i> Configuración</a>
+    </div>
+</div>
+
+<div class="card-table-wrapper" style="padding:12px 18px; margin-bottom:16px; background:rgba(16,185,129,0.06); border:1px solid var(--accent-emerald);">
+    <p style="margin:0; font-size:0.82rem;">
+        <i class="fa-solid fa-circle-info" style="color:var(--accent-emerald);"></i>
+        Las reglas se evalúan en orden de prioridad (menor número primero). Las reglas globales aplican a todos los empleados. Las reglas de grupo solo aplican a empleados en ese grupo. Puedes usar condiciones como <code>department == "Ventas"</code> o <code>salary > 50000</code>.
+    </p>
+</div>
+
+{% if not rules %}
+<div class="card-table-wrapper" style="padding:40px; text-align:center;">
+    <i class="fa-solid fa-code-branch" style="font-size:2rem; color:var(--text-muted); margin-bottom:12px;"></i>
+    <p style="color:var(--text-muted);">No hay reglas de cálculo configuradas.</p>
+    <p style="color:var(--text-muted); font-size:0.8rem;">Crea tu primera regla para automatizar bonos, comisiones y otros cálculos.</p>
+    <a href="{{ url_for('web_rrhh.payroll_rules_new') }}" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Crear primera regla</a>
+</div>
+{% endif %}
+
+{% if global_rules %}
+<h3 style="font-size:0.9rem; margin-bottom:8px;"><span class="scope-badge scope-global">Global</span> {{ global_rules|length }} reglas</h3>
+{% for rule in global_rules %}
+{% include "rrhh/_payroll_rule_card.html" %}
+{% endfor %}
+{% endif %}
+
+{% if group_rules %}
+<h3 style="font-size:0.9rem; margin-bottom:8px; margin-top:16px;"><span class="scope-badge scope-group">Por Grupo</span> {{ group_rules|length }} reglas</h3>
+{% for rule in group_rules %}
+{% include "rrhh/_payroll_rule_card.html" %}
+{% endfor %}
+{% endif %}
+
+{% if employee_rules %}
+<h3 style="font-size:0.9rem; margin-bottom:8px; margin-top:16px;"><span class="scope-badge scope-employee">Por Empleado</span> {{ employee_rules|length }} reglas</h3>
+{% for rule in employee_rules %}
+{% include "rrhh/_payroll_rule_card.html" %}
+{% endfor %}
+{% endif %}
+{% endblock %}

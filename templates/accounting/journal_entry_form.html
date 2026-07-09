@@ -17,6 +17,26 @@
     </h1>
 </div>
 
+<style>
+    .account-cell { overflow:visible; position:relative; }
+    .account-cell .account-display { cursor:pointer; padding-right:26px; text-overflow:ellipsis; font-size:0.8rem; }
+
+    .acco-dropdown { position:absolute; top:100%; left:0; min-width:420px; background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-sm); box-shadow:var(--shadow-lg); z-index:9999; max-height:350px; overflow-y:auto; display:none; margin-top:2px; }
+    .acco-dropdown.open { display:block; }
+
+    .acco-tree-item { display:flex; align-items:center; gap:4px; padding:6px 8px; cursor:pointer; border-bottom:1px solid var(--border-color); font-size:0.78rem; transition:background 0.12s; }
+    .acco-tree-item:hover { background:rgba(16,185,129,0.06); }
+    .acco-tree-item .acco-toggle { font-size:0.6rem; color:var(--text-muted); width:14px; text-align:center; flex-shrink:0; cursor:pointer; user-select:none; }
+    .acco-tree-item .acco-toggle:hover { color:var(--accent-emerald); }
+    .acco-tree-item .acco-icon { font-size:0.65rem; width:14px; text-align:center; flex-shrink:0; color:var(--text-muted); }
+    .acco-tree-item .acco-name { color:var(--text-primary); flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0; }
+    .acco-tree-item .acco-code { font-family:monospace; font-size:0.7rem; color:var(--accent-purple); flex-shrink:0; margin-right:4px; }
+    .acco-tree-item.selected { background:rgba(16,185,129,0.1); font-weight:600; }
+    .acco-tree-item.selected .acco-name { color:var(--accent-emerald); }
+    .acco-children { }
+    .acco-search-no-results { padding:12px; text-align:center; font-size:0.75rem; color:var(--text-muted); }
+</style>
+
 <form method="POST" id="entry-form">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div class="card-segment">
@@ -56,7 +76,7 @@
         </div>
     </div>
 
-    <div class="card-segment">
+    <div class="card-segment" style="overflow:visible;">
         <div class="segment-header">
             <div class="segment-header-icon purple">
                 <i class="fa-solid fa-list"></i>
@@ -66,7 +86,7 @@
                 <i class="fa-solid fa-plus"></i> Agregar línea
             </button>
         </div>
-        <div style="overflow-x:auto;">
+        <div style="overflow-x:visible;">
             <table class="table" style="width:100%; border-collapse:collapse; font-size:0.82rem;" id="lines-table">
                 <thead>
                     <tr style="background:var(--bg-nav-hover);">
@@ -79,15 +99,12 @@
                 </thead>
                 <tbody id="lines-body">
                     <tr class="line-row">
-                        <td style="padding:6px 8px;">
-                            <select name="line_account[]" class="form-select account-select" style="width:100%; font-size:0.8rem;" required>
-                                <option value="">Seleccionar cuenta...</option>
-                                {% for acc in accounts %}
-                                {% if acc.type == 'movimiento' %}
-                                <option value="{{ acc.id }}">{{ acc.code }} — {{ acc.name }} ({{ acc.group }})</option>
-                                {% endif %}
-                                {% endfor %}
-                            </select>
+                        <td style="padding:6px 8px; overflow:visible;">
+                            <div class="account-cell">
+                                <input type="text" class="form-input account-display" value="" placeholder="Buscar cuenta contable..." autocomplete="off" onfocus="openAccountDropdown(this)" oninput="filterAccountDropdown(this)" style="width:100%;">
+                                <input type="hidden" name="line_account[]" value="" class="item-account-id">
+                                <div class="acco-dropdown"></div>
+                            </div>
                         </td>
                         <td style="padding:6px 8px;">
                             <input type="text" name="line_description[]" class="form-input" style="font-size:0.8rem;" placeholder="Descripción">
@@ -105,15 +122,12 @@
                         </td>
                     </tr>
                     <tr class="line-row">
-                        <td style="padding:6px 8px;">
-                            <select name="line_account[]" class="form-select account-select" style="width:100%; font-size:0.8rem;" required>
-                                <option value="">Seleccionar cuenta...</option>
-                                {% for acc in accounts %}
-                                {% if acc.type == 'movimiento' %}
-                                <option value="{{ acc.id }}">{{ acc.code }} — {{ acc.name }} ({{ acc.group }})</option>
-                                {% endif %}
-                                {% endfor %}
-                            </select>
+                        <td style="padding:6px 8px; overflow:visible;">
+                            <div class="account-cell">
+                                <input type="text" class="form-input account-display" value="" placeholder="Buscar cuenta contable..." autocomplete="off" onfocus="openAccountDropdown(this)" oninput="filterAccountDropdown(this)" style="width:100%;">
+                                <input type="hidden" name="line_account[]" value="" class="item-account-id">
+                                <div class="acco-dropdown"></div>
+                            </div>
                         </td>
                         <td style="padding:6px 8px;">
                             <input type="text" name="line_description[]" class="form-input" style="font-size:0.8rem;" placeholder="Descripción">
@@ -165,68 +179,258 @@
 </form>
 
 <script>
-function updateTotals() {
-    let totalDebit = 0, totalCredit = 0;
-    document.querySelectorAll('.line-debit').forEach(el => totalDebit += parseFloat(el.value) || 0);
-    document.querySelectorAll('.line-credit').forEach(el => totalCredit += parseFloat(el.value) || 0);
-    document.getElementById('total-debit').textContent = totalDebit.toFixed(2);
-    document.getElementById('total-credit').textContent = totalCredit.toFixed(2);
-    const diff = totalDebit - totalCredit;
-    document.getElementById('diff').textContent = diff.toFixed(2);
-    const status = document.getElementById('balance-status');
-    if (Math.abs(diff) < 0.01) {
-        status.innerHTML = '<i class="fa-solid fa-check-circle"></i> Balanceado';
-        status.style.color = 'var(--accent-emerald)';
-    } else {
-        status.innerHTML = '<i class="fa-solid fa-exclamation-triangle"></i> No balanceado (diferencia ' + diff.toFixed(2) + ')';
-        status.style.color = 'var(--accent-red)';
+    const accountingAccounts = {{ accounts | tojson | safe }};
+
+    function updateTotals() {
+        let totalDebit = 0, totalCredit = 0;
+        document.querySelectorAll('.line-debit').forEach(el => totalDebit += parseFloat(el.value) || 0);
+        document.querySelectorAll('.line-credit').forEach(el => totalCredit += parseFloat(el.value) || 0);
+        document.getElementById('total-debit').textContent = totalDebit.toFixed(2);
+        document.getElementById('total-credit').textContent = totalCredit.toFixed(2);
+        const diff = totalDebit - totalCredit;
+        document.getElementById('diff').textContent = diff.toFixed(2);
+        const status = document.getElementById('balance-status');
+        if (Math.abs(diff) < 0.01) {
+            status.innerHTML = '<i class="fa-solid fa-check-circle"></i> Balanceado';
+            status.style.color = 'var(--accent-emerald)';
+        } else {
+            status.innerHTML = '<i class="fa-solid fa-exclamation-triangle"></i> No balanceado (diferencia ' + diff.toFixed(2) + ')';
+            status.style.color = 'var(--accent-red)';
+        }
     }
-}
-function addLine() {
-    const tbody = document.getElementById('lines-body');
-    const row = document.createElement('tr');
-    row.className = 'line-row';
-    row.innerHTML = `
-        <td style="padding:6px 8px;">
-            <select name="line_account[]" class="form-select account-select" style="width:100%; font-size:0.8rem;" required>
-                <option value="">Seleccionar cuenta...</option>
-                {% for acc in accounts %}
-                {% if acc.type == 'movimiento' %}
-                <option value="{{ acc.id }}">{{ acc.code }} — {{ acc.name }} ({{ acc.group }})</option>
-                {% endif %}
-                {% endfor %}
-            </select>
-        </td>
-        <td style="padding:6px 8px;">
-            <input type="text" name="line_description[]" class="form-input" style="font-size:0.8rem;" placeholder="Descripción">
-        </td>
-        <td style="padding:6px 8px;">
-            <input type="number" name="line_debit[]" class="form-input line-debit" style="font-size:0.8rem; text-align:right;" step="0.01" min="0" value="0.00" oninput="updateTotals()">
-        </td>
-        <td style="padding:6px 8px;">
-            <input type="number" name="line_credit[]" class="form-input line-credit" style="font-size:0.8rem; text-align:right;" step="0.01" min="0" value="0.00" oninput="updateTotals()">
-        </td>
-        <td style="padding:6px 8px; text-align:center;">
-            <button type="button" class="btn btn-secondary" style="padding:2px 6px; font-size:0.7rem; color:var(--accent-red);" onclick="removeLine(this)">
-                <i class="fa-solid fa-xmark"></i>
-            </button>
-        </td>
-    `;
-    tbody.appendChild(row);
-}
-function removeLine(btn) {
-    const row = btn.closest('tr');
-    if (document.querySelectorAll('.line-row').length <= 1) return;
-    row.remove();
-    updateTotals();
-}
-document.getElementById('entry-form').addEventListener('submit', function(e) {
-    const totalDebit = parseFloat(document.getElementById('total-debit').textContent) || 0;
-    const totalCredit = parseFloat(document.getElementById('total-credit').textContent) || 0;
-    if (Math.abs(totalDebit - totalCredit) > 0.01) {
-        e.preventDefault();
-        alert('El asiento no está balanceado. Los débitos deben ser iguales a los créditos.');
+
+    function addLine() {
+        const tbody = document.getElementById('lines-body');
+        const row = document.createElement('tr');
+        row.className = 'line-row';
+        row.innerHTML = `
+            <td style="padding:6px 8px; overflow:visible;">
+                <div class="account-cell">
+                    <input type="text" class="form-input account-display" value="" placeholder="Buscar cuenta contable..." autocomplete="off" onfocus="openAccountDropdown(this)" oninput="filterAccountDropdown(this)" style="width:100%;">
+                    <input type="hidden" name="line_account[]" value="" class="item-account-id">
+                    <div class="acco-dropdown"></div>
+                </div>
+            </td>
+            <td style="padding:6px 8px;">
+                <input type="text" name="line_description[]" class="form-input" style="font-size:0.8rem;" placeholder="Descripción">
+            </td>
+            <td style="padding:6px 8px;">
+                <input type="number" name="line_debit[]" class="form-input line-debit" style="font-size:0.8rem; text-align:right;" step="0.01" min="0" value="0.00" oninput="updateTotals()">
+            </td>
+            <td style="padding:6px 8px;">
+                <input type="number" name="line_credit[]" class="form-input line-credit" style="font-size:0.8rem; text-align:right;" step="0.01" min="0" value="0.00" oninput="updateTotals()">
+            </td>
+            <td style="padding:6px 8px; text-align:center;">
+                <button type="button" class="btn btn-secondary" style="padding:2px 6px; font-size:0.7rem; color:var(--accent-red);" onclick="removeLine(this)">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </td>
+        `;
+        tbody.appendChild(row);
     }
-});
+
+    function removeLine(btn) {
+        const row = btn.closest('tr');
+        if (document.querySelectorAll('.line-row').length <= 1) return;
+        row.remove();
+        updateTotals();
+    }
+
+    document.getElementById('entry-form').addEventListener('submit', function(e) {
+        const totalDebit = parseFloat(document.getElementById('total-debit').textContent) || 0;
+        const totalCredit = parseFloat(document.getElementById('total-credit').textContent) || 0;
+        if (Math.abs(totalDebit - totalCredit) > 0.01) {
+            e.preventDefault();
+            showAlert('Asiento no balanceado', 'Los débitos deben ser iguales a los créditos.', 'warning');
+        }
+    });
+
+    // --- ÁRBOL DE CUENTAS CONTABLES ---
+
+    function buildAccountTree(accounts) {
+        const map = {};
+        const roots = [];
+        accounts.forEach(a => {
+            a._children = [];
+            map[a.code || ''] = a;
+        });
+        accounts.forEach(a => {
+            const code = a.code || '';
+            const parts = code.split('.');
+            let parentCode = '';
+            if (parts.length > 1) {
+                const parentParts = parts.slice(0, -1);
+                parentCode = parentParts.join('.');
+                if (!map[parentCode]) {
+                    for (let i = parentParts.length - 1; i >= 0; i--) {
+                        const testCode = parentParts.slice(0, i + 1).join('.');
+                        if (map[testCode]) {
+                            parentCode = testCode;
+                            break;
+                        }
+                    }
+                }
+            }
+            if (parentCode && map[parentCode]) {
+                map[parentCode]._children.push(a);
+            } else {
+                roots.push(a);
+            }
+        });
+        function sortTree(nodes) {
+            nodes.sort((a, b) => (a.orderIdx || 0) - (b.orderIdx || 0) || (a.code || '').localeCompare(b.code || ''));
+            nodes.forEach(n => sortTree(n._children));
+        }
+        sortTree(roots);
+        return roots;
+    }
+
+    let expandedMap = {};
+
+    function openAccountDropdown(input) {
+        const cell = input.closest('.account-cell');
+        const dropdown = cell.querySelector('.acco-dropdown');
+        document.querySelectorAll('.acco-dropdown.open').forEach(d => { if (d !== dropdown) d.classList.remove('open'); });
+        dropdown.classList.toggle('open');
+        if (dropdown.classList.contains('open')) {
+            filterAccountDropdown(input);
+        }
+    }
+
+    function filterAccountDropdown(input) {
+        const cell = input.closest('.account-cell');
+        const dropdown = cell.querySelector('.acco-dropdown');
+        const q = input.value.toLowerCase().trim();
+        dropdown.classList.add('open');
+        if (!q) expandedMap = {};
+
+        const roots = buildAccountTree(accountingAccounts);
+        dropdown.innerHTML = '';
+
+        function renderNode(node, depth) {
+            const nameMatch = node.name && node.name.toLowerCase().includes(q);
+            const codeMatch = node.code && node.code.toLowerCase().includes(q);
+            const matches = !q || nameMatch || codeMatch;
+            const hasChildren = node._children && node._children.length > 0;
+            const isExpanded = expandedMap[node.code || ''] !== false;
+
+            if (q && !matches) {
+                if (hasChildren) {
+                    let childMatch = false;
+                    const childFrag = document.createDocumentFragment();
+                    node._children.forEach(c => {
+                        const childDiv = renderNode(c, depth + 1);
+                        if (childDiv) { childMatch = true; childFrag.appendChild(childDiv); }
+                    });
+                    if (childMatch) {
+                        const div = document.createElement('div');
+                        div.className = 'acco-tree-item';
+                        div.style.paddingLeft = (12 + depth * 16) + 'px';
+                        div.innerHTML = '<span class="acco-toggle"><i class="fa-solid fa-chevron-right"></i></span>'
+                            + '<span class="acco-icon"><i class="fa-regular fa-folder"></i></span>'
+                            + (node.code ? '<span class="acco-code">' + node.code + '</span>' : '')
+                            + '<span class="acco-name">' + (node.name || node.code || '') + '</span>';
+                        div.onclick = function(e) { if (e.target.closest('.acco-toggle')) { return; }
+                            const cd = div.nextElementSibling;
+                            if (cd) cd.style.display = cd.style.display === 'none' ? '' : 'none'; };
+                        const frag = document.createDocumentFragment();
+                        frag.appendChild(div);
+                        const childWrapper = document.createElement('div');
+                        childWrapper.className = 'acco-children';
+                        childWrapper.style.display = 'none';
+                        childWrapper.appendChild(childFrag);
+                        frag.appendChild(childWrapper);
+                        return frag;
+                    }
+                }
+                return null;
+            }
+
+            const div = document.createElement('div');
+            div.className = 'acco-tree-item';
+            div.style.paddingLeft = (12 + depth * 16) + 'px';
+
+            let html = '';
+            if (hasChildren) {
+                html += '<span class="acco-toggle"><i class="fa-solid ' + (isExpanded ? 'fa-chevron-down' : 'fa-chevron-right') + '"></i></span>';
+                html += '<span class="acco-icon"><i class="fa-regular ' + (isExpanded ? 'fa-folder-open' : 'fa-folder') + '"></i></span>';
+            } else {
+                html += '<span class="acco-toggle"></span>';
+                html += '<span class="acco-icon"><i class="fa-regular fa-file-lines"></i></span>';
+            }
+            if (node.code) html += '<span class="acco-code">' + node.code + '</span>';
+            html += '<span class="acco-name">' + (node.name || node.code || 'Sin nombre') + '</span>';
+            div.innerHTML = html;
+
+            div.onclick = function(e) {
+                if (e.target.closest('.acco-toggle')) {
+                    e.stopPropagation();
+                    const cd = div.nextElementSibling;
+                    if (cd) {
+                        const isHidden = cd.style.display === 'none';
+                        cd.style.display = isHidden ? '' : 'none';
+                        div.querySelector('.acco-toggle i').className = 'fa-solid ' + (isHidden ? 'fa-chevron-down' : 'fa-chevron-right');
+                        div.querySelector('.acco-icon i').className = 'fa-regular ' + (isHidden ? 'fa-folder-open' : 'fa-folder');
+                        expandedMap[node.code || ''] = isHidden;
+                    }
+                    return;
+                }
+                if (!hasChildren || node.type !== 'control') {
+                    selectAccountItem(cell, node);
+                } else {
+                    const cd = div.nextElementSibling;
+                    if (cd) {
+                        const isHidden = cd.style.display === 'none';
+                        cd.style.display = isHidden ? '' : 'none';
+                        div.querySelector('.acco-toggle i').className = 'fa-solid ' + (isHidden ? 'fa-chevron-down' : 'fa-chevron-right');
+                        div.querySelector('.acco-icon i').className = 'fa-regular ' + (isHidden ? 'fa-folder-open' : 'fa-folder');
+                        expandedMap[node.code || ''] = isHidden;
+                    }
+                }
+            };
+
+            const frag = document.createDocumentFragment();
+            frag.appendChild(div);
+
+            if (hasChildren) {
+                const childWrapper = document.createElement('div');
+                childWrapper.className = 'acco-children';
+                if (!q && !isExpanded) childWrapper.style.display = 'none';
+                node._children.forEach(c => {
+                    const childFrag = renderNode(c, depth + 1);
+                    if (childFrag) childWrapper.appendChild(childFrag);
+                });
+                frag.appendChild(childWrapper);
+            }
+            return frag;
+        }
+
+        const rootFrag = document.createDocumentFragment();
+        roots.forEach(root => {
+            const result = renderNode(root, 0);
+            if (result) rootFrag.appendChild(result);
+        });
+
+        if (!rootFrag.hasChildNodes()) {
+            dropdown.innerHTML = '<div class="acco-search-no-results">Sin resultados</div>';
+        } else {
+            dropdown.appendChild(rootFrag);
+        }
+    }
+
+    function selectAccountItem(cell, account) {
+        const input = cell.querySelector('.account-display');
+        const idHidden = cell.querySelector('.item-account-id');
+        const label = (account.code ? account.code + ' — ' : '') + (account.name || 'Sin nombre');
+        input.value = label;
+        idHidden.value = account.id || '';
+        cell.querySelector('.acco-dropdown').classList.remove('open');
+    }
+
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.account-cell')) {
+            document.querySelectorAll('.acco-dropdown.open').forEach(d => d.classList.remove('open'));
+        }
+    });
 </script>
 {% endblock %}

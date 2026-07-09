@@ -118,10 +118,10 @@
         </div>
         <div style="padding:24px; display:flex; flex-direction:column; gap:var(--space-3);">
             <div style="display:flex; flex-direction:column; gap:var(--space-2);">
-                <button type="button" class="hr-status-btn" data-status="presente" onclick="selectStatus(this)">✅ Presente</button>
-                <button type="button" class="hr-status-btn" data-status="ausente" onclick="selectStatus(this)">❌ Ausente</button>
-                <button type="button" class="hr-status-btn" data-status="tarde" onclick="selectStatus(this)">⏰ Tarde</button>
-                <button type="button" class="hr-status-btn" data-status="permiso" onclick="selectStatus(this)">📋 Permiso</button>
+                <button type="button" class="hr-status-btn" data-status="presente" onclick="selectStatus(this)"><i class="fa-solid fa-check" style="color:var(--accent-emerald);"></i> Presente</button>
+                <button type="button" class="hr-status-btn" data-status="ausente" onclick="selectStatus(this)"><i class="fa-solid fa-xmark" style="color:var(--accent-red);"></i> Ausente</button>
+                <button type="button" class="hr-status-btn" data-status="tarde" onclick="selectStatus(this)"><i class="fa-solid fa-clock" style="color:var(--accent-orange);"></i> Tarde</button>
+                <button type="button" class="hr-status-btn" data-status="permiso" onclick="selectStatus(this)"><i class="fa-solid fa-file-lines" style="color:var(--accent-blue);"></i> Permiso</button>
             </div>
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:var(--space-2);">
                 <div><label style="font-size:var(--text-sm); color:var(--text-secondary); display:block; margin-bottom:4px;">Entrada</label><input type="time" class="form-input" id="checkin_val"></div>

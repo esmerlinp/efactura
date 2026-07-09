@@ -5158,6 +5158,11 @@ def payments_new_route():
         total_amount = sum(item['total'] for item in account_items)
         amount = total_amount * exchange_rate
 
+        concept_value = account_items[0]['concept'] if account_items else request.form.get('notes', '')
+        if not concept_value or not concept_value.strip():
+            flash('El concepto del gasto es obligatorio.', 'error')
+            return redirect(url_for('web_invoices.payments_new_route'))
+
         payment_type = 'Contado'
         cxp_status = 'Pagado'
 
@@ -5198,7 +5203,11 @@ def payments_new_route():
             'comentario': request.form.get('comentario', ''),
         }
 
-        DatabaseService.save_expense(owner_uid, expense_id, expense_dict, sandbox=sandbox)
+        try:
+            DatabaseService.save_expense(owner_uid, expense_id, expense_dict, sandbox=sandbox)
+        except ValueError as ve:
+            flash(str(ve), 'error')
+            return redirect(url_for('web_invoices.payments_new_route'))
 
         bank_account_id = expense_dict.get('bankAccountId')
         if bank_account_id:
@@ -5337,6 +5346,11 @@ def minor_new_route():
         total_amount = sum(item['total'] for item in account_items)
         amount = total_amount * exchange_rate
 
+        concept_value = account_items[0]['concept'] if account_items else request.form.get('notes', '')
+        if not concept_value or not concept_value.strip():
+            flash('El concepto del gasto es obligatorio.', 'error')
+            return redirect(url_for('web_invoices.minor_new_route'))
+
         expense_dict = {
             'supplierType': 'informal',
             'concept': account_items[0]['concept'] if account_items else request.form.get('notes', 'Gasto Menor'),
@@ -5371,7 +5385,11 @@ def minor_new_route():
             'comentario': request.form.get('comentario', ''),
         }
 
-        DatabaseService.save_expense(owner_uid, expense_id, expense_dict, sandbox=sandbox)
+        try:
+            DatabaseService.save_expense(owner_uid, expense_id, expense_dict, sandbox=sandbox)
+        except ValueError as ve:
+            flash(str(ve), 'error')
+            return redirect(url_for('web_invoices.minor_new_route'))
 
         try:
             from app.services.accounting_service import AccountingService
@@ -5543,6 +5561,11 @@ def recurring_new_route():
         amount = total_amount * exchange_rate
         tax_amount = sum(float(item['price']) * float(item['tax']) * int(item['quantity']) for item in concept_items)
 
+        concept_value = concept_items[0]['concept'] if concept_items else ''
+        if not concept_value or not concept_value.strip():
+            flash('El concepto del gasto es obligatorio.', 'error')
+            return redirect(url_for('web_invoices.recurring_new_route'))
+
         is_recurring = True
         recurrence_interval = request.form.get('recurrenceInterval', 'mensual')
         next_occurrence = request.form.get('nextOccurrenceDate')
@@ -5592,7 +5615,11 @@ def recurring_new_route():
             } for ci in concept_items],
         }
 
-        DatabaseService.save_expense(owner_uid, expense_id, expense_dict, sandbox=sandbox)
+        try:
+            DatabaseService.save_expense(owner_uid, expense_id, expense_dict, sandbox=sandbox)
+        except ValueError as ve:
+            flash(str(ve), 'error')
+            return redirect(url_for('web_invoices.recurring_new_route'))
 
         try:
             from app.services.accounting_service import AccountingService
@@ -5790,9 +5817,14 @@ def edit_expense_route(expense_id):
                     assigned_approver_email = m.get('email', '')
                     break
 
+        concept = request.form.get('concept', '').strip()
+        if not concept:
+            flash('El concepto del gasto es obligatorio.', 'error')
+            return redirect(url_for('web_invoices.edit_expense_route', expense_id=expense_id))
+
         expense_dict = {
             "supplierType": request.form.get('supplierType', expense.get('supplierType', 'formal')),
-            "concept": request.form['concept'],
+            "concept": concept,
             "category": request.form['category'],
             "currency": currency,
             "exchangeRate": exchange_rate,
@@ -5836,7 +5868,22 @@ def edit_expense_route(expense_id):
             "bankAccountId": request.form.get('bankAccountId', expense.get('bankAccountId', ''))
         }
         
-        DatabaseService.save_expense(owner_uid, expense_id, expense_dict, sandbox=sandbox)
+        try:
+            DatabaseService.save_expense(owner_uid, expense_id, expense_dict, sandbox=sandbox)
+        except ValueError as ve:
+            flash(str(ve), 'error')
+            return redirect(url_for('web_invoices.edit_expense_route', expense_id=expense_id))
+
+        try:
+            from app.services.accounting_service import AccountingService, _accounting_entry_exists
+            all_entries = DatabaseService.get_accounting_entries(owner_uid, sandbox=sandbox)
+            for e in all_entries:
+                if e.get("status") != "voided" and e.get("referenceType") == "expense" and e.get("referenceId") == expense_id:
+                    AccountingService.void_entry(owner_uid, e["id"], reason="Regenerado por edición", user_id=session['user']['email'], sandbox=sandbox)
+                    break
+            AccountingService.auto_generate_expense_entry(owner_uid, expense_dict, sandbox=sandbox)
+        except Exception as acc_err:
+            print(f"Error al regenerar asiento contable en edición: {acc_err}")
 
         # === EMISIÓN e-CF PARA E41/E43 AL EDITAR ===
         # Solo si el gasto aún NO tiene un e-NCF asignado (no re-emisión de documentos ya enviados a la DGII).
@@ -5929,36 +5976,31 @@ def edit_expense_route(expense_id):
         else:
             flash('Gasto operativo actualizado exitosamente.', 'success')
         return redirect(url_for('web_invoices.list_expenses'))
-        
-    invoices = DatabaseService.get_invoices(owner_uid, sandbox=sandbox)
-    
-    team_members = DatabaseService.get_team_members(owner_uid)
-    owner_profile = DatabaseService.get_user_profile(owner_uid)
-    if owner_profile and not any(m.get('uid') == owner_uid for m in team_members):
-        team_members.insert(0, {
-            "uid": owner_profile.get("uid"),
-            "name": f"{owner_profile.get('name', 'Usuario Principal')} (Tú)",
-            "email": owner_profile.get("email", "")
-        })
-    # Secuencias disponibles para gastos (E41, E43)
-    all_sequences = DatabaseService.get_sequences(owner_uid, sandbox=sandbox)
-    expense_sequences = {
-        s['tipoComprobante']: s
-        for s in all_sequences
-        if s.get('tipoComprobante', '').upper() in ('E41', 'E43')
-        and s.get('estado', '').upper() == 'ACTIVA'
-        and not s.get('bloqueadaManualmente', False)
-    }
+         
+    today_str = datetime.now(timezone.utc).strftime('%Y-%m-%d')
     bank_accounts = DatabaseService.get_bank_accounts(owner_uid, sandbox=sandbox)
-    return render_template(
-        'expenses/edit.html',
-        active_page='expenses',
-        team_members=team_members,
-        expense=expense,
-        invoices=invoices,
-        expense_sequences=expense_sequences,
-        bank_accounts=bank_accounts
-    )
+    accounting_accounts = DatabaseService.get_chart_of_accounts(owner_uid)
+    tax_rules = DatabaseService.get_tax_rules(owner_uid)
+    itbis_general = tax_rules.get('itbis', {}).get('general', 0.18)
+    itbis_reduced = tax_rules.get('itbis', {}).get('reduced', 0.16)
+
+    common_vars = {
+        'active_page': 'expenses',
+        'mode': 'edit',
+        'expense': expense,
+        'bank_accounts': bank_accounts,
+        'accounting_accounts': accounting_accounts,
+        'itbis_general': itbis_general,
+        'itbis_reduced': itbis_reduced,
+        'today_str': today_str,
+    }
+
+    if expense.get('isMinorExpense'):
+        return render_template('expenses/minor_new.html', **common_vars)
+    elif expense.get('isRecurring'):
+        return render_template('expenses/recurring_new.html', **common_vars)
+    else:
+        return render_template('expenses/payments_new.html', **common_vars)
 
 @web_invoices_bp.route('/expenses/<expense_id>/sync', methods=['POST'])
 def sync_expense_ecf_route(expense_id):
@@ -6482,6 +6524,8 @@ def company_settings():
         })
         saved = DatabaseService.save_company_profile(owner_uid, profile_dict)
         if saved:
+            # Refrescar empresas asociadas en sesión para reflejar nombre actualizado en sidebar
+            session['associated_companies'] = DatabaseService.get_associated_companies(session['user']['uid'])
             flash('Ajustes y perfil de empresa actualizados correctamente.', 'success')
         else:
             flash('Error al guardar el perfil. Verifica que los datos no excedan el tamaño permitido.', 'error')
@@ -8809,7 +8853,10 @@ def expense_import_confirm():
         "_importMeta": importMeta,
     }
 
-    DatabaseService.save_expense(owner_uid, expense_id, expense_dict, sandbox=sandbox)
+    try:
+        DatabaseService.save_expense(owner_uid, expense_id, expense_dict, sandbox=sandbox)
+    except ValueError as ve:
+        return jsonify({"success": False, "error": str(ve)}), 400
 
     from app.services.audit_service import AuditService, ACTION_CREATE, MODULE_GASTOS
     AuditService.log_from_request(
@@ -9096,6 +9143,13 @@ def expense_detail(expense_id):
     cxp_payments = []
     if is_cxp:
         cxp_payments = DatabaseService.get_cxp_payments(owner_uid, expense_id, sandbox=sandbox)
+
+    linked_entry = None
+    all_entries = DatabaseService.get_accounting_entries(owner_uid, sandbox=sandbox)
+    for e in all_entries:
+        if e.get("status") != "voided" and e.get("referenceType") == "expense" and e.get("referenceId") == expense_id:
+            linked_entry = e
+            break
         
     return render_template(
         'expenses/detail.html',
@@ -9105,21 +9159,22 @@ def expense_detail(expense_id):
         taggable_users=taggable_users,
         is_cxp=is_cxp,
         cxp_payments=cxp_payments,
-        format_mentions=format_mentions
+        format_mentions=format_mentions,
+        linked_entry=linked_entry,
     )
 
 
 @web_invoices_bp.route('/expenses/<expense_id>/attach', methods=['POST'])
 def attach_expense_document(expense_id):
     """Agrega documentos a un gasto existente sin pasar por el flujo de edición completo."""
-    if 'user' not in session: return redirect(url_for('web_auth.login'))
+    if 'user' not in session:
+        return jsonify({"success": False, "error": "No autorizado"}), 401
     owner_uid = session['user']['ownerUID']
     sandbox = session.get('is_sandbox_mode', True)
 
     expense = DatabaseService.get_expense(owner_uid, expense_id, sandbox=sandbox)
     if not expense:
-        flash('Gasto no encontrado.', 'error')
-        return redirect(url_for('web_invoices.list_expenses'))
+        return jsonify({"success": False, "error": "Gasto no encontrado."}), 404
 
     attachment_files = request.files.getlist('attachments[]')
     attachment_types = request.form.getlist('attachmentTypes[]')
@@ -9127,32 +9182,30 @@ def attach_expense_document(expense_id):
     existing_attachments = expense.get('attachments', [])
     existing_urls = expense.get('firebaseAttachmentURLs', [])
 
-    # Migrar formato antiguo si es necesario
     if not existing_attachments and existing_urls:
-        existing_attachments = [{'url': u, 'type': 'factura', 'name': u.split('/')[-1].split('?')[0]} for u in existing_urls]
+        existing_attachments = [{'url': u, 'type': 'otro', 'name': u.split('/')[-1].split('?')[0]} for u in existing_urls]
 
     new_attachments = list(existing_attachments)
     new_urls = list(existing_urls)
     uploaded_count = 0
+    errors = []
 
     for i, att_file in enumerate(attachment_files):
         if att_file and att_file.filename:
-            file_data = att_file.read()
-            mime_type = att_file.content_type or "image/jpeg"
-            safe_name = att_file.filename.replace(' ', '_')
-            dest_path = f"users/{owner_uid}/expenses/{expense_id}/{safe_name}"
             try:
+                file_data = att_file.read()
+                mime_type = att_file.content_type or "application/octet-stream"
+                safe_name = att_file.filename.replace(' ', '_')
+                dest_path = f"users/{owner_uid}/expenses/{expense_id}/{safe_name}"
                 public_url = DatabaseService.upload_file_to_storage(file_data, dest_path, mime_type)
                 att_type = attachment_types[i] if i < len(attachment_types) else 'otro'
                 new_urls.append(public_url)
                 new_attachments.append({'url': public_url, 'type': att_type, 'name': att_file.filename})
                 uploaded_count += 1
             except Exception as e:
-                print(f"⚠️ Error al subir adjunto {att_file.filename}: {e}")
-                flash(f'Error al subir {att_file.filename}: {str(e)}', 'error')
+                errors.append(str(e))
 
     if uploaded_count > 0:
-        # Actualizar solo los campos de adjuntos en Firestore
         from app.services.db_service import db_firestore, firebase_initialized
         if firebase_initialized:
             coll_name = "sandbox_expenses" if sandbox else "expenses"
@@ -9160,11 +9213,60 @@ def attach_expense_document(expense_id):
                 "attachments": new_attachments,
                 "firebaseAttachmentURLs": new_urls
             })
+
+    wants_json = request.headers.get('Accept', '').find('application/json') != -1 or request.args.get('format') == 'json'
+    if wants_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return jsonify({
+            "success": uploaded_count > 0,
+            "uploaded": uploaded_count,
+            "errors": errors,
+            "attachments": new_attachments,
+        })
+
+    if uploaded_count > 0:
         flash(f'{uploaded_count} documento(s) adjuntado(s) exitosamente.', 'success')
     else:
         flash('No se seleccionó ningún archivo válido.', 'warning')
-
     return redirect(url_for('web_invoices.expense_detail', expense_id=expense_id))
+
+
+@web_invoices_bp.route('/expenses/<expense_id>/attach/<int:att_index>', methods=['POST'])
+def detach_expense_document(expense_id, att_index):
+    """Elimina un adjunto específico de un gasto por índice."""
+    if 'user' not in session:
+        return jsonify({"success": False, "error": "No autorizado"}), 401
+    owner_uid = session['user']['ownerUID']
+    sandbox = session.get('is_sandbox_mode', True)
+
+    expense = DatabaseService.get_expense(owner_uid, expense_id, sandbox=sandbox)
+    if not expense:
+        return jsonify({"success": False, "error": "Gasto no encontrado."}), 404
+
+    existing_attachments = expense.get('attachments', [])
+    existing_urls = expense.get('firebaseAttachmentURLs', [])
+
+    if not existing_attachments and existing_urls:
+        existing_attachments = [{'url': u, 'type': 'otro', 'name': u.split('/')[-1].split('?')[0]} for u in existing_urls]
+
+    if att_index < 0 or att_index >= len(existing_attachments):
+        return jsonify({"success": False, "error": "Índice de adjunto inválido."}), 400
+
+    removed = existing_attachments.pop(att_index)
+    new_urls = [a['url'] for a in existing_attachments]
+
+    from app.services.db_service import db_firestore, firebase_initialized
+    if firebase_initialized:
+        coll_name = "sandbox_expenses" if sandbox else "expenses"
+        db_firestore.collection("users").document(owner_uid).collection(coll_name).document(expense_id).update({
+            "attachments": existing_attachments,
+            "firebaseAttachmentURLs": new_urls
+        })
+
+    return jsonify({
+        "success": True,
+        "removed": removed.get('name', 'Documento'),
+        "attachments": existing_attachments,
+    })
 
 
 @web_invoices_bp.route('/expenses/<expense_id>/comments/new', methods=['POST'])

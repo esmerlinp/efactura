@@ -1,0 +1,136 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}Retroactividad Salarial — {{ employee.fullName }} — {{ product_name }}{% endblock %}
+{% block extra_head %}
+<style>
+.retro-detail-card {
+    padding: 14px 18px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    margin-bottom: 10px;
+}
+.salary-compare {
+    display: flex;
+    gap: 24px;
+    align-items: center;
+    margin-bottom: 16px;
+}
+.salary-compare .old { opacity: 0.6; }
+.salary-compare .new { color: var(--accent-emerald); font-weight: 700; }
+.salary-compare .arrow { font-size: 1.5rem; color: var(--accent-emerald); }
+</style>
+{% endblock %}
+{% block content %}
+{% include "rrhh/_styles.html" %}
+<div class="page-header hr-page-header">
+    <h1 class="page-title"><i class="fa-solid fa-clock-rotate-left"></i> Retroactividad Salarial</h1>
+    <div class="hr-page-actions">
+        <a href="{{ url_for('web_rrhh.employee_view', employee_id=employee.id) }}" class="btn btn-ghost"><i class="fa-solid fa-user"></i> Ver Empleado</a>
+        <a href="{{ url_for('web_rrhh.employee_list') }}" class="btn btn-ghost"><i class="fa-solid fa-arrow-left"></i> Empleados</a>
+    </div>
+</div>
+
+<div class="card-table-wrapper" style="padding:20px; margin-bottom:20px;">
+    <h3 style="margin-top:0;">Datos del empleado</h3>
+    <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:8px; font-size:0.85rem;">
+        <div><strong>Nombre:</strong> {{ employee.fullName }}</div>
+        <div><strong>Cédula:</strong> {{ employee.cedula or employee.idNumber }}</div>
+        <div><strong>Cargo:</strong> {{ employee.position }}</div>
+        <div><strong>Salario actual:</strong> RD$ {{ '{:,.2f}'.format(employee.baseSalary or employee.salary) }}</div>
+        <div><strong>Fecha ingreso:</strong> {{ employee.hireDate }}</div>
+    </div>
+</div>
+
+{% if salary_history %}
+<div class="card-table-wrapper" style="padding:16px; margin-bottom:20px;">
+    <h3 style="margin-top:0;">Historial salarial</h3>
+    <div class="table-responsive">
+        <table class="table-premium" style="font-size:0.82rem;">
+            <thead><tr><th>Fecha</th><th>Anterior</th><th>Nuevo</th><th>Motivo</th></tr></thead>
+            <tbody>
+                {% for h in salary_history %}
+                <tr>
+                    <td>{{ h.effectiveDate[:10] }}</td>
+                    <td>RD$ {{ '{:,.2f}'.format(h.previousAmount) }}</td>
+                    <td>RD$ {{ '{:,.2f}'.format(h.amount) }}</td>
+                    <td>{{ h.reason }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<form method="POST" class="card-table-wrapper" style="padding:20px; margin-bottom:20px;">
+    <h3 style="margin-top:0;">Calcular retroactividad</h3>
+    <p style="color:var(--text-muted); font-size:0.85rem;">Calcula cuánto se le debe al empleado si su aumento de salario aplica desde una fecha anterior.</p>
+    <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:end;">
+        <div>
+            <label style="font-size:0.8rem; display:block;">Nuevo salario mensual</label>
+            <input type="number" name="new_salary" step="0.01" class="form-input" style="width:160px;"
+                   placeholder="{{ employee.baseSalary or employee.salary }}">
+        </div>
+        <div>
+            <label style="font-size:0.8rem; display:block;">Fecha de vigencia</label>
+            <input type="date" name="effective_date" class="form-input" style="width:160px;">
+        </div>
+        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-calculator"></i> Calcular</button>
+    </div>
+</form>
+
+{% if result %}
+{% if result.error %}
+<div class="card-table-wrapper" style="padding:16px; border:1px solid var(--accent-red); background:rgba(239,68,68,0.06);">
+    <i class="fa-solid fa-circle-xmark" style="color:var(--accent-red);"></i> {{ result.error }}
+</div>
+{% elif result.note %}
+<div class="card-table-wrapper" style="padding:16px; border:1px solid var(--accent-amber); background:rgba(251,191,36,0.06);">
+    <i class="fa-solid fa-circle-info" style="color:var(--accent-amber);"></i> {{ result.note }}
+</div>
+{% else %}
+<div class="validation-summary" style="display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:16px; margin-bottom:20px;">
+    <div class="card-table-wrapper" style="padding:16px; text-align:center;">
+        <div style="font-size:1.5rem; font-weight:700;">{{ result.retroactiveMonths }}</div>
+        <div style="font-size:0.75rem; color:var(--text-muted);">Meses retroactivos</div>
+    </div>
+    <div class="card-table-wrapper" style="padding:16px; text-align:center;">
+        <div style="font-size:1.5rem; font-weight:700; color:var(--accent-emerald);">RD$ {{ '{:,.2f}'.format(result.retroactiveNet) }}</div>
+        <div style="font-size:0.75rem; color:var(--text-muted);">Neto retroactivo total</div>
+    </div>
+    <div class="card-table-wrapper" style="padding:16px; text-align:center;">
+        <div style="font-size:1.5rem; font-weight:700;">RD$ {{ '{:,.2f}'.format(result.monthlyNetDiff) }}</div>
+        <div style="font-size:0.75rem; color:var(--text-muted);">Diferencia neta mensual</div>
+    </div>
+</div>
+
+<div class="salary-compare">
+    <span class="old">RD$ {{ '{:,.2f}'.format(result.oldSalary) }}</span>
+    <span class="arrow">→</span>
+    <span class="new">RD$ {{ '{:,.2f}'.format(result.newSalary) }}</span>
+    <span style="color:var(--text-muted); font-size:0.85rem;">(+RD$ {{ '{:,.2f}'.format(result.salaryDiff) }}/mes)</span>
+</div>
+
+{% if result.details %}
+<div class="card-table-wrapper">
+    <h3 style="padding:12px 18px; margin:0; font-size:0.9rem;">Detalle por mes</h3>
+    <div class="table-responsive">
+        <table class="table-premium" style="font-size:0.82rem;">
+            <thead><tr><th>Mes</th><th>Salario anterior</th><th>Salario nuevo</th><th>Dif. bruta</th><th>Dif. neta</th></tr></thead>
+            <tbody>
+                {% for d in result.details[:12] %}
+                <tr>
+                    <td>{{ d.month }}</td>
+                    <td>RD$ {{ '{:,.2f}'.format(d.oldSalary) }}</td>
+                    <td>RD$ {{ '{:,.2f}'.format(d.newSalary) }}</td>
+                    <td>RD$ {{ '{:,.2f}'.format(d.grossDiff) }}</td>
+                    <td style="color:var(--accent-emerald);">RD$ {{ '{:,.2f}'.format(d.netDiff) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+{% endif %}
+{% endif %}
+{% endblock %}

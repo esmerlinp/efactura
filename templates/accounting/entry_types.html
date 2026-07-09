@@ -65,7 +65,7 @@
                     <form method="POST" action="{{ url_for('web_accounting.delete_entry_type', type_id=et.id) }}" style="display:inline;" onsubmit="return confirm('¿Eliminar este tipo de entrada?');">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <button type="submit" class="btn btn-secondary" style="padding:2px 8px; font-size:0.75rem; color:var(--accent-red);">
-                            <i class="fa-solid fa-trash"></i>
+                            <i class="fa-solid fa-trash-can"></i>
                         </button>
                     </form>
                     {% endif %}

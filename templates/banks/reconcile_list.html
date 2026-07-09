@@ -6,43 +6,6 @@
 
 {% block content %}
 <style>
-    .guide-banner {
-        background: rgba(16, 185, 129, 0.05);
-        border: 1px solid rgba(16, 185, 129, 0.2);
-        border-radius: 12px;
-        padding: 20px 24px;
-        margin-bottom: 24px;
-        display: flex;
-        gap: 16px;
-        align-items: flex-start;
-        position: relative;
-    }
-    .guide-banner .icon {
-        background: rgba(16, 185, 129, 0.1);
-        width: 44px;
-        height: 44px;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        flex-shrink: 0;
-    }
-    .guide-banner .icon i {
-        color: var(--accent-emerald);
-        font-size: 1.2rem;
-    }
-    .guide-banner h4 {
-        margin: 0 0 6px 0;
-        color: var(--text-primary);
-        font-family: var(--font-heading);
-        font-size: 1rem;
-    }
-    .guide-banner p {
-        margin: 0;
-        color: var(--text-secondary);
-        font-size: 0.85rem;
-        line-height: 1.5;
-    }
     .status-badge {
         display: inline-block;
         padding: 3px 12px;
@@ -57,15 +20,14 @@
 </style>
 
 <div class="guide-banner" id="guide-reconcile">
-    <button onclick="document.getElementById('guide-reconcile').style.display='none'; sessionStorage.setItem('closed_guide_reconcile','true');"
-        style="position:absolute; top:12px; right:12px; background:transparent; border:none; color:var(--text-muted); cursor:pointer; padding:4px;">
+    <button class="guide-banner-close" onclick="closeGuide('guide-reconcile')" title="Cerrar guía" aria-label="Cerrar guía">
         <i class="fa-solid fa-xmark"></i>
     </button>
-    <div class="icon">
+    <div class="guide-banner-icon">
         <i class="fa-solid fa-check-double"></i>
     </div>
-    <div>
-        <h4>💡 Guía: Conciliación Bancaria</h4>
+    <div class="guide-banner-content">
+        <h4>Guía: Conciliación Bancaria</h4>
         <p>
             La <strong>conciliación bancaria</strong> compara los movimientos registrados en VykOne contra el estado de cuenta de tu banco.
             Selecciona una cuenta y un rango de fechas, marca las transacciones que coinciden con tu estado de cuenta bancario,
@@ -73,12 +35,6 @@
         </p>
     </div>
 </div>
-
-<script>
-    if (sessionStorage.getItem('closed_guide_reconcile')) {
-        document.getElementById('guide-reconcile').style.display = 'none';
-    }
-</script>
 
 <div class="page-title-container" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:24px;">
     <div>
@@ -161,12 +117,12 @@
                             </button>
                             <div class="action-menu-dropdown">
                                 <a href="{{ url_for('web_banks.reconcile_detail', recon_id=r.id) }}">
-                                    <i class="fa-regular fa-eye"></i> Ver detalle
+                                    <i class="fa-solid fa-eye"></i> Ver detalle
                                 </a>
                                 <form method="POST" action="{{ url_for('web_banks.reconcile_delete', recon_id=r.id) }}" style="display:inline;">
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                     <button type="submit" class="action-delete" onclick="return confirm('¿Eliminar esta conciliación?')">
-                                        <i class="fa-regular fa-trash-can"></i> Eliminar
+                                        <i class="fa-solid fa-trash-can"></i> Eliminar
                                     </button>
                                 </form>
                             </div>
@@ -205,7 +161,7 @@
 <!-- MODAL: Seleccionar cuenta para conciliar -->
 <div id="select-account-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; z-index:2000; align-items:center; justify-content:center;">
     <div class="modal-backdrop" onclick="closeReconModal()" style="position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); backdrop-filter:blur(4px);"></div>
-    <div class="modal-content" style="max-width:450px; width:90%; padding:24px; border-radius:var(--radius-md); position:relative; z-index:2001; background:#ffffff; box-shadow:var(--shadow-lg);">
+    <div class="modal-content" style="max-width:450px; width:90%; padding:24px; border-radius:var(--radius-md); position:relative; z-index:2001; background:var(--bg-card); box-shadow:var(--shadow-lg);">
         <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:4px;">
             <h3 style="margin:0; font-family:var(--font-heading); font-size:1.1rem;">¿Qué cuenta deseas conciliar?</h3>
             <button onclick="closeReconModal()" style="background:transparent; border:none; color:var(--text-muted); cursor:pointer; font-size:1.25rem; padding:4px;"><i class="fa-solid fa-xmark"></i></button>

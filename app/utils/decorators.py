@@ -43,14 +43,6 @@ def check_permission(permission_name):
         return False
     user = session['user']
     if user.get('role') == 'owner':
-        # Aplicar matriz SoD para owner
-        if permission_name in SOD_CONFLICT_MATRIX:
-            sod_entry = SOD_CONFLICT_MATRIX[permission_name]
-            user_perms = user.get('permissions', {})
-            for conflict_perm in sod_entry["conflicts"]:
-                # Si el owner ya ejerce el permiso en conflicto, se bloquea
-                if user_perms.get(conflict_perm, False):
-                    return False
         return True
     default_val = False if permission_name in ('isPosSupervisor', 'canSupervisePOS', 'canUseChatbot') else True
     return user.get('permissions', {}).get(permission_name, default_val)

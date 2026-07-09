@@ -1,0 +1,129 @@
+{% extends "rrhh/layout_hr.html" %}
+{% block title %}Historial de Tasas Impositivas — {{ product_name }}{% endblock %}
+{% block extra_head %}
+<style>
+.history-card {
+    padding: 14px 18px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    margin-bottom: 10px;
+    transition: all 0.15s;
+}
+.history-card:hover { border-color: var(--accent-emerald); }
+.history-card.active-entry {
+    border-color: var(--accent-emerald);
+    background: rgba(16, 185, 129, 0.06);
+}
+.history-card.archived-entry {
+    opacity: 0.75;
+}
+.history-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.history-period {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--text-primary);
+}
+.history-badge {
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+.history-badge.active {
+    background: rgba(16, 185, 129, 0.15);
+    color: var(--accent-emerald);
+}
+.history-badge.archived {
+    background: var(--bg-surface-secondary);
+    color: var(--text-muted);
+}
+.history-detail-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 8px 16px;
+    margin-top: 10px;
+    font-size: 0.82rem;
+}
+.history-detail-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 3px 0;
+    border-bottom: 1px solid var(--border-color-light);
+}
+.history-detail-item .label { color: var(--text-muted); }
+.history-detail-item .value { font-weight: 500; }
+.diff-changed { background: rgba(251, 191, 36, 0.1); border-radius: 3px; padding: 0 3px; }
+</style>
+{% endblock %}
+{% block content %}
+{% include "rrhh/_styles.html" %}
+<div class="page-header hr-page-header">
+    <h1 class="page-title"><i class="fa-solid fa-clock-rotate-left"></i> Historial de Tasas Impositivas</h1>
+    <div class="hr-page-actions">
+        <a href="{{ url_for('web_rrhh.payroll_settings') }}" class="btn btn-ghost"><i class="fa-solid fa-gear"></i> Configuración</a>
+        <a href="{{ url_for('web_rrhh.payroll_dashboard') }}" class="btn btn-ghost"><i class="fa-solid fa-arrow-left"></i> Dashboard</a>
+    </div>
+</div>
+
+{% if not history %}
+<div class="card-table-wrapper" style="padding: 40px 24px; text-align: center;">
+    <i class="fa-solid fa-clock-rotate-left" style="font-size: 2rem; color: var(--text-muted); margin-bottom: 12px;"></i>
+    <p style="color: var(--text-muted); font-size: 0.9rem;">No hay registros históricos de cambios de tasas.</p>
+    <p style="color: var(--text-muted); font-size: 0.8rem;">Cada vez que guardes la configuración de tasas impositivas, se creará una entrada en este historial.</p>
+</div>
+{% else %}
+<div class="card-table-wrapper" style="padding: 12px 18px; margin-bottom: 16px; background: rgba(16,185,129,0.06); border: 1px solid var(--accent-emerald);">
+    <p style="margin: 0; font-size: 0.82rem;">
+        <i class="fa-solid fa-circle-info" style="color: var(--accent-emerald);"></i>
+        Se encontraron <strong>{{ history|length }}</strong> versiones de tasas impositivas.
+        {% if current %}
+        La versión vigente fue guardada por <strong>{{ current.get('updatedBy', 'N/A') }}</strong>
+        el {{ current.get('updatedAt', '')[:10] }}.
+        {% endif %}
+    </p>
+</div>
+
+{% for entry in history %}
+<div class="history-card {% if entry.effectiveTo %}archived-entry{% else %}active-entry{% endif %}">
+    <div class="history-meta">
+        <span class="history-period">
+            {% if entry.effectiveTo %}
+            {{ entry.effectiveFrom[:10] }} → {{ entry.effectiveTo[:10] }}
+            {% else %}
+            Vigente desde {{ entry.effectiveFrom[:10] }}
+            {% endif %}
+        </span>
+        <div style="display:flex; gap:6px; align-items:center;">
+            {% if entry.effectiveTo %}
+            <span class="history-badge archived">Histórico</span>
+            {% else %}
+            <span class="history-badge active">Vigente</span>
+            {% endif %}
+            <span style="font-size:0.75rem; color:var(--text-muted);">
+                {{ entry.get('updatedBy', entry.get('createdBy', 'Sistema')) }}
+            </span>
+        </div>
+    </div>
+    <div class="history-detail-grid">
+        <div class="history-detail-item"><span class="label">AFP Empleado</span><span class="value">{{ (entry.afpEmployeeRate * 100)|round(2) }}%</span></div>
+        <div class="history-detail-item"><span class="label">AFP Empleador</span><span class="value">{{ (entry.afpEmployerRate * 100)|round(2) }}%</span></div>
+        <div class="history-detail-item"><span class="label">SFS Empleado</span><span class="value">{{ (entry.sfsEmployeeRate * 100)|round(2) }}%</span></div>
+        <div class="history-detail-item"><span class="label">SFS Empleador</span><span class="value">{{ (entry.sfsEmployerRate * 100)|round(2) }}%</span></div>
+        <div class="history-detail-item"><span class="label">SRL Empleador</span><span class="value">{{ (entry.srlEmployerRate * 100)|round(2) }}%</span></div>
+        <div class="history-detail-item"><span class="label">INFOTEP</span><span class="value">{{ (entry.infotepRate * 100)|round(2) }}%</span></div>
+        <div class="history-detail-item"><span class="label">Tope AFP</span><span class="value">RD$ {{ '{:,.2f}'.format(entry.afpSalaryCap|float) }}</span></div>
+        <div class="history-detail-item"><span class="label">Tope SFS</span><span class="value">RD$ {{ '{:,.2f}'.format(entry.sfsSalaryCap|float) }}</span></div>
+        <div class="history-detail-item"><span class="label">Salario Mínimo</span><span class="value">RD$ {{ '{:,.2f}'.format(entry.minSalary|float) }}</span></div>
+        <div class="history-detail-item"><span class="label">Deducción Educación</span><span class="value">RD$ {{ '{:,.2f}'.format(entry.educationDeduction|float) }}</span></div>
+        <div class="history-detail-item"><span class="label">Tasa Hora Extra</span><span class="value">{{ (entry.overtimeRate * 100)|round(0) if entry.get('overtimeRate') else '1.35' }}×</span></div>
+    </div>
+</div>
+{% endfor %}
+{% endif %}
+{% endblock %}

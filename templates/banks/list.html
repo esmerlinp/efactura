@@ -128,12 +128,12 @@
                                     <i class="fa-solid fa-check-double"></i> Conciliar
                                 </a>
                                 <a href="{{ url_for('web_banks.edit_bank', account_id=acc.id) }}">
-                                    <i class="fa-regular fa-pen-to-square"></i> Editar
+                                    <i class="fa-solid fa-pen-to-square"></i> Editar
                                 </a>
                                 <form method="POST" action="{{ url_for('web_banks.delete_bank', account_id=acc.id) }}" style="display:inline;">
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                     <button type="submit" class="action-delete" onclick="return confirm('¿Eliminar esta cuenta?')">
-                                        <i class="fa-regular fa-trash-can"></i> Eliminar
+                                        <i class="fa-solid fa-trash-can"></i> Eliminar
                                     </button>
                                 </form>
                             </div>

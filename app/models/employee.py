@@ -173,6 +173,10 @@ class PayrollGroup(BaseModel):
     description: str = ""
     frequency: str = "mensual"  # "quincenal" | "mensual"
     isActive: bool = True
+    policyId: str = ""  # ID de PayrollPolicy asignada (vacío = usar default)
+    policyOverrides: dict = {}  # Sobrescrituras parciales de la política (PolicyOverride)
+    overtimeRules: dict = {}  # {"default_rate": 1.35, "night_rate": 2.0, "holiday_rate": 2.5}
+    deductionRules: dict = {}  # {"max_loan_pct": 0.20, "max_garnishment_pct": 0.30}
     createdAt: str = ""
     updatedAt: str = ""
     createdBy: str = ""
@@ -215,6 +219,10 @@ class PayrollPeriod(BaseModel):
 
     # Snapshot de empleados al momento del cálculo (para DGT-4)
     employeeSnapshot: List[dict] = []  # Lista de empleados activos con sus datos al corte
+
+    # Snapshot inmutable de tasas usadas para calcular este período
+    taxRatesSnapshot: dict = {}  # Copia de tax_rates al momento del cálculo
+    appliedRatesDate: str = ""  # ISO date de cuándo se aplicaron las tasas
 
 
 class Evaluation(BaseModel):
@@ -259,7 +267,7 @@ class SalaryHistory(BaseModel):
 
 
 class MassAction(BaseModel):
-    """Acción de personal masiva."""
+    """Acción de personal masiva con workflow de aprobación."""
     ACTION_TYPES = (
         "salary_change",
         "position_change",
@@ -267,13 +275,19 @@ class MassAction(BaseModel):
         "promotion",
         "mass_absence",
     )
-    STATUSES = ("draft", "processing", "completed", "partial", "failed")
+    STATUSES = ("draft", "pending_approval", "approved", "rejected", "processing", "completed", "partial", "failed")
 
     id: str = ""
     actionType: str = "salary_change"
     status: str = "draft"
     createdBy: str = ""
     createdAt: str = ""
+    submittedAt: str = ""
+    approvedBy: str = ""
+    approvedAt: str = ""
+    rejectedBy: str = ""
+    rejectedAt: str = ""
+    rejectionReason: str = ""
     processedAt: str = ""
     ownerUid: str = ""
     sandbox: bool = True
@@ -286,7 +300,15 @@ class MassAction(BaseModel):
     payload: dict = {}
     results: list = []
     errorLog: list = []
-    statusHistory: list = []
+    statusHistory: list = []  # [{from, to, by, at, comment}]
+
+    @property
+    def is_approved(self) -> bool:
+        return self.status == "approved"
+
+    @property
+    def is_executable(self) -> bool:
+        return self.status in ("approved", "draft")
 
 
 class MassActionResult(BaseModel):

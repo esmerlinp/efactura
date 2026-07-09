@@ -1,0 +1,50 @@
+{# Partial: card de regla individual — usado en payroll_rules_list.html #}
+<div class="rule-card {% if not rule.isActive %}inactive{% endif %}">
+    <div class="rule-header">
+        <span>
+            <span class="rule-name">{{ rule.name }}</span>
+            {% if not rule.isActive %}
+            <span class="badge badge-warning" style="margin-left:6px;">Inactiva</span>
+            {% endif %}
+            {% if rule.scope == 'group' and rule.scopeId %}
+            <span style="font-size:0.75rem; color:var(--text-muted); margin-left:6px;">· Grupo: {{ group_map.get(rule.scopeId, rule.scopeId) }}</span>
+            {% endif %}
+        </span>
+        <span style="display:flex; gap:4px; align-items:center;">
+            <span style="font-size:0.7rem; color:var(--text-muted);">Prioridad: {{ rule.priority }}</span>
+            <form method="POST" action="{{ url_for('web_rrhh.payroll_rules_toggle', rule_id=rule.id) }}" style="margin:0;">
+                <button class="btn btn-ghost btn-sm" title="Activar/Desactivar">
+                    <i class="fa-solid {% if rule.isActive %}fa-toggle-on{% else %}fa-toggle-off{% endif %}"></i>
+                </button>
+            </form>
+            <a href="{{ url_for('web_rrhh.payroll_rules_edit', rule_id=rule.id) }}" class="btn btn-ghost btn-sm">
+                <i class="fa-solid fa-pen"></i>
+            </a>
+            <form method="POST" action="{{ url_for('web_rrhh.payroll_rules_delete', rule_id=rule.id) }}" style="margin:0;" onsubmit="return confirm('¿Eliminar esta regla?')">
+                <button class="btn btn-ghost btn-sm" style="color:var(--accent-red);">
+                    <i class="fa-solid fa-trash"></i>
+                </button>
+            </form>
+        </span>
+    </div>
+    {% if rule.description %}
+    <p style="font-size:0.78rem; color:var(--text-muted); margin:0 0 8px;">{{ rule.description }}</p>
+    {% endif %}
+    <div class="rule-conditions">
+        <span style="font-size:0.72rem; color:var(--text-muted);">SI</span>
+        {% if rule.conditions %}
+        {% for cond in rule.conditions %}
+        <span class="cond-tag">{{ cond.field }} {{ cond.operator }} {{ cond.value }}</span>
+        {% if not loop.last %}<span style="font-size:0.7rem; color:var(--text-muted);">{{ rule.logic }}</span>{% endif %}
+        {% endfor %}
+        {% else %}
+        <span class="cond-tag" style="opacity:0.6;">siempre</span>
+        {% endif %}
+    </div>
+    <div class="rule-actions">
+        <span style="font-size:0.72rem; color:var(--text-muted);">→</span>
+        {% for action in rule.actions %}
+        <span class="action-tag">{{ action.type }}: {{ action.formula }}</span>
+        {% endfor %}
+    </div>
+</div>

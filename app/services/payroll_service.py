@@ -73,6 +73,11 @@ MIN_SALARY = _MIN_SALARY
 INFOTEP_EMPLOYEE_THRESHOLD = _MIN_SALARY * 5
 
 
+class PeriodImmutableError(Exception):
+    """El período de nómina está en un estado que no permite modificaciones."""
+    pass
+
+
 class PayrollService:
     """Servicio de cálculo de nómina dominicana."""
 
@@ -110,6 +115,241 @@ class PayrollService:
             "account_other_deductions": tax_rates.get("accountOtherDeductions", _DEFAULT_ACCOUNT_OTHER_DEDUCTIONS),
             "cost_center_accounts": tax_rates.get("costCenterAccounts", _DEFAULT_COST_CENTER_ACCOUNTS),
         }
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # GUARDAS DE ESTADO
+    # ═══════════════════════════════════════════════════════════════════════
+
+    IMMUTABLE_STATUSES = ("cerrada", "contabilizada", "pagada")
+
+    @classmethod
+    def assert_period_mutable(cls, period: dict):
+        status = period.get("status", "")
+        if status in cls.IMMUTABLE_STATUSES:
+            from app.services.payroll_audit_service import STATUS_LABELS as _s
+            raise PeriodImmutableError(
+                f"El período está en estado «{_s.get(status, status)}» y no puede modificarse. "
+                f"Revierta el período primero."
+            )
+
+    @classmethod
+    def is_period_mutable(cls, period: dict) -> bool:
+        return period.get("status", "") not in cls.IMMUTABLE_STATUSES
+
+    @classmethod
+    def resolve_rates(cls, owner_uid: str, group_id: str = "", employee_id: str = "",
+                      sandbox: bool = True) -> dict:
+        """Resuelve tasas en cascada: Política → Grupo → Empleado → Global.
+
+        Orden de precedencia:
+        1. Override del empleado (si existe)
+        2. Override del grupo (si tiene policyOverrides)
+        3. Política asignada al grupo (si tiene policyId)
+        4. Política default del tenant
+        5. Tasas globales (tax_rates en hr_config) — fallback final
+        """
+        from app.services import hr_data_service as hr
+        from app.models.payroll_policy import PolicyOverride
+
+        base_rates = cls.get_rates(hr.get_tax_rates(owner_uid, sandbox=sandbox))
+
+        # Nivel 4: Política default
+        default_policy = hr.get_default_payroll_policy(owner_uid, sandbox=sandbox)
+        if default_policy:
+            policy_rates = cls.get_rates({
+                "afpEmployeeRate": default_policy.get("afpEmployeeRate"),
+                "afpEmployerRate": default_policy.get("afpEmployerRate"),
+                "sfsEmployeeRate": default_policy.get("sfsEmployeeRate"),
+                "sfsEmployerRate": default_policy.get("sfsEmployerRate"),
+                "srlEmployerRate": default_policy.get("srlEmployerRate"),
+                "infotepRate": default_policy.get("infotepRate"),
+                "afpSalaryCap": default_policy.get("afpSalaryCap"),
+                "sfsSalaryCap": default_policy.get("sfsSalaryCap"),
+                "minSalary": default_policy.get("minSalary"),
+                "educationDeduction": default_policy.get("educationDeduction"),
+                "isrAnnualTable": default_policy.get("isrAnnualTable"),
+                "overtimeRate": default_policy.get("overtimeRate"),
+                "workingDaysPerMonth": default_policy.get("workingDaysPerMonth"),
+                "workingHoursPerDay": default_policy.get("workingHoursPerDay"),
+                "infotepThresholdMultiplier": default_policy.get("infotepThresholdMultiplier"),
+                "accountSalariesPayable": default_policy.get("accountSalariesPayable"),
+                "accountAfpEmployee": default_policy.get("accountAfpEmployee"),
+                "accountSfsEmployee": default_policy.get("accountSfsEmployee"),
+                "accountIsrEmployee": default_policy.get("accountIsrEmployee"),
+                "accountAfpEmployer": default_policy.get("accountAfpEmployer"),
+                "accountSfsEmployer": default_policy.get("accountSfsEmployer"),
+                "accountSrlEmployer": default_policy.get("accountSrlEmployer"),
+                "accountInfotepEmployer": default_policy.get("accountInfotepEmployer"),
+                "accountInfotepEmployee": default_policy.get("accountInfotepEmployee"),
+                "accountOtherDeductions": default_policy.get("accountOtherDeductions"),
+                "costCenterAccounts": default_policy.get("costCenterAccounts"),
+            })
+            for key in policy_rates:
+                if policy_rates[key] is not None:
+                    base_rates[key] = policy_rates[key]
+
+        # Nivel 3: Política asignada al grupo
+        if group_id:
+            group = hr.get_payroll_group(owner_uid, group_id, sandbox=sandbox)
+            if group:
+                policy_id = group.get("policyId", "")
+                if policy_id:
+                    policy = hr.get_payroll_policy(owner_uid, policy_id, sandbox=sandbox)
+                    if policy:
+                        group_policy_rates = cls.get_rates({
+                            "afpEmployeeRate": policy.get("afpEmployeeRate"),
+                            "afpEmployerRate": policy.get("afpEmployerRate"),
+                            "sfsEmployeeRate": policy.get("sfsEmployeeRate"),
+                            "sfsEmployerRate": policy.get("sfsEmployerRate"),
+                            "srlEmployerRate": policy.get("srlEmployerRate"),
+                            "infotepRate": policy.get("infotepRate"),
+                            "afpSalaryCap": policy.get("afpSalaryCap"),
+                            "sfsSalaryCap": policy.get("sfsSalaryCap"),
+                            "minSalary": policy.get("minSalary"),
+                            "educationDeduction": policy.get("educationDeduction"),
+                            "isrAnnualTable": policy.get("isrAnnualTable"),
+                            "overtimeRate": policy.get("overtimeRate"),
+                            "workingDaysPerMonth": policy.get("workingDaysPerMonth"),
+                            "workingHoursPerDay": policy.get("workingHoursPerDay"),
+                            "infotepThresholdMultiplier": policy.get("infotepThresholdMultiplier"),
+                            "accountSalariesPayable": policy.get("accountSalariesPayable"),
+                            "accountAfpEmployee": policy.get("accountAfpEmployee"),
+                            "accountSfsEmployee": policy.get("accountSfsEmployee"),
+                            "accountIsrEmployee": policy.get("accountIsrEmployee"),
+                            "accountAfpEmployer": policy.get("accountAfpEmployer"),
+                            "accountSfsEmployer": policy.get("accountSfsEmployer"),
+                            "accountSrlEmployer": policy.get("accountSrlEmployer"),
+                            "accountInfotepEmployer": policy.get("accountInfotepEmployer"),
+                            "accountInfotepEmployee": policy.get("accountInfotepEmployee"),
+                            "accountOtherDeductions": policy.get("accountOtherDeductions"),
+                            "costCenterAccounts": policy.get("costCenterAccounts"),
+                        })
+                        for key in group_policy_rates:
+                            if group_policy_rates[key] is not None:
+                                base_rates[key] = group_policy_rates[key]
+
+                # Nivel 2: Overrides del grupo
+                group_overrides = group.get("policyOverrides")
+                if group_overrides:
+                    override = PolicyOverride(**group_overrides)
+                    base_rates = override.apply_to(base_rates)
+
+        # Nivel 1: Override del empleado (futuro: leer de EmploymentContract o Employee)
+        # Actualmente no implementado — reservado para fase futura
+
+        return base_rates
+
+    @staticmethod
+    def get_period_lines(period: dict, owner_uid: str = "", sandbox: bool = True) -> list:
+        """Obtiene las líneas de un período desde subcolección, con fallback a embebidas."""
+        from app.services import hr_data_service as _hr
+        return _hr.get_payroll_lines_unified(period, owner_uid=owner_uid, sandbox=sandbox)
+
+    @classmethod
+    def resolve_overtime_rates(cls, owner_uid: str, group_id: str = "",
+                                sandbox: bool = True) -> dict:
+        """Resuelve tasas de horas extra desde la configuración del grupo o defaults."""
+        defaults = {
+            "default_rate": _DEFAULT_OVERTIME_RATE,
+            "night_rate": 2.0,
+            "holiday_rate": 2.5,
+        }
+        if not group_id:
+            return defaults
+        try:
+            from app.services import hr_data_service as _hr
+            group = _hr.get_payroll_group(owner_uid, group_id, sandbox=sandbox)
+            if group and group.get("overtimeRules"):
+                rules = group["overtimeRules"]
+                defaults["default_rate"] = rules.get("default_rate", defaults["default_rate"])
+                defaults["night_rate"] = rules.get("night_rate", defaults["night_rate"])
+                defaults["holiday_rate"] = rules.get("holiday_rate", defaults["holiday_rate"])
+        except Exception:
+            pass
+        return defaults
+
+    @classmethod
+    def calculate_overtime_pay(cls, base_salary: float, hours: float,
+                                overtime_type: str = "default",
+                                overtime_rules: dict = None) -> float:
+        """Calcula pago de horas extra según tipo (default, night, holiday)."""
+        rules = overtime_rules or {
+            "default_rate": _DEFAULT_OVERTIME_RATE,
+            "night_rate": 2.0,
+            "holiday_rate": 2.5,
+        }
+        rate_key = f"{overtime_type}_rate" if overtime_type != "default" else "default_rate"
+        rate = rules.get(rate_key, rules.get("default_rate", _DEFAULT_OVERTIME_RATE))
+        return cls._calculate_overtime(base_salary, hours, rate)
+
+    @classmethod
+    def detect_anomalies(cls, lines: list, employees: dict,
+                         previous_lines: list = None,
+                         owner_uid: str = "", sandbox: bool = True) -> dict:
+        """Detecta anomalías en líneas de nómina recién calculadas.
+
+        Returns:
+            Dict con {warnings: [...], errors: [...]}
+        """
+        warnings = []
+        errors = []
+
+        prev_map = {}
+        if previous_lines:
+            prev_map = {pl.get("employeeId", ""): pl for pl in previous_lines}
+
+        for line in lines:
+            emp_id = line.get("employeeId", "")
+            emp_name = line.get("employeeName", emp_id)
+            emp = employees.get(emp_id, {})
+
+            if not emp.get("afpProvider"):
+                errors.append(
+                    f"{emp_name}: no tiene AFP asignada. La nómina no puede calcularse sin AFP."
+                )
+
+            net_salary = line.get("netSalary", 0)
+            if net_salary <= 0 and line.get("totalIncome", 0) > 0:
+                warnings.append(
+                    f"{emp_name}: salario neto RD$ {net_salary:,.2f} — "
+                    f"verifica que las deducciones no excedan el ingreso."
+                )
+
+            base_salary = emp.get("baseSalary", emp.get("salary", 0))
+            if base_salary <= 0:
+                errors.append(
+                    f"{emp_name}: salario base en cero o no definido."
+                )
+
+            total_income = line.get("totalIncome", 0)
+            if base_salary > 0 and total_income > 0:
+                variation = abs(total_income - base_salary) / base_salary
+                if variation > 0.5:
+                    warnings.append(
+                        f"{emp_name}: ingreso total (RD$ {total_income:,.2f}) "
+                        f"varía más del 50% respecto al salario base (RD$ {base_salary:,.2f})."
+                    )
+
+            if prev_map and emp_id in prev_map:
+                prev = prev_map[emp_id]
+                prev_net = prev.get("netSalary", 0)
+                if prev_net > 0:
+                    pct_change = abs(net_salary - prev_net) / prev_net
+                    if pct_change > 0.20:
+                        direction = "aumentó" if net_salary > prev_net else "disminuyó"
+                        warnings.append(
+                            f"{emp_name}: salario neto {direction} "
+                            f"{pct_change * 100:.0f}% respecto al período anterior "
+                            f"(RD$ {prev_net:,.2f} → RD$ {net_salary:,.2f})."
+                        )
+
+            if line.get("overtimeHours", 0) > 40:
+                warnings.append(
+                    f"{emp_name}: {line['overtimeHours']} horas extra — "
+                    f"excede el límite legal de 40 horas/semana equivalentes."
+                )
+
+        return {"warnings": warnings, "errors": errors}
 
     # ═══════════════════════════════════════════════════════════════════════
     # CÁLCULO DE NÓMINA INDIVIDUAL
@@ -503,6 +743,227 @@ class PayrollService:
         return days
 
     # ═══════════════════════════════════════════════════════════════════════
+    # RETROACTIVIDAD SALARIAL
+    # ═══════════════════════════════════════════════════════════════════════
+
+    @classmethod
+    def calculate_retroactive_pay(cls, employee: dict, salary_history: list,
+                                   new_salary: float, effective_date: str,
+                                   tax_rates: dict = None) -> dict:
+        """Calcula la retroactividad salarial cuando un aumento se aplica con efecto retroactivo.
+
+        Args:
+            employee: Dict del empleado con sus datos actuales.
+            salary_history: Lista de cambios salariales previos.
+            new_salary: Nuevo salario mensual.
+            effective_date: Fecha desde la cual aplica el nuevo salario (YYYY-MM-DD).
+            tax_rates: Tasas impositivas vigentes.
+
+        Returns:
+            Dict con {retroactiveMonths, retroactivePay, adjustedNet, details}
+        """
+        from datetime import date as dt_date, timedelta
+
+        r = cls.get_rates(tax_rates)
+        today = dt_date.today()
+        try:
+            eff_date = datetime.strptime(effective_date[:10], "%Y-%m-%d").date()
+        except (ValueError, TypeError):
+            return {"retroactiveMonths": 0, "retroactivePay": 0, "adjustedNet": 0,
+                    "details": [], "error": "Fecha de vigencia inválida"}
+
+        if eff_date >= today:
+            return {"retroactiveMonths": 0, "retroactivePay": 0, "adjustedNet": 0,
+                    "details": [], "note": "La fecha de vigencia es futura, no hay retroactividad"}
+
+        # Determinar cuántos meses completos hay entre la fecha efectiva y hoy
+        months_retroactive = (today.year - eff_date.year) * 12 + (today.month - eff_date.month)
+        if today.day < eff_date.day:
+            months_retroactive -= 1
+        months_retroactive = max(0, months_retroactive)
+
+        if months_retroactive == 0:
+            return {"retroactiveMonths": 0, "retroactivePay": 0, "adjustedNet": 0,
+                    "details": [], "note": "Menos de un mes desde la fecha efectiva"}
+
+        base_salary = float(employee.get("baseSalary", employee.get("salary", 0)))
+        if base_salary <= 0:
+            return {"retroactiveMonths": months_retroactive, "retroactivePay": 0,
+                    "adjustedNet": 0, "details": [], "error": "Salario base no definido"}
+
+        salary_diff = new_salary - base_salary
+        if salary_diff <= 0:
+            return {"retroactiveMonths": 0, "retroactivePay": 0, "adjustedNet": 0,
+                    "details": [], "note": "No hay diferencia positiva de salario"}
+
+        retroactive_gross = round(salary_diff * months_retroactive, 2)
+
+        # Calcular el neto retroactivo (aproximado, sin recálculo mes a mes)
+        monthly_diff_line = cls.calculate_payroll_line(
+            base_salary=new_salary,
+            tax_rates=tax_rates,
+        )
+        original_line = cls.calculate_payroll_line(
+            base_salary=base_salary,
+            tax_rates=tax_rates,
+        )
+        monthly_net_diff = round(monthly_diff_line["netSalary"] - original_line["netSalary"], 2)
+        retroactive_net = round(monthly_net_diff * months_retroactive, 2)
+
+        details = []
+        for i in range(months_retroactive):
+            m = eff_date.month + i
+            y = eff_date.year + (m - 1) // 12
+            m = ((m - 1) % 12) + 1
+            details.append({
+                "month": f"{y}-{m:02d}",
+                "oldSalary": base_salary,
+                "newSalary": new_salary,
+                "grossDiff": round(salary_diff, 2),
+                "netDiff": round(monthly_net_diff, 2),
+            })
+
+        return {
+            "retroactiveMonths": months_retroactive,
+            "retroactiveGross": retroactive_gross,
+            "retroactiveNet": retroactive_net,
+            "monthlyNetDiff": monthly_net_diff,
+            "salaryDiff": round(salary_diff, 2),
+            "oldSalary": base_salary,
+            "newSalary": new_salary,
+            "effectiveDate": effective_date,
+            "details": details,
+        }
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # WHAT-IF ANALYSIS
+    # ═══════════════════════════════════════════════════════════════════════
+
+    @classmethod
+    def what_if_analysis(cls, employees: list, scenario: dict,
+                         tax_rates: dict = None) -> dict:
+        """Simula escenarios de cambio salarial y proyecta impacto.
+
+        Args:
+            employees: Lista de empleados (dicts) a analizar.
+            scenario: Dict con la simulación:
+                - type: "pct_increase", "fixed_increase", "department_increase", "executive_bonus"
+                - value: float (porcentaje o monto)
+                - filter_department: str (opcional)
+                - filter_area: str (opcional)
+                - include_employer_contrib: bool
+            tax_rates: Tasas impositivas.
+
+        Returns:
+            Dict con {scenario, currentMonthly, projectedMonthly, impact, perEmployee}
+        """
+        r = cls.get_rates(tax_rates)
+        scenario_type = scenario.get("type", "pct_increase")
+        value = float(scenario.get("value", 0))
+        filter_dept = scenario.get("filter_department", "")
+        filter_area = scenario.get("filter_area", "")
+        include_employer = scenario.get("include_employer_contrib", True)
+
+        current_total_gross = 0.0
+        current_total_net = 0.0
+        current_total_employer = 0.0
+        projected_total_gross = 0.0
+        projected_total_net = 0.0
+        projected_total_employer = 0.0
+        affected = 0
+        per_employee = []
+
+        for emp in employees:
+            if emp.get("status") != "activo":
+                continue
+            dept = emp.get("department", emp.get("area", ""))
+            area = emp.get("area", "")
+            if filter_dept and filter_dept != dept:
+                continue
+            if filter_area and filter_area != area:
+                continue
+
+            base = float(emp.get("baseSalary", emp.get("salary", 0)))
+            if base <= 0:
+                continue
+
+            current_line = cls.calculate_payroll_line(base_salary=base, tax_rates=tax_rates)
+            current_total_gross += current_line["totalIncome"]
+            current_total_net += current_line["netSalary"]
+            current_total_employer += current_line["totalEmployerContrib"]
+
+            new_base = base
+            if scenario_type == "pct_increase":
+                new_base = round(base * (1 + value / 100), 2)
+            elif scenario_type == "fixed_increase":
+                new_base = round(base + value, 2)
+            elif scenario_type == "department_increase":
+                new_base = round(base * (1 + value / 100), 2)
+            elif scenario_type == "executive_bonus":
+                new_base = base
+
+            projected_line = cls.calculate_payroll_line(
+                base_salary=new_base,
+                bonus=value if scenario_type == "executive_bonus" else 0,
+                tax_rates=tax_rates,
+            )
+            projected_total_gross += projected_line["totalIncome"]
+            projected_total_net += projected_line["netSalary"]
+            projected_total_employer += projected_line["totalEmployerContrib"]
+
+            affected += 1
+            per_employee.append({
+                "employeeId": emp.get("id", ""),
+                "employeeName": emp.get("fullName", ""),
+                "currentBase": base,
+                "newBase": new_base,
+                "currentNet": current_line["netSalary"],
+                "projectedNet": projected_line["netSalary"],
+                "netDiff": round(projected_line["netSalary"] - current_line["netSalary"], 2),
+                "employerDiff": round(projected_line["totalEmployerContrib"] - current_line["totalEmployerContrib"], 2),
+            })
+
+        net_impact = round(projected_total_net - current_total_net, 2)
+        employer_impact = round(projected_total_employer - current_total_employer, 2) if include_employer else 0
+        total_impact = round(net_impact + employer_impact, 2)
+
+        return {
+            "scenario": {
+                "type": scenario_type,
+                "value": value,
+                "label": _what_if_label(scenario_type, value),
+            },
+            "affectedEmployees": affected,
+            "currentMonthly": {
+                "gross": round(current_total_gross, 2),
+                "net": round(current_total_net, 2),
+                "employer": round(current_total_employer, 2),
+            },
+            "projectedMonthly": {
+                "gross": round(projected_total_gross, 2),
+                "net": round(projected_total_net, 2),
+                "employer": round(projected_total_employer, 2),
+            },
+            "impact": {
+                "net": net_impact,
+                "employer": employer_impact,
+                "total": total_impact,
+                "annualTotal": round(total_impact * 12, 2),
+            },
+            "perEmployee": per_employee,
+        }
+
+
+def _what_if_label(scenario_type: str, value: float) -> str:
+    labels = {
+        "pct_increase": f"Aumento del {value}% en salario base",
+        "fixed_increase": f"Aumento fijo de RD$ {value:,.2f}",
+        "department_increase": f"Aumento del {value}% por departamento",
+        "executive_bonus": f"Bono ejecutivo de RD$ {value:,.2f}",
+    }
+    return labels.get(scenario_type, f"Escenario: {scenario_type}")
+
+    # ═══════════════════════════════════════════════════════════════════════
     # ASIENTO CONTABLE DE NÓMINA
     # ═══════════════════════════════════════════════════════════════════════
 
@@ -514,12 +975,15 @@ class PayrollService:
     }
 
     @classmethod
-    def build_payroll_accounting_lines(cls, payroll_period: dict, employees: dict = None, tax_rates: dict = None) -> list:
+    def build_payroll_accounting_lines(cls, payroll_period: dict, employees: dict = None, tax_rates: dict = None,
+                                       owner_uid: str = "", sandbox: bool = True) -> list:
         lines = []
         period_label = payroll_period.get("periodKey", "")
-        plines = payroll_period.get("lines", [])
+        plines = cls.get_period_lines(payroll_period, owner_uid=owner_uid, sandbox=sandbox)
         employees = employees or {}
-        r = cls.get_rates(tax_rates)
+        snapshot = payroll_period.get("taxRatesSnapshot", {})
+        effective_rates = snapshot if snapshot else tax_rates
+        r = cls.get_rates(effective_rates)
 
         total_gross = 0.0
         total_net = 0.0
@@ -646,11 +1110,326 @@ class PayrollService:
         return lines
 
     # ═══════════════════════════════════════════════════════════════════════
+    # VALIDACIONES PRE-CIERRE FISCAL
+    # ═══════════════════════════════════════════════════════════════════════
+
+    @classmethod
+    def validate_payroll_for_fiscal_closing(cls, owner_uid: str, year: int = None,
+                                            sandbox: bool = True) -> dict:
+        """Valida que todos los períodos de nómina del año estén listos para el cierre fiscal.
+
+        Returns:
+            Dict con {is_valid, warnings, errors, details}
+        """
+        from datetime import date as dt_date
+        from app.services import hr_data_service as hr
+
+        if year is None:
+            year = dt_date.today().year
+
+        periods = hr.get_payroll_periods(owner_uid, sandbox=sandbox)
+        year_periods = [p for p in periods if p.get("year") == year]
+
+        errors = []
+        warnings = []
+        details = {"totalPeriods": len(year_periods), "closedCount": 0, "openCount": 0,
+                   "totalGross": 0.0, "totalNet": 0.0, "totalIsr": 0.0, "totalTss": 0.0}
+
+        if not year_periods:
+            warnings.append(f"No se encontraron períodos de nómina para el año {year}.")
+            return {"isValid": False, "warnings": warnings, "errors": errors, "details": details}
+
+        employees = {e["id"]: e for e in hr.get_employees(owner_uid, sandbox=sandbox)}
+
+        for p in year_periods:
+            status = p.get("status", "")
+            if status == "cerrada":
+                details["closedCount"] += 1
+            else:
+                details["openCount"] += 1
+                errors.append(
+                    f"Período '{p.get('periodKey', '?')}' ({p.get('periodRange', '')}) "
+                    f"está en estado «{status}». Debe estar «cerrada» para el cierre fiscal."
+                )
+
+            plines = cls.get_period_lines(p, owner_uid=owner_uid, sandbox=sandbox)
+            for line in plines:
+                details["totalGross"] += line.get("totalIncome", 0)
+                details["totalNet"] += line.get("netSalary", 0)
+                details["totalIsr"] += line.get("isrRetention", 0)
+                details["totalTss"] += (
+                    line.get("afpEmployee", 0) + line.get("sfsEmployee", 0) +
+                    line.get("afpEmployer", 0) + line.get("sfsEmployer", 0) +
+                    line.get("srlEmployer", 0) + line.get("infotepEmployer", 0)
+                )
+
+                emp_id = line.get("employeeId", "")
+                emp = employees.get(emp_id, {})
+                if not emp.get("afpProvider"):
+                    warnings.append(
+                        f"Empleado {line.get('employeeName', emp_id)} no tiene AFP asignada "
+                        f"(período {p.get('periodKey', '')})."
+                    )
+                if not (emp.get("baseSalary") or emp.get("salary")):
+                    warnings.append(
+                        f"Empleado {line.get('employeeName', emp_id)} tiene salario en cero "
+                        f"(período {p.get('periodKey', '')})."
+                    )
+
+        details["totalGross"] = round(details["totalGross"], 2)
+        details["totalNet"] = round(details["totalNet"], 2)
+        details["totalIsr"] = round(details["totalIsr"], 2)
+        details["totalTss"] = round(details["totalTss"], 2)
+
+        is_valid = len(errors) == 0
+
+        return {
+            "isValid": is_valid,
+            "errors": errors,
+            "warnings": warnings,
+            "details": details,
+        }
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # VALIDACIÓN IR-18 / DGII
+    # ═══════════════════════════════════════════════════════════════════════
+
+    @classmethod
+    def validate_ir18_readiness(cls, owner_uid: str, year: int = None,
+                                 sandbox: bool = True) -> dict:
+        """Valida que los datos de IR-18 estén listos para reporte DGII.
+
+        Verifica YTD por empleado, conciliación de ISR retenido, y datos requeridos
+        para el formulario IR-18 de la DGII.
+
+        Returns:
+            Dict con {isReady, warnings, errors, summary}
+        """
+        from datetime import date as dt_date
+        from app.services import hr_data_service as hr
+
+        if year is None:
+            year = dt_date.today().year
+
+        errors = []
+        warnings = []
+        employees = hr.get_employees(owner_uid, sandbox=sandbox)
+        active = [e for e in employees if e.get("status") == "activo"]
+        periods = hr.get_payroll_periods(owner_uid, sandbox=sandbox)
+        year_periods = [p for p in periods if p.get("year") == year]
+
+        total_isr_ytd = 0.0
+        total_isr_periods = 0.0
+        employees_ready = 0
+        employees_missing = []
+
+        for emp in active:
+            emp_id = emp["id"]
+            name = emp.get("fullName", emp_id)
+            issues = []
+
+            if not emp.get("cedula") and not emp.get("idNumber"):
+                issues.append("Sin cédula/RNC")
+            if not emp.get("nationality"):
+                issues.append("Sin nacionalidad")
+            if not emp.get("occupationCode"):
+                issues.append("Sin código de ocupación CNO-2019")
+
+            ytd = None
+            try:
+                from app.services.payroll_ytd_service import get_ytd
+                ytd = get_ytd(owner_uid, emp_id, year, sandbox=sandbox)
+            except Exception:
+                pass
+
+            if ytd and ytd.get("totalIsr", 0) > 0:
+                total_isr_ytd += ytd.get("totalIsr", 0)
+                employees_ready += 1
+            else:
+                if emp.get("baseSalary", emp.get("salary", 0)) > 0:
+                    warnings.append(f"{name}: sin acumulación YTD de ISR para {year}")
+
+            if issues:
+                employees_missing.append({"name": name, "issues": issues})
+
+        for p in year_periods:
+            plines = cls.get_period_lines(p, owner_uid=owner_uid, sandbox=sandbox)
+            for line in plines:
+                total_isr_periods += line.get("isrRetention", 0)
+
+        total_isr_ytd = round(total_isr_ytd, 2)
+        total_isr_periods = round(total_isr_periods, 2)
+        isr_discrepancy = round(abs(total_isr_ytd - total_isr_periods), 2)
+
+        if isr_discrepancy > 1.0:
+            warnings.append(
+                f"Discrepancia entre ISR acumulado YTD (RD$ {total_isr_ytd:,.2f}) "
+                f"e ISR de períodos (RD$ {total_isr_periods:,.2f}). "
+                f"Diferencia: RD$ {isr_discrepancy:,.2f}"
+            )
+
+        if not year_periods:
+            errors.append(f"No hay períodos de nómina registrados para {year}")
+
+        is_ready = len(errors) == 0 and len(employees_missing) == 0
+
+        return {
+            "isReady": is_ready,
+            "year": year,
+            "errors": errors,
+            "warnings": warnings,
+            "summary": {
+                "totalEmployees": len(active),
+                "employeesReady": employees_ready,
+                "employeesMissing": employees_missing,
+                "totalIsrYtd": total_isr_ytd,
+                "totalIsrPeriods": total_isr_periods,
+                "isrDiscrepancy": isr_discrepancy,
+                "totalPeriods": len(year_periods),
+            },
+        }
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # AUTO-GENERACIÓN DE PERÍODOS
+    # ═══════════════════════════════════════════════════════════════════════
+
+    @classmethod
+    def generate_upcoming_periods(cls, owner_uid: str, months_ahead: int = 6,
+                                   sandbox: bool = True) -> dict:
+        """Genera automáticamente períodos futuros para todos los grupos activos.
+
+        Útil para programación (APScheduler) o llamado manual desde el dashboard.
+        Solo crea períodos en estado 'borrador' si no existen ya.
+
+        Args:
+            owner_uid: UID del tenant.
+            months_ahead: Cuántos meses hacia adelante generar períodos.
+            sandbox: Modo sandbox.
+
+        Returns:
+            Dict con {created: int, skipped: int, errors: list}
+        """
+        import uuid
+        import calendar as cal_mod
+        from datetime import date as dt_date, timedelta
+        from app.services import hr_data_service as hr
+
+        created = 0
+        skipped = 0
+        errors = []
+
+        groups = hr.get_payroll_groups(owner_uid, sandbox=sandbox)
+        active_groups = [g for g in groups if g.get("isActive", True)]
+        if not active_groups:
+            return {"created": 0, "skipped": 0, "errors": ["No hay grupos de nómina activos."]}
+
+        today = dt_date.today()
+        existing_periods = hr.get_payroll_periods(owner_uid, sandbox=sandbox)
+        existing_keys = {(p.get("periodKey"), p.get("payrollGroupId", "")) for p in existing_periods}
+
+        for g in active_groups:
+            freq = g.get("frequency", "mensual")
+            gid = g["id"]
+
+            for offset in range(months_ahead):
+                target = today.replace(day=1) + timedelta(days=32 * offset)
+                target = target.replace(day=1)
+                year = target.year
+                month = target.month
+
+                if freq == "mensual":
+                    last_day = cal_mod.monthrange(year, month)[1]
+                    period_key = f"{year}-{month:02d}-M"
+                    period_start = f"{year}-{month:02d}-01"
+                    period_end = f"{year}-{month:02d}-{last_day}"
+                    period_type = "mensual"
+                    month_es = cls._MESES[month]
+                    period_range = f"M: {month_es} {year}"
+
+                    if (period_key, gid) in existing_keys:
+                        skipped += 1
+                        continue
+
+                    period_id = str(uuid.uuid4())
+                    hr.save_payroll_period(owner_uid, period_id, {
+                        "id": period_id,
+                        "payrollGroupId": gid,
+                        "periodKey": period_key,
+                        "periodType": period_type,
+                        "periodRange": period_range,
+                        "startDate": period_start,
+                        "endDate": period_end,
+                        "month": month,
+                        "year": year,
+                        "status": "borrador",
+                        "lines": [],
+                        "totalGross": 0,
+                        "totalNet": 0,
+                        "totalEmployerContrib": 0,
+                        "statusHistory": [{
+                            "from": "",
+                            "to": "borrador",
+                            "by": "auto-generator",
+                            "at": today.isoformat(),
+                            "comment": "Período generado automáticamente",
+                        }],
+                    }, sandbox=sandbox)
+                    existing_keys.add((period_key, gid))
+                    created += 1
+
+                elif freq == "quincenal":
+                    for q in (1, 2):
+                        period_key = f"{year}-{month:02d}-{q}"
+                        if (period_key, gid) in existing_keys:
+                            skipped += 1
+                            continue
+                        last_day = cal_mod.monthrange(year, month)[1]
+                        month_es = cls._MESES[month]
+                        if q == 1:
+                            period_start = f"{year}-{month:02d}-01"
+                            period_end = f"{year}-{month:02d}-15"
+                            period_range = f"Q1: 1 {month_es} - 15 {month_es}"
+                        else:
+                            period_start = f"{year}-{month:02d}-16"
+                            period_end = f"{year}-{month:02d}-{last_day}"
+                            period_range = f"Q2: 16 {month_es} - {last_day} {month_es}"
+
+                        period_id = str(uuid.uuid4())
+                        hr.save_payroll_period(owner_uid, period_id, {
+                            "id": period_id,
+                            "payrollGroupId": gid,
+                            "periodKey": period_key,
+                            "periodType": "quincenal",
+                            "periodRange": period_range,
+                            "startDate": period_start,
+                            "endDate": period_end,
+                            "month": month,
+                            "year": year,
+                            "status": "borrador",
+                            "lines": [],
+                            "totalGross": 0,
+                            "totalNet": 0,
+                            "totalEmployerContrib": 0,
+                            "statusHistory": [{
+                                "from": "",
+                                "to": "borrador",
+                                "by": "auto-generator",
+                                "at": today.isoformat(),
+                                "comment": "Período generado automáticamente",
+                            }],
+                        }, sandbox=sandbox)
+                        existing_keys.add((period_key, gid))
+                        created += 1
+
+        return {"created": created, "skipped": skipped, "errors": errors}
+
+    # ═══════════════════════════════════════════════════════════════════════
     # EXPORTACIÓN TSS
     # ═══════════════════════════════════════════════════════════════════════
 
     @classmethod
-    def generate_tss_csv(cls, payroll_period: dict, employees: list) -> str:
+    def generate_tss_csv(cls, payroll_period: dict, employees: list,
+                         owner_uid: str = "", sandbox: bool = True) -> str:
         """
         Genera CSV en formato TSS (Tesorería de la Seguridad Social).
 
@@ -671,7 +1450,7 @@ class PayrollService:
         ])
 
         period_label = payroll_period.get("periodKey", "")
-        lines = payroll_period.get("lines", [])
+        lines = cls.get_period_lines(payroll_period, owner_uid=owner_uid, sandbox=sandbox)
         emp_map = {e.get("id", ""): e for e in employees}
 
         for pl in lines:
@@ -704,7 +1483,8 @@ class PayrollService:
 
     @classmethod
     def generate_tss_autodeterminacion(cls, payroll_period: dict, employees: list,
-                                        employer_rnc: str = "") -> dict:
+                                        employer_rnc: str = "",
+                                        owner_uid: str = "", sandbox: bool = True) -> dict:
         """
         Genera archivo de Autodeterminación TSS en formato OFICIAL SUIRPLUS v6.0.
 
@@ -732,7 +1512,7 @@ class PayrollService:
         periodo_mmaaaa = f"{month:02d}{year}"
         periodo_label = f"{cls._MESES[month]}_{year}"
 
-        lines = payroll_period.get("lines", [])
+        lines = cls.get_period_lines(payroll_period, owner_uid=owner_uid, sandbox=sandbox)
         emp_map = {e.get("id", ""): e for e in employees}
 
         # Limpiar RNC: solo dígitos, quitar guiones
@@ -892,7 +1672,8 @@ class PayrollService:
     @classmethod
     def generate_tss_autodeterminacion_xls(cls, payroll_period: dict, employees: list,
                                             employer_rnc: str = "",
-                                            tipo_archivo: str = "AM") -> dict:
+                                            tipo_archivo: str = "AM",
+                                            owner_uid: str = "", sandbox: bool = True) -> dict:
         """
         Genera el archivo Excel (.xlsx) poblado con la plantilla oficial de
         Autodeterminación TSS de la Tesorería de la Seguridad Social RD.
@@ -932,7 +1713,7 @@ class PayrollService:
         periodo_mmaaaa = f"{month:02d}{year}"
         periodo_label = f"{cls._MESES[month]}_{year}"
 
-        lines = payroll_period.get("lines", [])
+        lines = cls.get_period_lines(payroll_period, owner_uid=owner_uid, sandbox=sandbox)
         emp_map = {e.get("id", ""): e for e in employees}
 
         # ── Estilos ──

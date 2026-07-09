@@ -1,5 +1,5 @@
 /* =========================================================================
-   DESIGN TOKENS — Sistema de diseño formal para VykOne
+   DESIGN TOKENS — Sistema de diseño unificado VykOne ERP v2
    =========================================================================
    Define todas las variables CSS que alimentan temas y componentes.
    Los temas sobreescriben estos valores vía [data-theme].
@@ -7,23 +7,128 @@
 
 /* ── Tipografía ────────────────────────────────────────────────────── */
 :root {
-  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-  --font-heading: 'Inter', 'Segoe UI', system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+  --font-sans: 'Fira Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --font-heading: 'Fira Code', 'JetBrains Mono', 'SF Mono', monospace;
+  --font-body: 'Fira Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'Fira Code', 'JetBrains Mono', 'SF Mono', monospace;
 
   /* Escala tipográfica */
-  --text-xs: 0.7rem;
-  --text-sm: 0.78rem;
-  --text-base: 0.85rem;
-  --text-md: 0.9rem;
-  --text-lg: 1rem;
-  --text-xl: 1.1rem;
-  --text-2xl: 1.25rem;
-  --text-3xl: 1.5rem;
-  --text-4xl: 1.75rem;
+  --text-xs: 0.7rem;      /* Badges, metadata, timestamps */
+  --text-sm: 0.78rem;     /* Texto secundario, tablas densas, breadcrumbs */
+  --text-base: 0.85rem;   /* Texto body, labels, inputs */
+  --text-md: 0.9rem;      /* Subtítulos */
+  --text-lg: 1rem;        /* Page title */
+  --text-xl: 1.1rem;      /* Section heading */
+  --text-2xl: 1.25rem;    /* Card title */
+  --text-3xl: 1.5rem;     /* KPI values */
+  --text-4xl: 1.75rem;    /* Hero / Large display */
+
+  /* Font weights */
+  --weight-light: 300;
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+  --weight-extrabold: 800;
+
+  /* Line heights */
+  --leading-tight: 1.25;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.625;
+  --leading-loose: 1.75;
 }
 
-/* ── Radios de borde ───────────────────────────────────────────────── */
+/* ── Paleta de colores semántica ──────────────────────────────────── */
+/* Valores base (light mode). Cada tema puede sobreescribir vía [data-theme]. */
+:root {
+  /* Brand & Primary */
+  --color-primary: #2563EB;
+  --color-primary-hover: #1D4ED8;
+  --color-primary-light: rgba(37, 99, 235, 0.1);
+  --color-on-primary: #FFFFFF;
+
+  /* Secondary */
+  --color-secondary: #3B82F6;
+  --color-secondary-hover: #2563EB;
+  --color-on-secondary: #FFFFFF;
+
+  /* Accent / CTA (Emerald Green) */
+  --color-accent: #059669;
+  --color-accent-hover: #047857;
+  --color-accent-light: rgba(5, 150, 105, 0.1);
+  --color-on-accent: #FFFFFF;
+
+  /* Semantic */
+  --color-success: #059669;
+  --color-success-hover: #047857;
+  --color-success-light: rgba(5, 150, 105, 0.1);
+  --color-on-success: #FFFFFF;
+
+  --color-warning: #D97706;
+  --color-warning-hover: #B45309;
+  --color-warning-light: rgba(217, 119, 6, 0.1);
+  --color-on-warning: #FFFFFF;
+
+  --color-error: #DC2626;
+  --color-error-hover: #B91C1C;
+  --color-error-light: rgba(220, 38, 38, 0.1);
+  --color-on-error: #FFFFFF;
+
+  --color-info: #3B82F6;
+  --color-info-hover: #2563EB;
+  --color-info-light: rgba(59, 130, 246, 0.1);
+  --color-on-info: #FFFFFF;
+
+  /* Surfaces */
+  --color-background: #F8FAFC;
+  --color-foreground: #0F172A;
+  --color-card: #FFFFFF;
+  --color-card-foreground: #0F172A;
+  --color-muted: #F1F5FD;
+  --color-muted-foreground: #64748B;
+  --color-border: #E4ECFC;
+  --color-input: #FFFFFF;
+
+  /* Misc */
+  --color-destructive: #DC2626;
+  --color-ring: #2563EB;
+
+  /* Dark mode surfaces */
+  --dark-bg: #0F172A;
+  --dark-surface: #1E293B;
+  --dark-surface-hover: #334155;
+  --dark-border: #334155;
+  --dark-text: #F8FAFC;
+  --dark-text-secondary: #94A3B8;
+}
+
+/* ── Compatibilidad con sistema legacy (mapea tokens viejos a nuevos) ─ */
+:root {
+  --accent-emerald: var(--color-accent);
+  --accent-emerald-hover: var(--color-accent-hover);
+  --accent-red: var(--color-error);
+  --accent-yellow: var(--color-warning);
+  --accent-blue: var(--color-primary);
+  --accent-success: var(--color-success);
+  --accent-purple: #8B5CF6;
+  --accent-orange: #F97316;
+
+  --bg-brand-translucent: var(--color-accent-light);
+  --bg-nav-hover: rgba(0, 0, 0, 0.04);
+  --bg-input: var(--color-input);
+  --bg-card: var(--color-card);
+  --bg-main: var(--color-background);
+
+  --text-primary: var(--color-foreground);
+  --text-secondary: var(--color-muted-foreground);
+  --text-muted: var(--color-muted-foreground);
+  --text-inverse: #FFFFFF;
+
+  --border-color: var(--color-border);
+
+  --brand-gradient: linear-gradient(135deg, var(--color-primary), var(--color-accent));
+  --shadow-glow: 0 0 0 3px var(--color-primary-light);
+}
 :root {
   --radius-xs: 4px;
   --radius-sm: 6px;
@@ -48,17 +153,27 @@
   --shadow-dropdown: var(--shadow-lg);
 }
 
-/* ── Espaciado ─────────────────────────────────────────────────────── */
+/* ── Espaciado (densidad 8/10 — Dashboard) ────────────────────────── */
 :root {
-  --space-1: 4px;
-  --space-2: 8px;
-  --space-3: 12px;
-  --space-4: 16px;
+  --space-xs: 2px;
+  --space-sm: 4px;
+  --space-md: 8px;
+  --space-lg: 12px;
+  --space-xl: 16px;
+  --space-2xl: 24px;
+  --space-3xl: 32px;
+  --space-4xl: 40px;
+  --space-5xl: 48px;
+  /* Aliases para compatibilidad con código existente */
+  --space-1: var(--space-sm);
+  --space-2: var(--space-md);
+  --space-3: var(--space-lg);
+  --space-4: var(--space-xl);
   --space-5: 20px;
-  --space-6: 24px;
-  --space-8: 32px;
-  --space-10: 40px;
-  --space-12: 48px;
+  --space-6: var(--space-2xl);
+  --space-8: var(--space-3xl);
+  --space-10: var(--space-4xl);
+  --space-12: var(--space-5xl);
 }
 
 /* ── Transiciones ──────────────────────────────────────────────────── */
@@ -69,12 +184,18 @@
   --transition-dialog: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* ── Z-index ───────────────────────────────────────────────────────── */
+/* ── Z-index (escala unificada) ───────────────────────────────────── */
 :root {
-  --z-sidebar: 100;
-  --z-dropdown: 500;
-  --z-modal: 10000;
-  --z-toast: 99999;
-  --z-loader: 99999;
-  --z-hamburger: 9999;
+  --z-base: 0;
+  --z-dropdown: 10;
+  --z-sticky: 20;
+  --z-sidebar-overlay: 30;
+  --z-overlay: 40;
+  --z-modal: 50;
+  --z-toast: 60;
+  --z-tooltip: 70;
+  --z-loader: 9999;
+  /* Aliases para compatibilidad */
+  --z-sidebar: var(--z-sticky);
+  --z-hamburger: var(--z-sidebar-overlay);
 }
